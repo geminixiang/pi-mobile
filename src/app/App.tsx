@@ -1,66 +1,78 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useState } from "react";
-import { type ConfirmRequest, setConfirmListener } from "../agent/confirm.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { setConfirmListener } from "../agent/confirm.ts";
 import { AgentRuntime, type ConversationController, type ConversationId, type ConversationSummary } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
 import { openAppStorage } from "../storage.ts";
-import { Chat } from "./Chat.tsx";
-import { ConfirmDialog } from "./ConfirmDialog.tsx";
+import { Chat, isBusy } from "./Chat.tsx";
 import { ConversationMenu } from "./ConversationMenu.tsx";
+import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { ComposeIcon, MenuIcon, MoreIcon } from "./icons.tsx";
-import { ModelSheet, ThinkingBars } from "./ModelSheet.tsx";
+import { ChevronDownIcon, ComposeIcon, MoreIcon } from "./icons.tsx";
+import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
+import { PiMark } from "./PiMark.tsx";
 import { usePrefs } from "./prefs.ts";
 import { SettingsView } from "./Settings.tsx";
+import { Layer } from "./Sheet.tsx";
 import { contextTokens, totalUsage } from "./usage.ts";
 
 const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
 
-type Screen = "loading" | "settings" | "chat";
-type Overlay = "drawer" | "model" | "menu" | undefined;
+type Overlay = "drawer" | "model" | "menu" | "settings" | undefined;
+
+function hasUserEntries(view: ConversationView | undefined): boolean {
+	return Boolean(view?.entries.some((entry) => entry.kind === "pi.user"));
+}
 
 export function App() {
-	const [screen, setScreen] = useState<Screen>("loading");
 	const [settings, setSettings] = useState<Settings>();
 	const [runtime, setRuntime] = useState<AgentRuntime>();
+	const [openError, setOpenError] = useState("");
 	const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 	const [controller, setController] = useState<ConversationController>();
 	const [view, setView] = useState<ConversationView>();
 	const [pendingDraft, setPendingDraft] = useState<string>();
 	const [overlay, setOverlay] = useState<Overlay>();
-	const [confirm, setConfirm] = useState<{ request: ConfirmRequest; resolve: (approved: boolean) => void }>();
+	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
 	const [toast, setToast] = useState("");
-	const [openError, setOpenError] = useState("");
+	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
+	const close = useCallback(() => setOverlay(undefined), []);
 
 	const notify = useCallback((message: string) => {
 		console.warn(message);
 		setToast(message);
 	}, []);
+	const fail = useCallback((error: unknown) => notify(error instanceof Error ? error.message : String(error)), [notify]);
 
 	useEffect(() => {
 		if (!toast) return;
-		const timer = setTimeout(() => setToast(""), 4000);
+		const timer = setTimeout(() => setToast(""), 3500);
 		return () => clearTimeout(timer);
 	}, [toast]);
 
-	// Tools ask the user through this dialog.
+	const ask = useCallback(
+		((request: DialogRequest) =>
+			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
+		[],
+	);
+
+	// Tools ask the user through the same dialog.
 	useEffect(() => {
-		setConfirmListener((request) => new Promise((resolve) => setConfirm({ request, resolve })));
+		setConfirmListener(({ title, detail }) =>
+			ask({ title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true }),
+		);
 		return () => setConfirmListener(undefined);
-	}, []);
+	}, [ask]);
 
 	const start = useCallback(
 		async (next: Settings) => {
-			setScreen("loading");
 			try {
 				const { storage } = await openAppStorage();
 				setRuntime(await AgentRuntime.open(storage, next, { onReport: notify }));
 				setOpenError("");
-				setScreen("chat");
 			} catch (error) {
 				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);
-				setScreen("settings");
 			}
 		},
 		[notify],
@@ -70,7 +82,6 @@ export function App() {
 		void loadSettings().then((loaded) => {
 			setSettings(loaded);
 			if (isConfigured(loaded)) void start(loaded);
-			else setScreen("settings");
 		});
 	}, [start]);
 
@@ -79,93 +90,121 @@ export function App() {
 	const openConversation = useCallback(
 		async (id: ConversationId, draft?: string) => {
 			if (!runtime) return;
+			setOverlay(undefined);
+			if (id === controller?.id && draft === undefined) return;
 			controller?.dispose();
 			const next = await runtime.openConversation(id);
 			localStorage.setItem(LAST_CONVERSATION_KEY, String(id));
 			setPendingDraft(draft);
 			setView(undefined);
 			setController(next);
-			setOverlay(undefined);
 		},
 		[runtime, controller],
 	);
 
-	const createConversation = useCallback(async () => {
-		if (runtime) await openConversation(await runtime.createConversation());
-	}, [runtime, openConversation]);
+	// A fresh conversation is reused instead of piling up empty ones.
+	const newConversation = useCallback(async () => {
+		if (!runtime) return;
+		if (controller && view && !hasUserEntries(view)) {
+			setOverlay(undefined);
+			setFocusKey((key) => key + 1);
+			return;
+		}
+		await openConversation(await runtime.createConversation());
+		setFocusKey((key) => key + 1);
+	}, [runtime, controller, view, openConversation]);
 
 	// Open the last conversation once the runtime is ready, or start one when there is none.
 	useEffect(() => {
 		if (!runtime || controller) return;
-		void runtime.conversations().then((items) => {
+		void runtime.conversations().then(async (items) => {
 			const last = localStorage.getItem(LAST_CONVERSATION_KEY);
 			const target = items.find((item) => String(item.id) === last) ?? items[0];
-			if (target) void openConversation(target.id);
-			else void createConversation();
+			void openConversation(target ? target.id : await runtime.createConversation());
 		});
-	}, [runtime, controller, openConversation, createConversation]);
+	}, [runtime, controller, openConversation]);
 
 	// Debug hook for test/cdp.ts.
 	useEffect(() => {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
 	}, [runtime, controller]);
 
-	if (screen === "loading" || !settings) {
-		return (
-			<div className="splash">
-				<span className="wordmark large">pi</span>
-			</div>
-		);
-	}
+	// Swipe right from the left edge opens the conversation list.
+	const swipe = useRef<{ x: number; y: number }>(undefined);
 
-	if (screen === "settings") {
+	const splash = (
+		<div className="splash">
+			<PiMark size={36} live />
+		</div>
+	);
+	if (!settings) return splash;
+
+	const saveAndRestart = async (next: Settings) => {
+		await saveSettings(next);
+		setSettings(next);
+		setOverlay(undefined);
+		controller?.dispose();
+		setController(undefined);
+		setView(undefined);
+		await runtime?.close();
+		setRuntime(undefined);
+		await start(next);
+	};
+
+	if (!runtime) {
+		if (isConfigured(settings) && !openError) return splash;
+		// First run, or the runtime could not open: settings are the whole screen.
 		return (
-			<SettingsView
-				initial={settings}
-				status={openError}
-				onCancel={runtime ? () => setScreen("chat") : undefined}
-				onSave={async (next) => {
-					await saveSettings(next);
-					setSettings(next);
-					controller?.dispose();
-					setController(undefined);
-					await runtime?.close();
-					setRuntime(undefined);
-					await start(next);
-				}}
-			/>
+			<div className="app">
+				<SettingsView initial={settings} status={openError} onSave={saveAndRestart} />
+			</div>
 		);
 	}
 
 	const agent = view?.docs["pi.agent"] as { model?: { modelId: string }; thinkingLevel?: string } | undefined;
 	const modelId = agent?.model?.modelId ?? "";
 	const thinking = agent?.thinkingLevel ?? "";
-	const model = runtime?.models.find((candidate) => candidate.id === modelId);
+	const model = runtime.models.find((candidate) => candidate.id === modelId);
 	const current = conversations.find((item) => item.id === controller?.id);
 	const used = contextTokens(view);
 	const contextWindow = model?.contextWindow ?? 0;
-	const fail = (error: unknown) => notify(error instanceof Error ? error.message : String(error));
+	const busy = isBusy(view);
 
 	return (
-		<div className="app">
+		<div
+			className="app"
+			onTouchStart={(event) => {
+				const touch = event.touches[0];
+				swipe.current = touch && touch.clientX < 28 && !overlay ? { x: touch.clientX, y: touch.clientY } : undefined;
+			}}
+			onTouchMove={(event) => {
+				const touch = event.touches[0];
+				if (!swipe.current || !touch) return;
+				if (touch.clientX - swipe.current.x > 56 && Math.abs(touch.clientY - swipe.current.y) < 40) {
+					swipe.current = undefined;
+					setOverlay("drawer");
+				}
+			}}
+		>
 			<header className="bar">
-				<button type="button" className="icon-button" onClick={() => setOverlay("drawer")} aria-label="對話列表">
-					<MenuIcon />
+				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="對話列表">
+					<PiMark size={18} live={busy} />
 				</button>
-				<div className="bar-center">
-					<h1 className="bar-title">{current?.title ?? ""}</h1>
-					<button type="button" className="model-pill" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
-						<span>{model?.name ?? modelId}</span>
-						<ThinkingBars level={thinking} />
-					</button>
-				</div>
-				<button type="button" className="icon-button" aria-label="新對話" onClick={() => void createConversation()}>
+				<button type="button" className="bar-center" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
+					<span className="bar-title">{current?.title ?? ""}</span>
+					<span className="bar-model">
+						{shortModelName(model?.name ?? modelId)}
+						{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
+						<ChevronDownIcon />
+					</span>
+				</button>
+				<button type="button" className="icon-button" aria-label="新對話" onClick={() => void newConversation()}>
 					<ComposeIcon />
 				</button>
 				<button type="button" className="icon-button" aria-label="更多" onClick={() => setOverlay("menu")}>
 					<MoreIcon />
 				</button>
-				<div className="meter" title={`上下文 ${used} / ${contextWindow}`}>
+				<div className="meter" aria-hidden="true">
 					<i style={{ width: `${contextWindow ? Math.min(100, (used / contextWindow) * 100) : 0}%` }} />
 				</div>
 			</header>
@@ -175,11 +214,13 @@ export function App() {
 					key={String(controller.id)}
 					controller={controller}
 					prefs={prefs}
-					capabilities={{ github: Boolean(settings.githubToken), sandbox: Boolean(runtime?.hasSandbox) }}
+					capabilities={{ github: Boolean(settings.githubToken), sandbox: runtime.hasSandbox }}
 					initialDraft={pendingDraft}
+					focusKey={focusKey}
 					onView={setView}
 					onOpenConversation={(id, draft) => void openConversation(id, draft)}
 					onError={notify}
+					onNotice={notify}
 				/>
 			) : (
 				<div className="chat" />
@@ -191,86 +232,107 @@ export function App() {
 				</button>
 			) : null}
 
-			{overlay === "drawer" ? (
-				<Drawer
-					conversations={conversations}
-					currentId={controller?.id}
-					status={[
-						{ label: "GitHub", on: Boolean(settings.githubToken) },
-						{ label: "Sandbox", on: Boolean(runtime?.hasSandbox) },
-					]}
-					onOpen={(id) => void openConversation(id)}
-					onCreate={() => void createConversation()}
-					onRemove={async (item) => {
-						if (!runtime || !window.confirm(`刪除「${item.title}」？它的 sandbox 也會一起刪除。`)) return;
-						await runtime.removeConversation(item.id);
-						if (item.id === controller?.id) {
-							controller.dispose();
-							setController(undefined);
-						}
-					}}
-					onSettings={() => {
-						setOverlay(undefined);
-						setScreen("settings");
-					}}
-					onClose={() => setOverlay(undefined)}
-				/>
-			) : null}
+			<Drawer
+				open={overlay === "drawer"}
+				busy={busy}
+				conversations={conversations}
+				currentId={controller?.id}
+				status={[
+					{ label: "GitHub", on: Boolean(settings.githubToken) },
+					{ label: "Sandbox", on: runtime.hasSandbox },
+				]}
+				onOpen={(id) => void openConversation(id)}
+				onCreate={() => void newConversation()}
+				onRemove={async (item) => {
+					const sure = await ask({
+						title: "刪除對話",
+						body: `「${item.title}」和它的 sandbox 會一起刪除，無法復原。`,
+						confirm: "刪除",
+						danger: true,
+					});
+					if (!sure) return;
+					await runtime.removeConversation(item.id).catch(fail);
+					if (item.id === controller?.id) {
+						controller.dispose();
+						setController(undefined);
+						setView(undefined);
+					}
+				}}
+				onSettings={() => setOverlay("settings")}
+				onClose={close}
+			/>
 
-			{overlay === "model" && runtime && controller ? (
-				<ModelSheet
-					models={runtime.models}
-					modelId={modelId}
-					thinking={thinking}
-					onClose={() => setOverlay(undefined)}
-					onChange={async ({ modelId: nextModel, thinking: nextThinking }) => {
-						if (nextModel) await controller.setModel(nextModel).catch(fail);
-						if (nextThinking) await controller.setThinking(nextThinking).catch(fail);
-						if (nextModel) setOverlay(undefined);
-					}}
-				/>
-			) : null}
+			<ModelSheet
+				open={overlay === "model"}
+				models={runtime.models}
+				modelId={modelId}
+				thinking={thinking}
+				onClose={close}
+				onChange={async ({ modelId: nextModel, thinking: nextThinking }) => {
+					if (!controller) return;
+					if (nextModel) await controller.setModel(nextModel).catch(fail);
+					if (nextThinking) await controller.setThinking(nextThinking).catch(fail);
+					if (nextModel) close();
+				}}
+			/>
 
-			{overlay === "menu" && runtime && controller ? (
-				<ConversationMenu
-					view={view}
-					title={current?.title ?? ""}
-					usage={totalUsage(view)}
-					prefs={prefs}
-					onPrefs={updatePrefs}
-					onClose={() => setOverlay(undefined)}
-					actions={{
-						rename: () => {
-							const title = window.prompt("對話名稱", current?.title ?? "");
-							if (title?.trim()) runtime.renameConversation(controller.id, title.trim()).catch(fail);
-						},
-						copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製"), fail),
-						compact: () => {
-							notify("壓縮對話中…");
-							controller.compact().then((done) => notify(done ? "已壓縮較早的對話" : "對話還短，沒有需要壓縮的內容"), fail);
-						},
-						reset: () => {
-							if (window.confirm("開始新的上下文？模型將看不到之前的訊息，但紀錄會保留。")) controller.reset().catch(fail);
-						},
-						resetSandbox: runtime.hasSandbox
-							? () => {
-									if (!window.confirm("刪除這個對話的 sandbox 容器和裡面所有檔案？")) return;
-									runtime.resetSandbox(controller.id).then(() => notify("已重置 sandbox"), fail);
-								}
-							: undefined,
-					}}
-				/>
-			) : null}
+			<ConversationMenu
+				open={overlay === "menu"}
+				view={view}
+				title={current?.title ?? ""}
+				usage={totalUsage(view)}
+				context={{ used, window: contextWindow }}
+				prefs={prefs}
+				onPrefs={updatePrefs}
+				onClose={close}
+				actions={{
+					rename: async () => {
+						if (!controller) return;
+						const title = await ask({ title: "重新命名", confirm: "儲存", input: current?.title ?? "" });
+						if (title) await runtime.renameConversation(controller.id, title).catch(fail);
+					},
+					copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製最後的回答"), fail),
+					compact: () => {
+						if (!controller) return;
+						notify("壓縮中…");
+						controller.compact().then((done) => notify(done ? "已把較早的對話壓縮成摘要" : "對話還短，不需要壓縮"), fail);
+					},
+					reset: async () => {
+						if (!controller) return;
+						const sure = await ask({
+							title: "新的上下文",
+							body: "模型將看不到這之前的訊息。紀錄仍會留在畫面上。",
+							confirm: "開始新的上下文",
+						});
+						if (sure) await controller.reset().catch(fail);
+					},
+					resetSandbox: runtime.hasSandbox
+						? async () => {
+								if (!controller) return;
+								const sure = await ask({
+									title: "重置 sandbox",
+									body: "這個對話的容器和裡面所有檔案都會刪除。下次使用時會建立新的容器。",
+									confirm: "重置",
+									danger: true,
+								});
+								if (sure) await runtime.resetSandbox(controller.id).then(() => notify("已重置 sandbox"), fail);
+							}
+						: undefined,
+				}}
+			/>
 
-			{confirm ? (
-				<ConfirmDialog
-					request={confirm.request}
-					onAnswer={(approved) => {
-						confirm.resolve(approved);
-						setConfirm(undefined);
-					}}
-				/>
-			) : null}
+			<Layer open={overlay === "settings"} kind="page" onClose={close} label="設定">
+				<SettingsView initial={settings} onCancel={close} onSave={saveAndRestart} />
+			</Layer>
+
+			<Dialog
+				request={dialog?.request}
+				onAnswer={(value) => {
+					dialog?.resolve(value);
+					setDialog(undefined);
+				}}
+			/>
+
 		</div>
 	);
 }

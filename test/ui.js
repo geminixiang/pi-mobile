@@ -21,4 +21,4 @@ const until = async (predicate, ms = 60000) => {
 	return false;
 };
 const busy = () => Boolean(button("停止") || button("插話"));
-const messages = () => [...document.querySelectorAll(".prompt, .answer, .trace-row, .divider")].map((e) => `${e.className}: ${e.textContent.replace(/\s+/g, " ").slice(0, 90)}`);
+const messages = () => [...document.querySelectorAll(".prompt, .answer, .step, .divider")].map((e) => `${e.className}: ${e.textContent.replace(/\s+/g, " ").slice(0, 90)}`);

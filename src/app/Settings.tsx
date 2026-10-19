@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
+import { PiMark } from "./PiMark.tsx";
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ok"; detail: string } | { state: "error"; detail: string };
 
@@ -11,7 +12,7 @@ function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: 
 		<div className="check">
 			<button
 				type="button"
-				className="link"
+				className="btn"
 				disabled={disabled || check.state === "checking"}
 				onClick={async () => {
 					setCheck({ state: "checking" });
@@ -24,8 +25,8 @@ function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: 
 			>
 				{check.state === "checking" ? "測試中…" : "測試連線"}
 			</button>
-			{check.state === "ok" ? <span className="check-ok">● {check.detail}</span> : null}
-			{check.state === "error" ? <span className="check-error">● {check.detail}</span> : null}
+			{check.state === "ok" ? <span className="check-ok">{check.detail}</span> : null}
+			{check.state === "error" ? <span className="check-error">{check.detail}</span> : null}
 		</div>
 	);
 }
@@ -33,7 +34,9 @@ function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: 
 function Group({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
 	return (
 		<section className="group">
-			<h2>{title}</h2>
+			<header className="strip">
+				<span className="strip-title">{title}</span>
+			</header>
 			<div className="group-body">{children}</div>
 			{hint ? <p className="hint">{hint}</p> : null}
 		</section>
@@ -52,6 +55,7 @@ export function SettingsView({
 	onCancel?: () => void;
 }) {
 	const [settings, setSettings] = useState(initial);
+	const changed = (Object.keys(initial) as (keyof Settings)[]).some((key) => initial[key] !== settings[key]);
 	const field = (key: keyof Settings) => ({
 		value: settings[key],
 		onChange: (event: { target: { value: string } }) => setSettings({ ...settings, [key]: event.target.value.trim() }),
@@ -67,13 +71,29 @@ export function SettingsView({
 				) : (
 					<span className="bar-spacer" />
 				)}
-				<h1 className="bar-title">設定</h1>
-				<button type="button" className="pill accent" disabled={!settings.baseUrl || !settings.apiKey} onClick={() => onSave(settings)}>
-					儲存
+				<h1 className="bar-heading">設定</h1>
+				<button
+					type="button"
+					className="btn primary"
+					disabled={!settings.baseUrl || !settings.apiKey || (Boolean(onCancel) && !changed)}
+					onClick={() => onSave(settings)}
+				>
+					{onCancel ? "儲存" : "開始"}
 				</button>
 			</header>
-			{status ? <div className="note error padded">{status}</div> : null}
 			<form className="settings" onSubmit={(event) => event.preventDefault()}>
+				{onCancel ? null : (
+					<div className="welcome">
+						<PiMark size={36} />
+						<h2>
+							口袋裡的 agent，
+							<br />
+							只屬於<em>你</em>。
+						</h2>
+						<p>填上模型服務就能開始。對話和金鑰都只存在這支手機上。</p>
+					</div>
+				)}
+				{status ? <div className="banner error">{status}</div> : null}
 				<Group title="模型服務" hint="CLIProxyAPI 的位址和 key。key 存在手機的 Keystore。">
 					<label>
 						<span>URL</span>

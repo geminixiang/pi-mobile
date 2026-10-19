@@ -1,5 +1,5 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
 import { CloseIcon, ImageIcon, SendIcon, StopIcon } from "./icons.tsx";
 
@@ -29,6 +29,8 @@ export function Composer({
 	draft,
 	onDraftChange,
 	queued,
+	focusKey,
+	pickImageKey,
 	onSend,
 	onStop,
 	onWithdraw,
@@ -37,13 +39,27 @@ export function Composer({
 	draft: string;
 	onDraftChange: (text: string) => void;
 	queued: QueuedItem[];
+	focusKey: number;
+	pickImageKey: number;
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>([]);
 	const fileInput = useRef<HTMLInputElement>(null);
+	const textArea = useRef<HTMLTextAreaElement>(null);
 	const hasInput = draft.trim() !== "" || images.length > 0;
+
+	useEffect(() => {
+		if (!focusKey) return;
+		const area = textArea.current;
+		area?.focus();
+		area?.setSelectionRange(area.value.length, area.value.length);
+	}, [focusKey]);
+
+	useEffect(() => {
+		if (pickImageKey) fileInput.current?.click();
+	}, [pickImageKey]);
 
 	const send = (whenBusy: BusyMode) => {
 		if (!hasInput) return;
@@ -68,7 +84,7 @@ export function Composer({
 					))}
 				</ul>
 			) : null}
-			<div className="capsule">
+			<div className="input">
 				{images.length > 0 ? (
 					<div className="pending-images">
 						{images.map((image, index) => (
@@ -80,11 +96,14 @@ export function Composer({
 								aria-label="移除圖片"
 							>
 								<img src={`data:${image.mimeType};base64,${image.data}`} alt="" />
+								<span className="thumb-remove">
+									<CloseIcon size={12} />
+								</span>
 							</button>
 						))}
 					</div>
 				) : null}
-				<div className="capsule-row">
+				<div className="input-row">
 					<button type="button" className="icon-button" onClick={() => fileInput.current?.click()} aria-label="附加圖片">
 						<ImageIcon />
 					</button>
@@ -99,33 +118,37 @@ export function Composer({
 							event.target.value = "";
 							const added = await Promise.all(files.map(toImageContent));
 							setImages((current) => [...current, ...added]);
+							textArea.current?.focus();
 						}}
 					/>
 					<textarea
+						ref={textArea}
 						rows={1}
 						value={draft}
-						placeholder={busy ? "插話，或排一個下一步" : "要做什麼？"}
+						placeholder={busy ? "插話，或排一個下一步" : "問 pi"}
 						onChange={(event) => onDraftChange(event.target.value)}
 					/>
 					{!busy ? (
 						<button type="button" className="send" onClick={() => send("steer")} disabled={!hasInput} aria-label="送出">
 							<SendIcon />
 						</button>
-					) : hasInput ? (
-						<div className="busy-actions">
-							<button type="button" className="pill accent" onClick={() => send("steer")}>
-								插話
-							</button>
-							<button type="button" className="pill" onClick={() => send("followUp")}>
-								稍後
-							</button>
-						</div>
 					) : (
 						<button type="button" className="send stop" onClick={onStop} aria-label="停止">
 							<StopIcon />
 						</button>
 					)}
 				</div>
+				{busy && hasInput ? (
+					<div className="busy-actions">
+						<span className="busy-hint">pi 還在工作：</span>
+						<button type="button" className="btn primary" onClick={() => send("steer")}>
+							插話
+						</button>
+						<button type="button" className="btn" onClick={() => send("followUp")}>
+							稍後
+						</button>
+					</div>
+				) : null}
 			</div>
 		</div>
 	);

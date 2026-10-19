@@ -1,5 +1,8 @@
+import { useRef, useState } from "react";
 import type { ConversationId, ConversationSummary } from "../agent/runtime.ts";
-import { ComposeIcon, GearIcon, TrashIcon } from "./icons.tsx";
+import { ComposeIcon, GearIcon, SearchIcon, TrashIcon } from "./icons.tsx";
+import { PiMark } from "./PiMark.tsx";
+import { Layer } from "./Sheet.tsx";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -18,6 +21,8 @@ function time(updatedAt: number, now: Date): string {
 }
 
 export function Drawer({
+	open,
+	busy,
 	conversations,
 	currentId,
 	status,
@@ -27,6 +32,8 @@ export function Drawer({
 	onSettings,
 	onClose,
 }: {
+	open: boolean;
+	busy: boolean;
 	conversations: ConversationSummary[];
 	currentId: ConversationId | undefined;
 	status: { label: string; on: boolean }[];
@@ -36,26 +43,48 @@ export function Drawer({
 	onSettings: () => void;
 	onClose: () => void;
 }) {
+	const [query, setQuery] = useState("");
+	const swipe = useRef<number>(undefined);
 	const now = new Date();
 	const groups = new Map<string, ConversationSummary[]>();
 	for (const item of conversations) {
+		if (query && !item.title.toLowerCase().includes(query.toLowerCase())) continue;
 		const name = group(item.updatedAt, now);
 		groups.set(name, [...(groups.get(name) ?? []), item]);
 	}
 
 	return (
-		<div className="backdrop drawer-backdrop" onClick={onClose}>
-			<nav className="drawer" onClick={(event) => event.stopPropagation()}>
+		<Layer open={open} kind="drawer" onClose={onClose} label="對話列表">
+			<div
+				className="drawer"
+				onTouchStart={(event) => {
+					swipe.current = event.touches[0]?.clientX;
+				}}
+				onTouchMove={(event) => {
+					const x = event.touches[0]?.clientX;
+					if (swipe.current !== undefined && x !== undefined && swipe.current - x > 64) {
+						swipe.current = undefined;
+						onClose();
+					}
+				}}
+			>
 				<div className="drawer-top">
-					<span className="wordmark">pi</span>
-					<button type="button" className="pill accent" onClick={onCreate}>
-						<ComposeIcon /> 新對話
-					</button>
+					<span className="brand">
+						<PiMark size={20} live={busy} />
+						<span className="brand-name">pi mobile</span>
+					</span>
 				</div>
+				<button type="button" className="btn wide" onClick={onCreate}>
+					<ComposeIcon size={16} /> 新對話
+				</button>
+				<label className="field-icon">
+					<SearchIcon />
+					<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋對話" />
+				</label>
 				<div className="drawer-list">
 					{[...groups].map(([name, items]) => (
 						<section key={name}>
-							<h3>{name}</h3>
+							<h3 className="strip-label">{name}</h3>
 							{items.map((item) => (
 								<div key={String(item.id)} className={`drawer-item${item.id === currentId ? " current" : ""}`}>
 									<button type="button" className="drawer-open" onClick={() => onOpen(item.id)}>
@@ -63,16 +92,17 @@ export function Drawer({
 										<span className="drawer-time">{time(item.updatedAt, now)}</span>
 									</button>
 									<button type="button" className="icon-button small" aria-label={`刪除 ${item.title}`} onClick={() => onRemove(item)}>
-										<TrashIcon />
+										<TrashIcon size={16} />
 									</button>
 								</div>
 							))}
 						</section>
 					))}
+					{groups.size === 0 ? <p className="drawer-none">{query ? "找不到符合的對話" : "還沒有對話"}</p> : null}
 				</div>
 				<button type="button" className="drawer-settings" onClick={onSettings}>
 					<GearIcon />
-					<span>設定</span>
+					<span className="drawer-settings-text">設定</span>
 					<span className="drawer-status">
 						{status.map((item) => (
 							<span key={item.label} className={item.on ? "on" : ""}>
@@ -81,7 +111,7 @@ export function Drawer({
 						))}
 					</span>
 				</button>
-			</nav>
-		</div>
+			</div>
+		</Layer>
 	);
 }

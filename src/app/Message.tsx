@@ -1,7 +1,8 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { ChevronIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
@@ -73,44 +74,115 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 
 const harnessTag = /<\/?harness>\n?/g;
 
-function TraceRow({ call, state, prefs }: { call: Extract<Block, { type: "toolCall" }>; state: CallState | undefined; prefs: Prefs }) {
+type Call = Extract<Block, { type: "toolCall" }>;
+type Tone = "running" | "error" | "ok";
+
+function tone(state: CallState | undefined): Tone {
+	if (state?.status !== "done") return "running";
+	return state.isError ? "error" : "ok";
+}
+
+/** Short tool label, as pi's TUI prints it. */
+function toolName(name: string): string {
+	if (name === "github_api") return "github";
+	if (name === "github_read_file") return "github read";
+	if (name === "device_info") return "device";
+	return name;
+}
+
+function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
-	const status = state?.status ?? "pending";
-	const tone = status !== "done" ? "running" : state?.isError ? "error" : "ok";
+	const status = tone(state);
 	const output = state?.output?.replace(harnessTag, "").trim();
 	return (
-		<div className={`trace-row ${tone}`}>
-			<button type="button" className="trace-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-				<span className="trace-dot" />
-				<span className="trace-name">{call.name}</span>
-				<span className="trace-label">{callLabel(call.name, call.arguments)}</span>
-				{output ? <ChevronIcon open={open} /> : null}
+		<div className={`step ${status}`}>
+			<button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!output}>
+				<span className="step-name">{toolName(call.name)}</span>
+				<span className="step-label">{callLabel(call.name, call.arguments)}</span>
+				{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
+				{status === "error" ? <span className="step-status">失敗</span> : null}
+				{output && status !== "running" ? <ChevronIcon open={open} size={12} /> : null}
 			</button>
-			{output && (open || status !== "done") ? (
-				<pre className="console">{status === "done" ? output : output.split("\n").slice(-6).join("\n")}</pre>
+			{output && (open || status === "running") ? (
+				<pre className="console">{status === "running" ? output.split("\n").slice(-6).join("\n") : output}</pre>
 			) : null}
 		</div>
 	);
 }
 
-function Thinking({ text }: { text: string }) {
+/** Consecutive tool calls, stacked like pi's tool boxes. Long finished runs fold into one line. */
+function Steps({ group, calls, prefs }: { group: Call[]; calls: CallStates; prefs: Prefs }) {
+	const tones = group.map((call) => tone(calls.get(call.id)));
+	const foldable = group.length > 3 && !tones.includes("running");
+	const failed = tones.filter((value) => value === "error").length;
+	const [open, setOpen] = useState(prefs.expandTools);
+	return (
+		<div className="steps">
+			{foldable ? (
+				<button type="button" className="steps-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
+					<span>
+						{group.length} 個步驟{failed ? `，${failed} 個失敗` : ""}
+					</span>
+					<span className="steps-names">{[...new Set(group.map((call) => toolName(call.name)))].join(" · ")}</span>
+					<ChevronIcon open={open} size={12} />
+				</button>
+			) : null}
+			{!foldable || open
+				? group.map((call) => <StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />)
+				: null}
+		</div>
+	);
+}
+
+function Thinking({ text, streaming }: { text: string; streaming?: boolean }) {
 	const [open, setOpen] = useState(false);
 	const preview = text.trim().split("\n")[0] ?? "";
 	return (
 		<div className={`thinking${open ? " open" : ""}`}>
 			<button type="button" onClick={() => setOpen(!open)} aria-expanded={open}>
-				<ChevronIcon open={open} />
-				<span className="thinking-label">思考</span>
+				<span className="thinking-label">{streaming ? "思考中" : "思考"}</span>
 				{!open ? <span className="thinking-preview">{preview}</span> : null}
+				<ChevronIcon open={open} size={12} />
 			</button>
 			{open ? <div className="thinking-body">{text.trim()}</div> : null}
 		</div>
 	);
 }
 
+/** Fenced code with a language label and a copy button. */
+function CodeBlock({ children }: ComponentProps<"pre">) {
+	const [copied, setCopied] = useState(false);
+	const code = (children as { props?: { className?: string; children?: unknown } } | undefined)?.props;
+	const language = /language-(\S+)/.exec(code?.className ?? "")?.[1] ?? "";
+	const source = String(code?.children ?? "").replace(/\n$/, "");
+	return (
+		<div className="code">
+			<div className="code-head">
+				<span>{language || "text"}</span>
+				<button
+					type="button"
+					onClick={() =>
+						void navigator.clipboard.writeText(source).then(() => {
+							setCopied(true);
+							setTimeout(() => setCopied(false), 1500);
+						})
+					}
+				>
+					{copied ? "已複製" : "複製"}
+				</button>
+			</div>
+			<pre>{children}</pre>
+		</div>
+	);
+}
+
+const markdownComponents = { pre: CodeBlock };
+// CJK-friendly emphasis: CommonMark misses **粗體**是 when the closing ** follows CJK punctuation.
+const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
+
 function Content({ content, prefs, calls, streaming }: { content: Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
 	// Consecutive tool calls form one trace group.
-	const groups: (Block | Extract<Block, { type: "toolCall" }>[])[] = [];
+	const groups: (Block | Call[])[] = [];
 	for (const block of content) {
 		const last = groups.at(-1);
 		if (block.type === "toolCall") {
@@ -123,23 +195,21 @@ function Content({ content, prefs, calls, streaming }: { content: Block[]; prefs
 		<>
 			{groups.map((group, index) => {
 				if (Array.isArray(group)) {
-					return (
-						<div className="trace" key={index}>
-							{group.map((call) => (
-								<TraceRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
-							))}
-						</div>
-					);
+					return <Steps key={index} group={group} calls={calls} prefs={prefs} />;
 				}
 				switch (group.type) {
 					case "text":
 						return (
 							<div className={`markdown${streaming && content[lastText] === group ? " caret" : ""}`} key={index}>
-								<Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{group.text}</Markdown>
+								<Markdown remarkPlugins={remarkPlugins} components={markdownComponents}>
+									{group.text}
+								</Markdown>
 							</div>
 						);
 					case "thinking":
-						return prefs.showThinking && group.thinking.trim() ? <Thinking key={index} text={group.thinking} /> : null;
+						return prefs.showThinking && group.thinking.trim() ? (
+							<Thinking key={index} text={group.thinking} streaming={streaming && index === groups.length - 1} />
+						) : null;
 					case "image":
 						return <img className="attachment" key={index} src={`data:${group.mimeType};base64,${group.data}`} alt="" />;
 				}
@@ -180,8 +250,10 @@ export function EntryView({
 	if (!model) return null;
 	if (entry.kind === "pi.user") {
 		return (
-			<section className="prompt" {...longPress}>
-				<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
+			<section className="prompt" {...longPress} onClick={() => onActions(entry)}>
+				<div className="bubble">
+					<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
+				</div>
 			</section>
 		);
 	}
