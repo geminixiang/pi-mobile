@@ -28,6 +28,8 @@ export interface CallState {
 	status: "pending" | "running" | "done";
 	isError?: boolean;
 	output?: string;
+	/** Images in the result, such as a chart the agent read back from the sandbox. */
+	images?: { data: string; mimeType: string }[];
 }
 
 export type CallStates = ReadonlyMap<string, CallState>;
@@ -47,10 +49,13 @@ export function finishedCalls(entries: readonly EntryRecord[]): Map<string, Call
 	for (const entry of entries) {
 		const result = message(entry);
 		if (entry.kind !== "pi.tool-result" || !result?.toolCallId) continue;
-		const output = blocks(result.content)
-			.map((block) => (block.type === "text" ? block.text : `[${block.type}]`))
+		const content = blocks(result.content);
+		const output = content
+			.filter((block): block is Extract<Block, { type: "text" }> => block.type === "text")
+			.map((block) => block.text)
 			.join("\n");
-		calls.set(result.toolCallId, { status: "done", isError: result.isError, output });
+		const images = content.filter((block): block is Extract<Block, { type: "image" }> => block.type === "image");
+		calls.set(result.toolCallId, { status: "done", isError: result.isError, output, ...(images.length ? { images } : {}) });
 	}
 	return calls;
 }
@@ -67,6 +72,8 @@ export function entryText(entry: EntryRecord): string {
 function callLabel(name: string, args: Record<string, unknown>): string {
 	if (name === "github_api") return `${args.method ?? "GET"} ${args.path ?? ""}`;
 	if (name === "github_read_file") return `${args.owner}/${args.repo}/${args.path ?? ""}`;
+	if (name === "web_search" && typeof args.query === "string") return args.query;
+	if (name === "web_fetch" && typeof args.url === "string") return args.url;
 	if (name === "bash" && typeof args.command === "string") return args.command;
 	// Code mode: the script's first line that is not a comment or option header.
 	if (name === "codemode" && typeof args.code === "string") {
@@ -93,6 +100,8 @@ function toolName(name: string): string {
 	if (name === "github_read_file") return "github read";
 	if (name === "device_info") return "device";
 	if (name === "codemode") return "script";
+	if (name === "web_search") return "search";
+	if (name === "web_fetch") return "fetch";
 	return name;
 }
 
@@ -122,6 +131,11 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 			{output && (open || status === "running") ? (
 				<pre className="console">{status === "running" ? output.split("\n").slice(-6).join("\n") : output}</pre>
 			) : null}
+			{state?.images?.map((image, index) => (
+				<button type="button" className="step-image" key={index} onClick={() => filePath && openFile?.(resolvePath(filePath))}>
+					<img src={`data:${image.mimeType};base64,${image.data}`} alt={filePath ?? ""} />
+				</button>
+			))}
 		</div>
 	);
 }

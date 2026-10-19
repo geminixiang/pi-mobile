@@ -18,13 +18,14 @@ import {
 	type Tx,
 } from "@earendil-works/pi-durable";
 import type { Settings } from "../settings.ts";
-import { cliProxyProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
+import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { DeviceExtension } from "./tools/device.ts";
 import { createPhoneCodemode } from "./codemode.ts";
 import { EgressLink } from "./sandbox/egress.ts";
 import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
+import { createWebExtension } from "./tools/web.ts";
 
 const context = BACKGROUND_CONTEXT;
 const NEW_TITLE = "新對話";
@@ -135,13 +136,14 @@ export class AgentRuntime {
 			return [];
 		});
 		const models = createModels();
-		models.setProvider(cliProxyProvider(settings.baseUrl, settings.apiKey, modelIds));
+		models.setProvider(modelServiceProvider(settings.baseUrl, settings.apiKey, modelIds));
 
 		const registry = createRegistry();
 		registry.install(Assistant);
 		registry.install(DeviceExtension);
 		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
+		registry.install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
 		const sandbox =
 			settings.sandboxUrl && settings.sandboxToken ? new SandboxPool({ url: settings.sandboxUrl, token: settings.sandboxToken }) : undefined;
 		if (sandbox) {

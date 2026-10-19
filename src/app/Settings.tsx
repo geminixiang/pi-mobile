@@ -94,7 +94,7 @@ export function SettingsView({
 					</div>
 				)}
 				{status ? <div className="banner error">{status}</div> : null}
-				<Group title="模型服務" hint="CLIProxyAPI 的位址和 key。key 存在手機的 Keystore。">
+				<Group title="模型服務" hint="OpenAI 或 Anthropic 相容的 API 位址和 key，例如自架的 gateway、OpenAI、Anthropic。key 存在手機的 Keystore。">
 					<label>
 						<span>URL</span>
 						<input {...field("baseUrl")} placeholder="http://100.x.y.z:8317" autoCapitalize="off" autoComplete="off" inputMode="url" />

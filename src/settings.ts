@@ -3,6 +3,7 @@
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 
 const PLAIN_KEY = "pi-mobile.settings";
+/** Keychain key from the first version; kept so saved keys still load. */
 const SECRET_API_KEY = "cliproxyapi.apiKey";
 const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_SANDBOX_TOKEN = "sandbox.token";

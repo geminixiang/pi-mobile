@@ -5,7 +5,7 @@
 把 agent 放進口袋：一個在手機上直接跑 agent loop 的 Android app，給自己用。
 
 - **Agent 在手機上跑**：用 [pi-durable](https://pi.dev) 的 harness，對話、執行狀態都存在手機的 SQLite。App 被殺掉或背景回收，下次打開會從中斷的地方繼續。
-- **模型用自己的 key**：透過自架的 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)（OpenAI 相容），key 存在 Android Keystore。
+- **模型用自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）、OpenAI、Anthropic。key 存在 Android Keystore。
 - **Sandbox 在自己的機器上**：每個對話有一個獨立的 Linux 容器（目前跑在 Mac mini 的 colima VM 裡），agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行，不在手機上。
 - **GitHub 連接器**：REST API 工具，加上 sandbox 裡已登入的 `git` 和 `gh`。所有寫入都要你在手機上按「允許」。
 
@@ -17,7 +17,7 @@ UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https:/
 ┌──────────── 手機 (Capacitor WebView) ────────────┐
 │ React UI                                          │
 │ pi-durable harness ── SQLite (對話、執行狀態)        │
-│   ├─ 模型 ──────────── HTTPS ──▶ CLIProxyAPI        │
+│   ├─ 模型、web_search ─ HTTPS ──▶ 模型服務 (API)     │
 │   ├─ github_api ────── HTTPS ──▶ api.github.com    │
 │   └─ coding tools ──── WebSocket ─┐                 │
 │ EgressLink (token、寫入核准) ── WS ─┤                │
@@ -55,7 +55,9 @@ Token 不會進到 sandbox：
 ## 功能
 
 - 多個對話，抽屜依日期分組，可以搜尋、重新命名、刪除。
-- 模型和思考強度選單，模型清單取自 CLIProxyAPI 的 `/v1/models`。
+- 模型和思考強度選單，模型清單取自模型服務的 `/v1/models`。
+- **網路**：`web_search` 用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key；`web_fetch` 從手機抓網頁並轉成文字。
+- **圖片**：agent 在 sandbox 產生的圖（圖表、轉檔後的照片）用 `read` 讀回來，就會直接顯示在對話裡。
 - Agent 工作時可以「插話」（插到下一輪工具之後）或「稍後」（等這次跑完）。排隊的訊息可以撤回；按停止時，排隊的訊息會放回輸入框。
 - 從任一則你的訊息「分支」開新對話。
 - 壓縮對話、開始新的上下文、上下文用量和 token 統計。
@@ -69,8 +71,8 @@ Token 不會進到 sandbox：
 | 路徑 | 內容 |
 |---|---|
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器 |
-| `src/agent/models.ts` | CLIProxyAPI provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
-| `src/agent/tools/` | `device_info`、`github_api`、`github_read_file` |
+| `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
+| `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch` |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/sandbox/` | `ws-connection.ts`（pi-env over WebSocket）、`sandbox.ts`（每個對話的 env）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
 | `src/storage.ts` | pi-durable 的 SQLite adapter（Capacitor SQLite，WAL） |
@@ -98,7 +100,7 @@ npm ci --ignore-scripts
 Release 版用本機的 debug keystore 簽章，所以可以直接覆蓋安裝，不會刪掉手機上的對話。WebView 遠端除錯是開著的，方便用 `test/ui.sh` 在手機上操作測試。
 
 第一次打開時填：
-- **模型服務**：CLIProxyAPI 的 URL 和 API key。
+- **模型服務**：OpenAI 或 Anthropic 相容 API 的 URL 和 key。
 - **GitHub**（選填）：fine-grained token，只開需要的 repo。
 - **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
 
@@ -147,12 +149,12 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token)
 | 資料 | 存放位置 |
 |---|---|
 | 對話、執行狀態 | 手機的 SQLite（未加密，`allowBackup=false`，不會進雲端備份） |
-| CLIProxyAPI key、GitHub token、relay token | Android Keystore（`capacitor-secure-storage`） |
+| 模型服務 API key、GitHub token、relay token | Android Keystore（`capacitor-secure-storage`） |
 | GitHub token（sandbox 用） | 手機連線期間（加 10 分鐘）在 relay 的記憶體；不進容器、不寫進主機硬碟 |
 | Sandbox 檔案 | 主機上每個對話一個 Docker volume；重置 sandbox 會刪除 |
 
 - 所有 GitHub 寫入都要在手機上核准，包括 `github_api` 工具和 sandbox 裡的 git、gh。
-- App 允許明文 HTTP（`network_security_config.xml`），因為 CLIProxyAPI 和 relay 只透過 Tailscale 連線。
+- App 允許明文 HTTP（`network_security_config.xml`），因為自架的模型 gateway 和 relay 通常只透過 Tailscale 連線。
 - 能登入主機 `agent` 帳號的人可以讀到 relay 記憶體裡的 GitHub token，以及 egress 的 CA 私鑰。
 
 ## 已知限制
