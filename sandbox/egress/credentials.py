@@ -1,4 +1,9 @@
-"""mitmproxy addon: GitHub credentials for sandbox containers without putting the token in them.
+"""mitmproxy addon: GitHub and Google Cloud credentials for sandbox containers without putting them in them.
+
+Google Cloud (*.googleapis.com) works the same way as GitHub below: gcloud in the sandbox sends a placeholder bearer
+token, and the proxy swaps in a short-lived access token the phone minted. Reads go straight through; writes (any
+method but GET/HEAD, except POSTs that only read, such as :list and :search) wait for approval on the phone.
+
 
 Sandboxes send all HTTP(S) through this proxy. Only the GitHub hosts below are intercepted (see --allow-hosts in
 the Dockerfile); everything else passes through untouched. For GitHub requests the addon drops any Authorization the
@@ -28,6 +33,9 @@ GIT_HOST = "github.com"
 RAW_HOST = "raw.githubusercontent.com"
 READ_CACHE_SECONDS = 30
 APPROVAL_TIMEOUT_SECONDS = 330
+GOOGLE_HOST = re.compile(r"^[a-z0-9.-]+\.googleapis\.com$")
+# POST methods that only read (List, Search, Get, IAM checks); everything else that is not GET/HEAD is a write.
+GOOGLE_READ_VERB = re.compile(r":(list|search|get|batchGet|getIamPolicy|testIamPermissions|lookup|aggregatedList|fetch\w*)$")
 MUTATION = re.compile(r"^\s*(#[^\n]*\n\s*)*mutation\b")
 
 
@@ -105,8 +113,17 @@ def classify(request):
     return (f"GitHub {method} {path}", "")
 
 
-def authorize(client, write, title="", detail=""):
-    payload = json.dumps({"client": client, "write": write, "title": title, "detail": detail}).encode()
+def classify_google(request):
+    """None for a read; (title, detail) for a Google Cloud write that needs approval."""
+    path = request.path.split("?")[0]
+    if request.method in ("GET", "HEAD", "OPTIONS") or GOOGLE_READ_VERB.search(path):
+        return None
+    service = request.pretty_host.removesuffix(".googleapis.com")
+    return (f"Google Cloud {request.method} {service} {path}", preview(request.get_text(strict=False)))
+
+
+def authorize(client, write, title="", detail="", service="github"):
+    payload = json.dumps({"client": client, "write": write, "title": title, "detail": detail, "service": service}).encode()
     request = urllib.request.Request(
         f"{RELAY_URL}/egress/authorize",
         data=payload,
@@ -146,23 +163,47 @@ def set_token(request, host, token):
         request.headers["Authorization"] = f"token {token}"
 
 
-class GitHubAuth:
+class Credentials:
     def __init__(self):
-        self.reads = {}  # client IP -> (token or None, expiry)
+        self.reads = {}  # (service, client IP) -> (token or None, expiry)
 
-    async def read_token(self, client):
-        cached = self.reads.get(client)
+    async def read_token(self, client, service="github"):
+        cached = self.reads.get((service, client))
         if cached and cached[1] > time.monotonic():
             return cached[0]
         try:
-            token = (await asyncio.to_thread(authorize, client, False)).get("token")
+            token = (await asyncio.to_thread(authorize, client, False, "", "", service)).get("token")
         except (OSError, urllib.error.URLError, ValueError):
             token = None
-        self.reads[client] = (token, time.monotonic() + (READ_CACHE_SECONDS if token else 5))
+        self.reads[(service, client)] = (token, time.monotonic() + (READ_CACHE_SECONDS if token else 5))
         return token
+
+    async def google(self, flow, client):
+        flow.request.headers.pop("Authorization", None)
+        write = classify_google(flow.request)
+        if write is None:
+            token = await self.read_token(client, "gcloud")
+        else:
+            try:
+                result = await asyncio.to_thread(authorize, client, True, *write, "gcloud")
+            except (OSError, urllib.error.URLError, ValueError) as error:
+                result = {"reason": f"無法聯絡 relay（{error}）"}
+            token = result.get("token")
+            if not token:
+                message = json.dumps({"error": {"code": 403, "message": f"pi mobile: {result.get('reason') or '寫入被拒絕'}", "status": "PERMISSION_DENIED"}})
+                flow.response = http.Response.make(403, message, {"Content-Type": "application/json"})
+                return
+        if token:
+            flow.request.headers["Authorization"] = f"Bearer {token}"
+        else:
+            message = json.dumps({"error": {"code": 401, "message": "pi mobile: 手機沒有連上，或沒有設定 Google Cloud 憑證", "status": "UNAUTHENTICATED"}})
+            flow.response = http.Response.make(401, message, {"Content-Type": "application/json"})
 
     async def request(self, flow: http.HTTPFlow):
         host = flow.request.pretty_host
+        if GOOGLE_HOST.match(host):
+            await self.google(flow, flow.client_conn.peername[0].removeprefix("::ffff:"))
+            return
         if host not in API_HOSTS and host not in (GIT_HOST, RAW_HOST):
             return
         flow.request.headers.pop("Authorization", None)
@@ -185,4 +226,4 @@ class GitHubAuth:
         set_token(flow.request, host, token)
 
 
-addons = [GitHubAuth()]
+addons = [Credentials()]

@@ -22,6 +22,15 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
 	&& apt-get update && apt-get install -y --no-install-recommends gh \
 	&& rm -rf /var/lib/apt/lists/*
 
+# Google Cloud CLI. Like gh, it authenticates through the egress proxy: its access token file holds a placeholder that
+# the proxy swaps for a short-lived token minted on the phone.
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg -o /etc/apt/keyrings/cloud.google.asc \
+	&& echo "deb [signed-by=/etc/apt/keyrings/cloud.google.asc] https://packages.cloud.google.com/apt cloud-sdk main" \
+		> /etc/apt/sources.list.d/google-cloud-sdk.list \
+	&& apt-get update && apt-get install -y --no-install-recommends google-cloud-cli \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& mkdir -p /etc/pi-egress && echo injected-by-pi-egress > /etc/pi-egress/gcloud-token
+
 # uv for Python projects and one-off scripts (`uv run --with pandas script.py`), pnpm through corepack.
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /usr/local/bin/
 RUN corepack enable pnpm && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version > /dev/null

@@ -2,6 +2,7 @@ import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
+import { checkGcloud, describeCredential, parseCredential } from "../agent/gcloud.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -31,6 +32,14 @@ function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: 
 			{check.state === "error" ? <span className="check-error">{check.detail}</span> : null}
 		</div>
 	);
+}
+
+function gcloudIdentity(json: string): string {
+	try {
+		return describeCredential(parseCredential(json));
+	} catch (error) {
+		return error instanceof Error ? error.message : String(error);
+	}
 }
 
 function Group({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
@@ -177,6 +186,40 @@ export function SettingsView({
 						</label>
 					</details>
 					<CheckButton disabled={!settings.sandboxUrl || !settings.sandboxToken} run={() => checkSandbox(settings.sandboxUrl, settings.sandboxToken)} />
+				</Group>
+				<Group
+					title="Google Cloud"
+					hint="給 sandbox 裡的 gcloud 用。憑證留在手機上，只把一小時有效的 access token 交給 sandbox 的 proxy；會改動資源的請求要你先核准。"
+				>
+					{settings.gcloudCredential ? (
+						<div className="check-row">
+							<span className="menu-text">
+								憑證
+								<span className="menu-hint">{gcloudIdentity(settings.gcloudCredential)}</span>
+							</span>
+							<button type="button" className="btn" onClick={() => setSettings({ ...settings, gcloudCredential: "" })}>
+								移除
+							</button>
+						</div>
+					) : (
+						<label>
+							<span>憑證 JSON</span>
+							<textarea
+								className="field json"
+								rows={4}
+								value={settings.gcloudCredential}
+								onChange={(event) => setSettings({ ...settings, gcloudCredential: event.target.value.trim() })}
+								placeholder="貼上 application_default_credentials.json（gcloud auth application-default login 產生）或 service account 金鑰"
+								autoCapitalize="off"
+								spellCheck={false}
+							/>
+						</label>
+					)}
+					<label>
+						<span>預設專案</span>
+						<input {...field("gcloudProject")} placeholder="留空則用憑證本身的專案" autoCapitalize="off" autoComplete="off" />
+					</label>
+					<CheckButton disabled={!settings.gcloudCredential} run={() => checkGcloud(settings.gcloudCredential)} />
 				</Group>
 				<BackgroundGroup />
 				<p className="about">pi mobile · {__BUILD__}</p>

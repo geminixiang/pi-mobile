@@ -4,6 +4,7 @@
 // (held in the relay's memory only, never inside a sandbox), and answers the egress proxy's write approvals with the
 // app's confirmation dialog. It reconnects with backoff, so approvals asked while the phone was away arrive again.
 import { requestConfirmation } from "../confirm.ts";
+import { GcloudTokens } from "../gcloud.ts";
 
 const MIN_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
@@ -20,6 +21,8 @@ export interface EgressLinkOptions {
 	relayUrl: string;
 	relayToken: string;
 	githubToken: string | undefined;
+	/** Google Cloud credential JSON and default project; the credential stays here, only access tokens leave. */
+	gcloud: { credential: string; project: string } | undefined;
 	/** Human name for a sandbox, such as its conversation's title. */
 	describe: (sandbox: string) => string | undefined;
 }
@@ -32,9 +35,15 @@ export class EgressLink {
 	#closed = false;
 	/** Approvals on screen, so a resend after a reconnect does not open a second dialog. */
 	readonly #showing = new Set<number>();
+	readonly #gcloud: GcloudTokens | undefined;
 
 	constructor(options: EgressLinkOptions) {
 		this.#options = options;
+		try {
+			this.#gcloud = options.gcloud ? new GcloudTokens(options.gcloud.credential) : undefined;
+		} catch {
+			this.#gcloud = undefined; // Settings shows why the credential is not usable.
+		}
 		this.#connect();
 	}
 
@@ -52,18 +61,32 @@ export class EgressLink {
 		this.#socket = socket;
 		socket.addEventListener("open", () => {
 			this.#retry = MIN_RETRY_MS;
-			socket.send(JSON.stringify({ type: "hello", githubToken: this.#options.githubToken ?? null }));
+			const project = this.#options.gcloud?.project || this.#gcloud?.project || "";
+			socket.send(
+				JSON.stringify({ type: "hello", githubToken: this.#options.githubToken ?? null, gcloud: this.#gcloud ? { project } : null }),
+			);
 		});
 		socket.addEventListener("message", (event) => {
 			if (typeof event.data !== "string") return;
 			const message = JSON.parse(event.data) as Approval | { type: string };
 			if (message.type === "approve") void this.#approve(message as Approval);
+			if (message.type === "gcloud-token") void this.#gcloudToken(socket);
 		});
 		socket.addEventListener("close", () => {
 			if (this.#socket !== socket || this.#closed) return;
 			this.#timer = setTimeout(() => this.#connect(), this.#retry);
 			this.#retry = Math.min(this.#retry * 2, MAX_RETRY_MS);
 		});
+	}
+
+	async #gcloudToken(socket: WebSocket): Promise<void> {
+		try {
+			if (!this.#gcloud) throw new Error("沒有 Google Cloud 憑證");
+			const token = await this.#gcloud.get();
+			socket.send(JSON.stringify({ type: "gcloud-token", token: token.token, expiresAt: token.expiresAt }));
+		} catch (error) {
+			socket.send(JSON.stringify({ type: "gcloud-token", error: error instanceof Error ? error.message : String(error) }));
+		}
 	}
 
 	async #approve(approval: Approval): Promise<void> {

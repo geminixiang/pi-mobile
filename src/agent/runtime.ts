@@ -115,6 +115,7 @@ export class AgentRuntime {
 				relayUrl: settings.sandboxUrl,
 				relayToken: settings.sandboxToken,
 				githubToken: settings.githubToken || undefined,
+				gcloud: settings.gcloudCredential ? { credential: settings.gcloudCredential, project: settings.gcloudProject } : undefined,
 				describe: (name) => this.#titles.get(name),
 			});
 			void this.#publishIndex();

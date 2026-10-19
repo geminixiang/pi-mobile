@@ -7,6 +7,7 @@ const PLAIN_KEY = "pi-mobile.settings";
 const SECRET_API_KEY = "cliproxyapi.apiKey";
 const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_SANDBOX_TOKEN = "sandbox.token";
+const SECRET_GCLOUD = "gcloud.credential";
 
 export interface Settings {
 	baseUrl: string;
@@ -15,6 +16,10 @@ export interface Settings {
 	/** Sandbox relay, e.g. ws://100.x.y.z:8787; empty disables the sandbox tools. */
 	sandboxUrl: string;
 	sandboxToken: string;
+	/** Google Cloud credential JSON (authorized_user or service_account) for gcloud in the sandbox; empty disables it. */
+	gcloudCredential: string;
+	/** Default project for gcloud; empty uses the credential's own. */
+	gcloudProject: string;
 	defaultModelId: string;
 	defaultThinking: string;
 }
@@ -22,6 +27,7 @@ export interface Settings {
 interface PlainSettings {
 	baseUrl?: string;
 	sandboxUrl?: string;
+	gcloudProject?: string;
 	defaultModelId?: string;
 	defaultThinking?: string;
 }
@@ -39,6 +45,8 @@ export async function loadSettings(): Promise<Settings> {
 		githubToken: await secret(SECRET_GITHUB_TOKEN),
 		sandboxUrl: plain.sandboxUrl ?? "",
 		sandboxToken: await secret(SECRET_SANDBOX_TOKEN),
+		gcloudCredential: await secret(SECRET_GCLOUD),
+		gcloudProject: plain.gcloudProject ?? "",
 		defaultModelId: plain.defaultModelId ?? "claude-opus-5-5",
 		defaultThinking: plain.defaultThinking ?? "low",
 	};
@@ -48,6 +56,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 	const plain: PlainSettings = {
 		baseUrl: settings.baseUrl,
 		sandboxUrl: settings.sandboxUrl,
+		gcloudProject: settings.gcloudProject,
 		defaultModelId: settings.defaultModelId,
 		defaultThinking: settings.defaultThinking,
 	};
@@ -55,6 +64,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 	await SecureStorage.set(SECRET_API_KEY, settings.apiKey);
 	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
 	await saveSecret(SECRET_SANDBOX_TOKEN, settings.sandboxToken);
+	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
 }
 
 async function saveSecret(key: string, value: string): Promise<void> {

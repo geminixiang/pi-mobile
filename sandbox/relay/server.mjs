@@ -49,6 +49,12 @@ const SANDBOX_ENV = {
 	// gh refuses to run without a token; the proxy replaces this placeholder with the real one.
 	GH_TOKEN: "injected-by-pi-egress",
 	GIT_TERMINAL_PROMPT: "0",
+	// gcloud authenticates with this placeholder token; the proxy swaps in a real one from the phone.
+	CLOUDSDK_AUTH_ACCESS_TOKEN_FILE: "/etc/pi-egress/gcloud-token",
+	CLOUDSDK_CORE_CUSTOM_CA_CERTS_FILE: "/etc/ssl/certs/ca-certificates.crt",
+	CLOUDSDK_CORE_DISABLE_PROMPTS: "1",
+	CLOUDSDK_CORE_DISABLE_USAGE_REPORTING: "true",
+	CLOUDSDK_COMPONENT_MANAGER_DISABLE_UPDATE_CHECK: "true",
 	NODE_EXTRA_CA_CERTS: "/etc/ssl/certs/ca-certificates.crt",
 	REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt",
 	SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt",
@@ -209,6 +215,9 @@ async function sandboxForIp(ip) {
 const phones = [];
 let githubToken;
 let tokenExpiry;
+/** Google Cloud: the phone mints short-lived access tokens; the relay never holds the long-lived credential. */
+let gcloud; // { project, token, expiresAt } while the phone has a credential
+const gcloudWaiters = [];
 const approvals = new Map();
 let nextApproval = 1;
 
@@ -234,8 +243,12 @@ function attachPhone(ws) {
 		}
 		if (message.type === "hello") {
 			githubToken = typeof message.githubToken === "string" && message.githubToken ? message.githubToken : undefined;
+			gcloud = message.gcloud && typeof message.gcloud === "object" ? { project: String(message.gcloud.project ?? "") } : undefined;
 			// Questions asked while the phone was away.
 			for (const approval of approvals.values()) sendApproval(ws, approval);
+		} else if (message.type === "gcloud-token") {
+			if (gcloud && typeof message.token === "string") Object.assign(gcloud, { token: message.token, expiresAt: Number(message.expiresAt) });
+			for (const resolve of gcloudWaiters.splice(0)) resolve(message.error ? { error: String(message.error) } : undefined);
 		} else if (message.type === "approval") {
 			approvals.get(message.id)?.resolve(message.approved === true);
 		}
@@ -280,7 +293,32 @@ async function readJson(request) {
 }
 
 /** Called by the egress addon for each GitHub request: the token for reads, and for approved writes. */
+/** A Google access token valid for at least a minute, from the cache or freshly minted by the phone. */
+async function gcloudToken() {
+	if (!gcloud) return { reason: "手機沒有設定 Google Cloud 憑證" };
+	if (gcloud.token && gcloud.expiresAt - Date.now() > 60_000) return { token: gcloud.token };
+	const socket = phone();
+	if (!socket) return { reason: "手機沒有連上，無法取得 Google Cloud token" };
+	const answer = await new Promise((resolve) => {
+		gcloudWaiters.push(resolve);
+		socket.send(JSON.stringify({ type: "gcloud-token" }));
+		setTimeout(() => resolve({ error: "手機沒有回應" }), 20_000);
+	});
+	if (answer?.error) return { reason: `取得 Google Cloud token 失敗：${answer.error}` };
+	return gcloud?.token ? { token: gcloud.token } : { reason: "手機沒有設定 Google Cloud 憑證" };
+}
+
 async function authorizeEgress(body) {
+	if (body.service === "gcloud") {
+		const token = await gcloudToken();
+		if (!token.token || !body.write) return token;
+		if (!phone()) return { reason: "手機沒有連上，無法確認這個寫入" };
+		const sandbox = (await sandboxForIp(String(body.client ?? ""))) ?? "unknown";
+		log("approval asked", sandbox, body.title);
+		const approved = await askPhone(sandbox, String(body.title ?? ""), String(body.detail ?? ""));
+		log("approval", approved ? "granted" : "denied", sandbox, body.title);
+		return approved ? await gcloudToken() : { reason: "使用者拒絕了這個寫入" };
+	}
 	if (!githubToken) return { reason: "手機沒有連上，或沒有設定 GitHub token" };
 	if (!body.write) return { token: githubToken };
 	if (!phone()) return { reason: "手機沒有連上，無法確認這個寫入" };
@@ -377,7 +415,8 @@ async function attach(ws, id, daemonToken) {
 	lastUsed.set(id, Date.now());
 	log("attach", name);
 
-	const env = Object.entries(SANDBOX_ENV).flatMap(([key, value]) => ["-e", `${key}=${value}`]);
+	const gcloudEnv = gcloud?.project ? { CLOUDSDK_CORE_PROJECT: gcloud.project } : {};
+	const env = Object.entries({ ...SANDBOX_ENV, ...gcloudEnv }).flatMap(([key, value]) => ["-e", `${key}=${value}`]);
 	const child = spawn("docker", ["exec", "-i", "-w", "/workspace", ...env, name, "pi-env", "serve", "--token", daemonToken], {
 		stdio: ["pipe", "pipe", "pipe"],
 	});
