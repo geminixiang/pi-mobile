@@ -130,6 +130,7 @@ export async function checkGcloud(json: string): Promise<string> {
 // for the user to copy back. The result is the authorized_user credential that command would write.
 
 const ADC_CLIENT_ID = "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com";
+// Not a secret: Google publishes it in every Cloud SDK (api_lib/auth/util.py); installed-app clients cannot keep one.
 const ADC_CLIENT_SECRET = "d-FL95Q19q7MQmFpd7hHD0Ty";
 const ADC_REDIRECT_URI = "https://sdk.cloud.google.com/applicationdefaultauthcode.html";
 const SIGN_IN_SCOPES = ["openid", "https://www.googleapis.com/auth/userinfo.email", SCOPE];

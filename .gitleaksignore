@@ -1,0 +1,12 @@
+# gitleaks: reviewed false positives (git log --all and working tree), see README security model.
+# - gcloud's public ADC OAuth client secret, shipped in every Google Cloud SDK install (installed-app clients are public).
+# - Literal 'placeholder' bearer tokens in egress tests; the proxy replaces them.
+c1d0aa74e4d2a2f5ea22d46b290e62563d5effd9:src/agent/gcloud.ts:generic-api-key:134
+a89840bdbe93b0e2f4802d62d8a6f52bab31ed83:test/gcloud-node.ts:curl-auth-header:52
+a89840bdbe93b0e2f4802d62d8a6f52bab31ed83:test/gcloud-node.ts:curl-auth-header:54
+0d974017800d20f2fe3d7246b17028325de1bc5a:test/cloudflare-node.ts:curl-auth-header:50
+src/agent/gcloud.ts:generic-api-key:133
+test/cloudflare-node.ts:curl-auth-header:50
+test/gcloud-node.ts:curl-auth-header:52
+test/gcloud-node.ts:curl-auth-header:54
+src/agent/gcloud.ts:generic-api-key:134
