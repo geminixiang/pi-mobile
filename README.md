@@ -4,36 +4,70 @@
 
 把 agent 放進口袋：一個在手機上直接跑 agent loop 的 Android app，給自己用。
 
-- **Agent 在手機上跑**：用 [pi-durable](https://pi.dev) 的 harness，對話、執行狀態都存在手機的 SQLite。App 被殺掉或背景回收，下次打開會從中斷的地方繼續。
-- **模型用自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）、OpenAI、Anthropic。key 存在 Android Keystore。
-- **Sandbox 在自己的機器上**：每個對話有一個獨立的 Linux 容器（目前跑在 Mac mini 的 colima VM 裡），agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行，不在手機上。
-- **GitHub 連接器**：REST API 工具，加上 sandbox 裡已登入的 `git` 和 `gh`。所有寫入都要你在手機上按「允許」。
+- **Agent 在手機上跑**：用 [pi-durable](https://pi.dev) 的 harness，對話和執行狀態都存在手機的 SQLite。鎖上螢幕或切到背景時會繼續跑；就算 app 被系統殺掉，下次打開也會從中斷的地方接著跑。
+- **模型用自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）、OpenAI、Anthropic。
+- **Sandbox 在自己的電腦上**：每個對話有一個獨立的 Linux 容器，agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行。用一支腳本安裝，手機掃 QR code 配對。
+- **憑證不進 sandbox**：sandbox 裡的 `git`、`gh`、`gcloud` 都已登入你的帳號，但 token 由中間的 proxy 注入，容器裡只有佔位字串。所有寫入都要你在手機上按「允許」。
 
 UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https://pi.dev)。
+
+## 功能
+
+**對話**
+- 多個對話，依日期分組，可以搜尋；每個對話的 ⋯ 選單（或長按）可以重新命名、刪除；執行中的對話有閃爍標記。
+- 模型和思考強度選單，模型清單取自模型服務的 `/v1/models`。
+- Agent 工作時可以「插話」（插到下一輪工具之後）或「稍後」（等這次跑完）。排隊的訊息可以撤回；按停止時，排隊的訊息會放回輸入框。
+- 點自己的訊息可以複製，或「從這裡分支」開新對話。
+- 壓縮對話、開始新的上下文、上下文用量和 token 統計。
+- Markdown 回答、程式碼區塊一鍵複製、思考過程可以收合；工具步驟即時顯示輸出和經過秒數。
+
+**輸入**
+- 文字、圖片，以及**語音**：輸入框是空的時候，送出鈕會變成麥克風。用系統的語音辨識（繁體中文），結果放進輸入框讓你確認後再送。
+
+**背景執行**
+- 有對話在跑時，前景服務加 wake lock 讓 app 不被凍結，通知列顯示「pi 工作中」，鎖上螢幕也會繼續跑。
+- App 不在前景時，跑完會通知「pi 完成了」，需要核准時會通知「pi 需要你確認」。
+
+**工具**
+- `web_search`：用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key。`web_fetch`：從手機抓網頁並轉成文字。
+- `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
+- **Code mode**：模型可以寫 JavaScript，在一個腳本裡批次呼叫工具（`tools.<name>(args)`）、整理資料。腳本在手機上的 QuickJS VM 裡跑，VM 放在 Web Worker 裡，所以不會卡住 UI；每個結果都先記下來，app 被殺掉後會接著跑。
+- Sandbox 的 `read`、`write`、`edit`、`bash`，見下面。
+
+**工作區**
+- 瀏覽 sandbox 的 `/workspace`、看檔案（行號、Markdown 預覽、圖片）、每個 git repo 的變更、diff 和最近的 commit。
+- Agent 用 `read` 讀回來的圖片（圖表、轉檔後的照片）會直接顯示在對話裡；工具步驟上的檔案圖示會在工作區打開那個檔案。
+
+**操作**
+- Android 返回手勢依序關閉最上層的畫面；什麼都沒開時，app 退到背景，不會被關掉。
+- 從螢幕左緣往右滑打開對話列表。
 
 ## 架構
 
 ```
-┌──────────── 手機 (Capacitor WebView) ────────────┐
-│ React UI                                          │
-│ pi-durable harness ── SQLite (對話、執行狀態)        │
-│   ├─ 模型、web_search ─ HTTPS ──▶ 模型服務 (API)     │
-│   ├─ github_api ────── HTTPS ──▶ api.github.com    │
-│   └─ coding tools ──── WebSocket ─┐                 │
-│ EgressLink (token、寫入核准) ── WS ─┤                │
-└────────────────────────────────────┼─────────────────┘
-                                     │ Tailscale
-┌──────────── Mac mini (colima VM) ────┼─────────────────┐
-│ relay (server.mjs) ◀────────────────┘                 │
-│   ├─ docker exec ─▶ sbx-c<id>: pi-env serve, /workspace │
-│   └─ /egress/authorize ◀─ pi-egress (mitmproxy)        │
-│                            └─ 只攔 GitHub，注入 token ──▶ github.com │
-└───────────────────────────────────────────────────────┘
+┌──────────────── 手機 (Capacitor WebView) ────────────────┐
+│ React UI                                                  │
+│ pi-durable harness ── SQLite（對話、執行狀態）              │
+│   ├─ 模型、web_search ───── HTTPS ──▶ 模型服務              │
+│   ├─ github_api、web_fetch ─ HTTPS ──▶ 網路                 │
+│   ├─ code mode ──────────── Web Worker（QuickJS）           │
+│   └─ coding tools ───────── WebSocket ─┐                    │
+│ EgressLink（token、寫入核准）── WebSocket ┤                    │
+│ AgentService（前景服務，背景執行）          │                    │
+└──────────────────────────────────────────┼───────────────────┘
+                                           │ Tailscale
+┌───────── Sandbox 主機（Mac：colima VM）──┼───────────────────┐
+│ relay (server.mjs) ◀─────────────────────┘                   │
+│   ├─ docker exec ─▶ sbx-c<id>：pi-env serve，/workspace        │
+│   └─ /egress/authorize ◀── pi-egress（mitmproxy）              │
+│                              只攔 GitHub 和 *.googleapis.com， │
+│                              換上真的 token，寫入先問手機       │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-**為什麼 agent 跑在手機上？** 對話和金鑰只在手機上；不需要一直開著的伺服器；換一台 sandbox 主機不影響對話紀錄。代價是長任務受 Android 背景限制，也就是 app 在背景太久會被暫停，回到前景後才繼續。
+**為什麼 agent 跑在手機上？** 對話和金鑰都只在手機上，不需要一直開著的伺服器，換 sandbox 主機也不影響對話紀錄。
 
-**為什麼用 Capacitor？** WebView 是 pi-ai 正式支援的瀏覽器環境，串流、WASM 都能直接用。
+**為什麼用 Capacitor？** WebView 是 pi-ai 正式支援的瀏覽器環境，串流和 WASM 都能直接用。
 
 ### Sandbox 連線
 
@@ -41,49 +75,40 @@ pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。
 
 Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i <container> pi-env serve`，兩邊照搬 bytes，不解析 frame。容器第一次連線時才建立，閒置 30 分鐘後停止，檔案留在 volume 裡。同時最多跑 6 個容器，滿了會停掉最久沒用的那個。
 
-### GitHub 與 sandbox
+### 憑證與 egress proxy
 
-Token 不會進到 sandbox：
+每個 sandbox 的 HTTP(S) 流量都經過 `pi-egress`（mitmproxy + `sandbox/egress/credentials.py`）。它只攔下面兩類主機，其他網站（pip、npm、apt）直接放行、不解密。Proxy 的 CA 在容器第一次連線時裝進去。
 
-1. 每個 sandbox 的 HTTP(S) 流量都經過 `pi-egress`（mitmproxy）。它只攔 `github.com`、`api.github.com`、`uploads.github.com`、`raw.githubusercontent.com`，其他網站直接放行，不解密。
-2. 手機透過 relay 的 `/control` WebSocket 把 token 交給 relay。Token 只放在 relay 的記憶體裡，手機斷線 10 分鐘後丟掉。
-3. Addon 對每個 GitHub 請求問 relay 要 token：
-   - **讀取**（clone、fetch、REST GET、GraphQL query）直接放行。
-   - **寫入**（`git push`、REST 的 POST/PATCH/PUT/DELETE、GraphQL mutation、LFS 上傳）先停住，relay 把請求轉到手機的確認框，你按「允許」才送出。拒絕時 git 和 gh 會顯示 `pi mobile: 使用者拒絕了這個寫入`。
-4. Sandbox 裡的 `GH_TOKEN` 只是佔位字串，mitmproxy 的 CA 在第一次連線時裝進容器。
+| | GitHub | Google Cloud |
+|---|---|---|
+| 攔截的主機 | `github.com`、`api.github.com`、`uploads.github.com`、`raw.githubusercontent.com` | `*.googleapis.com` |
+| 容器裡的佔位 | `GH_TOKEN=injected-by-pi-egress` | `gcloud` 的 `auth/access_token_file` 內容是佔位字串 |
+| 真的憑證在哪 | 手機 Keystore；連線時交給 relay，只放記憶體，手機斷線 10 分鐘後丟掉 | 長期憑證（使用者 refresh token 或 service account 金鑰）**只在手機上**；relay 需要時請手機換一個一小時有效的 access token |
+| 直接放行（讀取） | clone、fetch、REST GET、GraphQL query | GET，以及只讀的 POST（`:list`、`:search`、`:get`、`:testIamPermissions` 等） |
+| 要你核准（寫入） | `git push`、REST 的 POST/PATCH/PUT/DELETE、GraphQL mutation、LFS 上傳 | 其他所有非 GET 的請求 |
 
-## 功能
-
-- 多個對話，抽屜依日期分組，可以搜尋、重新命名、刪除。
-- 模型和思考強度選單，模型清單取自模型服務的 `/v1/models`。
-- **網路**：`web_search` 用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key；`web_fetch` 從手機抓網頁並轉成文字。
-- **圖片**：agent 在 sandbox 產生的圖（圖表、轉檔後的照片）用 `read` 讀回來，就會直接顯示在對話裡。
-- Agent 工作時可以「插話」（插到下一輪工具之後）或「稍後」（等這次跑完）。排隊的訊息可以撤回；按停止時，排隊的訊息會放回輸入框。
-- 從任一則你的訊息「分支」開新對話。
-- 壓縮對話、開始新的上下文、上下文用量和 token 統計。
-- 圖片輸入、Markdown 回答、工具步驟即時輸出，思考過程可以收合。
-- **Code mode**：模型可以寫 JavaScript，在一個腳本裡批次呼叫工具（`tools.<name>(args)`）、整理資料。腳本在手機上的 QuickJS VM 裡跑，用的是 pi-durable 的 `codemode` 工具，每個結果都先記下來，app 被殺掉後會接著跑。VM 放在 Web Worker 裡，腳本在計算時 UI 不會卡住。
-- **工作區**：瀏覽 sandbox 的 `/workspace`、看檔案（行號、Markdown 預覽、圖片）、每個 git repo 的變更、diff 和最近的 commit。工具步驟上的檔案圖示會直接打開那個檔案。
-- Android 返回手勢依序關閉最上層的畫面；什麼都沒開時，app 退到背景，不會被關掉。
+被拒絕時，git、gh、gcloud 都會顯示 `pi mobile: 使用者拒絕了這個寫入`。手機沒連上時，讀取不帶憑證送出，寫入一律拒絕。
 
 ## 專案結構
 
 | 路徑 | 內容 |
 |---|---|
-| `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器 |
+| `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器、執行狀態（task graph） |
 | `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
 | `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch` |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
-| `src/agent/sandbox/` | `ws-connection.ts`（pi-env over WebSocket）、`sandbox.ts`（每個對話的 env）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
+| `src/agent/gcloud.ts` | Google 憑證：refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
+| `src/agent/sandbox/` | `ws-connection.ts`（pi-env over WebSocket）、`sandbox.ts`（每個對話的 env 和環境說明）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
 | `src/storage.ts` | pi-durable 的 SQLite adapter（Capacitor SQLite，WAL） |
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI |
+| `src/app/` | React UI；`keepAlive.ts`、`voice.ts`、`pairing.ts` 是對應 Android 原生功能的那一層 |
+| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java` | 前景服務與通知、語音辨識 |
 | `sandbox/` | Sandbox 主機端：image、relay、egress proxy、安裝腳本 |
 | `scripts/` | Android 建置與安裝、圖示產生 |
-| `test/` | 裝置上的 UI 測試（CDP）、sandbox 和 egress 的 Node 端到端測試 |
+| `test/` | 手機上的 UI 測試（CDP）、sandbox、GitHub 和 gcloud egress 的 Node 端到端測試 |
 
-## 建置與安裝
+## 建置與安裝 app
 
 需要：
 - Node 24
@@ -101,10 +126,12 @@ Release 版用本機的 debug keystore 簽章，所以可以直接覆蓋安裝�
 
 第一次打開時填：
 - **模型服務**：OpenAI 或 Anthropic 相容 API 的 URL 和 key。
-- **GitHub**（選填）：fine-grained token，只開需要的 repo。
 - **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
+- **GitHub**（選填）：fine-grained token，只開需要的 repo。
+- **Google Cloud**（選填）：貼上 `gcloud auth application-default login` 產生的 `application_default_credentials.json`，或 service account 金鑰；可以設預設專案。
+- **背景執行**：允許通知，並讓 app 不受電池最佳化限制。
 
-每一組都有「測試連線」按鈕。
+每一組都有「測試連線」，設定頁最下面顯示目前安裝的版本（commit 和建置時間）。
 
 ## 安裝 sandbox 主機
 
@@ -117,11 +144,13 @@ sandbox/install.sh
 這個腳本會：
 - **Mac**：開一個專用的 colima VM（`pi-sandbox`，4 核、4 GB、40 GB），容器跑在這個 VM 裡，跟 Mac 本身隔了一層 VM。relay 用 launchd 在登入時啟動，log 在 `~/Library/Logs/pi-sandbox-relay.log`。
 - **Linux**：用目前使用者的 rootless Docker，relay 是 systemd user service。
-- 建置 `pi-sandbox`（Debian 13、Node 24、Python 3.13 + uv、pnpm、git、gh、sqlite3、ImageMagick、ffmpeg、pandoc、Noto CJK 字型等）和 `pi-egress`（mitmproxy 12.2.3 加 addon）兩個 image。
+- 建置兩個 image：
+  - `pi-sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
+  - `pi-egress`：mitmproxy 12.2.3 加 `credentials.py`。
 - 第一次安裝時在 `~/.config/pi-sandbox/env` 產生 `RELAY_TOKEN` 和 `EGRESS_SECRET`。
 - 最後印出**配對 QR code** 和 `pimobile://pair?...` 連結。用手機相機掃描，pi mobile 會先測試連線、問你一次，然後自動填好設定。
 
-之後要再印一次配對碼：
+再跑一次 `install.sh` 就是更新，token 會保留，不用重新配對。之後要再印一次配對碼：
 
 ```sh
 node --env-file=$HOME/.config/pi-sandbox/env ~/pi-sandbox/relay/pair.mjs
@@ -140,8 +169,12 @@ CDP_PORT=9333 ./test/ui.sh 'async () => { click("新對話"); return messages();
 # Sandbox 連線
 SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... node test/sandbox-node.ts
 
-# GitHub egress：這支腳本扮演手機，唯一放行的寫入是無害的 POST /markdown
+# GitHub egress：腳本扮演手機，唯一放行的寫入是無害的 POST /markdown
 SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token) node test/egress-node.ts
+
+# gcloud egress：腳本扮演手機並拒絕所有寫入，唯一嘗試的寫入是刪除一個不存在的 bucket
+SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GCLOUD_TOKEN=$(gcloud auth print-access-token) \
+  GCLOUD_PROJECT=<專案> node test/gcloud-node.ts
 ```
 
 ## 安全模型
@@ -149,17 +182,21 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token)
 | 資料 | 存放位置 |
 |---|---|
 | 對話、執行狀態 | 手機的 SQLite（未加密，`allowBackup=false`，不會進雲端備份） |
-| 模型服務 API key、GitHub token、relay token | Android Keystore（`capacitor-secure-storage`） |
-| GitHub token（sandbox 用） | 手機連線期間（加 10 分鐘）在 relay 的記憶體；不進容器、不寫進主機硬碟 |
+| 模型服務 key、GitHub token、relay token、Google 憑證 | Android Keystore（`capacitor-secure-storage`） |
+| GitHub token（sandbox 用） | 手機連線期間加 10 分鐘，放在 relay 的記憶體 |
+| Google access token | relay 的記憶體，最多一小時；長期憑證不離開手機 |
 | Sandbox 檔案 | 主機上每個對話一個 Docker volume；重置 sandbox 會刪除 |
 
-- 所有 GitHub 寫入都要在手機上核准，包括 `github_api` 工具和 sandbox 裡的 git、gh。
+- 所有 GitHub 和 Google Cloud 的寫入都要在手機上核准，包括 sandbox 裡的 git、gh、gcloud，以及手機上的 `github_api` 工具。
 - App 允許明文 HTTP（`network_security_config.xml`），因為自架的模型 gateway 和 relay 通常只透過 Tailscale 連線。
-- 能登入主機 `agent` 帳號的人可以讀到 relay 記憶體裡的 GitHub token，以及 egress 的 CA 私鑰。
+- 能登入 sandbox 主機那個帳號的人，可以讀到 relay 記憶體裡的 token，以及 egress 的 CA 私鑰。
+- Release 版用 debug keystore 簽章，WebView 遠端除錯開著：能用 adb 連上手機的人可以操作 app。
 
 ## 已知限制
 
-- 只有 Android，iOS 需要 Xcode 和 Apple Team ID，還沒做。
+- 只有 Android。iOS 需要 Xcode 和 Apple Team ID，還沒做。
 - Sandbox image 只有 arm64（打包 `pi-env-linux-arm64`）。
 - Sandbox 沒有互動式終端機（PTY），vim、REPL 這類程式不能用。
-- 無線偵錯的 port 每次重開都會變。
+- `az`、`aws` 還沒支援。
+- 只用自架 gateway（CLIProxyAPI）實測過，直連 OpenAI、Anthropic 官方 API 還沒測。
+- 鎖屏時，手機的網路偶爾會短暫中斷，正在跑的 sandbox 指令會失敗，agent 會自己重試。
