@@ -359,6 +359,7 @@ export function SettingsView({
 							只屬於<em>你</em>。
 						</h2>
 						<p>填上模型服務就能開始。對話和金鑰都只存在這支手機上。</p>
+						<p className="unofficial">非官方社群專案，與 pi 官方（Earendil）無關。</p>
 					</div>
 				)}
 				{status ? <div className="banner error">{status}</div> : null}
@@ -499,7 +500,11 @@ export function SettingsView({
 					)}
 				</Group>
 				<BackgroundGroup />
-				<p className="about">pi mobile · {__BUILD__}</p>
+				<p className="about">
+					pi mobile · 非官方社群專案，與 pi 官方無關
+					<br />
+					{__BUILD__}
+				</p>
 			</form>
 		</div>
 	);

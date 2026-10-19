@@ -562,3 +562,4 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sign-in p { margin: 0; }
 .dialog-actions.inline { padding: 0; }
 .user-code { font-family: var(--mono); font-size: 26px; letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
+.welcome .unofficial { margin-top: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--faint); }

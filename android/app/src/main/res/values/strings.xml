@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">pi mobile</string>
-    <string name="title_activity_main">pi mobile</string>
+    <string name="title_activity_main">pi mobile（非官方）</string>
     <string name="package_name">dev.geminixiang.pimobile</string>
     <string name="custom_url_scheme">dev.geminixiang.pimobile</string>
 </resources>
