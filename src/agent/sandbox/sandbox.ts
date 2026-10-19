@@ -81,9 +81,10 @@ export const SandboxExtension = defineExtension({
 			"sandbox",
 			() =>
 				[
-					"read, write, edit, and bash run in this conversation's own Linux sandbox, not on the phone:",
-					"a Debian container (arm64) on the user's Raspberry Pi with Node 22, Python 3.11, git, build-essential, ripgrep, and internet access.",
-					`The working directory is ${WORKSPACE}; its files persist for this conversation. Commands run as root inside the container.`,
+					"read, write, edit, and bash run in this conversation's own Linux sandbox on the user's computer, not on the phone:",
+					"a Debian 13 container (arm64) with Node 24 (npm, pnpm), Python 3.13 with uv (`uv run --with pandas script.py` for one-off dependencies; pip works too), git, gh, build-essential, sqlite3, jq, ripgrep, fd,",
+					"ImageMagick (`magick`), ffmpeg, pandoc, poppler-utils (pdftotext), Noto CJK fonts, and internet access.",
+					`The working directory is ${WORKSPACE}; its files persist for this conversation and the user can browse them in the app. Commands run as root inside the container.`,
 					"Use it to clone repositories, run code and tests, and process data.",
 					"git and gh are signed in to the user's GitHub account through the sandbox's proxy when GitHub is connected (the GH_TOKEN inside is a placeholder; do not run gh auth login).",
 					"Reads run directly. Writes (git push, gh pr create, gh api with POST/PATCH/PUT/DELETE, GraphQL mutations) wait for the user to approve them on the phone and fail with 'pi mobile: ...' when declined.",

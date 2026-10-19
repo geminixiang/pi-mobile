@@ -17,6 +17,8 @@ import { Layer } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { notifyAway, setWorking } from "./keepAlive.ts";
+import { listenForPairing, type Pairing } from "./pairing.ts";
+import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, totalUsage } from "./usage.ts";
 
 const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
@@ -157,6 +159,33 @@ export function App() {
 		[runtime, controllerId],
 	);
 
+	// Pairing links from sandbox/install.sh. A link can arrive before settings load (the app was launched with it).
+	const [pairing, setPairing] = useState<Pairing>();
+	useEffect(() => listenForPairing(setPairing), []);
+	const saveRef = useRef<(next: Settings) => Promise<void>>(undefined);
+	useEffect(() => {
+		if (!pairing || !settings) return;
+		setPairing(undefined);
+		void (async () => {
+			let reached: string;
+			try {
+				reached = await checkSandbox(pairing.url, pairing.token);
+			} catch (error) {
+				notify(`連不到 sandbox 主機 ${pairing.name}：${error instanceof Error ? error.message : String(error)}`);
+				return;
+			}
+			const replacing = settings.sandboxUrl && settings.sandboxUrl !== pairing.url;
+			const sure = await ask({
+				title: "使用這台 sandbox 主機？",
+				body: `${pairing.name}（${reached}）。${replacing ? `會取代目前的 ${settings.sandboxUrl}，舊主機上的檔案不會搬過來。` : "每個對話會在這台主機上有自己的 Linux 容器。"}`,
+				confirm: "使用",
+			});
+			if (!sure) return;
+			await saveRef.current?.({ ...settings, sandboxUrl: pairing.url, sandboxToken: pairing.token });
+			notify(`已連上 sandbox 主機 ${pairing.name}`);
+		})();
+	}, [pairing, settings, ask, notify]);
+
 	// Swipe right from the left edge opens the conversation list.
 	const swipe = useRef<{ x: number; y: number }>(undefined);
 
@@ -170,6 +199,8 @@ export function App() {
 	const saveAndRestart = async (next: Settings) => {
 		await saveSettings(next);
 		setSettings(next);
+		// First run: a paired sandbox is saved, but the agent starts only once the model service is filled in.
+		if (!isConfigured(next)) return;
 		setOverlay(undefined);
 		controller?.dispose();
 		setController(undefined);
@@ -178,13 +209,27 @@ export function App() {
 		setRuntime(undefined);
 		await start(next);
 	};
+	saveRef.current = saveAndRestart;
 
 	if (!runtime) {
 		if (isConfigured(settings) && !openError) return splash;
 		// First run, or the runtime could not open: settings are the whole screen.
 		return (
 			<div className="app">
-				<SettingsView initial={settings} status={openError} onSave={saveAndRestart} />
+				{/* Remount when pairing fills in the sandbox, so the form shows it. */}
+				<SettingsView key={settings.sandboxUrl} initial={settings} status={openError} onSave={saveAndRestart} />
+				{toast ? (
+					<button type="button" className="toast" onClick={() => setToast("")}>
+						{toast}
+					</button>
+				) : null}
+				<Dialog
+					request={dialog?.request}
+					onAnswer={(value) => {
+						dialog?.resolve(value);
+						setDialog(undefined);
+					}}
+				/>
 			</div>
 		);
 	}

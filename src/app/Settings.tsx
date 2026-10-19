@@ -114,15 +114,28 @@ export function SettingsView({
 					<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
 				</Group>
 
-				<Group title="Sandbox" hint="每個對話有自己的 Linux 容器，模型可以用 read、write、edit、bash。留空就不啟用。">
-					<label>
-						<span>Relay</span>
-						<input {...field("sandboxUrl")} placeholder="ws://100.x.y.z:8787" autoCapitalize="off" autoComplete="off" inputMode="url" />
-					</label>
-					<label>
-						<span>Token</span>
-						<input {...field("sandboxToken")} type="password" autoComplete="off" />
-					</label>
+				<Group
+					title="Sandbox"
+					hint="每個對話有自己的 Linux 容器，模型可以用 read、write、edit、bash，git 和 gh 也已登入你的 GitHub。留空就不啟用。"
+				>
+					{settings.sandboxUrl ? null : (
+						<div className="pair-steps">
+							<p>在要當 sandbox 的電腦（Mac 或 Linux，需要 Tailscale）上執行：</p>
+							<pre className="console">sandbox/install.sh</pre>
+							<p>裝好後用手機相機掃描它印出的 QR code，app 會自動填好。</p>
+						</div>
+					)}
+					<details className="manual" open={Boolean(settings.sandboxUrl)}>
+						<summary>{settings.sandboxUrl ? "目前的主機" : "手動輸入"}</summary>
+						<label>
+							<span>Relay</span>
+							<input {...field("sandboxUrl")} placeholder="ws://100.x.y.z:8787" autoCapitalize="off" autoComplete="off" inputMode="url" />
+						</label>
+						<label>
+							<span>Token</span>
+							<input {...field("sandboxToken")} type="password" autoComplete="off" />
+						</label>
+					</details>
 					<CheckButton disabled={!settings.sandboxUrl || !settings.sandboxToken} run={() => checkSandbox(settings.sandboxUrl, settings.sandboxToken)} />
 				</Group>
 			</form>

@@ -6,7 +6,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { WebSocketConnection } from "../src/agent/sandbox/ws-connection.ts";
 
-const relayUrl = process.env.SANDBOX_RELAY ?? "ws://100.121.187.60:8787";
+const relayUrl = process.env.SANDBOX_RELAY ?? "ws://127.0.0.1:8787";
 const relayToken = process.env.SANDBOX_TOKEN;
 const githubToken = process.env.GITHUB_TOKEN;
 if (!relayToken || !githubToken) throw new Error("SANDBOX_TOKEN and GITHUB_TOKEN must be set");

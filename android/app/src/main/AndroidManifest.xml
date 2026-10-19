@@ -23,6 +23,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Pairing links from sandbox/install.sh: pimobile://pair?url=...&token=...&name=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pimobile" android:host="pair" />
+            </intent-filter>
+
         </activity>
 
         <!-- Keeps the agent loop running while the app is in the background or the screen is locked. -->

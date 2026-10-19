@@ -92,7 +92,7 @@ class Session {
 }
 
 export interface WebSocketConnectionOptions {
-	/** Relay base URL, e.g. ws://100.121.187.60:8787 */
+	/** Relay base URL, e.g. ws://100.x.y.z:8787 */
 	relayUrl: string;
 	relayToken: string;
 	/** Sandbox (container) name: lowercase letters, digits, and dashes. */

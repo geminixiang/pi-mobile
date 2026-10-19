@@ -1,10 +1,15 @@
 # Sandbox image: one container per conversation, driven by the pi-env daemon over `docker exec -i`.
-FROM node:22-bookworm-slim
+# A general workbench for the agent: code (Node, Python with uv, build tools), data (sqlite, jq), documents
+# (pandoc, poppler), and media (ImageMagick, ffmpeg), with CJK fonts so rendered charts and images show Chinese.
+FROM node:24-trixie-slim
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
-		build-essential ca-certificates curl file git jq less openssh-client procps \
-		python3 python3-pip python3-venv ripgrep fd-find unzip zip \
+		build-essential ca-certificates curl wget file git jq less openssh-client procps tree rsync unzip zip xz-utils \
+		python3 python3-pip python3-venv python3-dev \
+		ripgrep fd-find sqlite3 \
+		imagemagick ffmpeg pandoc poppler-utils \
+		fonts-noto-cjk \
 	&& ln -s /usr/bin/fdfind /usr/local/bin/fd \
 	&& rm -rf /var/lib/apt/lists/*
 
@@ -16,6 +21,11 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
 		> /etc/apt/sources.list.d/github-cli.list \
 	&& apt-get update && apt-get install -y --no-install-recommends gh \
 	&& rm -rf /var/lib/apt/lists/*
+
+# uv for Python projects and one-off scripts (`uv run --with pandas script.py`), pnpm through corepack.
+COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /usr/local/bin/
+RUN corepack enable pnpm && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version > /dev/null
+ENV UV_LINK_MODE=copy PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Static aarch64 build from @earendil-works/pi-env (bin/pi-env-linux-arm64/pi-env).
 COPY pi-env /usr/local/bin/pi-env

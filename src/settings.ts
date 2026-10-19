@@ -11,7 +11,7 @@ export interface Settings {
 	baseUrl: string;
 	apiKey: string;
 	githubToken: string;
-	/** Sandbox relay, e.g. ws://100.121.187.60:8787; empty disables the sandbox tools. */
+	/** Sandbox relay, e.g. ws://100.x.y.z:8787; empty disables the sandbox tools. */
 	sandboxUrl: string;
 	sandboxToken: string;
 	defaultModelId: string;

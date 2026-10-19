@@ -6,7 +6,7 @@
 
 - **Agent 在手機上跑**：用 [pi-durable](https://pi.dev) 的 harness，對話、執行狀態都存在手機的 SQLite。App 被殺掉或背景回收，下次打開會從中斷的地方繼續。
 - **模型用自己的 key**：透過自架的 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)（OpenAI 相容），key 存在 Android Keystore。
-- **Sandbox 在自己的機器上**：每個對話有一個獨立的 Linux 容器（目前跑在樹莓派上），agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行，不在手機上。
+- **Sandbox 在自己的機器上**：每個對話有一個獨立的 Linux 容器（目前跑在 Mac mini 的 colima VM 裡），agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行，不在手機上。
 - **GitHub 連接器**：REST API 工具，加上 sandbox 裡已登入的 `git` 和 `gh`。所有寫入都要你在手機上按「允許」。
 
 UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https://pi.dev)。
@@ -23,7 +23,7 @@ UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https:/
 │ EgressLink (token、寫入核准) ── WS ─┤                │
 └────────────────────────────────────┼─────────────────┘
                                      │ Tailscale
-┌──────────── 樹莓派 (rootless Docker) ┼─────────────────┐
+┌──────────── Mac mini (colima VM) ────┼─────────────────┐
 │ relay (server.mjs) ◀────────────────┘                 │
 │   ├─ docker exec ─▶ sbx-c<id>: pi-env serve, /workspace │
 │   └─ /egress/authorize ◀─ pi-egress (mitmproxy)        │
@@ -77,7 +77,7 @@ Token 不會進到 sandbox：
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI |
-| `sandbox/` | 樹莓派端：sandbox image、relay、egress proxy、部署腳本 |
+| `sandbox/` | Sandbox 主機端：image、relay、egress proxy、安裝腳本 |
 | `scripts/` | Android 建置與安裝、圖示產生 |
 | `test/` | 裝置上的 UI 測試（CDP）、sandbox 和 egress 的 Node 端到端測試 |
 
@@ -100,31 +100,32 @@ Release 版用本機的 debug keystore 簽章，所以可以直接覆蓋安裝�
 第一次打開時填：
 - **模型服務**：CLIProxyAPI 的 URL 和 API key。
 - **GitHub**（選填）：fine-grained token，只開需要的 repo。
-- **Sandbox**（選填）：relay 的 `ws://<主機>:8787` 和 relay token。
+- **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
 
 每一組都有「測試連線」按鈕。
 
-## 部署 sandbox 主機
+## 安裝 sandbox 主機
 
-目前的主機是 Linux arm64、rootless Docker、Tailscale（樹莓派 5 上測過）。
+主機可以是 Mac（Apple silicon）或 Linux arm64，需要 Node 22+、Tailscale，以及 colima（Mac）或 rootless Docker（Linux）。在主機上執行：
 
 ```sh
-./sandbox/deploy.sh agent@<主機>
+sandbox/install.sh
 ```
 
 這個腳本會：
-- 把 image、relay、egress 檔案複製到主機。
-- 建置 `pi-sandbox`（Debian、Node 22、Python 3、git、gh、ripgrep 等）和 `pi-egress`（mitmproxy 12.2.3 加 addon）兩個 image。
-- 第一次部署時在 `~/.config/pi-sandbox/env` 產生 `RELAY_TOKEN` 和 `EGRESS_SECRET`。
-- 以 systemd user service 啟動 relay。
+- **Mac**：開一個專用的 colima VM（`pi-sandbox`，4 核、4 GB、40 GB），容器跑在這個 VM 裡，跟 Mac 本身隔了一層 VM。relay 用 launchd 在登入時啟動，log 在 `~/Library/Logs/pi-sandbox-relay.log`。
+- **Linux**：用目前使用者的 rootless Docker，relay 是 systemd user service。
+- 建置 `pi-sandbox`（Debian 13、Node 24、Python 3.13 + uv、pnpm、git、gh、sqlite3、ImageMagick、ffmpeg、pandoc、Noto CJK 字型等）和 `pi-egress`（mitmproxy 12.2.3 加 addon）兩個 image。
+- 第一次安裝時在 `~/.config/pi-sandbox/env` 產生 `RELAY_TOKEN` 和 `EGRESS_SECRET`。
+- 最後印出**配對 QR code** 和 `pimobile://pair?...` 連結。用手機相機掃描，pi mobile 會先測試連線、問你一次，然後自動填好設定。
 
-Relay 啟動時會自動建立 `pi-egress` 網路和 proxy 容器。
-
-App 設定裡要填的 relay token：
+之後要再印一次配對碼：
 
 ```sh
-ssh agent@<主機> 'grep RELAY_TOKEN ~/.config/pi-sandbox/env | cut -d= -f2'
+node --env-file=$HOME/.config/pi-sandbox/env ~/pi-sandbox/relay/pair.mjs
 ```
+
+從別台電腦安裝到遠端 Linux 主機：`sandbox/deploy.sh <ssh 目標>`，它會把 `sandbox/` 和 pi-env 複製過去再執行 `install.sh`。
 
 ## 測試
 
@@ -135,10 +136,10 @@ npm run check                                   # 型別檢查
 CDP_PORT=9333 ./test/ui.sh 'async () => { click("新對話"); return messages(); }'
 
 # Sandbox 連線
-SANDBOX_TOKEN=... node test/sandbox-node.ts
+SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... node test/sandbox-node.ts
 
 # GitHub egress：這支腳本扮演手機，唯一放行的寫入是無害的 POST /markdown
-SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token) node test/egress-node.ts
+SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token) node test/egress-node.ts
 ```
 
 ## 安全模型
@@ -158,6 +159,5 @@ SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token) node test/egress-node.ts
 
 - 只有 Android，iOS 需要 Xcode 和 Apple Team ID，還沒做。
 - Sandbox image 只有 arm64（打包 `pi-env-linux-arm64`）。
-- 樹莓派的核心預設沒開 memory cgroup，`--memory` 限制不生效，需要在 `cmdline.txt` 加 `cgroup_enable=memory` 並重開機。
 - Sandbox 沒有互動式終端機（PTY），vim、REPL 這類程式不能用。
 - 無線偵錯的 port 每次重開都會變。
