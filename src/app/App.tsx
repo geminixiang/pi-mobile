@@ -8,12 +8,12 @@ import { Chat, isBusy } from "./Chat.tsx";
 import { ConversationMenu } from "./ConversationMenu.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { ChevronDownIcon, ComposeIcon, MoreIcon } from "./icons.tsx";
+import { ChevronDownIcon, ComposeIcon, MoreIcon, PencilIcon, TrashIcon } from "./icons.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { usePrefs } from "./prefs.ts";
 import { SettingsView } from "./Settings.tsx";
-import { Layer } from "./Sheet.tsx";
+import { Layer, Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { notifyAway, setWorking } from "./keepAlive.ts";
@@ -42,6 +42,7 @@ export function App() {
 	const [toast, setToast] = useState("");
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
+	const [itemActions, setItemActions] = useState<ConversationSummary>();
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
 	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
 		setWorkspaceStart(start);
@@ -318,21 +319,8 @@ export function App() {
 				]}
 				onOpen={(id) => void openConversation(id)}
 				onCreate={() => void newConversation()}
-				onRemove={async (item) => {
-					const sure = await ask({
-						title: "刪除對話",
-						body: `「${item.title}」和它的 sandbox 會一起刪除，無法復原。`,
-						confirm: "刪除",
-						danger: true,
-					});
-					if (!sure) return;
-					await runtime.removeConversation(item.id).catch(fail);
-					if (item.id === controller?.id) {
-						controller.dispose();
-						setController(undefined);
-						setView(undefined);
-					}
-				}}
+				running={busyIds}
+				onActions={setItemActions}
 				onSettings={() => setOverlay("settings")}
 				onClose={close}
 			/>
@@ -396,6 +384,49 @@ export function App() {
 						: undefined,
 				}}
 			/>
+
+			<Sheet open={Boolean(itemActions)} title={itemActions?.title ?? ""} onClose={() => setItemActions(undefined)}>
+				<div className="menu">
+					<button
+						type="button"
+						onClick={async () => {
+							const item = itemActions;
+							setItemActions(undefined);
+							if (!item) return;
+							const title = await ask({ title: "重新命名", confirm: "儲存", input: item.title });
+							if (title) await runtime.renameConversation(item.id, title).catch(fail);
+						}}
+					>
+						<PencilIcon size={18} />
+						<span className="menu-text">重新命名</span>
+					</button>
+					<button
+						type="button"
+						className="danger"
+						onClick={async () => {
+							const item = itemActions;
+							setItemActions(undefined);
+							if (!item) return;
+							const sure = await ask({
+								title: "刪除對話",
+								body: `「${item.title}」和它的 sandbox 會一起刪除，無法復原。`,
+								confirm: "刪除",
+								danger: true,
+							});
+							if (!sure) return;
+							await runtime.removeConversation(item.id).catch(fail);
+							if (item.id === controller?.id) {
+								controller.dispose();
+								setController(undefined);
+								setView(undefined);
+							}
+						}}
+					>
+						<TrashIcon size={18} />
+						<span className="menu-text">刪除</span>
+					</button>
+				</div>
+			</Sheet>
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 

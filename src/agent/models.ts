@@ -74,16 +74,16 @@ function toModel(id: string, baseUrl: string): Model<Api> {
 
 /** Model IDs from the service's /v1/models; favorites first. */
 export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<string[]> {
-	// Bearer for OpenAI-style services, x-api-key and a version for Anthropic's; each ignores the other's headers.
-	const response = await fetch(`${rootUrl(baseUrl)}/v1/models`, {
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"x-api-key": apiKey,
-			"anthropic-version": "2023-06-01",
-			"anthropic-dangerous-direct-browser-access": "true",
-		},
-		signal,
-	});
+	// OpenAI-style auth first. Anthropic headers are only for Anthropic's own API: a gateway that sees them may answer
+	// with its Anthropic catalog alone (CLIProxyAPI then lists only Claude models).
+	const url = `${rootUrl(baseUrl)}/v1/models`;
+	let response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
+	if (response.status === 401 || response.status === 403) {
+		response = await fetch(url, {
+			headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+			signal,
+		});
+	}
 	if (!response.ok) throw new Error(`GET /v1/models: HTTP ${response.status}`);
 	const body = (await response.json()) as { data?: { id: string }[] };
 	const ids = new Set((body.data ?? []).map((model) => model.id));

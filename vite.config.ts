@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -6,6 +7,12 @@ const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, impo
 
 export default defineConfig({
 	plugins: [react()],
+	// Shown in Settings: the commit the build came from, and when it was built.
+	define: {
+		__BUILD__: JSON.stringify(
+			`${execSync("git rev-parse --short HEAD").toString().trim()} · ${new Date().toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}`,
+		),
+	},
 	// Code mode's QuickJS VM runs in a module worker (src/agent/codemode-worker.ts).
 	worker: { format: "es" },
 	resolve: {

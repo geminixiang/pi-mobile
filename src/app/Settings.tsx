@@ -1,4 +1,6 @@
-import { type ReactNode, useState } from "react";
+import { App } from "@capacitor/app";
+import { type ReactNode, useEffect, useState } from "react";
+import { KeepAlive, native } from "./keepAlive.ts";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
@@ -40,6 +42,44 @@ function Group({ title, hint, children }: { title: string; hint?: ReactNode; chi
 			<div className="group-body">{children}</div>
 			{hint ? <p className="hint">{hint}</p> : null}
 		</section>
+	);
+}
+
+/** Notification permission and battery exemption, which background runs depend on. Rechecked when the app resumes. */
+function BackgroundGroup() {
+	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
+	useEffect(() => {
+		if (!native) return;
+		const refresh = () => void KeepAlive.status().then(setStatus);
+		refresh();
+		const listener = App.addListener("resume", refresh);
+		return () => void listener.then((handle) => handle.remove());
+	}, []);
+	if (!status) return null;
+	const row = (label: string, hint: string, on: boolean, fix: () => void) => (
+		<div className="check-row">
+			<span className="menu-text">
+				{label}
+				<span className="menu-hint">{hint}</span>
+			</span>
+			{on ? (
+				<span className="state on">已開啟</span>
+			) : (
+				<button type="button" className="btn" onClick={fix}>
+					開啟
+				</button>
+			)}
+		</div>
+	);
+	return (
+		<Group title="背景執行" hint="agent 執行時，通知列會顯示「pi 工作中」，鎖上螢幕也會繼續跑。">
+			{row("通知", "顯示執行中、完成和需要你確認", status.notifications, () =>
+				void KeepAlive.requestNotifications().then(() => KeepAlive.status().then(setStatus)),
+			)}
+			{row("不受電池最佳化限制", "避免 Samsung 在長時間執行時讓 app 休眠", status.unrestrictedBattery, () =>
+				void KeepAlive.requestUnrestrictedBattery(),
+			)}
+		</Group>
 	);
 }
 
@@ -138,6 +178,8 @@ export function SettingsView({
 					</details>
 					<CheckButton disabled={!settings.sandboxUrl || !settings.sandboxToken} run={() => checkSandbox(settings.sandboxUrl, settings.sandboxToken)} />
 				</Group>
+				<BackgroundGroup />
+				<p className="about">pi mobile · {__BUILD__}</p>
 			</form>
 		</div>
 	);

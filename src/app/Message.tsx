@@ -1,5 +1,5 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { type ComponentProps, useContext, useState } from "react";
+import { type ComponentProps, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
@@ -105,11 +105,24 @@ function toolName(name: string): string {
 	return name;
 }
 
+/** Seconds since this component mounted while `running`, updated every second. */
+function useElapsed(running: boolean): number {
+	const [started] = useState(() => Date.now());
+	const [now, setNow] = useState(started);
+	useEffect(() => {
+		if (!running) return;
+		const timer = setInterval(() => setNow(Date.now()), 1000);
+		return () => clearInterval(timer);
+	}, [running]);
+	return Math.floor((now - started) / 1000);
+}
+
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const status = tone(state);
 	const output = state?.output?.replace(harnessTag, "").trim();
 	const openFile = useContext(OpenFileContext);
+	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
 	return (
 		<div className={`step ${status}`}>
@@ -121,6 +134,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 			<button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!output && call.name !== "codemode"}>
 				<span className="step-name">{toolName(call.name)}</span>
 				<span className="step-label">{callLabel(call.name, call.arguments)}</span>
+				{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
 				{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
 				{status === "error" ? <span className="step-status">失敗</span> : null}
 				{output && status !== "running" ? <ChevronIcon open={open} size={12} /> : null}

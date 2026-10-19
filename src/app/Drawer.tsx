@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { ConversationId, ConversationSummary } from "../agent/runtime.ts";
-import { ComposeIcon, GearIcon, SearchIcon, TrashIcon } from "./icons.tsx";
+import { ComposeIcon, GearIcon, MoreIcon, SearchIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Layer } from "./Sheet.tsx";
 
@@ -28,7 +28,8 @@ export function Drawer({
 	status,
 	onOpen,
 	onCreate,
-	onRemove,
+	onActions,
+	running,
 	onSettings,
 	onClose,
 }: {
@@ -39,7 +40,10 @@ export function Drawer({
 	status: { label: string; on: boolean }[];
 	onOpen: (id: ConversationId) => void;
 	onCreate: () => void;
-	onRemove: (item: ConversationSummary) => void;
+	/** Rename or delete, from the row's menu or a long press. */
+	onActions: (item: ConversationSummary) => void;
+	/** Conversations with a run in progress. */
+	running: ReadonlySet<ConversationId>;
 	onSettings: () => void;
 	onClose: () => void;
 }) {
@@ -86,13 +90,21 @@ export function Drawer({
 						<section key={name}>
 							<h3 className="strip-label">{name}</h3>
 							{items.map((item) => (
-								<div key={String(item.id)} className={`drawer-item${item.id === currentId ? " current" : ""}`}>
+								<div
+									key={String(item.id)}
+									className={`drawer-item${item.id === currentId ? " current" : ""}`}
+									onContextMenu={(event) => {
+										event.preventDefault();
+										onActions(item);
+									}}
+								>
 									<button type="button" className="drawer-open" onClick={() => onOpen(item.id)}>
+										{running.has(item.id) ? <span className="drawer-running" aria-label="執行中" /> : null}
 										<span className="drawer-title">{item.title}</span>
 										<span className="drawer-time">{time(item.updatedAt, now)}</span>
 									</button>
-									<button type="button" className="icon-button small" aria-label={`刪除 ${item.title}`} onClick={() => onRemove(item)}>
-										<TrashIcon size={16} />
+									<button type="button" className="icon-button small" aria-label={`${item.title} 的選項`} onClick={() => onActions(item)}>
+										<MoreIcon />
 									</button>
 								</div>
 							))}

@@ -121,6 +121,9 @@ export function Chat({
 	const running = (live?.tools ?? []).some((tool) => tool.status !== "done");
 	const fail = (error: unknown) => onError(error instanceof Error ? error.message : String(error));
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user");
+	// The run's final answer: the last entry when it is an assistant message with text.
+	const lastEntry = entries.at(-1);
+	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() ? lastEntry : undefined;
 	const scrollToBottom = () => {
 		stickToBottom.current = true;
 		scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -174,6 +177,17 @@ export function Chat({
 				{entries.map((entry) => (
 					<EntryView key={String(entry.id)} entry={entry} prefs={prefs} calls={calls} onActions={setActionsFor} />
 				))}
+				{lastAnswer && !busy ? (
+					<div className="answer-actions">
+						<button
+							type="button"
+							className="btn"
+							onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => onNotice("已複製回答"), fail)}
+						>
+							複製回答
+						</button>
+					</div>
+				) : null}
 				{partial ? <StreamingAnswer content={partial} prefs={prefs} calls={calls} /> : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
