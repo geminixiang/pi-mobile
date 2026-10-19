@@ -20,7 +20,8 @@ import {
 import type { Settings } from "../settings.ts";
 import { cliProxyProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { DeviceExtension } from "./tools/device.ts";
-import { SandboxExtension, SandboxPool, SandboxTools } from "./sandbox/sandbox.ts";
+import { EgressLink } from "./sandbox/egress.ts";
+import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -97,12 +98,24 @@ export class AgentRuntime {
 	readonly #settings: Settings;
 	readonly #sandbox: SandboxPool | undefined;
 	#indexListeners = new Set<(items: ConversationSummary[]) => void>();
+	/** Latest conversation list, to name a sandbox in a GitHub write approval. */
+	#titles = new Map<string, string>();
+	#egress: EgressLink | undefined;
 
 	private constructor(harness: Harness, settings: Settings, models: ModelInfo[], sandbox: SandboxPool | undefined) {
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
 		this.#sandbox = sandbox;
+		if (sandbox) {
+			this.#egress = new EgressLink({
+				relayUrl: settings.sandboxUrl,
+				relayToken: settings.sandboxToken,
+				githubToken: settings.githubToken || undefined,
+				describe: (name) => this.#titles.get(name),
+			});
+			void this.#publishIndex();
+		}
 	}
 
 	get hasSandbox(): boolean {
@@ -170,6 +183,7 @@ export class AgentRuntime {
 
 	async #publishIndex(): Promise<void> {
 		const items = await this.conversations();
+		this.#titles = new Map(items.map((item) => [sandboxName(item.id), item.title]));
 		for (const listener of this.#indexListeners) listener(items);
 	}
 
@@ -219,27 +233,34 @@ export class AgentRuntime {
 		const conversation: Conversation | undefined = await this.#harness.conversation(id, context);
 		if (!conversation) throw new Error(`Unknown conversation ${id}`);
 		const view = await conversation.viewState(context);
+		// Submissions still on their way to storage; stop waits for them so a queued message is never lost.
+		const inFlight = new Set<Promise<unknown>>();
 		return {
 			id,
 			subscribe: (listener) => {
 				listener(view.value);
 				return view.subscribe(listener);
 			},
-			send: async (content, whenBusy = "steer") => {
+			send: (content, whenBusy = "steer") => {
 				const text = content.find((part): part is TextContent => part.type === "text")?.text.trim() ?? "";
-				await this.#editIndex((items) => {
-					const item = items.find((candidate) => candidate.id === id);
-					if (!item) return;
-					item.updatedAt = Date.now();
-					if (item.title === NEW_TITLE && text) item.title = text.length > 24 ? `${text.slice(0, 24)}…` : text;
-				});
-				await conversation.submit({ type: "input", content, whenBusy }, context);
+				const submitted = (async () => {
+					await this.#editIndex((items) => {
+						const item = items.find((candidate) => candidate.id === id);
+						if (!item) return;
+						item.updatedAt = Date.now();
+						if (item.title === NEW_TITLE && text) item.title = text.length > 24 ? `${text.slice(0, 24)}…` : text;
+					});
+					await conversation.submit({ type: "input", content, whenBusy }, context);
+				})();
+				inFlight.add(submitted);
+				return submitted.finally(() => inFlight.delete(submitted));
 			},
 			withdraw: async (submissionId) => {
 				await this.#harness.abortSubmission(submissionId, context, id);
 			},
 			stop: async () => {
 				// Withdraw queued input first: an abort alone would let the next queued item start a new run.
+				await Promise.allSettled(inFlight);
 				const inbox = await this.#harness.snapshot(InboxDoc, id, context);
 				const returned: string[] = [];
 				for (const item of inbox?.items ?? []) {
@@ -283,6 +304,7 @@ export class AgentRuntime {
 
 	async close(): Promise<void> {
 		await this.#harness.close(context);
+		this.#egress?.close();
 		this.#sandbox?.close();
 	}
 }
