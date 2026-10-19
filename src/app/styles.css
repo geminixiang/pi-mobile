@@ -76,6 +76,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: none; padding: 0; text-align: inherit; }
@@ -518,3 +519,15 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .diff-text { padding-right: 14px; color: var(--text); }
 .diff-hunk { padding: 4px 12px; font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-soft); white-space: pre; }
 .step .console.script { margin-bottom: 4px; border-left: 2px solid var(--accent); color: var(--console-text); opacity: 0.85; }
+
+/* Dictation: replaces the input row while the system recognizer listens. */
+.send.mic { background: transparent; color: var(--accent); }
+.send.mic:active { background: var(--accent-soft); }
+.dictation { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px 6px 12px; }
+.dictation-meter { display: inline-flex; align-items: flex-end; gap: 3px; height: 18px; flex-shrink: 0; }
+.dictation-meter i { width: 4px; background: var(--line-strong); transition: background 80ms linear; }
+.dictation-meter i:nth-child(1) { height: 6px; } .dictation-meter i:nth-child(2) { height: 9px; } .dictation-meter i:nth-child(3) { height: 12px; }
+.dictation-meter i:nth-child(4) { height: 15px; } .dictation-meter i:nth-child(5) { height: 18px; }
+.dictation-meter i.on { background: var(--accent); }
+.dictation-text { flex: 1; min-width: 0; font-size: 15px; line-height: 1.4; color: var(--text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.dictation .btn { height: 34px; padding: 0 10px; }

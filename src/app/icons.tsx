@@ -183,3 +183,9 @@ export const ArrowIcon = () => (
 		<path d="M5 12h14M13 6l6 6-6 6" />
 	</Icon>
 );
+export const MicIcon = ({ size = 22 }: { size?: number }) => (
+	<Icon size={size}>
+		<rect x="9" y="3.5" width="6" height="11" rx="3" />
+		<path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V20.5" />
+	</Icon>
+);

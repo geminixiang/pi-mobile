@@ -206,6 +206,7 @@ export function Chat({
 					}
 				}}
 				onWithdraw={(id) => controller.withdraw(id).catch(fail)}
+				onNotice={onNotice}
 			/>
 
 			<Sheet open={Boolean(actionsFor)} title={actionsFor?.kind === "pi.user" ? "你的訊息" : "回答"} onClose={() => setActionsFor(undefined)}>

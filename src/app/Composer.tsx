@@ -1,7 +1,8 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { useEffect, useRef, useState } from "react";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { CloseIcon, ImageIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { CloseIcon, ImageIcon, MicIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { useDictation } from "./voice.ts";
 
 const MAX_IMAGE_EDGE = 1600;
 
@@ -34,6 +35,7 @@ export function Composer({
 	onSend,
 	onStop,
 	onWithdraw,
+	onNotice,
 }: {
 	busy: boolean;
 	draft: string;
@@ -44,11 +46,20 @@ export function Composer({
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
+	onNotice: (message: string) => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>([]);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const hasInput = draft.trim() !== "" || images.length > 0;
+	const latestDraft = useRef(draft);
+	latestDraft.current = draft;
+	const dictation = useDictation((text) => {
+		const current = latestDraft.current;
+		onDraftChange(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`);
+		textArea.current?.focus();
+	}, onNotice);
+	const listening = dictation.state !== "idle";
 
 	useEffect(() => {
 		if (!focusKey) return;
@@ -103,7 +114,25 @@ export function Composer({
 						))}
 					</div>
 				) : null}
-				<div className="input-row">
+				{listening ? (
+					<div className="dictation" aria-live="polite">
+						<span className="dictation-meter" aria-hidden="true">
+							{[0.15, 0.35, 0.55, 0.75, 0.95].map((threshold) => (
+								<i key={threshold} className={dictation.level >= threshold ? "on" : ""} />
+							))}
+						</span>
+						<span className="dictation-text">
+							{dictation.partial || (dictation.state === "starting" ? "準備中…" : "請說話…")}
+						</span>
+						<button type="button" className="btn" onClick={dictation.cancel}>
+							取消
+						</button>
+						<button type="button" className="btn primary" onClick={dictation.stop}>
+							完成
+						</button>
+					</div>
+				) : null}
+				<div className="input-row" hidden={listening}>
 					<button type="button" className="icon-button" onClick={() => fileInput.current?.click()} aria-label="附加圖片">
 						<ImageIcon />
 					</button>
@@ -128,7 +157,11 @@ export function Composer({
 						placeholder={busy ? "插話，或排一個下一步" : "問 pi"}
 						onChange={(event) => onDraftChange(event.target.value)}
 					/>
-					{!busy ? (
+					{!busy && !hasInput && dictation.supported ? (
+						<button type="button" className="send mic" onClick={dictation.start} aria-label="語音輸入">
+							<MicIcon />
+						</button>
+					) : !busy ? (
 						<button type="button" className="send" onClick={() => send("steer")} disabled={!hasInput} aria-label="送出">
 							<SendIcon />
 						</button>
