@@ -1,20 +1,37 @@
 <p align="center"><img src="assets/icon.svg" width="96" alt="pi mobile"></p>
 
-# pi mobile
+<h1 align="center">pi mobile</h1>
 
-把 agent 放進口袋：一個在手機上直接跑 agent loop 的 Android app，給自己用。
+<p align="center">把 coding agent 放進口袋：agent loop 直接跑在你的 Android 手機上，<br>程式碼在你自己電腦上的 sandbox 裡執行，憑證和對話都不經過第三方。</p>
 
-- **Agent 在手機上跑**：用 [pi-durable](https://pi.dev) 的 harness，對話和執行狀態都存在手機的 SQLite。鎖上螢幕或切到背景時會繼續跑；就算 app 被系統殺掉，下次打開也會從中斷的地方接著跑。
-- **模型用自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）、OpenAI、Anthropic。
-- **Sandbox 在自己的電腦上**：每個對話有一個獨立的 Linux 容器，agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行。用一支腳本安裝，手機掃 QR code 配對。
-- **憑證不進 sandbox**：sandbox 裡的 `git`、`gh`、`gcloud`、`cf`、`wrangler`、`az` 都已登入你的帳號，但 token 由中間的 proxy 注入，容器裡只有佔位字串。所有寫入都要你在手機上按「允許」。
+<p align="center">
+<img src="docs/screenshots/home.png" width="200" alt="首頁">
+<img src="docs/screenshots/chat.png" width="200" alt="對話：在 sandbox 畫圖">
+<img src="docs/screenshots/changes.png" width="200" alt="工作區：git 變更">
+<img src="docs/screenshots/diff.png" width="200" alt="工作區：diff">
+</p>
 
-UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https://pi.dev)。
+pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https://pi.dev) 的 harness 在手機上跑 agent，用 [pi-env](https://pi.dev) 把 `read`、`write`、`edit`、`bash` 接到你自己電腦上的 Linux 容器。介面是繁體中文。
+
+- **Agent 在手機上跑**：對話和執行狀態存在手機的 SQLite。鎖上螢幕或切到背景時會繼續跑；就算 app 被系統殺掉，下次打開也會從中斷的地方接著跑。
+- **模型用你自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如 OpenAI、Anthropic，或自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）。
+- **Sandbox 在你自己的電腦上**：每個對話有一個獨立的 Linux 容器。主機端一支腳本安裝，手機掃 QR code 配對。
+- **憑證不進 sandbox**：容器裡的 `git`、`gh`、`gcloud`、`cf`、`wrangler`、`az` 都已登入你的帳號，但 token 由中間的 proxy 注入，容器裡只有佔位字串。**所有寫入都要你在手機上按「允許」**。
+
+> 這是個人專案，還在早期。它會用你的帳號執行指令，請先讀過[安全模型](#安全模型)。
+
+## 開始使用
+
+1. **安裝 app**：從 [Releases](../../releases) 下載 `pi-mobile-<版本>.apk` 安裝（需要允許「安裝未知應用程式」）。需要 Android 7.0 以上、arm64 手機。
+2. **填模型服務**：第一次打開時，填上 OpenAI 或 Anthropic 相容 API 的網址和 key，按「開始」。到這一步就能聊天、搜尋網路、在手機上跑 code mode 腳本。
+3. **（選用）安裝 sandbox 主機**：要讓 agent 跑指令、改程式碼，在一台 Mac 或 Linux 電腦上執行 `sandbox/install.sh`（見[安裝 sandbox 主機](#安裝-sandbox-主機)），再用手機相機掃它印出的 QR code。手機和主機要在同一個 [Tailscale](https://tailscale.com) 網路（或區網）。
+4. **（選用）連接帳號**：在設定裡連接 GitHub、Google Cloud、Cloudflare、Azure，sandbox 裡對應的 CLI 就會以你的身分運作。
+5. **背景執行**：設定頁「背景執行」裡允許通知，並讓 app 不受電池最佳化限制，長任務在鎖屏時才不會被系統暫停。
 
 ## 功能
 
 **對話**
-- 多個對話，依日期分組，可以搜尋；每個對話的 ⋯ 選單（或長按）可以重新命名、刪除；執行中的對話有閃爍標記。
+- 多個對話，依日期分組，可以搜尋、重新命名、刪除；執行中的對話有閃爍標記。
 - 模型和思考強度選單，模型清單取自模型服務的 `/v1/models`。
 - Agent 工作時可以「插話」（插到下一輪工具之後）或「稍後」（等這次跑完）。排隊的訊息可以撤回；按停止時，排隊的訊息會放回輸入框。
 - 點自己的訊息可以複製，或「從這裡分支」開新對話。
@@ -56,7 +73,7 @@ UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https:/
 │ AgentService（前景服務，背景執行）          │                    │
 └──────────────────────────────────────────┼───────────────────┘
                                            │ Tailscale
-┌───────── Sandbox 主機（Mac：colima VM）──┼───────────────────┐
+┌───────── Sandbox 主機（Mac：colima VM；Linux：rootless Docker）┐
 │ relay (server.mjs) ◀─────────────────────┘                   │
 │   ├─ docker exec ─▶ sbx-c<id>：pi-env serve，/workspace        │
 │   └─ /egress/authorize ◀── pi-egress（mitmproxy）              │
@@ -77,7 +94,7 @@ Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i 
 
 ### 憑證與 egress proxy
 
-每個 sandbox 的 HTTP(S) 流量都經過 `pi-egress`（mitmproxy + `sandbox/egress/credentials.py`）。它只攔下面兩類主機，其他網站（pip、npm、apt）直接放行、不解密。Proxy 的 CA 在容器第一次連線時裝進去。
+每個 sandbox 的 HTTP(S) 流量都經過 `pi-egress`（mitmproxy + `sandbox/egress/credentials.py`）。它只攔下表裡的主機，其他網站（pip、npm、apt）直接放行、不解密。Proxy 的 CA 在容器第一次連線時裝進去。
 
 | | GitHub | Google Cloud | Cloudflare | Azure |
 |---|---|---|---|---|
@@ -91,6 +108,8 @@ Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i 
 Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不走 `HTTPS_PROXY`，不設的話 `cf` 這類工具會繞過 proxy。
 
 被拒絕時，git、gh、gcloud、cf、wrangler、az 都會顯示 `pi mobile: 使用者拒絕了這個寫入`。手機沒連上時，讀取不帶憑證送出，寫入一律拒絕。
+
+**登入用的 OAuth client**：Google、Cloudflare、Azure 的 app 內登入，借用的是各家官方 CLI 公開發布的 client（`gcloud auth application-default login`、`cf auth login`、`az login` 用的同一組），所以同意頁上顯示的是那些 CLI 的名稱。這讓你不用自己去各家註冊 OAuth app；代價是哪天供應商限制這些 client，登入就可能失效。
 
 ## 專案結構
 
@@ -111,10 +130,10 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts`、`pairing.ts` 是對應 Android 原生功能的那一層 |
 | `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java` | 前景服務與通知、語音辨識 |
 | `sandbox/` | Sandbox 主機端：image、relay、egress proxy、安裝腳本 |
-| `scripts/` | Android 建置與安裝、圖示產生 |
+| `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
 | `test/` | 手機上的 UI 測試（CDP）、sandbox、GitHub 和 gcloud egress 的 Node 端到端測試 |
 
-## 建置與安裝 app
+## 從原始碼建置 app
 
 需要：
 - Node 24
@@ -128,7 +147,15 @@ npm ci --ignore-scripts
 ./scripts/run-android.sh <adb serial> # 安裝、重開 app、轉發 WebView DevTools
 ```
 
-Release 版用本機的 debug keystore 簽章，所以可以直接覆蓋安裝，不會刪掉手機上的對話。WebView 遠端除錯是開著的，方便用 `test/ui.sh` 在手機上操作測試。
+`build-android.sh` 是**開發版**：用本機的 debug keystore 簽章，所以可以反覆覆蓋安裝而不刪掉手機上的對話；WebView 遠端除錯是開著的，方便用 `test/ui.sh` 在手機上操作測試。
+
+發布用的版本：
+
+```sh
+./scripts/release-android.sh   # 產生 pi-mobile-<package.json 版本>.apk，印出 SHA-256
+```
+
+它用 `~/.config/pi-mobile/release.env` 指定的私鑰簽章（金鑰不在 repo 裡），**關閉遠端除錯**，並從 `package.json` 帶入版本號。不同金鑰簽的 APK 不能互相覆蓋安裝，要先移除舊的（手機上的對話會一起刪掉）。
 
 第一次打開時填：
 - **模型服務**：OpenAI 或 Anthropic 相容 API 的 URL 和 key。
@@ -202,7 +229,9 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... CLOUDFLARE_TOKEN=<access toke
 - 所有 GitHub、Google Cloud、Cloudflare、Azure 的寫入都要在手機上核准，包括 sandbox 裡的 git、gh、gcloud、cf、wrangler、az，以及手機上的 `github_api` 工具。
 - App 允許明文 HTTP（`network_security_config.xml`），因為自架的模型 gateway 和 relay 通常只透過 Tailscale 連線。
 - 能登入 sandbox 主機那個帳號的人，可以讀到 relay 記憶體裡的 token，以及 egress 的 CA 私鑰。
-- Release 版用 debug keystore 簽章，WebView 遠端除錯開著：能用 adb 連上手機的人可以操作 app。
+- Relay 用一個 token 驗證手機，用明文 WebSocket 傳輸；請只在 Tailscale 這類加密的私人網路上使用，不要把 relay 開到公網。
+- 發布版關閉 WebView 遠端除錯。開發版（`build-android.sh`）是開著的：能用 adb 連上手機的人可以操作 app。
+- Agent 拿得到你給它的權限：GitHub 建議用只開必要 repo 的 fine-grained token；雲端帳號建議用權限小的專案或訂閱。
 
 ## 已知限制
 
@@ -212,4 +241,5 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... CLOUDFLARE_TOKEN=<access toke
 - `aws` 還沒支援。
 - `az` 在 sandbox 裡是 managed identity，所以 `az ad signed-in-user show` 這類「我是誰」的指令不能用；還沒在有訂閱的帳號上測過建立資源。
 - 只用自架 gateway（CLIProxyAPI）實測過，直連 OpenAI、Anthropic 官方 API 還沒測。
+- 介面只有繁體中文。
 - 鎖屏時，手機的網路偶爾會短暫中斷，正在跑的 sandbox 指令會失敗，agent 會自己重試。

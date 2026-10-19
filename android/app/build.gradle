@@ -7,10 +7,11 @@ android {
         applicationId "dev.geminixiang.pimobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // From scripts/release-android.sh (package.json version); development builds stay at 1 / "dev".
+        versionCode Integer.parseInt(System.getenv("PI_MOBILE_VERSION_CODE") ?: "1")
+        versionName System.getenv("PI_MOBILE_VERSION_NAME") ?: "dev"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // Only 64-bit ARM: the S24 and the Apple-silicon emulator. Drops three copies of the SQLite native library.
+        // Only 64-bit ARM: current Android phones and the Apple-silicon emulator. Drops three copies of the SQLite native library.
         ndk {
             abiFilters 'arm64-v8a'
         }
@@ -21,6 +22,16 @@ android {
         }
     }
     signingConfigs {
+        // Published releases: a private key outside the repo (scripts/release-android.sh reads its env file).
+        published {
+            def keystore = System.getenv("PI_MOBILE_KEYSTORE")
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv("PI_MOBILE_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("PI_MOBILE_KEY_ALIAS")
+                keyPassword System.getenv("PI_MOBILE_KEYSTORE_PASSWORD")
+            }
+        }
         // Personal sideloaded app: sign release builds with the local debug key, so a release build installs over a
         // debug build without uninstalling (which would delete the on-device conversations).
         sideload {
@@ -34,7 +45,7 @@ android {
         release {
             minifyEnabled true
             shrinkResources true
-            signingConfig signingConfigs.sideload
+            signingConfig System.getenv("PI_MOBILE_KEYSTORE") ? signingConfigs.published : signingConfigs.sideload
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

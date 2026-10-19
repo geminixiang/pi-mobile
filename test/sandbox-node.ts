@@ -1,6 +1,6 @@
 // Node check of the sandbox path: WebSocketConnection -> relay -> container pi-env, driven by pi-env's
 // RemoteExecutionEnv and Durable's env conformance-style operations.
-// Usage: SANDBOX_RELAY=ws://100.121.187.60:8787 SANDBOX_TOKEN=... node test/sandbox-node.ts
+// Usage: SANDBOX_RELAY=ws://<host>:8787 SANDBOX_TOKEN=... node test/sandbox-node.ts
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { WebSocketConnection } from "../src/agent/sandbox/ws-connection.ts";

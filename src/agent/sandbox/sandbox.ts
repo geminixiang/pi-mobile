@@ -1,4 +1,4 @@
-// Remote sandbox: a Linux container per conversation on the user's own machine (a Raspberry Pi over Tailscale),
+// Remote sandbox: a Linux container per conversation on the user's own machine (a Mac or Linux host over Tailscale),
 // reached through the relay in sandbox/relay. Durable's coding tools (read, write, edit, bash) run there.
 import type { ConversationId } from "@earendil-works/pi-durable";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
