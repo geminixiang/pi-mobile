@@ -1,8 +1,17 @@
 import { App } from "@capacitor/app";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
-import { checkGcloud, describeCredential, parseCredential } from "../agent/gcloud.ts";
+import {
+	checkGcloud,
+	describeCredential,
+	finishGoogleSignIn,
+	type GoogleSignIn,
+	looksLikeAuthCode,
+	parseCredential,
+	startGoogleSignIn,
+} from "../agent/gcloud.ts";
+import { registerPlugin } from "@capacitor/core";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -30,6 +39,87 @@ function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: 
 			</button>
 			{check.state === "ok" ? <span className="check-ok">{check.detail}</span> : null}
 			{check.state === "error" ? <span className="check-error">{check.detail}</span> : null}
+		</div>
+	);
+}
+
+const System = registerPlugin<{ openExternal(options: { url: string }): Promise<void>; clipboardText(): Promise<{ text: string }> }>(
+	"System",
+);
+
+/**
+ * Sign in with Google: opens Google's consent page in the browser; its last page shows an authorization code. When the
+ * user copies it and comes back, the app finds it on the clipboard; pasting by hand works too.
+ */
+function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
+	const [signIn, setSignIn] = useState<GoogleSignIn>();
+	const [code, setCode] = useState("");
+	const [state, setState] = useState<{ busy?: boolean; error?: string }>({});
+
+	const finish = async (value: string) => {
+		if (!signIn || !value.trim()) return;
+		setState({ busy: true });
+		try {
+			onCredential(await finishGoogleSignIn(signIn, value));
+			setSignIn(undefined);
+			setCode("");
+			setState({});
+		} catch (error) {
+			setState({ error: error instanceof Error ? error.message : String(error) });
+		}
+	};
+	const finishRef = useRef(finish);
+	finishRef.current = finish;
+
+	useEffect(() => {
+		if (!signIn) return;
+		const listener = App.addListener("resume", async () => {
+			// Android only lets the focused app read the clipboard, and focus arrives a moment after resume.
+			await new Promise((resolve) => setTimeout(resolve, 400));
+			const { text } = await System.clipboardText().catch(() => ({ text: "" }));
+			if (looksLikeAuthCode(text)) {
+				setCode(text.trim());
+				void finishRef.current(text);
+			}
+		});
+		return () => void listener.then((handle) => handle.remove());
+	}, [signIn]);
+
+	if (!signIn) {
+		return (
+			<div className="check-row">
+				<span className="menu-text">
+					用 Google 帳號登入
+					<span className="menu-hint">在瀏覽器選帳號並同意，最後一頁會出現授權碼，複製後回到這裡</span>
+				</span>
+				<button
+					type="button"
+					className="btn primary"
+					onClick={async () => {
+						const next = await startGoogleSignIn();
+						setSignIn(next);
+						setState({});
+						await System.openExternal({ url: next.url });
+					}}
+				>
+					登入
+				</button>
+			</div>
+		);
+	}
+	return (
+		<div className="sign-in">
+			<p>在瀏覽器完成登入，複製最後一頁的授權碼，回到 app 會自動帶入。也可以貼在這裡：</p>
+			<input className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
+			{state.error ? <div className="check-error">{state.error}</div> : null}
+			<div className="dialog-actions inline">
+				<button type="button" className="btn" onClick={() => setSignIn(undefined)}>
+					取消
+				</button>
+				<button type="button" className="btn primary" disabled={!code.trim() || state.busy} onClick={() => void finish(code)}>
+					{state.busy ? "登入中…" : "完成"}
+				</button>
+			</div>
 		</div>
 	);
 }
@@ -202,18 +292,24 @@ export function SettingsView({
 							</button>
 						</div>
 					) : (
-						<label>
-							<span>憑證 JSON</span>
-							<textarea
-								className="field json"
-								rows={4}
-								value={settings.gcloudCredential}
-								onChange={(event) => setSettings({ ...settings, gcloudCredential: event.target.value.trim() })}
-								placeholder="貼上 application_default_credentials.json（gcloud auth application-default login 產生）或 service account 金鑰"
-								autoCapitalize="off"
-								spellCheck={false}
-							/>
-						</label>
+						<>
+							<GoogleSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, gcloudCredential: json }))} />
+							<details className="manual">
+								<summary>改用 service account 金鑰</summary>
+								<label>
+									<span>憑證 JSON</span>
+									<textarea
+										className="field json"
+										rows={4}
+										value={settings.gcloudCredential}
+										onChange={(event) => setSettings({ ...settings, gcloudCredential: event.target.value.trim() })}
+										placeholder="貼上 service account 金鑰，或 application_default_credentials.json"
+										autoCapitalize="off"
+										spellCheck={false}
+									/>
+								</label>
+							</details>
+						</>
 					)}
 					<label>
 						<span>預設專案</span>

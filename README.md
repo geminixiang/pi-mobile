@@ -97,7 +97,7 @@ Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i 
 | `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
 | `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch` |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
-| `src/agent/gcloud.ts` | Google 憑證：refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
+| `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
 | `src/agent/sandbox/` | `ws-connection.ts`（pi-env over WebSocket）、`sandbox.ts`（每個對話的 env 和環境說明）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
 | `src/storage.ts` | pi-durable 的 SQLite adapter（Capacitor SQLite，WAL） |
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
@@ -128,7 +128,7 @@ Release 版用本機的 debug keystore 簽章，所以可以直接覆蓋安裝�
 - **模型服務**：OpenAI 或 Anthropic 相容 API 的 URL 和 key。
 - **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
 - **GitHub**（選填）：fine-grained token，只開需要的 repo。
-- **Google Cloud**（選填）：貼上 `gcloud auth application-default login` 產生的 `application_default_credentials.json`，或 service account 金鑰；可以設預設專案。
+- **Google Cloud**（選填）：按「登入」用 Google 帳號登入。瀏覽器最後一頁會顯示授權碼，複製後回到 app 會自動帶入。流程和 `gcloud auth application-default login --no-launch-browser` 相同，用的是 gcloud 本身的 OAuth client。也可以改貼 service account 金鑰。可以設預設專案。
 - **背景執行**：允許通知，並讓 app 不受電池最佳化限制。
 
 每一組都有「測試連線」，設定頁最下面顯示目前安裝的版本（commit 和建置時間）。

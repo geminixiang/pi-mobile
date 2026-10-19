@@ -7,7 +7,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 
 type Credential =
-	| { type: "authorized_user"; client_id: string; client_secret: string; refresh_token: string; quota_project_id?: string }
+	| { type: "authorized_user"; client_id: string; client_secret: string; refresh_token: string; quota_project_id?: string; account?: string }
 	| { type: "service_account"; client_email: string; private_key: string; project_id?: string; token_uri?: string };
 
 export interface AccessToken {
@@ -33,7 +33,7 @@ export function parseCredential(json: string): Credential {
 export function describeCredential(credential: Credential): string {
 	return credential.type === "service_account"
 		? `${credential.client_email}${credential.project_id ? ` · ${credential.project_id}` : ""}`
-		: `使用者憑證${credential.quota_project_id ? ` · ${credential.quota_project_id}` : ""}`;
+		: `${credential.account ?? "使用者憑證"}${credential.quota_project_id ? ` · ${credential.quota_project_id}` : ""}`;
 }
 
 function base64url(data: ArrayBuffer | string): string {
@@ -122,4 +122,78 @@ export async function checkGcloud(json: string): Promise<string> {
 	const credential = parseCredential(json);
 	await exchange(credential);
 	return describeCredential(credential);
+}
+
+// ---------- Sign in with Google ----------
+//
+// The same flow as `gcloud auth application-default login --no-launch-browser`: gcloud's public OAuth client for
+// application default credentials, PKCE, and Google's page on sdk.cloud.google.com that shows the authorization code
+// for the user to copy back. The result is the authorized_user credential that command would write.
+
+const ADC_CLIENT_ID = "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com";
+const ADC_CLIENT_SECRET = "d-FL95Q19q7MQmFpd7hHD0Ty";
+const ADC_REDIRECT_URI = "https://sdk.cloud.google.com/applicationdefaultauthcode.html";
+const SIGN_IN_SCOPES = ["openid", "https://www.googleapis.com/auth/userinfo.email", SCOPE];
+
+export interface GoogleSignIn {
+	url: string;
+	/** PKCE verifier for the code exchange; keep it until the user brings the code back. */
+	verifier: string;
+}
+
+export async function startGoogleSignIn(): Promise<GoogleSignIn> {
+	const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)).buffer as ArrayBuffer);
+	const challenge = base64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+	const url = new URL("https://accounts.google.com/o/oauth2/auth");
+	url.search = new URLSearchParams({
+		response_type: "code",
+		client_id: ADC_CLIENT_ID,
+		redirect_uri: ADC_REDIRECT_URI,
+		scope: SIGN_IN_SCOPES.join(" "),
+		state: base64url(crypto.getRandomValues(new Uint8Array(16)).buffer as ArrayBuffer),
+		prompt: "consent",
+		token_usage: "remote",
+		access_type: "offline",
+		code_challenge: challenge,
+		code_challenge_method: "S256",
+	}).toString();
+	return { url: url.href, verifier };
+}
+
+/** Whether clipboard text looks like the authorization code Google's page shows (e.g. 4/0Ab...). */
+export function looksLikeAuthCode(text: string): boolean {
+	return /^4\/[0-9A-Za-z_-]{20,}$/.test(text.trim());
+}
+
+/** Exchange the code for the credential JSON to store; it records the signed-in account for display. */
+export async function finishGoogleSignIn(signIn: GoogleSignIn, code: string): Promise<string> {
+	const response = await CapacitorHttp.post({
+		url: TOKEN_URL,
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		data: new URLSearchParams({
+			grant_type: "authorization_code",
+			code: code.trim(),
+			client_id: ADC_CLIENT_ID,
+			client_secret: ADC_CLIENT_SECRET,
+			redirect_uri: ADC_REDIRECT_URI,
+			code_verifier: signIn.verifier,
+		}).toString(),
+	});
+	const body = (typeof response.data === "string" ? JSON.parse(response.data) : response.data) as {
+		refresh_token?: string;
+		id_token?: string;
+		error?: string;
+		error_description?: string;
+	};
+	if (response.status !== 200 || !body.refresh_token) {
+		throw new Error(`Google 登入失敗：${body.error_description ?? body.error ?? `HTTP ${response.status}`}`);
+	}
+	const claims = body.id_token ? (JSON.parse(atob(body.id_token.split(".")[1]?.replace(/-/g, "+").replace(/_/g, "/") ?? "")) as { email?: string }) : {};
+	return JSON.stringify({
+		type: "authorized_user",
+		client_id: ADC_CLIENT_ID,
+		client_secret: ADC_CLIENT_SECRET,
+		refresh_token: body.refresh_token,
+		...(claims.email ? { account: claims.email } : {}),
+	});
 }
