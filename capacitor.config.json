@@ -1,0 +1,16 @@
+{
+	"appId": "dev.geminixiang.pimobile",
+	"appName": "pi mobile",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "http"
+	},
+	"plugins": {
+		"CapacitorSQLite": {
+			"androidIsEncryption": false
+		}
+	},
+	"android": {
+		"webContentsDebuggingEnabled": true
+	}
+}

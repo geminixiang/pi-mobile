@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App background behind the system bars; matches the bg variable in src/app/styles.css. -->
+<resources>
+    <color name="workbench_bg">#F4EFE6</color>
+    <bool name="workbench_light_bars">true</bool>
+</resources>
