@@ -14,11 +14,13 @@ import { PiMark } from "./PiMark.tsx";
 import { usePrefs } from "./prefs.ts";
 import { SettingsView } from "./Settings.tsx";
 import { Layer } from "./Sheet.tsx";
+import { OpenFileContext } from "./openFile.ts";
+import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { contextTokens, totalUsage } from "./usage.ts";
 
 const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
 
-type Overlay = "drawer" | "model" | "menu" | "settings" | undefined;
+type Overlay = "drawer" | "model" | "menu" | "settings" | "workspace" | undefined;
 
 function hasUserEntries(view: ConversationView | undefined): boolean {
 	return Boolean(view?.entries.some((entry) => entry.kind === "pi.user"));
@@ -37,6 +39,12 @@ export function App() {
 	const [toast, setToast] = useState("");
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
+	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
+	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
+		setWorkspaceStart(start);
+		setOverlay("workspace");
+	}, []);
+	const openFile = useCallback((file: string) => openWorkspace({ tab: "files", file }), [openWorkspace]);
 	const close = useCallback(() => setOverlay(undefined), []);
 
 	const notify = useCallback((message: string) => {
@@ -129,6 +137,12 @@ export function App() {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
 	}, [runtime, controller]);
 
+	const controllerId = controller?.id;
+	const loadWorkspace = useCallback(
+		() => (runtime && controllerId !== undefined ? runtime.workspace(controllerId) : Promise.resolve(undefined)),
+		[runtime, controllerId],
+	);
+
 	// Swipe right from the left edge opens the conversation list.
 	const swipe = useRef<{ x: number; y: number }>(undefined);
 
@@ -210,6 +224,7 @@ export function App() {
 			</header>
 
 			{controller ? (
+				<OpenFileContext.Provider value={runtime.hasSandbox ? openFile : undefined}>
 				<Chat
 					key={String(controller.id)}
 					controller={controller}
@@ -222,6 +237,7 @@ export function App() {
 					onError={notify}
 					onNotice={notify}
 				/>
+				</OpenFileContext.Provider>
 			) : (
 				<div className="chat" />
 			)}
@@ -306,6 +322,7 @@ export function App() {
 						});
 						if (sure) await controller.reset().catch(fail);
 					},
+					workspace: runtime.hasSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
 					resetSandbox: runtime.hasSandbox
 						? async () => {
 								if (!controller) return;
@@ -320,6 +337,8 @@ export function App() {
 						: undefined,
 				}}
 			/>
+
+			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 
 			<Layer open={overlay === "settings"} kind="page" onClose={close} label="設定">
 				<SettingsView initial={settings} onCancel={close} onSave={saveAndRestart} />

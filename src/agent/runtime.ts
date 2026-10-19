@@ -22,6 +22,7 @@ import { cliProxyProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, ty
 import { DeviceExtension } from "./tools/device.ts";
 import { EgressLink } from "./sandbox/egress.ts";
 import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
+import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -213,6 +214,12 @@ export class AgentRuntime {
 			const item = items.find((candidate) => candidate.id === id);
 			if (item) item.title = title;
 		});
+	}
+
+	/** The conversation's sandbox files, or undefined when it has no sandbox yet. */
+	async workspace(id: ConversationId): Promise<Workspace | undefined> {
+		if (!this.#sandbox || !(await this.#sandbox.exists(id))) return undefined;
+		return new Workspace(this.#sandbox.env(id));
 	}
 
 	/** Delete the conversation's sandbox container and files; the conversation itself stays. */

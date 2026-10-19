@@ -441,3 +441,79 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Workspace: files and git ---------- */
+.tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid var(--line); background: var(--bg); }
+.tabs button { flex: 1; height: 42px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; color: var(--muted); text-align: center; }
+.tabs button.selected { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.ws-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 12px var(--space) calc(env(safe-area-inset-bottom) + 24px); display: flex; flex-direction: column; gap: 12px; }
+.ws-loading { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
+.ws-loading::after { content: ""; display: inline-block; width: 0.5em; height: 1em; margin-left: 6px; vertical-align: -0.15em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+.ws-empty { padding: 28px 4px; font-family: var(--serif); font-size: 15px; line-height: 1.7; color: var(--muted); }
+.ws-empty.small { padding: 10px 14px; font-size: 14px; }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.crumbs button { padding: 4px 2px; color: var(--accent); }
+.crumbs button:disabled { opacity: 1; color: var(--text); }
+.crumb-sep { color: var(--faint); padding: 0 2px; }
+.file-list, .change-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: var(--panel); }
+.file-list:empty, .change-list:empty { display: none; }
+.file-list li + li, .change-list li + li { border-top: 1px solid var(--line); }
+.file-list button, .change-list button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 8px 12px; text-align: left; }
+.file-list button:active, .change-list button:active { background: var(--accent-soft); }
+.change-list button > .chevron { margin-left: auto; }
+.file-kind { width: 16px; display: grid; place-items: center; flex-shrink: 0; color: var(--muted); font-size: 12px; }
+.file-kind.directory { color: var(--accent); }
+.file-name { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-meta { font-family: var(--mono); font-size: 11px; color: var(--faint); flex-shrink: 0; }
+.repo { border: 1px solid var(--line); background: var(--panel); }
+.repo .change-list { border-left: none; border-right: none; border-bottom: none; }
+.repo-branch { font-family: var(--mono); font-size: 11.5px; color: var(--accent); padding-right: 10px; }
+.repo-section { padding: 12px 14px 6px; }
+.change-status { width: 18px; font-family: var(--mono); font-size: 12px; font-weight: 700; text-align: center; flex-shrink: 0; }
+.change-status.added { color: var(--ok); }
+.change-status.modified { color: var(--yellow); }
+.change-status.deleted { color: var(--error); }
+.change-counts { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+.change-counts b { font-weight: 400; }
+.plus { color: var(--ok); }
+.minus { color: var(--error); }
+.commit-hash { font-family: var(--mono); font-size: 11.5px; color: var(--accent); flex-shrink: 0; }
+.commit-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.commit-text .file-name { font-family: var(--sans); font-size: 14px; }
+.commit-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+
+/* Opening a file from a tool step. */
+.step { position: relative; }
+.step-open { position: absolute; top: 0; right: 0; width: 40px; height: 40px; display: grid; place-items: center; color: var(--muted); z-index: 1; }
+.step:has(.step-open) .step-head { padding-right: 44px; }
+.step-open:active { background: var(--accent-soft); }
+
+/* File and diff viewers. */
+.bar-center.static { cursor: default; }
+.bar-center.static:active { background: none; }
+.bar-action { height: 32px; margin-right: 8px; }
+.viewer { flex: 1; min-height: 0; overflow: auto; padding: 12px 0 calc(env(safe-area-inset-bottom) + 24px); display: flex; flex-direction: column; gap: 12px; }
+.viewer > .banner, .viewer > .ws-loading, .viewer > .ws-empty, .viewer > .note { margin: 0 var(--space); }
+.viewer-image { display: block; max-width: calc(100% - 2 * var(--space)); margin: 0 var(--space); border: 1px solid var(--line); background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; }
+.viewer-markdown { padding: 0 var(--space); }
+.code-view { display: flex; min-width: min-content; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
+.code-view pre { margin: 0; font: inherit; }
+.code-gutter { position: sticky; left: 0; padding: 0 10px 0 var(--space); text-align: right; color: var(--faint); background: var(--bg); border-right: 1px solid var(--line); user-select: none; }
+.code-text { padding: 0 var(--space) 0 12px; white-space: pre; color: var(--text); }
+.commit-message { margin: 0 var(--space); padding: 12px 14px; border: 1px solid var(--line); border-left: 2px solid var(--accent); background: var(--panel); }
+.commit-message pre { margin: 8px 0 0; font-family: var(--sans); font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; color: var(--text); }
+.diff-file { margin: 0 var(--space); border: 1px solid var(--line); background: var(--panel); }
+.diff-file-head { position: sticky; top: -12px; z-index: 1; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.diff-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); border: 1px solid var(--line-strong); padding: 1px 6px; flex-shrink: 0; }
+.diff-body { overflow-x: auto; }
+.diff-lines { min-width: min-content; font-family: var(--mono); font-size: 11.5px; line-height: 1.6; }
+.diff-line { display: flex; white-space: pre; }
+.diff-line.add { background: var(--ok-bg); box-shadow: inset 2px 0 0 var(--ok); }
+.diff-line.del { background: var(--error-bg); box-shadow: inset 2px 0 0 var(--error); }
+.diff-line.note { color: var(--faint); }
+.diff-no { width: 38px; padding-right: 6px; text-align: right; color: var(--faint); flex-shrink: 0; user-select: none; }
+.diff-sign { width: 16px; text-align: center; flex-shrink: 0; color: var(--muted); }
+.diff-line.add .diff-sign { color: var(--ok); }
+.diff-line.del .diff-sign { color: var(--error); }
+.diff-text { padding-right: 14px; color: var(--text); }
+.diff-hunk { padding: 4px 12px; font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-soft); white-space: pre; }

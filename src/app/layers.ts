@@ -1,33 +1,38 @@
-// Overlays (drawer, sheets, dialogs, settings) as browser history entries, so Android's back gesture closes the
-// top overlay instead of leaving the app. @capacitor/app goes back in the WebView while it can, else exits.
+// Overlays (drawer, sheets, dialogs, pages, directory levels) as a stack, so Android's back gesture closes the top
+// one instead of leaving the app.
+//
+// Back comes from @capacitor/app's backButton event, not browser history: Chromium skips history entries a page
+// pushed without a user gesture, so entries added while re-arming after a back, or when an overlay opens from code,
+// would make back silently do nothing. With an empty stack, back moves the app to the background like the home
+// button, so a running agent keeps going.
+import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
 
-const open: (() => void)[] = [];
-let ignorePops = 0;
+const stack: (() => void)[] = [];
+// Debug hook for test/cdp.ts.
+Object.assign(globalThis, { piLayers: stack });
 
-window.addEventListener("popstate", () => {
-	if (ignorePops > 0) {
-		ignorePops--;
-		return;
-	}
-	open.pop()?.();
-});
+if (Capacitor.isNativePlatform()) {
+	void App.addListener("backButton", () => {
+		// The layer leaves the stack when it actually closes, so a modal that ignores back stays on top.
+		const top = stack.at(-1);
+		if (top) top();
+		else void App.minimizeApp();
+	});
+}
 
-/** While `active`, the back gesture calls `onBack`. Closing by other means removes the history entry again. */
+/** While `active`, the back gesture calls `onBack`. The most recently activated layer goes first. */
 export function useBack(active: boolean, onBack: () => void): void {
 	const latest = useRef(onBack);
 	latest.current = onBack;
 	useEffect(() => {
 		if (!active) return;
 		const entry = () => latest.current();
-		open.push(entry);
-		history.pushState({ layer: open.length }, "");
+		stack.push(entry);
 		return () => {
-			const index = open.indexOf(entry);
-			if (index === -1) return; // Already popped by the back gesture.
-			open.splice(index, 1);
-			ignorePops++;
-			history.back();
+			const index = stack.indexOf(entry);
+			if (index !== -1) stack.splice(index, 1);
 		};
 	}, [active]);
 }

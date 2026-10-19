@@ -1,11 +1,12 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps, useContext, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
-import { ChevronIcon } from "./icons.tsx";
+import { ChevronIcon, FileIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
+import { OpenFileContext, resolvePath } from "./openFile.ts";
 
 export type Block =
 	| { type: "text"; text: string }
@@ -94,8 +95,15 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const [open, setOpen] = useState(prefs.expandTools);
 	const status = tone(state);
 	const output = state?.output?.replace(harnessTag, "").trim();
+	const openFile = useContext(OpenFileContext);
+	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
 	return (
 		<div className={`step ${status}`}>
+			{openFile && filePath && status !== "running" ? (
+				<button type="button" className="step-open" onClick={() => openFile(resolvePath(filePath))} aria-label="開啟檔案">
+					<FileIcon size={14} />
+				</button>
+			) : null}
 			<button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!output}>
 				<span className="step-name">{toolName(call.name)}</span>
 				<span className="step-label">{callLabel(call.name, call.arguments)}</span>
@@ -176,9 +184,9 @@ function CodeBlock({ children }: ComponentProps<"pre">) {
 	);
 }
 
-const markdownComponents = { pre: CodeBlock };
+export const markdownComponents = { pre: CodeBlock };
 // CJK-friendly emphasis: CommonMark misses **粗體**是 when the closing ** follows CJK punctuation.
-const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
+export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 
 function Content({ content, prefs, calls, streaming }: { content: Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
 	// Consecutive tool calls form one trace group.

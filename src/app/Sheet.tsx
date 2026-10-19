@@ -5,8 +5,8 @@ import { useBack, usePresence } from "./layers.ts";
 type Kind = "sheet" | "drawer" | "dialog" | "page";
 
 /**
- * Every overlay goes through here, so they share one behavior: enter and exit motion, the back gesture closes the
- * top one, and tapping the backdrop closes it unless `modal`. Children stay rendered from their last open state
+ * Every overlay goes through here, so they share one behavior: enter and exit motion, and the back gesture and a
+ * backdrop tap close the top one unless it is `modal`. Children stay rendered from their last open state
  * while the exit animation plays.
  */
 export function Layer({
@@ -27,7 +27,8 @@ export function Layer({
 	const { shown, closing } = usePresence(open);
 	const last = useRef(children);
 	if (open) last.current = children;
-	useBack(open && !modal, onClose);
+	// A modal dialog absorbs back: it needs an explicit answer, and back must not close what is under it.
+	useBack(open, modal ? () => undefined : onClose);
 	if (!shown) return null;
 	const state = closing ? " closing" : "";
 	if (kind === "page") {

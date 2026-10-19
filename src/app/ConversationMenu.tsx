@@ -1,6 +1,6 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
 import type { ReactNode } from "react";
-import { BoxIcon, CopyIcon, LayersIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
+import { BoxIcon, CopyIcon, FileIcon, LayersIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
@@ -11,6 +11,7 @@ export interface MenuActions {
 	compact: () => void;
 	reset: () => void;
 	resetSandbox?: () => void;
+	workspace?: () => void;
 	copy: (text: string) => void;
 }
 
@@ -86,6 +87,11 @@ export function ConversationMenu({
 					</div>
 				</dl>
 			</div>
+			{actions.workspace ? (
+				<div className="menu">
+					<Item icon={<FileIcon size={18} />} label="檔案與變更" hint="瀏覽 sandbox 裡的檔案，查看 git diff 和 commit" onClick={run(actions.workspace)} />
+				</div>
+			) : null}
 			<div className="menu">
 				<Item icon={<PencilIcon size={18} />} label="重新命名" onClick={run(actions.rename)} />
 				<Item

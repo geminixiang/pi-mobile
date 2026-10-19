@@ -46,6 +46,17 @@ export class SandboxPool {
 		return entry.env;
 	}
 
+	/** Whether the conversation has a container already; browsing files should not create one. */
+	async exists(conversationId: ConversationId): Promise<boolean> {
+		const name = sandboxName(conversationId);
+		if (this.#envs.has(name)) return true;
+		const url = new URL("/sandboxes", this.#config.url.replace(/^ws/, "http"));
+		url.searchParams.set("token", this.#config.token);
+		const response = await fetch(url);
+		if (!response.ok) throw new Error(`Listing sandboxes failed: HTTP ${response.status}`);
+		return ((await response.json()) as { id: string }[]).some((sandbox) => sandbox.id === name);
+	}
+
 	/** Remove the conversation's container and its files on the relay host. */
 	async remove(conversationId: ConversationId): Promise<void> {
 		const name = sandboxName(conversationId);
