@@ -6,6 +6,8 @@ const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, impo
 
 export default defineConfig({
 	plugins: [react()],
+	// Code mode's QuickJS VM runs in a module worker (src/agent/codemode-worker.ts).
+	worker: { format: "es" },
 	resolve: {
 		// @earendil-works/pi-env imports Node built-ins; the app uses its RemoteExecutionEnv over a WebSocket.
 		alias: {

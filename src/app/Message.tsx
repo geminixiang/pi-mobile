@@ -68,6 +68,10 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 	if (name === "github_api") return `${args.method ?? "GET"} ${args.path ?? ""}`;
 	if (name === "github_read_file") return `${args.owner}/${args.repo}/${args.path ?? ""}`;
 	if (name === "bash" && typeof args.command === "string") return args.command;
+	// Code mode: the script's first line that is not a comment or option header.
+	if (name === "codemode" && typeof args.code === "string") {
+		return args.code.split("\n").find((line) => line.trim() && !line.trim().startsWith("//"))?.trim() ?? "";
+	}
 	if (typeof args.path === "string") return args.path;
 	const json = JSON.stringify(args);
 	return json === "{}" ? "" : json;
@@ -88,6 +92,7 @@ function toolName(name: string): string {
 	if (name === "github_api") return "github";
 	if (name === "github_read_file") return "github read";
 	if (name === "device_info") return "device";
+	if (name === "codemode") return "script";
 	return name;
 }
 
@@ -104,13 +109,16 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					<FileIcon size={14} />
 				</button>
 			) : null}
-			<button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!output}>
+			<button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!output && call.name !== "codemode"}>
 				<span className="step-name">{toolName(call.name)}</span>
 				<span className="step-label">{callLabel(call.name, call.arguments)}</span>
 				{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
 				{status === "error" ? <span className="step-status">失敗</span> : null}
 				{output && status !== "running" ? <ChevronIcon open={open} size={12} /> : null}
 			</button>
+			{open && call.name === "codemode" && typeof call.arguments.code === "string" ? (
+				<pre className="console script">{call.arguments.code}</pre>
+			) : null}
 			{output && (open || status === "running") ? (
 				<pre className="console">{status === "running" ? output.split("\n").slice(-6).join("\n") : output}</pre>
 			) : null}

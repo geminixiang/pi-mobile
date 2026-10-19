@@ -60,6 +60,7 @@ Token 不會進到 sandbox：
 - 從任一則你的訊息「分支」開新對話。
 - 壓縮對話、開始新的上下文、上下文用量和 token 統計。
 - 圖片輸入、Markdown 回答、工具步驟即時輸出，思考過程可以收合。
+- **Code mode**：模型可以寫 JavaScript，在一個腳本裡批次呼叫工具（`tools.<name>(args)`）、整理資料。腳本在手機上的 QuickJS VM 裡跑，用的是 pi-durable 的 `codemode` 工具，每個結果都先記下來，app 被殺掉後會接著跑。VM 放在 Web Worker 裡，腳本在計算時 UI 不會卡住。
 - **工作區**：瀏覽 sandbox 的 `/workspace`、看檔案（行號、Markdown 預覽、圖片）、每個 git repo 的變更、diff 和最近的 commit。工具步驟上的檔案圖示會直接打開那個檔案。
 - Android 返回手勢依序關閉最上層的畫面；什麼都沒開時，app 退到背景，不會被關掉。
 
@@ -70,6 +71,7 @@ Token 不會進到 sandbox：
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器 |
 | `src/agent/models.ts` | CLIProxyAPI provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
 | `src/agent/tools/` | `device_info`、`github_api`、`github_read_file` |
+| `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/sandbox/` | `ws-connection.ts`（pi-env over WebSocket）、`sandbox.ts`（每個對話的 env）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
 | `src/storage.ts` | pi-durable 的 SQLite adapter（Capacitor SQLite，WAL） |
 | `src/settings.ts` | 設定；密鑰存在 Keystore |

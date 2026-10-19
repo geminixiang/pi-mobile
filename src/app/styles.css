@@ -517,3 +517,4 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .diff-line.del .diff-sign { color: var(--error); }
 .diff-text { padding-right: 14px; color: var(--text); }
 .diff-hunk { padding: 4px 12px; font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-soft); white-space: pre; }
+.step .console.script { margin-bottom: 4px; border-left: 2px solid var(--accent); color: var(--console-text); opacity: 0.85; }

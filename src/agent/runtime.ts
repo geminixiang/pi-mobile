@@ -20,6 +20,7 @@ import {
 import type { Settings } from "../settings.ts";
 import { cliProxyProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { DeviceExtension } from "./tools/device.ts";
+import { createPhoneCodemode } from "./codemode.ts";
 import { EgressLink } from "./sandbox/egress.ts";
 import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
@@ -139,6 +140,7 @@ export class AgentRuntime {
 		const registry = createRegistry();
 		registry.install(Assistant);
 		registry.install(DeviceExtension);
+		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
 		const sandbox =
 			settings.sandboxUrl && settings.sandboxToken ? new SandboxPool({ url: settings.sandboxUrl, token: settings.sandboxToken }) : undefined;
