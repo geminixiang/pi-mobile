@@ -1,10 +1,12 @@
-// Control channel to the sandbox relay for GitHub access from sandboxes (see sandbox/egress).
+// Control channel to the sandbox relay for credentials used inside sandboxes (see sandbox/egress).
 //
-// While the app runs it keeps a WebSocket open to the relay's /control endpoint, sends the user's GitHub token
-// (held in the relay's memory only, never inside a sandbox), and answers the egress proxy's write approvals with the
-// app's confirmation dialog. It reconnects with backoff, so approvals asked while the phone was away arrive again.
+// While the app runs it keeps a WebSocket open to the relay's /control endpoint. It sends the GitHub token (held in
+// the relay's memory only, never inside a sandbox), mints short-lived access tokens for services whose long-lived
+// credential stays on the phone (Google Cloud, Cloudflare) when the relay asks, and answers the egress proxy's write
+// approvals with the app's confirmation dialog. It reconnects with backoff, so approvals asked while the phone was
+// away arrive again.
 import { requestConfirmation } from "../confirm.ts";
-import { GcloudTokens } from "../gcloud.ts";
+import type { AccessToken } from "../gcloud.ts";
 
 const MIN_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
@@ -17,12 +19,19 @@ interface Approval {
 	detail: string;
 }
 
+/** A service whose access tokens the phone mints on request. */
+export interface MintedService {
+	get(): Promise<AccessToken>;
+	/** Sandbox environment for this service, such as the default project or account. */
+	env: Record<string, string>;
+}
+
 export interface EgressLinkOptions {
 	relayUrl: string;
 	relayToken: string;
 	githubToken: string | undefined;
-	/** Google Cloud credential JSON and default project; the credential stays here, only access tokens leave. */
-	gcloud: { credential: string; project: string } | undefined;
+	/** By relay service name: "gcloud", "cloudflare". */
+	minted: Record<string, MintedService>;
 	/** Human name for a sandbox, such as its conversation's title. */
 	describe: (sandbox: string) => string | undefined;
 }
@@ -35,15 +44,9 @@ export class EgressLink {
 	#closed = false;
 	/** Approvals on screen, so a resend after a reconnect does not open a second dialog. */
 	readonly #showing = new Set<number>();
-	readonly #gcloud: GcloudTokens | undefined;
 
 	constructor(options: EgressLinkOptions) {
 		this.#options = options;
-		try {
-			this.#gcloud = options.gcloud ? new GcloudTokens(options.gcloud.credential) : undefined;
-		} catch {
-			this.#gcloud = undefined; // Settings shows why the credential is not usable.
-		}
 		this.#connect();
 	}
 
@@ -61,16 +64,14 @@ export class EgressLink {
 		this.#socket = socket;
 		socket.addEventListener("open", () => {
 			this.#retry = MIN_RETRY_MS;
-			const project = this.#options.gcloud?.project || this.#gcloud?.project || "";
-			socket.send(
-				JSON.stringify({ type: "hello", githubToken: this.#options.githubToken ?? null, gcloud: this.#gcloud ? { project } : null }),
-			);
+			const minted = Object.fromEntries(Object.entries(this.#options.minted).map(([name, service]) => [name, { env: service.env }]));
+			socket.send(JSON.stringify({ type: "hello", githubToken: this.#options.githubToken ?? null, minted }));
 		});
 		socket.addEventListener("message", (event) => {
 			if (typeof event.data !== "string") return;
-			const message = JSON.parse(event.data) as Approval | { type: string };
+			const message = JSON.parse(event.data) as Approval | { type: "token"; service: string } | { type: string };
 			if (message.type === "approve") void this.#approve(message as Approval);
-			if (message.type === "gcloud-token") void this.#gcloudToken(socket);
+			if (message.type === "token") void this.#token(socket, (message as { service: string }).service);
 		});
 		socket.addEventListener("close", () => {
 			if (this.#socket !== socket || this.#closed) return;
@@ -79,13 +80,14 @@ export class EgressLink {
 		});
 	}
 
-	async #gcloudToken(socket: WebSocket): Promise<void> {
+	async #token(socket: WebSocket, service: string): Promise<void> {
 		try {
-			if (!this.#gcloud) throw new Error("沒有 Google Cloud 憑證");
-			const token = await this.#gcloud.get();
-			socket.send(JSON.stringify({ type: "gcloud-token", token: token.token, expiresAt: token.expiresAt }));
+			const source = this.#options.minted[service];
+			if (!source) throw new Error(`沒有 ${service} 憑證`);
+			const token = await source.get();
+			socket.send(JSON.stringify({ type: "token", service, token: token.token, expiresAt: token.expiresAt }));
 		} catch (error) {
-			socket.send(JSON.stringify({ type: "gcloud-token", error: error instanceof Error ? error.message : String(error) }));
+			socket.send(JSON.stringify({ type: "token", service, error: error instanceof Error ? error.message : String(error) }));
 		}
 	}
 

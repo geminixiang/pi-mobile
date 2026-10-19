@@ -1,5 +1,8 @@
 """mitmproxy addon: GitHub and Google Cloud credentials for sandbox containers without putting them in them.
 
+Cloudflare (api.cloudflare.com, used by cf and wrangler) works like Google Cloud: a placeholder CLOUDFLARE_API_TOKEN,
+an OAuth access token from the phone, and approval for anything but GET/HEAD and the read-only GraphQL analytics API.
+
 Google Cloud (*.googleapis.com) works the same way as GitHub below: gcloud in the sandbox sends a placeholder bearer
 token, and the proxy swaps in a short-lived access token the phone minted. Reads go straight through; writes (any
 method but GET/HEAD, except POSTs that only read, such as :list and :search) wait for approval on the phone.
@@ -122,6 +125,17 @@ def classify_google(request):
     return (f"Google Cloud {request.method} {service} {path}", preview(request.get_text(strict=False)))
 
 
+CLOUDFLARE_HOST = "api.cloudflare.com"
+
+
+def classify_cloudflare(request):
+    """None for a read; (title, detail) for a Cloudflare write that needs approval."""
+    path = request.path.split("?")[0]
+    if request.method in ("GET", "HEAD", "OPTIONS") or path == "/client/v4/graphql":
+        return None
+    return (f"Cloudflare {request.method} {path.removeprefix('/client/v4')}", preview(request.get_text(strict=False)))
+
+
 def authorize(client, write, title="", detail="", service="github"):
     payload = json.dumps({"client": client, "write": write, "title": title, "detail": detail, "service": service}).encode()
     request = urllib.request.Request(
@@ -178,31 +192,39 @@ class Credentials:
         self.reads[(service, client)] = (token, time.monotonic() + (READ_CACHE_SECONDS if token else 5))
         return token
 
-    async def google(self, flow, client):
+    async def minted(self, flow, client, service, write, label, error_body):
+        """Services whose token the phone mints: swap the placeholder, asking for approval first on writes."""
         flow.request.headers.pop("Authorization", None)
-        write = classify_google(flow.request)
         if write is None:
-            token = await self.read_token(client, "gcloud")
+            token = await self.read_token(client, service)
+            reason = f"手機沒有連上，或沒有設定 {label} 憑證"
         else:
             try:
-                result = await asyncio.to_thread(authorize, client, True, *write, "gcloud")
+                result = await asyncio.to_thread(authorize, client, True, *write, service)
             except (OSError, urllib.error.URLError, ValueError) as error:
                 result = {"reason": f"無法聯絡 relay（{error}）"}
             token = result.get("token")
-            if not token:
-                message = json.dumps({"error": {"code": 403, "message": f"pi mobile: {result.get('reason') or '寫入被拒絕'}", "status": "PERMISSION_DENIED"}})
-                flow.response = http.Response.make(403, message, {"Content-Type": "application/json"})
-                return
+            reason = result.get("reason") or "寫入被拒絕"
         if token:
             flow.request.headers["Authorization"] = f"Bearer {token}"
-        else:
-            message = json.dumps({"error": {"code": 401, "message": "pi mobile: 手機沒有連上，或沒有設定 Google Cloud 憑證", "status": "UNAUTHENTICATED"}})
-            flow.response = http.Response.make(401, message, {"Content-Type": "application/json"})
+            return
+        status = 401 if write is None else 403
+        flow.response = http.Response.make(status, json.dumps(error_body(status, f"pi mobile: {reason}")), {"Content-Type": "application/json"})
 
     async def request(self, flow: http.HTTPFlow):
         host = flow.request.pretty_host
+        client = flow.client_conn.peername[0].removeprefix("::ffff:")
         if GOOGLE_HOST.match(host):
-            await self.google(flow, flow.client_conn.peername[0].removeprefix("::ffff:"))
+            await self.minted(
+                flow, client, "gcloud", classify_google(flow.request), "Google Cloud",
+                lambda code, message: {"error": {"code": code, "message": message, "status": "PERMISSION_DENIED" if code == 403 else "UNAUTHENTICATED"}},
+            )
+            return
+        if host == CLOUDFLARE_HOST:
+            await self.minted(
+                flow, client, "cloudflare", classify_cloudflare(flow.request), "Cloudflare",
+                lambda code, message: {"success": False, "errors": [{"code": 10000, "message": message}], "messages": [], "result": None},
+            )
             return
         if host not in API_HOSTS and host not in (GIT_HOST, RAW_HOST):
             return

@@ -561,3 +561,4 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sign-in { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.6; color: var(--copy); }
 .sign-in p { margin: 0; }
 .dialog-actions.inline { padding: 0; }
+.user-code { font-family: var(--mono); font-size: 26px; letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }

@@ -8,6 +8,7 @@ const SECRET_API_KEY = "cliproxyapi.apiKey";
 const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_SANDBOX_TOKEN = "sandbox.token";
 const SECRET_GCLOUD = "gcloud.credential";
+const SECRET_CLOUDFLARE = "cloudflare.credential";
 
 export interface Settings {
 	baseUrl: string;
@@ -20,6 +21,8 @@ export interface Settings {
 	gcloudCredential: string;
 	/** Default project for gcloud; empty uses the credential's own. */
 	gcloudProject: string;
+	/** Cloudflare credential JSON (OAuth sign-in or API token) for cf and wrangler in the sandbox. */
+	cloudflareCredential: string;
 	defaultModelId: string;
 	defaultThinking: string;
 }
@@ -47,6 +50,7 @@ export async function loadSettings(): Promise<Settings> {
 		sandboxToken: await secret(SECRET_SANDBOX_TOKEN),
 		gcloudCredential: await secret(SECRET_GCLOUD),
 		gcloudProject: plain.gcloudProject ?? "",
+		cloudflareCredential: await secret(SECRET_CLOUDFLARE),
 		defaultModelId: plain.defaultModelId ?? "claude-opus-5-5",
 		defaultThinking: plain.defaultThinking ?? "low",
 	};
@@ -65,6 +69,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
 	await saveSecret(SECRET_SANDBOX_TOKEN, settings.sandboxToken);
 	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
+	await saveSecret(SECRET_CLOUDFLARE, settings.cloudflareCredential);
 }
 
 async function saveSecret(key: string, value: string): Promise<void> {
@@ -74,4 +79,9 @@ async function saveSecret(key: string, value: string): Promise<void> {
 
 export function isConfigured(settings: Settings): boolean {
 	return Boolean(settings.baseUrl && settings.apiKey);
+}
+
+/** Cloudflare rotates refresh tokens on every refresh; the new one replaces the stored credential right away. */
+export async function saveCloudflareCredential(json: string): Promise<void> {
+	await SecureStorage.set(SECRET_CLOUDFLARE, json);
 }

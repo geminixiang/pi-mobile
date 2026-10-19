@@ -34,6 +34,9 @@ RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg -o /etc/apt
 # uv for Python projects and one-off scripts (`uv run --with pandas script.py`), pnpm through corepack.
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /usr/local/bin/
 RUN corepack enable pnpm && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version > /dev/null
+
+# Cloudflare CLIs (cf, wrangler). They authenticate through the egress proxy with a placeholder CLOUDFLARE_API_TOKEN.
+RUN npm install --global --no-fund --no-audit cf@1.0.0-beta.18 wrangler@4.151.2 && npm cache clean --force
 ENV UV_LINK_MODE=copy PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Static aarch64 build from @earendil-works/pi-env (bin/pi-env-linux-arm64/pi-env).

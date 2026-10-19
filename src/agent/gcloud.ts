@@ -3,6 +3,12 @@
 // tokens it mints go to the relay, on request, for the egress proxy to inject.
 import { CapacitorHttp } from "@capacitor/core";
 
+/**
+ * Native HTTP has no timeouts by default: a request sent while the network drops (common right after switching
+ * apps) can wait forever, and a sign-in that polls would wait with it.
+ */
+const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
+
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 
@@ -75,6 +81,7 @@ async function exchange(credential: Credential): Promise<AccessToken> {
 		url: credential.type === "service_account" ? (credential.token_uri ?? TOKEN_URL) : TOKEN_URL,
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		data: form.toString(),
+		...TIMEOUTS,
 	});
 	const body = (typeof response.data === "string" ? JSON.parse(response.data) : response.data) as {
 		access_token?: string;
@@ -178,6 +185,7 @@ export async function finishGoogleSignIn(signIn: GoogleSignIn, code: string): Pr
 			redirect_uri: ADC_REDIRECT_URI,
 			code_verifier: signIn.verifier,
 		}).toString(),
+		...TIMEOUTS,
 	});
 	const body = (typeof response.data === "string" ? JSON.parse(response.data) : response.data) as {
 		refresh_token?: string;

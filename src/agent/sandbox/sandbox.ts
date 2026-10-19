@@ -90,6 +90,7 @@ export const SandboxExtension = defineExtension({
 					"Reads run directly. Writes (git push, gh pr create, gh api with POST/PATCH/PUT/DELETE, GraphQL mutations) wait for the user to approve them on the phone and fail with 'pi mobile: ...' when declined.",
 					"Set git user.name and user.email before committing if they are missing.",
 					"gcloud is installed. When the user connected Google Cloud in the app, it is signed in the same way (a placeholder access token; do not run gcloud auth login), with the default project set; calls that change resources wait for the user's approval. Otherwise gcloud fails with 'pi mobile: ...'.",
+					"cf (Cloudflare's CLI) and wrangler are installed and, when the user connected Cloudflare in the app, signed in the same way through CLOUDFLARE_API_TOKEN (a placeholder; do not run cf auth login or wrangler login), with CLOUDFLARE_ACCOUNT_ID set; anything but reads waits for approval.",
 					"To show the user an image you made (a chart, a converted photo, a screenshot), save it as PNG or JPEG, at most 2000 px wide and 3 MB (shrink with `magick in.png -resize 1600x1600\> out.png`), and `read` it: the app shows images from read results inline in the chat.",
 				].join(" "),
 		),

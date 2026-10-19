@@ -12,6 +12,7 @@ import {
 	startGoogleSignIn,
 } from "../agent/gcloud.ts";
 import { registerPlugin } from "@capacitor/core";
+import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -118,6 +119,69 @@ function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => v
 				</button>
 				<button type="button" className="btn primary" disabled={!code.trim() || state.busy} onClick={() => void finish(code)}>
 					{state.busy ? "登入中…" : "完成"}
+				</button>
+			</div>
+		</div>
+	);
+}
+
+/** Cloudflare's device flow: show the code, open the approval page, and poll until the user approves it there. */
+function CloudflareSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
+	const [signIn, setSignIn] = useState<DeviceSignIn>();
+	const [error, setError] = useState("");
+	const abort = useRef<AbortController>(undefined);
+	useEffect(() => () => abort.current?.abort(), []);
+
+	const begin = async () => {
+		setError("");
+		try {
+			const next = await startDeviceSignIn();
+			setSignIn(next);
+			const controller = new AbortController();
+			abort.current = controller;
+			await System.openExternal({ url: next.url });
+			onCredential(await finishDeviceSignIn(next, controller.signal));
+			setSignIn(undefined);
+		} catch (failure) {
+			setSignIn(undefined);
+			if (!abort.current?.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure));
+		}
+	};
+
+	if (!signIn) {
+		return (
+			<>
+				<div className="check-row">
+					<span className="menu-text">
+						用 Cloudflare 帳號登入
+						<span className="menu-hint">在瀏覽器確認畫面上的代碼並同意，完成後會自動回到這裡</span>
+					</span>
+					<button type="button" className="btn primary" onClick={() => void begin()}>
+						登入
+					</button>
+				</div>
+				{error ? <div className="check-row check-error">{error}</div> : null}
+			</>
+		);
+	}
+	return (
+		<div className="sign-in">
+			<p>在 Cloudflare 頁面確認這組代碼並按同意：</p>
+			<div className="user-code">{signIn.userCode}</div>
+			<p className="ws-loading">等待授權</p>
+			<div className="dialog-actions inline">
+				<button
+					type="button"
+					className="btn"
+					onClick={() => {
+						abort.current?.abort();
+						setSignIn(undefined);
+					}}
+				>
+					取消
+				</button>
+				<button type="button" className="btn" onClick={() => void System.openExternal({ url: signIn.url })}>
+					重新開啟頁面
 				</button>
 			</div>
 		</div>
@@ -316,6 +380,40 @@ export function SettingsView({
 						<input {...field("gcloudProject")} placeholder="留空則用憑證本身的專案" autoCapitalize="off" autoComplete="off" />
 					</label>
 					<CheckButton disabled={!settings.gcloudCredential} run={() => checkGcloud(settings.gcloudCredential)} />
+				</Group>
+				<Group
+					title="Cloudflare"
+					hint="給 sandbox 裡的 cf 和 wrangler 用。登入後的 refresh token 留在手機上，只把短效的 access token 交給 sandbox 的 proxy；會改動資源的請求要你先核准。"
+				>
+					{settings.cloudflareCredential ? (
+						<div className="check-row">
+							<span className="menu-text">
+								帳號
+								<span className="menu-hint">{describeCloudflare(settings.cloudflareCredential)}</span>
+							</span>
+							<button type="button" className="btn" onClick={() => setSettings({ ...settings, cloudflareCredential: "" })}>
+								移除
+							</button>
+						</div>
+					) : (
+						<>
+							<CloudflareSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, cloudflareCredential: json }))} />
+							<details className="manual">
+								<summary>改用 API token</summary>
+								<label>
+									<span>API token</span>
+									<input
+										type="password"
+										autoComplete="off"
+										onChange={(event) => {
+											const token = event.target.value.trim();
+											if (token.length >= 40) setSettings({ ...settings, cloudflareCredential: apiTokenCredential(token) });
+										}}
+									/>
+								</label>
+							</details>
+						</>
+					)}
 				</Group>
 				<BackgroundGroup />
 				<p className="about">pi mobile · {__BUILD__}</p>

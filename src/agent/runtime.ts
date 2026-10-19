@@ -17,11 +17,13 @@ import {
 	type Storage,
 	type Tx,
 } from "@earendil-works/pi-durable";
-import type { Settings } from "../settings.ts";
+import { type Settings, saveCloudflareCredential } from "../settings.ts";
 import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { DeviceExtension } from "./tools/device.ts";
 import { createPhoneCodemode } from "./codemode.ts";
-import { EgressLink } from "./sandbox/egress.ts";
+import { CloudflareTokens } from "./cloudflare.ts";
+import { GcloudTokens } from "./gcloud.ts";
+import { EgressLink, type MintedService } from "./sandbox/egress.ts";
 import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
@@ -95,6 +97,29 @@ function contentText(content: unknown): string {
 		.join("\n");
 }
 
+/** Services whose tokens the phone mints for the sandbox; a credential that does not parse is left out (settings say why). */
+function mintedServices(settings: Settings): Record<string, MintedService> {
+	const services: Record<string, MintedService> = {};
+	try {
+		if (settings.gcloudCredential) {
+			const tokens = new GcloudTokens(settings.gcloudCredential);
+			const project = settings.gcloudProject || tokens.project;
+			services.gcloud = { get: () => tokens.get(), env: project ? { CLOUDSDK_CORE_PROJECT: project } : {} };
+		}
+	} catch {
+		// Unusable credential: settings show why.
+	}
+	try {
+		if (settings.cloudflareCredential) {
+			const tokens = new CloudflareTokens(settings.cloudflareCredential, saveCloudflareCredential);
+			services.cloudflare = { get: () => tokens.get(), env: tokens.accountId ? { CLOUDFLARE_ACCOUNT_ID: tokens.accountId } : {} };
+		}
+	} catch {
+		// Unusable credential: settings show why.
+	}
+	return services;
+}
+
 export class AgentRuntime {
 	readonly models: ModelInfo[];
 	readonly #harness: Harness;
@@ -115,7 +140,7 @@ export class AgentRuntime {
 				relayUrl: settings.sandboxUrl,
 				relayToken: settings.sandboxToken,
 				githubToken: settings.githubToken || undefined,
-				gcloud: settings.gcloudCredential ? { credential: settings.gcloudCredential, project: settings.gcloudProject } : undefined,
+				minted: mintedServices(settings),
 				describe: (name) => this.#titles.get(name),
 			});
 			void this.#publishIndex();

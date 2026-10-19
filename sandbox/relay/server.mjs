@@ -55,7 +55,12 @@ const SANDBOX_ENV = {
 	CLOUDSDK_CORE_DISABLE_PROMPTS: "1",
 	CLOUDSDK_CORE_DISABLE_USAGE_REPORTING: "true",
 	CLOUDSDK_COMPONENT_MANAGER_DISABLE_UPDATE_CHECK: "true",
+	// cf and wrangler authenticate with this placeholder; the proxy swaps in a real token on api.cloudflare.com.
+	CLOUDFLARE_API_TOKEN: "injected-by-pi-egress",
+	WRANGLER_SEND_METRICS: "false",
 	NODE_EXTRA_CA_CERTS: "/etc/ssl/certs/ca-certificates.crt",
+	// Node's built-in fetch ignores HTTP(S)_PROXY unless asked (Node 24); cf and other Node tools use it.
+	NODE_USE_ENV_PROXY: "1",
 	REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt",
 	SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt",
 };
@@ -215,9 +220,13 @@ async function sandboxForIp(ip) {
 const phones = [];
 let githubToken;
 let tokenExpiry;
-/** Google Cloud: the phone mints short-lived access tokens; the relay never holds the long-lived credential. */
-let gcloud; // { project, token, expiresAt } while the phone has a credential
-const gcloudWaiters = [];
+/**
+ * Services whose long-lived credential stays on the phone (Google Cloud, Cloudflare): the relay asks the phone for a
+ * short-lived access token when the proxy needs one and caches it until it nears expiry.
+ * name -> { env: sandbox variables from the phone, token, expiresAt, waiters }
+ */
+const minted = new Map();
+const MINTED_LABELS = { gcloud: "Google Cloud", cloudflare: "Cloudflare" };
 const approvals = new Map();
 let nextApproval = 1;
 
@@ -243,12 +252,19 @@ function attachPhone(ws) {
 		}
 		if (message.type === "hello") {
 			githubToken = typeof message.githubToken === "string" && message.githubToken ? message.githubToken : undefined;
-			gcloud = message.gcloud && typeof message.gcloud === "object" ? { project: String(message.gcloud.project ?? "") } : undefined;
+			minted.clear();
+			for (const [service, settings] of Object.entries(message.minted ?? {})) {
+				if (!MINTED_LABELS[service] || !settings || typeof settings !== "object") continue;
+				const env = Object.fromEntries(Object.entries(settings.env ?? {}).filter(([key, value]) => /^[A-Z_]+$/.test(key) && typeof value === "string" && value));
+				minted.set(service, { env, waiters: [] });
+			}
 			// Questions asked while the phone was away.
 			for (const approval of approvals.values()) sendApproval(ws, approval);
-		} else if (message.type === "gcloud-token") {
-			if (gcloud && typeof message.token === "string") Object.assign(gcloud, { token: message.token, expiresAt: Number(message.expiresAt) });
-			for (const resolve of gcloudWaiters.splice(0)) resolve(message.error ? { error: String(message.error) } : undefined);
+		} else if (message.type === "token") {
+			const entry = minted.get(message.service);
+			if (!entry) return;
+			if (typeof message.token === "string") Object.assign(entry, { token: message.token, expiresAt: Number(message.expiresAt) });
+			for (const resolve of entry.waiters.splice(0)) resolve(message.error ? { error: String(message.error) } : undefined);
 		} else if (message.type === "approval") {
 			approvals.get(message.id)?.resolve(message.approved === true);
 		}
@@ -293,31 +309,34 @@ async function readJson(request) {
 }
 
 /** Called by the egress addon for each GitHub request: the token for reads, and for approved writes. */
-/** A Google access token valid for at least a minute, from the cache or freshly minted by the phone. */
-async function gcloudToken() {
-	if (!gcloud) return { reason: "手機沒有設定 Google Cloud 憑證" };
-	if (gcloud.token && gcloud.expiresAt - Date.now() > 60_000) return { token: gcloud.token };
+/** An access token for `service` valid for at least a minute, from the cache or freshly minted by the phone. */
+async function mintedToken(service) {
+	const label = MINTED_LABELS[service] ?? service;
+	const entry = minted.get(service);
+	if (!entry) return { reason: `手機沒有設定 ${label} 憑證` };
+	if (entry.token && entry.expiresAt - Date.now() > 60_000) return { token: entry.token };
 	const socket = phone();
-	if (!socket) return { reason: "手機沒有連上，無法取得 Google Cloud token" };
+	if (!socket) return { reason: `手機沒有連上，無法取得 ${label} token` };
 	const answer = await new Promise((resolve) => {
-		gcloudWaiters.push(resolve);
-		socket.send(JSON.stringify({ type: "gcloud-token" }));
+		entry.waiters.push(resolve);
+		socket.send(JSON.stringify({ type: "token", service }));
 		setTimeout(() => resolve({ error: "手機沒有回應" }), 20_000);
 	});
-	if (answer?.error) return { reason: `取得 Google Cloud token 失敗：${answer.error}` };
-	return gcloud?.token ? { token: gcloud.token } : { reason: "手機沒有設定 Google Cloud 憑證" };
+	if (answer?.error) return { reason: `取得 ${label} token 失敗：${answer.error}` };
+	return entry.token ? { token: entry.token } : { reason: `手機沒有設定 ${label} 憑證` };
 }
 
+/** Called by the egress addon for each intercepted request: a token for reads, and for approved writes. */
 async function authorizeEgress(body) {
-	if (body.service === "gcloud") {
-		const token = await gcloudToken();
+	if (MINTED_LABELS[body.service]) {
+		const token = await mintedToken(body.service);
 		if (!token.token || !body.write) return token;
 		if (!phone()) return { reason: "手機沒有連上，無法確認這個寫入" };
 		const sandbox = (await sandboxForIp(String(body.client ?? ""))) ?? "unknown";
 		log("approval asked", sandbox, body.title);
 		const approved = await askPhone(sandbox, String(body.title ?? ""), String(body.detail ?? ""));
 		log("approval", approved ? "granted" : "denied", sandbox, body.title);
-		return approved ? await gcloudToken() : { reason: "使用者拒絕了這個寫入" };
+		return approved ? await mintedToken(body.service) : { reason: "使用者拒絕了這個寫入" };
 	}
 	if (!githubToken) return { reason: "手機沒有連上，或沒有設定 GitHub token" };
 	if (!body.write) return { token: githubToken };
@@ -415,8 +434,9 @@ async function attach(ws, id, daemonToken) {
 	lastUsed.set(id, Date.now());
 	log("attach", name);
 
-	const gcloudEnv = gcloud?.project ? { CLOUDSDK_CORE_PROJECT: gcloud.project } : {};
-	const env = Object.entries({ ...SANDBOX_ENV, ...gcloudEnv }).flatMap(([key, value]) => ["-e", `${key}=${value}`]);
+	// Per-service settings from the phone, such as the default Google Cloud project or Cloudflare account.
+	const serviceEnv = Object.assign({}, ...[...minted.values()].map((entry) => entry.env));
+	const env = Object.entries({ ...SANDBOX_ENV, ...serviceEnv }).flatMap(([key, value]) => ["-e", `${key}=${value}`]);
 	const child = spawn("docker", ["exec", "-i", "-w", "/workspace", ...env, name, "pi-env", "serve", "--token", daemonToken], {
 		stdio: ["pipe", "pipe", "pipe"],
 	});

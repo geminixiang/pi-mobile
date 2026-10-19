@@ -7,7 +7,7 @@
 - **Agent 在手機上跑**：用 [pi-durable](https://pi.dev) 的 harness，對話和執行狀態都存在手機的 SQLite。鎖上螢幕或切到背景時會繼續跑；就算 app 被系統殺掉，下次打開也會從中斷的地方接著跑。
 - **模型用自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）、OpenAI、Anthropic。
 - **Sandbox 在自己的電腦上**：每個對話有一個獨立的 Linux 容器，agent 的 `read`、`write`、`edit`、`bash` 都在那裡執行。用一支腳本安裝，手機掃 QR code 配對。
-- **憑證不進 sandbox**：sandbox 裡的 `git`、`gh`、`gcloud` 都已登入你的帳號，但 token 由中間的 proxy 注入，容器裡只有佔位字串。所有寫入都要你在手機上按「允許」。
+- **憑證不進 sandbox**：sandbox 裡的 `git`、`gh`、`gcloud`、`cf`、`wrangler` 都已登入你的帳號，但 token 由中間的 proxy 注入，容器裡只有佔位字串。所有寫入都要你在手機上按「允許」。
 
 UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https://pi.dev)。
 
@@ -60,7 +60,7 @@ UI 是 React，介面文字是繁體中文，視覺語言沿用 [pi.dev](https:/
 │ relay (server.mjs) ◀─────────────────────┘                   │
 │   ├─ docker exec ─▶ sbx-c<id>：pi-env serve，/workspace        │
 │   └─ /egress/authorize ◀── pi-egress（mitmproxy）              │
-│                              只攔 GitHub 和 *.googleapis.com， │
+│                              只攔 GitHub、Google、Cloudflare， │
 │                              換上真的 token，寫入先問手機       │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -79,15 +79,18 @@ Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i 
 
 每個 sandbox 的 HTTP(S) 流量都經過 `pi-egress`（mitmproxy + `sandbox/egress/credentials.py`）。它只攔下面兩類主機，其他網站（pip、npm、apt）直接放行、不解密。Proxy 的 CA 在容器第一次連線時裝進去。
 
-| | GitHub | Google Cloud |
-|---|---|---|
-| 攔截的主機 | `github.com`、`api.github.com`、`uploads.github.com`、`raw.githubusercontent.com` | `*.googleapis.com` |
-| 容器裡的佔位 | `GH_TOKEN=injected-by-pi-egress` | `gcloud` 的 `auth/access_token_file` 內容是佔位字串 |
-| 真的憑證在哪 | 手機 Keystore；連線時交給 relay，只放記憶體，手機斷線 10 分鐘後丟掉 | 長期憑證（使用者 refresh token 或 service account 金鑰）**只在手機上**；relay 需要時請手機換一個一小時有效的 access token |
-| 直接放行（讀取） | clone、fetch、REST GET、GraphQL query | GET，以及只讀的 POST（`:list`、`:search`、`:get`、`:testIamPermissions` 等） |
-| 要你核准（寫入） | `git push`、REST 的 POST/PATCH/PUT/DELETE、GraphQL mutation、LFS 上傳 | 其他所有非 GET 的請求 |
+| | GitHub | Google Cloud | Cloudflare |
+|---|---|---|---|
+| 攔截的主機 | `github.com`、`api.github.com`、`uploads.github.com`、`raw.githubusercontent.com` | `*.googleapis.com` | `api.cloudflare.com` |
+| 容器裡的佔位 | `GH_TOKEN` | `gcloud` 的 `auth/access_token_file` | `CLOUDFLARE_API_TOKEN`（`cf`、`wrangler` 都用它） |
+| 登入方式 | 貼 fine-grained token | App 內 Google 登入，或貼 service account 金鑰 | App 內 Cloudflare 登入（`cf` 的 device flow），或貼 API token |
+| 真的憑證在哪 | 手機 Keystore；連線時交給 relay，只放記憶體，手機斷線 10 分鐘後丟掉 | 長期憑證**只在手機上**；relay 需要時請手機換一個短效 access token | 同 Google Cloud；refresh token 每次換新都會寫回 Keystore |
+| 直接放行（讀取） | clone、fetch、REST GET、GraphQL query | GET，以及只讀的 POST（`:list`、`:search`、`:get`、`:testIamPermissions` 等） | GET、GraphQL 分析 API |
+| 要你核准（寫入） | `git push`、REST 的 POST/PATCH/PUT/DELETE、GraphQL mutation、LFS 上傳 | 其他所有請求 | 其他所有請求 |
 
-被拒絕時，git、gh、gcloud 都會顯示 `pi mobile: 使用者拒絕了這個寫入`。手機沒連上時，讀取不帶憑證送出，寫入一律拒絕。
+Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不走 `HTTPS_PROXY`，不設的話 `cf` 這類工具會繞過 proxy。
+
+被拒絕時，git、gh、gcloud、cf、wrangler 都會顯示 `pi mobile: 使用者拒絕了這個寫入`。手機沒連上時，讀取不帶憑證送出，寫入一律拒絕。
 
 ## 專案結構
 
@@ -98,6 +101,7 @@ Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i 
 | `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch` |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
+| `src/agent/cloudflare.ts` | Cloudflare 憑證：device flow 登入、refresh token 輪替 |
 | `src/agent/sandbox/` | `ws-connection.ts`（pi-env over WebSocket）、`sandbox.ts`（每個對話的 env 和環境說明）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
 | `src/storage.ts` | pi-durable 的 SQLite adapter（Capacitor SQLite，WAL） |
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
@@ -129,6 +133,7 @@ Release 版用本機的 debug keystore 簽章，所以可以直接覆蓋安裝�
 - **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
 - **GitHub**（選填）：fine-grained token，只開需要的 repo。
 - **Google Cloud**（選填）：按「登入」用 Google 帳號登入。瀏覽器最後一頁會顯示授權碼，複製後回到 app 會自動帶入。流程和 `gcloud auth application-default login --no-launch-browser` 相同，用的是 gcloud 本身的 OAuth client。也可以改貼 service account 金鑰。可以設預設專案。
+- **Cloudflare**（選填）：按「登入」，在瀏覽器確認代碼並同意，app 會自動完成。也可以改貼 API token。
 - **背景執行**：允許通知，並讓 app 不受電池最佳化限制。
 
 每一組都有「測試連線」，設定頁最下面顯示目前安裝的版本（commit 和建置時間）。
@@ -145,7 +150,7 @@ sandbox/install.sh
 - **Mac**：開一個專用的 colima VM（`pi-sandbox`，4 核、4 GB、40 GB），容器跑在這個 VM 裡，跟 Mac 本身隔了一層 VM。relay 用 launchd 在登入時啟動，log 在 `~/Library/Logs/pi-sandbox-relay.log`。
 - **Linux**：用目前使用者的 rootless Docker，relay 是 systemd user service。
 - 建置兩個 image：
-  - `pi-sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
+  - `pi-sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、cf、wrangler、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
   - `pi-egress`：mitmproxy 12.2.3 加 `credentials.py`。
 - 第一次安裝時在 `~/.config/pi-sandbox/env` 產生 `RELAY_TOKEN` 和 `EGRESS_SECRET`。
 - 最後印出**配對 QR code** 和 `pimobile://pair?...` 連結。用手機相機掃描，pi mobile 會先測試連線、問你一次，然後自動填好設定。
@@ -175,6 +180,10 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token)
 # gcloud egress：腳本扮演手機並拒絕所有寫入，唯一嘗試的寫入是刪除一個不存在的 bucket
 SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GCLOUD_TOKEN=$(gcloud auth print-access-token) \
   GCLOUD_PROJECT=<專案> node test/gcloud-node.ts
+
+# Cloudflare egress：同上，唯一嘗試的寫入是刪除一個不存在的 Worker
+SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... CLOUDFLARE_TOKEN=<access token> \
+  CLOUDFLARE_ACCOUNT=<account id> node test/cloudflare-node.ts
 ```
 
 ## 安全模型
@@ -182,12 +191,12 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GCLOUD_TOKEN=$(gcloud auth pr
 | 資料 | 存放位置 |
 |---|---|
 | 對話、執行狀態 | 手機的 SQLite（未加密，`allowBackup=false`，不會進雲端備份） |
-| 模型服務 key、GitHub token、relay token、Google 憑證 | Android Keystore（`capacitor-secure-storage`） |
+| 模型服務 key、GitHub token、relay token、Google 和 Cloudflare 憑證 | Android Keystore（`capacitor-secure-storage`） |
 | GitHub token（sandbox 用） | 手機連線期間加 10 分鐘，放在 relay 的記憶體 |
-| Google access token | relay 的記憶體，最多一小時；長期憑證不離開手機 |
+| Google、Cloudflare access token | relay 的記憶體，到期為止；長期憑證不離開手機 |
 | Sandbox 檔案 | 主機上每個對話一個 Docker volume；重置 sandbox 會刪除 |
 
-- 所有 GitHub 和 Google Cloud 的寫入都要在手機上核准，包括 sandbox 裡的 git、gh、gcloud，以及手機上的 `github_api` 工具。
+- 所有 GitHub、Google Cloud、Cloudflare 的寫入都要在手機上核准，包括 sandbox 裡的 git、gh、gcloud、cf、wrangler，以及手機上的 `github_api` 工具。
 - App 允許明文 HTTP（`network_security_config.xml`），因為自架的模型 gateway 和 relay 通常只透過 Tailscale 連線。
 - 能登入 sandbox 主機那個帳號的人，可以讀到 relay 記憶體裡的 token，以及 egress 的 CA 私鑰。
 - Release 版用 debug keystore 簽章，WebView 遠端除錯開著：能用 adb 連上手機的人可以操作 app。
