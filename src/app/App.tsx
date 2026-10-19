@@ -16,6 +16,7 @@ import { SettingsView } from "./Settings.tsx";
 import { Layer } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
+import { notifyAway, setWorking } from "./keepAlive.ts";
 import { contextTokens, totalUsage } from "./usage.ts";
 
 const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
@@ -67,9 +68,10 @@ export function App() {
 
 	// Tools ask the user through the same dialog.
 	useEffect(() => {
-		setConfirmListener(({ title, detail }) =>
-			ask({ title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true }),
-		);
+		setConfirmListener(({ title, detail }) => {
+			notifyAway("pi 需要你確認", title);
+			return ask({ title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true });
+		});
 		return () => setConfirmListener(undefined);
 	}, [ask]);
 
@@ -94,6 +96,18 @@ export function App() {
 	}, [start]);
 
 	useEffect(() => (runtime ? runtime.subscribeConversations(setConversations) : undefined), [runtime]);
+
+	// Keep working conversations running in the background; say when one finishes while the app is away.
+	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
+	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
+	useEffect(() => (runtime ? runtime.subscribeActivity(setBusyIds) : undefined), [runtime]);
+	useEffect(() => {
+		const title = (id: ConversationId) => conversations.find((item) => item.id === id)?.title ?? "對話";
+		setWorking([...busyIds].map(title));
+		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id));
+		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
+		previousBusy.current = busyIds;
+	}, [busyIds, conversations]);
 
 	const openConversation = useCallback(
 		async (id: ConversationId, draft?: string) => {

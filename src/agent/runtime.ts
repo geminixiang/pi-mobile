@@ -218,6 +218,32 @@ export class AgentRuntime {
 		});
 	}
 
+	/**
+	 * Conversations with live work (runs, tool calls, compactions), from the harness's task graph. Background tasks
+	 * do not count. Calls `listener` now and on every change; returns the unsubscribe function.
+	 */
+	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {
+		let disposed = false;
+		let dispose = () => {
+			disposed = true;
+		};
+		void this.#harness.taskGraph(context).then((state) => {
+			if (disposed) {
+				state.dispose();
+				return;
+			}
+			const emit = (graph: { tasks: Readonly<Record<string, { conversationId: ConversationId; background: boolean }>> }) =>
+				listener(new Set(Object.values(graph.tasks).flatMap((task) => (task.background ? [] : [task.conversationId]))));
+			emit(state.value);
+			const unsubscribe = state.subscribe((graph) => emit(graph));
+			dispose = () => {
+				unsubscribe();
+				state.dispose();
+			};
+		});
+		return () => dispose();
+	}
+
 	/** The conversation's sandbox files, or undefined when it has no sandbox yet. */
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
 		if (!this.#sandbox || !(await this.#sandbox.exists(id))) return undefined;
