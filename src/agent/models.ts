@@ -5,6 +5,8 @@ import { type Api, createProvider, type Model, type Provider, type ThinkingLevel
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
+import { Type } from "typebox";
+import { parse } from "./parse.ts";
 
 /** Stored in every conversation's model reference, so it keeps its original value. */
 export const PROVIDER_ID = "cliproxyapi";
@@ -42,6 +44,9 @@ const KNOWN: Record<string, { name: string; contextWindow: number; maxTokens: nu
 
 export const FAVORITE_MODEL_IDS = Object.keys(KNOWN);
 
+/** OpenAI's and Anthropic's /v1/models both list `{ id }` objects under `data`. */
+const ModelList = Type.Object({ data: Type.Optional(Type.Array(Type.Object({ id: Type.String() }))) });
+
 const baseName = (id: string) => id.slice(id.lastIndexOf("/") + 1);
 const isClaude = (id: string) => /^claude(?:-|$)/.test(baseName(id));
 const isCodexResponses = (id: string) => /^gpt-5\.6(?:-|$)|^gpt-6(?:\.\d+)?(?:-|$)/.test(baseName(id));
@@ -57,7 +62,7 @@ function toModel(id: string, baseUrl: string): Model<Api> {
 		name: known?.name ?? id,
 		provider: PROVIDER_ID,
 		reasoning: true,
-		input: ["text", "image"] as ("text" | "image")[],
+		input: ["text", "image"] satisfies ("text" | "image")[],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: known?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
 		maxTokens: known?.maxTokens ?? 32_000,
@@ -85,7 +90,7 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 		});
 	}
 	if (!response.ok) throw new Error(`GET /v1/models: HTTP ${response.status}`);
-	const body = (await response.json()) as { data?: { id: string }[] };
+	const body = parse(ModelList, await response.json(), "GET /v1/models");
 	const ids = new Set((body.data ?? []).map((model) => model.id));
 	const favorites = FAVORITE_MODEL_IDS.filter((id) => ids.has(id));
 	const rest = [...ids].filter((id) => !KNOWN[id]).sort();

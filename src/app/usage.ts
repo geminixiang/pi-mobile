@@ -1,4 +1,5 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
+import { usageOf } from "./docs.ts";
 
 export interface Usage {
 	input: number;
@@ -16,8 +17,8 @@ export function formatTokens(count: number): string {
 /** Context in use: the newest answer's prompt plus its output, as pi's footer shows it. */
 export function contextTokens(view: ConversationView | undefined): number {
 	for (let i = (view?.entries.length ?? 0) - 1; i >= 0; i--) {
-		const message = view?.entries[i]?.model?.[0] as { role?: string; usage?: Usage } | undefined;
-		if (message?.role === "assistant" && message.usage) {
+		const message = view?.entries[i]?.model?.[0];
+		if (message?.role === "assistant") {
 			const usage = message.usage;
 			return usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
 		}
@@ -27,7 +28,7 @@ export function contextTokens(view: ConversationView | undefined): number {
 
 /** Tokens the conversation spent, summed over models. */
 export function totalUsage(view: ConversationView | undefined): Usage {
-	const models = (view?.docs["pi.usage"] as { models?: Record<string, Usage> } | undefined)?.models ?? {};
+	const models = usageOf(view)?.models ?? {};
 	return Object.values(models).reduce(
 		(sum, usage) => ({
 			input: sum.input + usage.input,

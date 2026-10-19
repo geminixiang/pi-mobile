@@ -56,18 +56,18 @@ const System = registerPlugin<{ openExternal(options: { url: string }): Promise<
 function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
 	const [signIn, setSignIn] = useState<GoogleSignIn>();
 	const [code, setCode] = useState("");
-	const [state, setState] = useState<{ busy?: boolean; error?: string }>({});
+	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "failed"; error: string }>({ kind: "idle" });
 
 	const finish = async (value: string) => {
 		if (!signIn || !value.trim()) return;
-		setState({ busy: true });
+		setState({ kind: "busy" });
 		try {
 			onCredential(await finishGoogleSignIn(signIn, value));
 			setSignIn(undefined);
 			setCode("");
-			setState({});
+			setState({ kind: "idle" });
 		} catch (error) {
-			setState({ error: error instanceof Error ? error.message : String(error) });
+			setState({ kind: "failed", error: error instanceof Error ? error.message : String(error) });
 		}
 	};
 	const finishRef = useRef(finish);
@@ -100,7 +100,7 @@ function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => v
 					onClick={async () => {
 						const next = await startGoogleSignIn();
 						setSignIn(next);
-						setState({});
+						setState({ kind: "idle" });
 						await System.openExternal({ url: next.url });
 					}}
 				>
@@ -113,13 +113,13 @@ function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => v
 		<div className="sign-in">
 			<p>在瀏覽器完成登入，複製最後一頁的授權碼，回到 app 會自動帶入。也可以貼在這裡：</p>
 			<input className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
-			{state.error ? <div className="check-error">{state.error}</div> : null}
+			{state.kind === "failed" ? <div className="check-error">{state.error}</div> : null}
 			<div className="dialog-actions inline">
 				<button type="button" className="btn" onClick={() => setSignIn(undefined)}>
 					取消
 				</button>
-				<button type="button" className="btn primary" disabled={!code.trim() || state.busy} onClick={() => void finish(code)}>
-					{state.busy ? "登入中…" : "完成"}
+				<button type="button" className="btn primary" disabled={!code.trim() || state.kind === "busy"} onClick={() => void finish(code)}>
+					{state.kind === "busy" ? "登入中…" : "完成"}
 				</button>
 			</div>
 		</div>

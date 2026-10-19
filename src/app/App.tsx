@@ -16,6 +16,8 @@ import { SettingsView } from "./Settings.tsx";
 import { Layer, Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
+import { log } from "../log.ts";
+import { agentOf } from "./docs.ts";
 import { notifyAway, setWorking } from "./keepAlive.ts";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { checkSandbox } from "../agent/checks.ts";
@@ -52,7 +54,7 @@ export function App() {
 	const close = useCallback(() => setOverlay(undefined), []);
 
 	const notify = useCallback((message: string) => {
-		console.warn(message);
+		log.warn("app.notice", { message });
 		setToast(message);
 	}, []);
 	const fail = useCallback((error: unknown) => notify(error instanceof Error ? error.message : String(error)), [notify]);
@@ -63,6 +65,7 @@ export function App() {
 		return () => clearTimeout(timer);
 	}, [toast]);
 
+	// Ask is overloaded (text prompts resolve a string, confirmations a boolean); one implementation serves both.
 	const ask = useCallback(
 		((request: DialogRequest) =>
 			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
@@ -235,7 +238,7 @@ export function App() {
 		);
 	}
 
-	const agent = view?.docs["pi.agent"] as { model?: { modelId: string }; thinkingLevel?: string } | undefined;
+	const agent = agentOf(view);
 	const modelId = agent?.model?.modelId ?? "";
 	const thinking = agent?.thinkingLevel ?? "";
 	const model = runtime.models.find((candidate) => candidate.id === modelId);

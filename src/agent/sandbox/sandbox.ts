@@ -5,6 +5,9 @@ import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
+import { Type } from "typebox";
+import { log } from "../../log.ts";
+import { parse } from "../parse.ts";
 import { WebSocketConnection } from "./ws-connection.ts";
 
 export interface SandboxConfig {
@@ -14,6 +17,7 @@ export interface SandboxConfig {
 }
 
 const WORKSPACE = "/workspace";
+const SandboxIds = Type.Array(Type.Object({ id: Type.String() }));
 
 export function sandboxName(conversationId: ConversationId): string {
 	return `c${String(conversationId)}`;
@@ -36,7 +40,7 @@ export class SandboxPool {
 				relayUrl: this.#config.url,
 				relayToken: this.#config.token,
 				sandbox: name,
-				onLog: (text) => console.warn(`[sandbox ${name}]`, text),
+				onLog: (text) => log.warn("sandbox.daemon_output", { sandbox: name, text }),
 			});
 			// RemoteExecutionEnv only uses info/session/request/kill/close, which WebSocketConnection implements.
 			const env = new RemoteExecutionEnv({ connection: connection as unknown as Connection, id: `sandbox:${name}`, cwd: WORKSPACE });
@@ -54,7 +58,7 @@ export class SandboxPool {
 		url.searchParams.set("token", this.#config.token);
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`Listing sandboxes failed: HTTP ${response.status}`);
-		return ((await response.json()) as { id: string }[]).some((sandbox) => sandbox.id === name);
+		return parse(SandboxIds, await response.json(), "sandbox 清單").some((sandbox) => sandbox.id === name);
 	}
 
 	/** Remove the conversation's container and its files on the relay host. */

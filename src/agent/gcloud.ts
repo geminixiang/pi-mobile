@@ -1,61 +1,64 @@
-// Google Cloud credentials for the sandbox's gcloud. The long-lived credential (a user refresh token from
-// `gcloud auth application-default login`, or a service account key) stays on the phone; only short-lived access
-// tokens it mints go to the relay, on request, for the egress proxy to inject.
-import { CapacitorHttp } from "@capacitor/core";
-
-/**
- * Native HTTP has no timeouts by default: a request sent while the network drops (common right after switching
- * apps) can wait forever, and a sign-in that polls would wait with it.
- */
-const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
+// Google Cloud credentials for the sandbox's gcloud. The long-lived credential (a user refresh token from signing in,
+// or a service account key) stays on the phone; only short-lived access tokens it mints go to the relay, on request,
+// for the egress proxy to inject.
+import { type Static, Type } from "typebox";
+import { type AccessToken, base64url, jwtPayload, postForm, tokensFrom } from "./oauth.ts";
+import { parse, parseJson } from "./parse.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 
-type Credential =
-	| { type: "authorized_user"; client_id: string; client_secret: string; refresh_token: string; quota_project_id?: string; account?: string }
-	| { type: "service_account"; client_email: string; private_key: string; project_id?: string; token_uri?: string };
+const AuthorizedUser = Type.Object({
+	type: Type.Literal("authorized_user"),
+	client_id: Type.String(),
+	client_secret: Type.String(),
+	refresh_token: Type.String(),
+	quota_project_id: Type.Optional(Type.String()),
+	/** Recorded at sign-in in the app, for display. */
+	account: Type.Optional(Type.String()),
+});
 
-export interface AccessToken {
-	token: string;
-	/** Milliseconds since the epoch. */
-	expiresAt: number;
-}
+const ServiceAccount = Type.Object({
+	type: Type.Literal("service_account"),
+	client_email: Type.String(),
+	private_key: Type.String(),
+	project_id: Type.Optional(Type.String()),
+	token_uri: Type.Optional(Type.String()),
+});
 
-/** Parse pasted credential JSON; throws a message for the settings screen when it is not one we can use. */
+const Credential = Type.Union([AuthorizedUser, ServiceAccount]);
+type Credential = Static<typeof Credential>;
+
+/** Parse stored or pasted credential JSON; the message suits the settings screen. */
 export function parseCredential(json: string): Credential {
-	let value: Record<string, unknown>;
+	const value = parseJson(json, "Google 憑證");
 	try {
-		value = JSON.parse(json) as Record<string, unknown>;
+		return parse(Credential, value, "Google 憑證");
 	} catch {
-		throw new Error("不是有效的 JSON");
+		throw new Error("需要 authorized_user（用 Google 登入，或 gcloud auth application-default login 產生）或 service_account 金鑰");
 	}
-	if (value.type === "authorized_user" && value.refresh_token && value.client_id && value.client_secret) return value as Credential;
-	if (value.type === "service_account" && value.client_email && value.private_key) return value as Credential;
-	throw new Error("需要 authorized_user（gcloud auth application-default login 產生）或 service_account 金鑰");
 }
 
 /** Who the credential acts as and its project, for the settings screen. */
 export function describeCredential(credential: Credential): string {
-	return credential.type === "service_account"
-		? `${credential.client_email}${credential.project_id ? ` · ${credential.project_id}` : ""}`
-		: `${credential.account ?? "使用者憑證"}${credential.quota_project_id ? ` · ${credential.quota_project_id}` : ""}`;
-}
-
-function base64url(data: ArrayBuffer | string): string {
-	const bytes = typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
-	let binary = "";
-	for (const byte of bytes) binary += String.fromCharCode(byte);
-	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+	switch (credential.type) {
+		case "service_account":
+			return `${credential.client_email}${credential.project_id ? ` · ${credential.project_id}` : ""}`;
+		case "authorized_user":
+			return `${credential.account ?? "使用者憑證"}${credential.quota_project_id ? ` · ${credential.quota_project_id}` : ""}`;
+		default: {
+			const _exhaustive: never = credential;
+			return _exhaustive;
+		}
+	}
 }
 
 /** A JWT assertion for the service account's token grant, signed RS256 with WebCrypto. */
-async function serviceAccountAssertion(credential: Extract<Credential, { type: "service_account" }>): Promise<string> {
+async function serviceAccountAssertion(credential: Static<typeof ServiceAccount>): Promise<string> {
 	const now = Math.floor(Date.now() / 1000);
-	const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-	const claims = base64url(
-		JSON.stringify({ iss: credential.client_email, scope: SCOPE, aud: credential.token_uri ?? TOKEN_URL, iat: now, exp: now + 3600 }),
-	);
+	const encode = (value: object) => base64url(new TextEncoder().encode(JSON.stringify(value)));
+	const header = encode({ alg: "RS256", typ: "JWT" });
+	const claims = encode({ iss: credential.client_email, scope: SCOPE, aud: credential.token_uri ?? TOKEN_URL, iat: now, exp: now + 3600 });
 	const pem = credential.private_key.replace(/-----[A-Z ]+-----/g, "").replace(/\s+/g, "");
 	const der = Uint8Array.from(atob(pem), (char) => char.charCodeAt(0));
 	const key = await crypto.subtle.importKey("pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
@@ -64,35 +67,24 @@ async function serviceAccountAssertion(credential: Extract<Credential, { type: "
 }
 
 async function exchange(credential: Credential): Promise<AccessToken> {
-	const form =
+	const response =
 		credential.type === "authorized_user"
-			? new URLSearchParams({
-					grant_type: "refresh_token",
-					refresh_token: credential.refresh_token,
-					client_id: credential.client_id,
-					client_secret: credential.client_secret,
+			? await postForm({
+					url: TOKEN_URL,
+					form: {
+						grant_type: "refresh_token",
+						refresh_token: credential.refresh_token,
+						client_id: credential.client_id,
+						client_secret: credential.client_secret,
+					},
+					what: "Google token",
 				})
-			: new URLSearchParams({
-					grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-					assertion: await serviceAccountAssertion(credential),
+			: await postForm({
+					url: credential.token_uri ?? TOKEN_URL,
+					form: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: await serviceAccountAssertion(credential) },
+					what: "Google token",
 				});
-	// Native HTTP: Google's token endpoint does not allow the WebView's origin.
-	const response = await CapacitorHttp.post({
-		url: credential.type === "service_account" ? (credential.token_uri ?? TOKEN_URL) : TOKEN_URL,
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		data: form.toString(),
-		...TIMEOUTS,
-	});
-	const body = (typeof response.data === "string" ? JSON.parse(response.data) : response.data) as {
-		access_token?: string;
-		expires_in?: number;
-		error?: string;
-		error_description?: string;
-	};
-	if (response.status !== 200 || !body.access_token) {
-		throw new Error(`Google token: ${body.error_description ?? body.error ?? `HTTP ${response.status}`}`);
-	}
-	return { token: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 };
+	return tokensFrom(response, "Google token").access;
 }
 
 /** Mints and caches access tokens; a token is reused until five minutes before it expires. */
@@ -149,7 +141,7 @@ export interface GoogleSignIn {
 }
 
 export async function startGoogleSignIn(): Promise<GoogleSignIn> {
-	const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)).buffer as ArrayBuffer);
+	const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)));
 	const challenge = base64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
 	const url = new URL("https://accounts.google.com/o/oauth2/auth");
 	url.search = new URLSearchParams({
@@ -157,7 +149,7 @@ export async function startGoogleSignIn(): Promise<GoogleSignIn> {
 		client_id: ADC_CLIENT_ID,
 		redirect_uri: ADC_REDIRECT_URI,
 		scope: SIGN_IN_SCOPES.join(" "),
-		state: base64url(crypto.getRandomValues(new Uint8Array(16)).buffer as ArrayBuffer),
+		state: base64url(crypto.getRandomValues(new Uint8Array(16))),
 		prompt: "consent",
 		token_usage: "remote",
 		access_type: "offline",
@@ -172,36 +164,30 @@ export function looksLikeAuthCode(text: string): boolean {
 	return /^4\/[0-9A-Za-z_-]{20,}$/.test(text.trim());
 }
 
+const IdClaims = Type.Object({ email: Type.Optional(Type.String()) });
+
 /** Exchange the code for the credential JSON to store; it records the signed-in account for display. */
 export async function finishGoogleSignIn(signIn: GoogleSignIn, code: string): Promise<string> {
-	const response = await CapacitorHttp.post({
+	const response = await postForm({
 		url: TOKEN_URL,
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		data: new URLSearchParams({
+		form: {
 			grant_type: "authorization_code",
 			code: code.trim(),
 			client_id: ADC_CLIENT_ID,
 			client_secret: ADC_CLIENT_SECRET,
 			redirect_uri: ADC_REDIRECT_URI,
 			code_verifier: signIn.verifier,
-		}).toString(),
-		...TIMEOUTS,
+		},
+		what: "Google 登入",
 	});
-	const body = (typeof response.data === "string" ? JSON.parse(response.data) : response.data) as {
-		refresh_token?: string;
-		id_token?: string;
-		error?: string;
-		error_description?: string;
-	};
-	if (response.status !== 200 || !body.refresh_token) {
-		throw new Error(`Google 登入失敗：${body.error_description ?? body.error ?? `HTTP ${response.status}`}`);
-	}
-	const claims = body.id_token ? (JSON.parse(atob(body.id_token.split(".")[1]?.replace(/-/g, "+").replace(/_/g, "/") ?? "")) as { email?: string }) : {};
+	const tokens = tokensFrom(response, "Google 登入");
+	if (!tokens.refresh) throw new Error("Google 登入失敗：沒有拿到 refresh token");
+	const claims = tokens.idToken ? parse(IdClaims, jwtPayload(tokens.idToken), "Google ID token") : {};
 	return JSON.stringify({
 		type: "authorized_user",
 		client_id: ADC_CLIENT_ID,
 		client_secret: ADC_CLIENT_SECRET,
-		refresh_token: body.refresh_token,
+		refresh_token: tokens.refresh,
 		...(claims.email ? { account: claims.email } : {}),
-	});
+	} satisfies Static<typeof AuthorizedUser>);
 }

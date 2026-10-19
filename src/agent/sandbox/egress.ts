@@ -5,19 +5,20 @@
 // credential stays on the phone (Google Cloud, Cloudflare) when the relay asks, and answers the egress proxy's write
 // approvals with the app's confirmation dialog. It reconnects with backoff, so approvals asked while the phone was
 // away arrive again.
+import { type Static, Type } from "typebox";
+import { Value } from "typebox/value";
 import { requestConfirmation } from "../confirm.ts";
-import type { AccessToken } from "../gcloud.ts";
+import type { AccessToken } from "../oauth.ts";
 
 const MIN_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
 
-interface Approval {
-	type: "approve";
-	id: number;
-	sandbox: string;
-	title: string;
-	detail: string;
-}
+/** What the relay sends on the control channel. */
+const RelayMessage = Type.Union([
+	Type.Object({ type: Type.Literal("approve"), id: Type.Number(), sandbox: Type.String(), title: Type.String(), detail: Type.String() }),
+	Type.Object({ type: Type.Literal("token"), service: Type.String(), scope: Type.Optional(Type.String()) }),
+]);
+type Approval = Extract<Static<typeof RelayMessage>, { type: "approve" }>;
 
 /** A service whose access tokens the phone mints on request. */
 export interface MintedService {
@@ -70,11 +71,25 @@ export class EgressLink {
 		});
 		socket.addEventListener("message", (event) => {
 			if (typeof event.data !== "string") return;
-			const message = JSON.parse(event.data) as Approval | { type: "token"; service: string; scope?: string } | { type: string };
-			if (message.type === "approve") void this.#approve(message as Approval);
-			if (message.type === "token") {
-				const { service, scope } = message as { service: string; scope?: string };
-				void this.#token(socket, service, scope ?? "");
+			let message: unknown;
+			try {
+				message = JSON.parse(event.data);
+			} catch {
+				return;
+			}
+			// Unknown messages come from a newer relay; ignore them.
+			if (!Value.Check(RelayMessage, message)) return;
+			switch (message.type) {
+				case "approve":
+					void this.#approve(message);
+					break;
+				case "token":
+					void this.#token(socket, message.service, message.scope ?? "");
+					break;
+				default: {
+					const _exhaustive: never = message;
+					return _exhaustive;
+				}
 			}
 		});
 		socket.addEventListener("close", () => {

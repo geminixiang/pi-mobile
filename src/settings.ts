@@ -1,6 +1,8 @@
 // App settings. Secrets live in the Android Keystore / iOS Keychain through secure storage;
 // the rest is plain localStorage.
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
+import { type Static, Type } from "typebox";
+import { Value } from "typebox/value";
 
 const PLAIN_KEY = "pi-mobile.settings";
 /** Keychain key from the first version; kept so saved keys still load. */
@@ -30,12 +32,24 @@ export interface Settings {
 	defaultThinking: string;
 }
 
-interface PlainSettings {
-	baseUrl?: string;
-	sandboxUrl?: string;
-	gcloudProject?: string;
-	defaultModelId?: string;
-	defaultThinking?: string;
+/** The non-secret settings in localStorage. */
+const PlainSettings = Type.Object({
+	baseUrl: Type.Optional(Type.String()),
+	sandboxUrl: Type.Optional(Type.String()),
+	gcloudProject: Type.Optional(Type.String()),
+	defaultModelId: Type.Optional(Type.String()),
+	defaultThinking: Type.Optional(Type.String()),
+});
+type PlainSettings = Static<typeof PlainSettings>;
+
+/** Stored plain settings; anything unreadable counts as unset rather than breaking startup. */
+function loadPlain(): PlainSettings {
+	try {
+		const value: unknown = JSON.parse(localStorage.getItem(PLAIN_KEY) ?? "{}");
+		return Value.Check(PlainSettings, value) ? value : {};
+	} catch {
+		return {};
+	}
 }
 
 async function secret(key: string): Promise<string> {
@@ -44,7 +58,7 @@ async function secret(key: string): Promise<string> {
 }
 
 export async function loadSettings(): Promise<Settings> {
-	const plain = JSON.parse(localStorage.getItem(PLAIN_KEY) ?? "{}") as PlainSettings;
+	const plain = loadPlain();
 	return {
 		baseUrl: plain.baseUrl ?? "",
 		apiKey: await secret(SECRET_API_KEY),

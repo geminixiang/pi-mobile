@@ -210,7 +210,7 @@ export class WebSocketConnection {
 			});
 		}).catch((error: unknown) => {
 			clearTimeout(startTimer);
-			this.#teardown(session, error as Error);
+			this.#teardown(session, error instanceof Error ? error : lost(String(error)));
 			throw error;
 		});
 

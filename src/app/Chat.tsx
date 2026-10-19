@@ -4,20 +4,10 @@ import type { BusyMode, ConversationController, ConversationId, SubmissionId } f
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import { ArrowIcon, BranchIcon, ChevronDownIcon, CopyIcon } from "./icons.tsx";
 import { type Block, type CallState, EntryView, entryText, finishedCalls, StreamingAnswer } from "./Message.tsx";
+import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
-
-interface LiveState {
-	run?: unknown;
-	generation?: { message?: { content?: Block[] }; retry?: { at: number; error: string } };
-	tools?: { callId: string; name: string; status: "pending" | "running" | "done"; output?: string }[];
-	compactions?: unknown[];
-}
-
-interface InboxState {
-	items: { id: SubmissionId; mode: BusyMode | "write"; content: unknown }[];
-}
 
 export interface Capabilities {
 	github: boolean;
@@ -48,7 +38,7 @@ function suggestions(capabilities: Capabilities): Suggestion[] {
 
 /** Whether the agent is working in this view. */
 export function isBusy(view: ConversationView | undefined): boolean {
-	return Boolean((view?.docs["pi.live"] as LiveState | undefined)?.run);
+	return Boolean(liveOf(view)?.run);
 }
 
 export function Chat({
@@ -101,8 +91,8 @@ export function Chat({
 		if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
 	});
 
-	const live = view?.docs["pi.live"] as LiveState | undefined;
-	const inbox = view?.docs["pi.inbox"] as InboxState | undefined;
+	const live = liveOf(view);
+	const inbox = inboxOf(view);
 	const busy = Boolean(live?.run);
 	const partial = live?.generation?.message?.content;
 	const entries = view?.entries ?? [];
@@ -110,7 +100,9 @@ export function Chat({
 	const calls = useMemo(() => {
 		const states: Map<string, CallState> = finishedCalls(entries);
 		for (const tool of live?.tools ?? []) {
-			if (!states.has(tool.callId)) states.set(tool.callId, { status: tool.status, output: tool.output });
+			if (states.has(tool.callId)) continue;
+			// A slot reaches "done" before its result entry arrives; show it as running until then.
+			states.set(tool.callId, tool.status === "pending" ? { status: "pending" } : { status: "running", output: tool.output });
 		}
 		return states;
 	}, [entries, live?.tools]);

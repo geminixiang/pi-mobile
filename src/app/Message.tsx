@@ -1,3 +1,4 @@
+import type { ImageContent, Message as ModelMessage, TextContent, ThinkingContent, ToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { type ComponentProps, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
@@ -8,39 +9,27 @@ import { ChevronIcon, FileIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
 import { OpenFileContext, resolvePath } from "./openFile.ts";
 
-export type Block =
-	| { type: "text"; text: string }
-	| { type: "thinking"; thinking: string }
-	| { type: "image"; data: string; mimeType: string }
-	| { type: "toolCall"; id: string; name: string; arguments: Record<string, unknown> };
+/** One content part of any message the transcript shows. */
+export type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
 
-interface ModelMessage {
-	role: string;
-	content: string | Block[];
-	stopReason?: string;
-	errorMessage?: string;
-	toolCallId?: string;
-	isError?: boolean;
-}
-
-/** What the trace shows for a call: its result once done, or its live output while running. */
-export interface CallState {
-	status: "pending" | "running" | "done";
-	isError?: boolean;
-	output?: string;
-	/** Images in the result, such as a chart the agent read back from the sandbox. */
-	images?: { data: string; mimeType: string }[];
-}
+/**
+ * What the trace shows for a call. Running calls have live output; finished calls have their result, and only they
+ * can have failed or carry images (such as a chart the agent read back from the sandbox).
+ */
+export type CallState =
+	| { status: "pending" }
+	| { status: "running"; output?: string }
+	| { status: "done"; isError: boolean; output: string; images: ImageContent[] };
 
 export type CallStates = ReadonlyMap<string, CallState>;
 
-function blocks(content: string | Block[] | undefined): Block[] {
+function blocks(content: string | readonly Block[] | undefined): readonly Block[] {
 	if (typeof content === "string") return [{ type: "text", text: content }];
 	return content ?? [];
 }
 
 function message(entry: EntryRecord): ModelMessage | undefined {
-	return entry.model?.[0] as ModelMessage | undefined;
+	return entry.model?.[0];
 }
 
 /** Results of finished calls, keyed by tool call ID, from the transcript's tool-result entries. */
@@ -48,14 +37,13 @@ export function finishedCalls(entries: readonly EntryRecord[]): Map<string, Call
 	const calls = new Map<string, CallState>();
 	for (const entry of entries) {
 		const result = message(entry);
-		if (entry.kind !== "pi.tool-result" || !result?.toolCallId) continue;
-		const content = blocks(result.content);
-		const output = content
-			.filter((block): block is Extract<Block, { type: "text" }> => block.type === "text")
+		if (result?.role !== "toolResult") continue;
+		const output = result.content
+			.filter((block) => block.type === "text")
 			.map((block) => block.text)
 			.join("\n");
-		const images = content.filter((block): block is Extract<Block, { type: "image" }> => block.type === "image");
-		calls.set(result.toolCallId, { status: "done", isError: result.isError, output, ...(images.length ? { images } : {}) });
+		const images = result.content.filter((block) => block.type === "image");
+		calls.set(result.toolCallId, { status: "done", isError: result.isError, output, images });
 	}
 	return calls;
 }
@@ -63,7 +51,7 @@ export function finishedCalls(entries: readonly EntryRecord[]): Map<string, Call
 /** Text of a message, for copying. */
 export function entryText(entry: EntryRecord): string {
 	return blocks(message(entry)?.content)
-		.filter((block): block is Extract<Block, { type: "text" }> => block.type === "text")
+		.filter((block) => block.type === "text")
 		.map((block) => block.text)
 		.join("\n");
 }
@@ -120,7 +108,8 @@ function useElapsed(running: boolean): number {
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const status = tone(state);
-	const output = state?.output?.replace(harnessTag, "").trim();
+	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
+	const images = state?.status === "done" ? state.images : [];
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
@@ -145,7 +134,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 			{output && (open || status === "running") ? (
 				<pre className="console">{status === "running" ? output.split("\n").slice(-6).join("\n") : output}</pre>
 			) : null}
-			{state?.images?.map((image, index) => (
+			{images.map((image, index) => (
 				<button type="button" className="step-image" key={index} onClick={() => filePath && openFile?.(resolvePath(filePath))}>
 					<img src={`data:${image.mimeType};base64,${image.data}`} alt={filePath ?? ""} />
 				</button>
@@ -224,7 +213,7 @@ export const markdownComponents = { pre: CodeBlock };
 // CJK-friendly emphasis: CommonMark misses **粗體**是 when the closing ** follows CJK punctuation.
 export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 
-function Content({ content, prefs, calls, streaming }: { content: Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
+function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
 	// Consecutive tool calls form one trace group.
 	const groups: (Block | Call[])[] = [];
 	for (const block of content) {
@@ -292,7 +281,7 @@ export function EntryView({
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
 	if (!model) return null;
-	if (entry.kind === "pi.user") {
+	if (entry.kind === "pi.user" && model.role === "user") {
 		return (
 			<section className="prompt" {...longPress} onClick={() => onActions(entry)}>
 				<div className="bubble">
@@ -301,7 +290,7 @@ export function EntryView({
 			</section>
 		);
 	}
-	if (entry.kind === "pi.assistant") {
+	if (entry.kind === "pi.assistant" && model.role === "assistant") {
 		const aborted = model.stopReason === "aborted";
 		return (
 			<article className={`answer${aborted ? " aborted" : ""}`} {...longPress}>

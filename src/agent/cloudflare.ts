@@ -2,16 +2,12 @@
 // CLI (its public client ID): the app shows a code, the user approves it in the browser, the app polls for tokens.
 // The refresh token stays on the phone; the relay only ever gets short-lived access tokens. An API token pasted in
 // settings works too and is passed on as is.
-import { CapacitorHttp } from "@capacitor/core";
-
-/**
- * Native HTTP has no timeouts by default: a request sent while the network drops (common right after switching
- * apps) can wait forever, and a sign-in that polls would wait with it.
- */
-const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
-import type { AccessToken } from "./gcloud.ts";
+import { type Static, Type } from "typebox";
+import { type AccessToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, startDeviceFlow, tokensFrom } from "./oauth.ts";
+import { parse, parseJson } from "./parse.ts";
 
 const AUTH_DOMAIN = "https://dash.cloudflare.com";
+const TOKEN_URL = `${AUTH_DOMAIN}/oauth2/token`;
 const CLIENT_ID = "cbca97e7-c331-4cdd-8fd8-e25a451b98bf";
 /** The scopes `cf auth login` asks for by default, minus ones only Cloudflare staff can grant. */
 const SCOPES = [
@@ -41,124 +37,93 @@ const SCOPES = [
 	"offline_access",
 ];
 
-export type CloudflareCredential =
-	| { type: "cloudflare_oauth"; refresh_token: string; email?: string; account_id?: string; account_name?: string }
-	| { type: "cloudflare_api_token"; token: string; account_id?: string };
+const OAuthCredential = Type.Object({
+	type: Type.Literal("cloudflare_oauth"),
+	refresh_token: Type.String(),
+	email: Type.Optional(Type.String()),
+	account_id: Type.Optional(Type.String()),
+	account_name: Type.Optional(Type.String()),
+});
+const ApiTokenCredential = Type.Object({
+	type: Type.Literal("cloudflare_api_token"),
+	token: Type.String(),
+	account_id: Type.Optional(Type.String()),
+});
+const CloudflareCredential = Type.Union([OAuthCredential, ApiTokenCredential]);
+export type CloudflareCredential = Static<typeof CloudflareCredential>;
 
-type Json = Record<string, unknown>;
-
-async function post(path: string, form: Record<string, string>): Promise<{ status: number; body: Json }> {
-	// Native HTTP: the OAuth endpoints do not allow the WebView's origin.
-	const response = await CapacitorHttp.post({
-		url: `${AUTH_DOMAIN}${path}`,
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		data: new URLSearchParams(form).toString(),
-		...TIMEOUTS,
-	});
-	const body = (typeof response.data === "string" ? JSON.parse(response.data || "{}") : response.data) as Json;
-	return { status: response.status, body };
-}
-
-async function api(token: string, path: string): Promise<Json> {
-	const response = await CapacitorHttp.get({
-		url: `https://api.cloudflare.com/client/v4${path}`,
-		headers: { Authorization: `Bearer ${token}` },
-		...TIMEOUTS,
-	});
-	return (typeof response.data === "string" ? JSON.parse(response.data) : response.data) as Json;
-}
+/** Cloudflare's API envelope, with only the fields read here. */
+const UserResponse = Type.Object({ result: Type.Optional(Type.Object({ email: Type.Optional(Type.String()) })) });
+const AccountsResponse = Type.Object({
+	result: Type.Optional(Type.Array(Type.Object({ id: Type.String(), name: Type.String() }))),
+});
 
 export function parseCloudflare(json: string): CloudflareCredential {
-	const value = JSON.parse(json) as CloudflareCredential;
-	if (value.type === "cloudflare_oauth" && value.refresh_token) return value;
-	if (value.type === "cloudflare_api_token" && value.token) return value;
-	throw new Error("不是 Cloudflare 憑證");
+	return parse(CloudflareCredential, parseJson(json, "Cloudflare 憑證"), "Cloudflare 憑證");
 }
 
 /** What settings show for a stored credential. */
 export function describeCloudflare(json: string): string {
+	let credential: CloudflareCredential;
 	try {
-		const credential = parseCloudflare(json);
-		if (credential.type === "cloudflare_api_token") return `API token${credential.account_id ? ` · ${credential.account_id.slice(0, 8)}…` : ""}`;
-		return [credential.email ?? "OAuth 登入", credential.account_name].filter(Boolean).join(" · ");
+		credential = parseCloudflare(json);
 	} catch (error) {
 		return error instanceof Error ? error.message : String(error);
+	}
+	switch (credential.type) {
+		case "cloudflare_api_token":
+			return `API token${credential.account_id ? ` · ${credential.account_id.slice(0, 8)}…` : ""}`;
+		case "cloudflare_oauth":
+			return [credential.email ?? "OAuth 登入", credential.account_name].filter(Boolean).join(" · ");
+		default: {
+			const _exhaustive: never = credential;
+			return _exhaustive;
+		}
 	}
 }
 
 /** An API token pasted in settings, stored in the same shape as a sign-in. */
 export function apiTokenCredential(token: string): string {
-	return JSON.stringify({ type: "cloudflare_api_token", token: token.trim() });
+	return JSON.stringify({ type: "cloudflare_api_token", token: token.trim() } satisfies Static<typeof ApiTokenCredential>);
 }
 
-// ---------- Device flow sign-in ----------
-
-export interface DeviceSignIn {
-	userCode: string;
-	/** Page that approves this code, with the code filled in. */
-	url: string;
-	deviceCode: string;
-	intervalMs: number;
-	expiresAt: number;
-}
+export type { DeviceSignIn };
 
 export async function startDeviceSignIn(): Promise<DeviceSignIn> {
-	const { status, body } = await post("/oauth2/device/auth", { client_id: CLIENT_ID, scope: SCOPES.join(" ") });
-	if (status !== 200 || typeof body.device_code !== "string") throw new Error(`Cloudflare 登入失敗：${String(body.error_description ?? body.error ?? status)}`);
-	const url = String(body.verification_uri_complete ?? body.verification_uri);
+	const signIn = await startDeviceFlow({
+		url: `${AUTH_DOMAIN}/oauth2/device/auth`,
+		form: { client_id: CLIENT_ID, scope: SCOPES.join(" ") },
+		what: "Cloudflare 登入",
+	});
 	// Only open Cloudflare's own page, as cf does.
-	if (new URL(url).origin !== AUTH_DOMAIN) throw new Error(`Cloudflare 回傳了不信任的登入網址：${url}`);
-	return {
-		userCode: String(body.user_code),
-		url,
-		deviceCode: body.device_code,
-		intervalMs: Number(body.interval ?? 5) * 1000,
-		expiresAt: Date.now() + Number(body.expires_in ?? 300) * 1000,
-	};
+	if (new URL(signIn.url).origin !== AUTH_DOMAIN) throw new Error(`Cloudflare 回傳了不信任的登入網址：${signIn.url}`);
+	return signIn;
+}
+
+async function api<T extends Parameters<typeof parse>[0]>(token: string, path: string, schema: T): Promise<Static<T> | undefined> {
+	try {
+		const response = await getJson({ url: `https://api.cloudflare.com/client/v4${path}`, token, what: "Cloudflare API" });
+		return parse(schema, response.body, "Cloudflare API");
+	} catch {
+		return undefined; // Display details only; sign-in does not depend on them.
+	}
 }
 
 /** Poll until the user approves the code; resolves with the credential JSON to store. */
 export async function finishDeviceSignIn(signIn: DeviceSignIn, signal: AbortSignal): Promise<string> {
-	let interval = signIn.intervalMs;
-	while (Date.now() < signIn.expiresAt) {
-		await new Promise((resolve) => setTimeout(resolve, interval));
-		if (signal.aborted) throw new Error("已取消");
-		let body: Json;
-		try {
-			({ body } = await post("/oauth2/token", {
-				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-				device_code: signIn.deviceCode,
-				client_id: CLIENT_ID,
-			}));
-		} catch {
-			// The phone's network drops for a moment while the user is in the browser; keep polling until the code expires.
-			continue;
-		}
-		if (body.error === "authorization_pending") continue;
-		if (body.error === "slow_down") {
-			interval += 5000;
-			continue;
-		}
-		if (body.error === "access_denied") throw new Error("你在 Cloudflare 拒絕了授權");
-		if (typeof body.access_token !== "string" || typeof body.refresh_token !== "string") {
-			throw new Error(`Cloudflare 登入失敗：${String(body.error_description ?? body.error ?? "沒有拿到 token")}`);
-		}
-		// Who signed in, and the first account, so cf and wrangler know which account to use.
-		const user = await api(body.access_token, "/user").catch(() => ({}) as Json);
-		const accounts = await api(body.access_token, "/accounts?per_page=5").catch(() => ({}) as Json);
-		const account = (accounts.result as { id: string; name: string }[] | undefined)?.[0];
-		return JSON.stringify({
-			type: "cloudflare_oauth",
-			refresh_token: body.refresh_token,
-			email: (user.result as { email?: string } | undefined)?.email,
-			account_id: account?.id,
-			account_name: account?.name,
-		});
-	}
-	throw new Error("登入逾時，請再試一次");
+	const tokens = await pollDeviceFlow({ signIn, url: TOKEN_URL, form: { client_id: CLIENT_ID }, what: "Cloudflare", signal });
+	if (!tokens.refresh) throw new Error("Cloudflare 登入失敗：沒有拿到 refresh token");
+	// Who signed in, and the first account, so cf and wrangler know which account to use.
+	const user = await api(tokens.access.token, "/user", UserResponse);
+	const account = (await api(tokens.access.token, "/accounts?per_page=5", AccountsResponse))?.result?.[0];
+	return JSON.stringify({
+		type: "cloudflare_oauth",
+		refresh_token: tokens.refresh,
+		email: user?.result?.email,
+		account_id: account?.id,
+		account_name: account?.name,
+	} satisfies Static<typeof OAuthCredential>);
 }
-
-// ---------- Access tokens ----------
 
 /**
  * Mints access tokens from the stored credential. Cloudflare rotates refresh tokens: every refresh returns a new one
@@ -189,20 +154,23 @@ export class CloudflareTokens {
 		return this.#pending;
 	}
 
-	async #refresh(credential: Extract<CloudflareCredential, { type: "cloudflare_oauth" }>): Promise<AccessToken> {
-		const { status, body } = await post("/oauth2/token", {
-			grant_type: "refresh_token",
-			refresh_token: credential.refresh_token,
-			client_id: CLIENT_ID,
+	async #refresh(credential: Static<typeof OAuthCredential>): Promise<AccessToken> {
+		const response = await postForm({
+			url: TOKEN_URL,
+			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID },
+			what: "Cloudflare token",
 		});
-		if (status !== 200 || typeof body.access_token !== "string") {
-			throw new Error(`Cloudflare token：${String(body.error_description ?? body.error ?? `HTTP ${status}`)}（可能需要在設定重新登入）`);
+		let tokens;
+		try {
+			tokens = tokensFrom(response, "Cloudflare token");
+		} catch (error) {
+			throw new Error(`${error instanceof Error ? error.message : String(error)}（可能需要在設定重新登入）`);
 		}
-		if (typeof body.refresh_token === "string" && body.refresh_token !== credential.refresh_token) {
-			this.#credential = { ...credential, refresh_token: body.refresh_token };
+		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
+			this.#credential = { ...credential, refresh_token: tokens.refresh };
 			await this.#onRotate(JSON.stringify(this.#credential));
 		}
-		this.#cached = { token: body.access_token, expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000 };
-		return this.#cached;
+		this.#cached = tokens.access;
+		return tokens.access;
 	}
 }

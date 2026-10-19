@@ -4,6 +4,42 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool } from "@earendil-works/pi-durable";
+import { Type as T } from "typebox";
+import { Value } from "typebox/value";
+import { parse } from "../parse.ts";
+
+/** The parts of a Responses API answer read here: message text and its URL citations. */
+const ResponsesAnswer = T.Object({
+	output: T.Optional(
+		T.Array(
+			T.Object({
+				type: T.String(),
+				content: T.Optional(
+					T.Array(
+						T.Object({
+							text: T.Optional(T.String()),
+							annotations: T.Optional(T.Array(T.Object({ url: T.Optional(T.String()), title: T.Optional(T.String()) }))),
+						}),
+					),
+				),
+			}),
+		),
+	),
+});
+
+/** The parts of a Messages API answer read here: text blocks and web search results. */
+const MessagesAnswer = T.Object({
+	content: T.Optional(
+		T.Array(
+			T.Object({
+				type: T.String(),
+				text: T.Optional(T.String()),
+				content: T.Optional(T.Unknown()),
+			}),
+		),
+	),
+});
+const SearchResults = T.Array(T.Object({ url: T.Optional(T.String()), title: T.Optional(T.String()) }));
 
 const MAX_FETCH_CHARS = 40_000;
 
@@ -41,9 +77,7 @@ async function searchResponses(config: WebConfig, model: string, query: string, 
 		signal,
 	});
 	if (!response.ok) throw new Error(`web search (${model}): HTTP ${response.status} ${(await response.text()).slice(0, 300)}`);
-	const body = (await response.json()) as {
-		output?: { type: string; content?: { type: string; text?: string; annotations?: { type: string; url?: string; title?: string }[] }[] }[];
-	};
+	const body = parse(ResponsesAnswer, await response.json(), "web search 回應");
 	const parts = (body.output ?? []).filter((item) => item.type === "message").flatMap((item) => item.content ?? []);
 	const text = parts.map((part) => part.text ?? "").join("\n").trim();
 	const sources = new Map<string, string>();
@@ -70,13 +104,12 @@ async function searchAnthropic(config: WebConfig, model: string, query: string, 
 		signal,
 	});
 	if (!response.ok) throw new Error(`web search (${model}): HTTP ${response.status} ${(await response.text()).slice(0, 300)}`);
-	const body = (await response.json()) as {
-		content?: { type: string; text?: string; content?: { type: string; url?: string; title?: string }[] }[];
-	};
+	const body = parse(MessagesAnswer, await response.json(), "web search 回應");
 	const text = (body.content ?? []).flatMap((block) => (block.type === "text" ? [block.text ?? ""] : [])).join("").trim();
 	const sources = (body.content ?? [])
-		.filter((block) => block.type === "web_search_tool_result" && Array.isArray(block.content))
-		.flatMap((block) => block.content ?? [])
+		.filter((block) => block.type === "web_search_tool_result")
+		// A result block holds an array of results, or an error object that has no sources.
+		.flatMap((block) => (Value.Check(SearchResults, block.content) ? block.content : []))
 		.filter((result) => result.url)
 		.map((result) => `- ${result.title ?? result.url}: ${result.url}`);
 	return [text, sources.length ? `\nSources:\n${[...new Set(sources)].join("\n")}` : ""].join("\n");
