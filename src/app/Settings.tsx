@@ -12,6 +12,7 @@ import {
 	startGoogleSignIn,
 } from "../agent/gcloud.ts";
 import { registerPlugin } from "@capacitor/core";
+import { type AzureDeviceSignIn, describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
@@ -167,6 +168,70 @@ function CloudflareSignInPanel({ onCredential }: { onCredential: (json: string) 
 	return (
 		<div className="sign-in">
 			<p>在 Cloudflare 頁面確認這組代碼並按同意：</p>
+			<div className="user-code">{signIn.userCode}</div>
+			<p className="ws-loading">等待授權</p>
+			<div className="dialog-actions inline">
+				<button
+					type="button"
+					className="btn"
+					onClick={() => {
+						abort.current?.abort();
+						setSignIn(undefined);
+					}}
+				>
+					取消
+				</button>
+				<button type="button" className="btn" onClick={() => void System.openExternal({ url: signIn.url })}>
+					重新開啟頁面
+				</button>
+			</div>
+		</div>
+	);
+}
+
+/** Microsoft's device code flow: the code is copied for the user to paste at microsoft.com/devicelogin. */
+function AzureSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
+	const [signIn, setSignIn] = useState<AzureDeviceSignIn>();
+	const [error, setError] = useState("");
+	const abort = useRef<AbortController>(undefined);
+	useEffect(() => () => abort.current?.abort(), []);
+
+	const begin = async () => {
+		setError("");
+		try {
+			const next = await startAzureSignIn();
+			setSignIn(next);
+			await navigator.clipboard.writeText(next.userCode).catch(() => undefined);
+			const controller = new AbortController();
+			abort.current = controller;
+			await System.openExternal({ url: next.url });
+			onCredential(await finishAzureSignIn(next, controller.signal));
+			setSignIn(undefined);
+		} catch (failure) {
+			setSignIn(undefined);
+			if (!abort.current?.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure));
+		}
+	};
+
+	if (!signIn) {
+		return (
+			<>
+				<div className="check-row">
+					<span className="menu-text">
+						用 Microsoft 帳號登入
+						<span className="menu-hint">代碼會自動複製，在 Microsoft 的頁面貼上並同意即可</span>
+					</span>
+					<button type="button" className="btn primary" onClick={() => void begin()}>
+						登入
+					</button>
+				</div>
+				{error ? <div className="check-row check-error">{error}</div> : null}
+			</>
+		);
+	}
+	return (
+		<div className="sign-in">
+			<p>代碼已複製。在 Microsoft 的頁面貼上這組代碼，選帳號並同意：</p>
 			<div className="user-code">{signIn.userCode}</div>
 			<p className="ws-loading">等待授權</p>
 			<div className="dialog-actions inline">
@@ -413,6 +478,24 @@ export function SettingsView({
 								</label>
 							</details>
 						</>
+					)}
+				</Group>
+				<Group
+					title="Azure"
+					hint="給 sandbox 裡的 az 用。refresh token 留在手機上，只把短效的 access token 交給 sandbox 的 proxy；會改動資源的請求要你先核准。"
+				>
+					{settings.azureCredential ? (
+						<div className="check-row">
+							<span className="menu-text">
+								帳號
+								<span className="menu-hint">{describeAzure(settings.azureCredential)}</span>
+							</span>
+							<button type="button" className="btn" onClick={() => setSettings({ ...settings, azureCredential: "" })}>
+								移除
+							</button>
+						</div>
+					) : (
+						<AzureSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, azureCredential: json }))} />
 					)}
 				</Group>
 				<BackgroundGroup />

@@ -3,6 +3,9 @@
 Cloudflare (api.cloudflare.com, used by cf and wrangler) works like Google Cloud: a placeholder CLOUDFLARE_API_TOKEN,
 an OAuth access token from the phone, and approval for anything but GET/HEAD and the read-only GraphQL analytics API.
 
+Azure (ARM, Graph, Key Vault, Storage) works the same way, except that az signs in as a managed identity served by
+the relay with placeholder tokens; the proxy asks the phone for a real token for the host's resource (one per scope).
+
 Google Cloud (*.googleapis.com) works the same way as GitHub below: gcloud in the sandbox sends a placeholder bearer
 token, and the proxy swaps in a short-lived access token the phone minted. Reads go straight through; writes (any
 method but GET/HEAD, except POSTs that only read, such as :list and :search) wait for approval on the phone.
@@ -136,8 +139,33 @@ def classify_cloudflare(request):
     return (f"Cloudflare {request.method} {path.removeprefix('/client/v4')}", preview(request.get_text(strict=False)))
 
 
-def authorize(client, write, title="", detail="", service="github"):
-    payload = json.dumps({"client": client, "write": write, "title": title, "detail": detail, "service": service}).encode()
+AZURE_SCOPES = [
+    (re.compile(r"^management\.azure\.com$"), "https://management.core.windows.net//.default"),
+    (re.compile(r"^graph\.microsoft\.com$"), "https://graph.microsoft.com/.default"),
+    (re.compile(r"^[a-z0-9-]+\.vault\.azure\.net$"), "https://vault.azure.net/.default"),
+    (re.compile(r"^[a-z0-9-]+\.(blob|queue|table|file|dfs)\.core\.windows\.net$"), "https://storage.azure.com/.default"),
+]
+# POSTs that only read: Resource Graph queries, name checks. listKeys and other actions return secrets or change state.
+AZURE_READ_POST = re.compile(r"(/providers/Microsoft\.ResourceGraph/resources|/checkNameAvailability|/\$batch)$", re.I)
+
+
+def azure_scope(host):
+    for pattern, scope in AZURE_SCOPES:
+        if pattern.match(host):
+            return scope
+    return None
+
+
+def classify_azure(request):
+    """None for a read; (title, detail) for an Azure write that needs approval."""
+    path = request.path.split("?")[0]
+    if request.method in ("GET", "HEAD", "OPTIONS") or (request.method == "POST" and AZURE_READ_POST.search(path)):
+        return None
+    return (f"Azure {request.method} {request.pretty_host} {path}", preview(request.get_text(strict=False)))
+
+
+def authorize(client, write, title="", detail="", service="github", scope=""):
+    payload = json.dumps({"client": client, "write": write, "title": title, "detail": detail, "service": service, "scope": scope}).encode()
     request = urllib.request.Request(
         f"{RELAY_URL}/egress/authorize",
         data=payload,
@@ -181,26 +209,26 @@ class Credentials:
     def __init__(self):
         self.reads = {}  # (service, client IP) -> (token or None, expiry)
 
-    async def read_token(self, client, service="github"):
-        cached = self.reads.get((service, client))
+    async def read_token(self, client, service="github", scope=""):
+        cached = self.reads.get((service, client, scope))
         if cached and cached[1] > time.monotonic():
             return cached[0]
         try:
-            token = (await asyncio.to_thread(authorize, client, False, "", "", service)).get("token")
+            token = (await asyncio.to_thread(authorize, client, False, "", "", service, scope)).get("token")
         except (OSError, urllib.error.URLError, ValueError):
             token = None
-        self.reads[(service, client)] = (token, time.monotonic() + (READ_CACHE_SECONDS if token else 5))
+        self.reads[(service, client, scope)] = (token, time.monotonic() + (READ_CACHE_SECONDS if token else 5))
         return token
 
-    async def minted(self, flow, client, service, write, label, error_body):
+    async def minted(self, flow, client, service, write, label, error_body, scope=""):
         """Services whose token the phone mints: swap the placeholder, asking for approval first on writes."""
         flow.request.headers.pop("Authorization", None)
         if write is None:
-            token = await self.read_token(client, service)
+            token = await self.read_token(client, service, scope)
             reason = f"手機沒有連上，或沒有設定 {label} 憑證"
         else:
             try:
-                result = await asyncio.to_thread(authorize, client, True, *write, service)
+                result = await asyncio.to_thread(authorize, client, True, *write, service, scope)
             except (OSError, urllib.error.URLError, ValueError) as error:
                 result = {"reason": f"無法聯絡 relay（{error}）"}
             token = result.get("token")
@@ -218,6 +246,14 @@ class Credentials:
             await self.minted(
                 flow, client, "gcloud", classify_google(flow.request), "Google Cloud",
                 lambda code, message: {"error": {"code": code, "message": message, "status": "PERMISSION_DENIED" if code == 403 else "UNAUTHENTICATED"}},
+            )
+            return
+        scope = azure_scope(host)
+        if scope:
+            await self.minted(
+                flow, client, "azure", classify_azure(flow.request), "Azure",
+                lambda code, message: {"error": {"code": "AuthorizationFailed" if code == 403 else "AuthenticationFailed", "message": message}},
+                scope,
             )
             return
         if host == CLOUDFLARE_HOST:

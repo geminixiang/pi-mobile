@@ -17,10 +17,11 @@ import {
 	type Storage,
 	type Tx,
 } from "@earendil-works/pi-durable";
-import { type Settings, saveCloudflareCredential } from "../settings.ts";
+import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
 import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { DeviceExtension } from "./tools/device.ts";
 import { createPhoneCodemode } from "./codemode.ts";
+import { AzureTokens } from "./azure.ts";
 import { CloudflareTokens } from "./cloudflare.ts";
 import { GcloudTokens } from "./gcloud.ts";
 import { EgressLink, type MintedService } from "./sandbox/egress.ts";
@@ -113,6 +114,14 @@ function mintedServices(settings: Settings): Record<string, MintedService> {
 		if (settings.cloudflareCredential) {
 			const tokens = new CloudflareTokens(settings.cloudflareCredential, saveCloudflareCredential);
 			services.cloudflare = { get: () => tokens.get(), env: tokens.accountId ? { CLOUDFLARE_ACCOUNT_ID: tokens.accountId } : {} };
+		}
+	} catch {
+		// Unusable credential: settings show why.
+	}
+	try {
+		if (settings.azureCredential) {
+			const tokens = new AzureTokens(settings.azureCredential, saveAzureCredential);
+			services.azure = { get: (scope) => tokens.get(scope), env: tokens.env };
 		}
 	} catch {
 		// Unusable credential: settings show why.

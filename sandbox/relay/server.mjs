@@ -58,6 +58,11 @@ const SANDBOX_ENV = {
 	// cf and wrangler authenticate with this placeholder; the proxy swaps in a real token on api.cloudflare.com.
 	CLOUDFLARE_API_TOKEN: "injected-by-pi-egress",
 	WRANGLER_SEND_METRICS: "false",
+	// az signs in as a managed identity served by the relay (placeholders); the proxy swaps in real tokens.
+	IDENTITY_ENDPOINT: `http://${HOST}:${PORT}/azure/identity`,
+	IDENTITY_HEADER: "pi-mobile",
+	AZURE_CORE_COLLECT_TELEMETRY: "no",
+	AZURE_CORE_ONLY_SHOW_ERRORS: "true",
 	NODE_EXTRA_CA_CERTS: "/etc/ssl/certs/ca-certificates.crt",
 	// Node's built-in fetch ignores HTTP(S)_PROXY unless asked (Node 24); cf and other Node tools use it.
 	NODE_USE_ENV_PROXY: "1",
@@ -226,7 +231,7 @@ let tokenExpiry;
  * name -> { env: sandbox variables from the phone, token, expiresAt, waiters }
  */
 const minted = new Map();
-const MINTED_LABELS = { gcloud: "Google Cloud", cloudflare: "Cloudflare" };
+const MINTED_LABELS = { gcloud: "Google Cloud", cloudflare: "Cloudflare", azure: "Azure" };
 const approvals = new Map();
 let nextApproval = 1;
 
@@ -256,15 +261,16 @@ function attachPhone(ws) {
 			for (const [service, settings] of Object.entries(message.minted ?? {})) {
 				if (!MINTED_LABELS[service] || !settings || typeof settings !== "object") continue;
 				const env = Object.fromEntries(Object.entries(settings.env ?? {}).filter(([key, value]) => /^[A-Z_]+$/.test(key) && typeof value === "string" && value));
-				minted.set(service, { env, waiters: [] });
+				minted.set(service, { env, tokens: new Map(), waiters: new Map() });
 			}
 			// Questions asked while the phone was away.
 			for (const approval of approvals.values()) sendApproval(ws, approval);
 		} else if (message.type === "token") {
 			const entry = minted.get(message.service);
 			if (!entry) return;
-			if (typeof message.token === "string") Object.assign(entry, { token: message.token, expiresAt: Number(message.expiresAt) });
-			for (const resolve of entry.waiters.splice(0)) resolve(message.error ? { error: String(message.error) } : undefined);
+			const scope = String(message.scope ?? "");
+			if (typeof message.token === "string") entry.tokens.set(scope, { token: message.token, expiresAt: Number(message.expiresAt) });
+			for (const resolve of entry.waiters.get(scope)?.splice(0) ?? []) resolve(message.error ? { error: String(message.error) } : undefined);
 		} else if (message.type === "approval") {
 			approvals.get(message.id)?.resolve(message.approved === true);
 		}
@@ -309,34 +315,41 @@ async function readJson(request) {
 }
 
 /** Called by the egress addon for each GitHub request: the token for reads, and for approved writes. */
-/** An access token for `service` valid for at least a minute, from the cache or freshly minted by the phone. */
-async function mintedToken(service) {
+/**
+ * An access token for `service` valid for at least a minute, from the cache or freshly minted by the phone. `scope`
+ * names the resource for services with one token per resource (Azure); others use "".
+ */
+async function mintedToken(service, scope = "") {
 	const label = MINTED_LABELS[service] ?? service;
 	const entry = minted.get(service);
 	if (!entry) return { reason: `手機沒有設定 ${label} 憑證` };
-	if (entry.token && entry.expiresAt - Date.now() > 60_000) return { token: entry.token };
+	const cached = entry.tokens.get(scope);
+	if (cached && cached.expiresAt - Date.now() > 60_000) return { token: cached.token };
 	const socket = phone();
 	if (!socket) return { reason: `手機沒有連上，無法取得 ${label} token` };
 	const answer = await new Promise((resolve) => {
-		entry.waiters.push(resolve);
-		socket.send(JSON.stringify({ type: "token", service }));
+		if (!entry.waiters.has(scope)) entry.waiters.set(scope, []);
+		entry.waiters.get(scope).push(resolve);
+		socket.send(JSON.stringify({ type: "token", service, scope }));
 		setTimeout(() => resolve({ error: "手機沒有回應" }), 20_000);
 	});
 	if (answer?.error) return { reason: `取得 ${label} token 失敗：${answer.error}` };
-	return entry.token ? { token: entry.token } : { reason: `手機沒有設定 ${label} 憑證` };
+	const token = entry.tokens.get(scope);
+	return token ? { token: token.token } : { reason: `手機沒有設定 ${label} 憑證` };
 }
 
 /** Called by the egress addon for each intercepted request: a token for reads, and for approved writes. */
 async function authorizeEgress(body) {
 	if (MINTED_LABELS[body.service]) {
-		const token = await mintedToken(body.service);
+		const scope = String(body.scope ?? "");
+		const token = await mintedToken(body.service, scope);
 		if (!token.token || !body.write) return token;
 		if (!phone()) return { reason: "手機沒有連上，無法確認這個寫入" };
 		const sandbox = (await sandboxForIp(String(body.client ?? ""))) ?? "unknown";
 		log("approval asked", sandbox, body.title);
 		const approved = await askPhone(sandbox, String(body.title ?? ""), String(body.detail ?? ""));
 		log("approval", approved ? "granted" : "denied", sandbox, body.title);
-		return approved ? await mintedToken(body.service) : { reason: "使用者拒絕了這個寫入" };
+		return approved ? await mintedToken(body.service, scope) : { reason: "使用者拒絕了這個寫入" };
 	}
 	if (!githubToken) return { reason: "手機沒有連上，或沒有設定 GitHub token" };
 	if (!body.write) return { token: githubToken };
@@ -346,6 +359,32 @@ async function authorizeEgress(body) {
 	const approved = await askPhone(sandbox, String(body.title ?? ""), String(body.detail ?? ""));
 	log("approval", approved ? "granted" : "denied", sandbox, body.title);
 	return approved && githubToken ? { token: githubToken } : { reason: "使用者拒絕了這個寫入" };
+}
+
+// ---------- Azure managed identity ----------
+
+/**
+ * az in the sandbox signs in with `az login --identity`; IDENTITY_ENDPOINT points here (App Service's managed
+ * identity protocol). The tokens are placeholders: well-formed JWTs with the tenant from the phone and no signature
+ * Azure would accept. The proxy replaces them with real tokens on Azure's hosts, so nothing here grants access.
+ */
+function azurePlaceholder(resource) {
+	const env = minted.get("azure")?.env ?? {};
+	const tenant = env.AZURE_TENANT_ID ?? "00000000-0000-0000-0000-000000000000";
+	const now = Math.floor(Date.now() / 1000);
+	const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+	const claims = {
+		aud: resource,
+		iss: `https://sts.windows.net/${tenant}/`,
+		tid: tenant,
+		oid: "00000000-0000-0000-0000-00000000p1m0",
+		appid: "pi-mobile-egress",
+		iat: now,
+		nbf: now,
+		exp: now + 3600,
+	};
+	const token = `${encode({ alg: "RS256", typ: "JWT", kid: "pi-egress" })}.${encode(claims)}.${Buffer.from("injected-by-pi-egress").toString("base64url")}`;
+	return { access_token: token, expires_on: String(now + 3600), resource, token_type: "Bearer" };
 }
 
 function authorized(url) {
@@ -371,6 +410,10 @@ const server = createServer(async (request, response) => {
 	}
 	try {
 		if (url.pathname === "/health") return reply(200, { ok: true });
+		if (url.pathname === "/azure/identity") {
+			if (!minted.has("azure")) return reply(400, { error: "invalid_request", error_description: "pi mobile: 手機沒有設定 Azure 憑證" });
+			return reply(200, azurePlaceholder(url.searchParams.get("resource") ?? "https://management.core.windows.net/"));
+		}
 		if (request.method === "POST" && url.pathname === "/egress/authorize") {
 			if (request.headers["x-egress-secret"] !== EGRESS_SECRET) return reply(401, { error: "unauthorized" });
 			return reply(200, await authorizeEgress(await readJson(request)));

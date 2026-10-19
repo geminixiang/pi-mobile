@@ -21,7 +21,8 @@ interface Approval {
 
 /** A service whose access tokens the phone mints on request. */
 export interface MintedService {
-	get(): Promise<AccessToken>;
+	/** `scope` names the resource for services with one token per resource (Azure); others ignore it. */
+	get(scope?: string): Promise<AccessToken>;
 	/** Sandbox environment for this service, such as the default project or account. */
 	env: Record<string, string>;
 }
@@ -30,7 +31,7 @@ export interface EgressLinkOptions {
 	relayUrl: string;
 	relayToken: string;
 	githubToken: string | undefined;
-	/** By relay service name: "gcloud", "cloudflare". */
+	/** By relay service name: "gcloud", "cloudflare", "azure". */
 	minted: Record<string, MintedService>;
 	/** Human name for a sandbox, such as its conversation's title. */
 	describe: (sandbox: string) => string | undefined;
@@ -69,9 +70,12 @@ export class EgressLink {
 		});
 		socket.addEventListener("message", (event) => {
 			if (typeof event.data !== "string") return;
-			const message = JSON.parse(event.data) as Approval | { type: "token"; service: string } | { type: string };
+			const message = JSON.parse(event.data) as Approval | { type: "token"; service: string; scope?: string } | { type: string };
 			if (message.type === "approve") void this.#approve(message as Approval);
-			if (message.type === "token") void this.#token(socket, (message as { service: string }).service);
+			if (message.type === "token") {
+				const { service, scope } = message as { service: string; scope?: string };
+				void this.#token(socket, service, scope ?? "");
+			}
 		});
 		socket.addEventListener("close", () => {
 			if (this.#socket !== socket || this.#closed) return;
@@ -80,14 +84,14 @@ export class EgressLink {
 		});
 	}
 
-	async #token(socket: WebSocket, service: string): Promise<void> {
+	async #token(socket: WebSocket, service: string, scope: string): Promise<void> {
 		try {
 			const source = this.#options.minted[service];
 			if (!source) throw new Error(`沒有 ${service} 憑證`);
-			const token = await source.get();
-			socket.send(JSON.stringify({ type: "token", service, token: token.token, expiresAt: token.expiresAt }));
+			const token = await source.get(scope || undefined);
+			socket.send(JSON.stringify({ type: "token", service, scope, token: token.token, expiresAt: token.expiresAt }));
 		} catch (error) {
-			socket.send(JSON.stringify({ type: "token", service, error: error instanceof Error ? error.message : String(error) }));
+			socket.send(JSON.stringify({ type: "token", service, scope, error: error instanceof Error ? error.message : String(error) }));
 		}
 	}
 

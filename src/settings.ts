@@ -9,6 +9,7 @@ const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_SANDBOX_TOKEN = "sandbox.token";
 const SECRET_GCLOUD = "gcloud.credential";
 const SECRET_CLOUDFLARE = "cloudflare.credential";
+const SECRET_AZURE = "azure.credential";
 
 export interface Settings {
 	baseUrl: string;
@@ -23,6 +24,8 @@ export interface Settings {
 	gcloudProject: string;
 	/** Cloudflare credential JSON (OAuth sign-in or API token) for cf and wrangler in the sandbox. */
 	cloudflareCredential: string;
+	/** Azure credential JSON (device code sign-in) for az in the sandbox. */
+	azureCredential: string;
 	defaultModelId: string;
 	defaultThinking: string;
 }
@@ -51,6 +54,7 @@ export async function loadSettings(): Promise<Settings> {
 		gcloudCredential: await secret(SECRET_GCLOUD),
 		gcloudProject: plain.gcloudProject ?? "",
 		cloudflareCredential: await secret(SECRET_CLOUDFLARE),
+		azureCredential: await secret(SECRET_AZURE),
 		defaultModelId: plain.defaultModelId ?? "claude-opus-5-5",
 		defaultThinking: plain.defaultThinking ?? "low",
 	};
@@ -70,6 +74,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 	await saveSecret(SECRET_SANDBOX_TOKEN, settings.sandboxToken);
 	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
 	await saveSecret(SECRET_CLOUDFLARE, settings.cloudflareCredential);
+	await saveSecret(SECRET_AZURE, settings.azureCredential);
 }
 
 async function saveSecret(key: string, value: string): Promise<void> {
@@ -84,4 +89,9 @@ export function isConfigured(settings: Settings): boolean {
 /** Cloudflare rotates refresh tokens on every refresh; the new one replaces the stored credential right away. */
 export async function saveCloudflareCredential(json: string): Promise<void> {
 	await SecureStorage.set(SECRET_CLOUDFLARE, json);
+}
+
+/** Microsoft may rotate the refresh token on refresh; the new one replaces the stored credential right away. */
+export async function saveAzureCredential(json: string): Promise<void> {
+	await SecureStorage.set(SECRET_AZURE, json);
 }

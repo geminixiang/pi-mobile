@@ -35,6 +35,11 @@ RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg -o /etc/apt
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /usr/local/bin/
 RUN corepack enable pnpm && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version > /dev/null
 
+# Azure CLI, as a uv tool (Microsoft's apt repo has no Debian 13 build). It signs in as a managed identity whose token
+# endpoint is the relay (IDENTITY_ENDPOINT); the proxy swaps the placeholder tokens it hands out for real ones.
+RUN UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --python 3.13 azure-cli==2.91.0 \
+	&& uv cache clean
+
 # Cloudflare CLIs (cf, wrangler). They authenticate through the egress proxy with a placeholder CLOUDFLARE_API_TOKEN.
 RUN npm install --global --no-fund --no-audit cf@1.0.0-beta.18 wrangler@4.151.2 && npm cache clean --force
 ENV UV_LINK_MODE=copy PIP_BREAK_SYSTEM_PACKAGES=1
