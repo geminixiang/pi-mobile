@@ -265,8 +265,8 @@ export function createCalendarExtension(access: CalendarAccess) {
 		sections: [
 			section("calendar", () =>
 				[
-					"read_calendar_events shows the user's schedule from their own calendars. Events marked shared are someone else's (a team or colleague calendar): never present them as the user's plans. For whether they can make an event, get the travel time from their position with get_travel_time, say when to leave, and offer open_maps.",
-					"Adding events: the user chose in Settings which accounts may be written and a default calendar. Use the default unless the user names another account. If there is no default and several calendars are enabled, ask which, naming the accounts; never guess between work and personal from the event's content.",
+					"Events marked shared are other people's (a team or colleague calendar); never present them as the user's plans.",
+					"Add events to the default calendar unless the user names another account. With no default and several enabled, ask, naming the accounts; never guess work or personal from the content.",
 				].join("\n"),
 			),
 		],

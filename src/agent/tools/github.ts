@@ -1,6 +1,7 @@
 // GitHub connector: the REST API called straight from the phone with the user's token.
 // Reads run directly; every write asks the user first.
 import { Type } from "@earendil-works/pi-ai";
+import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
 import { Type as T } from "typebox";
 import { Value } from "typebox/value";
@@ -18,6 +19,11 @@ const FileContents = T.Object({
 
 const API = "https://api.github.com";
 const MAX_OUTPUT_CHARS = 40_000;
+
+/** A parsed response body as a JSON value: JSON.parse only produces those; anything else becomes null. */
+function toJson(value: unknown): JsonValue {
+	return isJsonValue(value) ? value : null;
+}
 
 export type TokenSource = () => Promise<string | undefined>;
 
@@ -65,6 +71,8 @@ export function createGitHubExtension(getToken: TokenSource) {
 			"/search/issues?q=..., /repos/{owner}/{repo}/pulls/{n}/files. GET runs immediately; POST, PATCH, PUT, and DELETE",
 			"show the user a confirmation dialog first and fail if they decline. Prefer small per_page values.",
 		].join(" "),
+		// Scripts get the parsed response, so `(await tools.github_api(...)).body.login` works without parsing text.
+		structuredOutputSchema: Type.Object({ status: Type.Integer(), link: Type.Optional(Type.String()), body: Type.Unknown() }),
 		parameters: Type.Object({
 			method: Type.Union([
 				Type.Literal("GET"),
@@ -101,7 +109,10 @@ export function createGitHubExtension(getToken: TokenSource) {
 			const header = `HTTP ${result.status}${result.link ? `\nLink: ${result.link}` : ""}`;
 			const body = typeof result.body === "string" ? result.body : JSON.stringify(result.body);
 			if (!result.ok) throw new Error(`${header}\n${body}`);
-			return text(`${header}\n${body}`);
+			return {
+				...text(`${header}\n${body}`),
+				structuredOutput: { status: result.status, ...(result.link ? { link: result.link } : {}), body: toJson(result.body) },
+			};
 		},
 	});
 
@@ -138,7 +149,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 			section(
 				"github",
 				() =>
-					"A GitHub connector is available through github_api and github_read_file. Call GET /user to learn who the user is. Writes need the user's approval in a dialog; say what you are about to change before calling.",
+					"GitHub: github_api and github_read_file; GET /user tells who the user is. Writes need the user's approval; say what you will change first.",
 			),
 		],
 		tools: [api, readFile],

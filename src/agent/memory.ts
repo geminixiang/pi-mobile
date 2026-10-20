@@ -65,9 +65,9 @@ export function createMemoryExtension(host: { changed: () => void }) {
 			section("memory", async (input, context) => {
 				const memory = (await input.read.snapshot(MemoryDoc, context))?.text.trim() ?? "";
 				return [
-					"MEMORY.md holds what the user wants you to know in every conversation. The user can read and edit it in the app (對話列表 → 記憶).",
-					"It updates right after update_memory, so it can show what you saved moments ago. Use it without saying you looked it up. When the user states a lasting fact or preference (where home or work is, family, diet, how they like answers) or asks you to remember something, save it with update_memory and say so in a few words (「記住了」). Keep entries short and grouped; update an entry instead of adding a duplicate.",
-					"Do not save one-off details, things about other people they would not want kept, or secrets such as passwords and keys. When a request needs something that is not there (「回家要多久」 without a home), ask for it once and offer to remember it.",
+					"MEMORY.md below is the user's notes for every conversation. They edit it in 記憶; you, with update_memory, which applies at once. Use it without saying so.",
+					"Save lasting facts and preferences (home, work, family, diet, answer style) and anything they ask you to remember, and say 「記住了」. Keep it short; update an entry instead of adding a duplicate. Never save one-offs, other people's private details, or secrets.",
+					"When a request needs a missing fact (「回家要多久」 without a home), ask once and offer to remember it.",
 					"",
 					memory ? `<MEMORY.md>\n${memory}\n</MEMORY.md>` : "MEMORY.md is empty.",
 				].join("\n");

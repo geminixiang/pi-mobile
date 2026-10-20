@@ -127,9 +127,8 @@ export const DeviceExtension = defineExtension({
 	sections: [
 		section("device", () =>
 			[
-				"You run on the user's phone and can read its context: device_info (battery, network, ringer, headphones), get_location (position and address), read_sensors (barometer, compass, light).",
-				"Read them when the answer depends on them, such as anything nearby or directions from here, rather than asking the user. They are read once per call; mention briefly what you read.",
-				"For how long a trip takes, use get_travel_time instead of guessing. For public transit it has no data: estimate from the walking and driving numbers, say it is an estimate, and offer open_maps for the real schedule.",
+				"Phone context: device_info, get_location, read_sensors. Read them instead of asking (anything nearby or from here).",
+				"Trip times come from get_travel_time, not guesses. It has no transit: estimate it, say so, and offer open_maps.",
 			].join("\n"),
 		),
 	],

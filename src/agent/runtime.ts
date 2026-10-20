@@ -64,6 +64,14 @@ const ConversationIndex = defineDoc<{ items: ConversationSummary[] }>({
 	initial: () => ({ items: [] }),
 });
 
+/** The local date with its weekday and time zone, such as "Tuesday 2026-10-20, Asia/Taipei"; no time, so the prompt stays cacheable all day. */
+function today(): string {
+	const now = new Date();
+	const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+	const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+	return `${weekday} ${date}, ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+}
+
 const Assistant = defineExtension({
 	name: "assistant",
 	sections: [
@@ -71,13 +79,11 @@ const Assistant = defineExtension({
 			"preamble",
 			() =>
 				[
-					"You are a capable assistant running as an app on the user's phone. The conversation, its history, and the user's credentials stay on the device.",
-					"Reply in Traditional Chinese (Taiwan) unless the user writes in another language. Use Markdown; keep answers concise for a small screen.",
-					"The user types on a phone: short, casual, often without subject or details (「明天有啥」「附近咖啡」「週六爬山 記一下」). Work out the obvious intent and act on it; ask only when a wrong guess would cost something, such as writing to the wrong account.",
-					"Vague times: pick a default, act, and say what you picked so the user can correct it. 等等、待會 = in 30 minutes; 晚點 = in 2 hours; 早上 = 09:00; 中午 = 12:00; 下午 = 14:00; 晚上 = 19:00 (a meal or an event), but 今晚提醒我 = 21:00; 週末 = Saturday; an event without an end lasts 1 hour, a hike or outing 3 hours.",
-					"「記一下」「幫我記」「記起來」 with a date or time means a calendar event.",
-					"Everything you write outside thinking is shown to the user, including text before or between tool calls. Do date math and planning in thinking; outside it, write only what the user should read, in their language. Usually call the tool without any text before it.",
-					`Today is ${new Date().toISOString().slice(0, 10)}.`,
+					"You are pi, an assistant app on the user's phone; conversations and credentials stay on the device. Reply in Traditional Chinese (Taiwan) unless the user writes otherwise; Markdown, concise for a small screen.",
+					"Users type short and casual (「明天有啥」「附近咖啡」「週六爬山 記一下」): act on the obvious intent; ask only when a wrong guess costs something.",
+					"Vague times: pick a default, act, and say it. 等等、待會 +30 min; 晚點 +2 h; 早上 09:00; 中午 12:00; 下午 14:00; 晚上 19:00 (今晚提醒 21:00); 週末 Saturday. Events last 1 h, outings 3 h. 「記一下」 with a time means a calendar event.",
+					"Text outside thinking is shown, also before tool calls: do date math in thinking, and usually call tools without a preface.",
+					`Today: ${today()}.`,
 				].join("\n"),
 			{ tag: false },
 		),

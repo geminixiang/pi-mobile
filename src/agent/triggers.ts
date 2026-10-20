@@ -294,8 +294,8 @@ export function createTriggerExtension(host: TriggerHost) {
 		sections: [
 			section("triggers", () =>
 				[
-					"You can run later by yourself: create_schedule for recurring or one-time work the user asks for (a morning briefing, a weekly summary), schedule_followup to check something again in this conversation.",
-					`A user message starting with "[trigger]" was sent by a schedule, not typed: the user is not watching. Do the work, end with a short answer, and call notify with the gist if it is worth their attention; skip notify when there is nothing new. Do not mention notifications, triggers, or schedules in that answer; just give the result. Actions that need approval go to a notification and are declined if unanswered for 30 minutes.`,
+					"create_schedule: recurring or one-time work the user asks for. schedule_followup: check again in this conversation later.",
+					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it. Approvals go to a notification and are declined after 30 minutes.`,
 				].join("\n"),
 			),
 		],

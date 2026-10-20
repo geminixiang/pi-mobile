@@ -175,9 +175,8 @@ export const AppsExtension = defineExtension({
 	sections: [
 		section("phone_apps", () =>
 			[
-				"You can hand things to other apps on this phone: alarms and timers, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
-				"Drafts, maps, links and sharing open a prefilled screen; the user finishes there. Say what they need to tap, and never claim a message was sent.",
-				"Opening another app takes the user out of pi. Open one only when they ask to go, navigate, open, call, or send. To answer \"where is X nearby\", search and answer here with a few picks and walking times, then offer to open the map.",
+				"Other apps: alarms, timers, email and SMS drafts, maps, links, the share sheet. Drafts and shares open a screen the user finishes; never say something was sent.",
+				"Opening an app takes the user out of pi: do it only when they ask to go, navigate, open, call, or send. For 「X nearby」, answer here with a few picks and walking times.",
 			].join("\n"),
 		),
 	],

@@ -8,7 +8,7 @@
 // serveCodemodeRemote (codemode-worker.ts) is the remote, and tools keep running on the main thread.
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { createCodemodeExtension } from "@earendil-works/pi-durable/codemode";
+import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
 import type { FromWorker, ToWorker } from "./codemode-worker.ts";
 
 const MEMORY_LIMIT_BYTES = 128 * 1024 * 1024;
@@ -56,21 +56,6 @@ class WorkerRemote implements CodemodeRemote {
 	}
 }
 
-/** Where scripts run, since models assume the sandbox. */
-const PhoneCodemodeNotes = defineExtension({
-	name: "codemode-phone",
-	sections: [
-		section(
-			"codemode-phone",
-			() =>
-				[
-					"codemode scripts run on the user's phone in a QuickJS VM, not in the Linux sandbox; their tool calls (bash, read, github_api, ...) run wherever those tools run.",
-					"Inside a script the clock is virtual (Date.now() only advances between tool calls), so do not time code with it. Use codemode to combine and batch tool calls and to shape data; run heavy computation in the sandbox with bash instead.",
-				].join(" "),
-		),
-	],
-});
-
 export function createPhoneCodemode() {
 	const remote = new WorkerRemote();
 	const sandbox = new RemoteCodemodeSandbox({
@@ -79,5 +64,24 @@ export function createPhoneCodemode() {
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
 	// Scripts call the conversation's tools only; models.* (classifiers, image generation) stays off for now.
-	return [createCodemodeExtension({ sandbox, models: false }), PhoneCodemodeNotes];
+	// Durable's own section lists every tool's description and TypeScript declaration again (12k characters here), all
+	// of which the model already has from the tool definitions; this short note replaces it.
+	return [
+		defineExtension({
+			name: "codemode",
+			tools: [createCodemodeTool({ sandbox, models: false })],
+			sections: [
+				section("codemode", (input) => {
+					// Gateways may rename tools for the model (such as `mcp__x__y_get_location`); scripts need the real names.
+					const callable = input.agent.callable.filter((tool) => tool.name !== "codemode");
+					const structured = callable.filter((tool) => tool.structuredOutputSchema).map((tool) => tool.name);
+					return [
+						`Scripts call your other tools as \`await tools.<name>(args)\` with the same arguments, by exactly these names, never with a prefix: ${callable.map((tool) => tool.name).join(", ")}.`,
+						`Results are text${structured.length ? `, except objects from ${structured.join(", ")} (github_api: { status, link?, body }; bash: { output, exitCode })` : ""}.`,
+						"Scripts run on the phone in QuickJS, not in the sandbox; Date.now() only advances between tool calls. Use them to batch tool calls and shape data; heavy computation goes to bash.",
+					].join("\n");
+				}),
+			],
+		}),
+	];
 }
