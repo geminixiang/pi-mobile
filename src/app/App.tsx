@@ -8,7 +8,7 @@ import { Chat, isBusy } from "./Chat.tsx";
 import { ConversationMenu } from "./ConversationMenu.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { ChevronDownIcon, ComposeIcon, MoreIcon, PencilIcon, TrashIcon } from "./icons.tsx";
+import { AzureMark, ChevronDownIcon, CloudflareMark, ComposeIcon, GitHubMark, GoogleCloudMark, MoreIcon, PencilIcon, TerminalIcon, TrashIcon } from "./icons.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { usePrefs } from "./prefs.ts";
@@ -317,11 +317,11 @@ export function App() {
 				conversations={conversations}
 				currentId={controller?.id}
 				status={[
-					{ label: "GitHub", on: Boolean(settings.githubToken) },
-					{ label: "Sandbox", on: runtime.hasSandbox },
-					{ label: "GCP", on: Boolean(settings.gcloudCredential) },
-					{ label: "Cloudflare", on: Boolean(settings.cloudflareCredential) },
-					{ label: "Azure", on: Boolean(settings.azureCredential) },
+					{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
+					{ label: "Sandbox", icon: <TerminalIcon size={17} />, on: runtime.hasSandbox },
+					{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
+					{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
+					{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
 				]}
 				onOpen={(id) => void openConversation(id)}
 				onCreate={() => void newConversation()}

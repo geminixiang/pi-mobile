@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import type { ConversationId, ConversationSummary } from "../agent/runtime.ts";
 import { ComposeIcon, GearIcon, MoreIcon, SearchIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -37,7 +37,8 @@ export function Drawer({
 	busy: boolean;
 	conversations: ConversationSummary[];
 	currentId: ConversationId | undefined;
-	status: { label: string; on: boolean }[];
+	/** Connected services, shown as marks: full color when set up, dimmed when not. */
+	status: { label: string; icon: ReactNode; on: boolean }[];
 	onOpen: (id: ConversationId) => void;
 	onCreate: () => void;
 	/** Rename or delete, from the row's menu or a long press. */
@@ -117,8 +118,8 @@ export function Drawer({
 					<span className="drawer-settings-text">設定</span>
 					<span className="drawer-status">
 						{status.map((item) => (
-							<span key={item.label} className={item.on ? "on" : ""}>
-								{item.label}
+							<span key={item.label} className={item.on ? "on" : ""} role="img" aria-label={`${item.label}：${item.on ? "已連接" : "未設定"}`}>
+								{item.icon}
 							</span>
 						))}
 					</span>

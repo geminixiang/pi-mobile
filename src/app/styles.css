@@ -423,15 +423,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .drawer-title { flex: 1; min-width: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drawer-time { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
 .drawer-none { margin: 40px 16px; color: var(--faint); font-size: 14px; }
-.drawer-settings { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 8px; min-height: 48px; padding: 13px 12px; border: 1px solid var(--line); color: var(--text); }
+.drawer-settings { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; border: 1px solid var(--line); color: var(--text); }
 .drawer-settings > svg { color: var(--muted); }
 .drawer-settings-text { flex: 1; font-size: 15px; text-align: left; }
-/* Its own line under 設定, lined up with the label; wraps when the accounts do not fit. */
-.drawer-status { flex-basis: 100%; display: flex; flex-wrap: wrap; column-gap: 14px; row-gap: 6px; padding-left: 32px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--faint); text-transform: uppercase; }
-.drawer-status span { white-space: nowrap; }
-.drawer-status span::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; background: var(--faint); }
-.drawer-status span.on { color: var(--text); }
-.drawer-status span.on::before { background: var(--ok); }
+.drawer-status { display: flex; align-items: center; gap: 10px; }
+.drawer-status span { display: inline-grid; place-items: center; color: var(--faint); opacity: 0.45; }
+.drawer-status span.on { color: var(--text); opacity: 1; }
 
 /* ---------- Settings ---------- */
 .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
