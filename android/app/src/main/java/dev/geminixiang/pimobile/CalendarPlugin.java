@@ -168,6 +168,7 @@ public class CalendarPlugin extends Plugin {
                 }
                 event.put("calendar", calendar.name);
                 event.put("account", calendar.account);
+                event.put("accountType", calendar.accountType);
                 event.put("calendarId", calendar.id);
                 if (!calendar.own) {
                     event.put("shared", true);
@@ -178,6 +179,37 @@ public class CalendarPlugin extends Plugin {
         }
         JSObject result = new JSObject();
         result.put("events", events);
+        call.resolve(result);
+    }
+
+    /** Every visible calendar, for Settings to show accounts: whether it is the user's own and whether it takes events. */
+    @PluginMethod
+    public void listAccounts(PluginCall call) {
+        if (ensurePermission(call, "accountsResult")) accounts(call);
+    }
+
+    @PermissionCallback
+    private void accountsResult(PluginCall call) {
+        if (getPermissionState("calendar") == PermissionState.GRANTED) accounts(call);
+        else call.reject("calendar permission denied", "permission");
+    }
+
+    private void accounts(PluginCall call) {
+        JSArray calendars = new JSArray();
+        for (CalendarRow row : visibleCalendars()) {
+            JSObject calendar = new JSObject();
+            calendar.put("id", row.id);
+            calendar.put("name", row.name);
+            calendar.put("account", row.account);
+            calendar.put("accountType", row.accountType);
+            calendar.put("owner", row.owner);
+            calendar.put("own", row.own);
+            calendar.put("writable", row.writable);
+            calendar.put("primary", row.primary);
+            calendars.put(calendar);
+        }
+        JSObject result = new JSObject();
+        result.put("calendars", calendars);
         call.resolve(result);
     }
 

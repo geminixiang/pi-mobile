@@ -576,3 +576,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sign-in p { margin: 0; }
 .dialog-actions.inline { padding: 0; }
 .user-code { font-family: var(--mono); font-size: 26px; letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
+/* On/off for one permission, such as reading or writing a calendar account. */
+.toggle {
+	flex-shrink: 0; min-width: 52px; height: 32px; padding: 0 10px; border: 1px solid var(--line-strong);
+	font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; color: var(--faint);
+}
+.toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.toggle:disabled { opacity: 0.35; }
+.toggle + .toggle { margin-left: -4px; }
+.group-body select.field { appearance: none; color: var(--text); }

@@ -30,6 +30,8 @@ export interface Settings {
 	azureCredential: string;
 	defaultModelId: string;
 	defaultThinking: string;
+	/** Which calendar accounts the agent may read and write, as JSON (agent/calendar-access.ts); empty for the defaults. */
+	calendarAccess: string;
 }
 
 /** The non-secret settings in localStorage. */
@@ -39,6 +41,7 @@ const PlainSettings = Type.Object({
 	gcloudProject: Type.Optional(Type.String()),
 	defaultModelId: Type.Optional(Type.String()),
 	defaultThinking: Type.Optional(Type.String()),
+	calendarAccess: Type.Optional(Type.String()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
@@ -71,6 +74,7 @@ export async function loadSettings(): Promise<Settings> {
 		azureCredential: await secret(SECRET_AZURE),
 		defaultModelId: plain.defaultModelId ?? "claude-opus-5-5",
 		defaultThinking: plain.defaultThinking ?? "low",
+		calendarAccess: plain.calendarAccess ?? "",
 	};
 }
 
@@ -81,6 +85,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		gcloudProject: settings.gcloudProject,
 		defaultModelId: settings.defaultModelId,
 		defaultThinking: settings.defaultThinking,
+		calendarAccess: settings.calendarAccess,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
 	await SecureStorage.set(SECRET_API_KEY, settings.apiKey);

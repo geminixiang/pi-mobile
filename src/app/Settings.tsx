@@ -14,6 +14,8 @@ import {
 import { registerPlugin } from "@capacitor/core";
 import { type AzureDeviceSignIn, describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
+import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
+import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -273,6 +275,132 @@ function Group({ title, hint, children }: { title: string; hint?: ReactNode; chi
 	);
 }
 
+/**
+ * Per account: whether the agent may read its calendars and add events to them, the default calendar, and whether
+ * shared calendars (colleagues', a team's) can be read. Reading the calendars needs the permission, asked on a tap.
+ */
+function CalendarGroup({ value, onChange }: { value: string; onChange: (json: string) => void }) {
+	const [calendars, setCalendars] = useState<PhoneCalendar[]>();
+	const [error, setError] = useState("");
+	const access = parseCalendarAccess(value);
+	const load = () =>
+		Calendar.listAccounts().then(
+			({ calendars }) => setCalendars(calendars),
+			(failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)),
+		);
+	useEffect(() => {
+		if (!native) return;
+		void Calendar.checkPermissions().then(({ calendar }) => {
+			if (calendar === "granted") void load();
+		});
+	}, []);
+	if (!native) return null;
+
+	const set = (next: CalendarAccess) => onChange(JSON.stringify(next));
+	const toggle = (list: string[], key: string, on: boolean) => (on ? [...new Set([...list, key])] : list.filter((item) => item !== key));
+	const groups = calendars ? groupByAccount(calendars) : [];
+	const sharedCount = calendars?.filter((calendar) => !calendar.own).length ?? 0;
+	const writableTargets = (calendars ?? []).filter(
+		(calendar) => calendar.writable && access.writable.includes(accountKey(calendar)) && !access.hidden.includes(accountKey(calendar)),
+	);
+
+	const setWrite = (group: { key: string; calendars: PhoneCalendar[] }, on: boolean) => {
+		const writable = toggle(access.writable, group.key, on);
+		const ids = new Set(group.calendars.map((calendar) => calendar.id));
+		let defaultCalendar = access.defaultCalendar;
+		if (!on && defaultCalendar !== undefined && ids.has(defaultCalendar)) defaultCalendar = undefined;
+		// The first account turned on becomes the default, so adding works without another step.
+		if (on && defaultCalendar === undefined) {
+			const target = group.calendars.find((calendar) => calendar.writable && calendar.primary) ?? group.calendars.find((c) => c.writable);
+			defaultCalendar = target?.id;
+		}
+		set({ ...access, writable, defaultCalendar });
+	};
+	const setRead = (group: { key: string; calendars: PhoneCalendar[] }, on: boolean) => {
+		if (on) {
+			set({ ...access, hidden: toggle(access.hidden, group.key, false) });
+			return;
+		}
+		// Hiding an account also stops writes to it.
+		const holdsDefault = group.calendars.some((calendar) => calendar.id === access.defaultCalendar);
+		set({
+			...access,
+			hidden: toggle(access.hidden, group.key, true),
+			writable: toggle(access.writable, group.key, false),
+			defaultCalendar: holdsDefault ? undefined : access.defaultCalendar,
+		});
+	};
+
+	const switchButton = (label: string, on: boolean, change: (on: boolean) => void, disabled = false) => (
+		<button type="button" className="toggle" aria-pressed={on} disabled={disabled} onClick={() => change(!on)}>
+			{label}
+		</button>
+	);
+
+	return (
+		<Group
+			title="行事曆"
+			hint="agent 讀取的行程會送到模型服務；不想送出公司行程，就關掉那個帳號的「讀取」。新增活動只會寫進打開「寫入」的帳號，而且每次都會先問你。"
+		>
+			{calendars === undefined ? (
+				<div className="check">
+					<button type="button" className="btn" onClick={() => void load()}>
+						讀取帳號清單
+					</button>
+					{error ? <span className="check-error">{error}</span> : null}
+				</div>
+			) : (
+				<>
+					{groups.map((group) => {
+						const readable = !access.hidden.includes(group.key);
+						const canWrite = group.calendars.some((calendar) => calendar.writable);
+						return (
+							<div className="check-row" key={group.key}>
+								<span className="menu-text">
+									{group.label}
+									{group.calendars.some((calendar) => !group.label.startsWith(calendar.name)) ? (
+										<span className="menu-hint">{group.calendars.map((calendar) => calendar.name).join("、")}</span>
+									) : null}
+								</span>
+								{switchButton("讀取", readable, (on) => setRead(group, on))}
+								{switchButton("寫入", readable && access.writable.includes(group.key), (on) => setWrite(group, on), !readable || !canWrite)}
+							</div>
+						);
+					})}
+					{sharedCount > 0 ? (
+						<div className="check-row">
+							<span className="menu-text">
+								分享的行事曆
+								<span className="menu-hint">{sharedCount} 個你訂閱的，例如節日、同事或團隊的。只在你問起時讀取，不能寫入。</span>
+							</span>
+							{switchButton("讀取", access.shared, (on) => set({ ...access, shared: on }))}
+						</div>
+					) : null}
+					{writableTargets.length > 0 ? (
+						<label>
+							<span>預設寫入</span>
+							<select
+								className="field"
+								value={access.defaultCalendar ?? ""}
+								onChange={(event) =>
+									set({ ...access, defaultCalendar: event.target.value ? Number(event.target.value) : undefined })
+								}
+							>
+								<option value="">每次問我</option>
+								{writableTargets.map((calendar) => (
+									<option key={calendar.id} value={calendar.id}>
+										{calendar.name === calendar.account ? calendar.account : `${calendar.name} · ${calendar.account}`}
+									</option>
+								))}
+							</select>
+						</label>
+					) : null}
+				</>
+			)}
+		</Group>
+	);
+}
+
 /** Notification permission and battery exemption, which background runs depend on. Rechecked when the app resumes. */
 function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
@@ -498,6 +626,7 @@ export function SettingsView({
 						<AzureSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, azureCredential: json }))} />
 					)}
 				</Group>
+				<CalendarGroup value={settings.calendarAccess} onChange={(json) => setSettings((current) => ({ ...current, calendarAccess: json }))} />
 				<BackgroundGroup />
 				<p className="about">pi mobile · {__BUILD__}</p>
 			</form>

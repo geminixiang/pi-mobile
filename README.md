@@ -56,8 +56,10 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
   - `get_travel_time`：開車、走路、腳踏車的距離和時間，用 OpenStreetMap 的路線服務（[FOSSGIS 的公開 OSRM](https://routing.openstreetmap.de)，免費、不需要 key）。地址用手機內建的 geocoder 轉成座標。開車時間不含路況，也沒有大眾運輸。
 - `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
 - **交給手機上的其他 app**：
-  - `read_calendar_events`：讀所有帳號的行程（重複活動會展開、略過已拒絕的邀請）。配合位置可以回答「下一個行程來得及嗎」。
-  - `list_calendars`、`add_calendar_event`：直接寫進指定的行事曆。手機上常同時有公司和個人的帳號，所以有多個帳號時 agent 會先問你要用哪個，寫入前的確認框也會寫明帳號。
+  - `read_calendar_events`、`list_calendars`、`add_calendar_event`：讀行程、新增活動。設定頁的「行事曆」可以**按帳號**決定：
+    - **讀取**：關掉的帳號 agent 完全看不到，行程也不會送到模型服務。適合不想讓公司行程送出去的情況。
+    - **寫入**：只有打開的帳號能新增活動，可以設一個預設行事曆；每次寫入前仍會跳確認框，寫明帳號。
+    - **分享的行事曆**（訂閱的同事、團隊、節日行事曆）：預設不讀，打開後也只在你問起時讀，並標明是別人的；永遠不能寫入。
   - `compose_email`、`compose_sms`：打開草稿，由你按「傳送」。
   - `open_maps`：打開 Google Maps 的路線。
   - `open_link`：用對應的 app 打開網址或 deep link（`geo:`、`tel:` 只開撥號畫面、`spotify:` 等）。
@@ -133,7 +135,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 |---|---|
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器、執行狀態（task graph） |
 | `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
-| `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`、`get_travel_time`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent） |
+| `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`、`get_travel_time`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent），`calendar.ts` 是行事曆（權限設定在 `src/agent/calendar-access.ts`） |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/parse.ts`、`oauth.ts` | 邊界驗證（typebox schema）與三家雲端共用的 OAuth：原生 HTTP 加逾時、token 回應、device flow 輪詢 |
 | `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |

@@ -1,11 +1,9 @@
 // Tools that hand work to other apps on the phone through Android intents. Most open a prefilled screen and the user
-// finishes there (press send, pick a share target), so they need no approval of their own. Calendar events are the
-// exception: they are written to a calendar the agent names, after the user approves the account and the details.
+// finishes there (press send, pick a share target), so they need no approval of their own. Calendars are in calendar.ts.
 import { App } from "@capacitor/app";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
-import { requestConfirmation } from "../confirm.ts";
 
 interface AppsPlugin {
 	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
@@ -18,44 +16,6 @@ interface AppsPlugin {
 
 const Apps = registerPlugin<AppsPlugin>("Apps");
 
-interface PhoneCalendar {
-	id: number;
-	name: string;
-	account: string;
-	accountType: string;
-	primary: boolean;
-}
-
-interface PhoneEvent {
-	title: string;
-	begin: number;
-	end: number;
-	allDay: boolean;
-	location?: string;
-	notes?: string;
-	calendar: string;
-	account: string;
-	calendarId: number;
-	shared?: boolean;
-	owner?: string;
-}
-
-interface CalendarPlugin {
-	listCalendars(): Promise<{ calendars: PhoneCalendar[] }>;
-	listEvents(options: { from: number; to: number; includeShared: boolean }): Promise<{ events: PhoneEvent[] }>;
-	insertEvent(options: {
-		calendarId: number;
-		title: string;
-		begin: number;
-		end: number;
-		allDay: boolean;
-		location?: string;
-		description?: string;
-	}): Promise<{ id: number }>;
-}
-
-const Calendar = registerPlugin<CalendarPlugin>("Calendar");
-
 /** Android blocks activity starts from the background; fail clearly instead of silently doing nothing. */
 async function launch(action: () => Promise<void>): Promise<void> {
 	if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
@@ -67,55 +27,6 @@ async function launch(action: () => Promise<void>): Promise<void> {
 const text = (value: string) => ({ output: [{ type: "text" as const, text: value }] });
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
-
-/** Local wall-clock time "YYYY-MM-DDTHH:MM" (or a date) to its parts. */
-function parseLocal(value: string, field: string): { y: number; mo: number; d: number; h: number; mi: number; hasTime: boolean } {
-	const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/.exec(value.trim());
-	if (!match) throw new Error(`${field} must be local time as YYYY-MM-DDTHH:MM (or YYYY-MM-DD), got ${JSON.stringify(value)}`);
-	const [, y, mo, d, h, mi] = match;
-	return { y: Number(y), mo: Number(mo), d: Number(d), h: Number(h ?? 0), mi: Number(mi ?? 0), hasTime: h !== undefined };
-}
-
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-
-/** Event times for the calendar provider: local instants, or UTC midnights for all-day events (end exclusive). */
-function eventTimes(start: string, end: string | undefined, allDay: boolean): { begin: number; end: number } {
-	const from = parseLocal(start, "start");
-	const to = end ? parseLocal(end, "end") : undefined;
-	if (allDay) {
-		const begin = Date.UTC(from.y, from.mo - 1, from.d);
-		const last = to ? Date.UTC(to.y, to.mo - 1, to.d) : begin;
-		if (last < begin) throw new Error("end is before start");
-		return { begin, end: last + DAY };
-	}
-	if (!from.hasTime) throw new Error("start needs a time (YYYY-MM-DDTHH:MM) unless all_day is true");
-	const begin = new Date(from.y, from.mo - 1, from.d, from.h, from.mi).getTime();
-	const finish = to ? new Date(to.y, to.mo - 1, to.d, to.h, to.mi).getTime() : begin + HOUR;
-	if (Number.isNaN(begin) || Number.isNaN(finish)) throw new Error("not a real date");
-	if (finish < begin) throw new Error("end is before start");
-	return { begin, end: finish };
-}
-
-function describeTimes(times: { begin: number; end: number }, allDay: boolean): string {
-	const date = (ms: number, timeZone?: string) =>
-		new Date(ms).toLocaleDateString("zh-TW", { timeZone, month: "numeric", day: "numeric", weekday: "short" });
-	const time = (ms: number) => new Date(ms).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
-	if (allDay) {
-		const first = date(times.begin, "UTC");
-		const last = date(times.end - DAY, "UTC");
-		return first === last ? `${first} 整天` : `${first} – ${last} 整天`;
-	}
-	const sameDay = new Date(times.begin).toDateString() === new Date(times.end).toDateString();
-	return sameDay
-		? `${date(times.begin)} ${time(times.begin)}–${time(times.end)}`
-		: `${date(times.begin)} ${time(times.begin)} – ${date(times.end)} ${time(times.end)}`;
-}
-
-/** How the account reads in the approval: an email for Google, otherwise the provider's own name. */
-function accountLabel(calendar: PhoneCalendar): string {
-	return calendar.accountType === "com.google" ? calendar.account : `${calendar.account}（${calendar.accountType}）`;
-}
 
 const setAlarm = defineTool({
 	name: "set_alarm",
@@ -147,116 +58,6 @@ const setTimer = defineTool({
 	execute: async (args) => {
 		await launch(() => Apps.setTimer({ seconds: args.seconds, label: args.label }));
 		return text(`Timer started for ${args.seconds} seconds.`);
-	},
-});
-
-const listCalendars = defineTool({
-	name: "list_calendars",
-	description:
-		"List the user's own calendars that events can be added to, with the account each belongs to (often both a work and a personal Google account). Shared calendars are never listed and cannot be written to. Call before add_calendar_event.",
-	parameters: Type.Object({}),
-	execute: async () => {
-		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
-		const { calendars } = await Calendar.listCalendars();
-		if (calendars.length === 0) return text("No writable calendars on this phone.");
-		return text(JSON.stringify(calendars.map(({ id, name, account, accountType, primary }) => ({ id, name, account, accountType, primary })), null, 2));
-	},
-});
-
-/** Local "YYYY-MM-DD HH:MM" for the model; all-day events are stored at UTC midnight, so they read as dates in UTC. */
-function formatEvent(event: PhoneEvent): Record<string, unknown> {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	const local = (ms: number) => {
-		const d = new Date(ms);
-		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-	};
-	const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-	return {
-		title: event.title,
-		...(event.allDay
-			? { allDay: true, date: utcDate(event.begin), ...(event.end - event.begin > DAY ? { lastDate: utcDate(event.end - DAY) } : {}) }
-			: { start: local(event.begin), end: local(event.end) }),
-		...(event.location ? { location: event.location } : {}),
-		...(event.notes ? { notes: event.notes } : {}),
-		calendar: event.calendar,
-		account: event.account,
-		...(event.shared ? { shared: true, owner: event.owner } : {}),
-	};
-}
-
-const readEvents = defineTool({
-	name: "read_calendar_events",
-	description:
-		"The user's schedule: events on their own calendars in every account (recurring events expanded, declined invitations left out) between two local times. Default: from now to the end of tomorrow. Shared calendars they subscribe to, such as a team calendar or a colleague's, hold other people's events and are left out unless include_shared is true; those events come back marked shared, with the owner.",
-	parameters: Type.Object({
-		from: Type.Optional(Type.String({ description: "Local time YYYY-MM-DDTHH:MM or a date YYYY-MM-DD; default now" })),
-		to: Type.Optional(Type.String({ description: "Local time or date (a date means the end of that day); default the end of tomorrow" })),
-		include_shared: Type.Optional(Type.Boolean({ description: "Also read shared calendars; only when the user asks about them" })),
-	}),
-	replay: "safe",
-	execute: async (args) => {
-		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
-		const instant = (value: string, field: string, endOfDay: boolean) => {
-			const t = parseLocal(value, field);
-			const start = new Date(t.y, t.mo - 1, t.d, t.h, t.mi).getTime();
-			return endOfDay && !t.hasTime ? start + DAY : start;
-		};
-		const from = args.from ? instant(args.from, "from", false) : Date.now();
-		const tomorrow = new Date();
-		tomorrow.setHours(0, 0, 0, 0);
-		const to = args.to ? instant(args.to, "to", true) : tomorrow.getTime() + 2 * DAY;
-		if (to <= from) throw new Error("to must be after from");
-		// Over a year is almost always a mistake, and the list would not fit.
-		if (to - from > 366 * DAY) throw new Error("the range can be at most a year");
-		const { events } = await Calendar.listEvents({ from, to, includeShared: args.include_shared ?? false });
-		// All-day events are stored as UTC days, so the local query range catches a neighbouring day east of UTC.
-		// Keep them by date: their days must overlap the local dates the range covers.
-		const pad = (n: number) => String(n).padStart(2, "0");
-		const localDate = (ms: number) => {
-			const d = new Date(ms);
-			return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-		};
-		const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-		const first = localDate(from);
-		const last = localDate(to - 1);
-		const inRange = events.filter((event) => !event.allDay || (utcDate(event.begin) <= last && utcDate(event.end - DAY) >= first));
-		return text(inRange.length === 0 ? "No events in this range." : JSON.stringify(inRange.map(formatEvent), null, 2));
-	},
-});
-
-const addEvent = defineTool({
-	name: "add_calendar_event",
-	description:
-		"Add an event to one calendar from list_calendars. The user approves the account, calendar and details first; nothing is written if they decline.",
-	parameters: Type.Object({
-		calendar_id: Type.Integer({ description: "id from list_calendars" }),
-		title: Type.String(),
-		start: Type.String({ description: "Local time YYYY-MM-DDTHH:MM, or YYYY-MM-DD with all_day" }),
-		end: Type.Optional(Type.String({ description: "Local time YYYY-MM-DDTHH:MM (or the last day, with all_day); default one hour after start" })),
-		all_day: Type.Optional(Type.Boolean()),
-		location: Type.Optional(Type.String()),
-		notes: Type.Optional(Type.String()),
-	}),
-	execute: async (args) => {
-		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
-		const allDay = args.all_day ?? false;
-		const times = eventTimes(args.start, args.end, allDay);
-		const calendar = (await Calendar.listCalendars()).calendars.find((candidate) => candidate.id === args.calendar_id);
-		if (!calendar) throw new Error(`calendar ${args.calendar_id} is not one of the user's own writable calendars; call list_calendars`);
-		const approved = await requestConfirmation({
-			title: `加到 ${accountLabel(calendar)} 的「${calendar.name}」行事曆`,
-			detail: [args.title, describeTimes(times, allDay), args.location, args.notes].filter(Boolean).join("\n"),
-		});
-		if (!approved) throw new Error("The user declined adding this event.");
-		const { id } = await Calendar.insertEvent({
-			calendarId: calendar.id,
-			title: args.title,
-			...times,
-			allDay,
-			location: args.location,
-			description: args.notes,
-		});
-		return text(`Added event ${id} to "${calendar.name}" (${calendar.account}): ${describeTimes(times, allDay)}.`);
 	},
 });
 
@@ -370,14 +171,12 @@ const share = defineTool({
 
 export const AppsExtension = defineExtension({
 	name: "phone_apps",
-	tools: [setAlarm, setTimer, readEvents, listCalendars, addEvent, composeEmail, composeSms, openMaps, openLink, share],
+	tools: [setAlarm, setTimer, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
 		section("phone_apps", () =>
 			[
-				"You can hand things to other apps on this phone: alarms and timers, calendar events, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
+				"You can hand things to other apps on this phone: alarms and timers, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
 				"Drafts, maps, links and sharing open a prefilled screen; the user finishes there. Say what they need to tap, and never claim a message was sent.",
-				"read_calendar_events shows the user's schedule from their own calendars. Events marked shared are someone else's (a team or colleague calendar): never present them as the user's plans. For questions like whether they can make the next event, combine it with get_location: get the travel time from their position to the event's location with get_travel_time, say when to leave, and offer open_maps.",
-				"Adding to the calendar: call list_calendars first. Phones often mix work and personal accounts, and an event in the wrong one is embarrassing. If the writable calendars span more than one account and the user has not said which, ask them, naming the accounts; do not guess from the event's content. Use the account they chose earlier in this conversation without asking again.",
 			].join("\n"),
 		),
 	],
