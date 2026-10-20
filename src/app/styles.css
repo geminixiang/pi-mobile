@@ -1,7 +1,7 @@
 /*
  * pi.dev's design language on a phone: evening blue (or moonstone paper), a faint drafting grid, square edges,
  * hairline panels with monospace header strips, serif prose. Color comes only from the pi mark
- * (coral, blue, yellow) and one accent blue. No gradients, no glow.
+ * (coral, blue, yellow) and one accent blue. The only gradients are pi.dev's own page grid and its fade.
  */
 :root {
 	color-scheme: light dark;
@@ -26,7 +26,11 @@
 	--pending-bg: rgb(37 47 61 / 0.05);
 	--console-bg: #252f3d;
 	--console-text: #e4e2df;
-	--grid: rgb(37 47 61 / 0.035);
+	/* pi.dev's page grid: 4px minor, 20px major, a + at every major crossing, faded out toward the bottom. */
+	--grid-minor: #252f3d08;
+	--grid-major: #252f3d12;
+	--grid-cross: #252f3d1d;
+	--vignette: #ebe7e426;
 	--scrim: rgb(37 47 61 / 0.35);
 
 	--coral: #f09082;
@@ -52,10 +56,10 @@
 	:root {
 		--bg: #161d27;
 		--bg-deep: #10151d;
-		--panel: #1c242f;
+		--panel: #212730;
 		--panel-2: #252f3d;
-		--line: rgb(117 125 137 / 0.32);
-		--line-strong: rgb(117 125 137 / 0.55);
+		--line: rgb(73 80 89 / 0.5);
+		--line-strong: rgb(117 125 137 / 0.46);
 		--text: #ebe7e4;
 		--copy: rgb(235 231 228 / 0.86);
 		--muted: #9fa4ab;
@@ -70,7 +74,10 @@
 		--pending-bg: rgb(255 255 255 / 0.035);
 		--console-bg: #0d1116;
 		--console-text: #d5d8db;
-		--grid: rgb(180 200 230 / 0.035);
+		--grid-minor: hsl(218 60% 80% / 0.009375);
+		--grid-major: hsl(218 60% 80% / 0.02625);
+		--grid-cross: hsl(218 60% 80% / 0.075);
+		--vignette: rgb(13 17 22 / 0.1216);
 		--scrim: rgb(5 8 12 / 0.6);
 	}
 }
@@ -139,12 +146,20 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* ---------- Layout ---------- */
 .app {
 	position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden;
-	/* pi.dev's drafting grid. */
+	/* pi.dev's body::before and body::after, folded into one background (first layer paints on top). */
+	background-color: var(--bg);
 	background-image:
-		linear-gradient(var(--grid) 1px, transparent 1px),
-		linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-	background-size: 20px 20px;
-	background-position: -1px -1px;
+		linear-gradient(to bottom, var(--vignette), var(--bg) 90%),
+		linear-gradient(var(--grid-minor) 0 1px, transparent 1px 4px),
+		linear-gradient(to right, var(--grid-minor) 0 1px, transparent 1px 4px),
+		linear-gradient(var(--grid-major) 0 1px, transparent 1px 20px),
+		linear-gradient(to right, var(--grid-major) 0 1px, transparent 1px 20px),
+		radial-gradient(circle at center, transparent 2px, var(--bg) 2px 100%),
+		linear-gradient(var(--grid-cross) 0 1px, transparent 1px 20px),
+		linear-gradient(to right, var(--grid-cross) 0 1px, transparent 1px 20px);
+	background-size: 100% 100%, 4px 4px, 4px 4px, 20px 20px, 20px 20px, 20px 20px, 20px 20px, 20px 20px;
+	background-position: 0 0, 0 0, 0 0, 0 0, 0 0, -10px -10px, 0 0, 0 0;
+	background-repeat: no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat;
 }
 .bar {
 	position: relative; display: flex; align-items: center; gap: 0; flex-shrink: 0;
