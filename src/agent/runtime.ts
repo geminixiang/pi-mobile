@@ -498,7 +498,7 @@ export class AgentRuntime {
 				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
 				entry: {
 					kind: TRIGGER_ENTRY,
-					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, target: trigger.target, delivery },
+					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, target: trigger.target, delivery, at: now },
 				},
 				whenBusy: "followUp",
 			},

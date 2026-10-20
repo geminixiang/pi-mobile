@@ -46,6 +46,7 @@ export function App() {
 	const [view, setView] = useState<ConversationView>();
 	const [pendingDraft, setPendingDraft] = useState<string>();
 	const [pendingImages, setPendingImages] = useState<ImageContent[]>();
+	const [pendingShared, setPendingShared] = useState<"image" | "text">();
 	const [overlay, setOverlay] = useState<Overlay>();
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
 	const [toast, setToast] = useState("");
@@ -151,7 +152,7 @@ export function App() {
 	}, [busyIds, conversations, runtime]);
 
 	const openConversation = useCallback(
-		async (id: ConversationId, draft?: string, images?: ImageContent[]) => {
+		async (id: ConversationId, draft?: string, images?: ImageContent[], shared?: "image" | "text") => {
 			if (!runtime) return;
 			setOverlay(undefined);
 			if (id === controller?.id && draft === undefined) return;
@@ -160,6 +161,7 @@ export function App() {
 			localStorage.setItem(LAST_CONVERSATION_KEY, String(id));
 			setPendingDraft(draft);
 			setPendingImages(images);
+			setPendingShared(shared);
 			setView(undefined);
 			setController(next);
 		},
@@ -208,9 +210,9 @@ export function App() {
 				notify("沒有讀到分享的內容。目前可以分享文字、連結和圖片。");
 				return;
 			}
-			const title = (item.subject || item.text || "分享的圖片").trim();
-			const id = await runtime.createConversation(`分享：${title.length > 20 ? `${title.slice(0, 20)}…` : title}`);
-			await openRef.current(id, draft ? `${draft}\n\n` : "", images);
+			const title = (item.subject || item.text || "").trim();
+			const id = await runtime.createConversation(title ? `分享：${title.length > 20 ? `${title.slice(0, 20)}…` : title}` : "分享的圖片");
+			await openRef.current(id, draft, images, images.length > 0 ? "image" : "text");
 		};
 		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });
 		const stopLinks = listenForOpenLinks((conversation) => {
@@ -368,6 +370,7 @@ export function App() {
 					capabilities={{ sandbox: runtime.hasSandbox }}
 					initialDraft={pendingDraft}
 					initialImages={pendingImages}
+					shared={pendingShared}
 					focusKey={focusKey}
 					onView={setView}
 					onOpenConversation={(id, draft) => void openConversation(id, draft)}

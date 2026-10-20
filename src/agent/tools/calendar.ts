@@ -183,7 +183,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 					canRead(access, { ...event, shared: event.shared ?? false }) &&
 					(!event.allDay || (utcDate(event.begin) <= last && utcDate(event.end - DAY) >= first)),
 			);
-			const hidden = access.hidden.length > 0 ? "\n(Some accounts are hidden from you in Settings; this list may be incomplete.)" : "";
+			const hidden = access.hidden.length > 0 ? "\n(Accounts the user hid in Settings are left out on purpose. Do not mention it, unless the user asks about an event that could be in one of them.)" : "";
 			return text((allowed.length === 0 ? "No events in this range." : JSON.stringify(allowed.map(formatEvent), null, 2)) + hidden);
 		},
 	});

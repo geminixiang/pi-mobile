@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import { ChevronIcon, FileIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
 import { OpenFileContext, resolvePath } from "./openFile.ts";
+import type { Static } from "typebox";
 import { Value } from "typebox/value";
 import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
 
@@ -60,8 +61,63 @@ export function entryText(entry: EntryRecord): string {
 		.join("\n");
 }
 
+const str = (value: unknown): string => (typeof value === "string" ? value : typeof value === "number" ? String(value) : "");
+const join = (...parts: string[]): string => parts.filter(Boolean).join(" · ");
+
+/** "2026-10-31T10:00" -> "10/31 10:00"; other text unchanged. */
+function shortTime(value: unknown): string {
+	const match = /^\d{4}-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?/.exec(str(value));
+	return match ? `${Number(match[1])}/${Number(match[2])}${match[3] ? ` ${match[3]}` : ""}` : str(value);
+}
+
+/** What the phone's own tools did, in words instead of their JSON arguments. */
+function phoneLabel(name: string, args: Record<string, unknown>): string | undefined {
+	switch (name) {
+		case "set_alarm":
+			return join(str(args.time), str(args.label), Array.isArray(args.repeat) ? `重複 ${args.repeat.length} 天` : "");
+		case "set_timer": {
+			const seconds = Number(args.seconds) || 0;
+			const time = seconds >= 60 ? `${Math.floor(seconds / 60)} 分${seconds % 60 ? ` ${seconds % 60} 秒` : ""}` : `${seconds} 秒`;
+			return join(time, str(args.label));
+		}
+		case "compose_email":
+			return join(Array.isArray(args.to) ? args.to.map(str).join(", ") : "", str(args.subject));
+		case "compose_sms":
+			return str(args.to);
+		case "open_maps":
+		case "get_travel_time":
+			return join(str(args.origin) ? `${str(args.origin)} → ${str(args.destination)}` : str(args.destination), str(args.mode));
+		case "open_link":
+			return str(args.url);
+		case "share":
+			return str(args.sandbox_path) || str(args.title) || str(args.text).slice(0, 40);
+		case "read_calendar_events":
+			return join(args.from || args.to ? `${shortTime(args.from) || "現在"} → ${shortTime(args.to) || "明天"}` : "", args.include_shared ? "含分享的" : "");
+		case "add_calendar_event":
+			return join(str(args.title), shortTime(args.start));
+		case "create_schedule":
+			return join(str(args.name), str(args.time) || shortTime(args.at));
+		case "schedule_followup":
+			return join(str(args.label) || str(args.note).slice(0, 30), `${str(args.minutes)} 分鐘後`);
+		case "delete_schedule":
+			return str(args.id);
+		case "notify":
+			return join(str(args.title), str(args.text));
+		case "device_info":
+		case "get_location":
+		case "read_sensors":
+		case "list_calendars":
+		case "list_schedules":
+			return "";
+		default:
+			return undefined;
+	}
+}
+
 /** One line describing a tool call: the command, path, or API route. */
 function callLabel(name: string, args: Record<string, unknown>): string {
+	const phone = phoneLabel(name, args);
+	if (phone !== undefined) return phone;
 	if (name === "github_api") return `${args.method ?? "GET"} ${args.path ?? ""}`;
 	if (name === "github_read_file") return `${args.owner}/${args.repo}/${args.path ?? ""}`;
 	if (name === "web_search" && typeof args.query === "string") return args.query;
@@ -94,6 +150,22 @@ function toolName(name: string): string {
 	if (name === "codemode") return "script";
 	if (name === "web_search") return "search";
 	if (name === "web_fetch") return "fetch";
+	if (name === "get_location") return "location";
+	if (name === "read_sensors") return "sensors";
+	if (name === "get_travel_time") return "route";
+	if (name === "read_calendar_events") return "calendar";
+	if (name === "list_calendars") return "calendars";
+	if (name === "add_calendar_event") return "calendar add";
+	if (name === "create_schedule") return "schedule";
+	if (name === "list_schedules") return "schedules";
+	if (name === "delete_schedule") return "schedule delete";
+	if (name === "schedule_followup") return "follow-up";
+	if (name === "set_alarm") return "alarm";
+	if (name === "set_timer") return "timer";
+	if (name === "compose_email") return "email";
+	if (name === "compose_sms") return "sms";
+	if (name === "open_maps") return "maps";
+	if (name === "open_link") return "open";
 	return name;
 }
 
@@ -263,6 +335,27 @@ export function StreamingAnswer({ content, prefs, calls }: { content: Block[]; p
 	);
 }
 
+/** An input a schedule or a follow-up sent: who sent it and when; the instruction folds to two lines. */
+function TriggerInput({ data }: { data: Static<typeof TriggerEntryData> }) {
+	const [open, setOpen] = useState(false);
+	const time = data.at === undefined ? undefined : new Date(data.at);
+	const clock = time ? ` · ${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}` : "";
+	return (
+		<section className="trigger-entry">
+			<div className="trigger-head">
+				{data.target === "origin" ? "稍後再看" : "排程"} · {data.name}
+				{clock}
+				{DELIVERY[data.delivery] ?? ""}
+			</div>
+			{data.target === "origin" ? null : (
+				<button type="button" className={`trigger-prompt${open ? " open" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
+					{data.prompt}
+				</button>
+			)}
+		</section>
+	);
+}
+
 export function EntryView({
 	entry,
 	prefs,
@@ -285,17 +378,7 @@ export function EntryView({
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
 	if (entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data)) {
-		const data = entry.data;
-		const source = data.target === "origin" ? "稍後再看" : "排程";
-		return (
-			<section className="trigger-entry" {...longPress}>
-				<div className="trigger-head">
-					{source} · {data.name}
-					{DELIVERY[data.delivery] ?? ""}
-				</div>
-				{data.target === "origin" ? null : <div className="trigger-prompt">{data.prompt}</div>}
-			</section>
-		);
+		return <TriggerInput data={entry.data} />;
 	}
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {

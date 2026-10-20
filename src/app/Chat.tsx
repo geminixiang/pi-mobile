@@ -28,6 +28,21 @@ interface Suggestion {
 	image?: boolean;
 }
 
+/** What to do with something shared from another app; picked, it goes before the shared text in the composer. */
+function shareActions(kind: "image" | "text"): Suggestion[] {
+	return kind === "image"
+		? [
+				{ title: "這是什麼", prompt: "這張圖裡有什麼？" },
+				{ title: "抄下文字", prompt: "把圖裡的文字抄下來，不是中文的話翻成中文" },
+				{ title: "排進行事曆", prompt: "如果這是活動或行程，幫我加到行事曆" },
+			]
+		: [
+				{ title: "摘要", prompt: "讀一下這個，用幾點摘要重點" },
+				{ title: "翻譯", prompt: "翻成繁體中文" },
+				{ title: "晚點提醒我", prompt: "今晚 9 點提醒我看這個，附上一句摘要" },
+			];
+}
+
 function suggestions(capabilities: Capabilities): Suggestion[] {
 	return [
 		{ title: "帶我去喝咖啡", prompt: "找一間我附近評價好的咖啡廳，開地圖帶我走過去" },
@@ -50,6 +65,7 @@ export function Chat({
 	capabilities,
 	initialDraft,
 	initialImages,
+	shared,
 	focusKey,
 	onOpenConversation,
 	onError,
@@ -61,6 +77,8 @@ export function Chat({
 	capabilities: Capabilities;
 	initialDraft?: string;
 	initialImages?: ImageContent[];
+	/** Opened with something shared from another app: suggest what to do with it instead of the general examples. */
+	shared?: "image" | "text";
 	/** Changes when the composer should take focus, such as after starting a new conversation. */
 	focusKey: number;
 	onOpenConversation: (id: ConversationId, draft: string) => void;
@@ -138,7 +156,35 @@ export function Chat({
 					setAtBottom(bottom);
 				}}
 			>
-				{empty ? (
+				{empty && shared ? (
+					<div className="empty">
+						<PiMark size={36} />
+						<h2>
+							要 pi 怎麼<em>處理</em>？
+						</h2>
+						<p>{shared === "image" ? "圖片已經放在輸入框裡。" : "分享的內容已經放在輸入框裡。"}選一個，或直接打字說要做什麼。</p>
+						<ol className="suggestions">
+							{shareActions(shared).map((action, index) => (
+								<li key={action.title}>
+									<button
+										type="button"
+										onClick={() => {
+											setDraft((current) => (current.trim() ? `${action.prompt}\n\n${current.trim()}` : action.prompt));
+											setComposerFocus((key) => key + 1);
+										}}
+									>
+										<span className="suggestion-index">{String(index + 1).padStart(2, "0")}</span>
+										<span className="suggestion-text">
+											<strong>{action.title}</strong>
+											<span>{action.prompt}</span>
+										</span>
+										<ArrowIcon />
+									</button>
+								</li>
+							))}
+						</ol>
+					</div>
+				) : empty ? (
 					<div className="empty">
 						<PiMark size={36} />
 						<h2>

@@ -59,6 +59,8 @@ export const TriggerEntryData = Type.Object({
 	prompt: Type.String(),
 	target: Type.String(),
 	delivery: Type.String(),
+	/** When it fired; older entries have none. */
+	at: Type.Optional(Type.Number()),
 });
 
 const QueuedEvent = Type.Union([
@@ -281,7 +283,8 @@ export function createTriggerExtension(host: TriggerHost) {
 		execute: async (args, api) => {
 			if (!nativeTriggers) throw new Error("only available in the Android app");
 			const shown = await host.notify(args.title, args.text, api.conversationId);
-			return text(shown ? "Notified." : "The user has pi open and sees your answer; no notification was needed.");
+			// Whether it was shown is not the user's concern; either way they learn the result.
+			return text(shown ? "Notified." : "Delivered: the user has pi open and reads your answer.");
 		},
 	});
 
@@ -292,7 +295,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			section("triggers", () =>
 				[
 					"You can run later by yourself: create_schedule for recurring or one-time work the user asks for (a morning briefing, a weekly summary), schedule_followup to check something again in this conversation.",
-					`A user message starting with "[trigger]" was sent by a schedule, not typed: the user is not watching. Do the work, end with a short answer, and call notify with the gist if it is worth their attention; skip notify when there is nothing new. Actions that need approval go to a notification and are declined if unanswered for 30 minutes.`,
+					`A user message starting with "[trigger]" was sent by a schedule, not typed: the user is not watching. Do the work, end with a short answer, and call notify with the gist if it is worth their attention; skip notify when there is nothing new. Do not mention notifications, triggers, or schedules in that answer; just give the result. Actions that need approval go to a notification and are declined if unanswered for 30 minutes.`,
 				].join("\n"),
 			),
 		],
