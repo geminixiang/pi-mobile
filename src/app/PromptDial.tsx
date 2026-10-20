@@ -208,8 +208,9 @@ export function ScrollTab({
 						{Array.from({ length: dial.slots }, (_, slot) => {
 							const shows = positionOf(dial, count, slot);
 							if (shows < 0) return null;
-							const outer = pointAt(dial, slotAngle(slot), dial.radius + 10);
-							const inner = pointAt(dial, slotAngle(slot), dial.radius - 10);
+							// Short ruler marks across the line.
+							const outer = pointAt(dial, slotAngle(slot), dial.radius + 6);
+							const inner = pointAt(dial, slotAngle(slot), dial.radius - 6);
 							return (
 								<line
 									key={slot}
@@ -232,13 +233,16 @@ export function ScrollTab({
 								⋯
 							</text>
 						) : null}
-						<g
-							className="dial-knob"
-							style={{ transformOrigin: `${dial.px}px ${dial.py}px`, transform: `rotate(${dial.slot * STEP}deg)` }}
-						>
-							<circle cx={pointAt(dial, dial.start).x} cy={pointAt(dial, dial.start).y} r={13} />
-						</g>
+						{dial.shift === 0 ? (
+							<text className="dial-label" {...pointAt(dial, slotAngle(0) + 4, dial.radius + 26)}>
+								最新
+							</text>
+						) : null}
 					</svg>
+					{/* The knob: a tab like the scroll tab, riding the arc at the selected detent, its number upright. */}
+					<span className="dial-knob" style={{ left: pointAt(dial, slotAngle(dial.slot)).x, top: pointAt(dial, slotAngle(dial.slot)).y }}>
+						{current ? position + 1 : "↓"}
+					</span>
 				</div>
 			) : null}
 		</>
