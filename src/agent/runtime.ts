@@ -19,6 +19,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
 import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
+import { AppsExtension } from "./tools/apps.ts";
 import { DeviceExtension } from "./tools/device.ts";
 import { createPhoneCodemode } from "./codemode.ts";
 import { AzureTokens } from "./azure.ts";
@@ -176,6 +177,7 @@ export class AgentRuntime {
 		const registry = createRegistry();
 		registry.install(Assistant);
 		registry.install(DeviceExtension);
+		registry.install(AppsExtension);
 		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
 		registry.install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));

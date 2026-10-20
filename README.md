@@ -50,6 +50,14 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
 **工具**
 - `web_search`：用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key。`web_fetch`：從手機抓網頁並轉成文字。
 - `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
+- **交給手機上的其他 app**：
+  - `add_calendar_event`：打開行事曆，新活動已填好，由你按「儲存」。
+  - `compose_email`、`compose_sms`：打開草稿，由你按「傳送」。
+  - `open_maps`：打開 Google Maps 的路線。
+  - `open_link`：用對應的 app 打開網址或 deep link（`geo:`、`tel:` 只開撥號畫面、`spotify:` 等）。
+  - `share`：打開分享選單，可以把 sandbox 裡的檔案（圖表、PDF）傳到 LINE、Drive 等。
+  - `set_alarm`、`set_timer`：直接設定鬧鐘和計時器，不開時鐘 app。
+  - Android 不允許背景的 app 打開其他 app，所以 pi 在背景時這些工具會失敗，並請你回到 pi。
 - **Code mode**：模型可以寫 JavaScript，在一個腳本裡批次呼叫工具（`tools.<name>(args)`）、整理資料。腳本在手機上的 QuickJS VM 裡跑，VM 放在 Web Worker 裡，所以不會卡住 UI；每個結果都先記下來，app 被殺掉後會接著跑。
 - Sandbox 的 `read`、`write`、`edit`、`bash`，見下面。
 
@@ -119,7 +127,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 |---|---|
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器、執行狀態（task graph） |
 | `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
-| `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch` |
+| `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent） |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/parse.ts`、`oauth.ts` | 邊界驗證（typebox schema）與三家雲端共用的 OAuth：原生 HTTP 加逾時、token 回應、device flow 輪詢 |
 | `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
@@ -130,7 +138,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts`、`pairing.ts` 是對應 Android 原生功能的那一層 |
-| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java` | 前景服務與通知、語音辨識 |
+| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java`、`AppsPlugin.java` | 前景服務與通知、語音辨識、用 Intent 交給其他 app |
 | `sandbox/` | Sandbox 主機端：image、relay、egress proxy、安裝腳本 |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
 | `test/` | 手機上的 UI 測試（CDP）、sandbox、GitHub 和 gcloud egress 的 Node 端到端測試 |
