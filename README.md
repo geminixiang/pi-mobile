@@ -55,6 +55,7 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
   - `read_sensors`：氣壓和估算海拔、指南針方位、環境光、距離感測。
 - `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
 - **交給手機上的其他 app**：
+  - `read_calendar_events`：讀所有帳號的行程（重複活動會展開、略過已拒絕的邀請）。配合位置可以回答「下一個行程來得及嗎」。
   - `list_calendars`、`add_calendar_event`：直接寫進指定的行事曆。手機上常同時有公司和個人的帳號，所以有多個帳號時 agent 會先問你要用哪個，寫入前的確認框也會寫明帳號。
   - `compose_email`、`compose_sms`：打開草稿，由你按「傳送」。
   - `open_maps`：打開 Google Maps 的路線。

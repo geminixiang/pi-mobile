@@ -26,8 +26,21 @@ interface PhoneCalendar {
 	primary: boolean;
 }
 
+interface PhoneEvent {
+	title: string;
+	begin: number;
+	end: number;
+	allDay: boolean;
+	location?: string;
+	notes?: string;
+	calendar: string;
+	account: string;
+	calendarId: number;
+}
+
 interface CalendarPlugin {
 	listCalendars(): Promise<{ calendars: PhoneCalendar[] }>;
+	listEvents(options: { from: number; to: number }): Promise<{ events: PhoneEvent[] }>;
 	insertEvent(options: {
 		calendarId: number;
 		title: string;
@@ -145,6 +158,54 @@ const listCalendars = defineTool({
 		const { calendars } = await Calendar.listCalendars();
 		if (calendars.length === 0) return text("No writable calendars on this phone.");
 		return text(JSON.stringify(calendars.map(({ id, name, account, accountType, primary }) => ({ id, name, account, accountType, primary })), null, 2));
+	},
+});
+
+/** Local "YYYY-MM-DD HH:MM" for the model; all-day events are stored at UTC midnight, so they read as dates in UTC. */
+function formatEvent(event: PhoneEvent): Record<string, unknown> {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const local = (ms: number) => {
+		const d = new Date(ms);
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	};
+	const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+	return {
+		title: event.title,
+		...(event.allDay
+			? { allDay: true, date: utcDate(event.begin), ...(event.end - event.begin > DAY ? { lastDate: utcDate(event.end - DAY) } : {}) }
+			: { start: local(event.begin), end: local(event.end) }),
+		...(event.location ? { location: event.location } : {}),
+		...(event.notes ? { notes: event.notes } : {}),
+		calendar: event.calendar,
+		account: event.account,
+	};
+}
+
+const readEvents = defineTool({
+	name: "read_calendar_events",
+	description:
+		"Events on the phone's calendars (all accounts, recurring events expanded, declined invitations left out) between two local times. Default: from now to the end of tomorrow.",
+	parameters: Type.Object({
+		from: Type.Optional(Type.String({ description: "Local time YYYY-MM-DDTHH:MM or a date YYYY-MM-DD; default now" })),
+		to: Type.Optional(Type.String({ description: "Local time or date (a date means the end of that day); default the end of tomorrow" })),
+	}),
+	replay: "safe",
+	execute: async (args) => {
+		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+		const instant = (value: string, field: string, endOfDay: boolean) => {
+			const t = parseLocal(value, field);
+			const start = new Date(t.y, t.mo - 1, t.d, t.h, t.mi).getTime();
+			return endOfDay && !t.hasTime ? start + DAY : start;
+		};
+		const from = args.from ? instant(args.from, "from", false) : Date.now();
+		const tomorrow = new Date();
+		tomorrow.setHours(0, 0, 0, 0);
+		const to = args.to ? instant(args.to, "to", true) : tomorrow.getTime() + 2 * DAY;
+		if (to <= from) throw new Error("to must be after from");
+		// Over a year is almost always a mistake, and the list would not fit.
+		if (to - from > 366 * DAY) throw new Error("the range can be at most a year");
+		const { events } = await Calendar.listEvents({ from, to });
+		return text(events.length === 0 ? "No events in this range." : JSON.stringify(events.map(formatEvent), null, 2));
 	},
 });
 
@@ -294,13 +355,14 @@ const share = defineTool({
 
 export const AppsExtension = defineExtension({
 	name: "phone_apps",
-	tools: [setAlarm, setTimer, listCalendars, addEvent, composeEmail, composeSms, openMaps, openLink, share],
+	tools: [setAlarm, setTimer, readEvents, listCalendars, addEvent, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
 		section("phone_apps", () =>
 			[
 				"You can hand things to other apps on this phone: alarms and timers, calendar events, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
 				"Drafts, maps, links and sharing open a prefilled screen; the user finishes there. Say what they need to tap, and never claim a message was sent.",
-				"Calendar: call list_calendars first. Phones often mix work and personal accounts, and an event in the wrong one is embarrassing. If the writable calendars span more than one account and the user has not said which, ask them, naming the accounts; do not guess from the event's content. Use the account they chose earlier in this conversation without asking again.",
+				"read_calendar_events shows the user's schedule. For questions like whether they can make the next event, combine it with get_location: estimate the travel time from their position to the event's location, say when to leave, and offer open_maps.",
+				"Adding to the calendar: call list_calendars first. Phones often mix work and personal accounts, and an event in the wrong one is embarrassing. If the writable calendars span more than one account and the user has not said which, ask them, naming the accounts; do not guess from the event's content. Use the account they chose earlier in this conversation without asking again.",
 			].join("\n"),
 		),
 	],
