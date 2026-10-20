@@ -341,7 +341,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .suggestion-text span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- Composer ---------- */
-/* The composer as pi's editor: full width, no side borders, a line above and below in the thinking level's color. */
+/* The composer as pi's editor: full width, no side borders, a line above in the thinking level's color. pi's line
+   below separates the editor from its footer; here the screen edge or the keyboard ends it. */
 .composer { flex-shrink: 0; padding: 8px 0 env(safe-area-inset-bottom); background: var(--bg); }
 .app { --editor-border: var(--think-off); }
 .app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
@@ -350,7 +351,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .app[data-thinking="high"] { --editor-border: var(--think-high); }
 .app[data-thinking="xhigh"] { --editor-border: var(--think-xhigh); }
 .app[data-thinking="max"] { --editor-border: var(--think-max); }
-.input { border-top: 1px solid var(--editor-border); border-bottom: 1px solid var(--editor-border); background: none; }
+.input { border-top: 1px solid var(--editor-border); background: none; }
 .input-row { padding: 0 6px 0 4px; }
 .input-row { display: flex; align-items: flex-end; }
 .input-row .icon-button { color: var(--muted); }
@@ -358,9 +359,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	flex: 1; min-width: 0; resize: none; border: none; outline: none; background: none;
 	padding: 11px 4px; min-height: 44px; max-height: 168px; font-size: 16px; line-height: 1.45; field-sizing: content;
 }
-.send { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; background: var(--accent); color: var(--on-accent); }
-.send:disabled { background: transparent; color: var(--faint); opacity: 1; }
-.send.stop { background: var(--text); color: var(--bg); }
+/* Send, stop, and the microphone are icons only, like the image button. */
+.send { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; background: transparent; color: var(--accent); }
+.send:active { background: var(--accent-soft); }
+.send:disabled { color: var(--faint); opacity: 1; }
+.send.stop { color: var(--text); }
 .busy-actions { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-top: 1px solid var(--line); }
 .busy-hint { flex: 1; font-size: 12.5px; color: var(--muted); }
 .busy-actions .btn { height: 32px; }
