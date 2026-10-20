@@ -1,6 +1,8 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BusyMode, ConversationController, ConversationId, SubmissionId } from "../agent/runtime.ts";
+import type { ImageContent } from "@earendil-works/pi-ai";
+import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import { ArrowIcon, BranchIcon, ChevronDownIcon, CopyIcon } from "./icons.tsx";
 import { type Block, type CallState, EntryView, entryText, finishedCalls, StreamingAnswer } from "./Message.tsx";
@@ -47,6 +49,7 @@ export function Chat({
 	prefs,
 	capabilities,
 	initialDraft,
+	initialImages,
 	focusKey,
 	onOpenConversation,
 	onError,
@@ -57,6 +60,7 @@ export function Chat({
 	prefs: Prefs;
 	capabilities: Capabilities;
 	initialDraft?: string;
+	initialImages?: ImageContent[];
 	/** Changes when the composer should take focus, such as after starting a new conversation. */
 	focusKey: number;
 	onOpenConversation: (id: ConversationId, draft: string) => void;
@@ -113,7 +117,7 @@ export function Chat({
 	);
 	const running = (live?.tools ?? []).some((tool) => tool.status !== "done");
 	const fail = (error: unknown) => onError(error instanceof Error ? error.message : String(error));
-	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user");
+	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	// The run's final answer: the last entry when it is an assistant message with text.
 	const lastEntry = entries.at(-1);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() ? lastEntry : undefined;
@@ -198,6 +202,7 @@ export function Chat({
 				queued={queued}
 				focusKey={composerFocus}
 				pickImageKey={pickImage}
+				initialImages={initialImages}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
 					setAtBottom(true);

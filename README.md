@@ -45,7 +45,16 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
 
 **背景執行**
 - 有對話在跑時，前景服務加 wake lock 讓 app 不被凍結，通知列顯示「pi 工作中」，鎖上螢幕也會繼續跑。
-- App 不在前景時，跑完會通知「pi 完成了」，需要核准時會通知「pi 需要你確認」。
+- App 不在前景時，跑完會通知「pi 完成了」。需要核准時，通知上直接有「允許」「拒絕」按鈕，不用打開 app；30 分鐘沒回應就當作拒絕。
+
+**排程與觸發**：agent 可以在你開口之前自己動起來。設計見 [docs/design/triggers.md](docs/design/triggers.md)。
+- `create_schedule`：「每天早上 8 點給我早晨簡報」這類重複或一次性的排程，建立前要你核准。每個排程的執行都放在它自己的對話裡，所以能跟前幾天的結果比較。
+- `schedule_followup`：agent 自己排「10 分鐘後再看一次部署」，結果接在原本的對話後面。
+- `notify`：由 agent 判斷結果值不值得通知你，沒有新東西就不發。
+- **分享給 pi**：在其他 app 按「分享」選 pi，文字、連結或圖片會放進一個新對話的輸入框，由你說要做什麼。
+- 設定頁的「排程」可以暫停、立即執行、刪除。每個排程一天最多跑 10 次，全部加起來 30 次。
+- 到時間時：pi 還在背景執行中，就直接在背景跑完；pi 已經被系統清掉，就先跳一則「點一下開始」的通知，打開 pi 後自動執行。
+- 用精確鬧鐘準時觸發。Android 14 起新安裝的 app 預設沒有這個權限，設定頁會提示開啟；已經設成「不受電池最佳化限制」時不需要。
 
 **工具**
 - `web_search`：用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key。`web_fetch`：從手機抓網頁並轉成文字。
@@ -260,6 +269,9 @@ SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... CLOUDFLARE_TOKEN=<access toke
 - `az` 在 sandbox 裡是 managed identity，所以 `az ad signed-in-user show` 這類「我是誰」的指令不能用；還沒在有訂閱的帳號上測過建立資源。
 - 只用自架 gateway（CLIProxyAPI）實測過，直連 OpenAI、Anthropic 官方 API 還沒測。
 - 介面只有繁體中文。
+- 排程觸發時如果 pi 已經被系統清掉，要點通知才會開始執行，不會自己在背景跑。
+- 背景觸發的 run 不能要求新的權限（定位、行事曆），要先在前景用過一次授權。
+- 分享給 pi 目前只收文字、連結和一張圖片。
 - 鎖屏時，手機的網路偶爾會短暫中斷，正在跑的 sandbox 指令會失敗，agent 會自己重試。
 
 ## 關於這個專案

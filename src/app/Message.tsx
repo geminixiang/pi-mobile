@@ -8,6 +8,10 @@ import remarkGfm from "remark-gfm";
 import { ChevronIcon, FileIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
 import { OpenFileContext, resolvePath } from "./openFile.ts";
+import { Value } from "typebox/value";
+import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
+
+const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
 /** One content part of any message the transcript shows. */
 export type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
@@ -280,6 +284,19 @@ export function EntryView({
 	};
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
+	if (entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data)) {
+		const data = entry.data;
+		const source = data.target === "origin" ? "稍後再看" : "排程";
+		return (
+			<section className="trigger-entry" {...longPress}>
+				<div className="trigger-head">
+					{source} · {data.name}
+					{DELIVERY[data.delivery] ?? ""}
+				</div>
+				{data.target === "origin" ? null : <div className="trigger-prompt">{data.prompt}</div>}
+			</section>
+		);
+	}
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {
 		return (

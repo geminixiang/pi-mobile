@@ -32,6 +32,17 @@ import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sand
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { createWebExtension } from "./tools/web.ts";
+import {
+	createTriggerExtension,
+	type Delivery,
+	LIMITS,
+	nativeTriggers,
+	type Trigger,
+	TRIGGER_ENTRY,
+	TriggerDoc,
+	type TriggerHost,
+	Triggers,
+} from "./triggers.ts";
 
 const context = BACKGROUND_CONTEXT;
 const NEW_TITLE = "新對話";
@@ -132,6 +143,18 @@ function mintedServices(settings: Settings): Record<string, MintedService> {
 	return services;
 }
 
+/** Triggers with the next time each fires, for Settings. */
+export interface TriggerState {
+	items: Trigger[];
+	next: Record<string, number>;
+}
+
+function startOfToday(): number {
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+	return today.getTime();
+}
+
 export class AgentRuntime {
 	readonly models: ModelInfo[];
 	readonly #harness: Harness;
@@ -141,6 +164,10 @@ export class AgentRuntime {
 	/** Latest conversation list, to name a sandbox in a GitHub write approval. */
 	#titles = new Map<string, string>();
 	#egress: EgressLink | undefined;
+	#triggerListeners = new Set<(state: TriggerState) => void>();
+	#triggerState: TriggerState = { items: [], next: {} };
+	/** Conversations whose current run a trigger started. */
+	#triggered = new Set<ConversationId>();
 
 	private constructor(harness: Harness, settings: Settings, models: ModelInfo[], sandbox: SandboxPool | undefined) {
 		this.#harness = harness;
@@ -166,7 +193,11 @@ export class AgentRuntime {
 	static async open(
 		storage: Storage,
 		settings: Settings,
-		options: { onReport?: (message: string) => void } = {},
+		options: {
+			onReport?: (message: string) => void;
+			/** Post a notification opening the conversation, unless the user is looking at pi; resolves whether it did. */
+			notify?: (title: string, text: string, conversationId: ConversationId) => Promise<boolean>;
+		} = {},
 	): Promise<AgentRuntime> {
 		const timeout = AbortSignal.timeout(5000);
 		const modelIds = await fetchModelIds(settings.baseUrl, settings.apiKey, timeout).catch((error: unknown) => {
@@ -184,6 +215,13 @@ export class AgentRuntime {
 		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
 		registry.install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
+		// The tools need the runtime, which exists only after the Harness opens.
+		let runtimeRef: AgentRuntime | undefined;
+		const triggerHost: TriggerHost = {
+			changed: () => void runtimeRef?.syncTriggers(),
+			notify: (title, text, conversationId) => options.notify?.(title, text, conversationId) ?? Promise.resolve(false),
+		};
+		registry.install(createTriggerExtension(triggerHost));
 		const sandbox =
 			settings.sandboxUrl && settings.sandboxToken ? new SandboxPool({ url: settings.sandboxUrl, token: settings.sandboxToken }) : undefined;
 		if (sandbox) {
@@ -202,6 +240,8 @@ export class AgentRuntime {
 			context,
 		);
 		const runtime = new AgentRuntime(harness, settings, describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS), sandbox);
+		runtimeRef = runtime;
+		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${error instanceof Error ? error.message : String(error)}`));
 		// Scheduling starts lazily on submit or wait; start it now so runs an app kill interrupted continue at launch.
 		harness.resume();
 		return runtime;
@@ -237,14 +277,14 @@ export class AgentRuntime {
 		await this.#publishIndex();
 	}
 
-	async createConversation(): Promise<ConversationId> {
+	async createConversation(title = NEW_TITLE): Promise<ConversationId> {
 		const conversation = await this.#harness.createConversation(
 			{
 				ownership: { kind: "ownerless" },
 				agent: this.#defaultAgent(),
 				init: async (tx, id) => {
 					const now = Date.now();
-					(await tx.doc(ConversationIndex)).items.push({ id, title: NEW_TITLE, createdAt: now, updatedAt: now });
+					(await tx.doc(ConversationIndex)).items.push({ id, title, createdAt: now, updatedAt: now });
 				},
 			},
 			context,
@@ -373,6 +413,103 @@ export class AgentRuntime {
 			setThinking: (level) => conversation.configure({ thinkingLevel: level as "low" }, context),
 			dispose: () => view.dispose(),
 		};
+	}
+
+	subscribeTriggers(listener: (state: TriggerState) => void): () => void {
+		this.#triggerListeners.add(listener);
+		listener(this.#triggerState);
+		return () => this.#triggerListeners.delete(listener);
+	}
+
+	/** Mirror the enabled schedules to the native side, which sets their alarms, and tell Settings. */
+	async syncTriggers(): Promise<void> {
+		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
+		const schedules = items.filter((item) => item.enabled).map(({ id, name, when }) => ({ id, name, when }));
+		const next = nativeTriggers ? (await Triggers.sync({ schedules })).next : {};
+		this.#triggerState = { items: [...items], next };
+		for (const listener of this.#triggerListeners) listener(this.#triggerState);
+	}
+
+	async #editTriggers(edit: (items: Trigger[]) => Trigger[]): Promise<void> {
+		await this.#harness.commit(async (tx) => {
+			const doc = await tx.doc(TriggerDoc);
+			doc.items = edit(doc.items);
+		}, context);
+		await this.syncTriggers();
+	}
+
+	setTriggerEnabled(id: string, enabled: boolean): Promise<void> {
+		return this.#editTriggers((items) => items.map((item) => (item.id === id ? { ...item, enabled } : item)));
+	}
+
+	deleteTrigger(id: string): Promise<void> {
+		return this.#editTriggers((items) => items.filter((item) => item.id !== id));
+	}
+
+	/**
+	 * Submit a trigger's prompt to its conversation. Resolves the conversation, or undefined when the trigger is gone or
+	 * over its daily limit (recorded as its last result).
+	 */
+	async runTrigger(id: string, delivery: Delivery): Promise<ConversationId | undefined> {
+		const doc = await this.#harness.snapshot(TriggerDoc, context);
+		const trigger = doc?.items.find((item) => item.id === id);
+		if (!trigger) return undefined;
+		const today = startOfToday();
+		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
+		const overLimit =
+			delivery !== "manual" &&
+			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
+		const known = new Set((await this.conversations()).map((item) => item.id));
+		let conversationId: ConversationId | undefined;
+		if (!overLimit) {
+			conversationId =
+				trigger.target !== "new" && trigger.conversationId && known.has(trigger.conversationId)
+					? trigger.conversationId
+					: await this.createConversation(trigger.name);
+		}
+		const now = Date.now();
+		await this.#harness.commit(async (tx) => {
+			const triggers = await tx.doc(TriggerDoc);
+			const item = triggers.items.find((candidate) => candidate.id === id);
+			if (!item) return;
+			if (overLimit) {
+				item.last = { at: now, delivery, error: "今天的執行次數已達上限" };
+				return;
+			}
+			item.last = { at: now, delivery, conversationId };
+			if (item.target === "thread") item.conversationId = conversationId;
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: now }];
+			// A one-time schedule is done once it ran (not when run by hand from Settings).
+			if (item.when.kind === "once" && delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
+		}, context);
+		await this.syncTriggers();
+		if (!conversationId) return undefined;
+		const conversation = await this.#harness.conversation(conversationId, context);
+		if (!conversation) return undefined;
+		await this.#editIndex((items) => {
+			const item = items.find((candidate) => candidate.id === conversationId);
+			if (item) item.updatedAt = now;
+		});
+		const label = trigger.target === "origin" ? "follow-up you scheduled" : `schedule "${trigger.name}"`;
+		this.#triggered.add(conversationId);
+		await conversation.submit(
+			{
+				type: "input",
+				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
+				entry: {
+					kind: TRIGGER_ENTRY,
+					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, target: trigger.target, delivery },
+				},
+				whenBusy: "followUp",
+			},
+			context,
+		);
+		return conversationId;
+	}
+
+	/** Whether a trigger started the run that just ended in this conversation; forgets it. */
+	takeTriggered(id: ConversationId): boolean {
+		return this.#triggered.delete(id);
 	}
 
 	inspect(): Promise<unknown> {

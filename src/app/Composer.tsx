@@ -7,7 +7,7 @@ import { useDictation } from "./voice.ts";
 const MAX_IMAGE_EDGE = 1600;
 
 /** Downscale a photo to a JPEG that fits the model's image limits and keeps requests small. */
-async function toImageContent(file: File): Promise<ImageContent> {
+export async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
 	const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
 	const canvas = document.createElement("canvas");
@@ -32,6 +32,7 @@ export function Composer({
 	queued,
 	focusKey,
 	pickImageKey,
+	initialImages,
 	onSend,
 	onStop,
 	onWithdraw,
@@ -43,12 +44,14 @@ export function Composer({
 	queued: QueuedItem[];
 	focusKey: number;
 	pickImageKey: number;
+	/** Images to start with, such as one shared from another app. */
+	initialImages?: ImageContent[];
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
 	onNotice: (message: string) => void;
 }) {
-	const [images, setImages] = useState<ImageContent[]>([]);
+	const [images, setImages] = useState<ImageContent[]>(initialImages ?? []);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const hasInput = draft.trim() !== "" || images.length > 0;

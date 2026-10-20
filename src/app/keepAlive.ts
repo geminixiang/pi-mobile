@@ -49,6 +49,11 @@ export function setWorking(titles: string[]): void {
 	void KeepAlive.start({ text: titles.length === 1 ? (titles[0] ?? "") : `${titles.length} 個對話執行中` });
 }
 
+/** Stop the foreground service a fired schedule started natively, when no run followed it. */
+export function releaseIfIdle(): void {
+	if (native && !running) void KeepAlive.stop();
+}
+
 /** Notify only while the app is not in front; in front, the screen already shows it. */
 export function notifyAway(title: string, text: string): void {
 	if (native && !active) void KeepAlive.notify({ title, text });

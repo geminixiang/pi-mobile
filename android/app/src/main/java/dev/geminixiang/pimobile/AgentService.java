@@ -22,6 +22,8 @@ public class AgentService extends Service {
 
     static final String CHANNEL_WORKING = "agent-working";
     static final String CHANNEL_DONE = "agent-done";
+    static final String CHANNEL_PROACTIVE = "agent-proactive";
+    static final String CHANNEL_APPROVAL = "agent-approval";
     static final String EXTRA_TEXT = "text";
     private static final int NOTIFICATION_ID = 1;
     /** Safety net: release the wake lock even if the web side never says the run ended. */
@@ -38,6 +40,12 @@ public class AgentService extends Service {
         NotificationChannel done = new NotificationChannel(CHANNEL_DONE, "pi 完成", NotificationManager.IMPORTANCE_DEFAULT);
         done.setDescription("app 不在前景時，agent 完成或需要你確認");
         manager.createNotificationChannel(done);
+        NotificationChannel proactive = new NotificationChannel(CHANNEL_PROACTIVE, "pi 主動通知", NotificationManager.IMPORTANCE_DEFAULT);
+        proactive.setDescription("排程和其他觸發執行的結果");
+        manager.createNotificationChannel(proactive);
+        NotificationChannel approval = new NotificationChannel(CHANNEL_APPROVAL, "pi 需要確認", NotificationManager.IMPORTANCE_HIGH);
+        approval.setDescription("app 不在前景時，agent 要做需要你允許的操作");
+        manager.createNotificationChannel(approval);
     }
 
     static PendingIntent openApp(Context context) {

@@ -18,17 +18,23 @@ import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { notifyAway, setWorking } from "./keepAlive.ts";
+import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
+import { askByNotification, listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
+import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
+import type { ImageContent } from "@earendil-works/pi-ai";
+import { toImageContent } from "./Composer.tsx";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, totalUsage } from "./usage.ts";
 
 const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
+/** A tool's request asked while the user is away is declined when nobody answers for this long. */
+const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
 type Overlay = "drawer" | "model" | "menu" | "settings" | "workspace" | undefined;
 
 function hasUserEntries(view: ConversationView | undefined): boolean {
-	return Boolean(view?.entries.some((entry) => entry.kind === "pi.user"));
+	return Boolean(view?.entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY));
 }
 
 export function App() {
@@ -39,6 +45,7 @@ export function App() {
 	const [controller, setController] = useState<ConversationController>();
 	const [view, setView] = useState<ConversationView>();
 	const [pendingDraft, setPendingDraft] = useState<string>();
+	const [pendingImages, setPendingImages] = useState<ImageContent[]>();
 	const [overlay, setOverlay] = useState<Overlay>();
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
 	const [toast, setToast] = useState("");
@@ -72,11 +79,27 @@ export function App() {
 		[],
 	);
 
-	// Tools ask the user through the same dialog.
+	// Tools ask the user through the same dialog. While pi is away, also with a notification the user can answer
+	// without opening pi; whichever is answered first wins, and nobody answering for 30 minutes declines.
 	useEffect(() => {
 		setConfirmListener(({ title, detail }) => {
-			notifyAway("pi 需要你確認", title);
-			return ask({ title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true });
+			const request: DialogRequest = { title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true };
+			if (inForeground()) return ask(request);
+			return new Promise<boolean>((resolve) => {
+				let settled = false;
+				const answer = (approved: boolean) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(timer);
+					cancelNotification();
+					setDialog((current) => (current?.resolve === answerDialog ? undefined : current));
+					resolve(approved);
+				};
+				const answerDialog = (value: string | boolean | undefined) => answer(value === true);
+				setDialog({ request, resolve: answerDialog });
+				const cancelNotification = askByNotification(detail ? `${title}\n${detail}` : title, answer);
+				const timer = setTimeout(() => answer(false), AWAY_APPROVAL_TIMEOUT_MS);
+			});
 		});
 		return () => setConfirmListener(undefined);
 	}, [ask]);
@@ -85,7 +108,16 @@ export function App() {
 		async (next: Settings) => {
 			try {
 				const { storage } = await openAppStorage();
-				setRuntime(await AgentRuntime.open(storage, next, { onReport: notify }));
+				setRuntime(
+					await AgentRuntime.open(storage, next, {
+						onReport: notify,
+						notify: async (title, text, conversationId) => {
+							if (inForeground()) return false;
+							await Triggers.notify({ title, text, conversation: String(conversationId) });
+							return true;
+						},
+					}),
+				);
 				setOpenError("");
 			} catch (error) {
 				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);
@@ -110,13 +142,14 @@ export function App() {
 	useEffect(() => {
 		const title = (id: ConversationId) => conversations.find((item) => item.id === id)?.title ?? "對話";
 		setWorking([...busyIds].map(title));
-		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id));
+		// A triggered run tells the user itself (the notify tool) only when there is something worth it.
+		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.takeTriggered(id));
 		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
 		previousBusy.current = busyIds;
-	}, [busyIds, conversations]);
+	}, [busyIds, conversations, runtime]);
 
 	const openConversation = useCallback(
-		async (id: ConversationId, draft?: string) => {
+		async (id: ConversationId, draft?: string, images?: ImageContent[]) => {
 			if (!runtime) return;
 			setOverlay(undefined);
 			if (id === controller?.id && draft === undefined) return;
@@ -124,6 +157,7 @@ export function App() {
 			const next = await runtime.openConversation(id);
 			localStorage.setItem(LAST_CONVERSATION_KEY, String(id));
 			setPendingDraft(draft);
+			setPendingImages(images);
 			setView(undefined);
 			setController(next);
 		},
@@ -133,14 +167,16 @@ export function App() {
 	// A fresh conversation is reused instead of piling up empty ones.
 	const newConversation = useCallback(async () => {
 		if (!runtime) return;
-		if (controller && view && !hasUserEntries(view)) {
+		// Reused only while it is untitled: a conversation opened by a share is titled after what was shared.
+		const untitled = conversations.find((item) => item.id === controller?.id)?.title === "新對話";
+		if (controller && view && !hasUserEntries(view) && untitled) {
 			setOverlay(undefined);
 			setFocusKey((key) => key + 1);
 			return;
 		}
 		await openConversation(await runtime.createConversation());
 		setFocusKey((key) => key + 1);
-	}, [runtime, controller, view, openConversation]);
+	}, [runtime, controller, view, conversations, openConversation]);
 
 	// Open the last conversation once the runtime is ready, or start one when there is none.
 	useEffect(() => {
@@ -151,6 +187,41 @@ export function App() {
 			void openConversation(target ? target.id : await runtime.createConversation());
 		});
 	}, [runtime, controller, openConversation]);
+
+	// Fired schedules and shares from other apps. A share opens a new conversation with it in the composer, so the
+	// user says what to do with it.
+	const openRef = useRef(openConversation);
+	openRef.current = openConversation;
+	useEffect(() => {
+		if (!runtime) return;
+		const onShare = async (item: SharedItem) => {
+			const images: ImageContent[] = [];
+			if (item.file) {
+				const { data } = await Triggers.readFile({ path: item.file.path });
+				const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+				images.push(await toImageContent(new File([bytes], "shared", { type: item.file.mimeType })));
+			}
+			const draft = [item.subject, item.text].filter((part) => part && part.trim()).join("\n");
+			if (!draft && images.length === 0) {
+				notify("沒有讀到分享的內容。目前可以分享文字、連結和圖片。");
+				return;
+			}
+			const title = (item.subject || item.text || "分享的圖片").trim();
+			const id = await runtime.createConversation(`分享：${title.length > 20 ? `${title.slice(0, 20)}…` : title}`);
+			await openRef.current(id, draft ? `${draft}\n\n` : "", images);
+		};
+		const stopEvents = processTriggerEvents(runtime, onShare);
+		const stopLinks = listenForOpenLinks((conversation) => {
+			void runtime.conversations().then((items) => {
+				const target = items.find((item) => String(item.id) === conversation);
+				if (target) void openRef.current(target.id);
+			});
+		});
+		return () => {
+			stopEvents();
+			stopLinks();
+		};
+	}, [runtime, notify]);
 
 	// Debug hook for test/cdp.ts.
 	useEffect(() => {
@@ -294,6 +365,7 @@ export function App() {
 					prefs={prefs}
 					capabilities={{ sandbox: runtime.hasSandbox }}
 					initialDraft={pendingDraft}
+					initialImages={pendingImages}
 					focusKey={focusKey}
 					onView={setView}
 					onOpenConversation={(id, draft) => void openConversation(id, draft)}
@@ -437,7 +509,7 @@ export function App() {
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 
 			<Layer open={overlay === "settings"} kind="page" onClose={close} label="設定">
-				<SettingsView initial={settings} onCancel={close} onSave={saveAndRestart} />
+				<SettingsView initial={settings} runtime={runtime} onCancel={close} onSave={saveAndRestart} />
 			</Layer>
 
 			<Dialog

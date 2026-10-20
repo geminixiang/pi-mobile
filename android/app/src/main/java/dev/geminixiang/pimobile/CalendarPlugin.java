@@ -34,6 +34,10 @@ public class CalendarPlugin extends Plugin {
 
     private boolean ensurePermission(PluginCall call, String callback) {
         if (getPermissionState("calendar") == PermissionState.GRANTED) return true;
+        if (!TriggersPlugin.inFront(getActivity())) {
+            call.reject("pi has no calendar permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.");
+            return false;
+        }
         requestPermissionForAlias("calendar", call, callback);
         return false;
     }

@@ -31,6 +31,14 @@
                 <data android:scheme="pimobile" android:host="pair" />
             </intent-filter>
 
+            <!-- "Share" -> pi from other apps: text, links, and images open a new conversation with them. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
         </activity>
 
         <!-- Keeps the agent loop running while the app is in the background or the screen is locked. -->
@@ -42,6 +50,17 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Runs the user's AI agent conversation to completion while the app is not in front." />
         </service>
+
+        <!-- Trigger alarms, approval answers from notifications, and re-arming alarms after reboot or clock changes. -->
+        <receiver android:name=".TriggerReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -72,6 +91,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Triggers: schedules fire on time (the user grants this in system settings), and alarms survive a reboot. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Package visibility (API 30+): lets SpeechRecognizer find the system recognition service. -->
     <queries>

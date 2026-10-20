@@ -16,6 +16,8 @@ import { type AzureDeviceSignIn, describeAzure, finishAzureSignIn, startAzureSig
 import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
 import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
+import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
+import { describeTime, describeWhen, Triggers } from "../agent/triggers.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -401,6 +403,96 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 	);
 }
 
+const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", manual: "手動執行" };
+
+/**
+ * Schedules and pending follow-ups the agent created: pause, run now, delete. They take effect at once (they are not
+ * part of the form). Exact alarms make them fire on time; Android 14 and later turn that off for new apps.
+ */
+function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
+	const [state, setState] = useState<TriggerState>({ items: [], next: {} });
+	const [exact, setExact] = useState<boolean>();
+	const [error, setError] = useState("");
+	useEffect(() => runtime.subscribeTriggers(setState), [runtime]);
+	useEffect(() => {
+		if (!native) return;
+		const refresh = () => void Triggers.status().then(({ exactAlarms }) => setExact(exactAlarms));
+		refresh();
+		const listener = App.addListener("resume", () => {
+			refresh();
+			void runtime.syncTriggers();
+		});
+		return () => void listener.then((handle) => handle.remove());
+	}, [runtime]);
+	if (!native) return null;
+	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));
+
+	return (
+		<Group
+			title="排程"
+			hint="跟 pi 說「每天早上 8 點給我簡報」就會建立排程。到時間時 pi 若不在執行中，會先跳通知，點一下才開始。每個排程一天最多執行 10 次。"
+		>
+			{state.items.length === 0 ? (
+				<div className="check-row">
+					<span className="menu-text">
+						還沒有排程
+						<span className="menu-hint">例如「每天早上 8 點，看今天的行程和天氣，給我一段簡報」。</span>
+					</span>
+				</div>
+			) : (
+				state.items.map((trigger) => {
+					const next = state.next[trigger.id];
+					const last = trigger.last;
+					return (
+						<div className="check-row trigger-row" key={trigger.id}>
+							<span className="menu-text">
+								{trigger.target === "origin" ? `稍後再看：${trigger.name}` : trigger.name}
+								<span className="menu-hint">
+									{describeWhen(trigger.when)}
+									{trigger.enabled && next ? ` · 下次 ${describeTime(next)}` : ""}
+								</span>
+								{last ? (
+									<span className={`menu-hint${last.error ? " error" : ""}`}>
+										上次 {describeTime(last.at)} {last.error ?? DELIVERY_LABEL[last.delivery]}
+									</span>
+								) : null}
+								<span className="trigger-actions">
+									<button type="button" onClick={() => void act(runtime.runTrigger(trigger.id, "manual"))}>
+										立即執行
+									</button>
+									<button type="button" className="danger" onClick={() => void act(runtime.deleteTrigger(trigger.id))}>
+										刪除
+									</button>
+								</span>
+							</span>
+							<button
+								type="button"
+								className="toggle"
+								aria-pressed={trigger.enabled}
+								onClick={() => void act(runtime.setTriggerEnabled(trigger.id, !trigger.enabled))}
+							>
+								{trigger.enabled ? "開啟" : "暫停"}
+							</button>
+						</div>
+					);
+				})
+			)}
+			{exact === false ? (
+				<div className="check-row">
+					<span className="menu-text">
+						準時執行
+						<span className="menu-hint">沒開時，排程可能晚幾分鐘才執行</span>
+					</span>
+					<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
+						開啟
+					</button>
+				</div>
+			) : null}
+			{error ? <div className="check"><span className="check-error">{error}</span></div> : null}
+		</Group>
+	);
+}
+
 /** Notification permission and battery exemption, which background runs depend on. Rechecked when the app resumes. */
 function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
@@ -442,11 +534,14 @@ function BackgroundGroup() {
 export function SettingsView({
 	initial,
 	status,
+	runtime,
 	onSave,
 	onCancel,
 }: {
 	initial: Settings;
 	status?: string;
+	/** The running agent, for what takes effect at once instead of on save (schedules). */
+	runtime?: AgentRuntime;
 	onSave: (settings: Settings) => void;
 	onCancel?: () => void;
 }) {
@@ -627,6 +722,7 @@ export function SettingsView({
 					)}
 				</Group>
 				<CalendarGroup value={settings.calendarAccess} onChange={(json) => setSettings((current) => ({ ...current, calendarAccess: json }))} />
+				{runtime ? <TriggersGroup runtime={runtime} /> : null}
 				<BackgroundGroup />
 				<p className="about">pi mobile · {__BUILD__}</p>
 			</form>

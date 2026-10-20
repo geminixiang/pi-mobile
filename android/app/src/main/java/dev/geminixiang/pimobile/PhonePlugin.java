@@ -73,6 +73,10 @@ public class PhonePlugin extends Plugin {
     @PluginMethod
     public void getLocation(PluginCall call) {
         if (!anyLocation()) {
+            if (!TriggersPlugin.inFront(getActivity())) {
+                call.reject("pi has no location permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.");
+                return;
+            }
             requestPermissionForAlias("location", call, "locationResult");
             return;
         }

@@ -192,6 +192,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .prompt:active .bubble { background: var(--accent-soft); }
 .bubble .markdown p { margin: 0; }
+/* An input a schedule or a follow-up sent: who sent it, then what it asked. */
+.trigger-entry { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border: 1px dashed var(--line-strong); border-left: 2px solid var(--accent); }
+.trigger-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--accent); }
+.trigger-prompt { font-size: 14px; line-height: 1.55; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .answer { display: flex; flex-direction: column; gap: 14px; overflow-wrap: anywhere; }
 .answer.aborted .markdown { opacity: 0.6; }
 .note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--faint); }
@@ -585,3 +589,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .toggle:disabled { opacity: 0.35; }
 .toggle + .toggle { margin-left: -4px; }
 .group-body select.field { appearance: none; color: var(--text); }
+.trigger-actions { display: flex; gap: 16px; margin-top: 4px; }
+.trigger-actions button { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--accent); padding: 4px 0; }
+.trigger-actions button.danger { color: var(--error); }
+.menu-hint.error { color: var(--error); }

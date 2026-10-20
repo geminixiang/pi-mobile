@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppsPlugin.class);
         registerPlugin(CalendarPlugin.class);
         registerPlugin(PhonePlugin.class);
+        registerPlugin(TriggersPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
