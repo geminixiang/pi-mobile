@@ -343,29 +343,29 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .scroll-hint.ghost::before { inset: 0; }
 
-/* The prompt dial, in the composer's language: a thin arc in the thinking level's color like the editor line, ruler
-   marks for the detents, and a translucent square tab like the scroll tab for the knob. */
-.dial { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: color-mix(in srgb, var(--bg-deep) 70%, transparent); animation: fade-in 120ms ease; }
+/* The prompt dial, in the composer's language: a ruler bent around the thumb, growing out of the editor line, in the
+   thinking level's color; the selected cell lights up in place. */
+.dial { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: color-mix(in srgb, var(--bg-deep) 72%, transparent); animation: fade-in 120ms ease; }
 .dial-ring { position: fixed; inset: 0; overflow: visible; }
-.dial-track { fill: var(--panel); stroke: var(--editor-border); stroke-width: 1; }
-.dial-tick { stroke: var(--editor-border); stroke-width: 1.5; }
-.dial-tick.newest { stroke-dasharray: 2 2; }
-.dial-more { fill: var(--muted); font-family: var(--mono); font-size: 14px; text-anchor: middle; dominant-baseline: middle; }
-/* While the dial is open its knob stands in for the scroll tab. */
+.dial-track { fill: var(--panel); stroke: color-mix(in srgb, var(--editor-border) 55%, transparent); stroke-width: 1; }
+.dial-cell { fill: color-mix(in srgb, var(--editor-border) 22%, transparent); }
+.dial-bar { fill: var(--editor-border); }
+.dial-mark { stroke: color-mix(in srgb, var(--editor-border) 55%, transparent); stroke-width: 1; }
+.dial-number, .dial-more {
+	fill: var(--muted); font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums;
+	text-anchor: middle; dominant-baseline: central;
+}
+.dial-number.selected { fill: var(--text); font-weight: 600; font-size: 13px; }
+.dial-more { letter-spacing: 0.04em; }
+/* While the dial is open the track stands in for the scroll tab. */
 .scroll-hint:has(~ .dial) { opacity: 0; }
-/* Quick and without overshoot: once in a detent the knob holds still. */
-.dial-knob {
-	position: fixed; transform: translate(-50%, -50%); min-width: 30px; height: 26px; padding: 0 8px;
-	display: grid; place-items: center; transition: left 70ms ease-out, top 70ms ease-out;
-	background: color-mix(in srgb, var(--editor-border) 28%, transparent); backdrop-filter: blur(8px);
-	border: 1px solid var(--editor-border); color: var(--text); font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums;
-}
+/* The prompt the dial points at, as it reads in the transcript. */
 .dial-preview {
-	position: fixed; left: 50%; top: 24%; transform: translateX(-50%); width: min(320px, calc(100vw - 32px));
-	display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
-	background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--editor-border);
+	position: fixed; left: 0; right: 0; top: 18%;
+	display: flex; flex-direction: column; gap: 6px; padding: 14px var(--space);
+	background: var(--user-bg); border-top: 1px solid var(--editor-border);
 }
-.dial-count { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--muted); }
+.dial-count { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .dial-text { font-size: 15px; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
 /* The message the dial jumped to. */
 .prompt.flash .bubble, .trigger-entry.flash { animation: entry-flash 1.2s ease-out; }

@@ -28,8 +28,12 @@ const REPEAT_SLOWEST_MS = 180;
 const REPEAT_FASTEST_MS = 60;
 /** Where the arc stops: this far from the screen's right edge, and at most straight up from the pivot. */
 const EDGE = 36;
+/** The detents sit this many steps above the finger, so the newest one clears the editor line the track grows from. */
+const OFFSET = 0.35;
+/** The cap past the arc's top end that counts the messages beyond it, in steps. */
+const CAP = 1.1;
 /** Half the width of the dial's track. */
-const TRACK = 26;
+const TRACK = 24;
 
 interface DialState {
 	/** The pivot: the thumb's base, off the right edge. */
@@ -44,11 +48,22 @@ interface DialState {
 	slot: number;
 	/** Messages the arc's range has moved back from the newest end, by resting on its ends. */
 	shift: number;
+	/** The editor line: the track grows out of it and is cut there. */
+	lineY: number;
 }
 
 /** Angle of a point around the pivot in degrees, counterclockwise from the right, with y up as in math. */
 function angleOf(x: number, y: number, px: number, py: number): number {
 	return (Math.atan2(py - y, x - px) * 180) / Math.PI;
+}
+
+/** An annular sector of the track between two angles, as an SVG path. */
+function sector(dial: DialState, from: number, to: number, inner: number, outer: number): string {
+	const a = pointAt(dial, from, outer);
+	const b = pointAt(dial, to, outer);
+	const c = pointAt(dial, to, inner);
+	const d = pointAt(dial, from, inner);
+	return `M ${a.x} ${a.y} A ${outer} ${outer} 0 0 1 ${b.x} ${b.y} L ${c.x} ${c.y} A ${inner} ${inner} 0 0 0 ${d.x} ${d.y} Z`;
 }
 
 function pointAt(dial: DialState, degrees: number, radius = dial.radius): { x: number; y: number } {
@@ -117,8 +132,12 @@ export function ScrollTab({
 		const start = angleOf(x, y, px, py);
 		const edge = (window.innerWidth - EDGE - px) / radius;
 		const end = edge <= -1 ? 90 : Math.max(90, (Math.acos(Math.max(-1, Math.min(1, edge))) * 180) / Math.PI);
-		const slots = Math.max(2, Math.min(MAX_SLOTS, count + 1, Math.floor((start - end) / STEP) + 1));
-		setDial({ px, py, radius, start, slots, slot: 0, shift: 0 });
+		const room = (start - end) / STEP - OFFSET - 0.5;
+		const fit = (steps: number) => Math.max(2, Math.min(MAX_SLOTS, count + 1, Math.floor(steps) + 1));
+		// With more messages than detents, the top end needs room for its cap.
+		const slots = fit(room) < count + 1 ? fit(room - CAP + 0.5) : fit(room);
+		const lineY = target.closest(".input")?.getBoundingClientRect().top ?? window.innerHeight;
+		setDial({ px, py, radius, start, slots, slot: 0, shift: 0, lineY });
 	};
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -139,7 +158,7 @@ export function ScrollTab({
 			return;
 		}
 		// Sliding up the arc turns clockwise around the pivot, toward older messages.
-		const turned = (dial.start - angleOf(event.clientX, event.clientY, dial.px, dial.py)) / STEP;
+		const turned = (dial.start - angleOf(event.clientX, event.clientY, dial.px, dial.py)) / STEP - OFFSET;
 		// Slots past the oldest message do not exist.
 		const highest = Math.min(dial.slots - 1, count - dial.shift);
 		let slot = dial.slot;
@@ -163,7 +182,8 @@ export function ScrollTab({
 
 	const position = dial ? positionOf(dial, count) : count;
 	const current = prompts[position];
-	const slotAngle = (slot: number) => (dial ? dial.start - slot * STEP : 0);
+	const slotAngle = (slot: number) => (dial ? dial.start - (slot + OFFSET) * STEP : 0);
+	const beyond = dial ? positionOf(dial, count, dial.slots - 1) : 0;
 	return (
 		<>
 			<button
@@ -202,57 +222,79 @@ export function ScrollTab({
 						</span>
 					</div>
 					<svg className="dial-ring" width="100%" height="100%" aria-hidden="true">
-						{(() => {
-							// The track: a band around the arc, an opaque panel like the composer's, so nothing behind shows
-							// through the marks.
-							const from = slotAngle(0) + STEP * 0.7;
-							const to = slotAngle(dial.slots - 1) - STEP * 0.7;
-							const outerFrom = pointAt(dial, from, dial.radius + TRACK);
-							const outerTo = pointAt(dial, to, dial.radius + TRACK);
-							const innerTo = pointAt(dial, to, dial.radius - TRACK);
-							const innerFrom = pointAt(dial, from, dial.radius - TRACK);
-							const d = [
-								`M ${outerFrom.x} ${outerFrom.y}`,
-								`A ${dial.radius + TRACK} ${dial.radius + TRACK} 0 0 1 ${outerTo.x} ${outerTo.y}`,
-								`L ${innerTo.x} ${innerTo.y}`,
-								`A ${dial.radius - TRACK} ${dial.radius - TRACK} 0 0 0 ${innerFrom.x} ${innerFrom.y}`,
-								"Z",
-							].join(" ");
-							return <path className="dial-track" d={d} />;
-						})()}
-						{Array.from({ length: dial.slots }, (_, slot) => {
-							const shows = positionOf(dial, count, slot);
-							if (shows < 0) return null;
-							// Ruler marks along the track's outer edge, clear of the knob.
-							const outer = pointAt(dial, slotAngle(slot), dial.radius + TRACK - 3);
-							const inner = pointAt(dial, slotAngle(slot), dial.radius + TRACK - 11);
-							return (
-								<line
-									key={slot}
-									x1={inner.x}
-									y1={inner.y}
-									x2={outer.x}
-									y2={outer.y}
-									className={`dial-tick${shows === count ? " newest" : ""}`}
-								/>
-							);
-						})}
-						{/* More messages beyond either end: rest on that end to keep going. */}
-						{positionOf(dial, count, dial.slots - 1) > 0 ? (
-							<text className="dial-more" {...pointAt(dial, slotAngle(dial.slots - 1) - STEP * 0.5, dial.radius)}>
-								⋯
-							</text>
-						) : null}
-						{dial.shift > 0 ? (
-							<text className="dial-more" {...pointAt(dial, slotAngle(0) + STEP * 0.5, dial.radius)}>
-								⋯
-							</text>
-						) : null}
+						<defs>
+							<clipPath id="dial-above-line">
+								<rect x={0} y={0} width="100%" height={dial.lineY} />
+							</clipPath>
+						</defs>
+						<g clipPath="url(#dial-above-line)">
+							{/* The track: a ruler bent around the thumb, one cell per detent. */}
+							<path
+								className="dial-track"
+								d={sector(
+									dial,
+									slotAngle(0) + STEP * 1.5,
+									slotAngle(dial.slots - 1) - (beyond > 0 ? STEP / 2 + STEP * CAP : STEP / 2),
+									dial.radius - TRACK,
+									dial.radius + TRACK,
+								)}
+							/>
+							{/* The selected cell lights up in place, with a bar on the outer edge like the editor line. */}
+							<path
+								className="dial-cell"
+								d={sector(
+									dial,
+									slotAngle(dial.slot) + STEP / 2,
+									slotAngle(dial.slot) - STEP / 2,
+									dial.radius - TRACK,
+									dial.radius + TRACK,
+								)}
+							/>
+							<path
+								className="dial-bar"
+								d={sector(
+									dial,
+									slotAngle(dial.slot) + STEP / 2,
+									slotAngle(dial.slot) - STEP / 2,
+									dial.radius + TRACK - 2,
+									dial.radius + TRACK,
+								)}
+							/>
+							{/* Hairlines between cells, at both edges, like a ruler's marks. */}
+							{Array.from({ length: beyond > 0 ? dial.slots : dial.slots - 1 }, (_, slot) => {
+								const angle = slotAngle(slot) - STEP / 2;
+								const marks = [
+									[dial.radius + TRACK - 6, dial.radius + TRACK],
+									[dial.radius - TRACK, dial.radius - TRACK + 6],
+								];
+								return marks.map(([from, to], edge) => {
+									const a = pointAt(dial, angle, from);
+									const b = pointAt(dial, angle, to);
+									return <line key={`${slot}-${edge}`} className="dial-mark" x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
+								});
+							})}
+							{/* Each cell's message number, on the outer half, past the fingertip. */}
+							{Array.from({ length: dial.slots }, (_, slot) => {
+								const shows = positionOf(dial, count, slot);
+								if (shows < 0) return null;
+								return (
+									<text
+										key={slot}
+										className={`dial-number${slot === dial.slot ? " selected" : ""}`}
+										{...pointAt(dial, slotAngle(slot), dial.radius + TRACK / 2)}
+									>
+										{shows === count ? "新" : shows + 1}
+									</text>
+								);
+							})}
+							{/* The cap counts the older messages past the top end: rest there to go on. */}
+							{beyond > 0 ? (
+								<text className="dial-more" {...pointAt(dial, slotAngle(dial.slots - 1) - STEP * (0.5 + CAP / 2), dial.radius)}>
+									+{beyond}
+								</text>
+							) : null}
+						</g>
 					</svg>
-					{/* The knob: a tab like the scroll tab, riding the arc at the selected detent, its number upright. */}
-					<span className="dial-knob" style={{ left: pointAt(dial, slotAngle(dial.slot)).x, top: pointAt(dial, slotAngle(dial.slot)).y }}>
-						{current ? position + 1 : "最新"}
-					</span>
 				</div>
 			) : null}
 		</>
