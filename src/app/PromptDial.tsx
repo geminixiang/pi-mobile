@@ -27,7 +27,9 @@ const REPEAT_DELAY_MS = 350;
 const REPEAT_SLOWEST_MS = 180;
 const REPEAT_FASTEST_MS = 60;
 /** Where the arc stops: this far from the screen's right edge, and at most straight up from the pivot. */
-const EDGE = 20;
+const EDGE = 36;
+/** Half the width of the dial's track. */
+const TRACK = 26;
 
 interface DialState {
 	/** The pivot: the thumb's base, off the right edge. */
@@ -201,16 +203,29 @@ export function ScrollTab({
 					</div>
 					<svg className="dial-ring" width="100%" height="100%" aria-hidden="true">
 						{(() => {
-							const from = pointAt(dial, slotAngle(0) + STEP * 0.6);
-							const to = pointAt(dial, slotAngle(dial.slots - 1) - STEP * 0.6);
-							return <path className="dial-arc" d={`M ${from.x} ${from.y} A ${dial.radius} ${dial.radius} 0 0 1 ${to.x} ${to.y}`} />;
+							// The track: a band around the arc, an opaque panel like the composer's, so nothing behind shows
+							// through the marks.
+							const from = slotAngle(0) + STEP * 0.7;
+							const to = slotAngle(dial.slots - 1) - STEP * 0.7;
+							const outerFrom = pointAt(dial, from, dial.radius + TRACK);
+							const outerTo = pointAt(dial, to, dial.radius + TRACK);
+							const innerTo = pointAt(dial, to, dial.radius - TRACK);
+							const innerFrom = pointAt(dial, from, dial.radius - TRACK);
+							const d = [
+								`M ${outerFrom.x} ${outerFrom.y}`,
+								`A ${dial.radius + TRACK} ${dial.radius + TRACK} 0 0 1 ${outerTo.x} ${outerTo.y}`,
+								`L ${innerTo.x} ${innerTo.y}`,
+								`A ${dial.radius - TRACK} ${dial.radius - TRACK} 0 0 0 ${innerFrom.x} ${innerFrom.y}`,
+								"Z",
+							].join(" ");
+							return <path className="dial-track" d={d} />;
 						})()}
 						{Array.from({ length: dial.slots }, (_, slot) => {
 							const shows = positionOf(dial, count, slot);
 							if (shows < 0) return null;
-							// Short ruler marks across the line.
-							const outer = pointAt(dial, slotAngle(slot), dial.radius + 6);
-							const inner = pointAt(dial, slotAngle(slot), dial.radius - 6);
+							// Ruler marks along the track's outer edge, clear of the knob.
+							const outer = pointAt(dial, slotAngle(slot), dial.radius + TRACK - 3);
+							const inner = pointAt(dial, slotAngle(slot), dial.radius + TRACK - 11);
 							return (
 								<line
 									key={slot}
@@ -222,26 +237,21 @@ export function ScrollTab({
 								/>
 							);
 						})}
-						{/* More messages beyond either end of the arc: rest on that end to keep going. */}
+						{/* More messages beyond either end: rest on that end to keep going. */}
 						{positionOf(dial, count, dial.slots - 1) > 0 ? (
-							<text className="dial-more" {...pointAt(dial, slotAngle(dial.slots - 1) - STEP, dial.radius)}>
+							<text className="dial-more" {...pointAt(dial, slotAngle(dial.slots - 1) - STEP * 0.5, dial.radius)}>
 								⋯
 							</text>
 						) : null}
 						{dial.shift > 0 ? (
-							<text className="dial-more" {...pointAt(dial, slotAngle(0) + STEP, dial.radius)}>
+							<text className="dial-more" {...pointAt(dial, slotAngle(0) + STEP * 0.5, dial.radius)}>
 								⋯
-							</text>
-						) : null}
-						{dial.shift === 0 ? (
-							<text className="dial-label" {...pointAt(dial, slotAngle(0) + 4, dial.radius + 26)}>
-								最新
 							</text>
 						) : null}
 					</svg>
 					{/* The knob: a tab like the scroll tab, riding the arc at the selected detent, its number upright. */}
 					<span className="dial-knob" style={{ left: pointAt(dial, slotAngle(dial.slot)).x, top: pointAt(dial, slotAngle(dial.slot)).y }}>
-						{current ? position + 1 : "↓"}
+						{current ? position + 1 : "最新"}
 					</span>
 				</div>
 			) : null}
