@@ -349,8 +349,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .dial-arc { fill: none; stroke: color-mix(in srgb, var(--editor-border) 55%, transparent); stroke-width: 22; stroke-linecap: round; }
 .dial-tick { stroke: var(--text); stroke-width: 2; opacity: 0.7; }
 .dial-tick.newest { stroke-dasharray: 3 3; opacity: 0.5; }
-/* A spring with a little overshoot: it lands in the detent instead of sliding into it. */
-.dial-knob { transition: transform 150ms cubic-bezier(0.34, 1.7, 0.64, 1); }
+/* Quick and without overshoot: once in a detent the knob holds still. */
+.dial-knob { transition: transform 70ms ease-out; }
+.dial-more { fill: var(--text); font-family: var(--mono); font-size: 16px; text-anchor: middle; dominant-baseline: middle; opacity: 0.8; }
 .dial-knob circle { fill: var(--editor-border); stroke: var(--text); stroke-width: 2; }
 .dial-preview {
 	position: fixed; left: 50%; top: 24%; transform: translateX(-50%); width: min(320px, calc(100vw - 32px));
