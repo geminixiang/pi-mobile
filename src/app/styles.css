@@ -343,7 +343,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* ---------- Composer ---------- */
 /* The composer as pi's editor: full width, no side borders, a line above in the thinking level's color. pi's line
    below separates the editor from its footer; here the screen edge or the keyboard ends it. */
-.composer { flex-shrink: 0; padding: 8px 0 env(safe-area-inset-bottom); background: var(--bg); }
+/* Room below the input, so it does not sit on the gesture bar, and taller targets for the thumb. */
+.composer { flex-shrink: 0; padding: 8px 0 calc(env(safe-area-inset-bottom) + 14px); background: var(--bg); }
 .app { --editor-border: var(--think-off); }
 .app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
 .app[data-thinking="low"] { --editor-border: var(--think-low); }
@@ -354,13 +355,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .input { border-top: 1px solid var(--editor-border); background: none; }
 .input-row { padding: 0 6px 0 4px; }
 .input-row { display: flex; align-items: flex-end; }
-.input-row .icon-button { color: var(--muted); }
+.input-row .icon-button { color: var(--muted); width: 48px; height: 54px; }
 .input textarea {
 	flex: 1; min-width: 0; resize: none; border: none; outline: none; background: none;
-	padding: 11px 4px; min-height: 44px; max-height: 168px; font-size: 16px; line-height: 1.45; field-sizing: content;
+	padding: 15px 4px; min-height: 54px; max-height: 176px; font-size: 16px; line-height: 1.45; field-sizing: content;
 }
 /* Send, stop, and the microphone are icons only, like the image button. */
-.send { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; background: transparent; color: var(--accent); }
+.send { display: grid; place-items: center; width: 52px; height: 54px; flex-shrink: 0; background: transparent; color: var(--accent); }
 .send:active { background: var(--accent-soft); }
 .send:disabled { color: var(--faint); opacity: 1; }
 .send.stop { color: var(--text); }
