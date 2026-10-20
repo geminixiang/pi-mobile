@@ -28,7 +28,8 @@ import { AzureTokens } from "./azure.ts";
 import { CloudflareTokens } from "./cloudflare.ts";
 import { GcloudTokens } from "./gcloud.ts";
 import { EgressLink, type MintedService } from "./sandbox/egress.ts";
-import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
+import { parseMachines } from "./sandbox/machine.ts";
+import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { createWebExtension } from "./tools/web.ts";
@@ -166,11 +167,19 @@ function startOfToday(): number {
 	return today.getTime();
 }
 
+/** The chosen machine over SSH, else the relay when paired, else none. */
+function openSandbox(settings: Settings): Sandbox | undefined {
+	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
+	if (machine) return new MachineSandbox(machine);
+	if (settings.sandboxUrl && settings.sandboxToken) return new RelaySandbox({ url: settings.sandboxUrl, token: settings.sandboxToken });
+	return undefined;
+}
+
 export class AgentRuntime {
 	readonly models: ModelInfo[];
 	readonly #harness: Harness;
 	readonly #settings: Settings;
-	readonly #sandbox: SandboxPool | undefined;
+	readonly #sandbox: Sandbox | undefined;
 	#indexListeners = new Set<(items: ConversationSummary[]) => void>();
 	/** Latest conversation list, to name a sandbox in a GitHub write approval. */
 	#titles = new Map<string, string>();
@@ -181,12 +190,13 @@ export class AgentRuntime {
 	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
 
-	private constructor(harness: Harness, settings: Settings, models: ModelInfo[], sandbox: SandboxPool | undefined) {
+	private constructor(harness: Harness, settings: Settings, models: ModelInfo[], sandbox: Sandbox | undefined) {
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
 		this.#sandbox = sandbox;
-		if (sandbox) {
+		// The relay's proxy signs the container's CLIs in with the phone's credentials; a machine uses its own.
+		if (sandbox?.kind === "relay") {
 			this.#egress = new EgressLink({
 				relayUrl: settings.sandboxUrl,
 				relayToken: settings.sandboxToken,
@@ -235,10 +245,9 @@ export class AgentRuntime {
 		};
 		registry.install(createTriggerExtension(triggerHost));
 		registry.install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
-		const sandbox =
-			settings.sandboxUrl && settings.sandboxToken ? new SandboxPool({ url: settings.sandboxUrl, token: settings.sandboxToken }) : undefined;
+		const sandbox = openSandbox(settings);
 		if (sandbox) {
-			registry.install(SandboxExtension);
+			registry.install(createSandboxExtension(sandbox));
 			registry.install(SandboxTools);
 		}
 
@@ -342,7 +351,7 @@ export class AgentRuntime {
 	/** The conversation's sandbox files, or undefined when it has no sandbox yet. */
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
 		if (!this.#sandbox || !(await this.#sandbox.exists(id))) return undefined;
-		return new Workspace(this.#sandbox.env(id));
+		return new Workspace(this.#sandbox.env(id), this.#sandbox.root(id));
 	}
 
 	/** Delete the conversation's sandbox container and files; the conversation itself stays. */

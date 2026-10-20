@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(CalendarPlugin.class);
         registerPlugin(PhonePlugin.class);
         registerPlugin(TriggersPlugin.class);
+        registerPlugin(SshPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

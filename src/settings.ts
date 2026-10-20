@@ -33,6 +33,10 @@ export interface Settings {
 	defaultThinking: string;
 	/** Which calendar accounts the agent may read and write, as JSON (agent/calendar-access.ts); empty for the defaults. */
 	calendarAccess: string;
+	/** The user's machines reached over SSH, as JSON (agent/sandbox/machine.ts); host keys are public, so plain. */
+	machines: string;
+	/** The machine whose tools the agent uses; empty uses the relay when one is set. */
+	sandboxMachine: string;
 }
 
 /** The non-secret settings in localStorage. */
@@ -43,6 +47,8 @@ const PlainSettings = Type.Object({
 	defaultModelId: Type.Optional(Type.String()),
 	defaultThinking: Type.Optional(Type.String()),
 	calendarAccess: Type.Optional(Type.String()),
+	machines: Type.Optional(Type.String()),
+	sandboxMachine: Type.Optional(Type.String()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
@@ -76,6 +82,8 @@ export async function loadSettings(): Promise<Settings> {
 		defaultModelId: plain.defaultModelId ?? DEFAULT_MODEL_ID,
 		defaultThinking: plain.defaultThinking ?? "low",
 		calendarAccess: plain.calendarAccess ?? "",
+		machines: plain.machines ?? "",
+		sandboxMachine: plain.sandboxMachine ?? "",
 	};
 }
 
@@ -87,6 +95,8 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		defaultModelId: settings.defaultModelId,
 		defaultThinking: settings.defaultThinking,
 		calendarAccess: settings.calendarAccess,
+		machines: settings.machines,
+		sandboxMachine: settings.sandboxMachine,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
 	await SecureStorage.set(SECRET_API_KEY, settings.apiKey);

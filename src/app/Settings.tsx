@@ -20,6 +20,7 @@ import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
 import { describeTime, describeWhen, Triggers } from "../agent/triggers.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
+import { MachinesGroup } from "./MachinesGroup.tsx";
 import { PiMark } from "./PiMark.tsx";
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ok"; detail: string } | { state: "error"; detail: string };
@@ -605,8 +606,21 @@ export function SettingsView({
 					<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
 				</Group>
 
+				{native ? (
+					<Group
+						title="機器"
+						hint="用 SSH 連到你自己的電腦（Linux 或 Mac），agent 的 read、write、edit、bash 就在那裡執行。機器上只要有 SSH，app 會自己裝好 pi-env。選了機器就不會用下面的 relay。"
+					>
+						<MachinesGroup
+							value={settings.machines}
+							chosen={settings.sandboxMachine}
+							onChange={(machines, sandboxMachine) => setSettings({ ...settings, machines, sandboxMachine })}
+						/>
+					</Group>
+				) : null}
+
 				<Group
-					title="Sandbox"
+					title="Sandbox relay"
 					hint="每個對話有自己的 Linux 容器，模型可以用 read、write、edit、bash，git 和 gh 也已登入你的 GitHub。留空就不啟用。"
 				>
 					{settings.sandboxUrl ? null : (

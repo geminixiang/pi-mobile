@@ -31,3 +31,7 @@
 # Compile-time annotations referenced by Tink (androidx.security via secure storage); absent at runtime.
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
+
+# sshlib (SshPlugin) finds its ciphers, MACs, key exchanges, and its Ed25519 provider by class name.
+-keep class com.trilead.ssh2.** { *; }
+-dontwarn com.trilead.ssh2.**
