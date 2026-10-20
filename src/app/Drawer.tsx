@@ -1,6 +1,6 @@
 import { type ReactNode, useRef, useState } from "react";
 import type { ConversationId, ConversationSummary } from "../agent/runtime.ts";
-import { ComposeIcon, GearIcon, MoreIcon, SearchIcon } from "./icons.tsx";
+import { ComposeIcon, GearIcon, MoreIcon, SearchIcon, MemoryIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Layer } from "./Sheet.tsx";
 
@@ -31,6 +31,7 @@ export function Drawer({
 	onActions,
 	running,
 	onSettings,
+	onMemory,
 	onClose,
 }: {
 	open: boolean;
@@ -46,6 +47,8 @@ export function Drawer({
 	/** Conversations with a run in progress. */
 	running: ReadonlySet<ConversationId>;
 	onSettings: () => void;
+	/** Opens MEMORY.md, what pi knows about the user in every conversation. */
+	onMemory: () => void;
 	onClose: () => void;
 }) {
 	const [query, setQuery] = useState("");
@@ -113,6 +116,11 @@ export function Drawer({
 					))}
 					{groups.size === 0 ? <p className="drawer-none">{query ? "找不到符合的對話" : "還沒有對話"}</p> : null}
 				</div>
+				<button type="button" className="drawer-settings drawer-memory" onClick={onMemory}>
+					<MemoryIcon />
+					<span className="drawer-settings-text">記憶</span>
+					<span className="drawer-hint">MEMORY.md</span>
+				</button>
 				<button type="button" className="drawer-settings" onClick={onSettings}>
 					<GearIcon />
 					<span className="drawer-settings-text">設定</span>

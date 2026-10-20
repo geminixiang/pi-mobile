@@ -70,6 +70,13 @@ export const GearIcon = ({ size = 20 }: { size?: number }) => (
 		<circle cx="12" cy="12" r="3" />
 	</Icon>
 );
+/** A note with lines: MEMORY.md. */
+export const MemoryIcon = ({ size = 20 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M6 3h9l3 3v15H6z" />
+		<path d="M9 10h6M9 14h6M9 18h4" />
+	</Icon>
+);
 export const CloseIcon = ({ size = 18 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />

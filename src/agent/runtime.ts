@@ -32,6 +32,7 @@ import { SandboxExtension, SandboxPool, SandboxTools, sandboxName } from "./sand
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { createWebExtension } from "./tools/web.ts";
+import { createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc } from "./memory.ts";
 import {
 	createTriggerExtension,
 	type Delivery,
@@ -169,6 +170,7 @@ export class AgentRuntime {
 	#titles = new Map<string, string>();
 	#egress: EgressLink | undefined;
 	#triggerListeners = new Set<(state: TriggerState) => void>();
+	#memoryListeners = new Set<(memory: Memory) => void>();
 	#triggerState: TriggerState = { items: [], next: {} };
 	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
@@ -226,6 +228,7 @@ export class AgentRuntime {
 			notify: (title, text, conversationId) => options.notify?.(title, text, conversationId) ?? Promise.resolve(false),
 		};
 		registry.install(createTriggerExtension(triggerHost));
+		registry.install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
 		const sandbox =
 			settings.sandboxUrl && settings.sandboxToken ? new SandboxPool({ url: settings.sandboxUrl, token: settings.sandboxToken }) : undefined;
 		if (sandbox) {
@@ -417,6 +420,35 @@ export class AgentRuntime {
 			setThinking: (level) => conversation.configure({ thinkingLevel: level as "low" }, context),
 			dispose: () => view.dispose(),
 		};
+	}
+
+	async memory(): Promise<Memory> {
+		return { ...((await this.#harness.snapshot(MemoryDoc, context)) ?? { text: "", updatedAt: 0, updatedBy: "" }) };
+	}
+
+	/** Calls `listener` now and whenever the user or the agent changes MEMORY.md. */
+	subscribeMemory(listener: (memory: Memory) => void): () => void {
+		this.#memoryListeners.add(listener);
+		void this.memory().then(listener);
+		return () => this.#memoryListeners.delete(listener);
+	}
+
+	async publishMemory(): Promise<void> {
+		const memory = await this.memory();
+		for (const listener of this.#memoryListeners) listener(memory);
+	}
+
+	/** The user's edit of MEMORY.md. */
+	async saveMemory(text: string): Promise<void> {
+		const trimmed = text.trim();
+		if (trimmed.length > MEMORY_LIMIT) throw new Error(`記憶最多 ${MEMORY_LIMIT} 字，現在是 ${trimmed.length} 字`);
+		await this.#harness.commit(async (tx) => {
+			const memory = await tx.doc(MemoryDoc);
+			memory.text = trimmed;
+			memory.updatedAt = Date.now();
+			memory.updatedBy = "user";
+		}, context);
+		await this.publishMemory();
 	}
 
 	subscribeTriggers(listener: (state: TriggerState) => void): () => void {

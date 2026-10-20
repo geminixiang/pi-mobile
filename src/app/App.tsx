@@ -13,6 +13,7 @@ import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { usePrefs } from "./prefs.ts";
 import { SettingsView } from "./Settings.tsx";
+import { MemoryView } from "./MemoryView.tsx";
 import { Layer, Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
@@ -31,7 +32,7 @@ const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
-type Overlay = "drawer" | "model" | "menu" | "settings" | "workspace" | undefined;
+type Overlay = "drawer" | "model" | "menu" | "settings" | "memory" | "workspace" | undefined;
 
 function hasUserEntries(view: ConversationView | undefined): boolean {
 	return Boolean(view?.entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY));
@@ -405,6 +406,7 @@ export function App() {
 				running={busyIds}
 				onActions={setItemActions}
 				onSettings={() => setOverlay("settings")}
+				onMemory={() => setOverlay("memory")}
 				onClose={close}
 			/>
 
@@ -512,6 +514,10 @@ export function App() {
 			</Sheet>
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
+
+			<Layer open={overlay === "memory"} kind="page" onClose={close} label="記憶">
+				<MemoryView runtime={runtime} onClose={close} onError={notify} />
+			</Layer>
 
 			<Layer open={overlay === "settings"} kind="page" onClose={close} label="設定">
 				<SettingsView initial={settings} runtime={runtime} onCancel={close} onSave={saveAndRestart} />

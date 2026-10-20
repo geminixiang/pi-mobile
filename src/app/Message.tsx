@@ -103,6 +103,11 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 			return str(args.id);
 		case "notify":
 			return join(str(args.title), str(args.text));
+		case "update_memory": {
+			const added = str(args.new_text).replace(/^[-*]\s*/, "");
+			if (!str(args.old_text)) return `+ ${added}`;
+			return added ? `${str(args.old_text).replace(/^[-*]\s*/, "")} → ${added}` : `− ${str(args.old_text).replace(/^[-*]\s*/, "")}`;
+		}
 		case "device_info":
 		case "get_location":
 		case "read_sensors":
@@ -166,6 +171,7 @@ function toolName(name: string): string {
 	if (name === "compose_sms") return "sms";
 	if (name === "open_maps") return "maps";
 	if (name === "open_link") return "open";
+	if (name === "update_memory") return "memory";
 	return name;
 }
 
