@@ -319,6 +319,9 @@ export function App() {
 				status={[
 					{ label: "GitHub", on: Boolean(settings.githubToken) },
 					{ label: "Sandbox", on: runtime.hasSandbox },
+					{ label: "GCP", on: Boolean(settings.gcloudCredential) },
+					{ label: "Cloudflare", on: Boolean(settings.cloudflareCredential) },
+					{ label: "Azure", on: Boolean(settings.azureCredential) },
 				]}
 				onOpen={(id) => void openConversation(id)}
 				onCreate={() => void newConversation()}
