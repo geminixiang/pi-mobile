@@ -24,6 +24,12 @@
 	--error: #b5543a;
 	--error-bg: rgb(181 84 58 / 0.1);
 	--pending-bg: rgb(37 47 61 / 0.05);
+	/* pi's tool box colors (light.json toolPendingBg, toolSuccessBg, toolErrorBg, toolTitle, toolOutput). */
+	--tool-pending: #e4e5e6;
+	--tool-success: #dee9e1;
+	--tool-error: #eee2e1;
+	--tool-title: #3b3f41;
+	--tool-output: #677176;
 	--console-bg: #252f3d;
 	--console-text: #e4e2df;
 	/* pi.dev's page grid: 4px minor, 20px major, a + at every major crossing, faded out toward the bottom. */
@@ -72,6 +78,12 @@
 		--error: #e8704f;
 		--error-bg: rgb(232 112 79 / 0.09);
 		--pending-bg: rgb(255 255 255 / 0.035);
+		/* dark.json */
+		--tool-pending: #34383a;
+		--tool-success: #254131;
+		--tool-error: #5b282a;
+		--tool-title: #dee0e1;
+		--tool-output: #9da5a9;
 		--console-bg: #0d1116;
 		--console-text: #d5d8db;
 		--grid-minor: hsl(218 60% 80% / 0.009375);
@@ -249,28 +261,33 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thinking-body { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line-strong); font-family: var(--serif); font-size: 14.5px; line-height: 1.7; color: var(--muted); white-space: pre-wrap; }
 .chevron { transition: transform 160ms var(--ease); flex-shrink: 0; color: var(--faint); }
 
-/* Tool calls as pi's tool boxes: one tinted block per call, tinted by status. */
-.steps { display: flex; flex-direction: column; gap: 2px; }
-.step { background: var(--pending-bg); border-left: 2px solid var(--line-strong); }
-.step.ok { background: var(--ok-bg); border-left-color: var(--ok); }
-.step.error { background: var(--error-bg); border-left-color: var(--error); }
-.step.running { border-left-color: var(--accent); }
-.step-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 12px; text-align: left; font-family: var(--mono); font-size: 12px; }
-.step-head:disabled { opacity: 1; cursor: default; }
-.step-name { font-weight: 700; color: var(--text); flex-shrink: 0; }
-.step.error .step-name, .step-status { color: var(--error); }
-.step-label { flex: 1; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.step-status { font-size: 11px; letter-spacing: 0.1em; flex-shrink: 0; }
-.step.declined { background: var(--panel-2); border-left-color: var(--faint); }
-.step.declined .step-status { color: var(--muted); }
-.step .console { margin: 0 10px 10px; }
-.steps-summary {
-	display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 12px; text-align: left;
-	background: var(--pending-bg); border-left: 2px solid var(--line-strong); font-family: var(--mono); font-size: 12px; color: var(--text);
+/* Tool calls as pi's tool boxes: full-width blocks tinted by status, a blank line apart, the call on top and its
+   output a blank line below, in toolTitle and toolOutput colors. */
+.steps { display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); }
+.step { position: relative; background: var(--tool-pending); }
+.step.ok { background: var(--tool-success); }
+.step.error { background: var(--tool-error); }
+.step-body {
+	display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 12px var(--space); text-align: left;
+	font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--tool-title);
 }
-.steps-names { flex: 1; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Steps from back-to-back model turns read as one stack. */
-.answer:has(> .steps:last-child) + .answer > .steps:first-child { margin-top: -18px; }
+.step-body:disabled { opacity: 1; cursor: default; }
+.step-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.step-name { font-weight: 700; color: var(--tool-title); flex-shrink: 0; }
+.step-label { flex: 1; min-width: 0; color: var(--tool-output); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step.open .step-label { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* A shell command is the call itself: pi prints it bold in the title color. */
+.step[data-tool="bash"] .step-label { color: var(--tool-title); font-weight: 700; }
+.step-status { font-size: 11px; letter-spacing: 0.1em; flex-shrink: 0; color: var(--tool-title); }
+.step-output, .step-script { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--tool-output); }
+.step-script { color: var(--tool-title); }
+.step-more { color: var(--tool-output); opacity: 0.8; }
+/* Collapsed previews in lines on screen: the first 10 of most tools, the last 5 of a shell command or script. */
+.step-output.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden; }
+.step-output.clamp-end { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(5 * 1.55em); overflow: hidden; }
+.step.open .step-output { max-height: 60vh; overflow-y: auto; }
+/* Steps from back-to-back model turns read as one stack, a blank line apart. */
+.answer:has(> .steps:last-child) + .answer > .steps:first-child { margin-top: -12px; }
 
 .working { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
@@ -508,9 +525,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .commit-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
 
 /* Opening a file from a tool step. */
-.step { position: relative; }
-.step-open { position: absolute; top: 0; right: 0; width: 40px; height: 40px; display: grid; place-items: center; color: var(--muted); z-index: 1; }
-.step:has(.step-open) .step-head { padding-right: 44px; }
+.step-open { position: absolute; top: 4px; right: calc(var(--space) - 12px); width: 40px; height: 40px; display: grid; place-items: center; color: var(--muted); z-index: 1; }
+.step:has(.step-open) .step-head { padding-right: 32px; }
 .step-open:active { background: var(--accent-soft); }
 
 /* File and diff viewers. */
@@ -542,7 +558,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .diff-line.del .diff-sign { color: var(--error); }
 .diff-text { padding-right: 14px; color: var(--text); }
 .diff-hunk { padding: 4px 12px; font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-soft); white-space: pre; }
-.step .console.script { margin-bottom: 4px; border-left: 2px solid var(--accent); color: var(--console-text); opacity: 0.85; }
+
 
 /* Dictation: replaces the input row while the system recognizer listens. */
 .send.mic { background: transparent; color: var(--accent); }
@@ -560,7 +576,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .manual > summary { padding: 12px 16px 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
 .manual > label { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0; }
 .manual > label > span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.step-image { display: block; margin: 0 10px 10px; padding: 0; background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; border: 1px solid var(--line); }
+.step-image { display: block; margin: 0 var(--space) 12px; padding: 0; background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; border: 1px solid var(--line); }
 .step-image img { display: block; max-width: 100%; max-height: 420px; }
 
 /* Elapsed time on a running step, so a quiet command does not look stuck. */

@@ -149,6 +149,8 @@ function tone(state: CallState | undefined): Tone {
 
 /** Short tool label, as pi's TUI prints it. */
 function toolName(name: string): string {
+	// pi prints a shell call as its prompt and the command: `$ ls -la`.
+	if (name === "bash") return "$";
 	if (name === "github_api") return "github";
 	if (name === "github_read_file") return "github read";
 	if (name === "device_info") return "device";
@@ -187,6 +189,17 @@ function useElapsed(running: boolean): number {
 	return Math.floor((now - started) / 1000);
 }
 
+/**
+ * How much output a collapsed box shows, as pi's renderers do: the last 5 lines of a shell command or script (its
+ * newest output), nothing of a file read, and the first 10 lines of anything else.
+ */
+function preview(name: string, lines: string[]): { shown: string[]; hidden: number } {
+	if (name === "read") return { shown: [], hidden: lines.length };
+	if (name === "bash" || name === "codemode") return { shown: lines.slice(-5), hidden: Math.max(0, lines.length - 5) };
+	return { shown: lines.slice(0, 10), hidden: Math.max(0, lines.length - 10) };
+}
+
+/** One tool call as pi's tool box: a full-width block tinted by status, the call on top and its output below. */
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
@@ -197,28 +210,39 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
+	const lines = output ? output.split("\n") : [];
+	// Errors show in full, as pi does; a declined approval says so in the header instead.
+	const { shown, hidden } = open || status === "error" ? { shown: lines, hidden: 0 } : declined ? { shown: [], hidden: 0 } : preview(call.name, lines);
+	const script = call.name === "codemode" && typeof call.arguments.code === "string" ? call.arguments.code : undefined;
+	// Collapsed boxes also stop at that many lines on screen, as pi's previews count wrapped lines: a phone wraps a lot.
+	const tail = call.name === "bash" || call.name === "codemode";
+	const expandable = lines.length > 0 || Boolean(script);
 	return (
-		<div className={`step ${status}`}>
+		<div className={`step ${status}${open ? " open" : ""}`} data-tool={call.name}>
 			{openFile && filePath && status !== "running" ? (
 				<button type="button" className="step-open" onClick={() => openFile(resolvePath(filePath))} aria-label="開啟檔案">
 					<FileIcon size={14} />
 				</button>
 			) : null}
-			<button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!output && call.name !== "codemode"}>
-				<span className="step-name">{toolName(call.name)}</span>
-				<span className="step-label">{callLabel(call.name, call.arguments)}</span>
-				{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
-				{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
-				{status === "error" ? <span className="step-status">失敗</span> : null}
-				{status === "declined" ? <span className="step-status">已拒絕</span> : null}
-				{output && status !== "running" ? <ChevronIcon open={open} size={12} /> : null}
+			<button type="button" className="step-body" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!expandable}>
+				<span className="step-head">
+					<span className="step-name">{toolName(call.name)}</span>
+					<span className="step-label">{callLabel(call.name, call.arguments)}</span>
+					{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
+					{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
+					{status === "error" ? <span className="step-status">失敗</span> : null}
+					{status === "declined" ? <span className="step-status">已拒絕</span> : null}
+				</span>
+				{open && script ? <span className="step-script">{script}</span> : null}
+				{shown.length > 0 ? (
+					<span className={`step-output${open || status === "error" ? "" : tail ? " clamp-end" : " clamp"}`}>{shown.join("\n")}</span>
+				) : null}
+				{hidden > 0 ? (
+					<span className="step-more">
+						… {call.name === "bash" || call.name === "codemode" ? "前面" : "還有"} {hidden} 行，點一下展開
+					</span>
+				) : null}
 			</button>
-			{open && call.name === "codemode" && typeof call.arguments.code === "string" ? (
-				<pre className="console script">{call.arguments.code}</pre>
-			) : null}
-			{output && (open || status === "running") ? (
-				<pre className="console">{status === "running" ? output.split("\n").slice(-6).join("\n") : output}</pre>
-			) : null}
 			{images.map((image, index) => (
 				<button type="button" className="step-image" key={index} onClick={() => filePath && openFile?.(resolvePath(filePath))}>
 					<img src={`data:${image.mimeType};base64,${image.data}`} alt={filePath ?? ""} />
@@ -228,26 +252,13 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	);
 }
 
-/** Consecutive tool calls, stacked like pi's tool boxes. Long finished runs fold into one line. */
+/** Consecutive tool calls, stacked like pi's tool boxes. */
 function Steps({ group, calls, prefs }: { group: Call[]; calls: CallStates; prefs: Prefs }) {
-	const tones = group.map((call) => tone(calls.get(call.id)));
-	const foldable = group.length > 3 && !tones.includes("running");
-	const failed = tones.filter((value) => value === "error").length;
-	const [open, setOpen] = useState(prefs.expandTools);
 	return (
 		<div className="steps">
-			{foldable ? (
-				<button type="button" className="steps-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
-					<span>
-						{group.length} 個步驟{failed ? `，${failed} 個失敗` : ""}
-					</span>
-					<span className="steps-names">{[...new Set(group.map((call) => toolName(call.name)))].join(" · ")}</span>
-					<ChevronIcon open={open} size={12} />
-				</button>
-			) : null}
-			{!foldable || open
-				? group.map((call) => <StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />)
-				: null}
+			{group.map((call) => (
+				<StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
+			))}
 		</div>
 	);
 }
