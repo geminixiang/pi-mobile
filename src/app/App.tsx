@@ -26,7 +26,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { toImageContent } from "./Composer.tsx";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { checkSandbox } from "../agent/checks.ts";
-import { contextTokens, totalUsage } from "./usage.ts";
+import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 
 const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
@@ -429,6 +429,7 @@ export function App() {
 				view={view}
 				title={current?.title ?? ""}
 				usage={totalUsage(view)}
+				cacheHitRate={latestCacheHitRate(view)}
 				context={{ used, window: contextWindow }}
 				prefs={prefs}
 				onPrefs={updatePrefs}

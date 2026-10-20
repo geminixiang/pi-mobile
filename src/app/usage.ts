@@ -39,3 +39,23 @@ export function totalUsage(view: ConversationView | undefined): Usage {
 		{ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	);
 }
+
+/**
+ * Prompt cache hit rate of the newest answer, as pi's footer computes it (CH%): its cache reads over its whole prompt,
+ * `cacheRead / (input + cacheRead + cacheWrite)`, in percent. Undefined when that answer reported no prompt tokens
+ * (an aborted or failed request); pi shows it only once the conversation has any cache activity (`hasCacheActivity`).
+ */
+export function latestCacheHitRate(view: ConversationView | undefined): number | undefined {
+	for (let i = (view?.entries.length ?? 0) - 1; i >= 0; i--) {
+		const message = view?.entries[i]?.model?.[0];
+		if (message?.role !== "assistant") continue;
+		const { input, cacheRead, cacheWrite } = message.usage;
+		const prompt = input + cacheRead + cacheWrite;
+		return prompt > 0 ? (cacheRead / prompt) * 100 : undefined;
+	}
+	return undefined;
+}
+
+export function hasCacheActivity(usage: Usage): boolean {
+	return usage.cacheRead > 0 || usage.cacheWrite > 0;
+}

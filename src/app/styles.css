@@ -396,7 +396,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	mask-image: linear-gradient(90deg, #000 9px, transparent 9px); mask-size: 10px 10px;
 	transition: width 400ms var(--ease);
 }
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; margin: 0; }
 .stats dt { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); }
 .stats dd { margin: 3px 0 0; font-family: var(--mono); font-size: 14px; }
 

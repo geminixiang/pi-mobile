@@ -10,7 +10,9 @@ import { parse } from "./parse.ts";
 
 /** Stored in every conversation's model reference, so it keeps its original value. */
 export const PROVIDER_ID = "cliproxyapi";
-export const DEFAULT_MODEL_ID = "claude-opus-5-5";
+// GPT on Responses: CLIProxyAPI passes its instructions and tool names through. Claude on a subscription OAuth
+// credential is cloaked as Claude Code (its system prompt first, tools renamed mcp__x__y), which confuses the agent.
+export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 
 export interface ModelInfo {

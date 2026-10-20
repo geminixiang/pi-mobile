@@ -234,7 +234,8 @@ export function createCalendarExtension(access: CalendarAccess) {
 			const times = eventTimes(args.start, args.end, allDay);
 			const calendars = await writableCalendars(access);
 			if (calendars.length === 0) throw new Error(NO_WRITABLE);
-			const id = args.calendar_id ?? access.defaultCalendar;
+			// Some models fill every optional field: calendar_id 0 and "" mean "not given" (calendar IDs start at 1).
+			const id = args.calendar_id || access.defaultCalendar;
 			if (id === undefined) {
 				throw new Error(
 					`No default calendar is set. Ask the user which of these to use, then pass calendar_id: ${calendars.map((c) => `${c.id} ${c.name} (${accountLabel(c)})`).join("; ")}`,
@@ -252,8 +253,8 @@ export function createCalendarExtension(access: CalendarAccess) {
 				title: args.title,
 				...times,
 				allDay,
-				location: args.location,
-				description: args.notes,
+				location: args.location || undefined,
+				description: args.notes || undefined,
 			});
 			return text(`Added event ${created.id} to "${calendar.name}" (${calendar.account}): ${describeTimes(times, allDay)}.`);
 		},

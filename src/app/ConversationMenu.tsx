@@ -4,7 +4,7 @@ import { BoxIcon, CopyIcon, FileIcon, LayersIcon, PencilIcon, RefreshIcon } from
 import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
-import { formatTokens, type Usage } from "./usage.ts";
+import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
 
 export interface MenuActions {
 	rename: () => void;
@@ -32,6 +32,7 @@ export function ConversationMenu({
 	view,
 	title,
 	usage,
+	cacheHitRate,
 	context,
 	prefs,
 	onPrefs,
@@ -42,6 +43,8 @@ export function ConversationMenu({
 	view: ConversationView | undefined;
 	title: string;
 	usage: Usage;
+	/** The newest answer's prompt cache hit rate in percent (latestCacheHitRate). */
+	cacheHitRate: number | undefined;
 	context: { used: number; window: number };
 	prefs: Prefs;
 	onPrefs: (change: Partial<Prefs>) => void;
@@ -85,6 +88,12 @@ export function ConversationMenu({
 						<dt>快取寫</dt>
 						<dd>{formatTokens(usage.cacheWrite)}</dd>
 					</div>
+					{hasCacheActivity(usage) && cacheHitRate !== undefined ? (
+						<div title="最新一次回答的提示中，從快取讀取的比例">
+							<dt>快取命中</dt>
+							<dd>{cacheHitRate.toFixed(1)}%</dd>
+						</div>
+					) : null}
 				</dl>
 			</div>
 			{actions.workspace ? (

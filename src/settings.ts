@@ -3,6 +3,7 @@
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
+import { DEFAULT_MODEL_ID } from "./agent/models.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
 /** Keychain key from the first version; kept so saved keys still load. */
@@ -72,7 +73,7 @@ export async function loadSettings(): Promise<Settings> {
 		gcloudProject: plain.gcloudProject ?? "",
 		cloudflareCredential: await secret(SECRET_CLOUDFLARE),
 		azureCredential: await secret(SECRET_AZURE),
-		defaultModelId: plain.defaultModelId ?? "claude-opus-5-5",
+		defaultModelId: plain.defaultModelId ?? DEFAULT_MODEL_ID,
 		defaultThinking: plain.defaultThinking ?? "low",
 		calendarAccess: plain.calendarAccess ?? "",
 	};
