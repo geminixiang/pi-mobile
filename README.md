@@ -13,7 +13,7 @@
 <img src="docs/screenshots/diff.png" width="200" alt="工作區：diff">
 </p>
 
-pi mobile 是 [pi](https://pi.dev) 的**非官方**手機版實驗，由社群（個人）開發：用 [pi-durable](https://pi.dev) 的 harness 在手機上跑 agent，用 [pi-env](https://pi.dev) 把 `read`、`write`、`edit`、`bash` 接到你自己電腦上的 Linux 容器。介面是繁體中文。
+pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https://pi.dev) 的 harness 在手機上跑 agent，用 [pi-env](https://pi.dev) 把 `read`、`write`、`edit`、`bash` 接到你自己電腦上的 Linux 容器。介面是繁體中文。
 
 - **Agent 在手機上跑**：對話和執行狀態存在手機的 SQLite。鎖上螢幕或切到背景時會繼續跑；就算 app 被系統殺掉，下次打開也會從中斷的地方接著跑。
 - **模型用你自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接，例如 OpenAI、Anthropic，或自架的 gateway（[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)、LiteLLM）。

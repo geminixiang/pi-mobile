@@ -1,5 +1,5 @@
 /**
- * pi mobile's mark (an unofficial community project, not affiliated with pi or Earendil): the shape of pi.dev's pixel glyph, recolored with pi.dev's site palette (accent blue, sage,
+ * pi mobile's mark: the shape of pi.dev's pixel glyph, recolored with pi.dev's site palette (accent blue, sage,
  * sunkissed) instead of the logo's coral, blue, and yellow. The right leg doubles as the app's activity light:
  * it blinks like a terminal cursor while the agent works.
  */
