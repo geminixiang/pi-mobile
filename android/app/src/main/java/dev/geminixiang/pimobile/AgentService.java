@@ -25,6 +25,7 @@ public class AgentService extends Service {
     static final String CHANNEL_PROACTIVE = "agent-proactive";
     static final String CHANNEL_APPROVAL = "agent-approval";
     static final String EXTRA_TEXT = "text";
+    static final String EXTRA_TITLE = "title";
     private static final int NOTIFICATION_ID = 1;
     /** Safety net: release the wake lock even if the web side never says the run ended. */
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
@@ -53,10 +54,10 @@ public class AgentService extends Service {
         return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    private Notification build(String text) {
+    private Notification build(String title, String text) {
         return new Notification.Builder(this, CHANNEL_WORKING)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle("pi 工作中")
+            .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(openApp(this))
             .setOngoing(true)
@@ -69,7 +70,8 @@ public class AgentService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String text = intent != null && intent.hasExtra(EXTRA_TEXT) ? intent.getStringExtra(EXTRA_TEXT) : "";
         createChannels(this);
-        Notification notification = build(text);
+        String title = intent != null && intent.hasExtra(EXTRA_TITLE) ? intent.getStringExtra(EXTRA_TITLE) : "pi 工作中";
+        Notification notification = build(title, text);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         } else {

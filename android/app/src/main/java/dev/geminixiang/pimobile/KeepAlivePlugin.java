@@ -30,7 +30,9 @@ public class KeepAlivePlugin extends Plugin {
 
     @PluginMethod
     public void start(PluginCall call) {
-        Intent intent = new Intent(getContext(), AgentService.class).putExtra(AgentService.EXTRA_TEXT, call.getString("text", ""));
+        Intent intent = new Intent(getContext(), AgentService.class)
+            .putExtra(AgentService.EXTRA_TEXT, call.getString("text", ""))
+            .putExtra(AgentService.EXTRA_TITLE, call.getString("title", "pi 工作中"));
         getContext().startForegroundService(intent);
         setRendererImportant(true);
         call.resolve();
