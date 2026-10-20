@@ -20,9 +20,9 @@ const SLOP = 10;
 /** How far past a detent's midpoint the finger must go before the selection moves: no flicker at the boundary. */
 const HYSTERESIS = 0.6;
 const PREVIEW_CHARS = 40;
-/** Degrees per cell: the widest, and how narrow cells may get so that five fit on the arc. */
+/** Degrees per cell: the widest, and how narrow cells may get in degrees so that five fit; the radius keeps them a thumb long. */
 const STEP = 12;
-const MIN_STEP = 8;
+const MIN_STEP = 7;
 const MAX_SLOTS = 5;
 /** Resting on an end detent this long starts stepping on; the interval then shrinks to the fastest. */
 const REPEAT_DELAY_MS = 350;
@@ -31,7 +31,7 @@ const REPEAT_FASTEST_MS = 60;
 /** Where the arc stops: this far from the screen's right edge, and at most straight up from the pivot. */
 const EDGE = 24;
 /** The pivot, relative to the screen's right edge and the finger: far enough out that the cells are a thumb wide. */
-const PIVOT_X = 80;
+const PIVOT_X = 200;
 const PIVOT_Y = 60;
 /** The detents sit this many steps above the finger, so the newest one clears the editor line the track grows from. */
 const OFFSET = 0.35;
