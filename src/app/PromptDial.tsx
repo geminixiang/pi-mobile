@@ -1,7 +1,9 @@
-// The scroll tab on the composer's line, and the dial a long press on it opens: a half circle of detents, one per
-// message the user sent, plus the newest end. Turning counterclockwise goes back to older messages, clockwise forward,
-// with a haptic tick per detent and the message's first words above the dial; releasing scrolls to it. A short tap
-// scrolls to the newest, as before.
+// The scroll tab on the composer's line, and the dial a long press on it opens. The dial turns around the thumb's
+// base (just off the bottom-right corner, for the right hand), so the arc the thumb sweeps is the scale: sliding up
+// it goes back to older messages, down to newer ones, with one detent per message the user sent and one for the
+// newest end. The detents stay put; the selection snaps into the next one only past 60% of the way, with a haptic
+// tick, so it clicks from one to the next instead of drifting. Releasing scrolls to the message. A short tap scrolls
+// to the newest, as before.
 import { type PointerEvent as ReactPointerEvent, useRef, useState } from "react";
 import { haptic } from "./haptics.ts";
 import { ArrowDownIcon } from "./icons.tsx";
@@ -12,27 +14,38 @@ export interface DialPrompt {
 }
 
 const LONG_PRESS_MS = 380;
-/** Degrees of turning per detent. */
-const STEP = 20;
-const RADIUS = 140;
-const PREVIEW_CHARS = 40;
 /** Movement before the long press fires that means the finger is scrolling instead. */
 const SLOP = 10;
+/** How far past a detent's midpoint the finger must go before the selection moves: no flicker at the boundary. */
+const HYSTERESIS = 0.6;
+const PREVIEW_CHARS = 40;
+/** Detents share the part of the arc that is on screen, within these bounds in degrees. */
+const MIN_STEP = 10;
+const MAX_STEP = 18;
+/** Where the arc stops: this far from the screen's right edge, and at most straight up from the pivot. */
+const EDGE = 20;
 
 interface DialState {
-	cx: number;
-	cy: number;
-	/** Detent the dial opened on: prompts.length is the newest end. */
-	base: number;
-	/** Counterclockwise degrees turned since it opened. */
-	turned: number;
-	lastAngle: number | undefined;
+	/** The pivot: the thumb's base, just off the bottom-right corner. */
+	px: number;
+	py: number;
+	radius: number;
+	/** The finger's angle around the pivot when the dial opened; the newest end sits there. */
+	start: number;
+	step: number;
+	/** Selected detent: prompts.length is the newest end. */
 	index: number;
 }
 
-/** The finger's angle around the dial's center, in degrees, counterclockwise from the right, as in math. */
-function angleOf(x: number, y: number, cx: number, cy: number): number {
-	return (Math.atan2(cy - y, x - cx) * 180) / Math.PI;
+/** Angle of a point around the pivot in degrees, counterclockwise from the right, with y up as in math. */
+function angleOf(x: number, y: number, px: number, py: number): number {
+	return (Math.atan2(py - y, x - px) * 180) / Math.PI;
+}
+
+/** A point on the dial at an angle around the pivot. */
+function pointAt(dial: DialState, degrees: number, radius = dial.radius): { x: number; y: number } {
+	const radians = (degrees * Math.PI) / 180;
+	return { x: dial.px + radius * Math.cos(radians), y: dial.py - radius * Math.sin(radians) };
 }
 
 export function ScrollTab({
@@ -51,21 +64,28 @@ export function ScrollTab({
 	const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | undefined>(undefined);
 	const opened = useRef(false);
 
-	const open = (target: HTMLElement, pointerId: number) => {
-		const rect = target.getBoundingClientRect();
-		const base = prompts.length;
+	const open = (target: HTMLElement, pointerId: number, x: number, y: number) => {
 		opened.current = true;
 		target.setPointerCapture(pointerId);
 		haptic("press");
-		setDial({ cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2, base, turned: 0, lastAngle: undefined, index: base });
+		// The pivot sits right of the finger and a little below, off screen, where the thumb's base is; then the arc rises
+		// toward the upper right and most of it stays on screen.
+		const px = window.innerWidth + 40;
+		const py = y + 70;
+		const radius = Math.hypot(x - px, y - py);
+		const start = angleOf(x, y, px, py);
+		const edge = (window.innerWidth - EDGE - px) / radius;
+		const end = edge <= -1 ? 90 : Math.max(90, (Math.acos(Math.max(-1, Math.min(1, edge))) * 180) / Math.PI);
+		const step = Math.max(MIN_STEP, Math.min(MAX_STEP, (start - end) / Math.max(1, prompts.length)));
+		setDial({ px, py, radius, start, step, index: prompts.length });
 	};
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
 		if (prompts.length === 0) return;
 		const target = event.currentTarget;
-		const pointerId = event.pointerId;
+		const { pointerId, clientX, clientY } = event;
 		opened.current = false;
-		press.current = { x: event.clientX, y: event.clientY, timer: setTimeout(() => open(target, pointerId), LONG_PRESS_MS) };
+		press.current = { x: clientX, y: clientY, timer: setTimeout(() => open(target, pointerId, clientX, clientY), LONG_PRESS_MS) };
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -77,14 +97,16 @@ export function ScrollTab({
 			}
 			return;
 		}
-		const angle = angleOf(event.clientX, event.clientY, dial.cx, dial.cy);
-		// Too close to the center the angle jumps around; wait until the finger is out on the dial.
-		if (Math.hypot(event.clientX - dial.cx, event.clientY - dial.cy) < 24) return;
-		const delta = dial.lastAngle === undefined ? 0 : ((angle - dial.lastAngle + 540) % 360) - 180;
-		const turned = dial.turned + delta;
-		const index = Math.max(0, Math.min(prompts.length, dial.base - Math.round(turned / STEP)));
-		if (index !== dial.index) haptic("tick");
-		setDial({ ...dial, turned, lastAngle: angle, index });
+		// Sliding up the arc turns clockwise around the pivot, toward older messages.
+		const turned = dial.start - angleOf(event.clientX, event.clientY, dial.px, dial.py);
+		const position = prompts.length - turned / dial.step;
+		let index = dial.index;
+		while (position < index - HYSTERESIS && index > 0) index--;
+		while (position > index + HYSTERESIS && index < prompts.length) index++;
+		if (index !== dial.index) {
+			haptic("tick");
+			setDial({ ...dial, index });
+		}
 	};
 
 	const finish = () => {
@@ -93,11 +115,12 @@ export function ScrollTab({
 		if (!dial) return;
 		const index = dial.index;
 		setDial(undefined);
-		if (index !== dial.base) haptic("confirm");
+		if (index !== prompts.length) haptic("confirm");
 		onJump(index >= prompts.length ? undefined : prompts[index]?.id);
 	};
 
 	const current = dial ? prompts[dial.index] : undefined;
+	const detentAngle = (position: number) => (dial ? dial.start - (prompts.length - position) * dial.step : 0);
 	return (
 		<>
 			<button
@@ -113,7 +136,7 @@ export function ScrollTab({
 					// A long press ends in a click too; only a tap scrolls to the newest.
 					if (!opened.current && hint) onScrollToBottom();
 				}}
-				aria-label={hint ? "捲到最新；長按可以轉動選擇訊息" : "長按可以轉動選擇訊息"}
+				aria-label={hint ? "捲到最新；長按後往上滑可以選擇訊息" : "長按後往上滑可以選擇訊息"}
 				tabIndex={hint ? 0 : -1}
 			>
 				{hint ? (
@@ -125,42 +148,44 @@ export function ScrollTab({
 			</button>
 			{dial ? (
 				<div className="dial" aria-live="polite">
-					<div className="dial-preview" style={{ left: dial.cx, top: dial.cy - RADIUS - 24 }}>
+					<div className="dial-preview">
 						<span className="dial-count">{current ? `${dial.index + 1} / ${prompts.length}` : "最新"}</span>
 						<span className="dial-text">
-							{current ? (current.text.length > PREVIEW_CHARS ? `${current.text.slice(0, PREVIEW_CHARS)}…` : current.text) : "放開回到最下面"}
+							{current ? (current.text.length > PREVIEW_CHARS ? `${current.text.slice(0, PREVIEW_CHARS)}…` : current.text) : "往上滑選擇較早的訊息，放開就捲過去"}
 						</span>
 					</div>
-					<svg
-						className="dial-ring"
-						width={RADIUS * 2 + 40}
-						height={RADIUS + 30}
-						viewBox={`${-RADIUS - 20} ${-RADIUS - 20} ${RADIUS * 2 + 40} ${RADIUS + 30}`}
-						style={{ left: dial.cx - RADIUS - 20, top: dial.cy - RADIUS - 20 }}
-						aria-hidden="true"
-					>
-						<path d={`M ${-RADIUS} 0 A ${RADIUS} ${RADIUS} 0 0 1 ${RADIUS} 0`} className="dial-arc" />
+					<svg className="dial-ring" width="100%" height="100%" aria-hidden="true">
+						{(() => {
+							const from = pointAt(dial, detentAngle(prompts.length) + dial.step * 0.6);
+							const to = pointAt(dial, Math.max(detentAngle(0) - dial.step * 0.6, 80));
+							return <path className="dial-arc" d={`M ${from.x} ${from.y} A ${dial.radius} ${dial.radius} 0 0 1 ${to.x} ${to.y}`} />;
+						})()}
 						{Array.from({ length: prompts.length + 1 }, (_, position) => {
-							// Older messages wait on the right: turning counterclockwise brings them up to the top.
-							const degrees = 90 - (dial.base - position) * STEP + dial.turned;
-							if (degrees < -2 || degrees > 182) return null;
-							const radians = (degrees * Math.PI) / 180;
-							const x = Math.cos(radians);
-							const y = -Math.sin(radians);
-							const selected = position === dial.index;
-							const inner = selected ? RADIUS - 18 : RADIUS - 10;
+							const degrees = detentAngle(position);
+							if (degrees < 80) return null;
+							const outer = pointAt(dial, degrees, dial.radius + 10);
+							const inner = pointAt(dial, degrees, dial.radius - 10);
 							return (
 								<line
 									key={position}
-									x1={x * inner}
-									y1={y * inner}
-									x2={x * (RADIUS + 6)}
-									y2={y * (RADIUS + 6)}
-									className={`dial-tick${selected ? " selected" : ""}${position === prompts.length ? " newest" : ""}`}
+									x1={inner.x}
+									y1={inner.y}
+									x2={outer.x}
+									y2={outer.y}
+									className={`dial-tick${position === prompts.length ? " newest" : ""}`}
 								/>
 							);
 						})}
-						<line x1={0} y1={-RADIUS + 26} x2={0} y2={-RADIUS - 14} className="dial-pointer" />
+						{/* The knob: rotated around the pivot into the selected detent, snapping with a slight overshoot. */}
+						<g
+							className="dial-knob"
+							style={{
+								transformOrigin: `${dial.px}px ${dial.py}px`,
+								transform: `rotate(${(prompts.length - dial.index) * dial.step}deg)`,
+							}}
+						>
+							<circle cx={pointAt(dial, dial.start).x} cy={pointAt(dial, dial.start).y} r={13} />
+						</g>
 					</svg>
 				</div>
 			) : null}

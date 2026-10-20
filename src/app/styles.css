@@ -343,16 +343,17 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .scroll-hint.ghost::before { inset: 0; }
 
-/* The prompt dial: a half circle over the composer, turned with the finger. */
+/* The prompt dial: an arc around the thumb's base; fixed detents, and a knob that snaps between them. */
 .dial { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: color-mix(in srgb, var(--bg-deep) 55%, transparent); animation: fade-in 120ms ease; }
-.dial-ring { position: fixed; overflow: visible; }
-.dial-arc { fill: color-mix(in srgb, var(--editor-border) 10%, transparent); stroke: var(--editor-border); stroke-width: 1.5; }
-.dial-tick { stroke: var(--muted); stroke-width: 2; stroke-linecap: square; }
-.dial-tick.newest { stroke: var(--faint); stroke-dasharray: 3 3; }
-.dial-tick.selected { stroke: var(--text); stroke-width: 3; }
-.dial-pointer { stroke: var(--editor-border); stroke-width: 2; }
+.dial-ring { position: fixed; inset: 0; overflow: visible; }
+.dial-arc { fill: none; stroke: color-mix(in srgb, var(--editor-border) 55%, transparent); stroke-width: 22; stroke-linecap: round; }
+.dial-tick { stroke: var(--text); stroke-width: 2; opacity: 0.7; }
+.dial-tick.newest { stroke-dasharray: 3 3; opacity: 0.5; }
+/* A spring with a little overshoot: it lands in the detent instead of sliding into it. */
+.dial-knob { transition: transform 150ms cubic-bezier(0.34, 1.7, 0.64, 1); }
+.dial-knob circle { fill: var(--editor-border); stroke: var(--text); stroke-width: 2; }
 .dial-preview {
-	position: fixed; transform: translate(-50%, -100%); width: min(320px, calc(100vw - 32px));
+	position: fixed; left: 50%; top: 24%; transform: translateX(-50%); width: min(320px, calc(100vw - 32px));
 	display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--user-bg); border: 1px solid var(--editor-border);
 }
 .dial-count { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--muted); }

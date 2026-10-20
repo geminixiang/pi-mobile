@@ -30,13 +30,17 @@ public class SystemPlugin extends Plugin {
         call.resolve();
     }
 
-    /** kind: "tick" (a detent of a dial), "press" (a long press took effect), "confirm". */
+    /**
+     * kind: "tick" (a dial snapping into a detent: Android 14's segment tick, made for segmented sliders, else the
+     * clock tick), "press" (a long press took effect), "confirm".
+     */
     @PluginMethod
     public void haptic(PluginCall call) {
         String kind = call.getString("kind", "tick");
+        int tick = android.os.Build.VERSION.SDK_INT >= 34 ? HapticFeedbackConstants.SEGMENT_TICK : HapticFeedbackConstants.CLOCK_TICK;
         int constant = "press".equals(kind)
             ? HapticFeedbackConstants.LONG_PRESS
-            : "confirm".equals(kind) ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.CLOCK_TICK;
+            : "confirm".equals(kind) ? HapticFeedbackConstants.CONFIRM : tick;
         getActivity().runOnUiThread(() -> getBridge().getWebView().performHapticFeedback(constant));
         call.resolve();
     }
