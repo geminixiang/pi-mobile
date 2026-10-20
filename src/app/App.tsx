@@ -210,7 +210,7 @@ export function App() {
 			const id = await runtime.createConversation(`分享：${title.length > 20 ? `${title.slice(0, 20)}…` : title}`);
 			await openRef.current(id, draft ? `${draft}\n\n` : "", images);
 		};
-		const stopEvents = processTriggerEvents(runtime, onShare);
+		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });
 		const stopLinks = listenForOpenLinks((conversation) => {
 			void runtime.conversations().then((items) => {
 				const target = items.find((item) => String(item.id) === conversation);

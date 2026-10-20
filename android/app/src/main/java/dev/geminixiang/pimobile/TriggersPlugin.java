@@ -11,7 +11,6 @@ import android.os.Build;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
-import android.webkit.WebView;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -96,7 +95,7 @@ public class TriggersPlugin extends Plugin {
         } catch (RuntimeException error) {
             Log.w(TAG, "could not start the foreground service", error);
         }
-        getActivity().runOnUiThread(() -> getBridge().getWebView().setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false));
+        getActivity().runOnUiThread(() -> KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true));
         notifyListeners("event", new JSObject(), true);
     }
 

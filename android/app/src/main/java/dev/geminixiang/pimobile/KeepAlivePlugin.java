@@ -39,14 +39,16 @@ public class KeepAlivePlugin extends Plugin {
     /**
      * The WebView's JavaScript runs in Chromium's renderer process, not in the app process the foreground service
      * protects. By default Chromium waives the renderer's importance when the WebView is not visible, so in the
-     * background Android caches and freezes it and the agent loop stops even though the app process lives on.
+     * background Android caches and freezes it and the agent loop stops even though the app process lives on. And
+     * Chromium itself freezes a page hidden for a minute; PiWebView keeps it visible to Chromium while the agent works.
      */
     private void setRendererImportant(boolean important) {
-        getActivity().runOnUiThread(() -> {
-            WebView webView = getBridge().getWebView();
-            if (important) webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
-            else webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
-        });
+        getActivity().runOnUiThread(() -> keepWebViewRunning(getBridge().getWebView(), important));
+    }
+
+    static void keepWebViewRunning(WebView webView, boolean on) {
+        webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, !on);
+        PiWebView.keepRunning(webView, on);
     }
 
     @PluginMethod
