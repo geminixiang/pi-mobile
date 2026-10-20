@@ -29,11 +29,14 @@ const REPEAT_DELAY_MS = 350;
 const REPEAT_SLOWEST_MS = 180;
 const REPEAT_FASTEST_MS = 60;
 /** Where the arc stops: this far from the screen's right edge, and at most straight up from the pivot. */
-const EDGE = 36;
+const EDGE = 24;
+/** The pivot, relative to the screen's right edge and the finger: far enough out that the cells are a thumb wide. */
+const PIVOT_X = 80;
+const PIVOT_Y = 60;
 /** The detents sit this many steps above the finger, so the newest one clears the editor line the track grows from. */
 const OFFSET = 0.35;
 /** Half the width of the dial's track. */
-const TRACK = 24;
+const TRACK = 30;
 
 interface DialState {
 	/** The pivot: the thumb's base, off the right edge. */
@@ -128,8 +131,8 @@ export function ScrollTab({
 		haptic("press");
 		// The pivot sits right of the finger and a little below, off screen, where the thumb's base is; the arc rises
 		// toward the upper right and stays on screen.
-		const px = window.innerWidth + 40;
-		const py = y + 70;
+		const px = window.innerWidth + PIVOT_X;
+		const py = y + PIVOT_Y;
 		const radius = Math.hypot(x - px, y - py);
 		const start = angleOf(x, y, px, py);
 		const edge = (window.innerWidth - EDGE - px) / radius;
