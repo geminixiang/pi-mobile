@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.AlarmClock;
-import android.provider.CalendarContract;
 import android.util.Base64;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSArray;
@@ -66,22 +65,6 @@ public class AppsPlugin extends Plugin {
             .putExtra(AlarmClock.EXTRA_SKIP_UI, true);
         String label = call.getString("label");
         if (label != null) intent.putExtra(AlarmClock.EXTRA_MESSAGE, label);
-        launch(call, intent);
-    }
-
-    @PluginMethod
-    public void insertEvent(PluginCall call) {
-        Intent intent = new Intent(Intent.ACTION_INSERT)
-            .setData(CalendarContract.Events.CONTENT_URI)
-            .putExtra(CalendarContract.Events.TITLE, call.getString("title", ""))
-            .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, call.getLong("begin", 0L))
-            .putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, Boolean.TRUE.equals(call.getBoolean("allDay", false)));
-        Long end = call.getLong("end");
-        if (end != null) intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, end);
-        String location = call.getString("location");
-        if (location != null) intent.putExtra(CalendarContract.Events.EVENT_LOCATION, location);
-        String description = call.getString("description");
-        if (description != null) intent.putExtra(CalendarContract.Events.DESCRIPTION, description);
         launch(call, intent);
     }
 

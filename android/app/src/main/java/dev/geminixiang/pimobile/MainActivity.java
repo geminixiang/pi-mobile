@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VoicePlugin.class);
         registerPlugin(SystemPlugin.class);
         registerPlugin(AppsPlugin.class);
+        registerPlugin(CalendarPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

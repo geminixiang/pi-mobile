@@ -292,7 +292,7 @@ export function App() {
 					key={String(controller.id)}
 					controller={controller}
 					prefs={prefs}
-					capabilities={{ github: Boolean(settings.githubToken), sandbox: runtime.hasSandbox }}
+					capabilities={{ sandbox: runtime.hasSandbox }}
 					initialDraft={pendingDraft}
 					focusKey={focusKey}
 					onView={setView}

@@ -10,7 +10,6 @@ import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 
 export interface Capabilities {
-	github: boolean;
 	sandbox: boolean;
 }
 
@@ -29,11 +28,13 @@ interface Suggestion {
 
 function suggestions(capabilities: Capabilities): Suggestion[] {
 	return [
-		...(capabilities.sandbox ? [{ title: "跑一段程式", prompt: "在 sandbox 用 Python 算出 1 到 100 的質數" }] : []),
-		...(capabilities.github ? [{ title: "看看 GitHub", prompt: "我最近在 GitHub 上動過哪些 repo？" }] : []),
-		{ title: "看一張圖", prompt: "幫我看看這張圖裡有什麼", image: true },
-		{ title: "問這支手機", prompt: "這支手機現在幾點、在哪個時區？" },
-	].slice(0, 4);
+		{ title: "帶我去喝咖啡", prompt: "找一間大稻埕附近評價好的咖啡廳，開地圖帶我走過去" },
+		{ title: "煮麵計時", prompt: "我要煮義大利麵，查一下一般要煮幾分鐘，然後幫我設計時器" },
+		{ title: "排進行事曆", prompt: "下週六早上十點去爬象山，幫我加到行事曆，備註提醒我帶水" },
+		...(capabilities.sandbox
+			? [{ title: "畫一張圖表", prompt: "在 sandbox 用 Python 畫一張台灣六都人口的長條圖給我看" }]
+			: [{ title: "看一張圖", prompt: "幫我看看這張圖裡有什麼", image: true }]),
+	];
 }
 
 /** Whether the agent is working in this view. */

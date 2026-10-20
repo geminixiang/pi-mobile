@@ -1,14 +1,15 @@
 // Tools that hand work to other apps on the phone through Android intents. Most open a prefilled screen and the user
-// finishes there (save the event, press send, pick a share target), so they need no approval of their own.
+// finishes there (press send, pick a share target), so they need no approval of their own. Calendar events are the
+// exception: they are written to a calendar the agent names, after the user approves the account and the details.
 import { App } from "@capacitor/app";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { requestConfirmation } from "../confirm.ts";
 
 interface AppsPlugin {
 	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
 	setTimer(options: { seconds: number; label?: string }): Promise<void>;
-	insertEvent(options: { title: string; begin: number; end?: number; allDay: boolean; location?: string; description?: string }): Promise<void>;
 	composeEmail(options: { to: string[]; subject?: string; body: string }): Promise<void>;
 	composeSms(options: { to: string; body: string }): Promise<void>;
 	open(options: { uri: string }): Promise<void>;
@@ -16,6 +17,29 @@ interface AppsPlugin {
 }
 
 const Apps = registerPlugin<AppsPlugin>("Apps");
+
+interface PhoneCalendar {
+	id: number;
+	name: string;
+	account: string;
+	accountType: string;
+	primary: boolean;
+}
+
+interface CalendarPlugin {
+	listCalendars(): Promise<{ calendars: PhoneCalendar[] }>;
+	insertEvent(options: {
+		calendarId: number;
+		title: string;
+		begin: number;
+		end: number;
+		allDay: boolean;
+		location?: string;
+		description?: string;
+	}): Promise<{ id: number }>;
+}
+
+const Calendar = registerPlugin<CalendarPlugin>("Calendar");
 
 /** Android blocks activity starts from the background; fail clearly instead of silently doing nothing. */
 async function launch(action: () => Promise<void>): Promise<void> {
@@ -29,14 +53,53 @@ const text = (value: string) => ({ output: [{ type: "text" as const, text: value
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
-/** Local wall-clock time "YYYY-MM-DDTHH:MM" (or a date for all-day) to epoch milliseconds. */
-function localTime(value: string, field: string): number {
+/** Local wall-clock time "YYYY-MM-DDTHH:MM" (or a date) to its parts. */
+function parseLocal(value: string, field: string): { y: number; mo: number; d: number; h: number; mi: number; hasTime: boolean } {
 	const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/.exec(value.trim());
 	if (!match) throw new Error(`${field} must be local time as YYYY-MM-DDTHH:MM (or YYYY-MM-DD), got ${JSON.stringify(value)}`);
-	const [, y, mo, d, h = "0", mi = "0"] = match;
-	const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
-	if (Number.isNaN(date.getTime())) throw new Error(`${field} is not a real date: ${value}`);
-	return date.getTime();
+	const [, y, mo, d, h, mi] = match;
+	return { y: Number(y), mo: Number(mo), d: Number(d), h: Number(h ?? 0), mi: Number(mi ?? 0), hasTime: h !== undefined };
+}
+
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+/** Event times for the calendar provider: local instants, or UTC midnights for all-day events (end exclusive). */
+function eventTimes(start: string, end: string | undefined, allDay: boolean): { begin: number; end: number } {
+	const from = parseLocal(start, "start");
+	const to = end ? parseLocal(end, "end") : undefined;
+	if (allDay) {
+		const begin = Date.UTC(from.y, from.mo - 1, from.d);
+		const last = to ? Date.UTC(to.y, to.mo - 1, to.d) : begin;
+		if (last < begin) throw new Error("end is before start");
+		return { begin, end: last + DAY };
+	}
+	if (!from.hasTime) throw new Error("start needs a time (YYYY-MM-DDTHH:MM) unless all_day is true");
+	const begin = new Date(from.y, from.mo - 1, from.d, from.h, from.mi).getTime();
+	const finish = to ? new Date(to.y, to.mo - 1, to.d, to.h, to.mi).getTime() : begin + HOUR;
+	if (Number.isNaN(begin) || Number.isNaN(finish)) throw new Error("not a real date");
+	if (finish < begin) throw new Error("end is before start");
+	return { begin, end: finish };
+}
+
+function describeTimes(times: { begin: number; end: number }, allDay: boolean): string {
+	const date = (ms: number, timeZone?: string) =>
+		new Date(ms).toLocaleDateString("zh-TW", { timeZone, month: "numeric", day: "numeric", weekday: "short" });
+	const time = (ms: number) => new Date(ms).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+	if (allDay) {
+		const first = date(times.begin, "UTC");
+		const last = date(times.end - DAY, "UTC");
+		return first === last ? `${first} 整天` : `${first} – ${last} 整天`;
+	}
+	const sameDay = new Date(times.begin).toDateString() === new Date(times.end).toDateString();
+	return sameDay
+		? `${date(times.begin)} ${time(times.begin)}–${time(times.end)}`
+		: `${date(times.begin)} ${time(times.begin)} – ${date(times.end)} ${time(times.end)}`;
+}
+
+/** How the account reads in the approval: an email for Google, otherwise the provider's own name. */
+function accountLabel(calendar: PhoneCalendar): string {
+	return calendar.accountType === "com.google" ? calendar.account : `${calendar.account}（${calendar.accountType}）`;
 }
 
 const setAlarm = defineTool({
@@ -72,26 +135,52 @@ const setTimer = defineTool({
 	},
 });
 
+const listCalendars = defineTool({
+	name: "list_calendars",
+	description:
+		"List the calendars on this phone that events can be added to, with the account each belongs to (often both a work and a personal Google account). Call before add_calendar_event.",
+	parameters: Type.Object({}),
+	execute: async () => {
+		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+		const { calendars } = await Calendar.listCalendars();
+		if (calendars.length === 0) return text("No writable calendars on this phone.");
+		return text(JSON.stringify(calendars.map(({ id, name, account, accountType, primary }) => ({ id, name, account, accountType, primary })), null, 2));
+	},
+});
+
 const addEvent = defineTool({
 	name: "add_calendar_event",
 	description:
-		"Open the phone's calendar app on a new event with these fields filled in. The user reviews it and taps Save; nothing is created until then.",
+		"Add an event to one calendar from list_calendars. The user approves the account, calendar and details first; nothing is written if they decline.",
 	parameters: Type.Object({
+		calendar_id: Type.Integer({ description: "id from list_calendars" }),
 		title: Type.String(),
 		start: Type.String({ description: "Local time YYYY-MM-DDTHH:MM, or YYYY-MM-DD with all_day" }),
-		end: Type.Optional(Type.String({ description: "Local time YYYY-MM-DDTHH:MM; default one hour after start" })),
+		end: Type.Optional(Type.String({ description: "Local time YYYY-MM-DDTHH:MM (or the last day, with all_day); default one hour after start" })),
 		all_day: Type.Optional(Type.Boolean()),
 		location: Type.Optional(Type.String()),
 		notes: Type.Optional(Type.String()),
 	}),
 	execute: async (args) => {
-		const begin = localTime(args.start, "start");
-		const end = args.end ? localTime(args.end, "end") : undefined;
-		if (end !== undefined && end < begin) throw new Error("end is before start");
-		await launch(() =>
-			Apps.insertEvent({ title: args.title, begin, end, allDay: args.all_day ?? false, location: args.location, description: args.notes }),
-		);
-		return text("Opened the calendar with the event filled in. It is created only when the user taps Save.");
+		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+		const allDay = args.all_day ?? false;
+		const times = eventTimes(args.start, args.end, allDay);
+		const calendar = (await Calendar.listCalendars()).calendars.find((candidate) => candidate.id === args.calendar_id);
+		if (!calendar) throw new Error(`no writable calendar with id ${args.calendar_id}; call list_calendars`);
+		const approved = await requestConfirmation({
+			title: `加到 ${accountLabel(calendar)} 的「${calendar.name}」行事曆`,
+			detail: [args.title, describeTimes(times, allDay), args.location, args.notes].filter(Boolean).join("\n"),
+		});
+		if (!approved) throw new Error("The user declined adding this event.");
+		const { id } = await Calendar.insertEvent({
+			calendarId: calendar.id,
+			title: args.title,
+			...times,
+			allDay,
+			location: args.location,
+			description: args.notes,
+		});
+		return text(`Added event ${id} to "${calendar.name}" (${calendar.account}): ${describeTimes(times, allDay)}.`);
 	},
 });
 
@@ -205,12 +294,13 @@ const share = defineTool({
 
 export const AppsExtension = defineExtension({
 	name: "phone_apps",
-	tools: [setAlarm, setTimer, addEvent, composeEmail, composeSms, openMaps, openLink, share],
+	tools: [setAlarm, setTimer, listCalendars, addEvent, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
 		section("phone_apps", () =>
 			[
 				"You can hand things to other apps on this phone: alarms and timers, calendar events, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
-				"Except alarms and timers, these open a prefilled screen; the user finishes there. Say what they need to tap, and never claim an event was saved or a message was sent.",
+				"Drafts, maps, links and sharing open a prefilled screen; the user finishes there. Say what they need to tap, and never claim a message was sent.",
+				"Calendar: call list_calendars first. Phones often mix work and personal accounts, and an event in the wrong one is embarrassing. If the writable calendars span more than one account and the user has not said which, ask them, naming the accounts; do not guess from the event's content. Use the account they chose earlier in this conversation without asking again.",
 			].join("\n"),
 		),
 	],

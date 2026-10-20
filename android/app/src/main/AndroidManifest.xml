@@ -65,6 +65,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Normal permission: lets the alarm and timer tools set them without opening the clock app. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- The calendar tools: list calendars with their accounts, and add an event to the one the user picked. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <!-- Package visibility (API 30+): lets SpeechRecognizer find the system recognition service. -->
     <queries>
