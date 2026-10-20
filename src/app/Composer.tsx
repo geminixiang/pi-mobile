@@ -1,7 +1,7 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { useEffect, useRef, useState } from "react";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { CloseIcon, ImageIcon, MicIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { ArrowDownIcon, CloseIcon, ImageIcon, MicIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { useDictation } from "./voice.ts";
 
 const MAX_IMAGE_EDGE = 1600;
@@ -37,6 +37,8 @@ export function Composer({
 	onStop,
 	onWithdraw,
 	onNotice,
+	scrollHint,
+	onScrollToBottom,
 }: {
 	busy: boolean;
 	draft: string;
@@ -50,6 +52,9 @@ export function Composer({
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
 	onNotice: (message: string) => void;
+	/** Shown on the composer's top line when the transcript is scrolled up: "latest", or "new" once more arrived. */
+	scrollHint?: "latest" | "new";
+	onScrollToBottom?: () => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>(initialImages ?? []);
 	const fileInput = useRef<HTMLInputElement>(null);
@@ -99,6 +104,19 @@ export function Composer({
 				</ul>
 			) : null}
 			<div className="input">
+				{scrollHint ? (
+					// A tab on the editor's line, as pi writes "↓ N more" into it; filled so it reads as a button.
+					<button
+						type="button"
+						key={scrollHint}
+						className={`scroll-hint${scrollHint === "new" ? " new" : ""}`}
+						onClick={onScrollToBottom}
+						aria-label="捲到最新"
+					>
+						<ArrowDownIcon />
+						{scrollHint === "new" ? "有新內容" : "最新"}
+					</button>
+				) : null}
 				{images.length > 0 ? (
 					<div className="pending-images">
 						{images.map((image, index) => (

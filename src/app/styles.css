@@ -319,11 +319,22 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .working { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-.to-bottom {
-	position: absolute; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 84px); z-index: 3;
-	display: grid; place-items: center; width: 40px; height: 40px;
-	background: var(--panel); border: 1px solid var(--line-strong); color: var(--text);
-	animation: fade-in 160ms ease;
+/* "Scroll to the newest": a tab sitting on the composer's top line, in the line's color. */
+.input { position: relative; }
+.scroll-hint {
+	position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); z-index: 3;
+	display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px;
+	background: var(--editor-border); color: var(--bg); font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em;
+	white-space: nowrap; animation: fade-in 160ms ease;
+}
+/* A target larger than the tab, for the thumb. */
+.scroll-hint::before { content: ""; position: absolute; inset: -12px -18px; }
+.scroll-hint:active { filter: brightness(1.15); }
+.scroll-hint.new { animation: fade-in 160ms ease, hint-pulse 1.6s ease-out 2; }
+@keyframes hint-pulse {
+	0% { box-shadow: 0 0 0 0 var(--editor-border); }
+	70% { box-shadow: 0 0 0 10px transparent; }
+	100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 /* ---------- Empty state ---------- */

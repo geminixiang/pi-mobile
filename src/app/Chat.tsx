@@ -4,7 +4,7 @@ import type { BusyMode, ConversationController, ConversationId, SubmissionId } f
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
-import { ArrowIcon, BranchIcon, ChevronDownIcon, CopyIcon } from "./icons.tsx";
+import { ArrowIcon, BranchIcon, CopyIcon } from "./icons.tsx";
 import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
@@ -140,6 +140,13 @@ export function Chat({
 	const lastEntry = entries.at(-1);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
 	const emptyAnswer = !busy && lastEntry !== undefined && isEmptyAnswer(lastEntry);
+	// What scrolling away left below: the transcript's size then, to tell when more arrived since.
+	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
+	const sizeWhenLeft = useRef(contentSize);
+	useEffect(() => {
+		if (atBottom) sizeWhenLeft.current = contentSize;
+	}, [atBottom, contentSize]);
+	const scrollHint = atBottom ? undefined : contentSize > sizeWhenLeft.current ? "new" : "latest";
 	const scrollToBottom = () => {
 		stickToBottom.current = true;
 		scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -254,12 +261,9 @@ export function Chat({
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
 				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}
 			</div>
-			{!atBottom ? (
-				<button type="button" className="to-bottom" onClick={scrollToBottom} aria-label="捲到最新">
-					<ChevronDownIcon />
-				</button>
-			) : null}
 			<Composer
+				scrollHint={scrollHint}
+				onScrollToBottom={scrollToBottom}
 				busy={busy}
 				draft={draft}
 				onDraftChange={setDraft}

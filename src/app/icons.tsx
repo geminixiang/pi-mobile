@@ -77,6 +77,11 @@ export const MemoryIcon = ({ size = 20 }: { size?: number }) => (
 		<path d="M9 10h6M9 14h6M9 18h4" />
 	</Icon>
 );
+export const ArrowDownIcon = ({ size = 13 }: { size?: number }) => (
+	<Icon size={size} width={2.4}>
+		<path d="M12 5v14M6 13l6 6 6-6" />
+	</Icon>
+);
 export const CloseIcon = ({ size = 18 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
