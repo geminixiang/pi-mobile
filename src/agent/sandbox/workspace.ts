@@ -1,10 +1,11 @@
-// Read-only view of a conversation's sandbox for the app: browse /workspace, read files, and inspect git
+// Read-only view of a conversation's sandbox for the app: browse its folder, read files, and inspect git
 // repositories (changes against HEAD and recent commits). Everything runs through the same pi-env connection the
 // agent's tools use.
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ExecutionEnv, FileInfo } from "@earendil-works/pi-durable/env";
 
 const context = BACKGROUND_CONTEXT;
+/** The conversation's folder in a container sandbox. */
 export const WORKSPACE = "/workspace";
 /** Larger files are cut; the viewer says so. */
 const MAX_TEXT_BYTES = 512 * 1024;
@@ -67,9 +68,12 @@ function looksBinary(bytes: Uint8Array): boolean {
 
 export class Workspace {
 	readonly #env: ExecutionEnv;
+	/** The conversation's folder: /workspace in a container, a folder in the user's home on a trusted machine. */
+	readonly root: string;
 
-	constructor(env: ExecutionEnv) {
+	constructor(env: ExecutionEnv, root: string) {
 		this.#env = env;
+		this.root = root;
 	}
 
 	async list(path: string): Promise<FileEntry[]> {
@@ -93,18 +97,22 @@ export class Workspace {
 			return { kind: "image", url: URL.createObjectURL(new Blob([bytes.value as Uint8Array<ArrayBuffer>], { type })), size };
 		}
 		// Read only the head of large files: the viewer is for looking, not for loading whole logs.
-		const head = await this.#exec(`head -c ${MAX_TEXT_BYTES} -- ${quote(path)} | base64 -w0`);
+		// `base64 | tr` rather than GNU's `base64 -w0`: a trusted machine may be a Mac.
+		const head = await this.#exec(`head -c ${MAX_TEXT_BYTES} -- ${quote(path)} | base64 | tr -d '\\n'`);
 		const bytes = Uint8Array.from(atob(head.stdout.trim()), (char) => char.charCodeAt(0));
 		if (looksBinary(bytes)) return { kind: "binary", size };
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > MAX_TEXT_BYTES, size };
 	}
 
-	/** Git work trees under /workspace, up to three levels deep. */
+	/** Git work trees under the root, up to three levels deep. */
 	async repos(): Promise<string[]> {
 		const found = await this.#exec(
-			`find ${WORKSPACE} -maxdepth 4 -name .git -not -path '*/node_modules/*' -prune -printf '%h\\n' 2>/dev/null | sort`,
+			`find ${quote(this.root)} -maxdepth 4 -name .git -not -path '*/node_modules/*' -prune -print 2>/dev/null | sort`,
 		);
-		return found.stdout.split("\n").filter(Boolean);
+		return found.stdout
+			.split("\n")
+			.filter(Boolean)
+			.map((path) => path.replace(/\/\.git$/, ""));
 	}
 
 	async status(repo: string): Promise<RepoStatus> {
@@ -173,7 +181,7 @@ export class Workspace {
 		const result = await this.#env.exec(
 			command,
 			{
-				cwd: WORKSPACE,
+				cwd: this.root,
 				timeout: 30_000,
 				onOutput: (text, _context, info) => {
 					if (info.stream === "stderr") stderr += text;

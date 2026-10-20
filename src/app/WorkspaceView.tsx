@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { type Change, type FileEntry, type RepoStatus, WORKSPACE, type Workspace } from "../agent/sandbox/workspace.ts";
+import type { Change, FileEntry, RepoStatus, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { BackIcon, ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
+import { resolvePath } from "./openFile.ts";
 import { Layer } from "./Sheet.tsx";
 
 export type WorkspaceTab = "files" | "git";
@@ -42,11 +43,11 @@ function BackStep({ onBack }: { onBack: () => void }) {
 	return null;
 }
 
-/** Directory levels from /workspace down to the folder holding `file`. */
-function levelsTo(file: string | undefined): string[] {
-	const levels = [WORKSPACE];
-	if (!file?.startsWith(`${WORKSPACE}/`)) return levels;
-	const parts = file.slice(WORKSPACE.length + 1).split("/").slice(0, -1);
+/** Directory levels from the workspace root down to the folder holding `file`. */
+function levelsTo(root: string, file: string | undefined): string[] {
+	const levels = [root];
+	if (!file?.startsWith(`${root}/`)) return levels;
+	const parts = file.slice(root.length + 1).split("/").slice(0, -1);
 	for (const part of parts) levels.push(`${levels.at(-1)}/${part}`);
 	return levels;
 }
@@ -62,10 +63,10 @@ function FileBrowser({
 	onOpen: (path: string) => void;
 	reloadKey: number;
 }) {
-	const [stack, setStack] = useState<string[]>(() => levelsTo(start));
+	const [stack, setStack] = useState<string[]>(() => levelsTo(workspace.root, start));
 	const [entries, setEntries] = useState<FileEntry[]>();
 	const [error, setError] = useState("");
-	const path = stack.at(-1) ?? WORKSPACE;
+	const path = stack.at(-1) ?? workspace.root;
 
 	useEffect(() => {
 		let live = true;
@@ -89,7 +90,7 @@ function FileBrowser({
 			<nav className="crumbs" aria-label="路徑">
 				{crumbs.map((name, index) => {
 					const target = `/${crumbs.slice(0, index + 1).join("/")}`;
-					const reachable = target.length >= WORKSPACE.length;
+					const reachable = target.length >= workspace.root.length;
 					return (
 						<span key={target}>
 							<span className="crumb-sep">/</span>
@@ -141,8 +142,8 @@ function statusTone(change: Change): string {
 	return "modified";
 }
 
-function repoName(path: string): string {
-	return path === WORKSPACE ? "workspace" : path.slice(WORKSPACE.length + 1);
+function repoName(root: string, path: string): string {
+	return path === root ? (root.split("/").at(-1) ?? root) : path.slice(root.length + 1);
 }
 
 function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDiff: (target: DiffTarget) => void; reloadKey: number }) {
@@ -166,13 +167,13 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 
 	if (error) return <div className="ws-pane"><div className="banner error">{error}</div></div>;
 	if (!repos) return <div className="ws-pane"><div className="ws-loading">讀取中</div></div>;
-	if (repos.length === 0) return <div className="ws-pane"><div className="ws-empty">/workspace 裡沒有 git repo</div></div>;
+	if (repos.length === 0) return <div className="ws-pane"><div className="ws-empty">{workspace.root} 裡沒有 git repo</div></div>;
 	return (
 		<div className="ws-pane">
 			{repos.map((repo) => (
 				<section className="repo" key={repo.path}>
 					<header className="strip">
-						<span className="strip-title">{repoName(repo.path)}</span>
+						<span className="strip-title">{repoName(workspace.root, repo.path)}</span>
 						<span className="repo-branch">
 							{repo.branch}
 							{repo.ahead ? ` ↑${repo.ahead}` : ""}
@@ -249,12 +250,16 @@ export function WorkspaceView({
 	useEffect(() => {
 		if (!open) return;
 		setTab(initial.tab);
-		setFile(initial.file);
+		setFile(undefined);
 		setDiff(undefined);
 		setError("");
 		setWorkspace(undefined);
 		load().then(
-			(value) => setWorkspace(value ?? null),
+			(value) => {
+				setWorkspace(value ?? null);
+				// Tool paths are relative to the workspace root unless absolute.
+				if (value && initial.file) setFile(resolvePath(value.root, initial.file));
+			},
 			(failure: unknown) => setError(errorText(failure)),
 		);
 	}, [open, initial, load]);
@@ -292,7 +297,9 @@ export function WorkspaceView({
 						<div className="ws-empty">這個對話還沒用過 sandbox。請 agent 在 sandbox 裡做點事，檔案就會出現在這裡。</div>
 					</div>
 				) : null}
-				{workspace && tab === "files" ? <FileBrowser workspace={workspace} start={initial.file} onOpen={setFile} reloadKey={reloadKey} /> : null}
+				{workspace && tab === "files" ? (
+					<FileBrowser workspace={workspace} start={initial.file && resolvePath(workspace.root, initial.file)} onOpen={setFile} reloadKey={reloadKey} />
+				) : null}
 				{workspace && tab === "git" ? <GitPanel workspace={workspace} onDiff={setDiff} reloadKey={reloadKey} /> : null}
 			</div>
 			{workspace ? <FileViewer workspace={workspace} path={file} onClose={() => setFile(undefined)} /> : null}

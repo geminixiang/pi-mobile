@@ -7,7 +7,7 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { ChevronIcon, FileIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
-import { OpenFileContext, resolvePath } from "./openFile.ts";
+import { OpenFileContext } from "./openFile.ts";
 import type { Static } from "typebox";
 import { Value } from "typebox/value";
 import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
@@ -221,7 +221,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	return (
 		<div className={`step ${status}${open ? " open" : ""}`} data-tool={call.name}>
 			{openFile && filePath && status !== "running" ? (
-				<button type="button" className="step-open" onClick={() => openFile(resolvePath(filePath))} aria-label="開啟檔案">
+				<button type="button" className="step-open" onClick={() => openFile(filePath)} aria-label="開啟檔案">
 					<FileIcon size={14} />
 				</button>
 			) : null}
@@ -245,7 +245,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 				) : null}
 			</button>
 			{images.map((image, index) => (
-				<button type="button" className="step-image" key={index} onClick={() => filePath && openFile?.(resolvePath(filePath))}>
+				<button type="button" className="step-image" key={index} onClick={() => filePath && openFile?.(filePath)}>
 					<img src={`data:${image.mimeType};base64,${image.data}`} alt={filePath ?? ""} />
 				</button>
 			))}
