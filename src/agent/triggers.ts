@@ -191,7 +191,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				title: `新增排程「${args.name}」：${describeWhen(when)}`,
 				detail: `到時候 pi 會自動執行：\n${args.prompt}`,
 			});
-			if (!approved) return { output: [{ type: "text", text: "The user declined; nothing was scheduled." }], isError: true };
+			if (!approved) return { output: [{ type: "text", text: "The user declined; nothing was scheduled. Reply with one short sentence that nothing was done, such as 「好，沒有加。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
 			const trigger: Trigger = {
 				id: crypto.randomUUID().slice(0, 8),
 				name: args.name,
@@ -261,7 +261,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			if (!trigger) throw new Error(`no schedule ${args.id}; list_schedules shows them`);
 			if (trigger.target !== "origin") {
 				const approved = await requestConfirmation({ title: `刪除排程「${trigger.name}」`, detail: `${describeWhen(trigger.when)}\n${trigger.prompt}` });
-				if (!approved) return { output: [{ type: "text", text: "The user declined; the schedule stays." }], isError: true };
+				if (!approved) return { output: [{ type: "text", text: "The user declined; the schedule stays. Reply with one short sentence that nothing was done, such as 「好，不刪。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
 			}
 			await api.commit(async (tx) => {
 				const doc = await tx.doc(TriggerDoc);

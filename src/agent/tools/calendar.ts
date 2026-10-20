@@ -246,7 +246,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 				title: `加到 ${accountLabel(calendar)} 的「${calendar.name}」行事曆`,
 				detail: [args.title, describeTimes(times, allDay), args.location, args.notes].filter(Boolean).join("\n"),
 			});
-			if (!approved) throw new Error("The user declined adding this event.");
+			if (!approved) throw new Error("The user declined adding this event. Reply with one short sentence that nothing was done, such as 「好，沒有加。」; do not list what it would have been, offer alternatives, or ask why.");
 			const created = await Calendar.insertEvent({
 				calendarId: calendar.id,
 				title: args.title,

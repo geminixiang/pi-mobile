@@ -114,13 +114,17 @@ public class PhonePlugin extends Plugin {
         };
         main.postDelayed(timeout, FIX_TIMEOUT_MS);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            manager.getCurrentLocation(provider, cancel, getContext().getMainExecutor(), (location) -> {
-                if (!done.compareAndSet(false, true)) return;
-                main.removeCallbacks(timeout);
-                Location fix = location != null ? location : lastKnown(manager);
-                if (fix != null) resolve(call, fix, location == null);
-                else call.reject("no location fix", "unavailable");
-            });
+            // The fused provider sometimes answers null at once (no recent fix); then ask the network and GPS
+            // providers in turn before falling back to the last known location, all within the timeout.
+            java.util.List<String> order = new java.util.ArrayList<>();
+            order.add(provider);
+            for (String other : new String[] { LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER }) {
+                if (!order.contains(other) && manager.isProviderEnabled(other)
+                    && (!other.equals(LocationManager.GPS_PROVIDER) || granted(Manifest.permission.ACCESS_FINE_LOCATION))) {
+                    order.add(other);
+                }
+            }
+            currentFrom(manager, order, 0, cancel, done, timeout, call);
         } else {
             legacy[0] = new LocationListener() {
                 @Override
@@ -141,6 +145,23 @@ public class PhonePlugin extends Plugin {
             };
             manager.requestSingleUpdate(provider, legacy[0], Looper.getMainLooper());
         }
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void currentFrom(LocationManager manager, java.util.List<String> order, int index, CancellationSignal cancel,
+        AtomicBoolean done, Runnable timeout, PluginCall call) {
+        manager.getCurrentLocation(order.get(index), cancel, getContext().getMainExecutor(), (location) -> {
+            if (done.get()) return;
+            if (location == null && index + 1 < order.size()) {
+                currentFrom(manager, order, index + 1, cancel, done, timeout, call);
+                return;
+            }
+            if (!done.compareAndSet(false, true)) return;
+            main.removeCallbacks(timeout);
+            Location fix = location != null ? location : lastKnown(manager);
+            if (fix != null) resolve(call, fix, location == null);
+            else call.reject("no location fix: GPS and network location gave none. Ask the user where they are.", "unavailable");
+        });
     }
 
     private String pickProvider(LocationManager manager) {

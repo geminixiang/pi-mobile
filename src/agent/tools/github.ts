@@ -95,7 +95,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 						.filter(Boolean)
 						.join("\n\n"),
 				});
-				if (!approved) throw new Error("The user declined this GitHub write.");
+				if (!approved) throw new Error("The user declined this GitHub write. Reply with one short sentence that nothing was done, such as 「好，不做。」; do not list what it would have been, offer alternatives, or ask why.");
 			}
 			const result = await github(token, args.method, args.path, args.body, context.abortSignal);
 			const header = `HTTP ${result.status}${result.link ? `\nLink: ${result.link}` : ""}`;

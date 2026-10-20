@@ -5,7 +5,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import { ArrowIcon, BranchIcon, ChevronDownIcon, CopyIcon } from "./icons.tsx";
-import { type Block, type CallState, EntryView, entryText, finishedCalls, StreamingAnswer } from "./Message.tsx";
+import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import type { Prefs } from "./prefs.ts";
@@ -138,7 +138,8 @@ export function Chat({
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	// The run's final answer: the last entry when it is an assistant message with text.
 	const lastEntry = entries.at(-1);
-	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() ? lastEntry : undefined;
+	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
+	const emptyAnswer = !busy && lastEntry !== undefined && isEmptyAnswer(lastEntry);
 	const scrollToBottom = () => {
 		stickToBottom.current = true;
 		scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -228,6 +229,23 @@ export function Chat({
 							onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => onNotice("已複製回答"), fail)}
 						>
 							複製回答
+						</button>
+					</div>
+				) : null}
+				{emptyAnswer ? (
+					<div className="answer-actions">
+						<span className="note">這次沒有產生回答，模型服務偶爾會這樣。</span>
+						<button
+							type="button"
+							className="btn"
+							onClick={() => {
+								stickToBottom.current = true;
+								controller
+									.send([{ type: "text", text: "（上一則沒有產生回答，請重新處理我上一個要求）" }])
+									.catch(fail);
+							}}
+						>
+							再試一次
 						</button>
 					</div>
 				) : null}

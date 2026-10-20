@@ -183,8 +183,10 @@ function useElapsed(running: boolean): number {
 
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
-	const status = tone(state);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
+	// The user said no in an approval: their decision, not a failure.
+	const declined = state?.status === "done" && state.isError && /\b(user|The user) declined\b/.test(output ?? "");
+	const status = declined ? "declined" : tone(state);
 	const images = state?.status === "done" ? state.images : [];
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
@@ -202,6 +204,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 				{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
 				{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
 				{status === "error" ? <span className="step-status">失敗</span> : null}
+				{status === "declined" ? <span className="step-status">已拒絕</span> : null}
 				{output && status !== "running" ? <ChevronIcon open={open} size={12} /> : null}
 			</button>
 			{open && call.name === "codemode" && typeof call.arguments.code === "string" ? (
@@ -289,6 +292,26 @@ export const markdownComponents = { pre: CodeBlock };
 // CJK-friendly emphasis: CommonMark misses **粗體**是 when the closing ** follows CJK punctuation.
 export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 
+/**
+ * Text a model sometimes emits instead of an answer: a stray mode tag, or a tool call written out as text (which runs
+ * nothing). Not shown; the chat offers a retry when that is all an answer has.
+ */
+const BROKEN_TEXT = /^\s*(<thinking_mode>[^<]*<\/thinking_mode>\s*|<invoke name=[\s\S]*|<function_calls>[\s\S]*)$/;
+
+export function isBrokenText(text: string): boolean {
+	return BROKEN_TEXT.test(text);
+}
+
+/** A finished answer with nothing to show: no tool call and no text beyond what isBrokenText hides. */
+export function isEmptyAnswer(entry: EntryRecord): boolean {
+	const model = message(entry);
+	if (entry.kind !== "pi.assistant" || model?.role !== "assistant") return false;
+	if (model.stopReason === "error" || model.stopReason === "aborted") return false;
+	return !blocks(model.content).some(
+		(block) => block.type === "toolCall" || (block.type === "text" && block.text.trim() && !isBrokenText(block.text)),
+	);
+}
+
 function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
 	// Consecutive tool calls form one trace group.
 	const groups: (Block | Call[])[] = [];
@@ -300,6 +323,8 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 		} else groups.push(block);
 	}
 	const lastText = content.findLastIndex((block) => block.type === "text");
+	// Text written before a tool call in the same message narrates the work, not the answer; it is shown quietly.
+	const lastCall = content.findLastIndex((block) => block.type === "toolCall");
 	return (
 		<>
 			{groups.map((group, index) => {
@@ -308,8 +333,12 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 				}
 				switch (group.type) {
 					case "text":
+						if (!streaming && isBrokenText(group.text)) return null;
 						return (
-							<div className={`markdown${streaming && content[lastText] === group ? " caret" : ""}`} key={index}>
+							<div
+								className={`markdown${content.indexOf(group) < lastCall ? " interim" : ""}${streaming && content[lastText] === group ? " caret" : ""}`}
+								key={index}
+							>
 								<Markdown remarkPlugins={remarkPlugins} components={markdownComponents}>
 									{group.text}
 								</Markdown>
