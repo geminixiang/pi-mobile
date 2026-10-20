@@ -68,6 +68,10 @@
     <!-- The calendar tools: list calendars with their accounts, and add an event to the one the user picked. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- get_location reads one fix while the app is in use; there is no background location. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Package visibility (API 30+): lets SpeechRecognizer find the system recognition service. -->
     <queries>

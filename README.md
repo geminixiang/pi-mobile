@@ -49,6 +49,10 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
 
 **工具**
 - `web_search`：用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key。`web_fetch`：從手機抓網頁並轉成文字。
+- **手機的狀態與感測器**：每次只在 agent 呼叫時讀一次，不在背景追蹤。
+  - `device_info`：電量、充電、省電模式、網路（Wi-Fi 或行動網路、VPN）、鈴聲模式、勿擾、連接的耳機、剩餘空間。
+  - `get_location`：位置和地址（Android 內建的地址反查，不需要 API key）。只要「使用 app 時」的定位權限。
+  - `read_sensors`：氣壓和估算海拔、指南針方位、環境光、距離感測。
 - `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
 - **交給手機上的其他 app**：
   - `list_calendars`、`add_calendar_event`：直接寫進指定的行事曆。手機上常同時有公司和個人的帳號，所以有多個帳號時 agent 會先問你要用哪個，寫入前的確認框也會寫明帳號。
@@ -127,7 +131,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 |---|---|
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器、執行狀態（task graph） |
 | `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
-| `src/agent/tools/` | `device_info`、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent） |
+| `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent） |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/parse.ts`、`oauth.ts` | 邊界驗證（typebox schema）與三家雲端共用的 OAuth：原生 HTTP 加逾時、token 回應、device flow 輪詢 |
 | `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
@@ -138,7 +142,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts`、`pairing.ts` 是對應 Android 原生功能的那一層 |
-| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java`、`AppsPlugin.java` | 前景服務與通知、語音辨識、用 Intent 交給其他 app |
+| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java`、`AppsPlugin.java`、`CalendarPlugin.java`、`PhonePlugin.java` | 前景服務與通知、語音辨識、用 Intent 交給其他 app、行事曆、位置與感測器 |
 | `sandbox/` | Sandbox 主機端：image、relay、egress proxy、安裝腳本 |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
 | `test/` | 手機上的 UI 測試（CDP）、sandbox、GitHub 和 gcloud egress 的 Node 端到端測試 |

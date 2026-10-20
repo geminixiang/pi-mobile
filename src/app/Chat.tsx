@@ -28,7 +28,7 @@ interface Suggestion {
 
 function suggestions(capabilities: Capabilities): Suggestion[] {
 	return [
-		{ title: "帶我去喝咖啡", prompt: "找一間大稻埕附近評價好的咖啡廳，開地圖帶我走過去" },
+		{ title: "帶我去喝咖啡", prompt: "找一間我附近評價好的咖啡廳，開地圖帶我走過去" },
 		{ title: "煮麵計時", prompt: "我要煮義大利麵，查一下一般要煮幾分鐘，然後幫我設計時器" },
 		{ title: "排進行事曆", prompt: "下週六早上十點去爬象山，幫我加到行事曆，備註提醒我帶水" },
 		...(capabilities.sandbox
