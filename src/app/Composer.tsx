@@ -1,7 +1,8 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { useEffect, useRef, useState } from "react";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { ArrowDownIcon, CloseIcon, ImageIcon, MicIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { CloseIcon, ImageIcon, MicIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 
 const MAX_IMAGE_EDGE = 1600;
@@ -39,6 +40,8 @@ export function Composer({
 	onNotice,
 	scrollHint,
 	onScrollToBottom,
+	prompts,
+	onJump,
 }: {
 	busy: boolean;
 	draft: string;
@@ -54,7 +57,11 @@ export function Composer({
 	onNotice: (message: string) => void;
 	/** Shown on the composer's top line when the transcript is scrolled up: "latest", or "new" once more arrived. */
 	scrollHint?: "latest" | "new";
-	onScrollToBottom?: () => void;
+	onScrollToBottom: () => void;
+	/** The user's messages, oldest first, for the dial. */
+	prompts: DialPrompt[];
+	/** Scroll to one of them, or to the newest when undefined. */
+	onJump: (id: string | undefined) => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>(initialImages ?? []);
 	const fileInput = useRef<HTMLInputElement>(null);
@@ -104,19 +111,8 @@ export function Composer({
 				</ul>
 			) : null}
 			<div className="input">
-				{scrollHint ? (
-					// A tab on the editor's line, as pi writes "↓ N more" into it; filled so it reads as a button.
-					<button
-						type="button"
-						key={scrollHint}
-						className={`scroll-hint${scrollHint === "new" ? " new" : ""}`}
-						onClick={onScrollToBottom}
-						aria-label="捲到最新"
-					>
-						<ArrowDownIcon />
-						{scrollHint === "new" ? "有新內容" : "最新"}
-					</button>
-				) : null}
+				{/* A tab on the editor's line, as pi writes "↓ N more" into it; a long press opens the prompt dial. */}
+				<ScrollTab hint={scrollHint} prompts={prompts} onScrollToBottom={onScrollToBottom} onJump={onJump} />
 				{images.length > 0 ? (
 					<div className="pending-images">
 						{images.map((image, index) => (

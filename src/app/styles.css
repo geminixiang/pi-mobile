@@ -334,6 +334,35 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .scroll-hint::before { content: ""; position: absolute; inset: -12px -18px; }
 .scroll-hint:active { filter: brightness(1.15); }
 .scroll-hint.new { animation: fade-in 160ms ease, hint-pulse 1.6s ease-out 2; }
+/* The finger owns the tab while it presses: no scrolling, no text selection, no context menu. */
+.scroll-hint { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* At the bottom there is no tab, but the same spot above the line still takes the long press. */
+.scroll-hint.ghost {
+	width: 140px; height: 24px; padding: 0; transform: translate(-50%, -100%);
+	background: none; border: none; backdrop-filter: none; animation: none;
+}
+.scroll-hint.ghost::before { inset: 0; }
+
+/* The prompt dial: a half circle over the composer, turned with the finger. */
+.dial { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: color-mix(in srgb, var(--bg-deep) 55%, transparent); animation: fade-in 120ms ease; }
+.dial-ring { position: fixed; overflow: visible; }
+.dial-arc { fill: color-mix(in srgb, var(--editor-border) 10%, transparent); stroke: var(--editor-border); stroke-width: 1.5; }
+.dial-tick { stroke: var(--muted); stroke-width: 2; stroke-linecap: square; }
+.dial-tick.newest { stroke: var(--faint); stroke-dasharray: 3 3; }
+.dial-tick.selected { stroke: var(--text); stroke-width: 3; }
+.dial-pointer { stroke: var(--editor-border); stroke-width: 2; }
+.dial-preview {
+	position: fixed; transform: translate(-50%, -100%); width: min(320px, calc(100vw - 32px));
+	display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--user-bg); border: 1px solid var(--editor-border);
+}
+.dial-count { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--muted); }
+.dial-text { font-size: 15px; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
+/* The message the dial jumped to. */
+.prompt.flash .bubble, .trigger-entry.flash { animation: entry-flash 1.2s ease-out; }
+@keyframes entry-flash {
+	0%, 30% { box-shadow: inset 0 0 0 2px var(--editor-border); filter: brightness(1.25); }
+	100% { box-shadow: inset 0 0 0 2px transparent; filter: none; }
+}
 @keyframes hint-pulse {
 	0% { box-shadow: 0 0 0 0 var(--editor-border); }
 	70% { box-shadow: 0 0 0 10px transparent; }

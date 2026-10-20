@@ -383,12 +383,12 @@ export function StreamingAnswer({ content, prefs, calls }: { content: Block[]; p
 }
 
 /** An input a schedule or a follow-up sent: who sent it and when; the instruction folds to two lines. */
-function TriggerInput({ data }: { data: Static<typeof TriggerEntryData> }) {
+function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEntryData> }) {
 	const [open, setOpen] = useState(false);
 	const time = data.at === undefined ? undefined : new Date(data.at);
 	const clock = time ? ` · ${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}` : "";
 	return (
-		<section className="trigger-entry">
+		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">
 				{data.target === "origin" ? "稍後再看" : "排程"} · {data.name}
 				{clock}
@@ -425,12 +425,12 @@ export function EntryView({
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
 	if (entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data)) {
-		return <TriggerInput data={entry.data} />;
+		return <TriggerInput id={String(entry.id)} data={entry.data} />;
 	}
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {
 		return (
-			<section className="prompt" {...longPress} onClick={() => onActions(entry)}>
+			<section className="prompt" data-entry={String(entry.id)} {...longPress} onClick={() => onActions(entry)}>
 				<div className="bubble">
 					<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
 				</div>

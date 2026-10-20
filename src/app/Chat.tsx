@@ -4,6 +4,7 @@ import type { BusyMode, ConversationController, ConversationId, SubmissionId } f
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
+import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, BranchIcon, CopyIcon } from "./icons.tsx";
 import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
@@ -151,6 +152,34 @@ export function Chat({
 		stickToBottom.current = true;
 		scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
 	};
+	// The user's messages for the composer's dial, oldest first: what they typed, and what schedules sent.
+	const prompts: DialPrompt[] = useMemo(
+		() =>
+			entries.flatMap((entry) => {
+				if (entry.kind === "pi.user") {
+					const typed = text(entry.model?.[0]?.content).replace(/\s+/g, " ").trim();
+					return [{ id: String(entry.id), text: typed || "（圖片）" }];
+				}
+				if (entry.kind === TRIGGER_ENTRY && typeof entry.data === "object" && entry.data && "name" in entry.data) {
+					return [{ id: String(entry.id), text: `排程：${String(entry.data.name)}` }];
+				}
+				return [];
+			}),
+		[entries],
+	);
+	const jumpTo = (id: string | undefined) => {
+		if (id === undefined) {
+			scrollToBottom();
+			return;
+		}
+		const element = scroller.current?.querySelector<HTMLElement>(`[data-entry="${CSS.escape(id)}"]`);
+		if (!element) return;
+		stickToBottom.current = false;
+		element.scrollIntoView({ block: "start", behavior: "smooth" });
+		element.classList.remove("flash");
+		void element.offsetWidth;
+		element.classList.add("flash");
+	};
 
 	return (
 		<div className="chat">
@@ -264,6 +293,8 @@ export function Chat({
 			<Composer
 				scrollHint={scrollHint}
 				onScrollToBottom={scrollToBottom}
+				prompts={prompts}
+				onJump={jumpTo}
 				busy={busy}
 				draft={draft}
 				onDraftChange={setDraft}
