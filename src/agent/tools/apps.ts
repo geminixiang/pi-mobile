@@ -36,11 +36,13 @@ interface PhoneEvent {
 	calendar: string;
 	account: string;
 	calendarId: number;
+	shared?: boolean;
+	owner?: string;
 }
 
 interface CalendarPlugin {
 	listCalendars(): Promise<{ calendars: PhoneCalendar[] }>;
-	listEvents(options: { from: number; to: number }): Promise<{ events: PhoneEvent[] }>;
+	listEvents(options: { from: number; to: number; includeShared: boolean }): Promise<{ events: PhoneEvent[] }>;
 	insertEvent(options: {
 		calendarId: number;
 		title: string;
@@ -151,7 +153,7 @@ const setTimer = defineTool({
 const listCalendars = defineTool({
 	name: "list_calendars",
 	description:
-		"List the calendars on this phone that events can be added to, with the account each belongs to (often both a work and a personal Google account). Call before add_calendar_event.",
+		"List the user's own calendars that events can be added to, with the account each belongs to (often both a work and a personal Google account). Shared calendars are never listed and cannot be written to. Call before add_calendar_event.",
 	parameters: Type.Object({}),
 	execute: async () => {
 		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
@@ -178,16 +180,18 @@ function formatEvent(event: PhoneEvent): Record<string, unknown> {
 		...(event.notes ? { notes: event.notes } : {}),
 		calendar: event.calendar,
 		account: event.account,
+		...(event.shared ? { shared: true, owner: event.owner } : {}),
 	};
 }
 
 const readEvents = defineTool({
 	name: "read_calendar_events",
 	description:
-		"Events on the phone's calendars (all accounts, recurring events expanded, declined invitations left out) between two local times. Default: from now to the end of tomorrow.",
+		"The user's schedule: events on their own calendars in every account (recurring events expanded, declined invitations left out) between two local times. Default: from now to the end of tomorrow. Shared calendars they subscribe to, such as a team calendar or a colleague's, hold other people's events and are left out unless include_shared is true; those events come back marked shared, with the owner.",
 	parameters: Type.Object({
 		from: Type.Optional(Type.String({ description: "Local time YYYY-MM-DDTHH:MM or a date YYYY-MM-DD; default now" })),
 		to: Type.Optional(Type.String({ description: "Local time or date (a date means the end of that day); default the end of tomorrow" })),
+		include_shared: Type.Optional(Type.Boolean({ description: "Also read shared calendars; only when the user asks about them" })),
 	}),
 	replay: "safe",
 	execute: async (args) => {
@@ -204,8 +208,19 @@ const readEvents = defineTool({
 		if (to <= from) throw new Error("to must be after from");
 		// Over a year is almost always a mistake, and the list would not fit.
 		if (to - from > 366 * DAY) throw new Error("the range can be at most a year");
-		const { events } = await Calendar.listEvents({ from, to });
-		return text(events.length === 0 ? "No events in this range." : JSON.stringify(events.map(formatEvent), null, 2));
+		const { events } = await Calendar.listEvents({ from, to, includeShared: args.include_shared ?? false });
+		// All-day events are stored as UTC days, so the local query range catches a neighbouring day east of UTC.
+		// Keep them by date: their days must overlap the local dates the range covers.
+		const pad = (n: number) => String(n).padStart(2, "0");
+		const localDate = (ms: number) => {
+			const d = new Date(ms);
+			return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+		};
+		const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+		const first = localDate(from);
+		const last = localDate(to - 1);
+		const inRange = events.filter((event) => !event.allDay || (utcDate(event.begin) <= last && utcDate(event.end - DAY) >= first));
+		return text(inRange.length === 0 ? "No events in this range." : JSON.stringify(inRange.map(formatEvent), null, 2));
 	},
 });
 
@@ -227,7 +242,7 @@ const addEvent = defineTool({
 		const allDay = args.all_day ?? false;
 		const times = eventTimes(args.start, args.end, allDay);
 		const calendar = (await Calendar.listCalendars()).calendars.find((candidate) => candidate.id === args.calendar_id);
-		if (!calendar) throw new Error(`no writable calendar with id ${args.calendar_id}; call list_calendars`);
+		if (!calendar) throw new Error(`calendar ${args.calendar_id} is not one of the user's own writable calendars; call list_calendars`);
 		const approved = await requestConfirmation({
 			title: `加到 ${accountLabel(calendar)} 的「${calendar.name}」行事曆`,
 			detail: [args.title, describeTimes(times, allDay), args.location, args.notes].filter(Boolean).join("\n"),
@@ -361,7 +376,7 @@ export const AppsExtension = defineExtension({
 			[
 				"You can hand things to other apps on this phone: alarms and timers, calendar events, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
 				"Drafts, maps, links and sharing open a prefilled screen; the user finishes there. Say what they need to tap, and never claim a message was sent.",
-				"read_calendar_events shows the user's schedule. For questions like whether they can make the next event, combine it with get_location: get the travel time from their position to the event's location with get_travel_time, say when to leave, and offer open_maps.",
+				"read_calendar_events shows the user's schedule from their own calendars. Events marked shared are someone else's (a team or colleague calendar): never present them as the user's plans. For questions like whether they can make the next event, combine it with get_location: get the travel time from their position to the event's location with get_travel_time, say when to leave, and offer open_maps.",
 				"Adding to the calendar: call list_calendars first. Phones often mix work and personal accounts, and an event in the wrong one is embarrassing. If the writable calendars span more than one account and the user has not said which, ask them, naming the accounts; do not guess from the event's content. Use the account they chose earlier in this conversation without asking again.",
 			].join("\n"),
 		),
