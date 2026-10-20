@@ -324,7 +324,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .scroll-hint {
 	position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); z-index: 3;
 	display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px;
-	background: var(--editor-border); color: var(--bg); font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em;
+	/* Translucent: the content and the line show through, the outline keeps it a button. */
+	background: color-mix(in srgb, var(--editor-border) 28%, transparent); backdrop-filter: blur(8px);
+	border: 1px solid var(--editor-border); color: var(--text);
+	font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em;
 	white-space: nowrap; animation: fade-in 160ms ease;
 }
 /* A target larger than the tab, for the thumb. */

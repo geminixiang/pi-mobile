@@ -194,7 +194,8 @@ function useElapsed(running: boolean): number {
  * newest output), nothing of a file read, and the first 10 lines of anything else.
  */
 function preview(name: string, lines: string[]): { shown: string[]; hidden: number } {
-	if (name === "read") return { shown: [], hidden: lines.length };
+	// pi shows nothing of a collapsed read, not even a count; tapping still opens it.
+	if (name === "read") return { shown: [], hidden: 0 };
 	if (name === "bash" || name === "codemode") return { shown: lines.slice(-5), hidden: Math.max(0, lines.length - 5) };
 	return { shown: lines.slice(0, 10), hidden: Math.max(0, lines.length - 10) };
 }
