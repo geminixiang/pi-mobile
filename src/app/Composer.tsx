@@ -89,7 +89,7 @@ export function Composer({
 				<ul className="queue">
 					{queued.map((item) => (
 						<li key={String(item.id)}>
-							<span className="queue-mode">{item.mode === "steer" ? "插話" : "稍後"}</span>
+							<span className="queue-mode">{item.mode === "steer" ? "插話" : "稍後"} · 排隊中</span>
 							<span className="queue-text">{item.text || "（圖片）"}</span>
 							<button type="button" className="icon-button small" aria-label="撤回" onClick={() => onWithdraw(item.id)}>
 								<CloseIcon />

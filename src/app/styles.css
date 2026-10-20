@@ -30,6 +30,10 @@
 	--tool-error: #eee2e1;
 	--tool-title: #3b3f41;
 	--tool-output: #677176;
+	/* light.json userMessageBg, customMessageBg, customMessageLabel. */
+	--user-bg: #dfe7ec;
+	--custom-bg: #e6e4ee;
+	--custom-label: #7459b4;
 	--console-bg: #252f3d;
 	--console-text: #e4e2df;
 	/* pi.dev's page grid: 4px minor, 20px major, a + at every major crossing, faded out toward the bottom. */
@@ -84,6 +88,9 @@
 		--tool-error: #5b282a;
 		--tool-title: #dee0e1;
 		--tool-output: #9da5a9;
+		--user-bg: #213b49;
+		--custom-bg: #3a3055;
+		--custom-label: #a798d7;
 		--console-bg: #0d1116;
 		--console-text: #d5d8db;
 		--grid-minor: hsl(218 60% 80% / 0.009375);
@@ -196,20 +203,25 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .transcript { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
 
-.prompt { cursor: pointer; }
+/* The user's message as pi's: a full-width block in userMessageBg, no border; the color alone says who spoke. */
+.prompt { cursor: pointer; margin: 0 calc(-1 * var(--space)); }
 .bubble {
-	padding: 11px 14px; background: var(--panel-2); border-left: 2px solid var(--accent);
+	padding: 14px var(--space); background: var(--user-bg); color: var(--text);
 	font-size: 15.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere;
-	display: flex; flex-direction: column; gap: 8px;
+	display: flex; flex-direction: column; gap: 10px; transition: filter 120ms ease;
 }
-.prompt:active .bubble { background: var(--accent-soft); }
+.prompt:active .bubble { filter: brightness(1.18); }
 .bubble .markdown p { margin: 0; }
-/* An input a schedule or a follow-up sent: who sent it, then what it asked. */
-.trigger-entry { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border: 1px dashed var(--line-strong); border-left: 2px solid var(--accent); }
-.trigger-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--accent); }
+.bubble .attachment { max-width: 60%; max-height: 220px; object-fit: cover; align-self: flex-start; border: 1px solid var(--line); }
+/* An input a schedule or a follow-up sent, as pi's custom messages: customMessageBg, a label in customMessageLabel. */
+.trigger-entry {
+	display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); padding: 14px var(--space);
+	background: var(--custom-bg);
+}
+.trigger-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--custom-label); }
 .trigger-prompt {
 	display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: left;
-	font-size: 14px; line-height: 1.55; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere;
+	font-size: 14px; line-height: 1.55; color: var(--tool-output); white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .trigger-prompt.open { display: block; }
 .answer { display: flex; flex-direction: column; gap: 14px; overflow-wrap: anywhere; }
@@ -334,7 +346,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb-remove { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 20px; height: 20px; background: var(--console-bg); color: var(--console-text); }
 .queue { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.queue li { display: flex; align-items: center; gap: 10px; padding-left: 12px; background: var(--panel-2); border-left: 2px solid var(--yellow); }
+/* Queued input: the user's own block, faded until it is placed. */
+.queue li { display: flex; align-items: center; gap: 10px; padding-left: 12px; background: color-mix(in srgb, var(--user-bg) 55%, transparent); }
 .queue-mode { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
