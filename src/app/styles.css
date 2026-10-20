@@ -34,6 +34,14 @@
 	--user-bg: #dfe7ec;
 	--custom-bg: #e6e4ee;
 	--custom-label: #7459b4;
+	/* light.json thinkingOff ... thinkingMax: the editor's border follows the thinking level. */
+	--think-off: #c2c8ca;
+	--think-minimal: #b5c4cb;
+	--think-low: #9fc2d5;
+	--think-medium: #a2b7e0;
+	--think-high: #b5a5e8;
+	--think-xhigh: #e585cd;
+	--think-max: #fe7479;
 	--console-bg: #252f3d;
 	--console-text: #e4e2df;
 	/* pi.dev's page grid: 4px minor, 20px major, a + at every major crossing, faded out toward the bottom. */
@@ -91,6 +99,13 @@
 		--user-bg: #213b49;
 		--custom-bg: #3a3055;
 		--custom-label: #a798d7;
+		--think-off: #6c767b;
+		--think-minimal: #68808d;
+		--think-low: #5489a4;
+		--think-medium: #6185cc;
+		--think-high: #9776e5;
+		--think-xhigh: #de54c1;
+		--think-max: #fe5462;
 		--console-bg: #0d1116;
 		--console-text: #d5d8db;
 		--grid-minor: hsl(218 60% 80% / 0.009375);
@@ -326,9 +341,17 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .suggestion-text span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- Composer ---------- */
-.composer { flex-shrink: 0; padding: 8px 10px calc(env(safe-area-inset-bottom) + 10px); background: var(--bg); border-top: 1px solid var(--line); }
-.input { border: 1px solid var(--line-strong); background: var(--panel); }
-.input:focus-within { border-color: var(--accent); }
+/* The composer as pi's editor: full width, no side borders, a line above and below in the thinking level's color. */
+.composer { flex-shrink: 0; padding: 8px 0 env(safe-area-inset-bottom); background: var(--bg); }
+.app { --editor-border: var(--think-off); }
+.app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
+.app[data-thinking="low"] { --editor-border: var(--think-low); }
+.app[data-thinking="medium"] { --editor-border: var(--think-medium); }
+.app[data-thinking="high"] { --editor-border: var(--think-high); }
+.app[data-thinking="xhigh"] { --editor-border: var(--think-xhigh); }
+.app[data-thinking="max"] { --editor-border: var(--think-max); }
+.input { border-top: 1px solid var(--editor-border); border-bottom: 1px solid var(--editor-border); background: none; }
+.input-row { padding: 0 6px 0 4px; }
 .input-row { display: flex; align-items: flex-end; }
 .input-row .icon-button { color: var(--muted); }
 .input textarea {
@@ -347,7 +370,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thumb-remove { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 20px; height: 20px; background: var(--console-bg); color: var(--console-text); }
 .queue { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 /* Queued input: the user's own block, faded until it is placed. */
-.queue li { display: flex; align-items: center; gap: 10px; padding-left: 12px; background: color-mix(in srgb, var(--user-bg) 55%, transparent); }
+.queue li { display: flex; align-items: center; gap: 10px; padding-left: var(--space); background: color-mix(in srgb, var(--user-bg) 55%, transparent); }
 .queue-mode { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

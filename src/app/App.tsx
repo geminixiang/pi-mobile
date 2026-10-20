@@ -326,6 +326,7 @@ export function App() {
 	return (
 		<div
 			className="app"
+			data-thinking={thinking || "off"}
 			onTouchStart={(event) => {
 				const touch = event.touches[0];
 				swipe.current = touch && touch.clientX < 28 && !overlay ? { x: touch.clientX, y: touch.clientY } : undefined;
