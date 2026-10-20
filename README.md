@@ -53,6 +53,7 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
   - `device_info`：電量、充電、省電模式、網路（Wi-Fi 或行動網路、VPN）、鈴聲模式、勿擾、連接的耳機、剩餘空間。
   - `get_location`：位置和地址（Android 內建的地址反查，不需要 API key）。只要「使用 app 時」的定位權限。
   - `read_sensors`：氣壓和估算海拔、指南針方位、環境光、距離感測。
+  - `get_travel_time`：開車、走路、腳踏車的距離和時間，用 OpenStreetMap 的路線服務（[FOSSGIS 的公開 OSRM](https://routing.openstreetmap.de)，免費、不需要 key）。地址用手機內建的 geocoder 轉成座標。開車時間不含路況，也沒有大眾運輸。
 - `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
 - **交給手機上的其他 app**：
   - `read_calendar_events`：讀所有帳號的行程（重複活動會展開、略過已拒絕的邀請）。配合位置可以回答「下一個行程來得及嗎」。
@@ -132,7 +133,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 |---|---|
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、對話索引、每個對話的控制器、執行狀態（task graph） |
 | `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
-| `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent） |
+| `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`、`get_travel_time`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent） |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/parse.ts`、`oauth.ts` | 邊界驗證（typebox schema）與三家雲端共用的 OAuth：原生 HTTP 加逾時、token 回應、device flow 輪詢 |
 | `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |

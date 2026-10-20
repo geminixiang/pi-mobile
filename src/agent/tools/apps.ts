@@ -361,7 +361,7 @@ export const AppsExtension = defineExtension({
 			[
 				"You can hand things to other apps on this phone: alarms and timers, calendar events, email and text drafts, map directions, links and app deep links, and the share sheet (also for sandbox files).",
 				"Drafts, maps, links and sharing open a prefilled screen; the user finishes there. Say what they need to tap, and never claim a message was sent.",
-				"read_calendar_events shows the user's schedule. For questions like whether they can make the next event, combine it with get_location: estimate the travel time from their position to the event's location, say when to leave, and offer open_maps.",
+				"read_calendar_events shows the user's schedule. For questions like whether they can make the next event, combine it with get_location: get the travel time from their position to the event's location with get_travel_time, say when to leave, and offer open_maps.",
 				"Adding to the calendar: call list_calendars first. Phones often mix work and personal accounts, and an event in the wrong one is embarrassing. If the writable calendars span more than one account and the user has not said which, ask them, naming the accounts; do not guess from the event's content. Use the account they chose earlier in this conversation without asking again.",
 			].join("\n"),
 		),

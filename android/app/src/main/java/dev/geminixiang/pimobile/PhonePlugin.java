@@ -200,6 +200,38 @@ public class PhonePlugin extends Plugin {
         }
     }
 
+    /** Address or place name to coordinates, with the platform geocoder (no API key). Blocks, so off the main thread. */
+    @PluginMethod
+    @SuppressWarnings("deprecation")
+    public void geocode(PluginCall call) {
+        String query = call.getString("query", "").trim();
+        if (query.isEmpty()) {
+            call.reject("query is empty");
+            return;
+        }
+        if (!Geocoder.isPresent()) {
+            call.reject("this phone has no geocoder", "unavailable");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                List<Address> found = new Geocoder(getContext(), Locale.getDefault()).getFromLocationName(query, 1);
+                if (found == null || found.isEmpty()) {
+                    call.reject("no place found for " + query, "not_found");
+                    return;
+                }
+                Address a = found.get(0);
+                JSObject result = new JSObject();
+                result.put("latitude", a.getLatitude());
+                result.put("longitude", a.getLongitude());
+                if (a.getMaxAddressLineIndex() >= 0) result.put("address", a.getAddressLine(0));
+                call.resolve(result);
+            } catch (Exception e) {
+                call.reject("geocoding failed: " + e.getMessage(), "failed");
+            }
+        }).start();
+    }
+
     // ---------- Device status ----------
 
     @PluginMethod
