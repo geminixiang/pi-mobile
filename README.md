@@ -51,7 +51,7 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
 - `web_search`：用模型服務本身的搜尋（OpenAI Responses 的 `web_search`，或 Anthropic 的 `web_search` server tool），不需要另外的搜尋 API key。`web_fetch`：從手機抓網頁並轉成文字。
 - `github_api`、`github_read_file`：從手機直接呼叫 GitHub REST API。
 - **交給手機上的其他 app**：
-  - `add_calendar_event`：打開行事曆，新活動已填好，由你按「儲存」。
+  - `list_calendars`、`add_calendar_event`：直接寫進指定的行事曆。手機上常同時有公司和個人的帳號，所以有多個帳號時 agent 會先問你要用哪個，寫入前的確認框也會寫明帳號。
   - `compose_email`、`compose_sms`：打開草稿，由你按「傳送」。
   - `open_maps`：打開 Google Maps 的路線。
   - `open_link`：用對應的 app 打開網址或 deep link（`geo:`、`tel:` 只開撥號畫面、`spotify:` 等）。
