@@ -1,9 +1,10 @@
 // The scroll tab on the composer's line, and the dial a long press on it opens. The dial turns around the thumb's
 // base (just off the right edge, for the right hand), so the arc the thumb sweeps is the scale: sliding up it goes
-// back to older messages, down to newer ones. The arc holds a fixed number of detents; the selection snaps into the
-// next one only past 60% of the way, with a haptic tick, and lands without bouncing. A conversation with more
-// messages than detents keeps going while the thumb rests on the arc's last detent at either end, one message per
-// tick, faster the longer it rests. Releasing scrolls to the message; a short tap scrolls to the newest, as before.
+// back to older messages, down to newer ones. The arc holds up to five message cells; the selection snaps into the
+// next one only past 60% of the way, with a haptic tick, and lands without bouncing. With more messages than cells,
+// a cap cell past either end counts the rest, and only resting on a cap keeps going, one message per tick, faster
+// the longer it rests; the message cells never move on their own. Releasing scrolls to the message; a short tap
+// scrolls to the newest, as before.
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { haptic } from "./haptics.ts";
 import { ArrowDownIcon } from "./icons.tsx";
@@ -19,9 +20,10 @@ const SLOP = 10;
 /** How far past a detent's midpoint the finger must go before the selection moves: no flicker at the boundary. */
 const HYSTERESIS = 0.6;
 const PREVIEW_CHARS = 40;
-/** Degrees per detent, and how many fit on the arc at most. */
+/** Degrees per cell: the widest, and how narrow cells may get so that five fit on the arc. */
 const STEP = 12;
-const MAX_SLOTS = 7;
+const MIN_STEP = 8;
+const MAX_SLOTS = 5;
 /** Resting on an end detent this long starts stepping on; the interval then shrinks to the fastest. */
 const REPEAT_DELAY_MS = 350;
 const REPEAT_SLOWEST_MS = 180;
@@ -30,8 +32,6 @@ const REPEAT_FASTEST_MS = 60;
 const EDGE = 36;
 /** The detents sit this many steps above the finger, so the newest one clears the editor line the track grows from. */
 const OFFSET = 0.35;
-/** The cap past the arc's top end that counts the messages beyond it, in steps. */
-const CAP = 1.1;
 /** Half the width of the dial's track. */
 const TRACK = 24;
 
@@ -42,9 +42,11 @@ interface DialState {
 	radius: number;
 	/** The finger's angle around the pivot when the dial opened: slot 0, the newest end of the visible range. */
 	start: number;
-	/** Detents on the arc. */
+	/** Degrees per cell. */
+	step: number;
+	/** Message cells on the arc. */
 	slots: number;
-	/** Selected slot: 0 at the bottom, slots - 1 at the top. */
+	/** Selected slot: 0 at the bottom, slots - 1 at the top; -1 and slots are the caps past either end. */
 	slot: number;
 	/** Messages the arc's range has moved back from the newest end, by resting on its ends. */
 	shift: number;
@@ -73,7 +75,7 @@ function pointAt(dial: DialState, degrees: number, radius = dial.radius): { x: n
 
 /** The position a slot shows: prompts.length is the newest end, 0 the oldest message. */
 function positionOf(dial: DialState, count: number, slot = dial.slot): number {
-	return count - dial.shift - slot;
+	return count - dial.shift - Math.max(0, Math.min(dial.slots - 1, slot));
 }
 
 export function ScrollTab({
@@ -93,10 +95,8 @@ export function ScrollTab({
 	const opened = useRef(false);
 	const count = prompts.length;
 
-	// Resting on an end detent with more messages beyond it: step on, faster the longer the thumb rests there.
-	const atTop = dial !== undefined && dial.slot === dial.slots - 1 && positionOf(dial, count) > 0;
-	const atBottom = dial !== undefined && dial.slot === 0 && dial.shift > 0;
-	const repeating = atTop ? "older" : atBottom ? "newer" : undefined;
+	// Resting on a cap: step on, faster the longer the thumb rests there.
+	const repeating = dial?.slot === dial?.slots ? "older" : dial?.slot === -1 ? "newer" : undefined;
 	useEffect(() => {
 		if (!repeating) return;
 		let interval = REPEAT_SLOWEST_MS;
@@ -104,11 +104,13 @@ export function ScrollTab({
 			setDial((current) => {
 				if (!current) return current;
 				const shift = repeating === "older" ? current.shift + 1 : current.shift - 1;
-				const next = { ...current, shift };
-				const position = positionOf(next, count);
-				if (position < 0 || shift < 0) return current;
+				if (shift < 0 || positionOf({ ...current, shift }, count, current.slots - 1) < 0) return current;
 				haptic("tick");
-				return next;
+				// The cap goes once there is nothing past it; the thumb is on the end cell then.
+				const older = positionOf({ ...current, shift }, count, current.slots - 1);
+				if (repeating === "older" && older === 0) return { ...current, shift, slot: current.slots - 1 };
+				if (repeating === "newer" && shift === 0) return { ...current, shift, slot: 0 };
+				return { ...current, shift };
 			});
 			interval = Math.max(REPEAT_FASTEST_MS, interval * 0.85);
 			timer = setTimeout(step, interval);
@@ -132,12 +134,14 @@ export function ScrollTab({
 		const start = angleOf(x, y, px, py);
 		const edge = (window.innerWidth - EDGE - px) / radius;
 		const end = edge <= -1 ? 90 : Math.max(90, (Math.acos(Math.max(-1, Math.min(1, edge))) * 180) / Math.PI);
-		const room = (start - end) / STEP - OFFSET - 0.5;
-		const fit = (steps: number) => Math.max(2, Math.min(MAX_SLOTS, count + 1, Math.floor(steps) + 1));
-		// With more messages than detents, the top end needs room for its cap.
-		const slots = fit(room) < count + 1 ? fit(room - CAP + 0.5) : fit(room);
+		// Five cells if they fit, narrowing toward MIN_STEP; with more messages than cells the top end holds a cap too.
+		const wanted = Math.min(MAX_SLOTS, count + 1);
+		const ends = wanted < count + 1 ? 1.5 : 0.5;
+		const step = Math.max(MIN_STEP, Math.min(STEP, (start - end) / (wanted - 1 + OFFSET + ends)));
+		const fits = Math.floor((start - end) / step - OFFSET - ends) + 1;
+		const slots = Math.max(2, Math.min(wanted, fits));
 		const lineY = target.closest(".input")?.getBoundingClientRect().top ?? window.innerHeight;
-		setDial({ px, py, radius, start, slots, slot: 0, shift: 0, lineY });
+		setDial({ px, py, radius, start, step, slots, slot: 0, shift: 0, lineY });
 	};
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -158,12 +162,13 @@ export function ScrollTab({
 			return;
 		}
 		// Sliding up the arc turns clockwise around the pivot, toward older messages.
-		const turned = (dial.start - angleOf(event.clientX, event.clientY, dial.px, dial.py)) / STEP - OFFSET;
-		// Slots past the oldest message do not exist.
-		const highest = Math.min(dial.slots - 1, count - dial.shift);
+		const turned = (dial.start - angleOf(event.clientX, event.clientY, dial.px, dial.py)) / dial.step - OFFSET;
+		// Slots past the oldest message do not exist; the caps only while there is more past them.
+		const highest = positionOf(dial, count, dial.slots - 1) > 0 ? dial.slots : Math.min(dial.slots - 1, count - dial.shift);
+		const lowest = dial.shift > 0 ? -1 : 0;
 		let slot = dial.slot;
 		while (turned > slot + HYSTERESIS && slot < highest) slot++;
-		while (turned < slot - HYSTERESIS && slot > 0) slot--;
+		while (turned < slot - HYSTERESIS && slot > lowest) slot--;
 		if (slot !== dial.slot) {
 			haptic("tick");
 			setDial({ ...dial, slot });
@@ -182,7 +187,8 @@ export function ScrollTab({
 
 	const position = dial ? positionOf(dial, count) : count;
 	const current = prompts[position];
-	const slotAngle = (slot: number) => (dial ? dial.start - (slot + OFFSET) * STEP : 0);
+	const cell = dial?.step ?? STEP;
+	const slotAngle = (slot: number) => (dial ? dial.start - (slot + OFFSET) * cell : 0);
 	const beyond = dial ? positionOf(dial, count, dial.slots - 1) : 0;
 	return (
 		<>
@@ -227,73 +233,56 @@ export function ScrollTab({
 								<rect x={0} y={0} width="100%" height={dial.lineY} />
 							</clipPath>
 						</defs>
-						<g clipPath="url(#dial-above-line)">
-							{/* The track: a ruler bent around the thumb, one cell per detent. */}
-							<path
-								className="dial-track"
-								d={sector(
-									dial,
-									slotAngle(0) + STEP * 1.5,
-									slotAngle(dial.slots - 1) - (beyond > 0 ? STEP / 2 + STEP * CAP : STEP / 2),
-									dial.radius - TRACK,
-									dial.radius + TRACK,
-								)}
-							/>
-							{/* The selected cell lights up in place, with a bar on the outer edge like the editor line. */}
-							<path
-								className="dial-cell"
-								d={sector(
-									dial,
-									slotAngle(dial.slot) + STEP / 2,
-									slotAngle(dial.slot) - STEP / 2,
-									dial.radius - TRACK,
-									dial.radius + TRACK,
-								)}
-							/>
-							<path
-								className="dial-bar"
-								d={sector(
-									dial,
-									slotAngle(dial.slot) + STEP / 2,
-									slotAngle(dial.slot) - STEP / 2,
-									dial.radius + TRACK - 2,
-									dial.radius + TRACK,
-								)}
-							/>
-							{/* Hairlines between cells, at both edges, like a ruler's marks. */}
-							{Array.from({ length: beyond > 0 ? dial.slots : dial.slots - 1 }, (_, slot) => {
-								const angle = slotAngle(slot) - STEP / 2;
-								const marks = [
-									[dial.radius + TRACK - 6, dial.radius + TRACK],
-									[dial.radius - TRACK, dial.radius - TRACK + 6],
-								];
-								return marks.map(([from, to], edge) => {
-									const a = pointAt(dial, angle, from);
-									const b = pointAt(dial, angle, to);
-									return <line key={`${slot}-${edge}`} className="dial-mark" x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
-								});
-							})}
-							{/* Each cell's message number, on the outer half, past the fingertip. */}
-							{Array.from({ length: dial.slots }, (_, slot) => {
-								const shows = positionOf(dial, count, slot);
-								if (shows < 0) return null;
-								return (
-									<text
-										key={slot}
-										className={`dial-number${slot === dial.slot ? " selected" : ""}`}
-										{...pointAt(dial, slotAngle(slot), dial.radius + TRACK / 2)}
-									>
-										{shows === count ? "新" : shows + 1}
-									</text>
-								);
-							})}
-							{/* The cap counts the older messages past the top end: rest there to go on. */}
-							{beyond > 0 ? (
-								<text className="dial-more" {...pointAt(dial, slotAngle(dial.slots - 1) - STEP * (0.5 + CAP / 2), dial.radius)}>
-									+{beyond}
-								</text>
-							) : null}
-						</g>
+						{(() => {
+							const inner = dial.radius - TRACK;
+							const outer = dial.radius + TRACK;
+							const cellPath = (slot: number, from = inner, to = outer) =>
+								sector(dial, slotAngle(slot) + cell / 2, slotAngle(slot) - cell / 2, from, to);
+							const lowest = dial.shift > 0 ? -1 : 0;
+							const highest = beyond > 0 ? dial.slots : dial.slots - 1;
+							const cells = Array.from({ length: highest - lowest + 1 }, (_, index) => lowest + index);
+							const ruler = (
+								<>
+									{/* The track: a ruler bent around the thumb, one cell per message and a cap past an end with more. */}
+									<path
+										className="dial-track"
+										d={sector(dial, slotAngle(lowest) + cell * (lowest < 0 ? 0.5 : 1.5), slotAngle(highest) - cell / 2, inner, outer)}
+									/>
+									{/* The selected cell lights up in place, with a bar on the outer edge like the editor line. */}
+									<path className="dial-cell" d={cellPath(dial.slot)} />
+									<path className="dial-bar" d={cellPath(dial.slot, outer - 2, outer)} />
+									{/* Hairlines between cells at both edges, like a ruler's marks. */}
+									{cells.slice(0, -1).map((slot) =>
+										[
+											[outer - 6, outer],
+											[inner, inner + 6],
+										].map(([from, to], edge) => {
+											const a = pointAt(dial, slotAngle(slot) - cell / 2, from);
+											const b = pointAt(dial, slotAngle(slot) - cell / 2, to);
+											return <line key={`${slot}-${edge}`} className="dial-mark" x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
+										}),
+									)}
+									{/* Each cell's message number on the outer half, past the fingertip; the caps count what lies beyond. */}
+									{cells.map((slot) => {
+										const shows = positionOf(dial, count, slot);
+										const label =
+											slot === dial.slots ? `+${beyond}` : slot === -1 ? `+${dial.shift}` : shows === count ? "新" : `${shows + 1}`;
+										const kind = slot === dial.slots || slot === -1 ? "dial-more" : "dial-number";
+										return (
+											<text
+												key={slot}
+												className={`${kind}${slot === dial.slot ? " selected" : ""}`}
+												{...pointAt(dial, slotAngle(slot), dial.radius + TRACK / 2)}
+											>
+												{label}
+											</text>
+										);
+									})}
+								</>
+							);
+							// The ruler grows out of the editor line; only the cap for newer messages hangs below it.
+							return lowest < 0 ? ruler : <g clipPath="url(#dial-above-line)">{ruler}</g>;
+						})()}
 					</svg>
 				</div>
 			) : null}
