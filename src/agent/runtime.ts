@@ -23,9 +23,11 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import { isEnabled, ON_DEMAND_EXTENSIONS, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
-import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
+import { type Settings, saveAzureCredential, saveCloudflareCredential, usableProviders } from "../settings.ts";
 import { log } from "../log.ts";
-import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
+import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
+import { builtinInfo, LEGACY_PROVIDER_ID, type ProviderConfig, providerName, parseProviders } from "./providers.ts";
+import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { AppsExtension } from "./tools/apps.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
@@ -106,7 +108,7 @@ export interface ConversationController {
 	compact(): Promise<boolean>;
 	/** Start a new context in this conversation: the model no longer sees earlier entries. */
 	reset(): Promise<void>;
-	setModel(modelId: string): Promise<void>;
+	setModel(provider: string, modelId: string): Promise<void>;
 	setThinking(level: string): Promise<void>;
 	dispose(): void;
 }
@@ -119,6 +121,22 @@ function contentText(content: unknown): string {
 		.map((part) => part.text)
 		.join("\n");
 }
+
+/**
+ * Where web_search runs: the provider's own search, OpenAI's Responses web_search or Anthropic's server tool. A custom
+ * endpoint first (a gateway usually serves both), else OpenAI, else Anthropic; none disables it.
+ */
+function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
+	const custom = configs.find((config) => config.kind === "custom");
+	if (custom?.kind === "custom") return { baseUrl: custom.baseUrl, apiKey: keys[custom.id] ?? "", modelIds: lists[custom.id] ?? [] };
+	const ids = (provider: string) => infos.filter((info) => info.provider === provider).map((info) => info.id);
+	if (configs.some((config) => config.id === "openai")) return { baseUrl: "https://api.openai.com", apiKey: keys.openai ?? "", modelIds: ids("openai") };
+	if (configs.some((config) => config.id === "anthropic")) return { baseUrl: "https://api.anthropic.com", apiKey: keys.anthropic ?? "", modelIds: ids("anthropic") };
+	return { baseUrl: "", apiKey: "", modelIds: [] };
+}
+
+/** Set once conversations' model references name providers (#migrateModelRefs). */
+const MODEL_REFS_KEY = "pi-mobile.model-refs";
 
 /** A toolset's name for an extension, for the list of tools that load on demand. */
 function labelOf(extension: string, mcp: McpHub): string {
@@ -259,27 +277,33 @@ export class AgentRuntime {
 	}
 
 	/**
-	 * The model service's models. The list from the last start when there is one, so starting does not wait on the
-	 * network (over Tailscale or a phone network that took up to 0.7 s); the service is asked anyway and its answer
+	 * Each custom provider's models. The list from the last start when there is one, so starting does not wait on the
+	 * network (over Tailscale or a phone network that took up to 0.7 s); the endpoint is asked anyway and its answer
 	 * kept for the next start. The first start waits for it.
 	 */
-	static startModelList(settings: Settings): Promise<string[]> {
-		const key = `pi-mobile.models:${settings.baseUrl}`;
-		const fresh = fetchModelIds(settings.baseUrl, settings.apiKey, AbortSignal.timeout(5000)).then((ids) => {
-			if (ids.length > 0) localStorage.setItem(key, JSON.stringify(ids));
-			return ids;
-		});
-		let cached: unknown;
-		try {
-			cached = JSON.parse(localStorage.getItem(key) ?? "null");
-		} catch {
-			cached = null;
-		}
-		if (Array.isArray(cached) && cached.length > 0 && cached.every((id) => typeof id === "string")) {
-			fresh.catch((error: unknown) => log.warn("models.refresh_failed", { error: error instanceof Error ? error.message : String(error) }));
-			return Promise.resolve(cached);
-		}
-		return fresh;
+	static startModelList(settings: Settings): Promise<Record<string, string[]>> {
+		const lists = parseProviders(settings.providers)
+			.filter((provider) => provider.kind === "custom")
+			.map(async (provider): Promise<[string, string[]]> => {
+				if (provider.kind !== "custom") return [provider.id, []];
+				const key = `pi-mobile.models:${provider.baseUrl}`;
+				const fresh = fetchModelIds(provider.baseUrl, settings.providerKeys[provider.id] ?? "", AbortSignal.timeout(5000)).then((ids) => {
+					if (ids.length > 0) localStorage.setItem(key, JSON.stringify(ids));
+					return ids;
+				});
+				let cached: unknown;
+				try {
+					cached = JSON.parse(localStorage.getItem(key) ?? "null");
+				} catch {
+					cached = null;
+				}
+				if (Array.isArray(cached) && cached.length > 0 && cached.every((id) => typeof id === "string")) {
+					fresh.catch((error: unknown) => log.warn("models.refresh_failed", { error: error instanceof Error ? error.message : String(error) }));
+					return [provider.id, cached];
+				}
+				return [provider.id, await fresh.catch(() => [])];
+			});
+		return Promise.all(lists).then(Object.fromEntries);
 	}
 
 	static async open(
@@ -293,17 +317,39 @@ export class AgentRuntime {
 			openUrl?: (url: string) => Promise<void>;
 			/** The global MEMORY.md from before bots, written once when the new one is empty. */
 			importMemory?: string;
-			/** The model service's list, already asked for while storage opened (startModelList). */
-			modelIds?: Promise<string[]>;
+			/** The custom providers' lists, already asked for while storage opened (startModelList). */
+			modelIds?: Promise<Record<string, string[]>>;
 		} = {},
 	): Promise<AgentRuntime> {
-		const modelIds = await (options.modelIds ?? AgentRuntime.startModelList(settings)).catch((error: unknown) => {
-			options.onReport?.(`model list unavailable: ${error instanceof Error ? error.message : String(error)}`);
-			return [];
-		});
-		const models = createModels();
 		const compactAt = settings.compactAt;
-		models.setProvider(modelServiceProvider(settings.baseUrl, settings.apiKey, modelIds, compactAt));
+		const configs = usableProviders(settings);
+		const [lists, loaded, catalog] = await Promise.all([
+			(options.modelIds ?? AgentRuntime.startModelList(settings)).catch((error: unknown): Record<string, string[]> => {
+				options.onReport?.(`model list unavailable: ${error instanceof Error ? error.message : String(error)}`);
+				return {};
+			}),
+			// Built-in providers, each its own chunk with its catalog.
+			Promise.all(configs.map(async (config) => (config.kind === "builtin" ? await builtinInfo(config.id)?.load() : undefined))),
+			gatewayCatalog(configs),
+		]);
+		// API keys go through pi-ai's credential store, as each provider's auth resolves them.
+		const credentials = memoryCredentials(Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])));
+		const models = createModels({ credentials });
+		const infos: ModelInfo[] = [];
+		configs.forEach((config, index) => {
+			const name = providerName(config);
+			if (config.kind === "custom") {
+				const ids = lists[config.id] ?? [];
+				const provider = customProvider(config, settings.providerKeys[config.id] ?? "", ids, catalog);
+				models.setProvider(withCompaction(provider, compactAt));
+				for (const model of provider.getModels()) infos.push(describe(model, name, compactAt, inCatalog(catalog, model.id)));
+				return;
+			}
+			const provider = loaded[index];
+			if (!provider) return;
+			models.setProvider(withCompaction(provider, compactAt));
+			for (const model of provider.getModels()) infos.push(describe(model, name, compactAt));
+		});
 
 		const registry = createRegistry();
 		// Development and cloud toolsets load on demand (toolsets.ts): their tools are deferred.
@@ -329,7 +375,7 @@ export class AgentRuntime {
 		if (settings.githubToken) install(createGitHubExtension(async () => settings.githubToken || undefined));
 		const clouds = cloudConnections(settings);
 		for (const extension of createCloudExtensions(clouds.services)) install(extension);
-		install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
+		install(createWebExtension(webSearchConfig(configs, settings.providerKeys, lists, infos)));
 		// The tools need the runtime, which exists only after the Harness opens.
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
@@ -376,7 +422,7 @@ export class AgentRuntime {
 		const runtime = new AgentRuntime(
 			harness,
 			settings,
-			describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS, compactAt),
+			infos,
 			sandbox,
 			folders,
 			clouds.minted,
@@ -386,6 +432,7 @@ export class AgentRuntime {
 		// In the background: the tools from the last connection are installed already.
 		mcp.refreshAll();
 		runtimeRef = runtime;
+		await runtime.#migrateModelRefs();
 		// The folders must be known before a run resumes and asks for its environment.
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
@@ -402,8 +449,25 @@ export class AgentRuntime {
 		return this.#settings.defaultThinking as "low";
 	}
 
+	/** A new bot's model: the default from settings, or the first model there is when that one is gone. */
 	#defaultAgent() {
-		return { model: { provider: PROVIDER_ID, modelId: this.#settings.defaultModelId }, thinkingLevel: this.#defaultThinking() };
+		const { defaultProvider: provider, defaultModelId: modelId } = this.#settings;
+		const known = this.models.some((model) => model.provider === provider && model.id === modelId);
+		const first = this.models[0];
+		const model = known || !first ? { provider, modelId } : { provider: first.provider, modelId: first.id };
+		return { model, thinkingLevel: this.#defaultThinking() };
+	}
+
+	/** Conversations from before providers name the single model service, now the custom provider it became. */
+	async #migrateModelRefs(): Promise<void> {
+		if (localStorage.getItem(MODEL_REFS_KEY)) return;
+		for (const bot of await this.bots()) {
+			const state = await this.#harness.snapshot(AgentDoc, bot.id, context);
+			if (state?.model?.provider !== LEGACY_PROVIDER_ID) continue;
+			const conversation = await this.#harness.conversation(bot.id, context);
+			await conversation?.configure({ model: { provider: "custom", modelId: state.model.modelId } }, context);
+		}
+		localStorage.setItem(MODEL_REFS_KEY, "1");
 	}
 
 	/** The bots, the one talked to most recently first. */
@@ -564,7 +628,7 @@ export class AgentRuntime {
 				return view.value.entries.filter((entry) => entry.kind === "pi.compaction").length > before;
 			},
 			reset: () => conversation.reset(undefined, context),
-			setModel: (modelId) => conversation.configure({ model: { provider: PROVIDER_ID, modelId } }, context),
+			setModel: (provider, modelId) => conversation.configure({ model: { provider, modelId } }, context),
 			setThinking: (level) => conversation.configure({ thinkingLevel: level as "low" }, context),
 			dispose: () => view.dispose(),
 		};

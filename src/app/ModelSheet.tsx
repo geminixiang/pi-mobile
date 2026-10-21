@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ModelInfo } from "../agent/models.ts";
 import { CheckIcon, SearchIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { formatTokens } from "./usage.ts";
 
 export const THINKING_LEVELS = [
 	["off", "關"],
@@ -29,25 +30,35 @@ export function shortModelName(name: string): string {
 	return name.replace(/^Claude /, "");
 }
 
+/** What a model can do, in a line: its context window, and vision and thinking when it has them. */
+function traits(model: ModelInfo): string {
+	return [`${formatTokens(model.ownWindow)} context`, model.vision ? "看圖" : "", model.reasoning ? "思考" : ""].filter(Boolean).join(" · ");
+}
+
+/** Models shown before 顯示全部: those a catalog knows from custom endpoints, and every model of built-in providers. */
+const FIRST_SHOWN = 12;
+
 export function ModelSheet({
 	open,
 	models,
-	modelId,
+	current,
 	thinking,
 	onChange,
 	onClose,
 }: {
 	open: boolean;
 	models: ModelInfo[];
-	modelId: string;
+	current: { provider: string; id: string };
 	thinking: string;
-	onChange: (change: { modelId?: string; thinking?: string }) => void;
+	onChange: (change: { model?: { provider: string; id: string }; thinking?: string }) => void;
 	onClose: () => void;
 }) {
 	const [filter, setFilter] = useState("");
-	const [showAll, setShowAll] = useState(false);
-	const matches = models.filter((model) => `${model.id} ${model.name}`.toLowerCase().includes(filter.toLowerCase()));
-	const visible = showAll || filter ? matches : matches.filter((model) => model.known);
+	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+	const query = filter.toLowerCase();
+	const matches = models.filter((model) => `${model.id} ${model.name} ${model.providerName}`.toLowerCase().includes(query));
+	const providers = [...new Map(matches.map((model) => [model.provider, model.providerName])).entries()];
+	const isCurrent = (model: ModelInfo) => model.provider === current.provider && model.id === current.id;
 
 	return (
 		<Sheet open={open} onClose={onClose} title="模型">
@@ -68,30 +79,43 @@ export function ModelSheet({
 			</div>
 			<label className="field-icon">
 				<SearchIcon />
-				<input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="搜尋模型" autoCapitalize="off" />
+				<input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="搜尋模型或供應商" autoCapitalize="off" />
 			</label>
-			<div className="menu model-list">
-				{visible.map((model) => (
-					<button
-						type="button"
-						key={model.id}
-						className={model.id === modelId ? "selected" : ""}
-						onClick={() => onChange({ modelId: model.id })}
-					>
-						<span className={`swatch ${family(model.id)}`} />
-						<span className="menu-text">
-							{model.name}
-							<span className="model-id">{model.id}</span>
-						</span>
-						{model.id === modelId ? <CheckIcon size={16} /> : null}
-					</button>
-				))}
-				{!showAll && !filter ? (
-					<button type="button" className="more" onClick={() => setShowAll(true)}>
-						顯示全部 {models.length} 個模型
-					</button>
-				) : null}
-			</div>
+			{providers.map(([provider, name]) => {
+				const list = matches.filter((model) => model.provider === provider);
+				// A long list (a gateway's, OpenRouter's) shows its known models first, and the current one.
+				const preferred = list.filter((model) => model.known || isCurrent(model));
+				const short = (preferred.length > 0 ? preferred : list).slice(0, FIRST_SHOWN);
+				const all = Boolean(filter) || expanded.has(provider) || list.length <= FIRST_SHOWN;
+				const visible = all ? list : short.some(isCurrent) || !list.some(isCurrent) ? short : [...short, ...list.filter(isCurrent)];
+				return (
+					<section key={provider} className="model-group">
+						<div className="strip-label">{name}</div>
+						<div className="menu model-list">
+							{visible.map((model) => (
+								<button
+									type="button"
+									key={model.id}
+									className={isCurrent(model) ? "selected" : ""}
+									onClick={() => onChange({ model: { provider: model.provider, id: model.id } })}
+								>
+									<span className={`swatch ${family(model.id)}`} />
+									<span className="menu-text">
+										{model.name}
+										<span className="model-id">{model.known ? traits(model) : model.id}</span>
+									</span>
+									{isCurrent(model) ? <CheckIcon size={16} /> : null}
+								</button>
+							))}
+							{all ? null : (
+								<button type="button" className="more" onClick={() => setExpanded(new Set([...expanded, provider]))}>
+									顯示全部 {list.length} 個模型
+								</button>
+							)}
+						</div>
+					</section>
+				);
+			})}
 		</Sheet>
 	);
 }

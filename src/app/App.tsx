@@ -334,8 +334,9 @@ export function App() {
 
 	const agent = agentOf(view);
 	const modelId = agent?.model?.modelId ?? "";
+	const modelProvider = agent?.model?.provider ?? "";
 	const thinking = agent?.thinkingLevel ?? "";
-	const model = runtime.models.find((candidate) => candidate.id === modelId);
+	const model = runtime.models.find((candidate) => candidate.provider === modelProvider && candidate.id === modelId);
 	const current = bots.find((bot) => bot.id === controller?.id);
 	const used = contextTokens(view);
 	const contextWindow = model?.contextWindow ?? 0;
@@ -478,12 +479,12 @@ export function App() {
 			<ModelSheet
 				open={overlay === "model"}
 				models={runtime.models}
-				modelId={modelId}
+				current={{ provider: modelProvider, id: modelId }}
 				thinking={thinking}
 				onClose={close}
-				onChange={async ({ modelId: nextModel, thinking: nextThinking }) => {
+				onChange={async ({ model: nextModel, thinking: nextThinking }) => {
 					if (!controller) return;
-					if (nextModel) await controller.setModel(nextModel).catch(fail);
+					if (nextModel) await controller.setModel(nextModel.provider, nextModel.id).catch(fail);
 					if (nextThinking) await controller.setThinking(nextThinking).catch(fail);
 					if (nextModel) close();
 				}}

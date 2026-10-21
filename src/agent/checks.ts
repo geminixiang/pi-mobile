@@ -1,6 +1,9 @@
 // Connection checks for the settings screen: each returns a short description of what it reached, or throws.
 import { Type } from "typebox";
+import { createModels } from "@earendil-works/pi-ai";
 import { fetchModelIds } from "./models.ts";
+import { builtinInfo } from "./providers.ts";
+import { memoryCredentials } from "./credentials.ts";
 import { parse } from "./parse.ts";
 
 const GitHubUser = Type.Object({ login: Type.String() });
@@ -11,6 +14,26 @@ const timeout = () => AbortSignal.timeout(8000);
 export async function checkModels(baseUrl: string, apiKey: string): Promise<string> {
 	const ids = await fetchModelIds(baseUrl, apiKey, timeout());
 	return `${ids.length} 個模型`;
+}
+
+/**
+ * A built-in provider's key: one short request to its cheapest model, the one way that works for every provider.
+ * Says which model answered.
+ */
+export async function checkProvider(id: string, apiKey: string): Promise<string> {
+	const provider = await builtinInfo(id)?.load();
+	if (!provider) throw new Error(`unknown provider ${id}`);
+	const models = createModels({ credentials: memoryCredentials({ [id]: apiKey }) });
+	models.setProvider(provider);
+	const model = [...provider.getModels()].sort((a, b) => a.cost.input + a.cost.output - (b.cost.input + b.cost.output))[0];
+	if (!model) throw new Error("no models");
+	const reply = await models.complete(
+		model,
+		{ messages: [{ role: "user", content: "Reply with OK.", timestamp: Date.now() }] },
+		{ maxTokens: 16, signal: AbortSignal.timeout(20_000) },
+	);
+	if (reply.stopReason === "error") throw new Error(reply.errorMessage ?? "error");
+	return `${model.name} 有回應`;
 }
 
 export async function checkGitHub(token: string): Promise<string> {

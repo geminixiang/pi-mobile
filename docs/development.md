@@ -25,7 +25,7 @@ npm ci --ignore-scripts
 它用 `~/.config/pi-mobile/release.env` 指定的私鑰簽章（金鑰不在 repo 裡），**關閉遠端除錯**，並從 `package.json` 帶入版本號。不同金鑰簽的 APK 不能互相覆蓋安裝，要先移除舊的（手機上的對話會一起刪掉）。
 
 第一次打開時填：
-- **模型服務**：OpenAI 或 Anthropic 相容 API 的 URL 和 key。
+- **模型供應商**：pi-ai 內建的供應商填 API key，或自訂端點（OpenAI 或 Anthropic 相容）填網址和 key。
 - **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
 - **GitHub**（選填）：fine-grained token，只開需要的 repo。
 - **Google Cloud**（選填）：按「登入」用 Google 帳號登入。瀏覽器最後一頁會顯示授權碼，複製後回到 app 會自動帶入。流程和 `gcloud auth application-default login --no-launch-browser` 相同，用的是 gcloud 本身的 OAuth client。也可以改貼 service account 金鑰。可以設預設專案。

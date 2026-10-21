@@ -1,6 +1,8 @@
-// The model service as a pi-ai provider: any endpoint that speaks the OpenAI and/or Anthropic APIs, such as a gateway
-// (LiteLLM and the like), OpenAI, or Anthropic. One model per catalog entry, each on the API that suits it: Claude on
-// Anthropic Messages, GPT-5.6/GPT-6 on Responses, the rest on Chat Completions.
+// Custom model providers as pi-ai providers: any endpoint that speaks the OpenAI and/or Anthropic APIs, such as a
+// self-hosted gateway, Ollama, or LM Studio. Its models come from its /v1/models; what that list does not say (name,
+// context window, vision, reasoning) comes from pi-ai's catalogs when a model has a built-in provider's id, as a
+// gateway's models usually do. Each model goes on the API that suits it: Claude on Anthropic Messages, GPT-5.6/GPT-6
+// on Responses, the rest on Chat Completions.
 import { type Api, createProvider, type Model, type Provider, type ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
@@ -8,11 +10,8 @@ import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.l
 import { Type } from "typebox";
 import { parse } from "./parse.ts";
 
-/** Stored in every conversation's model reference, so it keeps its original value. */
-export const PROVIDER_ID = "cliproxyapi";
-// GPT on Responses: gateways pass its instructions and tool names through. Claude on a subscription OAuth
-// credential is cloaked as Claude Code (its system prompt first, tools renamed mcp__x__y), which confuses the agent.
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
+/** For a model no catalog knows. */
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 /**
  * pi-durable compacts once a request would pass contextWindow minus its reserve (16k by default). Reporting the user's
@@ -20,17 +19,47 @@ const DEFAULT_CONTEXT_WINDOW = 200_000;
  */
 const COMPACTION_RESERVE = 16_384;
 
-function windowFor(id: string, compactAt: number): number {
-	const own = KNOWN[id]?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+export function windowFor(own: number, compactAt: number): number {
 	return compactAt > 0 ? Math.min(own, compactAt + COMPACTION_RESERVE) : own;
 }
 
+/** A model as the picker shows it. */
 export interface ModelInfo {
+	provider: string;
+	providerName: string;
 	id: string;
 	name: string;
-	/** Known metadata; unknown catalog entries get conservative defaults. */
+	/** In a catalog: its metadata is known, not defaulted. */
 	known: boolean;
+	/** Where its conversations compact (windowFor), and the model's own limit. */
 	contextWindow: number;
+	ownWindow: number;
+	vision: boolean;
+	reasoning: boolean;
+}
+
+export function describe(model: Model<Api>, providerName: string, compactAt: number, known = true): ModelInfo {
+	return {
+		provider: model.provider,
+		providerName,
+		id: model.id,
+		name: model.name,
+		known,
+		contextWindow: windowFor(model.contextWindow, compactAt),
+		ownWindow: model.contextWindow,
+		vision: model.input.includes("image"),
+		reasoning: model.reasoning,
+	};
+}
+
+/**
+ * The provider with each model's context window capped at the compaction threshold. Built-in providers are objects
+ * with methods; the copy keeps them through its prototype and overrides only the model lists.
+ */
+export function withCompaction(provider: Provider, compactAt: number): Provider {
+	const capped = (model: Model<Api>): Model<Api> => ({ ...model, contextWindow: windowFor(model.contextWindow, compactAt) });
+	const wrapped: Provider = Object.create(provider);
+	return Object.assign(wrapped, { getModels: () => provider.getModels().map(capped) });
 }
 
 const LEVELS: ThinkingLevelMap = {
@@ -43,19 +72,6 @@ const LEVELS: ThinkingLevelMap = {
 	max: "max",
 };
 
-/** Metadata /v1/models does not report, for the models used most. */
-const KNOWN: Record<string, { name: string; contextWindow: number; maxTokens: number }> = {
-	"claude-opus-5-5": { name: "Claude Opus 5.5", contextWindow: 1_000_000, maxTokens: 128_000 },
-	"claude-sonnet-5": { name: "Claude Sonnet 5", contextWindow: 1_000_000, maxTokens: 128_000 },
-	"claude-fable-5-1": { name: "Claude Fable 5.1", contextWindow: 1_000_000, maxTokens: 128_000 },
-	"gpt-6.1-sol": { name: "GPT 6.1 Sol", contextWindow: 500_000, maxTokens: 128_000 },
-	"gpt-6-astra": { name: "GPT 6.0 Astra", contextWindow: 272_000, maxTokens: 128_000 },
-	"gpt-6-luna": { name: "GPT 6.0 Luna", contextWindow: 272_000, maxTokens: 128_000 },
-	"gpt-5.6-sol": { name: "GPT 5.6 Sol", contextWindow: 272_000, maxTokens: 128_000 },
-};
-
-export const FAVORITE_MODEL_IDS = Object.keys(KNOWN);
-
 /** OpenAI's and Anthropic's /v1/models both list `{ id }` objects under `data`. */
 const ModelList = Type.Object({ data: Type.Optional(Type.Array(Type.Object({ id: Type.String() }))) });
 
@@ -67,16 +83,19 @@ function rootUrl(baseUrl: string): string {
 	return baseUrl.replace(/\/+$/u, "").replace(/\/v1$/u, "");
 }
 
-function toModel(id: string, baseUrl: string, compactAt: number): Model<Api> {
-	const known = KNOWN[id];
+/** Catalog entries by model id, from built-in providers, for what a custom endpoint's list does not say. */
+export type Catalog = ReadonlyMap<string, Model<Api>>;
+
+function toModel(id: string, provider: string, baseUrl: string, catalog: Catalog): Model<Api> {
+	const known = catalog.get(baseName(id));
 	const common = {
 		id,
 		name: known?.name ?? id,
-		provider: PROVIDER_ID,
-		reasoning: true,
-		input: ["text", "image"] satisfies ("text" | "image")[],
+		provider,
+		reasoning: known?.reasoning ?? true,
+		input: known?.input ?? (["text", "image"] satisfies ("text" | "image")[]),
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: windowFor(id, compactAt),
+		contextWindow: known?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
 		maxTokens: known?.maxTokens ?? 32_000,
 		thinkingLevelMap: LEVELS,
 	};
@@ -89,12 +108,13 @@ function toModel(id: string, baseUrl: string, compactAt: number): Model<Api> {
 	return { ...common, api: "openai-completions", baseUrl: v1, compat: { supportsStrictMode: false } };
 }
 
-/** Model IDs from the service's /v1/models; favorites first. */
+/** Model IDs from an endpoint's /v1/models, sorted. */
 export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<string[]> {
 	// OpenAI-style auth first. Anthropic headers are only for Anthropic's own API: a gateway that sees them may answer
 	// with its Anthropic catalog alone (some list only Claude models then).
 	const url = `${rootUrl(baseUrl)}/v1/models`;
-	let response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
+	const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+	let response = await fetch(url, { headers, signal });
 	if (response.status === 401 || response.status === 403) {
 		response = await fetch(url, {
 			headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
@@ -103,34 +123,25 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 	}
 	if (!response.ok) throw new Error(`GET /v1/models: HTTP ${response.status}`);
 	const body = parse(ModelList, await response.json(), "GET /v1/models");
-	const ids = new Set((body.data ?? []).map((model) => model.id));
-	const favorites = FAVORITE_MODEL_IDS.filter((id) => ids.has(id));
-	const rest = [...ids].filter((id) => !KNOWN[id]).sort();
-	return [...favorites, ...rest];
+	return [...new Set((body.data ?? []).map((model) => model.id))].sort();
 }
 
-/** `contextWindow` is the size at which conversations compact (see windowFor). */
-export function describeModels(ids: string[], compactAt: number): ModelInfo[] {
-	return ids.map((id) => ({
-		id,
-		name: KNOWN[id]?.name ?? id,
-		known: Boolean(KNOWN[id]),
-		contextWindow: windowFor(id, compactAt),
-	}));
-}
-
-export function modelServiceProvider(baseUrl: string, apiKey: string, modelIds: string[], compactAt: number): Provider {
-	// Always include the favorites so conversations that use them resolve even when the catalog fetch failed.
-	const ids = [...new Set([...FAVORITE_MODEL_IDS, ...modelIds])];
+/** A custom endpoint as a provider with the models it listed. */
+export function customProvider(config: { id: string; name: string; baseUrl: string }, apiKey: string, modelIds: readonly string[], catalog: Catalog): Provider {
 	return createProvider({
-		id: PROVIDER_ID,
-		name: "Model service",
+		id: config.id,
+		name: config.name,
 		auth: { apiKey: { name: "API key", resolve: async () => ({ auth: { apiKey } }) } },
-		models: ids.map((id) => toModel(id, baseUrl, compactAt)),
+		models: modelIds.map((id) => toModel(id, config.id, config.baseUrl, catalog)),
 		api: {
 			"anthropic-messages": anthropicMessagesApi(),
 			"openai-responses": openAIResponsesApi(),
 			"openai-completions": openAICompletionsApi(),
 		},
 	});
+}
+
+/** Whether a custom endpoint's model is in a catalog, so its metadata is real. */
+export function inCatalog(catalog: Catalog, id: string): boolean {
+	return catalog.has(baseName(id));
 }

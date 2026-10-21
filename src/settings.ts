@@ -4,12 +4,14 @@ import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
+import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
 /** A bot's conversation never ends; compacting at 256k tokens keeps each request's cost bounded. */
 export const DEFAULT_COMPACT_AT = 256_000;
-/** Keychain key from the first version; kept so saved keys still load. */
-const SECRET_API_KEY = "cliproxyapi.apiKey";
+/** The single model service's key, before providers: moved to the custom provider it becomes. */
+const LEGACY_SECRET_API_KEY = "cliproxyapi.apiKey";
+const providerKey = (id: string) => `provider.${id}.apiKey`;
 const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_SANDBOX_TOKEN = "sandbox.token";
 const SECRET_GCLOUD = "gcloud.credential";
@@ -17,8 +19,10 @@ const SECRET_CLOUDFLARE = "cloudflare.credential";
 const SECRET_AZURE = "azure.credential";
 
 export interface Settings {
-	baseUrl: string;
-	apiKey: string;
+	/** Model providers, as JSON (agent/providers.ts); their keys are in providerKeys. */
+	providers: string;
+	/** API key per provider id, from the Keystore. */
+	providerKeys: Record<string, string>;
 	githubToken: string;
 	/** Sandbox relay, e.g. ws://100.x.y.z:8787; empty disables the sandbox tools. */
 	sandboxUrl: string;
@@ -31,6 +35,8 @@ export interface Settings {
 	cloudflareCredential: string;
 	/** Azure credential JSON (device code sign-in) for az in the sandbox. */
 	azureCredential: string;
+	/** A new bot's model: a provider id and a model id. */
+	defaultProvider: string;
 	defaultModelId: string;
 	defaultThinking: string;
 	/** Which calendar accounts the agent may read and write, as JSON (agent/calendar-access.ts); empty for the defaults. */
@@ -45,7 +51,10 @@ export interface Settings {
 
 /** The non-secret settings in localStorage. */
 const PlainSettings = Type.Object({
+	/** The single model service, before providers; read once to make the custom provider. */
 	baseUrl: Type.Optional(Type.String()),
+	providers: Type.Optional(Type.String()),
+	defaultProvider: Type.Optional(Type.String()),
 	sandboxUrl: Type.Optional(Type.String()),
 	gcloudProject: Type.Optional(Type.String()),
 	defaultModelId: Type.Optional(Type.String()),
@@ -75,12 +84,31 @@ async function secret(key: string): Promise<string> {
 export async function loadSettings(): Promise<Settings> {
 	const plain = loadPlain();
 	// At once, not one after another: each is a Keystore round trip, and they are on the way to the first screen.
-	const [apiKey, githubToken, sandboxToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all(
-		[SECRET_API_KEY, SECRET_GITHUB_TOKEN, SECRET_SANDBOX_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(secret),
-	);
+	let providers = parseProviders(plain.providers ?? "");
+	let defaultProvider = plain.defaultProvider ?? "";
+	let legacyKey: string | undefined;
+	if (plain.providers === undefined && plain.baseUrl) {
+		// The model service of earlier versions becomes the first provider, a custom one.
+		let name = plain.baseUrl;
+		try {
+			name = new URL(plain.baseUrl).host;
+		} catch {
+			// Not a URL: its text names it.
+		}
+		providers = [{ kind: "custom", id: "custom", name, baseUrl: plain.baseUrl }];
+		defaultProvider = "custom";
+		legacyKey = await secret(LEGACY_SECRET_API_KEY);
+	}
+	const [keys, githubToken, sandboxToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+		Promise.all(providers.map(async (provider) => [provider.id, await secret(providerKey(provider.id))] as const)),
+		...[SECRET_GITHUB_TOKEN, SECRET_SANDBOX_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(secret),
+	]);
+	const providerKeys: Record<string, string> = Object.fromEntries(keys);
+	if (legacyKey !== undefined) providerKeys.custom = legacyKey;
 	return {
-		baseUrl: plain.baseUrl ?? "",
-		apiKey,
+		providers: JSON.stringify(providers),
+		providerKeys,
+		defaultProvider: defaultProvider || providers[0]?.id || "",
 		githubToken,
 		sandboxUrl: plain.sandboxUrl ?? "",
 		sandboxToken,
@@ -98,8 +126,11 @@ export async function loadSettings(): Promise<Settings> {
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
+	const before = parseProviders(loadPlain().providers ?? "");
+	const providers = parseProviders(settings.providers);
 	const plain: PlainSettings = {
-		baseUrl: settings.baseUrl,
+		providers: JSON.stringify(providers),
+		defaultProvider: settings.defaultProvider,
 		sandboxUrl: settings.sandboxUrl,
 		gcloudProject: settings.gcloudProject,
 		defaultModelId: settings.defaultModelId,
@@ -110,7 +141,11 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		compactAt: settings.compactAt,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
-	await SecureStorage.set(SECRET_API_KEY, settings.apiKey);
+	for (const provider of providers) await saveSecret(providerKey(provider.id), settings.providerKeys[provider.id] ?? "");
+	for (const provider of before) {
+		if (!providers.some((kept) => kept.id === provider.id)) await SecureStorage.remove(providerKey(provider.id)).catch(() => false);
+	}
+	await SecureStorage.remove(LEGACY_SECRET_API_KEY).catch(() => false);
 	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
 	await saveSecret(SECRET_SANDBOX_TOKEN, settings.sandboxToken);
 	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
@@ -123,8 +158,13 @@ async function saveSecret(key: string, value: string): Promise<void> {
 	else await SecureStorage.remove(key).catch(() => false);
 }
 
+/** A provider that can answer: a built-in one with its key, or a custom one (a local server may need none). */
+export function usableProviders(settings: Pick<Settings, "providers" | "providerKeys">): ProviderConfig[] {
+	return parseProviders(settings.providers).filter((provider) => provider.kind === "custom" || Boolean(settings.providerKeys[provider.id]));
+}
+
 export function isConfigured(settings: Settings): boolean {
-	return Boolean(settings.baseUrl && settings.apiKey);
+	return usableProviders(settings).length > 0;
 }
 
 /** Cloudflare rotates refresh tokens on every refresh; the new one replaces the stored credential right away. */

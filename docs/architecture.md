@@ -5,7 +5,7 @@
 ┌──────────────── 手機 (Capacitor WebView) ────────────────┐
 │ React UI                                                  │
 │ pi-durable harness ── SQLite（對話、執行狀態）              │
-│   ├─ 模型、web_search ───── HTTPS ──▶ 模型服務              │
+│   ├─ 模型、web_search ───── HTTPS ──▶ 模型供應商（pi-ai）   │
 │   ├─ github_api、web_fetch ─ HTTPS ──▶ 網路                 │
 │   ├─ code mode ──────────── Web Worker（QuickJS）           │
 │   └─ coding tools ───────── WebSocket ─┐                    │
@@ -59,7 +59,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 |---|---|
 | `src/agent/runtime.ts` | `AgentRuntime`：harness、Bot 清單、每個 Bot 的控制器、執行狀態（task graph） |
 | `src/agent/bots.ts`、`memory.ts`、`triggers.ts` | Bot 的資料與系統提示、全域和 Bot 的記憶、排程 |
-| `src/agent/models.ts` | 模型服務的 provider：Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions |
+| `src/agent/providers.ts`、`credentials.ts`、`models.ts` | 模型供應商：pi-ai 內建的供應商（各自一個 chunk，用到才載入）、API key 的 credential store；自訂端點的 provider（Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions，規格查 pi-ai 的目錄） |
 | `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`、`get_travel_time`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent），`calendar.ts` 是行事曆（權限設定在 `src/agent/calendar-access.ts`） |
 | `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
 | `src/agent/parse.ts`、`oauth.ts` | 邊界驗證（typebox schema）與三家雲端共用的 OAuth：原生 HTTP 加逾時、token 回應、device flow 輪詢 |

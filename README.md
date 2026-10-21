@@ -15,7 +15,7 @@
 
 - **幾個長期的 Bot**：每個 Bot 有自己的名字、工作說明、記憶、排程，和一條一直延續的對話，太長時自動壓縮。
 - **Agent 在手機上跑**：對話和執行狀態存在手機上。鎖屏、切到背景都會繼續跑，app 被系統清掉後也會接著跑。
-- **模型用你自己的 key**：任何 OpenAI 或 Anthropic 相容的 API 都能接。
+- **模型用你自己的 key**：透過 pi-ai 接 OpenAI、Anthropic、Gemini、OpenRouter、xAI、DeepSeek 等供應商，也能接任何 OpenAI 或 Anthropic 相容的端點（自架 gateway、Ollama）；可以同時用好幾家。
 - **手機的能力**：天氣、附近的店家、行事曆、通知、鬧鐘、語音、記帳用的 SQLite 資料庫……都是工具，每個 Bot 可以分別開關。
 - **連接服務（MCP）**：從精選清單一鍵連接 Notion、Linear、Todoist、Stripe、Sentry 等服務，登入在瀏覽器完成。
 - **Sandbox 在你的電腦上**：用 SSH 連 tailnet 上的 Mac 或 Linux，Bot 在容器裡讀寫檔案、跑指令。
@@ -26,7 +26,7 @@
 ## 開始使用
 
 1. **安裝**：從 [Releases](../../releases) 下載 APK 安裝。需要 Android 7.0 以上的 arm64 手機。
-2. **填模型服務**：第一次打開時，填上 API 網址和 key。到這一步就能聊天和搜尋網路。
+2. **加入模型供應商**：第一次打開時，選一家供應商填上 API key，或填自訂端點的網址。到這一步就能聊天。
 3. **（選用）** 在設定裡連接 GitHub、雲端帳號、MCP 服務，或用 SSH 加入你的電腦當 sandbox。
 4. **背景執行**：在設定 › 背景執行允許通知，並讓 app 不受電池最佳化限制。
 
