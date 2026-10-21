@@ -37,6 +37,7 @@ import { Workspace } from "./sandbox/workspace.ts";
 import { azureService, type CloudService, cloudflareService, createCloudExtensions, googleService } from "./tools/cloud.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { SkillsExtension } from "./skills.ts";
+import { NotificationsExtension } from "./tools/notifications.ts";
 import { SpeechExtension } from "./tools/speech.ts";
 import { createWebExtension } from "./tools/web.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
@@ -278,6 +279,7 @@ export class AgentRuntime {
 		registry.install(DeviceExtension);
 		registry.install(AppsExtension);
 		registry.install(SpeechExtension);
+		registry.install(NotificationsExtension);
 		registry.install(SkillsExtension);
 		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
 		for (const extension of createPhoneCodemode()) registry.install(extension);

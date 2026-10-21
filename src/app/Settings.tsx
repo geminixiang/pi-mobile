@@ -1,6 +1,8 @@
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
+import { Notifications } from "../notifications-plugin.ts";
+import { showToast } from "./Toasts.tsx";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
 import {
 	checkGcloud,
@@ -525,6 +527,49 @@ function BackgroundGroup() {
 	);
 }
 
+/**
+ * Notification access, for bots with the 通知 toolset. Off until the user allows it in system settings; rechecked when
+ * the app resumes, which is how the user comes back from there.
+ */
+function NotificationsGroup() {
+	const [allowed, setAllowed] = useState<boolean>();
+	useEffect(() => {
+		if (!native) return;
+		const refresh = () => void Notifications.status().then((status) => setAllowed(status.allowed));
+		refresh();
+		const listener = App.addListener("resume", refresh);
+		return () => void listener.then((handle) => handle.remove());
+	}, []);
+	if (allowed === undefined) return null;
+	return (
+		<Group
+			title="通知讀取"
+			hint="開啟後，pi 會把其他 App 的通知（LINE、Messenger、信件、外送…）在手機上留 7 天，讓開了「通知」工具的 Bot 回答「剛剛誰找我」。只存在這支手機上；Bot 讀到的內容會送給模型。"
+		>
+			<div className="check-row">
+				<span className="menu-text">
+					通知存取權
+					<span className="menu-hint">{allowed ? "在系統設定裡關掉就會停止記錄" : "在系統設定裡允許 pi mobile"}</span>
+				</span>
+				<button type="button" className="btn" onClick={() => void Notifications.openSettings()}>
+					{allowed ? "管理" : "開啟"}
+				</button>
+			</div>
+			{allowed ? (
+				<div className="check-row">
+					<span className="menu-text">
+						清除記錄
+						<span className="menu-hint">刪除目前留在手機上的通知</span>
+					</span>
+					<button type="button" className="btn" onClick={() => void Notifications.clear().then(() => showToast("已清除通知記錄"))}>
+						清除
+					</button>
+				</div>
+			) : null}
+		</Group>
+	);
+}
+
 export function SettingsView({
 	initial,
 	status,
@@ -752,6 +797,7 @@ export function SettingsView({
 				<CalendarGroup value={settings.calendarAccess} onChange={(json) => setSettings((current) => ({ ...current, calendarAccess: json }))} />
 				{runtime ? <TriggersGroup runtime={runtime} /> : null}
 				<BackgroundGroup />
+				<NotificationsGroup />
 				<p className="about">pi mobile · {__BUILD__}</p>
 			</form>
 		</div>

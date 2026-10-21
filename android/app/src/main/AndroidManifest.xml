@@ -69,6 +69,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Records other apps' notifications for read_notifications, once the user allows notification access. -->
+        <service
+            android:name=".NotificationsListener"
+            android:exported="true"
+            android:label="pi mobile"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -109,6 +120,11 @@
     <queries>
         <intent>
             <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <!-- Launcher apps, so a recorded notification shows its app's name (LINE) rather than its package. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
         </intent>
     </queries>
 </manifest>
