@@ -11,6 +11,7 @@
 // The message text is an <attachment> element (formatAttachment), which the transcript shows as a file card
 // (parseAttachment) instead of its text.
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import { codeNote, isCodeNote } from "./codes.ts";
 
 export type AttachmentKind = "pdf" | "docx" | "sheet" | "text";
 
@@ -229,9 +230,9 @@ export function parseAttachment(text: string): AttachmentCard | undefined {
 	return { id: attributes.id, name: attributes.name, kind, size: Number(attributes.size) || 0, ...(attributes.pages ? { pages: Number(attributes.pages) } : {}) };
 }
 
-/** A message's content without its attachments' text, for previews of what the user wrote. */
+/** A message's content without its attachments' text and decoded codes, for copying what the user wrote. */
 export function withoutAttachments<T extends { type: string; text?: string }>(content: readonly T[]): T[] {
-	return content.filter((block) => block.type !== "text" || !block.text || !OPEN_TAG.test(block.text));
+	return content.filter((block) => block.type !== "text" || !block.text || (!OPEN_TAG.test(block.text) && !isCodeNote(block.text)));
 }
 
 /** A prepared attachment: its message text and any page images to send with it. */
@@ -252,13 +253,18 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 	if (!kind) throw new Error(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
 	const base = { id: newAttachmentId(), conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
 	let stored: StoredAttachment;
-	let images: ImageContent[] = [];
+	let images: (ImageContent | TextContent)[] = [];
 	switch (kind) {
 		case "pdf": {
 			const pdf = await import("./attachments-pdf.ts");
 			const { units, blankPages } = await pdf.extractPdf(file);
 			stored = { ...base, units, ...(blankPages.length ? { blankPages } : {}), blob: file };
-			if (blankPages.length) images = await pdf.renderPages(file, blankPages.slice(0, INLINE_PAGE_IMAGES));
+			if (blankPages.length) {
+				const shown = blankPages.slice(0, INLINE_PAGE_IMAGES);
+				const rendered = await pdf.renderPages(file, shown);
+				const codes = await codeNote(rendered, (index) => `${file.name} page ${shown[index]}`);
+				images = codes ? [...rendered, codes] : rendered;
+			}
 			break;
 		}
 		case "docx": {

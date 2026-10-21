@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BusyMode, ConversationController, ConversationId, SubmissionId } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { parseAttachment } from "../agent/attachments.ts";
+import { isCodeNote } from "../agent/codes.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon } from "./icons.tsx";
@@ -23,6 +24,7 @@ function text(content: unknown): string {
 	return content
 		.map((part: { type: string; text?: string }) => {
 			if (part.type !== "text" || !part.text) return "";
+			if (isCodeNote(part.text)) return "";
 			const attachment = parseAttachment(part.text);
 			return attachment ? `［${attachment.name}］` : part.text;
 		})

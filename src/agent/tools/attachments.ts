@@ -5,6 +5,7 @@ import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool } from "@earendil-works/pi-durable";
 import { estimateTokens, fullText, loadAttachment, normalizeCjk } from "../attachments.ts";
+import { codeNote } from "../codes.ts";
 
 const DEFAULT_LINES = 400;
 /** One call returns at most this much text, so one read cannot flood the context; the notice says where to go on. */
@@ -80,7 +81,10 @@ const readAttachment = defineTool({
 				const shown = pages.slice(0, MAX_IMAGES);
 				const { renderPages } = await import("../attachments-pdf.ts");
 				output.push({ type: "text", text: `Pages ${shown.join(", ")} of ${attachment.name}${pages.length > shown.length ? ` (${MAX_IMAGES} at a time)` : ""}:` });
-				output.push(...(await renderPages(attachment.blob, shown)));
+				const images = await renderPages(attachment.blob, shown);
+				output.push(...images);
+				const codes = await codeNote(images, (index) => `page ${shown[index]}`);
+				if (codes) output.push(codes);
 				return { output };
 			}
 			const text = pages.map((page) => `--- page ${page} ---\n${attachment.units[page - 1]}`).join("\n\n");

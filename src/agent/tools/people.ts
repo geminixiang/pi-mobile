@@ -4,6 +4,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool } from "@earendil-works/pi-durable";
+import { codeNote } from "../codes.ts";
 import { resolvePlace } from "./device.ts";
 
 interface Contact {
@@ -155,7 +156,9 @@ const viewPhotos = defineTool({
 			const { data } = await Photos.view({ id });
 			images.push({ type: "image", mimeType: "image/jpeg", data });
 		}
-		return { output: [{ type: "text", text: `Photos ${args.ids.slice(0, MAX_VIEW).join(", ")}:` }, ...images] };
+		const ids = args.ids.slice(0, MAX_VIEW);
+		const codes = await codeNote(images, (index) => `photo ${ids[index]}`);
+		return { output: [{ type: "text", text: `Photos ${ids.join(", ")}:` }, ...images, ...(codes ? [codes] : [])] };
 	},
 });
 

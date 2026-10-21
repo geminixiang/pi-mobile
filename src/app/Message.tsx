@@ -7,6 +7,7 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { ChevronIcon, CloseIcon, FileIcon } from "./icons.tsx";
 import { type AttachmentCard, parseAttachment, withoutAttachments } from "../agent/attachments.ts";
+import { isCodeNote } from "../agent/codes.ts";
 import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
@@ -421,6 +422,7 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 					case "text": {
 						const attachment = parseAttachment(group.text);
 						if (attachment) return <AttachmentChip key={index} card={attachment} />;
+						if (isCodeNote(group.text)) return null;
 						if (!streaming && isBrokenText(group.text)) return null;
 						return (
 							<div

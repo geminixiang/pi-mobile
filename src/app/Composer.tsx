@@ -1,6 +1,7 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { useEffect, useRef, useState } from "react";
 import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, deleteAttachments, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
+import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
 import { CloseIcon, MicIcon, PaperclipIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { Database } from "../database-plugin.ts";
@@ -110,10 +111,14 @@ export function Composer({
 		if (!hasInput || reading) return;
 		const trimmed = draft.trim();
 		const attached = files.flatMap((file) => (file.state === "ready" ? file.prepared.content : []));
-		onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images], whenBusy);
+		const photos = images;
 		onDraftChange("");
 		setImages([]);
 		setFiles([]);
+		// QR codes and barcodes in the photos, decoded here (a few hundred ms a photo, none without photos).
+		void codeNote(photos, (index) => `photo ${index + 1}`).then((codes) =>
+			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...photos, ...(codes ? [codes] : [])], whenBusy),
+		);
 	};
 
 	/** Photos become images at once; other files are read on the phone (attachments.ts), shown as reading meanwhile. */
