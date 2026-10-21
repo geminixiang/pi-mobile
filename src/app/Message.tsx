@@ -5,7 +5,8 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
-import { ChevronIcon, FileIcon } from "./icons.tsx";
+import { ChevronIcon, CloseIcon, FileIcon } from "./icons.tsx";
+import { type AttachmentCard, parseAttachment, withoutAttachments } from "../agent/attachments.ts";
 import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
@@ -54,9 +55,39 @@ export function finishedCalls(entries: readonly EntryRecord[]): Map<string, Call
 	return calls;
 }
 
-/** Text of a message, for copying. */
+const KIND_LABEL: Record<AttachmentCard["kind"], string> = { pdf: "PDF", docx: "Word", sheet: "試算表", text: "文字" };
+
+function formatSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** An attached file, in the user's message and the composer: its name, kind, and size; its text is the model's. */
+export function AttachmentChip({ card, status, onRemove }: { card: Pick<AttachmentCard, "name" | "kind" | "size" | "pages">; status?: string; onRemove?: () => void }) {
+	const detail = status ?? [KIND_LABEL[card.kind], card.pages ? `${card.pages} 頁` : "", formatSize(card.size)].filter(Boolean).join(" · ");
+	const body = (
+		<>
+			<FileIcon size={18} />
+			<span className="file-chip-text">
+				<span className="file-chip-name">{card.name}</span>
+				<span className="file-chip-detail">{detail}</span>
+			</span>
+		</>
+	);
+	return onRemove ? (
+		<button type="button" className="file-chip" onClick={onRemove} aria-label={`移除 ${card.name}`}>
+			{body}
+			<CloseIcon size={12} />
+		</button>
+	) : (
+		<div className="file-chip">{body}</div>
+	);
+}
+
+/** Text of a message, for copying: without its attachments' text. */
 export function entryText(entry: EntryRecord): string {
-	return blocks(message(entry)?.content)
+	return withoutAttachments(blocks(message(entry)?.content))
 		.filter((block) => block.type === "text")
 		.map((block) => block.text)
 		.join("\n");
@@ -387,7 +418,9 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 					return <Steps key={index} group={group} calls={calls} prefs={prefs} />;
 				}
 				switch (group.type) {
-					case "text":
+					case "text": {
+						const attachment = parseAttachment(group.text);
+						if (attachment) return <AttachmentChip key={index} card={attachment} />;
 						if (!streaming && isBrokenText(group.text)) return null;
 						return (
 							<div
@@ -403,6 +436,7 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 								)}
 							</div>
 						);
+					}
 					case "thinking":
 						return prefs.showThinking && group.thinking.trim() ? (
 							<Thinking key={index} text={group.thinking} streaming={streaming && index === groups.length - 1} />

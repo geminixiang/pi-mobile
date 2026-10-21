@@ -13,7 +13,7 @@
 // definitions were about 24,500 characters (5,000 tokens, 72% of a short request's prompt); the on-demand ones here
 // are 6,900 of them, and Cloudflare's MCP server alone is 11,400.
 //
-// Some extensions are always on and not listed: the bot's identity, memory, skills, and triggers (a schedule's run
+// Some extensions are always on and not listed: the bot's identity, memory, skills, attachments, and triggers (a schedule's run
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BusyMode, ConversationController, ConversationId, SubmissionId } from "../agent/runtime.ts";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
+import { parseAttachment } from "../agent/attachments.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon } from "./icons.tsx";
@@ -20,7 +21,13 @@ export interface Capabilities {
 function text(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
-	return content.map((part: { type: string; text?: string }) => (part.type === "text" ? part.text : "")).join(" ");
+	return content
+		.map((part: { type: string; text?: string }) => {
+			if (part.type !== "text" || !part.text) return "";
+			const attachment = parseAttachment(part.text);
+			return attachment ? `［${attachment.name}］` : part.text;
+		})
+		.join(" ");
 }
 
 interface Suggestion {

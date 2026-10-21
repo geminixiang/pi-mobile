@@ -52,6 +52,11 @@ export const PlusIcon = ({ size = 22 }: { size?: number }) => (
 		<path d="M12 5v14M5 12h14" />
 	</Icon>
 );
+export const PaperclipIcon = ({ size = 22 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
+	</Icon>
+);
 export const ImageIcon = ({ size = 22 }: { size?: number }) => (
 	<Icon size={size}>
 		<rect x="3.5" y="4.5" width="17" height="15" rx="3.5" />

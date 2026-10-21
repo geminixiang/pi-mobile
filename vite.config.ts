@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
@@ -32,8 +32,35 @@ function piEnvDaemons(): Plugin {
 	};
 }
 
+/**
+ * pdf.js's data (attachments-pdf.ts): CMaps, without which text in CJK fonts comes out empty, the standard fonts for
+ * rendering pages, and its image decoders' wasm. Served as /pdfjs/<dir>/<file> from the installed pdfjs-dist, so they
+ * match its version and are never committed.
+ */
+const PDFJS_DIRS = ["cmaps", "standard_fonts", "wasm"];
+const pdfjsDir = (dir: string) => new URL(`./node_modules/pdfjs-dist/${dir}/`, import.meta.url);
+function pdfjsAssets(): Plugin {
+	return {
+		name: "pdfjs-assets",
+		configureServer(server) {
+			server.middlewares.use((request, response, next) => {
+				const match = request.url?.match(/^\/pdfjs\/([a-z_]+)\/([\w.-]+)$/);
+				if (!match || !PDFJS_DIRS.includes(match[1])) return next();
+				response.end(readFileSync(new URL(match[2], pdfjsDir(match[1]))));
+			});
+		},
+		generateBundle() {
+			for (const dir of PDFJS_DIRS) {
+				for (const file of readdirSync(pdfjsDir(dir))) {
+					if (file.includes(".")) this.emitFile({ type: "asset", fileName: `pdfjs/${dir}/${file}`, source: readFileSync(new URL(file, pdfjsDir(dir))) });
+				}
+			}
+		},
+	};
+}
+
 export default defineConfig({
-	plugins: [react(), piEnvDaemons()],
+	plugins: [react(), piEnvDaemons(), pdfjsAssets()],
 	// Shown in Settings: the commit the build came from, and when it was built.
 	define: {
 		__PI_ENV_DAEMONS__: JSON.stringify(

@@ -50,6 +50,7 @@ import { PlacesExtension } from "./tools/places.ts";
 import { SpeechExtension } from "./tools/speech.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension } from "./tools/web.ts";
+import { AttachmentsExtension } from "./tools/attachments.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
 	createTriggerExtension,
@@ -385,6 +386,7 @@ export class AgentRuntime {
 		install(SpeechExtension);
 		install(NotificationsExtension);
 		install(SkillsExtension);
+		install(AttachmentsExtension);
 		install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
 		for (const extension of createPhoneCodemode()) install(extension);
 		if (settings.githubToken) install(createGitHubExtension(async () => settings.githubToken || undefined));

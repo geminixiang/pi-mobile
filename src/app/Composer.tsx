@@ -1,7 +1,10 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { useEffect, useRef, useState } from "react";
+import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { CloseIcon, ImageIcon, MicIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { CloseIcon, MicIcon, PaperclipIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { Database } from "../database-plugin.ts";
+import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 
@@ -19,6 +22,11 @@ export async function toImageContent(file: File): Promise<ImageContent> {
 	const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
 	return { type: "image", mimeType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
 }
+
+/** A file picked for the next message: being read on the phone, or ready with its message content. */
+type PendingFile =
+	| { key: string; state: "reading"; name: string; kind: AttachmentKind; size: number }
+	| { key: string; state: "ready"; prepared: PreparedAttachment };
 
 export interface QueuedItem {
 	id: SubmissionId;
@@ -64,9 +72,11 @@ export function Composer({
 	onJump: (id: string | undefined) => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>(initialImages ?? []);
+	const [files, setFiles] = useState<PendingFile[]>([]);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
-	const hasInput = draft.trim() !== "" || images.length > 0;
+	const reading = files.some((file) => file.state === "reading");
+	const hasInput = draft.trim() !== "" || images.length > 0 || files.length > 0;
 	const latestDraft = useRef(draft);
 	latestDraft.current = draft;
 	const dictation = useDictation((text) => {
@@ -88,11 +98,38 @@ export function Composer({
 	}, [pickImageKey]);
 
 	const send = (whenBusy: BusyMode) => {
-		if (!hasInput) return;
+		if (!hasInput || reading) return;
 		const trimmed = draft.trim();
-		onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...images], whenBusy);
+		const attached = files.flatMap((file) => (file.state === "ready" ? file.prepared.content : []));
+		onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images], whenBusy);
 		onDraftChange("");
 		setImages([]);
+		setFiles([]);
+	};
+
+	/** Photos become images at once; other files are read on the phone (attachments.ts), shown as reading meanwhile. */
+	const attach = async (picked: File[]) => {
+		const photos = picked.filter((file) => file.type.startsWith("image/"));
+		for (const file of picked) {
+			if (file.type.startsWith("image/")) continue;
+			const kind = attachmentKind(file);
+			if (!kind) {
+				onNotice(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
+				continue;
+			}
+			const key = crypto.randomUUID();
+			setFiles((current) => [...current, { key, state: "reading", name: file.name, kind, size: file.size }]);
+			prepareAttachment(file).then(
+				(prepared) => setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item))),
+				(error: unknown) => {
+					setFiles((current) => current.filter((item) => item.key !== key));
+					onNotice(`讀不了 ${file.name}：${error instanceof Error ? error.message : String(error)}`);
+				},
+			);
+		}
+		const added = await Promise.all(photos.map(toImageContent));
+		setImages((current) => [...current, ...added]);
+		textArea.current?.focus();
 	};
 
 	return (
@@ -114,6 +151,24 @@ export function Composer({
 			<div className="input">
 				{/* A tab on the editor's line, as pi writes "↓ N more" into it; a long press opens the prompt dial. */}
 				<ScrollTab hint={scrollHint} prompts={prompts} onScrollToBottom={onScrollToBottom} onJump={onJump} />
+				{files.length > 0 ? (
+					<div className="pending-files">
+						{files.map((file) => (
+							<AttachmentChip
+								key={file.key}
+								card={file.state === "ready" ? file.prepared.card : file}
+								status={file.state === "reading" ? "讀取中…" : undefined}
+								onRemove={() => {
+									setFiles((current) => current.filter((item) => item.key !== file.key));
+									// A spreadsheet was imported when picked; not sent, its tables go too.
+									if (file.state === "ready" && file.prepared.tables.length > 0) {
+										void Database.execute({ statements: file.prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
+									}
+								}}
+							/>
+						))}
+					</div>
+				) : null}
 				{images.length > 0 ? (
 					<div className="pending-images">
 						{images.map((image, index) => (
@@ -151,21 +206,19 @@ export function Composer({
 					</div>
 				) : null}
 				<div className="input-row" hidden={listening}>
-					<button type="button" className="icon-button" onClick={() => fileInput.current?.click()} aria-label="附加圖片">
-						<ImageIcon />
+					<button type="button" className="icon-button" onClick={() => fileInput.current?.click()} aria-label="附加檔案或照片">
+						<PaperclipIcon />
 					</button>
 					<input
 						ref={fileInput}
 						type="file"
-						accept="image/*"
+						accept={`image/*,${ATTACHMENT_ACCEPT}`}
 						multiple
 						hidden
-						onChange={async (event) => {
-							const files = [...(event.target.files ?? [])];
+						onChange={(event) => {
+							const picked = [...(event.target.files ?? [])];
 							event.target.value = "";
-							const added = await Promise.all(files.map(toImageContent));
-							setImages((current) => [...current, ...added]);
-							textArea.current?.focus();
+							void attach(picked);
 						}}
 					/>
 					<textarea
@@ -180,7 +233,7 @@ export function Composer({
 							<MicIcon />
 						</button>
 					) : !busy ? (
-						<button type="button" className="send" onClick={() => send("steer")} disabled={!hasInput} aria-label="送出">
+						<button type="button" className="send" onClick={() => send("steer")} disabled={!hasInput || reading} aria-label="送出">
 							<SendIcon />
 						</button>
 					) : (
@@ -192,10 +245,10 @@ export function Composer({
 				{busy && hasInput ? (
 					<div className="busy-actions">
 						<span className="busy-hint">pi 還在工作：</span>
-						<button type="button" className="btn primary" onClick={() => send("steer")}>
+						<button type="button" className="btn primary" disabled={reading} onClick={() => send("steer")}>
 							插話
 						</button>
-						<button type="button" className="btn" onClick={() => send("followUp")}>
+						<button type="button" className="btn" disabled={reading} onClick={() => send("followUp")}>
 							稍後
 						</button>
 					</div>
