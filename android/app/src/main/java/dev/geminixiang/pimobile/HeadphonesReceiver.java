@@ -57,10 +57,13 @@ public class HeadphonesReceiver extends BroadcastReceiver {
         TriggerReceiver.headphones(context, name);
     }
 
+    /**
+     * Headphones and earbuds report one of these (WH-1000XM5 and Redmi Buds: wearable headset). Not handsfree: car
+     * kits report that too (an MG car's did, with A2DP), and the point is something the user is wearing.
+     */
     static boolean wearable(int deviceClass) {
         return deviceClass == BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES
             || deviceClass == BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET
-            || deviceClass == BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE
             || deviceClass == BluetoothClass.Device.AUDIO_VIDEO_UNCATEGORIZED;
     }
 
