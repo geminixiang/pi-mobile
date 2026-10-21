@@ -1,34 +1,31 @@
-import { type ReactNode, useRef, useState } from "react";
-import type { ConversationId, ConversationSummary } from "../agent/runtime.ts";
-import { ComposeIcon, GearIcon, MoreIcon, SearchIcon, MemoryIcon } from "./icons.tsx";
+import type { ReactNode } from "react";
+import { useRef } from "react";
+import type { Bot } from "../agent/bots.ts";
+import type { ConversationId } from "../agent/runtime.ts";
+import { GearIcon, MemoryIcon, MoreIcon, PlusIcon } from "./icons.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Layer } from "./Sheet.tsx";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-function group(updatedAt: number, now: Date): string {
-	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-	if (updatedAt >= startOfToday) return "今天";
-	if (updatedAt >= startOfToday - DAY) return "昨天";
-	if (updatedAt >= startOfToday - 6 * DAY) return "這週";
-	return "更早";
-}
-
 function time(updatedAt: number, now: Date): string {
 	const date = new Date(updatedAt);
-	if (now.getTime() - updatedAt < 6 * DAY) return date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+	if (updatedAt >= startOfToday) return date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+	if (updatedAt >= startOfToday - DAY) return "昨天";
 	return date.toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
 }
 
+/** The bots, each one long conversation, most recently talked to first. */
 export function Drawer({
 	open,
 	busy,
-	conversations,
+	bots,
 	currentId,
 	status,
 	onOpen,
 	onCreate,
-	onActions,
+	onEdit,
 	running,
 	onSettings,
 	onMemory,
@@ -36,33 +33,25 @@ export function Drawer({
 }: {
 	open: boolean;
 	busy: boolean;
-	conversations: ConversationSummary[];
+	bots: Bot[];
 	currentId: ConversationId | undefined;
 	/** Connected services, shown as marks: full color when set up, dimmed when not. */
 	status: { label: string; icon: ReactNode; on: boolean }[];
 	onOpen: (id: ConversationId) => void;
 	onCreate: () => void;
-	/** Rename or delete, from the row's menu or a long press. */
-	onActions: (item: ConversationSummary) => void;
-	/** Conversations with a run in progress. */
+	/** The bot's settings, from the row's menu or a long press. */
+	onEdit: (bot: Bot) => void;
+	/** Bots with a run in progress. */
 	running: ReadonlySet<ConversationId>;
 	onSettings: () => void;
-	/** Opens MEMORY.md, what pi knows about the user in every conversation. */
+	/** Opens the global MEMORY.md, what every bot knows about the user. */
 	onMemory: () => void;
 	onClose: () => void;
 }) {
-	const [query, setQuery] = useState("");
 	const swipe = useRef<number>(undefined);
 	const now = new Date();
-	const groups = new Map<string, ConversationSummary[]>();
-	for (const item of conversations) {
-		if (query && !item.title.toLowerCase().includes(query.toLowerCase())) continue;
-		const name = group(item.updatedAt, now);
-		groups.set(name, [...(groups.get(name) ?? []), item]);
-	}
-
 	return (
-		<Layer open={open} kind="drawer" onClose={onClose} label="對話列表">
+		<Layer open={open} kind="drawer" onClose={onClose} label="Bot 列表">
 			<div
 				className="drawer"
 				onTouchStart={(event) => {
@@ -82,43 +71,43 @@ export function Drawer({
 						<span className="brand-name">pi mobile</span>
 					</span>
 				</div>
-				<button type="button" className="btn wide" onClick={onCreate}>
-					<ComposeIcon size={16} /> 新對話
-				</button>
-				<label className="field-icon">
-					<SearchIcon />
-					<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋對話" />
-				</label>
 				<div className="drawer-list">
-					{[...groups].map(([name, items]) => (
-						<section key={name}>
-							<h3 className="strip-label">{name}</h3>
-							{items.map((item) => (
-								<div
-									key={String(item.id)}
-									className={`drawer-item${item.id === currentId ? " current" : ""}`}
-									onContextMenu={(event) => {
-										event.preventDefault();
-										onActions(item);
-									}}
-								>
-									<button type="button" className="drawer-open" onClick={() => onOpen(item.id)}>
-										{running.has(item.id) ? <span className="drawer-running" aria-label="執行中" /> : null}
-										<span className="drawer-title">{item.title}</span>
-										<span className="drawer-time">{time(item.updatedAt, now)}</span>
-									</button>
-									<button type="button" className="icon-button small" aria-label={`${item.title} 的選項`} onClick={() => onActions(item)}>
-										<MoreIcon />
-									</button>
-								</div>
-							))}
-						</section>
+					<h3 className="strip-label">Bots</h3>
+					{bots.map((bot) => (
+						<div
+							key={String(bot.id)}
+							className={`drawer-item bot-item${bot.id === currentId ? " current" : ""}`}
+							onContextMenu={(event) => {
+								event.preventDefault();
+								onEdit(bot);
+							}}
+						>
+							<button type="button" className="drawer-open" onClick={() => onOpen(bot.id)}>
+								<span className="bot-avatar" aria-hidden="true">
+									{[...bot.name][0]?.toUpperCase()}
+								</span>
+								<span className="bot-text">
+									<span className="drawer-title">
+										{running.has(bot.id) ? <span className="drawer-running" aria-label="執行中" /> : null}
+										{bot.name}
+									</span>
+									<span className="bot-job">{bot.job.split("\n")[0] || "一般助理"}</span>
+								</span>
+								<span className="drawer-time">{time(bot.updatedAt, now)}</span>
+							</button>
+							<button type="button" className="icon-button small" aria-label={`${bot.name} 的設定`} onClick={() => onEdit(bot)}>
+								<MoreIcon />
+							</button>
+						</div>
 					))}
-					{groups.size === 0 ? <p className="drawer-none">{query ? "找不到符合的對話" : "還沒有對話"}</p> : null}
+					<button type="button" className="drawer-add" onClick={onCreate}>
+						<PlusIcon size={16} />
+						<span>新增 Bot</span>
+					</button>
 				</div>
 				<button type="button" className="drawer-settings drawer-memory" onClick={onMemory}>
 					<MemoryIcon />
-					<span className="drawer-settings-text">記憶</span>
+					<span className="drawer-settings-text">全域記憶</span>
 					<span className="drawer-hint">MEMORY.md</span>
 				</button>
 				<button type="button" className="drawer-settings" onClick={onSettings}>

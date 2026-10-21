@@ -16,6 +16,7 @@ import { type AzureDeviceSignIn, describeAzure, finishAzureSignIn, startAzureSig
 import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
 import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
+import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
 import { describeTime, describeWhen, Triggers } from "../agent/triggers.ts";
 import type { Settings } from "../settings.ts";
@@ -412,9 +413,11 @@ const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", man
  */
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const [state, setState] = useState<TriggerState>({ items: [], next: {} });
+	const [bots, setBots] = useState<Bot[]>([]);
 	const [exact, setExact] = useState<boolean>();
 	const [error, setError] = useState("");
 	useEffect(() => runtime.subscribeTriggers(setState), [runtime]);
+	useEffect(() => runtime.subscribeBots(setBots), [runtime]);
 	useEffect(() => {
 		if (!native) return;
 		const refresh = () => void Triggers.status().then(({ exactAlarms }) => setExact(exactAlarms));
@@ -431,7 +434,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	return (
 		<Group
 			title="排程"
-			hint="跟 pi 說「每天早上 8 點給我簡報」就會建立排程。到時間時 pi 若不在執行中，會先跳通知，點一下才開始。每個排程一天最多執行 10 次。"
+			hint="跟 Bot 說「每天早上 8 點給我簡報」，排程就會建在那個 Bot 底下，到時間在它的對話裡執行。pi 若不在執行中，會先跳通知，點一下才開始。每個排程一天最多執行 10 次。"
 		>
 			{state.items.length === 0 ? (
 				<div className="check-row">
@@ -447,9 +450,9 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 					return (
 						<div className="check-row trigger-row" key={trigger.id}>
 							<span className="menu-text">
-								{trigger.target === "origin" ? `稍後再看：${trigger.name}` : trigger.name}
+								{trigger.kind === "followup" ? `稍後再看：${trigger.name}` : trigger.name}
 								<span className="menu-hint">
-									{describeWhen(trigger.when)}
+									{bots.find((bot) => bot.id === trigger.conversationId)?.name ?? "已刪除的 Bot"} · {describeWhen(trigger.when)}
 									{trigger.enabled && next ? ` · 下次 ${describeTime(next)}` : ""}
 								</span>
 								{last ? (
@@ -598,6 +601,26 @@ export function SettingsView({
 					<CheckButton disabled={!settings.baseUrl || !settings.apiKey} run={() => checkModels(settings.baseUrl, settings.apiKey)} />
 				</Group>
 
+				<Group
+					title="自動壓縮"
+					hint="每個 Bot 只有一條一直延續的對話。內容超過這個大小時，較早的部分會自動壓縮成摘要，最近的內容保持原樣，每次請求的花費就不會一直變大。越小越省，但 Bot 記得的細節越少。"
+				>
+					<label>
+						<span>門檻</span>
+						<select
+							className="field"
+							value={settings.compactAt}
+							onChange={(event) => setSettings({ ...settings, compactAt: Number(event.target.value) })}
+						>
+							<option value={64_000}>64k tokens</option>
+							<option value={128_000}>128k tokens（建議）</option>
+							<option value={256_000}>256k tokens</option>
+							<option value={0}>模型上限</option>
+						</select>
+					</label>
+					<div className="group-spacer" />
+				</Group>
+
 				<Group title="GitHub" hint="建議用 fine-grained token，只開需要的 repository 和權限。寫入前一定會先問你。">
 					<label>
 						<span>Token</span>
@@ -621,7 +644,7 @@ export function SettingsView({
 
 				<Group
 					title="Sandbox relay"
-					hint="每個對話有自己的 Linux 容器，模型可以用 read、write、edit、bash，git 和 gh 也已登入你的 GitHub。留空就不啟用。"
+					hint="所有 Bot 共用一個 Linux 容器，各有自己的資料夾，可以用 read、write、edit、bash，git 和 gh 也已登入你的 GitHub。留空就不啟用。"
 				>
 					{settings.sandboxUrl ? null : (
 						<div className="pair-steps">

@@ -1,5 +1,5 @@
-// Triggers: runs that start without the user typing. A trigger has a schedule and a prompt; when it fires, the prompt
-// is submitted to a conversation as a `trigger.run` entry. Definitions live in a pi-durable document; the native side
+// Triggers: runs that start without the user typing. A trigger belongs to a bot and has a schedule and a prompt; when
+// it fires, the prompt is submitted to the bot's conversation as a `trigger.run` entry. Definitions live in a pi-durable document; the native side
 // (TriggersPlugin) keeps a mirror of the schedules so alarms fire, and survive a reboot, without the WebView, and it
 // queues what happened until the WebView runs again. See docs/design/triggers.md.
 import { Capacitor, registerPlugin } from "@capacitor/core";
@@ -16,11 +16,8 @@ const When = Type.Union([
 ]);
 export type When = Static<typeof When>;
 
-/**
- * Where a trigger's runs go: one conversation of its own that keeps every run (so a briefing can compare with
- * yesterday), a new conversation each time, or back to the conversation that scheduled it (a follow-up).
- */
-export type TriggerTarget = "thread" | "new" | "origin";
+/** A schedule the user approved, or a follow-up the bot set itself to check something later. */
+export type TriggerKind = "schedule" | "followup";
 
 /** How a run started: the WebView was running ("live"), pi was opened afterwards ("later"), or from Settings ("manual"). */
 export type Delivery = "live" | "later" | "manual";
@@ -31,12 +28,12 @@ export type Trigger = {
 	name: string;
 	prompt: string;
 	when: When;
-	target: TriggerTarget;
-	/** The thread, or for a follow-up the conversation that scheduled it. */
-	conversationId?: ConversationId;
+	kind: TriggerKind;
+	/** The bot's conversation, where its runs go. */
+	conversationId: ConversationId;
 	enabled: boolean;
 	createdAt: number;
-	last?: { at: number; delivery: Delivery; conversationId?: ConversationId; error?: string };
+	last?: { at: number; delivery: Delivery; error?: string };
 };
 
 export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string; at: number }[] }>({
@@ -57,7 +54,7 @@ export const TriggerEntryData = Type.Object({
 	trigger: Type.String(),
 	name: Type.String(),
 	prompt: Type.String(),
-	target: Type.String(),
+	kind: Type.String(),
 	delivery: Type.String(),
 	/** When it fired; older entries have none. */
 	at: Type.Optional(Type.Number()),
@@ -143,8 +140,8 @@ function parseLocal(value: string): number {
 const text = (value: string) => ({ output: [{ type: "text" as const, text: value }] });
 
 function summary(trigger: Trigger): string {
-	const target = trigger.target === "origin" ? "follow-up to its conversation" : trigger.target === "new" ? "new conversation each time" : "its own conversation";
-	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}, ${target}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
+	const kind = trigger.kind === "followup" ? "follow-up" : "schedule";
+	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
 export interface TriggerHost {
@@ -158,18 +155,13 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at the time, the prompt is sent to you as a new turn, even if the user is not using the phone. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at the time, the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
 			days: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Recurring: weekdays; omit for every day" })),
 			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DDTHH:MM. Give either time or at." })),
-			conversation: Type.Optional(
-				Type.Union([Type.Literal("thread"), Type.Literal("new")], {
-					description: "thread (default): every run in one conversation of its own, so it can compare with earlier runs; new: a fresh conversation each time",
-				}),
-			),
 		}),
 		execute: async (args, api, context) => {
 			if (!nativeTriggers) throw new Error("only available in the Android app");
@@ -197,7 +189,8 @@ export function createTriggerExtension(host: TriggerHost) {
 				name: args.name,
 				prompt: args.prompt,
 				when,
-				target: args.conversation ?? "thread",
+				kind: "schedule",
+				conversationId: api.conversationId,
 				enabled: true,
 				createdAt: Date.now(),
 			};
@@ -221,7 +214,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		execute: async (args, api, context) => {
 			if (!nativeTriggers) throw new Error("only available in the Android app");
 			const existing = await api.snapshot(TriggerDoc, context);
-			const pending = existing?.items.filter((item) => item.target === "origin").length ?? 0;
+			const pending = existing?.items.filter((item) => item.kind === "followup").length ?? 0;
 			if (pending >= MAX_FOLLOWUPS) throw new Error(`there are already ${MAX_FOLLOWUPS} pending follow-ups`);
 			const at = Date.now() + args.minutes * 60_000;
 			const trigger: Trigger = {
@@ -229,7 +222,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				name: args.label,
 				prompt: args.note,
 				when: { kind: "once", at },
-				target: "origin",
+				kind: "followup",
 				conversationId: api.conversationId,
 				enabled: true,
 				createdAt: Date.now(),
@@ -244,10 +237,10 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const listSchedules = defineTool({
 		name: "list_schedules",
-		description: "The schedules and pending follow-ups, with their ids.",
+		description: "Your schedules and pending follow-ups, with their ids.",
 		parameters: Type.Object({}),
 		execute: async (_args, api, context) => {
-			const items = (await api.snapshot(TriggerDoc, context))?.items ?? [];
+			const items = ((await api.snapshot(TriggerDoc, context))?.items ?? []).filter((item) => item.conversationId === api.conversationId);
 			return text(items.length > 0 ? items.map(summary).join("\n") : "No schedules.");
 		},
 	});
@@ -257,9 +250,11 @@ export function createTriggerExtension(host: TriggerHost) {
 		description: "Delete a schedule or a pending follow-up by id. The user approves deleting a schedule.",
 		parameters: Type.Object({ id: Type.String() }),
 		execute: async (args, api, context) => {
-			const trigger = (await api.snapshot(TriggerDoc, context))?.items.find((item) => item.id === args.id);
+			const trigger = (await api.snapshot(TriggerDoc, context))?.items.find(
+				(item) => item.id === args.id && item.conversationId === api.conversationId,
+			);
 			if (!trigger) throw new Error(`no schedule ${args.id}; list_schedules shows them`);
-			if (trigger.target !== "origin") {
+			if (trigger.kind === "schedule") {
 				const approved = await requestConfirmation({ title: `刪除排程「${trigger.name}」`, detail: `${describeWhen(trigger.when)}\n${trigger.prompt}` });
 				if (!approved) return { output: [{ type: "text", text: "The user declined; the schedule stays. Reply with one short sentence that nothing was done, such as 「好，不刪。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
 			}
@@ -294,7 +289,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		sections: [
 			section("triggers", () =>
 				[
-					"create_schedule: recurring or one-time work the user asks for. schedule_followup: check again in this conversation later.",
+					"create_schedule: recurring or one-time work the user asks for; it runs here. schedule_followup: check again here later.",
 					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it. Approvals go to a notification and are declined after 30 minutes.`,
 				].join("\n"),
 			),

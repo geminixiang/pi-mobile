@@ -7,7 +7,8 @@ import { Sheet } from "./Sheet.tsx";
 import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
 
 export interface MenuActions {
-	rename: () => void;
+	/** The bot's name, job, memory. */
+	settings: () => void;
 	compact: () => void;
 	reset: () => void;
 	resetSandbox?: () => void;
@@ -102,7 +103,7 @@ export function ConversationMenu({
 				</div>
 			) : null}
 			<div className="menu">
-				<Item icon={<PencilIcon size={18} />} label="重新命名" onClick={run(actions.rename)} />
+				<Item icon={<PencilIcon size={18} />} label="Bot 設定" hint="名字、工作、記憶" onClick={run(actions.settings)} />
 				<Item
 					icon={<CopyIcon size={18} />}
 					label="複製最後的回答"
@@ -112,7 +113,7 @@ export function ConversationMenu({
 				<Item icon={<LayersIcon />} label="壓縮對話" hint="把較早的內容摘要起來，騰出上下文" onClick={run(actions.compact)} />
 				<Item icon={<RefreshIcon />} label="新的上下文" hint="模型看不到之前的訊息，紀錄保留" onClick={run(actions.reset)} />
 				{actions.resetSandbox ? (
-					<Item icon={<BoxIcon size={18} />} label="重置 sandbox" hint="刪除這個對話的容器和檔案" danger onClick={run(actions.resetSandbox)} />
+					<Item icon={<BoxIcon size={18} />} label="清空資料夾" hint="刪除這個 Bot 在 sandbox 裡的檔案" danger onClick={run(actions.resetSandbox)} />
 				) : null}
 			</div>
 			<div className="menu toggles">

@@ -6,6 +6,8 @@ import { Value } from "typebox/value";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
+/** A bot's conversation never ends; compacting at 128k tokens keeps each request's cost bounded. */
+export const DEFAULT_COMPACT_AT = 128_000;
 /** Keychain key from the first version; kept so saved keys still load. */
 const SECRET_API_KEY = "cliproxyapi.apiKey";
 const SECRET_GITHUB_TOKEN = "github.token";
@@ -37,6 +39,8 @@ export interface Settings {
 	machines: string;
 	/** The machine whose tools the agent uses; empty uses the relay when one is set. */
 	sandboxMachine: string;
+	/** Context size in tokens at which a bot's conversation is compacted; 0 for the model's own limit. */
+	compactAt: number;
 }
 
 /** The non-secret settings in localStorage. */
@@ -49,6 +53,7 @@ const PlainSettings = Type.Object({
 	calendarAccess: Type.Optional(Type.String()),
 	machines: Type.Optional(Type.String()),
 	sandboxMachine: Type.Optional(Type.String()),
+	compactAt: Type.Optional(Type.Number()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
@@ -84,6 +89,7 @@ export async function loadSettings(): Promise<Settings> {
 		calendarAccess: plain.calendarAccess ?? "",
 		machines: plain.machines ?? "",
 		sandboxMachine: plain.sandboxMachine ?? "",
+		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT,
 	};
 }
 
@@ -97,6 +103,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		calendarAccess: settings.calendarAccess,
 		machines: settings.machines,
 		sandboxMachine: settings.sandboxMachine,
+		compactAt: settings.compactAt,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
 	await SecureStorage.set(SECRET_API_KEY, settings.apiKey);

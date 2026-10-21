@@ -9,7 +9,9 @@ import {
 	type SqliteValue,
 } from "@earendil-works/pi-durable/storage/sqlite";
 
-const DATABASE = "pi-mobile";
+/** The bots' database. "pi-mobile" held the conversations from before bots; see takeLegacyStorage. */
+const DATABASE = "pi-mobile-bots";
+const LEGACY_DATABASE = "pi-mobile";
 
 /** Values cross the Capacitor bridge as JSON, so only JSON-representable bindings are supported. */
 function bind(params: SqliteValue[]): (string | number | null)[] {
@@ -140,15 +142,10 @@ export class CapacitorSqliteDatabase implements SqliteDatabase {
 	}
 }
 
-export async function openAppStorage(): Promise<{ storage: Storage; kind: "sqlite" | "memory" }> {
-	if (!Capacitor.isNativePlatform()) return { storage: new MemoryStorage(), kind: "memory" };
-	const sqlite = new SQLiteConnection(CapacitorSQLite);
+async function openDatabase(sqlite: SQLiteConnection, name: string): Promise<{ storage: Storage; db: SQLiteDBConnection }> {
 	// A WebView reload keeps native connections alive; reuse instead of failing on a duplicate.
-	await sqlite.checkConnectionsConsistency().catch(() => undefined);
-	const existing = (await sqlite.isConnection(DATABASE, false)).result;
-	const db = existing
-		? await sqlite.retrieveConnection(DATABASE, false)
-		: await sqlite.createConnection(DATABASE, false, "no-encryption", 1, false);
+	const existing = (await sqlite.isConnection(name, false)).result;
+	const db = existing ? await sqlite.retrieveConnection(name, false) : await sqlite.createConnection(name, false, "no-encryption", 1, false);
 	await db.open();
 	// WAL and NORMAL sync: commits survive an app kill, matching pi-durable's Node SQLite settings.
 	// PRAGMAs that return a row must go through query() on Android.
@@ -156,7 +153,32 @@ export async function openAppStorage(): Promise<{ storage: Storage; kind: "sqlit
 	await db.execute("PRAGMA synchronous = NORMAL", false).catch(() => undefined);
 	const database = new CapacitorSqliteDatabase(db, async () => {
 		await db.close();
-		await sqlite.closeConnection(DATABASE, false);
+		await sqlite.closeConnection(name, false);
 	});
-	return { storage: await SqliteStorage.open(database), kind: "sqlite" };
+	return { storage: await SqliteStorage.open(database), db };
+}
+
+export async function openAppStorage(): Promise<{ storage: Storage; kind: "sqlite" | "memory" }> {
+	if (!Capacitor.isNativePlatform()) return { storage: new MemoryStorage(), kind: "memory" };
+	const sqlite = new SQLiteConnection(CapacitorSQLite);
+	await sqlite.checkConnectionsConsistency().catch(() => undefined);
+	return { storage: (await openDatabase(sqlite, DATABASE)).storage, kind: "sqlite" };
+}
+
+/**
+ * The database from before bots, if it is still there: the caller reads what it keeps (the global MEMORY.md), then
+ * calls `discard`, which deletes it with every old conversation.
+ */
+export async function takeLegacyStorage(): Promise<{ storage: Storage; discard: () => Promise<void> } | undefined> {
+	if (!Capacitor.isNativePlatform()) return undefined;
+	const sqlite = new SQLiteConnection(CapacitorSQLite);
+	if (!(await sqlite.isDatabase(LEGACY_DATABASE)).result) return undefined;
+	const { storage, db } = await openDatabase(sqlite, LEGACY_DATABASE);
+	return {
+		storage,
+		discard: async () => {
+			await db.delete();
+			await sqlite.closeConnection(LEGACY_DATABASE, false).catch(() => undefined);
+		},
+	};
 }

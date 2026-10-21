@@ -61,8 +61,6 @@ export interface Credentials {
 	githubToken: string | undefined;
 	/** By proxy service name: "gcloud", "cloudflare", "azure". */
 	minted: Record<string, MintedService>;
-	/** Human name for a sandbox, such as its conversation's title. */
-	describe: (sandbox: string) => string | undefined;
 }
 
 const MINTED_LABELS: Record<string, string> = { gcloud: "Google Cloud", cloudflare: "Cloudflare", azure: "Azure" };
@@ -282,27 +280,12 @@ export class ContainerHost {
 		};
 		const read = await token();
 		if (!read.token || !write) return read;
-		const sandbox = await this.#sandboxForIp(String(field("client") ?? ""));
+		// One sandbox serves every bot, so the request is not attributed to one.
 		const approved = await Promise.race([
-			requestConfirmation({
-				title,
-				detail: [`來自 sandbox：${(sandbox && credentials.describe(sandbox)) ?? sandbox ?? "未知"}`, detail].filter(Boolean).join("\n\n"),
-			}),
+			requestConfirmation({ title, detail: ["來自 sandbox", detail].filter(Boolean).join("\n\n") }),
 			new Promise<boolean>((resolve) => setTimeout(() => resolve(false), APPROVAL_TIMEOUT_MS)),
 		]);
 		return approved ? read : { reason: "使用者拒絕了這個寫入" };
-	}
-
-	/** Sandbox name for a client IP on the network. */
-	async #sandboxForIp(ip: string): Promise<string | undefined> {
-		const ids = await this.#tryE(`ps -q --filter label=${LABEL}`);
-		if (!ids) return undefined;
-		const out = await this.#tryE(`inspect -f '{{.Name}} {{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' ${ids.split(/\s+/).join(" ")}`);
-		for (const line of (out ?? "").split("\n")) {
-			const [name = "", ...addresses] = line.trim().split(/\s+/);
-			if (addresses.includes(ip)) return name.replace(/^\//, "").replace(PREFIX, "");
-		}
-		return undefined;
 	}
 
 	// ---------- Sandboxes ----------

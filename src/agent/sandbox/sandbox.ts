@@ -1,15 +1,14 @@
-// Where the agent's coding tools (read, write, edit, bash) run for a conversation, on the user's own machine:
-// - relay: a Linux container per conversation behind the sandbox relay (sandbox/relay), credentials through its proxy;
-// - machine: one of the user's machines over SSH, the daemon running as the SSH user in a folder per conversation
-//   ("trusted", docs/design/sandbox-ssh.md).
-import type { ConversationId } from "@earendil-works/pi-durable";
+// Where the agent's coding tools (read, write, edit, bash) run, on the user's own machine. One sandbox shared by all
+// bots (as Grok Bot shares one computer), each bot working in its own folder there:
+// - relay: a Linux container behind the sandbox relay (sandbox/relay), credentials through its proxy;
+// - machine: one of the user's machines over SSH, in a container behind the egress proxy when an engine answers there,
+//   else as the SSH user ("trusted", docs/design/sandbox-ssh.md).
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
-import { Type } from "typebox";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { log } from "../../log.ts";
-import { parse } from "../parse.ts";
 import { ContainerHost, type Credentials } from "./container.ts";
 import { type Machine, MachineLink, type MachineSystem, shellQuote } from "./machine.ts";
 import { StreamConnection } from "./stream-connection.ts";
@@ -22,143 +21,184 @@ export interface RelayConfig {
 	token: string;
 }
 
-const SandboxIds = Type.Array(Type.Object({ id: Type.String() }));
-
-export function sandboxName(conversationId: ConversationId): string {
-	return `c${String(conversationId)}`;
-}
-
-/** One conversation's environment and the connection behind it, kept while the app runs. */
-interface Entry {
-	env: RemoteExecutionEnv;
-	connection: StreamConnection;
-}
+/** The one sandbox's name: its container is sbx-main behind the relay, pim-main over SSH. */
+export const SHARED_SANDBOX = "main";
+/** Folders below the SSH user's home on a trusted machine. */
+const TRUSTED_BASE = "pi-workspaces";
 
 export interface Sandbox {
 	readonly kind: "relay" | "machine";
-	/** The conversation's folder there; tool paths are relative to it. */
-	root(conversationId: ConversationId): string;
-	env(conversationId: ConversationId): ExecutionEnv;
-	/** Whether the conversation has used it already; browsing files should not create anything. */
-	exists(conversationId: ConversationId): Promise<boolean>;
-	/** Delete the conversation's files there (and its container). */
-	remove(conversationId: ConversationId): Promise<void>;
-	/** What the model is told about where its tools run. */
-	describe(): string;
+	/** A bot's folder there: its working directory, where tool paths resolve. */
+	root(folder: string): string;
+	env(folder: string): Promise<ExecutionEnv>;
+	/** Whether the folder exists already; browsing files should not create it. */
+	exists(folder: string): Promise<boolean>;
+	/** Delete a bot's folder and everything in it. */
+	remove(folder: string): Promise<void>;
+	/** What a bot's model is told about where its tools run. */
+	describe(folder: string): string;
 	close(): void;
-}
-
-function envFor(entries: Map<string, Entry>, name: string, cwd: string, connect: () => StreamConnection): RemoteExecutionEnv {
-	let entry = entries.get(name);
-	if (!entry) {
-		const connection = connect();
-		// RemoteExecutionEnv only uses info/session/request/kill/close, which StreamConnection implements.
-		const env = new RemoteExecutionEnv({ connection: connection as unknown as Connection, id: `sandbox:${name}`, cwd });
-		entry = { env, connection };
-		entries.set(name, entry);
-	}
-	return entry.env;
 }
 
 const IMAGES =
 	"To show an image, save PNG or JPEG of at most 2000 px and 3 MB (`magick in.png -resize 1600x1600\\> out.png`) and `read` it.";
 
-/** A container per conversation behind the sandbox relay. */
-export class RelaySandbox implements Sandbox {
-	readonly kind = "relay";
-	readonly #config: RelayConfig;
-	readonly #entries = new Map<string, Entry>();
+/**
+ * Environments over one daemon connection: one per bot folder (same id, so writes to a file serialize across bots),
+ * plus one at the base for creating, testing, and removing folders.
+ */
+class SharedEnvs {
+	readonly #connection: StreamConnection;
+	readonly #base: string;
+	readonly #root: (folder: string) => string;
+	readonly #envs = new Map<string, RemoteExecutionEnv>();
+	readonly #made = new Map<string, Promise<void>>();
+	readonly #baseEnv: RemoteExecutionEnv;
 
-	constructor(config: RelayConfig) {
-		this.#config = config;
+	constructor(connection: StreamConnection, base: string, root: (folder: string) => string) {
+		this.#connection = connection;
+		this.#base = base;
+		this.#root = root;
+		this.#baseEnv = this.#make(base);
 	}
 
-	root(): string {
-		return WORKSPACE;
+	#make(cwd: string): RemoteExecutionEnv {
+		// RemoteExecutionEnv only uses info/session/request/kill/close, which StreamConnection implements.
+		return new RemoteExecutionEnv({ connection: this.#connection as unknown as Connection, id: `sandbox:${SHARED_SANDBOX}`, cwd });
 	}
 
-	env(conversationId: ConversationId): ExecutionEnv {
-		const name = sandboxName(conversationId);
-		return envFor(this.#entries, name, WORKSPACE, () =>
-			new WebSocketConnection({
-				relayUrl: this.#config.url,
-				relayToken: this.#config.token,
-				sandbox: name,
-				onLog: (text) => log.warn("sandbox.daemon_output", { sandbox: name, text }),
-			}),
-		);
+	async #run(command: string): Promise<number> {
+		const result = await this.#baseEnv.exec(command, { cwd: this.#base, timeout: 60_000 }, BACKGROUND_CONTEXT);
+		if (!result.ok) throw result.error;
+		return result.value.exitCode;
 	}
 
-	async exists(conversationId: ConversationId): Promise<boolean> {
-		const name = sandboxName(conversationId);
-		if (this.#entries.has(name)) return true;
-		const url = new URL("/sandboxes", this.#config.url.replace(/^ws/, "http"));
-		url.searchParams.set("token", this.#config.token);
-		const response = await fetch(url);
-		if (!response.ok) throw new Error(`Listing sandboxes failed: HTTP ${response.status}`);
-		return parse(SandboxIds, await response.json(), "sandbox 清單").some((sandbox) => sandbox.id === name);
+	async env(folder: string): Promise<ExecutionEnv> {
+		const root = this.#root(folder);
+		let made = this.#made.get(folder);
+		if (!made) {
+			made = this.#run(`mkdir -p ${shellQuote(root)}`).then((code) => {
+				if (code !== 0) throw new Error(`cannot create ${root}`);
+			});
+			made.catch(() => this.#made.delete(folder));
+			this.#made.set(folder, made);
+		}
+		await made;
+		let env = this.#envs.get(folder);
+		if (!env) {
+			env = this.#make(root);
+			this.#envs.set(folder, env);
+		}
+		return env;
 	}
 
-	async remove(conversationId: ConversationId): Promise<void> {
-		const name = sandboxName(conversationId);
-		this.#entries.get(name)?.connection.close();
-		this.#entries.delete(name);
-		const url = new URL(`/sandboxes/${name}`, this.#config.url.replace(/^ws/, "http"));
-		url.searchParams.set("token", this.#config.token);
-		const response = await fetch(url, { method: "DELETE" });
-		if (!response.ok) throw new Error(`Removing the sandbox failed: HTTP ${response.status}`);
+	async exists(folder: string): Promise<boolean> {
+		if (this.#envs.has(folder)) return true;
+		return (await this.#run(`test -d ${shellQuote(this.#root(folder))}`)) === 0;
 	}
 
-	describe(): string {
-		return containerDescription();
+	async remove(folder: string): Promise<void> {
+		this.#envs.delete(folder);
+		this.#made.delete(folder);
+		if ((await this.#run(`rm -rf -- ${shellQuote(this.#root(folder))}`)) !== 0) throw new Error(`刪除 ${this.#root(folder)} 失敗`);
 	}
 
 	close(): void {
-		for (const { connection } of this.#entries.values()) connection.close();
-		this.#entries.clear();
+		this.#connection.close();
 	}
 }
 
-/** A container sandbox, behind the relay or reached over SSH: the same image and the same proxy. */
-function containerDescription(): string {
-		return [
-			"read, write, edit, and bash run in this conversation's Linux sandbox on the user's computer, not the phone: Debian 13 as root, with internet,",
-			"Node 24, Python 3.13 with uv (`uv run --with pandas x.py`), git, gh, build tools, sqlite3, jq, rg, fd, magick, ffmpeg, pandoc, pdftotext, CJK fonts.",
-			`${WORKSPACE} persists, and the user can browse it.`,
-			"Credentials stay on the phone: when connected in the app, a proxy signs in git and gh, gcloud (default project set), and cf and wrangler (CLOUDFLARE_ACCOUNT_ID set). Their tokens are placeholders; never run any auth login.",
-			"Azure: once per sandbox `az login --identity --allow-no-subscriptions`, then `az account set -s $AZURE_SUBSCRIPTION_ID` if set.",
-			"Reads run directly. Writes (push, PRs, POST/PATCH/PUT/DELETE, resource changes, listKeys) wait for approval on the phone and fail with 'pi mobile: ...' when declined or not connected. Set git user.name and user.email if missing.",
-			IMAGES,
-		].join(" ");
+/** The shared container sandbox, behind the relay or over SSH: the same image and the same proxy. */
+function containerDescription(folder: string): string {
+	return [
+		`read, write, edit, and bash run in a Linux sandbox on the user's computer, not the phone, shared by all of the user's bots: Debian 13 as root, with internet,`,
+		"Node 24, Python 3.13 with uv (`uv run --with pandas x.py`), git, gh, build tools, sqlite3, jq, rg, fd, magick, ffmpeg, pandoc, pdftotext, CJK fonts.",
+		`Your folder is ${WORKSPACE}/${folder}: the working directory, where relative paths resolve; it persists and the user can browse it. Other bots have folders next to it: read them when the user refers to another bot's work, but write only in yours unless asked.`,
+		"Credentials stay on the phone: when connected in the app, a proxy signs in git and gh, gcloud (default project set), and cf and wrangler (CLOUDFLARE_ACCOUNT_ID set). Their tokens are placeholders; never run any auth login.",
+		"Azure: once per sandbox `az login --identity --allow-no-subscriptions`, then `az account set -s $AZURE_SUBSCRIPTION_ID` if set.",
+		"Reads run directly. Writes (push, PRs, POST/PATCH/PUT/DELETE, resource changes, listKeys) wait for approval on the phone and fail with 'pi mobile: ...' when declined or not connected. Set git user.name and user.email if missing.",
+		IMAGES,
+	].join(" ");
 }
 
-/** Folders per conversation, below the SSH user's home on a trusted machine. */
-const FOLDER = "pi-workspaces";
+/** The shared container behind the sandbox relay. */
+export class RelaySandbox implements Sandbox {
+	readonly kind = "relay";
+	readonly #config: RelayConfig;
+	readonly #envs: SharedEnvs;
+
+	constructor(config: RelayConfig) {
+		this.#config = config;
+		const connection = new WebSocketConnection({
+			relayUrl: config.url,
+			relayToken: config.token,
+			sandbox: SHARED_SANDBOX,
+			onLog: (text) => log.warn("sandbox.daemon_output", { sandbox: SHARED_SANDBOX, text }),
+		});
+		this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => this.root(folder));
+	}
+
+	root(folder: string): string {
+		return `${WORKSPACE}/${folder}`;
+	}
+
+	env(folder: string): Promise<ExecutionEnv> {
+		return this.#envs.env(folder);
+	}
+
+	exists(folder: string): Promise<boolean> {
+		return this.#envs.exists(folder);
+	}
+
+	remove(folder: string): Promise<void> {
+		return this.#envs.remove(folder);
+	}
+
+	describe(folder: string): string {
+		return containerDescription(folder);
+	}
+
+	/** The relay's URL, for its control channel. */
+	get config(): RelayConfig {
+		return this.#config;
+	}
+
+	close(): void {
+		this.#envs.close();
+	}
+}
 
 function systemLabel(system: MachineSystem): string {
 	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch}`;
 }
 
 /**
- * One of the user's machines over SSH. With a container engine there (and not set to trusted), a container per
- * conversation behind the egress proxy, whose questions the phone answers: credentials stay on the phone and writes
- * wait for approval, as with the relay. Otherwise the daemon runs as the SSH user in a folder per conversation.
+ * One of the user's machines over SSH. With a container engine there (and not set to trusted), the shared container
+ * behind the egress proxy, whose questions the phone answers: credentials stay on the phone and writes wait for
+ * approval, as with the relay. Otherwise the daemon runs as the SSH user, with a folder per bot in ~/pi-workspaces.
  */
 export class MachineSandbox implements Sandbox {
 	readonly kind = "machine";
 	readonly #link: MachineLink;
-	readonly #entries = new Map<string, Entry>();
 	readonly #containers: ContainerHost | undefined;
-	readonly #credentials: Credentials;
 	readonly #stopBridge: (() => void) | undefined;
+	readonly #envs: SharedEnvs;
 
 	constructor(machine: Machine, credentials: Credentials) {
 		this.#link = new MachineLink(machine);
-		this.#credentials = credentials;
 		const engine = machine.system?.engines[0];
+		const onLog = (text: string) => log.warn("sandbox.daemon_output", { machine: machine.name, text });
 		if (engine && machine.mode !== "trusted") {
-			this.#containers = new ContainerHost(engine, () => this.#link.client());
-			this.#stopBridge = this.#containers.bridge(credentials);
+			const containers = new ContainerHost(engine, () => this.#link.client());
+			this.#containers = containers;
+			this.#stopBridge = containers.bridge(credentials);
+			// Per-service settings from the phone, such as the default Google Cloud project or Cloudflare account.
+			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
+			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog });
+			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => this.root(folder));
+		} else {
+			const base = `${machine.system?.home ?? "~"}/${TRUSTED_BASE}`;
+			this.#envs = new SharedEnvs(this.#link.connection(base, onLog), base, (folder) => this.root(folder));
 		}
 	}
 
@@ -166,58 +206,35 @@ export class MachineSandbox implements Sandbox {
 		return this.#link.machine;
 	}
 
-	/** Whether the agent works in containers there rather than as the SSH user. */
+	/** Whether the agent works in a container there rather than as the SSH user. */
 	get contained(): boolean {
 		return this.#containers !== undefined;
 	}
 
-	root(conversationId: ConversationId): string {
-		if (this.#containers) return WORKSPACE;
-		const home = this.machine.system?.home ?? "~";
-		return `${home}/${FOLDER}/${sandboxName(conversationId)}`;
+	root(folder: string): string {
+		if (this.#containers) return `${WORKSPACE}/${folder}`;
+		return `${this.machine.system?.home ?? "~"}/${TRUSTED_BASE}/${folder}`;
 	}
 
-	env(conversationId: ConversationId): ExecutionEnv {
-		const name = sandboxName(conversationId);
-		const cwd = this.root(conversationId);
-		const onLog = (text: string) => log.warn("sandbox.daemon_output", { machine: this.machine.name, sandbox: name, text });
-		const containers = this.#containers;
-		if (containers) {
-			// Per-service settings from the phone, such as the default Google Cloud project or Cloudflare account.
-			const serviceEnv = () => Object.assign({}, ...Object.values(this.#credentials.minted).map((service) => service.env));
-			return envFor(this.#entries, name, cwd, () => new StreamConnection({ open: containers.opener(name, serviceEnv), onLog }));
-		}
-		return envFor(this.#entries, name, cwd, () => this.#link.connection(cwd, onLog));
+	env(folder: string): Promise<ExecutionEnv> {
+		return this.#envs.env(folder);
 	}
 
-	async exists(conversationId: ConversationId): Promise<boolean> {
-		const name = sandboxName(conversationId);
-		if (this.#entries.has(name)) return true;
-		if (this.#containers) return this.#containers.exists(name);
-		const client = await this.#link.client();
-		return (await client.run(`test -d ${shellQuote(this.root(conversationId))}`)).code === 0;
+	exists(folder: string): Promise<boolean> {
+		return this.#envs.exists(folder);
 	}
 
-	async remove(conversationId: ConversationId): Promise<void> {
-		const name = sandboxName(conversationId);
-		this.#entries.get(name)?.connection.close();
-		this.#entries.delete(name);
-		if (this.#containers) {
-			await this.#containers.remove(name);
-			return;
-		}
-		const client = await this.#link.client();
-		const removed = await client.run(`rm -rf -- ${shellQuote(this.root(conversationId))}`);
-		if (removed.code !== 0) throw new Error(`刪除資料夾失敗：${removed.stderr.trim()}`);
+	remove(folder: string): Promise<void> {
+		return this.#envs.remove(folder);
 	}
 
-	describe(): string {
-		if (this.#containers) return containerDescription();
+	describe(folder: string): string {
+		if (this.#containers) return containerDescription(folder);
 		const machine = this.machine;
 		const where = machine.system ? `${machine.name} (${systemLabel(machine.system)})` : machine.name;
 		return [
 			`read, write, edit, and bash run on ${where}, the user's own machine, as its user ${machine.user}, not the phone and not a container.`,
-			`The working directory is this conversation's folder ~/${FOLDER}/<conversation>; relative paths resolve there, and the user can browse it. Keep your work inside it.`,
+			`Your folder is ~/${TRUSTED_BASE}/${folder}: the working directory, where relative paths resolve; the user can browse it. Other bots have folders next to it: read them when the user refers to another bot's work, but keep your work in yours.`,
 			"Use the tools installed there as they are; check with `command -v` before relying on one, and install into the folder (venv, node_modules) rather than system-wide.",
 			"Its git, gh, and cloud CLIs use the machine's own sign-ins, and nothing there is approved on the phone: before pushing, deploying, deleting, or changing anything outside the folder, say what you will do and wait for the user's go-ahead.",
 			IMAGES,
@@ -226,17 +243,21 @@ export class MachineSandbox implements Sandbox {
 
 	close(): void {
 		this.#stopBridge?.();
-		for (const { connection } of this.#entries.values()) connection.close();
-		this.#entries.clear();
+		this.#envs.close();
 		this.#link.close();
 	}
 }
 
-/** The section the model sees, from whichever sandbox the app has. */
-export function createSandboxExtension(sandbox: Sandbox) {
+/** The section a bot's model sees, from whichever sandbox the app has, for that bot's folder. */
+export function createSandboxExtension(sandbox: Sandbox, folderOf: (conversationId: string) => string | undefined) {
 	return defineExtension({
 		name: "sandbox",
-		sections: [section("sandbox", () => sandbox.describe())],
+		sections: [
+			section("sandbox", (input) => {
+				const folder = folderOf(String(input.conversationId));
+				return folder ? sandbox.describe(folder) : undefined;
+			}),
+		],
 	});
 }
 

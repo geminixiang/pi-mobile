@@ -738,3 +738,38 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .copyable .console { align-self: stretch; }
 .pair-steps code { font-family: var(--mono); font-size: 12px; color: var(--text); }
 .machine .check-progress { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+
+/* ---------- Bots ---------- */
+/* The bot's initial in a square, like the pi glyph's block. */
+.bot-avatar {
+	flex-shrink: 0; width: 30px; height: 30px; display: grid; place-items: center; align-self: center;
+	border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text);
+	font-family: var(--mono); font-size: 13px; font-weight: 600;
+}
+.bot-item .drawer-open { align-items: center; gap: 12px; }
+.bot-item.current .bot-avatar { border-color: var(--accent); color: var(--accent); }
+.bot-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bot-text .drawer-title { display: flex; align-items: center; gap: 8px; }
+.bot-job { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drawer-add {
+	display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; margin-top: 4px;
+	color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-align: left;
+	border-top: 1px dashed var(--line);
+}
+.drawer-add:active { background: var(--accent-soft); }
+.bot-form { display: flex; flex-direction: column; }
+.bot-form > label { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0; }
+.bot-form > label > span {
+	display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
+	text-transform: uppercase; color: var(--muted);
+}
+.bot-form > label > span em { font-style: normal; letter-spacing: 0; }
+.bot-form > label > span em.over { color: var(--error); }
+.bot-form input, .bot-form textarea {
+	width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg-deep); color: var(--text);
+	font-size: 15px; line-height: 1.5; outline: none; resize: vertical;
+}
+.bot-form input:focus, .bot-form textarea:focus { border-color: var(--accent); }
+.bot-form .hint { margin: 10px 16px 0; }
+.menu .bot-avatar { margin-right: 2px; }
+.group-spacer { height: 14px; }

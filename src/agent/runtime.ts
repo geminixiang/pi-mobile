@@ -1,4 +1,5 @@
-// The app's agent runtime: one durable Harness over on-device storage, with conversations, models, and connectors.
+// The app's agent runtime: one durable Harness over on-device storage, with bots (one long conversation each), models,
+// and connectors.
 // No DOM rendering here; the React UI talks to it through AgentRuntime and ConversationController.
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
@@ -7,7 +8,6 @@ import {
 	type ConversationId,
 	type ConversationView,
 	createRegistry,
-	defineDoc,
 	defineExtension,
 	type EntryId,
 	Harness,
@@ -15,8 +15,8 @@ import {
 	type SubmissionId,
 	section,
 	type Storage,
-	type Tx,
 } from "@earendil-works/pi-durable";
+import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
 import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
@@ -29,11 +29,11 @@ import { CloudflareTokens } from "./cloudflare.ts";
 import { GcloudTokens } from "./gcloud.ts";
 import { EgressLink, type MintedService } from "./sandbox/egress.ts";
 import { parseMachines } from "./sandbox/machine.ts";
-import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, sandboxName } from "./sandbox/sandbox.ts";
+import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { createWebExtension } from "./tools/web.ts";
-import { createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc } from "./memory.ts";
+import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
 	createTriggerExtension,
 	type Delivery,
@@ -47,23 +47,6 @@ import {
 } from "./triggers.ts";
 
 const context = BACKGROUND_CONTEXT;
-const NEW_TITLE = "新對話";
-
-// A type alias, not an interface: documents need JSON-assignable types.
-export type ConversationSummary = {
-	id: ConversationId;
-	title: string;
-	createdAt: number;
-	updatedAt: number;
-};
-
-/** App-level list of conversations, newest first. Removing one only hides it; its transcript stays in storage. */
-const ConversationIndex = defineDoc<{ items: ConversationSummary[] }>({
-	kind: "app.conversations",
-	version: 1,
-	scope: "session",
-	initial: () => ({ items: [] }),
-});
 
 /** The local date with its weekday and time zone, such as "Tuesday 2026-10-20, Asia/Taipei"; no time, so the prompt stays cacheable all day. */
 function today(): string {
@@ -80,7 +63,7 @@ const Assistant = defineExtension({
 			"preamble",
 			() =>
 				[
-					"You are pi, an assistant app on the user's phone; conversations and credentials stay on the device. Reply in Traditional Chinese (Taiwan) unless the user writes otherwise; Markdown, concise for a small screen.",
+					"You run in pi, an assistant app on the user's phone; your conversation and the user's credentials stay on the device. Reply in Traditional Chinese (Taiwan) unless the user writes otherwise; Markdown, concise for a small screen.",
 					"Users type short and casual (「明天有啥」「附近咖啡」「週六爬山 記一下」): act on the obvious intent; ask only when a wrong guess costs something.",
 					"Vague times: pick a default, act, and say it. 等等、待會 +30 min; 晚點 +2 h; 早上 09:00; 中午 12:00; 下午 14:00; 晚上 19:00 (今晚提醒 21:00); 週末 Saturday. Events last 1 h, outings 3 h. 「記一下」 with a time means a calendar event.",
 					"Text outside thinking is shown, also before tool calls: do date math in thinking, and usually call tools without a preface.",
@@ -104,8 +87,6 @@ export interface ConversationController {
 	withdraw(submissionId: SubmissionId): Promise<void>;
 	/** Stop the run. Queued inputs are withdrawn and their text returned, so the UI can put it back in the editor. */
 	stop(): Promise<string[]>;
-	/** New conversation holding the history before `entryId` (a user message); returns it and that message's text. */
-	forkBefore(entryId: EntryId): Promise<{ id: ConversationId; text: string }>;
 	/** Summarize older entries; resolves whether a summary was written (short conversations have nothing to compact). */
 	compact(): Promise<boolean>;
 	/** Start a new context in this conversation: the model no longer sees earlier entries. */
@@ -168,15 +149,9 @@ function startOfToday(): number {
 }
 
 /** The chosen machine over SSH, else the relay when paired, else none. */
-function openSandbox(settings: Settings, titles: Map<string, string>): Sandbox | undefined {
+function openSandbox(settings: Settings): Sandbox | undefined {
 	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
-	if (machine) {
-		return new MachineSandbox(machine, {
-			githubToken: settings.githubToken || undefined,
-			minted: mintedServices(settings),
-			describe: (name) => titles.get(name),
-		});
-	}
+	if (machine) return new MachineSandbox(machine, { githubToken: settings.githubToken || undefined, minted: mintedServices(settings) });
 	if (settings.sandboxUrl && settings.sandboxToken) return new RelaySandbox({ url: settings.sandboxUrl, token: settings.sandboxToken });
 	return undefined;
 }
@@ -186,12 +161,12 @@ export class AgentRuntime {
 	readonly #harness: Harness;
 	readonly #settings: Settings;
 	readonly #sandbox: Sandbox | undefined;
-	#indexListeners = new Set<(items: ConversationSummary[]) => void>();
-	/** Latest conversation list, to name a sandbox in a write approval. */
-	readonly #titles: Map<string, string>;
+	#botListeners = new Set<(bots: Bot[]) => void>();
+	/** Each bot's folder in the sandbox, by conversation id; the sandbox section and environments read it. */
+	readonly #folders: Map<string, string>;
 	#egress: EgressLink | undefined;
 	#triggerListeners = new Set<(state: TriggerState) => void>();
-	#memoryListeners = new Set<(memory: Memory) => void>();
+	#memoryListeners = new Set<() => void>();
 	#triggerState: TriggerState = { items: [], next: {} };
 	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
@@ -201,14 +176,13 @@ export class AgentRuntime {
 		settings: Settings,
 		models: ModelInfo[],
 		sandbox: Sandbox | undefined,
-		titles: Map<string, string>,
+		folders: Map<string, string>,
 	) {
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
 		this.#sandbox = sandbox;
-		this.#titles = titles;
-		if (sandbox) void this.#publishIndex();
+		this.#folders = folders;
 		// The relay's proxy asks for the phone's credentials over its control channel; a machine's proxy over SSH.
 		if (sandbox?.kind === "relay") {
 			this.#egress = new EgressLink({
@@ -216,7 +190,7 @@ export class AgentRuntime {
 				relayToken: settings.sandboxToken,
 				githubToken: settings.githubToken || undefined,
 				minted: mintedServices(settings),
-				describe: (name) => this.#titles.get(name),
+				describe: (name) => (name === SHARED_SANDBOX ? "共用的 sandbox" : name),
 			});
 		}
 	}
@@ -232,6 +206,8 @@ export class AgentRuntime {
 			onReport?: (message: string) => void;
 			/** Post a notification opening the conversation, unless the user is looking at pi; resolves whether it did. */
 			notify?: (title: string, text: string, conversationId: ConversationId) => Promise<boolean>;
+			/** The global MEMORY.md from before bots, written once when the new one is empty. */
+			importMemory?: string;
 		} = {},
 	): Promise<AgentRuntime> {
 		const timeout = AbortSignal.timeout(5000);
@@ -240,10 +216,12 @@ export class AgentRuntime {
 			return [];
 		});
 		const models = createModels();
-		models.setProvider(modelServiceProvider(settings.baseUrl, settings.apiKey, modelIds));
+		const compactAt = settings.compactAt;
+		models.setProvider(modelServiceProvider(settings.baseUrl, settings.apiKey, modelIds, compactAt));
 
 		const registry = createRegistry();
 		registry.install(Assistant);
+		registry.install(BotExtension);
 		registry.install(DeviceExtension);
 		registry.install(AppsExtension);
 		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
@@ -258,10 +236,10 @@ export class AgentRuntime {
 		};
 		registry.install(createTriggerExtension(triggerHost));
 		registry.install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
-		const titles = new Map<string, string>();
-		const sandbox = openSandbox(settings, titles);
+		const folders = new Map<string, string>();
+		const sandbox = openSandbox(settings);
 		if (sandbox) {
-			registry.install(createSandboxExtension(sandbox));
+			registry.install(createSandboxExtension(sandbox, (id) => folders.get(id)));
 			registry.install(SandboxTools);
 		}
 
@@ -271,12 +249,31 @@ export class AgentRuntime {
 				models,
 				registry,
 				onReport: (error) => options.onReport?.(error instanceof Error ? error.message : String(error)),
-				...(sandbox ? { env: ({ conversationId }) => sandbox.env(conversationId) } : {}),
+				...(sandbox
+					? {
+							env: ({ conversationId }) => {
+								const folder = folders.get(String(conversationId));
+								return folder ? sandbox.env(folder) : undefined;
+							},
+						}
+					: {}),
 			},
 			context,
 		);
-		const runtime = new AgentRuntime(harness, settings, describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS), sandbox, titles);
+		const runtime = new AgentRuntime(
+			harness,
+			settings,
+			describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS, compactAt),
+			sandbox,
+			folders,
+		);
 		runtimeRef = runtime;
+		// The folders must be known before a run resumes and asks for its environment.
+		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT.name, DEFAULT_BOT.job);
+		else await runtime.#publishBots();
+		if (options.importMemory?.trim() && !(await runtime.memory({ kind: "global" })).text) {
+			await runtime.saveMemory({ kind: "global" }, options.importMemory);
+		}
 		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${error instanceof Error ? error.message : String(error)}`));
 		// Scheduling starts lazily on submit or wait; start it now so runs an app kill interrupted continue at launch.
 		harness.resume();
@@ -291,49 +288,75 @@ export class AgentRuntime {
 		return { model: { provider: PROVIDER_ID, modelId: this.#settings.defaultModelId }, thinkingLevel: this.#defaultThinking() };
 	}
 
-	async conversations(): Promise<ConversationSummary[]> {
-		const index = await this.#harness.snapshot(ConversationIndex, context);
+	/** The bots, the one talked to most recently first. */
+	async bots(): Promise<Bot[]> {
+		const index = await this.#harness.snapshot(BotIndex, context);
 		return [...(index?.items ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
 	}
 
-	subscribeConversations(listener: (items: ConversationSummary[]) => void): () => void {
-		this.#indexListeners.add(listener);
-		void this.conversations().then(listener);
-		return () => this.#indexListeners.delete(listener);
+	subscribeBots(listener: (bots: Bot[]) => void): () => void {
+		this.#botListeners.add(listener);
+		void this.bots().then(listener);
+		return () => this.#botListeners.delete(listener);
 	}
 
-	async #publishIndex(): Promise<void> {
-		const items = await this.conversations();
-		this.#titles.clear();
-		for (const item of items) this.#titles.set(sandboxName(item.id), item.title);
-		for (const listener of this.#indexListeners) listener(items);
+	async #publishBots(): Promise<void> {
+		const bots = await this.bots();
+		this.#folders.clear();
+		for (const bot of bots) this.#folders.set(String(bot.id), bot.folder);
+		for (const listener of this.#botListeners) listener(bots);
 	}
 
-	async #editIndex(edit: (items: ConversationSummary[]) => void): Promise<void> {
-		await this.#harness.commit(async (tx) => edit((await tx.doc(ConversationIndex)).items), context);
-		await this.#publishIndex();
+	async #editBots(edit: (items: Bot[]) => void): Promise<void> {
+		await this.#harness.commit(async (tx) => edit((await tx.doc(BotIndex)).items), context);
+		await this.#publishBots();
 	}
 
-	async createConversation(title = NEW_TITLE): Promise<ConversationId> {
+	async createBot(name: string, job: string): Promise<ConversationId> {
+		const trimmed = name.trim();
+		if (!trimmed) throw new Error("Bot 需要名字");
+		if (job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
+		const existing = await this.bots();
+		if (existing.length >= MAX_BOTS) throw new Error(`最多 ${MAX_BOTS} 個 Bot`);
+		const folder = folderFor(trimmed, existing.map((bot) => bot.folder));
 		const conversation = await this.#harness.createConversation(
 			{
 				ownership: { kind: "ownerless" },
 				agent: this.#defaultAgent(),
 				init: async (tx, id) => {
 					const now = Date.now();
-					(await tx.doc(ConversationIndex)).items.push({ id, title, createdAt: now, updatedAt: now });
+					(await tx.doc(BotIndex)).items.push({ id, name: trimmed, job: job.trim(), folder, createdAt: now, updatedAt: now });
 				},
 			},
 			context,
 		);
-		await this.#publishIndex();
+		await this.#publishBots();
 		return conversation.id;
 	}
 
-	renameConversation(id: ConversationId, title: string): Promise<void> {
-		return this.#editIndex((items) => {
-			const item = items.find((candidate) => candidate.id === id);
-			if (item) item.title = title;
+	async updateBot(id: ConversationId, change: { name: string; job: string }): Promise<void> {
+		const name = change.name.trim();
+		if (!name) throw new Error("Bot 需要名字");
+		if (change.job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
+		await this.#editBots((items) => {
+			const bot = items.find((candidate) => candidate.id === id);
+			if (!bot) return;
+			bot.name = name;
+			bot.job = change.job.trim();
+		});
+	}
+
+	/** Remove a bot with its folder and schedules; the last one stays. Its transcript stays in storage, unlisted. */
+	async removeBot(id: ConversationId): Promise<void> {
+		const bots = await this.bots();
+		const bot = bots.find((candidate) => candidate.id === id);
+		if (!bot) return;
+		if (bots.length === 1) throw new Error("至少要留一個 Bot");
+		if (this.#sandbox) await this.#sandbox.remove(bot.folder).catch(() => undefined);
+		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
+		await this.#editBots((items) => {
+			const at = items.findIndex((candidate) => candidate.id === id);
+			if (at >= 0) items.splice(at, 1);
 		});
 	}
 
@@ -363,24 +386,18 @@ export class AgentRuntime {
 		return () => dispose();
 	}
 
-	/** The conversation's sandbox files, or undefined when it has no sandbox yet. */
+	/** A bot's folder in the sandbox, or undefined when it has not used it yet. */
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
-		if (!this.#sandbox || !(await this.#sandbox.exists(id))) return undefined;
-		return new Workspace(this.#sandbox.env(id), this.#sandbox.root(id));
+		const folder = this.#folders.get(String(id));
+		if (!this.#sandbox || !folder || !(await this.#sandbox.exists(folder))) return undefined;
+		return new Workspace(await this.#sandbox.env(folder), this.#sandbox.root(folder));
 	}
 
-	/** Delete the conversation's sandbox container and files; the conversation itself stays. */
+	/** Empty a bot's folder in the sandbox; the bot and its conversation stay. */
 	async resetSandbox(id: ConversationId): Promise<void> {
-		if (!this.#sandbox) throw new Error("No sandbox configured");
-		await this.#sandbox.remove(id);
-	}
-
-	removeConversation(id: ConversationId): Promise<void> {
-		void this.#sandbox?.remove(id).catch(() => undefined);
-		return this.#editIndex((items) => {
-			const at = items.findIndex((candidate) => candidate.id === id);
-			if (at >= 0) items.splice(at, 1);
-		});
+		const folder = this.#folders.get(String(id));
+		if (!this.#sandbox || !folder) throw new Error("No sandbox configured");
+		await this.#sandbox.remove(folder);
 	}
 
 	async openConversation(id: ConversationId): Promise<ConversationController> {
@@ -398,11 +415,9 @@ export class AgentRuntime {
 			send: (content, whenBusy = "steer") => {
 				const text = content.find((part): part is TextContent => part.type === "text")?.text.trim() ?? "";
 				const submitted = (async () => {
-					await this.#editIndex((items) => {
-						const item = items.find((candidate) => candidate.id === id);
-						if (!item) return;
-						item.updatedAt = Date.now();
-						if (item.title === NEW_TITLE && text) item.title = text.length > 24 ? `${text.slice(0, 24)}…` : text;
+					await this.#editBots((items) => {
+						const bot = items.find((candidate) => candidate.id === id);
+						if (bot && text) bot.updatedAt = Date.now();
 					});
 					await conversation.submit({ type: "input", content, whenBusy }, context);
 				})();
@@ -424,22 +439,6 @@ export class AgentRuntime {
 				await conversation.abort(context);
 				return returned.filter(Boolean);
 			},
-			forkBefore: async (entryId) => {
-				const entries = view.value.entries;
-				const at = entries.findIndex((entry) => entry.id === entryId);
-				const text = contentText(entries[at]?.model?.[0]?.content);
-				const previous = at > 0 ? entries[at - 1] : undefined;
-				const title = `分支：${text.length > 20 ? `${text.slice(0, 20)}…` : text}`;
-				const init = async (tx: Tx, forkId: ConversationId) => {
-					const now = Date.now();
-					(await tx.doc(ConversationIndex)).items.push({ id: forkId, title, createdAt: now, updatedAt: now });
-				};
-				const fork = previous
-					? await conversation.fork(previous.id, { ownership: { kind: "ownerless" }, init }, context)
-					: await this.#harness.createConversation({ ownership: { kind: "ownerless" }, init, agent: this.#defaultAgent() }, context);
-				await this.#publishIndex();
-				return { id: fork.id, text };
-			},
 			compact: async () => {
 				const before = view.value.entries.filter((entry) => entry.kind === "pi.compaction").length;
 				await this.#harness.waitForTask(await conversation.compact(undefined, context), context);
@@ -452,33 +451,34 @@ export class AgentRuntime {
 		};
 	}
 
-	async memory(): Promise<Memory> {
-		return { ...((await this.#harness.snapshot(MemoryDoc, context)) ?? { text: "", updatedAt: 0, updatedBy: "" }) };
+	async memory(scope: MemoryScope): Promise<Memory> {
+		const memory = scope.kind === "global" ? await this.#harness.snapshot(MemoryDoc, context) : await this.#harness.snapshot(BotMemoryDoc, scope.id, context);
+		return { ...(memory ?? { text: "", updatedAt: 0, updatedBy: "" }) };
 	}
 
-	/** Calls `listener` now and whenever the user or the agent changes MEMORY.md. */
-	subscribeMemory(listener: (memory: Memory) => void): () => void {
-		this.#memoryListeners.add(listener);
-		void this.memory().then(listener);
-		return () => this.#memoryListeners.delete(listener);
+	/** Calls `listener` now and whenever the user or the agent changes that MEMORY.md. */
+	subscribeMemory(scope: MemoryScope, listener: (memory: Memory) => void): () => void {
+		const reload = () => void this.memory(scope).then(listener);
+		this.#memoryListeners.add(reload);
+		reload();
+		return () => this.#memoryListeners.delete(reload);
 	}
 
-	async publishMemory(): Promise<void> {
-		const memory = await this.memory();
-		for (const listener of this.#memoryListeners) listener(memory);
+	publishMemory(): void {
+		for (const listener of this.#memoryListeners) listener();
 	}
 
-	/** The user's edit of MEMORY.md. */
-	async saveMemory(text: string): Promise<void> {
+	/** The user's edit of a MEMORY.md. */
+	async saveMemory(scope: MemoryScope, text: string): Promise<void> {
 		const trimmed = text.trim();
 		if (trimmed.length > MEMORY_LIMIT) throw new Error(`記憶最多 ${MEMORY_LIMIT} 字，現在是 ${trimmed.length} 字`);
 		await this.#harness.commit(async (tx) => {
-			const memory = await tx.doc(MemoryDoc);
+			const memory = scope.kind === "global" ? await tx.doc(MemoryDoc) : await tx.doc(BotMemoryDoc, scope.id);
 			memory.text = trimmed;
 			memory.updatedAt = Date.now();
 			memory.updatedBy = "user";
 		}, context);
-		await this.publishMemory();
+		this.publishMemory();
 	}
 
 	subscribeTriggers(listener: (state: TriggerState) => void): () => void {
@@ -525,25 +525,18 @@ export class AgentRuntime {
 		const overLimit =
 			delivery !== "manual" &&
 			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
-		const known = new Set((await this.conversations()).map((item) => item.id));
-		let conversationId: ConversationId | undefined;
-		if (!overLimit) {
-			conversationId =
-				trigger.target !== "new" && trigger.conversationId && known.has(trigger.conversationId)
-					? trigger.conversationId
-					: await this.createConversation(trigger.name);
-		}
+		const known = new Set((await this.bots()).map((bot) => bot.id));
+		const conversationId = !overLimit && known.has(trigger.conversationId) ? trigger.conversationId : undefined;
 		const now = Date.now();
 		await this.#harness.commit(async (tx) => {
 			const triggers = await tx.doc(TriggerDoc);
 			const item = triggers.items.find((candidate) => candidate.id === id);
 			if (!item) return;
-			if (overLimit) {
-				item.last = { at: now, delivery, error: "今天的執行次數已達上限" };
+			if (!conversationId) {
+				item.last = { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" };
 				return;
 			}
-			item.last = { at: now, delivery, conversationId };
-			if (item.target === "thread") item.conversationId = conversationId;
+			item.last = { at: now, delivery };
 			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: now }];
 			// A one-time schedule is done once it ran (not when run by hand from Settings).
 			if (item.when.kind === "once" && delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
@@ -552,11 +545,11 @@ export class AgentRuntime {
 		if (!conversationId) return undefined;
 		const conversation = await this.#harness.conversation(conversationId, context);
 		if (!conversation) return undefined;
-		await this.#editIndex((items) => {
-			const item = items.find((candidate) => candidate.id === conversationId);
-			if (item) item.updatedAt = now;
+		await this.#editBots((items) => {
+			const bot = items.find((candidate) => candidate.id === conversationId);
+			if (bot) bot.updatedAt = now;
 		});
-		const label = trigger.target === "origin" ? "follow-up you scheduled" : `schedule "${trigger.name}"`;
+		const label = trigger.kind === "followup" ? "follow-up you scheduled" : `schedule "${trigger.name}"`;
 		this.#triggered.add(conversationId);
 		await conversation.submit(
 			{
@@ -564,7 +557,7 @@ export class AgentRuntime {
 				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
 				entry: {
 					kind: TRIGGER_ENTRY,
-					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, target: trigger.target, delivery, at: now },
+					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now },
 				},
 				whenBusy: "followUp",
 			},
@@ -576,6 +569,16 @@ export class AgentRuntime {
 	/** Whether a trigger started the run that just ended in this conversation; forgets it. */
 	takeTriggered(id: ConversationId): boolean {
 		return this.#triggered.delete(id);
+	}
+
+	/** The global MEMORY.md of a database from before bots (src/storage.ts takeLegacyStorage), read without running it. */
+	static async readLegacyMemory(storage: Storage): Promise<string> {
+		const harness = await Harness.open(storage, { models: createModels(), registry: createRegistry() }, context);
+		try {
+			return (await harness.snapshot(MemoryDoc, context))?.text ?? "";
+		} finally {
+			await harness.close(context);
+		}
 	}
 
 	inspect(): Promise<unknown> {

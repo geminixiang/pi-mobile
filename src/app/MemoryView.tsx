@@ -1,10 +1,16 @@
-// The MEMORY.md page: what pi knows about the user in every conversation. The user edits it here; the agent edits it
-// with update_memory, and a change it makes while the page is open shows up unless the user has unsaved edits.
+// A MEMORY.md page: the global one, what every bot knows about the user, or one bot's notes for its job. The user
+// edits it here; the agent with update_memory, and a change it makes while the page is open shows up unless the user
+// has unsaved edits.
 import { useEffect, useRef, useState } from "react";
-import type { Memory } from "../agent/memory.ts";
+import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { BackIcon } from "./icons.tsx";
+
+const BOT_PLACEHOLDER = `# 這份工作
+- 資料來源：
+- 要通知誰：
+- 做法：先列重點再細節`;
 
 const PLACEHOLDER = `# 關於我
 - 家：
@@ -19,24 +25,39 @@ function when(memory: Memory): string {
 	if (!memory.updatedAt) return "";
 	const date = new Date(memory.updatedAt);
 	const time = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-	return `${memory.updatedBy === "agent" ? "pi" : "你"}在 ${time} 更新`;
+	return `${memory.updatedBy === "agent" ? "Bot" : "你"}在 ${time} 更新`;
 }
 
-export function MemoryView({ runtime, onClose, onError }: { runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
+export function MemoryView({
+	runtime,
+	scope,
+	botName,
+	onClose,
+	onError,
+}: {
+	runtime: AgentRuntime;
+	scope: MemoryScope;
+	/** For a bot's memory: whose it is. */
+	botName?: string;
+	onClose: () => void;
+	onError: (message: string) => void;
+}) {
 	const [saved, setSaved] = useState<Memory>();
 	const [draft, setDraft] = useState<string>();
 	const [saving, setSaving] = useState(false);
 	const savedText = useRef<string>(undefined);
 	useEffect(
 		() =>
-			runtime.subscribeMemory((memory) => {
+			runtime.subscribeMemory(scope, (memory) => {
 				// Take the agent's change unless the user is in the middle of an edit.
 				const previous = savedText.current;
 				setDraft((current) => (current === undefined || current.trim() === previous ? memory.text : current));
 				savedText.current = memory.text;
 				setSaved(memory);
 			}),
-		[runtime],
+		// The scope is a fresh object on every render; what identifies it is its kind and bot.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined],
 	);
 	const text = draft ?? "";
 	const changed = saved !== undefined && text.trim() !== saved.text;
@@ -48,7 +69,7 @@ export function MemoryView({ runtime, onClose, onError }: { runtime: AgentRuntim
 				<button type="button" className="icon-button" onClick={onClose} aria-label="返回">
 					<BackIcon />
 				</button>
-				<h1 className="bar-heading">記憶</h1>
+				<h1 className="bar-heading">{scope.kind === "global" ? "全域記憶" : `${botName ?? "Bot"} 的記憶`}</h1>
 				<button
 					type="button"
 					className="btn primary"
@@ -56,7 +77,7 @@ export function MemoryView({ runtime, onClose, onError }: { runtime: AgentRuntim
 					onClick={() => {
 						setSaving(true);
 						runtime
-							.saveMemory(text)
+							.saveMemory(scope, text)
 							.then(() => setDraft(text.trim()))
 							.catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)))
 							.finally(() => setSaving(false));
@@ -75,13 +96,15 @@ export function MemoryView({ runtime, onClose, onError }: { runtime: AgentRuntim
 				<textarea
 					className="memory-text"
 					value={text}
-					placeholder={PLACEHOLDER}
+					placeholder={scope.kind === "global" ? PLACEHOLDER : BOT_PLACEHOLDER}
 					onChange={(event) => setDraft(event.target.value)}
 					spellCheck={false}
 					aria-label="MEMORY.md"
 				/>
 				<p className="memory-hint">
-					pi 在每個對話都會讀這份筆記；你提到家在哪、喜歡什麼時，它也會自己記下來。
+					{scope.kind === "global"
+						? "每個 Bot 都會讀這份筆記；你提到家在哪、喜歡什麼時，Bot 也會自己記下來。"
+						: `只有 ${botName ?? "這個 Bot"} 會讀這份筆記，記它做這份工作需要知道的事。`}
 					<br />
 					{saved?.updatedAt ? (
 						<>

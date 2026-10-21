@@ -390,11 +390,11 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 	return (
 		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">
-				{data.target === "origin" ? "稍後再看" : "排程"} · {data.name}
+				{data.kind === "followup" ? "稍後再看" : "排程"} · {data.name}
 				{clock}
 				{DELIVERY[data.delivery] ?? ""}
 			</div>
-			{data.target === "origin" ? null : (
+			{data.kind === "followup" ? null : (
 				<button type="button" className={`trigger-prompt${open ? " open" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
 					{data.prompt}
 				</button>

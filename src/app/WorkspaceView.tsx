@@ -294,7 +294,7 @@ export function WorkspaceView({
 				{workspace === undefined && !error ? <div className="ws-pane"><div className="ws-loading">連接 sandbox</div></div> : null}
 				{workspace === null ? (
 					<div className="ws-pane">
-						<div className="ws-empty">這個對話還沒用過 sandbox。請 agent 在 sandbox 裡做點事，檔案就會出現在這裡。</div>
+						<div className="ws-empty">這個 Bot 還沒用過 sandbox。請它在 sandbox 裡做點事，檔案就會出現在這裡。</div>
 					</div>
 				) : null}
 				{workspace && tab === "files" ? (

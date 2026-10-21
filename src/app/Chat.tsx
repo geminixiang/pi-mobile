@@ -5,7 +5,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
-import { ArrowIcon, BranchIcon, CopyIcon } from "./icons.tsx";
+import { ArrowIcon, CopyIcon } from "./icons.tsx";
 import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
@@ -68,7 +68,6 @@ export function Chat({
 	initialImages,
 	shared,
 	focusKey,
-	onOpenConversation,
 	onError,
 	onNotice,
 	onView,
@@ -82,7 +81,6 @@ export function Chat({
 	shared?: "image" | "text";
 	/** Changes when the composer should take focus, such as after starting a new conversation. */
 	focusKey: number;
-	onOpenConversation: (id: ConversationId, draft: string) => void;
 	onError: (message: string) => void;
 	onNotice: (message: string) => void;
 	onView?: (view: ConversationView) => void;
@@ -333,28 +331,6 @@ export function Chat({
 						<CopyIcon size={18} />
 						<span className="menu-text">複製文字</span>
 					</button>
-					{actionsFor?.kind === "pi.user" ? (
-						<button
-							type="button"
-							onClick={async () => {
-								const entry = actionsFor;
-								setActionsFor(undefined);
-								try {
-									const fork = await controller.forkBefore(entry.id);
-									onOpenConversation(fork.id, fork.text);
-									onNotice("已開新分支，訊息放回輸入框");
-								} catch (error) {
-									fail(error);
-								}
-							}}
-						>
-							<BranchIcon />
-							<span className="menu-text">
-								從這裡分支
-								<span className="menu-hint">開一個新對話，保留這之前的內容，這則訊息放回輸入框讓你改寫</span>
-							</span>
-						</button>
-					) : null}
 				</div>
 			</Sheet>
 		</div>

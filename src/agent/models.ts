@@ -14,6 +14,16 @@ export const PROVIDER_ID = "cliproxyapi";
 // credential is cloaked as Claude Code (its system prompt first, tools renamed mcp__x__y), which confuses the agent.
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
+/**
+ * pi-durable compacts once a request would pass contextWindow minus its reserve (16k by default). Reporting the user's
+ * threshold plus that reserve as the window makes it compact at the threshold instead of near the model's limit.
+ */
+const COMPACTION_RESERVE = 16_384;
+
+function windowFor(id: string, compactAt: number): number {
+	const own = KNOWN[id]?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+	return compactAt > 0 ? Math.min(own, compactAt + COMPACTION_RESERVE) : own;
+}
 
 export interface ModelInfo {
 	id: string;
@@ -57,7 +67,7 @@ function rootUrl(baseUrl: string): string {
 	return baseUrl.replace(/\/+$/u, "").replace(/\/v1$/u, "");
 }
 
-function toModel(id: string, baseUrl: string): Model<Api> {
+function toModel(id: string, baseUrl: string, compactAt: number): Model<Api> {
 	const known = KNOWN[id];
 	const common = {
 		id,
@@ -66,7 +76,7 @@ function toModel(id: string, baseUrl: string): Model<Api> {
 		reasoning: true,
 		input: ["text", "image"] satisfies ("text" | "image")[],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: known?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+		contextWindow: windowFor(id, compactAt),
 		maxTokens: known?.maxTokens ?? 32_000,
 		thinkingLevelMap: LEVELS,
 	};
@@ -99,23 +109,24 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 	return [...favorites, ...rest];
 }
 
-export function describeModels(ids: string[]): ModelInfo[] {
+/** `contextWindow` is the size at which conversations compact (see windowFor). */
+export function describeModels(ids: string[], compactAt: number): ModelInfo[] {
 	return ids.map((id) => ({
 		id,
 		name: KNOWN[id]?.name ?? id,
 		known: Boolean(KNOWN[id]),
-		contextWindow: KNOWN[id]?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+		contextWindow: windowFor(id, compactAt),
 	}));
 }
 
-export function modelServiceProvider(baseUrl: string, apiKey: string, modelIds: string[]): Provider {
+export function modelServiceProvider(baseUrl: string, apiKey: string, modelIds: string[], compactAt: number): Provider {
 	// Always include the favorites so conversations that use them resolve even when the catalog fetch failed.
 	const ids = [...new Set([...FAVORITE_MODEL_IDS, ...modelIds])];
 	return createProvider({
 		id: PROVIDER_ID,
 		name: "Model service",
 		auth: { apiKey: { name: "API key", resolve: async () => ({ auth: { apiKey } }) } },
-		models: ids.map((id) => toModel(id, baseUrl)),
+		models: ids.map((id) => toModel(id, baseUrl, compactAt)),
 		api: {
 			"anthropic-messages": anthropicMessagesApi(),
 			"openai-responses": openAIResponsesApi(),

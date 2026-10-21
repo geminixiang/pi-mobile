@@ -1,14 +1,16 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setConfirmListener } from "../agent/confirm.ts";
-import { AgentRuntime, type ConversationController, type ConversationId, type ConversationSummary } from "../agent/runtime.ts";
+import type { Bot } from "../agent/bots.ts";
+import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
-import { openAppStorage } from "../storage.ts";
+import { openAppStorage, takeLegacyStorage } from "../storage.ts";
+import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Chat, isBusy } from "./Chat.tsx";
 import { ConversationMenu } from "./ConversationMenu.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { AzureMark, ChevronDownIcon, CloudflareMark, ComposeIcon, GitHubMark, GoogleCloudMark, MoreIcon, PencilIcon, TerminalIcon, TrashIcon } from "./icons.tsx";
+import { AzureMark, ChevronDownIcon, CloudflareMark, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { usePrefs } from "./prefs.ts";
@@ -28,21 +30,17 @@ import { listenForPairing, type Pairing } from "./pairing.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 
-const LAST_CONVERSATION_KEY = "pi-mobile.lastConversation";
+const LAST_BOT_KEY = "pi-mobile.lastBot";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
-type Overlay = "drawer" | "model" | "menu" | "settings" | "memory" | "workspace" | undefined;
-
-function hasUserEntries(view: ConversationView | undefined): boolean {
-	return Boolean(view?.entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY));
-}
+type Overlay = "drawer" | "model" | "menu" | "settings" | "memory" | "botMemory" | "workspace" | undefined;
 
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
 	const [runtime, setRuntime] = useState<AgentRuntime>();
 	const [openError, setOpenError] = useState("");
-	const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+	const [bots, setBots] = useState<Bot[]>([]);
 	const [controller, setController] = useState<ConversationController>();
 	const [view, setView] = useState<ConversationView>();
 	const [pendingDraft, setPendingDraft] = useState<string>();
@@ -53,7 +51,12 @@ export function App() {
 	const [toast, setToast] = useState("");
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
-	const [itemActions, setItemActions] = useState<ConversationSummary>();
+	const [botEdit, setBotEdit] = useState<BotEdit>();
+	const [memoryBot, setMemoryBot] = useState<Bot>();
+	/** Something shared from another app, waiting for the user to pick the bot it goes to. */
+	const [sharing, setSharing] = useState<{ draft: string; images: ImageContent[] }>();
+	/** Remounts the chat when a bot is opened with a draft, so the composer takes it. */
+	const [chatKey, setChatKey] = useState(0);
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
 	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
 		setWorkspaceStart(start);
@@ -111,9 +114,17 @@ export function App() {
 	const start = useCallback(
 		async (next: Settings) => {
 			try {
+				// The database from before bots goes, with every old conversation; only the global MEMORY.md stays.
+				let importMemory: string | undefined;
+				const legacy = await takeLegacyStorage().catch(() => undefined);
+				if (legacy) {
+					importMemory = await AgentRuntime.readLegacyMemory(legacy.storage).catch(() => undefined);
+					await legacy.discard().catch((error: unknown) => log.warn("storage.legacy_discard_failed", { error: String(error) }));
+				}
 				const { storage } = await openAppStorage();
 				setRuntime(
 					await AgentRuntime.open(storage, next, {
+						...(importMemory ? { importMemory } : {}),
 						onReport: notify,
 						notify: async (title, text, conversationId) => {
 							if (inForeground()) return false;
@@ -137,20 +148,20 @@ export function App() {
 		});
 	}, [start]);
 
-	useEffect(() => (runtime ? runtime.subscribeConversations(setConversations) : undefined), [runtime]);
+	useEffect(() => (runtime ? runtime.subscribeBots(setBots) : undefined), [runtime]);
 
 	// Keep working conversations running in the background; say when one finishes while the app is away.
 	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
 	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
 	useEffect(() => (runtime ? runtime.subscribeActivity(setBusyIds) : undefined), [runtime]);
 	useEffect(() => {
-		const title = (id: ConversationId) => conversations.find((item) => item.id === id)?.title ?? "對話";
+		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
 		setWorking([...busyIds].map(title));
 		// A triggered run tells the user itself (the notify tool) only when there is something worth it.
 		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.takeTriggered(id));
 		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
 		previousBusy.current = busyIds;
-	}, [busyIds, conversations, runtime]);
+	}, [busyIds, bots, runtime]);
 
 	const openConversation = useCallback(
 		async (id: ConversationId, draft?: string, images?: ImageContent[], shared?: "image" | "text") => {
@@ -159,7 +170,8 @@ export function App() {
 			if (id === controller?.id && draft === undefined) return;
 			controller?.dispose();
 			const next = await runtime.openConversation(id);
-			localStorage.setItem(LAST_CONVERSATION_KEY, String(id));
+			localStorage.setItem(LAST_BOT_KEY, String(id));
+			setChatKey((key) => key + 1);
 			setPendingDraft(draft);
 			setPendingImages(images);
 			setPendingShared(shared);
@@ -169,32 +181,18 @@ export function App() {
 		[runtime, controller],
 	);
 
-	// A fresh conversation is reused instead of piling up empty ones.
-	const newConversation = useCallback(async () => {
-		if (!runtime) return;
-		// Reused only while it is untitled: a conversation opened by a share is titled after what was shared.
-		const untitled = conversations.find((item) => item.id === controller?.id)?.title === "新對話";
-		if (controller && view && !hasUserEntries(view) && untitled) {
-			setOverlay(undefined);
-			setFocusKey((key) => key + 1);
-			return;
-		}
-		await openConversation(await runtime.createConversation());
-		setFocusKey((key) => key + 1);
-	}, [runtime, controller, view, conversations, openConversation]);
-
-	// Open the last conversation once the runtime is ready, or start one when there is none.
+	// Open the last bot once the runtime is ready.
 	useEffect(() => {
 		if (!runtime || controller) return;
-		void runtime.conversations().then(async (items) => {
-			const last = localStorage.getItem(LAST_CONVERSATION_KEY);
-			const target = items.find((item) => String(item.id) === last) ?? items[0];
-			void openConversation(target ? target.id : await runtime.createConversation());
+		void runtime.bots().then((items) => {
+			const last = localStorage.getItem(LAST_BOT_KEY);
+			const target = items.find((bot) => String(bot.id) === last) ?? items[0];
+			if (target) void openConversation(target.id);
 		});
 	}, [runtime, controller, openConversation]);
 
-	// Fired schedules and shares from other apps. A share opens a new conversation with it in the composer, so the
-	// user says what to do with it.
+	// Fired schedules and shares from other apps. A share goes into a bot's composer, so the user says what to do with
+	// it: the only bot's, or the one the user picks.
 	const openRef = useRef(openConversation);
 	openRef.current = openConversation;
 	useEffect(() => {
@@ -211,14 +209,14 @@ export function App() {
 				notify("沒有讀到分享的內容。目前可以分享文字、連結和圖片。");
 				return;
 			}
-			const title = (item.subject || item.text || "").trim();
-			const id = await runtime.createConversation(title ? `分享：${title.length > 20 ? `${title.slice(0, 20)}…` : title}` : "分享的圖片");
-			await openRef.current(id, draft, images, images.length > 0 ? "image" : "text");
+			const items = await runtime.bots();
+			if (items.length === 1 && items[0]) await openRef.current(items[0].id, draft, images, images.length > 0 ? "image" : "text");
+			else setSharing({ draft, images });
 		};
 		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });
 		const stopLinks = listenForOpenLinks((conversation) => {
-			void runtime.conversations().then((items) => {
-				const target = items.find((item) => String(item.id) === conversation);
+			void runtime.bots().then((items) => {
+				const target = items.find((bot) => String(bot.id) === conversation);
 				if (target) void openRef.current(target.id);
 			});
 		});
@@ -257,7 +255,7 @@ export function App() {
 			const replacing = settings.sandboxUrl && settings.sandboxUrl !== pairing.url;
 			const sure = await ask({
 				title: "使用這台 sandbox 主機？",
-				body: `${pairing.name}（${reached}）。${replacing ? `會取代目前的 ${settings.sandboxUrl}，舊主機上的檔案不會搬過來。` : "每個對話會在這台主機上有自己的 Linux 容器。"}`,
+				body: `${pairing.name}（${reached}）。${replacing ? `會取代目前的 ${settings.sandboxUrl}，舊主機上的檔案不會搬過來。` : "所有 Bot 會共用這台主機上的一個 Linux 容器。"}`,
 				confirm: "使用",
 			});
 			if (!sure) return;
@@ -318,7 +316,7 @@ export function App() {
 	const modelId = agent?.model?.modelId ?? "";
 	const thinking = agent?.thinkingLevel ?? "";
 	const model = runtime.models.find((candidate) => candidate.id === modelId);
-	const current = conversations.find((item) => item.id === controller?.id);
+	const current = bots.find((bot) => bot.id === controller?.id);
 	const used = contextTokens(view);
 	const contextWindow = model?.contextWindow ?? 0;
 	const busy = isBusy(view);
@@ -341,19 +339,16 @@ export function App() {
 			}}
 		>
 			<header className="bar">
-				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="對話列表">
+				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
 					<PiMark size={18} live={busy} />
 				</button>
 				<button type="button" className="bar-center" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
-					<span className="bar-title">{current?.title ?? ""}</span>
+					<span className="bar-title">{current?.name ?? ""}</span>
 					<span className="bar-model">
 						{shortModelName(model?.name ?? modelId)}
 						{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
 						<ChevronDownIcon />
 					</span>
-				</button>
-				<button type="button" className="icon-button" aria-label="新對話" onClick={() => void newConversation()}>
-					<ComposeIcon />
 				</button>
 				<button type="button" className="icon-button" aria-label="更多" onClick={() => setOverlay("menu")}>
 					<MoreIcon />
@@ -366,7 +361,7 @@ export function App() {
 			{controller ? (
 				<OpenFileContext.Provider value={runtime.hasSandbox ? openFile : undefined}>
 				<Chat
-					key={String(controller.id)}
+					key={`${String(controller.id)}-${chatKey}`}
 					controller={controller}
 					prefs={prefs}
 					capabilities={{ sandbox: runtime.hasSandbox }}
@@ -375,7 +370,6 @@ export function App() {
 					shared={pendingShared}
 					focusKey={focusKey}
 					onView={setView}
-					onOpenConversation={(id, draft) => void openConversation(id, draft)}
 					onError={notify}
 					onNotice={notify}
 				/>
@@ -393,7 +387,7 @@ export function App() {
 			<Drawer
 				open={overlay === "drawer"}
 				busy={busy}
-				conversations={conversations}
+				bots={bots}
 				currentId={controller?.id}
 				status={[
 					{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
@@ -403,9 +397,9 @@ export function App() {
 					{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
 				]}
 				onOpen={(id) => void openConversation(id)}
-				onCreate={() => void newConversation()}
+				onCreate={() => setBotEdit({ kind: "create" })}
 				running={busyIds}
-				onActions={setItemActions}
+				onEdit={(bot) => setBotEdit({ kind: "edit", bot })}
 				onSettings={() => setOverlay("settings")}
 				onMemory={() => setOverlay("memory")}
 				onClose={close}
@@ -428,7 +422,7 @@ export function App() {
 			<ConversationMenu
 				open={overlay === "menu"}
 				view={view}
-				title={current?.title ?? ""}
+				title={current?.name ?? ""}
 				usage={totalUsage(view)}
 				cacheHitRate={latestCacheHitRate(view)}
 				context={{ used, window: contextWindow }}
@@ -436,10 +430,8 @@ export function App() {
 				onPrefs={updatePrefs}
 				onClose={close}
 				actions={{
-					rename: async () => {
-						if (!controller) return;
-						const title = await ask({ title: "重新命名", confirm: "儲存", input: current?.title ?? "" });
-						if (title) await runtime.renameConversation(controller.id, title).catch(fail);
+					settings: () => {
+						if (current) setBotEdit({ kind: "edit", bot: current });
 					},
 					copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製最後的回答"), fail),
 					compact: () => {
@@ -461,64 +453,97 @@ export function App() {
 						? async () => {
 								if (!controller) return;
 								const sure = await ask({
-									title: "重置 sandbox",
-									body: "這個對話的容器和裡面所有檔案都會刪除。下次使用時會建立新的容器。",
-									confirm: "重置",
+									title: "清空資料夾",
+									body: `${current?.name ?? "這個 Bot"} 在 sandbox 裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
+									confirm: "清空",
 									danger: true,
 								});
-								if (sure) await runtime.resetSandbox(controller.id).then(() => notify("已重置 sandbox"), fail);
+								if (sure) await runtime.resetSandbox(controller.id).then(() => notify("已清空資料夾"), fail);
 							}
 						: undefined,
 				}}
 			/>
 
-			<Sheet open={Boolean(itemActions)} title={itemActions?.title ?? ""} onClose={() => setItemActions(undefined)}>
+			<BotSheet
+				edit={botEdit}
+				canDelete={bots.length > 1}
+				onClose={() => setBotEdit(undefined)}
+				onSave={async (change) => {
+					try {
+						if (botEdit?.kind === "edit") {
+							await runtime.updateBot(botEdit.bot.id, change);
+							setBotEdit(undefined);
+						} else {
+							const id = await runtime.createBot(change.name, change.job);
+							setBotEdit(undefined);
+							await openConversation(id);
+							setFocusKey((key) => key + 1);
+						}
+					} catch (error) {
+						fail(error);
+					}
+				}}
+				onMemory={(bot) => {
+					setBotEdit(undefined);
+					setMemoryBot(bot);
+					setOverlay("botMemory");
+				}}
+				onDelete={async (bot) => {
+					setBotEdit(undefined);
+					const sure = await ask({
+						title: `刪除 ${bot.name}`,
+						body: "它的對話、記憶、排程和 sandbox 資料夾都會刪除，無法復原。",
+						confirm: "刪除",
+						danger: true,
+					});
+					if (!sure) return;
+					try {
+						await runtime.removeBot(bot.id);
+						if (bot.id === controller?.id) {
+							controller.dispose();
+							setController(undefined);
+							setView(undefined);
+						}
+					} catch (error) {
+						fail(error);
+					}
+				}}
+			/>
+
+			<Sheet open={Boolean(sharing)} title="要交給哪個 Bot？" onClose={() => setSharing(undefined)}>
 				<div className="menu">
-					<button
-						type="button"
-						onClick={async () => {
-							const item = itemActions;
-							setItemActions(undefined);
-							if (!item) return;
-							const title = await ask({ title: "重新命名", confirm: "儲存", input: item.title });
-							if (title) await runtime.renameConversation(item.id, title).catch(fail);
-						}}
-					>
-						<PencilIcon size={18} />
-						<span className="menu-text">重新命名</span>
-					</button>
-					<button
-						type="button"
-						className="danger"
-						onClick={async () => {
-							const item = itemActions;
-							setItemActions(undefined);
-							if (!item) return;
-							const sure = await ask({
-								title: "刪除對話",
-								body: `「${item.title}」和它的 sandbox 會一起刪除，無法復原。`,
-								confirm: "刪除",
-								danger: true,
-							});
-							if (!sure) return;
-							await runtime.removeConversation(item.id).catch(fail);
-							if (item.id === controller?.id) {
-								controller.dispose();
-								setController(undefined);
-								setView(undefined);
-							}
-						}}
-					>
-						<TrashIcon size={18} />
-						<span className="menu-text">刪除</span>
-					</button>
+					{bots.map((bot) => (
+						<button
+							type="button"
+							key={String(bot.id)}
+							onClick={() => {
+								const item = sharing;
+								setSharing(undefined);
+								if (item) void openConversation(bot.id, item.draft, item.images, item.images.length > 0 ? "image" : "text");
+							}}
+						>
+							<span className="bot-avatar" aria-hidden="true">
+								{[...bot.name][0]?.toUpperCase()}
+							</span>
+							<span className="menu-text">
+								{bot.name}
+								<span className="menu-hint">{bot.job.split("\n")[0] || "一般助理"}</span>
+							</span>
+						</button>
+					))}
 				</div>
 			</Sheet>
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 
-			<Layer open={overlay === "memory"} kind="page" onClose={close} label="記憶">
-				<MemoryView runtime={runtime} onClose={close} onError={notify} />
+			<Layer open={overlay === "memory"} kind="page" onClose={close} label="全域記憶">
+				<MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={close} onError={notify} />
+			</Layer>
+
+			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={close} label="Bot 的記憶">
+				{memoryBot ? (
+					<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} botName={memoryBot.name} onClose={close} onError={notify} />
+				) : null}
 			</Layer>
 
 			<Layer open={overlay === "settings"} kind="page" onClose={close} label="設定">
