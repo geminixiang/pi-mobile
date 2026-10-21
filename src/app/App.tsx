@@ -193,6 +193,23 @@ export function App() {
 		[runtime, controller],
 	);
 
+	// The open bot was deleted by something other than its menu (a test, a script): close it, and the effect below
+	// opens another. Checked against a fresh list, since a bot just created can be open before the list reaches us.
+	useEffect(() => {
+		if (!runtime || !controller) return;
+		if (bots.some((bot) => bot.id === controller.id)) return;
+		let live = true;
+		void runtime.bots().then((items) => {
+			if (!live || items.some((bot) => bot.id === controller.id)) return;
+			controller.dispose();
+			setController(undefined);
+			setView(undefined);
+		});
+		return () => {
+			live = false;
+		};
+	}, [runtime, controller, bots]);
+
 	// Open the last bot once the runtime is ready.
 	useEffect(() => {
 		if (!runtime || controller) return;
