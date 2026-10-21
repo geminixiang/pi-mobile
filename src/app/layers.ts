@@ -1,4 +1,4 @@
-// Overlays (drawer, sheets, dialogs, pages, directory levels) as a stack, so Android's back gesture closes the top
+// Overlays (side panels, sheets, dialogs, pages, directory levels) as a stack, so Android's back gesture closes the top
 // one instead of leaving the app.
 //
 // Back comes from @capacitor/app's backButton event, not browser history: Chromium skips history entries a page
@@ -7,7 +7,7 @@
 // button, so a running agent keeps going.
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const stack: (() => void)[] = [];
 // Debug hook for test/cdp.ts.
@@ -35,23 +35,4 @@ export function useBack(active: boolean, onBack: () => void): void {
 			if (index !== -1) stack.splice(index, 1);
 		};
 	}, [active]);
-}
-
-const EXIT_MS = 180;
-
-/**
- * Mount state for an overlay with an exit animation: `shown` stays true for EXIT_MS after `open` turns false,
- * with `closing` set so CSS can play the exit.
- */
-export function usePresence(isOpen: boolean): { shown: boolean; closing: boolean } {
-	const [shown, setShown] = useState(isOpen);
-	useEffect(() => {
-		if (isOpen) {
-			setShown(true);
-			return;
-		}
-		const timer = setTimeout(() => setShown(false), EXIT_MS);
-		return () => clearTimeout(timer);
-	}, [isOpen]);
-	return { shown: shown || isOpen, closing: shown && !isOpen };
 }
