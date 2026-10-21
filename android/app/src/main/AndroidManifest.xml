@@ -63,6 +63,9 @@
 
         </activity>
 
+        <!-- Ends a Do Not Disturb the agent set with an end time. -->
+        <receiver android:name=".DndReceiver" android:exported="false" />
+
         <!-- Keeps the agent loop running while the app is in the background or the screen is locked. -->
         <service
             android:name=".AgentService"

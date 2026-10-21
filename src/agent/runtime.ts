@@ -51,6 +51,7 @@ import { SpeechExtension } from "./tools/speech.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension } from "./tools/web.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
+import { ControlExtension } from "./tools/control.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
@@ -386,6 +387,7 @@ export class AgentRuntime {
 		install(AppsExtension);
 		install(SpeechExtension);
 		install(NotificationsExtension);
+		install(ControlExtension);
 		install(SkillsExtension);
 		install(AttachmentsExtension);
 		install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));

@@ -17,7 +17,7 @@
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
-export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
+export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
 export type ToolsetKind = "builtin" | "service";
 
@@ -42,7 +42,8 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", load: "always", id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"] },
 	{ kind: "builtin", load: "always", id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
 	{ kind: "builtin", load: "always", id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
-	{ kind: "builtin", load: "always", id: "notifications", label: "通知", hint: "讀手機收到的通知：LINE、信件、外送…（設定 › 通知讀取）", extensions: ["notifications"] },
+	{ kind: "builtin", load: "always", id: "control", label: "手機控制", hint: "音樂播放、勿擾模式（需要通知讀取）", extensions: ["phone_control"] },
+	{ kind: "builtin", load: "always", id: "notifications", label: "通知", hint: "讀、回覆、清除手機收到的通知：LINE、信件、外送…（設定 › 手機）", extensions: ["notifications"] },
 	{ kind: "builtin", load: "always", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
 	{ kind: "builtin", load: "always", id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
 	{ kind: "builtin", load: "on-demand", id: "github", label: "GitHub", hint: "查詢直接執行，寫入先問你", extensions: ["github"] },

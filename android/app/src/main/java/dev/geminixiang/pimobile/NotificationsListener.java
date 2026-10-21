@@ -18,8 +18,19 @@ import java.util.List;
  */
 public class NotificationsListener extends NotificationListenerService {
 
+    /** The connected listener, for what only it may do: act on notifications, set Do Not Disturb. Null while unbound. */
+    static volatile NotificationsListener instance;
+
+    @Override
+    public void onListenerDisconnected() {
+        instance = null;
+    }
+
     @Override
     public void onListenerConnected() {
+        instance = this;
+        // A Do Not Disturb end that came while the listener was unbound (DndReceiver).
+        if (getSharedPreferences(NotificationsPlugin.DND_PREFS, 0).getBoolean(DndReceiver.PENDING, false)) DndReceiver.end(this, this);
         // What is in the shade now, so a fresh grant has something to read.
         try {
             List<NotificationStore.Row> rows = new ArrayList<>();
@@ -91,7 +102,7 @@ public class NotificationsListener extends NotificationListenerService {
         return rows;
     }
 
-    private String appLabel(String packageName) {
+    String appLabel(String packageName) {
         try {
             PackageManager manager = getPackageManager();
             ApplicationInfo info = manager.getApplicationInfo(packageName, 0);
