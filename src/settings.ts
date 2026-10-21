@@ -50,6 +50,8 @@ export interface Settings {
 	sandboxMachine: string;
 	/** Context size in tokens at which a bot's conversation is compacted; 0 for the model's own limit. */
 	compactAt: number;
+	/** Approving a tool's action also takes the fingerprint, face, or screen lock. */
+	approvalAuth: boolean;
 }
 
 /** The non-secret settings in localStorage. */
@@ -66,6 +68,7 @@ const PlainSettings = Type.Object({
 	machines: Type.Optional(Type.String()),
 	sandboxMachine: Type.Optional(Type.String()),
 	compactAt: Type.Optional(Type.Number()),
+	approvalAuth: Type.Optional(Type.Boolean()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
@@ -127,6 +130,7 @@ export async function loadSettings(): Promise<Settings> {
 		machines: plain.machines ?? "",
 		sandboxMachine: plain.sandboxMachine ?? "",
 		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT,
+		approvalAuth: plain.approvalAuth ?? false,
 	};
 }
 
@@ -144,6 +148,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		machines: settings.machines,
 		sandboxMachine: settings.sandboxMachine,
 		compactAt: settings.compactAt,
+		approvalAuth: settings.approvalAuth,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
 	for (const provider of providers) {

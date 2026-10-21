@@ -314,7 +314,8 @@ public class TriggersPlugin extends Plugin {
             .setStyle(new Notification.BigTextStyle().bigText(text))
             .setContentIntent(AgentService.openApp(getContext()))
             .addAction(new Notification.Action.Builder(null, "拒絕", answer(id, false)).build())
-            .addAction(new Notification.Action.Builder(null, "允許", answer(id, true)).build())
+            // Allowing from the lock screen first unlocks the phone: whoever holds it cannot approve for its owner.
+            .addAction(allowAction(id))
             .setCategory(Notification.CATEGORY_REMINDER)
             .setTimeoutAfter(APPROVAL_TIMEOUT_MS)
             .setOngoing(true)
@@ -327,6 +328,12 @@ public class TriggersPlugin extends Plugin {
     public void cancelApproval(PluginCall call) {
         getContext().getSystemService(NotificationManager.class).cancel(approvalNotificationId(call.getString("id", "")));
         call.resolve();
+    }
+
+    private Notification.Action allowAction(String id) {
+        Notification.Action.Builder allow = new Notification.Action.Builder(null, "允許", answer(id, true));
+        if (Build.VERSION.SDK_INT >= 31) allow.setAuthenticationRequired(true);
+        return allow.build();
     }
 
     private PendingIntent answer(String id, boolean approved) {

@@ -97,10 +97,19 @@ export function App() {
 
 	// Tools ask the user through the same dialog. While pi is away, also with a notification the user can answer
 	// without opening pi; whichever is answered first wins, and nobody answering for 30 minutes declines.
+	// Read when asked, so a changed setting applies without registering again.
+	const approvalAuth = useRef(false);
+	approvalAuth.current = settings?.approvalAuth ?? false;
 	useEffect(() => {
 		setConfirmListener(({ title, detail }) => {
 			const request: DialogRequest = { title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true };
-			if (inForeground()) return ask(request);
+			// With 核准時驗證 on, 允許 also takes the fingerprint (or the screen lock); failing it declines.
+			if (inForeground()) {
+				return ask(request).then(async (approved) => {
+					if (approved !== true || !approvalAuth.current || !Capacitor.isNativePlatform()) return approved === true;
+					return (await System.authenticate({ title: "確認是你", subtitle: title })).ok;
+				});
+			}
 			return new Promise<boolean>((resolve) => {
 				let settled = false;
 				const answer = (approved: boolean) => {

@@ -78,4 +78,46 @@ public class SystemPlugin extends Plugin {
         }
         call.resolve();
     }
+
+    /**
+     * The system's fingerprint or face check, or the screen lock when the phone has no biometrics, before an approval
+     * (Settings › 帳號 › 核准時驗證). Resolves {ok}: false when the user cancels or fails.
+     */
+    @PluginMethod
+    public void authenticate(PluginCall call) {
+        if (android.os.Build.VERSION.SDK_INT < 30) {
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            call.resolve(result);
+            return;
+        }
+        android.hardware.biometrics.BiometricPrompt prompt = new android.hardware.biometrics.BiometricPrompt.Builder(getContext())
+            .setTitle(call.getString("title", "確認是你"))
+            .setSubtitle(call.getString("subtitle", ""))
+            .setAllowedAuthenticators(
+                android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG |
+                android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            .build();
+        prompt.authenticate(
+            new android.os.CancellationSignal(),
+            getContext().getMainExecutor(),
+            new android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
+                @Override
+                public void onAuthenticationSucceeded(android.hardware.biometrics.BiometricPrompt.AuthenticationResult result) {
+                    JSObject answer = new JSObject();
+                    answer.put("ok", true);
+                    call.resolve(answer);
+                }
+
+                @Override
+                public void onAuthenticationError(int code, CharSequence message) {
+                    JSObject answer = new JSObject();
+                    answer.put("ok", false);
+                    answer.put("reason", String.valueOf(message));
+                    call.resolve(answer);
+                }
+            }
+        );
+    }
 }

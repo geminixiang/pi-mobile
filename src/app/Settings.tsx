@@ -729,6 +729,19 @@ export function SettingsView({
 			body: () => (
 				<>
 					<p className="page-note">憑證只存在這支手機。會改動東西的操作，每次都先問你。</p>
+					{native ? (
+						<Group title="核准">
+							<div className="menu toggles">
+								<label>
+									<span className="menu-text">
+										核准時驗證
+										<span className="menu-hint">按「允許」後還要指紋或螢幕鎖</span>
+									</span>
+									<input type="checkbox" checked={settings.approvalAuth} onChange={(event) => change({ approvalAuth: event.target.checked })} />
+								</label>
+							</div>
+						</Group>
+					) : null}
 					<Group title="GitHub">
 						<label>
 							<span>Token</span>
