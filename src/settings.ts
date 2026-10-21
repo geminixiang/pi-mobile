@@ -6,8 +6,8 @@ import { Value } from "typebox/value";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
-/** A bot's conversation never ends; compacting at 128k tokens keeps each request's cost bounded. */
-export const DEFAULT_COMPACT_AT = 128_000;
+/** A bot's conversation never ends; compacting at 256k tokens keeps each request's cost bounded. */
+export const DEFAULT_COMPACT_AT = 256_000;
 /** Keychain key from the first version; kept so saved keys still load. */
 const SECRET_API_KEY = "cliproxyapi.apiKey";
 const SECRET_GITHUB_TOKEN = "github.token";

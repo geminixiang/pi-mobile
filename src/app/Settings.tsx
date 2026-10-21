@@ -593,7 +593,7 @@ export function SettingsView({
 
 				<Group
 					title="自動壓縮"
-					hint="每個 Bot 只有一條一直延續的對話。內容超過這個大小時，較早的部分會自動壓縮成摘要，最近的內容保持原樣，每次請求的花費就不會一直變大。越小越省，但 Bot 記得的細節越少。"
+					hint="每個 Bot 只有一條一直延續的對話。內容超過這個大小時，較早的部分會自動壓縮成摘要，最近的內容保持原樣，每次請求的花費就不會一直變大。越小越省，但 Bot 記得的細節越少。模型能容納的比門檻小時，會在接近模型上限時壓縮。"
 				>
 					<label>
 						<span>門檻</span>
@@ -603,8 +603,9 @@ export function SettingsView({
 							onChange={(event) => setSettings({ ...settings, compactAt: Number(event.target.value) })}
 						>
 							<option value={64_000}>64k tokens</option>
-							<option value={128_000}>128k tokens（建議）</option>
-							<option value={256_000}>256k tokens</option>
+							<option value={128_000}>128k tokens</option>
+							<option value={256_000}>256k tokens（建議）</option>
+							<option value={512_000}>512k tokens</option>
 							<option value={0}>模型上限</option>
 						</select>
 					</label>
