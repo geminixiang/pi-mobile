@@ -4,6 +4,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
 import {
+	AgentDoc,
 	type Conversation,
 	type ConversationId,
 	type ConversationView,
@@ -16,6 +17,7 @@ import {
 	section,
 	type Storage,
 } from "@earendil-works/pi-durable";
+import { removedExtensions, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
 import { log } from "../log.ts";
@@ -32,7 +34,7 @@ import { EgressLink, type MintedService } from "./sandbox/egress.ts";
 import { parseMachines } from "./sandbox/machine.ts";
 import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { azureService, type CloudService, cloudflareService, createCloudExtension, googleService } from "./tools/cloud.ts";
+import { azureService, type CloudService, cloudflareService, createCloudExtensions, googleService } from "./tools/cloud.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { SkillsExtension } from "./skills.ts";
 import { SpeechExtension } from "./tools/speech.ts";
@@ -179,6 +181,9 @@ export class AgentRuntime {
 	#triggerState: TriggerState = { items: [], next: {} };
 	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
+	/** Names of the installed extensions: which toolsets this phone has set up. */
+	readonly #installed: ReadonlySet<string>;
+	#toolsetWrites: Promise<void> = Promise.resolve();
 
 	private constructor(
 		harness: Harness,
@@ -187,7 +192,9 @@ export class AgentRuntime {
 		sandbox: Sandbox | undefined,
 		folders: Map<string, string>,
 		minted: Record<string, MintedService>,
+		installed: ReadonlySet<string>,
 	) {
+		this.#installed = installed;
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
@@ -274,9 +281,9 @@ export class AgentRuntime {
 		registry.install(SkillsExtension);
 		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
 		for (const extension of createPhoneCodemode()) registry.install(extension);
-		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
+		if (settings.githubToken) registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
 		const clouds = cloudConnections(settings);
-		registry.install(createCloudExtension(clouds.services));
+		for (const extension of createCloudExtensions(clouds.services)) registry.install(extension);
 		registry.install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
 		// The tools need the runtime, which exists only after the Harness opens.
 		let runtimeRef: AgentRuntime | undefined;
@@ -317,6 +324,7 @@ export class AgentRuntime {
 			sandbox,
 			folders,
 			clouds.minted,
+			new Set(registry.snapshot().installed().map((extension) => extension.name)),
 		);
 		runtimeRef = runtime;
 		// The folders must be known before a run resumes and asks for its environment.
@@ -501,6 +509,31 @@ export class AgentRuntime {
 			setThinking: (level) => conversation.configure({ thinkingLevel: level as "low" }, context),
 			dispose: () => view.dispose(),
 		};
+	}
+
+	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
+	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
+		const removed = removedExtensions(await this.#harness.snapshot(AgentDoc, id, context));
+		return TOOLSETS.map((toolset) => ({
+			...toolset,
+			available: toolset.extensions.every((name) => this.#installed.has(name)),
+			enabled: !toolset.extensions.some((name) => removed.includes(name)),
+		}));
+	}
+
+	/** Turn a toolset on or off for a bot; its next request has the tools or not. */
+	setToolset(id: ConversationId, toolset: ToolsetId, enabled: boolean): Promise<void> {
+		// One change at a time: each reads the stored list and writes it whole, so two quick switches would lose one.
+		const change = this.#toolsetWrites.then(async () => {
+			const target = TOOLSETS.find((candidate) => candidate.id === toolset);
+			const conversation = await this.#harness.conversation(id, context);
+			if (!target || !conversation) return;
+			const removed = withToolset(removedExtensions(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
+			// Stored by name; an extension is identified by its name alone.
+			await conversation.configure({ extensions: removed.length > 0 ? { remove: removed.map((name) => ({ name })) } : null }, context);
+		});
+		this.#toolsetWrites = change.catch(() => undefined);
+		return change;
 	}
 
 	async memory(scope: MemoryScope): Promise<Memory> {

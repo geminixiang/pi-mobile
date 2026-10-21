@@ -5,6 +5,7 @@ import type { ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
+import type { ToolsetId, ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BoxIcon, CopyIcon, FileIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
@@ -80,7 +81,25 @@ export function BotPanel({
 	useEffect(() => runtime.subscribeTriggers(setTriggers), [runtime]);
 	const botId = bot?.id;
 	useEffect(() => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => setMemory(next.text))), [runtime, botId]);
+	const [toolsets, setToolsets] = useState<ToolsetState[]>([]);
+	useEffect(() => {
+		if (botId === undefined || !open) return;
+		let live = true;
+		void runtime.toolsets(botId).then((next) => live && setToolsets(next));
+		return () => {
+			live = false;
+		};
+	}, [runtime, botId, open]);
 	if (!bot) return null;
+
+	const toggle = (id: ToolsetId, enabled: boolean) => {
+		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
+		runtime
+			.setToolset(bot.id, id, enabled)
+			.then(() => runtime.toolsets(bot.id))
+			.then(setToolsets)
+			.catch((error: unknown) => onError(`工具設定失敗：${error instanceof Error ? error.message : String(error)}`));
+	};
 
 	const run = (action: () => void) => () => {
 		onClose();
@@ -130,6 +149,25 @@ export function BotPanel({
 								<span className="menu-hint">只有{bot.name}看得到；所有 Bot 都知道的事放在全域記憶</span>
 							</span>
 						</button>
+					</div>
+				</Section>
+
+				<Section title="工具">
+					<div className="menu toggles">
+						{toolsets.map((toolset) => (
+							<label key={toolset.id} className={toolset.available ? "" : "unavailable"}>
+								<span className="menu-text">
+									{toolset.label}
+									<span className="menu-hint">{toolset.available ? toolset.hint : "尚未設定（在設定裡連接）"}</span>
+								</span>
+								<input
+									type="checkbox"
+									disabled={!toolset.available}
+									checked={toolset.available && toolset.enabled}
+									onChange={(event) => toggle(toolset.id, event.target.checked)}
+								/>
+							</label>
+						))}
 					</div>
 				</Section>
 

@@ -13,6 +13,8 @@ const MAX_OUTPUT_CHARS = 40_000;
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 30_000 };
 
 export interface CloudService {
+	/** The extension's name, which toolsets.ts turns on or off per bot. */
+	id: "gcp" | "cloudflare" | "azure";
 	/** The tool's name, such as gcp_api. */
 	tool: string;
 	/** Shown in approvals and errors. */
@@ -125,6 +127,7 @@ const AZURE_SCOPES: readonly [RegExp, string][] = [
 
 export function googleService(token: () => Promise<string>, project: string | undefined): CloudService {
 	return {
+		id: "gcp",
 		tool: "gcp_api",
 		label: "Google Cloud",
 		hosts: [/^[a-z0-9.-]+\.googleapis\.com$/],
@@ -142,6 +145,7 @@ export function googleService(token: () => Promise<string>, project: string | un
 
 export function cloudflareService(token: () => Promise<string>, accountId: string | undefined): CloudService {
 	return {
+		id: "cloudflare",
 		tool: "cloudflare_api",
 		label: "Cloudflare",
 		hosts: [/^api\.cloudflare\.com$/],
@@ -157,6 +161,7 @@ export function cloudflareService(token: () => Promise<string>, accountId: strin
 
 export function azureService(token: (scope: string) => Promise<string>, subscriptionId: string | undefined): CloudService {
 	return {
+		id: "azure",
 		tool: "azure_api",
 		label: "Azure",
 		hosts: AZURE_SCOPES.map(([host]) => host),
@@ -174,20 +179,18 @@ export function azureService(token: (scope: string) => Promise<string>, subscrip
 	};
 }
 
-/** The connected services' tools, in one extension; none when nothing is signed in. */
-export function createCloudExtension(services: readonly CloudService[]) {
-	return defineExtension({
-		name: "cloud",
-		sections:
-			services.length > 0
-				? [
-						section(
-							"cloud",
-							() =>
-								`Cloud APIs from the phone, no sandbox needed: ${services.map((service) => `${service.tool} (${service.label})`).join(", ")}. Prefer them over the sandbox's CLIs for a quick look; writes need the user's approval.`,
-						),
-					]
-				: [],
-		tools: services.map(cloudTool),
-	});
+/** One extension per signed-in cloud, named by its id, so each can be turned off per bot. */
+export function createCloudExtensions(services: readonly CloudService[]) {
+	return services.map((service) =>
+		defineExtension({
+			name: service.id,
+			sections: [
+				section(
+					service.id,
+					() => `${service.label} from the phone with ${service.tool}, no sandbox needed; prefer it to the sandbox's CLI for a quick look. Writes need the user's approval.`,
+				),
+			],
+			tools: [cloudTool(service)],
+		}),
+	);
 }
