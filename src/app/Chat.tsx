@@ -1,13 +1,12 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { type Components, type ItemProps, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BusyMode, ConversationController, ConversationId, SubmissionId } from "../agent/runtime.ts";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon } from "./icons.tsx";
-import { type Block, type CallState, type CallStates, EntryView, entryText, finishedCalls, isEmptyAnswer, rendersEntry, StreamingAnswer } from "./Message.tsx";
+import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import type { Prefs } from "./prefs.ts";
@@ -56,36 +55,6 @@ function suggestions(capabilities: Capabilities): Suggestion[] {
 	];
 }
 
-/** How close to the end counts as at the bottom: following new output, and no scroll tab. */
-const BOTTOM_PX = 48;
-
-/** What the transcript's parts need besides the entry; Virtuoso hands it to the components below. */
-interface TranscriptContext {
-	prefs: Prefs;
-	calls: CallStates;
-	onActions: (entry: EntryRecord) => void;
-	/** What follows the entries: the answer's actions, the streaming answer, working and retry notes. */
-	end: ReactNode;
-	/** The footer's element, watched for growth: Virtuoso measures rows, not the footer. */
-	endRef: (element: HTMLDivElement | null) => void;
-}
-
-// Defined once, outside Chat: Virtuoso remounts every row when a component's identity changes.
-const transcriptParts: Components<EntryRecord, TranscriptContext> = {
-	Header: () => <div className="transcript-top" />,
-	Footer: ({ context }) => (
-		<div className="transcript-end" ref={context?.endRef}>
-			{context?.end}
-		</div>
-	),
-	// Each entry's row; the gap between entries is the row's padding (a list of rows has no flex gap).
-	Item: ({ children, ...props }: ItemProps<EntryRecord>) => (
-		<div {...props} className="row">
-			{children}
-		</div>
-	),
-};
-
 /** Whether the agent is working in this view. */
 export function isBusy(view: ConversationView | undefined): boolean {
 	return Boolean(liveOf(view)?.run);
@@ -122,15 +91,8 @@ export function Chat({
 	const [atBottom, setAtBottom] = useState(true);
 	const [composerFocus, setComposerFocus] = useState(0);
 	const [pickImage, setPickImage] = useState(0);
-	// The transcript is virtualized (react-virtuoso): only the entries near the screen are in the DOM, so a bot's
-	// conversation, which never ends, opens and scrolls as fast at a thousand entries as at ten.
-	const list = useRef<VirtuosoHandle>(null);
-	const scroller = useRef<HTMLElement>(null);
+	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
-	const toBottom = () => {
-		const element = scroller.current;
-		if (element) element.scrollTop = element.scrollHeight;
-	};
 
 	useEffect(
 		() =>
@@ -145,10 +107,10 @@ export function Chat({
 		if (focusKey || initialDraft) setComposerFocus((key) => key + 1);
 	}, [focusKey, initialDraft]);
 
-	// Follow new output only while the user is at the bottom, so scrolling back to read is not interrupted. On every
-	// render (the streaming answer grows in the footer) and when rows finish measuring (totalListHeightChanged).
+	// Follow new output only while the user is at the bottom, so scrolling back to read is not interrupted.
 	useLayoutEffect(() => {
-		if (stickToBottom.current) toBottom();
+		const element = scroller.current;
+		if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
 	});
 
 	const live = liveOf(view);
@@ -156,7 +118,6 @@ export function Chat({
 	const busy = Boolean(live?.run);
 	const partial = live?.generation?.message?.content;
 	const entries = view?.entries ?? [];
-	const shown = useMemo(() => entries.filter(rendersEntry), [entries]);
 
 	const calls = useMemo(() => {
 		const states: Map<string, CallState> = finishedCalls(entries);
@@ -209,95 +170,27 @@ export function Chat({
 			scrollToBottom();
 			return;
 		}
-		const index = shown.findIndex((entry) => String(entry.id) === id);
-		if (index < 0) return;
+		const element = scroller.current?.querySelector<HTMLElement>(`[data-entry="${CSS.escape(id)}"]`);
+		if (!element) return;
 		stickToBottom.current = false;
-		list.current?.scrollToIndex({ index, align: "start", behavior: "smooth" });
-		// The row may not be in the DOM until the scroll reaches it.
-		const started = Date.now();
-		const flash = () => {
-			const element = scroller.current?.querySelector<HTMLElement>(`[data-entry="${CSS.escape(id)}"]`);
-			if (!element) {
-				if (Date.now() - started < 1500) requestAnimationFrame(flash);
-				return;
-			}
-			element.classList.remove("flash");
-			void element.offsetWidth;
-			element.classList.add("flash");
-		};
-		requestAnimationFrame(flash);
+		element.scrollIntoView({ block: "start", behavior: "smooth" });
+		element.classList.remove("flash");
+		void element.offsetWidth;
+		element.classList.add("flash");
 	};
-	// Debug hook for test/cdp.ts: what the prompt dial does on release.
-	useEffect(() => {
-		Object.assign(globalThis, { piJump: jumpTo, piPrompts: prompts });
-	});
-	// The footer growing (the streaming answer, the answer's actions appearing) fires no scroll event; follow it here.
-	const endObserver = useRef<ResizeObserver>(undefined);
-	const endRef = useMemo(
-		() => (element: HTMLDivElement | null) => {
-			endObserver.current?.disconnect();
-			if (!element) return;
-			endObserver.current = new ResizeObserver(() => stickToBottom.current && toBottom());
-			endObserver.current.observe(element);
-		},
-		[],
-	);
-	// Only the user scrolling up leaves the bottom. Content growing under a scroll position that has not moved (an
-	// answer moving from the footer into the list, a row measured larger) also fires scroll events, with a gap.
-	const lastTop = useRef(0);
-	const onScroll = (element: HTMLElement) => {
-		const bottom = element.scrollHeight - element.scrollTop - element.clientHeight < BOTTOM_PX;
-		const movedUp = element.scrollTop < lastTop.current - 1;
-		lastTop.current = element.scrollTop;
-		if (movedUp || bottom) {
-			stickToBottom.current = bottom;
-			setAtBottom(bottom);
-		}
-		// Following: close what is left, such as a row measured after Virtuoso placed the list.
-		if (stickToBottom.current && element.scrollHeight - element.scrollTop - element.clientHeight > 1) toBottom();
-	};
-
-	const end = (
-		<>
-			{lastAnswer && !busy ? (
-				<div className="answer-actions">
-					<button
-						type="button"
-						className="btn"
-						onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => onNotice("已複製回答"), fail)}
-					>
-						複製回答
-					</button>
-				</div>
-			) : null}
-			{emptyAnswer ? (
-				<div className="answer-actions">
-					<span className="note">這次沒有產生回答，模型服務偶爾會這樣。</span>
-					<button
-						type="button"
-						className="btn"
-						onClick={() => {
-							stickToBottom.current = true;
-							controller
-								.send([{ type: "text", text: "（上一則沒有產生回答，請重新處理我上一個要求）" }])
-								.catch(fail);
-						}}
-					>
-						再試一次
-					</button>
-				</div>
-			) : null}
-			{partial ? <StreamingAnswer content={partial} prefs={prefs} calls={calls} /> : null}
-			{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
-			{busy && !partial && !running ? <Working label="思考中" /> : null}
-			{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}
-		</>
-	);
 
 	return (
 		<div className="chat">
-			{empty ? (
-				<div className="transcript transcript-empty">
+			<div
+				className="transcript"
+				ref={scroller}
+				onScroll={(event) => {
+					const element = event.currentTarget;
+					const bottom = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+					stickToBottom.current = bottom;
+					setAtBottom(bottom);
+				}}
+			>
 				{empty && shared ? (
 					<div className="empty">
 						<PiMark size={36} />
@@ -359,25 +252,42 @@ export function Chat({
 						</ol>
 					</div>
 				) : null}
-				</div>
-			) : (
-				<Virtuoso
-					ref={list}
-					className="transcript"
-					data={shown}
-					context={{ prefs, calls, onActions: setActionsFor, end, endRef }}
-					components={transcriptParts}
-					computeItemKey={(_index, entry) => String(entry.id)}
-					itemContent={(_index, entry, context) => <EntryView entry={entry} prefs={context.prefs} calls={context.calls} onActions={context.onActions} />}
-					initialTopMostItemIndex={{ index: "LAST", align: "end" }}
-					increaseViewportBy={{ top: 800, bottom: 400 }}
-					scrollerRef={(element) => {
-						scroller.current = element instanceof HTMLElement ? element : null;
-					}}
-					totalListHeightChanged={() => stickToBottom.current && toBottom()}
-					onScroll={(event) => onScroll(event.currentTarget)}
-				/>
-			)}
+				{entries.map((entry) => (
+					<EntryView key={String(entry.id)} entry={entry} prefs={prefs} calls={calls} onActions={setActionsFor} />
+				))}
+				{lastAnswer && !busy ? (
+					<div className="answer-actions">
+						<button
+							type="button"
+							className="btn"
+							onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => onNotice("已複製回答"), fail)}
+						>
+							複製回答
+						</button>
+					</div>
+				) : null}
+				{emptyAnswer ? (
+					<div className="answer-actions">
+						<span className="note">這次沒有產生回答，模型服務偶爾會這樣。</span>
+						<button
+							type="button"
+							className="btn"
+							onClick={() => {
+								stickToBottom.current = true;
+								controller
+									.send([{ type: "text", text: "（上一則沒有產生回答，請重新處理我上一個要求）" }])
+									.catch(fail);
+							}}
+						>
+							再試一次
+						</button>
+					</div>
+				) : null}
+				{partial ? <StreamingAnswer content={partial} prefs={prefs} calls={calls} /> : null}
+				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
+				{busy && !partial && !running ? <Working label="思考中" /> : null}
+				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}
+			</div>
 			<Composer
 				scrollHint={scrollHint}
 				onScrollToBottom={scrollToBottom}
