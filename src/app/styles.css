@@ -264,11 +264,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown p, .markdown ul, .markdown ol { margin: 0.7em 0; }
 .markdown ul, .markdown ol { padding-left: 1.4em; }
 .markdown li + li { margin-top: 0.3em; }
-.markdown ul > li::marker { content: "■"; font-size: 0.5em; color: var(--accent); }
-.markdown ul > li { padding-left: 0.55em; }
-/* Task lists (- [ ] and - [x]): the box is the marker. */
-.markdown .contains-task-list { padding-left: 0; }
-.markdown ul > .task-list-item { padding-left: 0; }
+/* Bullets and numbers share one column, the list's padding; the text starts at the same place in both. */
+.markdown ul > li::marker { content: "■  "; font-size: 0.5em; color: var(--accent); }
+/* A task item (- [ ] / - [x]) has its box at the start of the text in place of a bullet, in any list. */
 .markdown ul > .task-list-item::marker { content: ""; }
 .task-list-item input {
 	appearance: none; width: 15px; height: 15px; margin: 0 10px 0 0; vertical-align: -2px;

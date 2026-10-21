@@ -473,7 +473,8 @@ export const EntryView = memo(function EntryView({
 	onActions: (entry: EntryRecord) => void;
 }) {
 	const model = message(entry);
-	// Long press opens the message actions (copy, fork), like a context menu.
+	// Long press on the user's own message opens its actions, like a context menu. Not on answers: there it is Android's
+	// text selection, which taking the long press cut short at the first character.
 	const longPress = {
 		onContextMenu: (event: { preventDefault: () => void }) => {
 			event.preventDefault();
@@ -498,7 +499,7 @@ export const EntryView = memo(function EntryView({
 	if (entry.kind === "pi.assistant" && model.role === "assistant") {
 		const aborted = model.stopReason === "aborted";
 		return (
-			<article className={`answer${aborted ? " aborted" : ""}`} {...longPress}>
+			<article className={`answer${aborted ? " aborted" : ""}`}>
 				<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
 				{aborted ? <div className="note">已中斷</div> : null}
 				{model.errorMessage && !aborted ? <div className="note error">{model.errorMessage}</div> : null}
