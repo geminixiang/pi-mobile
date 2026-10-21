@@ -72,6 +72,11 @@ export function App() {
 	}, []);
 	const openFile = useCallback((file: string) => openWorkspace({ tab: "files", file }), [openWorkspace]);
 	const close = useCallback(() => setOverlay(undefined), []);
+	// Settings save when left, not with a button: the latest edits, and whether they differ from what is saved.
+	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
+	const onSettingsDraft = useCallback((next: Settings, changed: boolean) => {
+		settingsDraft.current = { settings: next, changed };
+	}, []);
 
 	const notify = useCallback((message: string) => {
 		log.warn("app.notice", { message });
@@ -313,6 +318,16 @@ export function App() {
 		await start(next);
 	};
 	saveRef.current = saveAndRestart;
+	function leaveSettings() {
+		const draft = settingsDraft.current;
+		settingsDraft.current = undefined;
+		if (!draft?.changed) return close();
+		if (!isConfigured(draft.settings)) {
+			notify("沒有可用的模型供應商，變更沒有儲存");
+			return close();
+		}
+		void saveAndRestart(draft.settings).catch(fail);
+	}
 
 	if (!runtime) {
 		if (isConfigured(settings) && !openError) return splash;
@@ -572,8 +587,8 @@ export function App() {
 				) : null}
 			</Layer>
 
-			<Layer open={overlay === "settings"} kind="page" onClose={close} label="設定">
-				<SettingsView initial={settings} runtime={runtime} onCancel={close} onSave={saveAndRestart} />
+			<Layer open={overlay === "settings"} kind="page" onClose={leaveSettings} label="設定">
+				<SettingsView initial={settings} runtime={runtime} onCancel={leaveSettings} onDraft={onSettingsDraft} onSave={saveAndRestart} />
 			</Layer>
 
 			<Dialog

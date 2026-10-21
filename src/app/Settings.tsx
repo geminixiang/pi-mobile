@@ -632,13 +632,17 @@ export function SettingsView({
 	status,
 	runtime,
 	onSave,
+	onDraft,
 	onCancel,
 }: {
 	initial: Settings;
 	status?: string;
 	/** The running agent, for what takes effect at once instead of on save (schedules). */
 	runtime?: AgentRuntime;
+	/** First run: 開始 saves and starts. */
 	onSave: (settings: Settings) => void;
+	/** Opened from the app: every edit, so leaving can save it; there is no save button. */
+	onDraft?: (settings: Settings, changed: boolean) => void;
 	onCancel?: () => void;
 }) {
 	const [settings, setSettings] = useState(initial);
@@ -651,6 +655,7 @@ export function SettingsView({
 		onChange: (event: { target: { value: string } }) => setSettings({ ...settings, [key]: event.target.value.trim() }),
 	});
 
+	useEffect(() => onDraft?.(settings, changed), [settings, changed, onDraft]);
 	const [page, setPage] = useState<Page>();
 	useBack(page !== undefined, () => setPage(undefined));
 	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
@@ -845,14 +850,13 @@ export function SettingsView({
 					<span className="bar-spacer" />
 				)}
 				<h1 className="bar-heading">{current?.title ?? "設定"}</h1>
-				<button
-					type="button"
-					className="btn primary"
-					disabled={!isConfigured(settings) || (Boolean(onCancel) && !changed)}
-					onClick={() => onSave(settings)}
-				>
-					{onCancel ? "儲存" : "開始"}
-				</button>
+				{onCancel ? (
+					<span className="bar-spacer" />
+				) : (
+					<button type="button" className="btn primary" disabled={!isConfigured(settings)} onClick={() => onSave(settings)}>
+						開始
+					</button>
+				)}
 			</header>
 			<form key={page ?? "index"} className="settings" onSubmit={(event) => event.preventDefault()}>
 				{onCancel ? null : (
