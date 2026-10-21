@@ -19,6 +19,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DatabasePlugin.class);
         registerPlugin(LoopbackPlugin.class);
         registerPlugin(StreamFetchPlugin.class);
+        registerPlugin(ContactsPlugin.class);
+        registerPlugin(PhotosPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

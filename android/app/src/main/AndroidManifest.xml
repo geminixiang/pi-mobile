@@ -128,6 +128,10 @@
     <!-- Normal permission: lets the alarm and timer tools set them without opening the clock app. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- The calendar tools: list calendars with their accounts, and add an event to the one the user picked. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- get_location reads one fix while the app is in use; there is no background location. -->
