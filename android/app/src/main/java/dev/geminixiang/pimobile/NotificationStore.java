@@ -9,14 +9,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The notifications other apps showed, kept on the phone for the agent's read_notifications tool: a week of them, at
- * most MAX_ROWS. A chat's notification is stored per message (LINE and others repost one notification with every new
+ * The notifications other apps showed, kept on the phone for the agent's read_notifications tool for 30 days. A chat's notification is stored per message (LINE and others repost one notification with every new
  * message), anything else once per distinct title and text; `dedup` makes a repost a no-op.
  */
 final class NotificationStore extends SQLiteOpenHelper {
 
-    static final long KEEP_MS = 7L * 24 * 3600_000;
-    private static final int MAX_ROWS = 3000;
+    static final long KEEP_MS = 30L * 24 * 3600_000;
     private static NotificationStore instance;
 
     static synchronized NotificationStore get(Context context) {
@@ -69,16 +67,16 @@ final class NotificationStore extends SQLiteOpenHelper {
                 db.insertWithOnConflict("notifications", null, values, SQLiteDatabase.CONFLICT_IGNORE);
             }
             db.delete("notifications", "time < ?", new String[] { String.valueOf(System.currentTimeMillis() - KEEP_MS) });
-            db.execSQL(
-                "DELETE FROM notifications WHERE id NOT IN (SELECT id FROM notifications ORDER BY time DESC LIMIT " + MAX_ROWS + ")"
-            );
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
         }
     }
 
-    /** Newest first: since `since`, optionally of apps whose name or package contains `app`, or text containing `query`. */
+    /**
+     * Newest first: since `since`, optionally of apps whose name or package contains `app`, or text containing `query`;
+     * all of them when `limit` is 0.
+     */
     synchronized List<Row> list(long since, String app, String query, int limit) {
         List<String> args = new ArrayList<>();
         StringBuilder where = new StringBuilder("time >= ?");
@@ -102,7 +100,7 @@ final class NotificationStore extends SQLiteOpenHelper {
                 null,
                 null,
                 "time DESC",
-                String.valueOf(limit)
+                limit > 0 ? String.valueOf(limit) : null
             )
         ) {
             while (cursor.moveToNext()) {

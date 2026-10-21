@@ -18,7 +18,7 @@ export interface RecordedNotification {
 export interface NotificationsPlugin {
 	status(): Promise<{ allowed: boolean }>;
 	openSettings(): Promise<void>;
-	/** Newest first. `app` matches the app's name or package, `query` the title, text, sender, or chat. */
+	/** Newest first; all of them without `limit`. `app` matches the app's name or package, `query` the title, text, sender, or chat. */
 	list(options: { since?: number; app?: string; query?: string; limit?: number }): Promise<{ items: RecordedNotification[] }>;
 	clear(): Promise<void>;
 }

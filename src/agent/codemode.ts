@@ -77,7 +77,7 @@ export function createPhoneCodemode() {
 					const structured = callable.filter((tool) => tool.structuredOutputSchema).map((tool) => tool.name);
 					return [
 						`Scripts call your other tools as \`await tools.<name>(args)\` with the same arguments, by exactly these names, never with a prefix: ${callable.map((tool) => tool.name).join(", ")}.`,
-						`Results are text${structured.length ? `, except objects from ${structured.join(", ")} (github_api: { status, link?, body }; bash: { output, exitCode })` : ""}.`,
+						`Results are text${structured.length ? `, except objects from ${structured.join(", ")} (github_api: { status, link?, body }; bash: { output, exitCode }; read_notifications: { items: { time, app, package, conversation?, sender?, title, text }[] })` : ""}.`,
 						"Scripts run on the phone in QuickJS, not in the sandbox; Date.now() only advances between tool calls. Use them to batch tool calls and shape data; heavy computation goes to bash.",
 					].join("\n");
 				}),

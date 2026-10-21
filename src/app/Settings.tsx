@@ -544,7 +544,7 @@ function NotificationsGroup() {
 	return (
 		<Group
 			title="通知讀取"
-			hint="開啟後，pi 會把其他 App 的通知（LINE、Messenger、信件、外送…）在手機上留 7 天，讓開了「通知」工具的 Bot 回答「剛剛誰找我」。只存在這支手機上；Bot 讀到的內容會送給模型。"
+			hint="開啟後，pi 會把其他 App 的通知（LINE、Messenger、信件、外送…）在手機上留 30 天，讓開了「通知」工具的 Bot 回答「剛剛誰找我」。只存在這支手機上；Bot 讀到的內容會送給模型。"
 		>
 			<div className="check-row">
 				<span className="menu-text">

@@ -49,7 +49,7 @@ public class NotificationsPlugin extends Plugin {
     @PluginMethod
     public void list(PluginCall call) {
         long since = call.getLong("since", System.currentTimeMillis() - 24 * 3600_000L);
-        int limit = Math.max(1, Math.min(call.getInt("limit", 50), 300));
+        int limit = Math.max(0, call.getInt("limit", 0));
         List<NotificationStore.Row> rows = NotificationStore.get(getContext()).list(since, call.getString("app"), call.getString("query"), limit);
         JSArray items = new JSArray();
         for (NotificationStore.Row row : rows) {
