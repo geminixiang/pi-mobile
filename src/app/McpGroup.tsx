@@ -1,15 +1,17 @@
-// Settings › MCP: the user's MCP servers (agent/mcp.ts). Adding one takes a name and a URL; after saving, the app
-// connects, and a server that needs it gets a 登入 button that signs in in the browser. Each server's tools become a
-// toolset bots can be given or denied in their panels.
+// Settings › MCP: the user's MCP servers (agent/mcp.ts). Adding one by URL connects at once, outside the settings
+// form; a server that needs it gets a 登入 button that signs in in the browser. Each server's tools become a toolset
+// that bots get when the user picks them, here or in their panels.
 import { useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
-import { extensionName, type McpServer, type McpStatus, parseMcpServers, serverId } from "../agent/mcp.ts";
+import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
+import { CATALOG, CATEGORIES, type CatalogCategory, type CatalogEntry } from "../agent/mcp-catalog.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
+import { Sheet } from "./Sheet.tsx";
 
 function statusText(status: McpStatus | undefined): string {
 	switch (status?.state) {
 		case undefined:
-			return "儲存後連線";
+			return "";
 		case "idle":
 			return status.tools > 0 ? `${status.tools} 個工具（上次連線）` : "還沒連線";
 		case "connecting":
@@ -23,10 +25,10 @@ function statusText(status: McpStatus | undefined): string {
 	}
 }
 
-function useStatuses(runtime: AgentRuntime | undefined): (id: string) => McpStatus | undefined {
+/** Re-renders when a server is added, removed, or changes status. */
+function useMcp(runtime: AgentRuntime | undefined): void {
 	const [, setVersion] = useState(0);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
-	return (id) => (runtime?.mcp.servers.some((server) => server.id === id) ? runtime.mcp.status(id) : undefined);
 }
 
 /** Which bots may use a server: none until the user picks them, here or in a bot's panel. */
@@ -62,22 +64,56 @@ function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; serve
 	);
 }
 
-export function McpGroup({
-	value,
-	runtime,
-	onChange,
-	onError,
-}: {
-	/** settings.mcpServers */
-	value: string;
-	/** The running agent, whose connections are those of the saved settings. */
-	runtime: AgentRuntime | undefined;
-	onChange: (value: string) => void;
-	onError: (message: string) => void;
-}) {
-	const servers = parseMcpServers(value);
-	const status = useStatuses(runtime);
+/** The catalog of services (mcp-catalog.ts) by category; 連接 adds one and, when it needs it, starts its sign-in. */
+function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
+	const connected = new Set(runtime.mcp.servers.map((server) => server.url));
+	const connect = (entry: CatalogEntry) => {
+		const server = runtime.mcp.add(entry.name, entry.url);
+		onClose();
+		if (entry.auth === "oauth") runtime.mcp.login(server.id).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
+	};
+	const categories = Object.keys(CATEGORIES).filter((key): key is CatalogCategory => key in CATEGORIES);
+	return (
+		<Sheet open={open} title="連接服務" onClose={onClose}>
+			<div className="catalog">
+				{categories.map((category) => (
+					<section key={category}>
+						<h3 className="strip-label">{CATEGORIES[category]}</h3>
+						<div className="menu">
+							{CATALOG.filter((entry) => entry.category === category).map((entry) => (
+								<div className="check-row" key={entry.url}>
+									<span className="menu-text">
+										{entry.name}
+										<span className="menu-hint">{entry.description}</span>
+										<span className="toolset-load">
+											{entry.auth === "oauth" ? "需要登入" : "免登入"}
+											{entry.tested ? " · 已實測" : ""}
+										</span>
+									</span>
+									{connected.has(entry.url) ? (
+										<span className="state on">已連接</span>
+									) : (
+										<button type="button" className="btn" onClick={() => connect(entry)}>
+											連接
+										</button>
+									)}
+								</div>
+							))}
+						</div>
+					</section>
+				))}
+				<p className="hint">這些服務在手機上試過可以連；「已實測」的也實際登入、用過。連接後，在服務下面選哪些 Bot 可以用。</p>
+			</div>
+		</Sheet>
+	);
+}
+
+export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefined; onError: (message: string) => void }) {
+	useMcp(runtime);
+	const servers = runtime?.mcp.servers ?? [];
+	const status = (id: string) => runtime?.mcp.status(id);
 	const [draft, setDraft] = useState({ name: "", url: "" });
+	const [browsing, setBrowsing] = useState(false);
 	const validUrl = /^https:\/\/[^\s/]+/.test(draft.url.trim());
 
 	const add = () => {
@@ -88,15 +124,10 @@ export function McpGroup({
 		} catch {
 			// validUrl said it is one.
 		}
-		const name = draft.name.trim() || host;
-		const server: McpServer = { id: serverId(name, url, servers.map((item) => item.id)), name, url };
-		onChange(JSON.stringify([...servers, server]));
+		runtime?.mcp.add(draft.name.trim() || host, url);
 		setDraft({ name: "", url: "" });
 	};
-	const remove = (id: string) => {
-		void runtime?.mcp.logout(id);
-		onChange(JSON.stringify(servers.filter((server) => server.id !== id)));
-	};
+	const remove = (id: string) => void runtime?.mcp.remove(id).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
 	const run = (action: () => Promise<void> | void) => () => {
 		void Promise.resolve()
 			.then(action)
@@ -105,6 +136,20 @@ export function McpGroup({
 
 	return (
 		<>
+			{runtime ? (
+				<>
+					<div className="check-row">
+						<span className="menu-text">
+							瀏覽服務
+							<span className="menu-hint">Notion、Linear、Todoist、Stripe……挑選常用的服務，一鍵連接</span>
+						</span>
+						<button type="button" className="btn" onClick={() => setBrowsing(true)}>
+							瀏覽
+						</button>
+					</div>
+					<Catalog open={browsing} runtime={runtime} onClose={() => setBrowsing(false)} onError={onError} />
+				</>
+			) : null}
 			{servers.map((server) => {
 				const current = status(server.id);
 				return (
@@ -134,7 +179,7 @@ export function McpGroup({
 				);
 			})}
 			<label>
-				<span>網址</span>
+				<span>或輸入網址</span>
 				<input
 					value={draft.url}
 					onChange={(event) => setDraft({ ...draft, url: event.target.value })}
@@ -148,7 +193,7 @@ export function McpGroup({
 				<span>名稱</span>
 				<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="選填" autoComplete="off" />
 			</label>
-			<button type="button" className="btn" disabled={!validUrl} onClick={add}>
+			<button type="button" className="btn" disabled={!validUrl || !runtime} onClick={add}>
 				新增
 			</button>
 		</>

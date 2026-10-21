@@ -21,7 +21,7 @@ import {
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import { createOnDemandExtension } from "./on-demand.ts";
 import { isEnabled, ON_DEMAND_EXTENSIONS, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
-import { extensionName, McpHub, parseMcpServers } from "./mcp.ts";
+import { extensionName, McpHub } from "./mcp.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
 import { log } from "../log.ts";
@@ -315,8 +315,9 @@ export class AgentRuntime {
 		install(WeatherExtension);
 		install(PlacesExtension);
 		install(DatabaseExtension);
-		const mcp = new McpHub(parseMcpServers(settings.mcpServers), {
+		const mcp = new McpHub({
 			install: (extension) => registry.install(extension),
+			uninstall: (name) => registry.uninstall({ name }),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 		});
 		install(AppsExtension);

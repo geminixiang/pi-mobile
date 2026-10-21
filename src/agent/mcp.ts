@@ -3,19 +3,22 @@
 //
 // - Requests go through native HTTP (CapacitorHttp), so servers need not allow the WebView's origin. It returns whole
 //   responses, which suits request and response; the server-to-client GET stream, which never ends, is not opened.
-// - Sign-in is MCP's OAuth: discovery, dynamic client registration, and PKCE, in the browser, which returns to the app
-//   at REDIRECT_URL (an intent filter in AndroidManifest.xml). Tokens and the registered client stay in the Keystore.
+// - Sign-in is MCP's OAuth: discovery, dynamic client registration, and PKCE, in the browser, which returns to a
+//   loopback address (REDIRECT_URL, RFC 8252 section 7.3) that LoopbackPlugin.java listens on during the sign-in.
+//   Of 30 well-known servers, 13 accepted the app's own scheme as a redirect and 22 the loopback address (all 13
+//   among them). Tokens and the registered client stay in the Keystore.
+// - The server list is the hub's own (localStorage), so adding one, from the catalog or by URL, takes effect at once.
 // - Each server's tool list is kept in localStorage, so its tools exist at launch without waiting for the network; a
 //   connection opens on first use and refreshes the list.
 // - Tools the server does not mark read-only ask the user before they run, as other writes do.
 // - Tools are deferred: on-demand.ts names them in a bot's prompt, and tool_search loads the ones a task needs. Measured on the S24 with Cloudflare's 23 tools: a request unrelated to the service is 7,510 prompt
 //   tokens deferred and 9,223 offered directly; questions about it were answered as well and as fast (8 to 13 s either
 //   way), loading the tools first or using another tool that does the job.
-import { CapacitorHttp } from "@capacitor/core";
+import { CapacitorHttp, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, type Extension, section } from "@earendil-works/pi-durable";
-import { McpClient, type McpFetch, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
+import { type AuthProvider, McpClient, type McpFetch, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
 import {
 	adaptOAuthProvider,
 	authorizeMcp,
@@ -28,8 +31,19 @@ import { Value } from "typebox/value";
 import { Type as T } from "typebox";
 import { requestConfirmation } from "./confirm.ts";
 
-/** Where the authorization server sends the browser back: a private-use scheme (RFC 8252), the app's package. */
-export const REDIRECT_URL = "dev.geminixiang.pimobile:/oauth/mcp";
+/** Where the authorization server sends the browser back: a fixed loopback port, so a registration stays valid. */
+const REDIRECT_PORT = 47823;
+const REDIRECT_PATH = "/oauth/mcp";
+export const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
+
+interface LoopbackPlugin {
+	start(options: { port: number; path: string }): Promise<{ port: number }>;
+	stop(): Promise<void>;
+	addListener(event: "redirect", listener: (data: { url: string }) => void): Promise<PluginListenerHandle>;
+}
+const Loopback = registerPlugin<LoopbackPlugin>("Loopback");
+
+const SERVERS_KEY = "pi-mobile.mcp-servers";
 
 const McpServer = T.Object({ id: T.String(), name: T.String(), url: T.String() });
 export type McpServer = { id: string; name: string; url: string };
@@ -171,6 +185,12 @@ class Connection {
 	 * included; only a sign-in the user started may open the browser.
 	 */
 	#signingIn = false;
+	/**
+	 * pi-mcp's auth provider, held back where it would start a sign-in on its own: with tokens, a 401 refreshes them;
+	 * without, it only reports that the user must sign in. Otherwise a connection made while the user starts signing
+	 * in registers a second client, and the code from the browser fails to exchange ("Client ID mismatch").
+	 */
+	readonly #auth: AuthProvider;
 
 	constructor(server: McpServer, hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void> }) {
 		this.server = server;
@@ -184,6 +204,14 @@ class Connection {
 			store: stateStore(server),
 			onRedirect: (url) => (this.#signingIn ? this.#openUrl(url.toString()) : undefined),
 		});
+		const adapted = adaptOAuthProvider(this.#provider);
+		this.#auth = {
+			token: () => adapted.token(),
+			onUnauthorized: async (context) => {
+				if (!(await this.#provider.tokens())?.refresh_token) throw new McpOAuthAuthorizationRequiredError();
+				await adapted.onUnauthorized?.(context);
+			},
+		};
 		const cached = loadCache(server);
 		this.status = { state: "idle", tools: cached?.tools.length ?? 0 };
 		this.#install(this.#extension(cached ?? { tools: [] }));
@@ -210,7 +238,7 @@ class Connection {
 			url: this.server.url,
 			fetch: nativeFetch,
 			openGetStream: false,
-			authProvider: adaptOAuthProvider(this.#provider),
+			authProvider: this.#auth,
 		});
 		try {
 			await client.connect(transport);
@@ -239,13 +267,36 @@ class Connection {
 		this.client().catch(() => undefined);
 	}
 
-	/** Start signing in: register if needed and open the authorization page in the browser. */
+	/**
+	 * Start signing in: listen on the loopback address, register if needed, and open the authorization page in the
+	 * browser. The sign-in finishes when the browser comes back (complete), or not at all if the user gives up.
+	 */
 	async login(): Promise<void> {
 		await this.#provider.invalidateCredentials("tokens");
+		// A client registered with another redirect (the app's scheme, before) cannot use this one: register again.
+		const client = await this.#provider.clientInformation();
+		if (client && "redirect_uris" in client && Array.isArray(client.redirect_uris) && !client.redirect_uris.includes(REDIRECT_URL)) {
+			await this.#provider.invalidateCredentials("client");
+		}
+		await Loopback.start({ port: REDIRECT_PORT, path: REDIRECT_PATH });
+		const listener = await Loopback.addListener("redirect", ({ url }) => {
+			void listener.remove();
+			this.complete(new URL(url)).catch((error: unknown) =>
+				this.#set({ state: "error", tools: this.status.tools, message: error instanceof Error ? error.message : String(error) }),
+			);
+		});
 		this.#signingIn = true;
 		try {
 			const result = await authorizeMcp(this.#provider, { serverUrl: this.server.url, fetch: nativeFetch });
-			if (result === "AUTHORIZED") this.refresh();
+			if (result === "AUTHORIZED") {
+				void listener.remove();
+				void Loopback.stop();
+				this.refresh();
+			}
+		} catch (error) {
+			void listener.remove();
+			void Loopback.stop();
+			throw error;
 		} finally {
 			this.#signingIn = false;
 		}
@@ -338,13 +389,48 @@ export class McpHub {
 	readonly #connections = new Map<string, Connection>();
 	readonly #listeners = new Set<() => void>();
 
-	constructor(servers: readonly McpServer[], hooks: { install: (extension: Extension) => void; openUrl: (url: string) => Promise<void> }) {
-		for (const server of servers) {
-			this.#connections.set(
-				server.id,
-				new Connection(server, { ...hooks, changed: () => this.#listeners.forEach((listener) => listener()) }),
-			);
-		}
+	readonly #hooks: { install: (extension: Extension) => void; uninstall: (name: string) => void; openUrl: (url: string) => Promise<void> };
+
+	constructor(hooks: { install: (extension: Extension) => void; uninstall: (name: string) => void; openUrl: (url: string) => Promise<void> }) {
+		this.#hooks = hooks;
+		for (const server of loadServers()) this.#open(server);
+	}
+
+	#open(server: McpServer): Connection {
+		const connection = new Connection(server, { ...this.#hooks, changed: () => this.#changed() });
+		this.#connections.set(server.id, connection);
+		return connection;
+	}
+
+	#changed(): void {
+		for (const listener of this.#listeners) listener();
+	}
+
+	#save(): void {
+		localStorage.setItem(SERVERS_KEY, JSON.stringify(this.servers));
+	}
+
+	/** Add a server by name and URL; it connects at once. Returns it, with its id. */
+	add(name: string, url: string): McpServer {
+		const existing = this.servers.find((server) => server.url === url);
+		if (existing) return existing;
+		const server: McpServer = { id: serverId(name, url, this.servers.map((item) => item.id)), name, url };
+		this.#open(server).refresh();
+		this.#save();
+		this.#changed();
+		return server;
+	}
+
+	/** Remove a server: its sign-in, its cached tools, and its toolset. Bots that had it lose it. */
+	async remove(id: string): Promise<void> {
+		const connection = this.#connections.get(id);
+		if (!connection) return;
+		await connection.logout();
+		localStorage.removeItem(cacheKey(connection.server));
+		this.#connections.delete(id);
+		this.#hooks.uninstall(extensionName(connection.server));
+		this.#save();
+		this.#changed();
 	}
 
 	get servers(): McpServer[] {
@@ -379,11 +465,20 @@ export class McpHub {
 		return this.#connections.get(id)?.logout() ?? Promise.resolve();
 	}
 
-	/** A URL the app was opened with; true when it finished (or failed) one of the servers' sign-ins. */
-	async handleRedirect(href: string): Promise<boolean> {
-		if (!href.startsWith(REDIRECT_URL)) return false;
-		const url = new URL(href);
-		for (const connection of this.#connections.values()) if (await connection.complete(url)) return true;
-		return false;
+}
+
+/** The saved servers; the first time, those from settings, where they were kept before. */
+function loadServers(): McpServer[] {
+	const saved = localStorage.getItem(SERVERS_KEY);
+	if (saved !== null) return parseMcpServers(saved);
+	let legacy = "";
+	try {
+		const settings: unknown = JSON.parse(localStorage.getItem("pi-mobile.settings") ?? "{}");
+		if (typeof settings === "object" && settings !== null && "mcpServers" in settings && typeof settings.mcpServers === "string") legacy = settings.mcpServers;
+	} catch {
+		// Unreadable settings: no servers.
 	}
+	const servers = parseMcpServers(legacy);
+	localStorage.setItem(SERVERS_KEY, JSON.stringify(servers));
+	return servers;
 }

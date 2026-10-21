@@ -41,8 +41,6 @@ export interface Settings {
 	sandboxMachine: string;
 	/** Context size in tokens at which a bot's conversation is compacted; 0 for the model's own limit. */
 	compactAt: number;
-	/** MCP servers, as JSON (agent/mcp.ts): names and URLs; their sign-ins are in the Keystore. */
-	mcpServers: string;
 }
 
 /** The non-secret settings in localStorage. */
@@ -56,7 +54,6 @@ const PlainSettings = Type.Object({
 	machines: Type.Optional(Type.String()),
 	sandboxMachine: Type.Optional(Type.String()),
 	compactAt: Type.Optional(Type.Number()),
-	mcpServers: Type.Optional(Type.String()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
@@ -97,7 +94,6 @@ export async function loadSettings(): Promise<Settings> {
 		machines: plain.machines ?? "",
 		sandboxMachine: plain.sandboxMachine ?? "",
 		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT,
-		mcpServers: plain.mcpServers ?? "",
 	};
 }
 
@@ -112,7 +108,6 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		machines: settings.machines,
 		sandboxMachine: settings.sandboxMachine,
 		compactAt: settings.compactAt,
-		mcpServers: settings.mcpServers,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
 	await SecureStorage.set(SECRET_API_KEY, settings.apiKey);

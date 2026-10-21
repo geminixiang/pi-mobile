@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SshPlugin.class);
         registerPlugin(NotificationsPlugin.class);
         registerPlugin(DatabasePlugin.class);
+        registerPlugin(LoopbackPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

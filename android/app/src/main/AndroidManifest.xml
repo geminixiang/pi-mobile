@@ -31,7 +31,7 @@
                 <data android:scheme="pimobile" android:host="pair" />
             </intent-filter>
 
-            <!-- MCP sign-ins returning from the browser: dev.geminixiang.pimobile:/oauth/mcp?code=...&state=... -->
+            <!-- Back to pi from the browser when a sign-in ends (LoopbackPlugin.java's page): dev.geminixiang.pimobile:/back -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

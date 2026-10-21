@@ -488,7 +488,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .toast-text { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; line-height: 1.5; }
 
 /* ---------- Layers (Sheet.tsx: Base UI Dialog and Drawer) ----------
-   Each part rests in its open style and transitions from and to [data-starting-style] / [data-ending-style]. */
+   Each part rests in its open style and transitions from and to [data-starting-style] / [data-ending-style].
+   Every layer has z-index 20, so the one opened last, last in the document, is on top: a sheet opened from a page
+   covers the page. */
 .backdrop {
 	position: fixed; inset: 0; z-index: 20; background: var(--scrim);
 	transition: opacity 200ms ease;
@@ -516,7 +518,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .dialog-body p { margin: 0; font-family: var(--serif); font-size: 15.5px; line-height: 1.7; color: var(--copy); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
 .layer-page {
-	position: fixed; inset: 0; z-index: 25; display: flex; flex-direction: column; background: var(--bg); outline: none;
+	position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); outline: none;
 	transition: opacity 240ms ease, transform 260ms var(--ease);
 }
 .layer-page[data-starting-style], .layer-page[data-ending-style] { opacity: 0; transform: translateX(28px); }
@@ -760,6 +762,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* Settings › MCP: a server, then the bots that may use it as square chips (McpGroup.tsx). */
 .mcp-server + .mcp-server, .mcp-server + label { border-top: 1px solid var(--line); }
 .mcp-url { overflow-wrap: anywhere; }
+.catalog { display: flex; flex-direction: column; gap: 18px; }
+.catalog .menu { border: 1px solid var(--line); }
 .bot-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
 .chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); font-size: 13.5px; color: var(--muted); }
 .chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
