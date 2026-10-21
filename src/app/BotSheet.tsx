@@ -1,7 +1,7 @@
 // Creating a bot, or editing one: its name and its job, the part of its system prompt that says what it is for. From
 // an existing bot also its own MEMORY.md and deleting it.
 import { useEffect, useState } from "react";
-import { type Bot, MAX_JOB } from "../agent/bots.ts";
+import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
 import { MemoryIcon, TrashIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 
@@ -13,6 +13,7 @@ const JOB_PLACEHOLDER = `例如：
 
 export function BotSheet({
 	edit,
+	bots,
 	canDelete,
 	onSave,
 	onMemory,
@@ -20,24 +21,30 @@ export function BotSheet({
 	onClose,
 }: {
 	edit: BotEdit | undefined;
+	/** All bots, so a new one starts with an avatar nobody has. */
+	bots: readonly Bot[];
 	/** The last bot cannot be deleted. */
 	canDelete: boolean;
-	onSave: (change: { name: string; job: string }) => Promise<void>;
+	onSave: (change: { name: string; job: string; avatar: string }) => Promise<void>;
 	onMemory: (bot: Bot) => void;
 	onDelete: (bot: Bot) => void;
 	onClose: () => void;
 }) {
 	const [name, setName] = useState("");
 	const [job, setJob] = useState("");
+	const [avatar, setAvatar] = useState<string>(AVATARS[0].id);
 	const [saving, setSaving] = useState(false);
 	useEffect(() => {
 		if (!edit) return;
 		setName(edit.kind === "edit" ? edit.bot.name : "");
 		setJob(edit.kind === "edit" ? edit.bot.job : "");
+		setAvatar(edit.kind === "edit" ? avatarOf(edit.bot) : freeAvatar(bots));
 		setSaving(false);
+		// Only when the sheet opens for another bot: a list update must not reset the form.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [edit]);
 	const bot = edit?.kind === "edit" ? edit.bot : undefined;
-	const changed = !bot || name.trim() !== bot.name || job.trim() !== bot.job;
+	const changed = !bot || name.trim() !== bot.name || job.trim() !== bot.job || avatar !== avatarOf(bot);
 	return (
 		<Sheet open={Boolean(edit)} title={bot ? `${bot.name} 的設定` : "新增 Bot"} onClose={onClose}>
 			<form
@@ -45,9 +52,24 @@ export function BotSheet({
 				onSubmit={(event) => {
 					event.preventDefault();
 					setSaving(true);
-					void onSave({ name, job }).finally(() => setSaving(false));
+					void onSave({ name, job, avatar }).finally(() => setSaving(false));
 				}}
 			>
+				<div className="avatar-picker" role="radiogroup" aria-label="頭像">
+					{AVATARS.map((option) => (
+						<button
+							type="button"
+							key={option.id}
+							role="radio"
+							aria-checked={avatar === option.id}
+							aria-label={option.label}
+							className={avatar === option.id ? "selected" : ""}
+							onClick={() => setAvatar(option.id)}
+						>
+							<img src={`/avatars/${option.id}.webp`} alt="" draggable={false} />
+						</button>
+					))}
+				</div>
 				<label>
 					<span>名字</span>
 					<input value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：秘書、研究員" autoComplete="off" />

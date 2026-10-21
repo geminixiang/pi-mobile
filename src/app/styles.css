@@ -740,14 +740,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .machine .check-progress { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 
 /* ---------- Bots ---------- */
-/* The bot's initial in a square, like the pi glyph's block. */
-.bot-avatar {
-	flex-shrink: 0; width: 30px; height: 30px; display: grid; place-items: center; align-self: center;
-	border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text);
-	font-family: var(--mono); font-size: 13px; font-weight: 600;
-}
+/* A bot's pixel head, drawn on its own dark tile; square like everything else. */
+.bot-avatar { flex-shrink: 0; display: block; align-self: center; border: 1px solid var(--line); }
+.bar-title .bot-avatar { display: inline-block; vertical-align: -3px; margin-right: 7px; border: none; }
 .bot-item .drawer-open { align-items: center; gap: 12px; }
-.bot-item.current .bot-avatar { border-color: var(--accent); color: var(--accent); }
+.bot-item.current .bot-avatar { border-color: var(--accent); }
 .bot-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bot-text .drawer-title { display: flex; align-items: center; gap: 8px; }
 .bot-job { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -773,3 +770,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .bot-form .hint { margin: 10px 16px 0; }
 .menu .bot-avatar { margin-right: 2px; }
 .group-spacer { height: 14px; }
+.avatar-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 14px 16px 0; }
+.avatar-picker button { padding: 0; border: 1px solid var(--line); aspect-ratio: 1; }
+.avatar-picker button.selected { border-color: var(--accent); outline: 1px solid var(--accent); }
+.avatar-picker img { display: block; width: 100%; height: 100%; }

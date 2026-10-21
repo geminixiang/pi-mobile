@@ -5,6 +5,7 @@ import type { Bot } from "../agent/bots.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
 import { openAppStorage, takeLegacyStorage } from "../storage.ts";
+import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Chat, isBusy } from "./Chat.tsx";
 import { ConversationMenu } from "./ConversationMenu.tsx";
@@ -343,7 +344,10 @@ export function App() {
 					<PiMark size={18} live={busy} />
 				</button>
 				<button type="button" className="bar-center" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
-					<span className="bar-title">{current?.name ?? ""}</span>
+					<span className="bar-title">
+						{current ? <BotAvatar bot={current} size={18} /> : null}
+						{current?.name ?? ""}
+					</span>
 					<span className="bar-model">
 						{shortModelName(model?.name ?? modelId)}
 						{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
@@ -467,6 +471,7 @@ export function App() {
 			<BotSheet
 				edit={botEdit}
 				canDelete={bots.length > 1}
+				bots={bots}
 				onClose={() => setBotEdit(undefined)}
 				onSave={async (change) => {
 					try {
@@ -474,7 +479,7 @@ export function App() {
 							await runtime.updateBot(botEdit.bot.id, change);
 							setBotEdit(undefined);
 						} else {
-							const id = await runtime.createBot(change.name, change.job);
+							const id = await runtime.createBot(change);
 							setBotEdit(undefined);
 							await openConversation(id);
 							setFocusKey((key) => key + 1);
@@ -522,9 +527,7 @@ export function App() {
 								if (item) void openConversation(bot.id, item.draft, item.images, item.images.length > 0 ? "image" : "text");
 							}}
 						>
-							<span className="bot-avatar" aria-hidden="true">
-								{[...bot.name][0]?.toUpperCase()}
-							</span>
+							<BotAvatar bot={bot} size={32} />
 							<span className="menu-text">
 								{bot.name}
 								<span className="menu-hint">{bot.job.split("\n")[0] || "一般助理"}</span>

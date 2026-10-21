@@ -13,6 +13,8 @@ export type Bot = {
 	job: string;
 	/** Its folder in the shared sandbox, fixed when created so a rename does not move files. */
 	folder: string;
+	/** One of AVATARS; bots from before avatars have none and show the first. */
+	avatar?: string;
 	createdAt: number;
 	/** Last message, for the list's order. */
 	updatedAt: number;
@@ -26,7 +28,32 @@ export const BotIndex = defineDoc<{ items: Bot[] }>({
 	initial: () => ({ items: [] }),
 });
 
-export const DEFAULT_BOT = { name: "pi", job: "" };
+/** The avatar set (public/avatars/<id>.webp), pixel heads in the pi mark's palette, each with a role's prop. */
+export const AVATARS = [
+	{ id: "helper", label: "助手" },
+	{ id: "secretary", label: "秘書" },
+	{ id: "researcher", label: "研究" },
+	{ id: "coder", label: "程式" },
+	{ id: "writer", label: "寫作" },
+	{ id: "finance", label: "理財" },
+	{ id: "traveler", label: "旅行" },
+	{ id: "mail", label: "信件" },
+	{ id: "news", label: "新聞" },
+	{ id: "home", label: "居家" },
+	{ id: "health", label: "健康" },
+	{ id: "owl", label: "提醒" },
+] as const;
+
+export function avatarOf(bot: Pick<Bot, "avatar">): string {
+	return AVATARS.find((avatar) => avatar.id === bot.avatar)?.id ?? AVATARS[0].id;
+}
+
+/** The first avatar no bot has yet, for a new bot's form. */
+export function freeAvatar(bots: readonly Bot[]): string {
+	return (AVATARS.find((avatar) => !bots.some((bot) => avatarOf(bot) === avatar.id)) ?? AVATARS[0]).id;
+}
+
+export const DEFAULT_BOT = { name: "pi", job: "", avatar: "helper" };
 export const MAX_BOTS = 12;
 export const MAX_JOB = 1500;
 

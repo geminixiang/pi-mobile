@@ -3,6 +3,7 @@ import { useRef } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
 import { GearIcon, MemoryIcon, MoreIcon, PlusIcon } from "./icons.tsx";
+import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Layer } from "./Sheet.tsx";
 
@@ -83,9 +84,7 @@ export function Drawer({
 							}}
 						>
 							<button type="button" className="drawer-open" onClick={() => onOpen(bot.id)}>
-								<span className="bot-avatar" aria-hidden="true">
-									{[...bot.name][0]?.toUpperCase()}
-								</span>
+								<BotAvatar bot={bot} size={36} />
 								<span className="bot-text">
 									<span className="drawer-title">
 										{running.has(bot.id) ? <span className="drawer-running" aria-label="執行中" /> : null}

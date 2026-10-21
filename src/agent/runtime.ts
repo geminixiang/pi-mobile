@@ -269,7 +269,7 @@ export class AgentRuntime {
 		);
 		runtimeRef = runtime;
 		// The folders must be known before a run resumes and asks for its environment.
-		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT.name, DEFAULT_BOT.job);
+		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
 		if (options.importMemory?.trim() && !(await runtime.memory({ kind: "global" })).text) {
 			await runtime.saveMemory({ kind: "global" }, options.importMemory);
@@ -312,7 +312,7 @@ export class AgentRuntime {
 		await this.#publishBots();
 	}
 
-	async createBot(name: string, job: string): Promise<ConversationId> {
+	async createBot({ name, job, avatar }: { name: string; job: string; avatar: string }): Promise<ConversationId> {
 		const trimmed = name.trim();
 		if (!trimmed) throw new Error("Bot 需要名字");
 		if (job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
@@ -325,7 +325,7 @@ export class AgentRuntime {
 				agent: this.#defaultAgent(),
 				init: async (tx, id) => {
 					const now = Date.now();
-					(await tx.doc(BotIndex)).items.push({ id, name: trimmed, job: job.trim(), folder, createdAt: now, updatedAt: now });
+					(await tx.doc(BotIndex)).items.push({ id, name: trimmed, job: job.trim(), folder, avatar, createdAt: now, updatedAt: now });
 				},
 			},
 			context,
@@ -334,7 +334,7 @@ export class AgentRuntime {
 		return conversation.id;
 	}
 
-	async updateBot(id: ConversationId, change: { name: string; job: string }): Promise<void> {
+	async updateBot(id: ConversationId, change: { name: string; job: string; avatar: string }): Promise<void> {
 		const name = change.name.trim();
 		if (!name) throw new Error("Bot 需要名字");
 		if (change.job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
@@ -343,6 +343,7 @@ export class AgentRuntime {
 			if (!bot) return;
 			bot.name = name;
 			bot.job = change.job.trim();
+			bot.avatar = change.avatar;
 		});
 	}
 
