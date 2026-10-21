@@ -23,11 +23,12 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import { isEnabled, ON_DEMAND_EXTENSIONS, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
-import { type Settings, saveAzureCredential, saveCloudflareCredential, usableProviders } from "../settings.ts";
+import { type Settings, saveAzureCredential, saveCloudflareCredential, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { log } from "../log.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
 import { builtinInfo, LEGACY_PROVIDER_ID, type ProviderConfig, providerName, parseProviders } from "./providers.ts";
 import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
+import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { AppsExtension } from "./tools/apps.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
@@ -328,12 +329,26 @@ export class AgentRuntime {
 				options.onReport?.(`model list unavailable: ${error instanceof Error ? error.message : String(error)}`);
 				return {};
 			}),
-			// Built-in providers, each its own chunk with its catalog.
-			Promise.all(configs.map(async (config) => (config.kind === "builtin" ? await builtinInfo(config.id)?.load() : undefined))),
+			// Built-in providers, each its own chunk with its catalog. Signed in with ChatGPT and no key, OpenAI offers only
+			// the models the subscription may use.
+			Promise.all(
+				configs.map(async (config) => {
+					if (config.kind !== "builtin") return undefined;
+					const provider = await builtinInfo(config.id)?.load();
+					const signIn = parseOAuthCredential(settings.providerOAuth[config.id] ?? "");
+					if (!provider || !signIn || settings.providerKeys[config.id]) return provider;
+					const allowed = await chatgptModelsCached(signIn);
+					return allowed ? withOnlyModels(provider, allowed) : provider;
+				}),
+			),
 			gatewayCatalog(configs),
 		]);
 		// API keys go through pi-ai's credential store, as each provider's auth resolves them.
-		const credentials = memoryCredentials(Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])));
+		const credentials = memoryCredentials(
+			Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])),
+			settings.providerOAuth,
+			(id, json) => void saveProviderOAuth(id, json).catch((error: unknown) => log.warn("provider.oauth_save_failed", { id, error: String(error) })),
+		);
 		const models = createModels({ credentials });
 		const infos: ModelInfo[] = [];
 		configs.forEach((config, index) => {

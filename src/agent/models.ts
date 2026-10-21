@@ -59,7 +59,8 @@ export function describe(model: Model<Api>, providerName: string, compactAt: num
 export function withCompaction(provider: Provider, compactAt: number): Provider {
 	const capped = (model: Model<Api>): Model<Api> => ({ ...model, contextWindow: windowFor(model.contextWindow, compactAt) });
 	const wrapped: Provider = Object.create(provider);
-	return Object.assign(wrapped, { getModels: () => provider.getModels().map(capped) });
+	// defineProperty, not assignment: a wrapper below may have defined getModels read-only.
+	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().map(capped) });
 }
 
 const LEVELS: ThinkingLevelMap = {

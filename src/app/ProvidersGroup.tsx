@@ -5,11 +5,54 @@ import { checkModels, checkProvider } from "../agent/checks.ts";
 import type { ModelInfo } from "../agent/models.ts";
 import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, parseProviders, providerName } from "../agent/providers.ts";
 import type { Settings } from "../settings.ts";
+import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { System } from "../system-plugin.ts";
 import { CheckButton } from "./CheckButton.tsx";
 import { Sheet } from "./Sheet.tsx";
 
-type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "defaultProvider" | "defaultModelId">;
+type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;
+
+/** Sign in with ChatGPT for the OpenAI provider: a button, or who is signed in and a way out. */
+function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: string) => void }) {
+	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "error"; message: string }>({ kind: "idle" });
+	if (signIn) {
+		return (
+			<div className="check-row">
+				<span className="menu-text">
+					已用 ChatGPT 登入
+					<span className="menu-hint">用你的 ChatGPT 訂閱，不需要 API key</span>
+				</span>
+				<button type="button" className="btn" onClick={() => onSignIn("")}>
+					登出
+				</button>
+			</div>
+		);
+	}
+	return (
+		<div className="check-row">
+			<span className="menu-text">
+				或用 ChatGPT 登入
+				<span className="menu-hint">{state.kind === "error" ? state.message : "用 ChatGPT 訂閱代替 API key，在瀏覽器登入"}</span>
+			</span>
+			<button
+				type="button"
+				className="btn"
+				disabled={state.kind === "busy"}
+				onClick={() => {
+					setState({ kind: "busy" });
+					signInWithChatGPT((url) => System.openExternal({ url }))
+						.then((credential) => {
+							setState({ kind: "idle" });
+							onSignIn(JSON.stringify(credential));
+						})
+						.catch((error: unknown) => setState({ kind: "error", message: error instanceof Error ? error.message : String(error) }));
+				}}
+			>
+				{state.kind === "busy" ? "登入中…" : "登入"}
+			</button>
+		</div>
+	);
+}
 
 function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: readonly ProviderConfig[]; onAdd: (config: ProviderConfig) => void; onClose: () => void }) {
 	const available = BUILTIN_PROVIDERS.filter((info) => !taken.some((config) => config.id === info.id));
@@ -26,7 +69,7 @@ function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: re
 					<button type="button" key={info.id} onClick={() => onAdd({ kind: "builtin", id: info.id })}>
 						<span className="menu-text">
 							{info.name}
-							<span className="menu-hint">用 API key</span>
+							<span className="menu-hint">{info.chatgpt ? "用 API key，或用 ChatGPT 登入" : "用 API key"}</span>
 						</span>
 					</button>
 				))}
@@ -38,14 +81,18 @@ function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: re
 function ProviderRow({
 	config,
 	apiKey,
+	signIn,
 	onConfig,
 	onKey,
+	onSignIn,
 	onRemove,
 }: {
 	config: ProviderConfig;
 	apiKey: string;
+	signIn: string;
 	onConfig: (config: ProviderConfig) => void;
 	onKey: (key: string) => void;
+	onSignIn: (json: string) => void;
 	onRemove: () => void;
 }) {
 	const info = config.kind === "builtin" ? builtinInfo(config.id) : undefined;
@@ -79,18 +126,21 @@ function ProviderRow({
 					</label>
 				</>
 			) : null}
-			<label>
-				<span>API key{config.kind === "custom" ? "（本機伺服器可以留空）" : ""}</span>
-				<input value={apiKey} onChange={(event) => onKey(event.target.value.trim())} type="password" autoComplete="off" />
-			</label>
-			{info ? (
+			{signIn ? null : (
+				<label>
+					<span>API key{config.kind === "custom" ? "（本機伺服器可以留空）" : ""}</span>
+					<input value={apiKey} onChange={(event) => onKey(event.target.value.trim())} type="password" autoComplete="off" />
+				</label>
+			)}
+			{info && !signIn ? (
 				<button type="button" className="link" onClick={() => void System.openExternal({ url: info.keyUrl })}>
 					取得 {info.name} 的 API key
 				</button>
 			) : null}
+			{info?.chatgpt ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
 			<CheckButton
-				disabled={config.kind === "custom" ? !config.baseUrl : !apiKey}
-				run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey))}
+				disabled={config.kind === "custom" ? !config.baseUrl : !apiKey && !signIn}
+				run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}
 			/>
 		</div>
 	);
@@ -125,11 +175,14 @@ export function ProvidersGroup({
 					key={config.id}
 					config={config}
 					apiKey={settings.providerKeys[config.id] ?? ""}
+					signIn={settings.providerOAuth[config.id] ?? ""}
 					onConfig={(next) => save(providers.map((item, i) => (i === index ? next : item)))}
 					onKey={(key) => onChange({ providerKeys: { ...settings.providerKeys, [config.id]: key } })}
+					onSignIn={(json) => onChange({ providerOAuth: { ...settings.providerOAuth, [config.id]: json } })}
 					onRemove={() => {
-						const { [config.id]: _removed, ...keys } = settings.providerKeys;
-						onChange({ providerKeys: keys });
+						const { [config.id]: _key, ...keys } = settings.providerKeys;
+						const { [config.id]: _signIn, ...signIns } = settings.providerOAuth;
+						onChange({ providerKeys: keys, providerOAuth: signIns });
 						save(providers.filter((_, i) => i !== index));
 					}}
 				/>

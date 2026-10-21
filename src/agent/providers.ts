@@ -7,6 +7,7 @@
 // about 1 MB. BUILTIN_PROVIDERS lists those that work from the phone: their APIs answer the WebView's CORS preflight
 // (checked 2026-10-21; NVIDIA's did not), and they need only an API key (Bedrock, Vertex, and Azure need more).
 import type { Provider } from "@earendil-works/pi-ai";
+import { withChatGPTSignIn } from "./chatgpt.ts";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 
@@ -16,11 +17,19 @@ export interface BuiltinProviderInfo {
 	name: string;
 	/** Where the user gets an API key. */
 	keyUrl: string;
+	/** Also signs in with a ChatGPT subscription instead of a key (chatgpt.ts). */
+	chatgpt?: true;
 	load: () => Promise<Provider>;
 }
 
 export const BUILTIN_PROVIDERS: readonly BuiltinProviderInfo[] = [
-	{ id: "openai", name: "OpenAI", keyUrl: "https://platform.openai.com/api-keys", load: async () => (await import("@earendil-works/pi-ai/providers/openai")).openaiProvider() },
+	{
+		id: "openai",
+		name: "OpenAI",
+		keyUrl: "https://platform.openai.com/api-keys",
+		chatgpt: true,
+		load: async () => withChatGPTSignIn((await import("@earendil-works/pi-ai/providers/openai")).openaiProvider()),
+	},
 	{ id: "anthropic", name: "Anthropic", keyUrl: "https://console.anthropic.com/settings/keys", load: async () => (await import("@earendil-works/pi-ai/providers/anthropic")).anthropicProvider() },
 	{ id: "google", name: "Google Gemini", keyUrl: "https://aistudio.google.com/apikey", load: async () => (await import("@earendil-works/pi-ai/providers/google")).googleProvider() },
 	{ id: "openrouter", name: "OpenRouter", keyUrl: "https://openrouter.ai/keys", load: async () => (await import("@earendil-works/pi-ai/providers/openrouter")).openrouterProvider() },

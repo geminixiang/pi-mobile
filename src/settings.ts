@@ -12,6 +12,7 @@ export const DEFAULT_COMPACT_AT = 256_000;
 /** The single model service's key, before providers: moved to the custom provider it becomes. */
 const LEGACY_SECRET_API_KEY = "cliproxyapi.apiKey";
 const providerKey = (id: string) => `provider.${id}.apiKey`;
+const providerOAuthKey = (id: string) => `provider.${id}.oauth`;
 const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_SANDBOX_TOKEN = "sandbox.token";
 const SECRET_GCLOUD = "gcloud.credential";
@@ -23,6 +24,8 @@ export interface Settings {
 	providers: string;
 	/** API key per provider id, from the Keystore. */
 	providerKeys: Record<string, string>;
+	/** A subscription sign-in per provider id (Sign in with ChatGPT), as pi-ai credential JSON, from the Keystore. */
+	providerOAuth: Record<string, string>;
 	githubToken: string;
 	/** Sandbox relay, e.g. ws://100.x.y.z:8787; empty disables the sandbox tools. */
 	sandboxUrl: string;
@@ -99,8 +102,9 @@ export async function loadSettings(): Promise<Settings> {
 		defaultProvider = "custom";
 		legacyKey = await secret(LEGACY_SECRET_API_KEY);
 	}
-	const [keys, githubToken, sandboxToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+	const [keys, oauth, githubToken, sandboxToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
 		Promise.all(providers.map(async (provider) => [provider.id, await secret(providerKey(provider.id))] as const)),
+		Promise.all(providers.map(async (provider) => [provider.id, await secret(providerOAuthKey(provider.id))] as const)),
 		...[SECRET_GITHUB_TOKEN, SECRET_SANDBOX_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(secret),
 	]);
 	const providerKeys: Record<string, string> = Object.fromEntries(keys);
@@ -108,6 +112,7 @@ export async function loadSettings(): Promise<Settings> {
 	return {
 		providers: JSON.stringify(providers),
 		providerKeys,
+		providerOAuth: Object.fromEntries(oauth.filter(([, json]) => json)),
 		defaultProvider: defaultProvider || providers[0]?.id || "",
 		githubToken,
 		sandboxUrl: plain.sandboxUrl ?? "",
@@ -141,9 +146,14 @@ export async function saveSettings(settings: Settings): Promise<void> {
 		compactAt: settings.compactAt,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
-	for (const provider of providers) await saveSecret(providerKey(provider.id), settings.providerKeys[provider.id] ?? "");
+	for (const provider of providers) {
+		await saveSecret(providerKey(provider.id), settings.providerKeys[provider.id] ?? "");
+		await saveSecret(providerOAuthKey(provider.id), settings.providerOAuth[provider.id] ?? "");
+	}
 	for (const provider of before) {
-		if (!providers.some((kept) => kept.id === provider.id)) await SecureStorage.remove(providerKey(provider.id)).catch(() => false);
+		if (providers.some((kept) => kept.id === provider.id)) continue;
+		await SecureStorage.remove(providerKey(provider.id)).catch(() => false);
+		await SecureStorage.remove(providerOAuthKey(provider.id)).catch(() => false);
 	}
 	await SecureStorage.remove(LEGACY_SECRET_API_KEY).catch(() => false);
 	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
@@ -159,8 +169,15 @@ async function saveSecret(key: string, value: string): Promise<void> {
 }
 
 /** A provider that can answer: a built-in one with its key, or a custom one (a local server may need none). */
-export function usableProviders(settings: Pick<Settings, "providers" | "providerKeys">): ProviderConfig[] {
-	return parseProviders(settings.providers).filter((provider) => provider.kind === "custom" || Boolean(settings.providerKeys[provider.id]));
+export function usableProviders(settings: Pick<Settings, "providers" | "providerKeys" | "providerOAuth">): ProviderConfig[] {
+	return parseProviders(settings.providers).filter(
+		(provider) => provider.kind === "custom" || Boolean(settings.providerKeys[provider.id] || settings.providerOAuth[provider.id]),
+	);
+}
+
+/** A refreshed sign-in, written at once: the old refresh token may already be spent. */
+export async function saveProviderOAuth(id: string, json: string): Promise<void> {
+	await SecureStorage.set(providerOAuthKey(id), json);
 }
 
 export function isConfigured(settings: Settings): boolean {

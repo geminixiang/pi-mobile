@@ -1,15 +1,25 @@
 // pi-ai's side of the model providers: the credential store it resolves API keys from, and the catalog a custom
 // endpoint's models are looked up in.
 import type { Api, Credential, CredentialStore, Model } from "@earendil-works/pi-ai";
+import { parseOAuthCredential } from "./chatgpt.ts";
 import type { Catalog } from "./models.ts";
 import { BUILTIN_PROVIDERS, type ProviderConfig } from "./providers.ts";
 
 /**
- * API keys by provider id, in memory: they come from the Keystore with the settings and change only when settings are
- * saved, which opens a new runtime. Writes (an OAuth refresh, later) are kept until then.
+ * Credentials by provider id, in memory: they come from the Keystore with the settings. A subscription sign-in wins
+ * over a key. pi-ai writes only when it refreshes a sign-in; `onSignIn` persists that at once, since the old refresh
+ * token may already be spent.
  */
-export function memoryCredentials(keys: Record<string, string>): CredentialStore {
+export function memoryCredentials(
+	keys: Record<string, string>,
+	signIns: Record<string, string> = {},
+	onSignIn: (providerId: string, json: string) => void = () => undefined,
+): CredentialStore {
 	const store = new Map<string, Credential>(Object.entries(keys).filter(([, key]) => key).map(([id, key]) => [id, { type: "api_key", key }]));
+	for (const [id, json] of Object.entries(signIns)) {
+		const credential = parseOAuthCredential(json);
+		if (credential) store.set(id, credential);
+	}
 	let queue: Promise<unknown> = Promise.resolve();
 	return {
 		read: async (providerId) => store.get(providerId),
@@ -19,6 +29,7 @@ export function memoryCredentials(keys: Record<string, string>): CredentialStore
 				const value = await fn(store.get(providerId));
 				if (value) store.set(providerId, value);
 				else store.delete(providerId);
+				if (value?.type === "oauth") onSignIn(providerId, JSON.stringify(value));
 				return value;
 			});
 			queue = next.catch(() => undefined);

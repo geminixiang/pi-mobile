@@ -4,7 +4,7 @@
 | 資料 | 存放位置 |
 |---|---|
 | Bot、對話、記憶、執行狀態 | 手機的 SQLite（未加密，`allowBackup=false`，不會進雲端備份） |
-| 模型供應商的 API key、GitHub token、relay token、Google、Cloudflare、Azure 憑證 | Android Keystore（`capacitor-secure-storage`） |
+| 模型供應商的 API key 與 ChatGPT 登入、GitHub token、relay token、Google、Cloudflare、Azure 憑證 | Android Keystore（`capacitor-secure-storage`） |
 | GitHub token（sandbox 用） | 手機連線期間加 10 分鐘，放在 relay 的記憶體 |
 | Google、Cloudflare、Azure access token | relay 的記憶體，到期為止；長期憑證不離開手機 |
 | Sandbox 檔案 | 主機上共用容器的 volume，每個 Bot 一個資料夾；清空資料夾或刪除 Bot 會刪掉它的資料夾 |
@@ -27,7 +27,7 @@
 - `aws` 還沒支援。
 - `az` 在 sandbox 裡是 managed identity，所以 `az ad signed-in-user show` 這類「我是誰」的指令不能用；還沒在有訂閱的帳號上測過建立資源。
 - 內建供應商只實測過 OpenRouter（直接從手機呼叫）；其他家都確認過允許從手機的 WebView 呼叫（CORS），但還沒用真的 key 測。NVIDIA 不允許，所以沒列。
-- 訂閱登入（Claude Pro／Max、ChatGPT、GitHub Copilot）還沒做：pi-ai 的 OAuth 流程只能在 Node 執行。
+- 訂閱登入只支援 OpenAI 的 Sign in with ChatGPT（`src/agent/chatgpt.ts`，照 pi-ai 的流程在手機上重做）。Claude Pro／Max、GitHub Copilot 等其他訂閱登入不做。
 - 介面只有繁體中文。
 - 排程觸發時如果 pi 已經被系統清掉，要點通知才會開始執行，不會自己在背景跑。
 - 背景觸發的 run 不能要求新的權限（定位、行事曆），要先在前景用過一次授權。

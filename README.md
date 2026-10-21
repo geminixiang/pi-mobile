@@ -15,7 +15,7 @@
 
 - **幾個長期的 Bot**：每個 Bot 有自己的名字、工作說明、記憶、排程，和一條一直延續的對話，太長時自動壓縮。
 - **Agent 在手機上跑**：對話和執行狀態存在手機上。鎖屏、切到背景都會繼續跑，app 被系統清掉後也會接著跑。
-- **模型用你自己的 key**：透過 pi-ai 接 OpenAI、Anthropic、Gemini、OpenRouter、xAI、DeepSeek 等供應商，也能接任何 OpenAI 或 Anthropic 相容的端點（自架 gateway、Ollama）；可以同時用好幾家。
+- **模型用你自己的 key**：透過 pi-ai 接 OpenAI、Anthropic、Gemini、OpenRouter、xAI、DeepSeek 等供應商，也能接任何 OpenAI 或 Anthropic 相容的端點（自架 gateway、Ollama）；可以同時用好幾家。OpenAI 也可以直接用 ChatGPT 訂閱登入。
 - **手機的能力**：天氣、附近的店家、行事曆、通知、鬧鐘、語音、記帳用的 SQLite 資料庫……都是工具，每個 Bot 可以分別開關。
 - **連接服務（MCP）**：從精選清單一鍵連接 Notion、Linear、Todoist、Stripe、Sentry 等服務，登入在瀏覽器完成。
 - **Sandbox 在你的電腦上**：用 SSH 連 tailnet 上的 Mac 或 Linux，Bot 在容器裡讀寫檔案、跑指令。

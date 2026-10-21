@@ -605,8 +605,9 @@ export function SettingsView({
 }) {
 	const [settings, setSettings] = useState(initial);
 	const changed =
-		(Object.keys(initial) as (keyof Settings)[]).some((key) => key !== "providerKeys" && initial[key] !== settings[key]) ||
-		JSON.stringify(initial.providerKeys) !== JSON.stringify(settings.providerKeys);
+		(Object.keys(initial) as (keyof Settings)[]).some((key) => key !== "providerKeys" && key !== "providerOAuth" && initial[key] !== settings[key]) ||
+		JSON.stringify(initial.providerKeys) !== JSON.stringify(settings.providerKeys) ||
+		JSON.stringify(initial.providerOAuth) !== JSON.stringify(settings.providerOAuth);
 	const field = (key: TextSetting) => ({
 		value: settings[key],
 		onChange: (event: { target: { value: string } }) => setSettings({ ...settings, [key]: event.target.value.trim() }),
