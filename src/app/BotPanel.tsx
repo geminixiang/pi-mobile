@@ -91,6 +91,7 @@ export function BotPanel({
 		};
 	}, [runtime, botId, open]);
 	if (!bot) return null;
+	const services = toolsets.filter((toolset) => toolset.kind === "service");
 
 	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
@@ -154,7 +155,7 @@ export function BotPanel({
 
 				<Section title="工具">
 					<div className="menu toggles">
-						{toolsets.map((toolset) => (
+						{toolsets.filter((toolset) => toolset.kind === "builtin").map((toolset) => (
 							<label key={toolset.id} className={toolset.available ? "" : "unavailable"}>
 								<span className="menu-text">
 									{toolset.label}
@@ -168,6 +169,29 @@ export function BotPanel({
 								/>
 							</label>
 						))}
+					</div>
+				</Section>
+
+				<Section title="連接的服務">
+					<div className="menu toggles">
+						{services.length === 0 ? (
+							<div className="check-row">
+								<span className="menu-text">
+									還沒有連接服務
+									<span className="menu-hint">在設定 › MCP 加入，再回來給{bot.name}用</span>
+								</span>
+							</div>
+						) : (
+							services.map((toolset) => (
+								<label key={toolset.id}>
+									<span className="menu-text">
+										{toolset.label}
+										<span className="menu-hint">{toolset.hint}</span>
+									</span>
+									<input type="checkbox" checked={toolset.enabled} onChange={(event) => toggle(toolset.id, event.target.checked)} />
+								</label>
+							))
+						)}
 					</div>
 				</Section>
 

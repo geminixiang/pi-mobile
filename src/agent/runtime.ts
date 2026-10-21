@@ -17,7 +17,8 @@ import {
 	section,
 	type Storage,
 } from "@earendil-works/pi-durable";
-import { removedExtensions, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
+import { isEnabled, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub, parseMcpServers } from "./mcp.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
@@ -116,6 +117,9 @@ function contentText(content: unknown): string {
 		.map((part) => part.text)
 		.join("\n");
 }
+
+/** pi-durable's tool_search extension, which loads deferred tools. */
+const TOOL_SEARCH = "tool-search";
 
 function hostOf(url: string): string {
 	try {
@@ -328,11 +332,22 @@ export class AgentRuntime {
 			registry.install(SandboxTools);
 		}
 
+		const toolSearch = createToolSearchExtension();
+		registry.install(toolSearch);
 		const harness = await Harness.open(
 			storage,
 			{
 				models,
 				registry,
+				// Built-in toolsets by default; services and tool_search only where a bot adds them (toolsets.ts).
+				settings: {
+					get extensions() {
+						return registry
+							.snapshot()
+							.installed()
+							.filter((extension) => !extension.name.startsWith("mcp-") && extension.name !== TOOL_SEARCH);
+					},
+				},
 				onReport: (error) => options.onReport?.(error instanceof Error ? error.message : String(error)),
 				...(sandbox
 					? {
@@ -547,16 +562,22 @@ export class AgentRuntime {
 	#allToolsets(): Toolset[] {
 		return [
 			...TOOLSETS,
-			...this.mcp.servers.map((server) => ({ id: extensionName(server), label: server.name, hint: `MCP · ${hostOf(server.url)}`, extensions: [extensionName(server)] })),
+			...this.mcp.servers.map((server) => ({
+				kind: "service" as const,
+				id: extensionName(server),
+				label: server.name,
+				hint: hostOf(server.url),
+				extensions: [extensionName(server)],
+			})),
 		];
 	}
 
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
-		const removed = removedExtensions(await this.#harness.snapshot(AgentDoc, id, context));
+		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
 			available: toolset.extensions.every((name) => this.#installed.has(name)),
-			enabled: !toolset.extensions.some((name) => removed.includes(name)),
+			enabled: isEnabled(selection, toolset),
 		}));
 	}
 
@@ -567,9 +588,16 @@ export class AgentRuntime {
 			const target = this.#allToolsets().find((candidate) => candidate.id === toolset);
 			const conversation = await this.#harness.conversation(id, context);
 			if (!target || !conversation) return;
-			const removed = withToolset(removedExtensions(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
+			const next = withToolset(selectionOf(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
+			// A service's tools are found with tool_search (mcp.ts defers them): a bot with any service has it.
+			const services = next.add.filter((name) => name !== TOOL_SEARCH);
+			const selection: Selection = { add: services.length > 0 ? [...services, TOOL_SEARCH] : [], remove: next.remove };
 			// Stored by name; an extension is identified by its name alone.
-			await conversation.configure({ extensions: removed.length > 0 ? { remove: removed.map((name) => ({ name })) } : null }, context);
+			const named = (names: string[]) => names.map((name) => ({ name }));
+			await conversation.configure(
+				{ extensions: selection.add.length + selection.remove.length > 0 ? { add: named(selection.add), remove: named(selection.remove) } : null },
+				context,
+			);
 		});
 		this.#toolsetWrites = change.catch(() => undefined);
 		return change;

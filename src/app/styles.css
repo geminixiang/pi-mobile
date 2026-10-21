@@ -755,6 +755,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .manual[open] > summary::before { content: "▾ "; }
 .check-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .row-actions { display: flex; gap: 8px; flex-shrink: 0; }
+/* Settings › MCP: a server, then the bots that may use it as square chips (McpGroup.tsx). */
+.mcp-server + .mcp-server, .mcp-server + label { border-top: 1px solid var(--line); }
+.mcp-url { overflow-wrap: anywhere; }
+.bot-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+.chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); font-size: 13.5px; color: var(--muted); }
+.chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
 .check-row + .check-row { border-top: 1px solid var(--line); }
 .check-row .menu-text { font-size: 14.5px; }
 .state { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; }

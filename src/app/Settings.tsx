@@ -709,7 +709,7 @@ export function SettingsView({
 
 				<Group
 					title="MCP"
-					hint="連接提供 MCP 的服務，Bot 就能用它們的工具：每個服務在 Bot 面板的「工具」裡是一組，可以開關。需要登入的，儲存後按「登入」在瀏覽器完成。會改變東西的工具，執行前一定先問你。"
+					hint="連接提供 MCP 的服務，Bot 就能用它們的工具。需要登入的，儲存後按「登入」在瀏覽器完成。新加的服務不會給任何 Bot：在服務下面點選哪些 Bot 可以用，或在 Bot 面板的「連接的服務」裡開關。會改變東西的工具，執行前一定先問你。"
 				>
 					<McpGroup value={settings.mcpServers} runtime={runtime} onChange={(mcpServers) => setSettings({ ...settings, mcpServers })} onError={(message) => showToast(message)} />
 				</Group>

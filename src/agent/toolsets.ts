@@ -1,12 +1,22 @@
-// Toolsets: the groups of tools a bot can be given or denied, each one or more extensions. A bot's choice is stored in
-// its conversation's agent state (pi.agent) as the extensions it does not select, so a toolset added in a later
-// version starts on for every bot. Some extensions are always on and not listed: the bot's identity, memory, skills,
-// and triggers (a schedule's run needs triggers' instructions and notify, whatever the bot may otherwise do).
+// Toolsets: the groups of tools a bot can be given or denied, each one or more extensions, of two kinds.
+//
+// - Built-in toolsets are the phone's own abilities. They are on unless a bot turns them off, so one added in a later
+//   version starts on: the Harness's default selection holds them, and a bot's agent state (pi.agent) lists in
+//   extensions.remove the ones it does not use.
+// - Services are the MCP servers the user connected. They are off unless a bot is given one: they reach outside the
+//   phone, and every one a bot has adds to each of its requests. They are not in the default selection; a bot's
+//   extensions.add lists the ones it has.
+//
+// Some extensions are always on and not listed: the bot's identity, memory, skills, and triggers (a schedule's run
+// needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
 export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
+export type ToolsetKind = "builtin" | "service";
+
 export interface Toolset {
+	kind: ToolsetKind;
 	/** A ToolsetId, or an MCP server's extension name (mcp-<id>). */
 	id: string;
 	label: string;
@@ -16,21 +26,21 @@ export interface Toolset {
 }
 
 export const TOOLSETS: readonly Toolset[] = [
-	{ id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
-	{ id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"] },
-	{ id: "places", label: "地點", hint: "找附近的店家與服務，或依名稱找分店（OpenStreetMap）", extensions: ["places"] },
-	{ id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"] },
-	{ id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
-	{ id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
-	{ id: "notifications", label: "通知", hint: "讀手機收到的通知：LINE、信件、外送…（設定 › 通知讀取）", extensions: ["notifications"] },
-	{ id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
-	{ id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
-	{ id: "github", label: "GitHub", hint: "查詢直接執行，寫入先問你", extensions: ["github"] },
-	{ id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API，寫入先問你", extensions: ["gcp"] },
-	{ id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API，寫入先問你", extensions: ["cloudflare"] },
-	{ id: "azure", label: "Azure", hint: "從手機呼叫 API，寫入先問你", extensions: ["azure"] },
-	{ id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
-	{ id: "codemode", label: "程式模式", hint: "用腳本一次呼叫多個工具", extensions: ["codemode"] },
+	{ kind: "builtin", id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
+	{ kind: "builtin", id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"] },
+	{ kind: "builtin", id: "places", label: "地點", hint: "找附近的店家與服務，或依名稱找分店（OpenStreetMap）", extensions: ["places"] },
+	{ kind: "builtin", id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"] },
+	{ kind: "builtin", id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
+	{ kind: "builtin", id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
+	{ kind: "builtin", id: "notifications", label: "通知", hint: "讀手機收到的通知：LINE、信件、外送…（設定 › 通知讀取）", extensions: ["notifications"] },
+	{ kind: "builtin", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
+	{ kind: "builtin", id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
+	{ kind: "builtin", id: "github", label: "GitHub", hint: "查詢直接執行，寫入先問你", extensions: ["github"] },
+	{ kind: "builtin", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API，寫入先問你", extensions: ["gcp"] },
+	{ kind: "builtin", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API，寫入先問你", extensions: ["cloudflare"] },
+	{ kind: "builtin", id: "azure", label: "Azure", hint: "從手機呼叫 API，寫入先問你", extensions: ["azure"] },
+	{ kind: "builtin", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
+	{ kind: "builtin", id: "codemode", label: "程式模式", hint: "用腳本一次呼叫多個工具", extensions: ["codemode"] },
 ];
 
 export interface ToolsetState extends Toolset {
@@ -40,15 +50,26 @@ export interface ToolsetState extends Toolset {
 	enabled: boolean;
 }
 
-/** The extensions a conversation leaves out, from its stored agent state. */
-export function removedExtensions(state: AgentState | undefined): string[] {
+/** A conversation's edit of the default selection: services it adds and built-ins it removes. */
+export type Selection = { add: string[]; remove: string[] };
+
+export function selectionOf(state: AgentState | undefined): Selection {
 	const extensions = state?.extensions;
-	if (!extensions || Array.isArray(extensions)) return [];
-	return extensions.remove ?? [];
+	if (!extensions || Array.isArray(extensions)) return { add: [], remove: [] };
+	return { add: extensions.add ?? [], remove: extensions.remove ?? [] };
 }
 
-/** The removal list after turning one toolset on or off, keeping removals that are not toolsets'. */
-export function withToolset(removed: readonly string[], toolset: Toolset, enabled: boolean): string[] {
-	const rest = removed.filter((name) => !toolset.extensions.includes(name));
-	return enabled ? rest : [...rest, ...toolset.extensions];
+export function isEnabled(selection: Selection, toolset: Toolset): boolean {
+	return toolset.kind === "builtin"
+		? !toolset.extensions.some((name) => selection.remove.includes(name))
+		: toolset.extensions.every((name) => selection.add.includes(name));
+}
+
+/** The selection after turning one toolset on or off, keeping the rest of it. */
+export function withToolset(selection: Selection, toolset: Toolset, enabled: boolean): Selection {
+	const without = (names: readonly string[]) => names.filter((name) => !toolset.extensions.includes(name));
+	if (toolset.kind === "builtin") {
+		return { add: selection.add, remove: enabled ? without(selection.remove) : [...without(selection.remove), ...toolset.extensions] };
+	}
+	return { add: enabled ? [...without(selection.add), ...toolset.extensions] : without(selection.add), remove: selection.remove };
 }

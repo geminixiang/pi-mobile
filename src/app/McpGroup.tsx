@@ -2,7 +2,8 @@
 // connects, and a server that needs it gets a 登入 button that signs in in the browser. Each server's tools become a
 // toolset bots can be given or denied in their panels.
 import { useEffect, useState } from "react";
-import { type McpServer, type McpStatus, parseMcpServers, serverId } from "../agent/mcp.ts";
+import type { Bot } from "../agent/bots.ts";
+import { extensionName, type McpServer, type McpStatus, parseMcpServers, serverId } from "../agent/mcp.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 
 function statusText(status: McpStatus | undefined): string {
@@ -26,6 +27,39 @@ function useStatuses(runtime: AgentRuntime | undefined): (id: string) => McpStat
 	const [, setVersion] = useState(0);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 	return (id) => (runtime?.mcp.servers.some((server) => server.id === id) ? runtime.mcp.status(id) : undefined);
+}
+
+/** Which bots may use a server: none until the user picks them, here or in a bot's panel. */
+function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; server: McpServer; onError: (message: string) => void }) {
+	const [bots, setBots] = useState<{ bot: Bot; enabled: boolean }[]>([]);
+	const toolset = extensionName(server);
+	const load = () =>
+		void runtime
+			.bots()
+			.then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: (await runtime.toolsets(bot.id)).some((item) => item.id === toolset && item.enabled) }))))
+			.then(setBots);
+	useEffect(load, [runtime, toolset]);
+	return (
+		<div className="bot-chips" role="group" aria-label={`可以用 ${server.name} 的 Bot`}>
+			{bots.map(({ bot, enabled }) => (
+				<label key={String(bot.id)} className="chip">
+					<input
+						type="checkbox"
+						checked={enabled}
+						onChange={(event) => {
+							const next = event.target.checked;
+							setBots((current) => current.map((item) => (item.bot.id === bot.id ? { ...item, enabled: next } : item)));
+							runtime.setToolset(bot.id, toolset, next).catch((error: unknown) => {
+								onError(error instanceof Error ? error.message : String(error));
+								load();
+							});
+						}}
+					/>
+					{bot.name}
+				</label>
+			))}
+		</div>
+	);
 }
 
 export function McpGroup({
@@ -74,10 +108,11 @@ export function McpGroup({
 			{servers.map((server) => {
 				const current = status(server.id);
 				return (
-					<div className="check-row" key={server.id}>
+					<div className="mcp-server" key={server.id}>
+					<div className="check-row">
 						<span className="menu-text">
 							{server.name}
-							<span className="menu-hint">
+							<span className="menu-hint mcp-url">
 								{server.url}
 								<br />
 								{statusText(current)}
@@ -93,6 +128,8 @@ export function McpGroup({
 								移除
 							</button>
 						</span>
+					</div>
+					{current && runtime ? <ServerBots runtime={runtime} server={server} onError={onError} /> : null}
 					</div>
 				);
 			})}
