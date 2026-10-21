@@ -58,6 +58,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 有單位的數字，名稱就帶單位：`radius_m`、`radius_km`、`minutes`、`hours`、`days`、`at_most_every_hours`。
 - 選填參數的預設值寫在說明裡（「default 24」），程式裡用 `??` 而不是 `||`，因為空值已經被清掉了。
 - 數量、天數這類參數要寫 `minimum`，`0` 才會被當作沒給。
+- **互斥的選項用一個必填的列舉**：「時間或事件」這種二選一，不要做成選填參數，模型會兩個都填。`create_schedule` 的 `on` 是必填，`time` 也是其中一個值。
 - **篩選條件不要用選填的數字**：模型會把沒用到的數字填成下限（`1`），結果真的篩掉東西。要開關的篩選用布林值（`upcoming_birthdays`、`missed_only`），沒用到時模型會填 `false`，跟不篩一樣。
 
 ### 輸出
@@ -210,7 +211,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | 內建工具全部常駐 | 6,920 tokens | 內建工具約佔 5,000 tokens（72%） |
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
-| 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
+| 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；`create_schedule.on` 改成必填，多一個 `time` 值（模型會把選填的 `on` 隨便填一個事件，例如 `wifi`，跟 `time` 衝突而失敗兩次）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
 | 2026-10-22 | 健康（Health Connect，系統 API） | 7,505 → 7,620 tokens | 權限都允許後五種資料都是空的：Samsung Health 的「同意處理健康和保健資料」沒開，它就不寫入 Health Connect。「這禮拜睡得怎樣」11 秒，正確說沒有資料並指出設定。打開同意、回到 Samsung Health 主畫面後開始同步（只同步之後的資料）：「今天走了幾步、這週呢」9 秒，答出今天 25 步，並說明其他天沒有資料不代表沒走路 |
 | 2026-10-22 | 掃描文件（`scan_document`）、掃描頁在手機上 OCR | 7,401 → 7,505 tokens | 掃描版收據 PDF：OCR 0.17 秒，「總共多少、買了什麼」8 秒對，只送 52 tokens 的文字而不是一張圖；「幫我掃描桌上這張紙」叫出系統掃描畫面，取消後回「這次沒有掃描」 |
 | 2026-10-22 | 排程的新事件：開始充電、連上 Wi‑Fi、到達／離開地點 | 7,246 → 7,401 tokens | 「每天晚上回到家提醒我倒垃圾」12 秒，用記憶裡的住址建 18:00–23:59 到達時、一天一次（拒絕核准）。觸發：模擬插電立刻執行、同一次充電不重複；Wi‑Fi 和地點在重新設定時不再誤觸發（系統回報的「目前狀態」不算事件） |

@@ -5,7 +5,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
-import { approve, defineAppTool, localTime, parseClock, parseLocalTime, text } from "./tools/common.ts";
+import { approve, defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { parse } from "./parse.ts";
 import { resolvePlace } from "./tools/device.ts";
 
@@ -218,18 +218,20 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at the time, or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
+			on: Type.Union(
+				[Type.Literal("time"), Type.Literal("headphones"), Type.Literal("charging"), Type.Literal("wifi"), Type.Literal("arrive"), Type.Literal("leave")],
+				{
+					description:
+						"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place; days, from, until apply too",
+				},
+			),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
 			days: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Recurring: weekdays; omit for every day" })),
-			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DD HH:MM. Give either time or at, or on." })),
-			on: Type.Optional(
-				Type.Union([Type.Literal("headphones"), Type.Literal("charging"), Type.Literal("wifi"), Type.Literal("arrive"), Type.Literal("leave")], {
-					description: "Instead of a time, run on an event: headphones connect, the phone starts charging, a Wi-Fi connects, or the phone arrives at or leaves place. days, from, until apply too",
-				}),
-			),
+			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DD HH:MM; give either time or at" })),
 			wifi_name: Type.Optional(Type.String({ description: "With on wifi: only this network (its SSID); omit for any Wi-Fi" })),
 			place: Type.Optional(Type.String({ description: "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory" })),
 			radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
@@ -238,11 +240,10 @@ export function createTriggerExtension(host: TriggerHost) {
 			at_most_every_hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24, description: "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)" })),
 		}),
 		execute: async (args, api, context) => {
-			if (!nativeTriggers) throw new Error("only available in the Android app");
+			requireNative();
 			let when: When;
 			const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
-			if (args.on) {
-				if (args.time || args.at) throw new Error("give either on (an event) or a time, not both");
+			if (args.on !== "time") {
 				const window = {
 					days,
 					...(args.from ? { from: hhmm(args.from, "from") } : {}),
@@ -314,7 +315,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			note: Type.String({ description: "What to check or do then, as an instruction to yourself" }),
 		}),
 		execute: async (args, api, context) => {
-			if (!nativeTriggers) throw new Error("only available in the Android app");
+			requireNative();
 			const existing = await api.snapshot(TriggerDoc, context);
 			const pending = existing?.items.filter((item) => item.kind === "followup").length ?? 0;
 			if (pending >= MAX_FOLLOWUPS) throw new Error(`there are already ${MAX_FOLLOWUPS} pending follow-ups`);
@@ -378,7 +379,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			text: Type.String({ description: "One to three short lines" }),
 		}),
 		execute: async (args, api) => {
-			if (!nativeTriggers) throw new Error("only available in the Android app");
+			requireNative();
 			const shown = await host.notify(args.title, args.text, api.conversationId);
 			// Whether it was shown is not the user's concern; either way they learn the result.
 			return text(shown ? "Notified." : "Delivered: the user has pi open and reads your answer.");
