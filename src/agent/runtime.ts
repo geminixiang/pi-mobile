@@ -38,6 +38,7 @@ import { azureService, type CloudService, cloudflareService, createCloudExtensio
 import { createGitHubExtension } from "./tools/github.ts";
 import { SkillsExtension } from "./skills.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
+import { DatabaseExtension } from "./tools/database.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { SpeechExtension } from "./tools/speech.ts";
 import { WeatherExtension } from "./tools/weather.ts";
@@ -282,6 +283,7 @@ export class AgentRuntime {
 		registry.install(DeviceExtension);
 		registry.install(WeatherExtension);
 		registry.install(PlacesExtension);
+		registry.install(DatabaseExtension);
 		registry.install(AppsExtension);
 		registry.install(SpeechExtension);
 		registry.install(NotificationsExtension);

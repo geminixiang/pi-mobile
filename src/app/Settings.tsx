@@ -1,6 +1,7 @@
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
+import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { showToast } from "./Toasts.tsx";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
@@ -570,6 +571,49 @@ function NotificationsGroup() {
 	);
 }
 
+/** The bots' SQLite database: its tables and how full they are, and a copy to keep or open elsewhere. */
+function DatabaseGroup() {
+	const [tables, setTables] = useState<TableInfo[]>();
+	useEffect(() => {
+		if (!native) return;
+		void Database.schema().then((schema) => setTables(schema.tables));
+	}, []);
+	if (!tables) return null;
+	return (
+		<Group
+			title="資料庫"
+			hint="開了「資料庫」工具的 Bot 可以在這支手機上的 SQLite 資料庫建表、記錄、查詢：記帳、清單、紀錄……所有 Bot 共用。刪除資料前會先問你。"
+		>
+			{tables.length === 0 ? (
+				<div className="check-row">
+					<span className="menu-text">
+						還沒有資料表
+						<span className="menu-hint">跟 Bot 說「幫我記帳：午餐 150」就會開始建立</span>
+					</span>
+				</div>
+			) : (
+				tables.map((table) => (
+					<div className="check-row" key={table.name}>
+						<span className="menu-text">
+							<code>{table.name}</code>
+							<span className="menu-hint">{table.rows} 筆</span>
+						</span>
+					</div>
+				))
+			)}
+			<div className="check-row">
+				<span className="menu-text">
+					匯出
+					<span className="menu-hint">整個資料庫檔（.db），可以備份，或用電腦上的 SQLite 工具開啟</span>
+				</span>
+				<button type="button" className="btn" onClick={() => void Database.export().catch((error: unknown) => showToast(`匯出失敗：${error instanceof Error ? error.message : String(error)}`))}>
+					匯出
+				</button>
+			</div>
+		</Group>
+	);
+}
+
 export function SettingsView({
 	initial,
 	status,
@@ -798,6 +842,7 @@ export function SettingsView({
 				{runtime ? <TriggersGroup runtime={runtime} /> : null}
 				<BackgroundGroup />
 				<NotificationsGroup />
+				<DatabaseGroup />
 				<p className="about">pi mobile · {__BUILD__}</p>
 			</form>
 		</div>

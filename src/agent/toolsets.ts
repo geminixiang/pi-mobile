@@ -4,7 +4,7 @@
 // and triggers (a schedule's run needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
-export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "calendar" | "notifications" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
+export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
 export interface Toolset {
 	id: ToolsetId;
@@ -22,6 +22,7 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
 	{ id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
 	{ id: "notifications", label: "通知", hint: "讀手機收到的通知：LINE、信件、外送…（設定 › 通知讀取）", extensions: ["notifications"] },
+	{ id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
 	{ id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
 	{ id: "github", label: "GitHub", hint: "查詢直接執行，寫入先問你", extensions: ["github"] },
 	{ id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API，寫入先問你", extensions: ["gcp"] },
