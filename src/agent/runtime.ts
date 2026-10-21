@@ -10,6 +10,7 @@ import {
 	type ConversationView,
 	createRegistry,
 	defineExtension,
+	type Extension,
 	type EntryId,
 	Harness,
 	InboxDoc,
@@ -18,7 +19,8 @@ import {
 	type Storage,
 } from "@earendil-works/pi-durable";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
-import { isEnabled, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { createOnDemandExtension } from "./on-demand.ts";
+import { isEnabled, ON_DEMAND_EXTENSIONS, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub, parseMcpServers } from "./mcp.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
@@ -118,8 +120,12 @@ function contentText(content: unknown): string {
 		.join("\n");
 }
 
-/** pi-durable's tool_search extension, which loads deferred tools. */
-const TOOL_SEARCH = "tool-search";
+/** A toolset's name for an extension, for the list of tools that load on demand. */
+function labelOf(extension: string, mcp: McpHub): string {
+	const server = mcp.servers.find((candidate) => extensionName(candidate) === extension);
+	if (server) return `${server.name} (a service the user connected)`;
+	return TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.label ?? extension;
+}
 
 function hostOf(url: string): string {
 	try {
@@ -164,6 +170,9 @@ function cloudConnections(settings: Settings) {
 	}
 	return { minted, services };
 }
+
+/** Per extension: characters of tool definitions in every request (offered) and loadable on demand (deferred). */
+export type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
 /** Triggers with the next time each fires, for Settings. */
 export interface TriggerState {
@@ -297,55 +306,58 @@ export class AgentRuntime {
 		models.setProvider(modelServiceProvider(settings.baseUrl, settings.apiKey, modelIds, compactAt));
 
 		const registry = createRegistry();
-		registry.install(Assistant);
-		registry.install(BotExtension);
-		registry.install(DeviceExtension);
-		registry.install(WeatherExtension);
-		registry.install(PlacesExtension);
-		registry.install(DatabaseExtension);
+		// Development and cloud toolsets load on demand (toolsets.ts): their tools are deferred.
+		const install = (extension: Extension) =>
+			registry.install(ON_DEMAND_EXTENSIONS.has(extension.name) ? { ...extension, tools: extension.tools?.map((tool) => ({ ...tool, deferred: true as const })) } : extension);
+		install(Assistant);
+		install(BotExtension);
+		install(DeviceExtension);
+		install(WeatherExtension);
+		install(PlacesExtension);
+		install(DatabaseExtension);
 		const mcp = new McpHub(parseMcpServers(settings.mcpServers), {
 			install: (extension) => registry.install(extension),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 		});
-		registry.install(AppsExtension);
-		registry.install(SpeechExtension);
-		registry.install(NotificationsExtension);
-		registry.install(SkillsExtension);
-		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
-		for (const extension of createPhoneCodemode()) registry.install(extension);
-		if (settings.githubToken) registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
+		install(AppsExtension);
+		install(SpeechExtension);
+		install(NotificationsExtension);
+		install(SkillsExtension);
+		install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
+		for (const extension of createPhoneCodemode()) install(extension);
+		if (settings.githubToken) install(createGitHubExtension(async () => settings.githubToken || undefined));
 		const clouds = cloudConnections(settings);
-		for (const extension of createCloudExtensions(clouds.services)) registry.install(extension);
-		registry.install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
+		for (const extension of createCloudExtensions(clouds.services)) install(extension);
+		install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
 		// The tools need the runtime, which exists only after the Harness opens.
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
 			changed: () => void runtimeRef?.syncTriggers(),
 			notify: (title, text, conversationId) => options.notify?.(title, text, conversationId) ?? Promise.resolve(false),
 		};
-		registry.install(createTriggerExtension(triggerHost));
-		registry.install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
+		install(createTriggerExtension(triggerHost));
+		install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
 		const folders = new Map<string, string>();
 		const sandbox = openSandbox(settings, clouds.minted);
 		if (sandbox) {
-			registry.install(createSandboxExtension(sandbox, (id) => folders.get(id)));
-			registry.install(SandboxTools);
+			install(createSandboxExtension(sandbox, (id) => folders.get(id)));
+			install(SandboxTools);
 		}
 
-		const toolSearch = createToolSearchExtension();
-		registry.install(toolSearch);
+		install(createToolSearchExtension());
+		install(createOnDemandExtension((name) => labelOf(name, mcp)));
 		const harness = await Harness.open(
 			storage,
 			{
 				models,
 				registry,
-				// Built-in toolsets by default; services and tool_search only where a bot adds them (toolsets.ts).
+				// Built-in toolsets by default; services only where a bot adds them (toolsets.ts).
 				settings: {
 					get extensions() {
 						return registry
 							.snapshot()
 							.installed()
-							.filter((extension) => !extension.name.startsWith("mcp-") && extension.name !== TOOL_SEARCH);
+							.filter((extension) => !extension.name.startsWith("mcp-"));
 					},
 				},
 				onReport: (error) => options.onReport?.(error instanceof Error ? error.message : String(error)),
@@ -557,6 +569,28 @@ export class AgentRuntime {
 		};
 	}
 
+	/**
+	 * What a bot's tools take of each request, by extension: the characters of the definitions sent (name,
+	 * description, parameter schema), and of those it can load on demand.
+	 */
+	async toolCost(id: ConversationId): Promise<ToolCost> {
+		const conversation = await this.#harness.conversation(id, context);
+		if (!conversation) return {};
+		const agent = await conversation.agent(context);
+		const owner = new Map<string, string>();
+		for (const extension of agent.extensions) for (const tool of extension.tools ?? []) owner.set(tool.name, extension.name);
+		const cost: ToolCost = {};
+		const add = (tool: { name: string; description: string; parameters: unknown }, kind: "offered" | "deferred") => {
+			const name = owner.get(tool.name) ?? "?";
+			const entry = (cost[name] ??= { offered: 0, deferred: 0, tools: [] });
+			entry[kind] += JSON.stringify({ name: tool.name, description: tool.description, parameters: tool.parameters }).length;
+			entry.tools.push(tool.name);
+		};
+		for (const tool of agent.tools) add(tool, "offered");
+		for (const tool of agent.deferred) add(tool, "deferred");
+		return cost;
+	}
+
 	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
 	/** The built-in toolsets, then one per MCP server. */
 	#allToolsets(): Toolset[] {
@@ -564,6 +598,7 @@ export class AgentRuntime {
 			...TOOLSETS,
 			...this.mcp.servers.map((server) => ({
 				kind: "service" as const,
+				load: "on-demand" as const,
 				id: extensionName(server),
 				label: server.name,
 				hint: hostOf(server.url),
@@ -589,9 +624,8 @@ export class AgentRuntime {
 			const conversation = await this.#harness.conversation(id, context);
 			if (!target || !conversation) return;
 			const next = withToolset(selectionOf(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
-			// A service's tools are found with tool_search (mcp.ts defers them): a bot with any service has it.
-			const services = next.add.filter((name) => name !== TOOL_SEARCH);
-			const selection: Selection = { add: services.length > 0 ? [...services, TOOL_SEARCH] : [], remove: next.remove };
+			// tool_search was added with the first service before every bot had it; such a stored add is dropped.
+			const selection: Selection = { add: next.add.filter((name) => name !== "tool-search"), remove: next.remove };
 			// Stored by name; an extension is identified by its name alone.
 			const named = (names: string[]) => names.map((name) => ({ name }));
 			await conversation.configure(

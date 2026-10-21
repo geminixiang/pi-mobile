@@ -1,10 +1,11 @@
 // Everything about the bot on screen, in a panel from the right (the drawer on the left is every bot): who it is,
 // its schedules, its memory, its folder, and its conversation's context. Opened with the bar's ⋯ or by swiping the
 // conversation to the left (SidePanel.tsx).
-import type { ConversationView } from "@earendil-works/pi-durable";
+import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
+import type { ToolCost } from "../agent/runtime.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BoxIcon, CopyIcon, FileIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
@@ -12,7 +13,7 @@ import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
+import { formatTokens, hasCacheActivity, tokensOf, type Usage } from "./usage.ts";
 
 export interface PanelActions {
 	edit: () => void;
@@ -82,23 +83,41 @@ export function BotPanel({
 	const botId = bot?.id;
 	useEffect(() => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => setMemory(next.text))), [runtime, botId]);
 	const [toolsets, setToolsets] = useState<ToolsetState[]>([]);
+	const [cost, setCost] = useState<ToolCost>({});
+	const reload = (id: ConversationId) =>
+		Promise.all([runtime.toolsets(id), runtime.toolCost(id)]).then(([nextToolsets, nextCost]) => {
+			setToolsets(nextToolsets);
+			setCost(nextCost);
+		});
 	useEffect(() => {
 		if (botId === undefined || !open) return;
 		let live = true;
-		void runtime.toolsets(botId).then((next) => live && setToolsets(next));
+		void Promise.all([runtime.toolsets(botId), runtime.toolCost(botId)]).then(([nextToolsets, nextCost]) => {
+			if (!live) return;
+			setToolsets(nextToolsets);
+			setCost(nextCost);
+		});
 		return () => {
 			live = false;
 		};
 	}, [runtime, botId, open]);
 	if (!bot) return null;
 	const services = toolsets.filter((toolset) => toolset.kind === "service");
+	/** How a toolset sits in the bot's requests: loaded on demand, or always, and about how many tokens. */
+	const load = (toolset: ToolsetState) => {
+		const chars = toolset.extensions.reduce((sum, name) => sum + (cost[name]?.offered ?? 0) + (cost[name]?.deferred ?? 0), 0);
+		const deferred = toolset.extensions.some((name) => (cost[name]?.deferred ?? 0) > 0);
+		if (!toolset.enabled || chars === 0) return toolset.load === "on-demand" ? "需要時載入" : "";
+		return `${deferred ? "需要時載入" : toolset.load === "on-demand" ? "已載入" : "常駐"} · 約 ${formatTokens(tokensOf(chars))} tokens`;
+	};
+	const offered = Object.values(cost).reduce((sum, item) => sum + item.offered, 0);
+	const onDemand = Object.values(cost).reduce((sum, item) => sum + (item.deferred > 0 ? item.tools.length : 0), 0);
 
 	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
 		runtime
 			.setToolset(bot.id, id, enabled)
-			.then(() => runtime.toolsets(bot.id))
-			.then(setToolsets)
+			.then(() => reload(bot.id))
 			.catch((error: unknown) => onError(`工具設定失敗：${error instanceof Error ? error.message : String(error)}`));
 	};
 
@@ -159,7 +178,10 @@ export function BotPanel({
 							<label key={toolset.id} className={toolset.available ? "" : "unavailable"}>
 								<span className="menu-text">
 									{toolset.label}
-									<span className="menu-hint">{toolset.available ? toolset.hint : "尚未設定（在設定裡連接）"}</span>
+									<span className="menu-hint">
+										{toolset.available ? toolset.hint : "尚未設定（在設定裡連接）"}
+										{toolset.available && load(toolset) ? <span className="toolset-load">{load(toolset)}</span> : null}
+									</span>
 								</span>
 								<input
 									type="checkbox"
@@ -186,7 +208,10 @@ export function BotPanel({
 								<label key={toolset.id}>
 									<span className="menu-text">
 										{toolset.label}
-										<span className="menu-hint">{toolset.hint}</span>
+										<span className="menu-hint">
+											{toolset.hint}
+											{load(toolset) ? <span className="toolset-load">{load(toolset)}</span> : null}
+										</span>
 									</span>
 									<input type="checkbox" checked={toolset.enabled} onChange={(event) => toggle(toolset.id, event.target.checked)} />
 								</label>
@@ -219,6 +244,9 @@ export function BotPanel({
 						</div>
 						<p className="context-note">
 							{compactAt > 0 ? `超過 ${formatTokens(compactAt)} 時自動壓縮` : "到模型上限前自動壓縮"}（設定 › 自動壓縮）
+						</p>
+						<p className="context-note">
+							工具定義每次約 {formatTokens(tokensOf(offered))} tokens{onDemand > 0 ? `，另有 ${onDemand} 個工具需要時才載入` : ""}
 						</p>
 						<dl className="stats">
 							<div>

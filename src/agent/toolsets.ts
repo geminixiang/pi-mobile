@@ -7,6 +7,12 @@
 //   phone, and every one a bot has adds to each of its requests. They are not in the default selection; a bot's
 //   extensions.add lists the ones it has.
 //
+// When a toolset is on, its tools are either always in the bot's requests or loaded when a task needs them: the
+// phone's everyday tools always; development and cloud tools, and every service, on demand (with tool_search, from a
+// list of their names in the prompt). Once loaded, tools stay in that conversation. Measured on the S24, the built-in
+// definitions were about 24,500 characters (5,000 tokens, 72% of a short request's prompt); the on-demand ones here
+// are 6,900 of them, and Cloudflare's MCP server alone is 11,400.
+//
 // Some extensions are always on and not listed: the bot's identity, memory, skills, and triggers (a schedule's run
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
@@ -15,8 +21,12 @@ export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "cale
 
 export type ToolsetKind = "builtin" | "service";
 
+/** Whether its tools are in every request, or loaded with tool_search when a task needs them. */
+export type ToolsetLoad = "always" | "on-demand";
+
 export interface Toolset {
 	kind: ToolsetKind;
+	load: ToolsetLoad;
 	/** A ToolsetId, or an MCP server's extension name (mcp-<id>). */
 	id: string;
 	label: string;
@@ -26,21 +36,21 @@ export interface Toolset {
 }
 
 export const TOOLSETS: readonly Toolset[] = [
-	{ kind: "builtin", id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
-	{ kind: "builtin", id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"] },
-	{ kind: "builtin", id: "places", label: "地點", hint: "找附近的店家與服務，或依名稱找分店（OpenStreetMap）", extensions: ["places"] },
-	{ kind: "builtin", id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"] },
-	{ kind: "builtin", id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
-	{ kind: "builtin", id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
-	{ kind: "builtin", id: "notifications", label: "通知", hint: "讀手機收到的通知：LINE、信件、外送…（設定 › 通知讀取）", extensions: ["notifications"] },
-	{ kind: "builtin", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
-	{ kind: "builtin", id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
-	{ kind: "builtin", id: "github", label: "GitHub", hint: "查詢直接執行，寫入先問你", extensions: ["github"] },
-	{ kind: "builtin", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API，寫入先問你", extensions: ["gcp"] },
-	{ kind: "builtin", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API，寫入先問你", extensions: ["cloudflare"] },
-	{ kind: "builtin", id: "azure", label: "Azure", hint: "從手機呼叫 API，寫入先問你", extensions: ["azure"] },
-	{ kind: "builtin", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
-	{ kind: "builtin", id: "codemode", label: "程式模式", hint: "用腳本一次呼叫多個工具", extensions: ["codemode"] },
+	{ kind: "builtin", load: "always", id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
+	{ kind: "builtin", load: "always", id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"] },
+	{ kind: "builtin", load: "always", id: "places", label: "地點", hint: "找附近的店家與服務，或依名稱找分店（OpenStreetMap）", extensions: ["places"] },
+	{ kind: "builtin", load: "always", id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"] },
+	{ kind: "builtin", load: "always", id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
+	{ kind: "builtin", load: "always", id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
+	{ kind: "builtin", load: "always", id: "notifications", label: "通知", hint: "讀手機收到的通知：LINE、信件、外送…（設定 › 通知讀取）", extensions: ["notifications"] },
+	{ kind: "builtin", load: "always", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
+	{ kind: "builtin", load: "always", id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
+	{ kind: "builtin", load: "on-demand", id: "github", label: "GitHub", hint: "查詢直接執行，寫入先問你", extensions: ["github"] },
+	{ kind: "builtin", load: "on-demand", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API，寫入先問你", extensions: ["gcp"] },
+	{ kind: "builtin", load: "on-demand", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API，寫入先問你", extensions: ["cloudflare"] },
+	{ kind: "builtin", load: "on-demand", id: "azure", label: "Azure", hint: "從手機呼叫 API，寫入先問你", extensions: ["azure"] },
+	{ kind: "builtin", load: "on-demand", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
+	{ kind: "builtin", load: "always", id: "codemode", label: "程式模式", hint: "用腳本一次呼叫多個工具", extensions: ["codemode"] },
 ];
 
 export interface ToolsetState extends Toolset {
@@ -49,6 +59,9 @@ export interface ToolsetState extends Toolset {
 	/** The bot's choice. */
 	enabled: boolean;
 }
+
+/** The extensions whose tools load on demand. */
+export const ON_DEMAND_EXTENSIONS = new Set(TOOLSETS.filter((toolset) => toolset.load === "on-demand").flatMap((toolset) => toolset.extensions));
 
 /** A conversation's edit of the default selection: services it adds and built-ins it removes. */
 export type Selection = { add: string[]; remove: string[] };

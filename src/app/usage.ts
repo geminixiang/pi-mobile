@@ -8,6 +8,14 @@ export interface Usage {
 	cacheWrite: number;
 }
 
+/**
+ * About how many tokens text of this many characters is, for tool definitions (English JSON). Measured on the S24:
+ * 24,495 characters of definitions made a request 5,029 tokens bigger.
+ */
+export function tokensOf(characters: number): number {
+	return Math.round(characters / 4.9);
+}
+
 export function formatTokens(count: number): string {
 	// One decimal, but a round count reads 512k, not 512.0k.
 	const short = (value: number) => value.toFixed(1).replace(/\.0$/, "");

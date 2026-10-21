@@ -544,6 +544,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* A toolset this phone has not set up (BotPanel): dimmed, its switch off and inert. */
 .toggles > .unavailable > .menu-text { opacity: 0.55; }
 .toggles input:disabled { opacity: 0.4; }
+/* A toolset's place in the requests (BotPanel): 常駐 or 需要時載入, and about how many tokens. */
+.toolset-load { display: block; font-family: var(--mono); font-size: 11px; color: var(--faint); }
 
 .context-card { border: 1px solid var(--line); background: var(--panel); padding: 14px; flex-shrink: 0; }
 .context-top { display: flex; justify-content: space-between; align-items: baseline; }
