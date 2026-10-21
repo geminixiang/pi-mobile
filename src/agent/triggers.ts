@@ -7,6 +7,15 @@ import { type ConversationId, defineDoc, defineExtension, defineTool, section } 
 import { type Static, Type } from "typebox";
 import { requestConfirmation } from "./confirm.ts";
 import { parse } from "./parse.ts";
+import { resolvePlace } from "./tools/device.ts";
+
+/** The window of an event schedule: ISO weekdays (empty: every day), from and until (local HH:MM, both optional; may cross midnight), and at most one run every gapHours (24: once per calendar day). */
+const EventWindow = {
+	days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
+	from: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
+	until: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
+	gapHours: Type.Integer({ minimum: 1, maximum: 24 }),
+};
 
 const When = Type.Union([
 	/** Every day, or on the given ISO weekdays (Monday is 1), at a local time. */
@@ -17,12 +26,20 @@ const When = Type.Union([
 	 * When headphones connect, on the given ISO weekdays (empty: every day), between from and until (local HH:MM, both
 	 * optional; may cross midnight), and at most once every gapHours; 24 means once per calendar day.
 	 */
+	Type.Object({ kind: Type.Literal("headphones"), ...EventWindow }),
+	/** When the phone starts charging (TriggerEvents.java). */
+	Type.Object({ kind: Type.Literal("charging"), ...EventWindow }),
+	/** When a Wi-Fi network connects; with ssid, only that one. */
+	Type.Object({ kind: Type.Literal("wifi"), ssid: Type.Optional(Type.String()), ...EventWindow }),
+	/** When the phone arrives at or leaves a place: a circle of radius meters. */
 	Type.Object({
-		kind: Type.Literal("headphones"),
-		days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
-		from: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
-		until: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
-		gapHours: Type.Integer({ minimum: 1, maximum: 24 }),
+		kind: Type.Literal("place"),
+		on: Type.Union([Type.Literal("arrive"), Type.Literal("leave")]),
+		label: Type.String(),
+		latitude: Type.Number(),
+		longitude: Type.Number(),
+		radius: Type.Number({ minimum: 100 }),
+		...EventWindow,
 	}),
 ]);
 export type When = Static<typeof When>;
@@ -104,6 +121,7 @@ interface TriggersPlugin {
 	started(options: { trigger: string }): Promise<void>;
 	status(): Promise<{ exactAlarms: boolean; bluetooth: boolean }>;
 	requestBluetooth(): Promise<{ granted: boolean }>;
+	requestLocationAlways(): Promise<{ foreground: boolean; background: boolean }>;
 	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;
 	requestExactAlarms(): Promise<void>;
 	notify(options: { title: string; text: string; conversation?: string }): Promise<void>;
@@ -155,7 +173,15 @@ export function describeWhen(when: When): string {
 	const window = when.from || when.until ? ` ${when.from ?? "00:00"}–${when.until ?? "24:00"}` : "";
 	const days = describeDays(when.days);
 	const limit = when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`;
-	return `${days === "每天" && window ? "" : days}${window} 戴上耳機時（${limit}）`.trim();
+	const event =
+		when.kind === "headphones"
+			? "戴上耳機時"
+			: when.kind === "charging"
+				? "開始充電時"
+				: when.kind === "wifi"
+					? `連上 ${when.ssid ? `Wi‑Fi「${when.ssid}」` : "Wi‑Fi"}時`
+					: `${when.on === "arrive" ? "到達" : "離開"}${when.label}時`;
+	return `${days === "每天" && window ? "" : days}${window} ${event}（${limit}）`.trim();
 }
 
 export function describeTime(at: number): string {
@@ -183,6 +209,16 @@ function summary(trigger: Trigger): string {
 	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
+/** Location "all the time", which events while pi is not running need; asks, and says what to do when it was not given. */
+async function needLocationAlways(what: string): Promise<void> {
+	const { background } = await Triggers.requestLocationAlways();
+	if (!background) {
+		throw new Error(
+			`pi needs location "allow all the time" to know ${what} while it is not open, and the user has not allowed it. Tell them: 設定 › 應用程式 › pi mobile › 權限 › 位置資訊 › 一律允許, then ask again.`,
+		);
+	}
+}
+
 export interface TriggerHost {
 	/** The definitions changed: mirror them to the native side and refresh the UI. */
 	changed(): void;
@@ -194,14 +230,21 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at the time, or when the user puts on headphones (on: headphones), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at the time, or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
 			days: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Recurring: weekdays; omit for every day" })),
 			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DDTHH:MM. Give either time or at, or on." })),
-			on: Type.Optional(Type.Literal("headphones", { description: "Instead of a time: run when Bluetooth or wired headphones connect. days applies too" })),
+			on: Type.Optional(
+				Type.Union([Type.Literal("headphones"), Type.Literal("charging"), Type.Literal("wifi"), Type.Literal("arrive"), Type.Literal("leave")], {
+					description: "Instead of a time, run on an event: headphones connect, the phone starts charging, a Wi-Fi connects, or the phone arrives at or leaves place. days, from, until apply too",
+				}),
+			),
+			wifi_name: Type.Optional(Type.String({ description: "With on wifi: only this network (its SSID); omit for any Wi-Fi" })),
+			place: Type.Optional(Type.String({ description: "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory" })),
+			radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
 			from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
 			until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
 			at_most_every_hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24, description: "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)" })),
@@ -210,18 +253,31 @@ export function createTriggerExtension(host: TriggerHost) {
 			if (!nativeTriggers) throw new Error("only available in the Android app");
 			let when: When;
 			const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
-			if (args.on === "headphones") {
-				if (args.time || args.at) throw new Error("give either on (headphones) or a time, not both");
-				when = {
-					kind: "headphones",
+			if (args.on) {
+				if (args.time || args.at) throw new Error("give either on (an event) or a time, not both");
+				const window = {
 					days,
 					...(args.from ? { from: hhmm(args.from, "from") } : {}),
 					...(args.until ? { until: hhmm(args.until, "until") } : {}),
-					gapHours: args.at_most_every_hours ?? 4,
+					gapHours: args.at_most_every_hours || 4,
 				};
-				// The broadcast that says headphones connected needs this permission from Android 12 on.
-				const { granted } = await Triggers.requestBluetooth();
-				if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
+				if (args.on === "headphones") {
+					when = { kind: "headphones", ...window };
+					// The broadcast that says headphones connected needs this permission from Android 12 on.
+					const { granted } = await Triggers.requestBluetooth();
+					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
+				} else if (args.on === "charging") {
+					when = { kind: "charging", ...window };
+				} else if (args.on === "wifi") {
+					when = { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window };
+					// Android shows a network's name only to apps with location, in the background "all the time".
+					if (args.wifi_name) await needLocationAlways("which Wi-Fi it is");
+				} else {
+					if (!args.place) throw new Error("arrive and leave need place");
+					const point = await resolvePlace(args.place);
+					when = { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m || 200, ...window };
+					await needLocationAlways("where the phone is");
+				}
 			} else if (args.at && !args.time) {
 				const at = parseLocal(args.at);
 				if (at <= Date.now()) throw new Error(`${args.at} is in the past`);
@@ -235,7 +291,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
 			const approved = await requestConfirmation({
 				title: `新增排程「${args.name}」：${describeWhen(when)}`,
-				detail: `${when.kind === "headphones" ? "戴上耳機時" : "到時候"} pi 會自動執行：\n${args.prompt}`,
+				detail: `${when.kind === "daily" || when.kind === "once" ? "到時候" : "那時"} pi 會自動執行：\n${args.prompt}`,
 			});
 			if (!approved) return { output: [{ type: "text", text: "The user declined; nothing was scheduled. Reply with one short sentence that nothing was done, such as 「好，沒有加。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
 			const trigger: Trigger = {
@@ -345,7 +401,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				[
 					"create_schedule: recurring or one-time work the user asks for; it runs here. schedule_followup: check again here later.",
 					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it. Approvals go to a notification and are declined after 30 minutes.`,
-					"When it says headphones connected, the user just put them on and is listening, not reading: gather what you need, read the spoken-report skill, give the report with speak, and put the details and links in the written answer.",
+					"When it says headphones connected, the user just put them on and is listening, not reading: gather what you need, read the spoken-report skill, give the report with speak, and put the details and links in the written answer. Other events (charging, Wi-Fi, arriving or leaving a place) say what happened; the user may not be looking at the phone.",
 				].join("\n"),
 			),
 		],

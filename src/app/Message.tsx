@@ -94,6 +94,8 @@ export function entryText(entry: EntryRecord): string {
 		.join("\n");
 }
 
+const ON_LABEL: Record<string, string> = { headphones: "戴上耳機時", charging: "開始充電時", wifi: "連上 Wi‑Fi 時", arrive: "到達時", leave: "離開時" };
+
 const str = (value: unknown): string => (typeof value === "string" ? value : typeof value === "number" ? String(value) : "");
 const join = (...parts: string[]): string => parts.filter(Boolean).join(" · ");
 
@@ -129,7 +131,7 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 		case "add_calendar_event":
 			return join(str(args.title), shortTime(args.start));
 		case "create_schedule":
-			return join(str(args.name), args.on === "headphones" ? "戴上耳機時" : str(args.time) || shortTime(args.at));
+			return join(str(args.name), ON_LABEL[str(args.on)] ?? (str(args.time) || shortTime(args.at)));
 		case "read_skill":
 			return str(args.name);
 		case "speak":
@@ -479,7 +481,7 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">
 				{data.kind === "followup" ? "稍後再看" : "排程"} · {data.name}
-				{data.device ? ` · 戴上 ${data.device}` : ""}
+				{data.device ? ` · ${/^(開始|連上|到了|離開)/.test(data.device) ? data.device : `戴上 ${data.device}`}` : ""}
 				{clock}
 				{DELIVERY[data.delivery] ?? ""}
 			</div>

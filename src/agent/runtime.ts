@@ -786,6 +786,11 @@ export class AgentRuntime {
 		return this.#editTriggers((items) => items.map((item) => (item.id === id ? { ...item, enabled } : item)));
 	}
 
+	/** Add a schedule as approved, without asking: for tests on a device, where approvals are always declined. */
+	addTrigger(trigger: Trigger): Promise<void> {
+		return this.#editTriggers((items) => [...items.filter((item) => item.id !== trigger.id), trigger]);
+	}
+
 	deleteTrigger(id: string): Promise<void> {
 		return this.#editTriggers((items) => items.filter((item) => item.id !== id));
 	}
@@ -794,7 +799,7 @@ export class AgentRuntime {
 	 * Submit a trigger's prompt to its conversation. Resolves the conversation, or undefined when the trigger is gone or
 	 * over its daily limit (recorded as its last result).
 	 */
-	/** `device`: for a headphones schedule, the headphones that connected. */
+	/** `device`: for an event schedule, what happened (the headphones that connected, 開始充電, 到了 家). */
 	async runTrigger(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
@@ -828,12 +833,14 @@ export class AgentRuntime {
 			const bot = items.find((candidate) => candidate.id === conversationId);
 			if (bot) bot.updatedAt = now;
 		});
-		const heard = trigger.when.kind === "headphones" && delivery !== "manual" ? (device ?? "headphones") : undefined;
+		// What happened, for an event schedule: the headphones that connected, or the event's own words (開始充電, 到了 家).
+		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
+		const heard = event ? (device ?? trigger.when.kind) : undefined;
 		const label =
 			trigger.kind === "followup"
 				? "follow-up you scheduled"
 				: heard
-					? `schedule "${trigger.name}": headphones connected (${heard})`
+					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
 					: `schedule "${trigger.name}"`;
 		this.#triggered.add(conversationId);
 		await conversation.submit(

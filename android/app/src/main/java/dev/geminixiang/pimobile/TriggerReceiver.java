@@ -25,20 +25,50 @@ public class TriggerReceiver extends BroadcastReceiver {
         else if (TriggerStore.ACTION_APPROVAL.equals(action)) answer(context, intent);
         // Only this app can send it: the receiver is not exported, and the plugin schedules it only in development builds.
         else if (TriggerStore.ACTION_TEST_HEADPHONES.equals(action)) headphones(context, intent.getStringExtra(TriggerStore.EXTRA_DEVICE));
+        else if (TriggerEvents.ACTION_PLACE.equals(action)) place(context, intent);
         else TriggerStore.armAll(context);
     }
 
-    /** Headphones connected (Bluetooth from HeadphonesReceiver, wired from TriggersPlugin while pi runs): fire what applies. */
-    static void headphones(Context context, String device) {
-        for (String id : TriggerStore.headphonesSchedules(context)) {
+    /** A Wi-Fi network came up: the Wi-Fi schedules for any network, or for this one by name. */
+    static void wifi(Context context) {
+        String name = TriggerEvents.wifiName(context);
+        event(context, "wifi", name != null ? "連上 Wi-Fi " + name : "連上 Wi-Fi", item -> {
+            String wanted = item.optJSONObject("when").optString("ssid", "");
+            return wanted.isEmpty() || (name != null && name.equalsIgnoreCase(wanted));
+        });
+    }
+
+    /** A proximity alert: the phone entered or left one place schedule's circle; it fires if that is the side it wants. */
+    private static void place(Context context, Intent intent) {
+        String id = intent.getStringExtra(TriggerStore.EXTRA_ID);
+        boolean entering = intent.getBooleanExtra(android.location.LocationManager.KEY_PROXIMITY_ENTERING, false);
+        JSONObject schedule = id == null ? null : TriggerStore.schedule(context, id);
+        JSONObject when = schedule == null ? null : schedule.optJSONObject("when");
+        if (when == null || "leave".equals(when.optString("on")) == entering) return;
+        if (TriggerEvents.settling(context, id)) {
+            Log.i(TAG, "place " + id + ": " + (entering ? "inside" : "outside") + " when armed, not an event");
+            return;
+        }
+        event(context, "place", (entering ? "到了 " : "離開 ") + when.optString("label", "那裡"), item -> id.equals(item.optString("id")));
+    }
+
+    /** An event of `kind` happened (`detail` says which, for the run): fire the schedules that `match` and apply now. */
+    static void event(Context context, String kind, String detail, java.util.function.Predicate<JSONObject> match) {
+        for (String id : TriggerStore.eventSchedules(context, kind, match == null ? item -> true : match)) {
             JSONObject cause = new JSONObject();
             try {
-                cause.put("device", device);
+                cause.put("device", detail);
             } catch (JSONException ignored) {
                 // String keys always fit.
             }
             fire(context, id, cause);
         }
+        Log.i(TAG, kind + " event: " + detail);
+    }
+
+    /** Headphones connected (Bluetooth from HeadphonesReceiver, wired from TriggersPlugin while pi runs): fire what applies. */
+    static void headphones(Context context, String device) {
+        event(context, "headphones", device, null);
     }
 
     static void fire(Context context, String id, JSONObject cause) {
@@ -60,7 +90,7 @@ public class TriggerReceiver extends BroadcastReceiver {
         TriggerStore.enqueue(context, event);
         JSONObject when = schedule.optJSONObject("when");
         if (when != null && "once".equals(when.optString("kind"))) TriggerStore.removeSchedule(context, id);
-        else if (when != null && !"headphones".equals(when.optString("kind"))) TriggerStore.arm(context, schedule);
+        else if (when != null && ("daily".equals(when.optString("kind")))) TriggerStore.arm(context, schedule);
         Log.i(TAG, "fired " + id + (live != null ? " (live)" : " (no WebView)"));
 
         if (live != null) {

@@ -97,10 +97,11 @@ final class TriggerStore {
         cancelAlarm(context, id);
     }
 
-    /** Set the alarm of every schedule, as after a reboot; returns id -> next fire time. */
+    /** Set the alarm of every schedule, and arm the event sources, as after a reboot; returns id -> next fire time. */
     static synchronized JSONObject armAll(Context context) {
         JSONObject times = new JSONObject();
         JSONArray all = schedules(context);
+        TriggerEvents.sync(context, all);
         for (int i = 0; i < all.length(); i++) {
             JSONObject item = all.optJSONObject(i);
             long at = arm(context, item);
@@ -184,7 +185,15 @@ final class TriggerStore {
      * here rather than on the web side so a reconnect a minute later (earbuds often connect twice) does not queue a
      * second run while the first is still waiting for the WebView.
      */
-    static synchronized java.util.List<String> headphonesSchedules(Context context) {
+    static java.util.List<String> headphonesSchedules(Context context) {
+        return eventSchedules(context, "headphones", item -> true);
+    }
+
+    /**
+     * An event happened: the schedules of that kind that `match` accepts (it sees the whole schedule) and that apply now (their days, hours, and
+     * gap), which are marked as run. Headphones, charging, Wi-Fi, and places all go through here (TriggerReceiver.event).
+     */
+    static synchronized java.util.List<String> eventSchedules(Context context, String kind, java.util.function.Predicate<JSONObject> match) {
         java.util.List<String> due = new java.util.ArrayList<>();
         JSONArray all = schedules(context);
         ZonedDateTime now = ZonedDateTime.now();
@@ -193,7 +202,7 @@ final class TriggerStore {
         for (int i = 0; i < all.length(); i++) {
             JSONObject item = all.optJSONObject(i);
             JSONObject when = item == null ? null : item.optJSONObject("when");
-            if (when == null || !"headphones".equals(when.optString("kind"))) continue;
+            if (when == null || !kind.equals(when.optString("kind")) || !match.test(item)) continue;
             String id = item.optString("id");
             if (!headphonesWindow(when, now)) continue;
             long last = prefs(context).getLong(KEY_LAST_PREFIX + id, 0);

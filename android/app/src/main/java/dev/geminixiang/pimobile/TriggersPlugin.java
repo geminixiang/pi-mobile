@@ -47,7 +47,11 @@ import org.json.JSONObject;
 @CapacitorPlugin(
     name = "Triggers",
     // Android 12 and later deliver Bluetooth connection broadcasts only with it; earlier versions need no prompt.
-    permissions = { @Permission(strings = { "android.permission.BLUETOOTH_CONNECT" }, alias = "bluetooth") }
+    permissions = {
+        @Permission(strings = { "android.permission.BLUETOOTH_CONNECT" }, alias = "bluetooth"),
+        @Permission(strings = { "android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION" }, alias = "location"),
+        @Permission(strings = { "android.permission.ACCESS_BACKGROUND_LOCATION" }, alias = "background")
+    }
 )
 public class TriggersPlugin extends Plugin {
 
@@ -189,6 +193,41 @@ public class TriggersPlugin extends Plugin {
 
     private boolean bluetoothGranted() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || getPermissionState("bluetooth") == PermissionState.GRANTED;
+    }
+
+    /**
+     * Location for place schedules and a Wi-Fi schedule's network name, which work while pi is not running only with
+     * "allow all the time". Android asks for that in two steps: location first, then the background, which the system
+     * shows as its settings page. Resolves {foreground, background}.
+     */
+    @PluginMethod
+    public void requestLocationAlways(PluginCall call) {
+        if (TriggerEvents.backgroundLocation(getContext())) {
+            locationResult(call);
+            return;
+        }
+        if (!inFront(getActivity())) {
+            call.reject("pi cannot ask for location while it is in the background. Ask the user to open pi.");
+            return;
+        }
+        if (getPermissionState("location") != com.getcapacitor.PermissionState.GRANTED) requestPermissionForAlias("location", call, "foregroundResult");
+        else requestPermissionForAlias("background", call, "locationResult");
+    }
+
+    @PermissionCallback
+    private void foregroundResult(PluginCall call) {
+        if (getPermissionState("location") == com.getcapacitor.PermissionState.GRANTED) requestPermissionForAlias("background", call, "locationResult");
+        else locationResult(call);
+    }
+
+    @PermissionCallback
+    private void locationResult(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("foreground", getPermissionState("location") == com.getcapacitor.PermissionState.GRANTED);
+        result.put("background", TriggerEvents.backgroundLocation(getContext()));
+        call.resolve(result);
+        // Place schedules that could not be armed without it.
+        TriggerStore.armAll(getContext());
     }
 
     /** Ask for the Bluetooth permission a headphones schedule needs; resolves {granted}. Only with pi in front. */

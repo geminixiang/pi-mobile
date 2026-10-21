@@ -86,6 +86,16 @@
             </intent-filter>
         </service>
 
+        <!-- Charging and Wi-Fi schedules: jobs that run while the phone charges or is on Wi-Fi (TriggerEvents). -->
+        <service
+            android:name=".TriggerEvents$ChargingJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".TriggerEvents$WifiJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <!-- Ends a Do Not Disturb the agent set with an end time. -->
         <receiver android:name=".DndReceiver" android:exported="false" />
 
@@ -164,6 +174,9 @@
     <!-- get_location reads one fix while the app is in use; there is no background location. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Place schedules and a Wi-Fi schedule's network name while pi is not running ("allow all the time"). -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Triggers: schedules fire on time (the user grants this in system settings), and alarms survive a reboot. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
