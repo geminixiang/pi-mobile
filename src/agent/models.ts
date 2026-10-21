@@ -1,5 +1,5 @@
 // The model service as a pi-ai provider: any endpoint that speaks the OpenAI and/or Anthropic APIs, such as a gateway
-// (CLIProxyAPI, LiteLLM), OpenAI, or Anthropic. One model per catalog entry, each on the API that suits it: Claude on
+// (LiteLLM and the like), OpenAI, or Anthropic. One model per catalog entry, each on the API that suits it: Claude on
 // Anthropic Messages, GPT-5.6/GPT-6 on Responses, the rest on Chat Completions.
 import { type Api, createProvider, type Model, type Provider, type ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
@@ -10,7 +10,7 @@ import { parse } from "./parse.ts";
 
 /** Stored in every conversation's model reference, so it keeps its original value. */
 export const PROVIDER_ID = "cliproxyapi";
-// GPT on Responses: CLIProxyAPI passes its instructions and tool names through. Claude on a subscription OAuth
+// GPT on Responses: gateways pass its instructions and tool names through. Claude on a subscription OAuth
 // credential is cloaked as Claude Code (its system prompt first, tools renamed mcp__x__y), which confuses the agent.
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -81,7 +81,7 @@ function toModel(id: string, baseUrl: string, compactAt: number): Model<Api> {
 		thinkingLevelMap: LEVELS,
 	};
 	if (isClaude(id)) {
-		// The Anthropic driver appends /v1/messages itself. Gateways such as CLIProxyAPI accept top-level adaptive thinking only.
+		// The Anthropic driver appends /v1/messages itself. Some gateways accept top-level adaptive thinking only.
 		return { ...common, api: "anthropic-messages", baseUrl: rootUrl(baseUrl), compat: { forceAdaptiveThinking: true } };
 	}
 	const v1 = `${rootUrl(baseUrl)}/v1`;
@@ -92,7 +92,7 @@ function toModel(id: string, baseUrl: string, compactAt: number): Model<Api> {
 /** Model IDs from the service's /v1/models; favorites first. */
 export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<string[]> {
 	// OpenAI-style auth first. Anthropic headers are only for Anthropic's own API: a gateway that sees them may answer
-	// with its Anthropic catalog alone (CLIProxyAPI then lists only Claude models).
+	// with its Anthropic catalog alone (some list only Claude models then).
 	const url = `${rootUrl(baseUrl)}/v1/models`;
 	let response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
 	if (response.status === 401 || response.status === 403) {

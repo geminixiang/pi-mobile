@@ -59,7 +59,7 @@ Gemini app 的「螢幕自動化」是 beta，只支援特定 app、特定機型
 
 Android 17 於 2026-06-16 正式發布。([Android 17 發布](https://android-developers.googleblog.com/2026/06/Android-17.html))以下是將來把 `targetSdk` 升到 37 時要處理的：
 
-- **區域網路權限**：連區域網路裝置要用系統的裝置選擇器，或要求新的 `ACCESS_LOCAL_NETWORK` 執行期權限。([API 37 行為改變](https://developer.android.com/about/versions/17/behavior-changes-17))我們連 CLIProxyAPI 和 relay 走的是 Tailscale 的 `100.x` 位址，需要實測是否被當成區域網路。
+- **區域網路權限**：連區域網路裝置要用系統的裝置選擇器，或要求新的 `ACCESS_LOCAL_NETWORK` 執行期權限。([API 37 行為改變](https://developer.android.com/about/versions/17/behavior-changes-17))我們連模型 gateway 和 relay 走的是 Tailscale 的 `100.x` 位址，需要實測是否被當成區域網路。
 - **記憶體上限**：超過裝置相關記憶體上限的 app 可能被終止。([Android 17 發布](https://android-developers.googleblog.com/2026/06/Android-17.html))WebView 裡的長對話需要留意。
 - **`System.load()` 載入的原生檔必須唯讀**：只影響「把 pi-env 打包進 APK」那種做法。([API 37 行為改變](https://developer.android.com/about/versions/17/behavior-changes-17))
 

@@ -1,6 +1,6 @@
 # pi mobile
 
-Android app (Capacitor + React) running a pi-durable agent on the phone. See README.md for the layout of the code.
+Android app (Capacitor + React) running a pi-durable agent on the phone. See docs/architecture.md for the layout of the code.
 
 - `npm run check` (TypeScript and Stylelint) must pass before a commit.
 - Before changing CSS, animations, or overlays, read `.agents/skills/css/SKILL.md`. No `!important`.

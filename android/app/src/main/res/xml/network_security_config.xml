@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The app talks to a user-chosen LLM endpoint, typically CLIProxyAPI over plain HTTP inside a Tailscale tailnet
+  The app talks to a user-chosen LLM endpoint, often a self-hosted gateway over plain HTTP inside a Tailscale tailnet
   (WireGuard already encrypts that traffic). The endpoint is configured at runtime, so cleartext cannot be limited
   to a fixed host list here.
 -->
