@@ -4,6 +4,7 @@
 // was never connected is refused.
 import { type Static, Type } from "typebox";
 import { parse } from "../parse.ts";
+import { ContainerHost } from "./container.ts";
 import { type HostKey, SshClient } from "./ssh.ts";
 import { lost, StreamConnection } from "./stream-connection.ts";
 
@@ -16,6 +17,8 @@ export const MachineSchema = Type.Object({
 	/** The host key the owner accepted (base64 blob) and its fingerprint. */
 	hostKey: Type.String(),
 	fingerprint: Type.String(),
+	/** Where the daemon runs: a container per conversation behind the egress proxy, or as the SSH user. */
+	mode: Type.Optional(Type.Union([Type.Literal("container"), Type.Literal("trusted")])),
 	/** Set once the owner connected it: the remote system and the daemon deployed there. */
 	system: Type.Optional(
 		Type.Object({
@@ -49,6 +52,12 @@ export function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
+/**
+ * Non-interactive SSH sessions get a short PATH (macOS: /usr/bin:/bin:/usr/sbin:/sbin), without Homebrew's or the
+ * user's own bin folders where docker, podman, or nerdctl usually are.
+ */
+export const ENV_PATH = 'export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"';
+
 const HASH = `h=$( (sha256sum "$f" 2>/dev/null || shasum -a 256 "$f" 2>/dev/null) | cut -d' ' -f1)`;
 
 function daemonPath(sha: string): string {
@@ -57,7 +66,7 @@ function daemonPath(sha: string): string {
 
 /** The daemons the app carries (vite.config.ts copies them from @earendil-works/pi-env), loaded and checked once. */
 const daemons = new Map<string, Promise<{ bytes: Uint8Array; sha: string }>>();
-function daemon(os: MachineSystem["os"], arch: MachineSystem["arch"]): Promise<{ bytes: Uint8Array; sha: string }> {
+export function daemon(os: MachineSystem["os"], arch: MachineSystem["arch"]): Promise<{ bytes: Uint8Array; sha: string }> {
 	const name = `${os}-${arch}`;
 	let pending = daemons.get(name);
 	if (!pending) {
@@ -86,18 +95,22 @@ function platform(uname: string, machine: string): Pick<MachineSystem, "os" | "a
 }
 
 const PROBE = [
+	ENV_PATH,
 	`printf 'os=%s\\narch=%s\\nhome=%s\\n' "$(uname -s)" "$(uname -m)" "$HOME"`,
 	"for e in nerdctl podman docker; do command -v $e >/dev/null 2>&1 && $e info >/dev/null 2>&1 && printf 'engine=%s\\n' $e; done",
 	"true",
 ].join("; ");
 
-export type ConnectStep = "connect" | "probe" | "upload" | "verify";
+export type ConnectStep = "connect" | "probe" | "upload" | "verify" | "images";
 
 /**
  * The owner's "安裝並連線": probe the machine, upload the daemon unless that exact build is there, and start it once.
  * Resolves the system to record on the machine.
  */
-export async function installOn(machine: Machine, onStep: (step: ConnectStep) => void = () => {}): Promise<MachineSystem> {
+export async function installOn(
+	machine: Machine,
+	onStep: (step: ConnectStep, detail?: string) => void = () => {},
+): Promise<MachineSystem> {
 	onStep("connect");
 	const client = await SshClient.connect(machine);
 	try {
@@ -135,7 +148,13 @@ export async function installOn(machine: Machine, onStep: (step: ConnectStep) =>
 		onStep("verify");
 		const version = await client.run(`${daemonPath(sha)} --version`);
 		if (version.code !== 0) throw new Error(`pi-env 啟動失敗：${version.stderr.trim() || `exit ${version.code}`}`);
-		return { os, arch, home, daemon: sha, engines: facts.get("engine") ?? [], connectedAt: Date.now() };
+		const system: MachineSystem = { os, arch, home, daemon: sha, engines: facts.get("engine") ?? [], connectedAt: Date.now() };
+		const engine = system.engines[0];
+		if (engine && machine.mode !== "trusted") {
+			onStep("images");
+			await new ContainerHost(engine, async () => client).ensureImages(system, (detail) => onStep("images", detail));
+		}
+		return system;
 	} finally {
 		client.close();
 	}

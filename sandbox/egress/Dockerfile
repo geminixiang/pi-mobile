@@ -3,6 +3,8 @@
 FROM mitmproxy/mitmproxy:12.2.3
 
 COPY credentials.py /egress/credentials.py
+# For sandboxes reached over SSH: the phone runs it with `exec -i` and answers credentials.py through it (bridge.py).
+COPY bridge.py /egress/bridge.py
 
 CMD ["mitmdump", "--listen-port", "8080", "--set", "block_global=false", "--set", "connection_strategy=lazy", \
 	"--set", "stream_large_bodies=64m", \

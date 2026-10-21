@@ -21,7 +21,7 @@ say "Copying files to $DIR"
 mkdir -p "$DIR/image" "$DIR/egress" "$DIR/relay" "$CONFIG"
 cp "$SRC/Dockerfile" "$DIR/image/Dockerfile"
 cp "$SRC/pi-env" "$DIR/image/pi-env" 2>/dev/null || cp "$SRC/../node_modules/@earendil-works/pi-env/bin/pi-env-linux-arm64/pi-env" "$DIR/image/pi-env"
-cp "$SRC/egress/Dockerfile" "$SRC/egress/credentials.py" "$DIR/egress/"
+cp "$SRC/egress/Dockerfile" "$SRC/egress/credentials.py" "$SRC/egress/bridge.py" "$DIR/egress/"
 cp "$SRC/relay/server.mjs" "$SRC/relay/pair.mjs" "$SRC/relay/package.json" "$DIR/relay/"
 
 if [ "$OS" = Darwin ]; then

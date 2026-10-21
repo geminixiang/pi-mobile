@@ -10,16 +10,23 @@ const STEPS: Record<ConnectStep, string> = {
 	probe: "查看系統",
 	upload: "上傳 pi-env",
 	verify: "確認可以執行",
+	images: "準備容器",
 };
 
 function errorText(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+/** Containers when an engine answered there and the user did not choose to run directly. */
+function contained(machine: Machine): boolean {
+	return Boolean(machine.system?.engines[0]) && machine.mode !== "trusted";
+}
+
 function systemLabel(machine: Machine): string {
 	const system = machine.system;
 	if (!system) return "還沒連線";
-	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch} · 已連線`;
+	const engine = system.engines[0];
+	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch}${engine ? ` · ${engine}` : ""} · 已連線`;
 }
 
 function Copyable({ text, children }: { text: string; children?: ReactNode }) {
@@ -132,7 +139,7 @@ function AddMachine({ onAdd, onCancel }: { onAdd: (machine: Machine) => void; on
 	);
 }
 
-type Install = { state: "idle" } | { state: "running"; step: ConnectStep } | { state: "error"; detail: string };
+type Install = { state: "idle" } | { state: "running"; step: ConnectStep; detail?: string } | { state: "error"; detail: string };
 
 function MachineRow({
 	machine,
@@ -151,7 +158,7 @@ function MachineRow({
 	const [publicKey, setPublicKey] = useState<string>();
 	const run = () => {
 		setInstall({ state: "running", step: "connect" });
-		installOn(machine, (step) => setInstall({ state: "running", step })).then(
+		installOn(machine, (step, detail) => setInstall({ state: "running", step, ...(detail ? { detail } : {}) })).then(
 			(system) => {
 				setInstall({ state: "idle" });
 				onChange({ ...machine, system });
@@ -178,10 +185,29 @@ function MachineRow({
 					使用
 				</button>
 			</div>
-			{chosen ? (
+			{machine.system?.engines[0] ? (
+				<div className="check-row">
+					<span className="menu-text">
+						執行方式
+						<span className="menu-hint">{contained(machine) ? `每個對話一個 ${machine.system.engines[0]} 容器` : `直接以 ${machine.user} 執行`}</span>
+					</span>
+					<button type="button" className="toggle" aria-pressed={contained(machine)} onClick={() => onChange({ ...machine, mode: "container" })}>
+						容器
+					</button>
+					<button type="button" className="toggle" aria-pressed={!contained(machine)} onClick={() => onChange({ ...machine, mode: "trusted" })}>
+						直接
+					</button>
+				</div>
+			) : null}
+			{chosen && contained(machine) ? (
+				<p className="hint machine-note">
+					每個對話有自己的容器。git、gh、gcloud 等的憑證留在手機上，由容器外的 proxy 透過 SSH 向手機要；寫入一定先問你。切換成容器後，第一次要按「重新安裝」建好 image。
+				</p>
+			) : null}
+			{chosen && !contained(machine) ? (
 				<p className="hint machine-note">
 					agent 會直接在這台機器上以 {machine.user} 的身分工作，每個對話一個資料夾（~/pi-workspaces）。它用的是這台機器自己的登入（git、gh、雲端
-					CLI），寫入不會經過手機核准；建議用專門給 agent 的帳號。
+					CLI），寫入不會經過手機核准；建議用專門給 agent 的帳號，或在機器上裝 Docker、Podman。
 				</p>
 			) : null}
 			<div className="row-buttons">
@@ -192,6 +218,7 @@ function MachineRow({
 					{install.state === "running" ? `${STEPS[install.step]}…` : machine.system ? "重新安裝" : "安裝並連線"}
 				</button>
 			</div>
+			{install.state === "running" && install.detail ? <span className="check-progress">{install.detail}</span> : null}
 			{install.state === "error" ? <span className="check-error">{install.detail}</span> : null}
 			{publicKey ? (
 				<div className="pair-steps">

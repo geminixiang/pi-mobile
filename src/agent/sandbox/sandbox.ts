@@ -10,8 +10,9 @@ import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { Type } from "typebox";
 import { log } from "../../log.ts";
 import { parse } from "../parse.ts";
+import { ContainerHost, type Credentials } from "./container.ts";
 import { type Machine, MachineLink, type MachineSystem, shellQuote } from "./machine.ts";
-import type { StreamConnection } from "./stream-connection.ts";
+import { StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { WebSocketConnection } from "./ws-connection.ts";
 
@@ -109,8 +110,19 @@ export class RelaySandbox implements Sandbox {
 	}
 
 	describe(): string {
+		return containerDescription();
+	}
+
+	close(): void {
+		for (const { connection } of this.#entries.values()) connection.close();
+		this.#entries.clear();
+	}
+}
+
+/** A container sandbox, behind the relay or reached over SSH: the same image and the same proxy. */
+function containerDescription(): string {
 		return [
-			"read, write, edit, and bash run in this conversation's Linux sandbox on the user's computer, not the phone: Debian 13 arm64 as root, with internet,",
+			"read, write, edit, and bash run in this conversation's Linux sandbox on the user's computer, not the phone: Debian 13 as root, with internet,",
 			"Node 24, Python 3.13 with uv (`uv run --with pandas x.py`), git, gh, build tools, sqlite3, jq, rg, fd, magick, ffmpeg, pandoc, pdftotext, CJK fonts.",
 			`${WORKSPACE} persists, and the user can browse it.`,
 			"Credentials stay on the phone: when connected in the app, a proxy signs in git and gh, gcloud (default project set), and cf and wrangler (CLOUDFLARE_ACCOUNT_ID set). Their tokens are placeholders; never run any auth login.",
@@ -118,12 +130,6 @@ export class RelaySandbox implements Sandbox {
 			"Reads run directly. Writes (push, PRs, POST/PATCH/PUT/DELETE, resource changes, listKeys) wait for approval on the phone and fail with 'pi mobile: ...' when declined or not connected. Set git user.name and user.email if missing.",
 			IMAGES,
 		].join(" ");
-	}
-
-	close(): void {
-		for (const { connection } of this.#entries.values()) connection.close();
-		this.#entries.clear();
-	}
 }
 
 /** Folders per conversation, below the SSH user's home on a trusted machine. */
@@ -133,21 +139,40 @@ function systemLabel(system: MachineSystem): string {
 	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch}`;
 }
 
-/** One of the user's machines over SSH, the daemon running as the SSH user. */
+/**
+ * One of the user's machines over SSH. With a container engine there (and not set to trusted), a container per
+ * conversation behind the egress proxy, whose questions the phone answers: credentials stay on the phone and writes
+ * wait for approval, as with the relay. Otherwise the daemon runs as the SSH user in a folder per conversation.
+ */
 export class MachineSandbox implements Sandbox {
 	readonly kind = "machine";
 	readonly #link: MachineLink;
 	readonly #entries = new Map<string, Entry>();
+	readonly #containers: ContainerHost | undefined;
+	readonly #credentials: Credentials;
+	readonly #stopBridge: (() => void) | undefined;
 
-	constructor(machine: Machine) {
+	constructor(machine: Machine, credentials: Credentials) {
 		this.#link = new MachineLink(machine);
+		this.#credentials = credentials;
+		const engine = machine.system?.engines[0];
+		if (engine && machine.mode !== "trusted") {
+			this.#containers = new ContainerHost(engine, () => this.#link.client());
+			this.#stopBridge = this.#containers.bridge(credentials);
+		}
 	}
 
 	get machine(): Machine {
 		return this.#link.machine;
 	}
 
+	/** Whether the agent works in containers there rather than as the SSH user. */
+	get contained(): boolean {
+		return this.#containers !== undefined;
+	}
+
 	root(conversationId: ConversationId): string {
+		if (this.#containers) return WORKSPACE;
 		const home = this.machine.system?.home ?? "~";
 		return `${home}/${FOLDER}/${sandboxName(conversationId)}`;
 	}
@@ -155,13 +180,20 @@ export class MachineSandbox implements Sandbox {
 	env(conversationId: ConversationId): ExecutionEnv {
 		const name = sandboxName(conversationId);
 		const cwd = this.root(conversationId);
-		return envFor(this.#entries, name, cwd, () =>
-			this.#link.connection(cwd, (text) => log.warn("sandbox.daemon_output", { machine: this.machine.name, sandbox: name, text })),
-		);
+		const onLog = (text: string) => log.warn("sandbox.daemon_output", { machine: this.machine.name, sandbox: name, text });
+		const containers = this.#containers;
+		if (containers) {
+			// Per-service settings from the phone, such as the default Google Cloud project or Cloudflare account.
+			const serviceEnv = () => Object.assign({}, ...Object.values(this.#credentials.minted).map((service) => service.env));
+			return envFor(this.#entries, name, cwd, () => new StreamConnection({ open: containers.opener(name, serviceEnv), onLog }));
+		}
+		return envFor(this.#entries, name, cwd, () => this.#link.connection(cwd, onLog));
 	}
 
 	async exists(conversationId: ConversationId): Promise<boolean> {
-		if (this.#entries.has(sandboxName(conversationId))) return true;
+		const name = sandboxName(conversationId);
+		if (this.#entries.has(name)) return true;
+		if (this.#containers) return this.#containers.exists(name);
 		const client = await this.#link.client();
 		return (await client.run(`test -d ${shellQuote(this.root(conversationId))}`)).code === 0;
 	}
@@ -170,12 +202,17 @@ export class MachineSandbox implements Sandbox {
 		const name = sandboxName(conversationId);
 		this.#entries.get(name)?.connection.close();
 		this.#entries.delete(name);
+		if (this.#containers) {
+			await this.#containers.remove(name);
+			return;
+		}
 		const client = await this.#link.client();
 		const removed = await client.run(`rm -rf -- ${shellQuote(this.root(conversationId))}`);
 		if (removed.code !== 0) throw new Error(`刪除資料夾失敗：${removed.stderr.trim()}`);
 	}
 
 	describe(): string {
+		if (this.#containers) return containerDescription();
 		const machine = this.machine;
 		const where = machine.system ? `${machine.name} (${systemLabel(machine.system)})` : machine.name;
 		return [
@@ -188,6 +225,7 @@ export class MachineSandbox implements Sandbox {
 	}
 
 	close(): void {
+		this.#stopBridge?.();
 		for (const { connection } of this.#entries.values()) connection.close();
 		this.#entries.clear();
 		this.#link.close();

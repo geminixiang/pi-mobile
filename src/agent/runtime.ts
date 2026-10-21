@@ -168,9 +168,15 @@ function startOfToday(): number {
 }
 
 /** The chosen machine over SSH, else the relay when paired, else none. */
-function openSandbox(settings: Settings): Sandbox | undefined {
+function openSandbox(settings: Settings, titles: Map<string, string>): Sandbox | undefined {
 	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
-	if (machine) return new MachineSandbox(machine);
+	if (machine) {
+		return new MachineSandbox(machine, {
+			githubToken: settings.githubToken || undefined,
+			minted: mintedServices(settings),
+			describe: (name) => titles.get(name),
+		});
+	}
 	if (settings.sandboxUrl && settings.sandboxToken) return new RelaySandbox({ url: settings.sandboxUrl, token: settings.sandboxToken });
 	return undefined;
 }
@@ -181,8 +187,8 @@ export class AgentRuntime {
 	readonly #settings: Settings;
 	readonly #sandbox: Sandbox | undefined;
 	#indexListeners = new Set<(items: ConversationSummary[]) => void>();
-	/** Latest conversation list, to name a sandbox in a GitHub write approval. */
-	#titles = new Map<string, string>();
+	/** Latest conversation list, to name a sandbox in a write approval. */
+	readonly #titles: Map<string, string>;
 	#egress: EgressLink | undefined;
 	#triggerListeners = new Set<(state: TriggerState) => void>();
 	#memoryListeners = new Set<(memory: Memory) => void>();
@@ -190,12 +196,20 @@ export class AgentRuntime {
 	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
 
-	private constructor(harness: Harness, settings: Settings, models: ModelInfo[], sandbox: Sandbox | undefined) {
+	private constructor(
+		harness: Harness,
+		settings: Settings,
+		models: ModelInfo[],
+		sandbox: Sandbox | undefined,
+		titles: Map<string, string>,
+	) {
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
 		this.#sandbox = sandbox;
-		// The relay's proxy signs the container's CLIs in with the phone's credentials; a machine uses its own.
+		this.#titles = titles;
+		if (sandbox) void this.#publishIndex();
+		// The relay's proxy asks for the phone's credentials over its control channel; a machine's proxy over SSH.
 		if (sandbox?.kind === "relay") {
 			this.#egress = new EgressLink({
 				relayUrl: settings.sandboxUrl,
@@ -204,7 +218,6 @@ export class AgentRuntime {
 				minted: mintedServices(settings),
 				describe: (name) => this.#titles.get(name),
 			});
-			void this.#publishIndex();
 		}
 	}
 
@@ -245,7 +258,8 @@ export class AgentRuntime {
 		};
 		registry.install(createTriggerExtension(triggerHost));
 		registry.install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
-		const sandbox = openSandbox(settings);
+		const titles = new Map<string, string>();
+		const sandbox = openSandbox(settings, titles);
 		if (sandbox) {
 			registry.install(createSandboxExtension(sandbox));
 			registry.install(SandboxTools);
@@ -261,7 +275,7 @@ export class AgentRuntime {
 			},
 			context,
 		);
-		const runtime = new AgentRuntime(harness, settings, describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS), sandbox);
+		const runtime = new AgentRuntime(harness, settings, describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS), sandbox, titles);
 		runtimeRef = runtime;
 		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${error instanceof Error ? error.message : String(error)}`));
 		// Scheduling starts lazily on submit or wait; start it now so runs an app kill interrupted continue at launch.
@@ -290,7 +304,8 @@ export class AgentRuntime {
 
 	async #publishIndex(): Promise<void> {
 		const items = await this.conversations();
-		this.#titles = new Map(items.map((item) => [sandboxName(item.id), item.title]));
+		this.#titles.clear();
+		for (const item of items) this.#titles.set(sandboxName(item.id), item.title);
 		for (const listener of this.#indexListeners) listener(items);
 	}
 
