@@ -1,6 +1,6 @@
 // A MEMORY.md page: the global one, what every bot knows about the user, or one bot's notes for its job. The user
-// edits it here; the agent with update_memory, and a change it makes while the page is open shows up unless the user
-// has unsaved edits.
+// edits it here, and the edits are saved when the page goes away (back, the gesture, closing): there is no save button.
+// The agent edits it with update_memory; a change it makes while the page is open shows up unless the user has edits.
 import { useEffect, useRef, useState } from "react";
 import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
@@ -44,7 +44,6 @@ export function MemoryView({
 }) {
 	const [saved, setSaved] = useState<Memory>();
 	const [draft, setDraft] = useState<string>();
-	const [saving, setSaving] = useState(false);
 	const savedText = useRef<string>(undefined);
 	useEffect(
 		() =>
@@ -62,6 +61,23 @@ export function MemoryView({
 	const text = draft ?? "";
 	const changed = saved !== undefined && text.trim() !== saved.text;
 	const over = text.trim().length > MEMORY_LIMIT;
+	// Unmounting is the one point every way of leaving passes through; the ref holds what is on screen then.
+	const leaving = useRef({ text, changed, over });
+	leaving.current = { text, changed, over };
+	useEffect(
+		() => () => {
+			const { text: last, changed: dirty, over: tooLong } = leaving.current;
+			if (!dirty) return;
+			if (tooLong) {
+				onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
+				return;
+			}
+			runtime.saveMemory(scope, last).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
+		},
+		// Once, on unmount; the latest values come from the ref.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[],
+	);
 
 	return (
 		<div className="screen memory">
@@ -70,21 +86,7 @@ export function MemoryView({
 					<BackIcon />
 				</button>
 				<h1 className="bar-heading">{scope.kind === "global" ? "全域記憶" : `${botName ?? "Bot"} 的記憶`}</h1>
-				<button
-					type="button"
-					className="btn primary"
-					disabled={!changed || over || saving}
-					onClick={() => {
-						setSaving(true);
-						runtime
-							.saveMemory(scope, text)
-							.then(() => setDraft(text.trim()))
-							.catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)))
-							.finally(() => setSaving(false));
-					}}
-				>
-					儲存
-				</button>
+				<span className="bar-spacer" />
 			</header>
 			<div className="memory-body">
 				<div className="memory-file">
