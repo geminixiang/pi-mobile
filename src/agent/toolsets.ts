@@ -4,7 +4,7 @@
 // and triggers (a schedule's run needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
-export type ToolsetId = "web" | "weather" | "device" | "apps" | "calendar" | "notifications" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
+export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "calendar" | "notifications" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
 export interface Toolset {
 	id: ToolsetId;
@@ -17,6 +17,7 @@ export interface Toolset {
 export const TOOLSETS: readonly Toolset[] = [
 	{ id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
 	{ id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"] },
+	{ id: "places", label: "地點", hint: "找附近的店家與服務，或依名稱找分店（OpenStreetMap）", extensions: ["places"] },
 	{ id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"] },
 	{ id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"] },
 	{ id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
