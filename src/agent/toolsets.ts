@@ -17,7 +17,7 @@
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
-export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
+export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "health" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
 export type ToolsetKind = "builtin" | "service";
 
@@ -45,6 +45,7 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", load: "always", id: "contacts", label: "聯絡人", hint: "用名字找電話、email、生日", extensions: ["contacts"] },
 	{ kind: "builtin", load: "always", id: "photos", label: "相片", hint: "依時間、地點、相簿找照片並看內容", extensions: ["photos"] },
 	{ kind: "builtin", load: "always", id: "calls", label: "通話與簡訊", hint: "通話紀錄、未接來電、簡訊（驗證碼、銀行通知）", extensions: ["calls_sms"] },
+	{ kind: "builtin", load: "always", id: "health", label: "健康", hint: "步數、睡眠、心率、運動、體重（Health Connect）", extensions: ["health"] },
 	{ kind: "builtin", load: "always", id: "screen", label: "螢幕使用時間", hint: "每個 app 用了多久、解鎖幾次（設定 › 手機）", extensions: ["screen_time"] },
 	{ kind: "builtin", load: "always", id: "control", label: "手機控制", hint: "音樂播放、勿擾模式（需要通知讀取）", extensions: ["phone_control"] },
 	{ kind: "builtin", load: "always", id: "notifications", label: "通知", hint: "讀、回覆、清除手機收到的通知：LINE、信件、外送…（設定 › 手機）", extensions: ["notifications"] },
