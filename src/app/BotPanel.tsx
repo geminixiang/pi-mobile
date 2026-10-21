@@ -1,6 +1,6 @@
 // Everything about the bot on screen, in a panel from the right (the drawer on the left is every bot): who it is,
 // its schedules, its memory, its folder, and its conversation's context. Opened with the bar's ⋯ or by swiping the
-// conversation to the left (sideSwipe.ts).
+// conversation to the left (SidePanel.tsx).
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
@@ -46,7 +46,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function BotPanel({
 	open,
-	drag,
 	bot,
 	runtime,
 	view,
@@ -61,8 +60,6 @@ export function BotPanel({
 	onClose,
 }: {
 	open: boolean;
-	/** Where a swipe holds it, 0 to 1, while dragged. */
-	drag: number | undefined;
 	bot: Bot | undefined;
 	runtime: AgentRuntime;
 	view: ConversationView | undefined;
@@ -96,7 +93,7 @@ export function BotPanel({
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
 
 	return (
-		<SidePanel side="right" open={open} drag={drag} onClose={onClose} label={`${bot.name} 的資訊`}>
+		<SidePanel side="right" open={open} onClose={onClose} label={`${bot.name} 的資訊`}>
 			<div className="panel">
 				<button type="button" className="panel-bot" onClick={run(actions.edit)}>
 					<BotAvatar bot={bot} size={48} />

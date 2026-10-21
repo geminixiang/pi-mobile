@@ -96,7 +96,8 @@ export function Composer({
 	};
 
 	return (
-		<div className="composer">
+		// Touches here are not side swipes (SidePanel.tsx): the scroll tab's slide opens the prompt dial.
+		<div className="composer" onTouchStart={(event) => event.stopPropagation()}>
 			{queued.length > 0 ? (
 				<ul className="queue">
 					{queued.map((item) => (

@@ -40,15 +40,17 @@ An element's position, opacity, or size comes from one source. The side panels o
 opening and closing and a CSS variable for dragging, overridden with `!important` and timed against each other with
 timers and effects; a frame where the timing slipped showed the panel fully open before the drag.
 
-The pattern now (`src/app/SidePanel.tsx`):
+The side panels now use Base UI's Drawer (`src/app/SidePanel.tsx`), which follows the same pattern, and it is the
+one to copy:
 
-- State is one number on the element itself (`--p`, 0 closed, 1 open), set inline in the same render, never later in
-  an effect.
-- CSS derives everything from it: `transform: translateX(calc((var(--p) - 1) * 100%))`, `opacity: var(--p)`.
-- Opening and closing change the number; a `transition` moves it. Dragging changes it with the transition off
-  (a `.dragging` class).
-- Entry from nothing uses `@starting-style`, not a keyframe and not a "mount then flip a class next frame" trick.
-- Unmount after the transition's duration, from the same constant.
+- Position comes from one variable Base UI sets on the element (`--drawer-swipe-movement-x`, 0 when settled).
+- The settled position is plain CSS; a `transition` moves between them, turned off while `[data-swiping]`.
+- Entry and exit use `[data-starting-style]` and `[data-ending-style]` (or CSS `@starting-style` for elements Base UI
+  does not manage), not keyframes and not a "mount, then flip a class next frame" trick.
+- Base UI decides when to unmount, after the transition.
+
+For a new overlay, sheet, or gesture, look for the Base UI part first (`@base-ui/react`, already a dependency) before
+writing gesture or presence code.
 
 Before adding an animation to something that already moves, find what moves it and use that.
 
@@ -58,7 +60,7 @@ Before adding an animation to something that already moves, find what moves it a
   `--line`, `--accent`, `--ease`, ...). No new raw colors.
 - `opacity` on a parent fades its children. To dim a backdrop behind a panel, make the backdrop a sibling of the
   panel, or change only its background color.
-- Inline styles only for custom properties that carry state (`--p`); everything else is a class.
+- No inline styles except custom properties that carry state; everything else is a class.
 - Square edges, hairlines, monospace labels: follow the existing components (see the comment at the top of
   `styles.css`). No rounded cards, shadows, or gradients beyond pi.dev's page grid.
 

@@ -19,7 +19,6 @@ function time(updatedAt: number, now: Date): string {
 /** The bots, each one long conversation, most recently talked to first. */
 export function Drawer({
 	open,
-	drag,
 	busy,
 	bots,
 	currentId,
@@ -33,8 +32,6 @@ export function Drawer({
 	onClose,
 }: {
 	open: boolean;
-	/** Where a swipe holds it, 0 to 1, while dragged. */
-	drag: number | undefined;
 	busy: boolean;
 	bots: Bot[];
 	currentId: ConversationId | undefined;
@@ -53,7 +50,7 @@ export function Drawer({
 }) {
 	const now = new Date();
 	return (
-		<SidePanel side="left" open={open} drag={drag} onClose={onClose} label="Bot 列表">
+		<SidePanel side="left" open={open} onClose={onClose} label="Bot 列表">
 			<div className="drawer">
 				<div className="drawer-top">
 					<span className="brand">

@@ -2,7 +2,7 @@ import { type ReactNode, useRef } from "react";
 import { CloseIcon } from "./icons.tsx";
 import { useBack, usePresence } from "./layers.ts";
 
-// Side panels (the bot list, the bot's panel) are SidePanel, which a swipe can move.
+// Side panels (the bot list, the bot's panel) are SidePanel, on Base UI's Drawer.
 type Kind = "sheet" | "dialog" | "page";
 
 /**

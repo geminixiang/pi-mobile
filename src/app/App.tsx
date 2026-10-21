@@ -30,7 +30,7 @@ import { toImageContent } from "./Composer.tsx";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
-import { useSideSwipe } from "./sideSwipe.ts";
+import { SideSwipe } from "./SidePanel.tsx";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
@@ -268,14 +268,9 @@ export function App() {
 		})();
 	}, [pairing, settings, ask, notify]);
 
-	// A sideways swipe on the conversation pulls out the bot list (rightward) or the bot's panel (leftward).
+	// The side panels: the bot list on the left, the bot on screen on the right (SidePanel.tsx).
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
-	const { drag, handlers: sideHandlers } = useSideSwipe({
-		open: side,
-		disabled: (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined,
-		onOpen: (next) => setOverlay(next === "left" ? "drawer" : "panel"),
-		onClose: close,
-	});
+	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
 
 	const splash = (
 		<div className="splash">
@@ -335,7 +330,6 @@ export function App() {
 		<div
 			data-thinking={thinking || "off"}
 			className="app"
-			{...sideHandlers}
 		>
 			<header className="bar">
 				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
@@ -360,25 +354,107 @@ export function App() {
 				</div>
 			</header>
 
-			{controller ? (
-				<OpenFileContext.Provider value={runtime.hasSandbox ? openFile : undefined}>
-				<Chat
-					key={`${String(controller.id)}-${chatKey}`}
-					controller={controller}
-					prefs={prefs}
-					capabilities={{ sandbox: runtime.hasSandbox }}
-					initialDraft={pendingDraft}
-					initialImages={pendingImages}
-					shared={pendingShared}
-					focusKey={focusKey}
-					onView={setView}
-					onError={notify}
-					onNotice={notify}
-				/>
-				</OpenFileContext.Provider>
-			) : (
-				<div className="chat" />
-			)}
+			<SideSwipe
+				open={side}
+				disabled={sideBlocked}
+				onChange={(next) => setOverlay(next === "left" ? "drawer" : next === "right" ? "panel" : undefined)}
+				left={
+					<Drawer
+						open={overlay === "drawer"}
+						busy={busy}
+						bots={bots}
+						currentId={controller?.id}
+						status={[
+							{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
+							{ label: "Sandbox", icon: <TerminalIcon size={17} />, on: runtime.hasSandbox },
+							{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
+							{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
+							{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
+						]}
+						onOpen={(id) => void openConversation(id)}
+						onCreate={() => setBotEdit({ kind: "create" })}
+						running={busyIds}
+						onEdit={(bot) => setBotEdit({ kind: "edit", bot })}
+						onSettings={() => setOverlay("settings")}
+						onMemory={() => setOverlay("memory")}
+						onClose={close}
+					/>
+				}
+				right={
+					<BotPanel
+						open={overlay === "panel"}
+						bot={current}
+						runtime={runtime}
+						view={view}
+						usage={totalUsage(view)}
+						cacheHitRate={latestCacheHitRate(view)}
+						context={{ used, window: contextWindow }}
+						compactAt={settings.compactAt}
+						prefs={prefs}
+						onPrefs={updatePrefs}
+						onError={notify}
+						onClose={close}
+						actions={{
+							edit: () => {
+								if (current) setBotEdit({ kind: "edit", bot: current });
+							},
+							memory: () => {
+								if (!current) return;
+								setMemoryBot(current);
+								setOverlay("botMemory");
+							},
+							copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製最後的回答"), fail),
+							compact: () => {
+								if (!controller) return;
+								notify("壓縮中…");
+								controller.compact().then((done) => notify(done ? "已把較早的對話壓縮成摘要" : "對話還短，不需要壓縮"), fail);
+							},
+							reset: async () => {
+								if (!controller) return;
+								const sure = await ask({
+									title: "新的上下文",
+									body: "模型將看不到這之前的訊息。紀錄仍會留在畫面上。",
+									confirm: "開始新的上下文",
+								});
+								if (sure) await controller.reset().catch(fail);
+							},
+							workspace: runtime.hasSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
+							emptyFolder: runtime.hasSandbox
+								? async () => {
+										if (!controller) return;
+										const sure = await ask({
+											title: "清空資料夾",
+											body: `${current?.name ?? "這個 Bot"} 在 sandbox 裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
+											confirm: "清空",
+											danger: true,
+										});
+										if (sure) await runtime.resetSandbox(controller.id).then(() => notify("已清空資料夾"), fail);
+									}
+								: undefined,
+						}}
+					/>
+				}
+			>
+				{controller ? (
+					<OpenFileContext.Provider value={runtime.hasSandbox ? openFile : undefined}>
+					<Chat
+						key={`${String(controller.id)}-${chatKey}`}
+						controller={controller}
+						prefs={prefs}
+						capabilities={{ sandbox: runtime.hasSandbox }}
+						initialDraft={pendingDraft}
+						initialImages={pendingImages}
+						shared={pendingShared}
+						focusKey={focusKey}
+						onView={setView}
+						onError={notify}
+						onNotice={notify}
+					/>
+					</OpenFileContext.Provider>
+				) : (
+					<div className="chat" />
+				)}
+			</SideSwipe>
 
 			{toast ? (
 				<button type="button" className="toast" onClick={() => setToast("")}>
@@ -386,27 +462,6 @@ export function App() {
 				</button>
 			) : null}
 
-			<Drawer
-				open={overlay === "drawer"}
-				drag={drag?.side === "left" ? drag.progress : undefined}
-				busy={busy}
-				bots={bots}
-				currentId={controller?.id}
-				status={[
-					{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
-					{ label: "Sandbox", icon: <TerminalIcon size={17} />, on: runtime.hasSandbox },
-					{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
-					{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
-					{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
-				]}
-				onOpen={(id) => void openConversation(id)}
-				onCreate={() => setBotEdit({ kind: "create" })}
-				running={busyIds}
-				onEdit={(bot) => setBotEdit({ kind: "edit", bot })}
-				onSettings={() => setOverlay("settings")}
-				onMemory={() => setOverlay("memory")}
-				onClose={close}
-			/>
 
 			<ModelSheet
 				open={overlay === "model"}
@@ -422,59 +477,6 @@ export function App() {
 				}}
 			/>
 
-			<BotPanel
-				open={overlay === "panel"}
-				drag={drag?.side === "right" ? drag.progress : undefined}
-				bot={current}
-				runtime={runtime}
-				view={view}
-				usage={totalUsage(view)}
-				cacheHitRate={latestCacheHitRate(view)}
-				context={{ used, window: contextWindow }}
-				compactAt={settings.compactAt}
-				prefs={prefs}
-				onPrefs={updatePrefs}
-				onError={notify}
-				onClose={close}
-				actions={{
-					edit: () => {
-						if (current) setBotEdit({ kind: "edit", bot: current });
-					},
-					memory: () => {
-						if (!current) return;
-						setMemoryBot(current);
-						setOverlay("botMemory");
-					},
-					copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製最後的回答"), fail),
-					compact: () => {
-						if (!controller) return;
-						notify("壓縮中…");
-						controller.compact().then((done) => notify(done ? "已把較早的對話壓縮成摘要" : "對話還短，不需要壓縮"), fail);
-					},
-					reset: async () => {
-						if (!controller) return;
-						const sure = await ask({
-							title: "新的上下文",
-							body: "模型將看不到這之前的訊息。紀錄仍會留在畫面上。",
-							confirm: "開始新的上下文",
-						});
-						if (sure) await controller.reset().catch(fail);
-					},
-					workspace: runtime.hasSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
-					emptyFolder: runtime.hasSandbox
-						? async () => {
-								if (!controller) return;
-								const sure = await ask({
-									title: "清空資料夾",
-									body: `${current?.name ?? "這個 Bot"} 在 sandbox 裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
-									confirm: "清空",
-									danger: true,
-								});
-								if (sure) await runtime.resetSandbox(controller.id).then(() => notify("已清空資料夾"), fail);
-							}
-						: undefined,
-				}}
-			/>
 
 			<BotSheet
 				edit={botEdit}
