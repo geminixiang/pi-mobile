@@ -4,7 +4,9 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool } from "@earendil-works/pi-durable";
-import { estimateTokens, fullText, loadAttachment, normalizeCjk } from "../attachments.ts";
+import { Capacitor } from "@capacitor/core";
+import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
+import { inboxFile, Scanner } from "../../scanner-plugin.ts";
 import { codeNote } from "../codes.ts";
 
 const DEFAULT_LINES = 400;
@@ -102,4 +104,27 @@ const readAttachment = defineTool({
 	},
 });
 
-export const AttachmentsExtension = defineExtension({ name: "attachments", tools: [readAttachment] });
+const scanDocument = defineTool({
+	name: "scan_document",
+	description:
+		"Open the phone's document scanner for the user to photograph paper (a contract, a receipt, a letter): it finds the edges and flattens the pages. Returns the pages as an attachment with their text (OCR on the phone), like a PDF the user attached. Only when the user asks to scan something now.",
+	parameters: Type.Object({ pages: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "At most this many pages (default 20)" })) }),
+	execute: async (args, api) => {
+		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+		let scan: { pdf: string; pages: number };
+		try {
+			scan = await Scanner.scan({ pages: args.pages || 20 });
+		} catch (error) {
+			if (error instanceof Error && Reflect.get(error, "code") === "cancelled") {
+				return { output: [{ type: "text", text: "The user closed the scanner without scanning. Reply with one short sentence, such as 「好，沒有掃。」" }], isError: true };
+			}
+			throw error;
+		}
+		const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
+		const file = await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf");
+		const prepared = await prepareAttachment(file, String(api.conversationId));
+		return { output: prepared.content };
+	},
+});
+
+export const AttachmentsExtension = defineExtension({ name: "attachments", tools: [readAttachment, scanDocument] });

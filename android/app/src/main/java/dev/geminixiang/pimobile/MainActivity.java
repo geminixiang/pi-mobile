@@ -23,6 +23,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PhotosPlugin.class);
         registerPlugin(RecordsPlugin.class);
         registerPlugin(UsagePlugin.class);
+        registerPlugin(ScannerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -12,6 +12,7 @@
 // (parseAttachment) instead of its text.
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { codeNote, isCodeNote } from "./codes.ts";
+import { ocr } from "../scanner-plugin.ts";
 
 export type AttachmentKind = "pdf" | "docx" | "sheet" | "text";
 
@@ -79,6 +80,8 @@ export interface StoredAttachment {
 	units: string[];
 	/** PDF pages (1-based) with no text layer, likely scanned. */
 	blankPages?: number[];
+	/** Those of them whose text came from OCR on the phone (ScannerPlugin), which may have errors. */
+	ocrPages?: number[];
 	/** Spreadsheets: the tables they were imported as. */
 	tables?: { name: string; sheet: string; rows: number; columns: string[] }[];
 	/** PDF: the file, to render pages from. */
@@ -188,11 +191,14 @@ export function formatAttachment(attachment: StoredAttachment): TextContent {
 	for (const table of attachment.tables ?? []) {
 		notes.push(`Imported into the database as table "${table.name}" (sheet ${table.sheet}, ${table.rows} rows; columns: ${table.columns.join(", ")}). Compute over it with sql rather than reading rows.`);
 	}
-	if (attachment.blankPages?.length) {
-		const pages = attachment.blankPages;
-		const shown = pages.slice(0, INLINE_PAGE_IMAGES);
+	if (attachment.ocrPages?.length) {
+		notes.push(`Pages ${attachment.ocrPages.join(", ")} are scans; their text was read by OCR on the phone and may have errors. See a page itself with read_attachment pages and images=true.`);
+	}
+	const imageOnly = (attachment.blankPages ?? []).filter((page) => !attachment.ocrPages?.includes(page));
+	if (imageOnly.length) {
+		const shown = imageOnly.slice(0, INLINE_PAGE_IMAGES);
 		notes.push(
-			`Pages ${pages.join(", ")} have no text layer (scanned or images).${shown.length ? ` Pages ${shown.join(", ")} are attached as images below.` : ""}${pages.length > shown.length ? ` See the others with read_attachment images=true.` : ""}`,
+			`Pages ${imageOnly.join(", ")} have no text, even by OCR (pictures, or handwriting).${shown.length ? ` Pages ${shown.join(", ")} are attached as images below.` : ""}${imageOnly.length > shown.length ? ` See the others with read_attachment images=true.` : ""}`,
 		);
 	}
 	let body = text;
@@ -258,13 +264,28 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 		case "pdf": {
 			const pdf = await import("./attachments-pdf.ts");
 			const { units, blankPages } = await pdf.extractPdf(file);
-			stored = { ...base, units, ...(blankPages.length ? { blankPages } : {}), blob: file };
-			if (blankPages.length) {
-				const shown = blankPages.slice(0, INLINE_PAGE_IMAGES);
-				const rendered = await pdf.renderPages(file, shown);
-				const codes = await codeNote(rendered, (index) => `${file.name} page ${shown[index]}`);
-				images = codes ? [...rendered, codes] : rendered;
+			// Scanned pages: their text by OCR, so they read and search like the rest; pages with none go as images.
+			const ocrPages: number[] = [];
+			const imageOnly: ImageContent[] = [];
+			const scans: { page: number; image: ImageContent }[] = [];
+			for (const page of blankPages) {
+				const [image] = await pdf.renderPages(file, [page]);
+				if (!image) continue;
+				scans.push({ page, image });
+				const read = await ocr(image.data);
+				if (read.replace(/\s/g, "").length >= 20) {
+					units[page - 1] = read;
+					ocrPages.push(page);
+				} else if (imageOnly.length < INLINE_PAGE_IMAGES) {
+					imageOnly.push(image);
+				}
 			}
+			stored = { ...base, units, ...(blankPages.length ? { blankPages } : {}), ...(ocrPages.length ? { ocrPages } : {}), blob: file };
+			const codes = await codeNote(
+				scans.map((scan) => scan.image),
+				(index) => `${file.name} page ${scans[index]?.page}`,
+			);
+			images = codes ? [...imageOnly, codes] : imageOnly;
 			break;
 		}
 		case "docx": {

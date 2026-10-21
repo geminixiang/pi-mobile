@@ -3,7 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, deleteAttachments, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { CloseIcon, MicIcon, PaperclipIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { Capacitor } from "@capacitor/core";
+import { inboxFile, Scanner } from "../scanner-plugin.ts";
+import { CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { Sheet } from "./Sheet.tsx";
 import { Database } from "../database-plugin.ts";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
@@ -77,6 +80,7 @@ export function Composer({
 }) {
 	const [images, setImages] = useState<ImageContent[]>([]);
 	const [files, setFiles] = useState<PendingFile[]>([]);
+	const [attachMenu, setAttachMenu] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const reading = files.some((file) => file.state === "reading");
@@ -119,6 +123,18 @@ export function Composer({
 		void codeNote(photos, (index) => `photo ${index + 1}`).then((codes) =>
 			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...photos, ...(codes ? [codes] : [])], whenBusy),
 		);
+	};
+
+	/** The phone's document scanner; its PDF is attached like a picked one. */
+	const scanDocument = async () => {
+		setAttachMenu(false);
+		try {
+			const scan = await Scanner.scan({});
+			const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
+			await attach([await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf")]);
+		} catch (error) {
+			if (!(error instanceof Error && Reflect.get(error, "code") === "cancelled")) onNotice(`掃描失敗：${error instanceof Error ? error.message : String(error)}`);
+		}
 	};
 
 	/** Photos become images at once; other files are read on the phone (attachments.ts), shown as reading meanwhile. */
@@ -222,9 +238,33 @@ export function Composer({
 					</div>
 				) : null}
 				<div className="input-row" hidden={listening}>
-					<button type="button" className="icon-button" onClick={() => fileInput.current?.click()} aria-label="附加檔案或照片">
+					<button type="button" className="icon-button" onClick={() => (Capacitor.isNativePlatform() ? setAttachMenu(true) : fileInput.current?.click())} aria-label="附加檔案或照片">
 						<PaperclipIcon />
 					</button>
+					<Sheet open={attachMenu} title="附加" onClose={() => setAttachMenu(false)}>
+						<div className="menu">
+							<button
+								type="button"
+								onClick={() => {
+									setAttachMenu(false);
+									fileInput.current?.click();
+								}}
+							>
+								<FileIcon size={18} />
+								<span className="menu-text">
+									照片或檔案
+									<span className="menu-hint">PDF、Word、Excel、CSV、文字</span>
+								</span>
+							</button>
+							<button type="button" onClick={() => void scanDocument()}>
+								<ScanIcon />
+								<span className="menu-text">
+									掃描文件
+									<span className="menu-hint">拍紙本，自動裁切成 PDF</span>
+								</span>
+							</button>
+						</div>
+					</Sheet>
 					<input
 						ref={fileInput}
 						type="file"

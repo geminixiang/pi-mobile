@@ -52,6 +52,11 @@ export const PlusIcon = ({ size = 22 }: { size?: number }) => (
 		<path d="M12 5v14M5 12h14" />
 	</Icon>
 );
+export const ScanIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M4 12h16" />
+	</Icon>
+);
 export const PaperclipIcon = ({ size = 22 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
