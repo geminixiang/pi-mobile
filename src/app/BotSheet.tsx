@@ -1,9 +1,10 @@
 // Creating a bot, or editing one: its name and its job, the part of its system prompt that says what it is for. From
-// an existing bot also its own MEMORY.md and deleting it.
+// an existing bot also its own MEMORY.md and deleting it. Edits save when the sheet closes; creating is a button.
 import { useEffect, useState } from "react";
 import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
 import { MemoryIcon, TrashIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { showToast } from "./Toasts.tsx";
 
 export type BotEdit = { kind: "create" } | { kind: "edit"; bot: Bot };
 
@@ -45,12 +46,22 @@ export function BotSheet({
 	}, [edit]);
 	const bot = edit?.kind === "edit" ? edit.bot : undefined;
 	const changed = !bot || name.trim() !== bot.name || job.trim() !== bot.job || avatar !== avatarOf(bot);
+	const valid = Boolean(name.trim()) && job.length <= MAX_JOB;
+	/** Leave an edited bot: save what changed, then go on. */
+	const leave = (next: () => void) => () => {
+		if (bot && changed) {
+			if (valid) void onSave({ name, job, avatar });
+			else showToast(name.trim() ? `工作說明超過 ${MAX_JOB} 字，沒有儲存` : "沒有名字，沒有儲存");
+		}
+		next();
+	};
 	return (
-		<Sheet open={Boolean(edit)} title={bot ? `${bot.name} 的設定` : "新增 Bot"} onClose={onClose}>
+		<Sheet open={Boolean(edit)} title={bot ? `${bot.name} 的設定` : "新增 Bot"} onClose={leave(onClose)}>
 			<form
 				className="bot-form"
 				onSubmit={(event) => {
 					event.preventDefault();
+					if (bot) return;
 					setSaving(true);
 					void onSave({ name, job, avatar }).finally(() => setSaving(false));
 				}}
@@ -83,28 +94,26 @@ export function BotSheet({
 					</span>
 					<textarea value={job} onChange={(event) => setJob(event.target.value)} placeholder={JOB_PLACEHOLDER} rows={5} />
 				</label>
-				<p className="hint">Bot 會一直記得這段說明。每個 Bot 有自己的一條對話、記憶和排程，sandbox 裡各有一個資料夾。</p>
-				<div className="row-buttons">
-					<button type="submit" className="btn primary" disabled={!name.trim() || job.length > MAX_JOB || !changed || saving}>
-						{bot ? "儲存" : "建立"}
-					</button>
-				</div>
+				{bot ? null : (
+					<div className="row-buttons">
+						<button type="submit" className="btn primary" disabled={!valid || saving}>
+							建立
+						</button>
+					</div>
+				)}
 			</form>
 			{bot ? (
 				<div className="menu">
-					<button type="button" onClick={() => onMemory(bot)}>
+					<button type="button" onClick={leave(() => onMemory(bot))}>
 						<MemoryIcon />
-						<span className="menu-text">
-							{bot.name} 的記憶
-							<span className="menu-hint">只有這個 Bot 會讀的 MEMORY.md</span>
-						</span>
+						<span className="menu-text">{bot.name} 的記憶</span>
 					</button>
 					{canDelete ? (
 						<button type="button" className="danger" onClick={() => onDelete(bot)}>
 							<TrashIcon size={18} />
 							<span className="menu-text">
 								刪除 Bot
-								<span className="menu-hint">連同它的對話、記憶、排程和 sandbox 資料夾</span>
+								<span className="menu-hint">連同對話、記憶、排程和資料夾</span>
 							</span>
 						</button>
 					) : null}
