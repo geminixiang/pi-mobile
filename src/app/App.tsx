@@ -1,5 +1,5 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { setConfirmListener } from "../agent/confirm.ts";
 import type { Bot } from "../agent/bots.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
@@ -276,9 +276,10 @@ export function App() {
 		onOpen: (next) => setOverlay(next === "left" ? "drawer" : "panel"),
 		onClose: close,
 	});
-	// The panel's position while dragged, as a CSS variable (styles.css .side-drag).
+	// The panel's position while dragged, as a CSS variable (styles.css .side-drag). Before paint: set after it, the
+	// panel's first frame had no position and showed fully open for a frame.
 	const appRef = useRef<HTMLDivElement>(null);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (drag) appRef.current?.style.setProperty("--side-progress", String(drag.progress));
 		else appRef.current?.style.removeProperty("--side-progress");
 	}, [drag]);
