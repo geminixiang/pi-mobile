@@ -1,8 +1,11 @@
 // Side panels follow the finger, as in Discord: a horizontal swipe anywhere on the conversation, not only from the
-// edge, pulls out the bot list (to the right) or the bot's panel (to the left), and the same on an open panel pushes
-// it back. The edges stay the system's back gesture: Android takes a quick swipe in from either edge, and Google's
-// guidance is to leave it that way and keep a button (the bar's two icons) as the other way in.
-import { type TouchEvent as ReactTouchEvent, useCallback, useEffect, useRef, useState } from "react";
+// edge, pulls out the bot list (moving right) or the bot's panel (moving left), and a swipe on an open panel toward
+// its edge pushes it back. The edges stay the system's back gesture, as Google's gesture navigation guidance asks;
+// the bar's two buttons are the other way in.
+//
+// While the finger is down this only reports where the panel is (drag); on release it decides open or closed and
+// says so with onOpen or onClose. The panel (SidePanel) does all the moving.
+import { type TouchEvent as ReactTouchEvent, useRef, useState } from "react";
 
 export type Side = "left" | "right";
 
@@ -12,137 +15,96 @@ const SIDEWAYS = 1.5;
 /** On release: open when pulled past this share of the panel, or flicked faster than this (px per ms). */
 const OPEN_SHARE = 0.4;
 const FLICK = 0.45;
-/** The settle transition (styles.css .side-settling), and then the panel's exit before the drag style goes. */
-const SETTLE_MS = 220;
 
 /** Where a swipe must not start: the composer (its scroll tab slides the prompt dial), fields, horizontal scrollers. */
 function blocked(target: EventTarget | null): boolean {
 	if (!(target instanceof Element)) return true;
 	if (target.closest(".composer, .dial, input, textarea, select, [contenteditable]")) return true;
 	for (let element: Element | null = target; element && !element.classList.contains("app"); element = element.parentElement) {
-		if (element.scrollWidth > element.clientWidth + 1) {
-			const overflow = getComputedStyle(element).overflowX;
-			if (overflow === "auto" || overflow === "scroll") return true;
-		}
+		const overflow = getComputedStyle(element).overflowX;
+		if ((overflow === "auto" || overflow === "scroll") && element.scrollWidth > element.clientWidth + 1) return true;
 	}
 	return false;
 }
 
-function panelWidth(side: Side): number {
-	const layer = document.querySelector(side === "left" ? ".layer-drawer" : ".layer-panel");
-	if (layer) return layer.getBoundingClientRect().width;
-	// Not mounted yet: the CSS widths (min(84%, 360px) and min(88%, 380px)).
-	return side === "left" ? Math.min(window.innerWidth * 0.84, 360) : Math.min(window.innerWidth * 0.88, 380);
+/** The panel's width, for turning pixels into a share of it (styles.css .side-sheet). */
+function panelWidth(): number {
+	return document.querySelector(".side-sheet")?.getBoundingClientRect().width ?? Math.min(window.innerWidth * 0.86, 370);
 }
 
-export interface SideDrag {
-	side: Side;
-	/** 0 closed, 1 open. */
-	progress: number;
-	/** Animating to where it was released, rather than following the finger. */
-	settling: boolean;
+interface Touch {
+	x: number;
+	y: number;
+	/** Set once the movement is clearly sideways. */
+	side?: Side;
+	/** Whether the panel was open when the touch began. */
+	wasOpen: boolean;
+	width: number;
+	lastX: number;
+	lastT: number;
+	velocity: number;
 }
 
 export function useSideSwipe({
 	open,
-	busy,
+	disabled,
 	onOpen,
 	onClose,
 }: {
 	/** The side panel showing, if any. */
 	open: Side | undefined;
-	/** Another layer is up (a sheet, a page, a dialog): no side swipes. */
-	busy: boolean;
+	/** Another layer is up (a sheet, a page, a dialog). */
+	disabled: boolean;
 	onOpen: (side: Side) => void;
 	onClose: () => void;
 }) {
-	const [drag, setDrag] = useState<SideDrag>();
-	const touch = useRef<{ x: number; y: number; lastX: number; lastT: number; velocity: number; side?: Side; opening: boolean; width: number }>(undefined);
-	const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const [drag, setDrag] = useState<{ side: Side; progress: number }>();
+	const touch = useRef<Touch>(undefined);
 
-	// Closed some other way (back, backdrop, an item) while in drag mode: slide out from where it is.
-	useEffect(() => {
-		if (!drag || touch.current?.side) return;
-		if (open !== drag.side && drag.progress !== 0) setDrag({ ...drag, progress: 0, settling: true });
-	}, [open, drag]);
+	const onTouchStart = (event: ReactTouchEvent) => {
+		const point = event.touches[0];
+		touch.current = undefined;
+		if (!point || event.touches.length > 1 || disabled || (!open && blocked(event.target))) return;
+		touch.current = { x: point.clientX, y: point.clientY, wasOpen: open !== undefined, width: 0, lastX: point.clientX, lastT: event.timeStamp, velocity: 0 };
+	};
 
-	useEffect(() => {
-		if (!drag?.settling) return;
-		clearTimeout(settleTimer.current);
-		// Settled closed: drop the drag style once the layer is gone. Settled open: keep it until the panel closes, since
-		// removing it would restart the panel's entry animation.
-		if (drag.progress === 0) settleTimer.current = setTimeout(() => setDrag(undefined), SETTLE_MS + 40);
-		return () => clearTimeout(settleTimer.current);
-	}, [drag]);
-
-	const onTouchStart = useCallback(
-		(event: ReactTouchEvent) => {
-			const point = event.touches[0];
-			touch.current = undefined;
-			if (!point || event.touches.length > 1 || busy) return;
-			// Opening: only from the conversation. Closing: anywhere on the open panel or its backdrop.
-			if (!open && blocked(event.target)) return;
-			touch.current = { x: point.clientX, y: point.clientY, lastX: point.clientX, lastT: event.timeStamp, velocity: 0, opening: !open, width: 0 };
-		},
-		[open, busy],
-	);
-
-	const onTouchMove = useCallback(
-		(event: ReactTouchEvent) => {
-			const start = touch.current;
-			const point = event.touches[0];
-			if (!start || !point) return;
+	const onTouchMove = (event: ReactTouchEvent) => {
+		const start = touch.current;
+		const point = event.touches[0];
+		if (!start || !point) return;
+		if (!start.side) {
 			const dx = point.clientX - start.x;
 			const dy = point.clientY - start.y;
-			if (!start.side) {
-				if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
-				if (Math.abs(dx) < Math.abs(dy) * SIDEWAYS) {
-					touch.current = undefined;
-					return;
-				}
-				if (start.opening) {
-					start.side = dx > 0 ? "left" : "right";
-					onOpen(start.side);
-				} else {
-					// An open panel is pushed back toward its own edge; the other way does nothing.
-					if ((open === "left" && dx > 0) || (open === "right" && dx < 0)) {
-						touch.current = undefined;
-						return;
-					}
-					start.side = open;
-				}
-				start.width = panelWidth(start.side ?? "left");
-				// Measure from here, so the panel does not jump by the slop.
-				start.x = point.clientX;
+			if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+			// Vertical, or an open panel pulled away from its own edge: not ours.
+			const side: Side = open ?? (dx > 0 ? "left" : "right");
+			const towardEdge = side === "left" ? dx < 0 : dx > 0;
+			if (Math.abs(dx) < Math.abs(dy) * SIDEWAYS || (open && !towardEdge)) {
+				touch.current = undefined;
+				return;
 			}
-			const side = start.side ?? "left";
-			const moved = point.clientX - start.x;
-			const toward = side === "left" ? moved : -moved;
-			const progress = Math.max(0, Math.min(1, (start.opening ? 0 : 1) + toward / start.width));
-			const elapsed = event.timeStamp - start.lastT;
-			if (elapsed > 0) start.velocity = (point.clientX - start.lastX) / elapsed;
-			start.lastX = point.clientX;
-			start.lastT = event.timeStamp;
-			clearTimeout(settleTimer.current);
-			setDrag({ side, progress, settling: false });
-		},
-		[open, onOpen],
-	);
+			start.side = side;
+			start.width = panelWidth();
+			// Measure from here, so the panel does not jump by the slop.
+			start.x = point.clientX;
+		}
+		const moved = (point.clientX - start.x) * (start.side === "left" ? 1 : -1);
+		const elapsed = event.timeStamp - start.lastT;
+		if (elapsed > 0) start.velocity = ((point.clientX - start.lastX) / elapsed) * (start.side === "left" ? 1 : -1);
+		start.lastX = point.clientX;
+		start.lastT = event.timeStamp;
+		setDrag({ side: start.side, progress: Math.max(0, Math.min(1, (start.wasOpen ? 1 : 0) + moved / start.width)) });
+	};
 
-	const onTouchEnd = useCallback(() => {
+	const onTouchEnd = () => {
 		const start = touch.current;
 		touch.current = undefined;
-		if (!start?.side) return;
-		const side = start.side;
-		setDrag((current) => {
-			if (!current) return current;
-			// Positive: toward open.
-			const flick = side === "left" ? start.velocity : -start.velocity;
-			const keep = flick > FLICK || (flick > -FLICK && current.progress > (start.opening ? OPEN_SHARE : 1 - OPEN_SHARE));
-			if (!keep) onClose();
-			return { side, progress: keep ? 1 : 0, settling: true };
-		});
-	}, [onClose]);
+		if (!start?.side || !drag) return;
+		const keep = start.velocity > FLICK || (start.velocity > -FLICK && drag.progress > (start.wasOpen ? 1 - OPEN_SHARE : OPEN_SHARE));
+		if (keep && !start.wasOpen) onOpen(start.side);
+		if (!keep && start.wasOpen) onClose();
+		setDrag(undefined);
+	};
 
 	return { drag, handlers: { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd } };
 }

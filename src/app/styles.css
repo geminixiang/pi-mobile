@@ -467,10 +467,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 @keyframes pop { from { opacity: 0; transform: translateY(calc(-50% + 10px)); } }
 @keyframes push { from { transform: translateX(28px); opacity: 0; } }
 @keyframes pop-out { to { transform: translateX(28px); opacity: 0; } }
-@keyframes slide-in { from { transform: translateX(-100%); } }
-@keyframes slide-out { to { transform: translateX(-100%); } }
-@keyframes slide-in-right { from { transform: translateX(100%); } }
-@keyframes slide-out-right { to { transform: translateX(100%); } }
 
 .menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
 .menu > button, .menu > label { display: flex; align-items: center; gap: 14px; min-height: 54px; padding: 10px 14px; text-align: left; font-size: 15px; }
@@ -525,11 +521,24 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .model-id { font-family: var(--mono); font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .model-list > .more { justify-content: center; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--accent); }
 
+/* ---------- Side panels (SidePanel.tsx) ----------
+   Position is --p, 0 closed to 1 open; a transition moves it, except while dragged. @starting-style makes a freshly
+   mounted panel start closed, so opening slides in. */
+.side { position: fixed; inset: 0; z-index: 20; }
+.side.closing { pointer-events: none; }
+.side-scrim { position: absolute; inset: 0; background: var(--scrim); opacity: var(--p); transition: opacity 220ms ease; }
+.side-sheet { position: absolute; top: 0; bottom: 0; width: min(86%, 370px); transition: transform 220ms var(--ease); }
+.side-left .side-sheet { left: 0; transform: translateX(calc((var(--p) - 1) * 100%)); }
+.side-right .side-sheet { right: 0; transform: translateX(calc((1 - var(--p)) * 100%)); }
+.side.dragging .side-scrim, .side.dragging .side-sheet { transition: none; }
+@starting-style {
+	.side-scrim { opacity: 0; }
+	.side-left .side-sheet { transform: translateX(-100%); }
+	.side-right .side-sheet { transform: translateX(100%); }
+}
+.chat, .drawer, .panel { touch-action: pan-y; }
+
 /* ---------- Drawer ---------- */
-.drawer-backdrop .layer-drawer { position: absolute; inset: 0 auto 0 0; width: min(84%, 360px); animation: slide-in 240ms var(--ease) both; }
-.drawer-backdrop.closing .layer-drawer { animation: slide-out 180ms ease-in both; }
-.panel-backdrop .layer-panel { position: absolute; inset: 0 0 0 auto; width: min(88%, 380px); animation: slide-in-right 240ms var(--ease) both; }
-.panel-backdrop.closing .layer-panel { animation: slide-out-right 180ms ease-in both; }
 .drawer {
 	height: 100%; display: flex; flex-direction: column; gap: 12px;
 	padding: calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px);
@@ -800,14 +809,3 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .panel-memory > svg { margin-top: 2px; color: var(--muted); flex-shrink: 0; }
 .panel-memory-line { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .context-note { margin: 8px 0 10px; font-size: 12px; color: var(--faint); }
-
-/* Side panels following the finger (sideSwipe.ts): the layer's motion comes from --side-progress (0 closed, 1 open)
-   instead of its entry and exit animations; on release it settles with a transition. */
-.side-drag .layer-drawer, .side-drag .layer-panel, .side-drag .drawer-backdrop, .side-drag .panel-backdrop { animation: none !important; }
-/* The scrim's color, not opacity: the panel is the backdrop's child and would fade with it. */
-.side-drag .drawer-backdrop, .side-drag .panel-backdrop { background: color-mix(in srgb, var(--scrim) calc(var(--side-progress, 0) * 100%), transparent); }
-.side-drag .layer-drawer { transform: translateX(calc((var(--side-progress, 0) - 1) * 100%)); }
-.side-drag .layer-panel { transform: translateX(calc((1 - var(--side-progress, 0)) * 100%)); }
-.side-settling .layer-drawer, .side-settling .layer-panel { transition: transform 220ms var(--ease); }
-.side-settling .drawer-backdrop, .side-settling .panel-backdrop { transition: background-color 220ms ease; }
-.chat, .drawer, .panel { touch-action: pan-y; }

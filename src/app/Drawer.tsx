@@ -4,7 +4,7 @@ import type { ConversationId } from "../agent/runtime.ts";
 import { GearIcon, MemoryIcon, MoreIcon, PlusIcon } from "./icons.tsx";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
-import { Layer } from "./Sheet.tsx";
+import { SidePanel } from "./SidePanel.tsx";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -19,6 +19,7 @@ function time(updatedAt: number, now: Date): string {
 /** The bots, each one long conversation, most recently talked to first. */
 export function Drawer({
 	open,
+	drag,
 	busy,
 	bots,
 	currentId,
@@ -32,6 +33,8 @@ export function Drawer({
 	onClose,
 }: {
 	open: boolean;
+	/** Where a swipe holds it, 0 to 1, while dragged. */
+	drag: number | undefined;
 	busy: boolean;
 	bots: Bot[];
 	currentId: ConversationId | undefined;
@@ -50,10 +53,8 @@ export function Drawer({
 }) {
 	const now = new Date();
 	return (
-		<Layer open={open} kind="drawer" onClose={onClose} label="Bot 列表">
-			<div
-				className="drawer"
-			>
+		<SidePanel side="left" open={open} drag={drag} onClose={onClose} label="Bot 列表">
+			<div className="drawer">
 				<div className="drawer-top">
 					<span className="brand">
 						<PiMark size={20} live={busy} />
@@ -109,6 +110,6 @@ export function Drawer({
 					</span>
 				</button>
 			</div>
-		</Layer>
+		</SidePanel>
 	);
 }

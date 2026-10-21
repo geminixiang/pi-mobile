@@ -9,7 +9,7 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { BoxIcon, CopyIcon, FileIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
-import { Layer } from "./Sheet.tsx";
+import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
 
@@ -46,6 +46,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function BotPanel({
 	open,
+	drag,
 	bot,
 	runtime,
 	view,
@@ -60,6 +61,8 @@ export function BotPanel({
 	onClose,
 }: {
 	open: boolean;
+	/** Where a swipe holds it, 0 to 1, while dragged. */
+	drag: number | undefined;
 	bot: Bot | undefined;
 	runtime: AgentRuntime;
 	view: ConversationView | undefined;
@@ -93,10 +96,8 @@ export function BotPanel({
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
 
 	return (
-		<Layer open={open} kind="panel" onClose={onClose} label={`${bot.name} 的資訊`}>
-			<div
-				className="panel"
-			>
+		<SidePanel side="right" open={open} drag={drag} onClose={onClose} label={`${bot.name} 的資訊`}>
+			<div className="panel">
 				<button type="button" className="panel-bot" onClick={run(actions.edit)}>
 					<BotAvatar bot={bot} size={48} />
 					<span className="panel-bot-text">
@@ -210,6 +211,6 @@ export function BotPanel({
 					</div>
 				</Section>
 			</div>
-		</Layer>
+		</SidePanel>
 	);
 }

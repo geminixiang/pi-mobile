@@ -1,5 +1,5 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { setConfirmListener } from "../agent/confirm.ts";
 import type { Bot } from "../agent/bots.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
@@ -272,17 +272,10 @@ export function App() {
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
 	const { drag, handlers: sideHandlers } = useSideSwipe({
 		open: side,
-		busy: (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined,
+		disabled: (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined,
 		onOpen: (next) => setOverlay(next === "left" ? "drawer" : "panel"),
 		onClose: close,
 	});
-	// The panel's position while dragged, as a CSS variable (styles.css .side-drag). Before paint: set after it, the
-	// panel's first frame had no position and showed fully open for a frame.
-	const appRef = useRef<HTMLDivElement>(null);
-	useLayoutEffect(() => {
-		if (drag) appRef.current?.style.setProperty("--side-progress", String(drag.progress));
-		else appRef.current?.style.removeProperty("--side-progress");
-	}, [drag]);
 
 	const splash = (
 		<div className="splash">
@@ -341,8 +334,7 @@ export function App() {
 	return (
 		<div
 			data-thinking={thinking || "off"}
-			className={`app${drag ? ` side-drag side-${drag.side}${drag.settling ? " side-settling" : ""}` : ""}`}
-			ref={appRef}
+			className="app"
 			{...sideHandlers}
 		>
 			<header className="bar">
@@ -396,6 +388,7 @@ export function App() {
 
 			<Drawer
 				open={overlay === "drawer"}
+				drag={drag?.side === "left" ? drag.progress : undefined}
 				busy={busy}
 				bots={bots}
 				currentId={controller?.id}
@@ -431,6 +424,7 @@ export function App() {
 
 			<BotPanel
 				open={overlay === "panel"}
+				drag={drag?.side === "right" ? drag.progress : undefined}
 				bot={current}
 				runtime={runtime}
 				view={view}
