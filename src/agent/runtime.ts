@@ -39,6 +39,7 @@ import { createGitHubExtension } from "./tools/github.ts";
 import { SkillsExtension } from "./skills.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { SpeechExtension } from "./tools/speech.ts";
+import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension } from "./tools/web.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
@@ -278,6 +279,7 @@ export class AgentRuntime {
 		registry.install(Assistant);
 		registry.install(BotExtension);
 		registry.install(DeviceExtension);
+		registry.install(WeatherExtension);
 		registry.install(AppsExtension);
 		registry.install(SpeechExtension);
 		registry.install(NotificationsExtension);

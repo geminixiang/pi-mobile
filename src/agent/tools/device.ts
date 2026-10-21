@@ -3,6 +3,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 
 interface PhonePlugin {
@@ -62,10 +63,10 @@ const readSensors = defineTool({
 	},
 });
 
-type Point = { latitude: number; longitude: number; label: string };
+export type Point = { latitude: number; longitude: number; label: string };
 
 /** "lat,lng" as is; anything else through the phone's geocoder. */
-async function resolvePlace(place: string): Promise<Point> {
+export async function resolvePlace(place: string): Promise<Point> {
 	const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(place);
 	if (match) return { latitude: Number(match[1]), longitude: Number(match[2]), label: place.trim() };
 	const found = await Phone.geocode({ query: place });
@@ -73,6 +74,25 @@ async function resolvePlace(place: string): Promise<Point> {
 }
 
 const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+
+const FixAddress = Type.Object({
+	adminArea: Type.Optional(Type.String()),
+	locality: Type.Optional(Type.String()),
+	subLocality: Type.Optional(Type.String()),
+});
+
+/** One location fix of the phone, labeled with its street address when the geocoder knows it. */
+export async function currentPlace(): Promise<Point> {
+	requireNative();
+	const fix = await Phone.getLocation();
+	const latitude = number(fix.latitude);
+	const longitude = number(fix.longitude);
+	if (latitude === undefined || longitude === undefined) throw new Error("no current location");
+	// The district, such as 新北市板橋區: enough to say where, without the street address.
+	const address = Value.Check(FixAddress, fix.address) ? fix.address : undefined;
+	const area = [address?.adminArea, address?.locality, address?.subLocality].filter(Boolean).join("");
+	return { latitude, longitude, label: area || "current location" };
+}
 
 // FOSSGIS's public OSRM servers, one per profile. Free and keyless, on fair use (about one request a second).
 const OSRM_PROFILES = { driving: "routed-car", walking: "routed-foot", cycling: "routed-bike" } as const;
@@ -94,14 +114,7 @@ const travelTime = defineTool({
 	replay: "safe",
 	execute: async (args, _api, context) => {
 		requireNative();
-		const here = async (): Promise<Point> => {
-			const fix = await Phone.getLocation();
-			const latitude = number(fix.latitude);
-			const longitude = number(fix.longitude);
-			if (latitude === undefined || longitude === undefined) throw new Error("no current location");
-			return { latitude, longitude, label: "current location" };
-		};
-		const [from, to] = await Promise.all([args.origin ? resolvePlace(args.origin) : here(), resolvePlace(args.destination)]);
+		const [from, to] = await Promise.all([args.origin ? resolvePlace(args.origin) : currentPlace(), resolvePlace(args.destination)]);
 		const url = `https://routing.openstreetmap.de/${OSRM_PROFILES[args.mode]}/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=false`;
 		const response = await fetch(url, { signal: context.abortSignal });
 		if (!response.ok) throw new Error(`routing service: HTTP ${response.status}`);
