@@ -9,7 +9,13 @@ keeps that channel open while it is connected. It replaces the relay's two HTTP 
   tokens with the tenant the phone sent; the proxy swaps them for real ones on Azure's hosts.
 
 Nothing is stored. When the phone goes away its channel closes, stdin ends, and the bridge exits: the proxy then
-refuses requests that need a credential. A new bridge replaces an older one still holding the ports.
+refuses requests that need a credential.
+
+One phone at a time: the phone pings every 10 seconds, and a bridge that has not heard from it for STALE_SECONDS
+exits, since a phone that lost its network can leave the channel half open for a long time. A new bridge replaces an
+older one only when that one is stale; otherwise it says it is busy and exits, and its phone retries later. Replacing
+a live bridge would let two phones take it from each other in turn, each answering the other's requests with its own
+credentials, or with none.
 """
 
 import base64
@@ -20,6 +26,7 @@ import signal
 import sys
 import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -27,12 +34,15 @@ SECRET = os.environ["EGRESS_SECRET"]
 PID_FILE = "/tmp/pi-mobile-bridge.pid"
 # A write waits for the person on the phone; credentials.py gives up after its own approval timeout.
 ANSWER_TIMEOUT_SECONDS = 6 * 60
+# Three missed pings.
+STALE_SECONDS = 35
 
 pending = {}
 pending_lock = threading.Lock()
 ids = itertools.count(1)
 write_lock = threading.Lock()
 config = {"azureTenant": "00000000-0000-0000-0000-000000000000"}
+heard = {"at": time.monotonic()}
 
 
 def send(message):
@@ -57,6 +67,7 @@ def ask_phone(body):
 
 def read_phone():
     for line in sys.stdin:
+        heard["at"] = time.monotonic()
         try:
             message = json.loads(line)
         except ValueError:
@@ -118,6 +129,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         url = urlparse(self.path)
+        if url.path == "/egress/alive" and self.headers.get("x-egress-secret") == SECRET:
+            return self.reply(200, {"quiet": time.monotonic() - heard["at"]})
         if url.path != "/azure/identity":
             return self.reply(404, {"error": "not found"})
         resource = parse_qs(url.query).get("resource", ["https://management.core.windows.net/"])[0]
@@ -127,8 +140,25 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def older_is_live():
+    """Whether another bridge holds the ports and has heard from its phone lately."""
+    request = urllib.request.Request("http://127.0.0.1:9001/egress/alive", headers={"x-egress-secret": SECRET})
+    try:
+        with urllib.request.urlopen(request, timeout=3) as response:
+            return json.load(response).get("quiet", STALE_SECONDS) < STALE_SECONDS
+    except (OSError, ValueError):
+        return False
+
+
+def watch_phone():
+    while True:
+        time.sleep(5)
+        if time.monotonic() - heard["at"] > STALE_SECONDS:
+            os._exit(0)
+
+
 def take_over():
-    """Stop an older bridge (a phone connection that died without closing its channel) and record this one."""
+    """Stop an older bridge whose phone went quiet, and record this one."""
     try:
         with open(PID_FILE) as file:
             old = int(file.read().strip())
@@ -154,7 +184,11 @@ def serve(address):
 
 
 if __name__ == "__main__":
+    if older_is_live():
+        send({"type": "busy"})
+        sys.exit(3)
     take_over()
+    threading.Thread(target=watch_phone, daemon=True).start()
     serve(("127.0.0.1", 9001))
     serve(("0.0.0.0", 9002))
     send({"type": "ready"})

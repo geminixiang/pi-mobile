@@ -72,6 +72,14 @@ An exec channel rather than an SSH remote forward, because a forward binds the h
 cannot reach without GatewayPorts. When the phone goes away the channel closes and the bridge exits, so the proxy
 refuses at once, with no grace period.
 
+One phone at a time per host. The phone pings the bridge every 10 seconds; a bridge that hears nothing for 35 seconds
+exits, because a phone that lost its network can leave the channel half open. A new bridge replaces an older one only
+when that one is quiet; otherwise it exits with code 3 and its phone retries with backoff. The first version always
+replaced the older bridge, so two phones on one host (the S24 and the emulator here) took it from each other in turn,
+and one phone's requests were answered with the other's credentials: the emulator has no GitHub token, so the S24's
+`gh api user` got 401. The phone writes its own copy of bridge.py into the proxy before starting it, so a fix to the
+protocol does not wait for the image to be rebuilt.
+
 ### Relay
 
 Kept for hosts already paired by QR code until SSH covers credentials; then removed together with `install.sh`.

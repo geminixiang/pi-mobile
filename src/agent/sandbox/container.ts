@@ -1,4 +1,4 @@
-// Containers on a machine reached over SSH (docs/design/sandbox-ssh.md): one per conversation, behind the egress
+// Containers on a machine reached over SSH (docs/design/sandbox-ssh.md): one shared by all bots, behind the egress
 // proxy, driven by the phone with the engine's CLI (docker, podman, or nerdctl; only the subset they share). What the
 // relay did on the host (sandbox/relay/server.mjs) the phone does over SSH, and the proxy reaches the phone through
 // bridge.py on an exec channel, so nothing runs on the host for the app and no credential is stored there.
@@ -6,6 +6,7 @@ import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
 import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
 import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
+import { log } from "../../log.ts";
 import { requestConfirmation } from "../confirm.ts";
 import type { MintedService } from "./egress.ts";
 import { daemon, ENV_PATH, type MachineSystem, shellQuote } from "./machine.ts";
@@ -27,6 +28,9 @@ const CPUS = "2";
 const MEMORY = "2g";
 const PIDS = "512";
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
+/** bridge.py exits after 35 seconds without hearing from the phone, so another phone can take over. */
+const BRIDGE_PING_MS = 10_000;
+const BRIDGE_PATH = "/tmp/pi-mobile-bridge.py";
 
 /** Environment for the daemon and everything it runs: proxy, CA bundle for runtimes with their own, placeholders. */
 const SANDBOX_ENV: Record<string, string> = {
@@ -200,12 +204,15 @@ export class ContainerHost {
 		let close: (() => void) | undefined;
 		const run = async (): Promise<void> => {
 			await this.#ensureEgress();
+			// The phone's side of the protocol is this app's version, so the bridge is too, not the one in the image.
+			await this.#e(`exec -i ${EGRESS} sh -c 'cat > ${BRIDGE_PATH}'`, new TextEncoder().encode(bridgePy));
 			const client = await this.#client();
 			let buffer = "";
 			let send: (message: unknown) => void = () => {};
+			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
 			const ended = new Promise<void>((resolve) => {
 				void client
-					.exec(`${ENV_PATH}; ${this.#engine} exec -i ${EGRESS} python3 /egress/bridge.py`, {
+					.exec(`${ENV_PATH}; ${this.#engine} exec -i ${EGRESS} python3 ${BRIDGE_PATH}`, {
 						onStdout: (data) => {
 							buffer += new TextDecoder().decode(data);
 							let newline = buffer.indexOf("\n");
@@ -216,7 +223,11 @@ export class ContainerHost {
 								newline = buffer.indexOf("\n");
 							}
 						},
-						onExit: () => resolve(),
+						onExit: (code) => {
+							// 3: another phone's bridge is live; retried with backoff below.
+							if (code === 3) log.warn("sandbox.bridge_busy", { engine: this.#engine });
+							resolve();
+						},
 					})
 					.then((channel) => {
 						close = () => channel.close();
@@ -225,7 +236,7 @@ export class ContainerHost {
 						if (tenant) send({ type: "config", azureTenant: tenant });
 					});
 			});
-			await ended;
+			await ended.finally(() => clearInterval(ping));
 		};
 		const loop = async () => {
 			let delay = 1000;
