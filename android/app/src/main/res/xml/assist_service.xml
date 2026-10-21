@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- pi as the digital assistant: summoned (long press on the side key, or the assistant gesture), it gets the screen. -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="dev.geminixiang.pimobile.AssistSessionService"
+    android:recognitionService="dev.geminixiang.pimobile.AssistRecognitionService"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />

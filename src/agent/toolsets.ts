@@ -17,7 +17,7 @@
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
-export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
+export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
 export type ToolsetKind = "builtin" | "service";
 
@@ -44,6 +44,8 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", load: "always", id: "calendar", label: "日曆", hint: "讀行程；新增前先問你", extensions: ["calendar"] },
 	{ kind: "builtin", load: "always", id: "contacts", label: "聯絡人", hint: "用名字找電話、email、生日", extensions: ["contacts"] },
 	{ kind: "builtin", load: "always", id: "photos", label: "相片", hint: "依時間、地點、相簿找照片並看內容", extensions: ["photos"] },
+	{ kind: "builtin", load: "always", id: "calls", label: "通話與簡訊", hint: "通話紀錄、未接來電、簡訊（驗證碼、銀行通知）", extensions: ["calls_sms"] },
+	{ kind: "builtin", load: "always", id: "screen", label: "螢幕使用時間", hint: "每個 app 用了多久、解鎖幾次（設定 › 手機）", extensions: ["screen_time"] },
 	{ kind: "builtin", load: "always", id: "control", label: "手機控制", hint: "音樂播放、勿擾模式（需要通知讀取）", extensions: ["phone_control"] },
 	{ kind: "builtin", load: "always", id: "notifications", label: "通知", hint: "讀、回覆、清除手機收到的通知：LINE、信件、外送…（設定 › 手機）", extensions: ["notifications"] },
 	{ kind: "builtin", load: "always", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },

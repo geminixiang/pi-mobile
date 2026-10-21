@@ -4,6 +4,7 @@ import { KeepAlive, native } from "./keepAlive.ts";
 import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { System } from "../system-plugin.ts";
+import { Usage } from "../agent/tools/records.ts";
 import { showToast } from "./Toasts.tsx";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
 import {
@@ -465,6 +466,40 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	);
 }
 
+/**
+ * The grants Android keeps in its own settings pages, which pi can only open: usage access (screen time) and pi as the
+ * digital assistant. Rechecked when the user comes back from there.
+ */
+function SystemAccessGroup() {
+	const [state, setState] = useState<{ usage: boolean; assistant: boolean }>();
+	useEffect(() => {
+		if (!native) return;
+		const refresh = () =>
+			void Promise.all([Usage.status(), System.assistant()]).then(([usage, assistant]) => setState({ usage: usage.allowed, assistant: assistant.held }));
+		refresh();
+		const listener = App.addListener("resume", refresh);
+		return () => void listener.then((handle) => handle.remove());
+	}, []);
+	if (!state) return null;
+	const row = (label: string, hint: string, on: boolean, open: () => Promise<void>) => (
+		<div className="check-row">
+			<span className="menu-text">
+				{label}
+				<span className="menu-hint">{hint}</span>
+			</span>
+			<button type="button" className="btn" onClick={() => void open()}>
+				{on ? "管理" : "開啟"}
+			</button>
+		</div>
+	);
+	return (
+		<Group title="系統權限">
+			{row("螢幕使用時間", state.usage ? "已開啟" : "讓 Bot 看每個 app 用了多久", state.usage, () => Usage.openSettings())}
+			{row("數位助理", state.assistant ? "長按側邊鍵叫出 pi，帶著目前的畫面" : "設成數位助理，就能在任何畫面叫出 pi", state.assistant, () => System.openAssistantSettings())}
+		</Group>
+	);
+}
+
 /** Notification permission and battery exemption, which background runs depend on. Rechecked when the app resumes. */
 function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
@@ -830,6 +865,7 @@ export function SettingsView({
 				<>
 					<CalendarGroup value={settings.calendarAccess} onChange={(json) => change({ calendarAccess: json })} />
 					<NotificationsGroup />
+					<SystemAccessGroup />
 					<BackgroundGroup />
 				</>
 			),

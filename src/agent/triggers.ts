@@ -87,6 +87,8 @@ const QueuedEvent = Type.Union([
 		id: Type.String(),
 		at: Type.Number(),
 		kind: Type.Literal("share"),
+		/** Sent by pi as the assistant (AssistSession.java): the screen the user summoned it on. */
+		source: Type.Optional(Type.Literal("assist")),
 		text: Type.Optional(Type.String()),
 		subject: Type.Optional(Type.String()),
 		/** Copies in the native inbox, read through Capacitor's file server (Capacitor.convertFileSrc). */

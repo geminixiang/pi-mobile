@@ -39,10 +39,17 @@ interface Suggestion {
 }
 
 /** What was shared from another app: photos only, other files, or only text. */
-export type SharedKind = "image" | "file" | "text";
+export type SharedKind = "image" | "file" | "text" | "screen";
 
 /** What to do with something shared from another app; picked, it goes before the shared text in the composer. */
 function shareActions(kind: SharedKind): Suggestion[] {
+	if (kind === "screen") {
+		return [
+			{ title: "這頁在講什麼", prompt: "這個畫面在講什麼？用幾句話說重點" },
+			{ title: "幫我回覆", prompt: "幫我想一個回覆，簡短、口語" },
+			{ title: "接下來要做什麼", prompt: "看這個畫面，我接下來要做什麼？有日期或待辦就幫我排進行事曆" },
+		];
+	}
 	if (kind === "file") {
 		return [
 			{ title: "摘要", prompt: "讀一下這份檔案，用幾點摘要重點" },
@@ -231,7 +238,7 @@ export function Chat({
 						<h2>
 							要 pi 怎麼<em>處理</em>？
 						</h2>
-						<p>{shared === "image" ? "圖片已經放在輸入框裡。" : shared === "file" ? "檔案已經放在輸入框裡。" : "分享的內容已經放在輸入框裡。"}選一個，或直接打字說要做什麼。</p>
+						<p>{shared === "screen" ? "剛才的畫面已經放在輸入框裡。" : shared === "image" ? "圖片已經放在輸入框裡。" : shared === "file" ? "檔案已經放在輸入框裡。" : "分享的內容已經放在輸入框裡。"}選一個，或直接打字說要做什麼。</p>
 						<ol className="suggestions">
 							{shareActions(shared).map((action, index) => (
 								<li key={action.title}>

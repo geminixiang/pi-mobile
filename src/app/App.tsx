@@ -246,7 +246,10 @@ export function App() {
 				return;
 			}
 			const items = await runtime.bots();
-			if (items.length === 1 && items[0]) await openRef.current(items[0].id, draft, files, sharedKind(files));
+			const kind = item.source === "assist" ? "screen" : sharedKind(files);
+			// The screen goes to the bot the user was in: summoning pi is for a quick question, not a choice.
+			const last = items.find((bot) => String(bot.id) === localStorage.getItem(LAST_BOT_KEY)) ?? (items.length === 1 ? items[0] : undefined);
+			if (last && (kind === "screen" || items.length === 1)) await openRef.current(last.id, item.source === "assist" ? "" : draft, files, kind);
 			else setSharing({ draft, files });
 		};
 		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });

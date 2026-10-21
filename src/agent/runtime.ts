@@ -53,6 +53,7 @@ import { createWebExtension } from "./tools/web.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { ControlExtension } from "./tools/control.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
+import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
@@ -391,6 +392,8 @@ export class AgentRuntime {
 		install(ControlExtension);
 		install(ContactsExtension);
 		install(PhotosExtension);
+		install(RecordsExtension);
+		install(ScreenTimeExtension);
 		install(SkillsExtension);
 		install(AttachmentsExtension);
 		install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));

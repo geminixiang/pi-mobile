@@ -63,6 +63,11 @@ public class TriggersPlugin extends Plugin {
         return live;
     }
 
+    /** Tell the web side the queue has new events (AssistSession queues from outside the plugin). */
+    void announce() {
+        notifyListeners("event", new JSObject(), true);
+    }
+
     /** Whether the user is looking at pi: a permission dialog asked from the background would wait unseen. */
     static boolean inFront(android.app.Activity activity) {
         return activity instanceof androidx.lifecycle.LifecycleOwner

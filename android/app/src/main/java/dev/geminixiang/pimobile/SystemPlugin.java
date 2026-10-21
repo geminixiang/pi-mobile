@@ -56,4 +56,26 @@ public class SystemPlugin extends Plugin {
         result.put("text", text == null ? "" : text.toString());
         call.resolve(result);
     }
+
+    /** Whether pi is the digital assistant (summoned with the side key, it gets the screen: AssistSession). */
+    @PluginMethod
+    public void assistant(PluginCall call) {
+        android.app.role.RoleManager roles = getContext().getSystemService(android.app.role.RoleManager.class);
+        JSObject result = new JSObject();
+        result.put("held", roles != null && roles.isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT));
+        call.resolve(result);
+    }
+
+    /** The system page where the user picks the digital assistant; Android does not let an app ask for the role. */
+    @PluginMethod
+    public void openAssistantSettings(PluginCall call) {
+        android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+        } catch (RuntimeException e) {
+            getContext().startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
+        call.resolve();
+    }
 }
