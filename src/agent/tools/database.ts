@@ -7,9 +7,9 @@
 import { Capacitor } from "@capacitor/core";
 import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
-import { requestConfirmation } from "../confirm.ts";
+import { approve, defineAppTool, requireNative } from "./common.ts";
 
 /** The statement's words outside string literals, quoted names, and comments, upper-cased. */
 function keywords(sql: string): string {
@@ -31,7 +31,7 @@ function format(result: StatementResult, index: number): string {
 	return `#${index + 1}: ${result.changes ?? 0} changed${result.lastInsertId !== undefined ? `, id ${result.lastInsertId}` : ""}`;
 }
 
-const sql = defineTool({
+const sql = defineAppTool({
 	name: "sql",
 	description: [
 		"Run SQLite statements on the user's own database on the phone, all in one transaction (all apply or none). Keep there what the user wants recorded and counted: expenses, logs, lists, collections.",
@@ -54,24 +54,25 @@ const sql = defineTool({
 			Type.Object({
 				rows: Type.Optional(Type.Array(Type.Record(Type.String(), Type.Union([Type.String(), Type.Number(), Type.Null()])))),
 				changes: Type.Optional(Type.Number()),
-				lastInsertId: Type.Optional(Type.Number()),
+				last_insert_id: Type.Optional(Type.Number()),
 			}),
 		),
 	}),
 	execute: async (args) => {
-		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+		requireNative();
 		const words = args.statements.map((statement) => keywords(statement.sql));
 		if (words.some((word) => REFUSED.test(word))) throw new Error("ATTACH, DETACH, and VACUUM INTO are not allowed: the database is one file");
 		if (words.some((word) => DESTRUCTIVE.test(word))) {
-			const approved = await requestConfirmation({
-				title: "刪除資料庫裡的資料",
-				detail: [args.reason, ...args.statements.map((statement) => `${statement.sql}${statement.params?.length ? `\n  ${JSON.stringify(statement.params)}` : ""}`)]
-					.filter(Boolean)
-					.join("\n\n"),
-			});
-			if (!approved) {
-				throw new Error("The user declined. Reply with one short sentence that nothing was deleted, such as 「好，不刪。」; do not list what it would have been, offer alternatives, or ask why.");
-			}
+			const declined = await approve(
+				{
+					title: "刪除資料庫裡的資料",
+					detail: [args.reason, ...args.statements.map((statement) => `${statement.sql}${statement.params?.length ? `\n  ${JSON.stringify(statement.params)}` : ""}`)]
+						.filter(Boolean)
+						.join("\n\n"),
+				},
+				"好，不刪。",
+			);
+			if (declined) return declined;
 		}
 		const { results } = await Database.execute({ statements: args.statements });
 		const structured = results.map((result): JsonValue =>
@@ -81,7 +82,7 @@ const sql = defineTool({
 							Object.fromEntries((result.columns ?? []).map((column, i): [string, SqlValue] => [column, row[i] ?? null])),
 						),
 					}
-				: { changes: result.changes ?? 0, ...(result.lastInsertId !== undefined ? { lastInsertId: result.lastInsertId } : {}) },
+				: { changes: result.changes ?? 0, ...(result.lastInsertId !== undefined ? { last_insert_id: result.lastInsertId } : {}) },
 		);
 		return { output: [{ type: "text", text: results.map(format).join("\n\n") }], structuredOutput: { results: structured } };
 	},

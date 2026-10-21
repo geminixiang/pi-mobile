@@ -1,9 +1,10 @@
 // Tools that hand work to other apps on the phone through Android intents. Most open a prefilled screen and the user
 // finishes there (press send, pick a share target), so they need no approval of their own. Calendars are in calendar.ts.
 import { App } from "@capacitor/app";
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { registerPlugin } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineAppTool, parseClock, requireNative, text } from "./common.ts";
 
 interface AppsPlugin {
 	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
@@ -18,29 +19,24 @@ const Apps = registerPlugin<AppsPlugin>("Apps");
 
 /** Android blocks activity starts from the background; fail clearly instead of silently doing nothing. */
 async function launch(action: () => Promise<void>): Promise<void> {
-	if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+	requireNative();
 	if (!(await App.getState()).isActive)
 		throw new Error("pi is in the background, and Android does not let it open other apps from there. Ask the user to open pi and try again.");
 	await action();
 }
 
-const text = (value: string) => ({ output: [{ type: "text" as const, text: value }] });
-
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
-const setAlarm = defineTool({
+const setAlarm = defineAppTool({
 	name: "set_alarm",
 	description: "Set an alarm in the phone's clock app, without opening it. Time is the phone's local time.",
 	parameters: Type.Object({
 		time: Type.String({ description: "24-hour local time, HH:MM" }),
-		label: Type.Optional(Type.String()),
+		label: Type.Optional(Type.String({ description: "Shown when it rings" })),
 		repeat: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Weekdays to repeat on; omit for once" })),
 	}),
 	execute: async (args) => {
-		const match = /^(\d{1,2}):(\d{2})$/.exec(args.time.trim());
-		const hour = match ? Number(match[1]) : NaN;
-		const minute = match ? Number(match[2]) : NaN;
-		if (!(hour >= 0 && hour < 24 && minute >= 0 && minute < 60)) throw new Error(`time must be HH:MM, got ${args.time}`);
+		const { hour, minute } = parseClock(args.time, "time");
 		// Android's EXTRA_DAYS uses java.util.Calendar's numbering: Sunday is 1.
 		const days = args.repeat?.map((day) => WEEKDAYS.indexOf(day) + 1);
 		await launch(() => Apps.setAlarm({ hour, minute, label: args.label, days }));
@@ -48,12 +44,12 @@ const setAlarm = defineTool({
 	},
 });
 
-const setTimer = defineTool({
+const setTimer = defineAppTool({
 	name: "set_timer",
 	description: "Start a countdown timer in the phone's clock app, without opening it.",
 	parameters: Type.Object({
-		seconds: Type.Integer({ minimum: 1, maximum: 86_400 }),
-		label: Type.Optional(Type.String()),
+		seconds: Type.Integer({ minimum: 1, maximum: 86_400, description: "How long, in seconds" }),
+		label: Type.Optional(Type.String({ description: "Shown when it ends" })),
 	}),
 	execute: async (args) => {
 		await launch(() => Apps.setTimer({ seconds: args.seconds, label: args.label }));
@@ -61,13 +57,13 @@ const setTimer = defineTool({
 	},
 });
 
-const composeEmail = defineTool({
+const composeEmail = defineAppTool({
 	name: "compose_email",
 	description: "Open the phone's email app on a draft. The user reviews it and sends it; nothing is sent by this tool.",
 	parameters: Type.Object({
-		to: Type.Optional(Type.Array(Type.String())),
-		subject: Type.Optional(Type.String()),
-		body: Type.String(),
+		to: Type.Optional(Type.Array(Type.String(), { description: "Email addresses" })),
+		subject: Type.Optional(Type.String({ description: "Subject line" })),
+		body: Type.String({ description: "The email, as the user would write it" }),
 	}),
 	execute: async (args) => {
 		await launch(() => Apps.composeEmail({ to: args.to ?? [], subject: args.subject, body: args.body }));
@@ -75,12 +71,12 @@ const composeEmail = defineTool({
 	},
 });
 
-const composeSms = defineTool({
+const composeSms = defineAppTool({
 	name: "compose_sms",
 	description: "Open the phone's messaging app on a text message draft. The user sends it; nothing is sent by this tool.",
 	parameters: Type.Object({
 		to: Type.Optional(Type.String({ description: "Phone number" })),
-		body: Type.String(),
+		body: Type.String({ description: "The message, as the user would write it" }),
 	}),
 	execute: async (args) => {
 		await launch(() => Apps.composeSms({ to: args.to ?? "", body: args.body }));
@@ -90,13 +86,13 @@ const composeSms = defineTool({
 
 const TRAVEL_MODES = ["driving", "walking", "transit", "bicycling"] as const;
 
-const openMaps = defineTool({
+const openMaps = defineAppTool({
 	name: "open_maps",
 	description: "Open directions to a place in Google Maps (or the phone's maps app). The user starts navigation there.",
 	parameters: Type.Object({
 		destination: Type.String({ description: "Address, place name, or lat,lng" }),
 		origin: Type.Optional(Type.String({ description: "Default: current location" })),
-		mode: Type.Optional(Type.Union(TRAVEL_MODES.map((mode) => Type.Literal(mode)))),
+		mode: Type.Optional(Type.Union(TRAVEL_MODES.map((mode) => Type.Literal(mode)), { description: "How the user goes; default the maps app's" })),
 	}),
 	execute: async (args) => {
 		const url = new URL("https://www.google.com/maps/dir/");
@@ -112,11 +108,11 @@ const openMaps = defineTool({
 /** Schemes that reach into the app itself or the file system rather than another app. */
 const BLOCKED_SCHEMES = new Set(["intent", "file", "content", "javascript", "data", "about", "blob", "android-app"]);
 
-const openLink = defineTool({
+const openLink = defineAppTool({
 	name: "open_link",
 	description:
 		"Open a URL or an app deep link (for example https://…, geo:, tel: which opens the dialer without calling, market://, spotify:…) in the app that handles it.",
-	parameters: Type.Object({ url: Type.String() }),
+	parameters: Type.Object({ url: Type.String({ description: "With its scheme, such as https:// or geo:" }) }),
 	execute: async (args) => {
 		const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(args.url.trim())?.[1]?.toLowerCase();
 		if (!scheme) throw new Error("url needs a scheme, such as https:");
@@ -143,14 +139,14 @@ function base64(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
-const share = defineTool({
+const share = defineAppTool({
 	name: "share",
 	description:
 		"Open the Android share sheet with text and/or one file from the sandbox, so the user can send it to another app (LINE, Drive, email…). The user picks the target.",
 	parameters: Type.Object({
-		text: Type.Optional(Type.String()),
+		text: Type.Optional(Type.String({ description: "Text to share" })),
 		sandbox_path: Type.Optional(Type.String({ description: "File in the sandbox to share, e.g. /workspace/chart.png" })),
-		title: Type.Optional(Type.String()),
+		title: Type.Optional(Type.String({ description: "Title of the share sheet" })),
 	}),
 	execute: async (args, api, context) => {
 		if (!args.text && !args.sandbox_path) throw new Error("give text, sandbox_path, or both");

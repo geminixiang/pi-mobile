@@ -2,7 +2,8 @@
 // for Taiwan JMA's and ECMWF's among them). Current conditions, the hours ahead, and the days ahead, so 「等等會下雨嗎」
 // and 「週六宜蘭要帶傘嗎」 get numbers instead of a guess.
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineAppTool } from "./common.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, type Point, resolvePlace } from "./device.ts";
 
@@ -72,15 +73,15 @@ const Forecast = Type.Object({
 	}),
 });
 
-const Hour = Type.Object({ time: Type.String(), condition: Type.String(), temperatureC: Type.Number(), rainChance: Type.Number(), rainMm: Type.Number() });
+const Hour = Type.Object({ time: Type.String(), condition: Type.String(), temperature_c: Type.Number(), rain_chance: Type.Number(), rain_mm: Type.Number() });
 const Day = Type.Object({
 	date: Type.String(),
 	condition: Type.String(),
-	lowC: Type.Number(),
-	highC: Type.Number(),
-	rainChance: Type.Number(),
-	rainMm: Type.Number(),
-	uvIndex: Type.Number(),
+	low_c: Type.Number(),
+	high_c: Type.Number(),
+	rain_chance: Type.Number(),
+	rain_mm: Type.Number(),
+	uv_index: Type.Number(),
 	sunrise: Type.String(),
 	sunset: Type.String(),
 });
@@ -88,14 +89,14 @@ const Day = Type.Object({
 const at = (values: readonly (number | null)[], index: number) => values[index] ?? 0;
 const clock = (iso: string) => iso.slice(11, 16);
 
-const weather = defineTool({
+const weather = defineAppTool({
 	name: "weather",
 	description:
 		"Weather forecast for a place, or where the phone is when no place is given: current conditions, hourly for the hours ahead (temperature, chance of rain, rainfall), and daily for the days ahead (low, high, chance of rain, rainfall, UV, sunrise and sunset). Use it for any question about weather, rain, umbrellas, or what to wear, instead of searching the web.",
 	parameters: Type.Object({
 		place: Type.Optional(Type.String({ description: "Place name or address (宜蘭、合歡山、東京), or lat,lng; default the phone's location" })),
-		hours: Type.Optional(Type.Integer({ description: "Hours of hourly forecast from now; default 24, up to 384" })),
-		days: Type.Optional(Type.Integer({ description: "Days of daily forecast from today; default 7, up to 16" })),
+		hours: Type.Optional(Type.Integer({ minimum: 1, description: "Hours of hourly forecast from now; default 24, up to 384" })),
+		days: Type.Optional(Type.Integer({ minimum: 1, description: "Days of daily forecast from today; default 7, up to 16" })),
 	}),
 	structuredOutputSchema: Type.Object({ place: Type.String(), now: Hour, hours: Type.Array(Hour), days: Type.Array(Day) }),
 	replay: "safe",
@@ -121,26 +122,26 @@ const weather = defineTool({
 		const now = {
 			time: c.time.replace("T", " "),
 			condition: condition(c.weather_code),
-			temperatureC: c.temperature_2m,
-			rainChance: at(body.hourly.precipitation_probability, 0),
-			rainMm: c.precipitation,
+			temperature_c: c.temperature_2m,
+			rain_chance: at(body.hourly.precipitation_probability, 0),
+			rain_mm: c.precipitation,
 		};
 		const hourly = body.hourly.time.map((time, i) => ({
 			time: time.replace("T", " "),
 			condition: condition(at(body.hourly.weather_code, i)),
-			temperatureC: at(body.hourly.temperature_2m, i),
-			rainChance: at(body.hourly.precipitation_probability, i),
-			rainMm: at(body.hourly.precipitation, i),
+			temperature_c: at(body.hourly.temperature_2m, i),
+			rain_chance: at(body.hourly.precipitation_probability, i),
+			rain_mm: at(body.hourly.precipitation, i),
 		}));
 		const d = body.daily;
 		const daily = d.time.map((date, i) => ({
 			date,
 			condition: condition(at(d.weather_code, i)),
-			lowC: at(d.temperature_2m_min, i),
-			highC: at(d.temperature_2m_max, i),
-			rainChance: at(d.precipitation_probability_max, i),
-			rainMm: at(d.precipitation_sum, i),
-			uvIndex: at(d.uv_index_max, i),
+			low_c: at(d.temperature_2m_min, i),
+			high_c: at(d.temperature_2m_max, i),
+			rain_chance: at(d.precipitation_probability_max, i),
+			rain_mm: at(d.precipitation_sum, i),
+			uv_index: at(d.uv_index_max, i),
 			sunrise: clock(d.sunrise[i] ?? ""),
 			sunset: clock(d.sunset[i] ?? ""),
 		}));
@@ -149,10 +150,10 @@ const weather = defineTool({
 			`Now ${now.time}: ${now.condition} ${c.temperature_2m}°C, feels ${c.apparent_temperature}°C, humidity ${c.relative_humidity_2m}%, wind ${c.wind_speed_10m} km/h, rain ${c.precipitation} mm`,
 			"",
 			"Hourly (time condition temp rain-chance rainfall):",
-			...hourly.map((h) => `${h.time} ${h.condition} ${h.temperatureC}°C ${h.rainChance}% ${h.rainMm}mm`),
+			...hourly.map((h) => `${h.time} ${h.condition} ${h.temperature_c}°C ${h.rain_chance}% ${h.rain_mm}mm`),
 			"",
 			"Daily (date condition low–high rain-chance rainfall UV sunrise–sunset):",
-			...daily.map((day) => `${day.date} ${day.condition} ${day.lowC}–${day.highC}°C ${day.rainChance}% ${day.rainMm}mm UV ${day.uvIndex} ${day.sunrise}–${day.sunset}`),
+			...daily.map((day) => `${day.date} ${day.condition} ${day.low_c}–${day.high_c}°C ${day.rain_chance}% ${day.rain_mm}mm UV ${day.uv_index} ${day.sunrise}–${day.sunset}`),
 		].join("\n");
 		return { output: [{ type: "text", text }], structuredOutput: { place: point.label, now, hours: hourly, days: daily } };
 	},

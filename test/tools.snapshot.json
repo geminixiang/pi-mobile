@@ -1,0 +1,2570 @@
+[
+	{
+		"extension": "device",
+		"toolset": "device",
+		"name": "device_info",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "device",
+		"toolset": "device",
+		"name": "get_location",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "device",
+		"toolset": "device",
+		"name": "read_sensors",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "device",
+		"toolset": "device",
+		"name": "get_travel_time",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"destination": {
+					"description": "Address, place name, or lat,lng",
+					"type": "string"
+				},
+				"mode": {
+					"anyOf": [
+						{
+							"const": "driving",
+							"type": "string"
+						},
+						{
+							"const": "walking",
+							"type": "string"
+						},
+						{
+							"const": "cycling",
+							"type": "string"
+						}
+					],
+					"description": "How the user goes"
+				},
+				"origin": {
+					"description": "Address, place name, or lat,lng; default the current location",
+					"type": "string"
+				}
+			},
+			"required": [
+				"destination",
+				"mode"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "weather",
+		"toolset": "weather",
+		"name": "weather",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"days": {
+					"description": "Days of daily forecast from today; default 7, up to 16",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"hours": {
+					"description": "Hours of hourly forecast from now; default 24, up to 384",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"place": {
+					"description": "Place name or address (宜蘭、合歡山、東京), or lat,lng; default the phone's location",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"days": {
+					"items": {
+						"properties": {
+							"condition": {
+								"type": "string"
+							},
+							"date": {
+								"type": "string"
+							},
+							"high_c": {
+								"type": "number"
+							},
+							"low_c": {
+								"type": "number"
+							},
+							"rain_chance": {
+								"type": "number"
+							},
+							"rain_mm": {
+								"type": "number"
+							},
+							"sunrise": {
+								"type": "string"
+							},
+							"sunset": {
+								"type": "string"
+							},
+							"uv_index": {
+								"type": "number"
+							}
+						},
+						"required": [
+							"date",
+							"condition",
+							"low_c",
+							"high_c",
+							"rain_chance",
+							"rain_mm",
+							"uv_index",
+							"sunrise",
+							"sunset"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				},
+				"hours": {
+					"items": {
+						"properties": {
+							"condition": {
+								"type": "string"
+							},
+							"rain_chance": {
+								"type": "number"
+							},
+							"rain_mm": {
+								"type": "number"
+							},
+							"temperature_c": {
+								"type": "number"
+							},
+							"time": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"time",
+							"condition",
+							"temperature_c",
+							"rain_chance",
+							"rain_mm"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				},
+				"now": {
+					"properties": {
+						"condition": {
+							"type": "string"
+						},
+						"rain_chance": {
+							"type": "number"
+						},
+						"rain_mm": {
+							"type": "number"
+						},
+						"temperature_c": {
+							"type": "number"
+						},
+						"time": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"time",
+						"condition",
+						"temperature_c",
+						"rain_chance",
+						"rain_mm"
+					],
+					"type": "object"
+				},
+				"place": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"place",
+				"now",
+				"hours",
+				"days"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "places",
+		"toolset": "places",
+		"name": "find_places",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"category": {
+					"description": "OSM tag key:value, such as amenity:fuel",
+					"type": "string"
+				},
+				"limit": {
+					"description": "How many; default 20, up to 50",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"near": {
+					"description": "Place name, address, or lat,lng to search around; default the phone's location",
+					"type": "string"
+				},
+				"query": {
+					"description": "A name or brand, such as 鼎泰豐",
+					"type": "string"
+				},
+				"radius_km": {
+					"description": "For a category: how far to look, in km; default 1",
+					"exclusiveMinimum": 0,
+					"type": "number"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"near": {
+					"type": "string"
+				},
+				"now": {
+					"type": "string"
+				},
+				"places": {
+					"items": {
+						"properties": {
+							"address": {
+								"type": "string"
+							},
+							"branch": {
+								"type": "string"
+							},
+							"category": {
+								"type": "string"
+							},
+							"cuisine": {
+								"type": "string"
+							},
+							"direction": {
+								"type": "string"
+							},
+							"distance_m": {
+								"type": "number"
+							},
+							"latitude": {
+								"type": "number"
+							},
+							"longitude": {
+								"type": "number"
+							},
+							"name": {
+								"type": "string"
+							},
+							"opening_hours": {
+								"type": "string"
+							},
+							"phone": {
+								"type": "string"
+							},
+							"website": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"name",
+							"category",
+							"address",
+							"distance_m",
+							"direction",
+							"latitude",
+							"longitude"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"near",
+				"now",
+				"places"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "database",
+		"toolset": "database",
+		"name": "sql",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"reason": {
+					"description": "For DROP or DELETE: one sentence shown to the user in the confirmation dialog",
+					"type": "string"
+				},
+				"statements": {
+					"items": {
+						"properties": {
+							"params": {
+								"items": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "number"
+										},
+										{
+											"type": "boolean"
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"type": "array"
+							},
+							"sql": {
+								"description": "One SQL statement",
+								"type": "string"
+							}
+						},
+						"required": [
+							"sql"
+						],
+						"type": "object"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"required": [
+				"statements"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"results": {
+					"items": {
+						"properties": {
+							"changes": {
+								"type": "number"
+							},
+							"last_insert_id": {
+								"type": "number"
+							},
+							"rows": {
+								"items": {
+									"patternProperties": {
+										"^.*$": {
+											"anyOf": [
+												{
+													"type": "string"
+												},
+												{
+													"type": "number"
+												},
+												{
+													"type": "null"
+												}
+											]
+										}
+									},
+									"type": "object"
+								},
+								"type": "array"
+							}
+						},
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"results"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "set_alarm",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"label": {
+					"description": "Shown when it rings",
+					"type": "string"
+				},
+				"repeat": {
+					"description": "Weekdays to repeat on; omit for once",
+					"items": {
+						"anyOf": [
+							{
+								"const": "sun",
+								"type": "string"
+							},
+							{
+								"const": "mon",
+								"type": "string"
+							},
+							{
+								"const": "tue",
+								"type": "string"
+							},
+							{
+								"const": "wed",
+								"type": "string"
+							},
+							{
+								"const": "thu",
+								"type": "string"
+							},
+							{
+								"const": "fri",
+								"type": "string"
+							},
+							{
+								"const": "sat",
+								"type": "string"
+							}
+						]
+					},
+					"type": "array"
+				},
+				"time": {
+					"description": "24-hour local time, HH:MM",
+					"type": "string"
+				}
+			},
+			"required": [
+				"time"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "set_timer",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"label": {
+					"description": "Shown when it ends",
+					"type": "string"
+				},
+				"seconds": {
+					"description": "How long, in seconds",
+					"maximum": 86400,
+					"minimum": 1,
+					"type": "integer"
+				}
+			},
+			"required": [
+				"seconds"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "compose_email",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"body": {
+					"description": "The email, as the user would write it",
+					"type": "string"
+				},
+				"subject": {
+					"description": "Subject line",
+					"type": "string"
+				},
+				"to": {
+					"description": "Email addresses",
+					"items": {
+						"type": "string"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"body"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "compose_sms",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"body": {
+					"description": "The message, as the user would write it",
+					"type": "string"
+				},
+				"to": {
+					"description": "Phone number",
+					"type": "string"
+				}
+			},
+			"required": [
+				"body"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "open_maps",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"destination": {
+					"description": "Address, place name, or lat,lng",
+					"type": "string"
+				},
+				"mode": {
+					"anyOf": [
+						{
+							"const": "driving",
+							"type": "string"
+						},
+						{
+							"const": "walking",
+							"type": "string"
+						},
+						{
+							"const": "transit",
+							"type": "string"
+						},
+						{
+							"const": "bicycling",
+							"type": "string"
+						}
+					],
+					"description": "How the user goes; default the maps app's"
+				},
+				"origin": {
+					"description": "Default: current location",
+					"type": "string"
+				}
+			},
+			"required": [
+				"destination"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "open_link",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"url": {
+					"description": "With its scheme, such as https:// or geo:",
+					"type": "string"
+				}
+			},
+			"required": [
+				"url"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
+		"name": "share",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"sandbox_path": {
+					"description": "File in the sandbox to share, e.g. /workspace/chart.png",
+					"type": "string"
+				},
+				"text": {
+					"description": "Text to share",
+					"type": "string"
+				},
+				"title": {
+					"description": "Title of the share sheet",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "speech",
+		"toolset": "speech",
+		"name": "speak",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"language": {
+					"description": "BCP 47 tag of the text's language; default zh-TW",
+					"type": "string"
+				},
+				"text": {
+					"description": "What to say, at most 3000 characters",
+					"type": "string"
+				}
+			},
+			"required": [
+				"text"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "notifications",
+		"toolset": "notifications",
+		"name": "read_notifications",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"app": {
+					"description": "Only this app: part of its name or package, such as LINE or gmail",
+					"type": "string"
+				},
+				"hours": {
+					"description": "How far back, in hours; default 24, up to 720 (30 days)",
+					"exclusiveMinimum": 0,
+					"type": "number"
+				},
+				"limit": {
+					"description": "At most this many, newest first; default all",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"query": {
+					"description": "Only notifications whose title, text, sender, or chat contains this",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"items": {
+					"items": {
+						"properties": {
+							"app": {
+								"type": "string"
+							},
+							"conversation": {
+								"type": "string"
+							},
+							"package": {
+								"type": "string"
+							},
+							"sender": {
+								"type": "string"
+							},
+							"text": {
+								"type": "string"
+							},
+							"time": {
+								"description": "Local time, YYYY-MM-DD HH:mm",
+								"type": "string"
+							},
+							"title": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"time",
+							"app",
+							"package",
+							"title",
+							"text"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"items"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "notifications",
+		"toolset": "notifications",
+		"name": "reply_notification",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"app": {
+					"description": "The app, such as LINE",
+					"type": "string"
+				},
+				"conversation": {
+					"description": "The chat or person, as read_notifications shows it",
+					"type": "string"
+				},
+				"text": {
+					"description": "The reply, written as the user would",
+					"type": "string"
+				}
+			},
+			"required": [
+				"app",
+				"conversation",
+				"text"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "notifications",
+		"toolset": "notifications",
+		"name": "dismiss_notifications",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"query": {
+					"description": "Part of the app name, title, or text, such as \"LINE\" or \"外送\"; \"*\" for all",
+					"type": "string"
+				}
+			},
+			"required": [
+				"query"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_control",
+		"toolset": "control",
+		"name": "media",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"action": {
+					"anyOf": [
+						{
+							"const": "status",
+							"type": "string"
+						},
+						{
+							"const": "play",
+							"type": "string"
+						},
+						{
+							"const": "pause",
+							"type": "string"
+						},
+						{
+							"const": "next",
+							"type": "string"
+						},
+						{
+							"const": "previous",
+							"type": "string"
+						}
+					],
+					"description": "status reads what plays; the rest control it"
+				},
+				"app": {
+					"description": "Only this app, by name, such as Spotify",
+					"type": "string"
+				}
+			},
+			"required": [
+				"action"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_control",
+		"toolset": "control",
+		"name": "do_not_disturb",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"mode": {
+					"anyOf": [
+						{
+							"const": "status",
+							"type": "string"
+						},
+						{
+							"const": "off",
+							"type": "string"
+						},
+						{
+							"const": "priority",
+							"type": "string"
+						},
+						{
+							"const": "alarms",
+							"type": "string"
+						},
+						{
+							"const": "silent",
+							"type": "string"
+						}
+					],
+					"description": "status reads it; the rest set it"
+				},
+				"until": {
+					"description": "Local time to turn it off, such as \"07:00\" (the next one) or \"2026-10-23 07:00\"",
+					"type": "string"
+				}
+			},
+			"required": [
+				"mode"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "contacts",
+		"toolset": "contacts",
+		"name": "contacts",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"query": {
+					"description": "Part of a name, number, email, or company",
+					"type": "string"
+				},
+				"upcoming_birthdays": {
+					"description": "Only people whose birthday is in the next 30 days, soonest first",
+					"type": "boolean"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"items": {
+					"items": {
+						"properties": {
+							"birthday": {
+								"description": "YYYY-MM-DD, or --MM-DD without a year",
+								"type": "string"
+							},
+							"company": {
+								"type": "string"
+							},
+							"emails": {
+								"items": {
+									"type": "string"
+								},
+								"type": "array"
+							},
+							"name": {
+								"type": "string"
+							},
+							"phones": {
+								"items": {
+									"properties": {
+										"number": {
+											"type": "string"
+										},
+										"type": {
+											"type": "string"
+										}
+									},
+									"required": [
+										"number",
+										"type"
+									],
+									"type": "object"
+								},
+								"type": "array"
+							},
+							"starred": {
+								"type": "boolean"
+							}
+						},
+						"required": [
+							"name",
+							"phones",
+							"emails"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"items"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "photos",
+		"toolset": "photos",
+		"name": "find_photos",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"album": {
+					"description": "Part of the album name, such as Screenshots or Camera",
+					"type": "string"
+				},
+				"from": {
+					"description": "Local date or time, such as 2026-10-15 or 2026-10-15 14:00",
+					"type": "string"
+				},
+				"limit": {
+					"description": "At most this many, newest first (default 30)",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"place": {
+					"description": "A place name or lat,lon; only photos taken near it",
+					"type": "string"
+				},
+				"radius_km": {
+					"description": "With place: how near, in km (default 3)",
+					"exclusiveMinimum": 0,
+					"type": "number"
+				},
+				"to": {
+					"description": "Local date or time; a date includes that whole day",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"items": {
+					"items": {
+						"properties": {
+							"album": {
+								"type": "string"
+							},
+							"height": {
+								"type": "integer"
+							},
+							"id": {
+								"type": "string"
+							},
+							"latitude": {
+								"type": "number"
+							},
+							"longitude": {
+								"type": "number"
+							},
+							"time": {
+								"description": "Local time taken, YYYY-MM-DD HH:MM",
+								"type": "string"
+							},
+							"width": {
+								"type": "integer"
+							}
+						},
+						"required": [
+							"id",
+							"time",
+							"album",
+							"width",
+							"height"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				},
+				"total": {
+					"description": "How many match; items holds the newest limit of them",
+					"type": "integer"
+				}
+			},
+			"required": [
+				"total",
+				"items"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "photos",
+		"toolset": "photos",
+		"name": "view_photos",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"ids": {
+					"description": "Photo ids from find_photos",
+					"items": {
+						"type": "string"
+					},
+					"maxItems": 4,
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"required": [
+				"ids"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "calls_sms",
+		"toolset": "calls",
+		"name": "call_log",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"hours": {
+					"description": "How far back, in hours (default 48)",
+					"exclusiveMinimum": 0,
+					"type": "number"
+				},
+				"missed_only": {
+					"description": "Only missed and rejected calls",
+					"type": "boolean"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"items": {
+					"items": {
+						"properties": {
+							"name": {
+								"description": "From the contacts",
+								"type": "string"
+							},
+							"number": {
+								"type": "string"
+							},
+							"seconds": {
+								"type": "number"
+							},
+							"time": {
+								"description": "Local time, YYYY-MM-DD HH:MM",
+								"type": "string"
+							},
+							"type": {
+								"anyOf": [
+									{
+										"const": "incoming",
+										"type": "string"
+									},
+									{
+										"const": "outgoing",
+										"type": "string"
+									},
+									{
+										"const": "missed",
+										"type": "string"
+									},
+									{
+										"const": "rejected",
+										"type": "string"
+									},
+									{
+										"const": "blocked",
+										"type": "string"
+									},
+									{
+										"const": "voicemail",
+										"type": "string"
+									},
+									{
+										"const": "other",
+										"type": "string"
+									}
+								]
+							}
+						},
+						"required": [
+							"time",
+							"type",
+							"number",
+							"seconds"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"items"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "calls_sms",
+		"toolset": "calls",
+		"name": "read_sms",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"hours": {
+					"description": "How far back, in hours (default 24)",
+					"exclusiveMinimum": 0,
+					"type": "number"
+				},
+				"query": {
+					"description": "Only messages whose text or sender contains this",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"items": {
+					"items": {
+						"properties": {
+							"address": {
+								"description": "The other side's number or sender name",
+								"type": "string"
+							},
+							"name": {
+								"description": "From the contacts",
+								"type": "string"
+							},
+							"read": {
+								"type": "boolean"
+							},
+							"sent": {
+								"description": "The user sent it",
+								"type": "boolean"
+							},
+							"text": {
+								"type": "string"
+							},
+							"time": {
+								"description": "Local time, YYYY-MM-DD HH:MM",
+								"type": "string"
+							}
+						},
+						"required": [
+							"time",
+							"address",
+							"text",
+							"sent",
+							"read"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"items"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "screen_time",
+		"toolset": "screen",
+		"name": "screen_time",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"day": {
+					"description": "today (default), yesterday, or YYYY-MM-DD",
+					"type": "string"
+				},
+				"days": {
+					"description": "Instead of one day: the last this many days, today included",
+					"maximum": 30,
+					"minimum": 1,
+					"type": "integer"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"apps": {
+					"items": {
+						"properties": {
+							"app": {
+								"type": "string"
+							},
+							"minutes": {
+								"type": "number"
+							},
+							"package": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"app",
+							"package",
+							"minutes"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				},
+				"from": {
+					"description": "Local time, YYYY-MM-DD HH:MM",
+					"type": "string"
+				},
+				"to": {
+					"description": "Local time, YYYY-MM-DD HH:MM",
+					"type": "string"
+				},
+				"total_minutes": {
+					"type": "number"
+				},
+				"unlocks": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"from",
+				"to",
+				"total_minutes",
+				"unlocks",
+				"apps"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "health",
+		"toolset": "health",
+		"name": "health",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"days": {
+					"description": "The last this many days, today included (default 7)",
+					"maximum": 90,
+					"minimum": 1,
+					"type": "integer"
+				},
+				"metric": {
+					"anyOf": [
+						{
+							"const": "steps",
+							"type": "string"
+						},
+						{
+							"const": "heart_rate",
+							"type": "string"
+						},
+						{
+							"const": "sleep",
+							"type": "string"
+						},
+						{
+							"const": "exercise",
+							"type": "string"
+						},
+						{
+							"const": "weight",
+							"type": "string"
+						}
+					],
+					"description": "steps and heart_rate are per day; sleep and exercise are sessions; weight is measurements"
+				}
+			},
+			"required": [
+				"metric"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"days": {
+					"items": {
+						"properties": {
+							"day": {
+								"description": "YYYY-MM-DD",
+								"type": "string"
+							},
+							"value": {
+								"description": "Steps, or average bpm",
+								"type": "number"
+							}
+						},
+						"required": [
+							"day",
+							"value"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				},
+				"records": {
+					"items": {
+						"properties": {
+							"end": {
+								"description": "Local time, YYYY-MM-DD HH:MM",
+								"type": "string"
+							},
+							"exercise_type": {
+								"description": "Health Connect's exercise type number",
+								"type": "integer"
+							},
+							"kg": {
+								"type": "number"
+							},
+							"source": {
+								"description": "The app that wrote it",
+								"type": "string"
+							},
+							"stage_minutes": {
+								"description": "Sleep: minutes awake, light, deep, rem",
+								"patternProperties": {
+									"^.*$": {
+										"type": "number"
+									}
+								},
+								"type": "object"
+							},
+							"start": {
+								"description": "Local time, YYYY-MM-DD HH:MM",
+								"type": "string"
+							},
+							"time": {
+								"description": "Local time, YYYY-MM-DD HH:MM",
+								"type": "string"
+							},
+							"title": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"source"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"type": "object"
+		}
+	},
+	{
+		"extension": "skills",
+		"toolset": "fixed",
+		"name": "read_skill",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"name": {
+					"anyOf": [
+						{
+							"const": "spoken-report",
+							"type": "string"
+						}
+					],
+					"description": "A skill listed in the system prompt"
+				}
+			},
+			"required": [
+				"name"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "attachments",
+		"toolset": "fixed",
+		"name": "read_attachment",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"id": {
+					"description": "The id attribute of the <attachment> tag",
+					"type": "string"
+				},
+				"images": {
+					"description": "With pages: the pages as images instead of text",
+					"type": "boolean"
+				},
+				"limit": {
+					"description": "Lines to read (default 400)",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"offset": {
+					"description": "First line, 1-based (default 1)",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"pages": {
+					"description": "PDF pages, such as \"3\" or \"4-6\"",
+					"type": "string"
+				},
+				"query": {
+					"description": "Find lines containing this text (case-insensitive)",
+					"type": "string"
+				}
+			},
+			"required": [
+				"id"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "attachments",
+		"toolset": "fixed",
+		"name": "scan_document",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"pages": {
+					"description": "At most this many pages (default 20)",
+					"maximum": 50,
+					"minimum": 1,
+					"type": "integer"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "calendar",
+		"toolset": "calendar",
+		"name": "read_calendar_events",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"from": {
+					"description": "Local time YYYY-MM-DD HH:MM or a date YYYY-MM-DD; default now",
+					"type": "string"
+				},
+				"include_shared": {
+					"description": "Also read shared calendars; only when the user asks about them",
+					"type": "boolean"
+				},
+				"to": {
+					"description": "Local time or date (a date means the end of that day); default the end of tomorrow",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"events": {
+					"items": {
+						"properties": {
+							"account": {
+								"type": "string"
+							},
+							"all_day": {
+								"type": "boolean"
+							},
+							"calendar": {
+								"type": "string"
+							},
+							"end": {
+								"description": "Local time YYYY-MM-DD HH:MM, or the last date of an all-day event",
+								"type": "string"
+							},
+							"location": {
+								"type": "string"
+							},
+							"notes": {
+								"type": "string"
+							},
+							"shared": {
+								"description": "Someone else's calendar the user subscribes to",
+								"type": "boolean"
+							},
+							"start": {
+								"description": "Local time YYYY-MM-DD HH:MM, or the date of an all-day event",
+								"type": "string"
+							},
+							"title": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"title",
+							"all_day",
+							"start",
+							"end",
+							"calendar",
+							"account",
+							"shared"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				}
+			},
+			"required": [
+				"events"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "calendar",
+		"toolset": "calendar",
+		"name": "list_calendars",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "calendar",
+		"toolset": "calendar",
+		"name": "add_calendar_event",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"all_day": {
+					"description": "Whole days, without times",
+					"type": "boolean"
+				},
+				"calendar_id": {
+					"description": "id from list_calendars; omit for the default calendar",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"end": {
+					"description": "Local time YYYY-MM-DD HH:MM (or the last day, with all_day); default one hour after start",
+					"type": "string"
+				},
+				"location": {
+					"description": "Where; an address or place name",
+					"type": "string"
+				},
+				"notes": {
+					"description": "Anything else to remember",
+					"type": "string"
+				},
+				"start": {
+					"description": "Local time YYYY-MM-DD HH:MM, or YYYY-MM-DD with all_day",
+					"type": "string"
+				},
+				"title": {
+					"description": "The event's name, as the user would write it",
+					"type": "string"
+				}
+			},
+			"required": [
+				"title",
+				"start"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "codemode",
+		"toolset": "codemode",
+		"name": "codemode",
+		"deferred": false,
+		"callers": [
+			"model"
+		],
+		"parameters": {
+			"properties": {
+				"code": {
+					"description": "Raw JavaScript source.",
+					"type": "string"
+				}
+			},
+			"required": [
+				"code"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "github",
+		"toolset": "github",
+		"name": "github_api",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"body": {
+					"description": "JSON request body for POST, PATCH, and PUT"
+				},
+				"method": {
+					"anyOf": [
+						{
+							"const": "GET",
+							"type": "string"
+						},
+						{
+							"const": "POST",
+							"type": "string"
+						},
+						{
+							"const": "PATCH",
+							"type": "string"
+						},
+						{
+							"const": "PUT",
+							"type": "string"
+						},
+						{
+							"const": "DELETE",
+							"type": "string"
+						}
+					]
+				},
+				"path": {
+					"description": "API path with query string, starting with /",
+					"type": "string"
+				},
+				"reason": {
+					"description": "For writes: one sentence shown to the user in the confirmation dialog",
+					"type": "string"
+				}
+			},
+			"required": [
+				"method",
+				"path"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"body": {},
+				"link": {
+					"type": "string"
+				},
+				"status": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"status",
+				"body"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "github",
+		"toolset": "github",
+		"name": "github_read_file",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"owner": {
+					"description": "The repository's owner, a user or organization",
+					"type": "string"
+				},
+				"path": {
+					"description": "Path inside the repository; empty for the root",
+					"type": "string"
+				},
+				"ref": {
+					"description": "Branch, tag, or commit; default branch if omitted",
+					"type": "string"
+				},
+				"repo": {
+					"description": "The repository's name",
+					"type": "string"
+				}
+			},
+			"required": [
+				"owner",
+				"repo",
+				"path"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "gcp",
+		"toolset": "gcp",
+		"name": "gcp_api",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"body": {
+					"description": "JSON request body"
+				},
+				"method": {
+					"anyOf": [
+						{
+							"const": "GET",
+							"type": "string"
+						},
+						{
+							"const": "POST",
+							"type": "string"
+						},
+						{
+							"const": "PUT",
+							"type": "string"
+						},
+						{
+							"const": "PATCH",
+							"type": "string"
+						},
+						{
+							"const": "DELETE",
+							"type": "string"
+						}
+					]
+				},
+				"reason": {
+					"description": "For writes: one sentence shown to the user in the confirmation dialog",
+					"type": "string"
+				},
+				"url": {
+					"description": "Full https URL",
+					"type": "string"
+				}
+			},
+			"required": [
+				"method",
+				"url"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"body": {},
+				"status": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"status",
+				"body"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "cloudflare",
+		"toolset": "cloudflare",
+		"name": "cloudflare_api",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"body": {
+					"description": "JSON request body"
+				},
+				"method": {
+					"anyOf": [
+						{
+							"const": "GET",
+							"type": "string"
+						},
+						{
+							"const": "POST",
+							"type": "string"
+						},
+						{
+							"const": "PUT",
+							"type": "string"
+						},
+						{
+							"const": "PATCH",
+							"type": "string"
+						},
+						{
+							"const": "DELETE",
+							"type": "string"
+						}
+					]
+				},
+				"reason": {
+					"description": "For writes: one sentence shown to the user in the confirmation dialog",
+					"type": "string"
+				},
+				"url": {
+					"description": "Full https URL, or a path starting with / under https://api.cloudflare.com/client/v4",
+					"type": "string"
+				}
+			},
+			"required": [
+				"method",
+				"url"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"body": {},
+				"status": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"status",
+				"body"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "azure",
+		"toolset": "azure",
+		"name": "azure_api",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"body": {
+					"description": "JSON request body"
+				},
+				"method": {
+					"anyOf": [
+						{
+							"const": "GET",
+							"type": "string"
+						},
+						{
+							"const": "POST",
+							"type": "string"
+						},
+						{
+							"const": "PUT",
+							"type": "string"
+						},
+						{
+							"const": "PATCH",
+							"type": "string"
+						},
+						{
+							"const": "DELETE",
+							"type": "string"
+						}
+					]
+				},
+				"reason": {
+					"description": "For writes: one sentence shown to the user in the confirmation dialog",
+					"type": "string"
+				},
+				"url": {
+					"description": "Full https URL",
+					"type": "string"
+				}
+			},
+			"required": [
+				"method",
+				"url"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"body": {},
+				"status": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"status",
+				"body"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "web",
+		"toolset": "web",
+		"name": "web_search",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"query": {
+					"description": "What to find, as a question or keywords",
+					"type": "string"
+				}
+			},
+			"required": [
+				"query"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "web",
+		"toolset": "web",
+		"name": "web_fetch",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"url": {
+					"description": "http:// or https:// URL of the page",
+					"type": "string"
+				}
+			},
+			"required": [
+				"url"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "triggers",
+		"toolset": "fixed",
+		"name": "create_schedule",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"at": {
+					"description": "One-time: local date and time YYYY-MM-DD HH:MM. Give either time or at, or on.",
+					"type": "string"
+				},
+				"at_most_every_hours": {
+					"description": "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)",
+					"maximum": 24,
+					"minimum": 1,
+					"type": "integer"
+				},
+				"days": {
+					"description": "Recurring: weekdays; omit for every day",
+					"items": {
+						"anyOf": [
+							{
+								"const": "mon",
+								"type": "string"
+							},
+							{
+								"const": "tue",
+								"type": "string"
+							},
+							{
+								"const": "wed",
+								"type": "string"
+							},
+							{
+								"const": "thu",
+								"type": "string"
+							},
+							{
+								"const": "fri",
+								"type": "string"
+							},
+							{
+								"const": "sat",
+								"type": "string"
+							},
+							{
+								"const": "sun",
+								"type": "string"
+							}
+						]
+					},
+					"type": "array"
+				},
+				"from": {
+					"description": "With on: only from this local time HH:MM",
+					"type": "string"
+				},
+				"name": {
+					"description": "Short name shown to the user, such as 早晨簡報",
+					"type": "string"
+				},
+				"on": {
+					"anyOf": [
+						{
+							"const": "headphones",
+							"type": "string"
+						},
+						{
+							"const": "charging",
+							"type": "string"
+						},
+						{
+							"const": "wifi",
+							"type": "string"
+						},
+						{
+							"const": "arrive",
+							"type": "string"
+						},
+						{
+							"const": "leave",
+							"type": "string"
+						}
+					],
+					"description": "Instead of a time, run on an event: headphones connect, the phone starts charging, a Wi-Fi connects, or the phone arrives at or leaves place. days, from, until apply too"
+				},
+				"place": {
+					"description": "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory",
+					"type": "string"
+				},
+				"prompt": {
+					"description": "What to do when it fires, written as an instruction to yourself",
+					"type": "string"
+				},
+				"radius_m": {
+					"description": "With arrive or leave: how near counts, in meters (default 200)",
+					"minimum": 100,
+					"type": "integer"
+				},
+				"time": {
+					"description": "Recurring: 24-hour local time HH:MM",
+					"type": "string"
+				},
+				"until": {
+					"description": "With on: only until this local time HH:MM",
+					"type": "string"
+				},
+				"wifi_name": {
+					"description": "With on wifi: only this network (its SSID); omit for any Wi-Fi",
+					"type": "string"
+				}
+			},
+			"required": [
+				"name",
+				"prompt"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "triggers",
+		"toolset": "fixed",
+		"name": "schedule_followup",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"label": {
+					"description": "Short label the user sees in a notification, in their language, such as 查部署結果",
+					"type": "string"
+				},
+				"minutes": {
+					"description": "How long from now",
+					"maximum": 1440,
+					"minimum": 1,
+					"type": "integer"
+				},
+				"note": {
+					"description": "What to check or do then, as an instruction to yourself",
+					"type": "string"
+				}
+			},
+			"required": [
+				"minutes",
+				"label",
+				"note"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "triggers",
+		"toolset": "fixed",
+		"name": "list_schedules",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "triggers",
+		"toolset": "fixed",
+		"name": "delete_schedule",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"id": {
+					"description": "The id list_schedules shows",
+					"type": "string"
+				}
+			},
+			"required": [
+				"id"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "triggers",
+		"toolset": "fixed",
+		"name": "notify",
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"text": {
+					"description": "One to three short lines",
+					"type": "string"
+				},
+				"title": {
+					"description": "Short, such as 早晨簡報",
+					"type": "string"
+				}
+			},
+			"required": [
+				"title",
+				"text"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "memory",
+		"toolset": "fixed",
+		"name": "update_memory",
+		"deferred": false,
+		"callers": [
+			"model"
+		],
+		"parameters": {
+			"properties": {
+				"new_text": {
+					"description": "Markdown, usually one short line such as 「- 家：板橋府中站附近」",
+					"type": "string"
+				},
+				"old_text": {
+					"description": "Exact text to replace; omit to append",
+					"type": "string"
+				},
+				"scope": {
+					"anyOf": [
+						{
+							"const": "global",
+							"type": "string"
+						},
+						{
+							"const": "bot",
+							"type": "string"
+						}
+					],
+					"description": "global: every bot reads it; bot: only you"
+				}
+			},
+			"required": [
+				"scope",
+				"new_text"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "coding-tools",
+		"toolset": "sandbox",
+		"name": "read",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"limit": {
+					"description": "Maximum number of lines to read",
+					"type": "number"
+				},
+				"offset": {
+					"description": "Line number to start reading from (1-indexed)",
+					"type": "number"
+				},
+				"path": {
+					"description": "Path to the file to read (relative or absolute)",
+					"type": "string"
+				}
+			},
+			"required": [
+				"path"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "coding-tools",
+		"toolset": "sandbox",
+		"name": "write",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"content": {
+					"description": "Content to write to the file",
+					"type": "string"
+				},
+				"path": {
+					"description": "Path to the file to write (relative or absolute)",
+					"type": "string"
+				}
+			},
+			"required": [
+				"path",
+				"content"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "coding-tools",
+		"toolset": "sandbox",
+		"name": "edit",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"edits": {
+					"description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead.",
+					"items": {
+						"properties": {
+							"newText": {
+								"description": "Replacement text for this targeted edit.",
+								"type": "string"
+							},
+							"oldText": {
+								"description": "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call.",
+								"type": "string"
+							}
+						},
+						"required": [
+							"oldText",
+							"newText"
+						],
+						"type": "object"
+					},
+					"type": "array"
+				},
+				"path": {
+					"description": "Path to the file to edit (relative or absolute)",
+					"type": "string"
+				}
+			},
+			"required": [
+				"path",
+				"edits"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "coding-tools",
+		"toolset": "sandbox",
+		"name": "bash",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"command": {
+					"description": "Bash command to execute",
+					"type": "string"
+				},
+				"timeout": {
+					"description": "Timeout in seconds (optional, no default timeout)",
+					"type": "number"
+				}
+			},
+			"required": [
+				"command"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"exitCode": {
+					"type": "number"
+				},
+				"fullOutputPath": {
+					"description": "File with the complete output, when it was spilled",
+					"type": "string"
+				},
+				"output": {
+					"description": "Combined stdout and stderr: the retained tail, as the model sees it",
+					"type": "string"
+				},
+				"truncated": {
+					"description": "Whether earlier output was dropped",
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"output",
+				"truncated",
+				"exitCode"
+			],
+			"type": "object"
+		}
+	},
+	{
+		"extension": "tool-search",
+		"toolset": "fixed",
+		"name": "tool_search",
+		"deferred": false,
+		"callers": [
+			"model"
+		],
+		"parameters": {
+			"properties": {
+				"limit": {
+					"description": "Maximum number of tools to return. Defaults to 8.",
+					"type": "number"
+				},
+				"query": {
+					"description": "Search query for deferred tools.",
+					"type": "string"
+				}
+			},
+			"required": [
+				"query"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	}
+]

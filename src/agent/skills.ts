@@ -1,7 +1,8 @@
 // Skills: instructions for one kind of task, loaded when the task comes up rather than sent with every request. The
 // system prompt lists each skill's name and when to use it; read_skill returns the full text. Same idea as pi's
 // skills. Built in for now; a bot's own skills can join the list later.
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineAppTool, text } from "./tools/common.ts";
 import { Type } from "typebox";
 import spokenReport from "./skills/spoken-report.md?raw";
 
@@ -20,14 +21,14 @@ const SKILLS: readonly Skill[] = [
 	},
 ];
 
-const readSkill = defineTool({
+const readSkill = defineAppTool({
 	name: "read_skill",
 	description: "Read a skill: instructions for a kind of task, listed in the system prompt. Read it before doing that task.",
-	parameters: Type.Object({ name: Type.Union(SKILLS.map((skill) => Type.Literal(skill.name))) }),
+	parameters: Type.Object({ name: Type.Union(SKILLS.map((skill) => Type.Literal(skill.name)), { description: "A skill listed in the system prompt" }) }),
 	execute: async (args) => {
 		const skill = SKILLS.find((candidate) => candidate.name === args.name);
 		if (!skill) throw new Error(`no skill ${args.name}`);
-		return { output: [{ type: "text", text: skill.text }] };
+		return text(skill.text);
 	},
 });
 

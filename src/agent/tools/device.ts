@@ -2,9 +2,10 @@
 // sensors. Each is read when the tool runs; nothing is tracked in the background.
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
+import { defineAppTool, json, requireNative } from "./common.ts";
 
 interface PhonePlugin {
 	getStatus(): Promise<Record<string, unknown>>;
@@ -15,13 +16,8 @@ interface PhonePlugin {
 
 const Phone = registerPlugin<PhonePlugin>("Phone");
 
-const json = (value: unknown) => ({ output: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
-function requireNative(): void {
-	if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
-}
-
-const deviceInfo = defineTool({
+const deviceInfo = defineAppTool({
 	name: "device_info",
 	description:
 		"The phone's current state: local time and time zone, language, battery (percent, charging, temperature, power saving), network (Wi-Fi or cellular, metered, VPN), ringer mode and Do Not Disturb, connected headphones, free storage, and model.",
@@ -39,7 +35,7 @@ const deviceInfo = defineTool({
 	},
 });
 
-const getLocation = defineTool({
+const getLocation = defineAppTool({
 	name: "get_location",
 	description:
 		"The phone's current location: latitude, longitude, accuracy, altitude, speed, and the street address. Use it for anything about where the user is or what is nearby, instead of asking them.",
@@ -51,7 +47,7 @@ const getLocation = defineTool({
 	},
 });
 
-const readSensors = defineTool({
+const readSensors = defineAppTool({
 	name: "read_sensors",
 	description:
 		"One reading of the phone's environmental sensors: barometric pressure with an altitude estimate (standard atmosphere, so off by tens of meters with the weather; compare readings for height gained), compass heading and which way the top of the phone faces, ambient light in lux, and proximity (near means something covers the screen, such as a pocket).",
@@ -102,14 +98,14 @@ const OsrmResponse = Type.Object({
 	routes: Type.Optional(Type.Array(Type.Object({ duration: Type.Number(), distance: Type.Number() }))),
 });
 
-const travelTime = defineTool({
+const travelTime = defineAppTool({
 	name: "get_travel_time",
 	description:
 		"Route distance and travel time between two places from OpenStreetMap routing (OSRM): driving, walking or cycling. Driving time assumes free-flowing traffic, so add margin at busy hours; there is no public transit. Origin defaults to the phone's current location.",
 	parameters: Type.Object({
 		destination: Type.String({ description: "Address, place name, or lat,lng" }),
 		origin: Type.Optional(Type.String({ description: "Address, place name, or lat,lng; default the current location" })),
-		mode: Type.Union([Type.Literal("driving"), Type.Literal("walking"), Type.Literal("cycling")]),
+		mode: Type.Union([Type.Literal("driving"), Type.Literal("walking"), Type.Literal("cycling")], { description: "How the user goes" }),
 	}),
 	replay: "safe",
 	execute: async (args, _api, context) => {

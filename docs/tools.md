@@ -28,8 +28,116 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 每組工具第一次用時，多一次來回（搜尋、載入），大約多 2–4 秒。
 - 那一次請求拿不到提示快取，GPT 和 Claude 都一樣。因為載入後會留著，每個 Bot、每組工具只會發生一次。
 
+## 介面規範
+
+工具的介面就是模型和 code mode 腳本看到的東西：名稱、參數、輸出。它要穩定：改名或改參數會讓對話裡已經載入的工具失效，也會讓模型學到的用法不再適用。所以介面有規範，而且被檢查。
+
+**檢查**：`npm run check` 會跑兩支腳本。
+- `test/tools-node.ts`：從 `src/agent/catalog.ts` 取得每一個工具（就是 runtime 裝的那一份），檢查下面能自動檢查的規則，並跟 `test/tools.snapshot.json` 比對。名稱、參數、結構化輸出有任何改變都會失敗；確定要改，就加 `--update` 更新快照，並在「紀錄」寫一行為什麼改。
+- `test/tool-args-node.ts`：參數清理和時間格式的行為。
+
+### 定義
+
+- 一律用 `defineAppTool`（`src/agent/tools/common.ts`），不直接用 `defineTool`。它會先清理參數再驗證：選填參數是 `""`、`null`、`[]`，或 schema 不允許的 `0`，就當作沒給。模型常把沒用到的選填欄位填成這些值；以前每個工具各自處理，現在統一。小於下限的真實數值（半徑 50 公尺，下限 100）不會被吞掉，而是回報參數錯誤。
+- 新的內建擴充一定要加進 `catalog.ts`，不能直接在 runtime 裡安裝，否則檢查看不到它。
+- **擴充名稱不能改**：每個 Bot 的工具開關是用擴充名稱存的（`toolsets.ts`），改名會讓使用者的設定失效。
+- 結構化輸出的資料型別用 `type`，不用 `interface`（`interface` 不能指定成 `JsonValue`）。
+
+### 名稱
+
+- 工具和參數都用 snake_case。
+- 會改動東西的動作是「動詞_名詞」：`set_alarm`、`add_calendar_event`、`reply_notification`。
+- 讀取是 `read_`、`find_`、`list_`、`get_` 開頭，或者直接是資料來源的名字（`weather`、`contacts`、`health`、`screen_time`、`call_log`）。
+- 同一個東西的「查看」和「控制」放在同一個工具，用 `action` 或 `mode` 區分，第一個值是 `status`：`media`、`do_not_disturb`。
+- 已經上線的工具名稱不再改。
+
+### 參數
+
+- 每個參數都有說明；值本身就說明一切的列舉（`GET`／`POST`）可以例外。
+- **時間一律是手機的當地時間**：日期時間 `YYYY-MM-DD HH:MM`（中間寫 `T` 也可以），日期 `YYYY-MM-DD`，時刻 `HH:MM`。範圍的結束如果只給日期，代表那天整天。解析一律用 `common.ts` 的 `parseLocalTime`、`parseLocalBound`、`parseClock`、`parseNextTime`、`parseDay`。
+- 有單位的數字，名稱就帶單位：`radius_m`、`radius_km`、`minutes`、`hours`、`days`、`at_most_every_hours`。
+- 選填參數的預設值寫在說明裡（「default 24」），程式裡用 `??` 而不是 `||`，因為空值已經被清掉了。
+- 數量、天數這類參數要寫 `minimum`，`0` 才會被當作沒給。
+- **篩選條件不要用選填的數字**：模型會把沒用到的數字填成下限（`1`），結果真的篩掉東西。要開關的篩選用布林值（`upcoming_birthdays`、`missed_only`），沒用到時模型會填 `false`，跟不篩一樣。
+
+### 輸出
+
+- code mode 的系統提示列出每個有結構化輸出的工具和它的欄位，是從 schema 自動產生的（`codemode.ts` 的 `shapeOf`），所以改了 schema 就會跟著改，不用手動同步。
+- 給模型的是文字。時間用跟輸入一樣的當地格式（`YYYY-MM-DD HH:MM`），模型讀到的可以直接再傳回來。
+- **回傳一串紀錄的工具要有 `structuredOutputSchema`**：通知、聯絡人、相片、通話、簡訊、螢幕時間、健康、行事曆、地點、天氣、資料庫、雲端 API。這樣 code mode 腳本可以直接過濾、加總，不用解析文字。結構化輸出的欄位名稱也用 snake_case，時間也用當地格式。
+- 一次回傳的量有上限時，要說還有多少、怎麼繼續讀（`offset=`、縮小 `query`）。
+
+### 錯誤
+
+- 不在 Android 上：`requireNative()`，訊息統一。
+- 缺權限或設定：錯誤訊息要告訴使用者去哪裡開，路徑寫完整（「設定 › 手機 › 系統權限 › 螢幕使用時間」）。
+- 其他錯誤：說清楚哪裡錯、模型下一步能做什麼（「list_schedules shows them」）。
+
+### 核准
+
+- 會改動使用者資料、或代替使用者對外送出東西的，先問：`approve()`（`common.ts`）。被拒絕時一律回傳同一種結果：`isError`，要模型用一句話說沒做（`「好，不刪。」`），不要列出原本會做什麼、不要提替代方案、不要問為什麼。
+- 只是打開一個畫面、讓使用者自己完成的（草稿、分享、地圖），不用核准，但輸出要說「使用者按了才會送出」。
+- 可以輕易復原、而且是使用者剛說的（勿擾、暫停音樂、清掉通知、鬧鐘），直接做。
+
+## 工具清單
+
+每一個工具都要列在這裡（`test/tools-node.ts` 會檢查）。「改動」：**唯讀**；**開畫面**＝打開畫面讓使用者完成；**直接**＝直接改、不問；**先問**＝要使用者核准。「結構化」＝有給腳本用的結構化輸出。需要時載入的工具組另外標出。
+
+| 工具 | 工具組 | 做什麼 | 改動 | 結構化 |
+|---|---|---|---|---|
+| `device_info` | 手機狀態 | 電量、網路、勿擾、耳機、儲存空間 | 唯讀 | |
+| `get_location` | 手機狀態 | 目前位置和地址 | 唯讀 | |
+| `read_sensors` | 手機狀態 | 氣壓、方位、光線、距離感測 | 唯讀 | |
+| `get_travel_time` | 手機狀態 | 開車、走路、騎車的距離和時間 | 唯讀 | |
+| `weather` | 天氣 | 逐小時和逐日預報 | 唯讀 | ✓ |
+| `find_places` | 地點 | 附近的店家，或用名字找分店 | 唯讀 | ✓ |
+| `sql` | 資料庫 | 手機上的 SQLite | 直接；`DROP`、`DELETE` 先問 | ✓ |
+| `set_alarm` | 手機 App | 設鬧鐘 | 直接 | |
+| `set_timer` | 手機 App | 設計時器 | 直接 | |
+| `compose_email` | 手機 App | 信件草稿 | 開畫面 | |
+| `compose_sms` | 手機 App | 簡訊草稿 | 開畫面 | |
+| `open_maps` | 手機 App | 地圖導航 | 開畫面 | |
+| `open_link` | 手機 App | 網址或 app 連結 | 開畫面 | |
+| `share` | 手機 App | 分享選單 | 開畫面 | |
+| `speak` | 語音 | 唸出來 | 直接 | |
+| `read_notifications` | 通知 | 收到的通知，留 30 天 | 唯讀 | ✓ |
+| `reply_notification` | 通知 | 從通知回覆聊天 | 先問 | |
+| `dismiss_notifications` | 通知 | 清掉通知欄的通知 | 直接 | |
+| `media` | 手機控制 | 在放什麼、播放、暫停、上下一首 | 直接 | |
+| `do_not_disturb` | 手機控制 | 勿擾模式，可到某個時間自動關 | 直接 | |
+| `contacts` | 聯絡人 | 用名字找電話、email、生日 | 唯讀 | ✓ |
+| `find_photos` | 相片 | 依時間、地點、相簿找照片 | 唯讀 | ✓ |
+| `view_photos` | 相片 | 看照片（縮小） | 唯讀 | |
+| `call_log` | 通話與簡訊 | 通話紀錄、未接來電 | 唯讀 | ✓ |
+| `read_sms` | 通話與簡訊 | 簡訊 | 唯讀 | ✓ |
+| `screen_time` | 螢幕使用時間 | 每個 app 用了多久、解鎖次數 | 唯讀 | ✓ |
+| `health` | 健康 | 步數、心率、睡眠、運動、體重 | 唯讀 | ✓ |
+| `read_calendar_events` | 日曆 | 讀行程 | 唯讀 | ✓ |
+| `list_calendars` | 日曆 | 可以加活動的日曆 | 唯讀 | |
+| `add_calendar_event` | 日曆 | 加活動 | 先問 | |
+| `codemode` | 程式模式 | 用腳本一次呼叫多個工具 | 依呼叫的工具 | |
+| `web_search` | 網路 | 搜尋 | 唯讀 | |
+| `web_fetch` | 網路 | 讀網頁 | 唯讀 | |
+| `github_api` | GitHub（需要時載入） | GitHub REST API | `GET` 唯讀，其他先問 | ✓ |
+| `github_read_file` | GitHub（需要時載入） | 讀 repo 裡的檔案 | 唯讀 | |
+| `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入先問 | ✓ |
+| `cloudflare_api` | Cloudflare（需要時載入） | Cloudflare REST API | 讀取唯讀，寫入先問 | ✓ |
+| `azure_api` | Azure（需要時載入） | Azure REST API | 讀取唯讀，寫入先問 | ✓ |
+| `read`、`write`、`edit`、`bash` | Sandbox（需要時載入） | 在遠端電腦讀寫檔案、跑指令（pi-durable 的 coding tools） | 在 sandbox 裡；容器模式下對外的寫入先問 | `bash` |
+| `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
+| `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
+| `read_skill` | 固定開啟 | 讀一份 skill | 唯讀 | |
+| `create_schedule` | 固定開啟 | 新增排程（時間或事件） | 先問 | |
+| `schedule_followup` | 固定開啟 | 稍後自己回來看 | 直接 | |
+| `list_schedules` | 固定開啟 | 這個 Bot 的排程 | 唯讀 | |
+| `delete_schedule` | 固定開啟 | 刪排程 | 排程先問，follow-up 直接 | |
+| `notify` | 固定開啟 | 發通知 | 直接 | |
+| `update_memory` | 固定開啟 | 改 MEMORY.md | 直接（每次都是一個看得到的步驟） | |
+| `tool_search` | 固定開啟 | 載入需要時才載入的工具 | 唯讀 | |
+
 ## 新工具上線前
 
+0. **照介面規範寫**，用 `defineAppTool`，加進 `catalog.ts` 和上面的工具清單，再跑 `npm run check`；第一次會說是新工具，確認後用 `--update` 加進快照。
 1. **量測前後**：在 S24 上跑 `test/tool-cost.sh <DevTools port> [mcp-<server> ...]`，加入新工具前後各跑一次，記下這組工具的字元數，以及短請求的提示大小變化。
 2. **決定載入方式**：照上面的原則，在 `toolsets.ts` 設好 `load`。
 3. **用一般人的說法實測**：在 S24 上用暫時的 Bot 問 2–3 題，不提工具名稱，也不說「用 codemode」。記下有沒有用對工具、呼叫了幾次、花了幾秒、答案對不對。
@@ -39,41 +147,41 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ## 目前的量測
 
-2026-10-21，S24，GPT 6.1 Sol。暫時的 Bot 開著全部內建工具，以及 Cloudflare、superlogical 兩個 MCP 服務。tokens 是用字元數 ÷ 4.9 估計的；這個比例是實測得到的：24,495 字元的定義讓請求多了 5,029 tokens。
+2026-10-22，S24，GPT 6.1 Sol。暫時的 Bot 開著全部內建工具（MCP 服務那兩列是 2026-10-21 另外量的）。tokens 是用字元數 ÷ 4.9 估計的；這個比例是實測得到的：24,495 字元的定義讓請求多了 5,029 tokens。
 
 | 工具組 | 擴充 | 載入 | 工具數 | 字元 | 約 tokens |
 |---|---|---|---:|---:|---:|
-| 排程（固定開啟） | `triggers` | 常駐 | 5 | 3,767 | 769 |
-| 手機 App | `phone_apps` | 常駐 | 7 | 2,666 | 544 |
-| 日曆 | `calendar` | 常駐 | 3 | 1,902 | 388 |
-| 手機狀態 | `device` | 常駐 | 4 | 1,736 | 354 |
+| 排程（固定開啟） | `triggers` | 常駐 | 5 | 3,845 | 785 |
+| 手機 App | `phone_apps` | 常駐 | 7 | 3,132 | 639 |
+| 日曆 | `calendar` | 常駐 | 3 | 2,107 | 430 |
+| 通知 | `notifications` | 常駐 | 3 | 2,032 | 415 |
+| 手機狀態 | `device` | 常駐 | 4 | 1,770 | 361 |
 | 程式模式 | `codemode` | 常駐 | 1 | 1,636 | 334 |
-| 地點 | `places` | 常駐 | 1 | 1,125 | 230 |
-| 通知 | `notifications` | 常駐 | 3 | 1,983 | 405 |
-| 手機控制 | `phone_control` | 常駐 | 2 | 1,128 | 230 |
-| 相片 | `photos` | 常駐 | 2 | 1,208 | 247 |
-| 通話與簡訊 | `calls_sms` | 常駐 | 2 | 905 | 185 |
-| 螢幕使用時間 | `screen_time` | 常駐 | 1 | 434 | 89 |
-| 健康 | `health` | 常駐 | 1 | 628 | 128 |
-| 聯絡人 | `contacts` | 常駐 | 1 | 605 | 123 |
-| 資料庫 | `database` | 常駐 | 1 | 901 | 184 |
-| 天氣 | `weather` | 常駐 | 1 | 754 | 154 |
 | 附件（固定開啟） | `attachments` | 常駐 | 2 | 1,476 | 301 |
-| 記憶（固定開啟） | `memory` | 常駐 | 1 | 674 | 138 |
+| 相片 | `photos` | 常駐 | 2 | 1,272 | 260 |
+| 手機控制 | `phone_control` | 常駐 | 2 | 1,238 | 253 |
+| 地點 | `places` | 常駐 | 1 | 1,166 | 238 |
+| 通話與簡訊 | `calls_sms` | 常駐 | 2 | 947 | 193 |
+| 資料庫 | `database` | 常駐 | 1 | 901 | 184 |
+| 天氣 | `weather` | 常駐 | 1 | 778 | 159 |
+| 健康 | `health` | 常駐 | 1 | 734 | 150 |
+| 記憶（固定開啟） | `memory` | 常駐 | 1 | 732 | 149 |
+| 網路 | `web` | 常駐 | 2 | 663 | 135 |
 | 工具搜尋（固定開啟） | `tool-search` | 常駐 | 1 | 615 | 126 |
-| 網路 | `web` | 常駐 | 2 | 611 | 125 |
 | 語音 | `speech` | 常駐 | 1 | 595 | 121 |
-| skills（固定開啟） | `skills` | 常駐 | 1 | 272 | 56 |
+| 聯絡人 | `contacts` | 常駐 | 1 | 562 | 115 |
+| 螢幕使用時間 | `screen_time` | 常駐 | 1 | 434 | 89 |
+| skills（固定開啟） | `skills` | 常駐 | 1 | 324 | 66 |
+| Sandbox | `coding-tools` | 需要時載入 | 4 | 2,715 | 554 |
+| GitHub | `github` | 需要時載入 | 2 | 1,421 | 290 |
+| Google Cloud | `gcp` | 需要時載入 | 1 | 999 | 204 |
+| Cloudflare | `cloudflare` | 需要時載入 | 1 | 974 | 199 |
+| Azure | `azure` | 需要時載入 | 1 | 938 | 191 |
 | Cloudflare（MCP） | `mcp-cloudflare` | 需要時載入 | 23 | 11,400 | 2,327 |
 | superlogical（MCP） | `mcp-superlogical` | 需要時載入 | 10 | 3,615 | 738 |
-| Sandbox | `coding-tools` | 需要時載入 | 4 | 2,715 | 554 |
-| GitHub | `github` | 需要時載入 | 2 | 1,320 | 269 |
-| Google Cloud | `gcp` | 需要時載入 | 1 | 999 | 204 |
-| Cloudflare API | `cloudflare` | 需要時載入 | 1 | 974 | 199 |
-| Azure | `azure` | 需要時載入 | 1 | 938 | 191 |
 
-- 常駐的定義合計 18,541 字元。
-- 短請求的提示：內建工具全開時 6,126 tokens，全關時 2,200 tokens（2026-10-22，不含 MCP 服務）。
+- 常駐的定義合計 26,959 字元。
+- 短請求的提示：內建工具全開時 8,103 tokens，全關時 2,488 tokens（2026-10-22，不含 MCP 服務；MCP 那兩列是 10-21 的量測）。
 
 ## MCP 服務市集
 
@@ -102,6 +210,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | 內建工具全部常駐 | 6,920 tokens | 內建工具約佔 5,000 tokens（72%） |
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
+| 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
 | 2026-10-22 | 健康（Health Connect，系統 API） | 7,505 → 7,620 tokens | 權限都允許後五種資料都是空的：Samsung Health 的「同意處理健康和保健資料」沒開，它就不寫入 Health Connect。「這禮拜睡得怎樣」11 秒，正確說沒有資料並指出設定。打開同意、回到 Samsung Health 主畫面後開始同步（只同步之後的資料）：「今天走了幾步、這週呢」9 秒，答出今天 25 步，並說明其他天沒有資料不代表沒走路 |
 | 2026-10-22 | 掃描文件（`scan_document`）、掃描頁在手機上 OCR | 7,401 → 7,505 tokens | 掃描版收據 PDF：OCR 0.17 秒，「總共多少、買了什麼」8 秒對，只送 52 tokens 的文字而不是一張圖；「幫我掃描桌上這張紙」叫出系統掃描畫面，取消後回「這次沒有掃描」 |
 | 2026-10-22 | 排程的新事件：開始充電、連上 Wi‑Fi、到達／離開地點 | 7,246 → 7,401 tokens | 「每天晚上回到家提醒我倒垃圾」12 秒，用記憶裡的住址建 18:00–23:59 到達時、一天一次（拒絕核准）。觸發：模擬插電立刻執行、同一次充電不重複；Wi‑Fi 和地點在重新設定時不再誤觸發（系統回報的「目前狀態」不算事件） |

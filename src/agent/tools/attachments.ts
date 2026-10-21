@@ -3,11 +3,11 @@
 // listed in the bot panel, like memory: it matters only in conversations with attachments, and costs little.
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool } from "@earendil-works/pi-durable";
-import { Capacitor } from "@capacitor/core";
+import { defineExtension } from "@earendil-works/pi-durable";
 import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
 import { inboxFile, Scanner } from "../../scanner-plugin.ts";
 import { codeNote } from "../codes.ts";
+import { defineAppTool, requireNative } from "./common.ts";
 
 const DEFAULT_LINES = 400;
 /** One call returns at most this much text, so one read cannot flood the context; the notice says where to go on. */
@@ -39,7 +39,7 @@ function window(lines: string[], start: number, limit: number): { text: string; 
 	return { text: out.join("\n"), ...(index < lines.length ? { next: index + 1 } : {}) };
 }
 
-const readAttachment = defineTool({
+const readAttachment = defineAppTool({
 	name: "read_attachment",
 	description: [
 		"Read a file the user attached, by the id in its <attachment> tag. Use it when the message shows only the start of the file, or to look at PDF pages as images.",
@@ -59,7 +59,7 @@ const readAttachment = defineTool({
 		const output: (TextContent | ImageContent)[] = [];
 		const isPdf = attachment.kind === "pdf";
 
-		if (args.query) {
+		if (args.query !== undefined) {
 			const needle = normalizeCjk(args.query).toLowerCase();
 			const matches: string[] = [];
 			attachment.units.forEach((unit, unitIndex) => {
@@ -73,8 +73,7 @@ const readAttachment = defineTool({
 			return { output };
 		}
 
-		// Models fill options they do not use with "": those mean not given, as for query above.
-		if (args.pages) {
+		if (args.pages !== undefined) {
 			if (!isPdf) throw new Error("pages is for PDFs; use offset and limit");
 			const pages = pageList(args.pages, attachment.units.length);
 			if (pages.length === 0) throw new Error(`no such pages; the PDF has ${attachment.units.length}`);
@@ -104,19 +103,19 @@ const readAttachment = defineTool({
 	},
 });
 
-const scanDocument = defineTool({
+const scanDocument = defineAppTool({
 	name: "scan_document",
 	description:
 		"Open the phone's document scanner for the user to photograph paper (a contract, a receipt, a letter): it finds the edges and flattens the pages. Returns the pages as an attachment with their text (OCR on the phone), like a PDF the user attached. Only when the user asks to scan something now.",
 	parameters: Type.Object({ pages: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "At most this many pages (default 20)" })) }),
 	execute: async (args, api) => {
-		if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
+		requireNative();
 		let scan: { pdf: string; pages: number };
 		try {
-			scan = await Scanner.scan({ pages: args.pages || 20 });
+			scan = await Scanner.scan({ pages: args.pages ?? 20 });
 		} catch (error) {
 			if (error instanceof Error && Reflect.get(error, "code") === "cancelled") {
-				return { output: [{ type: "text", text: "The user closed the scanner without scanning. Reply with one short sentence, such as 「好，沒有掃。」" }], isError: true };
+				return { output: [{ type: "text", text: "The user closed the scanner; nothing was scanned. Reply with one short sentence that says so, such as 「好，沒有掃。」" }], isError: true };
 			}
 			throw error;
 		}

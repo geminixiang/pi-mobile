@@ -3,9 +3,9 @@
 // (TriggersPlugin) keeps a mirror of the schedules so alarms fire, and survive a reboot, without the WebView, and it
 // queues what happened until the WebView runs again. See docs/design/triggers.md.
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { type ConversationId, defineDoc, defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
-import { requestConfirmation } from "./confirm.ts";
+import { approve, defineAppTool, localTime, parseClock, parseLocalTime, text } from "./tools/common.ts";
 import { parse } from "./parse.ts";
 import { resolvePlace } from "./tools/device.ts";
 
@@ -188,25 +188,13 @@ export function describeTime(at: number): string {
 	return clock(at);
 }
 
-/** "YYYY-MM-DDTHH:MM" in the phone's local time. */
-function parseLocal(value: string): number {
-	const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})$/.exec(value.trim());
-	if (!match) throw new Error(`at must be YYYY-MM-DDTHH:MM local time, got ${value}`);
-	const [, year, month, day, hour, minute] = match.map(Number);
-	return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0).getTime();
-}
-
-const text = (value: string) => ({ output: [{ type: "text" as const, text: value }] });
-
-function hhmm(value: string, name: string): string {
-	const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
-	if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) throw new Error(`${name} must be HH:MM, got ${value}`);
-	return `${match[1]?.padStart(2, "0")}:${match[2]}`;
-}
+const hhmm = (value: string, name: string) => parseClock(value, name).text;
 
 function summary(trigger: Trigger): string {
 	const kind = trigger.kind === "followup" ? "follow-up" : "schedule";
-	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
+	// The time in the form the tools take, for the model; describeWhen is the user's words for it.
+	const at = trigger.when.kind === "once" ? `, at ${localTime(trigger.when.at)}` : "";
+	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
 /** Location "all the time", which events while pi is not running need; asks, and says what to do when it was not given. */
@@ -227,7 +215,7 @@ export interface TriggerHost {
 }
 
 export function createTriggerExtension(host: TriggerHost) {
-	const createSchedule = defineTool({
+	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
 			"Schedule a recurring or one-time run of yourself: at the time, or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
@@ -236,7 +224,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
 			days: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Recurring: weekdays; omit for every day" })),
-			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DDTHH:MM. Give either time or at, or on." })),
+			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DD HH:MM. Give either time or at, or on." })),
 			on: Type.Optional(
 				Type.Union([Type.Literal("headphones"), Type.Literal("charging"), Type.Literal("wifi"), Type.Literal("arrive"), Type.Literal("leave")], {
 					description: "Instead of a time, run on an event: headphones connect, the phone starts charging, a Wi-Fi connects, or the phone arrives at or leaves place. days, from, until apply too",
@@ -259,7 +247,7 @@ export function createTriggerExtension(host: TriggerHost) {
 					days,
 					...(args.from ? { from: hhmm(args.from, "from") } : {}),
 					...(args.until ? { until: hhmm(args.until, "until") } : {}),
-					gapHours: args.at_most_every_hours || 4,
+					gapHours: args.at_most_every_hours ?? 4,
 				};
 				if (args.on === "headphones") {
 					when = { kind: "headphones", ...window };
@@ -275,11 +263,12 @@ export function createTriggerExtension(host: TriggerHost) {
 				} else {
 					if (!args.place) throw new Error("arrive and leave need place");
 					const point = await resolvePlace(args.place);
-					when = { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m || 200, ...window };
+					when = { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m ?? 200, ...window };
 					await needLocationAlways("where the phone is");
 				}
 			} else if (args.at && !args.time) {
-				const at = parseLocal(args.at);
+				const { ms: at, hasTime } = parseLocalTime(args.at, "at");
+				if (!hasTime) throw new Error("at needs a time: YYYY-MM-DD HH:MM");
 				if (at <= Date.now()) throw new Error(`${args.at} is in the past`);
 				when = { kind: "once", at };
 			} else if (args.time && !args.at) {
@@ -289,11 +278,14 @@ export function createTriggerExtension(host: TriggerHost) {
 			}
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
-			const approved = await requestConfirmation({
-				title: `新增排程「${args.name}」：${describeWhen(when)}`,
-				detail: `${when.kind === "daily" || when.kind === "once" ? "到時候" : "那時"} pi 會自動執行：\n${args.prompt}`,
-			});
-			if (!approved) return { output: [{ type: "text", text: "The user declined; nothing was scheduled. Reply with one short sentence that nothing was done, such as 「好，沒有加。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
+			const declined = await approve(
+				{
+					title: `新增排程「${args.name}」：${describeWhen(when)}`,
+					detail: `${when.kind === "daily" || when.kind === "once" ? "到時候" : "那時"} pi 會自動執行：\n${args.prompt}`,
+				},
+				"好，沒有加。",
+			);
+			if (declined) return declined;
 			const trigger: Trigger = {
 				id: crypto.randomUUID().slice(0, 8),
 				name: args.name,
@@ -312,12 +304,12 @@ export function createTriggerExtension(host: TriggerHost) {
 		},
 	});
 
-	const scheduleFollowup = defineTool({
+	const scheduleFollowup = defineAppTool({
 		name: "schedule_followup",
 		description:
 			"Continue this conversation later by yourself, such as checking whether a deployment finished. After the delay, the note is sent back to you here as a new turn. Use it only when a later check is useful; tell the user you scheduled it.",
 		parameters: Type.Object({
-			minutes: Type.Integer({ minimum: 1, maximum: 1440 }),
+			minutes: Type.Integer({ minimum: 1, maximum: 1440, description: "How long from now" }),
 			label: Type.String({ description: "Short label the user sees in a notification, in their language, such as 查部署結果" }),
 			note: Type.String({ description: "What to check or do then, as an instruction to yourself" }),
 		}),
@@ -341,11 +333,11 @@ export function createTriggerExtension(host: TriggerHost) {
 				(await tx.doc(TriggerDoc)).items.push(trigger);
 			}, context);
 			host.changed();
-			return text(`Follow-up ${trigger.id} at ${clock(at)}.`);
+			return text(`Follow-up ${trigger.id} at ${localTime(at)}.`);
 		},
 	});
 
-	const listSchedules = defineTool({
+	const listSchedules = defineAppTool({
 		name: "list_schedules",
 		description: "Your schedules and pending follow-ups, with their ids.",
 		parameters: Type.Object({}),
@@ -355,18 +347,18 @@ export function createTriggerExtension(host: TriggerHost) {
 		},
 	});
 
-	const deleteSchedule = defineTool({
+	const deleteSchedule = defineAppTool({
 		name: "delete_schedule",
 		description: "Delete a schedule or a pending follow-up by id. The user approves deleting a schedule.",
-		parameters: Type.Object({ id: Type.String() }),
+		parameters: Type.Object({ id: Type.String({ description: "The id list_schedules shows" }) }),
 		execute: async (args, api, context) => {
 			const trigger = (await api.snapshot(TriggerDoc, context))?.items.find(
 				(item) => item.id === args.id && item.conversationId === api.conversationId,
 			);
 			if (!trigger) throw new Error(`no schedule ${args.id}; list_schedules shows them`);
 			if (trigger.kind === "schedule") {
-				const approved = await requestConfirmation({ title: `刪除排程「${trigger.name}」`, detail: `${describeWhen(trigger.when)}\n${trigger.prompt}` });
-				if (!approved) return { output: [{ type: "text", text: "The user declined; the schedule stays. Reply with one short sentence that nothing was done, such as 「好，不刪。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
+				const declined = await approve({ title: `刪除排程「${trigger.name}」`, detail: `${describeWhen(trigger.when)}\n${trigger.prompt}` }, "好，不刪。");
+				if (declined) return declined;
 			}
 			await api.commit(async (tx) => {
 				const doc = await tx.doc(TriggerDoc);
@@ -377,7 +369,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		},
 	});
 
-	const notify = defineTool({
+	const notify = defineAppTool({
 		name: "notify",
 		description:
 			"Show the user a phone notification that opens this conversation. Use it at the end of a triggered run when the result deserves their attention; skip it when there is nothing new. Keep it to the gist; the full answer is in the conversation.",

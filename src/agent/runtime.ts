@@ -10,7 +10,6 @@ import {
 	type ConversationView,
 	createRegistry,
 	defineExtension,
-	type Extension,
 	type EntryId,
 	Harness,
 	InboxDoc,
@@ -18,11 +17,10 @@ import {
 	section,
 	type Storage,
 } from "@earendil-works/pi-durable";
-import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
-import { createOnDemandExtension } from "./on-demand.ts";
-import { isEnabled, ON_DEMAND_EXTENSIONS, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { builtinExtensions } from "./catalog.ts";
+import { isEnabled, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
-import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
+import { type Bot, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { log } from "../log.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
@@ -30,35 +28,17 @@ import { builtinInfo, LEGACY_PROVIDER_ID, type ProviderConfig, providerName, par
 import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
-import { AppsExtension } from "./tools/apps.ts";
-import { createCalendarExtension } from "./tools/calendar.ts";
-import { DeviceExtension } from "./tools/device.ts";
-import { createPhoneCodemode } from "./codemode.ts";
 import { AzureTokens } from "./azure.ts";
 import { CloudflareTokens } from "./cloudflare.ts";
 import { GcloudTokens } from "./gcloud.ts";
 import { EgressLink, type MintedService } from "./sandbox/egress.ts";
 import { parseMachines } from "./sandbox/machine.ts";
-import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
+import { MachineSandbox, RelaySandbox, type Sandbox, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { azureService, type CloudService, cloudflareService, createCloudExtensions, googleService } from "./tools/cloud.ts";
-import { createGitHubExtension } from "./tools/github.ts";
-import { SkillsExtension } from "./skills.ts";
-import { NotificationsExtension } from "./tools/notifications.ts";
-import { DatabaseExtension } from "./tools/database.ts";
-import { PlacesExtension } from "./tools/places.ts";
-import { SpeechExtension } from "./tools/speech.ts";
-import { WeatherExtension } from "./tools/weather.ts";
-import { createWebExtension } from "./tools/web.ts";
-import { AttachmentsExtension } from "./tools/attachments.ts";
-import { ControlExtension } from "./tools/control.ts";
-import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
-import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
-import { HealthExtension } from "./tools/health.ts";
+import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
 import { deleteAttachments } from "./attachments.ts";
-import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
+import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
-	createTriggerExtension,
 	type Delivery,
 	LIMITS,
 	nativeTriggers,
@@ -373,54 +353,33 @@ export class AgentRuntime {
 		});
 
 		const registry = createRegistry();
-		// Development and cloud toolsets load on demand (toolsets.ts): their tools are deferred.
-		const install = (extension: Extension) =>
-			registry.install(ON_DEMAND_EXTENSIONS.has(extension.name) ? { ...extension, tools: extension.tools?.map((tool) => ({ ...tool, deferred: true as const })) } : extension);
-		install(Assistant);
-		install(BotExtension);
-		install(DeviceExtension);
-		install(WeatherExtension);
-		install(PlacesExtension);
-		install(DatabaseExtension);
-		const mcp = new McpHub({
-			install: (extension) => registry.install(extension),
-			uninstall: (name) => registry.uninstall({ name }),
-			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
-		});
-		install(AppsExtension);
-		install(SpeechExtension);
-		install(NotificationsExtension);
-		install(ControlExtension);
-		install(ContactsExtension);
-		install(PhotosExtension);
-		install(RecordsExtension);
-		install(ScreenTimeExtension);
-		install(HealthExtension);
-		install(SkillsExtension);
-		install(AttachmentsExtension);
-		install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
-		for (const extension of createPhoneCodemode()) install(extension);
-		if (settings.githubToken) install(createGitHubExtension(async () => settings.githubToken || undefined));
-		const clouds = cloudConnections(settings);
-		for (const extension of createCloudExtensions(clouds.services)) install(extension);
-		install(createWebExtension(webSearchConfig(configs, settings.providerKeys, lists, infos)));
 		// The tools need the runtime, which exists only after the Harness opens.
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
 			changed: () => void runtimeRef?.syncTriggers(),
 			notify: (title, text, conversationId) => options.notify?.(title, text, conversationId) ?? Promise.resolve(false),
 		};
-		install(createTriggerExtension(triggerHost));
-		install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
 		const folders = new Map<string, string>();
+		const clouds = cloudConnections(settings);
 		const sandbox = openSandbox(settings, clouds.minted);
-		if (sandbox) {
-			install(createSandboxExtension(sandbox, (id) => folders.get(id)));
-			install(SandboxTools);
+		const mcp: McpHub = new McpHub({
+			install: (extension) => registry.install(extension),
+			uninstall: (name) => registry.uninstall({ name }),
+			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
+		});
+		for (const extension of builtinExtensions({
+			assistant: Assistant,
+			calendarAccess: parseCalendarAccess(settings.calendarAccess),
+			...(settings.githubToken ? { githubToken: async () => settings.githubToken || undefined } : {}),
+			clouds: clouds.services,
+			web: webSearchConfig(configs, settings.providerKeys, lists, infos),
+			triggers: triggerHost,
+			memory: { changed: () => void runtimeRef?.publishMemory() },
+			...(sandbox ? { sandbox: { sandbox, folderOf: (id: string) => folders.get(id) } } : {}),
+			labelOf: (name) => labelOf(name, mcp),
+		})) {
+			registry.install(extension);
 		}
-
-		install(createToolSearchExtension());
-		install(createOnDemandExtension((name) => labelOf(name, mcp)));
 		const harness = await Harness.open(
 			storage,
 			{

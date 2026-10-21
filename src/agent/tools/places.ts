@@ -5,7 +5,8 @@
 // OSM has no ratings or reviews: the section points the model to web_search for which one is good.
 import { CapacitorHttp } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineAppTool } from "./common.ts";
 import { Value } from "typebox/value";
 import { parse, parseJson } from "../parse.ts";
 import { currentPlace, type Point, resolvePlace } from "./device.ts";
@@ -51,12 +52,12 @@ const Place = Type.Object({
 	name: Type.String(),
 	category: Type.String(),
 	address: Type.String(),
-	distanceM: Type.Number(),
+	distance_m: Type.Number(),
 	direction: Type.String(),
 	latitude: Type.Number(),
 	longitude: Type.Number(),
 	branch: Type.Optional(Type.String()),
-	openingHours: Type.Optional(Type.String()),
+	opening_hours: Type.Optional(Type.String()),
 	phone: Type.Optional(Type.String()),
 	website: Type.Optional(Type.String()),
 	cuisine: Type.Optional(Type.String()),
@@ -86,7 +87,7 @@ function localNow(): string {
 	return `${day} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-const findPlaces = defineTool({
+const findPlaces = defineAppTool({
 	name: "find_places",
 	description: [
 		"Find shops, restaurants, and services near a place or the phone, from OpenStreetMap, nearest first: name, branch, category, address, straight-line distance and direction, and when known opening hours (OSM syntax), phone, website, and cuisine.",
@@ -97,8 +98,8 @@ const findPlaces = defineTool({
 		category: Type.Optional(Type.String({ description: "OSM tag key:value, such as amenity:fuel" })),
 		query: Type.Optional(Type.String({ description: "A name or brand, such as 鼎泰豐" })),
 		near: Type.Optional(Type.String({ description: "Place name, address, or lat,lng to search around; default the phone's location" })),
-		radiusKm: Type.Optional(Type.Number({ description: "For a category: how far to look; default 1" })),
-		limit: Type.Optional(Type.Integer({ description: "How many; default 20, up to 50" })),
+		radius_km: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "For a category: how far to look, in km; default 1" })),
+		limit: Type.Optional(Type.Integer({ minimum: 1, description: "How many; default 20, up to 50" })),
 	}),
 	structuredOutputSchema: Type.Object({ near: Type.String(), now: Type.String(), places: Type.Array(Place) }),
 	replay: "safe",
@@ -114,7 +115,7 @@ const findPlaces = defineTool({
 			url = `https://photon.komoot.io/api/?${query}`;
 		} else {
 			// Reverse geocoding with a tag filter: the nearest places of that kind within the radius.
-			query.set("radius", String(Math.min(Math.max(args.radiusKm ?? 1, 0.1), 50)));
+			query.set("radius", String(Math.min(Math.max(args.radius_km ?? 1, 0.1), 50)));
 			url = `https://photon.komoot.io/reverse?${query}`;
 		}
 		const found = parse(PhotonResults, await getJson(url, "place search"), "place search").features.filter((feature) => feature.properties.name);
@@ -149,27 +150,27 @@ const findPlaces = defineTool({
 					name: p.name ?? "",
 					category: `${p.osm_key}:${p.osm_value}`,
 					address,
-					distanceM: Math.round(distance(center, latitude, longitude)),
+					distance_m: Math.round(distance(center, latitude, longitude)),
 					direction: direction(center, latitude, longitude),
 					latitude,
 					longitude,
 					...(branch ? { branch } : {}),
-					...(openingHours ? { openingHours } : {}),
+					...(openingHours ? { opening_hours: openingHours } : {}),
 					...(phone ? { phone } : {}),
 					...(website ? { website } : {}),
 					...(cuisine ? { cuisine } : {}),
 				};
 			})
-			.sort((a, b) => a.distanceM - b.distanceM);
+			.sort((a, b) => a.distance_m - b.distance_m);
 
 		const now = localNow();
 		const lines = places.map((place) =>
 			[
 				`${place.name}${place.branch ? `（${place.branch}）` : ""}`,
 				place.category,
-				`${place.distanceM} m ${place.direction}`,
+				`${place.distance_m} m ${place.direction}`,
 				place.address,
-				place.openingHours && `hours ${place.openingHours}`,
+				place.opening_hours && `hours ${place.opening_hours}`,
 				place.phone,
 				place.website,
 				place.cuisine && `cuisine ${place.cuisine}`,

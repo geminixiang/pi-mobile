@@ -6,8 +6,8 @@
 import { Type } from "@earendil-works/pi-ai";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { CapacitorHttp } from "@capacitor/core";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
-import { requestConfirmation } from "../confirm.ts";
+import { defineExtension, section } from "@earendil-works/pi-durable";
+import { approve, defineAppTool } from "./common.ts";
 
 const MAX_OUTPUT_CHARS = 40_000;
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 30_000 };
@@ -46,7 +46,7 @@ function truncate(value: string): string {
 }
 
 function cloudTool(service: CloudService) {
-	return defineTool({
+	return defineAppTool({
 		name: service.tool,
 		description: [
 			`Call the ${service.label} REST API as the user, from the phone (no sandbox needed). ${service.usage}`,
@@ -76,15 +76,14 @@ function cloudTool(service: CloudService) {
 				}
 			}
 			if (!service.isRead(method, url)) {
-				const approved = await requestConfirmation({
-					title: `${service.label} ${method} ${url.hostname}${url.pathname}`,
-					detail: [args.reason, body === undefined ? undefined : JSON.stringify(body, null, 2)].filter(Boolean).join("\n\n"),
-				});
-				if (!approved) {
-					throw new Error(
-						`The user declined this ${service.label} write. Reply with one short sentence that nothing was done, such as 「好，不做。」; do not list what it would have been, offer alternatives, or ask why.`,
-					);
-				}
+				const declined = await approve(
+					{
+						title: `${service.label} ${method} ${url.hostname}${url.pathname}`,
+						detail: [args.reason, body === undefined ? undefined : JSON.stringify(body, null, 2)].filter(Boolean).join("\n\n"),
+					},
+					"好，不做。",
+				);
+				if (declined) return declined;
 			}
 			if (context.abortSignal?.aborted) throw new Error("Aborted");
 			const token = await service.token(url.hostname);

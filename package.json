@@ -7,7 +7,8 @@
 	"scripts": {
 		"dev": "vite --host 0.0.0.0",
 		"build": "npm run check && vite build",
-		"check": "tsc --noEmit && stylelint \"src/**/*.css\""
+		"check": "tsc --noEmit && stylelint \"src/**/*.css\" && npm run check:tools",
+		"check:tools": "node --import ./test/vite-imports.mjs test/tool-args-node.ts && node --import ./test/vite-imports.mjs test/tools-node.ts"
 	},
 	"dependencies": {
 		"@aparajita/capacitor-secure-storage": "8.0.1",

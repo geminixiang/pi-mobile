@@ -3,7 +3,8 @@
 // API key. Fetch uses Capacitor's native HTTP, which is not subject to the WebView's CORS rules.
 import { CapacitorHttp } from "@capacitor/core";
 import { Type } from "@earendil-works/pi-ai";
-import { defineExtension, defineTool } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { defineAppTool } from "./common.ts";
 import { Type as T } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
@@ -133,7 +134,7 @@ export function createWebExtension(config: WebConfig) {
 	const responsesModel = pick(config.modelIds, RESPONSES_SEARCH_MODELS);
 	const anthropicModel = pick(config.modelIds, ANTHROPIC_SEARCH_MODELS);
 
-	const search = defineTool({
+	const search = defineAppTool({
 		name: "web_search",
 		description:
 			"Search the web for current information (news, docs, releases, prices, facts after your training data). Returns a short answer with source URLs; follow up with web_fetch to read a page.",
@@ -149,10 +150,10 @@ export function createWebExtension(config: WebConfig) {
 		},
 	});
 
-	const fetchPage = defineTool({
+	const fetchPage = defineAppTool({
 		name: "web_fetch",
 		description: "Fetch a web page (http or https) and return its readable text with links, or the raw body for JSON and plain text.",
-		parameters: Type.Object({ url: Type.String() }),
+		parameters: Type.Object({ url: Type.String({ description: "http:// or https:// URL of the page" }) }),
 		execute: async (args) => {
 			if (!/^https?:\/\//.test(args.url)) throw new Error("url must start with http:// or https://");
 			const response = await CapacitorHttp.get({

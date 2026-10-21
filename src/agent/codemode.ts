@@ -56,6 +56,32 @@ class WorkerRemote implements CodemodeRemote {
 	}
 }
 
+/**
+ * A structured output's shape, as short as the model needs to read results: field names, `?` for optional ones,
+ * nested objects in braces, `[]` for arrays; types left out (they read from the names and the tool's description).
+ * From the schema itself, so it cannot drift from what the tool returns.
+ */
+export function shapeOf(schema: unknown): string {
+	if (typeof schema !== "object" || schema === null) return "";
+	const items: unknown = Reflect.get(schema, "items");
+	if (Reflect.get(schema, "type") === "array") return `${shapeOf(items) || "value"}[]`;
+	const properties: unknown = Reflect.get(schema, "properties");
+	if (typeof properties === "object" && properties !== null) {
+		const required: unknown = Reflect.get(schema, "required");
+		const needed = new Set(Array.isArray(required) ? required : []);
+		const fields = Object.entries(properties).map(([key, inner]) => {
+			const nested = shapeOf(inner);
+			return `${key}${needed.has(key) ? "" : "?"}${nested ? `: ${nested}` : ""}`;
+		});
+		return `{ ${fields.join(", ")} }`;
+	}
+	// A record: TypeBox writes its values under patternProperties, JSON Schema often under additionalProperties.
+	const patterns: unknown = Reflect.get(schema, "patternProperties");
+	const values: unknown = typeof patterns === "object" && patterns !== null ? Object.values(patterns)[0] : Reflect.get(schema, "additionalProperties");
+	if (typeof values === "object" && values !== null && Reflect.get(schema, "type") === "object") return `Record<key, ${shapeOf(values) || "value"}>`;
+	return "";
+}
+
 export function createPhoneCodemode() {
 	const remote = new WorkerRemote();
 	const sandbox = new RemoteCodemodeSandbox({
@@ -74,10 +100,10 @@ export function createPhoneCodemode() {
 				section("codemode", (input) => {
 					// Gateways may rename tools for the model (such as `mcp__x__y_get_location`); scripts need the real names.
 					const callable = input.agent.callable.filter((tool) => tool.name !== "codemode");
-					const structured = callable.filter((tool) => tool.structuredOutputSchema).map((tool) => tool.name);
+					const structured = callable.filter((tool) => tool.structuredOutputSchema).map((tool) => `${tool.name}: ${shapeOf(tool.structuredOutputSchema)}`);
 					return [
 						`Scripts call your other tools as \`await tools.<name>(args)\` with the same arguments, by exactly these names, never with a prefix: ${callable.map((tool) => tool.name).join(", ")}.`,
-						`Results are text${structured.length ? `, except objects from ${structured.join(", ")} (github_api: { status, link?, body }; bash: { output, exitCode }; read_notifications: { items: { time, app, package, conversation?, sender?, title, text }[] }; weather: { place, now, hours: { time, condition, temperatureC, rainChance, rainMm }[], days: { date, condition, lowC, highC, rainChance, rainMm, uvIndex, sunrise, sunset }[] }; find_places: { near, now, places: { name, category, address, distanceM, direction, latitude, longitude, branch?, openingHours?, phone?, website?, cuisine? }[] }; sql: { results: { rows?: Record<column, value>[], changes?, lastInsertId? }[] })` : ""}.`,
+						`Results are text${structured.length ? `, except these, which return objects: ${structured.join("; ")}` : ""}.`,
 						"Scripts run on the phone in QuickJS, not in the sandbox; Date.now() only advances between tool calls. Use them to batch tool calls and shape data; heavy computation goes to bash.",
 					].join("\n");
 				}),

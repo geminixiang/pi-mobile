@@ -2,11 +2,11 @@
 // Reads run directly; every write asks the user first.
 import { Type } from "@earendil-works/pi-ai";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
-import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type as T } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
-import { requestConfirmation } from "../confirm.ts";
+import { approve, defineAppTool } from "./common.ts";
 
 /** GET /repos/{owner}/{repo}/contents/{path}: a directory listing, or one file. */
 const DirectoryListing = T.Array(T.Object({ type: T.String(), path: T.String(), size: T.Number() }));
@@ -64,7 +64,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 		return token;
 	}
 
-	const api = defineTool({
+	const api = defineAppTool({
 		name: "github_api",
 		description: [
 			"Call the GitHub REST API as the user. `path` starts with /, e.g. /user, /repos/{owner}/{repo}/issues?state=open&per_page=20,",
@@ -97,13 +97,14 @@ export function createGitHubExtension(getToken: TokenSource) {
 				}
 			}
 			if (args.method !== "GET") {
-				const approved = await requestConfirmation({
-					title: `GitHub ${args.method} ${args.path}`,
-					detail: [args.reason, args.body === undefined ? undefined : JSON.stringify(args.body, null, 2)]
-						.filter(Boolean)
-						.join("\n\n"),
-				});
-				if (!approved) throw new Error("The user declined this GitHub write. Reply with one short sentence that nothing was done, such as 「好，不做。」; do not list what it would have been, offer alternatives, or ask why.");
+				const declined = await approve(
+					{
+						title: `GitHub ${args.method} ${args.path}`,
+						detail: [args.reason, args.body === undefined ? undefined : JSON.stringify(args.body, null, 2)].filter(Boolean).join("\n\n"),
+					},
+					"好，不做。",
+				);
+				if (declined) return declined;
 			}
 			const result = await github(token, args.method, args.path, args.body, context.abortSignal);
 			const header = `HTTP ${result.status}${result.link ? `\nLink: ${result.link}` : ""}`;
@@ -116,12 +117,12 @@ export function createGitHubExtension(getToken: TokenSource) {
 		},
 	});
 
-	const readFile = defineTool({
+	const readFile = defineAppTool({
 		name: "github_read_file",
 		description: "Read a file from a GitHub repository as text, or list a directory.",
 		parameters: Type.Object({
-			owner: Type.String(),
-			repo: Type.String(),
+			owner: Type.String({ description: "The repository's owner, a user or organization" }),
+			repo: Type.String({ description: "The repository's name" }),
 			path: Type.String({ description: "Path inside the repository; empty for the root" }),
 			ref: Type.Optional(Type.String({ description: "Branch, tag, or commit; default branch if omitted" })),
 		}),

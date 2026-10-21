@@ -29,7 +29,7 @@ import {
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { Value } from "typebox/value";
 import { Type as T } from "typebox";
-import { requestConfirmation } from "./confirm.ts";
+import { approve } from "./tools/common.ts";
 
 /** Where the authorization server sends the browser back: a fixed loopback port, so a registration stays valid. */
 const REDIRECT_PORT = 47823;
@@ -329,6 +329,7 @@ class Connection {
 		const server = this.server;
 		const tools = cached.tools.map((tool) => {
 			const readOnly = tool.annotations?.readOnlyHint === true;
+			// defineTool, not defineAppTool: the server owns the schema, so its arguments go to it as the model wrote them.
 			return defineTool({
 				name: toolName(server, tool.name),
 				description: `[${server.name}] ${tool.description ?? tool.title ?? tool.name}`,
@@ -339,15 +340,8 @@ class Connection {
 				deferred: true,
 				execute: async (args, _api, context) => {
 					if (!readOnly) {
-						const approved = await requestConfirmation({
-							title: `${server.name}：${tool.annotations?.title ?? tool.title ?? tool.name}`,
-							detail: JSON.stringify(args, null, 2),
-						});
-						if (!approved) {
-							throw new Error(
-								"The user declined this call. Reply with one short sentence that nothing was done, such as 「好，不做。」; do not list what it would have been, offer alternatives, or ask why.",
-							);
-						}
+						const declined = await approve({ title: `${server.name}：${tool.annotations?.title ?? tool.title ?? tool.name}`, detail: JSON.stringify(args, null, 2) }, "好，不做。");
+						if (declined) return declined;
 					}
 					const client = await this.client();
 					const result = await client.callTool(tool.name, args, context.abortSignal ? { signal: context.abortSignal } : {});
