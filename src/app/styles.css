@@ -117,8 +117,7 @@
 }
 
 * { box-sizing: border-box; }
-[hidden] { display: none !important; }
-html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+html, body, .root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: none; padding: 0; text-align: inherit; }
 button:disabled { opacity: 0.4; cursor: default; }
@@ -179,6 +178,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Layout ---------- */
 .app {
+	--editor-border: var(--think-off);
 	position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden;
 	/* pi.dev's body::before and body::after, folded into one background (first layer paints on top). */
 	background-color: var(--bg);
@@ -314,14 +314,17 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-output.clamp-end { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(5 * 1.55em); overflow: hidden; }
 .step.open .step-output { max-height: 60vh; overflow-y: auto; }
 /* Steps from back-to-back model turns read as one stack, a blank line apart. */
-.answer:has(> .steps:last-child) + .answer > .steps:first-child { margin-top: -12px; }
+/* The condition in :where() adds no specificity. */
+:where(.answer:has(> .steps:last-child) + .answer) > .steps:first-child { margin-top: -12px; }
 
 .working { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 /* "Scroll to the newest": a tab sitting on the composer's top line, in the line's color. */
-.input { position: relative; }
+.input { position: relative; border-top: 1px solid var(--editor-border); background: none; }
+/* The finger owns the tab while it presses: no scrolling, no text selection, no context menu. */
 .scroll-hint {
+	touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 	position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); z-index: 3;
 	display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px;
 	/* Translucent: the content and the line show through, the outline keeps it a button. */
@@ -334,8 +337,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .scroll-hint::before { content: ""; position: absolute; inset: -12px -18px; }
 .scroll-hint:active { filter: brightness(1.15); }
 .scroll-hint.new { animation: fade-in 160ms ease, hint-pulse 1.6s ease-out 2; }
-/* The finger owns the tab while it presses: no scrolling, no text selection, no context menu. */
-.scroll-hint { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 /* At the bottom there is no tab, but the same spot above the line still takes the long press. */
 .scroll-hint.ghost {
 	width: 140px; height: 24px; padding: 0; transform: translate(-50%, -100%);
@@ -398,16 +399,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
    below separates the editor from its footer; here the screen edge or the keyboard ends it. */
 /* Room below the input, so it does not sit on the gesture bar, and taller targets for the thumb. */
 .composer { flex-shrink: 0; padding: 8px 0 calc(env(safe-area-inset-bottom) + 14px); background: var(--bg); }
-.app { --editor-border: var(--think-off); }
 .app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
 .app[data-thinking="low"] { --editor-border: var(--think-low); }
 .app[data-thinking="medium"] { --editor-border: var(--think-medium); }
 .app[data-thinking="high"] { --editor-border: var(--think-high); }
 .app[data-thinking="xhigh"] { --editor-border: var(--think-xhigh); }
 .app[data-thinking="max"] { --editor-border: var(--think-max); }
-.input { border-top: 1px solid var(--editor-border); background: none; }
-.input-row { padding: 0 6px 0 4px; }
-.input-row { display: flex; align-items: flex-end; }
+.input-row { display: flex; align-items: flex-end; padding: 0 6px 0 4px; }
 .input-row .icon-button { color: var(--muted); width: 48px; height: 54px; }
 .input textarea {
 	flex: 1; min-width: 0; resize: none; border: none; outline: none; background: none;
@@ -586,9 +584,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .check-ok::before { content: "OK  "; }
 .check-error::before { content: "ERR  "; }
 
-@media (prefers-reduced-motion: reduce) {
-	*, *::before, *::after { animation: none !important; transition: none !important; }
-}
 
 /* ---------- Workspace: files and git ---------- */
 .tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid var(--line); background: var(--bg); }
@@ -679,7 +674,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .dictation .btn { height: 34px; padding: 0 10px; }
 .pair-steps { padding: 14px 16px 2px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.6; color: var(--copy); }
 .pair-steps p { margin: 0; }
-.manual > summary { padding: 12px 16px 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+.manual > summary { list-style: none; padding: 12px 16px 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
 .manual > label { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0; }
 .manual > label > span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .step-image { display: block; margin: 0 var(--space) 12px; padding: 0; background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; border: 1px solid var(--line); }
@@ -692,7 +687,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .answer-actions .btn { height: 30px; padding: 0 10px; font-size: 11px; }
 /* Conversations with a run in progress. */
 .drawer-running { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); animation: blink 1s steps(1) infinite; }
-.manual > summary { list-style: none; }
 .manual > summary::-webkit-details-marker { display: none; }
 .manual > summary::before { content: "▸ "; color: var(--faint); }
 .manual[open] > summary::before { content: "▾ "; }
@@ -773,8 +767,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
 	text-transform: uppercase; color: var(--muted);
 }
-.bot-form > label > span em { font-style: normal; letter-spacing: 0; }
-.bot-form > label > span em.over { color: var(--error); }
+.bot-count { font-style: normal; letter-spacing: 0; }
+.bot-count.over { color: var(--error); }
 .bot-form input, .bot-form textarea {
 	width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg-deep); color: var(--text);
 	font-size: 15px; line-height: 1.5; outline: none; resize: vertical;
@@ -805,7 +799,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .panel-section { display: flex; flex-direction: column; gap: 8px; }
 .panel-section > .strip-label { margin: 0 2px; }
-.panel-memory { align-items: flex-start !important; }
+.menu > .panel-memory { align-items: flex-start; }
 .panel-memory > svg { margin-top: 2px; color: var(--muted); flex-shrink: 0; }
 .panel-memory-line { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .context-note { margin: 8px 0 10px; font-size: 12px; color: var(--faint); }

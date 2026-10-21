@@ -77,7 +77,7 @@ export function BotSheet({
 				<label>
 					<span>
 						工作
-						<em className={job.length > MAX_JOB ? "over" : ""}>
+						<em className={`bot-count${job.length > MAX_JOB ? " over" : ""}`}>
 							{job.length} / {MAX_JOB}
 						</em>
 					</span>
