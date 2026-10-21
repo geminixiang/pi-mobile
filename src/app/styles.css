@@ -216,11 +216,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Transcript ---------- */
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-/* Virtuoso's scroller (Chat.tsx): rows are spaced by their own padding, since a virtual list has no flex gap. */
-.transcript { flex: 1; min-height: 0; overscroll-behavior: contain; padding: 0 var(--space); }
+/* Virtuoso's scroller (Chat.tsx). Its list is as wide as the scroller, padding or not, so the side margins go on
+   the rows, and rows are spaced by their own padding, since a virtual list has no flex gap. */
+.transcript { flex: 1; min-height: 0; overscroll-behavior: contain; }
 .transcript-top { height: 22px; }
-.row { padding-bottom: 20px; }
-.transcript-end { display: flex; flex-direction: column; gap: 20px; padding-bottom: 28px; }
+.row { padding: 0 var(--space) 20px; }
+.transcript-end { display: flex; flex-direction: column; gap: 20px; padding: 0 var(--space) 28px; }
 .transcript-end:empty { padding-bottom: 8px; }
 /* A new conversation's welcome, not virtualized. */
 .transcript-empty { overflow-y: auto; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
