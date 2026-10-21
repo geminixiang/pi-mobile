@@ -429,11 +429,22 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .queue-mode { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Notices (Toasts.tsx, Base UI Toast): stacked above the composer, the newest in front (--toast-index 0); older ones
+   peek out above it. A swipe moves one through --toast-swipe-movement-x. */
+.toasts { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 80px); z-index: 30; }
 .toast {
-	position: absolute; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 80px); z-index: 30;
-	padding: 12px 14px; text-align: left; background: var(--console-bg); color: var(--console-text); border-left: 2px solid var(--accent);
-	font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; animation: rise 200ms var(--ease);
+	position: absolute; left: 0; right: 0; bottom: 0; z-index: calc(10 - var(--toast-index));
+	background: var(--console-bg); color: var(--console-text); border-left: 2px solid var(--accent);
+	transform: translateX(var(--toast-swipe-movement-x)) translateY(calc(var(--toast-index) * -8px)) scale(calc(1 - var(--toast-index) * 0.04));
+	transition: transform 220ms var(--ease), opacity 200ms ease;
 }
+.toast[data-starting-style] { opacity: 0; transform: translateY(16px); }
+.toast[data-ending-style] { opacity: 0; }
+.toast[data-ending-style][data-swipe-direction="left"] { transform: translateX(-110%); }
+.toast[data-ending-style][data-swipe-direction="right"] { transform: translateX(110%); }
+.toast[data-swiping] { transition: none; }
+.toast[data-limited] { opacity: 0; }
+.toast-text { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; line-height: 1.5; }
 
 /* ---------- Layers (Sheet.tsx: Base UI Dialog and Drawer) ----------
    Each part rests in its open style and transitions from and to [data-starting-style] / [data-ending-style]. */
@@ -469,7 +480,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .layer-page[data-starting-style], .layer-page[data-ending-style] { opacity: 0; transform: translateX(28px); }
 @keyframes fade-in { from { opacity: 0; } }
-@keyframes rise { from { transform: translateY(32px); opacity: 0; } }
 
 .menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
 .menu > button, .menu > label { display: flex; align-items: center; gap: 14px; min-height: 54px; padding: 10px 14px; text-align: left; font-size: 15px; }

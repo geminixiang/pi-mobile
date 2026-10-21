@@ -9,6 +9,7 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Chat, isBusy } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
+import { showToast } from "./Toasts.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
@@ -52,7 +53,6 @@ export function App() {
 	const [pendingShared, setPendingShared] = useState<"image" | "text">();
 	const [overlay, setOverlay] = useState<Overlay>();
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
-	const [toast, setToast] = useState("");
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
@@ -71,15 +71,10 @@ export function App() {
 
 	const notify = useCallback((message: string) => {
 		log.warn("app.notice", { message });
-		setToast(message);
+		showToast(message);
 	}, []);
 	const fail = useCallback((error: unknown) => notify(error instanceof Error ? error.message : String(error)), [notify]);
 
-	useEffect(() => {
-		if (!toast) return;
-		const timer = setTimeout(() => setToast(""), 3500);
-		return () => clearTimeout(timer);
-	}, [toast]);
 
 	// Ask is overloaded (text prompts resolve a string, confirmations a boolean); one implementation serves both.
 	const ask = useCallback(
@@ -301,11 +296,6 @@ export function App() {
 			<div className="app">
 				{/* Remount when pairing fills in the sandbox, so the form shows it. */}
 				<SettingsView key={settings.sandboxUrl} initial={settings} status={openError} onSave={saveAndRestart} />
-				{toast ? (
-					<button type="button" className="toast" onClick={() => setToast("")}>
-						{toast}
-					</button>
-				) : null}
 				<Dialog
 					request={dialog?.request}
 					onAnswer={(value) => {
@@ -456,11 +446,6 @@ export function App() {
 				)}
 			</SideSwipe>
 
-			{toast ? (
-				<button type="button" className="toast" onClick={() => setToast("")}>
-					{toast}
-				</button>
-			) : null}
 
 
 			<ModelSheet
