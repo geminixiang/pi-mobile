@@ -8,7 +8,7 @@ import { openAppStorage, takeLegacyStorage } from "../storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Chat, isBusy } from "./Chat.tsx";
-import { ConversationMenu } from "./ConversationMenu.tsx";
+import { BotPanel } from "./BotPanel.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
@@ -35,7 +35,12 @@ const LAST_BOT_KEY = "pi-mobile.lastBot";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
-type Overlay = "drawer" | "model" | "menu" | "settings" | "memory" | "botMemory" | "workspace" | undefined;
+type Overlay = "drawer" | "panel" | "model" | "settings" | "memory" | "botMemory" | "workspace" | undefined;
+
+/** How far from a screen edge a swipe must start, how far it must go, and how straight. */
+const EDGE_ZONE = 28;
+const SWIPE_DISTANCE = 56;
+const SWIPE_SLANT = 40;
 
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
@@ -265,8 +270,8 @@ export function App() {
 		})();
 	}, [pairing, settings, ask, notify]);
 
-	// Swipe right from the left edge opens the conversation list.
-	const swipe = useRef<{ x: number; y: number }>(undefined);
+	// A swipe in from the left edge opens the bot list; from the right edge, the bot's panel.
+	const swipe = useRef<{ x: number; y: number; from: "left" | "right" }>(undefined);
 
 	const splash = (
 		<div className="splash">
@@ -328,14 +333,26 @@ export function App() {
 			data-thinking={thinking || "off"}
 			onTouchStart={(event) => {
 				const touch = event.touches[0];
-				swipe.current = touch && touch.clientX < 28 && !overlay ? { x: touch.clientX, y: touch.clientY } : undefined;
+				swipe.current = undefined;
+				if (!touch || overlay) return;
+				if (touch.clientX < EDGE_ZONE) swipe.current = { x: touch.clientX, y: touch.clientY, from: "left" };
+				// Not from the composer: the scroll tab there opens the prompt dial with a long press and a slide.
+				else if (touch.clientX > window.innerWidth - EDGE_ZONE && !(event.target instanceof Element && event.target.closest(".composer"))) {
+					swipe.current = { x: touch.clientX, y: touch.clientY, from: "right" };
+				}
 			}}
 			onTouchMove={(event) => {
 				const touch = event.touches[0];
-				if (!swipe.current || !touch) return;
-				if (touch.clientX - swipe.current.x > 56 && Math.abs(touch.clientY - swipe.current.y) < 40) {
+				const start = swipe.current;
+				if (!start || !touch) return;
+				if (Math.abs(touch.clientY - start.y) >= SWIPE_SLANT) {
 					swipe.current = undefined;
-					setOverlay("drawer");
+					return;
+				}
+				const moved = start.from === "left" ? touch.clientX - start.x : start.x - touch.clientX;
+				if (moved > SWIPE_DISTANCE) {
+					swipe.current = undefined;
+					setOverlay(start.from === "left" ? "drawer" : "panel");
 				}
 			}}
 		>
@@ -354,7 +371,7 @@ export function App() {
 						<ChevronDownIcon />
 					</span>
 				</button>
-				<button type="button" className="icon-button" aria-label="更多" onClick={() => setOverlay("menu")}>
+				<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => setOverlay("panel")}>
 					<MoreIcon />
 				</button>
 				<div className="meter" aria-hidden="true">
@@ -423,19 +440,27 @@ export function App() {
 				}}
 			/>
 
-			<ConversationMenu
-				open={overlay === "menu"}
+			<BotPanel
+				open={overlay === "panel"}
+				bot={current}
+				runtime={runtime}
 				view={view}
-				title={current?.name ?? ""}
 				usage={totalUsage(view)}
 				cacheHitRate={latestCacheHitRate(view)}
 				context={{ used, window: contextWindow }}
+				compactAt={settings.compactAt}
 				prefs={prefs}
 				onPrefs={updatePrefs}
+				onError={notify}
 				onClose={close}
 				actions={{
-					settings: () => {
+					edit: () => {
 						if (current) setBotEdit({ kind: "edit", bot: current });
+					},
+					memory: () => {
+						if (!current) return;
+						setMemoryBot(current);
+						setOverlay("botMemory");
 					},
 					copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製最後的回答"), fail),
 					compact: () => {
@@ -453,7 +478,7 @@ export function App() {
 						if (sure) await controller.reset().catch(fail);
 					},
 					workspace: runtime.hasSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
-					resetSandbox: runtime.hasSandbox
+					emptyFolder: runtime.hasSandbox
 						? async () => {
 								if (!controller) return;
 								const sure = await ask({

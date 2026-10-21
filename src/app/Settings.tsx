@@ -18,11 +18,12 @@ import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/c
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
-import { describeTime, describeWhen, Triggers } from "../agent/triggers.ts";
+import { Triggers } from "../agent/triggers.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { MachinesGroup } from "./MachinesGroup.tsx";
 import { PiMark } from "./PiMark.tsx";
+import { TriggerRow } from "./TriggerRow.tsx";
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ok"; detail: string } | { state: "error"; detail: string };
 
@@ -405,8 +406,6 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 	);
 }
 
-const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", manual: "手動執行" };
-
 /**
  * Schedules and pending follow-ups the agent created: pause, run now, delete. They take effect at once (they are not
  * part of the form). Exact alarms make them fire on time; Android 14 and later turn that off for new apps.
@@ -450,42 +449,16 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 					</span>
 				</div>
 			) : (
-				state.items.map((trigger) => {
-					const next = state.next[trigger.id];
-					const last = trigger.last;
-					return (
-						<div className="check-row trigger-row" key={trigger.id}>
-							<span className="menu-text">
-								{trigger.kind === "followup" ? `稍後再看：${trigger.name}` : trigger.name}
-								<span className="menu-hint">
-									{bots.find((bot) => bot.id === trigger.conversationId)?.name ?? "已刪除的 Bot"} · {describeWhen(trigger.when)}
-									{trigger.enabled && next ? ` · 下次 ${describeTime(next)}` : ""}
-								</span>
-								{last ? (
-									<span className={`menu-hint${last.error ? " error" : ""}`}>
-										上次 {describeTime(last.at)} {last.error ?? DELIVERY_LABEL[last.delivery]}
-									</span>
-								) : null}
-								<span className="trigger-actions">
-									<button type="button" onClick={() => void act(runtime.runTrigger(trigger.id, "manual"))}>
-										立即執行
-									</button>
-									<button type="button" className="danger" onClick={() => void act(runtime.deleteTrigger(trigger.id))}>
-										刪除
-									</button>
-								</span>
-							</span>
-							<button
-								type="button"
-								className="toggle"
-								aria-pressed={trigger.enabled}
-								onClick={() => void act(runtime.setTriggerEnabled(trigger.id, !trigger.enabled))}
-							>
-								{trigger.enabled ? "開啟" : "暫停"}
-							</button>
-						</div>
-					);
-				})
+				state.items.map((trigger) => (
+					<TriggerRow
+						key={trigger.id}
+						trigger={trigger}
+						next={state.next[trigger.id]}
+						bot={bots.find((bot) => bot.id === trigger.conversationId) ?? "deleted"}
+						runtime={runtime}
+						onError={setError}
+					/>
+				))
 			)}
 			{exact === false ? (
 				<div className="check-row">

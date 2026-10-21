@@ -201,6 +201,17 @@ export class AgentRuntime {
 		return this.#sandbox !== undefined;
 	}
 
+	/** Where a bot works: its folder's path, and the sandbox it is in, in words; undefined without a sandbox. */
+	folderOf(id: ConversationId): { path: string; where: string } | undefined {
+		const folder = this.#folders.get(String(id));
+		const sandbox = this.#sandbox;
+		if (!sandbox || !folder) return undefined;
+		if (sandbox instanceof MachineSandbox) {
+			return { path: sandbox.root(folder), where: `${sandbox.machine.name} 的${sandbox.contained ? "容器" : "帳號（直接模式）"}` };
+		}
+		return { path: sandbox.root(folder), where: "sandbox 主機的容器" };
+	}
+
 	static async open(
 		storage: Storage,
 		settings: Settings,

@@ -2,7 +2,8 @@ import { type ReactNode, useRef } from "react";
 import { CloseIcon } from "./icons.tsx";
 import { useBack, usePresence } from "./layers.ts";
 
-type Kind = "sheet" | "drawer" | "dialog" | "page";
+/** drawer: from the left (the bot list); panel: from the right (the current bot). */
+type Kind = "sheet" | "drawer" | "panel" | "dialog" | "page";
 
 /**
  * Every overlay goes through here, so they share one behavior: enter and exit motion, and the back gesture and a
