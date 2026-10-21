@@ -37,6 +37,22 @@ function Item({ icon, label, hint, danger, disabled, onClick }: { icon: ReactNod
 	);
 }
 
+/** A toolset on one line: its name and a switch; one that needs setting up first says so. */
+function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle: (id: string, enabled: boolean) => void }) {
+	return (
+		<label className={toolset.available ? "" : "unavailable"}>
+			<span className="menu-text">{toolset.label}</span>
+			{toolset.available ? null : <span className="index-value">未設定</span>}
+			<input
+				type="checkbox"
+				disabled={!toolset.available}
+				checked={toolset.available && toolset.enabled}
+				onChange={(event) => onToggle(toolset.id, event.target.checked)}
+			/>
+		</label>
+	);
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="panel-section">
@@ -103,15 +119,8 @@ export function BotPanel({
 	}, [runtime, botId, open]);
 	if (!bot) return null;
 	const services = toolsets.filter((toolset) => toolset.kind === "service");
-	/** How a toolset sits in the bot's requests: loaded on demand, or always, and about how many tokens. */
-	const load = (toolset: ToolsetState) => {
-		const chars = toolset.extensions.reduce((sum, name) => sum + (cost[name]?.offered ?? 0) + (cost[name]?.deferred ?? 0), 0);
-		const deferred = toolset.extensions.some((name) => (cost[name]?.deferred ?? 0) > 0);
-		if (!toolset.enabled || chars === 0) return toolset.load === "on-demand" ? "需要時載入" : "";
-		return `${deferred ? "需要時載入" : toolset.load === "on-demand" ? "已載入" : "常駐"} · 約 ${formatTokens(tokensOf(chars))} tokens`;
-	};
-	const offered = Object.values(cost).reduce((sum, item) => sum + item.offered, 0);
-	const onDemand = Object.values(cost).reduce((sum, item) => sum + (item.deferred > 0 ? item.tools.length : 0), 0);
+	/** What a toolset's definitions add to each request, in characters. */
+	const charsOf = (toolset: ToolsetState) => toolset.extensions.reduce((sum, name) => sum + (cost[name]?.offered ?? 0), 0);
 
 	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
@@ -141,7 +150,7 @@ export function BotPanel({
 							{bot.name}
 							<PencilIcon size={14} />
 						</span>
-						<span className="panel-bot-job">{bot.job || "一般助理，沒有寫工作說明"}</span>
+						<span className="panel-bot-job">{bot.job || "一般助理"}</span>
 					</span>
 				</button>
 
@@ -149,10 +158,7 @@ export function BotPanel({
 					<div className="menu">
 						{mine.length === 0 ? (
 							<div className="check-row">
-								<span className="menu-text">
-									還沒有排程
-									<span className="menu-hint">跟{bot.name}說「每天早上 8 點給我簡報」或「戴上耳機時跟我報告」。</span>
-								</span>
+								<span className="menu-text">還沒有排程</span>
 							</div>
 						) : (
 							mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={onError} />)
@@ -166,56 +172,34 @@ export function BotPanel({
 							<MemoryIcon />
 							<span className="menu-text">
 								{memoryLines.length > 0 ? memoryLines.map((line, index) => <span key={`${index}-${line}`} className="panel-memory-line">{line}</span>) : "還沒有記下什麼"}
-								<span className="menu-hint">只有{bot.name}看得到；所有 Bot 都知道的事放在全域記憶</span>
 							</span>
 						</button>
 					</div>
 				</Section>
 
-				<Section title="工具">
-					<div className="menu toggles">
-						{toolsets.filter((toolset) => toolset.kind === "builtin").map((toolset) => (
-							<label key={toolset.id} className={toolset.available ? "" : "unavailable"}>
-								<span className="menu-text">
-									{toolset.label}
-									<span className="menu-hint">
-										{toolset.available ? toolset.hint : "尚未設定（在設定裡連接）"}
-										{toolset.available && load(toolset) ? <span className="toolset-load">{load(toolset)}</span> : null}
-									</span>
-								</span>
-								<input
-									type="checkbox"
-									disabled={!toolset.available}
-									checked={toolset.available && toolset.enabled}
-									onChange={(event) => toggle(toolset.id, event.target.checked)}
-								/>
-							</label>
-						))}
-					</div>
-				</Section>
+				{(["always", "on-demand"] as const).map((kind) => {
+					const list = toolsets.filter((toolset) => toolset.kind === "builtin" && toolset.load === kind);
+					if (list.length === 0) return null;
+					const tokens = kind === "always" ? tokensOf(list.filter((toolset) => toolset.enabled).reduce((sum, toolset) => sum + charsOf(toolset), 0)) : 0;
+					return (
+						<Section key={kind} title={kind === "always" ? `常駐工具${tokens ? ` · 約 ${formatTokens(tokens)} tokens` : ""}` : "需要時載入的工具"}>
+							<div className="menu toggles">
+								{list.map((toolset) => (
+									<ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />
+								))}
+							</div>
+						</Section>
+					);
+				})}
 
 				<Section title="連接的服務">
 					<div className="menu toggles">
 						{services.length === 0 ? (
 							<div className="check-row">
-								<span className="menu-text">
-									還沒有連接服務
-									<span className="menu-hint">在設定 › MCP 加入，再回來給{bot.name}用</span>
-								</span>
+								<span className="menu-text">還沒有連接服務</span>
 							</div>
 						) : (
-							services.map((toolset) => (
-								<label key={toolset.id}>
-									<span className="menu-text">
-										{toolset.label}
-										<span className="menu-hint">
-											{toolset.hint}
-											{load(toolset) ? <span className="toolset-load">{load(toolset)}</span> : null}
-										</span>
-									</span>
-									<input type="checkbox" checked={toolset.enabled} onChange={(event) => toggle(toolset.id, event.target.checked)} />
-								</label>
-							))
+							services.map((toolset) => <ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />)
 						)}
 					</div>
 				</Section>
@@ -223,9 +207,9 @@ export function BotPanel({
 				{folder ? (
 					<Section title="資料夾">
 						<div className="menu">
-							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder.path} hint={`${folder.where} · 檔案、git 變更和 commit`} onClick={run(actions.workspace)} /> : null}
+							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder.path} hint={folder.where} onClick={run(actions.workspace)} /> : null}
 							{actions.emptyFolder ? (
-								<Item icon={<BoxIcon size={18} />} label="清空資料夾" hint="刪除這個 Bot 在 sandbox 裡的檔案" danger onClick={run(actions.emptyFolder)} />
+								<Item icon={<BoxIcon size={18} />} label="清空資料夾" danger onClick={run(actions.emptyFolder)} />
 							) : null}
 						</div>
 					</Section>
@@ -238,17 +222,14 @@ export function BotPanel({
 								{formatTokens(context.used)} / {formatTokens(context.window)}
 								<b>{percent.toFixed(0)}%</b>
 							</span>
+							<span className="context-note">{compactAt > 0 ? `${formatTokens(compactAt)} 時壓縮` : "接近上限時壓縮"}</span>
 						</div>
 						<div className="context-bar">
 							<i style={{ width: `${Math.max(percent, 1.5)}%` }} />
 						</div>
-						<p className="context-note">
-							{compactAt > 0 ? `超過 ${formatTokens(compactAt)} 時自動壓縮` : "到模型上限前自動壓縮"}（設定 › 自動壓縮）
-						</p>
-						<p className="context-note">
-							工具定義每次約 {formatTokens(tokensOf(offered))} tokens{onDemand > 0 ? `，另有 ${onDemand} 個工具需要時才載入` : ""}
-						</p>
-						<dl className="stats">
+						<details className="stats-more">
+							<summary>用量</summary>
+							<dl className="stats">
 							<div>
 								<dt>輸入</dt>
 								<dd>{formatTokens(usage.input)}</dd>
@@ -271,11 +252,12 @@ export function BotPanel({
 									<dd>{cacheHitRate.toFixed(1)}%</dd>
 								</div>
 							) : null}
-						</dl>
+							</dl>
+						</details>
 					</div>
 					<div className="menu">
-						<Item icon={<LayersIcon />} label="現在壓縮" hint="把較早的內容摘要起來，騰出上下文" onClick={run(actions.compact)} />
-						<Item icon={<RefreshIcon />} label="新的上下文" hint="模型看不到之前的訊息，紀錄保留" onClick={run(actions.reset)} />
+						<Item icon={<LayersIcon />} label="現在壓縮" onClick={run(actions.compact)} />
+						<Item icon={<RefreshIcon />} label="新的上下文" hint="紀錄保留，模型看不到" onClick={run(actions.reset)} />
 						<Item
 							icon={<CopyIcon size={18} />}
 							label="複製最後的回答"

@@ -555,7 +555,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .context-numbers b { margin-left: 8px; color: var(--text); font-weight: 700; }
 /* Context bar drawn as cells, echoing the pixel mark. */
 .context-bar {
-	height: 10px; margin: 12px 0 14px; background-color: var(--bg-deep);
+	height: 10px; margin: 12px 0; background-color: var(--bg-deep);
 	background-image: linear-gradient(90deg, transparent 9px, var(--panel) 9px);
 	background-size: 10px 10px;
 }
@@ -565,6 +565,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	mask-image: linear-gradient(90deg, #000 9px, transparent 9px); mask-size: 10px 10px;
 	transition: width 400ms var(--ease);
 }
+.context-top .context-note { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.stats-more > summary { list-style: none; font-family: var(--mono); font-size: 11px; color: var(--muted); cursor: pointer; }
+.stats-more > summary::-webkit-details-marker { display: none; }
+.stats-more > summary::before { content: "▸ "; color: var(--faint); }
+.stats-more[open] > summary::before { content: "▾ "; }
+.stats-more > .stats { margin-top: 10px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; margin: 0; }
 .stats dt { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); }
 .stats dd { margin: 3px 0 0; font-family: var(--mono); font-size: 14px; }
@@ -757,6 +763,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .manual > summary::-webkit-details-marker { display: none; }
 .manual > summary::before { content: "▸ "; color: var(--faint); }
 .manual[open] > summary::before { content: "▾ "; }
+.more-rows { border-top: 1px solid var(--line); }
+.more-rows > summary { padding-bottom: 12px; }
+.more-rows > .check-row { border-top: 1px solid var(--line); }
+.more-rows + .check-row { border-top: 1px solid var(--line); }
 .check-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .row-actions { display: flex; gap: 8px; flex-shrink: 0; }
 /* Settings › MCP: a server, then the bots that may use it as square chips (McpGroup.tsx). */
@@ -773,6 +783,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .state { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; }
 .state.on { color: var(--ok); }
 .state.off { color: var(--error); }
+.index-value { flex-shrink: 1; min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.page-note { margin: 0 2px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
 .about { padding: 4px 6px 0; font-family: var(--mono); font-size: 11px; color: var(--faint); text-align: center; }
 .group-body textarea.field { height: auto; padding: 10px 12px; font-size: 12px; line-height: 1.5; resize: vertical; }
 .sign-in { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.6; color: var(--copy); }
@@ -820,6 +832,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .group-body > .btn { margin: 14px 16px; }
 /* A model provider in Settings (ProvidersGroup.tsx): its name and remove button, then its fields. */
 .provider { border-bottom: 1px solid var(--line); }
+.provider-head { width: 100%; text-align: left; }
+.provider-head > .chevron { color: var(--muted); flex-shrink: 0; }
+.check-more { margin-left: auto; display: flex; gap: 8px; }
 .provider > .link { margin: 10px 16px 0; padding: 0; font-size: 13px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
 .copyable { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding-bottom: 12px; }
 .copyable .console { align-self: stretch; }

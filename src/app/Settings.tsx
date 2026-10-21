@@ -23,7 +23,10 @@ import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
 import { Triggers } from "../agent/triggers.ts";
 import { isConfigured, type Settings } from "../settings.ts";
-import { BackIcon } from "./icons.tsx";
+import { BackIcon, ChevronIcon } from "./icons.tsx";
+import { useBack } from "./layers.ts";
+import { parseMachines } from "../agent/sandbox/machine.ts";
+import { parseProviders, providerName } from "../agent/providers.ts";
 import { MachinesGroup } from "./MachinesGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
@@ -74,7 +77,6 @@ function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => v
 			<div className="check-row">
 				<span className="menu-text">
 					用 Google 帳號登入
-					<span className="menu-hint">在瀏覽器選帳號並同意，最後一頁會出現授權碼，複製後回到這裡</span>
 				</span>
 				<button
 					type="button"
@@ -93,7 +95,7 @@ function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => v
 	}
 	return (
 		<div className="sign-in">
-			<p>在瀏覽器完成登入，複製最後一頁的授權碼，回到 app 會自動帶入。也可以貼在這裡：</p>
+			<p>複製最後一頁的授權碼，回來會自動帶入，或貼在這裡：</p>
 			<input className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
 			{state.kind === "failed" ? <div className="check-error">{state.error}</div> : null}
 			<div className="dialog-actions inline">
@@ -137,7 +139,6 @@ function CloudflareSignInPanel({ onCredential }: { onCredential: (json: string) 
 				<div className="check-row">
 					<span className="menu-text">
 						用 Cloudflare 帳號登入
-						<span className="menu-hint">在瀏覽器確認畫面上的代碼並同意，完成後會自動回到這裡</span>
 					</span>
 					<button type="button" className="btn primary" onClick={() => void begin()}>
 						登入
@@ -149,7 +150,7 @@ function CloudflareSignInPanel({ onCredential }: { onCredential: (json: string) 
 	}
 	return (
 		<div className="sign-in">
-			<p>在 Cloudflare 頁面確認這組代碼並按同意：</p>
+			<p>在 Cloudflare 頁面確認這組代碼：</p>
 			<div className="user-code">{signIn.userCode}</div>
 			<p className="ws-loading">等待授權</p>
 			<div className="dialog-actions inline">
@@ -201,7 +202,6 @@ function AzureSignInPanel({ onCredential }: { onCredential: (json: string) => vo
 				<div className="check-row">
 					<span className="menu-text">
 						用 Microsoft 帳號登入
-						<span className="menu-hint">代碼會自動複製，在 Microsoft 的頁面貼上並同意即可</span>
 					</span>
 					<button type="button" className="btn primary" onClick={() => void begin()}>
 						登入
@@ -213,7 +213,7 @@ function AzureSignInPanel({ onCredential }: { onCredential: (json: string) => vo
 	}
 	return (
 		<div className="sign-in">
-			<p>代碼已複製。在 Microsoft 的頁面貼上這組代碼，選帳號並同意：</p>
+			<p>代碼已複製，在 Microsoft 的頁面貼上：</p>
 			<div className="user-code">{signIn.userCode}</div>
 			<p className="ws-loading">等待授權</p>
 			<div className="dialog-actions inline">
@@ -317,11 +317,25 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 		</button>
 	);
 
+	const accountRow = (group: { key: string; label: string; calendars: PhoneCalendar[] }) => {
+		const readable = !access.hidden.includes(group.key);
+		const canWrite = group.calendars.some((calendar) => calendar.writable);
+		return (
+			<div className="check-row" key={group.key}>
+				<span className="menu-text">
+					{group.label}
+					{group.calendars.some((calendar) => !group.label.startsWith(calendar.name)) ? (
+						<span className="menu-hint">{group.calendars.map((calendar) => calendar.name).join("、")}</span>
+					) : null}
+				</span>
+				{switchButton("讀取", readable, (on) => setRead(group, on))}
+				{switchButton("寫入", readable && access.writable.includes(group.key), (on) => setWrite(group, on), !readable || !canWrite)}
+			</div>
+		);
+	};
+
 	return (
-		<Group
-			title="行事曆"
-			hint="agent 讀取的行程會送到模型服務；不想送出公司行程，就關掉那個帳號的「讀取」。新增活動只會寫進打開「寫入」的帳號，而且每次都會先問你。"
-		>
+		<Group title="行事曆" hint="Bot 讀到的行程會送給模型。">
 			{calendars === undefined ? (
 				<div className="check">
 					<button type="button" className="btn" onClick={() => void load()}>
@@ -331,27 +345,18 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 				</div>
 			) : (
 				<>
-					{groups.map((group) => {
-						const readable = !access.hidden.includes(group.key);
-						const canWrite = group.calendars.some((calendar) => calendar.writable);
-						return (
-							<div className="check-row" key={group.key}>
-								<span className="menu-text">
-									{group.label}
-									{group.calendars.some((calendar) => !group.label.startsWith(calendar.name)) ? (
-										<span className="menu-hint">{group.calendars.map((calendar) => calendar.name).join("、")}</span>
-									) : null}
-								</span>
-								{switchButton("讀取", readable, (on) => setRead(group, on))}
-								{switchButton("寫入", readable && access.writable.includes(group.key), (on) => setWrite(group, on), !readable || !canWrite)}
-							</div>
-						);
-					})}
+					{groups.filter((group) => !access.hidden.includes(group.key)).map(accountRow)}
+					{groups.some((group) => access.hidden.includes(group.key)) ? (
+						<details className="manual more-rows">
+							<summary>其他 {groups.filter((group) => access.hidden.includes(group.key)).length} 個帳號</summary>
+							{groups.filter((group) => access.hidden.includes(group.key)).map(accountRow)}
+						</details>
+					) : null}
 					{sharedCount > 0 ? (
 						<div className="check-row">
 							<span className="menu-text">
 								分享的行事曆
-								<span className="menu-hint">{sharedCount} 個你訂閱的，例如節日、同事或團隊的。只在你問起時讀取，不能寫入。</span>
+								<span className="menu-hint">{sharedCount} 個，只能讀</span>
 							</span>
 							{switchButton("讀取", access.shared, (on) => set({ ...access, shared: on }))}
 						</div>
@@ -412,15 +417,12 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));
 
 	return (
-		<Group
-			title="排程"
-			hint="跟 Bot 說「每天早上 8 點給我簡報」或「戴上耳機時跟我報告今天的事」，排程就會建在那個 Bot 底下，到時候在它的對話裡執行。pi 若不在執行中，會先跳通知，點一下才開始。每個排程一天最多執行 10 次。"
-		>
+		<Group title="排程">
 			{state.items.length === 0 ? (
 				<div className="check-row">
 					<span className="menu-text">
 						還沒有排程
-						<span className="menu-hint">例如「每天早上 8 點，看今天的行程和天氣，給我一段簡報」。</span>
+						<span className="menu-hint">跟 Bot 說就會建立</span>
 					</span>
 				</div>
 			) : (
@@ -439,7 +441,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 				<div className="check-row">
 					<span className="menu-text">
 						準時執行
-						<span className="menu-hint">沒開時，排程可能晚幾分鐘才執行</span>
+						<span className="menu-hint">沒開會晚幾分鐘</span>
 					</span>
 					<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
 						開啟
@@ -450,7 +452,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 				<div className="check-row">
 					<span className="menu-text">
 						偵測藍牙耳機
-						<span className="menu-hint">沒開「鄰近裝置」權限時，只認得有線耳機，而且 pi 要在執行中</span>
+						<span className="menu-hint">需要「鄰近裝置」權限</span>
 					</span>
 					<button type="button" className="btn" onClick={() => void act(Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted)))}>
 						開啟
@@ -473,12 +475,9 @@ function BackgroundGroup() {
 		return () => void listener.then((handle) => handle.remove());
 	}, []);
 	if (!status) return null;
-	const row = (label: string, hint: string, on: boolean, fix: () => void) => (
+	const row = (label: string, on: boolean, fix: () => void) => (
 		<div className="check-row">
-			<span className="menu-text">
-				{label}
-				<span className="menu-hint">{hint}</span>
-			</span>
+			<span className="menu-text">{label}</span>
 			{on ? (
 				<span className="state on">已開啟</span>
 			) : (
@@ -489,11 +488,11 @@ function BackgroundGroup() {
 		</div>
 	);
 	return (
-		<Group title="背景執行" hint="agent 執行時，通知列會顯示「pi 工作中」，鎖上螢幕也會繼續跑。">
-			{row("通知", "顯示執行中、完成和需要你確認", status.notifications, () =>
+		<Group title="背景執行">
+			{row("通知", status.notifications, () =>
 				void KeepAlive.requestNotifications().then(() => KeepAlive.status().then(setStatus)),
 			)}
-			{row("不受電池最佳化限制", "避免 Samsung 在長時間執行時讓 app 休眠", status.unrestrictedBattery, () =>
+			{row("不受電池最佳化限制", status.unrestrictedBattery, () =>
 				void KeepAlive.requestUnrestrictedBattery(),
 			)}
 		</Group>
@@ -515,14 +514,11 @@ function NotificationsGroup() {
 	}, []);
 	if (allowed === undefined) return null;
 	return (
-		<Group
-			title="通知讀取"
-			hint="開啟後，pi 會把其他 App 的通知（LINE、Messenger、信件、外送…）在手機上留 30 天，讓開了「通知」工具的 Bot 回答「剛剛誰找我」。只存在這支手機上；Bot 讀到的內容會送給模型。"
-		>
+		<Group title="通知讀取">
 			<div className="check-row">
 				<span className="menu-text">
 					通知存取權
-					<span className="menu-hint">{allowed ? "在系統設定裡關掉就會停止記錄" : "在系統設定裡允許 pi mobile"}</span>
+					<span className="menu-hint">{allowed ? "保留 30 天" : "讓 Bot 讀其他 App 的通知"}</span>
 				</span>
 				<button type="button" className="btn" onClick={() => void Notifications.openSettings()}>
 					{allowed ? "管理" : "開啟"}
@@ -532,7 +528,6 @@ function NotificationsGroup() {
 				<div className="check-row">
 					<span className="menu-text">
 						清除記錄
-						<span className="menu-hint">刪除目前留在手機上的通知</span>
 					</span>
 					<button type="button" className="btn" onClick={() => void Notifications.clear().then(() => showToast("已清除通知記錄"))}>
 						清除
@@ -552,15 +547,11 @@ function DatabaseGroup() {
 	}, []);
 	if (!tables) return null;
 	return (
-		<Group
-			title="資料庫"
-			hint="開了「資料庫」工具的 Bot 可以在這支手機上的 SQLite 資料庫建表、記錄、查詢：記帳、清單、紀錄……所有 Bot 共用。刪除資料前會先問你。"
-		>
+		<Group title="資料庫" hint="所有 Bot 共用。">
 			{tables.length === 0 ? (
 				<div className="check-row">
 					<span className="menu-text">
 						還沒有資料表
-						<span className="menu-hint">跟 Bot 說「幫我記帳：午餐 150」就會開始建立</span>
 					</span>
 				</div>
 			) : (
@@ -576,13 +567,60 @@ function DatabaseGroup() {
 			<div className="check-row">
 				<span className="menu-text">
 					匯出
-					<span className="menu-hint">整個資料庫檔（.db），可以備份，或用電腦上的 SQLite 工具開啟</span>
+					<span className="menu-hint">SQLite .db 檔</span>
 				</span>
 				<button type="button" className="btn" onClick={() => void Database.export().catch((error: unknown) => showToast(`匯出失敗：${error instanceof Error ? error.message : String(error)}`))}>
 					匯出
 				</button>
 			</div>
 		</Group>
+	);
+}
+
+type Page = "models" | "accounts" | "services" | "machines" | "phone" | "schedules" | "data";
+
+/** One line per page, with what is set there on the right. */
+function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
+	const [triggers, setTriggers] = useState<number>();
+	const [tables, setTables] = useState<number>();
+	const [, setVersion] = useState(0);
+	useEffect(() => runtime?.subscribeTriggers((state) => setTriggers(state.items.length)), [runtime]);
+	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
+	useEffect(() => {
+		if (native) void Database.schema().then((schema) => setTables(schema.tables.length));
+	}, []);
+	const accounts = [
+		settings.githubToken && "GitHub",
+		settings.gcloudCredential && "Google Cloud",
+		settings.cloudflareCredential && "Cloudflare",
+		settings.azureCredential && "Azure",
+	].filter(Boolean);
+	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
+	const relay = settings.sandboxUrl ? new URL(settings.sandboxUrl.replace(/^ws/, "http")).hostname : "";
+	const services = runtime?.mcp.servers.length ?? 0;
+	const rows: { page: Page; label: string; value: string | undefined }[] = [
+		{ page: "models", label: "模型", value: parseProviders(settings.providers).map(providerName).join("、") },
+		{ page: "accounts", label: "帳號", value: accounts.join("、") },
+		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
+		{ page: "machines", label: "電腦", value: machine?.name ?? relay },
+		...(native
+			? [
+					{ page: "phone" as const, label: "手機", value: undefined },
+					{ page: "schedules" as const, label: "排程", value: triggers ? `${triggers} 個` : "" },
+					{ page: "data" as const, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" },
+				]
+			: []),
+	];
+	return (
+		<nav className="menu settings-index">
+			{rows.map((row) => (
+				<button type="button" key={row.page} onClick={() => onOpen(row.page)}>
+					<span className="menu-text">{row.label}</span>
+					{row.value === undefined ? null : <span className="index-value">{row.value || "未設定"}</span>}
+					<ChevronIcon />
+				</button>
+			))}
+		</nav>
 	);
 }
 
@@ -613,17 +651,200 @@ export function SettingsView({
 		onChange: (event: { target: { value: string } }) => setSettings({ ...settings, [key]: event.target.value.trim() }),
 	});
 
+	const [page, setPage] = useState<Page>();
+	useBack(page !== undefined, () => setPage(undefined));
+	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
+
+	const models = (
+		<>
+			<Group title="模型供應商">
+				<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={change} />
+			</Group>
+			{onCancel ? (
+				<Group title="自動壓縮" hint="對話超過門檻時，較早的部分會壓縮成摘要。">
+					<label>
+						<span>門檻</span>
+						<select className="field" value={settings.compactAt} onChange={(event) => change({ compactAt: Number(event.target.value) })}>
+							<option value={64_000}>64k tokens</option>
+							<option value={128_000}>128k tokens</option>
+							<option value={256_000}>256k tokens（建議）</option>
+							<option value={512_000}>512k tokens</option>
+							<option value={0}>模型上限</option>
+						</select>
+					</label>
+					<div className="group-spacer" />
+				</Group>
+			) : null}
+		</>
+	);
+
+	const pages: Record<Page, { title: string; body: () => ReactNode }> = {
+		models: { title: "模型", body: () => models },
+		accounts: {
+			title: "帳號",
+			body: () => (
+				<>
+					<p className="page-note">憑證只存在這支手機。會改動東西的操作，每次都先問你。</p>
+					<Group title="GitHub">
+						<label>
+							<span>Token</span>
+							<input {...field("githubToken")} type="password" autoComplete="off" placeholder="github_pat_…" />
+						</label>
+						<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
+					</Group>
+					<Group title="Google Cloud">
+						{settings.gcloudCredential ? (
+							<div className="check-row">
+								<span className="menu-text">
+									{gcloudIdentity(settings.gcloudCredential)}
+								</span>
+								<button type="button" className="btn" onClick={() => change({ gcloudCredential: "" })}>
+									移除
+								</button>
+							</div>
+						) : (
+							<>
+								<GoogleSignInPanel onCredential={(json) => change({ gcloudCredential: json })} />
+								<details className="manual">
+									<summary>改用 service account 金鑰</summary>
+									<label>
+										<span>憑證 JSON</span>
+										<textarea
+											className="field json"
+											rows={4}
+											value={settings.gcloudCredential}
+											onChange={(event) => change({ gcloudCredential: event.target.value.trim() })}
+											placeholder="service account 金鑰或 application_default_credentials.json"
+											autoCapitalize="off"
+											spellCheck={false}
+										/>
+									</label>
+								</details>
+							</>
+						)}
+						<label>
+							<span>預設專案</span>
+							<input {...field("gcloudProject")} placeholder="憑證本身的專案" autoCapitalize="off" autoComplete="off" />
+						</label>
+						<CheckButton disabled={!settings.gcloudCredential} run={() => checkGcloud(settings.gcloudCredential)} />
+					</Group>
+					<Group title="Cloudflare">
+						{settings.cloudflareCredential ? (
+							<div className="check-row">
+								<span className="menu-text">{describeCloudflare(settings.cloudflareCredential)}</span>
+								<button type="button" className="btn" onClick={() => change({ cloudflareCredential: "" })}>
+									移除
+								</button>
+							</div>
+						) : (
+							<>
+								<CloudflareSignInPanel onCredential={(json) => change({ cloudflareCredential: json })} />
+								<details className="manual">
+									<summary>改用 API token</summary>
+									<label>
+										<span>API token</span>
+										<input
+											type="password"
+											autoComplete="off"
+											onChange={(event) => {
+												const token = event.target.value.trim();
+												if (token.length >= 40) change({ cloudflareCredential: apiTokenCredential(token) });
+											}}
+										/>
+									</label>
+								</details>
+							</>
+						)}
+					</Group>
+					<Group title="Azure">
+						{settings.azureCredential ? (
+							<div className="check-row">
+								<span className="menu-text">{describeAzure(settings.azureCredential)}</span>
+								<button type="button" className="btn" onClick={() => change({ azureCredential: "" })}>
+									移除
+								</button>
+							</div>
+						) : (
+							<AzureSignInPanel onCredential={(json) => change({ azureCredential: json })} />
+						)}
+					</Group>
+				</>
+			),
+		},
+		services: {
+			title: "連接的服務",
+			body: () => (
+				<Group title="MCP" hint="新加的服務不會給任何 Bot，在服務下面選哪些 Bot 可以用。">
+					<McpGroup runtime={runtime} onError={(message) => showToast(message)} />
+				</Group>
+			),
+		},
+		machines: {
+			title: "電腦",
+			body: () => (
+				<>
+					{native ? (
+						<Group title="SSH 機器">
+							<MachinesGroup
+								value={settings.machines}
+								chosen={settings.sandboxMachine}
+								onChange={(machines, sandboxMachine) => change({ machines, sandboxMachine })}
+							/>
+						</Group>
+					) : null}
+					<Group title="Sandbox relay" hint={settings.sandboxMachine ? "已選了 SSH 機器，不會用 relay。" : undefined}>
+						{settings.sandboxUrl ? null : (
+							<div className="pair-steps">
+								<p>在電腦上執行，再用相機掃它印出的 QR code：</p>
+								<pre className="console">sandbox/install.sh</pre>
+							</div>
+						)}
+						<details className="manual" open={Boolean(settings.sandboxUrl)}>
+							<summary>{settings.sandboxUrl ? "目前的主機" : "手動輸入"}</summary>
+							<label>
+								<span>Relay</span>
+								<input {...field("sandboxUrl")} placeholder="ws://100.x.y.z:8787" autoCapitalize="off" autoComplete="off" inputMode="url" />
+							</label>
+							<label>
+								<span>Token</span>
+								<input {...field("sandboxToken")} type="password" autoComplete="off" />
+							</label>
+						</details>
+						<CheckButton disabled={!settings.sandboxUrl || !settings.sandboxToken} run={() => checkSandbox(settings.sandboxUrl, settings.sandboxToken)} />
+					</Group>
+				</>
+			),
+		},
+		phone: {
+			title: "手機",
+			body: () => (
+				<>
+					<CalendarGroup value={settings.calendarAccess} onChange={(json) => change({ calendarAccess: json })} />
+					<NotificationsGroup />
+					<BackgroundGroup />
+				</>
+			),
+		},
+		schedules: { title: "排程", body: () => (runtime ? <TriggersGroup runtime={runtime} /> : null) },
+		data: { title: "資料庫", body: () => <DatabaseGroup /> },
+	};
+
+	const current = page ? pages[page] : undefined;
 	return (
 		<div className="screen">
 			<header className="bar">
-				{onCancel ? (
+				{current ? (
+					<button type="button" className="icon-button" onClick={() => setPage(undefined)} aria-label="返回">
+						<BackIcon />
+					</button>
+				) : onCancel ? (
 					<button type="button" className="icon-button" onClick={onCancel} aria-label="返回">
 						<BackIcon />
 					</button>
 				) : (
 					<span className="bar-spacer" />
 				)}
-				<h1 className="bar-heading">設定</h1>
+				<h1 className="bar-heading">{current?.title ?? "設定"}</h1>
 				<button
 					type="button"
 					className="btn primary"
@@ -633,7 +854,7 @@ export function SettingsView({
 					{onCancel ? "儲存" : "開始"}
 				</button>
 			</header>
-			<form className="settings" onSubmit={(event) => event.preventDefault()}>
+			<form key={page ?? "index"} className="settings" onSubmit={(event) => event.preventDefault()}>
 				{onCancel ? null : (
 					<div className="welcome">
 						<PiMark size={36} />
@@ -646,184 +867,8 @@ export function SettingsView({
 					</div>
 				)}
 				{status ? <div className="banner error">{status}</div> : null}
-				<Group
-					title="模型供應商"
-					hint="模型可以來自好幾家：內建的供應商（OpenAI、Anthropic、Gemini、OpenRouter……）用 API key，自訂端點是任何 OpenAI 或 Anthropic 相容的 API。key 存在手機的 Keystore。"
-				>
-					<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={(change) => setSettings({ ...settings, ...change })} />
-				</Group>
-
-				<Group
-					title="自動壓縮"
-					hint="每個 Bot 只有一條一直延續的對話。內容超過這個大小時，較早的部分會自動壓縮成摘要，最近的內容保持原樣，每次請求的花費就不會一直變大。越小越省，但 Bot 記得的細節越少。模型能容納的比門檻小時，會在接近模型上限時壓縮。"
-				>
-					<label>
-						<span>門檻</span>
-						<select
-							className="field"
-							value={settings.compactAt}
-							onChange={(event) => setSettings({ ...settings, compactAt: Number(event.target.value) })}
-						>
-							<option value={64_000}>64k tokens</option>
-							<option value={128_000}>128k tokens</option>
-							<option value={256_000}>256k tokens（建議）</option>
-							<option value={512_000}>512k tokens</option>
-							<option value={0}>模型上限</option>
-						</select>
-					</label>
-					<div className="group-spacer" />
-				</Group>
-
-				<Group title="GitHub" hint="建議用 fine-grained token，只開需要的 repository 和權限。寫入前一定會先問你。">
-					<label>
-						<span>Token</span>
-						<input {...field("githubToken")} type="password" autoComplete="off" placeholder="github_pat_…" />
-					</label>
-					<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
-				</Group>
-
-				<Group
-					title="MCP"
-					hint="連接提供 MCP 的服務，Bot 就能用它們的工具。需要登入的按「登入」，在瀏覽器完成。新加的服務不會給任何 Bot：在服務下面點選哪些 Bot 可以用，或在 Bot 面板的「連接的服務」裡開關。會改變東西的工具，執行前一定先問你。"
-				>
-					<McpGroup runtime={runtime} onError={(message) => showToast(message)} />
-				</Group>
-
-				{native ? (
-					<Group
-						title="機器"
-						hint="用 SSH 連到你自己的電腦（Linux 或 Mac），agent 的 read、write、edit、bash 就在那裡執行。機器上只要有 SSH，app 會自己裝好 pi-env。選了機器就不會用下面的 relay。"
-					>
-						<MachinesGroup
-							value={settings.machines}
-							chosen={settings.sandboxMachine}
-							onChange={(machines, sandboxMachine) => setSettings({ ...settings, machines, sandboxMachine })}
-						/>
-					</Group>
-				) : null}
-
-				<Group
-					title="Sandbox relay"
-					hint="所有 Bot 共用一個 Linux 容器，各有自己的資料夾，可以用 read、write、edit、bash，git 和 gh 也已登入你的 GitHub。留空就不啟用。"
-				>
-					{settings.sandboxUrl ? null : (
-						<div className="pair-steps">
-							<p>在要當 sandbox 的電腦（Mac 或 Linux，需要 Tailscale）上執行：</p>
-							<pre className="console">sandbox/install.sh</pre>
-							<p>裝好後用手機相機掃描它印出的 QR code，app 會自動填好。</p>
-						</div>
-					)}
-					<details className="manual" open={Boolean(settings.sandboxUrl)}>
-						<summary>{settings.sandboxUrl ? "目前的主機" : "手動輸入"}</summary>
-						<label>
-							<span>Relay</span>
-							<input {...field("sandboxUrl")} placeholder="ws://100.x.y.z:8787" autoCapitalize="off" autoComplete="off" inputMode="url" />
-						</label>
-						<label>
-							<span>Token</span>
-							<input {...field("sandboxToken")} type="password" autoComplete="off" />
-						</label>
-					</details>
-					<CheckButton disabled={!settings.sandboxUrl || !settings.sandboxToken} run={() => checkSandbox(settings.sandboxUrl, settings.sandboxToken)} />
-				</Group>
-				<Group
-					title="Google Cloud"
-					hint="給 sandbox 裡的 gcloud 用。憑證留在手機上，只把一小時有效的 access token 交給 sandbox 的 proxy；會改動資源的請求要你先核准。"
-				>
-					{settings.gcloudCredential ? (
-						<div className="check-row">
-							<span className="menu-text">
-								憑證
-								<span className="menu-hint">{gcloudIdentity(settings.gcloudCredential)}</span>
-							</span>
-							<button type="button" className="btn" onClick={() => setSettings({ ...settings, gcloudCredential: "" })}>
-								移除
-							</button>
-						</div>
-					) : (
-						<>
-							<GoogleSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, gcloudCredential: json }))} />
-							<details className="manual">
-								<summary>改用 service account 金鑰</summary>
-								<label>
-									<span>憑證 JSON</span>
-									<textarea
-										className="field json"
-										rows={4}
-										value={settings.gcloudCredential}
-										onChange={(event) => setSettings({ ...settings, gcloudCredential: event.target.value.trim() })}
-										placeholder="貼上 service account 金鑰，或 application_default_credentials.json"
-										autoCapitalize="off"
-										spellCheck={false}
-									/>
-								</label>
-							</details>
-						</>
-					)}
-					<label>
-						<span>預設專案</span>
-						<input {...field("gcloudProject")} placeholder="留空則用憑證本身的專案" autoCapitalize="off" autoComplete="off" />
-					</label>
-					<CheckButton disabled={!settings.gcloudCredential} run={() => checkGcloud(settings.gcloudCredential)} />
-				</Group>
-				<Group
-					title="Cloudflare"
-					hint="給 sandbox 裡的 cf 和 wrangler 用。登入後的 refresh token 留在手機上，只把短效的 access token 交給 sandbox 的 proxy；會改動資源的請求要你先核准。"
-				>
-					{settings.cloudflareCredential ? (
-						<div className="check-row">
-							<span className="menu-text">
-								帳號
-								<span className="menu-hint">{describeCloudflare(settings.cloudflareCredential)}</span>
-							</span>
-							<button type="button" className="btn" onClick={() => setSettings({ ...settings, cloudflareCredential: "" })}>
-								移除
-							</button>
-						</div>
-					) : (
-						<>
-							<CloudflareSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, cloudflareCredential: json }))} />
-							<details className="manual">
-								<summary>改用 API token</summary>
-								<label>
-									<span>API token</span>
-									<input
-										type="password"
-										autoComplete="off"
-										onChange={(event) => {
-											const token = event.target.value.trim();
-											if (token.length >= 40) setSettings({ ...settings, cloudflareCredential: apiTokenCredential(token) });
-										}}
-									/>
-								</label>
-							</details>
-						</>
-					)}
-				</Group>
-				<Group
-					title="Azure"
-					hint="給 sandbox 裡的 az 用。refresh token 留在手機上，只把短效的 access token 交給 sandbox 的 proxy；會改動資源的請求要你先核准。"
-				>
-					{settings.azureCredential ? (
-						<div className="check-row">
-							<span className="menu-text">
-								帳號
-								<span className="menu-hint">{describeAzure(settings.azureCredential)}</span>
-							</span>
-							<button type="button" className="btn" onClick={() => setSettings({ ...settings, azureCredential: "" })}>
-								移除
-							</button>
-						</div>
-					) : (
-						<AzureSignInPanel onCredential={(json) => setSettings((current) => ({ ...current, azureCredential: json }))} />
-					)}
-				</Group>
-				<CalendarGroup value={settings.calendarAccess} onChange={(json) => setSettings((current) => ({ ...current, calendarAccess: json }))} />
-				{runtime ? <TriggersGroup runtime={runtime} /> : null}
-				<BackgroundGroup />
-				<NotificationsGroup />
-				<DatabaseGroup />
-				<p className="about">pi mobile · {__BUILD__}</p>
+				{current ? current.body() : onCancel ? <SettingsIndex settings={settings} runtime={runtime} onOpen={setPage} /> : models}
+				{current ? null : <p className="about">pi mobile · {__BUILD__}</p>}
 			</form>
 		</div>
 	);

@@ -8,6 +8,7 @@ import type { Settings } from "../settings.ts";
 import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { System } from "../system-plugin.ts";
 import { CheckButton } from "./CheckButton.tsx";
+import { ChevronIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;
@@ -20,7 +21,6 @@ function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: 
 			<div className="check-row">
 				<span className="menu-text">
 					已用 ChatGPT 登入
-					<span className="menu-hint">用你的 ChatGPT 訂閱，不需要 API key</span>
 				</span>
 				<button type="button" className="btn" onClick={() => onSignIn("")}>
 					登出
@@ -31,8 +31,8 @@ function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: 
 	return (
 		<div className="check-row">
 			<span className="menu-text">
-				或用 ChatGPT 登入
-				<span className="menu-hint">{state.kind === "error" ? state.message : "用 ChatGPT 訂閱代替 API key，在瀏覽器登入"}</span>
+				或用 ChatGPT 訂閱
+				{state.kind === "error" ? <span className="menu-hint error">{state.message}</span> : null}
 			</span>
 			<button
 				type="button"
@@ -62,7 +62,7 @@ function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: re
 				<button type="button" onClick={() => onAdd({ kind: "custom", id: customId(taken), name: "", baseUrl: "" })}>
 					<span className="menu-text">
 						自訂端點
-						<span className="menu-hint">任何 OpenAI 或 Anthropic 相容的 API：自架的 gateway、Ollama、LM Studio……</span>
+						<span className="menu-hint">OpenAI 或 Anthropic 相容的 API</span>
 					</span>
 				</button>
 				{available.map((info) => (
@@ -96,17 +96,57 @@ function ProviderRow({
 	onRemove: () => void;
 }) {
 	const info = config.kind === "builtin" ? builtinInfo(config.id) : undefined;
+	const complete = config.kind === "custom" ? Boolean(config.baseUrl) : Boolean(apiKey || signIn);
+	// Set up ones fold to a line; a new or unfinished one opens.
+	const [open, setOpen] = useState(!complete);
+	const summary = !complete
+		? "未完成"
+		: config.kind === "custom"
+			? hostOf(config.baseUrl)
+			: signIn
+				? "ChatGPT 訂閱"
+				: "API key";
 	return (
 		<div className="provider">
-			<div className="check-row">
-				<span className="menu-text">
-					{providerName(config)}
-					<span className="menu-hint">{config.kind === "custom" ? "自訂端點" : "內建"}</span>
-				</span>
-				<button type="button" className="btn" onClick={onRemove}>
-					移除
-				</button>
-			</div>
+			<button type="button" className="check-row provider-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+				<span className="menu-text">{providerName(config)}</span>
+				<span className="index-value">{summary}</span>
+				<ChevronIcon open={open} />
+			</button>
+			{open ? <ProviderFields config={config} info={info} apiKey={apiKey} signIn={signIn} onConfig={onConfig} onKey={onKey} onSignIn={onSignIn} onRemove={onRemove} /> : null}
+		</div>
+	);
+}
+
+function hostOf(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return url;
+	}
+}
+
+function ProviderFields({
+	config,
+	info,
+	apiKey,
+	signIn,
+	onConfig,
+	onKey,
+	onSignIn,
+	onRemove,
+}: {
+	config: ProviderConfig;
+	info: ReturnType<typeof builtinInfo>;
+	apiKey: string;
+	signIn: string;
+	onConfig: (config: ProviderConfig) => void;
+	onKey: (key: string) => void;
+	onSignIn: (json: string) => void;
+	onRemove: () => void;
+}) {
+	return (
+		<>
 			{config.kind === "custom" ? (
 				<>
 					<label>
@@ -128,7 +168,7 @@ function ProviderRow({
 			) : null}
 			{signIn ? null : (
 				<label>
-					<span>API key{config.kind === "custom" ? "（本機伺服器可以留空）" : ""}</span>
+					<span>API key{config.kind === "custom" ? "（選填）" : ""}</span>
 					<input value={apiKey} onChange={(event) => onKey(event.target.value.trim())} type="password" autoComplete="off" />
 				</label>
 			)}
@@ -141,8 +181,12 @@ function ProviderRow({
 			<CheckButton
 				disabled={config.kind === "custom" ? !config.baseUrl : !apiKey && !signIn}
 				run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}
-			/>
-		</div>
+			>
+				<button type="button" className="btn" onClick={onRemove}>
+					移除
+				</button>
+			</CheckButton>
+		</>
 	);
 }
 

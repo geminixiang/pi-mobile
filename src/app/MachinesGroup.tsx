@@ -201,13 +201,12 @@ function MachineRow({
 			) : null}
 			{chosen && contained(machine) ? (
 				<p className="hint machine-note">
-					所有 Bot 共用一個容器，各有自己的資料夾。git、gh、gcloud 等的憑證留在手機上，由容器外的 proxy 透過 SSH 向手機要；寫入一定先問你。切換成容器後，第一次要按「重新安裝」建好 image。
+					切換成容器後，第一次要按「重新安裝」。
 				</p>
 			) : null}
 			{chosen && !contained(machine) ? (
 				<p className="hint machine-note">
-					agent 會直接在這台機器上以 {machine.user} 的身分工作，每個 Bot 一個資料夾（~/pi-workspaces）。它用的是這台機器自己的登入（git、gh、雲端
-					CLI），寫入不會經過手機核准；建議用專門給 agent 的帳號，或在機器上裝 Docker、Podman。
+					用這台機器自己的登入（git、gh、雲端 CLI），寫入不會經過手機核准。
 				</p>
 			) : null}
 			<div className="row-buttons">

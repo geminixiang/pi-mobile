@@ -102,7 +102,7 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 						</div>
 					</section>
 				))}
-				<p className="hint">這些服務在手機上試過可以連；「已實測」的也實際登入、用過。連接後，在服務下面選哪些 Bot 可以用。</p>
+				<p className="hint">都在手機上試過可以連。</p>
 			</div>
 		</Sheet>
 	);
@@ -141,7 +141,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 					<div className="check-row">
 						<span className="menu-text">
 							瀏覽服務
-							<span className="menu-hint">Notion、Linear、Todoist、Stripe……挑選常用的服務，一鍵連接</span>
+							<span className="menu-hint">Notion、Linear、Todoist……</span>
 						</span>
 						<button type="button" className="btn" onClick={() => setBrowsing(true)}>
 							瀏覽
