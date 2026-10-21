@@ -1,6 +1,6 @@
 import type { ImageContent, Message as ModelMessage, TextContent, ThinkingContent, ToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { type ComponentProps, memo, useContext, useEffect, useState } from "react";
+import { type ComponentProps, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
@@ -285,16 +285,30 @@ function Thinking({ text, streaming }: { text: string; streaming?: boolean }) {
 	);
 }
 
-/** Fenced code with a language label and a copy button. */
-function CodeBlock({ children }: ComponentProps<"pre">) {
+// The diagram renderer is about 2 MB: loaded the first time an answer has a diagram, not at launch.
+const Mermaid = lazy(() => import("./Mermaid.tsx"));
+
+/**
+ * Fenced code with a language label and a copy button. A finished answer's mermaid block is drawn as a diagram, with
+ * a switch to its source; while streaming it stays source, since half a diagram does not parse.
+ */
+function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: boolean }) {
 	const [copied, setCopied] = useState(false);
+	const [showSource, setShowSource] = useState(false);
 	const code = (children as { props?: { className?: string; children?: unknown } } | undefined)?.props;
 	const language = /language-(\S+)/.exec(code?.className ?? "")?.[1] ?? "";
 	const source = String(code?.children ?? "").replace(/\n$/, "");
+	const pre = <pre>{children}</pre>;
+	const diagram = diagrams && language === "mermaid";
 	return (
 		<div className="code">
 			<div className="code-head">
 				<span>{language || "text"}</span>
+				{diagram ? (
+					<button type="button" onClick={() => setShowSource(!showSource)}>
+						{showSource ? "圖表" : "原始碼"}
+					</button>
+				) : null}
 				<button
 					type="button"
 					onClick={() =>
@@ -307,12 +321,29 @@ function CodeBlock({ children }: ComponentProps<"pre">) {
 					{copied ? "已複製" : "複製"}
 				</button>
 			</div>
-			<pre>{children}</pre>
+			{diagram && !showSource ? (
+				<Suspense fallback={<div className="diagram-loading" />}>
+					<Mermaid source={source} fallback={pre} />
+				</Suspense>
+			) : (
+				pre
+			)}
 		</div>
 	);
 }
 
-export const markdownComponents = { pre: CodeBlock };
+/** Tables scroll sideways inside a frame instead of squeezing their columns to the screen. */
+function Table(props: ComponentProps<"table">) {
+	return (
+		<div className="table">
+			<table {...props} />
+		</div>
+	);
+}
+
+export const markdownComponents = { pre: (props: ComponentProps<"pre">) => <CodeBlock {...props} diagrams />, table: Table };
+/** For text still arriving: no diagrams yet. */
+export const streamingMarkdownComponents = { pre: CodeBlock, table: Table };
 // CJK-friendly emphasis: CommonMark misses **粗體**是 when the closing ** follows CJK punctuation.
 export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 

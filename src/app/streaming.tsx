@@ -14,7 +14,7 @@ import type { Element, ElementContent, Root } from "hast";
 import { memo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remend from "remend";
-import { markdownComponents, remarkPlugins } from "./Message.tsx";
+import { remarkPlugins, streamingMarkdownComponents } from "./Message.tsx";
 
 /** How long the reveal takes to catch up with what has arrived: about one burst's interval. */
 const CATCH_UP_MS = 160;
@@ -101,7 +101,7 @@ function paragraphs(text: string): string[] {
 
 const Paragraph = memo(function Paragraph({ text }: { text: string }) {
 	return (
-		<Markdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={markdownComponents}>
+		<Markdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={streamingMarkdownComponents}>
 			{text}
 		</Markdown>
 	);

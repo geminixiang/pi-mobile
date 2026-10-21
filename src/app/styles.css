@@ -264,7 +264,17 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown p, .markdown ul, .markdown ol { margin: 0.7em 0; }
 .markdown ul, .markdown ol { padding-left: 1.4em; }
 .markdown li + li { margin-top: 0.3em; }
-.markdown ul > li::marker { content: "■  "; font-size: 0.5em; color: var(--accent); }
+.markdown ul > li::marker { content: "■"; font-size: 0.5em; color: var(--accent); }
+.markdown ul > li { padding-left: 0.55em; }
+/* Task lists (- [ ] and - [x]): the box is the marker. */
+.markdown .contains-task-list { padding-left: 0; }
+.markdown ul > .task-list-item { padding-left: 0; }
+.markdown ul > .task-list-item::marker { content: ""; }
+.task-list-item input {
+	appearance: none; width: 15px; height: 15px; margin: 0 10px 0 0; vertical-align: -2px;
+	border: 1px solid var(--line-strong); background: var(--bg-deep);
+}
+.task-list-item input:checked { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--bg-deep); }
 .markdown ol > li::marker { font-family: var(--mono); font-size: 0.8em; color: var(--muted); }
 .markdown h1, .markdown h2, .markdown h3, .markdown h4 { font-family: var(--serif); font-size: 19px; font-weight: 700; line-height: 1.45; margin: 1.3em 0 0.4em; color: var(--text); }
 .markdown h1 { font-size: 22px; }
@@ -273,9 +283,17 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown code { font-family: var(--mono); font-size: 0.82em; }
 .markdown :not(pre) > code { padding: 1px 5px; background: var(--panel-2); color: var(--text); }
 .markdown blockquote { margin: 0.8em 0; padding: 2px 0 2px 14px; border-left: 2px solid var(--line-strong); color: var(--muted); }
-.markdown table { border-collapse: collapse; display: block; overflow-x: auto; font-family: var(--sans); font-size: 14px; border: 1px solid var(--line); }
-.markdown th { text-align: left; font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: var(--pending-bg); }
-.markdown th, .markdown td { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+/* A table (Message.tsx Table) scrolls sideways in its frame; columns take the width their content needs, numbers never
+   break, and long text wraps at a readable width. */
+.markdown .table { margin: 0.9em 0; overflow-x: auto; border: 1px solid var(--line); }
+.markdown table { border-collapse: collapse; width: max-content; min-width: 100%; font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+.markdown th {
+	text-align: left; white-space: nowrap; font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0.1em;
+	text-transform: uppercase; color: var(--muted); background: var(--pending-bg);
+}
+.markdown th, .markdown td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.markdown td { min-width: 3em; max-width: 15em; overflow-wrap: break-word; }
+.markdown tr:last-child > td { border-bottom: none; }
 .markdown hr { border: none; border-top: 1px solid var(--line); margin: 1.4em 0; }
 .code { margin: 0.9em 0; border: 1px solid var(--line); background: var(--console-bg); color: var(--console-text); }
 .code-head {
@@ -283,11 +301,17 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	border-bottom: 1px solid rgb(255 255 255 / 0.08);
 	font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(213 216 219 / 0.55);
 }
+.code-head > span { flex: 1; }
 .code-head button { padding: 6px 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; color: rgb(213 216 219 / 0.75); }
 .code-head button::before { content: "[ "; }
 .code-head button::after { content: " ]"; }
 .code pre { margin: 0; padding: 12px 14px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
 .code pre code { background: none; padding: 0; color: inherit; }
+/* A mermaid block drawn (Mermaid.tsx): on the panel color the diagram's own colors assume, scrolled when wider. */
+.diagram { overflow-x: auto; background: var(--panel); }
+.diagram > svg { display: block; max-width: none; margin: 0 auto; }
+.diagram.fit > svg { width: 100%; height: auto; }
+.diagram-loading { height: 160px; background: var(--panel); }
 /* A streaming answer's words (streaming.tsx): each fades in once, when it mounts; words already shown keep their
    element, so they do not fade again. */
 .fade { animation: word-in 260ms ease-out both; }
