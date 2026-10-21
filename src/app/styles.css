@@ -800,3 +800,14 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .panel-memory > svg { margin-top: 2px; color: var(--muted); flex-shrink: 0; }
 .panel-memory-line { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .context-note { margin: 8px 0 10px; font-size: 12px; color: var(--faint); }
+
+/* Side panels following the finger (sideSwipe.ts): the layer's motion comes from --side-progress (0 closed, 1 open)
+   instead of its entry and exit animations; on release it settles with a transition. */
+.side-drag .layer-drawer, .side-drag .layer-panel, .side-drag .drawer-backdrop, .side-drag .panel-backdrop { animation: none !important; }
+/* The scrim's color, not opacity: the panel is the backdrop's child and would fade with it. */
+.side-drag .drawer-backdrop, .side-drag .panel-backdrop { background: color-mix(in srgb, var(--scrim) calc(var(--side-progress) * 100%), transparent); }
+.side-drag .layer-drawer { transform: translateX(calc((var(--side-progress) - 1) * 100%)); }
+.side-drag .layer-panel { transform: translateX(calc((1 - var(--side-progress)) * 100%)); }
+.side-settling .layer-drawer, .side-settling .layer-panel { transition: transform 220ms var(--ease); }
+.side-settling .drawer-backdrop, .side-settling .panel-backdrop { transition: background-color 220ms ease; }
+.chat, .drawer, .panel { touch-action: pan-y; }

@@ -1,8 +1,8 @@
 // Everything about the bot on screen, in a panel from the right (the drawer on the left is every bot): who it is,
-// its schedules, its memory, its folder, and its conversation's context. Opened with the bar's ⋯ or a swipe left
-// from the right edge.
+// its schedules, its memory, its folder, and its conversation's context. Opened with the bar's ⋯ or by swiping the
+// conversation to the left (sideSwipe.ts).
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
@@ -80,7 +80,6 @@ export function BotPanel({
 	useEffect(() => runtime.subscribeTriggers(setTriggers), [runtime]);
 	const botId = bot?.id;
 	useEffect(() => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => setMemory(next.text))), [runtime, botId]);
-	const swipe = useRef<number>(undefined);
 	if (!bot) return null;
 
 	const run = (action: () => void) => () => {
@@ -97,16 +96,6 @@ export function BotPanel({
 		<Layer open={open} kind="panel" onClose={onClose} label={`${bot.name} 的資訊`}>
 			<div
 				className="panel"
-				onTouchStart={(event) => {
-					swipe.current = event.touches[0]?.clientX;
-				}}
-				onTouchMove={(event) => {
-					const x = event.touches[0]?.clientX;
-					if (swipe.current !== undefined && x !== undefined && x - swipe.current > 64) {
-						swipe.current = undefined;
-						onClose();
-					}
-				}}
 			>
 				<button type="button" className="panel-bot" onClick={run(actions.edit)}>
 					<BotAvatar bot={bot} size={48} />

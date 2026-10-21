@@ -30,6 +30,7 @@ import { toImageContent } from "./Composer.tsx";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
+import { useSideSwipe } from "./sideSwipe.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
@@ -37,10 +38,7 @@ const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "memory" | "botMemory" | "workspace" | undefined;
 
-/** How far from a screen edge a swipe must start, how far it must go, and how straight. */
-const EDGE_ZONE = 28;
-const SWIPE_DISTANCE = 56;
-const SWIPE_SLANT = 40;
+
 
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
@@ -270,8 +268,20 @@ export function App() {
 		})();
 	}, [pairing, settings, ask, notify]);
 
-	// A swipe in from the left edge opens the bot list; from the right edge, the bot's panel.
-	const swipe = useRef<{ x: number; y: number; from: "left" | "right" }>(undefined);
+	// A sideways swipe on the conversation pulls out the bot list (rightward) or the bot's panel (leftward).
+	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
+	const { drag, handlers: sideHandlers } = useSideSwipe({
+		open: side,
+		busy: (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined,
+		onOpen: (next) => setOverlay(next === "left" ? "drawer" : "panel"),
+		onClose: close,
+	});
+	// The panel's position while dragged, as a CSS variable (styles.css .side-drag).
+	const appRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (drag) appRef.current?.style.setProperty("--side-progress", String(drag.progress));
+		else appRef.current?.style.removeProperty("--side-progress");
+	}, [drag]);
 
 	const splash = (
 		<div className="splash">
@@ -329,32 +339,10 @@ export function App() {
 
 	return (
 		<div
-			className="app"
 			data-thinking={thinking || "off"}
-			onTouchStart={(event) => {
-				const touch = event.touches[0];
-				swipe.current = undefined;
-				if (!touch || overlay) return;
-				if (touch.clientX < EDGE_ZONE) swipe.current = { x: touch.clientX, y: touch.clientY, from: "left" };
-				// Not from the composer: the scroll tab there opens the prompt dial with a long press and a slide.
-				else if (touch.clientX > window.innerWidth - EDGE_ZONE && !(event.target instanceof Element && event.target.closest(".composer"))) {
-					swipe.current = { x: touch.clientX, y: touch.clientY, from: "right" };
-				}
-			}}
-			onTouchMove={(event) => {
-				const touch = event.touches[0];
-				const start = swipe.current;
-				if (!start || !touch) return;
-				if (Math.abs(touch.clientY - start.y) >= SWIPE_SLANT) {
-					swipe.current = undefined;
-					return;
-				}
-				const moved = start.from === "left" ? touch.clientX - start.x : start.x - touch.clientX;
-				if (moved > SWIPE_DISTANCE) {
-					swipe.current = undefined;
-					setOverlay(start.from === "left" ? "drawer" : "panel");
-				}
-			}}
+			className={`app${drag ? ` side-drag side-${drag.side}${drag.settling ? " side-settling" : ""}` : ""}`}
+			ref={appRef}
+			{...sideHandlers}
 		>
 			<header className="bar">
 				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">

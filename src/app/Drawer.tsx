@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useRef } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
 import { GearIcon, MemoryIcon, MoreIcon, PlusIcon } from "./icons.tsx";
@@ -49,22 +48,11 @@ export function Drawer({
 	onMemory: () => void;
 	onClose: () => void;
 }) {
-	const swipe = useRef<number>(undefined);
 	const now = new Date();
 	return (
 		<Layer open={open} kind="drawer" onClose={onClose} label="Bot 列表">
 			<div
 				className="drawer"
-				onTouchStart={(event) => {
-					swipe.current = event.touches[0]?.clientX;
-				}}
-				onTouchMove={(event) => {
-					const x = event.touches[0]?.clientX;
-					if (swipe.current !== undefined && x !== undefined && swipe.current - x > 64) {
-						swipe.current = undefined;
-						onClose();
-					}
-				}}
 			>
 				<div className="drawer-top">
 					<span className="brand">
