@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
-import { GearIcon, MemoryIcon, MoreIcon, PlusIcon } from "./icons.tsx";
+import { GearIcon, MoreIcon, PlusIcon } from "./icons.tsx";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { SidePanel } from "./SidePanel.tsx";
@@ -28,7 +28,6 @@ export function Drawer({
 	onEdit,
 	running,
 	onSettings,
-	onMemory,
 	onClose,
 }: {
 	open: boolean;
@@ -44,8 +43,6 @@ export function Drawer({
 	/** Bots with a run in progress. */
 	running: ReadonlySet<ConversationId>;
 	onSettings: () => void;
-	/** Opens the global MEMORY.md, what every bot knows about the user. */
-	onMemory: () => void;
 	onClose: () => void;
 }) {
 	const now = new Date();
@@ -90,11 +87,6 @@ export function Drawer({
 						<span>新增 Bot</span>
 					</button>
 				</div>
-				<button type="button" className="drawer-settings drawer-memory" onClick={onMemory}>
-					<MemoryIcon />
-					<span className="drawer-settings-text">全域記憶</span>
-					<span className="drawer-hint">MEMORY.md</span>
-				</button>
 				<button type="button" className="drawer-settings" onClick={onSettings}>
 					<GearIcon />
 					<span className="drawer-settings-text">設定</span>

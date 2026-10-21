@@ -31,6 +31,7 @@ import { MachinesGroup } from "./MachinesGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { McpGroup } from "./McpGroup.tsx";
+import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 
@@ -577,13 +578,15 @@ function DatabaseGroup() {
 	);
 }
 
-type Page = "models" | "accounts" | "services" | "machines" | "phone" | "schedules" | "data";
+type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "schedules" | "data";
 
 /** One line per page, with what is set there on the right. */
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
 	const [triggers, setTriggers] = useState<number>();
 	const [tables, setTables] = useState<number>();
 	const [, setVersion] = useState(0);
+	const [memory, setMemory] = useState<number>();
+	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text.trim().length)), [runtime]);
 	useEffect(() => runtime?.subscribeTriggers((state) => setTriggers(state.items.length)), [runtime]);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 	useEffect(() => {
@@ -600,6 +603,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	const services = runtime?.mcp.servers.length ?? 0;
 	const rows: { page: Page; label: string; value: string | undefined }[] = [
 		{ page: "models", label: "模型", value: parseProviders(settings.providers).map(providerName).join("、") },
+		...(runtime ? [{ page: "memory" as const, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
 		{ page: "accounts", label: "帳號", value: accounts.join("、") },
 		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
 		{ page: "machines", label: "電腦", value: machine?.name ?? relay },
@@ -683,7 +687,7 @@ export function SettingsView({
 		</>
 	);
 
-	const pages: Record<Page, { title: string; body: () => ReactNode }> = {
+	const pages: Record<Exclude<Page, "memory">, { title: string; body: () => ReactNode }> = {
 		models: { title: "模型", body: () => models },
 		accounts: {
 			title: "帳號",
@@ -834,7 +838,11 @@ export function SettingsView({
 		data: { title: "資料庫", body: () => <DatabaseGroup /> },
 	};
 
-	const current = page ? pages[page] : undefined;
+	// The global MEMORY.md is its own page with its own bar (MemoryView), the same one a bot's memory uses.
+	if (page === "memory" && runtime) {
+		return <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => setPage(undefined)} onError={(message) => showToast(message)} />;
+	}
+	const current = page && page !== "memory" ? pages[page] : undefined;
 	return (
 		<div className="screen">
 			<header className="bar">

@@ -808,8 +808,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown.interim { font-family: var(--sans, inherit); font-size: 13px; line-height: 1.5; color: var(--faint); }
 .markdown.interim p { margin: 0; }
 /* MEMORY.md: a plain file, edited in place. */
-.drawer-memory { margin-bottom: 8px; }
-.drawer-hint { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--faint); }
 .memory { display: flex; flex-direction: column; }
 .memory-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px var(--space) calc(16px + env(safe-area-inset-bottom)); }
 .memory-file { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; color: var(--muted); }

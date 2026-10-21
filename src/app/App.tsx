@@ -41,7 +41,7 @@ const LEGACY_GONE_KEY = "pi-mobile.legacyGone";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
-type Overlay = "drawer" | "panel" | "model" | "settings" | "memory" | "botMemory" | "workspace" | undefined;
+type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
 
 
@@ -407,7 +407,6 @@ export function App() {
 						running={busyIds}
 						onEdit={(bot) => setBotEdit({ kind: "edit", bot })}
 						onSettings={() => setOverlay("settings")}
-						onMemory={() => setOverlay("memory")}
 						onClose={close}
 					/>
 				}
@@ -576,10 +575,6 @@ export function App() {
 			</Sheet>
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
-
-			<Layer open={overlay === "memory"} kind="page" onClose={close} label="全域記憶">
-				<MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={close} onError={notify} />
-			</Layer>
 
 			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={close} label="Bot 的記憶">
 				{memoryBot ? (

@@ -102,17 +102,13 @@ export function MemoryView({
 					aria-label="MEMORY.md"
 				/>
 				<p className="memory-hint">
-					{scope.kind === "global"
-						? "每個 Bot 都會讀這份筆記；你提到家在哪、喜歡什麼時，Bot 也會自己記下來。"
-						: `只有 ${botName ?? "這個 Bot"} 會讀這份筆記，記它做這份工作需要知道的事。`}
-					<br />
+					{scope.kind === "global" ? "每個 Bot 都會讀" : `只有 ${botName ?? "這個 Bot"} 會讀`}，會送給模型，不要放密碼或金鑰。
 					{saved?.updatedAt ? (
 						<>
-							{when(saved)}。
 							<br />
+							{when(saved)}
 						</>
 					) : null}
-					內容每次都會送到模型服務，不要放密碼或金鑰。
 				</p>
 			</div>
 		</div>
