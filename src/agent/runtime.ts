@@ -18,6 +18,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
+import { log } from "../log.ts";
 import { modelServiceProvider, describeModels, FAVORITE_MODEL_IDS, fetchModelIds, type ModelInfo, PROVIDER_ID } from "./models.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { AppsExtension } from "./tools/apps.ts";
@@ -212,6 +213,30 @@ export class AgentRuntime {
 		return { path: sandbox.root(folder), where: "sandbox 主機的容器" };
 	}
 
+	/**
+	 * The model service's models. The list from the last start when there is one, so starting does not wait on the
+	 * network (over Tailscale or a phone network that took up to 0.7 s); the service is asked anyway and its answer
+	 * kept for the next start. The first start waits for it.
+	 */
+	static startModelList(settings: Settings): Promise<string[]> {
+		const key = `pi-mobile.models:${settings.baseUrl}`;
+		const fresh = fetchModelIds(settings.baseUrl, settings.apiKey, AbortSignal.timeout(5000)).then((ids) => {
+			if (ids.length > 0) localStorage.setItem(key, JSON.stringify(ids));
+			return ids;
+		});
+		let cached: unknown;
+		try {
+			cached = JSON.parse(localStorage.getItem(key) ?? "null");
+		} catch {
+			cached = null;
+		}
+		if (Array.isArray(cached) && cached.length > 0 && cached.every((id) => typeof id === "string")) {
+			fresh.catch((error: unknown) => log.warn("models.refresh_failed", { error: error instanceof Error ? error.message : String(error) }));
+			return Promise.resolve(cached);
+		}
+		return fresh;
+	}
+
 	static async open(
 		storage: Storage,
 		settings: Settings,
@@ -221,10 +246,11 @@ export class AgentRuntime {
 			notify?: (title: string, text: string, conversationId: ConversationId) => Promise<boolean>;
 			/** The global MEMORY.md from before bots, written once when the new one is empty. */
 			importMemory?: string;
+			/** The model service's list, already asked for while storage opened (startModelList). */
+			modelIds?: Promise<string[]>;
 		} = {},
 	): Promise<AgentRuntime> {
-		const timeout = AbortSignal.timeout(5000);
-		const modelIds = await fetchModelIds(settings.baseUrl, settings.apiKey, timeout).catch((error: unknown) => {
+		const modelIds = await (options.modelIds ?? AgentRuntime.startModelList(settings)).catch((error: unknown) => {
 			options.onReport?.(`model list unavailable: ${error instanceof Error ? error.message : String(error)}`);
 			return [];
 		});

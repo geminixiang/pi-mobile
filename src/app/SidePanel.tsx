@@ -53,7 +53,9 @@ export function SidePanel({ side, open, onClose, label, children }: { side: Side
 	// Android's back button goes through the app's layer stack, not the browser's close watcher.
 	useBack(open, onClose);
 	return (
-		<Drawer.Portal>
+		// Kept mounted while closed (Base UI hides it): opening then only moves it, instead of first building the bot
+		// list or the panel, which cost a 50 to 60 ms task on every open on the S24.
+		<Drawer.Portal keepMounted>
 			<Drawer.Backdrop className="side-backdrop" />
 			<Drawer.Viewport className="side-viewport">
 				<Drawer.Popup className={`side-popup side-${side}`} aria-label={label}>

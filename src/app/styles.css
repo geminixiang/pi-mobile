@@ -131,7 +131,20 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 @keyframes cursor { 50% { opacity: 0.2; } }
 @keyframes blink { 50% { opacity: 0; } }
 .block-cursor { display: inline-block; width: 0.55em; height: 1.1em; vertical-align: -0.18em; background: var(--accent); animation: blink 1s steps(1) infinite; flex-shrink: 0; }
-.splash { height: 100%; display: grid; place-items: center; background: var(--bg); }
+/* ---------- Skeleton (Skeleton.tsx, index.html) ----------
+   The app's outline while it starts, in its own lines and colors, gently pulsing. */
+.skeleton i { display: block; background: var(--line); animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.skeleton-mark { width: 52px; display: grid; place-items: center; }
+.skeleton-title { display: flex; flex-direction: column; gap: 8px; padding: 6px; }
+.skeleton-title i { width: 72px; height: 11px; }
+.skeleton-title i + i { width: 132px; height: 8px; }
+.skeleton-transcript { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 22px var(--space); }
+.skeleton-transcript i { height: 12px; background: var(--line); animation: skeleton-pulse 1.4s ease-in-out infinite; display: block; }
+.skeleton-transcript .skeleton-prompt { height: 48px; margin: 10px calc(-1 * var(--space)) 6px; background: var(--user-bg); }
+.skeleton-transcript .short { width: 58%; }
+.transcript > .skeleton-transcript { padding: 0; flex: none; }
+.skeleton-composer { flex-shrink: 0; height: calc(env(safe-area-inset-bottom) + 76px); border-top: 1px solid var(--line-strong); }
+@keyframes skeleton-pulse { 50% { opacity: 0.45; } }
 
 /* Small uppercase monospace labels, as on pi.dev's panels. */
 .strip-label, .strip-title {

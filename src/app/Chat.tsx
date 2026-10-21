@@ -9,6 +9,7 @@ import { ArrowIcon, CopyIcon } from "./icons.tsx";
 import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
+import { TranscriptSkeleton } from "./Skeleton.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 
@@ -191,6 +192,7 @@ export function Chat({
 					setAtBottom(bottom);
 				}}
 			>
+				{view === undefined ? <TranscriptSkeleton /> : null}
 				{empty && shared ? (
 					<div className="empty">
 						<PiMark size={36} />

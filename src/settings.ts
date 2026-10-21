@@ -74,16 +74,20 @@ async function secret(key: string): Promise<string> {
 
 export async function loadSettings(): Promise<Settings> {
 	const plain = loadPlain();
+	// At once, not one after another: each is a Keystore round trip, and they are on the way to the first screen.
+	const [apiKey, githubToken, sandboxToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all(
+		[SECRET_API_KEY, SECRET_GITHUB_TOKEN, SECRET_SANDBOX_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(secret),
+	);
 	return {
 		baseUrl: plain.baseUrl ?? "",
-		apiKey: await secret(SECRET_API_KEY),
-		githubToken: await secret(SECRET_GITHUB_TOKEN),
+		apiKey,
+		githubToken,
 		sandboxUrl: plain.sandboxUrl ?? "",
-		sandboxToken: await secret(SECRET_SANDBOX_TOKEN),
-		gcloudCredential: await secret(SECRET_GCLOUD),
+		sandboxToken,
+		gcloudCredential,
 		gcloudProject: plain.gcloudProject ?? "",
-		cloudflareCredential: await secret(SECRET_CLOUDFLARE),
-		azureCredential: await secret(SECRET_AZURE),
+		cloudflareCredential,
+		azureCredential,
 		defaultModelId: plain.defaultModelId ?? DEFAULT_MODEL_ID,
 		defaultThinking: plain.defaultThinking ?? "low",
 		calendarAccess: plain.calendarAccess ?? "",

@@ -1,6 +1,6 @@
 import type { ImageContent, Message as ModelMessage, TextContent, ThinkingContent, ToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { type ComponentProps, useContext, useEffect, useState } from "react";
+import { type ComponentProps, memo, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
@@ -409,7 +409,12 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 	);
 }
 
-export function EntryView({
+/**
+ * One entry of the transcript. Memoized: Chat re-renders on every keystroke in the composer and every streamed token,
+ * and redrawing every answer then (Markdown parsing included) made typing take 30 to 40 ms a key on the S24 in a
+ * 27-entry conversation, growing with the conversation. Its props change only when the entry does.
+ */
+export const EntryView = memo(function EntryView({
 	entry,
 	prefs,
 	calls,
@@ -455,4 +460,4 @@ export function EntryView({
 	}
 	// Tool results render inside the trace of the call that produced them.
 	return null;
-}
+});

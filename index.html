@@ -6,7 +6,26 @@
 		<title>pi</title>
 	</head>
 	<body>
-		<div id="root" class="root"></div>
+		<!-- Painted before any script loads; React replaces it. The same as src/app/Skeleton.tsx. -->
+		<div id="root" class="root">
+			<div class="app skeleton" aria-busy="true" aria-label="pi 啟動中">
+				<div class="bar">
+					<span class="skeleton-mark">
+						<svg class="pi-mark live" width="18" height="18" viewBox="0 0 4 4" shape-rendering="crispEdges" aria-hidden="true">
+							<path fill="#6A9FCC" d="M0 0h3v2h-1v-1h-2z" />
+							<path fill="#A3A473" d="M0 1h1v1h1v1h-1v1h-1z" />
+							<path class="pi-mark-cursor" fill="#E1B06E" d="M3 2h1v2h-1z" />
+						</svg>
+					</span>
+					<span class="skeleton-title"><i></i><i></i></span>
+				</div>
+				<div class="skeleton-transcript" aria-hidden="true">
+					<i class="skeleton-prompt"></i><i class="skeleton-line"></i><i class="skeleton-line"></i><i class="skeleton-line short"></i>
+					<i class="skeleton-prompt"></i><i class="skeleton-line"></i><i class="skeleton-line short"></i>
+				</div>
+				<div class="skeleton-composer"></div>
+			</div>
+		</div>
 		<script type="module" src="/src/main.tsx"></script>
 	</body>
 </html>

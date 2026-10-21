@@ -15,6 +15,7 @@ import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
+import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
@@ -34,6 +35,8 @@ import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
+/** Set once the database from before bots is gone (or was never there). */
+const LEGACY_GONE_KEY = "pi-mobile.legacyGone";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -114,8 +117,12 @@ export function App() {
 		async (next: Settings) => {
 			try {
 				// The database from before bots goes, with every old conversation; only the global MEMORY.md stays.
+				const modelIds = AgentRuntime.startModelList(next);
+				// Do not leave it unhandled if storage fails first; open() reports a failure.
+				modelIds.catch(() => undefined);
 				let importMemory: string | undefined;
-				const legacy = await takeLegacyStorage().catch(() => undefined);
+				// Once moved, the check (opening SQLite to look for the old file) is skipped on later starts.
+				const legacy = localStorage.getItem(LEGACY_GONE_KEY) ? undefined : await takeLegacyStorage().catch(() => undefined);
 				if (legacy) {
 					importMemory = await AgentRuntime.readLegacyMemory(legacy.storage).catch(() => undefined);
 					await legacy.discard().catch((error: unknown) => log.warn("storage.legacy_discard_failed", { error: String(error) }));
@@ -124,6 +131,7 @@ export function App() {
 				setRuntime(
 					await AgentRuntime.open(storage, next, {
 						...(importMemory ? { importMemory } : {}),
+						modelIds,
 						onReport: notify,
 						notify: async (title, text, conversationId) => {
 							if (inForeground()) return false;
@@ -132,6 +140,7 @@ export function App() {
 						},
 					}),
 				);
+				localStorage.setItem(LEGACY_GONE_KEY, "1");
 				setOpenError("");
 			} catch (error) {
 				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);
@@ -267,11 +276,8 @@ export function App() {
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
 	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
 
-	const splash = (
-		<div className="splash">
-			<PiMark size={36} live />
-		</div>
-	);
+	// Until the runtime opens (about half a second, most of it loading the app), its outline, as index.html showed.
+	const splash = <Skeleton />;
 	if (!settings) return splash;
 
 	const saveAndRestart = async (next: Settings) => {
@@ -442,7 +448,9 @@ export function App() {
 					/>
 					</OpenFileContext.Provider>
 				) : (
-					<div className="chat" />
+					<div className="chat">
+					<TranscriptSkeleton />
+				</div>
 				)}
 			</SideSwipe>
 
