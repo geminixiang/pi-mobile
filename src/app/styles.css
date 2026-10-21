@@ -754,6 +754,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .manual > summary::before { content: "▸ "; color: var(--faint); }
 .manual[open] > summary::before { content: "▾ "; }
 .check-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.row-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .check-row + .check-row { border-top: 1px solid var(--line); }
 .check-row .menu-text { font-size: 14.5px; }
 .state { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; }

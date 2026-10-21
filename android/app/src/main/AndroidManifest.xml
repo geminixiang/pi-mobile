@@ -31,6 +31,14 @@
                 <data android:scheme="pimobile" android:host="pair" />
             </intent-filter>
 
+            <!-- MCP sign-ins returning from the browser: dev.geminixiang.pimobile:/oauth/mcp?code=...&state=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dev.geminixiang.pimobile" />
+            </intent-filter>
+
             <!-- "Share" -> pi from other apps: text, links, and images open a new conversation with them. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

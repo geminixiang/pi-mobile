@@ -7,7 +7,8 @@ import type { AgentState } from "@earendil-works/pi-durable";
 export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "codemode";
 
 export interface Toolset {
-	id: ToolsetId;
+	/** A ToolsetId, or an MCP server's extension name (mcp-<id>). */
+	id: string;
 	label: string;
 	hint: string;
 	/** Extension names, as installed in runtime.ts. */

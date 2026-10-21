@@ -17,7 +17,8 @@ import {
 	section,
 	type Storage,
 } from "@earendil-works/pi-durable";
-import { removedExtensions, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { removedExtensions, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { extensionName, McpHub, parseMcpServers } from "./mcp.ts";
 import { type Bot, BotExtension, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential } from "../settings.ts";
 import { log } from "../log.ts";
@@ -116,6 +117,14 @@ function contentText(content: unknown): string {
 		.join("\n");
 }
 
+function hostOf(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return url;
+	}
+}
+
 /** A token source, or none when the credential does not parse (settings say why). */
 function tryTokens<T>(json: string, open: (json: string) => T): T | undefined {
 	if (!json) return undefined;
@@ -188,6 +197,8 @@ export class AgentRuntime {
 	#triggered = new Set<ConversationId>();
 	/** Names of the installed extensions: which toolsets this phone has set up. */
 	readonly #installed: ReadonlySet<string>;
+	/** The MCP servers from settings and their connections. */
+	readonly mcp: McpHub;
 	#toolsetWrites: Promise<void> = Promise.resolve();
 
 	private constructor(
@@ -198,8 +209,10 @@ export class AgentRuntime {
 		folders: Map<string, string>,
 		minted: Record<string, MintedService>,
 		installed: ReadonlySet<string>,
+		mcp: McpHub,
 	) {
 		this.#installed = installed;
+		this.mcp = mcp;
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
@@ -263,6 +276,8 @@ export class AgentRuntime {
 			onReport?: (message: string) => void;
 			/** Post a notification opening the conversation, unless the user is looking at pi; resolves whether it did. */
 			notify?: (title: string, text: string, conversationId: ConversationId) => Promise<boolean>;
+			/** Open a URL in the user's browser, for MCP sign-ins. */
+			openUrl?: (url: string) => Promise<void>;
 			/** The global MEMORY.md from before bots, written once when the new one is empty. */
 			importMemory?: string;
 			/** The model service's list, already asked for while storage opened (startModelList). */
@@ -284,6 +299,10 @@ export class AgentRuntime {
 		registry.install(WeatherExtension);
 		registry.install(PlacesExtension);
 		registry.install(DatabaseExtension);
+		const mcp = new McpHub(parseMcpServers(settings.mcpServers), {
+			install: (extension) => registry.install(extension),
+			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
+		});
 		registry.install(AppsExtension);
 		registry.install(SpeechExtension);
 		registry.install(NotificationsExtension);
@@ -334,7 +353,10 @@ export class AgentRuntime {
 			folders,
 			clouds.minted,
 			new Set(registry.snapshot().installed().map((extension) => extension.name)),
+			mcp,
 		);
+		// In the background: the tools from the last connection are installed already.
+		mcp.refreshAll();
 		runtimeRef = runtime;
 		// The folders must be known before a run resumes and asks for its environment.
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
@@ -521,9 +543,17 @@ export class AgentRuntime {
 	}
 
 	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
+	/** The built-in toolsets, then one per MCP server. */
+	#allToolsets(): Toolset[] {
+		return [
+			...TOOLSETS,
+			...this.mcp.servers.map((server) => ({ id: extensionName(server), label: server.name, hint: `MCP · ${hostOf(server.url)}`, extensions: [extensionName(server)] })),
+		];
+	}
+
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const removed = removedExtensions(await this.#harness.snapshot(AgentDoc, id, context));
-		return TOOLSETS.map((toolset) => ({
+		return this.#allToolsets().map((toolset) => ({
 			...toolset,
 			available: toolset.extensions.every((name) => this.#installed.has(name)),
 			enabled: !toolset.extensions.some((name) => removed.includes(name)),
@@ -531,10 +561,10 @@ export class AgentRuntime {
 	}
 
 	/** Turn a toolset on or off for a bot; its next request has the tools or not. */
-	setToolset(id: ConversationId, toolset: ToolsetId, enabled: boolean): Promise<void> {
+	setToolset(id: ConversationId, toolset: ToolsetId | string, enabled: boolean): Promise<void> {
 		// One change at a time: each reads the stored list and writes it whole, so two quick switches would lose one.
 		const change = this.#toolsetWrites.then(async () => {
-			const target = TOOLSETS.find((candidate) => candidate.id === toolset);
+			const target = this.#allToolsets().find((candidate) => candidate.id === toolset);
 			const conversation = await this.#harness.conversation(id, context);
 			if (!target || !conversation) return;
 			const removed = withToolset(removedExtensions(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);

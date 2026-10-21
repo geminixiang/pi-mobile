@@ -5,7 +5,7 @@ import type { ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
-import type { ToolsetId, ToolsetState } from "../agent/toolsets.ts";
+import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BoxIcon, CopyIcon, FileIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
@@ -92,7 +92,7 @@ export function BotPanel({
 	}, [runtime, botId, open]);
 	if (!bot) return null;
 
-	const toggle = (id: ToolsetId, enabled: boolean) => {
+	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
 		runtime
 			.setToolset(bot.id, id, enabled)

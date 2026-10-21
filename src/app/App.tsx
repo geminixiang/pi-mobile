@@ -1,3 +1,5 @@
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setConfirmListener } from "../agent/confirm.ts";
@@ -30,6 +32,7 @@ import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { toImageContent } from "./Composer.tsx";
 import { listenForPairing, type Pairing } from "./pairing.ts";
+import { System } from "../system-plugin.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
@@ -133,6 +136,7 @@ export function App() {
 						...(importMemory ? { importMemory } : {}),
 						modelIds,
 						onReport: notify,
+						openUrl: (url) => System.openExternal({ url }),
 						notify: async (title, text, conversationId) => {
 							if (inForeground()) return false;
 							await Triggers.notify({ title, text, conversation: String(conversationId) });
@@ -248,6 +252,17 @@ export function App() {
 	// Pairing links from sandbox/install.sh. A link can arrive before settings load (the app was launched with it).
 	const [pairing, setPairing] = useState<Pairing>();
 	useEffect(() => listenForPairing(setPairing), []);
+	// An MCP sign-in returning from the browser, while the app runs or by launching it.
+	useEffect(() => {
+		if (!runtime || !Capacitor.isNativePlatform()) return;
+		const handle = (url: string | undefined) =>
+			void (url ? runtime.mcp.handleRedirect(url) : Promise.resolve(false)).catch((error: unknown) =>
+				notify(`MCP 登入失敗：${error instanceof Error ? error.message : String(error)}`),
+			);
+		void CapacitorApp.getLaunchUrl().then((launch) => handle(launch?.url));
+		const listener = CapacitorApp.addListener("appUrlOpen", ({ url }) => handle(url));
+		return () => void listener.then((h) => h.remove());
+	}, [runtime, notify]);
 	const saveRef = useRef<(next: Settings) => Promise<void>>(undefined);
 	useEffect(() => {
 		if (!pairing || !settings) return;

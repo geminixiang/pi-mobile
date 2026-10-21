@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
 import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
+import { System } from "../system-plugin.ts";
 import { showToast } from "./Toasts.tsx";
 import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
 import {
@@ -14,7 +15,6 @@ import {
 	parseCredential,
 	startGoogleSignIn,
 } from "../agent/gcloud.ts";
-import { registerPlugin } from "@capacitor/core";
 import { type AzureDeviceSignIn, describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
 import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
@@ -25,6 +25,7 @@ import { Triggers } from "../agent/triggers.ts";
 import type { Settings } from "../settings.ts";
 import { BackIcon } from "./icons.tsx";
 import { MachinesGroup } from "./MachinesGroup.tsx";
+import { McpGroup } from "./McpGroup.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 
@@ -55,9 +56,6 @@ function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: 
 	);
 }
 
-const System = registerPlugin<{ openExternal(options: { url: string }): Promise<void>; clipboardText(): Promise<{ text: string }> }>(
-	"System",
-);
 
 /**
  * Sign in with Google: opens Google's consent page in the browser; its last page shows an authorization code. When the
@@ -707,6 +705,13 @@ export function SettingsView({
 						<input {...field("githubToken")} type="password" autoComplete="off" placeholder="github_pat_…" />
 					</label>
 					<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
+				</Group>
+
+				<Group
+					title="MCP"
+					hint="連接提供 MCP 的服務，Bot 就能用它們的工具：每個服務在 Bot 面板的「工具」裡是一組，可以開關。需要登入的，儲存後按「登入」在瀏覽器完成。會改變東西的工具，執行前一定先問你。"
+				>
+					<McpGroup value={settings.mcpServers} runtime={runtime} onChange={(mcpServers) => setSettings({ ...settings, mcpServers })} onError={(message) => showToast(message)} />
 				</Group>
 
 				{native ? (

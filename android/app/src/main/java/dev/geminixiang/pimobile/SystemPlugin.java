@@ -21,7 +21,9 @@ public class SystemPlugin extends Plugin {
     @PluginMethod
     public void openExternal(PluginCall call) {
         String url = call.getString("url");
-        if (url == null || !url.startsWith("https://")) {
+        // https, or http on this device's loopback (a local test server for MCP sign-ins).
+        boolean loopback = url != null && (url.startsWith("http://localhost:") || url.startsWith("http://127.0.0.1:"));
+        if (url == null || !(url.startsWith("https://") || loopback)) {
             call.reject("https URL required");
             return;
         }
