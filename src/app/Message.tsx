@@ -335,6 +335,20 @@ export function isEmptyAnswer(entry: EntryRecord): boolean {
 	);
 }
 
+/**
+ * Whether what Content draws starts and ends with a trace of steps, as data attributes for an answer's element: the
+ * transcript pulls a trace that continues the previous answer's trace up to it (styles.css).
+ */
+function stepEdges(content: readonly Block[], prefs: Prefs, streaming: boolean): { "data-starts-steps"?: true; "data-ends-steps"?: true } {
+	const drawn = content.filter((block) =>
+		block.type === "text" ? streaming || !isBrokenText(block.text) : block.type === "thinking" ? prefs.showThinking && block.thinking.trim() !== "" : true,
+	);
+	return {
+		...(drawn[0]?.type === "toolCall" ? { "data-starts-steps": true } : {}),
+		...(drawn.at(-1)?.type === "toolCall" ? { "data-ends-steps": true } : {}),
+	};
+}
+
 function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
 	// Consecutive tool calls form one trace group.
 	const groups: (Block | Call[])[] = [];
@@ -381,7 +395,7 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 
 export function StreamingAnswer({ content, prefs, calls }: { content: Block[]; prefs: Prefs; calls: CallStates }) {
 	return (
-		<article className="answer streaming">
+		<article className="answer streaming" {...stepEdges(content, prefs, true)}>
 			<Content content={content} prefs={prefs} calls={calls} streaming />
 		</article>
 	);
@@ -407,6 +421,14 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 			)}
 		</section>
 	);
+}
+
+/** Whether EntryView draws anything for the entry; tool results, for one, show inside their call's trace instead. */
+export function rendersEntry(entry: EntryRecord): boolean {
+	if (entry.kind === "pi.compaction" || entry.kind === "pi.reset") return true;
+	if (entry.kind === TRIGGER_ENTRY) return Value.Check(TriggerEntryData, entry.data);
+	const model = message(entry);
+	return (entry.kind === "pi.user" && model?.role === "user") || (entry.kind === "pi.assistant" && model?.role === "assistant");
 }
 
 export function EntryView({
@@ -446,7 +468,7 @@ export function EntryView({
 	if (entry.kind === "pi.assistant" && model.role === "assistant") {
 		const aborted = model.stopReason === "aborted";
 		return (
-			<article className={`answer${aborted ? " aborted" : ""}`} {...longPress}>
+			<article className={`answer${aborted ? " aborted" : ""}`} {...stepEdges(blocks(model.content), prefs, false)} {...longPress}>
 				<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
 				{aborted ? <div className="note">已中斷</div> : null}
 				{model.errorMessage && !aborted ? <div className="note error">{model.errorMessage}</div> : null}

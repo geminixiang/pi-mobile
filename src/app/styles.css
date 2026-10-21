@@ -216,7 +216,14 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Transcript ---------- */
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.transcript { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
+/* Virtuoso's scroller (Chat.tsx): rows are spaced by their own padding, since a virtual list has no flex gap. */
+.transcript { flex: 1; min-height: 0; overscroll-behavior: contain; padding: 0 var(--space); }
+.transcript-top { height: 22px; }
+.row { padding-bottom: 20px; }
+.transcript-end { display: flex; flex-direction: column; gap: 20px; padding-bottom: 28px; }
+.transcript-end:empty { padding-bottom: 8px; }
+/* A new conversation's welcome, not virtualized. */
+.transcript-empty { overflow-y: auto; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
 
 /* The user's message as pi's: a full-width block in userMessageBg, no border; the color alone says who spoke. */
 .prompt { cursor: pointer; margin: 0 calc(-1 * var(--space)); }
@@ -313,9 +320,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-output.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden; }
 .step-output.clamp-end { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(5 * 1.55em); overflow: hidden; }
 .step.open .step-output { max-height: 60vh; overflow-y: auto; }
-/* Steps from back-to-back model turns read as one stack, a blank line apart. */
-/* The condition in :where() adds no specificity. */
-:where(.answer:has(> .steps:last-child) + .answer) > .steps:first-child { margin-top: -12px; }
+/* Steps from back-to-back model turns read as one stack, a blank line apart (Message.tsx stepEdges). The conditions in :where() add no
+   specificity. Rows are siblings; the streaming answer follows the last row. */
+:where(.row:has(> [data-ends-steps]) + .row) > [data-starts-steps],
+:where(.transcript:has(.row:last-child > [data-ends-steps]) .transcript-end) > [data-starts-steps]:first-child { margin-top: -12px; }
 
 .working { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
