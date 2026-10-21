@@ -28,7 +28,7 @@ pi mobile 是 [pi](https://pi.dev) 的手機版實驗：用 [pi-durable](https:/
 1. **安裝 app**：從 [Releases](../../releases) 下載 `pi-mobile-<版本>.apk` 安裝（需要允許「安裝未知應用程式」）。需要 Android 7.0 以上、arm64 手機。
 2. **填模型服務**：第一次打開時，填上 OpenAI 或 Anthropic 相容 API 的網址和 key，按「開始」。到這一步就能聊天、搜尋網路、在手機上跑 code mode 腳本。
 3. **（選用）安裝 sandbox 主機**：要讓 agent 跑指令、改程式碼，在一台 Mac 或 Linux 電腦上執行 `sandbox/install.sh`（見[安裝 sandbox 主機](#安裝-sandbox-主機)），再用手機相機掃它印出的 QR code。手機和主機要在同一個 [Tailscale](https://tailscale.com) 網路（或區網）。
-4. **（選用）連接帳號**：在設定裡連接 GitHub、Google Cloud、Cloudflare、Azure，sandbox 裡對應的 CLI 就會以你的身分運作。
+4. **（選用）連接帳號**：在設定裡連接 GitHub、Google Cloud、Cloudflare、Azure。沒有 sandbox 時，agent 也能從手機直接呼叫它們的 API（查詢直接執行，寫入先問你）；有 sandbox 時，裡面對應的 CLI 也會以你的身分運作。
 5. **背景執行**：設定頁「背景執行」裡允許通知，並讓 app 不受電池最佳化限制，長任務在鎖屏時才不會被系統暫停。
 
 ## 功能

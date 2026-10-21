@@ -32,6 +32,7 @@ import { EgressLink, type MintedService } from "./sandbox/egress.ts";
 import { parseMachines } from "./sandbox/machine.ts";
 import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
+import { azureService, type CloudService, cloudflareService, createCloudExtension, googleService } from "./tools/cloud.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { SkillsExtension } from "./skills.ts";
 import { SpeechExtension } from "./tools/speech.ts";
@@ -108,35 +109,40 @@ function contentText(content: unknown): string {
 		.join("\n");
 }
 
-/** Services whose tokens the phone mints for the sandbox; a credential that does not parse is left out (settings say why). */
-function mintedServices(settings: Settings): Record<string, MintedService> {
-	const services: Record<string, MintedService> = {};
+/** A token source, or none when the credential does not parse (settings say why). */
+function tryTokens<T>(json: string, open: (json: string) => T): T | undefined {
+	if (!json) return undefined;
 	try {
-		if (settings.gcloudCredential) {
-			const tokens = new GcloudTokens(settings.gcloudCredential);
-			const project = settings.gcloudProject || tokens.project;
-			services.gcloud = { get: () => tokens.get(), env: project ? { CLOUDSDK_CORE_PROJECT: project } : {} };
-		}
+		return open(json);
 	} catch {
-		// Unusable credential: settings show why.
+		return undefined;
 	}
-	try {
-		if (settings.cloudflareCredential) {
-			const tokens = new CloudflareTokens(settings.cloudflareCredential, saveCloudflareCredential);
-			services.cloudflare = { get: () => tokens.get(), env: tokens.accountId ? { CLOUDFLARE_ACCOUNT_ID: tokens.accountId } : {} };
-		}
-	} catch {
-		// Unusable credential: settings show why.
+}
+
+/**
+ * The signed-in clouds, each with one token source shared by the phone's API tools and the sandbox's egress proxy, so
+ * a rotating refresh token (Cloudflare, Azure) is only ever refreshed by one owner.
+ */
+function cloudConnections(settings: Settings) {
+	const gcloud = tryTokens(settings.gcloudCredential, (json) => new GcloudTokens(json));
+	const cloudflare = tryTokens(settings.cloudflareCredential, (json) => new CloudflareTokens(json, saveCloudflareCredential));
+	const azure = tryTokens(settings.azureCredential, (json) => new AzureTokens(json, saveAzureCredential));
+	const project = settings.gcloudProject || gcloud?.project;
+	const minted: Record<string, MintedService> = {};
+	const services: CloudService[] = [];
+	if (gcloud) {
+		minted.gcloud = { get: () => gcloud.get(), env: project ? { CLOUDSDK_CORE_PROJECT: project } : {} };
+		services.push(googleService(async () => (await gcloud.get()).token, project));
 	}
-	try {
-		if (settings.azureCredential) {
-			const tokens = new AzureTokens(settings.azureCredential, saveAzureCredential);
-			services.azure = { get: (scope) => tokens.get(scope), env: tokens.env };
-		}
-	} catch {
-		// Unusable credential: settings show why.
+	if (cloudflare) {
+		minted.cloudflare = { get: () => cloudflare.get(), env: cloudflare.accountId ? { CLOUDFLARE_ACCOUNT_ID: cloudflare.accountId } : {} };
+		services.push(cloudflareService(async () => (await cloudflare.get()).token, cloudflare.accountId));
 	}
-	return services;
+	if (azure) {
+		minted.azure = { get: (scope) => azure.get(scope), env: azure.env };
+		services.push(azureService(async (scope) => (await azure.get(scope)).token, azure.env.AZURE_SUBSCRIPTION_ID));
+	}
+	return { minted, services };
 }
 
 /** Triggers with the next time each fires, for Settings. */
@@ -152,9 +158,9 @@ function startOfToday(): number {
 }
 
 /** The chosen machine over SSH, else the relay when paired, else none. */
-function openSandbox(settings: Settings): Sandbox | undefined {
+function openSandbox(settings: Settings, minted: Record<string, MintedService>): Sandbox | undefined {
 	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
-	if (machine) return new MachineSandbox(machine, { githubToken: settings.githubToken || undefined, minted: mintedServices(settings) });
+	if (machine) return new MachineSandbox(machine, { githubToken: settings.githubToken || undefined, minted });
 	if (settings.sandboxUrl && settings.sandboxToken) return new RelaySandbox({ url: settings.sandboxUrl, token: settings.sandboxToken });
 	return undefined;
 }
@@ -180,6 +186,7 @@ export class AgentRuntime {
 		models: ModelInfo[],
 		sandbox: Sandbox | undefined,
 		folders: Map<string, string>,
+		minted: Record<string, MintedService>,
 	) {
 		this.#harness = harness;
 		this.#settings = settings;
@@ -192,7 +199,7 @@ export class AgentRuntime {
 				relayUrl: settings.sandboxUrl,
 				relayToken: settings.sandboxToken,
 				githubToken: settings.githubToken || undefined,
-				minted: mintedServices(settings),
+				minted,
 				describe: (name) => (name === SHARED_SANDBOX ? "共用的 sandbox" : name),
 			});
 		}
@@ -268,6 +275,8 @@ export class AgentRuntime {
 		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
 		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
+		const clouds = cloudConnections(settings);
+		registry.install(createCloudExtension(clouds.services));
 		registry.install(createWebExtension({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, modelIds }));
 		// The tools need the runtime, which exists only after the Harness opens.
 		let runtimeRef: AgentRuntime | undefined;
@@ -278,7 +287,7 @@ export class AgentRuntime {
 		registry.install(createTriggerExtension(triggerHost));
 		registry.install(createMemoryExtension({ changed: () => void runtimeRef?.publishMemory() }));
 		const folders = new Map<string, string>();
-		const sandbox = openSandbox(settings);
+		const sandbox = openSandbox(settings, clouds.minted);
 		if (sandbox) {
 			registry.install(createSandboxExtension(sandbox, (id) => folders.get(id)));
 			registry.install(SandboxTools);
@@ -307,6 +316,7 @@ export class AgentRuntime {
 			describeModels(modelIds.length > 0 ? modelIds : FAVORITE_MODEL_IDS, compactAt),
 			sandbox,
 			folders,
+			clouds.minted,
 		);
 		runtimeRef = runtime;
 		// The folders must be known before a run resumes and asks for its environment.
