@@ -9,11 +9,12 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.OpenableColumns;
 import android.provider.Settings;
-import android.util.Base64;
 import android.util.Log;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -25,14 +26,16 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -170,30 +173,6 @@ public class TriggersPlugin extends Plugin {
         call.resolve();
     }
 
-    /** A shared file from the queue, as base64. Only files in the inbox can be read. */
-    @PluginMethod
-    public void readFile(PluginCall call) {
-        File file = new File(call.getString("path", ""));
-        if (!TriggerStore.isInbox(getContext(), file)) {
-            call.reject("not a shared file");
-            return;
-        }
-        try (InputStream input = new FileInputStream(file)) {
-            byte[] bytes = new byte[(int) file.length()];
-            int read = 0;
-            while (read < bytes.length) {
-                int count = input.read(bytes, read, bytes.length - read);
-                if (count < 0) break;
-                read += count;
-            }
-            JSObject result = new JSObject();
-            result.put("data", Base64.encodeToString(bytes, 0, read, Base64.NO_WRAP));
-            call.resolve(result);
-        } catch (IOException error) {
-            call.reject("could not read the shared file", error);
-        }
-    }
-
     @PluginMethod
     public void status(PluginCall call) {
         AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
@@ -323,9 +302,15 @@ public class TriggersPlugin extends Plugin {
         return PendingIntent.getActivity(getContext(), conversation.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    /** Text or an image another app shared with pi ("Share" -> pi). */
+    /**
+     * What another app shared with pi ("Share" -> pi): text, and files (one, or several with SEND_MULTIPLE). Each file
+     * is copied into the inbox with its name and type; the web side reads it from there by its path and decides what
+     * it can take (attachments.ts), so this side does not need to know file kinds.
+     */
     private void receiveShare(Intent intent) {
-        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        if (intent == null) return;
+        String action = intent.getAction();
+        if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
         // Mark it handled: the activity keeps its launch intent, and load() must not take it again.
         intent.setAction(Intent.ACTION_MAIN);
         JSONObject event = new JSONObject();
@@ -335,20 +320,18 @@ public class TriggersPlugin extends Plugin {
             String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
             if (text != null) event.put("text", text);
             if (subject != null) event.put("subject", subject);
-            Uri stream = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                ? intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class)
-                : legacyStream(intent);
-            String type = intent.getType();
-            if (stream != null && type != null && type.startsWith("image/")) {
+            JSONArray files = new JSONArray();
+            for (Uri stream : sharedStreams(intent)) {
                 File copy = copyShared(stream);
-                if (copy != null) {
-                    String actual = getContext().getContentResolver().getType(stream);
-                    JSONObject file = new JSONObject();
-                    file.put("path", copy.getAbsolutePath());
-                    file.put("mimeType", actual != null ? actual : type);
-                    event.put("file", file);
-                }
+                if (copy == null) continue;
+                String type = getContext().getContentResolver().getType(stream);
+                JSONObject file = new JSONObject();
+                file.put("path", copy.getAbsolutePath());
+                file.put("name", displayName(stream));
+                file.put("mimeType", type != null ? type : intent.getType() != null ? intent.getType() : "");
+                files.put(file);
             }
+            if (files.length() > 0) event.put("files", files);
         } catch (JSONException ignored) {
             // String keys always fit.
         }
@@ -357,8 +340,31 @@ public class TriggersPlugin extends Plugin {
     }
 
     @SuppressWarnings("deprecation")
-    private static Uri legacyStream(Intent intent) {
-        return intent.getParcelableExtra(Intent.EXTRA_STREAM);
+    private static List<Uri> sharedStreams(Intent intent) {
+        List<Uri> streams = new ArrayList<>();
+        if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
+            ArrayList<Uri> many = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ? intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class)
+                : intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (many != null) streams.addAll(many);
+        } else {
+            Uri one = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ? intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class)
+                : intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (one != null) streams.add(one);
+        }
+        return streams;
+    }
+
+    /** The file's name as the sharing app gives it (OpenableColumns.DISPLAY_NAME), else the last part of the URI. */
+    private String displayName(Uri uri) {
+        try (Cursor cursor = getContext().getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getString(0);
+        } catch (RuntimeException error) {
+            Log.w(TAG, "could not read the shared file's name", error);
+        }
+        String last = uri.getLastPathSegment();
+        return last != null ? last : "shared";
     }
 
     private File copyShared(Uri uri) {

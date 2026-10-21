@@ -1,7 +1,6 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BusyMode, ConversationController, ConversationId, SubmissionId } from "../agent/runtime.ts";
-import type { ImageContent } from "@earendil-works/pi-ai";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { parseAttachment } from "../agent/attachments.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
@@ -37,8 +36,18 @@ interface Suggestion {
 	image?: boolean;
 }
 
+/** What was shared from another app: photos only, other files, or only text. */
+export type SharedKind = "image" | "file" | "text";
+
 /** What to do with something shared from another app; picked, it goes before the shared text in the composer. */
-function shareActions(kind: "image" | "text"): Suggestion[] {
+function shareActions(kind: SharedKind): Suggestion[] {
+	if (kind === "file") {
+		return [
+			{ title: "摘要", prompt: "讀一下這份檔案，用幾點摘要重點" },
+			{ title: "找出要注意的", prompt: "這份檔案裡有哪些日期、金額或要我做的事？" },
+			{ title: "翻譯", prompt: "翻成繁體中文" },
+		];
+	}
 	return kind === "image"
 		? [
 				{ title: "這是什麼", prompt: "這張圖裡有什麼？" },
@@ -73,7 +82,7 @@ export function Chat({
 	prefs,
 	capabilities,
 	initialDraft,
-	initialImages,
+	initialFiles,
 	shared,
 	focusKey,
 	onError,
@@ -84,9 +93,9 @@ export function Chat({
 	prefs: Prefs;
 	capabilities: Capabilities;
 	initialDraft?: string;
-	initialImages?: ImageContent[];
+	initialFiles?: readonly File[];
 	/** Opened with something shared from another app: suggest what to do with it instead of the general examples. */
-	shared?: "image" | "text";
+	shared?: SharedKind;
 	/** Changes when the composer should take focus, such as after starting a new conversation. */
 	focusKey: number;
 	onError: (message: string) => void;
@@ -220,7 +229,7 @@ export function Chat({
 						<h2>
 							要 pi 怎麼<em>處理</em>？
 						</h2>
-						<p>{shared === "image" ? "圖片已經放在輸入框裡。" : "分享的內容已經放在輸入框裡。"}選一個，或直接打字說要做什麼。</p>
+						<p>{shared === "image" ? "圖片已經放在輸入框裡。" : shared === "file" ? "檔案已經放在輸入框裡。" : "分享的內容已經放在輸入框裡。"}選一個，或直接打字說要做什麼。</p>
 						<ol className="suggestions">
 							{shareActions(shared).map((action, index) => (
 								<li key={action.title}>
@@ -322,7 +331,8 @@ export function Chat({
 				queued={queued}
 				focusKey={composerFocus}
 				pickImageKey={pickImage}
-				initialImages={initialImages}
+				conversationId={String(controller.id)}
+				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
 					setAtBottom(true);

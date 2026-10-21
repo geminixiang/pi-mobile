@@ -89,7 +89,8 @@ const QueuedEvent = Type.Union([
 		kind: Type.Literal("share"),
 		text: Type.Optional(Type.String()),
 		subject: Type.Optional(Type.String()),
-		file: Type.Optional(Type.Object({ path: Type.String(), mimeType: Type.String() })),
+		/** Copies in the native inbox, read through Capacitor's file server (Capacitor.convertFileSrc). */
+		files: Type.Optional(Type.Array(Type.Object({ path: Type.String(), name: Type.String(), mimeType: Type.String() }))),
 	}),
 ]);
 export type QueuedEvent = Static<typeof QueuedEvent>;
@@ -99,7 +100,6 @@ interface TriggersPlugin {
 	events(): Promise<{ events: unknown[] }>;
 	ack(options: { ids: string[] }): Promise<void>;
 	started(options: { trigger: string }): Promise<void>;
-	readFile(options: { path: string }): Promise<{ data: string }>;
 	status(): Promise<{ exactAlarms: boolean; bluetooth: boolean }>;
 	requestBluetooth(): Promise<{ granted: boolean }>;
 	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;

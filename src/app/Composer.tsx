@@ -1,6 +1,6 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { useEffect, useRef, useState } from "react";
-import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
+import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, deleteAttachments, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
 import { CloseIcon, MicIcon, PaperclipIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { Database } from "../database-plugin.ts";
@@ -41,7 +41,8 @@ export function Composer({
 	queued,
 	focusKey,
 	pickImageKey,
-	initialImages,
+	conversationId,
+	initialFiles,
 	onSend,
 	onStop,
 	onWithdraw,
@@ -57,8 +58,10 @@ export function Composer({
 	queued: QueuedItem[];
 	focusKey: number;
 	pickImageKey: number;
-	/** Images to start with, such as one shared from another app. */
-	initialImages?: ImageContent[];
+	/** The bot this composer writes to, which its attachments belong to. */
+	conversationId: string;
+	/** Files to start with, shared from another app: taken as if picked. */
+	initialFiles?: readonly File[];
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
@@ -71,7 +74,7 @@ export function Composer({
 	/** Scroll to one of them, or to the newest when undefined. */
 	onJump: (id: string | undefined) => void;
 }) {
-	const [images, setImages] = useState<ImageContent[]>(initialImages ?? []);
+	const [images, setImages] = useState<ImageContent[]>([]);
 	const [files, setFiles] = useState<PendingFile[]>([]);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +100,12 @@ export function Composer({
 		if (pickImageKey) fileInput.current?.click();
 	}, [pickImageKey]);
 
+	// Once: the composer is remounted for each conversation it opens with (App.tsx chatKey).
+	useEffect(() => {
+		if (initialFiles?.length) void attach([...initialFiles]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	const send = (whenBusy: BusyMode) => {
 		if (!hasInput || reading) return;
 		const trimmed = draft.trim();
@@ -119,7 +128,7 @@ export function Composer({
 			}
 			const key = crypto.randomUUID();
 			setFiles((current) => [...current, { key, state: "reading", name: file.name, kind, size: file.size }]);
-			prepareAttachment(file).then(
+			prepareAttachment(file, conversationId).then(
 				(prepared) => setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item))),
 				(error: unknown) => {
 					setFiles((current) => current.filter((item) => item.key !== key));
@@ -160,8 +169,10 @@ export function Composer({
 								status={file.state === "reading" ? "讀取中…" : undefined}
 								onRemove={() => {
 									setFiles((current) => current.filter((item) => item.key !== file.key));
-									// A spreadsheet was imported when picked; not sent, its tables go too.
-									if (file.state === "ready" && file.prepared.tables.length > 0) {
+									if (file.state !== "ready") return;
+									// Not sent: the stored file goes, and a spreadsheet's imported tables too.
+									void deleteAttachments({ id: file.prepared.card.id });
+									if (file.prepared.tables.length > 0) {
 										void Database.execute({ statements: file.prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
 									}
 								}}

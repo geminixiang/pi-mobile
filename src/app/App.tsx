@@ -7,7 +7,8 @@ import { isConfigured, loadSettings, type Settings, saveSettings } from "../sett
 import { openAppStorage, takeLegacyStorage } from "../storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
-import { Chat, isBusy } from "./Chat.tsx";
+import { Capacitor } from "@capacitor/core";
+import { Chat, isBusy, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { showToast } from "./Toasts.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
@@ -27,8 +28,6 @@ import { agentOf } from "./docs.ts";
 import { inForeground, notifyAway, setWorking, showWaiting } from "./keepAlive.ts";
 import { askByNotification, listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
-import type { ImageContent } from "@earendil-works/pi-ai";
-import { toImageContent } from "./Composer.tsx";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { System } from "../system-plugin.ts";
 import { checkSandbox } from "../agent/checks.ts";
@@ -36,6 +35,10 @@ import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
+
+/** Which share suggestions fit: photos only, other files, or text. */
+const sharedKind = (files: readonly File[]): SharedKind =>
+	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
 /** Set once the database from before bots is gone (or was never there). */
 const LEGACY_GONE_KEY = "pi-mobile.legacyGone";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
@@ -53,8 +56,8 @@ export function App() {
 	const [controller, setController] = useState<ConversationController>();
 	const [view, setView] = useState<ConversationView>();
 	const [pendingDraft, setPendingDraft] = useState<string>();
-	const [pendingImages, setPendingImages] = useState<ImageContent[]>();
-	const [pendingShared, setPendingShared] = useState<"image" | "text">();
+	const [pendingFiles, setPendingFiles] = useState<readonly File[]>();
+	const [pendingShared, setPendingShared] = useState<SharedKind>();
 	const [overlay, setOverlay] = useState<Overlay>();
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
 	const [focusKey, setFocusKey] = useState(0);
@@ -62,7 +65,7 @@ export function App() {
 	const [botEdit, setBotEdit] = useState<BotEdit>();
 	const [memoryBot, setMemoryBot] = useState<Bot>();
 	/** Something shared from another app, waiting for the user to pick the bot it goes to. */
-	const [sharing, setSharing] = useState<{ draft: string; images: ImageContent[] }>();
+	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
 	/** Remounts the chat when a bot is opened with a draft, so the composer takes it. */
 	const [chatKey, setChatKey] = useState(0);
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
@@ -179,7 +182,7 @@ export function App() {
 	}, [busyIds, bots, runtime]);
 
 	const openConversation = useCallback(
-		async (id: ConversationId, draft?: string, images?: ImageContent[], shared?: "image" | "text") => {
+		async (id: ConversationId, draft?: string, files?: readonly File[], shared?: SharedKind) => {
 			if (!runtime) return;
 			setOverlay(undefined);
 			if (id === controller?.id && draft === undefined) return;
@@ -188,7 +191,7 @@ export function App() {
 			localStorage.setItem(LAST_BOT_KEY, String(id));
 			setChatKey((key) => key + 1);
 			setPendingDraft(draft);
-			setPendingImages(images);
+			setPendingFiles(files);
 			setPendingShared(shared);
 			setView(undefined);
 			setController(next);
@@ -230,20 +233,21 @@ export function App() {
 	useEffect(() => {
 		if (!runtime) return;
 		const onShare = async (item: SharedItem) => {
-			const images: ImageContent[] = [];
-			if (item.file) {
-				const { data } = await Triggers.readFile({ path: item.file.path });
-				const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
-				images.push(await toImageContent(new File([bytes], "shared", { type: item.file.mimeType })));
-			}
+			// The native side copied each file into its inbox; Capacitor's file server hands it to the WebView as is.
+			const files = await Promise.all(
+				(item.files ?? []).map(async (file) => {
+					const blob = await (await fetch(Capacitor.convertFileSrc(file.path))).blob();
+					return new File([blob], file.name, { type: file.mimeType || blob.type });
+				}),
+			);
 			const draft = [item.subject, item.text].filter((part) => part && part.trim()).join("\n");
-			if (!draft && images.length === 0) {
-				notify("沒有讀到分享的內容。目前可以分享文字、連結和圖片。");
+			if (!draft && files.length === 0) {
+				notify("沒有讀到分享的內容。");
 				return;
 			}
 			const items = await runtime.bots();
-			if (items.length === 1 && items[0]) await openRef.current(items[0].id, draft, images, images.length > 0 ? "image" : "text");
-			else setSharing({ draft, images });
+			if (items.length === 1 && items[0]) await openRef.current(items[0].id, draft, files, sharedKind(files));
+			else setSharing({ draft, files });
 		};
 		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });
 		const stopLinks = listenForOpenLinks((conversation) => {
@@ -473,7 +477,7 @@ export function App() {
 						prefs={prefs}
 						capabilities={{ sandbox: runtime.hasSandbox }}
 						initialDraft={pendingDraft}
-						initialImages={pendingImages}
+						initialFiles={pendingFiles}
 						shared={pendingShared}
 						focusKey={focusKey}
 						onView={setView}
@@ -561,7 +565,7 @@ export function App() {
 							onClick={() => {
 								const item = sharing;
 								setSharing(undefined);
-								if (item) void openConversation(bot.id, item.draft, item.images, item.images.length > 0 ? "image" : "text");
+								if (item) void openConversation(bot.id, item.draft, item.files, sharedKind(item.files));
 							}}
 						>
 							<BotAvatar bot={bot} size={32} />

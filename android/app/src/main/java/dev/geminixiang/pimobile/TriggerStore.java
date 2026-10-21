@@ -262,9 +262,10 @@ final class TriggerStore {
                 kept.put(event);
                 continue;
             }
-            JSONObject file = event.optJSONObject("file");
-            if (file != null) {
-                File stored = new File(file.optString("path"));
+            JSONArray files = event.optJSONArray("files");
+            for (int f = 0; files != null && f < files.length(); f++) {
+                JSONObject file = files.optJSONObject(f);
+                File stored = new File(file != null ? file.optString("path") : "");
                 if (isInbox(context, stored) && !stored.delete()) Log.w(TAG, "could not delete " + stored);
             }
         }

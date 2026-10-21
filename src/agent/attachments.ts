@@ -68,6 +68,8 @@ export function estimateTokens(text: string): number {
 /** One attached file as stored: its text in units (a PDF's pages, otherwise one), and the PDF itself for rendering. */
 export interface StoredAttachment {
 	id: string;
+	/** The bot it was attached in; its attachments go when the bot does. */
+	conversationId: string;
 	name: string;
 	kind: AttachmentKind;
 	size: number;
@@ -118,6 +120,31 @@ function isStored(value: unknown): value is StoredAttachment {
 export async function loadAttachment(id: string): Promise<StoredAttachment | undefined> {
 	const value: unknown = await transact("readonly", (store) => store.get(id));
 	return isStored(value) ? value : undefined;
+}
+
+/** Delete one attachment (removed before it was sent), or all of a bot's (the bot was deleted). */
+export async function deleteAttachments(which: { id: string } | { conversationId: string }): Promise<void> {
+	if ("id" in which) {
+		await transact("readwrite", (store) => store.delete(which.id));
+		return;
+	}
+	const db = await open();
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const transaction = db.transaction(STORE, "readwrite");
+			const cursor = transaction.objectStore(STORE).openCursor();
+			cursor.onsuccess = () => {
+				const current = cursor.result;
+				if (!current) return;
+				if (isStored(current.value) && current.value.conversationId === which.conversationId) current.delete();
+				current.continue();
+			};
+			transaction.oncomplete = () => resolve();
+			transaction.onerror = () => reject(transaction.error);
+		});
+	} finally {
+		db.close();
+	}
 }
 
 export const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;
@@ -220,10 +247,10 @@ export interface PreparedAttachment {
  * file comes), import a spreadsheet's sheets, store it, and build its message content. Rejects with a message for the
  * user when the file is not one of the kinds or cannot be read.
  */
-export async function prepareAttachment(file: File): Promise<PreparedAttachment> {
+export async function prepareAttachment(file: File, conversationId: string): Promise<PreparedAttachment> {
 	const kind = attachmentKind(file);
 	if (!kind) throw new Error(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
-	const base = { id: newAttachmentId(), name: file.name, kind, size: file.size, createdAt: Date.now() };
+	const base = { id: newAttachmentId(), conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
 	let stored: StoredAttachment;
 	let images: ImageContent[] = [];
 	switch (kind) {

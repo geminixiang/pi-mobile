@@ -51,6 +51,7 @@ import { SpeechExtension } from "./tools/speech.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension } from "./tools/web.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
+import { deleteAttachments } from "./attachments.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
 	createTriggerExtension,
@@ -554,6 +555,7 @@ export class AgentRuntime {
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
 		if (this.#sandbox) await this.#sandbox.remove(bot.folder).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
+		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);
 		await this.#editBots((items) => {
 			const at = items.findIndex((candidate) => candidate.id === id);
 			if (at >= 0) items.splice(at, 1);
