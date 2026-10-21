@@ -32,6 +32,7 @@ import { parseMachines } from "./sandbox/machine.ts";
 import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
+import { SkillsExtension } from "./skills.ts";
 import { SpeechExtension } from "./tools/speech.ts";
 import { createWebExtension } from "./tools/web.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
@@ -226,6 +227,7 @@ export class AgentRuntime {
 		registry.install(DeviceExtension);
 		registry.install(AppsExtension);
 		registry.install(SpeechExtension);
+		registry.install(SkillsExtension);
 		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
 		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));

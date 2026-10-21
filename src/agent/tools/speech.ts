@@ -11,7 +11,7 @@ const MAX_CHARS = 3000;
 const speak = defineTool({
 	name: "speak",
 	description:
-		"Read text aloud to the user through the phone, or the headphones when connected. Resolves when it was spoken. Use it when the user is listening rather than reading (a headphones schedule, or when they ask to hear it). Write for the ear: short sentences, the most important first, no markdown, lists, links, or code; say times and numbers as they are spoken.",
+		"Read text aloud to the user through the phone, or the headphones when connected. Resolves when it was spoken. Use it when the user is listening rather than reading (a headphones schedule, or when they ask to hear it). Read the spoken-report skill first and follow it: a read-out written report is too dense to follow by ear.",
 	parameters: Type.Object({
 		text: Type.String({ description: `What to say, at most ${MAX_CHARS} characters` }),
 		language: Type.Optional(Type.String({ description: "BCP 47 tag of the text's language; default zh-TW" })),

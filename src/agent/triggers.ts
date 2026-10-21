@@ -343,7 +343,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				[
 					"create_schedule: recurring or one-time work the user asks for; it runs here. schedule_followup: check again here later.",
 					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it. Approvals go to a notification and are declined after 30 minutes.`,
-					"When it says headphones connected, the user just put them on and is listening, not reading: gather what you need, then give the report with speak, written for the ear, and keep the written answer to a few lines.",
+					"When it says headphones connected, the user just put them on and is listening, not reading: gather what you need, read the spoken-report skill, give the report with speak, and put the details and links in the written answer.",
 				].join("\n"),
 			),
 		],

@@ -97,6 +97,8 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 			return join(str(args.title), shortTime(args.start));
 		case "create_schedule":
 			return join(str(args.name), args.on === "headphones" ? "戴上耳機時" : str(args.time) || shortTime(args.at));
+		case "read_skill":
+			return str(args.name);
 		case "speak":
 			return str(args.text).replace(/\s+/g, " ").slice(0, 60);
 		case "schedule_followup":
@@ -176,6 +178,7 @@ function toolName(name: string): string {
 	if (name === "open_maps") return "maps";
 	if (name === "open_link") return "open";
 	if (name === "update_memory") return "memory";
+	if (name === "read_skill") return "skill";
 	return name;
 }
 
