@@ -9,8 +9,10 @@ export interface Usage {
 }
 
 export function formatTokens(count: number): string {
-	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-	if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+	// One decimal, but a round count reads 512k, not 512.0k.
+	const short = (value: number) => value.toFixed(1).replace(/\.0$/, "");
+	if (count >= 1_000_000) return `${short(count / 1_000_000)}M`;
+	if (count >= 1000) return `${short(count / 1000)}k`;
 	return String(count);
 }
 
