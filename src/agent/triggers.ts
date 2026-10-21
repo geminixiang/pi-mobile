@@ -13,6 +13,17 @@ const When = Type.Union([
 	Type.Object({ kind: Type.Literal("daily"), time: Type.String({ pattern: "^\\d{2}:\\d{2}$" }), days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })) }),
 	/** Once, at an epoch time. */
 	Type.Object({ kind: Type.Literal("once"), at: Type.Number() }),
+	/**
+	 * When headphones connect, on the given ISO weekdays (empty: every day), between from and until (local HH:MM, both
+	 * optional; may cross midnight), and at most once every gapHours; 24 means once per calendar day.
+	 */
+	Type.Object({
+		kind: Type.Literal("headphones"),
+		days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
+		from: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
+		until: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
+		gapHours: Type.Integer({ minimum: 1, maximum: 24 }),
+	}),
 ]);
 export type When = Static<typeof When>;
 
@@ -58,10 +69,20 @@ export const TriggerEntryData = Type.Object({
 	delivery: Type.String(),
 	/** When it fired; older entries have none. */
 	at: Type.Optional(Type.Number()),
+	/** For a headphones schedule, the headphones that connected. */
+	device: Type.Optional(Type.String()),
 });
 
 const QueuedEvent = Type.Union([
-	Type.Object({ id: Type.String(), at: Type.Number(), kind: Type.Literal("alarm"), trigger: Type.String(), live: Type.Boolean() }),
+	Type.Object({
+		id: Type.String(),
+		at: Type.Number(),
+		kind: Type.Literal("alarm"),
+		trigger: Type.String(),
+		live: Type.Boolean(),
+		/** For a headphones schedule, the headphones that connected. */
+		device: Type.Optional(Type.String()),
+	}),
 	Type.Object({
 		id: Type.String(),
 		at: Type.Number(),
@@ -79,7 +100,9 @@ interface TriggersPlugin {
 	ack(options: { ids: string[] }): Promise<void>;
 	started(options: { trigger: string }): Promise<void>;
 	readFile(options: { path: string }): Promise<{ data: string }>;
-	status(): Promise<{ exactAlarms: boolean }>;
+	status(): Promise<{ exactAlarms: boolean; bluetooth: boolean }>;
+	requestBluetooth(): Promise<{ granted: boolean }>;
+	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;
 	requestExactAlarms(): Promise<void>;
 	notify(options: { title: string; text: string; conversation?: string }): Promise<void>;
 	askApproval(options: { id: string; title: string; text: string }): Promise<void>;
@@ -115,14 +138,22 @@ function clock(at: number): string {
 	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-/** When a trigger fires, in words: 每天 08:00, 平日 08:00, 每週一、三 08:00, 10/31（六）10:00. */
+function describeDays(list: readonly number[]): string {
+	const days = [...list].sort();
+	if (days.length === 0 || days.length === 7) return "每天";
+	if (days.join() === "1,2,3,4,5") return "平日";
+	if (days.join() === "6,7") return "週末";
+	return `每週${days.map((day) => WEEKDAY_NAMES[day - 1]).join("、")}`;
+}
+
+/** When a trigger fires, in words: 每天 08:00, 平日 08:00, 10/31（六）10:00, 平日 07:00–10:00 戴上耳機時（最多每 4 小時一次）. */
 export function describeWhen(when: When): string {
 	if (when.kind === "once") return clock(when.at);
-	const days = [...when.days].sort();
-	if (days.length === 0 || days.length === 7) return `每天 ${when.time}`;
-	if (days.join() === "1,2,3,4,5") return `平日 ${when.time}`;
-	if (days.join() === "6,7") return `週末 ${when.time}`;
-	return `每週${days.map((day) => WEEKDAY_NAMES[day - 1]).join("、")} ${when.time}`;
+	if (when.kind === "daily") return `${describeDays(when.days)} ${when.time}`;
+	const window = when.from || when.until ? ` ${when.from ?? "00:00"}–${when.until ?? "24:00"}` : "";
+	const days = describeDays(when.days);
+	const limit = when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`;
+	return `${days === "每天" && window ? "" : days}${window} 戴上耳機時（${limit}）`.trim();
 }
 
 export function describeTime(at: number): string {
@@ -138,6 +169,12 @@ function parseLocal(value: string): number {
 }
 
 const text = (value: string) => ({ output: [{ type: "text" as const, text: value }] });
+
+function hhmm(value: string, name: string): string {
+	const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+	if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) throw new Error(`${name} must be HH:MM, got ${value}`);
+	return `${match[1]?.padStart(2, "0")}:${match[2]}`;
+}
 
 function summary(trigger: Trigger): string {
 	const kind = trigger.kind === "followup" ? "follow-up" : "schedule";
@@ -155,25 +192,40 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at the time, the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at the time, or when the user puts on headphones (on: headphones), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
 			days: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Recurring: weekdays; omit for every day" })),
-			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DDTHH:MM. Give either time or at." })),
+			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DDTHH:MM. Give either time or at, or on." })),
+			on: Type.Optional(Type.Literal("headphones", { description: "Instead of a time: run when Bluetooth or wired headphones connect. days applies too" })),
+			from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
+			until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
+			at_most_every_hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24, description: "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)" })),
 		}),
 		execute: async (args, api, context) => {
 			if (!nativeTriggers) throw new Error("only available in the Android app");
 			let when: When;
-			if (args.at && !args.time) {
+			const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
+			if (args.on === "headphones") {
+				if (args.time || args.at) throw new Error("give either on (headphones) or a time, not both");
+				when = {
+					kind: "headphones",
+					days,
+					...(args.from ? { from: hhmm(args.from, "from") } : {}),
+					...(args.until ? { until: hhmm(args.until, "until") } : {}),
+					gapHours: args.at_most_every_hours ?? 4,
+				};
+				// The broadcast that says headphones connected needs this permission from Android 12 on.
+				const { granted } = await Triggers.requestBluetooth();
+				if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
+			} else if (args.at && !args.time) {
 				const at = parseLocal(args.at);
 				if (at <= Date.now()) throw new Error(`${args.at} is in the past`);
 				when = { kind: "once", at };
 			} else if (args.time && !args.at) {
-				const match = /^(\d{1,2}):(\d{2})$/.exec(args.time.trim());
-				if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) throw new Error(`time must be HH:MM, got ${args.time}`);
-				when = { kind: "daily", time: `${match[1]?.padStart(2, "0")}:${match[2]}`, days: (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1) };
+				when = { kind: "daily", time: hhmm(args.time, "time"), days };
 			} else {
 				throw new Error("give either time (recurring) or at (one-time)");
 			}
@@ -181,7 +233,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
 			const approved = await requestConfirmation({
 				title: `新增排程「${args.name}」：${describeWhen(when)}`,
-				detail: `到時候 pi 會自動執行：\n${args.prompt}`,
+				detail: `${when.kind === "headphones" ? "戴上耳機時" : "到時候"} pi 會自動執行：\n${args.prompt}`,
 			});
 			if (!approved) return { output: [{ type: "text", text: "The user declined; nothing was scheduled. Reply with one short sentence that nothing was done, such as 「好，沒有加。」; do not list what it would have been, offer alternatives, or ask why." }], isError: true };
 			const trigger: Trigger = {
@@ -291,6 +343,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				[
 					"create_schedule: recurring or one-time work the user asks for; it runs here. schedule_followup: check again here later.",
 					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it. Approvals go to a notification and are declined after 30 minutes.`,
+					"When it says headphones connected, the user just put them on and is listening, not reading: gather what you need, then give the report with speak, written for the ear, and keep the written answer to a few lines.",
 				].join("\n"),
 			),
 		],

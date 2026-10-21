@@ -20,6 +20,8 @@ import java.util.ArrayList;
  * Dictation with the system speech recognizer (Google's on Android). Emits `partial` while the user speaks, `level`
  * for the microphone meter, then `final` with the recognized text, or `error`; `end` always comes last.
  * Silence detection stops a session by itself; `stop()` finishes early and still delivers the text.
+ *
+ * Also the other direction: `speak()` reads text aloud (see Speaker) and resolves once it was spoken.
  */
 @CapacitorPlugin(name = "Voice", permissions = { @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = "microphone") })
 public class VoicePlugin extends Plugin {
@@ -73,6 +75,28 @@ public class VoicePlugin extends Plugin {
             if (recognizer != null) recognizer.stopListening();
             call.resolve();
         });
+    }
+
+    /** Resolves {spoken: true} when done, or {spoken: false, reason} when stopped or the engine cannot speak. */
+    @PluginMethod
+    public void speak(PluginCall call) {
+        String text = call.getString("text", "");
+        if (text.trim().isEmpty()) {
+            call.reject("nothing to say");
+            return;
+        }
+        Speaker.get(getContext()).speak(text, call.getString("language", "zh-TW"), error -> {
+            JSObject result = new JSObject();
+            result.put("spoken", error == null);
+            if (error != null) result.put("reason", error);
+            call.resolve(result);
+        });
+    }
+
+    @PluginMethod
+    public void stopSpeaking(PluginCall call) {
+        Speaker.stopIfSpeaking();
+        call.resolve();
     }
 
     @PluginMethod

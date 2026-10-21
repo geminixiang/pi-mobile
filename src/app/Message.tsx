@@ -96,7 +96,9 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 		case "add_calendar_event":
 			return join(str(args.title), shortTime(args.start));
 		case "create_schedule":
-			return join(str(args.name), str(args.time) || shortTime(args.at));
+			return join(str(args.name), args.on === "headphones" ? "戴上耳機時" : str(args.time) || shortTime(args.at));
+		case "speak":
+			return str(args.text).replace(/\s+/g, " ").slice(0, 60);
 		case "schedule_followup":
 			return join(str(args.label) || str(args.note).slice(0, 30), `${str(args.minutes)} 分鐘後`);
 		case "delete_schedule":
@@ -391,6 +393,7 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">
 				{data.kind === "followup" ? "稍後再看" : "排程"} · {data.name}
+				{data.device ? ` · 戴上 ${data.device}` : ""}
 				{clock}
 				{DELIVERY[data.delivery] ?? ""}
 			</div>

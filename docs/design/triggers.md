@@ -128,6 +128,14 @@ Android 的限制：
 | 2 | 依第 0 階段的結果決定要不要做 C（安靜重啟）。加上手機事件（充電、Wi-Fi、耳機）和位置（geofence 加背景定位） |
 | 3 | 別的 app 的通知（NotificationListener）、外部事件（relay 推送，必要時加 FCM 或 UnifiedPush） |
 
+### 第 2 階段的第一個來源：戴上耳機
+
+- **藍牙**：`BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED` 是 Android 8 之後少數 manifest receiver 還收得到的廣播，所以 pi 不在執行也能觸發（`HeadphonesReceiver`，要 exported，因為廣播來自藍牙的程序；這個 action 只有系統能送）。Android 12 起要 `BLUETOOTH_CONNECT`。用 `BluetoothClass` 排除車用音響、喇叭。
+- **有線**：`ACTION_HEADSET_PLUG` 只送給執行中 app 動態註冊的 receiver，所以只在 pi 執行中時有用。
+- **條件**：星期幾、時段（可跨午夜）、最多每幾小時一次；24 小時代表「每天第一次」。間隔在原生端算，因為耳機常常一次連兩下，第二下不能在第一個 run 還在等 WebView 時又排一次。
+- **送達**：跟鬧鐘同一條路（`TriggerReceiver.fire`）：WebView 在就直接跑（凍結中的程序也會被廣播叫醒），不在就跳「點一下開始」。
+- **輸出**：`speak` 工具（Android `TextToSpeech`，`USAGE_ASSISTANT`，暫時壓低其他聲音）。觸發的訊息寫明「headphones connected」，系統提示要 agent 用 speak 口語匯報。耳機斷線時停止朗讀。
+
 ## 待決定
 
 1. 程序不在時：接受 B，還是要做 C（需要「顯示在其他應用程式上層」權限）？

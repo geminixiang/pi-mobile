@@ -11,7 +11,8 @@ import org.json.JSONObject;
 
 /**
  * Alarms of trigger schedules, the answer buttons of approval notifications, and the system events after which alarms
- * must be set again (reboot, app update, clock or time zone change, exact alarm permission granted).
+ * must be set again (reboot, app update, clock or time zone change, exact alarm permission granted). Headphones
+ * connecting come from HeadphonesReceiver.
  */
 public class TriggerReceiver extends BroadcastReceiver {
 
@@ -20,12 +21,27 @@ public class TriggerReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
-        if (TriggerStore.ACTION_FIRE.equals(action)) fire(context, intent.getStringExtra(TriggerStore.EXTRA_ID));
+        if (TriggerStore.ACTION_FIRE.equals(action)) fire(context, intent.getStringExtra(TriggerStore.EXTRA_ID), null);
         else if (TriggerStore.ACTION_APPROVAL.equals(action)) answer(context, intent);
+        // Only this app can send it: the receiver is not exported, and the plugin schedules it only in development builds.
+        else if (TriggerStore.ACTION_TEST_HEADPHONES.equals(action)) headphones(context, intent.getStringExtra(TriggerStore.EXTRA_DEVICE));
         else TriggerStore.armAll(context);
     }
 
-    private void fire(Context context, String id) {
+    /** Headphones connected (Bluetooth from HeadphonesReceiver, wired from TriggersPlugin while pi runs): fire what applies. */
+    static void headphones(Context context, String device) {
+        for (String id : TriggerStore.headphonesSchedules(context)) {
+            JSONObject cause = new JSONObject();
+            try {
+                cause.put("device", device);
+            } catch (JSONException ignored) {
+                // String keys always fit.
+            }
+            fire(context, id, cause);
+        }
+    }
+
+    static void fire(Context context, String id, JSONObject cause) {
         if (id == null) return;
         JSONObject schedule = TriggerStore.schedule(context, id);
         if (schedule == null) return;
@@ -37,13 +53,14 @@ public class TriggerReceiver extends BroadcastReceiver {
             event.put("trigger", id);
             // Whether the WebView was there to run it right away; the web side keeps it with the run.
             event.put("live", live != null);
+            if (cause != null && cause.has("device")) event.put("device", cause.optString("device"));
         } catch (JSONException ignored) {
             // String keys always fit.
         }
         TriggerStore.enqueue(context, event);
         JSONObject when = schedule.optJSONObject("when");
         if (when != null && "once".equals(when.optString("kind"))) TriggerStore.removeSchedule(context, id);
-        else TriggerStore.arm(context, schedule);
+        else if (when != null && !"headphones".equals(when.optString("kind"))) TriggerStore.arm(context, schedule);
         Log.i(TAG, "fired " + id + (live != null ? " (live)" : " (no WebView)"));
 
         if (live != null) {

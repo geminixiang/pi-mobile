@@ -415,12 +415,17 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const [state, setState] = useState<TriggerState>({ items: [], next: {} });
 	const [bots, setBots] = useState<Bot[]>([]);
 	const [exact, setExact] = useState<boolean>();
+	const [bluetooth, setBluetooth] = useState<boolean>();
 	const [error, setError] = useState("");
 	useEffect(() => runtime.subscribeTriggers(setState), [runtime]);
 	useEffect(() => runtime.subscribeBots(setBots), [runtime]);
 	useEffect(() => {
 		if (!native) return;
-		const refresh = () => void Triggers.status().then(({ exactAlarms }) => setExact(exactAlarms));
+		const refresh = () =>
+			void Triggers.status().then((status) => {
+				setExact(status.exactAlarms);
+				setBluetooth(status.bluetooth);
+			});
 		refresh();
 		const listener = App.addListener("resume", () => {
 			refresh();
@@ -429,12 +434,13 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 		return () => void listener.then((handle) => handle.remove());
 	}, [runtime]);
 	if (!native) return null;
+	const headphones = state.items.some((item) => item.enabled && item.when.kind === "headphones");
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));
 
 	return (
 		<Group
 			title="排程"
-			hint="跟 Bot 說「每天早上 8 點給我簡報」，排程就會建在那個 Bot 底下，到時間在它的對話裡執行。pi 若不在執行中，會先跳通知，點一下才開始。每個排程一天最多執行 10 次。"
+			hint="跟 Bot 說「每天早上 8 點給我簡報」或「戴上耳機時跟我報告今天的事」，排程就會建在那個 Bot 底下，到時候在它的對話裡執行。pi 若不在執行中，會先跳通知，點一下才開始。每個排程一天最多執行 10 次。"
 		>
 			{state.items.length === 0 ? (
 				<div className="check-row">
@@ -488,6 +494,17 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 						<span className="menu-hint">沒開時，排程可能晚幾分鐘才執行</span>
 					</span>
 					<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
+						開啟
+					</button>
+				</div>
+			) : null}
+			{headphones && bluetooth === false ? (
+				<div className="check-row">
+					<span className="menu-text">
+						偵測藍牙耳機
+						<span className="menu-hint">沒開「鄰近裝置」權限時，只認得有線耳機，而且 pi 要在執行中</span>
+					</span>
+					<button type="button" className="btn" onClick={() => void act(Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted)))}>
 						開啟
 					</button>
 				</div>

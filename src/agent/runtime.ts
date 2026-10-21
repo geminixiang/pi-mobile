@@ -32,6 +32,7 @@ import { parseMachines } from "./sandbox/machine.ts";
 import { createSandboxExtension, MachineSandbox, RelaySandbox, type Sandbox, SandboxTools, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { createGitHubExtension } from "./tools/github.ts";
+import { SpeechExtension } from "./tools/speech.ts";
 import { createWebExtension } from "./tools/web.ts";
 import { BotMemoryDoc, createMemoryExtension, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
@@ -224,6 +225,7 @@ export class AgentRuntime {
 		registry.install(BotExtension);
 		registry.install(DeviceExtension);
 		registry.install(AppsExtension);
+		registry.install(SpeechExtension);
 		registry.install(createCalendarExtension(parseCalendarAccess(settings.calendarAccess)));
 		for (const extension of createPhoneCodemode()) registry.install(extension);
 		registry.install(createGitHubExtension(async () => settings.githubToken || undefined));
@@ -517,7 +519,8 @@ export class AgentRuntime {
 	 * Submit a trigger's prompt to its conversation. Resolves the conversation, or undefined when the trigger is gone or
 	 * over its daily limit (recorded as its last result).
 	 */
-	async runTrigger(id: string, delivery: Delivery): Promise<ConversationId | undefined> {
+	/** `device`: for a headphones schedule, the headphones that connected. */
+	async runTrigger(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
 		if (!trigger) return undefined;
@@ -550,7 +553,13 @@ export class AgentRuntime {
 			const bot = items.find((candidate) => candidate.id === conversationId);
 			if (bot) bot.updatedAt = now;
 		});
-		const label = trigger.kind === "followup" ? "follow-up you scheduled" : `schedule "${trigger.name}"`;
+		const heard = trigger.when.kind === "headphones" && delivery !== "manual" ? (device ?? "headphones") : undefined;
+		const label =
+			trigger.kind === "followup"
+				? "follow-up you scheduled"
+				: heard
+					? `schedule "${trigger.name}": headphones connected (${heard})`
+					: `schedule "${trigger.name}"`;
 		this.#triggered.add(conversationId);
 		await conversation.submit(
 			{
@@ -558,7 +567,7 @@ export class AgentRuntime {
 				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
 				entry: {
 					kind: TRIGGER_ENTRY,
-					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now },
+					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now, ...(heard ? { device: heard } : {}) },
 				},
 				whenBusy: "followUp",
 			},

@@ -4,8 +4,12 @@ import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -13,10 +17,13 @@ import android.util.Base64;
 import android.util.Log;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -34,7 +41,11 @@ import org.json.JSONObject;
  * notifications, and receive what other apps share with pi. Events are announced with the "event" listener; the
  * listener carries nothing, the web side reads the queue.
  */
-@CapacitorPlugin(name = "Triggers")
+@CapacitorPlugin(
+    name = "Triggers",
+    // Android 12 and later deliver Bluetooth connection broadcasts only with it; earlier versions need no prompt.
+    permissions = { @Permission(strings = { "android.permission.BLUETOOTH_CONNECT" }, alias = "bluetooth") }
+)
 public class TriggersPlugin extends Plugin {
 
     private static final String TAG = "PiTriggers";
@@ -67,10 +78,25 @@ public class TriggersPlugin extends Plugin {
         return 0x3000 + (key.hashCode() & 0xfff);
     }
 
+    /** Wired headphones: their broadcast only reaches receivers registered by a running app, so only while pi runs. */
+    private final BroadcastReceiver wired = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Registering delivers the current state at once; only a change counts.
+            if (isInitialStickyBroadcast()) return;
+            int state = intent.getIntExtra("state", -1);
+            if (state == 1) TriggerReceiver.headphones(context, "有線耳機");
+            else if (state == 0) Speaker.stopIfSpeaking();
+        }
+    };
+
     @Override
     public void load() {
         live = this;
         receiveShare(getActivity().getIntent());
+        IntentFilter filter = new IntentFilter(AudioManager.ACTION_HEADSET_PLUG);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) getContext().registerReceiver(wired, filter, Context.RECEIVER_EXPORTED);
+        else getContext().registerReceiver(wired, filter);
     }
 
     @Override
@@ -82,6 +108,11 @@ public class TriggersPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         if (live == this) live = null;
+        try {
+            getContext().unregisterReceiver(wired);
+        } catch (IllegalArgumentException ignored) {
+            // Not registered.
+        }
         super.handleOnDestroy();
     }
 
@@ -168,7 +199,56 @@ public class TriggersPlugin extends Plugin {
         AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
         JSObject result = new JSObject();
         result.put("exactAlarms", Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms());
+        result.put("bluetooth", bluetoothGranted());
         call.resolve(result);
+    }
+
+    private boolean bluetoothGranted() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || getPermissionState("bluetooth") == PermissionState.GRANTED;
+    }
+
+    /** Ask for the Bluetooth permission a headphones schedule needs; resolves {granted}. Only with pi in front. */
+    @PluginMethod
+    public void requestBluetooth(PluginCall call) {
+        if (bluetoothGranted()) {
+            bluetoothResult(call);
+            return;
+        }
+        if (!inFront(getActivity())) {
+            call.reject("pi cannot ask for the Bluetooth permission while it is in the background. Ask the user to open pi.");
+            return;
+        }
+        requestPermissionForAlias("bluetooth", call, "bluetoothResult");
+    }
+
+    @PermissionCallback
+    private void bluetoothResult(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("granted", bluetoothGranted());
+        call.resolve(result);
+    }
+
+    /**
+     * Act as if headphones connected, for tests on devices without them (the emulator). Only in development builds:
+     * those with WebView debugging on, which release-android.sh turns off. delayMs lets a test put pi in the
+     * background first. It goes through an alarm, as a broadcast to TriggerReceiver: a cached process is frozen, so a
+     * delayed callback in it would not run, while a broadcast thaws it like the real Bluetooth one does.
+     */
+    @PluginMethod
+    public void simulateHeadphones(PluginCall call) {
+        if (!getBridge().getConfig().isWebContentsDebuggingEnabled()) {
+            call.reject("only in development builds");
+            return;
+        }
+        Intent intent = new Intent(getContext(), TriggerReceiver.class)
+            .setAction(TriggerStore.ACTION_TEST_HEADPHONES)
+            .putExtra(TriggerStore.EXTRA_DEVICE, call.getString("device", "測試耳機"));
+        PendingIntent pending = PendingIntent.getBroadcast(getContext(), 1, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        long at = System.currentTimeMillis() + Math.max(0, call.getInt("delayMs", 0));
+        AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
+        else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
+        call.resolve();
     }
 
     /** The system page where the user allows exact alarms (off by default since Android 14). */

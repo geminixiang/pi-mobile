@@ -1,21 +1,9 @@
 // Dictation with the system speech recognizer (VoicePlugin on Android). The recognized text goes into the composer
 // for the user to check and send; nothing is sent by voice alone.
 import type { PluginListenerHandle } from "@capacitor/core";
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-interface VoicePlugin {
-	available(): Promise<{ available: boolean }>;
-	start(options: { language: string }): Promise<void>;
-	stop(): Promise<void>;
-	cancel(): Promise<void>;
-	addListener(event: "partial" | "final", listener: (data: { text: string }) => void): Promise<PluginListenerHandle>;
-	addListener(event: "level", listener: (data: { rms: number }) => void): Promise<PluginListenerHandle>;
-	addListener(event: "error", listener: (data: { code: number; message: string }) => void): Promise<PluginListenerHandle>;
-	addListener(event: "ready" | "end", listener: () => void): Promise<PluginListenerHandle>;
-}
-
-const Voice = registerPlugin<VoicePlugin>("Voice");
+import { Voice } from "../voice-plugin.ts";
 
 export type DictationState = "idle" | "starting" | "listening";
 

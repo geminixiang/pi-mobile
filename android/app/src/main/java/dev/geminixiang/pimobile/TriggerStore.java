@@ -26,7 +26,10 @@ import org.json.JSONObject;
  * neither lost nor handled twice.
  *
  * A schedule is {id, name, when}, with when {kind: "daily", time: "HH:MM", days: [1..7]} (ISO weekdays, Monday is 1;
- * empty means every day) or {kind: "once", at: epoch ms}.
+ * empty means every day), {kind: "once", at: epoch ms}, or {kind: "headphones", days, from?, until?, gapHours}: when
+ * headphones connect on those days, between from and until ("HH:MM", local), and not within gapHours of its last run
+ * (24: not on the same day).
+ * Headphones schedules have no alarm.
  */
 final class TriggerStore {
 
@@ -34,12 +37,16 @@ final class TriggerStore {
     static final String ACTION_APPROVAL = "dev.geminixiang.pimobile.APPROVAL";
     static final String EXTRA_ID = "id";
     static final String EXTRA_APPROVED = "approved";
+    /** TriggersPlugin.simulateHeadphones, in development builds only. */
+    static final String ACTION_TEST_HEADPHONES = "dev.geminixiang.pimobile.TEST_HEADPHONES";
+    static final String EXTRA_DEVICE = "device";
     private static final String TAG = "PiTriggers";
     private static final String PREFS = "pi-triggers";
     private static final String KEY_SCHEDULES = "schedules";
     private static final String KEY_EVENTS = "events";
     /** A one-time schedule missed by more than this (the phone was off) is dropped instead of fired late. */
     private static final long MISSED_GRACE_MS = 6 * 60 * 60 * 1000L;
+    private static final String KEY_LAST_PREFIX = "last.";
 
     private TriggerStore() {}
 
@@ -170,6 +177,60 @@ final class TriggerStore {
 
     private static void cancelAlarm(Context context, String id) {
         context.getSystemService(AlarmManager.class).cancel(fireIntent(context, id));
+    }
+
+    /**
+     * Headphones connected: the headphones schedules that apply now, which are marked as run. The gap is counted
+     * here rather than on the web side so a reconnect a minute later (earbuds often connect twice) does not queue a
+     * second run while the first is still waiting for the WebView.
+     */
+    static synchronized java.util.List<String> headphonesSchedules(Context context) {
+        java.util.List<String> due = new java.util.ArrayList<>();
+        JSONArray all = schedules(context);
+        ZonedDateTime now = ZonedDateTime.now();
+        long nowMs = System.currentTimeMillis();
+        SharedPreferences.Editor editor = prefs(context).edit();
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            JSONObject when = item == null ? null : item.optJSONObject("when");
+            if (when == null || !"headphones".equals(when.optString("kind"))) continue;
+            String id = item.optString("id");
+            if (!headphonesWindow(when, now)) continue;
+            long last = prefs(context).getLong(KEY_LAST_PREFIX + id, 0);
+            int gapHours = Math.max(1, when.optInt("gapHours", 4));
+            if (gapHours >= 24) {
+                // Once a day means once per calendar day: Monday at 08:00 must not block Tuesday at 07:50.
+                java.time.LocalDate lastDay = java.time.Instant.ofEpochMilli(last).atZone(now.getZone()).toLocalDate();
+                if (last > 0 && lastDay.equals(now.toLocalDate())) continue;
+            } else if (nowMs - last < gapHours * 60L * 60 * 1000) {
+                continue;
+            }
+            editor.putLong(KEY_LAST_PREFIX + id, nowMs);
+            due.add(id);
+        }
+        editor.apply();
+        return due;
+    }
+
+    static boolean headphonesWindow(JSONObject when, ZonedDateTime now) {
+        JSONArray list = when.optJSONArray("days");
+        if (list != null && list.length() > 0) {
+            boolean today = false;
+            for (int i = 0; i < list.length(); i++) if (list.optInt(i) == now.getDayOfWeek().getValue()) today = true;
+            if (!today) return false;
+        }
+        String from = when.optString("from", "");
+        String until = when.optString("until", "");
+        if (from.isEmpty() && until.isEmpty()) return true;
+        try {
+            LocalTime time = now.toLocalTime();
+            LocalTime start = from.isEmpty() ? LocalTime.MIN : LocalTime.parse(from);
+            LocalTime end = until.isEmpty() ? LocalTime.MAX : LocalTime.parse(until);
+            // A window such as 22:00 to 02:00 crosses midnight.
+            return start.isAfter(end) ? !time.isBefore(start) || time.isBefore(end) : !time.isBefore(start) && time.isBefore(end);
+        } catch (RuntimeException error) {
+            return false;
+        }
     }
 
     /** Append an event; it gets an id and a time. */
