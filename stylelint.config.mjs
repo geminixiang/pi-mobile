@@ -1,7 +1,10 @@
 // CSS rules for src/app; the reasons are in .agents/skills/css/SKILL.md.
 export default {
 	extends: ["stylelint-config-recommended"],
+	plugins: ["./stylelint/keyframes-compositor-only.mjs"],
 	rules: {
+		// In @keyframes, opacity and transform (and a few paint-only properties); no filter, no layout properties.
+		"pi-mobile/keyframes-compositor-only": true,
 		// Overrides that must win go outside the "app" layer (src/app/index.css), not behind !important.
 		"declaration-no-important": true,
 		// Classes only; an id selector can only be beaten by another id or !important.

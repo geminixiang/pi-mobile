@@ -1,6 +1,6 @@
 ---
 name: css
-description: Rules for pi mobile's CSS (src/app/styles.css, src/app/index.css). Read before adding or changing styles, animations, gestures that move elements, or overlays, and when reviewing CSS. Covers specificity, cascade layers instead of !important, one way of moving an element, and how npm run check enforces it.
+description: Rules for pi mobile's CSS (src/app/styles.css, src/app/index.css). Read before adding or changing styles, animations, gestures that move elements, or overlays, and when reviewing CSS. Covers specificity, cascade layers instead of !important, one way of moving an element, animating only opacity and transform, and how npm run check enforces it.
 ---
 
 # CSS in pi mobile
@@ -54,7 +54,25 @@ writing gesture or presence code.
 
 Before adding an animation to something that already moves, find what moves it and use that.
 
-## 4. Other rules
+## 4. Animate opacity and transform
+
+Animations run every frame, so what they change decides what they cost. `opacity` and `transform` are moved by the
+compositor without repainting the element or laying out the page. Everything else costs a repaint (`filter`,
+`box-shadow`, colors) or a layout (`width`, `height`, `margin`, `padding`, `top`, `left`, ...) on every frame.
+
+- An animation that runs often or on many elements at once (streamed words, list rows, anything during scrolling or
+  streaming) uses only `opacity` and `transform`.
+- No `filter` in an animation, blur included. Measured on the S24: fading in each streamed word with
+  `opacity` plus `filter: blur(2px)` dropped 20 and 35 of about 1,500 frames over 25 ms; `opacity` alone, 1 and 2.
+- A one-off highlight (the dial's jump flash) may animate `box-shadow` or a color; a tint is an inset shadow
+  (`inset 0 0 0 999px rgb(255 255 255 / 0.1)`), not `filter: brightness()`.
+- Measure a new animation on the S24 before and after (frames over 25 ms, as `test/jank.sh` and the recorders in the
+  perf commits do), and change one thing at a time: two changes measured together cannot tell which one helped.
+
+`pi-mobile/keyframes-compositor-only` (`stylelint/keyframes-compositor-only.mjs`) enforces the `@keyframes` part in
+`npm run check`: opacity and transform, plus `box-shadow`, `background-color`, `color`, and `visibility`.
+
+## 5. Other rules
 
 - Colors, lines, spacing, and motion curves come from the custom properties at the top of `styles.css` (`--bg`,
   `--line`, `--accent`, `--ease`, ...). No new raw colors.
