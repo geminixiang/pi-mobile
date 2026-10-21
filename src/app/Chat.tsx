@@ -113,6 +113,20 @@ export function Chat({
 		const element = scroller.current;
 		if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
 	});
+	// The streaming answer grows every frame on its own (streaming.tsx), without Chat rendering: follow it as it grows.
+	const streamObserver = useRef<ResizeObserver>(undefined);
+	const followStream = useMemo(
+		() => (element: HTMLElement | null) => {
+			streamObserver.current?.disconnect();
+			if (!element) return;
+			streamObserver.current = new ResizeObserver(() => {
+				const box = scroller.current;
+				if (box && stickToBottom.current) box.scrollTop = box.scrollHeight;
+			});
+			streamObserver.current.observe(element);
+		},
+		[],
+	);
 
 	const live = liveOf(view);
 	const inbox = inboxOf(view);
@@ -285,7 +299,7 @@ export function Chat({
 						</button>
 					</div>
 				) : null}
-				{partial ? <StreamingAnswer content={partial} prefs={prefs} calls={calls} /> : null}
+				{partial ? <StreamingAnswer content={partial} prefs={prefs} calls={calls} answerRef={followStream} /> : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
 				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}

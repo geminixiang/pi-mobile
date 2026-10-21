@@ -7,6 +7,7 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { ChevronIcon, FileIcon } from "./icons.tsx";
 import type { Prefs } from "./prefs.ts";
+import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import type { Static } from "typebox";
 import { Value } from "typebox/value";
@@ -362,9 +363,13 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 								className={`markdown${content.indexOf(group) < lastCall ? " interim" : ""}${streaming && content[lastText] === group ? " caret" : ""}`}
 								key={index}
 							>
-								<Markdown remarkPlugins={remarkPlugins} components={markdownComponents}>
-									{group.text}
-								</Markdown>
+								{streaming && content[lastText] === group ? (
+									<StreamingMarkdown text={group.text} />
+								) : (
+									<Markdown remarkPlugins={remarkPlugins} components={markdownComponents}>
+										{group.text}
+									</Markdown>
+								)}
 							</div>
 						);
 					case "thinking":
@@ -379,9 +384,20 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 	);
 }
 
-export function StreamingAnswer({ content, prefs, calls }: { content: Block[]; prefs: Prefs; calls: CallStates }) {
+export function StreamingAnswer({
+	content,
+	prefs,
+	calls,
+	answerRef,
+}: {
+	content: Block[];
+	prefs: Prefs;
+	calls: CallStates;
+	/** The answer's element, which grows every frame while it streams (streaming.tsx). */
+	answerRef?: (element: HTMLElement | null) => void;
+}) {
 	return (
-		<article className="answer streaming">
+		<article className="answer streaming" ref={answerRef}>
 			<Content content={content} prefs={prefs} calls={calls} streaming />
 		</article>
 	);
