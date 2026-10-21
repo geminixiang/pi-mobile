@@ -6,8 +6,6 @@ import { defineExtension, defineTool, section } from "@earendil-works/pi-durable
 import { Type } from "typebox";
 import { Notifications, type RecordedNotification } from "../../notifications-plugin.ts";
 
-const MAX_TEXT = 400;
-
 function clock(time: number): string {
 	const date = new Date(time);
 	const pad = (value: number) => String(value).padStart(2, "0");
@@ -16,11 +14,10 @@ function clock(time: number): string {
 
 /** One line per notification: when, which app, who or what, and the text. */
 function line(item: RecordedNotification): string {
-	const text = item.text.length > MAX_TEXT ? `${item.text.slice(0, MAX_TEXT)}…` : item.text;
 	const where = item.sender
 		? `${item.sender}${item.conversation && item.conversation !== item.sender ? `（${item.conversation}）` : ""}`
 		: item.title;
-	return `${clock(item.time)} · ${item.app} · ${where}: ${text.replace(/\s*\n\s*/g, " / ")}`;
+	return `${clock(item.time)} · ${item.app} · ${where}: ${item.text.replace(/\s*\n\s*/g, " / ")}`;
 }
 
 const readNotifications = defineTool({
