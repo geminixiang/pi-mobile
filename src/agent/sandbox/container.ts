@@ -69,6 +69,8 @@ export interface Credentials {
 
 const MINTED_LABELS: Record<string, string> = { gcloud: "Google Cloud", cloudflare: "Cloudflare", azure: "Azure" };
 
+const EGRESS_FILES = { Dockerfile: egressDockerfile, "credentials.py": credentialsPy, "bridge.py": bridgePy };
+
 async function sha256(text: string): Promise<string> {
 	const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
 	return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -119,38 +121,49 @@ export class ContainerHost {
 		const engineArch = arch((await this.#tryE("info --format '{{.Architecture}}'")) ?? "") ?? arch((await this.#tryE("info --format '{{.Host.Arch}}'")) ?? "");
 		if (!engineArch) throw new Error(`讀不到 ${this.#engine} 的架構`);
 		const piEnv = await daemon("linux", engineArch);
-		const images = [
-			{ name: SANDBOX_IMAGE, files: { Dockerfile: sandboxDockerfile }, daemon: true },
-			{ name: EGRESS_IMAGE, files: { Dockerfile: egressDockerfile, "credentials.py": credentialsPy, "bridge.py": bridgePy }, daemon: false },
-		];
+		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, system.home, onProgress, piEnv);
+		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, system.home, onProgress);
+	}
+
+	async #buildUnlessCurrent(
+		name: string,
+		files: Record<string, string>,
+		home: string,
+		onProgress: (detail: string) => void,
+		piEnv?: { sha: string; bytes: Uint8Array },
+	): Promise<void> {
+		const hash = await sha256(JSON.stringify(files) + (piEnv?.sha ?? ""));
+		const current = await this.#tryE(`image inspect -f '{{index .Config.Labels "dev.pi-mobile.hash"}}' ${name}`);
+		if (current === hash) return;
 		const client = await this.#client();
-		for (const image of images) {
-			const hash = await sha256(JSON.stringify(image.files) + (image.daemon ? piEnv.sha : ""));
-			const current = await this.#tryE(`image inspect -f '{{index .Config.Labels "dev.pi-mobile.hash"}}' ${image.name}`);
-			if (current === hash) continue;
-			const dir = `${system.home}/.pi/mobile/build/${image.name.split("/")[1]}`;
-			await client.run(`rm -rf ${shellQuote(dir)} && mkdir -p ${shellQuote(dir)}`);
-			for (const [file, text] of Object.entries(image.files)) {
-				await client.run(`cat > ${shellQuote(`${dir}/${file}`)}`, new TextEncoder().encode(text));
-			}
-			if (image.daemon) await client.run(`cat > ${shellQuote(`${dir}/pi-env`)} && chmod 755 ${shellQuote(`${dir}/pi-env`)}`, piEnv.bytes);
-			onProgress(`建置 ${image.name}`);
-			const built = await new Promise<{ code: number | undefined; tail: string }>((resolve, reject) => {
-				let tail = "";
-				const take = (data: Uint8Array) => {
-					tail = (tail + new TextDecoder().decode(data)).slice(-4000);
-					const line = tail.trimEnd().split("\n").at(-1)?.trim();
-					if (line) onProgress(`${image.name}：${line.slice(0, 80)}`);
-				};
-				client
-					.exec(`${ENV_PATH}; ${this.#engine} build -t ${image.name} --label dev.pi-mobile.hash=${hash} ${shellQuote(dir)} 2>&1`, {
-						onStdout: take,
-						onExit: (code) => resolve({ code, tail }),
-					})
-					.then((channel) => channel.end(), reject);
-			});
-			if (built.code !== 0) throw new Error(`建置 ${image.name} 失敗：${built.tail.trim().split("\n").slice(-3).join(" / ")}`);
+		const dir = `${home}/.pi/mobile/build/${name.split("/")[1]}`;
+		await client.run(`rm -rf ${shellQuote(dir)} && mkdir -p ${shellQuote(dir)}`);
+		for (const [file, text] of Object.entries(files)) {
+			await client.run(`cat > ${shellQuote(`${dir}/${file}`)}`, new TextEncoder().encode(text));
 		}
+		if (piEnv) await client.run(`cat > ${shellQuote(`${dir}/pi-env`)} && chmod 755 ${shellQuote(`${dir}/pi-env`)}`, piEnv.bytes);
+		onProgress(`建置 ${name}`);
+		const built = await new Promise<{ code: number | undefined; tail: string }>((resolve, reject) => {
+			let tail = "";
+			const take = (data: Uint8Array) => {
+				tail = (tail + new TextDecoder().decode(data)).slice(-4000);
+				const line = tail.trimEnd().split("\n").at(-1)?.trim();
+				if (line) onProgress(`${name}：${line.slice(0, 80)}`);
+			};
+			client
+				.exec(`${ENV_PATH}; ${this.#engine} build -t ${name} --label dev.pi-mobile.hash=${hash} ${shellQuote(dir)} 2>&1`, {
+					onStdout: take,
+					onExit: (code) => resolve({ code, tail }),
+				})
+				.then((channel) => channel.end(), reject);
+		});
+		if (built.code !== 0) throw new Error(`建置 ${name} 失敗：${built.tail.trim().split("\n").slice(-3).join(" / ")}`);
+	}
+
+	async #home(): Promise<string> {
+		const result = await (await this.#client()).run("printf %s \"$HOME\"");
+		if (result.code !== 0 || !result.stdout) throw new Error("讀不到主機的家目錄");
+		return result.stdout;
 	}
 
 	// ---------- Egress ----------
@@ -158,10 +171,11 @@ export class ContainerHost {
 	/** Network and proxy container, recreated when its image changed; resolves the proxy's CA certificate. */
 	#ensureEgress(): Promise<string> {
 		this.#egress ??= (async () => {
-			const image = await this.#tryE(`image inspect -f '{{.Id}}' ${EGRESS_IMAGE}`);
-			if (!image || !(await this.#tryE(`image inspect -f '{{.Id}}' ${SANDBOX_IMAGE}`))) {
+			if (!(await this.#tryE(`image inspect -f '{{.Id}}' ${SANDBOX_IMAGE}`))) {
 				throw lost("容器的 image 還沒建好：到設定 › 機器按「重新安裝」");
 			}
+			await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, await this.#home(), (detail) => log.info("egress.build", { detail }));
+			const image = await this.#e(`image inspect -f '{{.Id}}' ${EGRESS_IMAGE}`);
 			if (!(await this.#tryE(`network inspect ${NETWORK} --format '{{.Name}}'`))) await this.#e(`network create ${NETWORK}`);
 			const current = (await this.#tryE(`inspect -f '{{.Image}} {{.State.Running}}' ${EGRESS}`)) ?? "";
 			const [imageId, running] = current.split(" ");
