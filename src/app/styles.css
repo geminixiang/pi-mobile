@@ -63,6 +63,7 @@
 	--space: 18px;
 	--bar-h: 56px;
 	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--spring: linear(0, 0.111, 0.359, 0.638, 0.879, 1.047, 1.137, 1.163, 1.145, 1.105, 1.059, 1.02, 0.992, 0.978, 0.973, 0.976, 0.983, 0.99, 0.997, 1.001, 1.004, 1.004, 1.004, 1.003, 1.002);
 
 	font-family: var(--sans);
 	font-size: 16px;
@@ -162,7 +163,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .btn {
 	display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 14px;
 	border: 1px solid var(--line-strong); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--text);
-	white-space: nowrap; transition: background 120ms ease, border-color 120ms ease;
+	white-space: nowrap;
 }
 .btn::before { content: "["; color: var(--faint); }
 .btn::after { content: "]"; color: var(--faint); }
@@ -174,6 +175,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .icon-button { display: inline-grid; place-items: center; width: 44px; height: 44px; color: var(--text); flex-shrink: 0; }
 .icon-button:active { background: var(--accent-soft); }
 .icon-button.small { width: 36px; height: 36px; color: var(--faint); }
+:where(.btn, .icon-button, .send, .toggle, .code-head button, .scroll-hint) { transition: background-color 280ms ease, border-color 280ms ease, scale 450ms var(--spring); }
+:where(.btn, .icon-button, .send, .toggle, .code-head button, .scroll-hint):not(:disabled):active { scale: 0.92; transition: background-color 0ms, border-color 0ms, scale 90ms ease-out; }
 .field {
 	width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--bg-deep);
 	font-family: var(--mono); font-size: 14px; outline: none; border-radius: 0;
