@@ -31,6 +31,7 @@ import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
 import { listenForPairing, type Pairing } from "./pairing.ts";
 import { System } from "../system-plugin.ts";
 import { checkSandbox } from "../agent/checks.ts";
+import { parseMachines } from "../agent/sandbox/machine.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
@@ -47,6 +48,20 @@ const LEGACY_DELETED_KEY = "pi-mobile.legacyDeleted";
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
+
+const SETTINGS_APPLY_MS = 800;
+
+/** The machine or relay host the sandbox runs on, in words; empty without one. */
+function sandboxName(settings: Settings): string {
+	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
+	if (machine) return machine.name;
+	if (!settings.sandboxUrl) return "";
+	try {
+		return new URL(settings.sandboxUrl.replace(/^ws/, "http")).hostname;
+	} catch {
+		return settings.sandboxUrl;
+	}
+}
 
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
@@ -75,10 +90,15 @@ export function App() {
 	}, []);
 	const openFile = useCallback((file: string) => openWorkspace({ tab: "files", file }), [openWorkspace]);
 	const close = useCallback(() => setOverlay(undefined), []);
-	// Settings save when left, not with a button: the latest edits, and whether they differ from what is saved.
+	// Settings apply as they change, a moment after the last edit (so typing a token restarts once), and at once when
+	// the page is left: the latest edits, and whether they differ from what is saved.
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
+	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const applyRef = useRef<() => Promise<void>>(undefined);
 	const onSettingsDraft = useCallback((next: Settings, changed: boolean) => {
 		settingsDraft.current = { settings: next, changed };
+		clearTimeout(applyTimer.current);
+		if (changed) applyTimer.current = setTimeout(() => void applyRef.current?.(), SETTINGS_APPLY_MS);
 	}, []);
 
 	const notify = useCallback((message: string) => {
@@ -100,18 +120,28 @@ export function App() {
 	const approvalAuth = useRef(false);
 	approvalAuth.current = settings?.approvalAuth ?? false;
 	useEffect(() => {
-		setConfirmListener(({ title, detail }) => {
-			const request: DialogRequest = { title: "允許這個操作？", body: title, detail, confirm: "允許", cancel: "拒絕", modal: true };
+		setConfirmListener(({ title, detail, grant }) => {
+			const request: DialogRequest = {
+				title: "允許這個操作？",
+				body: title,
+				detail,
+				confirm: "允許",
+				cancel: "拒絕",
+				...(grant ? { extra: "10 分鐘內都允許" } : {}),
+				modal: true,
+			};
+			const answerOf = (value: string | boolean | undefined) => (value === "extra" ? "grant" : value === true);
 			// With 核准時驗證 on, 允許 also takes the fingerprint (or the screen lock); failing it declines.
 			if (inForeground()) {
-				return ask(request).then(async (approved) => {
-					if (approved !== true || !approvalAuth.current || !Capacitor.isNativePlatform()) return approved === true;
-					return (await System.authenticate({ title: "確認是你", subtitle: title })).ok;
+				return (ask(request) as Promise<string | boolean | undefined>).then(async (value) => {
+					const approved = answerOf(value);
+					if (approved === false || !approvalAuth.current || !Capacitor.isNativePlatform()) return approved;
+					return (await System.authenticate({ title: "確認是你", subtitle: title })).ok ? approved : false;
 				});
 			}
-			return new Promise<boolean>((resolve) => {
+			return new Promise<boolean | "grant">((resolve) => {
 				let settled = false;
-				const answer = (approved: boolean) => {
+				const answer = (approved: boolean | "grant") => {
 					if (settled) return;
 					settled = true;
 					clearTimeout(timer);
@@ -120,7 +150,7 @@ export function App() {
 					setDialog((current) => (current?.resolve === answerDialog ? undefined : current));
 					resolve(approved);
 				};
-				const answerDialog = (value: string | boolean | undefined) => answer(value === true);
+				const answerDialog = (value: string | boolean | undefined) => answer(answerOf(value));
 				setDialog({ request, resolve: answerDialog });
 				const endWaiting = showWaiting(title);
 				const cancelNotification = askByNotification(detail ? `${title}\n${detail}` : title, answer);
@@ -200,9 +230,9 @@ export function App() {
 	}, [busyIds, bots, runtime]);
 
 	const openConversation = useCallback(
-		async (id: ConversationId, draft?: string, files?: readonly File[], shared?: SharedKind) => {
+		async (id: ConversationId, draft?: string, files?: readonly File[], shared?: SharedKind, keepOverlay?: boolean) => {
 			if (!runtime) return;
-			setOverlay(undefined);
+			if (!keepOverlay) setOverlay(undefined);
 			if (id === controller?.id && draft === undefined) return;
 			controller?.dispose();
 			const next = await runtime.openConversation(id);
@@ -240,7 +270,8 @@ export function App() {
 		void runtime.bots().then((items) => {
 			const last = localStorage.getItem(LAST_BOT_KEY);
 			const target = items.find((bot) => String(bot.id) === last) ?? items[0];
-			if (target) void openConversation(target.id);
+			// After settings applied, the settings page stays open over it.
+			if (target) void openConversation(target.id, undefined, undefined, undefined, true);
 		});
 	}, [runtime, controller, openConversation]);
 
@@ -298,6 +329,10 @@ export function App() {
 	const [pairing, setPairing] = useState<Pairing>();
 	useEffect(() => listenForPairing(setPairing), []);
 	const saveRef = useRef<(next: Settings) => Promise<void>>(undefined);
+	const applying = useRef<Promise<void>>(Promise.resolve());
+	// What a queued apply acts on: the state when it runs, not when it was queued.
+	const live = useRef({ settings, runtime, controller });
+	live.current = { settings, runtime, controller };
 	useEffect(() => {
 		if (!pairing || !settings) return;
 		setPairing(undefined);
@@ -343,15 +378,38 @@ export function App() {
 		await start(next);
 	};
 	saveRef.current = saveAndRestart;
+	// Settings changed on the settings page: saved, and the agent restarted under the page, which stays open.
+	applyRef.current = () => {
+		const draft = settingsDraft.current;
+		if (!draft?.changed || !isConfigured(draft.settings)) return Promise.resolve();
+		draft.changed = false;
+		applying.current = applying.current
+			.then(async () => {
+				const before = sandboxName(live.current.settings ?? draft.settings);
+				const next = await saveSettings(draft.settings);
+				setSettings(next);
+				live.current.controller?.dispose();
+				setController(undefined);
+				setView(undefined);
+				await live.current.runtime?.close();
+				await start(next);
+				const after = sandboxName(next);
+				if (after !== before) notify(after ? `已切換到 ${after}` : "已停用 sandbox");
+			})
+			.catch(fail);
+		return applying.current;
+	};
 	function leaveSettings() {
+		clearTimeout(applyTimer.current);
 		const draft = settingsDraft.current;
 		settingsDraft.current = undefined;
-		if (!draft?.changed) return close();
-		if (!isConfigured(draft.settings)) {
-			notify("沒有可用的模型供應商，變更沒有儲存");
-			return close();
+		if (draft?.changed && !isConfigured(draft.settings)) notify("沒有可用的模型供應商，變更沒有儲存");
+		else if (draft?.changed) {
+			settingsDraft.current = draft;
+			void applyRef.current?.();
+			settingsDraft.current = undefined;
 		}
-		void saveAndRestart(draft.settings).catch(fail);
+		close();
 	}
 
 	if (!runtime) {

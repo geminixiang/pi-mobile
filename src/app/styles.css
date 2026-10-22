@@ -536,7 +536,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .layer-dialog[data-starting-style], .layer-dialog[data-ending-style] { opacity: 0; transform: translateY(calc(-50% + 10px)); }
 .dialog-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .dialog-body p { margin: 0; font-family: var(--serif); font-size: 15.5px; line-height: 1.7; color: var(--copy); }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
 .layer-page {
 	position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); outline: none;
 	transition: opacity 240ms ease, transform 260ms var(--ease);

@@ -677,7 +677,7 @@ export function SettingsView({
 	runtime?: AgentRuntime;
 	/** First run: 開始 saves and starts. */
 	onSave: (settings: Settings) => void;
-	/** Opened from the app: every edit, so leaving can save it; there is no save button. */
+	/** Opened from the app: every edit; the app saves and applies it shortly after, and at once on leaving. */
 	onDraft?: (settings: Settings, changed: boolean) => void;
 	onCancel?: () => void;
 }) {

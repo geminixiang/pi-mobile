@@ -8,6 +8,8 @@ export interface DialogRequest {
 	detail?: string;
 	confirm: string;
 	cancel?: string;
+	/** A third answer between cancel and confirm; choosing it resolves "extra". */
+	extra?: string;
 	danger?: boolean;
 	/** Present for a text prompt: the initial value. */
 	input?: string;
@@ -54,6 +56,11 @@ export function Dialog({ request, onAnswer }: { request: DialogRequest | undefin
 				<button type="button" className="btn" onClick={cancel}>
 					{request?.cancel ?? "取消"}
 				</button>
+				{request?.extra ? (
+					<button type="button" className="btn" onClick={() => onAnswer("extra")}>
+						{request.extra}
+					</button>
+				) : null}
 				<button type="button" className={`btn ${request?.danger ? "danger" : "primary"}`} onClick={accept}>
 					{request?.confirm}
 				</button>

@@ -261,7 +261,13 @@ export class AgentRuntime {
 		if (sandbox instanceof MachineSandbox) {
 			return { path: sandbox.root(folder), where: `${sandbox.machine.name} 的${sandbox.contained ? "容器" : "帳號（直接模式）"}` };
 		}
-		return { path: sandbox.root(folder), where: "sandbox 主機的容器" };
+		let host = this.#settings.sandboxUrl;
+		try {
+			host = new URL(host.replace(/^ws/, "http")).hostname;
+		} catch {
+			// Shown as written.
+		}
+		return { path: sandbox.root(folder), where: `${host} 的容器` };
 	}
 
 	/**
