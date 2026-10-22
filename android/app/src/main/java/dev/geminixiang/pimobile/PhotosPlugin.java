@@ -142,7 +142,7 @@ public class PhotosPlugin extends Plugin {
         for (long id : missing) {
             pool.execute(() -> {
                 double[] place = place(resolver, ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-                read.put(id, place != null ? place : PlacesCache.NONE);
+                if (place != null) read.put(id, place);
             });
         }
         pool.shutdown();
@@ -161,7 +161,7 @@ public class PhotosPlugin extends Plugin {
         try (InputStream input = resolver.openInputStream(MediaStore.setRequireOriginal(uri))) {
             if (input == null) return null;
             float[] latLong = new float[2];
-            if (!new ExifInterface(input).getLatLong(latLong) || (latLong[0] == 0 && latLong[1] == 0)) return null;
+            if (!new ExifInterface(input).getLatLong(latLong) || (latLong[0] == 0 && latLong[1] == 0)) return PlacesCache.NONE;
             return new double[] { latLong[0], latLong[1] };
         } catch (IOException | SecurityException | UnsupportedOperationException error) {
             return null;
