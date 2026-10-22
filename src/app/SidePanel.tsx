@@ -14,29 +14,35 @@ export type Side = "left" | "right";
 const LONG_PRESS_MS = 400;
 /** Movement within this many pixels is still a press. */
 const TOUCH_SLOP = 10;
+/** A swipe is at least this many times more sideways than up or down (within about 27°); steeper is a scroll. */
+const SIDEWAYS_RATIO = 2;
 
 /**
- * Touch handlers that keep text selection from becoming a swipe: a long press that goes on to drag, and any touch while
- * text is selected, which is how the selection's handles are dragged (the WebView passes those touches to the page).
- * Without this, dragging a handle sideways opened a panel and the selection stayed one character. Base UI runs these
- * before its own handlers, which preventBaseUIHandler skips for the rest of the touch.
+ * Touch handlers that pass Base UI only a clearly sideways swipe: it takes the direction from the first pixel or two of
+ * movement, so a scroll that set off slightly sideways opened a panel. Text selection never becomes a swipe either: a
+ * long press that goes on to drag, or any touch while text is selected (dragging the selection's handles).
  */
-function useLongPressGuard() {
-	const press = useRef({ at: 0, x: 0, y: 0, moved: false, selecting: false });
+function useSwipeGuard() {
+	const press = useRef({ at: 0, x: 0, y: 0, moved: false, selecting: false, sideways: false });
 	return {
 		onTouchStart: (event: TouchEvent) => {
 			const touch = event.touches[0];
 			const selected = !(document.getSelection()?.isCollapsed ?? true);
-			if (touch) press.current = { at: event.timeStamp, x: touch.clientX, y: touch.clientY, moved: false, selecting: selected };
+			if (touch) press.current = { at: event.timeStamp, x: touch.clientX, y: touch.clientY, moved: false, selecting: selected, sideways: false };
 		},
 		onTouchMove: (event: TouchEvent & { preventBaseUIHandler?: () => void }) => {
 			const current = press.current;
 			const touch = event.touches[0];
-			if (!current.moved && touch && Math.hypot(touch.clientX - current.x, touch.clientY - current.y) > TOUCH_SLOP) {
-				current.moved = true;
-				current.selecting ||= event.timeStamp - current.at >= LONG_PRESS_MS;
+			if (!current.moved && touch) {
+				const dx = touch.clientX - current.x;
+				const dy = touch.clientY - current.y;
+				if (Math.hypot(dx, dy) > TOUCH_SLOP) {
+					current.moved = true;
+					current.selecting ||= event.timeStamp - current.at >= LONG_PRESS_MS;
+					current.sideways = Math.abs(dx) > SIDEWAYS_RATIO * Math.abs(dy);
+				}
 			}
-			if (current.selecting) event.preventBaseUIHandler?.();
+			if (current.selecting || !current.sideways) event.preventBaseUIHandler?.();
 		},
 	};
 }
@@ -64,7 +70,7 @@ export function SideSwipe({
 	right: ReactNode;
 	children: ReactNode;
 }) {
-	const guard = useLongPressGuard();
+	const guard = useSwipeGuard();
 	return (
 		<Drawer.Root swipeDirection="left" open={open === "left"} onOpenChange={(next) => onChange(next ? "left" : undefined)}>
 			<Drawer.SwipeArea className="side-swipe" disabled={disabled} aria-hidden={false} role={undefined} {...guard}>
