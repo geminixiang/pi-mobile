@@ -91,6 +91,7 @@ final class Speaker {
         stop("replaced by newer speech");
         withEngine(() -> {
             synchronized (Speaker.this) {
+                stop("replaced by newer speech");
                 if (engine == null) {
                     done.finished("this phone has no text-to-speech engine");
                     return;
