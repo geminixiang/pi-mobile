@@ -94,7 +94,27 @@ func tailscaleJSON(ctx context.Context, out any, args ...string) error {
 	return json.Unmarshal(data, out)
 }
 
+var selfCache struct {
+	sync.Mutex
+	at time.Time
+	st status
+}
+
+// self is this computer's Tailscale status, asked at most every 10 s: every request needs its user.
 func self(ctx context.Context) (status, error) {
+	selfCache.Lock()
+	defer selfCache.Unlock()
+	if time.Since(selfCache.at) < 10*time.Second {
+		return selfCache.st, nil
+	}
+	st, err := selfNow(ctx)
+	if err == nil {
+		selfCache.at, selfCache.st = time.Now(), st
+	}
+	return st, err
+}
+
+func selfNow(ctx context.Context) (status, error) {
 	var st status
 	if err := tailscaleJSON(ctx, &st, "status", "--json", "--peers=false"); err != nil {
 		return st, err
@@ -209,10 +229,20 @@ func info(w http.ResponseWriter, r *http.Request) {
 
 // engines lists the container engines the user's shell finds, best first.
 func engines(ctx context.Context) []string {
+	names := []string{"docker", "podman", "nerdctl"}
+	found := make([]bool, len(names))
+	var wait sync.WaitGroup
+	for i, name := range names {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			found[i] = loginShell(ctx, "command -v "+name+" >/dev/null && "+name+" info >/dev/null 2>&1").Run() == nil
+		}()
+	}
+	wait.Wait()
 	out := []string{}
-	for _, name := range []string{"docker", "podman", "nerdctl"} {
-		cmd := loginShell(ctx, "command -v "+name+" >/dev/null && "+name+" info >/dev/null 2>&1")
-		if cmd.Run() == nil {
+	for i, name := range names {
+		if found[i] {
 			out = append(out, name)
 		}
 	}
@@ -410,6 +440,21 @@ func env(w http.ResponseWriter, r *http.Request) {
 	_ = cmd.Wait()
 }
 
+// askFolders reads the folders macOS protects, so that it asks whether pi-host may right after it is installed, while
+// the user is at the computer, rather than later, when a command from the phone would wait on the question until it
+// times out. Once answered, macOS does not ask again (until pi-host's binary changes).
+func askFolders() {
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	home, _ := os.UserHomeDir()
+	go func() {
+		for _, dir := range []string{"Desktop", "Documents", "Downloads"} {
+			_, _ = os.ReadDir(filepath.Join(home, dir))
+		}
+	}()
+}
+
 // listen binds this computer's Tailscale IPv4 address, waiting for Tailscale to come up.
 func listen() net.Listener {
 	for {
@@ -437,6 +482,7 @@ func main() {
 		fmt.Println(version)
 		return
 	}
+	askFolders()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/info", guard(info))
 	mux.HandleFunc("/daemon/", guard(putDaemon))

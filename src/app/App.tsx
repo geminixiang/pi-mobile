@@ -359,7 +359,7 @@ export function App() {
 				await live.current.runtime?.close();
 				await start(next);
 				const after = sandboxName(next);
-				if (after !== before) notify(after ? `已切換到 ${after}` : "已停用 sandbox");
+				if (after !== before) notify(after ? `已切換到 ${after}` : "Bot 改在手機上工作");
 			})
 			.catch(fail);
 		return applying.current;

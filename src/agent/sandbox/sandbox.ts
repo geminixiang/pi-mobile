@@ -115,7 +115,7 @@ export function directDescription(name: string, user: string, system: { os: Daem
 	const where = system ? `${name} (${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch})` : name;
 	const desktop =
 		system?.os === "darwin"
-			? `\`open\` opens files, URLs, and apps; \`osascript\` drives apps and System Events; \`screencapture -x /tmp/s.png\` and then \`read\` shows the screen. macOS asks on that screen before ${process} reads protected folders (Desktop, Documents, Downloads) or records the screen: when one fails that way, tell the user to allow it there.`
+			? `\`open\` opens files, URLs, and apps; \`osascript\` drives apps and System Events; \`screencapture -x /tmp/s.png\` and then \`read\` shows the screen. macOS asks on that screen before ${process} reads protected folders (Desktop, Documents, Downloads, iCloud Drive) or records the screen, and the command waits for the answer: when one fails with "Operation not permitted" or times out there, tell the user to allow ${process} on the computer (System Settings › Privacy & Security) rather than retrying.`
 			: "`xdg-open` opens files and URLs when a desktop session is running.";
 	return [
 		`You operate ${where}, the user's own computer, directly as its user ${user}: read, write, edit, and bash run there (not the phone, not a container), from the home directory ${system?.home ?? "~"}, with the user's files, apps, and sign-ins (git, gh, cloud CLIs).`,

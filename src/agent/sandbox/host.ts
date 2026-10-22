@@ -93,7 +93,8 @@ export async function probeHost(address: string, signal?: AbortSignal): Promise<
 export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 	const engine = info.engines[0];
 	return {
-		id: known?.id ?? crypto.randomUUID(),
+		// Its tailnet name, so that a computer removed and added again is the one bots had picked.
+		id: known?.id ?? (info.dnsName || address),
 		name: info.name,
 		address: info.dnsName || address,
 		os: info.os,

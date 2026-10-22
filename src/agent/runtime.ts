@@ -524,8 +524,14 @@ export class AgentRuntime {
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
-		const sandbox = this.sandboxOf(id);
-		if (sandbox && !sandbox.direct) await sandbox.remove(bot.folder).catch(() => undefined);
+		// Its folder in every container it may have used, not only the one it is on now; nothing is deleted directly.
+		await Promise.all(
+			this.#computers
+				.list()
+				.map((computer) => this.#computers.sandbox(computer.key))
+				.filter((sandbox) => sandbox && !sandbox.direct)
+				.map((sandbox) => sandbox?.remove(bot.folder).catch(() => undefined)),
+		);
 		await removePhoneFolder(bot.folder).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
 		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);

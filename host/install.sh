@@ -53,9 +53,15 @@ dns=$("$tailscale" status --json --peers=false 2>/dev/null | sed -n 's/.*"DNSNam
 [ -n "$dns" ] || fail "Tailscale 沒有連上：打開 Tailscale 登入後再執行一次"
 
 mkdir -p "$DIR/bin"
-url="${PI_HOST_URL:-https://github.com/$REPO/releases/latest/download/pi-host-$os-$arch}"
+release="https://github.com/$REPO/releases/download/pi-host"
+url="${PI_HOST_URL:-$release/pi-host-$os-$arch}"
 say "下載 pi-host（${os} ${arch}）…"
 curl -fsSL "$url" -o "$BIN.new" || fail "下載失敗：${url}"
+if [ -z "${PI_HOST_URL:-}" ]; then
+	expected=$(curl -fsSL "$release/pi-host.sha256" | awk -v f="pi-host-$os-$arch" '$2 == f { print $1 }')
+	actual=$( (sha256sum "$BIN.new" 2>/dev/null || shasum -a 256 "$BIN.new") | cut -d' ' -f1)
+	[ -n "$expected" ] && [ "$expected" = "$actual" ] || { rm -f "$BIN.new"; fail "下載的檔案跟發布的 checksum 不符，沒有安裝"; }
+fi
 chmod 755 "$BIN.new"
 "$BIN.new" --version >/dev/null 2>&1 || fail "下載的 pi-host 無法執行"
 stop
@@ -101,6 +107,26 @@ EOF
 	fi
 fi
 
+# Ask it as the phone will: over this computer's Tailscale address, which pi-host answers for its own user.
+ip=$("$tailscale" ip -4 2>/dev/null | head -n 1)
+ready=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	if curl -fsS -m 3 "http://$ip:4790/info" >/dev/null 2>&1; then
+		ready=1
+		break
+	fi
+	sleep 1
+done
+if [ -z "$ready" ]; then
+	say "pi-host 裝好了，但還沒回應。看紀錄：tail $DIR/pi-host.log"
+	exit 1
+fi
+
 name=${dns%%.*}
 say ""
 say "好了。在手機的 pi › 設定 › 電腦 輸入：${name}"
+say "手機要登入同一個 Tailscale 帳號。"
+if [ "$os" = darwin ]; then
+	say "這台 Mac 接著會問「pi-host 想要取用桌面、文件、下載項目」：按允許，Bot 才看得到這些資料夾。"
+	say "Bot 第一次截圖時也會問一次螢幕錄製。"
+fi

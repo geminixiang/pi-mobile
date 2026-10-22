@@ -4,6 +4,7 @@
 // directly, or in its container, which the first tap prepares (builds the images there, minutes the first time).
 import { type ReactNode, useState } from "react";
 import { type Host, hostFrom, parseHosts, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
+import { Apps } from "../agent/tools/apps.ts";
 
 export const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
@@ -11,12 +12,17 @@ function errorText(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+/** A command to run on the computer: copied, or shared to it (a chat, mail, notes synced there). */
 function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 	const [copied, setCopied] = useState(false);
 	return (
 		<div className="copyable">
 			<pre className="console">{children ?? text}</pre>
-			<button
+			<div className="row-buttons">
+				<button type="button" className="btn" onClick={() => void Apps.share({ text, title: "安裝 pi-host" }).catch(() => undefined)}>
+					分享
+				</button>
+				<button
 				type="button"
 				className="btn"
 				onClick={() =>
@@ -26,8 +32,9 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 					})
 				}
 			>
-				{copied ? "已複製" : "複製"}
-			</button>
+					{copied ? "已複製" : "複製"}
+				</button>
+			</div>
 		</div>
 	);
 }
@@ -82,6 +89,8 @@ function HostRow({
 					</button>
 				) : null}
 			</div>
+			{computer === direct ? <p className="hint host-mode">用 {host.user} 的身分操作這台電腦，不會先問你</p> : null}
+			{computer === container ? <p className="hint host-mode">在這台電腦的 Linux 容器裡，GitHub 和雲端的寫入先問你</p> : null}
 			{preparing.state === "running" ? <span className="check-progress">{preparing.detail}</span> : null}
 			{preparing.state === "error" ? <span className="check-error">{preparing.detail}</span> : null}
 			<div className="row-buttons">
