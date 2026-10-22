@@ -184,7 +184,7 @@ export function createWebExtension(config: WebConfig) {
 	const search = defineAppTool({
 		name: "web_search",
 		description:
-			"Search the web for current information (news, docs, releases, prices, facts after your training data). Returns a short answer with source URLs; follow up with web_fetch to read a page. A search takes 20-60 s: ask for independent searches (one per bank, product, or source) in the same turn, where they run at the same time.",
+			"Search the web for current information (news, docs, releases, prices, facts after your training data). Returns a short answer with source URLs; follow up with web_fetch to read a page. A search takes 20-60 s: one search per bank, product, or source, asked for together.",
 		parameters: Type.Object({ query: Type.String({ description: "What to find, as a question or keywords" }) }),
 		execute: async (args, _api, context) => {
 			const timeout = AbortSignal.timeout(120_000);
