@@ -41,8 +41,13 @@ function parseDelimited(text: string, separator: string): Cell[][] {
 		row.push(field);
 		rows.push(row);
 	}
-	// Numbers as numbers, so the table gets numeric columns.
-	return rows.map((cells) => cells.map((cell) => (typeof cell === "string" && /^-?\d+(\.\d+)?$/.test(cell.trim()) ? Number(cell) : cell)));
+	return rows.map((cells) => cells.map((cell) => (typeof cell === "string" && isExactNumber(cell.trim()) ? Number(cell) : cell)));
+}
+
+const MAX_EXACT_DIGITS = 15;
+
+function isExactNumber(text: string): boolean {
+	return /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text) && text.replace(/[-.]/g, "").replace(/^0+/, "").length <= MAX_EXACT_DIGITS;
 }
 
 const cellOf = (value: unknown): Cell => {
@@ -66,12 +71,13 @@ const isEmpty = (row: Cell[]) => row.every((cell) => cell === null || cell === "
 const sqlName = (text: string) => text.trim().replace(/[^\p{L}\p{N}_]+/gu, "_").replace(/^_+|_+$/g, "") || "column";
 
 function columnsOf(header: Cell[]): string[] {
-	const seen = new Map<string, number>();
+	const taken = new Set<string>();
 	return header.map((cell, index) => {
 		const base = cell === null || cell === "" ? `column_${index + 1}` : sqlName(String(cell));
-		const count = (seen.get(base) ?? 0) + 1;
-		seen.set(base, count);
-		return count === 1 ? base : `${base}_${count}`;
+		let name = base;
+		for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
+		taken.add(name.toLowerCase());
+		return name;
 	});
 }
 
