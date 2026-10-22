@@ -125,8 +125,7 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 		case "open_link":
 			return str(args.url);
 		case "share":
-			// sandbox_path: what the file was called before the phone folder.
-			return str(args.path) || str(args.sandbox_path) || str(args.title) || str(args.text).slice(0, 40);
+			return str(args.path) || str(args.title) || str(args.text).slice(0, 40);
 		case "read_calendar_events":
 			return join(args.from || args.to ? `${shortTime(args.from) || "現在"} → ${shortTime(args.to) || "明天"}` : "", args.include_shared ? "含分享的" : "");
 		case "add_calendar_event":

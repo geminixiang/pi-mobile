@@ -10,9 +10,8 @@
 // | the sandbox folder <Bot.folder>         | the coding tools, remotely   | runtime.removeBot         |
 //
 // Folders are named by Bot.folder, a UUID, so they never pass to another bot. Attachments and drafts are kept by the
-// conversation id, which pi-durable mints again from the start in a new database: after one (a reinstall, the move
-// to IndexedDB) a new bot could get an old one's id and find its draft, so a new database starts with all of them
-// removed. Later, the sweep removes what a removal cut short. The sandbox may be shared with other phones, which
+// conversation id, which pi-durable mints again from the start in a new database: after one, a new bot could get an
+// old one's id and find its draft, so a new database starts with all of them removed. Later, the sweep removes what a removal cut short. The sandbox may be shared with other phones, which
 // this one cannot tell apart, so it is not swept.
 import { attachmentOwners, deleteAttachments } from "../agent/attachments.ts";
 import { phoneFolderOwners, removePhoneFolder } from "../agent/files/phone-env.ts";

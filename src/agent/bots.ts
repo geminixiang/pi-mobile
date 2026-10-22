@@ -16,7 +16,7 @@ export type Bot = {
 	/**
 	 * Its folder's name, on the phone (files/bots/<folder>) and in the sandbox: a UUIDv7 made with the bot, as
 	 * pi-coding-agent names sessions. Not the conversation id, which a new database mints again from the start, and not
-	 * the name, which two bots (or two phones sharing a sandbox) can have. Bots from before kept a name-based folder.
+	 * the name, which two bots (or two phones sharing a sandbox) can have.
 	 */
 	folder: string;
 	/** One of AVATARS; bots from before avatars have none and show the first. */

@@ -179,30 +179,13 @@ function holdOwnerLock(): Promise<void> {
 	});
 }
 
-/**
- * The app's storage. `fresh` when the database did not exist: the bots' other data (bot-data.ts) is then from a
- * database that is gone, and the SQLite one from before IndexedDB is deleted (development builds only had it; nothing
- * moves over).
- */
+/** The app's storage. `fresh` when the database did not exist: the bots' other data (bot-data.ts) is then from one that is gone. */
 export async function openAppStorage(): Promise<{ storage: Storage; fresh: boolean }> {
 	await holdOwnerLock();
 	// Best effort: the WebView answers false, and keeps the data unless the app's data is cleared.
 	void navigator.storage?.persist?.().catch(() => false);
 	const fresh = !(await indexedDB.databases()).some((database) => database.name === DATABASE);
-	const storage = await IndexedDbStorage.open(DATABASE);
-	if (fresh) await deleteSqliteBots().catch(() => undefined);
-	return { storage, fresh };
-}
-
-/** The SQLite database the bots were in before IndexedDB, if it is still there. */
-async function deleteSqliteBots(): Promise<void> {
-	if (!Capacitor.isNativePlatform()) return;
-	const sqlite = new SQLiteConnection(CapacitorSQLite);
-	if (!(await sqlite.isDatabase(DATABASE)).result) return;
-	const connection = await sqlite.createConnection(DATABASE, false, "no-encryption", 1, false);
-	await connection.open();
-	await connection.delete();
-	await sqlite.closeConnection(DATABASE, false).catch(() => undefined);
+	return { storage: await IndexedDbStorage.open(DATABASE), fresh };
 }
 
 /**
