@@ -3,6 +3,9 @@
 Status: phases 1 and 2 done (machines over SSH, trusted and container modes, egress through bridge.py); the relay still
 works for hosts paired by QR code.
 
+Each bot picks where its coding tools run (bot panel › 電腦): the phone, the relay's container, or a machine in its
+container or directly. A bot that has not picked uses the default (settings › 電腦 › 預設). See `src/agent/computers.ts`.
+
 ## Problem
 
 Today a sandbox host needs `sandbox/install.sh`: Node 22, Docker (colima on macOS), images built on the host, and a

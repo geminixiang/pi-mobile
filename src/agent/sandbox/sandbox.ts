@@ -249,14 +249,15 @@ export class MachineSandbox implements Sandbox {
 	}
 }
 
-/** The section a bot's model sees, from whichever sandbox the app has, for that bot's folder. */
-export function createSandboxExtension(sandbox: Sandbox, folderOf: (conversationId: string) => string | undefined) {
+/** The section a bot's model sees, from the sandbox that bot works in, for its folder; none on the phone. */
+export function createSandboxExtension(sandboxOf: (conversationId: string) => Sandbox | undefined, folderOf: (conversationId: string) => string | undefined) {
 	return defineExtension({
 		name: "sandbox",
 		sections: [
 			section("sandbox", async (input, context) => {
 				const folder = folderOf(String(input.conversationId));
-				if (!folder) return undefined;
+				const sandbox = sandboxOf(String(input.conversationId));
+				if (!folder || !sandbox) return undefined;
 				// Folders are named by id, so say whose the others are.
 				const others = ((await input.read.snapshot(BotIndex, context))?.items ?? []).filter((bot) => bot.folder !== folder);
 				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";

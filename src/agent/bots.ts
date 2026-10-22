@@ -19,6 +19,8 @@ export type Bot = {
 	 * the name, which two bots (or two phones sharing a sandbox) can have.
 	 */
 	folder: string;
+	/** Where its coding tools run (computers.ts); unset or gone: the default from settings. */
+	computer?: string;
 	/** One of AVATARS; bots from before avatars have none and show the first. */
 	avatar?: string;
 	createdAt: number;

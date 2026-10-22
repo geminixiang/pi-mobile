@@ -851,7 +851,7 @@ export function SettingsView({
 							/>
 						</Group>
 					) : null}
-					<Group title="Sandbox relay" hint={settings.sandboxMachine ? "已選了 SSH 機器，不會用 relay。" : undefined}>
+					<Group title="Sandbox relay">
 						{settings.sandboxUrl ? null : (
 							<div className="pair-steps">
 								<p>在電腦上執行，再用相機掃它印出的 QR code：</p>

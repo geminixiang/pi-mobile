@@ -182,7 +182,7 @@ function MachineRow({
 					</span>
 				</span>
 				<button type="button" className="toggle" aria-pressed={chosen} disabled={!machine.system} onClick={() => onChoose(!chosen)}>
-					使用
+					預設
 				</button>
 			</div>
 			{machine.system?.engines[0] ? (

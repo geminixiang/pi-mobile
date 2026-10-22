@@ -7,7 +7,10 @@ const FOLDER = [
 	"bash runs built-in commands only (cat, ls, find, grep, sed, awk, jq, sort, uniq, wc, head, tail, cut, tr, diff, cp, mv, rm, mkdir, date, xargs…); no other programs, no network.",
 ].join(" ");
 
-export const FilesExtension = defineExtension({
-	name: "files",
-	sections: [section("files", () => FOLDER)],
-});
+/** The section for the bots that work on the phone. */
+export function createFilesExtension(onPhone: (conversationId: string) => boolean) {
+	return defineExtension({
+		name: "files",
+		sections: [section("files", (input) => (onPhone(String(input.conversationId)) ? FOLDER : undefined))],
+	});
+}

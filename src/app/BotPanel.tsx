@@ -204,10 +204,31 @@ export function BotPanel({
 					</div>
 				</Section>
 
+				{runtime.hasSandbox ? (
+					<Section title="電腦">
+						<select
+							className="field"
+							value={runtime.computerOf(bot.id).key}
+							aria-label="電腦"
+							onChange={(event) =>
+								void runtime
+									.setComputer(bot.id, event.target.value)
+									.then(() => reload(bot.id))
+									.catch((error: unknown) => onError(`切換電腦失敗：${error instanceof Error ? error.message : String(error)}`))
+							}
+						>
+							{runtime.computers().map((computer) => (
+								<option key={computer.key} value={computer.key}>
+									{computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`}
+								</option>
+							))}
+						</select>
+					</Section>
+				) : null}
 				{folder ? (
 					<Section title="資料夾">
 						<div className="menu">
-							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder.path} hint={folder.where} onClick={run(actions.workspace)} /> : null}
+							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder.path} onClick={run(actions.workspace)} /> : null}
 							{actions.emptyFolder ? (
 								<Item icon={<BoxIcon size={18} />} label="清空資料夾" danger onClick={run(actions.emptyFolder)} />
 							) : null}

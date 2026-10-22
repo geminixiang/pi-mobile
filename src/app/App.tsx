@@ -429,6 +429,8 @@ export function App() {
 			</div>
 		);
 	}
+	// Where the open bot works; the bot list re-renders this when a bot moves.
+	const onSandbox = controller ? runtime.sandboxOf(controller.id) !== undefined : false;
 
 	const agent = agentOf(view);
 	const modelId = agent?.model?.modelId ?? "";
@@ -531,8 +533,8 @@ export function App() {
 								});
 								if (sure) await controller.reset().catch(fail);
 							},
-							workspace: runtime.hasSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
-							emptyFolder: runtime.hasSandbox
+							workspace: onSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
+							emptyFolder: onSandbox
 								? async () => {
 										if (!controller) return;
 										const sure = await ask({
@@ -549,12 +551,12 @@ export function App() {
 				}
 			>
 				{controller ? (
-					<OpenFileContext.Provider value={runtime.hasSandbox ? openFile : undefined}>
+					<OpenFileContext.Provider value={onSandbox ? openFile : undefined}>
 					<Chat
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
 						prefs={prefs}
-						capabilities={{ sandbox: runtime.hasSandbox }}
+						capabilities={{ sandbox: onSandbox }}
 						initialDraft={pendingDraft}
 						initialFiles={pendingFiles}
 						shared={pendingShared}

@@ -18,6 +18,7 @@ import {
 	type Storage,
 } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "./catalog.ts";
+import { type Computer, Computers } from "./computers.ts";
 import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
@@ -31,9 +32,8 @@ import { parseCalendarAccess } from "./calendar-access.ts";
 import { AzureTokens } from "./azure.ts";
 import { CloudflareTokens } from "./cloudflare.ts";
 import { GcloudTokens } from "./gcloud.ts";
-import { EgressLink, type MintedService } from "./sandbox/egress.ts";
-import { parseMachines } from "./sandbox/machine.ts";
-import { MachineSandbox, RelaySandbox, type Sandbox, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
+import type { MintedService } from "./sandbox/egress.ts";
+import { MachineSandbox, type Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
 import { deleteAttachments } from "./attachments.ts";
@@ -193,22 +193,16 @@ function startOfToday(): number {
 }
 
 /** The chosen machine over SSH, else the relay when paired, else none. */
-function openSandbox(settings: Settings, minted: Record<string, MintedService>): Sandbox | undefined {
-	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
-	if (machine) return new MachineSandbox(machine, { githubToken: settings.githubToken || undefined, minted });
-	if (settings.sandboxUrl && settings.sandboxToken) return new RelaySandbox({ url: settings.sandboxUrl, token: settings.sandboxToken });
-	return undefined;
-}
-
 export class AgentRuntime {
 	readonly models: ModelInfo[];
 	readonly #harness: Harness;
 	readonly #settings: Settings;
-	readonly #sandbox: Sandbox | undefined;
+	readonly #computers: Computers;
+	/** Each bot's choice of computer, by conversation id (Bot.computer). */
+	readonly #choices: Map<string, string | undefined>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	/** Each bot's folder in the sandbox, by conversation id; the sandbox section and environments read it. */
 	readonly #folders: Map<string, string>;
-	#egress: EgressLink | undefined;
 	#triggerListeners = new Set<(state: TriggerState) => void>();
 	#memoryListeners = new Set<() => void>();
 	#triggerState: TriggerState = { items: [], next: {} };
@@ -224,9 +218,9 @@ export class AgentRuntime {
 		harness: Harness,
 		settings: Settings,
 		models: ModelInfo[],
-		sandbox: Sandbox | undefined,
+		computers: Computers,
 		folders: Map<string, string>,
-		minted: Record<string, MintedService>,
+		choices: Map<string, string | undefined>,
 		installed: () => ReadonlySet<string>,
 		mcp: McpHub,
 	) {
@@ -235,39 +229,48 @@ export class AgentRuntime {
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
-		this.#sandbox = sandbox;
+		this.#computers = computers;
 		this.#folders = folders;
-		// The relay's proxy asks for the phone's credentials over its control channel; a machine's proxy over SSH.
-		if (sandbox?.kind === "relay") {
-			this.#egress = new EgressLink({
-				relayUrl: settings.sandboxUrl,
-				relayToken: settings.sandboxToken,
-				githubToken: settings.githubToken || undefined,
-				minted,
-				describe: (name) => (name === SHARED_SANDBOX ? "共用的 sandbox" : name),
-			});
-		}
+		this.#choices = choices;
 	}
 
+	/** Whether the user has a computer besides the phone. */
 	get hasSandbox(): boolean {
-		return this.#sandbox !== undefined;
+		return this.#computers.any;
+	}
+
+	/** Where a bot's tools run, by its choice or the default. */
+	computerOf(id: ConversationId): Computer {
+		return this.#computers.resolve(this.#choices.get(String(id)));
+	}
+
+	/** The computers a bot can pick. */
+	computers(): Computer[] {
+		return this.#computers.list();
+	}
+
+	/** A bot's sandbox, undefined when it works on the phone. */
+	sandboxOf(id: ConversationId | string): Sandbox | undefined {
+		return this.#computers.sandbox(this.#computers.resolve(this.#choices.get(String(id))).key);
+	}
+
+	/** Move a bot to another computer; its next tool call runs there. Files stay where they were. */
+	async setComputer(id: ConversationId, key: string): Promise<void> {
+		await this.#editBots((items) => {
+			const bot = items.find((candidate) => candidate.id === id);
+			if (bot) bot.computer = key;
+		});
 	}
 
 	/** Where a bot works: its folder's path, and the sandbox it is in, in words; undefined without a sandbox. */
 	folderOf(id: ConversationId): { path: string; where: string } | undefined {
 		const folder = this.#folders.get(String(id));
-		const sandbox = this.#sandbox;
+		const sandbox = this.sandboxOf(id);
 		if (!sandbox || !folder) return undefined;
 		if (sandbox instanceof MachineSandbox) {
 			return { path: sandbox.root(folder), where: `${sandbox.machine.name} 的${sandbox.contained ? "容器" : "帳號（直接模式）"}` };
 		}
-		let host = this.#settings.sandboxUrl;
-		try {
-			host = new URL(host.replace(/^ws/, "http")).hostname;
-		} catch {
-			// Shown as written.
-		}
-		return { path: sandbox.root(folder), where: `${host} 的容器` };
+		return { path: sandbox.root(folder), where: `${this.computerOf(id).name} 的容器` };
 	}
 
 	/**
@@ -371,7 +374,9 @@ export class AgentRuntime {
 		};
 		const folders = new Map<string, string>();
 		const clouds = cloudConnections(settings);
-		const sandbox = openSandbox(settings, clouds.minted);
+		const choices = new Map<string, string | undefined>();
+		const computers = new Computers(settings, clouds.minted);
+		const sandboxOf = (id: string) => computers.sandbox(computers.resolve(choices.get(id)).key);
 		const mcp: McpHub = new McpHub({
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
@@ -385,7 +390,7 @@ export class AgentRuntime {
 			web: webSearchConfig(configs, settings.providerKeys, lists, infos),
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
-			...(sandbox ? { sandbox: { sandbox, folderOf: (id: string) => folders.get(id) } } : {}),
+			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id) },
 			labelOf: (name) => labelOf(name, mcp),
 		})) {
 			registry.install(extension);
@@ -409,7 +414,7 @@ export class AgentRuntime {
 				env: ({ conversationId }) => {
 					const folder = folders.get(String(conversationId));
 					if (!folder) return undefined;
-					return sandbox ? sandbox.env(folder) : new PhoneEnv(folder);
+					return sandboxOf(String(conversationId))?.env(folder) ?? new PhoneEnv(folder);
 				},
 			},
 			context,
@@ -418,9 +423,9 @@ export class AgentRuntime {
 			harness,
 			settings,
 			infos,
-			sandbox,
+			computers,
 			folders,
-			clouds.minted,
+			choices,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			mcp,
 		);
@@ -464,7 +469,11 @@ export class AgentRuntime {
 	async #publishBots(): Promise<void> {
 		const bots = await this.bots();
 		this.#folders.clear();
-		for (const bot of bots) this.#folders.set(String(bot.id), bot.folder);
+		this.#choices.clear();
+		for (const bot of bots) {
+			this.#folders.set(String(bot.id), bot.folder);
+			this.#choices.set(String(bot.id), bot.computer);
+		}
 		for (const listener of this.#botListeners) listener(bots);
 	}
 
@@ -518,7 +527,7 @@ export class AgentRuntime {
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
-		if (this.#sandbox) await this.#sandbox.remove(bot.folder).catch(() => undefined);
+		await this.sandboxOf(id)?.remove(bot.folder).catch(() => undefined);
 		await removePhoneFolder(bot.folder).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
 		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);
@@ -560,8 +569,9 @@ export class AgentRuntime {
 	/** A bot's folder in the sandbox, or undefined when it has not used it yet. */
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
 		const folder = this.#folders.get(String(id));
-		if (!this.#sandbox || !folder || !(await this.#sandbox.exists(folder))) return undefined;
-		return new Workspace(await this.#sandbox.env(folder), this.#sandbox.root(folder));
+		const sandbox = this.sandboxOf(id);
+		if (!sandbox || !folder || !(await sandbox.exists(folder))) return undefined;
+		return new Workspace(await sandbox.env(folder), sandbox.root(folder));
 	}
 
 	/** A bot's folder on the phone, where its coding tools work when there is no sandbox. */
@@ -573,8 +583,9 @@ export class AgentRuntime {
 	/** Empty a bot's folder in the sandbox; the bot and its conversation stay. */
 	async resetSandbox(id: ConversationId): Promise<void> {
 		const folder = this.#folders.get(String(id));
-		if (!this.#sandbox || !folder) throw new Error("No sandbox configured");
-		await this.#sandbox.remove(folder);
+		const sandbox = this.sandboxOf(id);
+		if (!sandbox || !folder) throw new Error("No sandbox configured");
+		await sandbox.remove(folder);
 	}
 
 	async openConversation(id: ConversationId): Promise<ConversationController> {
@@ -673,9 +684,11 @@ export class AgentRuntime {
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 		const installed = this.#installed();
+		// The coding tools come as one of two toolsets, by where the bot works.
+		const elsewhere = this.sandboxOf(id) ? "files" : "sandbox";
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
-			available: toolset.extensions.every((name) => installed.has(name)),
+			available: toolset.id !== elsewhere && toolset.extensions.every((name) => installed.has(name)),
 			enabled: isEnabled(selection, toolset),
 		}));
 	}
@@ -852,8 +865,7 @@ export class AgentRuntime {
 
 	async close(): Promise<void> {
 		await this.#harness.close(context);
-		this.#egress?.close();
-		this.#sandbox?.close();
+		this.#computers.close();
 	}
 }
 

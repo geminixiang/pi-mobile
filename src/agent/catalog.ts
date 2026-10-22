@@ -11,7 +11,7 @@ import { BotExtension } from "./bots.ts";
 import type { CalendarAccess } from "./calendar-access.ts";
 import { createPhoneCodemode } from "./codemode.ts";
 import { createMemoryExtension } from "./memory.ts";
-import { FilesExtension } from "./files/extension.ts";
+import { createFilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension, type Sandbox, SandboxTools } from "./sandbox/sandbox.ts";
 import { SkillsExtension } from "./skills.ts";
@@ -45,8 +45,8 @@ export interface CatalogDeps {
 	web: WebConfig;
 	triggers: TriggerHost;
 	memory: { changed(): void };
-	/** The machine or relay the coding tools run on; without one, they work in the bot's folder on the phone. */
-	sandbox?: { sandbox: Sandbox; folderOf: (conversationId: string) => string | undefined };
+	/** The machine or relay a bot's coding tools run on; undefined: they work in its folder on the phone. */
+	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined };
 	/** The name a loadable extension goes by in the on-demand list (an MCP server's label, a toolset's). */
 	labelOf: (extension: string) => string;
 }
@@ -83,7 +83,8 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createWebExtension(deps.web),
 		createTriggerExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
-		...(deps.sandbox ? [createSandboxExtension(deps.sandbox.sandbox, deps.sandbox.folderOf)] : [FilesExtension]),
+		createSandboxExtension(deps.sandbox.sandboxOf, deps.sandbox.folderOf),
+		createFilesExtension((id) => !deps.sandbox.sandboxOf(id)),
 		SandboxTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
