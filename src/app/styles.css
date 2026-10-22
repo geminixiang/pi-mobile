@@ -64,6 +64,7 @@
 	--bar-h: 56px;
 	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 	--spring: linear(0, 0.111, 0.359, 0.638, 0.879, 1.047, 1.137, 1.163, 1.145, 1.105, 1.059, 1.02, 0.992, 0.978, 0.973, 0.976, 0.983, 0.99, 0.997, 1.001, 1.004, 1.004, 1.004, 1.003, 1.002);
+	--glass: color-mix(in srgb, var(--bg) 82%, transparent);
 
 	font-family: var(--sans);
 	font-size: 16px;
@@ -218,6 +219,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	min-height: calc(env(safe-area-inset-top) + var(--bar-h)); padding: env(safe-area-inset-top) 4px 0;
 	background: var(--bg); border-bottom: 1px solid var(--line);
 }
+.app:not(.skeleton) > .bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; background: var(--glass); backdrop-filter: blur(14px); }
 .brand-button { width: 52px; }
 .bar-center { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 6px 6px; }
 .bar-center:active { background: var(--accent-soft); }
@@ -234,7 +236,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Transcript ---------- */
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.transcript { flex: 1; overflow: hidden auto; overscroll-behavior: contain; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
+.transcript {
+	--top: calc(env(safe-area-inset-top) + var(--bar-h) + 22px);
+	flex: 1; overflow: hidden auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 20px;
+	padding: var(--top) var(--space) calc(var(--composer-h, 92px) + 28px); scroll-padding: var(--top) 0 var(--composer-h, 92px);
+}
+.chat > .skeleton-transcript { padding-top: calc(env(safe-area-inset-top) + var(--bar-h) + 22px); }
 /*
  * Messages off screen skip layout and paint. After about a minute away, the WebView drops its caches and lays out the
  * whole document again on return: on the S24, a 35-message conversation took 225 ms (1 s after using Chrome), one
@@ -457,7 +464,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* The composer as pi's editor: full width, no side borders, a line above in the thinking level's color. pi's line
    below separates the editor from its footer; here the screen edge or the keyboard ends it. */
 /* Room below the input, so it does not sit on the gesture bar, and taller targets for the thumb. */
-.composer { flex-shrink: 0; padding: 8px 0 calc(env(safe-area-inset-bottom) + 14px); background: var(--bg); }
+.composer {
+	position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+	padding: 8px 0 calc(env(safe-area-inset-bottom) + 14px); background: var(--glass); backdrop-filter: blur(14px);
+}
 .app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
 .app[data-thinking="low"] { --editor-border: var(--think-low); }
 .app[data-thinking="medium"] { --editor-border: var(--think-medium); }

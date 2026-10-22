@@ -143,6 +143,20 @@ export function Chat({
 		const element = scroller.current;
 		if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
 	});
+	const chat = useRef<HTMLDivElement>(null);
+	useLayoutEffect(() => {
+		const box = chat.current;
+		const composer = box?.querySelector<HTMLElement>(":scope > .composer");
+		const transcript = scroller.current;
+		if (!box || !composer || !transcript) return;
+		const observer = new ResizeObserver(() => {
+			box.style.setProperty("--composer-h", `${composer.offsetHeight}px`);
+			if (stickToBottom.current) transcript.scrollTop = transcript.scrollHeight;
+		});
+		observer.observe(composer);
+		observer.observe(transcript);
+		return () => observer.disconnect();
+	}, []);
 	// The streaming answer grows every frame on its own (streaming.tsx), without Chat rendering: follow it as it grows.
 	const streamObserver = useRef<ResizeObserver>(undefined);
 	const followStream = useMemo(
@@ -225,7 +239,7 @@ export function Chat({
 	};
 
 	return (
-		<div className="chat">
+		<div className="chat" ref={chat}>
 			<div
 				className="transcript"
 				ref={scroller}
