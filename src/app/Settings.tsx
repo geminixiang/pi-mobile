@@ -27,6 +27,8 @@ import { isConfigured, type Settings } from "../settings.ts";
 import { BackIcon, ChevronIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { parseMachines } from "../agent/sandbox/machine.ts";
+import { parseHosts } from "../agent/sandbox/host.ts";
+import { HostsGroup } from "./HostsGroup.tsx";
 import { parseProviders, providerName } from "../agent/providers.ts";
 import { MachinesGroup } from "./MachinesGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
@@ -631,6 +633,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		settings.azureCredential && "Azure",
 	].filter(Boolean);
 	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
+	const host = parseHosts(settings.hosts).find((candidate) => candidate.id === settings.sandboxMachine);
 	const relay = settings.sandboxUrl ? new URL(settings.sandboxUrl.replace(/^ws/, "http")).hostname : "";
 	const services = runtime?.mcp.servers.length ?? 0;
 	const rows: { page: Page; label: string; value: string | undefined }[] = [
@@ -638,7 +641,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		...(runtime ? [{ page: "memory" as const, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
 		{ page: "accounts", label: "帳號", value: accounts.join("、") },
 		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
-		{ page: "machines", label: "電腦", value: machine?.name ?? relay },
+		{ page: "machines", label: "電腦", value: host?.name ?? machine?.name ?? relay },
 		...(native
 			? [
 					{ page: "phone" as const, label: "手機", value: undefined },
@@ -837,6 +840,13 @@ export function SettingsView({
 			title: "電腦",
 			body: () => (
 				<>
+					<Group title="電腦">
+						<HostsGroup
+							value={settings.hosts}
+							chosen={settings.sandboxMachine}
+							onChange={(hosts, chosen) => setSettings((current) => ({ ...current, hosts: JSON.stringify(hosts), sandboxMachine: chosen }))}
+						/>
+					</Group>
 					{native ? (
 						<Group title="SSH 機器">
 							<MachinesGroup

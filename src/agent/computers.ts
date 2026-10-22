@@ -1,8 +1,10 @@
-// Where a bot's coding tools run: the phone (its folder there), the sandbox relay's container, or one of the user's
-// machines over SSH, in its container or directly as the SSH user. Each bot picks one (Bot.computer); a bot that has
+// Where a bot's coding tools run: the phone (its folder there), one of the user's computers running pi-host (directly,
+// over the tailnet), the sandbox relay's container, or one of the user's machines over SSH, in its container or
+// directly as the SSH user. Each bot picks one (Bot.computer); a bot that has
 // not picked uses the default from settings › 電腦. Sandboxes open when a bot first uses them and are shared by the
 // bots on the same one.
 import { EgressLink, type MintedService } from "./sandbox/egress.ts";
+import { HostSandbox, parseHosts } from "./sandbox/host.ts";
 import { type Machine, parseMachines } from "./sandbox/machine.ts";
 import { MachineSandbox, RelaySandbox, type Sandbox, SHARED_SANDBOX } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
@@ -11,7 +13,7 @@ export const PHONE = "phone";
 export const RELAY = "relay";
 
 export interface Computer {
-	/** Stored on the bot: "phone", "relay", or "<machine id>:container" / "<machine id>:trusted". */
+	/** Stored on the bot: "phone", "relay", "host:<host id>", or "<machine id>:container" / "<machine id>:trusted". */
 	key: string;
 	/** The machine or host, such as "MacBook" or "100.64.0.3". */
 	name: string;
@@ -50,6 +52,7 @@ export class Computers {
 	/** Every place a bot can work: the phone, the relay when paired, and each connected machine in each mode it has. */
 	list(): Computer[] {
 		const items: Computer[] = [{ key: PHONE, name: "手機", mode: "手機" }];
+		for (const host of parseHosts(this.#settings.hosts)) items.push({ key: `host:${host.id}`, name: host.name, mode: "直接" });
 		if (this.#settings.sandboxUrl && this.#settings.sandboxToken) items.push({ key: RELAY, name: relayHost(this.#settings.sandboxUrl), mode: "容器" });
 		for (const machine of parseMachines(this.#settings.machines)) {
 			if (!machine.system) continue;
@@ -59,8 +62,10 @@ export class Computers {
 		return items;
 	}
 
-	/** The default from settings: the chosen machine, else the relay, else the phone. */
+	/** The default from settings: the chosen computer or machine, else the relay, else the phone. */
 	get defaultKey(): string {
+		const host = parseHosts(this.#settings.hosts).find((candidate) => candidate.id === this.#settings.sandboxMachine);
+		if (host) return `host:${host.id}`;
 		const machine = parseMachines(this.#settings.machines).find((candidate) => candidate.id === this.#settings.sandboxMachine);
 		if (machine?.system) return machineKey(machine, machineMode(machine));
 		if (this.#settings.sandboxUrl && this.#settings.sandboxToken) return RELAY;
@@ -79,7 +84,11 @@ export class Computers {
 		const open = this.#open.get(key);
 		if (open) return open;
 		let sandbox: Sandbox | undefined;
-		if (key === RELAY) {
+		if (key.startsWith("host:")) {
+			const host = parseHosts(this.#settings.hosts).find((candidate) => `host:${candidate.id}` === key);
+			if (!host) return undefined;
+			sandbox = new HostSandbox(host);
+		} else if (key === RELAY) {
 			const { sandboxUrl: url, sandboxToken: token, githubToken } = this.#settings;
 			if (!url || !token) return undefined;
 			sandbox = new RelaySandbox({ url, token });

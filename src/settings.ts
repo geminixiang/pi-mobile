@@ -49,6 +49,8 @@ export interface Settings {
 	machines: string;
 	/** The machine whose tools the agent uses; empty uses the relay when one is set. */
 	sandboxMachine: string;
+	/** The user's computers running pi-host on the tailnet, as JSON (agent/sandbox/host.ts). */
+	hosts: string;
 	/** Context size in tokens at which a bot's conversation is compacted; 0 for the model's own limit. */
 	compactAt: number;
 	/** Approving a tool's action also takes the fingerprint, face, or screen lock. */
@@ -68,6 +70,7 @@ const PlainSettings = Type.Object({
 	calendarAccess: Type.Optional(Type.String()),
 	machines: Type.Optional(Type.String()),
 	sandboxMachine: Type.Optional(Type.String()),
+	hosts: Type.Optional(Type.String()),
 	compactAt: Type.Optional(Type.Number()),
 	approvalAuth: Type.Optional(Type.Boolean()),
 });
@@ -154,6 +157,7 @@ export async function loadSettings(): Promise<Settings> {
 		calendarAccess: plain.calendarAccess ?? "",
 		machines: plain.machines ?? "",
 		sandboxMachine: plain.sandboxMachine ?? "",
+		hosts: plain.hosts ?? "",
 		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT,
 		approvalAuth: plain.approvalAuth ?? false,
 	};
@@ -178,6 +182,7 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 		calendarAccess: settings.calendarAccess,
 		machines: settings.machines,
 		sandboxMachine: settings.sandboxMachine,
+		hosts: settings.hosts,
 		compactAt: settings.compactAt,
 		approvalAuth: settings.approvalAuth,
 	};

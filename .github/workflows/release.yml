@@ -1,5 +1,6 @@
 # Publish a release: push a tag vX.Y.Z matching package.json's version. Builds the signed APK with
-# scripts/release-android.sh and creates the GitHub release with notes from docs/releases/X.Y.Z.md.
+# scripts/release-android.sh and pi-host for macOS and Linux (host/; host/install.sh downloads it from the latest
+# release), and creates the GitHub release with notes from docs/releases/X.Y.Z.md.
 #
 # Secrets (Settings › Secrets and variables › Actions):
 #   PI_MOBILE_KEYSTORE_BASE64    base64 of the release keystore (the same key as 0.1.0, so updates install over it)
@@ -64,6 +65,19 @@ jobs:
           PI_MOBILE_RELEASE_ENV: ${{ runner.temp }}/release.env
         run: scripts/release-android.sh
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: host/go.mod
+          cache-dependency-path: host/go.sum
+
+      - name: Build pi-host
+        working-directory: host
+        run: |
+          for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
+            os=${target%/*}; arch=${target#*/}; name=$arch; [ "$arch" = amd64 ] && name=x64
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "../pi-host-$os-$name" .
+          done
+
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,7 +89,7 @@ jobs:
             cat "docs/releases/$VERSION.md"
             printf '\n## 驗證\n- APK SHA-256：`%s`\n- 簽章憑證 SHA-256：`%s`\n' "$apk_sha" "$cert_sha"
           } > notes.md
-          gh release create "$GITHUB_REF_NAME" "$apk" --title "pi mobile $VERSION" --notes-file notes.md --verify-tag
+          gh release create "$GITHUB_REF_NAME" "$apk" pi-host-* --title "pi mobile $VERSION" --notes-file notes.md --verify-tag
 
       - name: Remove key
         if: always()

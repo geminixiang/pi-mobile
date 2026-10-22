@@ -29,7 +29,7 @@ function systemLabel(machine: Machine): string {
 	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch}${engine ? ` · ${engine}` : ""} · 已連線`;
 }
 
-function Copyable({ text, children }: { text: string; children?: ReactNode }) {
+export function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 	const [copied, setCopied] = useState(false);
 	return (
 		<div className="copyable">

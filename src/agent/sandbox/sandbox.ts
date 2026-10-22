@@ -27,7 +27,7 @@ export interface RelayConfig {
 export const SHARED_SANDBOX = "main";
 
 export interface Sandbox {
-	readonly kind: "relay" | "machine";
+	readonly kind: "relay" | "machine" | "host";
 	/** Whether the tools run on the machine itself, from its home directory: no bot folders are made or deleted there. */
 	readonly direct: boolean;
 	/** A bot's folder there (the home directory when direct): its working directory, where tool paths resolve. */
@@ -42,14 +42,14 @@ export interface Sandbox {
 	close(): void;
 }
 
-const IMAGES =
+export const IMAGES =
 	"To show an image, save PNG or JPEG of at most 2000 px and 3 MB (`magick in.png -resize 1600x1600\\> out.png`) and `read` it.";
 
 /**
  * Environments over one daemon connection: one per bot folder (same id, so writes to a file serialize across bots),
  * plus one at the base for creating, testing, and removing folders.
  */
-class SharedEnvs {
+export class SharedEnvs {
 	readonly #connection: StreamConnection;
 	readonly #base: string;
 	readonly #root: (folder: string) => string;
@@ -171,7 +171,7 @@ export class RelaySandbox implements Sandbox {
 	}
 }
 
-function systemLabel(system: MachineSystem): string {
+function systemLabel(system: Pick<MachineSystem, "os" | "arch">): string {
 	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch}`;
 }
 
@@ -236,20 +236,7 @@ export class MachineSandbox implements Sandbox {
 	describe(folder: string): string {
 		if (this.#containers) return containerDescription(folder);
 		const machine = this.machine;
-		const system = machine.system;
-		const where = system ? `${machine.name} (${systemLabel(system)})` : machine.name;
-		const desktop =
-			system?.os === "darwin"
-				? "`open` opens files, URLs, and apps; `osascript` drives apps and System Events; `screencapture -x /tmp/s.png` and then `read` shows the screen (it needs Screen Recording for sshd; say so if it fails)."
-				: "`xdg-open` opens files and URLs when a desktop session is running.";
-		return [
-			`You operate ${where}, the user's own machine, directly as its user ${machine.user}: read, write, edit, and bash run there (not the phone, not a container), from the home directory ${system?.home ?? "~"}, with the user's files, apps, and sign-ins (git, gh, cloud CLIs).`,
-			"Work wherever on the machine the task needs, as the user would at its keyboard; find things with ls, find, and mdfind or locate rather than asking where they are.",
-			desktop,
-			"Use the tools installed there; check with `command -v` before relying on one. Keep scratch files in a temp directory, not in home.",
-			"Nothing there is approved on the phone: before deleting or overwriting the user's files, sudo, installing system-wide, pushing, deploying, or changing settings, say what you will do and wait for the user's go-ahead.",
-			IMAGES,
-		].join(" ");
+		return directDescription(machine.name, machine.user, machine.system, "sshd");
 	}
 
 	close(): void {
@@ -257,6 +244,23 @@ export class MachineSandbox implements Sandbox {
 		this.#envs.close();
 		this.#link.close();
 	}
+}
+
+/** What a bot operating one of the user's computers directly is told; `process` is what macOS asks permissions for. */
+export function directDescription(name: string, user: string, system: Pick<MachineSystem, "os" | "arch" | "home"> | undefined, process: string): string {
+	const where = system ? `${name} (${systemLabel(system)})` : name;
+	const desktop =
+		system?.os === "darwin"
+			? `\`open\` opens files, URLs, and apps; \`osascript\` drives apps and System Events; \`screencapture -x /tmp/s.png\` and then \`read\` shows the screen. macOS asks on that screen before ${process} reads protected folders (Desktop, Documents, Downloads) or records the screen: when one fails that way, tell the user to allow it there.`
+			: "`xdg-open` opens files and URLs when a desktop session is running.";
+	return [
+		`You operate ${where}, the user's own computer, directly as its user ${user}: read, write, edit, and bash run there (not the phone, not a container), from the home directory ${system?.home ?? "~"}, with the user's files, apps, and sign-ins (git, gh, cloud CLIs).`,
+		"Work wherever on the computer the task needs, as the user would at its keyboard; find things with ls, find, and mdfind or locate rather than asking where they are.",
+		desktop,
+		"Use the tools installed there; check with `command -v` before relying on one. Keep scratch files in a temp directory, not in home.",
+		"Nothing there is approved on the phone: before deleting or overwriting the user's files, sudo, installing system-wide, pushing, deploying, or changing settings, say what you will do and wait for the user's go-ahead.",
+		IMAGES,
+	].join(" ");
 }
 
 /** The section a bot's model sees, from the sandbox that bot works in, for its folder; none on the phone. */

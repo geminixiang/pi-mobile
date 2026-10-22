@@ -32,6 +32,7 @@ import { listenForPairing, type Pairing } from "./pairing.ts";
 import { System } from "../system-plugin.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { parseMachines } from "../agent/sandbox/machine.ts";
+import { parseHosts } from "../agent/sandbox/host.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
@@ -53,6 +54,8 @@ const SETTINGS_APPLY_MS = 800;
 
 /** The machine or relay host the sandbox runs on, in words; empty without one. */
 function sandboxName(settings: Settings): string {
+	const host = parseHosts(settings.hosts).find((candidate) => candidate.id === settings.sandboxMachine);
+	if (host) return host.name;
 	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
 	if (machine) return machine.name;
 	if (!settings.sandboxUrl) return "";
