@@ -249,6 +249,7 @@ export function WorkspaceView({
 
 	useEffect(() => {
 		if (!open) return;
+		let current = true;
 		setTab(initial.tab);
 		setFile(undefined);
 		setDiff(undefined);
@@ -256,12 +257,18 @@ export function WorkspaceView({
 		setWorkspace(undefined);
 		load().then(
 			(value) => {
+				if (!current) return;
 				setWorkspace(value ?? null);
 				// Tool paths are relative to the workspace root unless absolute.
 				if (value && initial.file) setFile(resolvePath(value.root, initial.file));
 			},
-			(failure: unknown) => setError(errorText(failure)),
+			(failure: unknown) => {
+				if (current) setError(errorText(failure));
+			},
 		);
+		return () => {
+			current = false;
+		};
 	}, [open, initial, load]);
 
 	const refresh = useCallback(() => setReloadKey((key) => key + 1), []);

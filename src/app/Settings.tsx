@@ -845,7 +845,12 @@ export function SettingsView({
 							<MachinesGroup
 								value={settings.machines}
 								chosen={settings.sandboxMachine}
-								onChange={(machines, sandboxMachine) => change({ machines, sandboxMachine })}
+								onChange={(update) =>
+									setSettings((current) => {
+										const next = update(parseMachines(current.machines), current.sandboxMachine);
+										return { ...current, machines: JSON.stringify(next.machines), sandboxMachine: next.chosen };
+									})
+								}
 							/>
 						</Group>
 					) : null}

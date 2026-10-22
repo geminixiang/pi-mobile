@@ -151,7 +151,7 @@ function MachineRow({
 	machine: Machine;
 	chosen: boolean;
 	onChoose: (on: boolean) => void;
-	onChange: (machine: Machine) => void;
+	onChange: (change: Partial<Machine>) => void;
 	onRemove: () => void;
 }) {
 	const [install, setInstall] = useState<Install>({ state: "idle" });
@@ -161,7 +161,7 @@ function MachineRow({
 		installOn(machine, (step, detail) => setInstall({ state: "running", step, ...(detail ? { detail } : {}) })).then(
 			(system) => {
 				setInstall({ state: "idle" });
-				onChange({ ...machine, system });
+				onChange({ system });
 			},
 			(error: unknown) => {
 				const detail = errorText(error);
@@ -191,10 +191,10 @@ function MachineRow({
 						執行方式
 						<span className="menu-hint">{contained(machine) ? `所有 Bot 共用一個 ${machine.system.engines[0]} 容器` : `直接以 ${machine.user} 執行`}</span>
 					</span>
-					<button type="button" className="toggle" aria-pressed={contained(machine)} onClick={() => onChange({ ...machine, mode: "container" })}>
+					<button type="button" className="toggle" aria-pressed={contained(machine)} onClick={() => onChange({ mode: "container" })}>
 						容器
 					</button>
-					<button type="button" className="toggle" aria-pressed={!contained(machine)} onClick={() => onChange({ ...machine, mode: "trusted" })}>
+					<button type="button" className="toggle" aria-pressed={!contained(machine)} onClick={() => onChange({ mode: "trusted" })}>
 						直接
 					</button>
 				</div>
@@ -229,6 +229,8 @@ function MachineRow({
 	);
 }
 
+export type MachinesUpdate = (machines: Machine[], chosen: string) => { machines: Machine[]; chosen: string };
+
 /** The machines list; `value` and `chosen` are the settings' JSON and the chosen machine's id. */
 export function MachinesGroup({
 	value,
@@ -237,13 +239,17 @@ export function MachinesGroup({
 }: {
 	value: string;
 	chosen: string;
-	onChange: (machines: string, chosen: string) => void;
+	onChange: (update: MachinesUpdate) => void;
 }) {
 	const machines = parseMachines(value);
 	const [adding, setAdding] = useState(false);
 	const [publicKey, setPublicKey] = useState<string>();
-	const save = (next: Machine[], nextChosen = chosen) =>
-		onChange(JSON.stringify(next), next.some((machine) => machine.id === nextChosen) ? nextChosen : "");
+	const save = (edit: (current: Machine[]) => Machine[], choose?: string) =>
+		onChange((current, currentChosen) => {
+			const next = edit(current);
+			const nextChosen = choose ?? currentChosen;
+			return { machines: next, chosen: next.some((machine) => machine.id === nextChosen) ? nextChosen : "" };
+		});
 	return (
 		<>
 			{machines.map((machine) => (
@@ -251,9 +257,9 @@ export function MachinesGroup({
 					key={machine.id}
 					machine={machine}
 					chosen={machine.id === chosen}
-					onChoose={(on) => save(machines, on ? machine.id : "")}
-					onChange={(next) => save(machines.map((candidate) => (candidate.id === next.id ? next : candidate)))}
-					onRemove={() => save(machines.filter((candidate) => candidate.id !== machine.id))}
+					onChoose={(on) => save((current) => current, on ? machine.id : "")}
+					onChange={(change) => save((current) => current.map((candidate) => (candidate.id === machine.id ? { ...candidate, ...change } : candidate)))}
+					onRemove={() => save((current) => current.filter((candidate) => candidate.id !== machine.id))}
 				/>
 			))}
 			{adding ? (
@@ -261,7 +267,7 @@ export function MachinesGroup({
 					onCancel={() => setAdding(false)}
 					onAdd={(machine) => {
 						setAdding(false);
-						save([...machines, machine]);
+						save((current) => [...current, machine]);
 						void appPublicKey().then(setPublicKey);
 					}}
 				/>
