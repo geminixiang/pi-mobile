@@ -44,7 +44,10 @@ function listen(): Promise<void> {
 					for (const chunk of request.early) controller.enqueue(chunk);
 					if (request.ended) controller.close();
 				},
-				cancel: () => void StreamFetch.abort({ id }),
+				cancel: () => {
+					pending.delete(id);
+					void StreamFetch.abort({ id });
+				},
 			});
 			const nullBody = [101, 204, 205, 304].includes(status);
 			request.head(new Response(nullBody ? null : body, { status, headers }));

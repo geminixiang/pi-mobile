@@ -13,11 +13,12 @@ import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * fetch over native HTTP that streams: for APIs whose responses the WebView may not read (no CORS headers), where
- * CapacitorHttp would buffer a streamed answer whole. start() returns once the request is sent; the status and
+ * CapacitorHttp would buffer a streamed answer whole. start() returns the request's id at once; the status and
  * headers arrive as a "head" event, the body as "chunk" events (base64, as read), then "end" or "error", each with
  * the request's id. abort() stops one.
  */
@@ -25,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class StreamFetchPlugin extends Plugin {
 
     private final Map<String, HttpURLConnection> open = new ConcurrentHashMap<>();
+    private final Set<String> aborted = ConcurrentHashMap.newKeySet();
     private int next = 0;
 
     @PluginMethod
@@ -42,7 +44,9 @@ public class StreamFetchPlugin extends Plugin {
 
     @PluginMethod
     public void abort(PluginCall call) {
-        HttpURLConnection connection = open.remove(call.getString("id", ""));
+        String id = call.getString("id", "");
+        aborted.add(id);
+        HttpURLConnection connection = open.remove(id);
         if (connection != null) connection.disconnect();
         call.resolve();
     }
@@ -52,6 +56,7 @@ public class StreamFetchPlugin extends Plugin {
         try {
             connection = (HttpURLConnection) new URL(url).openConnection();
             open.put(id, connection);
+            if (aborted.contains(id)) return;
             connection.setRequestMethod(method);
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(120_000);
@@ -66,6 +71,7 @@ public class StreamFetchPlugin extends Plugin {
                 }
             }
             int status = connection.getResponseCode();
+            if (aborted.contains(id)) return;
             JSObject head = new JSObject();
             head.put("id", id);
             head.put("status", status);
@@ -79,7 +85,7 @@ public class StreamFetchPlugin extends Plugin {
             if (in != null) {
                 byte[] buffer = new byte[16 * 1024];
                 int read;
-                while ((read = in.read(buffer)) != -1) {
+                while ((read = in.read(buffer)) != -1 && !aborted.contains(id)) {
                     JSObject chunk = new JSObject();
                     chunk.put("id", id);
                     chunk.put("data", Base64.encodeToString(buffer, 0, read, Base64.NO_WRAP));
@@ -87,16 +93,19 @@ public class StreamFetchPlugin extends Plugin {
                 }
                 in.close();
             }
+            if (aborted.contains(id)) return;
             JSObject end = new JSObject();
             end.put("id", id);
             notifyListeners("end", end);
         } catch (Exception e) {
+            if (aborted.contains(id)) return;
             JSObject error = new JSObject();
             error.put("id", id);
             error.put("message", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
             notifyListeners("error", error);
         } finally {
             open.remove(id);
+            aborted.remove(id);
             if (connection != null) connection.disconnect();
         }
     }
