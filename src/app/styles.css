@@ -264,7 +264,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	font-size: 14px; line-height: 1.55; color: var(--tool-output); white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .trigger-prompt.open { display: block; }
+/*
+ * In the transcript, full-bleed like .prompt with the copy padded back in: the tool boxes' negative margins then stay
+ * inside the answer's box. Overflowing it, content-visibility on older messages (above) clipped them to the text width.
+ */
 .answer { display: flex; flex-direction: column; gap: 14px; overflow-wrap: anywhere; }
+.transcript > .answer { margin: 0 calc(-1 * var(--space)); padding: 0 var(--space); }
 .answer.aborted .markdown { opacity: 0.6; }
 .note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--faint); }
 .note.error { color: var(--error); letter-spacing: 0.02em; padding: 10px 12px; background: var(--error-bg); border-left: 2px solid var(--error); }
