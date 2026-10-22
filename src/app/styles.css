@@ -386,7 +386,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 /* "Scroll to the newest": a tab sitting on the composer's top line, in the line's color. */
-.input { position: relative; border-top: 1px solid var(--editor-border); background: none; }
+.input { position: relative; border-top: 1px solid var(--editor-border); background: none; padding-bottom: calc(env(safe-area-inset-bottom) + 14px); }
+.input::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--glass); backdrop-filter: blur(22px); }
 /* The finger owns the tab while it presses: no scrolling, no text selection, no context menu. */
 .scroll-hint {
 	touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
@@ -471,10 +472,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* The composer as pi's editor: full width, no side borders, a line above in the thinking level's color. pi's line
    below separates the editor from its footer; here the screen edge or the keyboard ends it. */
 /* Room below the input, so it does not sit on the gesture bar, and taller targets for the thumb. */
-.composer {
-	position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
-	padding: 8px 0 calc(env(safe-area-inset-bottom) + 14px); background: var(--glass); backdrop-filter: blur(22px);
-}
+.composer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; padding-top: 8px; }
 .app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
 .app[data-thinking="low"] { --editor-border: var(--think-low); }
 .app[data-thinking="medium"] { --editor-border: var(--think-medium); }
@@ -508,7 +506,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thumb-remove { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 20px; height: 20px; background: var(--console-bg); color: var(--console-text); }
 .queue { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 /* Queued input: the user's own block, faded until it is placed. */
-.queue li { display: flex; align-items: center; gap: 10px; padding-left: var(--space); background: color-mix(in srgb, var(--user-bg) 55%, transparent); }
+.queue li { display: flex; align-items: center; gap: 10px; padding-left: var(--space); background: color-mix(in srgb, var(--user-bg) 55%, transparent); backdrop-filter: blur(22px); }
 .queue-mode { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
