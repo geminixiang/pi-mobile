@@ -173,11 +173,15 @@ export async function takeLegacyStorage(): Promise<{ storage: Storage; discard: 
 	if (!Capacitor.isNativePlatform()) return undefined;
 	const sqlite = new SQLiteConnection(CapacitorSQLite);
 	if (!(await sqlite.isDatabase(LEGACY_DATABASE)).result) return undefined;
-	const { storage, db } = await openDatabase(sqlite, LEGACY_DATABASE);
+	const { storage } = await openDatabase(sqlite, LEGACY_DATABASE);
 	return {
 		storage,
 		discard: async () => {
-			await db.delete();
+			const connection = (await sqlite.isConnection(LEGACY_DATABASE, false)).result
+				? await sqlite.retrieveConnection(LEGACY_DATABASE, false)
+				: await sqlite.createConnection(LEGACY_DATABASE, false, "no-encryption", 1, false);
+			await connection.open();
+			await connection.delete();
 			await sqlite.closeConnection(LEGACY_DATABASE, false).catch(() => undefined);
 		},
 	};

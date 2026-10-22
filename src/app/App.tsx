@@ -41,7 +41,7 @@ const LAST_BOT_KEY = "pi-mobile.lastBot";
 const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
 /** Set once the database from before bots is gone (or was never there). */
-const LEGACY_GONE_KEY = "pi-mobile.legacyGone";
+const LEGACY_DELETED_KEY = "pi-mobile.legacyDeleted";
 /** A tool's request asked while the user is away is declined when nobody answers for this long. */
 const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -138,10 +138,15 @@ export function App() {
 				// The database from before bots (v0.1.0) goes, with every old conversation; only the global MEMORY.md stays.
 				let importMemory: string | undefined;
 				// Once moved, the check (opening SQLite to look for the old file) is skipped on later starts.
-				const legacy = localStorage.getItem(LEGACY_GONE_KEY) ? undefined : await takeLegacyStorage().catch(() => undefined);
+				const legacy = localStorage.getItem(LEGACY_DELETED_KEY) ? null : await takeLegacyStorage().catch(() => null);
 				if (legacy) {
 					importMemory = await AgentRuntime.readLegacyMemory(legacy.storage).catch(() => undefined);
-					await legacy.discard().catch((error: unknown) => log.warn("storage.legacy_discard_failed", { error: String(error) }));
+					await legacy.discard().then(
+						() => localStorage.setItem(LEGACY_DELETED_KEY, "1"),
+						(error: unknown) => log.warn("storage.legacy_discard_failed", { error: String(error) }),
+					);
+				} else if (legacy === undefined) {
+					localStorage.setItem(LEGACY_DELETED_KEY, "1");
 				}
 				const { storage } = await openAppStorage();
 				setRuntime(
@@ -157,7 +162,6 @@ export function App() {
 						},
 					}),
 				);
-				localStorage.setItem(LEGACY_GONE_KEY, "1");
 				setOpenError("");
 			} catch (error) {
 				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);
