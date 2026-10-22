@@ -3,7 +3,7 @@
 
 | 資料 | 存放位置 |
 |---|---|
-| Bot、對話、記憶、執行狀態 | 手機的 SQLite（未加密，`allowBackup=false`，不會進雲端備份） |
+| Bot、對話、記憶、執行狀態 | WebView 的 IndexedDB，在 app 的私有資料夾裡（未加密，`allowBackup=false`，不會進雲端備份） |
 | 模型供應商的 API key 與 ChatGPT 登入、GitHub token、relay token、Google、Cloudflare、Azure 憑證 | Android Keystore（`capacitor-secure-storage`） |
 | GitHub token（sandbox 用） | 手機連線期間加 10 分鐘，放在 relay 的記憶體 |
 | Google、Cloudflare、Azure access token | relay 的記憶體，到期為止；長期憑證不離開手機 |

@@ -4,7 +4,7 @@
 ```
 ┌──────────────── 手機 (Capacitor WebView) ────────────────┐
 │ React UI                                                  │
-│ pi-durable harness ── SQLite（對話、執行狀態）              │
+│ pi-durable harness ── IndexedDB（對話、執行狀態）           │
 │   ├─ 模型、web_search ───── HTTPS ──▶ 模型供應商（pi-ai）   │
 │   ├─ github_api、web_fetch ─ HTTPS ──▶ 網路                 │
 │   ├─ code mode ──────────── Web Worker（QuickJS）           │
@@ -67,7 +67,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/agent/cloudflare.ts` | Cloudflare 憑證：device flow 登入、refresh token 輪替 |
 | `src/agent/azure.ts` | Azure 憑證：Microsoft device code 登入、每個資源各自換 token |
 | `src/agent/sandbox/` | `stream-connection.ts`（pi-env 的 frame 協定），`ws-connection.ts`、`ssh.ts`（WebSocket 和 SSH 兩種傳輸）、`machine.ts`、`container.ts`（SSH 機器的安裝和容器）、`sandbox.ts`（共用的 sandbox 和每個 Bot 的資料夾）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
-| `src/storage.ts` | pi-durable 的 SQLite adapter（Capacitor SQLite，WAL） |
+| `src/storage.ts` | pi-durable 的 IndexedDB 儲存，用 Web Lock 確保只有一個擁有者；只為了讀 v0.1.0 的舊資料庫保留 SQLite |
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts`、`pairing.ts` 是對應 Android 原生功能的那一層 |

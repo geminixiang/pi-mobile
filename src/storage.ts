@@ -1,7 +1,11 @@
-// Durable storage for the app: SQLite through @capacitor-community/sqlite on device, memory in a plain browser.
+// Durable storage for the app: IndexedDB, in the WebView itself. Measured against SQLite through
+// @capacitor-community/sqlite (2026-10-22, emulator): starting the app made 73 bridge calls in a row, about 2 s before
+// a conversation showed (2.1-6.2 s), against 0.6 s with IndexedDB. SQLite stays only to read the database from before
+// bots (v0.1.0; takeLegacyStorage).
 import { Capacitor } from "@capacitor/core";
 import { CapacitorSQLite, SQLiteConnection, type SQLiteDBConnection } from "@capacitor-community/sqlite";
-import { MemoryStorage, type Storage } from "@earendil-works/pi-durable";
+import type { Storage } from "@earendil-works/pi-durable";
+import { IndexedDbStorage } from "@earendil-works/pi-durable/storage/indexeddb";
 import {
 	type SqliteDatabase,
 	type SqliteExecutor,
@@ -9,9 +13,13 @@ import {
 	type SqliteValue,
 } from "@earendil-works/pi-durable/storage/sqlite";
 
-/** The bots' database. "pi-mobile" held the conversations from before bots; see takeLegacyStorage. */
+/** The bots' IndexedDB database. "pi-mobile" (SQLite) held the conversations from before bots; see takeLegacyStorage. */
 const DATABASE = "pi-mobile-bots";
 const LEGACY_DATABASE = "pi-mobile";
+/** IndexedDbStorage needs one owner: a second WebView of the app (the assistant once opened one) must not open it too. */
+const OWNER_LOCK = "pi-mobile.storage";
+/** How long a start waits for another owner to let go (a reload releases the lock as the old page goes). */
+const OWNER_WAIT_MS = 5000;
 
 /** Values cross the Capacitor bridge as JSON, so only JSON-representable bindings are supported. */
 function bind(params: SqliteValue[]): (string | number | null)[] {
@@ -158,11 +166,24 @@ async function openDatabase(sqlite: SQLiteConnection, name: string): Promise<{ s
 	return { storage: await SqliteStorage.open(database), db };
 }
 
-export async function openAppStorage(): Promise<{ storage: Storage; kind: "sqlite" | "memory" }> {
-	if (!Capacitor.isNativePlatform()) return { storage: new MemoryStorage(), kind: "memory" };
-	const sqlite = new SQLiteConnection(CapacitorSQLite);
-	await sqlite.checkConnectionsConsistency().catch(() => undefined);
-	return { storage: (await openDatabase(sqlite, DATABASE)).storage, kind: "sqlite" };
+/** Hold the owner lock for the page's life; rejects when another owner keeps it past OWNER_WAIT_MS. */
+function holdOwnerLock(): Promise<void> {
+	return new Promise((resolve, reject) => {
+		navigator.locks
+			.request(OWNER_LOCK, { signal: AbortSignal.timeout(OWNER_WAIT_MS) }, () => {
+				resolve();
+				// Never settles: the lock goes with the page.
+				return new Promise<never>(() => undefined);
+			})
+			.catch(() => reject(new Error("另一個 pi 畫面正在使用資料，請關掉它再開")));
+	});
+}
+
+export async function openAppStorage(): Promise<{ storage: Storage }> {
+	await holdOwnerLock();
+	// Best effort: the WebView answers false, and keeps the data unless the app's data is cleared.
+	void navigator.storage?.persist?.().catch(() => false);
+	return { storage: await IndexedDbStorage.open(DATABASE) };
 }
 
 /**
