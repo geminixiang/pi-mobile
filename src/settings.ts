@@ -4,6 +4,7 @@ import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
+import { log } from "./log.ts";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
@@ -84,9 +85,17 @@ function loadPlain(): PlainSettings {
 
 const secretsAsLoaded = new Map<string, string>();
 const secretsRotatedSinceLoad = new Map<string, string>();
+const unreadableSecrets = new Set<string>();
 
 async function secret(key: string): Promise<string> {
-	const value = await SecureStorage.get(key).catch(() => null);
+	let value: unknown;
+	try {
+		value = await SecureStorage.get(key);
+		unreadableSecrets.delete(key);
+	} catch (error) {
+		unreadableSecrets.add(key);
+		log.warn("settings.secret_unreadable", { key, error: error instanceof Error ? error.message : String(error) });
+	}
 	const text = typeof value === "string" ? value : "";
 	secretsAsLoaded.set(key, text);
 	secretsRotatedSinceLoad.delete(key);
@@ -192,6 +201,8 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 }
 
 async function saveSecret(key: string, value: string): Promise<void> {
+	if (!value && unreadableSecrets.has(key)) return;
+	unreadableSecrets.delete(key);
 	if (value) await SecureStorage.set(key, value);
 	else await SecureStorage.remove(key).catch(() => false);
 	secretsAsLoaded.set(key, value);
