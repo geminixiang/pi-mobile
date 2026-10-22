@@ -1,0 +1,64 @@
+// The bot folder on the phone (src/agent/files/phone-env.ts), checked end to end on a device: paths, reads and
+// writes, binary round trips, line scans, renames, and bash (just-bash in its worker): pipes, awk, jq, redirects,
+// timeouts, spilled output, and that nothing outside the folder or on the network is reachable. Makes a temporary
+// bot and deletes it with its folder.
+// Usage: CDP_PORT=<port> ./test/ui.sh "$(cat .pi/skills/device-testing/scripts/phone-folder-check.js)"
+async () => {
+	await until(() => window.piRuntime, 40000);
+	const bot = await window.piRuntime.createBot({ name: "資料夾檢查", job: "", avatar: "coder" });
+	const env = window.piRuntime.phoneFolder(bot);
+	const ctx = {};
+	const r = {};
+	const val = (x) => (x.ok ? x.value : `ERR ${x.error.code}: ${x.error.message}`);
+	const sh = async (command, options = {}) => {
+		let out = "";
+		const t = performance.now();
+		const res = await env.exec(command, { onOutput: (text) => (out += text), ...options }, ctx);
+		return { ms: Math.round(performance.now() - t), code: res.ok ? res.value.exitCode : `ERR ${res.error.code}`, out: out.slice(0, 300), ...(res.ok && res.value.spillPath ? { spill: res.value.spillPath } : {}) };
+	};
+	// Files.
+	r.abs = [val(await env.absolutePath("notes/a.md", ctx)), val(await env.absolutePath("../../etc/passwd", ctx)), val(await env.absolutePath("~/x", ctx))];
+	r.write = val(await env.writeFile("/報告/銀行比較.csv", "銀行,利率\n台銀,2.1\n", ctx));
+	r.read = val(await env.readTextFile("報告/銀行比較.csv", ctx));
+	r.append = val(await env.appendFile("/報告/銀行比較.csv", "土銀,2.0\n", ctx));
+	r.lines = val(await env.readTextLines("/報告/銀行比較.csv", undefined, ctx));
+	r.info = val(await env.fileInfo("/報告/銀行比較.csv", ctx));
+	r.missing = val(await env.readTextFile("/nope.txt", ctx));
+	r.readDir = val(await env.readTextFile("/報告", ctx));
+	r.exists = [val(await env.exists("/報告", ctx)), val(await env.exists("/nope", ctx))];
+	r.list = val(await env.listDir("/", ctx));
+	const bytes = new Uint8Array(300000).map((_, i) => i & 255);
+	r.binWrite = val(await env.writeFile("/bin.dat", bytes, ctx));
+	const back = val(await env.readBinaryFile("/bin.dat", ctx));
+	r.binRoundTrip = back.length === bytes.length && back[12345] === bytes[12345];
+	const reader = val(await env.openBinaryReader("/報告/銀行比較.csv", undefined, ctx));
+	r.scan = val(await reader.scanLines({ startLine: 1, endLine: 2 }, ctx));
+	r.slice = new TextDecoder().decode(val(await reader.read(0, 6, ctx)));
+	r.rename = val(await env.renameFile("/bin.dat", "/old/bin.dat", ctx));
+	r.mkdirRename = [val(await env.createDir("/old", { recursive: true }, ctx)), val(await env.renameFile("/bin.dat", "/old/bin.dat", ctx)), val(await env.exists("/old/bin.dat", ctx))];
+	r.canonicalMissing = val(await env.canonicalPath("/missing/x", ctx));
+	// bash.
+	r.ls = await sh("ls -R / | head -20");
+	r.awk = await sh("awk -F, 'NR>1{print $1\":\"$2}' 報告/銀行比較.csv | sort -t: -k2 -n");
+	r.redirect = await sh("echo 第一行 > memo.txt && echo 第二行 >> memo.txt && wc -l memo.txt && cat memo.txt");
+	r.jq = await sh(`echo '[{"n":"a","p":2},{"n":"b","p":5}]' > d.json && jq '[.[].p] | add' d.json`);
+	r.findGrep = await sh("find / -name '*.csv' && grep -rn 台銀 /");
+	r.date = await sh("date '+%Y-%m-%d %H:%M %Z'");
+	r.escape = await sh("cat /../../../data/data/dev.geminixiang.pimobile/files/ssh/id_ed25519.pk8; echo code=$?");
+	r.unavailable = await sh("xan count x; sqlite3; tar; python3 -c 1; echo x | html-to-markdown");
+	r.noNetwork = await sh("curl -s https://example.com; echo code=$?");
+	r.noPython = await sh("python3 -c 'print(1)'; echo code=$?");
+	r.exit = await sh("exit 3");
+	r.timeout = await sh("while true; do :; done", { timeout: 1 });
+	r.sleepTimeout = await sh("sleep 10; echo late", { timeout: 1 });
+	r.diff = await sh("printf 'a\\nb\\n' > x1 && printf 'a\\nc\\n' > x2 && diff x1 x2; rm x1 x2");
+	r.afterTimeout = await sh("echo alive");
+	const big = await sh("seq 1 5000", { spill: { afterBytes: 50 * 1024, afterLines: 2000 } });
+	r.spill = { code: big.code, spill: big.spill, head: big.out.slice(0, 20) };
+	r.spillFile = big.spill ? val(await env.readTextLines(big.spill, { maxLines: 2 }, ctx)) : undefined;
+	r.mvCp = await sh("mkdir -p a/b && echo x > a/b/c.txt && cp -r a z && mv z/b/c.txt z/c2.txt && find a z | sort");
+	r.rmTree = await sh("rm -r a z old .tmp && ls -a");
+	await window.piRuntime.removeBot(bot);
+	r.gone = val(await env.listDir("/", ctx));
+	return r;
+}
