@@ -32,7 +32,7 @@ pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。
 
 Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i <container> pi-env serve`，兩邊照搬 bytes，不解析 frame。容器第一次連線時才建立，閒置 30 分鐘後停止，檔案留在 volume 裡。
 
-**用 SSH 連機器**（設定 › 機器）：手機用自己的 Ed25519 金鑰（ConnectBot sshlib）連上 tailnet 上的 Mac 或 Linux，上傳對應架構的 `pi-env` 到 `~/.pi/env/<sha>/`，之後每個工具呼叫都走同一條 SSH 連線，主機上不用裝 relay。主機有 nerdctl、podman 或 docker 時用**容器模式**：在主機上建好 image，所有 Bot 共用容器 `pim-main`，egress proxy 透過一條 SSH exec 通道向手機要 token 和寫入核准，跟 relay 一樣，憑證只在手機上。沒有容器引擎時用**直接模式**，在 `~/pi-workspaces/<bot>` 裡以你的帳號執行，設定頁會清楚標示。設計見 [design/sandbox-ssh.md](design/sandbox-ssh.md)。
+**用 SSH 連機器**（設定 › 機器）：手機用自己的 Ed25519 金鑰（ConnectBot sshlib）連上 tailnet 上的 Mac 或 Linux，上傳對應架構的 `pi-env` 到 `~/.pi/env/<sha>/`，之後每個工具呼叫都走同一條 SSH 連線，主機上不用裝 relay。主機有 nerdctl、podman 或 docker 時用**容器模式**：在主機上建好 image，所有 Bot 共用容器 `pim-main`，egress proxy 透過一條 SSH exec 通道向手機要 token 和寫入核准，跟 relay 一樣，憑證只在手機上。沒有容器引擎（或選了「直接」）時用**直接模式**：以你的帳號從家目錄直接操作這台機器，不另開資料夾，刪 Bot 也不會刪這台機器上的檔案；設定頁會清楚標示。設計見 [design/sandbox-ssh.md](design/sandbox-ssh.md)。
 
 ### 憑證與 egress proxy
 

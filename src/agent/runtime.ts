@@ -268,7 +268,7 @@ export class AgentRuntime {
 		const sandbox = this.sandboxOf(id);
 		if (!sandbox || !folder) return undefined;
 		if (sandbox instanceof MachineSandbox) {
-			return { path: sandbox.root(folder), where: `${sandbox.machine.name} 的${sandbox.contained ? "容器" : "帳號（直接模式）"}` };
+			return { path: sandbox.root(folder), where: `${sandbox.machine.name} 的${sandbox.direct ? "帳號（直接模式）" : "容器"}` };
 		}
 		return { path: sandbox.root(folder), where: `${this.computerOf(id).name} 的容器` };
 	}
@@ -527,7 +527,8 @@ export class AgentRuntime {
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
-		await this.sandboxOf(id)?.remove(bot.folder).catch(() => undefined);
+		const sandbox = this.sandboxOf(id);
+		if (sandbox && !sandbox.direct) await sandbox.remove(bot.folder).catch(() => undefined);
 		await removePhoneFolder(bot.folder).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
 		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);

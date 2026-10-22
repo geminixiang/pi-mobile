@@ -17,6 +17,7 @@ const SNAPSHOT = new URL("./tools.snapshot.json", import.meta.url);
 const unused = () => Promise.reject(new Error("not in the interface check"));
 const sandbox: Sandbox = {
 	kind: "relay",
+	direct: false,
 	root: (folder) => folder,
 	env: unused,
 	exists: unused,

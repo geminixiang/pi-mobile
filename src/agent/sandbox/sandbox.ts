@@ -2,7 +2,8 @@
 // bots (as Grok Bot shares one computer), each bot working in its own folder there:
 // - relay: a Linux container behind the sandbox relay (sandbox/relay), credentials through its proxy;
 // - machine: one of the user's machines over SSH, in a container behind the egress proxy when an engine answers there,
-//   else as the SSH user ("trusted", docs/design/sandbox-ssh.md).
+//   else directly as the SSH user ("trusted", docs/design/sandbox-ssh.md): the bot operates the machine itself from
+//   its home directory, with no folder of its own.
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
@@ -24,12 +25,12 @@ export interface RelayConfig {
 
 /** The one sandbox's name: its container is sbx-main behind the relay, pim-main over SSH. */
 export const SHARED_SANDBOX = "main";
-/** Folders below the SSH user's home on a trusted machine. */
-const TRUSTED_BASE = "pi-workspaces";
 
 export interface Sandbox {
 	readonly kind: "relay" | "machine";
-	/** A bot's folder there: its working directory, where tool paths resolve. */
+	/** Whether the tools run on the machine itself, from its home directory: no bot folders are made or deleted there. */
+	readonly direct: boolean;
+	/** A bot's folder there (the home directory when direct): its working directory, where tool paths resolve. */
 	root(folder: string): string;
 	env(folder: string): Promise<ExecutionEnv>;
 	/** Whether the folder exists already; browsing files should not create it. */
@@ -125,6 +126,7 @@ function containerDescription(folder: string): string {
 /** The shared container behind the sandbox relay. */
 export class RelaySandbox implements Sandbox {
 	readonly kind = "relay";
+	readonly direct = false;
 	readonly #config: RelayConfig;
 	readonly #envs: SharedEnvs;
 
@@ -176,7 +178,8 @@ function systemLabel(system: MachineSystem): string {
 /**
  * One of the user's machines over SSH. With a container engine there (and not set to trusted), the shared container
  * behind the egress proxy, whose questions the phone answers: credentials stay on the phone and writes wait for
- * approval, as with the relay. Otherwise the daemon runs as the SSH user, with a folder per bot in ~/pi-workspaces.
+ * approval, as with the relay. Otherwise the daemon runs as the SSH user from its home directory, and the bot
+ * operates the machine directly.
  */
 export class MachineSandbox implements Sandbox {
 	readonly kind = "machine";
@@ -198,8 +201,8 @@ export class MachineSandbox implements Sandbox {
 			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog });
 			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => this.root(folder));
 		} else {
-			const base = `${machine.system?.home ?? "~"}/${TRUSTED_BASE}`;
-			this.#envs = new SharedEnvs(this.#link.connection(base, onLog), base, (folder) => this.root(folder));
+			const home = machine.system?.home ?? "~";
+			this.#envs = new SharedEnvs(this.#link.connection(home, onLog), home, () => home);
 		}
 	}
 
@@ -207,14 +210,13 @@ export class MachineSandbox implements Sandbox {
 		return this.#link.machine;
 	}
 
-	/** Whether the agent works in a container there rather than as the SSH user. */
-	get contained(): boolean {
-		return this.#containers !== undefined;
+	get direct(): boolean {
+		return this.#containers === undefined;
 	}
 
 	root(folder: string): string {
 		if (this.#containers) return `${WORKSPACE}/${folder}`;
-		return `${this.machine.system?.home ?? "~"}/${TRUSTED_BASE}/${folder}`;
+		return this.machine.system?.home ?? "~";
 	}
 
 	env(folder: string): Promise<ExecutionEnv> {
@@ -226,18 +228,26 @@ export class MachineSandbox implements Sandbox {
 	}
 
 	remove(folder: string): Promise<void> {
+		// Direct: the working directory is the user's home, never deleted from here.
+		if (!this.#containers) return Promise.reject(new Error("直接模式不會刪除這台機器上的檔案"));
 		return this.#envs.remove(folder);
 	}
 
 	describe(folder: string): string {
 		if (this.#containers) return containerDescription(folder);
 		const machine = this.machine;
-		const where = machine.system ? `${machine.name} (${systemLabel(machine.system)})` : machine.name;
+		const system = machine.system;
+		const where = system ? `${machine.name} (${systemLabel(system)})` : machine.name;
+		const desktop =
+			system?.os === "darwin"
+				? "`open` opens files, URLs, and apps; `osascript` drives apps and System Events; `screencapture -x /tmp/s.png` and then `read` shows the screen (it needs Screen Recording for sshd; say so if it fails)."
+				: "`xdg-open` opens files and URLs when a desktop session is running.";
 		return [
-			`read, write, edit, and bash run on ${where}, the user's own machine, as its user ${machine.user}, not the phone and not a container.`,
-			`Your folder is ~/${TRUSTED_BASE}/${folder}: the working directory, where relative paths resolve; the user can browse it. Other bots have folders next to it: read them when the user refers to another bot's work, but keep your work in yours.`,
-			"Use the tools installed there as they are; check with `command -v` before relying on one, and install into the folder (venv, node_modules) rather than system-wide.",
-			"Its git, gh, and cloud CLIs use the machine's own sign-ins, and nothing there is approved on the phone: before pushing, deploying, deleting, or changing anything outside the folder, say what you will do and wait for the user's go-ahead.",
+			`You operate ${where}, the user's own machine, directly as its user ${machine.user}: read, write, edit, and bash run there (not the phone, not a container), from the home directory ${system?.home ?? "~"}, with the user's files, apps, and sign-ins (git, gh, cloud CLIs).`,
+			"Work wherever on the machine the task needs, as the user would at its keyboard; find things with ls, find, and mdfind or locate rather than asking where they are.",
+			desktop,
+			"Use the tools installed there; check with `command -v` before relying on one. Keep scratch files in a temp directory, not in home.",
+			"Nothing there is approved on the phone: before deleting or overwriting the user's files, sudo, installing system-wide, pushing, deploying, or changing settings, say what you will do and wait for the user's go-ahead.",
 			IMAGES,
 		].join(" ");
 	}
@@ -258,6 +268,7 @@ export function createSandboxExtension(sandboxOf: (conversationId: string) => Sa
 				const folder = folderOf(String(input.conversationId));
 				const sandbox = sandboxOf(String(input.conversationId));
 				if (!folder || !sandbox) return undefined;
+				if (sandbox.direct) return sandbox.describe(folder);
 				// Folders are named by id, so say whose the others are.
 				const others = ((await input.read.snapshot(BotIndex, context))?.items ?? []).filter((bot) => bot.folder !== folder);
 				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";

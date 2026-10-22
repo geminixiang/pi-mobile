@@ -61,7 +61,8 @@ A machine not connected yet refuses sessions with a message that says so; the ag
 - **Container** (default when an engine answers): one container per conversation, `<engine> exec -i <container>
   pi-env serve`, the daemon copied in once. Same limits and idle stop as the relay does today, done by the phone over
   SSH instead of a resident relay.
-- **Trusted** (no engine, or chosen): the daemon runs as the SSH user in `~/pi-workspaces/<conversation>`. The app
+- **Trusted** (直接; no engine, or chosen): the daemon runs as the SSH user from its home directory, and the bot
+  operates the machine itself, anywhere on it, with no folder of its own (nothing is deleted there with a bot). The app
   says plainly that the agent uses the machine's own sign-ins there and its writes are not approved on the phone, and
   suggests a dedicated user account.
 

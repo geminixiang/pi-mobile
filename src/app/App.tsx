@@ -534,7 +534,7 @@ export function App() {
 								if (sure) await controller.reset().catch(fail);
 							},
 							workspace: onSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
-							emptyFolder: onSandbox
+							emptyFolder: controller && onSandbox && !runtime.sandboxOf(controller.id)?.direct
 								? async () => {
 										if (!controller) return;
 										const sure = await ask({
