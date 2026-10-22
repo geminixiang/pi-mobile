@@ -167,8 +167,11 @@ async function openDatabase(sqlite: SQLiteConnection, name: string): Promise<{ s
 }
 
 /** Hold the owner lock for the page's life; rejects when another owner keeps it past OWNER_WAIT_MS. */
+/** Held from the first open until the page goes: a later open in the same page (settings restart the runtime) has it. */
+let ownerLock: Promise<void> | undefined;
+
 function holdOwnerLock(): Promise<void> {
-	return new Promise((resolve, reject) => {
+	ownerLock ??= new Promise<void>((resolve, reject) => {
 		navigator.locks
 			.request(OWNER_LOCK, { signal: AbortSignal.timeout(OWNER_WAIT_MS) }, () => {
 				resolve();
@@ -177,6 +180,10 @@ function holdOwnerLock(): Promise<void> {
 			})
 			.catch(() => reject(new Error("另一個 pi 畫面正在使用資料，請關掉它再開")));
 	});
+	ownerLock.catch(() => {
+		ownerLock = undefined;
+	});
+	return ownerLock;
 }
 
 /** The app's storage. `fresh` when the database did not exist: the bots' other data (bot-data.ts) is then from one that is gone. */
