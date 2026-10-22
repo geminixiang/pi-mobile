@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-TW">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>版本工作區 PoC</title>
+<h1>版本工作區 PoC</h1>
+<p>獨立測試資料庫，不讀寫對話或記憶。按兩次可驗證跨連線保留的歷史。</p>
+<button id="run">執行分支與衝突示範</button>
+<pre id="output" aria-live="polite"></pre>
+<script type="module">
+import { VersionedWorkspaceStore } from '/src/experimental/versioned-workspace.ts';
+const output = document.querySelector('#output');
+const button = document.querySelector('#run');
+button.onclick = async () => {
+  button.disabled = true;
+  let store;
+  try {
+    store = await VersionedWorkspaceStore.open();
+    const before = await store.head();
+    const suffix = crypto.randomUUID();
+    const a = `a-${suffix}`, b = `b-${suffix}`;
+    await store.workspace(a);
+    await store.workspace(b);
+    await store.write(a, '/demo.md', `方案 A ${suffix}`);
+    await store.write(b, '/demo.md', `方案 B ${suffix}`);
+    const after = await store.commit(a, 'main', `commit-${suffix}`);
+    let conflict;
+    try { await store.commit(b, 'main', `conflict-${suffix}`); }
+    catch (error) { conflict = error.message; }
+    output.textContent = JSON.stringify({
+      原版本: before, 新版本: after,
+      變更路徑: await store.diff(before, after),
+      衝突: conflict, 未提交方案仍保留: await store.read(b, '/demo.md'),
+    }, null, 2);
+  } catch (error) { output.textContent = String(error); }
+  finally { store?.close(); button.disabled = false; }
+};
+</script>
+</html>
