@@ -106,7 +106,7 @@ const openMaps = defineAppTool({
 });
 
 /** Schemes that reach into the app itself or the file system rather than another app. */
-const BLOCKED_SCHEMES = new Set(["intent", "file", "content", "javascript", "data", "about", "blob", "android-app"]);
+const BLOCKED_SCHEMES = new Set(["intent", "file", "content", "javascript", "data", "about", "blob", "android-app", "pimobile", "dev.geminixiang.pimobile"]);
 
 const openLink = defineAppTool({
 	name: "open_link",
