@@ -115,7 +115,7 @@ function cloudTool(service: CloudService) {
 }
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-const GOOGLE_READ_VERB = /:(list|search|get|batchGet|getIamPolicy|testIamPermissions|lookup|aggregatedList|fetch\w*)$/;
+const GOOGLE_READ_VERB = /:(list|search|get|batchGet|getIamPolicy|testIamPermissions|lookup|aggregatedList)$/;
 const AZURE_READ_POST = /(\/providers\/Microsoft\.ResourceGraph\/resources|\/checkNameAvailability)$/i;
 const AZURE_SCOPES: readonly [RegExp, string][] = [
 	[/^management\.azure\.com$/, "https://management.core.windows.net//.default"],

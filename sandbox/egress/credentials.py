@@ -41,7 +41,7 @@ READ_CACHE_SECONDS = 30
 APPROVAL_TIMEOUT_SECONDS = 330
 GOOGLE_HOST = re.compile(r"^[a-z0-9.-]+\.googleapis\.com$")
 # POST methods that only read (List, Search, Get, IAM checks); everything else that is not GET/HEAD is a write.
-GOOGLE_READ_VERB = re.compile(r":(list|search|get|batchGet|getIamPolicy|testIamPermissions|lookup|aggregatedList|fetch\w*)$")
+GOOGLE_READ_VERB = re.compile(r":(list|search|get|batchGet|getIamPolicy|testIamPermissions|lookup|aggregatedList)$")
 GRAPHQL_STRINGS_AND_COMMENTS = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|#[^\n]*')
 MUTATION = re.compile(r"\bmutation\b")
 
