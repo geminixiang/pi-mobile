@@ -113,14 +113,15 @@ function contentText(content: unknown): string {
 
 /**
  * Where web_search runs: the provider's own search, OpenAI's Responses web_search or Anthropic's server tool. A custom
- * endpoint first (a gateway usually serves both), else OpenAI, else Anthropic; none disables it.
+ * endpoint first (a gateway usually serves both), else OpenAI, else Anthropic, with a key; none disables it.
  */
 function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
 	const custom = configs.find((config) => config.kind === "custom");
 	if (custom?.kind === "custom") return { baseUrl: custom.baseUrl, apiKey: keys[custom.id] ?? "", modelIds: lists[custom.id] ?? [] };
 	const ids = (provider: string) => infos.filter((info) => info.provider === provider).map((info) => info.id);
-	if (configs.some((config) => config.id === "openai")) return { baseUrl: "https://api.openai.com", apiKey: keys.openai ?? "", modelIds: ids("openai") };
-	if (configs.some((config) => config.id === "anthropic")) return { baseUrl: "https://api.anthropic.com", apiKey: keys.anthropic ?? "", modelIds: ids("anthropic") };
+	const keyed = (provider: string) => configs.some((config) => config.id === provider) && Boolean(keys[provider]);
+	if (keyed("openai")) return { baseUrl: "https://api.openai.com", apiKey: keys.openai ?? "", modelIds: ids("openai") };
+	if (keyed("anthropic")) return { baseUrl: "https://api.anthropic.com", apiKey: keys.anthropic ?? "", modelIds: ids("anthropic") };
 	return { baseUrl: "", apiKey: "", modelIds: [] };
 }
 
@@ -314,14 +315,14 @@ export class AgentRuntime {
 				options.onReport?.(`model list unavailable: ${error instanceof Error ? error.message : String(error)}`);
 				return {};
 			}),
-			// Built-in providers, each its own chunk with its catalog. Signed in with ChatGPT and no key, OpenAI offers only
-			// the models the subscription may use.
+			// Built-in providers, each its own chunk with its catalog. Signed in with ChatGPT, OpenAI offers only the models
+			// the subscription may use.
 			Promise.all(
 				configs.map(async (config) => {
 					if (config.kind !== "builtin") return undefined;
 					const provider = await builtinInfo(config.id)?.load();
 					const signIn = parseOAuthCredential(settings.providerOAuth[config.id] ?? "");
-					if (!provider || !signIn || settings.providerKeys[config.id]) return provider;
+					if (!provider || !signIn) return provider;
 					const allowed = await chatgptModelsCached(signIn);
 					return allowed ? withOnlyModels(provider, allowed) : provider;
 				}),
