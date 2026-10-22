@@ -102,7 +102,6 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 						</div>
 					</section>
 				))}
-				<p className="hint">都在手機上試過可以連。</p>
 			</div>
 		</Sheet>
 	);
@@ -139,10 +138,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 			{runtime ? (
 				<>
 					<div className="check-row">
-						<span className="menu-text">
-							瀏覽服務
-							<span className="menu-hint">Notion、Linear、Todoist……</span>
-						</span>
+						<span className="menu-text">瀏覽服務</span>
 						<button type="button" className="btn" onClick={() => setBrowsing(true)}>
 							瀏覽
 						</button>

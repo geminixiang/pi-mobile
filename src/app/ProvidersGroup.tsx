@@ -67,10 +67,7 @@ function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: re
 				</button>
 				{available.map((info) => (
 					<button type="button" key={info.id} onClick={() => onAdd({ kind: "builtin", id: info.id })}>
-						<span className="menu-text">
-							{info.name}
-							<span className="menu-hint">{info.chatgpt ? "用 API key，或用 ChatGPT 登入" : "用 API key"}</span>
-						</span>
+						<span className="menu-text">{info.name}</span>
 					</button>
 				))}
 			</div>

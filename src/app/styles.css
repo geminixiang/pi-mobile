@@ -470,8 +470,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .send:active { background: var(--accent-soft); }
 .send:disabled { color: var(--faint); opacity: 1; }
 .send.stop { color: var(--text); }
-.busy-actions { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-top: 1px solid var(--line); }
-.busy-hint { flex: 1; font-size: 12.5px; color: var(--muted); }
+.busy-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 8px 8px 12px; border-top: 1px solid var(--line); }
 .busy-actions .btn { height: 32px; }
 .pending-images { display: flex; gap: 8px; padding: 10px 10px 2px; overflow-x: auto; }
 .pending-files { display: flex; flex-direction: column; gap: 6px; padding: 10px 10px 2px; }

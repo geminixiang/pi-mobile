@@ -601,10 +601,7 @@ function DatabaseGroup() {
 				))
 			)}
 			<div className="check-row">
-				<span className="menu-text">
-					匯出
-					<span className="menu-hint">SQLite .db 檔</span>
-				</span>
+				<span className="menu-text">匯出</span>
 				<button type="button" className="btn" onClick={() => void Database.export().catch((error: unknown) => showToast(`匯出失敗：${error instanceof Error ? error.message : String(error)}`))}>
 					匯出
 				</button>
@@ -705,7 +702,7 @@ export function SettingsView({
 				<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={change} />
 			</Group>
 			{onCancel ? (
-				<Group title="自動壓縮" hint="對話超過門檻時，較早的部分會壓縮成摘要。">
+				<Group title="自動壓縮">
 					<label>
 						<span>門檻</span>
 						<select className="field" value={settings.compactAt} onChange={(event) => change({ compactAt: Number(event.target.value) })}>

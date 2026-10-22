@@ -288,17 +288,11 @@ export function Composer({
 								}}
 							>
 								<FileIcon size={18} />
-								<span className="menu-text">
-									照片或檔案
-									<span className="menu-hint">PDF、Word、Excel、CSV、文字</span>
-								</span>
+								<span className="menu-text">照片或檔案</span>
 							</button>
 							<button type="button" onClick={() => void scanDocument()}>
 								<ScanIcon />
-								<span className="menu-text">
-									掃描文件
-									<span className="menu-hint">拍紙本，自動裁切成 PDF</span>
-								</span>
+								<span className="menu-text">掃描文件</span>
 							</button>
 						</div>
 					</Sheet>
@@ -337,7 +331,6 @@ export function Composer({
 				</div>
 				{busy && hasInput ? (
 					<div className="busy-actions">
-						<span className="busy-hint">pi 還在工作：</span>
 						<button type="button" className="btn primary" disabled={reading} onClick={() => send("steer")}>
 							插話
 						</button>
