@@ -205,7 +205,7 @@ export function createWebExtension(config: WebConfig) {
 			url: Type.String({ description: "http:// or https:// URL of the page or file" }),
 			render: Type.Optional(
 				Type.Boolean({
-					description: "Load the page in a browser and run its scripts first; takes seconds. For pages whose text lacks what they should show (numbers, a table, a list). Pages with almost no text are rendered anyway.",
+					description: "Rarely needed: a page with almost no text is rendered anyway. Only after a fetch whose text lacked what the page should show (numbers, a table, a list): load it in a browser and run its scripts, which takes seconds.",
 				}),
 			),
 			save_to: Type.Optional(Type.String({ description: "Path in your folder to download the file to, e.g. rates.pdf; then read or share it" })),
