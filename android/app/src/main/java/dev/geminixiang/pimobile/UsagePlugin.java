@@ -17,8 +17,10 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Screen time: how long each app was in front between two times, from UsageStatsManager's events (resumed to paused),
@@ -64,6 +66,7 @@ public class UsagePlugin extends Plugin {
         UsageEvents events = getContext().getSystemService(UsageStatsManager.class).queryEvents(from, to);
         Map<String, Long> started = new HashMap<>();
         Map<String, Long> total = new HashMap<>();
+        Set<String> seen = new HashSet<>();
         int unlocks = 0;
         UsageEvents.Event event = new UsageEvents.Event();
         while (events.hasNextEvent()) {
@@ -71,11 +74,14 @@ public class UsagePlugin extends Plugin {
             String pkg = event.getPackageName();
             switch (event.getEventType()) {
                 case UsageEvents.Event.ACTIVITY_RESUMED:
+                    seen.add(pkg);
                     started.putIfAbsent(pkg, event.getTimeStamp());
                     break;
                 case UsageEvents.Event.ACTIVITY_PAUSED:
                 case UsageEvents.Event.ACTIVITY_STOPPED: {
                     Long start = started.remove(pkg);
+                    boolean inFrontAtFrom = start == null && seen.add(pkg) && from > 0;
+                    if (inFrontAtFrom) start = from;
                     if (start != null) total.merge(pkg, event.getTimeStamp() - start, Long::sum);
                     break;
                 }
