@@ -5,10 +5,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Base64;
+import android.util.Log;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
-import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -62,9 +62,6 @@ public class ScannerPlugin extends Plugin {
                 JSObject answer = new JSObject();
                 answer.put("pdf", pdf.getAbsolutePath());
                 answer.put("pages", scan.getPdf().getPageCount());
-                JSArray pages = new JSArray();
-                if (scan.getPages() != null) for (GmsDocumentScanningResult.Page page : scan.getPages()) pages.put(copy(page.getImageUri(), ".jpg").getAbsolutePath());
-                answer.put("images", pages);
                 call.resolve(answer);
             } catch (IOException error) {
                 call.reject("could not keep the scan", error);
@@ -72,9 +69,9 @@ public class ScannerPlugin extends Plugin {
         });
     }
 
-    /** The scan's files into the inbox, which the web side reads through Capacitor's file server. */
+    /** The scan into its own folder, which the web side reads through Capacitor's file server. */
     private File copy(Uri uri, String suffix) throws IOException {
-        File target = new File(TriggerStore.inbox(getContext()), UUID.randomUUID() + suffix);
+        File target = new File(emptyScansFolder(), UUID.randomUUID() + suffix);
         try (InputStream in = getContext().getContentResolver().openInputStream(uri); OutputStream out = new FileOutputStream(target)) {
             if (in == null) throw new IOException("no data at " + uri);
             byte[] buffer = new byte[64 * 1024];
@@ -84,7 +81,15 @@ public class ScannerPlugin extends Plugin {
         return target;
     }
 
-    /** Open the document scanner; resolves {pdf, pages, images} (paths), or rejects "cancelled". Only with pi in front. */
+    private File emptyScansFolder() throws IOException {
+        File folder = new File(getContext().getFilesDir(), "scans");
+        File[] old = folder.listFiles();
+        if (old != null) for (File file : old) if (!file.delete()) Log.w("PiScanner", "could not delete " + file);
+        if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("could not create " + folder);
+        return folder;
+    }
+
+    /** Open the document scanner; resolves {pdf, pages} (pdf is a path), or rejects "cancelled". Only with pi in front. */
     @PluginMethod
     public void scan(PluginCall call) {
         if (!TriggersPlugin.inFront(getActivity())) {
@@ -94,7 +99,7 @@ public class ScannerPlugin extends Plugin {
         GmsDocumentScannerOptions options = new GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(true)
             .setPageLimit(call.getInt("pages", 20))
-            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF, GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF)
             .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
             .build();
         GmsDocumentScanner scanner = GmsDocumentScanning.getClient(options);

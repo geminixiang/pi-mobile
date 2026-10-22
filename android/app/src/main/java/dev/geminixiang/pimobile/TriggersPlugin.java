@@ -365,30 +365,35 @@ public class TriggersPlugin extends Plugin {
         if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
         // Mark it handled: the activity keeps its launch intent, and load() must not take it again.
         intent.setAction(Intent.ACTION_MAIN);
-        JSONObject event = new JSONObject();
-        try {
-            event.put("kind", "share");
-            String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-            String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-            if (text != null) event.put("text", text);
-            if (subject != null) event.put("subject", subject);
-            JSONArray files = new JSONArray();
-            for (Uri stream : sharedStreams(intent)) {
-                File copy = copyShared(stream);
-                if (copy == null) continue;
-                String type = getContext().getContentResolver().getType(stream);
-                JSONObject file = new JSONObject();
-                file.put("path", copy.getAbsolutePath());
-                file.put("name", displayName(stream));
-                file.put("mimeType", type != null ? type : intent.getType() != null ? intent.getType() : "");
-                files.put(file);
+        if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
+        String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+        String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+        String sharedType = intent.getType();
+        List<Uri> streams = sharedStreams(intent);
+        new Thread(() -> {
+            JSONObject event = new JSONObject();
+            try {
+                event.put("kind", "share");
+                if (text != null) event.put("text", text);
+                if (subject != null) event.put("subject", subject);
+                JSONArray files = new JSONArray();
+                for (Uri stream : streams) {
+                    File copy = copyShared(stream);
+                    if (copy == null) continue;
+                    String type = getContext().getContentResolver().getType(stream);
+                    JSONObject file = new JSONObject();
+                    file.put("path", copy.getAbsolutePath());
+                    file.put("name", displayName(stream));
+                    file.put("mimeType", type != null ? type : sharedType != null ? sharedType : "");
+                    files.put(file);
+                }
+                if (files.length() > 0) event.put("files", files);
+            } catch (JSONException ignored) {
+                // String keys always fit.
             }
-            if (files.length() > 0) event.put("files", files);
-        } catch (JSONException ignored) {
-            // String keys always fit.
-        }
-        TriggerStore.enqueue(getContext(), event);
-        notifyListeners("event", new JSObject(), true);
+            TriggerStore.enqueue(getContext(), event);
+            notifyListeners("event", new JSObject(), true);
+        }).start();
     }
 
     @SuppressWarnings("deprecation")
@@ -422,21 +427,27 @@ public class TriggersPlugin extends Plugin {
     private File copyShared(Uri uri) {
         ContentResolver resolver = getContext().getContentResolver();
         File target = new File(TriggerStore.inbox(getContext()), UUID.randomUUID().toString());
-        try (InputStream input = resolver.openInputStream(uri); OutputStream output = new FileOutputStream(target)) {
+        try (InputStream input = resolver.openInputStream(uri)) {
             if (input == null) return null;
-            byte[] buffer = new byte[64 * 1024];
-            long total = 0;
-            int count;
-            while ((count = input.read(buffer)) > 0) {
-                total += count;
-                if (total > MAX_SHARED_BYTES) throw new IOException("shared file is larger than " + MAX_SHARED_BYTES + " bytes");
-                output.write(buffer, 0, count);
+            try (OutputStream output = new FileOutputStream(target)) {
+                copyLimited(input, output);
             }
             return target;
         } catch (IOException | SecurityException error) {
             Log.w(TAG, "could not copy the shared file", error);
             if (target.exists() && !target.delete()) Log.w(TAG, "could not delete " + target);
             return null;
+        }
+    }
+
+    private static void copyLimited(InputStream input, OutputStream output) throws IOException {
+        byte[] buffer = new byte[64 * 1024];
+        long total = 0;
+        int count;
+        while ((count = input.read(buffer)) > 0) {
+            total += count;
+            if (total > MAX_SHARED_BYTES) throw new IOException("shared file is larger than " + MAX_SHARED_BYTES + " bytes");
+            output.write(buffer, 0, count);
         }
     }
 }
