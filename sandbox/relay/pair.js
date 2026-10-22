@@ -1,5 +1,5 @@
 // Print the pairing link for pi mobile, as text and as a QR code. Scanning it with the phone's camera opens the app,
-// which asks before saving the sandbox host. Run with the relay's env: node --env-file=~/.config/pi-sandbox/env pair.mjs
+// which asks before saving the sandbox host. Run with the relay's env: node --env-file=~/.config/pi-sandbox/env pair.js
 import { hostname } from "node:os";
 import QRCode from "qrcode";
 

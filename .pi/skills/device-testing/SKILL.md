@@ -12,7 +12,7 @@ from `CDP_PORT` (default 9333).
 
 ## Devices
 
-- **Phone**: real measurements and real data. Approvals are always declined (`ask.mjs --decline`); calendar writes go
+- **Phone**: real measurements and real data. Approvals are always declined (`ask.js --decline`); calendar writes go
   only to the test calendar the user named; it may be locked or in use by another agent, so ask before using it.
 - **Emulator** (`emulator-5554`): anything destructive, alarms and timers, root, filling the disk. Its numbers are
   not the phone's: measure on the phone before deciding on speed.
@@ -25,11 +25,11 @@ from `CDP_PORT` (default 9333).
 | Script | What it does |
 |---|---|
 | `forward.sh <serial> [port]` | Point the port at pi's DevTools socket. Needed again after a reinstall, restart, force stop, or `adb root`/`unroot`: the socket name carries the pid. |
-| `find-adb-port.mjs <phone ip>` | Find the phone's wireless debugging port after it changed. |
-| `ask.mjs "<question>" [--decline]` | Ask the open bot in natural words; prints tools called, approval dialogs, answer, seconds. Needs `CDP_PORT`. |
-| `inject.mjs <port> [--gesture] <file.js>…` | Evaluate files in the page; for probes with a bundled library, or APIs that need a user gesture. |
-| `startup-trace.mjs <port> [--log]` | Reload and time the start: when the transcript showed, and each native plugin call before it. |
-| `resume-trace.mjs <port> <serial> <seconds away> [out]` | Leave pi (HOME, or `AWAY_APP=<package>`) and come back, tracing; `resume-analyze.mjs <out> [ms]` lists the long tasks. |
+| `find-adb-port.js <phone ip>` | Find the phone's wireless debugging port after it changed. |
+| `ask.js "<question>" [--decline]` | Ask the open bot in natural words; prints tools called, approval dialogs, answer, seconds. Needs `CDP_PORT`. |
+| `inject.js <port> [--gesture] <file.js>…` | Evaluate files in the page; for probes with a bundled library, or APIs that need a user gesture. |
+| `startup-trace.js <port> [--log]` | Reload and time the start: when the transcript showed, and each native plugin call before it. |
+| `resume-trace.js <port> <serial> <seconds away> [out]` | Leave pi (HOME, or `AWAY_APP=<package>`) and come back, tracing; `resume-analyze.js <out> [ms]` lists the long tasks. |
 | `toolset-cost.sh <port> <toolset id>` | Prompt tokens one toolset adds to a short request. Every toolset at once: `test/tool-cost.sh`. |
 | `phone-folder-check.js` | The bot folder on the phone and its bash, end to end: `CDP_PORT=<port> ./test/ui.sh "$(cat <it>)"`. |
 | `storage-durability.sh <emulator> <port> [apk]` | Whether OPFS and IndexedDB survive a force stop, cache trims, an update, and a nearly full disk. Emulator only. |

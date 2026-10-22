@@ -1,13 +1,13 @@
 // Leave pi for a while, come back, and trace what the WebView does in the first seconds back: a Chrome trace of the
-// whole time (open it in chrome://tracing, or read it with resume-analyze.mjs), and from the page the frame gaps,
+// whole time (open it in chrome://tracing, or read it with resume-analyze.js), and from the page the frame gaps,
 // long tasks, and resize/visibility events after it became visible. Leaves with HOME, or into another app with
 // AWAY_APP=<package> (it opens a web page there, e.g. AWAY_APP=com.android.chrome).
-// Usage: node resume-trace.mjs <port> <adb serial> <seconds away> [out.json]
+// Usage: node resume-trace.js <port> <adb serial> <seconds away> [out.json]
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
 const [port, serial, away = "60", out = "/tmp/resume-trace.json"] = process.argv.slice(2);
-if (!port || !serial) throw new Error("usage: node resume-trace.mjs <port> <adb serial> <seconds away> [out.json]");
+if (!port || !serial) throw new Error("usage: node resume-trace.js <port> <adb serial> <seconds away> [out.json]");
 const ADB = `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const adb = (...args) => execFileSync(ADB, ["-s", serial, ...args]).toString();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

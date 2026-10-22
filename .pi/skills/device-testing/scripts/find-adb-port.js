@@ -1,9 +1,9 @@
 // Find a phone's wireless debugging port, which changes whenever wireless debugging restarts: scan 30000-65000.
-// Usage: node find-adb-port.mjs <phone ip>, then: adb connect <ip>:<port>
+// Usage: node find-adb-port.js <phone ip>, then: adb connect <ip>:<port>
 import net from "node:net";
 
 const host = process.argv[2];
-if (!host) throw new Error("usage: node find-adb-port.mjs <phone ip>");
+if (!host) throw new Error("usage: node find-adb-port.js <phone ip>");
 const open = [];
 const probe = (port) =>
 	new Promise((resolve) => {

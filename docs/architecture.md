@@ -14,7 +14,7 @@
 └──────────────────────────────────────────┼───────────────────┘
                                            │ Tailscale
 ┌───────── Sandbox 主機（Mac：colima VM；Linux：rootless Docker）┐
-│ relay (server.mjs) ◀─────────────────────┘                   │
+│ relay (server.js) ◀─────────────────────┘                   │
 │   ├─ docker exec ─▶ sbx-main：pi-env serve，/workspace/<bot>   │
 │   └─ /egress/authorize ◀── pi-egress（mitmproxy）              │
 │                    只攔 GitHub、Google、Cloudflare、Azure， │

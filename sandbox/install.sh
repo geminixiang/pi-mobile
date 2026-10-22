@@ -22,7 +22,7 @@ mkdir -p "$DIR/image" "$DIR/egress" "$DIR/relay" "$CONFIG"
 cp "$SRC/Dockerfile" "$DIR/image/Dockerfile"
 cp "$SRC/pi-env" "$DIR/image/pi-env" 2>/dev/null || cp "$SRC/../node_modules/@earendil-works/pi-env/bin/pi-env-linux-arm64/pi-env" "$DIR/image/pi-env"
 cp "$SRC/egress/Dockerfile" "$SRC/egress/credentials.py" "$SRC/egress/bridge.py" "$DIR/egress/"
-cp "$SRC/relay/server.mjs" "$SRC/relay/pair.mjs" "$SRC/relay/package.json" "$DIR/relay/"
+cp "$SRC/relay/server.js" "$SRC/relay/pair.js" "$SRC/relay/package.json" "$DIR/relay/"
 
 if [ "$OS" = Darwin ]; then
 	PROFILE=pi-sandbox
@@ -64,7 +64,7 @@ if [ "$OS" = Darwin ]; then
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/sh</string><string>-c</string>
-		<string>PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH; colima status -p pi-sandbox >/dev/null 2>&amp;1 || colima start -p pi-sandbox; exec "$NODE" --env-file="$ENV_FILE" "$DIR/relay/server.mjs"</string>
+		<string>PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH; colima status -p pi-sandbox >/dev/null 2>&amp;1 || colima start -p pi-sandbox; exec "$NODE" --env-file="$ENV_FILE" "$DIR/relay/server.js"</string>
 	</array>
 	<key>WorkingDirectory</key><string>$DIR/relay</string>
 	<key>RunAtLoad</key><true/>
@@ -87,7 +87,7 @@ After=docker.service
 
 [Service]
 WorkingDirectory=$DIR/relay
-ExecStart=$NODE --env-file=$ENV_FILE $DIR/relay/server.mjs
+ExecStart=$NODE --env-file=$ENV_FILE $DIR/relay/server.js
 Restart=always
 RestartSec=3
 
@@ -107,4 +107,4 @@ for _ in $(seq 1 30); do
 done
 curl -fs "http://$RELAY_HOST:$RELAY_PORT/health" >/dev/null || { echo "The relay did not start; see its log."; exit 1; }
 
-"$NODE" --env-file="$ENV_FILE" "$DIR/relay/pair.mjs"
+"$NODE" --env-file="$ENV_FILE" "$DIR/relay/pair.js"

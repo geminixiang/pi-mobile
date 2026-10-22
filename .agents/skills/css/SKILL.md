@@ -6,7 +6,7 @@ description: Rules for pi mobile's CSS (src/app/styles.css, src/app/index.css). 
 # CSS in pi mobile
 
 The stylesheet is plain CSS: `src/app/index.css` (entry, unlayered overrides) imports `src/app/styles.css` into the
-`app` cascade layer. `npm run check` runs Stylelint (`stylelint.config.mjs`); a change is not done until it passes.
+`app` cascade layer. `npm run check` runs Stylelint (`stylelint.config.js`); a change is not done until it passes.
 
 Partly adapted from the Front-End Checklist's `specificity-management` and `styles-lint` skills (MIT,
 https://github.com/thedaviddias/Front-End-Checklist), with this project's own rules from its bugs.
@@ -69,7 +69,7 @@ compositor without repainting the element or laying out the page. Everything els
 - Measure a new animation on the S24 before and after (frames over 25 ms, as `test/jank.sh` and the recorders in the
   perf commits do), and change one thing at a time: two changes measured together cannot tell which one helped.
 
-`pi-mobile/keyframes-compositor-only` (`stylelint/keyframes-compositor-only.mjs`) enforces the `@keyframes` part in
+`pi-mobile/keyframes-compositor-only` (`stylelint/keyframes-compositor-only.js`) enforces the `@keyframes` part in
 `npm run check`: opacity and transform, plus `box-shadow`, `background-color`, `color`, and `visibility`.
 
 ## 5. Other rules

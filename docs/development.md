@@ -55,7 +55,7 @@ sandbox/install.sh
 再跑一次 `install.sh` 就是更新，token 會保留，不用重新配對。之後要再印一次配對碼：
 
 ```sh
-node --env-file=$HOME/.config/pi-sandbox/env ~/pi-sandbox/relay/pair.mjs
+node --env-file=$HOME/.config/pi-sandbox/env ~/pi-sandbox/relay/pair.js
 ```
 
 從別台電腦安裝到遠端 Linux 主機：`sandbox/deploy.sh <ssh 目標>`，它會把 `sandbox/` 和 pi-env 複製過去再執行 `install.sh`。

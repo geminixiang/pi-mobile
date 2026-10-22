@@ -1,6 +1,6 @@
-// Main-thread work around the return in a resume-trace.mjs trace: top-level tasks over a threshold (ms from the last
+// Main-thread work around the return in a resume-trace.js trace: top-level tasks over a threshold (ms from the last
 // visibilitychange), each with what took its time, then when the first frames were drawn.
-// Usage: node resume-analyze.mjs trace.json [min ms, default 8]
+// Usage: node resume-analyze.js trace.json [min ms, default 8]
 import { readFileSync } from "node:fs";
 const [file, minMs = "8"] = process.argv.slice(2);
 const { traceEvents: ev } = JSON.parse(readFileSync(file, "utf8"));

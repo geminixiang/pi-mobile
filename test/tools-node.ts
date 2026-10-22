@@ -2,8 +2,8 @@
 // present), against the conventions in docs/tools.md § 介面規範 and against test/tools.snapshot.json, so a change to a
 // tool's name, parameters, or output schema is deliberate. Run by `npm run check`.
 //
-//   node --import ./test/vite-imports.mjs test/tools-node.ts            check
-//   node --import ./test/vite-imports.mjs test/tools-node.ts --update   accept the current interface into the snapshot
+//   node --import ./test/vite-imports.js test/tools-node.ts            check
+//   node --import ./test/vite-imports.js test/tools-node.ts --update   accept the current interface into the snapshot
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";

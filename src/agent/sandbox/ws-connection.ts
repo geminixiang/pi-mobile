@@ -1,5 +1,5 @@
 // The sandbox relay's transport: a WebSocket to /env/<sandbox>, where the relay runs `pi-env serve` in the
-// conversation's container and copies bytes both ways (sandbox/relay/server.mjs).
+// conversation's container and copies bytes both ways (sandbox/relay/server.js).
 import { lost, type StreamConnectionOptions, StreamConnection } from "./stream-connection.ts";
 
 export interface WebSocketConnectionOptions {

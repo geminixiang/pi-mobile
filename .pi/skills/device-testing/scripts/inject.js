@@ -3,13 +3,13 @@
 //   npx esbuild entry.ts --bundle --format=iife --platform=browser --outfile=/tmp/lib.js
 // where entry.ts puts what the probe needs on globalThis. Add --gesture to run with a user gesture (file and save
 // pickers, Contact Picker, and other APIs that require one).
-// Usage: node inject.mjs <port> [--gesture] <file.js> [more.js ...]
+// Usage: node inject.js <port> [--gesture] <file.js> [more.js ...]
 import { readFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const port = args.shift();
 const userGesture = args[0] === "--gesture" ? Boolean(args.shift()) : false;
-if (!port || args.length === 0) throw new Error("usage: node inject.mjs <port> [--gesture] <file.js> [more.js ...]");
+if (!port || args.length === 0) throw new Error("usage: node inject.js <port> [--gesture] <file.js> [more.js ...]");
 const expression = args.map((file) => readFileSync(file, "utf8")).join("\n;\n");
 const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const ws = new WebSocket(pages.find((page) => page.type === "page").webSocketDebuggerUrl);

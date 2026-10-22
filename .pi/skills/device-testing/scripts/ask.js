@@ -1,11 +1,11 @@
 // Ask the open bot something in natural words, as a user would; print the tools it called, the approval dialogs,
 // the answer, and the seconds it took. With --decline, every approval dialog is declined.
-// Usage: CDP_PORT=<port> node ask.mjs "<question>" [--decline]
+// Usage: CDP_PORT=<port> node ask.js "<question>" [--decline]
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const question = process.argv[2];
-if (!question) throw new Error('usage: CDP_PORT=<port> node ask.mjs "<question>" [--decline]');
+if (!question) throw new Error('usage: CDP_PORT=<port> node ask.js "<question>" [--decline]');
 const decline = process.argv.includes("--decline");
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const script = `async () => {

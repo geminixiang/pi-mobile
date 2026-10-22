@@ -1,9 +1,9 @@
 // Reload the app and time its start: when the open conversation's transcript showed (ms from navigation start), and
 // every native plugin call made until then, by plugin and method, with the time each waited for its answer. A hook
 // installed before the page's scripts wraps Capacitor.nativePromise. Run it a few times: the first is often slower.
-// Usage: node startup-trace.mjs <port> [--log]   (--log lists each call in order)
+// Usage: node startup-trace.js <port> [--log]   (--log lists each call in order)
 const port = process.argv[2];
-if (!port) throw new Error("usage: node startup-trace.mjs <port> [--log]");
+if (!port) throw new Error("usage: node startup-trace.js <port> [--log]");
 const listCalls = process.argv.includes("--log");
 const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const ws = new WebSocket(pages.find((page) => page.type === "page").webSocketDebuggerUrl);

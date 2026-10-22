@@ -1,7 +1,7 @@
 // CSS rules for src/app; the reasons are in .agents/skills/css/SKILL.md.
 export default {
 	extends: ["stylelint-config-recommended"],
-	plugins: ["./stylelint/keyframes-compositor-only.mjs"],
+	plugins: ["./stylelint/keyframes-compositor-only.js"],
 	rules: {
 		// In @keyframes, opacity and transform (and a few paint-only properties); no filter, no layout properties.
 		"pi-mobile/keyframes-compositor-only": true,

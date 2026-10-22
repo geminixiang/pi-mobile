@@ -1,6 +1,6 @@
 // Containers on a machine reached over SSH (docs/design/sandbox-ssh.md): one shared by all bots, behind the egress
 // proxy, driven by the phone with the engine's CLI (docker, podman, or nerdctl; only the subset they share). What the
-// relay did on the host (sandbox/relay/server.mjs) the phone does over SSH, and the proxy reaches the phone through
+// relay did on the host (sandbox/relay/server.js) the phone does over SSH, and the proxy reaches the phone through
 // bridge.py on an exec channel, so nothing runs on the host for the app and no credential is stored there.
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
