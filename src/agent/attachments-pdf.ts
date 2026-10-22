@@ -2,9 +2,9 @@
 // images for those without text (scans) or when the model asks to see a page (charts, layout). pdf.js's CMaps, fonts
 // and wasm are served from /pdfjs (vite.config.ts); without the CMaps, text in CJK fonts comes out empty.
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { normalizeCjk } from "./attachments.ts";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
