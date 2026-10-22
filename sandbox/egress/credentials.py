@@ -151,7 +151,7 @@ AZURE_SCOPES = [
     (re.compile(r"^[a-z0-9-]+\.(blob|queue|table|file|dfs)\.core\.windows\.net$"), "https://storage.azure.com/.default"),
 ]
 # POSTs that only read: Resource Graph queries, name checks. listKeys and other actions return secrets or change state.
-AZURE_READ_POST = re.compile(r"(/providers/Microsoft\.ResourceGraph/resources|/checkNameAvailability|/\$batch)$", re.I)
+AZURE_READ_POST = re.compile(r"(/providers/Microsoft\.ResourceGraph/resources|/checkNameAvailability)$", re.I)
 
 
 def azure_scope(host):
