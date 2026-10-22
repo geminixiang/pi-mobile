@@ -13,10 +13,7 @@ import { approve, defineAppTool, requireNative } from "./common.ts";
 
 /** The statement's words outside string literals, quoted names, and comments, upper-cased. */
 function keywords(sql: string): string {
-	return sql
-		.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]/g, " ")
-		.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, " ")
-		.toUpperCase();
+	return sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g, " ").toUpperCase();
 }
 
 const DESTRUCTIVE = /\b(DROP|DELETE)\b/;
