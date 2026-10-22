@@ -11,8 +11,8 @@ token, and the proxy swaps in a short-lived access token the phone minted. Reads
 method but GET/HEAD, except POSTs that only read, such as :list and :search) wait for approval on the phone.
 
 
-Sandboxes send all HTTP(S) through this proxy. Only the GitHub hosts below are intercepted (see --allow-hosts in
-the Dockerfile); everything else passes through untouched. For GitHub requests the addon drops any Authorization the
+Sandboxes send all HTTP(S) through this proxy. Only HTTPS to the hosts below gets credentials, and only TLS to them is
+intercepted (see --allow-hosts in the Dockerfile); everything else passes through untouched. For GitHub requests the addon drops any Authorization the
 sandbox sent (gh's placeholder GH_TOKEN), asks the relay for the user's token, and injects it.
 
 Reads (clone, fetch, REST GET, GraphQL queries) get the token right away. Writes (git push, REST POST/PATCH/PUT/
@@ -86,7 +86,7 @@ def ref_updates(body):
 
 def classify(request):
     """None for a read; (title, detail) for a write that needs the user's approval."""
-    method, host = request.method, request.pretty_host
+    method, host = request.method, request.host
     path = request.path.split("?")[0]
     if method in ("GET", "HEAD", "OPTIONS") or host == RAW_HOST:
         return None
@@ -124,7 +124,7 @@ def classify_google(request):
     path = request.path.split("?")[0]
     if request.method in ("GET", "HEAD", "OPTIONS") or GOOGLE_READ_VERB.search(path):
         return None
-    service = request.pretty_host.removesuffix(".googleapis.com")
+    service = request.host.removesuffix(".googleapis.com")
     return (f"Google Cloud {request.method} {service} {path}", preview(request.get_text(strict=False)))
 
 
@@ -161,7 +161,7 @@ def classify_azure(request):
     path = request.path.split("?")[0]
     if request.method in ("GET", "HEAD", "OPTIONS") or (request.method == "POST" and AZURE_READ_POST.search(path)):
         return None
-    return (f"Azure {request.method} {request.pretty_host} {path}", preview(request.get_text(strict=False)))
+    return (f"Azure {request.method} {request.host} {path}", preview(request.get_text(strict=False)))
 
 
 def authorize(client, write, title="", detail="", service="github", scope=""):
@@ -240,7 +240,9 @@ class Credentials:
         flow.response = http.Response.make(status, json.dumps(error_body(status, f"pi mobile: {reason}")), {"Content-Type": "application/json"})
 
     async def request(self, flow: http.HTTPFlow):
-        host = flow.request.pretty_host
+        if flow.request.scheme != "https":
+            return
+        host = flow.request.host
         client = flow.client_conn.peername[0].removeprefix("::ffff:")
         if GOOGLE_HOST.match(host):
             await self.minted(
