@@ -15,8 +15,10 @@ npx tsc --noEmit
 npx vite build --logLevel warn
 npx cap sync android > /dev/null
 grep -q '"webContentsDebuggingEnabled": false' android/app/src/main/assets/capacitor.config.json || { echo "remote debugging is on"; exit 1; }
-(cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleRelease --console=plain -q --warning-mode=none)
+# CI sets JAVA_HOME; on the Mac it is Homebrew's JDK 21.
+[ -n "$JAVA_HOME" ] || export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+(cd android && ./gradlew assembleRelease --console=plain -q --warning-mode=none)
 OUT="pi-mobile-$VERSION.apk"
 cp android/app/build/outputs/apk/release/app-release.apk "$OUT"
 echo "built $OUT ($PI_MOBILE_VERSION_NAME, code $PI_MOBILE_VERSION_CODE)"
-shasum -a 256 "$OUT"
+if command -v sha256sum > /dev/null; then sha256sum "$OUT"; else shasum -a 256 "$OUT"; fi
