@@ -119,7 +119,9 @@
 * { box-sizing: border-box; }
 html, body, .root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
 button, input, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; background: none; border: none; padding: 0; text-align: inherit; }
+button { cursor: pointer; border: none; padding: 0; text-align: inherit; }
+:where(button) { background: none; transition: background-color 280ms ease; }
+:where(button:not(:disabled)):active { background-color: var(--accent-soft); transition: none; }
 button:disabled { opacity: 0.4; cursor: default; }
 :focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 input::placeholder, textarea::placeholder { color: var(--faint); }
