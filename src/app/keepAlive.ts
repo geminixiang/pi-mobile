@@ -2,6 +2,7 @@
 // the user when a run finishes or needs approval while they are away.
 import { App } from "@capacitor/app";
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { log } from "../log.ts";
 
 interface KeepAlivePlugin {
 	/** Starts the service, or updates its notification; the title defaults to "pi 工作中". */
@@ -35,13 +36,17 @@ let workingTitles: string[] = [];
 /** What a tool asks the user to approve while pi is away; shown instead of "working" until it is answered. */
 const waiting = new Map<string, string>();
 
+function startService(options: { text: string; title?: string }): void {
+	KeepAlive.start(options).catch((error: unknown) => log.warn("keep_alive.start_failed", { error: error instanceof Error ? error.message : String(error) }));
+}
+
 function showWorking(): void {
 	const [question] = waiting.values();
 	if (question !== undefined) {
-		void KeepAlive.start({ title: "pi 等你確認", text: question });
+		startService({ title: "pi 等你確認", text: question });
 		return;
 	}
-	void KeepAlive.start({ text: workingTitles.length === 1 ? (workingTitles[0] ?? "") : `${workingTitles.length} 個對話執行中` });
+	startService({ text: workingTitles.length === 1 ? (workingTitles[0] ?? "") : `${workingTitles.length} 個對話執行中` });
 }
 
 /**

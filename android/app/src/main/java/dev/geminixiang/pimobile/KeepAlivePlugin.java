@@ -33,7 +33,12 @@ public class KeepAlivePlugin extends Plugin {
         Intent intent = new Intent(getContext(), AgentService.class)
             .putExtra(AgentService.EXTRA_TEXT, call.getString("text", ""))
             .putExtra(AgentService.EXTRA_TITLE, call.getString("title", "pi 工作中"));
-        getContext().startForegroundService(intent);
+        try {
+            getContext().startForegroundService(intent);
+        } catch (RuntimeException error) {
+            call.reject("could not start the foreground service: " + error.getMessage());
+            return;
+        }
         setRendererImportant(true);
         call.resolve();
     }
