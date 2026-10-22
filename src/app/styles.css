@@ -408,6 +408,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	background: none; border: none; backdrop-filter: none; animation: none;
 }
 .scroll-hint.ghost::before { inset: 0; }
+.scroll-hint:not(.ghost) { anchor-name: --scroll-hint; }
+.input:has(> .scroll-hint:not(.ghost)) { border-top-color: transparent; }
+.composer:has(.scroll-hint:not(.ghost))::before, .composer:has(.scroll-hint:not(.ghost))::after {
+	content: ""; position: absolute; top: calc(anchor(--scroll-hint center) - 1px); height: 1px; background: var(--editor-border);
+}
+.composer:has(.scroll-hint:not(.ghost))::before { left: 0; right: anchor(--scroll-hint left); }
+.composer:has(.scroll-hint:not(.ghost))::after { left: anchor(--scroll-hint right); right: 0; }
 
 /* The prompt dial, in the composer's language: a ruler bent around the thumb, growing out of the editor line, in the
    thinking level's color; the selected cell lights up in place. */
