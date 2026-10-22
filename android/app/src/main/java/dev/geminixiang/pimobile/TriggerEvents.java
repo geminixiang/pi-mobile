@@ -228,13 +228,10 @@ final class TriggerEvents {
             return false;
         }
         try {
-            context.getSystemService(LocationManager.class).addProximityAlert(
-                when.optDouble("latitude"),
-                when.optDouble("longitude"),
-                (float) when.optDouble("radius", 200),
-                -1,
-                placeIntent(context, id)
-            );
+            LocationManager location = context.getSystemService(LocationManager.class);
+            PendingIntent intent = placeIntent(context, id);
+            location.removeProximityAlert(intent);
+            location.addProximityAlert(when.optDouble("latitude"), when.optDouble("longitude"), (float) when.optDouble("radius", 200), -1, intent);
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_ARMED_PREFIX + id, System.currentTimeMillis()).apply();
             return true;
         } catch (SecurityException | IllegalArgumentException error) {
