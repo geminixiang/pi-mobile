@@ -267,6 +267,19 @@ public class BotFilesPlugin extends Plugin {
         });
     }
 
+    /** The bots that have a folder, by id: for removing those of bots that are gone. */
+    @PluginMethod
+    public void listBots(PluginCall call) {
+        run(call, () -> {
+            JSArray ids = new JSArray();
+            File[] folders = bots().listFiles();
+            if (folders != null) for (File folder : folders) if (folder.isDirectory() && BOT.matcher(folder.getName()).matches()) ids.put(folder.getName());
+            JSObject out = new JSObject();
+            out.put("ids", ids);
+            call.resolve(out);
+        });
+    }
+
     /** A deleted bot's folder and everything in it. */
     @PluginMethod
     public void removeBot(PluginCall call) {

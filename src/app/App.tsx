@@ -33,6 +33,7 @@ import { System } from "../system-plugin.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
+import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
@@ -148,20 +149,26 @@ export function App() {
 				} else if (legacy === undefined) {
 					localStorage.setItem(LEGACY_DELETED_KEY, "1");
 				}
-				const { storage } = await openAppStorage();
-				setRuntime(
-					await AgentRuntime.open(storage, next, {
-						...(importMemory ? { importMemory } : {}),
-						modelIds,
-						onReport: notify,
-						openUrl: (url) => System.openExternal({ url }),
-						notify: async (title, text, conversationId, avatar) => {
-							if (inForeground()) return false;
-							await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
-							return true;
-						},
-					}),
-				);
+				const { storage, fresh } = await openAppStorage();
+				// A new database mints bot ids from the start: what other stores kept by id belongs to no bot now.
+				if (fresh) {
+					await sweepBotData(async () => []);
+					localStorage.removeItem(LAST_BOT_KEY);
+				}
+				const opened = await AgentRuntime.open(storage, next, {
+					...(importMemory ? { importMemory } : {}),
+					modelIds,
+					onReport: notify,
+					openUrl: (url) => System.openExternal({ url }),
+					notify: async (title, text, conversationId, avatar) => {
+						if (inForeground()) return false;
+						await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
+						return true;
+					},
+				});
+				setRuntime(opened);
+				// Later, without holding up the start: what a removal cut short.
+				setTimeout(() => void sweepBotData(async () => (await opened.bots()).map((bot) => String(bot.id))), 10_000);
 				setOpenError("");
 			} catch (error) {
 				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);

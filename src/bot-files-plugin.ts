@@ -24,4 +24,6 @@ export const BotFiles = registerPlugin<{
 	remove(options: At & { recursive?: boolean; force?: boolean }): Promise<void>;
 	rename(options: { bot: string; from: string; to: string }): Promise<void>;
 	removeBot(options: { bot: string }): Promise<void>;
+	/** The ids of the bots that have a folder. */
+	listBots(): Promise<{ ids: string[] }>;
 }>("BotFiles");

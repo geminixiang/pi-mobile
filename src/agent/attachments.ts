@@ -121,6 +121,21 @@ export async function deleteAttachments(which: { id: string } | { conversationId
 	});
 }
 
+/** The bots that have stored attachments. */
+export async function attachmentOwners(): Promise<string[]> {
+	const owners = new Set<string>();
+	await files.transaction("readonly", (store) => {
+		const cursor = store.openCursor();
+		cursor.onsuccess = () => {
+			const current = cursor.result;
+			if (!current) return;
+			if (isStored(current.value)) owners.add(current.value.conversationId);
+			current.continue();
+		};
+	});
+	return [...owners];
+}
+
 export const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;
 
 /** The full text, a PDF's pages marked so the model can cite them. */

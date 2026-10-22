@@ -413,3 +413,8 @@ export class PhoneEnv implements ExecutionEnv {
 export async function removePhoneFolder(bot: string): Promise<void> {
 	await BotFiles.removeBot({ bot });
 }
+
+/** The bots that have a folder on the phone. */
+export async function phoneFolderOwners(): Promise<string[]> {
+	return (await BotFiles.listBots()).ids;
+}

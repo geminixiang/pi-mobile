@@ -68,6 +68,15 @@ export function addDraftFile(conversationId: string, file: PreparedAttachment): 
 	});
 }
 
+/** The bots with a draft: text, photos, or files. */
+export async function draftOwners(): Promise<string[]> {
+	const owners = new Set<string>();
+	for (const key of Object.keys(localStorage)) if (key.startsWith(textKey(""))) owners.add(key.slice(textKey("").length));
+	const keys = await store.request("readonly", (files) => files.getAllKeys());
+	for (const key of keys) if (typeof key === "string") owners.add(key);
+	return [...owners];
+}
+
 /** A deleted bot's draft. */
 export async function clearDraft(conversationId: string): Promise<void> {
 	saveDraftText(conversationId, "");
