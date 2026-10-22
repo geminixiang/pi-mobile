@@ -4,6 +4,8 @@
 import { Capacitor, CapacitorHttp, registerPlugin } from "@capacitor/core";
 import type { Context } from "@earendil-works/chord";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import { prepareAttachment } from "../attachments.ts";
 import { fromBase64, PhoneEnv } from "../files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
@@ -55,6 +57,19 @@ const Page = registerPlugin<{ render(options: { url: string }): Promise<{ html: 
 const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+/g, "").length;
 
 const formatSize = (bytes: number) => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+/**
+ * A PDF on the web read as an attachment is (attachments.ts): its text by page, scanned pages by OCR, a preview with
+ * how to read on when it is long, kept for read_attachment. Fetched again as bytes: the first fetch read it as text.
+ */
+async function readPdf(url: string, conversationId: string): Promise<(TextContent | ImageContent)[]> {
+	const response = await CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile" }, connectTimeout: 15_000, readTimeout: 60_000 });
+	if (response.status >= 400 || typeof response.data !== "string") throw new Error(`HTTP ${response.status} ${response.url}`);
+	const name = decodeURIComponent(new URL(response.url || url).pathname.split("/").pop() || "page").replace(/\.pdf$/i, "") + ".pdf";
+	const bytes = fromBase64(response.data);
+	const prepared = await prepareAttachment(new File([bytes as Uint8Array<ArrayBuffer>], name, { type: "application/pdf" }), conversationId);
+	return [{ type: "text", text: `PDF ${response.url || url}` }, ...prepared.content];
+}
 
 /** A file from the web into the bot's folder: streamed to disk on the phone, through the app into a sandbox. */
 async function download(env: ExecutionEnv, url: string, path: string, context: Context): Promise<{ path: string; size: number; contentType: string; url: string }> {
@@ -185,7 +200,7 @@ export function createWebExtension(config: WebConfig) {
 	const fetchPage = defineAppTool({
 		name: "web_fetch",
 		description:
-			"Fetch a web page (http or https) and return its readable text with links, or the raw body for JSON and plain text. With save_to, download the file (PDF, image, spreadsheet…) into your folder instead.",
+			"Fetch a web page (http or https) and return its readable text with links, the raw body for JSON and plain text, or a PDF's text by page (read more with read_attachment). With save_to, download the file (PDF, image, spreadsheet…) into your folder instead.",
 		parameters: Type.Object({
 			url: Type.String({ description: "http:// or https:// URL of the page or file" }),
 			render: Type.Optional(
@@ -210,6 +225,7 @@ export function createWebExtension(config: WebConfig) {
 				readTimeout: 30_000,
 			});
 			const type = String(Object.entries(response.headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
+			if (response.status < 400 && type.includes("pdf")) return { output: await readPdf(response.url || args.url, String(api.conversationId)) };
 			const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2);
 			const html = type.includes("html");
 			let text = html ? htmlToText(body) : body;
