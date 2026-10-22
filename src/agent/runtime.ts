@@ -214,7 +214,7 @@ export class AgentRuntime {
 	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
 	/** Names of the installed extensions: which toolsets this phone has set up. */
-	readonly #installed: ReadonlySet<string>;
+	readonly #installed: () => ReadonlySet<string>;
 	/** The MCP servers from settings and their connections. */
 	readonly mcp: McpHub;
 	#toolsetWrites: Promise<void> = Promise.resolve();
@@ -226,7 +226,7 @@ export class AgentRuntime {
 		sandbox: Sandbox | undefined,
 		folders: Map<string, string>,
 		minted: Record<string, MintedService>,
-		installed: ReadonlySet<string>,
+		installed: () => ReadonlySet<string>,
 		mcp: McpHub,
 	) {
 		this.#installed = installed;
@@ -414,7 +414,7 @@ export class AgentRuntime {
 			sandbox,
 			folders,
 			clouds.minted,
-			new Set(registry.snapshot().installed().map((extension) => extension.name)),
+			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			mcp,
 		);
 		// In the background: the tools from the last connection are installed already.
@@ -664,9 +664,10 @@ export class AgentRuntime {
 	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
+		const installed = this.#installed();
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
-			available: toolset.extensions.every((name) => this.#installed.has(name)),
+			available: toolset.extensions.every((name) => installed.has(name)),
 			enabled: isEnabled(selection, toolset),
 		}));
 	}
