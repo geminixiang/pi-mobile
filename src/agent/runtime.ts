@@ -20,7 +20,7 @@ import {
 import { builtinExtensions } from "./catalog.ts";
 import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
-import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
+import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { log } from "../log.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, isThinkingLevel, type ModelInfo, withCompaction } from "./models.ts";
@@ -400,9 +400,9 @@ export class AgentRuntime {
 				onReport: (error) => options.onReport?.(error instanceof Error ? error.message : String(error)),
 				// The bot's folder in the sandbox when there is one, and otherwise its folder on the phone.
 				env: ({ conversationId }) => {
-					if (!sandbox) return new PhoneEnv(String(conversationId));
 					const folder = folders.get(String(conversationId));
-					return folder ? sandbox.env(folder) : undefined;
+					if (!folder) return undefined;
+					return sandbox ? sandbox.env(folder) : new PhoneEnv(folder);
 				},
 			},
 			context,
@@ -472,7 +472,7 @@ export class AgentRuntime {
 		if (job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
 		const existing = await this.bots();
 		if (existing.length >= MAX_BOTS) throw new Error(`最多 ${MAX_BOTS} 個 Bot`);
-		const folder = folderFor(trimmed, existing.map((bot) => bot.folder));
+		const folder = newFolder();
 		const conversation = await this.#harness.createConversation(
 			{
 				ownership: { kind: "ownerless" },
@@ -512,7 +512,7 @@ export class AgentRuntime {
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
 		if (this.#sandbox) await this.#sandbox.remove(bot.folder).catch(() => undefined);
-		await removePhoneFolder(String(id)).catch(() => undefined);
+		await removePhoneFolder(bot.folder).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
 		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);
 		await this.#harness.commit(async (tx) => {
@@ -558,8 +558,9 @@ export class AgentRuntime {
 	}
 
 	/** A bot's folder on the phone, where its coding tools work when there is no sandbox. */
-	phoneFolder(id: ConversationId): ExecutionEnv {
-		return new PhoneEnv(String(id));
+	phoneFolder(id: ConversationId): ExecutionEnv | undefined {
+		const folder = this.#folders.get(String(id));
+		return folder ? new PhoneEnv(folder) : undefined;
 	}
 
 	/** Empty a bot's folder in the sandbox; the bot and its conversation stay. */

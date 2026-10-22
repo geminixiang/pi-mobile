@@ -168,7 +168,7 @@ export function App() {
 				});
 				setRuntime(opened);
 				// Later, without holding up the start: what a removal cut short.
-				setTimeout(() => void sweepBotData(async () => (await opened.bots()).map((bot) => String(bot.id))), 10_000);
+				setTimeout(() => void sweepBotData(async () => (await opened.bots()).map((bot) => ({ id: String(bot.id), folder: bot.folder }))), 10_000);
 				setOpenError("");
 			} catch (error) {
 				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);

@@ -187,16 +187,17 @@ const shell = new Shell();
 /** A command as one shell string; an array's words quoted so they reach the command unparsed. */
 const commandLine = (command: string | readonly string[]) => (typeof command === "string" ? command : command.map((word) => `'${word.replaceAll("'", `'\\''`)}'`).join(" "));
 
-/** One bot's folder: files through the native plugin, commands through the shared bash worker. */
+/** One bot's folder (files/bots/<Bot.folder>): files through the native plugin, commands through the shared bash worker. */
 export class PhoneEnv implements ExecutionEnv {
 	readonly id: string;
 	cwd = "/";
 	readonly #bot: string;
 
-	constructor(bot: string) {
-		this.#bot = bot;
+	/** `folder`: the bot's folder name (Bot.folder). */
+	constructor(folder: string) {
+		this.#bot = folder;
 		// Each bot's "/" is its own folder, so two bots never name the same file.
-		this.id = `phone:${bot}`;
+		this.id = `phone:${folder}`;
 	}
 
 	#path(path: string): string {
@@ -414,7 +415,7 @@ export async function removePhoneFolder(bot: string): Promise<void> {
 	await BotFiles.removeBot({ bot });
 }
 
-/** The bots that have a folder on the phone. */
+/** The folder names on the phone (Bot.folder). */
 export async function phoneFolderOwners(): Promise<string[]> {
 	return (await BotFiles.listBots()).ids;
 }

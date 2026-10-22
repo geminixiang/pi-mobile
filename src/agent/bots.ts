@@ -3,6 +3,7 @@
 // conversations are kept affordable by automatic compaction (settings › 自動壓縮). Facts about the user that every bot
 // should know live in the global MEMORY.md.
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { checkpointEvery64 } from "./doc-policy.ts";
 
 // A type alias, not an interface: documents need JSON-assignable types.
@@ -12,7 +13,11 @@ export type Bot = {
 	name: string;
 	/** What the bot is for and how it works; part of its system prompt. Empty for a general assistant. */
 	job: string;
-	/** Its folder in the shared sandbox, fixed when created so a rename does not move files. */
+	/**
+	 * Its folder's name, on the phone (files/bots/<folder>) and in the sandbox: a UUIDv7 made with the bot, as
+	 * pi-coding-agent names sessions. Not the conversation id, which a new database mints again from the start, and not
+	 * the name, which two bots (or two phones sharing a sandbox) can have. Bots from before kept a name-based folder.
+	 */
 	folder: string;
 	/** One of AVATARS; bots from before avatars have none and show the first. */
 	avatar?: string;
@@ -59,18 +64,8 @@ export const DEFAULT_BOT = { name: "pi", job: "", avatar: "helper" };
 export const MAX_BOTS = 12;
 export const MAX_JOB = 1500;
 
-/** An ASCII folder name for a bot: its name when that is ASCII, else bot-<n>; never one already taken. */
-export function folderFor(name: string, taken: readonly string[]): string {
-	const ascii = name
-		.normalize("NFKD")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "")
-		.slice(0, 24);
-	if (ascii && !taken.includes(ascii)) return ascii;
-	const base = ascii || "bot";
-	for (let n = ascii ? 2 : 1; ; n++) if (!taken.includes(`${base}-${n}`)) return `${base}-${n}`;
-}
+/** A new bot's folder name. */
+export const newFolder = (): string => uuidv7();
 
 export const BotExtension = defineExtension({
 	name: "bot",

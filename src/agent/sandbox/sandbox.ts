@@ -9,6 +9,7 @@ import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { log } from "../../log.ts";
+import { BotIndex } from "../bots.ts";
 import { ContainerHost, type Credentials } from "./container.ts";
 import { type Machine, MachineLink, type MachineSystem, shellQuote } from "./machine.ts";
 import { StreamConnection } from "./stream-connection.ts";
@@ -253,9 +254,13 @@ export function createSandboxExtension(sandbox: Sandbox, folderOf: (conversation
 	return defineExtension({
 		name: "sandbox",
 		sections: [
-			section("sandbox", (input) => {
+			section("sandbox", async (input, context) => {
 				const folder = folderOf(String(input.conversationId));
-				return folder ? sandbox.describe(folder) : undefined;
+				if (!folder) return undefined;
+				// Folders are named by id, so say whose the others are.
+				const others = ((await input.read.snapshot(BotIndex, context))?.items ?? []).filter((bot) => bot.folder !== folder);
+				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";
+				return sandbox.describe(folder) + whose;
 			}),
 		],
 	});
