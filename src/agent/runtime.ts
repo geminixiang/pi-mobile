@@ -37,6 +37,8 @@ import { MachineSandbox, RelaySandbox, type Sandbox, SHARED_SANDBOX } from "./sa
 import { Workspace } from "./sandbox/workspace.ts";
 import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
 import { deleteAttachments } from "./attachments.ts";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
+import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import {
 	type Delivery,
@@ -395,14 +397,12 @@ export class AgentRuntime {
 					},
 				},
 				onReport: (error) => options.onReport?.(error instanceof Error ? error.message : String(error)),
-				...(sandbox
-					? {
-							env: ({ conversationId }) => {
-								const folder = folders.get(String(conversationId));
-								return folder ? sandbox.env(folder) : undefined;
-							},
-						}
-					: {}),
+				// The bot's folder in the sandbox when there is one, and otherwise its folder on the phone.
+				env: ({ conversationId }) => {
+					if (!sandbox) return new PhoneEnv(String(conversationId));
+					const folder = folders.get(String(conversationId));
+					return folder ? sandbox.env(folder) : undefined;
+				},
 			},
 			context,
 		);
@@ -511,6 +511,7 @@ export class AgentRuntime {
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
 		if (this.#sandbox) await this.#sandbox.remove(bot.folder).catch(() => undefined);
+		await removePhoneFolder(String(id)).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
 		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);
 		await this.#harness.commit(async (tx) => {
@@ -553,6 +554,11 @@ export class AgentRuntime {
 		const folder = this.#folders.get(String(id));
 		if (!this.#sandbox || !folder || !(await this.#sandbox.exists(folder))) return undefined;
 		return new Workspace(await this.#sandbox.env(folder), this.#sandbox.root(folder));
+	}
+
+	/** A bot's folder on the phone, where its coding tools work when there is no sandbox. */
+	phoneFolder(id: ConversationId): ExecutionEnv {
+		return new PhoneEnv(String(id));
 	}
 
 	/** Empty a bot's folder in the sandbox; the bot and its conversation stay. */

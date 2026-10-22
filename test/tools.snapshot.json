@@ -676,8 +676,8 @@
 		],
 		"parameters": {
 			"properties": {
-				"sandbox_path": {
-					"description": "File in the sandbox to share, e.g. /workspace/chart.png",
+				"path": {
+					"description": "File in your folder to share, as read takes it, e.g. report.csv",
 					"type": "string"
 				},
 				"text": {

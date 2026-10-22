@@ -1,7 +1,8 @@
 // The built-in extensions, in install order: the one list the runtime installs (runtime.ts) and the tool interface
 // check reads (test/tools-node.ts, against test/tools.snapshot.json), so what is checked is what bots get. Extensions
 // that need the runtime's connections take them through CatalogDeps; those that need a connection the user has not set
-// up are left out (GitHub without a token, the sandbox without a machine or relay).
+// up are left out (GitHub without a token). The coding tools come with the sandbox when there is one, and otherwise
+// with the bot's folder on the phone (files/).
 //
 // Toolsets that load on demand (toolsets.ts) have their tools marked deferred here.
 import type { Extension } from "@earendil-works/pi-durable";
@@ -10,6 +11,7 @@ import { BotExtension } from "./bots.ts";
 import type { CalendarAccess } from "./calendar-access.ts";
 import { createPhoneCodemode } from "./codemode.ts";
 import { createMemoryExtension } from "./memory.ts";
+import { FilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension, type Sandbox, SandboxTools } from "./sandbox/sandbox.ts";
 import { SkillsExtension } from "./skills.ts";
@@ -43,7 +45,7 @@ export interface CatalogDeps {
 	web: WebConfig;
 	triggers: TriggerHost;
 	memory: { changed(): void };
-	/** The machine or relay the coding tools run on; without one, no coding tools. */
+	/** The machine or relay the coding tools run on; without one, they work in the bot's folder on the phone. */
 	sandbox?: { sandbox: Sandbox; folderOf: (conversationId: string) => string | undefined };
 	/** The name a loadable extension goes by in the on-demand list (an MCP server's label, a toolset's). */
 	labelOf: (extension: string) => string;
@@ -81,7 +83,8 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createWebExtension(deps.web),
 		createTriggerExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
-		...(deps.sandbox ? [createSandboxExtension(deps.sandbox.sandbox, deps.sandbox.folderOf), SandboxTools] : []),
+		...(deps.sandbox ? [createSandboxExtension(deps.sandbox.sandbox, deps.sandbox.folderOf)] : [FilesExtension]),
+		SandboxTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
 	];

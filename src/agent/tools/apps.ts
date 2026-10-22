@@ -142,21 +142,23 @@ function base64(bytes: Uint8Array): string {
 const share = defineAppTool({
 	name: "share",
 	description:
-		"Open the Android share sheet with text and/or one file from the sandbox, so the user can send it to another app (LINE, Drive, email…). The user picks the target.",
+		"Open the Android share sheet with text and/or one file from your folder (on the phone, or in the sandbox when there is one), so the user can send it to another app (LINE, Drive, email…). The user picks the target.",
 	parameters: Type.Object({
 		text: Type.Optional(Type.String({ description: "Text to share" })),
-		sandbox_path: Type.Optional(Type.String({ description: "File in the sandbox to share, e.g. /workspace/chart.png" })),
+		path: Type.Optional(Type.String({ description: "File in your folder to share, as read takes it, e.g. report.csv" })),
 		title: Type.Optional(Type.String({ description: "Title of the share sheet" })),
 	}),
 	execute: async (args, api, context) => {
-		if (!args.text && !args.sandbox_path) throw new Error("give text, sandbox_path, or both");
+		if (!args.text && !args.path) throw new Error("give text, path, or both");
 		let file: { fileBase64: string; fileName: string; mimeType: string } | undefined;
-		if (args.sandbox_path) {
-			if (!api.env) throw new Error("no sandbox is configured");
-			const read = await api.env.readBinaryFile(args.sandbox_path, context);
-			if (!read.ok) throw new Error(`cannot read ${args.sandbox_path}: ${read.error.message}`);
+		if (args.path) {
+			if (!api.env) throw new Error("this bot has no folder");
+			const absolute = await api.env.absolutePath(args.path, context);
+			if (!absolute.ok) throw new Error(`cannot read ${args.path}: ${absolute.error.message}`);
+			const read = await api.env.readBinaryFile(absolute.value, context);
+			if (!read.ok) throw new Error(`cannot read ${args.path}: ${read.error.message}`);
 			if (read.value.byteLength > MAX_SHARE_BYTES) throw new Error(`file is larger than ${MAX_SHARE_BYTES / 1024 / 1024} MB`);
-			const fileName = args.sandbox_path.split("/").pop() || "file";
+			const fileName = absolute.value.split("/").pop() || "file";
 			const extension = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : undefined;
 			file = { fileBase64: base64(read.value), fileName, mimeType: (extension && MIME_TYPES[extension]) || "application/octet-stream" };
 		}

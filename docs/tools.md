@@ -100,7 +100,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `compose_sms` | 手機 App | 簡訊草稿 | 開畫面 | |
 | `open_maps` | 手機 App | 地圖導航 | 開畫面 | |
 | `open_link` | 手機 App | 網址或 app 連結 | 開畫面 | |
-| `share` | 手機 App | 分享選單 | 開畫面 | |
+| `share` | 手機 App | 分享選單：文字，或 Bot 資料夾裡的一個檔案 | 開畫面 | |
 | `speak` | 語音 | 唸出來 | 直接 | |
 | `read_notifications` | 通知 | 收到的通知，留 30 天 | 唯讀 | ✓ |
 | `reply_notification` | 通知 | 從通知回覆聊天 | 先問 | |
@@ -125,7 +125,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入先問 | ✓ |
 | `cloudflare_api` | Cloudflare（需要時載入） | Cloudflare REST API | 讀取唯讀，寫入先問 | ✓ |
 | `azure_api` | Azure（需要時載入） | Azure REST API | 讀取唯讀，寫入先問 | ✓ |
-| `read`、`write`、`edit`、`bash` | Sandbox（需要時載入） | 在遠端電腦讀寫檔案、跑指令（pi-durable 的 coding tools） | 在 sandbox 裡；容器模式下對外的寫入先問 | `bash` |
+| `read`、`write`、`edit`、`bash` | Sandbox 或檔案（需要時載入） | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡；sandbox 容器模式下對外的寫入先問 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
 | `read_skill` | 固定開啟 | 讀一份 skill | 唯讀 | |
@@ -174,7 +174,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 聯絡人 | `contacts` | 常駐 | 1 | 562 | 115 |
 | 螢幕使用時間 | `screen_time` | 常駐 | 1 | 434 | 89 |
 | skills（固定開啟） | `skills` | 常駐 | 1 | 324 | 66 |
-| Sandbox | `coding-tools` | 需要時載入 | 4 | 2,715 | 554 |
+| Sandbox 或檔案 | `coding-tools` | 需要時載入 | 4 | 2,715 | 554 |
 | GitHub | `github` | 需要時載入 | 2 | 1,421 | 290 |
 | Google Cloud | `gcp` | 需要時載入 | 1 | 999 | 204 |
 | Cloudflare | `cloudflare` | 需要時載入 | 1 | 974 | 199 |
@@ -213,6 +213,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
 | 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；`create_schedule.on` 改成必填，多一個 `time` 值（模型會把選填的 `on` 隨便填一個事件，例如 `wifi`，跟 `time` 衝突而失敗兩次）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
+| 2026-10-22 | 檔案：沒有 sandbox 時，`read`、`write`、`edit`、`bash` 改在 Bot 自己在手機上的資料夾（`files/`）；`share.sandbox_path` → `path` | 模擬器（Opus 5.5）：開「檔案」比關掉多 298 tokens（說明 110，其餘是工具搜尋的清單）；說明原本寫了三句，多 461 | 檔案存在 app 的原生資料夾（`BotFilesPlugin.java`），bash 是 just-bash 跑在 Worker，檔案操作經主執行緒轉給原生：碰不到資料夾外的東西（包括 app 自己的 SSH 金鑰），也不能連網。瀏覽器版不能用的指令（`tar`、`yq`、`xan`、`sqlite3`、`python`、`gzip`、`html-to-markdown`）不註冊。模擬器上 4 題：「這個月的開銷存成表格檔」載入工具寫成 CSV 並記在記憶；「再加三筆，咖啡多少、哪類最多」用 `edit` 追加；「直接從檔案重算一次」用 `bash` 的 `awk` 算，抓到前一題心算的總數錯誤（1,155 → 1,215）；「把開銷表傳給我」開出分享選單。刪除 Bot 時資料夾一起刪掉；有 sandbox 時照舊走遠端。`share` 的參數改名，因為沒有 sandbox 時檔案在手機上；舊對話裡的 `sandbox_path` 照樣顯示 |
 | 2026-10-22 | 健康（Health Connect，系統 API） | 7,505 → 7,620 tokens | 權限都允許後五種資料都是空的：Samsung Health 的「同意處理健康和保健資料」沒開，它就不寫入 Health Connect。「這禮拜睡得怎樣」11 秒，正確說沒有資料並指出設定。打開同意、回到 Samsung Health 主畫面後開始同步（只同步之後的資料）：「今天走了幾步、這週呢」9 秒，答出今天 25 步，並說明其他天沒有資料不代表沒走路 |
 | 2026-10-22 | 掃描文件（`scan_document`）、掃描頁在手機上 OCR | 7,401 → 7,505 tokens | 掃描版收據 PDF：OCR 0.17 秒，「總共多少、買了什麼」8 秒對，只送 52 tokens 的文字而不是一張圖；「幫我掃描桌上這張紙」叫出系統掃描畫面，取消後回「這次沒有掃描」 |
 | 2026-10-22 | 排程的新事件：開始充電、連上 Wi‑Fi、到達／離開地點 | 7,246 → 7,401 tokens | 「每天晚上回到家提醒我倒垃圾」12 秒，用記憶裡的住址建 18:00–23:59 到達時、一天一次（拒絕核准）。觸發：模擬插電立刻執行、同一次充電不重複；Wi‑Fi 和地點在重新設定時不再誤觸發（系統回報的「目前狀態」不算事件） |

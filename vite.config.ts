@@ -82,6 +82,8 @@ export default defineConfig({
 			"node:url": shim("node-url.ts"),
 			"node:string_decoder": "string_decoder",
 			"node:child_process": shim("node-child-process.ts"),
+			// just-bash (src/agent/files/shell-worker.ts) imports it for gzip only.
+			"node:zlib": shim("node-zlib.ts"),
 		},
 	},
 });
