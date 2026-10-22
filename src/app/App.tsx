@@ -318,8 +318,8 @@ export function App() {
 	const splash = <Skeleton />;
 	if (!settings) return splash;
 
-	const saveAndRestart = async (next: Settings) => {
-		await saveSettings(next);
+	const saveAndRestart = async (edited: Settings) => {
+		const next = await saveSettings(edited);
 		setSettings(next);
 		// First run: a paired sandbox is saved, but the agent starts only once the model service is filled in.
 		if (!isConfigured(next)) return;

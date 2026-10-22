@@ -82,9 +82,25 @@ function loadPlain(): PlainSettings {
 	}
 }
 
+const secretsAsLoaded = new Map<string, string>();
+const secretsRotatedSinceLoad = new Map<string, string>();
+
 async function secret(key: string): Promise<string> {
 	const value = await SecureStorage.get(key).catch(() => null);
-	return typeof value === "string" ? value : "";
+	const text = typeof value === "string" ? value : "";
+	secretsAsLoaded.set(key, text);
+	secretsRotatedSinceLoad.delete(key);
+	return text;
+}
+
+function keepRotated(key: string, value: string): string {
+	const rotated = secretsRotatedSinceLoad.get(key);
+	return rotated !== undefined && value === secretsAsLoaded.get(key) ? rotated : value;
+}
+
+async function saveRotatingSecret(key: string, value: string): Promise<void> {
+	await SecureStorage.set(key, value);
+	secretsRotatedSinceLoad.set(key, value);
 }
 
 export async function loadSettings(): Promise<Settings> {
@@ -134,7 +150,13 @@ export async function loadSettings(): Promise<Settings> {
 	};
 }
 
-export async function saveSettings(settings: Settings): Promise<void> {
+export async function saveSettings(edited: Settings): Promise<Settings> {
+	const settings: Settings = {
+		...edited,
+		providerOAuth: Object.fromEntries(Object.entries(edited.providerOAuth).map(([id, json]) => [id, keepRotated(providerOAuthKey(id), json)])),
+		cloudflareCredential: keepRotated(SECRET_CLOUDFLARE, edited.cloudflareCredential),
+		azureCredential: keepRotated(SECRET_AZURE, edited.azureCredential),
+	};
 	const before = parseProviders(loadPlain().providers ?? "");
 	const providers = parseProviders(settings.providers);
 	const plain: PlainSettings = {
@@ -166,11 +188,14 @@ export async function saveSettings(settings: Settings): Promise<void> {
 	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
 	await saveSecret(SECRET_CLOUDFLARE, settings.cloudflareCredential);
 	await saveSecret(SECRET_AZURE, settings.azureCredential);
+	return settings;
 }
 
 async function saveSecret(key: string, value: string): Promise<void> {
 	if (value) await SecureStorage.set(key, value);
 	else await SecureStorage.remove(key).catch(() => false);
+	secretsAsLoaded.set(key, value);
+	secretsRotatedSinceLoad.delete(key);
 }
 
 /** A provider that can answer: a built-in one with its key, or a custom one (a local server may need none). */
@@ -182,7 +207,7 @@ export function usableProviders(settings: Pick<Settings, "providers" | "provider
 
 /** A refreshed sign-in, written at once: the old refresh token may already be spent. */
 export async function saveProviderOAuth(id: string, json: string): Promise<void> {
-	await SecureStorage.set(providerOAuthKey(id), json);
+	await saveRotatingSecret(providerOAuthKey(id), json);
 }
 
 export function isConfigured(settings: Settings): boolean {
@@ -191,10 +216,10 @@ export function isConfigured(settings: Settings): boolean {
 
 /** Cloudflare rotates refresh tokens on every refresh; the new one replaces the stored credential right away. */
 export async function saveCloudflareCredential(json: string): Promise<void> {
-	await SecureStorage.set(SECRET_CLOUDFLARE, json);
+	await saveRotatingSecret(SECRET_CLOUDFLARE, json);
 }
 
 /** Microsoft may rotate the refresh token on refresh; the new one replaces the stored credential right away. */
 export async function saveAzureCredential(json: string): Promise<void> {
-	await SecureStorage.set(SECRET_AZURE, json);
+	await saveRotatingSecret(SECRET_AZURE, json);
 }
