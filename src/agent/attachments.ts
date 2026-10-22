@@ -13,6 +13,7 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { codeNote, isCodeNote } from "./codes.ts";
 import { ocr } from "../scanner-plugin.ts";
+import { idbStore } from "../idb.ts";
 
 export type AttachmentKind = "pdf" | "docx" | "sheet" | "text";
 
@@ -88,33 +89,10 @@ export interface StoredAttachment {
 	blob?: Blob;
 }
 
-const DB = "pi-attachments";
-const STORE = "files";
-
-function open(): Promise<IDBDatabase> {
-	return new Promise((resolve, reject) => {
-		const request = indexedDB.open(DB, 1);
-		request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: "id" });
-		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error);
-	});
-}
-
-async function transact<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-	const db = await open();
-	try {
-		return await new Promise<T>((resolve, reject) => {
-			const request = run(db.transaction(STORE, mode).objectStore(STORE));
-			request.onsuccess = () => resolve(request.result);
-			request.onerror = () => reject(request.error);
-		});
-	} finally {
-		db.close();
-	}
-}
+const files = idbStore("pi-attachments", "files", { keyPath: "id" });
 
 export async function saveAttachment(attachment: StoredAttachment): Promise<void> {
-	await transact("readwrite", (store) => store.put(attachment));
+	await files.request("readwrite", (store) => store.put(attachment));
 }
 
 function isStored(value: unknown): value is StoredAttachment {
@@ -122,33 +100,25 @@ function isStored(value: unknown): value is StoredAttachment {
 }
 
 export async function loadAttachment(id: string): Promise<StoredAttachment | undefined> {
-	const value: unknown = await transact("readonly", (store) => store.get(id));
+	const value: unknown = await files.request("readonly", (store) => store.get(id));
 	return isStored(value) ? value : undefined;
 }
 
 /** Delete one attachment (removed before it was sent), or all of a bot's (the bot was deleted). */
 export async function deleteAttachments(which: { id: string } | { conversationId: string }): Promise<void> {
 	if ("id" in which) {
-		await transact("readwrite", (store) => store.delete(which.id));
+		await files.request("readwrite", (store) => store.delete(which.id));
 		return;
 	}
-	const db = await open();
-	try {
-		await new Promise<void>((resolve, reject) => {
-			const transaction = db.transaction(STORE, "readwrite");
-			const cursor = transaction.objectStore(STORE).openCursor();
-			cursor.onsuccess = () => {
-				const current = cursor.result;
-				if (!current) return;
-				if (isStored(current.value) && current.value.conversationId === which.conversationId) current.delete();
-				current.continue();
-			};
-			transaction.oncomplete = () => resolve();
-			transaction.onerror = () => reject(transaction.error);
-		});
-	} finally {
-		db.close();
-	}
+	await files.transaction("readwrite", (store) => {
+		const cursor = store.openCursor();
+		cursor.onsuccess = () => {
+			const current = cursor.result;
+			if (!current) return;
+			if (isStored(current.value) && current.value.conversationId === which.conversationId) current.delete();
+			current.continue();
+		};
+	});
 }
 
 export const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;

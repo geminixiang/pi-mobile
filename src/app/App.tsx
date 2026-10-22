@@ -33,6 +33,7 @@ import { System } from "../system-plugin.ts";
 import { checkSandbox } from "../agent/checks.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
+import { clearDraft } from "./drafts.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 
@@ -551,6 +552,7 @@ export function App() {
 					if (!sure) return;
 					try {
 						await runtime.removeBot(bot.id);
+						await clearDraft(String(bot.id)).catch(() => undefined);
 						if (bot.id === controller?.id) {
 							controller.dispose();
 							setController(undefined);

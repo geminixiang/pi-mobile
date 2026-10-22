@@ -11,6 +11,7 @@ import { Database } from "../database-plugin.ts";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
+import { loadDraftAttachments, saveDraftAttachments } from "./drafts.ts";
 
 const MAX_IMAGE_EDGE = 1600;
 
@@ -105,11 +106,29 @@ export function Composer({
 		if (pickImageKey) fileInput.current?.click();
 	}, [pickImageKey]);
 
-	// Once: the composer is remounted for each conversation it opens with (App.tsx chatKey).
+	// Once: the composer is remounted for each conversation it opens with (App.tsx chatKey). The photos and files left
+	// here unsent come back first, then a share's files join them.
+	const restored = useRef(false);
 	useEffect(() => {
-		if (initialFiles?.length) void attach([...initialFiles]);
+		void loadDraftAttachments(conversationId)
+			.catch(() => undefined)
+			.then((saved) => {
+				if (saved) {
+					setImages((current) => [...saved.images, ...current]);
+					setFiles((current) => [...saved.files.map((prepared) => ({ key: prepared.card.id, state: "ready" as const, prepared })), ...current]);
+				}
+				restored.current = true;
+				if (initialFiles?.length) void attach([...initialFiles]);
+			});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+	// Kept on the phone as they change, one write after another so an older one never lands last.
+	const writes = useRef(Promise.resolve());
+	useEffect(() => {
+		if (!restored.current) return;
+		const draft = { images, files: files.flatMap((file) => (file.state === "ready" ? [file.prepared] : [])) };
+		writes.current = writes.current.then(() => saveDraftAttachments(conversationId, draft)).catch(() => undefined);
+	}, [conversationId, images, files]);
 
 	const send = (whenBusy: BusyMode) => {
 		if (!hasInput || reading) return;

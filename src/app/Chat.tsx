@@ -13,6 +13,7 @@ import { PiMark } from "./PiMark.tsx";
 import { TranscriptSkeleton } from "./Skeleton.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
+import { loadDraftText, saveDraftText } from "./drafts.ts";
 
 export interface Capabilities {
 	sandbox: boolean;
@@ -112,7 +113,10 @@ export function Chat({
 	onView?: (view: ConversationView) => void;
 }) {
 	const [view, setView] = useState<ConversationView>();
-	const [draft, setDraft] = useState(initialDraft ?? "");
+	const conversationId = String(controller.id);
+	// What was written here before, and a share's text after it.
+	const [draft, setDraft] = useState(() => [loadDraftText(conversationId), initialDraft].filter(Boolean).join("\n\n"));
+	useEffect(() => saveDraftText(conversationId, draft), [conversationId, draft]);
 	const [actionsFor, setActionsFor] = useState<EntryRecord>();
 	const [atBottom, setAtBottom] = useState(true);
 	const [composerFocus, setComposerFocus] = useState(0);
@@ -340,7 +344,7 @@ export function Chat({
 				queued={queued}
 				focusKey={composerFocus}
 				pickImageKey={pickImage}
-				conversationId={String(controller.id)}
+				conversationId={conversationId}
 				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
