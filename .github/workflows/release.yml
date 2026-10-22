@@ -1,0 +1,82 @@
+# Publish a release: push a tag vX.Y.Z matching package.json's version. Builds the signed APK with
+# scripts/release-android.sh and creates the GitHub release with notes from docs/releases/X.Y.Z.md.
+#
+# Secrets (Settings › Secrets and variables › Actions):
+#   PI_MOBILE_KEYSTORE_BASE64    base64 of the release keystore (the same key as 0.1.0, so updates install over it)
+#   PI_MOBILE_KEYSTORE_PASSWORD  its password (store and key)
+#   PI_MOBILE_KEY_ALIAS          the key's alias
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches package.json
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME, package.json $version"; exit 1; }
+          [ -f "docs/releases/$version.md" ] || { echo "::error::missing docs/releases/$version.md"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: Release key
+        env:
+          KEYSTORE: ${{ secrets.PI_MOBILE_KEYSTORE_BASE64 }}
+          PASSWORD: ${{ secrets.PI_MOBILE_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.PI_MOBILE_KEY_ALIAS }}
+        run: |
+          [ -n "$KEYSTORE" ] && [ -n "$PASSWORD" ] && [ -n "$ALIAS" ] || { echo "::error::release key secrets are not set"; exit 1; }
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          {
+            echo "PI_MOBILE_KEYSTORE=$RUNNER_TEMP/release.keystore"
+            echo "PI_MOBILE_KEYSTORE_PASSWORD=$PASSWORD"
+            echo "PI_MOBILE_KEY_ALIAS=$ALIAS"
+          } > "$RUNNER_TEMP/release.env"
+
+      - name: Build APK
+        env:
+          PI_MOBILE_RELEASE_ENV: ${{ runner.temp }}/release.env
+        run: scripts/release-android.sh
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="pi-mobile-$VERSION.apk"
+          apk_sha=$(sha256sum "$apk" | cut -d' ' -f1)
+          cert_sha=$("$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          {
+            cat "docs/releases/$VERSION.md"
+            printf '\n## 驗證\n- APK SHA-256：`%s`\n- 簽章憑證 SHA-256：`%s`\n' "$apk_sha" "$cert_sha"
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" "$apk" --title "pi mobile $VERSION" --notes-file notes.md --verify-tag
+
+      - name: Remove key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/release.env"
