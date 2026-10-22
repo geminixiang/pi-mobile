@@ -5,10 +5,12 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.view.HapticFeedbackConstants;
+import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 /**
@@ -86,9 +88,7 @@ public class SystemPlugin extends Plugin {
     @PluginMethod
     public void authenticate(PluginCall call) {
         if (android.os.Build.VERSION.SDK_INT < 30) {
-            JSObject result = new JSObject();
-            result.put("ok", true);
-            call.resolve(result);
+            confirmScreenLock(call);
             return;
         }
         android.hardware.biometrics.BiometricPrompt prompt = new android.hardware.biometrics.BiometricPrompt.Builder(getContext())
@@ -119,5 +119,25 @@ public class SystemPlugin extends Plugin {
                 }
             }
         );
+    }
+
+    private void confirmScreenLock(PluginCall call) {
+        android.app.KeyguardManager keyguard = getContext().getSystemService(android.app.KeyguardManager.class);
+        Intent intent = keyguard.createConfirmDeviceCredentialIntent(call.getString("title", "確認是你"), call.getString("subtitle", ""));
+        if (intent == null) {
+            JSObject answer = new JSObject();
+            answer.put("ok", false);
+            answer.put("reason", "手機沒有設定螢幕鎖");
+            call.resolve(answer);
+            return;
+        }
+        startActivityForResult(call, intent, "screenLockConfirmed");
+    }
+
+    @ActivityCallback
+    private void screenLockConfirmed(PluginCall call, ActivityResult result) {
+        JSObject answer = new JSObject();
+        answer.put("ok", result.getResultCode() == android.app.Activity.RESULT_OK);
+        call.resolve(answer);
     }
 }
