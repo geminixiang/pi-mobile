@@ -4,6 +4,7 @@
 // service.
 import { Type } from "typebox";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import { checkpointEvery64 } from "./doc-policy.ts";
 import { defineAppTool, text } from "./tools/common.ts";
 
 /** Long enough for a page of notes; short enough that sending it with every request costs little. */
@@ -15,7 +16,7 @@ export type Memory = { text: string; updatedAt: number; updatedBy: "user" | "age
 const empty = (): Memory => ({ text: "", updatedAt: 0, updatedBy: "" });
 
 /** The global MEMORY.md, shared by every bot. */
-export const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: empty });
+export const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: empty, checkpointWhen: checkpointEvery64 });
 
 /** A bot's own MEMORY.md, in its conversation. */
 export const BotMemoryDoc = defineDoc<Memory>({
@@ -25,6 +26,7 @@ export const BotMemoryDoc = defineDoc<Memory>({
 	history: "latest",
 	fork: "initial",
 	initial: empty,
+	checkpointWhen: checkpointEvery64,
 });
 
 /** Which MEMORY.md: the global one, or one bot's. */

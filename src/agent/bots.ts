@@ -3,6 +3,7 @@
 // conversations are kept affordable by automatic compaction (settings › 自動壓縮). Facts about the user that every bot
 // should know live in the global MEMORY.md.
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import { checkpointEvery64 } from "./doc-policy.ts";
 
 // A type alias, not an interface: documents need JSON-assignable types.
 export type Bot = {
@@ -26,6 +27,7 @@ export const BotIndex = defineDoc<{ items: Bot[] }>({
 	version: 1,
 	scope: "session",
 	initial: () => ({ items: [] }),
+	checkpointWhen: checkpointEvery64,
 });
 
 /** The avatar set (public/avatars/<id>.webp), pixel heads in the pi mark's palette, each with a role's prop. */

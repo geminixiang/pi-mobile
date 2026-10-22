@@ -4,6 +4,7 @@
 // queues what happened until the WebView runs again. See docs/design/triggers.md.
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
 import { approve, defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { parse } from "./parse.ts";
@@ -69,6 +70,7 @@ export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string;
 	version: 1,
 	scope: "session",
 	initial: () => ({ items: [], runs: [] }),
+	checkpointWhen: checkpointEvery64,
 });
 
 /** Runs a trigger may start per day, and all triggers together, so one that misfires cannot spend without bound. */
