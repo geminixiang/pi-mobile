@@ -2,6 +2,7 @@ package dev.geminixiang.pimobile;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
+import java.io.File;
 
 public class MainActivity extends BridgeActivity {
 
@@ -14,7 +15,6 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(CalendarPlugin.class);
         registerPlugin(PhonePlugin.class);
         registerPlugin(TriggersPlugin.class);
-        registerPlugin(SshPlugin.class);
         registerPlugin(NotificationsPlugin.class);
         registerPlugin(DatabasePlugin.class);
         registerPlugin(LoopbackPlugin.class);
@@ -28,5 +28,15 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BotFilesPlugin.class);
         registerPlugin(PagePlugin.class);
         super.onCreate(savedInstanceState);
+        removeSshKey();
+    }
+
+    /** Dev builds reached computers over SSH with a key kept here; pi-host needs none. Remove once no device has it. */
+    private void removeSshKey() {
+        File dir = new File(getFilesDir(), "ssh");
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File file : files) file.delete();
+        dir.delete();
     }
 }

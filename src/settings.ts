@@ -15,7 +15,8 @@ const LEGACY_SECRET_API_KEY = "cliproxyapi.apiKey";
 const providerKey = (id: string) => `provider.${id}.apiKey`;
 const providerOAuthKey = (id: string) => `provider.${id}.oauth`;
 const SECRET_GITHUB_TOKEN = "github.token";
-const SECRET_SANDBOX_TOKEN = "sandbox.token";
+/** The sandbox relay's token, before computers ran pi-host; removed. */
+const LEGACY_SECRET_SANDBOX_TOKEN = "sandbox.token";
 const SECRET_GCLOUD = "gcloud.credential";
 const SECRET_CLOUDFLARE = "cloudflare.credential";
 const SECRET_AZURE = "azure.credential";
@@ -28,9 +29,6 @@ export interface Settings {
 	/** A subscription sign-in per provider id (Sign in with ChatGPT), as pi-ai credential JSON, from the Keystore. */
 	providerOAuth: Record<string, string>;
 	githubToken: string;
-	/** Sandbox relay, e.g. ws://100.x.y.z:8787; empty disables the sandbox tools. */
-	sandboxUrl: string;
-	sandboxToken: string;
 	/** Google Cloud credential JSON (authorized_user or service_account) for gcloud in the sandbox; empty disables it. */
 	gcloudCredential: string;
 	/** Default project for gcloud; empty uses the credential's own. */
@@ -45,12 +43,10 @@ export interface Settings {
 	defaultThinking: string;
 	/** Which calendar accounts the agent may read and write, as JSON (agent/calendar-access.ts); empty for the defaults. */
 	calendarAccess: string;
-	/** The user's machines reached over SSH, as JSON (agent/sandbox/machine.ts); host keys are public, so plain. */
-	machines: string;
-	/** The machine whose tools the agent uses; empty uses the relay when one is set. */
-	sandboxMachine: string;
 	/** The user's computers running pi-host on the tailnet, as JSON (agent/sandbox/host.ts). */
 	hosts: string;
+	/** Where a bot that has not picked works (agent/computers.ts): "<host id>:direct" or ":container"; empty, the phone. */
+	computer: string;
 	/** Context size in tokens at which a bot's conversation is compacted; 0 for the model's own limit. */
 	compactAt: number;
 	/** Approving a tool's action also takes the fingerprint, face, or screen lock. */
@@ -63,24 +59,31 @@ const PlainSettings = Type.Object({
 	baseUrl: Type.Optional(Type.String()),
 	providers: Type.Optional(Type.String()),
 	defaultProvider: Type.Optional(Type.String()),
-	sandboxUrl: Type.Optional(Type.String()),
 	gcloudProject: Type.Optional(Type.String()),
 	defaultModelId: Type.Optional(Type.String()),
 	defaultThinking: Type.Optional(Type.String()),
 	calendarAccess: Type.Optional(Type.String()),
-	machines: Type.Optional(Type.String()),
-	sandboxMachine: Type.Optional(Type.String()),
 	hosts: Type.Optional(Type.String()),
+	computer: Type.Optional(Type.String()),
 	compactAt: Type.Optional(Type.Number()),
 	approvalAuth: Type.Optional(Type.Boolean()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
 /** Stored plain settings; anything unreadable counts as unset rather than breaking startup. */
+/** Settings of computers reached before pi-host: 0.1.0's sandbox relay, then SSH machines. */
+const REMOVED_PLAIN = ["sandboxUrl", "machines", "sandboxMachine"];
+
 function loadPlain(): PlainSettings {
 	try {
 		const value: unknown = JSON.parse(localStorage.getItem(PLAIN_KEY) ?? "{}");
-		return Value.Check(PlainSettings, value) ? value : {};
+		if (!Value.Check(PlainSettings, value)) return {};
+		if (REMOVED_PLAIN.some((key) => key in value)) {
+			const kept = Object.fromEntries(Object.entries(value).filter(([key]) => !REMOVED_PLAIN.includes(key)));
+			localStorage.setItem(PLAIN_KEY, JSON.stringify(kept));
+			void SecureStorage.remove(LEGACY_SECRET_SANDBOX_TOKEN).catch(() => false);
+		}
+		return value;
 	} catch {
 		return {};
 	}
@@ -133,10 +136,10 @@ export async function loadSettings(): Promise<Settings> {
 		defaultProvider = "custom";
 		legacyKey = await secret(LEGACY_SECRET_API_KEY);
 	}
-	const [keys, oauth, githubToken, sandboxToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+	const [keys, oauth, githubToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
 		Promise.all(providers.map(async (provider) => [provider.id, await secret(providerKey(provider.id))] as const)),
 		Promise.all(providers.map(async (provider) => [provider.id, await secret(providerOAuthKey(provider.id))] as const)),
-		...[SECRET_GITHUB_TOKEN, SECRET_SANDBOX_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(secret),
+		...[SECRET_GITHUB_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(secret),
 	]);
 	const providerKeys: Record<string, string> = Object.fromEntries(keys);
 	if (legacyKey !== undefined) providerKeys.custom = legacyKey;
@@ -146,8 +149,6 @@ export async function loadSettings(): Promise<Settings> {
 		providerOAuth: Object.fromEntries(oauth.filter(([, json]) => json)),
 		defaultProvider: defaultProvider || providers[0]?.id || "",
 		githubToken,
-		sandboxUrl: plain.sandboxUrl ?? "",
-		sandboxToken,
 		gcloudCredential,
 		gcloudProject: plain.gcloudProject ?? "",
 		cloudflareCredential,
@@ -155,9 +156,8 @@ export async function loadSettings(): Promise<Settings> {
 		defaultModelId: plain.defaultModelId ?? DEFAULT_MODEL_ID,
 		defaultThinking: plain.defaultThinking ?? "low",
 		calendarAccess: plain.calendarAccess ?? "",
-		machines: plain.machines ?? "",
-		sandboxMachine: plain.sandboxMachine ?? "",
 		hosts: plain.hosts ?? "",
+		computer: plain.computer ?? "",
 		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT,
 		approvalAuth: plain.approvalAuth ?? false,
 	};
@@ -175,14 +175,12 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 	const plain: PlainSettings = {
 		providers: JSON.stringify(providers),
 		defaultProvider: settings.defaultProvider,
-		sandboxUrl: settings.sandboxUrl,
 		gcloudProject: settings.gcloudProject,
 		defaultModelId: settings.defaultModelId,
 		defaultThinking: settings.defaultThinking,
 		calendarAccess: settings.calendarAccess,
-		machines: settings.machines,
-		sandboxMachine: settings.sandboxMachine,
 		hosts: settings.hosts,
+		computer: settings.computer,
 		compactAt: settings.compactAt,
 		approvalAuth: settings.approvalAuth,
 	};
@@ -198,7 +196,6 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 	}
 	await SecureStorage.remove(LEGACY_SECRET_API_KEY).catch(() => false);
 	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
-	await saveSecret(SECRET_SANDBOX_TOKEN, settings.sandboxToken);
 	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
 	await saveSecret(SECRET_CLOUDFLARE, settings.cloudflareCredential);
 	await saveSecret(SECRET_AZURE, settings.azureCredential);

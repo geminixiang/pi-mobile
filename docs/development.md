@@ -26,7 +26,7 @@ npm ci --ignore-scripts
 
 第一次打開時填：
 - **模型供應商**：pi-ai 內建的供應商填 API key，或自訂端點（OpenAI 或 Anthropic 相容）填網址和 key。
-- **Sandbox**（選填）：掃描 sandbox 主機安裝時印出的 QR code，見下一節。
+- **電腦**（選填）：把 tailnet 裡的一台電腦交給 pi，見下一節。
 - **GitHub**（選填）：fine-grained token，只開需要的 repo。
 - **Google Cloud**（選填）：按「登入」用 Google 帳號登入。瀏覽器最後一頁會顯示授權碼，複製後回到 app 會自動帶入。流程和 `gcloud auth application-default login --no-launch-browser` 相同，用的是 gcloud 本身的 OAuth client。也可以改貼 service account 金鑰。可以設預設專案。
 - **Cloudflare**（選填）：按「登入」，在瀏覽器確認代碼並同意，app 會自動完成。也可以改貼 API token。
@@ -35,30 +35,30 @@ npm ci --ignore-scripts
 
 每一組都有「測試連線」，設定頁最下面顯示目前安裝的版本（commit 和建置時間）。
 
-## 安裝 sandbox 主機
+## 把電腦交給 pi
 
-主機可以是 Mac（Apple silicon）或 Linux arm64，需要 Node 22+、Tailscale，以及 colima（Mac）或 rootless Docker（Linux）。在主機上執行：
-
-```sh
-sandbox/install.sh
-```
-
-這個腳本會：
-- **Mac**：開一個專用的 colima VM（`pi-sandbox`，4 核、4 GB、40 GB），容器跑在這個 VM 裡，跟 Mac 本身隔了一層 VM。relay 用 launchd 在登入時啟動，log 在 `~/Library/Logs/pi-sandbox-relay.log`。
-- **Linux**：用目前使用者的 rootless Docker，relay 是 systemd user service。
-- 建置兩個 image：
-  - `pi-sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、cf、wrangler、az、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
-  - `pi-egress`：mitmproxy 12.2.3 加 `credentials.py`。
-- 第一次安裝時在 `~/.config/pi-sandbox/env` 產生 `RELAY_TOKEN` 和 `EGRESS_SECRET`。
-- 最後印出**配對 QR code** 和 `pimobile://pair?...` 連結。用手機相機掃描，pi mobile 會先測試連線、問你一次，然後自動填好設定。
-
-再跑一次 `install.sh` 就是更新，token 會保留，不用重新配對。之後要再印一次配對碼：
+電腦（macOS，或有 systemd 的 Linux）要裝好 Tailscale，並登入跟手機同一個帳號。在電腦上執行一次：
 
 ```sh
-node --env-file=$HOME/.config/pi-sandbox/env ~/pi-sandbox/relay/pair.js
+curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
 ```
 
-從別台電腦安裝到遠端 Linux 主機：`sandbox/deploy.sh <ssh 目標>`，它會把 `sandbox/` 和 pi-env 複製過去再執行 `install.sh`。
+它會安裝 pi-host，並設定成登入時自動啟動。最後印出一個名稱，到手機的設定 › 電腦輸入它。
+
+- **直接**：Bot 以你的帳號、從家目錄操作這台電腦。
+- **容器**：電腦上有 docker、podman 或 nerdctl 時才會出現。第一次按下時會在電腦上建好兩個 image：
+  - `pi-mobile/sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、cf、wrangler、az、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
+  - `pi-mobile/egress`：mitmproxy 加上 `credentials.py`。
+
+  所有 Bot 共用 `pim-main` 這個容器。憑證只留在手機上，寫入要先在手機上核准。
+
+設計見 [design/computer-host.md](design/computer-host.md)。開發 pi-host：
+
+```sh
+cd host && go build -o /tmp/pi-host-darwin-arm64 . && PI_HOST_URL=file:///tmp/pi-host-darwin-arm64 sh install.sh
+```
+
+移除：`sh host/install.sh uninstall`。
 
 ## 測試
 
@@ -67,18 +67,4 @@ npm run check                                   # 型別檢查
 
 # 手機上的 UI（先跑 run-android.sh 轉發 DevTools）
 CDP_PORT=9333 ./test/ui.sh 'async () => { return (await window.piRuntime.bots()).map((bot) => bot.name); }'
-
-# Sandbox 連線
-SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... node test/sandbox-node.ts
-
-# GitHub egress：腳本扮演手機，唯一放行的寫入是無害的 POST /markdown
-SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GITHUB_TOKEN=$(gh auth token) node test/egress-node.ts
-
-# gcloud egress：腳本扮演手機並拒絕所有寫入，唯一嘗試的寫入是刪除一個不存在的 bucket
-SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... GCLOUD_TOKEN=$(gcloud auth print-access-token) \
-  GCLOUD_PROJECT=<專案> node test/gcloud-node.ts
-
-# Cloudflare egress：同上，唯一嘗試的寫入是刪除一個不存在的 Worker
-SANDBOX_RELAY=ws://<主機>:8787 SANDBOX_TOKEN=... CLOUDFLARE_TOKEN=<access token> \
-  CLOUDFLARE_ACCOUNT=<account id> node test/cloudflare-node.ts
 ```

@@ -6,7 +6,7 @@ import { Notifications } from "../notifications-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
 import { showToast } from "./Toasts.tsx";
-import { checkGitHub, checkModels, checkSandbox } from "../agent/checks.ts";
+import { checkGitHub, checkModels } from "../agent/checks.ts";
 import {
 	checkGcloud,
 	describeCredential,
@@ -26,11 +26,9 @@ import { Triggers } from "../agent/triggers.ts";
 import { isConfigured, type Settings } from "../settings.ts";
 import { BackIcon, ChevronIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
-import { parseMachines } from "../agent/sandbox/machine.ts";
 import { parseHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { parseProviders, providerName } from "../agent/providers.ts";
-import { MachinesGroup } from "./MachinesGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { McpGroup } from "./McpGroup.tsx";
@@ -632,16 +630,14 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		settings.cloudflareCredential && "Cloudflare",
 		settings.azureCredential && "Azure",
 	].filter(Boolean);
-	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
-	const host = parseHosts(settings.hosts).find((candidate) => candidate.id === settings.sandboxMachine);
-	const relay = settings.sandboxUrl ? new URL(settings.sandboxUrl.replace(/^ws/, "http")).hostname : "";
+	const host = parseHosts(settings.hosts).find((candidate) => `${candidate.id}:direct` === settings.computer || `${candidate.id}:container` === settings.computer);
 	const services = runtime?.mcp.servers.length ?? 0;
 	const rows: { page: Page; label: string; value: string | undefined }[] = [
 		{ page: "models", label: "模型", value: parseProviders(settings.providers).map(providerName).join("、") },
 		...(runtime ? [{ page: "memory" as const, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
 		{ page: "accounts", label: "帳號", value: accounts.join("、") },
 		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
-		{ page: "machines", label: "電腦", value: host?.name ?? machine?.name ?? relay },
+		{ page: "machines", label: "電腦", value: host ? `${host.name}${settings.computer.endsWith(":container") ? " · 容器" : ""}` : undefined },
 		...(native
 			? [
 					{ page: "phone" as const, label: "手機", value: undefined },
@@ -843,43 +839,9 @@ export function SettingsView({
 					<Group title="電腦">
 						<HostsGroup
 							value={settings.hosts}
-							chosen={settings.sandboxMachine}
-							onChange={(hosts, chosen) => setSettings((current) => ({ ...current, hosts: JSON.stringify(hosts), sandboxMachine: chosen }))}
+							computer={settings.computer}
+							onChange={(hosts, computer) => setSettings((current) => ({ ...current, hosts: JSON.stringify(hosts), computer }))}
 						/>
-					</Group>
-					{native ? (
-						<Group title="SSH 機器">
-							<MachinesGroup
-								value={settings.machines}
-								chosen={settings.sandboxMachine}
-								onChange={(update) =>
-									setSettings((current) => {
-										const next = update(parseMachines(current.machines), current.sandboxMachine);
-										return { ...current, machines: JSON.stringify(next.machines), sandboxMachine: next.chosen };
-									})
-								}
-							/>
-						</Group>
-					) : null}
-					<Group title="Sandbox relay">
-						{settings.sandboxUrl ? null : (
-							<div className="pair-steps">
-								<p>在電腦上執行，再用相機掃它印出的 QR code：</p>
-								<pre className="console">sandbox/install.sh</pre>
-							</div>
-						)}
-						<details className="manual" open={Boolean(settings.sandboxUrl)}>
-							<summary>{settings.sandboxUrl ? "目前的主機" : "手動輸入"}</summary>
-							<label>
-								<span>Relay</span>
-								<input {...field("sandboxUrl")} placeholder="ws://100.x.y.z:8787" autoCapitalize="off" autoComplete="off" inputMode="url" />
-							</label>
-							<label>
-								<span>Token</span>
-								<input {...field("sandboxToken")} type="password" autoComplete="off" />
-							</label>
-						</details>
-						<CheckButton disabled={!settings.sandboxUrl || !settings.sandboxToken} run={() => checkSandbox(settings.sandboxUrl, settings.sandboxToken)} />
 					</Group>
 				</>
 			),

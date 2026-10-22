@@ -28,10 +28,7 @@ import { agentOf } from "./docs.ts";
 import { inForeground, notifyAway, setWorking, showWaiting } from "./keepAlive.ts";
 import { askByNotification, listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
-import { listenForPairing, type Pairing } from "./pairing.ts";
 import { System } from "../system-plugin.ts";
-import { checkSandbox } from "../agent/checks.ts";
-import { parseMachines } from "../agent/sandbox/machine.ts";
 import { parseHosts } from "../agent/sandbox/host.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
@@ -52,18 +49,10 @@ type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "worksp
 
 const SETTINGS_APPLY_MS = 800;
 
-/** The machine or relay host the sandbox runs on, in words; empty without one. */
+/** The computer a bot that has not picked works on, in words; empty for the phone. */
 function sandboxName(settings: Settings): string {
-	const host = parseHosts(settings.hosts).find((candidate) => candidate.id === settings.sandboxMachine);
-	if (host) return host.name;
-	const machine = parseMachines(settings.machines).find((candidate) => candidate.id === settings.sandboxMachine);
-	if (machine) return machine.name;
-	if (!settings.sandboxUrl) return "";
-	try {
-		return new URL(settings.sandboxUrl.replace(/^ws/, "http")).hostname;
-	} catch {
-		return settings.sandboxUrl;
-	}
+	const id = settings.computer.split(":")[0];
+	return parseHosts(settings.hosts).find((host) => host.id === id)?.name ?? "";
 }
 
 export function App() {
@@ -328,36 +317,10 @@ export function App() {
 		[runtime, controllerId],
 	);
 
-	// Pairing links from sandbox/install.sh. A link can arrive before settings load (the app was launched with it).
-	const [pairing, setPairing] = useState<Pairing>();
-	useEffect(() => listenForPairing(setPairing), []);
-	const saveRef = useRef<(next: Settings) => Promise<void>>(undefined);
 	const applying = useRef<Promise<void>>(Promise.resolve());
 	// What a queued apply acts on: the state when it runs, not when it was queued.
 	const live = useRef({ settings, runtime, controller });
 	live.current = { settings, runtime, controller };
-	useEffect(() => {
-		if (!pairing || !settings) return;
-		setPairing(undefined);
-		void (async () => {
-			let reached: string;
-			try {
-				reached = await checkSandbox(pairing.url, pairing.token);
-			} catch (error) {
-				notify(`連不到 sandbox 主機 ${pairing.name}：${error instanceof Error ? error.message : String(error)}`);
-				return;
-			}
-			const replacing = settings.sandboxUrl && settings.sandboxUrl !== pairing.url;
-			const sure = await ask({
-				title: "使用這台 sandbox 主機？",
-				body: `${pairing.name}（${reached}）。${replacing ? `會取代目前的 ${settings.sandboxUrl}，舊主機上的檔案不會搬過來。` : "所有 Bot 會共用這台主機上的一個 Linux 容器。"}`,
-				confirm: "使用",
-			});
-			if (!sure) return;
-			await saveRef.current?.({ ...settings, sandboxUrl: pairing.url, sandboxToken: pairing.token });
-			notify(`已連上 sandbox 主機 ${pairing.name}`);
-		})();
-	}, [pairing, settings, ask, notify]);
 
 	// The side panels: the bot list on the left, the bot on screen on the right (SidePanel.tsx).
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
@@ -380,7 +343,6 @@ export function App() {
 		setRuntime(undefined);
 		await start(next);
 	};
-	saveRef.current = saveAndRestart;
 	// Settings changed on the settings page: saved, and the agent restarted under the page, which stays open.
 	applyRef.current = () => {
 		const draft = settingsDraft.current;
@@ -420,8 +382,7 @@ export function App() {
 		// First run, or the runtime could not open: settings are the whole screen.
 		return (
 			<div className="app">
-				{/* Remount when pairing fills in the sandbox, so the form shows it. */}
-				<SettingsView key={settings.sandboxUrl} initial={settings} status={openError} onSave={saveAndRestart} />
+				<SettingsView initial={settings} status={openError} onSave={saveAndRestart} />
 				<Dialog
 					request={dialog?.request}
 					onAnswer={(value) => {
@@ -485,7 +446,7 @@ export function App() {
 						currentId={controller?.id}
 						status={[
 							{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
-							{ label: "Sandbox", icon: <TerminalIcon size={17} />, on: runtime.hasSandbox },
+							{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.hasSandbox },
 							{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
 							{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
 							{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },

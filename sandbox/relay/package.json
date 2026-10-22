@@ -1,9 +1,0 @@
-{
-	"name": "pi-sandbox-relay",
-	"private": true,
-	"type": "module",
-	"dependencies": {
-		"qrcode": "1.5.4",
-		"ws": "8.22.0"
-	}
-}

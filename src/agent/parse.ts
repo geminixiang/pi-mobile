@@ -1,4 +1,4 @@
-// Boundary parsing: data from outside (HTTP responses, the relay, storage) is `unknown` until a schema checks it.
+// Boundary parsing: data from outside (HTTP responses, pi-host, storage) is `unknown` until a schema checks it.
 // Types inside the app are inferred from these schemas, so the check and the type cannot drift apart.
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";

@@ -859,9 +859,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .memory-text::placeholder { color: var(--faint); }
 .memory-hint { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
 
-/* Settings › 機器: one block per machine, then the add form. */
+/* Settings › 電腦: one block per computer, then the add form. */
 .machine + .machine, .machine + .machine-add, .machine + .btn { border-top: 1px solid var(--line); }
-.machine .hint.machine-note { margin: 0; padding: 0 16px 4px; }
 .machine .check-error, .machine-add .check-error { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: 11.5px; }
 .machine-add > label { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0; }
 .machine-add > label > span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }

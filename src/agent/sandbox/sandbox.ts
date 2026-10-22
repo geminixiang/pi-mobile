@@ -1,33 +1,20 @@
-// Where the agent's coding tools (read, write, edit, bash) run, on the user's own machine. One sandbox shared by all
-// bots (as Grok Bot shares one computer), each bot working in its own folder there:
-// - relay: a Linux container behind the sandbox relay (sandbox/relay), credentials through its proxy;
-// - machine: one of the user's machines over SSH, in a container behind the egress proxy when an engine answers there,
-//   else directly as the SSH user ("trusted", docs/design/sandbox-ssh.md): the bot operates the machine itself from
-//   its home directory, with no folder of its own.
+// Where the agent's coding tools (read, write, edit, bash) run off the phone: one of the user's computers running
+// pi-host (host.ts), either directly as its user from home, or in the Linux container shared by all bots (as Grok Bot
+// shares one computer), each bot working in its own folder there.
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { log } from "../../log.ts";
 import { BotIndex } from "../bots.ts";
-import { ContainerHost, type Credentials } from "./container.ts";
-import { type Machine, MachineLink, type MachineSystem, shellQuote } from "./machine.ts";
-import { StreamConnection } from "./stream-connection.ts";
+import { type DaemonArch, type DaemonOs, shellQuote } from "./daemon.ts";
+import type { StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
-import { WebSocketConnection } from "./ws-connection.ts";
 
-export interface RelayConfig {
-	/** ws://host:port of the relay. */
-	url: string;
-	token: string;
-}
-
-/** The one sandbox's name: its container is sbx-main behind the relay, pim-main over SSH. */
+/** The one container's name: pim-main. */
 export const SHARED_SANDBOX = "main";
 
 export interface Sandbox {
-	readonly kind: "relay" | "machine" | "host";
 	/** Whether the tools run on the machine itself, from its home directory: no bot folders are made or deleted there. */
 	readonly direct: boolean;
 	/** A bot's folder there (the home directory when direct): its working directory, where tool paths resolve. */
@@ -110,8 +97,8 @@ export class SharedEnvs {
 	}
 }
 
-/** The shared container sandbox, behind the relay or over SSH: the same image and the same proxy. */
-function containerDescription(folder: string): string {
+/** The shared container: the same image and proxy on every computer. */
+export function containerDescription(folder: string): string {
 	return [
 		`read, write, edit, and bash run in a Linux sandbox on the user's computer, not the phone, shared by all of the user's bots: Debian 13 as root, with internet,`,
 		"Node 24, Python 3.13 with uv (`uv run --with pandas x.py`), git, gh, build tools, sqlite3, jq, rg, fd, magick, ffmpeg, pandoc, pdftotext, CJK fonts.",
@@ -123,132 +110,9 @@ function containerDescription(folder: string): string {
 	].join(" ");
 }
 
-/** The shared container behind the sandbox relay. */
-export class RelaySandbox implements Sandbox {
-	readonly kind = "relay";
-	readonly direct = false;
-	readonly #config: RelayConfig;
-	readonly #envs: SharedEnvs;
-
-	constructor(config: RelayConfig) {
-		this.#config = config;
-		const connection = new WebSocketConnection({
-			relayUrl: config.url,
-			relayToken: config.token,
-			sandbox: SHARED_SANDBOX,
-			onLog: (text) => log.warn("sandbox.daemon_output", { sandbox: SHARED_SANDBOX, text }),
-		});
-		this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => this.root(folder));
-	}
-
-	root(folder: string): string {
-		return `${WORKSPACE}/${folder}`;
-	}
-
-	env(folder: string): Promise<ExecutionEnv> {
-		return this.#envs.env(folder);
-	}
-
-	exists(folder: string): Promise<boolean> {
-		return this.#envs.exists(folder);
-	}
-
-	remove(folder: string): Promise<void> {
-		return this.#envs.remove(folder);
-	}
-
-	describe(folder: string): string {
-		return containerDescription(folder);
-	}
-
-	/** The relay's URL, for its control channel. */
-	get config(): RelayConfig {
-		return this.#config;
-	}
-
-	close(): void {
-		this.#envs.close();
-	}
-}
-
-function systemLabel(system: Pick<MachineSystem, "os" | "arch">): string {
-	return `${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch}`;
-}
-
-/**
- * One of the user's machines over SSH. With a container engine there (and not set to trusted), the shared container
- * behind the egress proxy, whose questions the phone answers: credentials stay on the phone and writes wait for
- * approval, as with the relay. Otherwise the daemon runs as the SSH user from its home directory, and the bot
- * operates the machine directly.
- */
-export class MachineSandbox implements Sandbox {
-	readonly kind = "machine";
-	readonly #link: MachineLink;
-	readonly #containers: ContainerHost | undefined;
-	readonly #stopBridge: (() => void) | undefined;
-	readonly #envs: SharedEnvs;
-
-	constructor(machine: Machine, credentials: Credentials) {
-		this.#link = new MachineLink(machine);
-		const engine = machine.system?.engines[0];
-		const onLog = (text: string) => log.warn("sandbox.daemon_output", { machine: machine.name, text });
-		if (engine && machine.mode !== "trusted") {
-			const containers = new ContainerHost(engine, () => this.#link.client());
-			this.#containers = containers;
-			this.#stopBridge = containers.bridge(credentials);
-			// Per-service settings from the phone, such as the default Google Cloud project or Cloudflare account.
-			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
-			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog });
-			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => this.root(folder));
-		} else {
-			const home = machine.system?.home ?? "~";
-			this.#envs = new SharedEnvs(this.#link.connection(home, onLog), home, () => home);
-		}
-	}
-
-	get machine(): Machine {
-		return this.#link.machine;
-	}
-
-	get direct(): boolean {
-		return this.#containers === undefined;
-	}
-
-	root(folder: string): string {
-		if (this.#containers) return `${WORKSPACE}/${folder}`;
-		return this.machine.system?.home ?? "~";
-	}
-
-	env(folder: string): Promise<ExecutionEnv> {
-		return this.#envs.env(folder);
-	}
-
-	exists(folder: string): Promise<boolean> {
-		return this.#envs.exists(folder);
-	}
-
-	remove(folder: string): Promise<void> {
-		// Direct: the working directory is the user's home, never deleted from here.
-		if (!this.#containers) return Promise.reject(new Error("直接模式不會刪除這台機器上的檔案"));
-		return this.#envs.remove(folder);
-	}
-
-	describe(folder: string): string {
-		if (this.#containers) return containerDescription(folder);
-		const machine = this.machine;
-		return directDescription(machine.name, machine.user, machine.system, "sshd");
-	}
-
-	close(): void {
-		this.#stopBridge?.();
-		this.#envs.close();
-		this.#link.close();
-	}
-}
-
 /** What a bot operating one of the user's computers directly is told; `process` is what macOS asks permissions for. */
-export function directDescription(name: string, user: string, system: Pick<MachineSystem, "os" | "arch" | "home"> | undefined, process: string): string {
-	const where = system ? `${name} (${systemLabel(system)})` : name;
+export function directDescription(name: string, user: string, system: { os: DaemonOs; arch: DaemonArch; home: string } | undefined, process: string): string {
+	const where = system ? `${name} (${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch})` : name;
 	const desktop =
 		system?.os === "darwin"
 			? `\`open\` opens files, URLs, and apps; \`osascript\` drives apps and System Events; \`screencapture -x /tmp/s.png\` and then \`read\` shows the screen. macOS asks on that screen before ${process} reads protected folders (Desktop, Documents, Downloads) or records the screen: when one fails that way, tell the user to allow it there.`

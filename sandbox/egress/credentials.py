@@ -4,7 +4,7 @@ Cloudflare (api.cloudflare.com, used by cf and wrangler) works like Google Cloud
 an OAuth access token from the phone, and approval for anything but GET/HEAD and the read-only GraphQL analytics API.
 
 Azure (ARM, Graph, Key Vault, Storage) works the same way, except that az signs in as a managed identity served by
-the relay with placeholder tokens; the proxy asks the phone for a real token for the host's resource (one per scope).
+the bridge with placeholder tokens; the proxy asks the phone for a real token for the host's resource (one per scope).
 
 Google Cloud (*.googleapis.com) works the same way as GitHub below: gcloud in the sandbox sends a placeholder bearer
 token, and the proxy swaps in a short-lived access token the phone minted. Reads go straight through; writes (any
@@ -13,10 +13,11 @@ method but GET/HEAD, except POSTs that only read, such as :list and :search) wai
 
 Sandboxes send all HTTP(S) through this proxy. Only HTTPS to the hosts below gets credentials, and only TLS to them is
 intercepted (see --allow-hosts in the Dockerfile); everything else passes through untouched. For GitHub requests the addon drops any Authorization the
-sandbox sent (gh's placeholder GH_TOKEN), asks the relay for the user's token, and injects it.
+sandbox sent (gh's placeholder GH_TOKEN), asks the phone (through bridge.py) for the user's token, and
+injects it.
 
 Reads (clone, fetch, REST GET, GraphQL queries) get the token right away. Writes (git push, REST POST/PATCH/PUT/
-DELETE, GraphQL mutations, LFS uploads) are held until the user approves them on the phone; the relay forwards the
+DELETE, GraphQL mutations, LFS uploads) are held until the user approves them on the phone; the bridge forwards the
 question and returns the token only when approved. Without a connected phone, reads go out anonymously and writes are
 refused.
 """
@@ -32,7 +33,7 @@ import urllib.request
 
 from mitmproxy import http
 
-RELAY_URL = os.environ["RELAY_URL"].rstrip("/")
+BRIDGE_URL = os.environ["BRIDGE_URL"].rstrip("/")
 SECRET = os.environ["EGRESS_SECRET"]
 API_HOSTS = {"api.github.com", "uploads.github.com"}
 GIT_HOST = "github.com"
@@ -172,7 +173,7 @@ def classify_azure(request):
 def authorize(client, write, title="", detail="", service="github", scope=""):
     payload = json.dumps({"client": client, "write": write, "title": title, "detail": detail, "service": service, "scope": scope}).encode()
     request = urllib.request.Request(
-        f"{RELAY_URL}/egress/authorize",
+        f"{BRIDGE_URL}/egress/authorize",
         data=payload,
         headers={"Content-Type": "application/json", "X-Egress-Secret": SECRET},
         method="POST",
@@ -235,7 +236,7 @@ class Credentials:
             try:
                 result = await asyncio.to_thread(authorize, client, True, *write, service, scope)
             except (OSError, urllib.error.URLError, ValueError) as error:
-                result = {"reason": f"無法聯絡 relay（{error}）"}
+                result = {"reason": f"手機沒有連上（{error}）"}
             token = result.get("token")
             reason = result.get("reason") or "寫入被拒絕"
         if token:
@@ -282,7 +283,7 @@ class Credentials:
         try:
             result = await asyncio.to_thread(authorize, client, True, *write)
         except (OSError, urllib.error.URLError, ValueError) as error:
-            deny(flow, host, f"無法聯絡 relay（{error}）")
+            deny(flow, host, f"手機沒有連上（{error}）")
             return
         token = result.get("token")
         if not token:

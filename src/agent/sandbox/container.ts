@@ -1,16 +1,15 @@
-// Containers on a machine reached over SSH (docs/design/sandbox-ssh.md): one shared by all bots, behind the egress
-// proxy, driven by the phone with the engine's CLI (docker, podman, or nerdctl; only the subset they share). What the
-// relay did on the host (sandbox/relay/server.js) the phone does over SSH, and the proxy reaches the phone through
-// bridge.py on an exec channel, so nothing runs on the host for the app and no credential is stored there.
+// Containers on one of the user's computers (docs/design/computer-host.md): one shared by all bots, behind the egress
+// proxy, driven by the phone with the engine's CLI (docker, podman, or nerdctl; only the subset they share) through
+// pi-host's command channel. The proxy reaches the phone through bridge.py on such a channel, so no credential is
+// stored on the computer: it asks the phone for a token, and the phone asks the user before a write.
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
 import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
 import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
 import { log } from "../../log.ts";
 import { requestConfirmation } from "../confirm.ts";
-import type { MintedService } from "./egress.ts";
-import { daemon, ENV_PATH, type MachineSystem, shellQuote } from "./machine.ts";
-import type { SshClient } from "./ssh.ts";
+import type { AccessToken } from "../oauth.ts";
+import { daemon, ENV_PATH, shellQuote } from "./daemon.ts";
 import type { OpenDaemon } from "./stream-connection.ts";
 import { lost } from "./stream-connection.ts";
 
@@ -61,6 +60,34 @@ const SANDBOX_ENV: Record<string, string> = {
 	SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt",
 };
 
+/** A service whose access tokens the phone mints on request. */
+export interface MintedService {
+	/** `scope` names the resource for services with one token per resource (Azure); others ignore it. */
+	get(scope?: string): Promise<AccessToken>;
+	/** Sandbox environment for this service, such as the default project or account. */
+	env: Record<string, string>;
+}
+
+export interface CommandHandlers {
+	onStdout(data: Uint8Array): void;
+	onStderr?(data: Uint8Array): void;
+	onExit(code: number | undefined): void;
+}
+
+export interface CommandChannel {
+	write(data: Uint8Array): void;
+	/** End stdin: the command sees end of input. */
+	end(): void;
+	close(): void;
+}
+
+/** Runs shell commands on the computer, as its user, from home (pi-host's /exec). */
+export interface CommandClient {
+	exec(command: string, handlers: CommandHandlers): Promise<CommandChannel>;
+	/** Run a command to the end: its stdout as text, stderr, and exit code. `input` is sent as stdin. */
+	run(command: string, input?: Uint8Array): Promise<{ stdout: string; stderr: string; code: number | undefined }>;
+}
+
 export interface Credentials {
 	githubToken: string | undefined;
 	/** By proxy service name: "gcloud", "cloudflare", "azure". */
@@ -86,7 +113,7 @@ function arch(value: string): "x64" | "arm64" | undefined {
 
 export class ContainerHost {
 	readonly #engine: string;
-	readonly #client: () => Promise<SshClient>;
+	readonly #client: () => Promise<CommandClient>;
 	#egress: Promise<string> | undefined;
 	/** Container ids that trust the egress CA and run the expected daemon, since the app started. */
 	readonly #prepared = new Set<string>();
@@ -94,7 +121,7 @@ export class ContainerHost {
 	readonly #active = new Map<string, number>();
 	readonly #ensuring = new Map<string, Promise<void>>();
 
-	constructor(engine: string, client: () => Promise<SshClient>) {
+	constructor(engine: string, client: () => Promise<CommandClient>) {
 		this.#engine = engine;
 		this.#client = client;
 	}
@@ -117,12 +144,12 @@ export class ContainerHost {
 	 * Build the sandbox and egress images on the host unless images from the same files are there (labeled with their
 	 * hash). The first build takes minutes; `onProgress` gets the build's last output line.
 	 */
-	async ensureImages(system: MachineSystem, onProgress: (detail: string) => void): Promise<void> {
+	async ensureImages(home: string, onProgress: (detail: string) => void): Promise<void> {
 		const engineArch = arch((await this.#tryE("info --format '{{.Architecture}}'")) ?? "") ?? arch((await this.#tryE("info --format '{{.Host.Arch}}'")) ?? "");
 		if (!engineArch) throw new Error(`讀不到 ${this.#engine} 的架構`);
 		const piEnv = await daemon("linux", engineArch);
-		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, system.home, onProgress, piEnv);
-		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, system.home, onProgress);
+		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, home, onProgress, piEnv);
+		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, home, onProgress);
 	}
 
 	async #buildUnlessCurrent(
@@ -172,7 +199,7 @@ export class ContainerHost {
 	#ensureEgress(): Promise<string> {
 		this.#egress ??= (async () => {
 			if (!(await this.#tryE(`image inspect -f '{{.Id}}' ${SANDBOX_IMAGE}`))) {
-				throw lost("容器的 image 還沒建好：到設定 › 機器按「重新安裝」");
+				throw lost("容器還沒準備好：打開設定 › 電腦，等它準備完成");
 			}
 			await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, await this.#home(), (detail) => log.info("egress.build", { detail }));
 			const image = await this.#e(`image inspect -f '{{.Id}}' ${EGRESS_IMAGE}`);
@@ -189,7 +216,7 @@ export class ContainerHost {
 						`--network ${NETWORK}`,
 						"--restart unless-stopped",
 						`-v ${EGRESS}-ca:/home/mitmproxy/.mitmproxy`,
-						"-e RELAY_URL=http://127.0.0.1:9001",
+						"-e BRIDGE_URL=http://127.0.0.1:9001",
 						`-e EGRESS_SECRET=${secret}`,
 						EGRESS_IMAGE,
 					].join(" "),
@@ -284,7 +311,7 @@ export class ContainerHost {
 		send({ type: "result", id: message.id, result });
 	}
 
-	/** What the relay's /egress/authorize did: a token for reads, and for writes the user approved on the phone. */
+	/** The answer to the proxy: a token for reads, and for writes the user approved on the phone. */
 	async #authorize(body: unknown, credentials: Credentials): Promise<{ token?: string; reason?: string }> {
 		const field = (key: string): unknown => (typeof body === "object" && body !== null && key in body ? Reflect.get(body, key) : undefined);
 		const service = String(field("service") ?? "github");
@@ -408,10 +435,6 @@ export class ContainerHost {
 				else this.#active.delete(name);
 			};
 			let stderr = "";
-			const stop = client.onClose((reason) => {
-				release();
-				handlers.onClose(`SSH ${reason}`);
-			});
 			const channel = await client.exec(
 				`${ENV_PATH}; exec ${this.#engine} exec -i -w /workspace ${env} ${PREFIX + name} ${DAEMON} serve --token ${token}`,
 				{
@@ -420,7 +443,6 @@ export class ContainerHost {
 						stderr = (stderr + new TextDecoder().decode(data)).slice(-2000);
 					},
 					onExit: (code) => {
-						stop();
 						release();
 						handlers.onClose(stderr.trim() || `daemon exited ${code ?? "?"}`);
 					},

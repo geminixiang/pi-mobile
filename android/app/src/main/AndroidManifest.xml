@@ -23,14 +23,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Pairing links from sandbox/install.sh: pimobile://pair?url=...&token=...&name=... -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="pimobile" android:host="pair" />
-            </intent-filter>
-
             <!-- Back to pi from the browser when a sign-in ends (LoopbackPlugin.java's page): dev.geminixiang.pimobile:/back -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

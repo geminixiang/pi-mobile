@@ -44,7 +44,7 @@ async () => {
 	r.jq = await sh(`echo '[{"n":"a","p":2},{"n":"b","p":5}]' > d.json && jq '[.[].p] | add' d.json`);
 	r.findGrep = await sh("find / -name '*.csv' && grep -rn 台銀 /");
 	r.date = await sh("date '+%Y-%m-%d %H:%M %Z'");
-	r.escape = await sh("cat /../../../data/data/dev.geminixiang.pimobile/files/ssh/id_ed25519.pk8; echo code=$?");
+	r.escape = await sh("cat /../../../data/data/dev.geminixiang.pimobile/shared_prefs/CapacitorStorage.xml; echo code=$?");
 	r.unavailable = await sh("xan count x; sqlite3; tar; python3 -c 1; echo x | html-to-markdown");
 	r.noNetwork = await sh("curl -s https://example.com; echo code=$?");
 	r.noPython = await sh("python3 -c 'print(1)'; echo code=$?");

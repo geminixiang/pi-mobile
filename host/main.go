@@ -11,6 +11,10 @@
 //	PUT  /daemon/<sha256>    store a daemon; refused unless its bytes hash to <sha256>
 //	GET  /env?daemon=<sha256>&token=<hex>   WebSocket: runs `pi-env serve --token <hex>` in a login shell from home
 //	                          and copies its stdin and stdout as binary messages
+//	GET  /exec?command=<sh>  WebSocket: runs a command in a login shell from home, for driving a container engine.
+//	                          Binary messages in are stdin, a text "eof" closes it; out, binary messages start with
+//	                          1 (stdout) or 2 (stderr), and a last text message {"exit": code} precedes the close.
+//	                          It grants nothing /env does not: both run what the user's own device asks, as the user.
 package main
 
 import (
@@ -199,7 +203,112 @@ func info(w http.ResponseWriter, r *http.Request) {
 		"name":    name,
 		"dnsName": strings.TrimSuffix(st.Self.DNSName, "."),
 		"daemons": daemons(),
+		"engines": engines(r.Context()),
 	})
+}
+
+// engines lists the container engines the user's shell finds, best first.
+func engines(ctx context.Context) []string {
+	out := []string{}
+	for _, name := range []string{"docker", "podman", "nerdctl"} {
+		cmd := loginShell(ctx, "command -v "+name+" >/dev/null && "+name+" info >/dev/null 2>&1")
+		if cmd.Run() == nil {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// loginShell runs a command as the user's terminal would: their shell, its PATH (Homebrew, colima, nvm), from home.
+func loginShell(ctx context.Context, command string, args ...string) *exec.Cmd {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	path := `export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"; `
+	cmd := exec.CommandContext(ctx, shell, append([]string{"-l", "-c", path + command}, args...)...)
+	cmd.Dir, _ = os.UserHomeDir()
+	return cmd
+}
+
+func runCommand(w http.ResponseWriter, r *http.Request) {
+	command := r.URL.Query().Get("command")
+	if command == "" {
+		http.Error(w, "command required", http.StatusBadRequest)
+		return
+	}
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	if err != nil {
+		return
+	}
+	conn.SetReadLimit(32 << 20)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := loginShell(ctx, command)
+	stdin, _ := cmd.StdinPipe()
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+	if err := cmd.Start(); err != nil {
+		conn.Close(websocket.StatusInternalError, "cannot start the command")
+		return
+	}
+	var writes sync.Mutex
+	var copies sync.WaitGroup
+	pump := func(tag byte, from io.Reader) {
+		defer copies.Done()
+		buffer := make([]byte, 256<<10)
+		for {
+			n, err := from.Read(buffer[1:])
+			if n > 0 {
+				buffer[0] = tag
+				writes.Lock()
+				werr := conn.Write(ctx, websocket.MessageBinary, buffer[:n+1])
+				writes.Unlock()
+				if werr != nil {
+					return
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	}
+	copies.Add(2)
+	go pump(1, stdout)
+	go pump(2, stderr)
+	go func() {
+		for {
+			kind, data, err := conn.Read(ctx)
+			if err != nil {
+				cancel()
+				return
+			}
+			if kind == websocket.MessageText {
+				if string(data) == "eof" {
+					stdin.Close()
+				}
+				continue
+			}
+			if _, err := stdin.Write(data); err != nil {
+				return
+			}
+		}
+	}()
+	copies.Wait()
+	code := 0
+	if err := cmd.Wait(); err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			code = exit.ExitCode()
+		} else {
+			code = -1
+		}
+	}
+	message, _ := json.Marshal(map[string]int{"exit": code})
+	writes.Lock()
+	_ = conn.Write(ctx, websocket.MessageText, message)
+	writes.Unlock()
+	conn.Close(websocket.StatusNormalClosure, "")
 }
 
 func putDaemon(w http.ResponseWriter, r *http.Request) {
@@ -261,13 +370,7 @@ func env(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// A login shell, so commands find what the user's terminal finds (Homebrew, nvm, ~/.local/bin).
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/sh"
-	}
-	home, _ := os.UserHomeDir()
-	cmd := exec.CommandContext(ctx, shell, "-l", "-c", `exec "$0" serve --token "$1"`, daemon, token)
-	cmd.Dir = home
+	cmd := loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
 	cmd.Stderr = log.Writer()
@@ -338,6 +441,7 @@ func main() {
 	mux.HandleFunc("/info", guard(info))
 	mux.HandleFunc("/daemon/", guard(putDaemon))
 	mux.HandleFunc("/env", guard(env))
+	mux.HandleFunc("/exec", guard(runCommand))
 	for {
 		ln := listen()
 		server := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}

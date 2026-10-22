@@ -32,9 +32,8 @@ import { parseCalendarAccess } from "./calendar-access.ts";
 import { AzureTokens } from "./azure.ts";
 import { CloudflareTokens } from "./cloudflare.ts";
 import { GcloudTokens } from "./gcloud.ts";
-import type { MintedService } from "./sandbox/egress.ts";
-import { MachineSandbox, type Sandbox } from "./sandbox/sandbox.ts";
-import { HostSandbox } from "./sandbox/host.ts";
+import type { MintedService } from "./sandbox/container.ts";
+import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
 import { deleteAttachments } from "./attachments.ts";
@@ -193,7 +192,6 @@ function startOfToday(): number {
 	return today.getTime();
 }
 
-/** The chosen machine over SSH, else the relay when paired, else none. */
 export class AgentRuntime {
 	readonly models: ModelInfo[];
 	readonly #harness: Harness;
@@ -268,11 +266,8 @@ export class AgentRuntime {
 		const folder = this.#folders.get(String(id));
 		const sandbox = this.sandboxOf(id);
 		if (!sandbox || !folder) return undefined;
-		if (sandbox instanceof HostSandbox) return { path: sandbox.root(), where: sandbox.host.name };
-		if (sandbox instanceof MachineSandbox) {
-			return { path: sandbox.root(folder), where: `${sandbox.machine.name} 的${sandbox.direct ? "帳號（直接模式）" : "容器"}` };
-		}
-		return { path: sandbox.root(folder), where: `${this.computerOf(id).name} 的容器` };
+		const name = this.computerOf(id).name;
+		return { path: sandbox.root(folder), where: sandbox.direct ? name : `${name} 的容器` };
 	}
 
 	/**

@@ -1,7 +1,7 @@
 // Azure credentials for az in the sandbox. Sign-in is Microsoft's device code flow with the Azure CLI's public client:
 // the app shows a code (and copies it), the user enters it at microsoft.com/devicelogin, the app polls. The refresh
-// token stays on the phone; the relay asks for access tokens per resource (ARM, Graph, Key Vault) when the proxy needs
-// one. In the sandbox, az is signed in as a managed identity whose endpoint is the relay and hands out placeholders.
+// token stays on the phone; the egress proxy asks for access tokens per resource (ARM, Graph, Key Vault) when it needs
+// one. In the sandbox, az is signed in as a managed identity served by the proxy's bridge, which hands out placeholders.
 import { type Static, Type } from "typebox";
 import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, postForm, startDeviceFlow, tokensFrom } from "./oauth.ts";
 import { parse, parseJson } from "./parse.ts";

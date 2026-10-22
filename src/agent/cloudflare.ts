@@ -1,6 +1,6 @@
 // Cloudflare credentials for cf and wrangler in the sandbox. Sign-in is the OAuth device flow of Cloudflare's `cf`
 // CLI (its public client ID): the app shows a code, the user approves it in the browser, the app polls for tokens.
-// The refresh token stays on the phone; the relay only ever gets short-lived access tokens. An API token pasted in
+// The refresh token stays on the phone; the egress proxy only ever gets short-lived access tokens. An API token pasted in
 // settings works too and is passed on as is.
 import { type Static, Type } from "typebox";
 import { type AccessToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, startDeviceFlow, tokensFrom } from "./oauth.ts";

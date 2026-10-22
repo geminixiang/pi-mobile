@@ -45,7 +45,7 @@ export interface CatalogDeps {
 	web: WebConfig;
 	triggers: TriggerHost;
 	memory: { changed(): void };
-	/** The machine or relay a bot's coding tools run on; undefined: they work in its folder on the phone. */
+	/** The computer a bot's coding tools run on; undefined: they work in its folder on the phone. */
 	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined };
 	/** The name a loadable extension goes by in the on-demand list (an MCP server's label, a toolset's). */
 	labelOf: (extension: string) => string;

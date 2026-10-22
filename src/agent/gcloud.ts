@@ -1,6 +1,6 @@
 // Google Cloud credentials for the sandbox's gcloud. The long-lived credential (a user refresh token from signing in,
-// or a service account key) stays on the phone; only short-lived access tokens it mints go to the relay, on request,
-// for the egress proxy to inject.
+// or a service account key) stays on the phone; only short-lived access tokens it mints go to the egress proxy, on
+// request, to inject.
 import { type Static, Type } from "typebox";
 import { type AccessToken, base64url, jwtPayload, postForm, tokensFrom } from "./oauth.ts";
 import { parse, parseJson } from "./parse.ts";

@@ -1,9 +1,9 @@
-"""Bridge between the egress proxy and the phone, for sandboxes reached over SSH (docs/design/sandbox-ssh.md).
+"""Bridge between the egress proxy and the phone (docs/design/computer-host.md).
 
-The phone starts it with `<engine> exec -i pi-mobile-egress python3 /egress/bridge.py` over its SSH connection and
-keeps that channel open while it is connected. It replaces the relay's two HTTP endpoints:
+The phone starts it with `<engine> exec -i pi-mobile-egress python3 /tmp/pi-mobile-bridge.py` through pi-host's
+command channel and keeps that channel open while it is connected. It serves two HTTP endpoints:
 
-- 127.0.0.1:9001 POST /egress/authorize, called by credentials.py (RELAY_URL) for every intercepted request: each one
+- 127.0.0.1:9001 POST /egress/authorize, called by credentials.py (BRIDGE_URL) for every intercepted request: each one
   goes to the phone as a JSON line on stdout, and the phone's answer (a token, or a reason) comes back on stdin.
 - 0.0.0.0:9002 GET /azure/identity, az's managed identity endpoint for the sandboxes (IDENTITY_ENDPOINT): placeholder
   tokens with the tenant the phone sent; the proxy swaps them for real ones on Azure's hosts.

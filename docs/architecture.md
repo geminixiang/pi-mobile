@@ -8,33 +8,38 @@
 │   ├─ 模型、web_search ───── HTTPS ──▶ 模型供應商（pi-ai）   │
 │   ├─ github_api、web_fetch ─ HTTPS ──▶ 網路                 │
 │   ├─ code mode ──────────── Web Worker（QuickJS）           │
-│   └─ coding tools ───────── WebSocket ─┐                    │
-│ EgressLink（token、寫入核准）── WebSocket ┤                    │
-│ AgentService（前景服務，背景執行）          │                    │
-└──────────────────────────────────────────┼───────────────────┘
-                                           │ Tailscale
-┌───────── Sandbox 主機（Mac：colima VM；Linux：rootless Docker）┐
-│ relay (server.js) ◀─────────────────────┘                   │
-│   ├─ docker exec ─▶ sbx-main：pi-env serve，/workspace/<bot>   │
-│   └─ /egress/authorize ◀── pi-egress（mitmproxy）              │
-│                    只攔 GitHub、Google、Cloudflare、Azure， │
-│                              換上真的 token，寫入先問手機       │
-└────────────────────────────────────────────────────────────────┘
+│   └─ coding tools ──── 手機上的 Bot 資料夾，或 WebSocket ─┐  │
+│ AgentService（前景服務，背景執行）                          │  │
+└────────────────────────────────────────────────────────────┼──┘
+                                                 Tailscale │
+┌──────────── 你的電腦（macOS、Linux）─────────────────────────┼──┐
+│ pi-host：只聽 Tailscale 位址，只接受同一個 Tailscale 使用者 ◀┘  │
+│   ├─ 直接：pi-env serve，以你的帳號、從家目錄                    │
+│   └─ 容器：docker exec ─▶ pim-main：pi-env serve，/workspace/<bot>│
+│              bridge.py ◀── pi-mobile-egress（mitmproxy）          │
+│              只攔 GitHub、Google、Cloudflare、Azure，               │
+│              向手機要 token，寫入先問手機                           │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 **為什麼 agent 跑在手機上？** 對話和金鑰都只在手機上，不需要一直開著的伺服器，換 sandbox 主機也不影響對話紀錄。
 
 **為什麼用 Capacitor？** WebView 是 pi-ai 正式支援的瀏覽器環境，串流和 WASM 都能直接用。
 
-### Sandbox 連線
+### 電腦
 
-pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。`src/agent/sandbox/ws-connection.ts` 是它的移植版：同樣的 frame 格式和 session 語意，只是傳輸改成 WebSocket。
+pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。`src/agent/sandbox/stream-connection.ts` 是它的移植版：同樣的 frame 格式和 session 語意，只是改成透過 WebSocket 傳輸。
 
-Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i <container> pi-env serve`，兩邊照搬 bytes，不解析 frame。容器第一次連線時才建立，閒置 30 分鐘後停止，檔案留在 volume 裡。
+**把電腦交給 pi**（設定 › 電腦）：
+- 電腦上執行一次 `host/install.sh`，裝好常駐的 pi-host（`host/main.go`）。
+- 它只聽這台電腦的 Tailscale 位址，用 `tailscale whois` 確認來的是同一個 Tailscale 使用者的裝置，不用 SSH、金鑰或密碼。
+- 手機只要輸入電腦名稱。第一次連線時，手機把對應平台的 pi-env 上傳過去。
 
-**把電腦交給 pi**（設定 › 電腦）：電腦上執行一次 `host/install.sh`，裝好常駐的 pi-host。它只聽這台電腦的 Tailscale 位址，用 `tailscale whois` 確認來的是同一個 Tailscale 使用者的裝置，不用 SSH、金鑰或密碼。手機只要輸入電腦名稱；第一次連線時，手機把 pi-env 上傳過去，Bot 就從家目錄直接操作這台電腦。設計見 [design/computer-host.md](design/computer-host.md)。
+每個 Bot 在面板裡選一台電腦，以及它在那裡的工作方式：
+- **直接**：從家目錄直接操作這台電腦，不另開資料夾；刪 Bot 不會刪電腦上的檔案。
+- **容器**：電腦上有 docker、podman 或 nerdctl 時才有。手機透過 pi-host 的 `/exec` 驅動容器引擎：建好 image，所有 Bot 共用 `pim-main`，各自一個資料夾。egress proxy 透過另一條 `/exec` 通道上的 `bridge.py` 向手機要 token 和寫入核准，所以憑證只在手機上。
 
-**用 SSH 連機器**（設定 › 機器）：手機用自己的 Ed25519 金鑰（ConnectBot sshlib）連上 tailnet 上的 Mac 或 Linux，上傳對應架構的 `pi-env` 到 `~/.pi/env/<sha>/`，之後每個工具呼叫都走同一條 SSH 連線，主機上不用裝 relay。主機有 nerdctl、podman 或 docker 時用**容器模式**：在主機上建好 image，所有 Bot 共用容器 `pim-main`，egress proxy 透過一條 SSH exec 通道向手機要 token 和寫入核准，跟 relay 一樣，憑證只在手機上。沒有容器引擎（或選了「直接」）時用**直接模式**：以你的帳號從家目錄直接操作這台機器，不另開資料夾，刪 Bot 也不會刪這台機器上的檔案；設定頁會清楚標示。設計見 [design/sandbox-ssh.md](design/sandbox-ssh.md)。
+設計見 [design/computer-host.md](design/computer-host.md)。
 
 ### 憑證與 egress proxy
 
@@ -43,9 +48,9 @@ Relay 收到連線後，確保容器存在且在執行，再跑 `docker exec -i 
 | | GitHub | Google Cloud | Cloudflare | Azure |
 |---|---|---|---|---|
 | 攔截的主機 | `github.com`、`api.github.com`、`uploads.github.com`、`raw.githubusercontent.com` | `*.googleapis.com` | `api.cloudflare.com` | `management.azure.com`、`graph.microsoft.com`、`*.vault.azure.net`、Storage |
-| 容器裡的佔位 | `GH_TOKEN` | `gcloud` 的 `auth/access_token_file` | `CLOUDFLARE_API_TOKEN`（`cf`、`wrangler` 都用它） | `az login --identity`：relay 扮演 managed identity 端點，發格式正確、沒有效力的 JWT |
+| 容器裡的佔位 | `GH_TOKEN` | `gcloud` 的 `auth/access_token_file` | `CLOUDFLARE_API_TOKEN`（`cf`、`wrangler` 都用它） | `az login --identity`：bridge 扮演 managed identity 端點，發格式正確、沒有效力的 JWT |
 | 登入方式 | 貼 fine-grained token | App 內 Google 登入，或貼 service account 金鑰 | App 內 Cloudflare 登入（`cf` 的 device flow），或貼 API token | App 內 Microsoft device code（az 的公開 client），代碼自動複製 |
-| 真的憑證在哪 | 手機 Keystore；連線時交給 relay，只放記憶體，手機斷線 10 分鐘後丟掉 | 長期憑證**只在手機上**；relay 需要時請手機換一個短效 access token | 同 Google Cloud；refresh token 每次換新都會寫回 Keystore | 同 Cloudflare；每個 Azure 資源（ARM、Graph、Key Vault、Storage）各換一個 token |
+| 真的憑證在哪 | 手機 Keystore；proxy 每次需要時透過 bridge 向手機要，不留在電腦上 | 長期憑證**只在手機上**；proxy 需要時請手機換一個短效 access token | 同 Google Cloud；refresh token 每次換新都會寫回 Keystore | 同 Cloudflare；每個 Azure 資源（ARM、Graph、Key Vault、Storage）各換一個 token |
 | 直接放行（讀取） | clone、fetch、REST GET、GraphQL query | GET，以及只讀的 POST（`:list`、`:search`、`:get`、`:testIamPermissions` 等） | GET、GraphQL 分析 API | GET、Resource Graph 查詢、名稱檢查 |
 | 要你核准（寫入） | `git push`、REST 的 POST/PATCH/PUT/DELETE、GraphQL mutation、LFS 上傳 | 其他所有請求 | 其他所有請求 | 其他所有請求，包括會回傳金鑰的 `listKeys` |
 
@@ -68,12 +73,13 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
 | `src/agent/cloudflare.ts` | Cloudflare 憑證：device flow 登入、refresh token 輪替 |
 | `src/agent/azure.ts` | Azure 憑證：Microsoft device code 登入、每個資源各自換 token |
-| `src/agent/sandbox/` | `stream-connection.ts`（pi-env 的 frame 協定），`ws-connection.ts`、`ssh.ts`（WebSocket 和 SSH 兩種傳輸）、`machine.ts`、`container.ts`（SSH 機器的安裝和容器）、`sandbox.ts`（共用的 sandbox 和每個 Bot 的資料夾）、`egress.ts`（控制通道）、`workspace.ts`（檔案與 git） |
+| `src/agent/computers.ts`、`src/agent/sandbox/` | 每個 Bot 在哪工作；`host.ts`（pi-host：直接或容器）、`container.ts`（容器、egress 和 bridge）、`stream-connection.ts`（pi-env 的 frame 協定）、`daemon.ts`（app 附的 pi-env）、`sandbox.ts`（模型看到的說明和每個 Bot 的資料夾）、`workspace.ts`（檔案與 git） |
 | `src/storage.ts` | pi-durable 的 IndexedDB 儲存，用 Web Lock 確保只有一個擁有者；只為了讀 v0.1.0 的舊資料庫保留 SQLite |
 | `src/settings.ts` | 設定；密鑰存在 Keystore |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts`、`pairing.ts` 是對應 Android 原生功能的那一層 |
-| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java`、`AppsPlugin.java`、`CalendarPlugin.java`、`PhonePlugin.java`、`TriggersPlugin.java`、`SshPlugin.java` | 前景服務與通知、語音辨識、用 Intent 交給其他 app、行事曆、位置與感測器、排程與分享、SSH |
-| `sandbox/` | Sandbox 主機端：image、relay、egress proxy、安裝腳本 |
+| `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts` 是對應 Android 原生功能的那一層 |
+| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java`、`AppsPlugin.java`、`CalendarPlugin.java`、`PhonePlugin.java`、`TriggersPlugin.java` | 前景服務與通知、語音辨識、用 Intent 交給其他 app、行事曆、位置與感測器、排程與分享 |
+| `host/` | pi-host（Go）與安裝腳本 |
+| `sandbox/` | 容器的 image 和 egress proxy（app 透過 pi-host 在電腦上建置） |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
-| `test/` | 手機上的 UI 測試（CDP）、sandbox、GitHub 和 gcloud egress 的 Node 端到端測試 |
+| `test/` | 手機上的 UI 測試（CDP）、工具介面的檢查 |
