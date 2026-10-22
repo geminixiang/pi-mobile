@@ -89,6 +89,13 @@ const RECORDS = new Set([
 ]);
 
 const docs = readFileSync(new URL("../docs/tools.md", import.meta.url), "utf8");
+const toolListSection = docs.slice(docs.indexOf("## 工具清單"), docs.indexOf("\n## ", docs.indexOf("## 工具清單")));
+const listedTools = new Set(
+	toolListSection
+		.split("\n")
+		.filter((line) => line.startsWith("| "))
+		.flatMap((line) => [...(line.split("|")[1] ?? "").matchAll(/`([^`]+)`/g)].map((match) => match[1])),
+);
 
 // The conventions (docs/tools.md § 介面規範), each a check with the tools that break it.
 type Rule = { rule: string; broken: (entry: (typeof tools)[number]) => string | undefined };
@@ -129,7 +136,7 @@ const rules: Rule[] = [
 	},
 	{
 		rule: "every tool is in the tool list of docs/tools.md",
-		broken: ({ iface }) => (docs.includes(`\`${iface.name}\``) ? undefined : iface.name),
+		broken: ({ iface }) => (listedTools.has(iface.name) ? undefined : iface.name),
 	},
 	{ rule: "tool names are snake_case", broken: ({ iface }) => (NAME.test(iface.name) ? undefined : iface.name) },
 	{
