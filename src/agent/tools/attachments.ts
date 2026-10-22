@@ -2,7 +2,7 @@
 // line window, by PDF pages, or by search; PDF pages also as images, for scans, charts, and layout. Always on and not
 // listed in the bot panel, like memory: it matters only in conversations with attachments, and costs little.
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
 import { inboxFile, Scanner } from "../../scanner-plugin.ts";

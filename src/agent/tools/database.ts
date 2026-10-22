@@ -6,7 +6,7 @@
 // DETACH, and VACUUM INTO are refused: they would reach files outside the database.
 import { Capacitor } from "@capacitor/core";
 import type { JsonValue } from "@earendil-works/chord";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
 import { approve, defineAppTool, requireNative } from "./common.ts";

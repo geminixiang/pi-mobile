@@ -4,7 +4,7 @@
 // keyless on fair use; the public Overpass servers are not used, as they are for people, not apps, and often full.
 // OSM has no ratings or reviews: the section points the model to web_search for which one is good.
 import { CapacitorHttp } from "@capacitor/core";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
 import { Value } from "typebox/value";

@@ -81,6 +81,3 @@ export function customId(taken: readonly ProviderConfig[]): string {
 	if (!ids.includes("custom")) return "custom";
 	for (let n = 2; ; n++) if (!ids.includes(`custom-${n}`)) return `custom-${n}`;
 }
-
-/** The provider id every conversation used before providers: the single model service, now the first custom one. */
-export const LEGACY_PROVIDER_ID = "cliproxyapi";

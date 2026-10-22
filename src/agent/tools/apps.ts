@@ -2,7 +2,7 @@
 // finishes there (press send, pick a share target), so they need no approval of their own. Calendars are in calendar.ts.
 import { App } from "@capacitor/app";
 import { registerPlugin } from "@capacitor/core";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, parseClock, requireNative, text } from "./common.ts";
 

@@ -2,7 +2,7 @@
 // event to an enabled account after the user approves it. Shared calendars hold other people's events; they are read
 // only when turned on and asked for, and never written to.
 import { registerPlugin } from "@capacitor/core";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { approve, defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, requireNative, text } from "./common.ts";

@@ -41,6 +41,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 一律用 `defineAppTool`（`src/agent/tools/common.ts`），不直接用 `defineTool`。它會先清理參數再驗證：選填參數是 `""`、`null`、`[]`，或 schema 不允許的 `0`，就當作沒給。模型常把沒用到的選填欄位填成這些值；以前每個工具各自處理，現在統一。小於下限的真實數值（半徑 50 公尺，下限 100）不會被吞掉，而是回報參數錯誤。
 - 新的內建擴充一定要加進 `catalog.ts`，不能直接在 runtime 裡安裝，否則檢查看不到它。
 - **擴充名稱不能改**：每個 Bot 的工具開關是用擴充名稱存的（`toolsets.ts`），改名會讓使用者的設定失效。
+- schema 一律用 `typebox` 的 `Type`，不用 pi-ai 轉出口的同一個 `Type`（檢查會擋）。
 - 結構化輸出的資料型別用 `type`，不用 `interface`（`interface` 不能指定成 `JsonValue`）。
 
 ### 名稱

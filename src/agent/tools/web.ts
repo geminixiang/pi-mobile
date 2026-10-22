@@ -2,24 +2,23 @@
 // Anthropic Messages `web_search_20250305`), so it works with any endpoint that passes those through, with no search
 // API key. Fetch uses Capacitor's native HTTP, which is not subject to the WebView's CORS rules.
 import { CapacitorHttp } from "@capacitor/core";
-import { Type } from "@earendil-works/pi-ai";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
-import { Type as T } from "typebox";
+import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 
 /** The parts of a Responses API answer read here: message text and its URL citations. */
-const ResponsesAnswer = T.Object({
-	output: T.Optional(
-		T.Array(
-			T.Object({
-				type: T.String(),
-				content: T.Optional(
-					T.Array(
-						T.Object({
-							text: T.Optional(T.String()),
-							annotations: T.Optional(T.Array(T.Object({ url: T.Optional(T.String()), title: T.Optional(T.String()) }))),
+const ResponsesAnswer = Type.Object({
+	output: Type.Optional(
+		Type.Array(
+			Type.Object({
+				type: Type.String(),
+				content: Type.Optional(
+					Type.Array(
+						Type.Object({
+							text: Type.Optional(Type.String()),
+							annotations: Type.Optional(Type.Array(Type.Object({ url: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }))),
 						}),
 					),
 				),
@@ -29,18 +28,18 @@ const ResponsesAnswer = T.Object({
 });
 
 /** The parts of a Messages API answer read here: text blocks and web search results. */
-const MessagesAnswer = T.Object({
-	content: T.Optional(
-		T.Array(
-			T.Object({
-				type: T.String(),
-				text: T.Optional(T.String()),
-				content: T.Optional(T.Unknown()),
+const MessagesAnswer = Type.Object({
+	content: Type.Optional(
+		Type.Array(
+			Type.Object({
+				type: Type.String(),
+				text: Type.Optional(Type.String()),
+				content: Type.Optional(Type.Unknown()),
 			}),
 		),
 	),
 });
-const SearchResults = T.Array(T.Object({ url: T.Optional(T.String()), title: T.Optional(T.String()) }));
+const SearchResults = Type.Array(Type.Object({ url: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }));
 
 const MAX_FETCH_CHARS = 40_000;
 

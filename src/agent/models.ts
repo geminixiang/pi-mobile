@@ -3,7 +3,7 @@
 // context window, vision, reasoning) comes from pi-ai's catalogs when a model has a built-in provider's id, as a
 // gateway's models usually do. Each model goes on the API that suits it: Claude on Anthropic Messages, GPT-5.6/GPT-6
 // on Responses, the rest on Chat Completions.
-import { type Api, createProvider, type Model, type Provider, type ThinkingLevelMap } from "@earendil-works/pi-ai";
+import { type Api, createProvider, type Model, type ModelThinkingLevel, type Provider, type ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
@@ -61,6 +61,13 @@ export function withCompaction(provider: Provider, compactAt: number): Provider 
 	const wrapped: Provider = Object.create(provider);
 	// defineProperty, not assignment: a wrapper below may have defined getModels read-only.
 	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().map(capped) });
+}
+
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const satisfies readonly ModelThinkingLevel[];
+
+/** A thinking level from settings or the model sheet; anything else is not one. */
+export function isThinkingLevel(value: string): value is ModelThinkingLevel {
+	return THINKING_LEVELS.some((level) => level === value);
 }
 
 const LEVELS: ThinkingLevelMap = {

@@ -2,7 +2,7 @@
 // Android permission the first time a bot uses it, while pi is in front.
 import { registerPlugin } from "@capacitor/core";
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { codeNote } from "../codes.ts";
 import { defineAppTool, localTime, parseLocalBound, requireNative, text } from "./common.ts";

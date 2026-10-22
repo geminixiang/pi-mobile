@@ -46,8 +46,6 @@ const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
-
-
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
 	const [runtime, setRuntime] = useState<AgentRuntime>();
@@ -86,7 +84,6 @@ export function App() {
 		showToast(message);
 	}, []);
 	const fail = useCallback((error: unknown) => notify(error instanceof Error ? error.message : String(error)), [notify]);
-
 
 	// Ask is overloaded (text prompts resolve a string, confirmations a boolean); one implementation serves both.
 	const ask = useCallback(
@@ -134,10 +131,10 @@ export function App() {
 	const start = useCallback(
 		async (next: Settings) => {
 			try {
-				// The database from before bots goes, with every old conversation; only the global MEMORY.md stays.
 				const modelIds = AgentRuntime.startModelList(next);
 				// Do not leave it unhandled if storage fails first; open() reports a failure.
 				modelIds.catch(() => undefined);
+				// The database from before bots (v0.1.0) goes, with every old conversation; only the global MEMORY.md stays.
 				let importMemory: string | undefined;
 				// Once moved, the check (opening SQLite to look for the old file) is skipped on later starts.
 				const legacy = localStorage.getItem(LEGACY_GONE_KEY) ? undefined : await takeLegacyStorage().catch(() => undefined);
@@ -504,8 +501,6 @@ export function App() {
 				)}
 			</SideSwipe>
 
-
-
 			<ModelSheet
 				open={overlay === "model"}
 				models={runtime.models}
@@ -519,7 +514,6 @@ export function App() {
 					if (nextModel) close();
 				}}
 			/>
-
 
 			<BotSheet
 				edit={botEdit}

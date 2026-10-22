@@ -14,9 +14,8 @@
 // - Tools are deferred: on-demand.ts names them in a bot's prompt, and tool_search loads the ones a task needs. Measured on the S24 with Cloudflare's 23 tools: a request unrelated to the service is 7,510 prompt
 //   tokens deferred and 9,223 offered directly; questions about it were answered as well and as fast (8 to 13 s either
 //   way), loading the tools first or using another tool that does the job.
-import { CapacitorHttp, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
+import { CapacitorHttp, type PluginListenerHandle } from "@capacitor/core";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
-import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, type Extension, section } from "@earendil-works/pi-durable";
 import { type AuthProvider, McpClient, type McpFetch, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
 import {
@@ -28,24 +27,19 @@ import {
 } from "@earendil-works/pi-mcp/oauth";
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { Value } from "typebox/value";
-import { Type as T } from "typebox";
+import { Type } from "typebox";
 import { approve } from "./tools/common.ts";
+import { Loopback } from "../loopback-plugin.ts";
 
 /** Where the authorization server sends the browser back: a fixed loopback port, so a registration stays valid. */
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";
 export const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
 
-interface LoopbackPlugin {
-	start(options: { port: number; path: string }): Promise<{ port: number }>;
-	stop(): Promise<void>;
-	addListener(event: "redirect", listener: (data: { url: string }) => void): Promise<PluginListenerHandle>;
-}
-const Loopback = registerPlugin<LoopbackPlugin>("Loopback");
 
 const SERVERS_KEY = "pi-mobile.mcp-servers";
 
-const McpServer = T.Object({ id: T.String(), name: T.String(), url: T.String() });
+const McpServer = Type.Object({ id: Type.String(), name: Type.String(), url: Type.String() });
 export type McpServer = { id: string; name: string; url: string };
 
 export function parseMcpServers(json: string): McpServer[] {
@@ -191,6 +185,8 @@ class Connection {
 	 * in registers a second client, and the code from the browser fails to exchange ("Client ID mismatch").
 	 */
 	readonly #auth: AuthProvider;
+	/** The redirect listener of the sign-in in progress; a new sign-in replaces it, so one code is exchanged once. */
+	#redirect: PluginListenerHandle | undefined;
 
 	constructor(server: McpServer, hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void> }) {
 		this.server = server;
@@ -278,24 +274,30 @@ class Connection {
 		if (client && "redirect_uris" in client && Array.isArray(client.redirect_uris) && !client.redirect_uris.includes(REDIRECT_URL)) {
 			await this.#provider.invalidateCredentials("client");
 		}
+		void this.#redirect?.remove();
 		await Loopback.start({ port: REDIRECT_PORT, path: REDIRECT_PATH });
 		const listener = await Loopback.addListener("redirect", ({ url }) => {
 			void listener.remove();
+			if (this.#redirect === listener) this.#redirect = undefined;
 			this.complete(new URL(url)).catch((error: unknown) =>
 				this.#set({ state: "error", tools: this.status.tools, message: error instanceof Error ? error.message : String(error) }),
 			);
 		});
+		this.#redirect = listener;
+		const done = () => {
+			void listener.remove();
+			if (this.#redirect === listener) this.#redirect = undefined;
+			void Loopback.stop();
+		};
 		this.#signingIn = true;
 		try {
 			const result = await authorizeMcp(this.#provider, { serverUrl: this.server.url, fetch: nativeFetch });
 			if (result === "AUTHORIZED") {
-				void listener.remove();
-				void Loopback.stop();
+				done();
 				this.refresh();
 			}
 		} catch (error) {
-			void listener.remove();
-			void Loopback.stop();
+			done();
 			throw error;
 		} finally {
 			this.#signingIn = false;
@@ -387,7 +389,7 @@ export class McpHub {
 
 	constructor(hooks: { install: (extension: Extension) => void; uninstall: (name: string) => void; openUrl: (url: string) => Promise<void> }) {
 		this.#hooks = hooks;
-		for (const server of loadServers()) this.#open(server);
+		for (const server of parseMcpServers(localStorage.getItem(SERVERS_KEY) ?? "")) this.#open(server);
 	}
 
 	#open(server: McpServer): Connection {
@@ -459,20 +461,4 @@ export class McpHub {
 		return this.#connections.get(id)?.logout() ?? Promise.resolve();
 	}
 
-}
-
-/** The saved servers; the first time, those from settings, where they were kept before. */
-function loadServers(): McpServer[] {
-	const saved = localStorage.getItem(SERVERS_KEY);
-	if (saved !== null) return parseMcpServers(saved);
-	let legacy = "";
-	try {
-		const settings: unknown = JSON.parse(localStorage.getItem("pi-mobile.settings") ?? "{}");
-		if (typeof settings === "object" && settings !== null && "mcpServers" in settings && typeof settings.mcpServers === "string") legacy = settings.mcpServers;
-	} catch {
-		// Unreadable settings: no servers.
-	}
-	const servers = parseMcpServers(legacy);
-	localStorage.setItem(SERVERS_KEY, JSON.stringify(servers));
-	return servers;
 }

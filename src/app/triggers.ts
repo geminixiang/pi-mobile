@@ -45,6 +45,9 @@ export function processTriggerEvents(
 			}
 			if (handled.length > 0) await Triggers.ack({ ids: handled });
 		});
+		// A failed pass (the bridge rejecting events or ack) must not stop the later ones: the chain would stay
+		// rejected and skip every pass after it until pi restarts. Unacknowledged events come again next pass.
+		pass = pass.catch((error: unknown) => log.warn("trigger.drain_failed", { error: error instanceof Error ? error.message : String(error) }));
 		return pass;
 	};
 	void drain();

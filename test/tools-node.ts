@@ -4,7 +4,7 @@
 //
 //   node --import ./test/vite-imports.mjs test/tools-node.ts            check
 //   node --import ./test/vite-imports.mjs test/tools-node.ts --update   accept the current interface into the snapshot
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
@@ -183,6 +183,10 @@ for (const { rule, broken } of rules) {
 		.filter((value): value is string => Boolean(value));
 	if (offenders.length) failures.push(`${rule}: ${offenders.join("; ")}`);
 }
+// Schemas come from one TypeBox: pi-ai re-exports it, and two spellings for the same Type drift apart.
+const sources = readdirSync(new URL("../src", import.meta.url), { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
+const reexported = sources.filter((file) => /import \{[^}]*\bType\b[^}]*\} from "@earendil-works\/pi-ai"/.test(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8")));
+if (reexported.length) failures.push(`schemas use Type from "typebox", not from @earendil-works/pi-ai: ${reexported.join(", ")}`);
 
 const current = tools.map(({ iface }) => iface);
 const update = process.argv.includes("--update");

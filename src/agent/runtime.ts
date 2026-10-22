@@ -18,13 +18,13 @@ import {
 	type Storage,
 } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "./catalog.ts";
-import { isEnabled, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { type Bot, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { log } from "../log.ts";
-import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
-import { builtinInfo, LEGACY_PROVIDER_ID, type ProviderConfig, providerName, parseProviders } from "./providers.ts";
+import { customProvider, describe, fetchModelIds, inCatalog, isThinkingLevel, type ModelInfo, withCompaction } from "./models.ts";
+import { builtinInfo, type ProviderConfig, providerName, parseProviders } from "./providers.ts";
 import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
@@ -121,9 +121,6 @@ function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string
 	if (configs.some((config) => config.id === "anthropic")) return { baseUrl: "https://api.anthropic.com", apiKey: keys.anthropic ?? "", modelIds: ids("anthropic") };
 	return { baseUrl: "", apiKey: "", modelIds: [] };
 }
-
-/** Set once conversations' model references name providers (#migrateModelRefs). */
-const MODEL_REFS_KEY = "pi-mobile.model-refs";
 
 /** A toolset's name for an extension, for the list of tools that load on demand. */
 function labelOf(extension: string, mcp: McpHub): string {
@@ -419,7 +416,6 @@ export class AgentRuntime {
 		// In the background: the tools from the last connection are installed already.
 		mcp.refreshAll();
 		runtimeRef = runtime;
-		await runtime.#migrateModelRefs();
 		// The folders must be known before a run resumes and asks for its environment.
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
@@ -432,29 +428,14 @@ export class AgentRuntime {
 		return runtime;
 	}
 
-	#defaultThinking() {
-		return this.#settings.defaultThinking as "low";
-	}
-
 	/** A new bot's model: the default from settings, or the first model there is when that one is gone. */
 	#defaultAgent() {
 		const { defaultProvider: provider, defaultModelId: modelId } = this.#settings;
 		const known = this.models.some((model) => model.provider === provider && model.id === modelId);
 		const first = this.models[0];
 		const model = known || !first ? { provider, modelId } : { provider: first.provider, modelId: first.id };
-		return { model, thinkingLevel: this.#defaultThinking() };
-	}
-
-	/** Conversations from before providers name the single model service, now the custom provider it became. */
-	async #migrateModelRefs(): Promise<void> {
-		if (localStorage.getItem(MODEL_REFS_KEY)) return;
-		for (const bot of await this.bots()) {
-			const state = await this.#harness.snapshot(AgentDoc, bot.id, context);
-			if (state?.model?.provider !== LEGACY_PROVIDER_ID) continue;
-			const conversation = await this.#harness.conversation(bot.id, context);
-			await conversation?.configure({ model: { provider: "custom", modelId: state.model.modelId } }, context);
-		}
-		localStorage.setItem(MODEL_REFS_KEY, "1");
+		const thinking = this.#settings.defaultThinking;
+		return { model, thinkingLevel: isThinkingLevel(thinking) ? thinking : "low" };
 	}
 
 	/** The bots, the one talked to most recently first. */
@@ -516,7 +497,10 @@ export class AgentRuntime {
 		});
 	}
 
-	/** Remove a bot with its folder and schedules; the last one stays. Its transcript stays in storage, unlisted. */
+	/**
+	 * Remove a bot with its memory, schedules, attachments, and folder; the last one stays. Its transcript stays in
+	 * storage, unlisted: pi-durable has no way to delete a conversation.
+	 */
 	async removeBot(id: ConversationId): Promise<void> {
 		const bots = await this.bots();
 		const bot = bots.find((candidate) => candidate.id === id);
@@ -525,10 +509,13 @@ export class AgentRuntime {
 		if (this.#sandbox) await this.#sandbox.remove(bot.folder).catch(() => undefined);
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
 		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);
-		await this.#editBots((items) => {
+		await this.#harness.commit(async (tx) => {
+			const items = (await tx.doc(BotIndex)).items;
 			const at = items.findIndex((candidate) => candidate.id === id);
 			if (at >= 0) items.splice(at, 1);
-		});
+			await tx.retireDoc(BotMemoryDoc, id);
+		}, context);
+		await this.#publishBots();
 	}
 
 	/**
@@ -584,12 +571,13 @@ export class AgentRuntime {
 				return view.subscribe(listener);
 			},
 			send: (content, whenBusy = "steer") => {
-				const text = content.find((part): part is TextContent => part.type === "text")?.text.trim() ?? "";
 				const submitted = (async () => {
-					await this.#editBots((items) => {
-						const bot = items.find((candidate) => candidate.id === id);
-						if (bot && text) bot.updatedAt = Date.now();
-					});
+					if (content.length > 0) {
+						await this.#editBots((items) => {
+							const bot = items.find((candidate) => candidate.id === id);
+							if (bot) bot.updatedAt = Date.now();
+						});
+					}
 					await conversation.submit({ type: "input", content, whenBusy }, context);
 				})();
 				inFlight.add(submitted);
@@ -617,7 +605,10 @@ export class AgentRuntime {
 			},
 			reset: () => conversation.reset(undefined, context),
 			setModel: (provider, modelId) => conversation.configure({ model: { provider, modelId } }, context),
-			setThinking: (level) => conversation.configure({ thinkingLevel: level as "low" }, context),
+			setThinking: async (level) => {
+				if (!isThinkingLevel(level)) throw new Error(`unknown thinking level ${level}`);
+				await conversation.configure({ thinkingLevel: level }, context);
+			},
 			dispose: () => view.dispose(),
 		};
 	}
@@ -644,7 +635,6 @@ export class AgentRuntime {
 		return cost;
 	}
 
-	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
 	/** The built-in toolsets, then one per MCP server. */
 	#allToolsets(): Toolset[] {
 		return [
@@ -660,6 +650,7 @@ export class AgentRuntime {
 		];
 	}
 
+	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 		return this.#allToolsets().map((toolset) => ({
@@ -676,9 +667,7 @@ export class AgentRuntime {
 			const target = this.#allToolsets().find((candidate) => candidate.id === toolset);
 			const conversation = await this.#harness.conversation(id, context);
 			if (!target || !conversation) return;
-			const next = withToolset(selectionOf(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
-			// tool_search was added with the first service before every bot had it; such a stored add is dropped.
-			const selection: Selection = { add: next.add.filter((name) => name !== "tool-search"), remove: next.remove };
+			const selection = withToolset(selectionOf(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
 			// Stored by name; an extension is identified by its name alone.
 			const named = (names: string[]) => names.map((name) => ({ name }));
 			await conversation.configure(
@@ -758,9 +747,9 @@ export class AgentRuntime {
 
 	/**
 	 * Submit a trigger's prompt to its conversation. Resolves the conversation, or undefined when the trigger is gone or
-	 * over its daily limit (recorded as its last result).
+	 * over its daily limit (recorded as its last result). `device`: for an event schedule, what happened (the
+	 * headphones that connected, 開始充電, 到了 家).
 	 */
-	/** `device`: for an event schedule, what happened (the headphones that connected, 開始充電, 到了 家). */
 	async runTrigger(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);

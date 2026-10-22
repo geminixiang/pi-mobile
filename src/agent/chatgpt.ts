@@ -7,7 +7,8 @@
 // The flow, as pi-ai's auth/oauth/openai-chatgpt.ts: authorize with the client "dynamic_agent_client", an agent name
 // and a stable host id for this installation; the callback brings the code and the client id OpenAI issued; the code
 // is exchanged with PKCE; the grant must include the direct-token scope; the access token is then the API key.
-import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
+import type { PluginListenerHandle } from "@capacitor/core";
+import { Loopback } from "../loopback-plugin.ts";
 import type { Api, ApiStreamOptions, Model, OAuthAuth, OAuthCredential, Provider, SimpleStreamOptions, TranscriptContext } from "@earendil-works/pi-ai";
 import { streamFetch } from "../stream-fetch.ts";
 import { Type } from "typebox";
@@ -29,12 +30,6 @@ const EXPIRY_MARGIN_MS = 3 * 60_000;
 const WAIT_MS = 10 * 60_000;
 const DEVICE_KEY = "pi-mobile.device-id";
 
-interface LoopbackPlugin {
-	start(options: { port: number; path: string }): Promise<{ port: number }>;
-	stop(): Promise<void>;
-	addListener(event: "redirect", listener: (data: { url: string }) => void): Promise<PluginListenerHandle>;
-}
-const Loopback = registerPlugin<LoopbackPlugin>("Loopback");
 
 const TokenResponse = Type.Object({
 	access_token: Type.String({ minLength: 1 }),

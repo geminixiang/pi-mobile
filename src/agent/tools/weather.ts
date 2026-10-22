@@ -1,7 +1,7 @@
 // weather: the forecast for a place, or where the phone is, from Open-Meteo (free, no key; national weather models,
 // for Taiwan JMA's and ECMWF's among them). Current conditions, the hours ahead, and the days ahead, so 「等等會下雨嗎」
 // and 「週六宜蘭要帶傘嗎」 get numbers instead of a guess.
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
 import { parse } from "../parse.ts";

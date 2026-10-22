@@ -2,7 +2,7 @@
 // preferences), and each bot's own, notes for its job. Markdown notes stored on the phone; the user edits them on their
 // page, the agent with update_memory. Every request carries both in the system prompt, so they also reach the model
 // service.
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "./tools/common.ts";
 

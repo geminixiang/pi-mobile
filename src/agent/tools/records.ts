@@ -2,7 +2,7 @@
 // Calls and messages ask for their Android permission the first time; screen time needs usage access, turned on in
 // system settings.
 import { registerPlugin } from "@capacitor/core";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, duration, localTime, parseDay, requireNative, text } from "./common.ts";
 

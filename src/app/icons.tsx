@@ -19,17 +19,6 @@ function Icon({ children, size = 22, width = 1.8 }: { children: ReactNode; size?
 	);
 }
 
-export const MenuIcon = () => (
-	<Icon>
-		<path d="M4 8h16M4 16h10" />
-	</Icon>
-);
-export const ComposeIcon = ({ size = 22 }: { size?: number }) => (
-	<Icon size={size}>
-		<path d="M11 4.5H7a3 3 0 0 0-3 3v9.5a3 3 0 0 0 3 3h9.5a3 3 0 0 0 3-3V13" />
-		<path d="M17.6 3.9a1.9 1.9 0 0 1 2.7 2.7L12.5 14.4l-3.4.8.8-3.4z" />
-	</Icon>
-);
 export const MoreIcon = () => (
 	<Icon>
 		<circle cx="6" cy="12" r="1.3" fill="currentColor" stroke="none" />
@@ -60,13 +49,6 @@ export const ScanIcon = ({ size = 18 }: { size?: number }) => (
 export const PaperclipIcon = ({ size = 22 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
-	</Icon>
-);
-export const ImageIcon = ({ size = 22 }: { size?: number }) => (
-	<Icon size={size}>
-		<rect x="3.5" y="4.5" width="17" height="15" rx="3.5" />
-		<circle cx="9" cy="10" r="1.6" />
-		<path d="m4.5 17.5 4.8-4.8 3.7 3.7 2.4-2.4 4.1 4.1" />
 	</Icon>
 );
 export const TrashIcon = ({ size = 18 }: { size?: number }) => (
@@ -141,12 +123,6 @@ export const CopyIcon = ({ size = 16 }: { size?: number }) => (
 		<path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" />
 	</Icon>
 );
-export const SparkIcon = ({ size = 16 }: { size?: number }) => (
-	<Icon size={size}>
-		<path d="M12 3.5c.6 4.3 2.2 5.9 6.5 6.5-4.3.6-5.9 2.2-6.5 6.5-.6-4.3-2.2-5.9-6.5-6.5 4.3-.6 5.9-2.2 6.5-6.5z" />
-		<path d="M18.5 15.5c.2 1.6.9 2.3 2.5 2.5-1.6.2-2.3.9-2.5 2.5-.2-1.6-.9-2.3-2.5-2.5 1.6-.2 2.3-.9 2.5-2.5z" />
-	</Icon>
-);
 export const TerminalIcon = ({ size = 16 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="m5 7 5 5-5 5M12.5 17.5H19" />
@@ -163,29 +139,10 @@ export const PencilIcon = ({ size = 16 }: { size?: number }) => (
 		<path d="M15.5 5.5a2.1 2.1 0 0 1 3 3L9 18l-4 1 1-4z" />
 	</Icon>
 );
-export const PhoneIcon = ({ size = 16 }: { size?: number }) => (
-	<Icon size={size}>
-		<rect x="6.5" y="3" width="11" height="18" rx="2.8" />
-		<path d="M10.5 17.5h3" />
-	</Icon>
-);
-export const GitHubIcon = ({ size = 16 }: { size?: number }) => (
-	<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-		<path d="M12 2.5a9.5 9.5 0 0 0-3 18.5c.5.1.7-.2.7-.5v-1.7c-2.6.6-3.2-1.2-3.2-1.2-.4-1.1-1-1.4-1-1.4-.9-.6 0-.6 0-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1 2.8.8.1-.6.3-1 .6-1.3-2.1-.2-4.3-1-4.3-4.7 0-1 .4-1.9 1-2.6-.1-.2-.4-1.2.1-2.6 0 0 .8-.3 2.6 1a9 9 0 0 1 4.8 0c1.8-1.3 2.6-1 2.6-1 .5 1.4.2 2.4.1 2.6.6.7 1 1.5 1 2.6 0 3.7-2.2 4.5-4.3 4.7.3.3.6.9.6 1.8v2.6c0 .3.2.6.7.5A9.5 9.5 0 0 0 12 2.5z" />
-	</svg>
-);
 export const BoxIcon = ({ size = 16 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="M12 3 4.5 7v10L12 21l7.5-4V7z" />
 		<path d="M4.5 7 12 11l7.5-4M12 11v10" />
-	</Icon>
-);
-export const BranchIcon = ({ size = 18 }: { size?: number }) => (
-	<Icon size={size}>
-		<circle cx="7" cy="5.5" r="2" />
-		<circle cx="7" cy="18.5" r="2" />
-		<circle cx="17" cy="8.5" r="2" />
-		<path d="M7 7.5v9M17 10.5c0 4-5 3.5-9 6.5" />
 	</Icon>
 );
 export const LayersIcon = ({ size = 18 }: { size?: number }) => (

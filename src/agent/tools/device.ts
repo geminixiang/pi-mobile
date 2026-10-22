@@ -1,7 +1,7 @@
 // Context about the phone the agent runs on: device status, one location fix, and one reading of the environmental
 // sensors. Each is read when the tool runs; nothing is tracked in the background.
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";

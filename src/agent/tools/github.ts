@@ -1,20 +1,19 @@
 // GitHub connector: the REST API called straight from the phone with the user's token.
 // Reads run directly; every write asks the user first.
-import { Type } from "@earendil-works/pi-ai";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { Type as T } from "typebox";
+import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { approve, defineAppTool } from "./common.ts";
 
 /** GET /repos/{owner}/{repo}/contents/{path}: a directory listing, or one file. */
-const DirectoryListing = T.Array(T.Object({ type: T.String(), path: T.String(), size: T.Number() }));
-const FileContents = T.Object({
-	encoding: T.Optional(T.String()),
-	content: T.Optional(T.String()),
-	size: T.Optional(T.Number()),
-	download_url: T.Optional(T.Union([T.String(), T.Null()])),
+const DirectoryListing = Type.Array(Type.Object({ type: Type.String(), path: Type.String(), size: Type.Number() }));
+const FileContents = Type.Object({
+	encoding: Type.Optional(Type.String()),
+	content: Type.Optional(Type.String()),
+	size: Type.Optional(Type.Number()),
+	download_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 });
 
 const API = "https://api.github.com";

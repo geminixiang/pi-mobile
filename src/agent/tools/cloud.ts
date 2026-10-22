@@ -3,7 +3,7 @@
 // conversation; each request gets a short-lived access token. Which requests are writes (and so need the user's
 // approval) follows the sandbox's egress proxy (sandbox/egress/credentials.py), so a call is approved the same way
 // whether it comes from a script in the sandbox or from this tool.
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { CapacitorHttp } from "@capacitor/core";
 import { defineExtension, section } from "@earendil-works/pi-durable";
