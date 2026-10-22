@@ -11,9 +11,16 @@ import { Database } from "../database-plugin.ts";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
-import { loadDraftAttachments, saveDraftAttachments } from "./drafts.ts";
+import { addDraftFile, loadDraftAttachments, receiveDraftFiles, saveDraftAttachments } from "./drafts.ts";
 
 const MAX_IMAGE_EDGE = 1600;
+
+function discardPrepared(prepared: PreparedAttachment): void {
+	void deleteAttachments({ id: prepared.card.id });
+	if (prepared.tables.length > 0) {
+		void Database.execute({ statements: prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
+	}
+}
 
 /** Downscale a photo to a JPEG that fits the model's image limits and keeps requests small. */
 export async function toImageContent(file: File): Promise<ImageContent> {
@@ -122,13 +129,24 @@ export function Composer({
 			});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-	// Kept on the phone as they change, one write after another so an older one never lands last.
-	const writes = useRef(Promise.resolve());
 	useEffect(() => {
 		if (!restored.current) return;
 		const draft = { images, files: files.flatMap((file) => (file.state === "ready" ? [file.prepared] : [])) };
-		writes.current = writes.current.then(() => saveDraftAttachments(conversationId, draft)).catch(() => undefined);
+		saveDraftAttachments(conversationId, draft).catch(() => undefined);
 	}, [conversationId, images, files]);
+
+	const unmounted = useRef(false);
+	useEffect(() => {
+		unmounted.current = false;
+		return () => {
+			unmounted.current = true;
+		};
+	}, []);
+	useEffect(
+		() => receiveDraftFiles(conversationId, (prepared) => setFiles((current) => [...current, { key: prepared.card.id, state: "ready", prepared }])),
+		[conversationId],
+	);
+	const removedWhileReading = useRef(new Set<string>());
 
 	const send = (whenBusy: BusyMode) => {
 		if (!hasInput || reading) return;
@@ -169,7 +187,11 @@ export function Composer({
 			const key = crypto.randomUUID();
 			setFiles((current) => [...current, { key, state: "reading", name: file.name, kind, size: file.size }]);
 			prepareAttachment(file, conversationId).then(
-				(prepared) => setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item))),
+				(prepared) => {
+					if (removedWhileReading.current.delete(key)) discardPrepared(prepared);
+					else if (unmounted.current) addDraftFile(conversationId, prepared).catch(() => undefined);
+					else setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
+				},
 				(error: unknown) => {
 					setFiles((current) => current.filter((item) => item.key !== key));
 					onNotice(`讀不了 ${file.name}：${error instanceof Error ? error.message : String(error)}`);
@@ -209,12 +231,8 @@ export function Composer({
 								status={file.state === "reading" ? "讀取中…" : undefined}
 								onRemove={() => {
 									setFiles((current) => current.filter((item) => item.key !== file.key));
-									if (file.state !== "ready") return;
-									// Not sent: the stored file goes, and a spreadsheet's imported tables too.
-									void deleteAttachments({ id: file.prepared.card.id });
-									if (file.prepared.tables.length > 0) {
-										void Database.execute({ statements: file.prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
-									}
+									if (file.state === "ready") discardPrepared(file.prepared);
+									else removedWhileReading.current.add(file.key);
 								}}
 							/>
 						))}
