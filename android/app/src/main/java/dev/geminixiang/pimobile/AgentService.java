@@ -54,7 +54,6 @@ public class AgentService extends Service {
         manager.createNotificationChannel(approval);
     }
 
-    /** A bot's avatar from the web assets (public/avatars/<id>.webp), for a notification's large icon; null without one. */
     static Icon avatar(Context context, String id) {
         if (id == null || !id.matches("[a-z]+")) return null;
         try (InputStream in = context.getAssets().open("public/avatars/" + id + ".webp")) {

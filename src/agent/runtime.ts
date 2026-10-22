@@ -295,10 +295,7 @@ export class AgentRuntime {
 		settings: Settings,
 		options: {
 			onReport?: (message: string) => void;
-			/**
-			 * Post a notification opening the conversation, with its bot's avatar, unless the user is looking at pi; resolves
-			 * whether it did.
-			 */
+			/** Post a notification opening the conversation, unless the user is looking at pi; resolves whether it did. */
 			notify?: (title: string, text: string, conversationId: ConversationId, avatar: string | undefined) => Promise<boolean>;
 			/** Open a URL in the user's browser, for MCP sign-ins. */
 			openUrl?: (url: string) => Promise<void>;
@@ -501,7 +498,6 @@ export class AgentRuntime {
 			bot.job = change.job.trim();
 			bot.avatar = change.avatar;
 		});
-		// Its schedules' notifications show its avatar from the native mirror.
 		await this.syncTriggers().catch((error: unknown) => log.warn("triggers.sync_failed", { error: error instanceof Error ? error.message : String(error) }));
 	}
 

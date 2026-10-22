@@ -115,7 +115,6 @@ const QueuedEvent = Type.Union([
 export type QueuedEvent = Static<typeof QueuedEvent>;
 
 interface TriggersPlugin {
-	/** `avatar`: the schedule's bot, for the notification that asks to open pi (TriggerReceiver). */
 	sync(options: { schedules: { id: string; name: string; when: When; avatar?: string }[] }): Promise<{ next: Record<string, number> }>;
 	events(): Promise<{ events: unknown[] }>;
 	ack(options: { ids: string[] }): Promise<void>;
