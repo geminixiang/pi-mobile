@@ -230,6 +230,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* ---------- Transcript ---------- */
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .transcript { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
+/*
+ * Messages off screen skip layout and paint. After about a minute away, the WebView drops its caches and lays out the
+ * whole document again on return: on the S24, a 35-message conversation took 225 ms (1 s after using Chrome), one
+ * frozen frame. The last messages always lay out, so opening a conversation at its end lands on real heights; earlier
+ * ones are estimated until first drawn, then keep that height (auto), and scroll anchoring holds the view meanwhile.
+ */
+.transcript > :nth-last-child(n + 6) { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 
 /* The user's message as pi's: a full-width block in userMessageBg, no border; the color alone says who spoke. */
 .prompt { cursor: pointer; margin: 0 calc(-1 * var(--space)); }
