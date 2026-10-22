@@ -22,15 +22,15 @@ await new Promise((resolve, reject) => {
 });
 control.onmessage = (event) => {
 	const message = JSON.parse(String(event.data)) as { type: string; id: number; title: string; detail: string };
-	if (message.type === "gcloud-token") {
+	if (message.type === "token") {
 		tokenRequests++;
-		control.send(JSON.stringify({ type: "gcloud-token", token: gcloudToken, expiresAt: Date.now() + 30 * 60_000 }));
+		control.send(JSON.stringify({ type: "token", service: "gcloud", token: gcloudToken, expiresAt: Date.now() + 30 * 60_000 }));
 	} else if (message.type === "approve") {
 		asked.push(message.title);
 		control.send(JSON.stringify({ type: "approval", id: message.id, approved: false }));
 	}
 };
-control.send(JSON.stringify({ type: "hello", githubToken: null, gcloud: { project } }));
+control.send(JSON.stringify({ type: "hello", githubToken: null, minted: { gcloud: { env: { CLOUDSDK_CORE_PROJECT: project } } } }));
 
 const sandbox = "gcloud-test";
 const connection = new WebSocketConnection({ relayUrl, relayToken, sandbox });
