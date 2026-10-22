@@ -149,9 +149,9 @@ export function App() {
 						modelIds,
 						onReport: notify,
 						openUrl: (url) => System.openExternal({ url }),
-						notify: async (title, text, conversationId) => {
+						notify: async (title, text, conversationId, avatar) => {
 							if (inForeground()) return false;
-							await Triggers.notify({ title, text, conversation: String(conversationId) });
+							await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
 							return true;
 						},
 					}),

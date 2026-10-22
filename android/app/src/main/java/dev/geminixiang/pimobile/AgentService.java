@@ -8,9 +8,14 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Keeps the app process running while the agent works: a foreground service (so Android does not freeze or kill the
@@ -49,6 +54,17 @@ public class AgentService extends Service {
         manager.createNotificationChannel(approval);
     }
 
+    /** A bot's avatar from the web assets (public/avatars/<id>.webp), for a notification's large icon; null without one. */
+    static Icon avatar(Context context, String id) {
+        if (id == null || !id.matches("[a-z]+")) return null;
+        try (InputStream in = context.getAssets().open("public/avatars/" + id + ".webp")) {
+            Bitmap bitmap = BitmapFactory.decodeStream(in);
+            return bitmap == null ? null : Icon.createWithBitmap(bitmap);
+        } catch (IOException error) {
+            return null;
+        }
+    }
+
     static PendingIntent openApp(Context context) {
         Intent intent = new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
@@ -56,7 +72,7 @@ public class AgentService extends Service {
 
     private Notification build(String title, String text) {
         return new Notification.Builder(this, CHANNEL_WORKING)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(openApp(this))

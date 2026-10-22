@@ -290,7 +290,8 @@ public class TriggersPlugin extends Plugin {
         AgentService.createChannels(getContext());
         String text = call.getString("text", "");
         Notification notification = new Notification.Builder(getContext(), AgentService.CHANNEL_PROACTIVE)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(AgentService.avatar(getContext(), call.getString("avatar")))
             .setContentTitle(call.getString("title", "pi"))
             .setContentText(text)
             .setStyle(new Notification.BigTextStyle().bigText(text))
@@ -308,7 +309,7 @@ public class TriggersPlugin extends Plugin {
         String text = call.getString("text", "");
         AgentService.createChannels(getContext());
         Notification notification = new Notification.Builder(getContext(), AgentService.CHANNEL_APPROVAL)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(call.getString("title", "pi 需要你確認"))
             .setContentText(text)
             .setStyle(new Notification.BigTextStyle().bigText(text))

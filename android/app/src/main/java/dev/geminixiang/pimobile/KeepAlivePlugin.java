@@ -65,7 +65,7 @@ public class KeepAlivePlugin extends Plugin {
     public void notify(PluginCall call) {
         AgentService.createChannels(getContext());
         Notification notification = new Notification.Builder(getContext(), AgentService.CHANNEL_DONE)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(call.getString("title", "pi"))
             .setContentText(call.getString("text", ""))
             .setStyle(new Notification.BigTextStyle().bigText(call.getString("text", "")))

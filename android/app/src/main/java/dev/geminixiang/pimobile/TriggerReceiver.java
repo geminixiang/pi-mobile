@@ -100,7 +100,9 @@ public class TriggerReceiver extends BroadcastReceiver {
         // No WebView, so no agent: ask the user to open pi. The queued event runs as soon as it starts.
         AgentService.createChannels(context);
         Notification notification = new Notification.Builder(context, AgentService.CHANNEL_PROACTIVE)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notification)
+            // The schedule's bot, as the web side mirrors it (runtime.ts syncTriggers).
+            .setLargeIcon(AgentService.avatar(context, schedule.optString("avatar", null)))
             .setContentTitle(name)
             .setContentText("點一下開始")
             .setContentIntent(AgentService.openApp(context))

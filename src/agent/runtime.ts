@@ -20,7 +20,7 @@ import {
 import { builtinExtensions } from "./catalog.ts";
 import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
-import { type Bot, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
+import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, folderFor, MAX_BOTS, MAX_JOB } from "./bots.ts";
 import { type Settings, saveAzureCredential, saveCloudflareCredential, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { log } from "../log.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, isThinkingLevel, type ModelInfo, withCompaction } from "./models.ts";
@@ -295,8 +295,11 @@ export class AgentRuntime {
 		settings: Settings,
 		options: {
 			onReport?: (message: string) => void;
-			/** Post a notification opening the conversation, unless the user is looking at pi; resolves whether it did. */
-			notify?: (title: string, text: string, conversationId: ConversationId) => Promise<boolean>;
+			/**
+			 * Post a notification opening the conversation, with its bot's avatar, unless the user is looking at pi; resolves
+			 * whether it did.
+			 */
+			notify?: (title: string, text: string, conversationId: ConversationId, avatar: string | undefined) => Promise<boolean>;
 			/** Open a URL in the user's browser, for MCP sign-ins. */
 			openUrl?: (url: string) => Promise<void>;
 			/** The global MEMORY.md from before bots, written once when the new one is empty. */
@@ -354,7 +357,10 @@ export class AgentRuntime {
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
 			changed: () => void runtimeRef?.syncTriggers(),
-			notify: (title, text, conversationId) => options.notify?.(title, text, conversationId) ?? Promise.resolve(false),
+			notify: async (title, text, conversationId) => {
+				const bot = (await runtimeRef?.bots())?.find((candidate) => candidate.id === conversationId);
+				return (await options.notify?.(title, text, conversationId, bot && avatarOf(bot))) ?? false;
+			},
 		};
 		const folders = new Map<string, string>();
 		const clouds = cloudConnections(settings);
@@ -495,6 +501,8 @@ export class AgentRuntime {
 			bot.job = change.job.trim();
 			bot.avatar = change.avatar;
 		});
+		// Its schedules' notifications show its avatar from the native mirror.
+		await this.syncTriggers().catch((error: unknown) => log.warn("triggers.sync_failed", { error: error instanceof Error ? error.message : String(error) }));
 	}
 
 	/**
@@ -718,7 +726,10 @@ export class AgentRuntime {
 	/** Mirror the enabled schedules to the native side, which sets their alarms, and tell Settings. */
 	async syncTriggers(): Promise<void> {
 		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
-		const schedules = items.filter((item) => item.enabled).map(({ id, name, when }) => ({ id, name, when }));
+		const avatars = new Map((await this.bots()).map((bot) => [bot.id, avatarOf(bot)]));
+		const schedules = items
+			.filter((item) => item.enabled)
+			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
 		const next = nativeTriggers ? (await Triggers.sync({ schedules })).next : {};
 		this.#triggerState = { items: [...items], next };
 		for (const listener of this.#triggerListeners) listener(this.#triggerState);

@@ -115,7 +115,8 @@ const QueuedEvent = Type.Union([
 export type QueuedEvent = Static<typeof QueuedEvent>;
 
 interface TriggersPlugin {
-	sync(options: { schedules: { id: string; name: string; when: When }[] }): Promise<{ next: Record<string, number> }>;
+	/** `avatar`: the schedule's bot, for the notification that asks to open pi (TriggerReceiver). */
+	sync(options: { schedules: { id: string; name: string; when: When; avatar?: string }[] }): Promise<{ next: Record<string, number> }>;
 	events(): Promise<{ events: unknown[] }>;
 	ack(options: { ids: string[] }): Promise<void>;
 	started(options: { trigger: string }): Promise<void>;
@@ -124,7 +125,7 @@ interface TriggersPlugin {
 	requestLocationAlways(): Promise<{ foreground: boolean; background: boolean }>;
 	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;
 	requestExactAlarms(): Promise<void>;
-	notify(options: { title: string; text: string; conversation?: string }): Promise<void>;
+	notify(options: { title: string; text: string; conversation?: string; avatar?: string }): Promise<void>;
 	askApproval(options: { id: string; title: string; text: string }): Promise<void>;
 	cancelApproval(options: { id: string }): Promise<void>;
 	addListener(event: "event", listener: () => void): Promise<{ remove: () => Promise<void> }>;
