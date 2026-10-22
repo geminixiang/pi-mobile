@@ -3,8 +3,8 @@ package dev.geminixiang.pimobile;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
+import android.database.sqlite.SQLiteCursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteStatement;
 import android.net.Uri;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSArray;
@@ -67,57 +67,54 @@ public class DatabasePlugin extends Plugin {
         }).start();
     }
 
-    /** A statement that returns rows: SELECT, PRAGMA, EXPLAIN, and a WITH that only selects. */
-    private static boolean isQuery(String sql, int type) {
-        if (type == DatabaseUtils.STATEMENT_SELECT || type == DatabaseUtils.STATEMENT_PRAGMA) return true;
-        String head = sql.trim().toUpperCase(java.util.Locale.ROOT);
-        if (head.startsWith("EXPLAIN")) return true;
-        return head.startsWith("WITH") && !head.matches("(?s).*\\b(INSERT|UPDATE|DELETE|REPLACE)\\b.*");
-    }
-
     private static JSObject run(SQLiteDatabase database, String sql, JSONArray params) throws JSONException {
-        int type = DatabaseUtils.getSqlStatementType(sql);
-        if (type == DatabaseUtils.STATEMENT_ATTACH) throw new IllegalArgumentException("ATTACH and DETACH are not allowed");
+        if (DatabaseUtils.getSqlStatementType(sql) == DatabaseUtils.STATEMENT_ATTACH) throw new IllegalArgumentException("ATTACH and DETACH are not allowed");
+        long changesBefore = totalChanges(database);
         JSObject result = new JSObject();
-        if (isQuery(sql, type)) {
-            // rawQuery binds strings only; SQLite's column affinity converts them where it compares with a column.
-            String[] args = new String[params.length()];
-            for (int i = 0; i < params.length(); i++) args[i] = params.isNull(i) ? null : String.valueOf(params.get(i));
-            try (Cursor cursor = database.rawQuery(sql, args)) {
+        try (Cursor cursor = database.rawQueryWithFactory(boundTo(params), sql, null, null)) {
+            int rowCount = cursor.getCount();
+            if (cursor.getColumnCount() > 0) {
                 JSArray columns = new JSArray();
                 for (String name : cursor.getColumnNames()) columns.put(name);
                 JSArray rows = new JSArray();
-                while (cursor.moveToNext()) {
+                for (int r = 0; r < rowCount && cursor.moveToPosition(r); r++) {
                     JSONArray row = new JSONArray();
                     for (int c = 0; c < cursor.getColumnCount(); c++) row.put(value(cursor, c));
                     rows.put(row);
                 }
                 result.put("columns", columns);
                 result.put("rows", rows);
-            }
-            return result;
-        }
-        try (SQLiteStatement statement = database.compileStatement(sql)) {
-            for (int i = 0; i < params.length(); i++) {
-                Object param = params.get(i);
-                int at = i + 1;
-                if (param == JSONObject.NULL) statement.bindNull(at);
-                else if (param instanceof Integer || param instanceof Long) statement.bindLong(at, ((Number) param).longValue());
-                else if (param instanceof Number) statement.bindDouble(at, ((Number) param).doubleValue());
-                else if (param instanceof Boolean) statement.bindLong(at, ((Boolean) param) ? 1 : 0);
-                else statement.bindString(at, String.valueOf(param));
-            }
-            if (sql.trim().regionMatches(true, 0, "INSERT", 0, 6) || sql.trim().regionMatches(true, 0, "REPLACE", 0, 7)) {
-                result.put("lastInsertId", statement.executeInsert());
-                result.put("changes", 1);
-            } else if (type == DatabaseUtils.STATEMENT_UPDATE) {
-                result.put("changes", statement.executeUpdateDelete());
-            } else {
-                statement.execute();
-                result.put("changes", 0);
+                return result;
             }
         }
+        long changes = totalChanges(database) - changesBefore;
+        result.put("changes", changes);
+        if (changes > 0 && insertsRows(sql)) result.put("lastInsertId", DatabaseUtils.longForQuery(database, "SELECT last_insert_rowid()", null));
         return result;
+    }
+
+    private static long totalChanges(SQLiteDatabase database) {
+        return DatabaseUtils.longForQuery(database, "SELECT total_changes()", null);
+    }
+
+    private static boolean insertsRows(String sql) {
+        String head = sql.trim();
+        return head.regionMatches(true, 0, "INSERT", 0, 6) || head.regionMatches(true, 0, "REPLACE", 0, 7);
+    }
+
+    private static SQLiteDatabase.CursorFactory boundTo(JSONArray params) {
+        return (database, driver, editTable, query) -> {
+            for (int i = 0; i < params.length(); i++) {
+                Object param = params.opt(i);
+                int at = i + 1;
+                if (param == null || param == JSONObject.NULL) query.bindNull(at);
+                else if (param instanceof Integer || param instanceof Long) query.bindLong(at, ((Number) param).longValue());
+                else if (param instanceof Number) query.bindDouble(at, ((Number) param).doubleValue());
+                else if (param instanceof Boolean) query.bindLong(at, ((Boolean) param) ? 1 : 0);
+                else query.bindString(at, String.valueOf(param));
+            }
+            return new SQLiteCursor(driver, editTable, query);
+        };
     }
 
     private static Object value(Cursor cursor, int column) {
