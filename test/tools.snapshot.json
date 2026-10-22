@@ -2110,7 +2110,7 @@
 		"parameters": {
 			"properties": {
 				"render": {
-					"description": "Load the page in a browser and run its scripts first; takes seconds. For pages whose text lacks what they should show (numbers, a table, a list). Pages with almost no text are rendered anyway.",
+					"description": "Rarely needed: a page with almost no text is rendered anyway. Only after a fetch whose text lacked what the page should show (numbers, a table, a list): load it in a browser and run its scripts, which takes seconds.",
 					"type": "boolean"
 				},
 				"save_to": {
@@ -2403,7 +2403,7 @@
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "read",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
 			"model",
 			"tools"
@@ -2434,7 +2434,7 @@
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "write",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
 			"model",
 			"tools"
@@ -2462,7 +2462,7 @@
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "edit",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
 			"model",
 			"tools"
@@ -2507,7 +2507,7 @@
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "bash",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
 			"model",
 			"tools"

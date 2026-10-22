@@ -8,8 +8,8 @@
 //   extensions.add lists the ones it has.
 //
 // When a toolset is on, its tools are either always in the bot's requests or loaded when a task needs them: the
-// phone's everyday tools always; development and cloud tools, and every service, on demand (with tool_search, from a
-// list of their names in the prompt). Once loaded, tools stay in that conversation. What each costs: docs/tools.md.
+// phone's everyday tools and the bot's folder (sandbox or files) always; development and cloud tools, and every
+// service, on demand (with tool_search, from a list of their names in the prompt). Once loaded, tools stay in that conversation. What each costs: docs/tools.md.
 //
 // Some extensions are always on and not listed: the bot's identity, memory, skills, attachments, and triggers (a schedule's run
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
@@ -53,9 +53,9 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", load: "on-demand", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API，寫入先問你", extensions: ["gcp"] },
 	{ kind: "builtin", load: "on-demand", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API，寫入先問你", extensions: ["cloudflare"] },
 	{ kind: "builtin", load: "on-demand", id: "azure", label: "Azure", hint: "從手機呼叫 API，寫入先問你", extensions: ["azure"] },
-	{ kind: "builtin", load: "on-demand", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
+	{ kind: "builtin", load: "always", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
 	// The same tools without a sandbox: only one of the two is available, whichever the app has.
-	{ kind: "builtin", load: "on-demand", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"] },
+	{ kind: "builtin", load: "always", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"] },
 	{ kind: "builtin", load: "always", id: "codemode", label: "程式模式", hint: "用腳本一次呼叫多個工具", extensions: ["codemode"] },
 ];
 
