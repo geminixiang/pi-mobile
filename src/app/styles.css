@@ -186,7 +186,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .console {
 	margin: 0; padding: 10px 12px; background: var(--console-bg); color: var(--console-text);
 	font-family: var(--mono); font-size: 11.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere;
-	max-height: 280px; overflow-y: auto;
+	max-height: 280px; overflow: hidden auto;
 }
 
 /* ---------- Layout ---------- */
@@ -229,7 +229,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Transcript ---------- */
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.transcript { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
+.transcript { flex: 1; overflow: hidden auto; overscroll-behavior: contain; padding: 22px var(--space) 28px; display: flex; flex-direction: column; gap: 20px; }
 /*
  * Messages off screen skip layout and paint. After about a minute away, the WebView drops its caches and lays out the
  * whole document again on return: on the S24, a 35-message conversation took 225 ms (1 s after using Chrome), one
@@ -300,6 +300,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown td { min-width: 3em; max-width: 15em; overflow-wrap: break-word; }
 .markdown tr:last-child > td { border-bottom: none; }
 .markdown hr { border: none; border-top: 1px solid var(--line); margin: 1.4em 0; }
+.markdown img { max-width: 100%; height: auto; }
 .code { margin: 0.9em 0; border: 1px solid var(--line); background: var(--console-bg); color: var(--console-text); }
 .code-head {
 	display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 0 4px 0 12px;
@@ -359,7 +360,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 /* Collapsed previews in lines on screen: the first 10 of most tools, the last 5 of a shell command or script. */
 .step-output.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden; }
 .step-output.clamp-end { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(5 * 1.55em); overflow: hidden; }
-.step.open .step-output { max-height: 60vh; overflow-y: auto; }
+.step.open .step-output { max-height: 60vh; overflow: hidden auto; }
 /* Steps from back-to-back model turns read as one stack, a blank line apart. */
 /* The condition in :where() adds no specificity. */
 :where(.answer:has(> .steps:last-child) + .answer) > .steps:first-child { margin-top: -12px; }
@@ -522,7 +523,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .layer-sheet[data-starting-style], .layer-sheet[data-ending-style] { transform: translateY(100%); }
 .layer-sheet[data-swiping] { transition: none; }
-.sheet-body { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.sheet-body { overflow: hidden auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .layer-dialog {
 	position: fixed; z-index: 20; left: 20px; right: 20px; top: 50%; transform: translateY(-50%); outline: none;
 	background: var(--bg); border: 1px solid var(--line-strong);
@@ -633,7 +634,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .drawer-top { display: flex; align-items: center; min-height: 36px; padding: 0 4px; }
 .brand { display: inline-flex; align-items: center; gap: 12px; }
 .brand-name { font-family: var(--display); font-style: italic; font-size: 24px; line-height: 1; }
-.drawer-list { flex: 1; overflow-y: auto; margin: 0 -12px; }
+.drawer-list { flex: 1; overflow: hidden auto; margin: 0 -12px; }
 .drawer-list h3 { margin: 16px 16px 6px; }
 .drawer-item { display: flex; align-items: center; padding-right: 4px; border-left: 2px solid transparent; }
 .drawer-item:active { background: var(--accent-soft); }
@@ -650,7 +651,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Settings ---------- */
 .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.settings { flex: 1; overflow-y: auto; padding: 18px var(--space) calc(env(safe-area-inset-bottom) + 28px); display: flex; flex-direction: column; gap: 22px; }
+.settings { flex: 1; overflow: hidden auto; padding: 18px var(--space) calc(env(safe-area-inset-bottom) + 28px); display: flex; flex-direction: column; gap: 22px; }
 .welcome { padding: 8px 2px 0; }
 .welcome p { margin-bottom: 4px; }
 .banner { padding: 12px 14px; font-size: 13.5px; line-height: 1.5; }
@@ -676,7 +677,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid var(--line); background: var(--bg); }
 .tabs button { flex: 1; height: 42px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; color: var(--muted); text-align: center; }
 .tabs button.selected { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
-.ws-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 12px var(--space) calc(env(safe-area-inset-bottom) + 24px); display: flex; flex-direction: column; gap: 12px; }
+.ws-pane { flex: 1; min-height: 0; overflow: hidden auto; padding: 12px var(--space) calc(env(safe-area-inset-bottom) + 24px); display: flex; flex-direction: column; gap: 12px; }
 .ws-loading { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .ws-loading::after { content: ""; display: inline-block; width: 0.5em; height: 1em; margin-left: 6px; vertical-align: -0.15em; background: var(--accent); animation: blink 1s steps(1) infinite; }
 .ws-empty { padding: 28px 4px; font-family: var(--serif); font-size: 15px; line-height: 1.7; color: var(--muted); }
@@ -891,7 +892,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 /* ---------- Bot panel (from the right) ---------- */
 .panel {
-	height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+	height: 100%; overflow: hidden auto; display: flex; flex-direction: column; gap: 18px;
 	padding: calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 18px);
 	background: var(--bg); border-left: 1px solid var(--line-strong);
 }
