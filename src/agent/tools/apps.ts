@@ -13,9 +13,11 @@ interface AppsPlugin {
 	composeSms(options: { to: string; body: string }): Promise<void>;
 	open(options: { uri: string }): Promise<void>;
 	share(options: { text?: string; title?: string; fileBase64?: string; fileName?: string; mimeType?: string }): Promise<void>;
+	/** Open a file in the app that views its type; rejects with code "NO_APP" when there is none. */
+	openFile(options: { fileBase64: string; fileName: string; mimeType: string }): Promise<void>;
 }
 
-const Apps = registerPlugin<AppsPlugin>("Apps");
+export const Apps = registerPlugin<AppsPlugin>("Apps");
 
 /** Android blocks activity starts from the background; fail clearly instead of silently doing nothing. */
 async function launch(action: () => Promise<void>): Promise<void> {
@@ -124,7 +126,7 @@ const openLink = defineAppTool({
 
 const MAX_SHARE_BYTES = 15 * 1024 * 1024;
 
-const MIME_TYPES: Record<string, string> = {
+export const MIME_TYPES: Record<string, string> = {
 	png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
 	pdf: "application/pdf", txt: "text/plain", md: "text/markdown", csv: "text/csv", json: "application/json",
 	html: "text/html", zip: "application/zip", mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", mp4: "video/mp4",
@@ -133,7 +135,7 @@ const MIME_TYPES: Record<string, string> = {
 	pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
-function base64(bytes: Uint8Array): string {
+export function base64(bytes: Uint8Array): string {
 	let binary = "";
 	for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
 	return btoa(binary);

@@ -104,6 +104,13 @@ export class Workspace {
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > MAX_TEXT_BYTES, size };
 	}
 
+	/** A whole file's bytes, to hand to another app. */
+	async bytes(path: string): Promise<Uint8Array> {
+		const result = await this.#env.readBinaryFile(path, context);
+		if (!result.ok) throw result.error;
+		return result.value;
+	}
+
 	/** Git work trees under the root, up to three levels deep. */
 	async repos(): Promise<string[]> {
 		const found = await this.#exec(

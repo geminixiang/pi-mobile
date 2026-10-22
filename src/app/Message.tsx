@@ -166,7 +166,7 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 	if (name === "github_api") return `${args.method ?? "GET"} ${args.path ?? ""}`;
 	if (name === "github_read_file") return `${args.owner}/${args.repo}/${args.path ?? ""}`;
 	if (name === "web_search" && typeof args.query === "string") return args.query;
-	if (name === "web_fetch" && typeof args.url === "string") return args.url;
+	if (name === "web_fetch" && typeof args.url === "string") return typeof args.save_to === "string" && args.save_to ? `${args.url} → ${args.save_to}` : args.url;
 	if (name === "bash" && typeof args.command === "string") return args.command;
 	// Code mode: the script's first line that is not a comment or option header.
 	if (name === "codemode" && typeof args.code === "string") {

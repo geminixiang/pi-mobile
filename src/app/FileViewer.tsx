@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
+import { Apps, base64, MIME_TYPES } from "../agent/tools/apps.ts";
 import { BackIcon } from "./icons.tsx";
 import { markdownComponents, remarkPlugins } from "./Message.tsx";
 import { Layer } from "./Sheet.tsx";
@@ -22,6 +23,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 	const [error, setError] = useState("");
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [copied, setCopied] = useState(false);
+	const [opening, setOpening] = useState(false);
 	const name = path?.split("/").at(-1) ?? "";
 	const markdown = /\.(md|markdown)$/i.test(name);
 
@@ -68,6 +70,28 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 							}
 						>
 							{copied ? "已複製" : "複製"}
+						</button>
+					) : content ? (
+						// PDF, spreadsheets, documents, and pictures in the app the phone views them with.
+						<button
+							type="button"
+							className="btn bar-action"
+							disabled={opening}
+							onClick={() => {
+								if (!path) return;
+								setOpening(true);
+								const type = MIME_TYPES[name.split(".").at(-1)?.toLowerCase() ?? ""] ?? "application/octet-stream";
+								void workspace
+									.bytes(path)
+									.then((bytes) => Apps.openFile({ fileBase64: base64(bytes), fileName: name, mimeType: type }))
+									.catch((failure: unknown) => {
+										const code = typeof failure === "object" && failure !== null ? Reflect.get(failure, "code") : undefined;
+										setError(code === "NO_APP" ? "手機上沒有能開這種檔案的 app" : failure instanceof Error ? failure.message : String(failure));
+									})
+									.finally(() => setOpening(false));
+							}}
+						>
+							用其他 app 開啟
 						</button>
 					) : null}
 				</header>

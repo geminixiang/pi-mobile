@@ -407,6 +407,12 @@ export class PhoneEnv implements ExecutionEnv {
 		return written.ok ? file.value : undefined;
 	}
 
+	/** Download a URL into the folder, streamed to disk by the native side. */
+	async download(url: string, path: string, context: Context): Promise<Result<{ path: string; size: number; contentType: string; url: string }, FileError>> {
+		const absolute = this.#path(path);
+		return attempt(context, absolute, async () => ({ path: absolute, ...(await BotFiles.download({ ...this.#at(path), url })) }));
+	}
+
 	async cleanup(): Promise<void> {}
 }
 

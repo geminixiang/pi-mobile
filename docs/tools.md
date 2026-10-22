@@ -119,7 +119,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `add_calendar_event` | 日曆 | 加活動 | 先問 | |
 | `codemode` | 程式模式 | 用腳本一次呼叫多個工具 | 依呼叫的工具 | |
 | `web_search` | 網路 | 搜尋 | 唯讀 | |
-| `web_fetch` | 網路 | 讀網頁 | 唯讀 | |
+| `web_fetch` | 網路 | 讀網頁；內容要跑 JS 才出現時，在看不見的 WebView 裡渲染（`render`，或文字少於 300 字時自動）；`save_to` 把檔案下載進 Bot 的資料夾 | 唯讀；`save_to` 直接寫進自己的資料夾 | |
 | `github_api` | GitHub（需要時載入） | GitHub REST API | `GET` 唯讀，其他先問 | ✓ |
 | `github_read_file` | GitHub（需要時載入） | 讀 repo 裡的檔案 | 唯讀 | |
 | `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入先問 | ✓ |
@@ -168,7 +168,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 天氣 | `weather` | 常駐 | 1 | 778 | 159 |
 | 健康 | `health` | 常駐 | 1 | 734 | 150 |
 | 記憶（固定開啟） | `memory` | 常駐 | 1 | 732 | 149 |
-| 網路 | `web` | 常駐 | 2 | 663 | 135 |
+| 網路 | `web` | 常駐 | 2 | 1,120 | 229 |
 | 工具搜尋（固定開啟） | `tool-search` | 常駐 | 1 | 615 | 126 |
 | 語音 | `speech` | 常駐 | 1 | 595 | 121 |
 | 聯絡人 | `contacts` | 常駐 | 1 | 562 | 115 |
@@ -213,6 +213,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
 | 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；`create_schedule.on` 改成必填，多一個 `time` 值（模型會把選填的 `on` 隨便填一個事件，例如 `wifi`，跟 `time` 衝突而失敗兩次）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
+| 2026-10-22 | `web_fetch` 加 `render` 和 `save_to` | 網路的定義 663 → 1,120 字元（約 +93 tokens，估計） | `render`：自己寫的 `PagePlugin.java`，一個不掛在畫面上的 WebView，載入後等文字 2 秒不再變化（最多 30 秒）才取 HTML；只走 http/https、沒有橋接、不能開檔案或彈出視窗，用完就銷毀。評估過 `@capgo/capacitor-inappbrowser`（隱藏模式也能做到，但 APK +1.3 MB，是給使用者看的完整瀏覽器）；自己寫的 APK 幾乎不變，渲染時記憶體約 +12 MB，結束後回到原本。文字少於 300 字時自動渲染；另外修正擷取文字時只取 `<main>`，但內容不在裡面的頁面（中信）。`save_to`：手機資料夾由原生串流寫入，sandbox 經原生 HTTP 再寫過去。模擬器上：「中信官網美元匯率多少（附網址）」渲染後答出 32.4450／32.6050，原本的抓取只拿到空殼；「把這份 PDF 存下來」「把這張圖存下來」在手機資料夾和 sandbox 都存好；檔案檢視器多了「用其他 app 開啟」，PDF 開在雲端硬碟的檢視器、PNG 開在相簿 |
 | 2026-10-22 | 檔案：沒有 sandbox 時，`read`、`write`、`edit`、`bash` 改在 Bot 自己在手機上的資料夾（`files/`）；`share.sandbox_path` → `path` | 模擬器（Opus 5.5）：開「檔案」比關掉多 298 tokens（說明 110，其餘是工具搜尋的清單）；說明原本寫了三句，多 461 | 檔案存在 app 的原生資料夾（`BotFilesPlugin.java`），bash 是 just-bash 跑在 Worker，檔案操作經主執行緒轉給原生：碰不到資料夾外的東西（包括 app 自己的 SSH 金鑰），也不能連網。瀏覽器版不能用的指令（`tar`、`yq`、`xan`、`sqlite3`、`python`、`gzip`、`html-to-markdown`）不註冊。模擬器上 4 題：「這個月的開銷存成表格檔」載入工具寫成 CSV 並記在記憶；「再加三筆，咖啡多少、哪類最多」用 `edit` 追加；「直接從檔案重算一次」用 `bash` 的 `awk` 算，抓到前一題心算的總數錯誤（1,155 → 1,215）；「把開銷表傳給我」開出分享選單。刪除 Bot 時資料夾一起刪掉；有 sandbox 時照舊走遠端。`share` 的參數改名，因為沒有 sandbox 時檔案在手機上；舊對話裡的 `sandbox_path` 照樣顯示 |
 | 2026-10-22 | 健康（Health Connect，系統 API） | 7,505 → 7,620 tokens | 權限都允許後五種資料都是空的：Samsung Health 的「同意處理健康和保健資料」沒開，它就不寫入 Health Connect。「這禮拜睡得怎樣」11 秒，正確說沒有資料並指出設定。打開同意、回到 Samsung Health 主畫面後開始同步（只同步之後的資料）：「今天走了幾步、這週呢」9 秒，答出今天 25 步，並說明其他天沒有資料不代表沒走路 |
 | 2026-10-22 | 掃描文件（`scan_document`）、掃描頁在手機上 OCR | 7,401 → 7,505 tokens | 掃描版收據 PDF：OCR 0.17 秒，「總共多少、買了什麼」8 秒對，只送 52 tokens 的文字而不是一張圖；「幫我掃描桌上這張紙」叫出系統掃描畫面，取消後回「這次沒有掃描」 |

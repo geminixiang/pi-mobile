@@ -10,6 +10,9 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -264,6 +267,69 @@ public class BotFilesPlugin extends Plugin {
             if (parent != null && !parent.isDirectory()) throw notFound(call.getString("to"));
             Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
             call.resolve();
+        });
+    }
+
+    /**
+     * Download a URL (http or https) into the folder, streamed to disk: like write, to a temporary file that then
+     * replaces the old one. Follows up to 5 redirects. Resolves {size, contentType, url (the final one)}; an HTTP error
+     * rejects with code "http".
+     */
+    @PluginMethod
+    public void download(PluginCall call) {
+        run(call, () -> {
+            File file = resolve(call, "path");
+            if (file.equals(botRoot(call)) || file.isDirectory()) throw new Failure("is_directory", "Is a directory: " + call.getString("path"));
+            URL url = new URL(call.getString("url", ""));
+            HttpURLConnection connection = null;
+            for (int hops = 0; ; hops++) {
+                String protocol = url.getProtocol();
+                if (!"http".equals(protocol) && !"https".equals(protocol)) throw new Failure("invalid", "url must be http or https");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(15_000);
+                connection.setReadTimeout(60_000);
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 16) pi-mobile");
+                int status = connection.getResponseCode();
+                String location = connection.getHeaderField("Location");
+                if (status >= 300 && status < 400 && location != null && hops < 5) {
+                    connection.disconnect();
+                    url = new URL(url, location);
+                    continue;
+                }
+                if (status >= 400) {
+                    connection.disconnect();
+                    throw new Failure("http", "HTTP " + status + " " + url);
+                }
+                break;
+            }
+            File parent = file.getParentFile();
+            if (parent != null && !parent.isDirectory() && !parent.mkdirs() && !parent.isDirectory()) throw new IOException("cannot create " + parent.getName());
+            File temp = new File(parent, "." + file.getName() + ".pi-write");
+            long size = 0;
+            try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
+                byte[] buffer = new byte[64 * 1024];
+                for (int n; (n = input.read(buffer)) > 0; ) {
+                    output.write(buffer, 0, n);
+                    size += n;
+                }
+                output.getFD().sync();
+            } catch (IOException failure) {
+                if (!temp.delete()) temp.deleteOnExit();
+                throw failure;
+            } finally {
+                connection.disconnect();
+            }
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            JSObject out = new JSObject();
+            out.put("size", size);
+            out.put("contentType", connection.getContentType() == null ? "" : connection.getContentType());
+            out.put("url", url.toString());
+            call.resolve(out);
         });
     }
 

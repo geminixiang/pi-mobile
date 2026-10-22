@@ -1,7 +1,10 @@
 // Web tools, run from the phone. Search uses the model service's own hosted search (OpenAI Responses `web_search`, or
 // Anthropic Messages `web_search_20250305`), so it works with any endpoint that passes those through, with no search
 // API key. Fetch uses Capacitor's native HTTP, which is not subject to the WebView's CORS rules.
-import { CapacitorHttp } from "@capacitor/core";
+import { Capacitor, CapacitorHttp, registerPlugin } from "@capacitor/core";
+import type { Context } from "@earendil-works/chord";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
+import { fromBase64, PhoneEnv } from "../files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
 import { Type } from "typebox";
@@ -42,6 +45,34 @@ const MessagesAnswer = Type.Object({
 const SearchResults = Type.Array(Type.Object({ url: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }));
 
 const MAX_FETCH_CHARS = 40_000;
+/** A fetched page with less visible text than this is rendered: it is likely built by its scripts. */
+const RENDER_BELOW_CHARS = 300;
+
+/** PagePlugin.java: a page rendered in a WebView no one sees, after its scripts ran. */
+const Page = registerPlugin<{ render(options: { url: string }): Promise<{ html: string; title: string; url: string; ms: number; settled: boolean }> }>("Page");
+
+/** Characters of text, not counting whitespace or the title line htmlToText adds. */
+const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+/g, "").length;
+
+const formatSize = (bytes: number) => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+/** A file from the web into the bot's folder: streamed to disk on the phone, through the app into a sandbox. */
+async function download(env: ExecutionEnv, url: string, path: string, context: Context): Promise<{ path: string; size: number; contentType: string; url: string }> {
+	if (env instanceof PhoneEnv) {
+		const saved = await env.download(url, path, context);
+		if (!saved.ok) throw saved.error;
+		return saved.value;
+	}
+	const absolute = await env.absolutePath(path, context);
+	if (!absolute.ok) throw absolute.error;
+	const response = await CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile" }, connectTimeout: 15_000, readTimeout: 60_000 });
+	if (response.status >= 400) throw new Error(`HTTP ${response.status} ${response.url}`);
+	const bytes = typeof response.data === "string" ? fromBase64(response.data) : new Uint8Array(0);
+	const written = await env.writeFile(absolute.value, bytes, context);
+	if (!written.ok) throw written.error;
+	const contentType = String(Object.entries(response.headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
+	return { path: absolute.value, size: bytes.length, contentType, url: response.url || url };
+}
 
 export interface WebConfig {
 	baseUrl: string;
@@ -119,7 +150,9 @@ async function searchAnthropic(config: WebConfig, model: string, query: string, 
 function htmlToText(html: string): string {
 	const doc = new DOMParser().parseFromString(html, "text/html");
 	for (const element of doc.querySelectorAll("script, style, noscript, svg, nav, footer, header, aside, form, iframe")) element.remove();
-	const root = doc.querySelector("main, article") ?? doc.body;
+	// The page's main part, unless it holds less than half its text (apps that render their content elsewhere).
+	const main = doc.querySelector("main, article");
+	const root = main && (main.textContent?.length ?? 0) * 2 >= (doc.body?.textContent?.length ?? 0) ? main : doc.body;
 	for (const element of root?.querySelectorAll("p, div, li, h1, h2, h3, h4, h5, h6, tr, br, pre, blockquote") ?? []) element.append("\n");
 	for (const link of root?.querySelectorAll("a[href]") ?? []) {
 		const href = link.getAttribute("href") ?? "";
@@ -151,10 +184,24 @@ export function createWebExtension(config: WebConfig) {
 
 	const fetchPage = defineAppTool({
 		name: "web_fetch",
-		description: "Fetch a web page (http or https) and return its readable text with links, or the raw body for JSON and plain text.",
-		parameters: Type.Object({ url: Type.String({ description: "http:// or https:// URL of the page" }) }),
-		execute: async (args) => {
+		description:
+			"Fetch a web page (http or https) and return its readable text with links, or the raw body for JSON and plain text. With save_to, download the file (PDF, image, spreadsheet…) into your folder instead.",
+		parameters: Type.Object({
+			url: Type.String({ description: "http:// or https:// URL of the page or file" }),
+			render: Type.Optional(
+				Type.Boolean({
+					description: "Load the page in a browser and run its scripts first; takes seconds. For pages whose text lacks what they should show (numbers, a table, a list). Pages with almost no text are rendered anyway.",
+				}),
+			),
+			save_to: Type.Optional(Type.String({ description: "Path in your folder to download the file to, e.g. rates.pdf; then read or share it" })),
+		}),
+		execute: async (args, api, context) => {
 			if (!/^https?:\/\//.test(args.url)) throw new Error("url must start with http:// or https://");
+			if (args.save_to) {
+				if (!api.env) throw new Error("this bot has no folder to save to");
+				const saved = await download(api.env, args.url, args.save_to, context);
+				return { output: [{ type: "text", text: `Saved ${formatSize(saved.size)}${saved.contentType ? ` (${saved.contentType})` : ""} from ${saved.url} to ${saved.path}.` }] };
+			}
 			const response = await CapacitorHttp.get({
 				url: args.url,
 				headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile", Accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.5" },
@@ -164,9 +211,23 @@ export function createWebExtension(config: WebConfig) {
 			});
 			const type = String(Object.entries(response.headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
 			const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2);
-			const text = type.includes("html") ? htmlToText(body) : body;
+			const html = type.includes("html");
+			let text = html ? htmlToText(body) : body;
+			let header = `HTTP ${response.status} ${response.url}`;
+			// A page that builds its content in scripts: asked for, or so little text that it is likely a shell.
+			if (html && response.status < 400 && Capacitor.isNativePlatform() && (args.render || visibleLength(text) < RENDER_BELOW_CHARS)) {
+				const page = await Page.render({ url: response.url || args.url }).then(
+					(value) => ({ ok: true as const, value }),
+					(error: unknown) => ({ ok: false as const, message: error instanceof Error ? error.message : String(error) }),
+				);
+				if (!page.ok) {
+					header += `\n[rendering failed: ${page.message}; this is the page without its scripts]`;
+				} else {
+					text = htmlToText(page.value.html);
+					header = `Rendered ${page.value.url} (${(page.value.ms / 1000).toFixed(1)} s${page.value.settled ? "" : ", still changing at the deadline"})`;
+				}
+			}
 			const cut = text.length > MAX_FETCH_CHARS ? `${text.slice(0, MAX_FETCH_CHARS)}\n\n[truncated: ${text.length - MAX_FETCH_CHARS} more characters]` : text;
-			const header = `HTTP ${response.status} ${response.url}`;
 			if (response.status >= 400) throw new Error(`${header}\n${cut.slice(0, 2000)}`);
 			return { output: [{ type: "text", text: `${header}\n\n${cut}` }] };
 		},

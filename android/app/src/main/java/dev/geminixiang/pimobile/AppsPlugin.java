@@ -100,6 +100,28 @@ public class AppsPlugin extends Plugin {
         launch(call, new Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addCategory(Intent.CATEGORY_BROWSABLE));
     }
 
+    /** A file opened in the app that views its type (PDF, spreadsheet, document…), staged like a shared one. */
+    @PluginMethod
+    public void openFile(PluginCall call) {
+        String name = new File(call.getString("fileName", "file")).getName();
+        File dir = new File(getContext().getCacheDir(), "share");
+        File file = new File(dir, name);
+        try {
+            if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
+            File[] old = dir.listFiles();
+            if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(Base64.decode(call.getString("fileBase64", ""), Base64.DEFAULT));
+            }
+        } catch (IOException e) {
+            call.reject("could not stage the file: " + e.getMessage());
+            return;
+        }
+        Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+        Intent view = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, call.getString("mimeType", "application/octet-stream")).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        launch(call, view);
+    }
+
     /** The share sheet, with text and optionally one file written to the cache and served through the FileProvider. */
     @PluginMethod
     public void share(PluginCall call) {

@@ -1,6 +1,6 @@
 // BotFilesPlugin on Android (BotFilesPlugin.java): each bot's folder of files in the app's private storage. Paths are
 // relative to the bot's folder ("" is the folder); a call rejects with a code (not_found, is_directory, not_directory,
-// exists, invalid, io) when it fails.
+// exists, invalid, http, io) when it fails.
 import { registerPlugin } from "@capacitor/core";
 
 export interface BotFileInfo {
@@ -26,4 +26,6 @@ export const BotFiles = registerPlugin<{
 	removeBot(options: { bot: string }): Promise<void>;
 	/** The ids of the bots that have a folder. */
 	listBots(): Promise<{ ids: string[] }>;
+	/** Download a URL into the folder, streamed to disk; rejects with code "http" on an HTTP error. */
+	download(options: At & { url: string }): Promise<{ size: number; contentType: string; url: string }>;
 }>("BotFiles");

@@ -2109,8 +2109,16 @@
 		],
 		"parameters": {
 			"properties": {
+				"render": {
+					"description": "Load the page in a browser and run its scripts first; takes seconds. For pages whose text lacks what they should show (numbers, a table, a list). Pages with almost no text are rendered anyway.",
+					"type": "boolean"
+				},
+				"save_to": {
+					"description": "Path in your folder to download the file to, e.g. rates.pdf; then read or share it",
+					"type": "string"
+				},
 				"url": {
-					"description": "http:// or https:// URL of the page",
+					"description": "http:// or https:// URL of the page or file",
 					"type": "string"
 				}
 			},
