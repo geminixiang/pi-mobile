@@ -9,6 +9,14 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
+import {
+	type JsonRpcMessage,
+	type McpTransport,
+	type McpTransportCloseListener,
+	type McpTransportErrorListener,
+	type McpTransportMessageListener,
+	parseJsonRpcMessage,
+} from "@earendil-works/pi-mcp";
 import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials } from "./container.ts";
 import { daemon } from "./daemon.ts";
@@ -138,9 +146,9 @@ const ExitMessage = Type.Object({ exit: Type.Number() });
 
 /** Shell commands on the computer through pi-mobile serve's /exec: one WebSocket per command. */
 class HostCommands implements CommandClient {
-	readonly #host: Host;
+	readonly #host: Pick<Host, "address" | "name">;
 
-	constructor(host: Host) {
+	constructor(host: Pick<Host, "address" | "name">) {
 		this.#host = host;
 	}
 
@@ -316,5 +324,99 @@ export class HostSandbox implements Sandbox {
 	close(): void {
 		this.#stopBridge?.();
 		this.#envs.close();
+	}
+}
+
+/** An MCP server URL that runs on one of the user's computers: computer://<address>?command=<shell command>. */
+export const COMPUTER_MCP = "computer:";
+
+export function parseComputerMcp(url: string): { address: string; command: string } | undefined {
+	try {
+		const parsed = new URL(url);
+		const command = parsed.searchParams.get("command");
+		return parsed.protocol === COMPUTER_MCP && parsed.hostname && command ? { address: parsed.hostname, command } : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * MCP over stdio, the way local servers speak it (newline-delimited JSON-RPC), with the server started on the computer
+ * through pi-mobile serve's /exec: so a server that only runs on a desktop, such as computer use, serves the phone,
+ * reached only by the user's own devices. One process per connection; it ends when the connection does.
+ */
+export class HostStdioTransport implements McpTransport {
+	readonly #address: string;
+	readonly #command: string;
+	#channel: CommandChannel | undefined;
+	#buffer = "";
+	#closed = false;
+	readonly #message = new Set<McpTransportMessageListener>();
+	readonly #error = new Set<McpTransportErrorListener>();
+	readonly #close = new Set<McpTransportCloseListener>();
+
+	constructor(address: string, command: string) {
+		this.#address = address;
+		this.#command = command;
+	}
+
+	async start(): Promise<void> {
+		let stderr = "";
+		this.#channel = await new HostCommands({ address: this.#address, name: this.#address }).exec(this.#command, {
+			onStdout: (data) => {
+				this.#buffer += new TextDecoder().decode(data, { stream: true });
+				let newline = this.#buffer.indexOf("\n");
+				while (newline >= 0) {
+					const line = this.#buffer.slice(0, newline).trim();
+					this.#buffer = this.#buffer.slice(newline + 1);
+					if (line) {
+						try {
+							const message = parseJsonRpcMessage(JSON.parse(line));
+							for (const listener of this.#message) listener(message);
+						} catch (error) {
+							for (const listener of this.#error) listener(error instanceof Error ? error : new Error(String(error)));
+						}
+					}
+					newline = this.#buffer.indexOf("\n");
+				}
+			},
+			onStderr: (data) => {
+				stderr = (stderr + new TextDecoder().decode(data)).slice(-2000);
+				log.info("mcp.computer_stderr", { address: this.#address, text: new TextDecoder().decode(data).slice(0, 500) });
+			},
+			onExit: (code) => {
+				if (!this.#closed && code !== 0) {
+					const error = new Error(`MCP server on ${this.#address} exited${code === undefined ? "" : ` with ${code}`}: ${stderr.trim().split("\n").slice(-3).join(" / ")}`);
+					for (const listener of this.#error) listener(error);
+				}
+				this.#closed = true;
+				for (const listener of this.#close) listener();
+			},
+		});
+	}
+
+	async send(message: JsonRpcMessage): Promise<void> {
+		if (!this.#channel || this.#closed) throw new Error("MCP connection to the computer is closed");
+		this.#channel.write(new TextEncoder().encode(`${JSON.stringify(message)}\n`));
+	}
+
+	async close(): Promise<void> {
+		this.#closed = true;
+		this.#channel?.close();
+	}
+
+	onMessage(listener: McpTransportMessageListener): () => void {
+		this.#message.add(listener);
+		return () => this.#message.delete(listener);
+	}
+
+	onError(listener: McpTransportErrorListener): () => void {
+		this.#error.add(listener);
+		return () => this.#error.delete(listener);
+	}
+
+	onClose(listener: McpTransportCloseListener): () => void {
+		this.#close.add(listener);
+		return () => this.#close.delete(listener);
 	}
 }

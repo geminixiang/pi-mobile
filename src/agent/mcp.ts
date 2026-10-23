@@ -1,5 +1,6 @@
 // MCP servers the user adds in settings (a name and a URL), each a toolset: its tools are the server's, named
-// <server>_<tool>. Connected with @earendil-works/pi-mcp over Streamable HTTP.
+// <server>_<tool>. Connected with @earendil-works/pi-mcp over Streamable HTTP, or, for a computer://<address>?command=
+// URL, over stdio to a server started on one of the user's computers through pi-mobile serve (sandbox/host.ts).
 //
 // - Requests go through native HTTP (CapacitorHttp), so servers need not allow the WebView's origin. It returns whole
 //   responses, which suits request and response; the server-to-client GET stream, which never ends, is not opened.
@@ -29,6 +30,7 @@ import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { Value } from "typebox/value";
 import { Type } from "typebox";
 import { approve } from "./tools/common.ts";
+import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { Loopback } from "../loopback-plugin.ts";
 
 /** Where the authorization server sends the browser back: a fixed loopback port, so a registration stays valid. */
@@ -230,12 +232,15 @@ class Connection {
 	async #connect(): Promise<McpClient> {
 		this.#set({ state: "connecting", tools: this.status.tools });
 		const client = new McpClient({ name: "pi-mobile", version: "1.0.0" });
-		const transport = new StreamableHttpTransport({
-			url: this.server.url,
-			fetch: nativeFetch,
-			openGetStream: false,
-			authProvider: this.#auth,
-		});
+		const onComputer = parseComputerMcp(this.server.url);
+		const transport = onComputer
+			? new HostStdioTransport(onComputer.address, onComputer.command)
+			: new StreamableHttpTransport({
+					url: this.server.url,
+					fetch: nativeFetch,
+					openGetStream: false,
+					authProvider: this.#auth,
+				});
 		try {
 			await client.connect(transport);
 		} catch (error) {
