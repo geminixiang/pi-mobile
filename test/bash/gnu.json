@@ -1,0 +1,546 @@
+{
+ "echo-basic": {
+  "stdout": "hello world\nno-newline\na\tb\nc\nx\\ty\n",
+  "exit": 0
+ },
+ "printf-formats": {
+  "stdout": "a|    b|c    |00042|ff|10|3.14|1.234568e+04|%\none\ntwo\nthree\nx\ty\na\\ b\n",
+  "exit": 0
+ },
+ "printf-v": {
+  "stdout": "007\n",
+  "exit": 0
+ },
+ "quoting": {
+  "stdout": "single $HOME\ndouble single $HOME\n\"q\"\nit's\ntab\there\n",
+  "exit": 0
+ },
+ "param-expansion": {
+  "stdout": "hello.tar hello tar.gz gz 12 heLlo.tar.gz heLLo.tar.gz llo .gz HELLO.TAR.GZ Hello.tar.gz\ndef set set\n[] [alt]\n",
+  "exit": 0
+ },
+ "param-indirect": {
+  "stdout": "42\n0 1 2\n",
+  "exit": 0
+ },
+ "arithmetic": {
+  "stdout": "7 3 1 1024 0 31 15\n16\n32\n-3 -1\n",
+  "exit": 0
+ },
+ "arith-compare": {
+  "stdout": "small 3\nbig 10\nbig 7\n",
+  "exit": 0
+ },
+ "if-elif": {
+  "stdout": "two\n",
+  "exit": 0
+ },
+ "case-stmt": {
+  "stdout": "text\ntable\ncode\nunknown\n",
+  "exit": 0
+ },
+ "loops": {
+  "stdout": "for 1\nfor 2\nfor 3\nwhile 0\nwhile 1\nwhile 2\n0\nc0\nc1\nc2\n",
+  "exit": 0
+ },
+ "break-continue": {
+  "stdout": "1\n3\n4\n11\n21\n",
+  "exit": 0
+ },
+ "functions": {
+  "stdout": "hi world\nrc=3\nhi pi\n7\nargs=3 first=a all=a b c d\n",
+  "exit": 0
+ },
+ "local-scope": {
+  "stdout": "inner\ng sees inner\nglobal\n",
+  "exit": 0
+ },
+ "recursion": {
+  "stdout": "3628800\n610\n",
+  "exit": 0
+ },
+ "arrays": {
+  "stdout": "one four 4 two three\none,two,three,four,\none three four 0 2 3\n2\n",
+  "exit": 0
+ },
+ "assoc-arrays": {
+  "stdout": "apple=3\nfig=1\npear=5\n3\nhas\n",
+  "exit": 0
+ },
+ "mapfile": {
+  "stdout": "3 c\n1 2 3\n",
+  "exit": 0
+ },
+ "read-loop": {
+  "stdout": "taipei:alice\ntainan:bob\ntaipei:carol\nkaohsiung:dave\ntainan:eve\n",
+  "exit": 0
+ },
+ "read-builtin": {
+  "stdout": "one/two/three four\ny 3\nthere\n",
+  "exit": 0
+ },
+ "ifs-split": {
+  "stdout": "4\n[a]\n[b]\n[]\n[c]\n",
+  "exit": 0
+ },
+ "positional": {
+  "stdout": "4 a d\n2 c d\n[x y]\n[z]\n{x}\n{y}\n{z}\n",
+  "exit": 0
+ },
+ "getopts": {
+  "stdout": "A\nB=val\nC\nrest=file1 file2\n",
+  "exit": 0
+ },
+ "eval-source": {
+  "stdout": "eval 5\nfrom_file\nsaid hi\nok\n",
+  "exit": 0
+ },
+ "exit-codes": {
+  "stdout": "0\n1\n7\n1\n2\n1\n",
+  "exit": 0
+ },
+ "set-e": {
+  "stdout": "before\n",
+  "exit": 1
+ },
+ "set-e-conditions": {
+  "stdout": "handled\nstill\n",
+  "exit": 0
+ },
+ "set-u": {
+  "stdout": "ok\n",
+  "exit": 1
+ },
+ "pipefail": {
+  "stdout": "0\n1\n1\n0\n",
+  "exit": 0
+ },
+ "pipestatus": {
+  "stdout": "0 1 0\n",
+  "exit": 0
+ },
+ "trap-exit": {
+  "stdout": "work\ncleanup\n",
+  "exit": 0
+ },
+ "subshell": {
+  "stdout": "in 2\nout 1\ngroup 3\nafter 3\nnested\n",
+  "exit": 0
+ },
+ "cmd-subst-trailing": {
+  "stdout": "[a]\nback\n",
+  "exit": 0
+ },
+ "process-subst": {
+  "stdout": "2d1\n< 2\nrc=1\n1\t4\n2\t5\n3\t6\n",
+  "exit": 0
+ },
+ "heredoc": {
+  "stdout": "value=2 home=/\nraw $HOME $((1+1))\nindented\n",
+  "exit": 0
+ },
+ "herestring": {
+  "stdout": "3\nHELLO\n",
+  "exit": 0
+ },
+ "brace-expansion": {
+  "stdout": "a-1 a-2 b-1 b-2 c-1 c-2\nfile1.txt file2.txt file3.txt file4.txt file5.txt\n10 7 4 1\na b c d e\nt\nt/x\nt/x/1\nt/x/2\nt/y\nt/y/1\nt/y/2\n",
+  "exit": 0
+ },
+ "glob": {
+  "stdout": "a1.txt a2.txt b1.txt\na1.txt a2.txt\na1.txt b1.txt\n*.none\n\n5\n",
+  "exit": 0
+ },
+ "globstar": {
+  "stdout": "d/1.log d/e/2.log d/e/f/3.log\n",
+  "exit": 0
+ },
+ "extglob": {
+  "stdout": "",
+  "exit": 2
+ },
+ "test-ops": {
+  "stdout": "file\ndir\nmissing\nnonempty\nempty\nz\nn\neq\ngt\nlt\n",
+  "exit": 0
+ },
+ "double-bracket": {
+  "stdout": "glob\nhello 123\nand\nlt\n",
+  "exit": 0
+ },
+ "declare": {
+  "stdout": "8\nabc ABC\ndeclare -i n=\"8\"\n",
+  "exit": 0
+ },
+ "printf-loop-table": {
+  "stdout": "name     amount\nalice        30\nbob          12\ncarol         7\ndave         45\neve           3\n",
+  "exit": 0
+ },
+ "redirections": {
+  "stdout": "out\nmore\n1\na\nb\nx\n2\n",
+  "exit": 0
+ },
+ "dev-null-stdin": {
+  "stdout": "rc=0\ndone\n",
+  "exit": 0
+ },
+ "tee": {
+  "stdout": "hello\nhello\nhello\nhello\nmore\n",
+  "exit": 0
+ },
+ "xargs": {
+  "stdout": "a b c\n1 2\n3 4\n5\nitem-x-end\nitem-y-end\nf1 f2\n",
+  "exit": 0
+ },
+ "xargs-files": {
+  "stdout": " 2 ./src/lib/util.py\n 3 ./src/main.py\n 5 total\n",
+  "exit": 0
+ },
+ "command-v": {
+  "stdout": "echo\nbuiltin\nnone\n",
+  "exit": 0
+ },
+ "alias": {
+  "stdout": "gone\n",
+  "exit": 0
+ },
+ "background-wait": {
+  "stdout": "early\nlate\ndone\n",
+  "exit": 0
+ },
+ "string-ops-loop": {
+  "stdout": "3:the\n5:quick\n5:brown\n3:fox\nThe_quick_brown_fox\n",
+  "exit": 0
+ },
+ "unicode-strings": {
+  "stdout": "6\n市信義\n台北市大安區\n區義信市北台\n",
+  "exit": 0
+ },
+ "env-vars": {
+  "stdout": "FOO=bar\nbar\nunset\n/ pi\n1\n",
+  "exit": 0
+ },
+ "pwd-cd": {
+  "stdout": "a/b\nb\nc\n/\n",
+  "exit": 0
+ },
+ "bash-c": {
+  "stdout": "inner zero one\n4\n",
+  "exit": 0
+ },
+ "cat-flags": {
+  "stdout": "     1\tline one\n     2\tline two\n     3\tthird line\n     4\t\n     5\tfifth: tail\nline one$\nline two$\n11\n",
+  "exit": 0
+ },
+ "head-tail": {
+  "stdout": "name,city,amount\nalice,taipei,30\nname,city,\ndave,kaohsiung,45\neve,tainan,3\ncarol,taipei,7\ndave,kaohsiung,45\neve,tainan,3\nainan,3\nname,city,amount\nalice,taipei,30\nbob,tainan,12\ncarol,taipei,7\n",
+  "exit": 0
+ },
+ "wc": {
+  "stdout": "6 data.csv\n8 notes.txt\n93 data.csv\n  6   6  93 data.csv\n  5   8  42 notes.txt\n 11  14 135 total\n29 帳.txt\n6\n",
+  "exit": 0
+ },
+ "sort": {
+  "stdout": "alice,taipei,30\nbob,tainan,12\ncarol,taipei,7\ndave,kaohsiung,45\neve,tainan,3\neve,tainan,3\ncarol,taipei,7\nbob,tainan,12\nalice,taipei,30\ndave,kaohsiung,45\ndave,kaohsiung,45\nalice,taipei,30\na\nb\nc\n10\n100\n9\n9\n10\n100\n3\n1K\n2M\na\nB\nC\n",
+  "exit": 0
+ },
+ "sort-keys": {
+  "stdout": "y 1 a\nz 3 a\nx 3 b\nc:1\na:2\nb:10\n",
+  "exit": 0
+ },
+ "uniq": {
+  "stdout": "a\nb\na\nc\n      2 a\n      1 b\na\nb\n      2 taipei\n      2 tainan\n      1 kaohsiung\n",
+  "exit": 0
+ },
+ "cut": {
+  "stdout": "name,amount\nalice,30\nbob,12\ncarol,7\ndave,45\neve,3\nline\nline\nthir\n\nfift\n便當\n拉麵\n蛋餅\nb:c:d\n�\n�\n�\n",
+  "exit": 0
+ },
+ "paste": {
+  "stdout": "1,a\n2,b\n3,c\n1\t2\t3\n4\t5\t6\n1+2+3+4\n",
+  "exit": 0
+ },
+ "tr": {
+  "stdout": "HELLO WORLD\nabc\nabc\na\nb\nc\nhelloXxyz\n",
+  "exit": 0
+ },
+ "rev-tac-nl": {
+  "stdout": "eno enil\nowt enil\nenil driht\n\nliat :htfif\nfifth: tail\n\nthird line\nline two\nline one\n     1\tline one\n     2\tline two\n     3\tthird line\n       \n     4\tfifth: tail\n     1\tline one\n     2\tline two\n     3\tthird line\n     4\t\n     5\tfifth: tail\n",
+  "exit": 0
+ },
+ "fold-expand": {
+  "stdout": "abcdefghij\nklmnopqrst\nuvwxyz\na   b$\n    x$\n",
+  "exit": 0
+ },
+ "comm-join": {
+  "stdout": "a\n\t\tb\n\t\tc\n\td\nb\nc\n1 alice 30\n2 bob 25\n",
+  "exit": 0
+ },
+ "split": {
+  "stdout": "part-aa\npart-ab\npart-ac\n9\n10\n",
+  "exit": 0
+ },
+ "column": {
+  "stdout": "name   age\nalice  30\nbob    5\na  b   c\n1  22  333\n",
+  "exit": 0
+ },
+ "seq-expr": {
+  "stdout": "1\n2\n3\n4\n5\n2\n4\n6\n8\n1,2,3,4,5\n08\n09\n10\n11\n7\n3\n5\nell\n",
+  "exit": 0
+ },
+ "basename-dirname": {
+  "stdout": "c.txt\nc\n/a/b\n.\nb\n",
+  "exit": 0
+ },
+ "date-fixed": {
+  "stdout": "1970-01-01_00:00:00\n2026/03/01 12 34 56 Sunday 060\n2024-02-29\n1\n",
+  "exit": 0
+ },
+ "hashes": {
+  "stdout": "5d41402abc4b2a76b9719d911017c592  -\naaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d  -\n2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824  -\nd23cc380f9e24bbc5a125e24cb71a764  data.csv\n0b79a9a7fd767799\n",
+  "exit": 0
+ },
+ "base64-od": {
+  "stdout": "cGkgbW9iaWxl\npi mobile\n 41 42 0a\n0000000   h   i\n0000002\n",
+  "exit": 0
+ },
+ "diff": {
+  "stdout": "2c2\n< b\n---\n> B\n3a4\n> d\nrc=1\n@@ -1,3 +1,4 @@\n a\n-b\n+B\n c\n+d\nsame=0\nFiles x and y differ\n",
+  "exit": 1
+ },
+ "find": {
+  "stdout": "./data.csv\n./data.json\n./docs/readme.md\n./notes.txt\n./src/lib/util.py\n./src/main.py\n./帳.txt\n./src/lib/util.py\n./src/main.py\n.\n./docs\n./src\n2 src/lib/util.py\n3 src/main.py\n./docs/readme.md\n",
+  "exit": 0
+ },
+ "find-size-newer": {
+  "stdout": "./big\n./small\n",
+  "exit": 0
+ },
+ "find-iname-not": {
+  "stdout": "./A.TXT\n./b.txt\n./A.TXT\n./c.log\n",
+  "exit": 0
+ },
+ "find-xargs-grep": {
+  "stdout": "./src/lib/util.py\n./src/main.py\n",
+  "exit": 0
+ },
+ "mkdir-rm-cp-mv": {
+  "stdout": "x2\nx2/w\nx2/w/z\nx2/w/z/f\ngone\nnotempty\nremoved\nmvfail\n",
+  "exit": 0
+ },
+ "cp-overwrite": {
+  "stdout": "one\none\na\nb\n",
+  "exit": 0
+ },
+ "touch-stat": {
+  "stdout": "f 0\n3\nexists\n",
+  "exit": 0
+ },
+ "ls": {
+  "stdout": "data.csv\ndata.json\ndocs\nnotes.txt\nsrc\n帳.txt\nlib\nmain.py\nsrc:\nlib\nmain.py\n\nsrc/lib:\nutil.py\n.\n..\ndata.csv\nrc=2\ndocs/\nsrc/\n",
+  "exit": 0
+ },
+ "tree": {
+  "stdout": "src\n├── lib\n│   └── util.py\n└── main.py\n\n2 directories, 2 files\n.\n├── data.csv\n├── data.json\n├── docs\n├── notes.txt\n├── src\n└── 帳.txt\n\n3 directories, 4 files\n",
+  "exit": 0
+ },
+ "du": {
+  "stdout": "1\n0\n",
+  "exit": 0
+ },
+ "file-cmd": {
+  "stdout": " ASCII text\n Non-ISO e\nJSON text data\n",
+  "exit": 0
+ },
+ "which-help": {
+  "stdout": "1\nno\n",
+  "exit": 0
+ },
+ "readlink-realpath": {
+  "stdout": "/w/readlink-realpath/a/b\n1\n",
+  "exit": 0
+ },
+ "mktemp": {
+  "stdout": "file\ndir\n",
+  "exit": 0
+ },
+ "timeout-cmd": {
+  "stdout": "rc=124\nfast\n",
+  "exit": 0
+ },
+ "sleep-time": {
+  "stdout": "slept\n",
+  "exit": 0
+ },
+ "yes-head": {
+  "stdout": "y\ny\ny\nabc\nabc\n",
+  "exit": 0
+ },
+ "strings": {
+  "stdout": "",
+  "exit": 127
+ },
+ "env-printenv": {
+  "stdout": "A=1\nB=2\n7\n",
+  "exit": 0
+ },
+ "grep": {
+  "stdout": "line one\nline two\nthird line\n1:line one\n2:line two\n3:third line\n3\n\nfifth: tail\n3\nline two\nline\nline\nline\nl\nline one\nthird line\nsrc/lib/util.py:    return 1  # TODO later\nsrc/main.py:TODO: fix\n./src/lib/util.py\n./src/main.py\n    return 1  # TODO later\nTODO: fix\n",
+  "exit": 0
+ },
+ "grep-context": {
+  "stdout": "5\n6\n6\n7\n8\n2\n3\n4\n1\n10\n1\n2\n4\n",
+  "exit": 0
+ },
+ "grep-regex": {
+  "stdout": "2024-01-05\na@b.co\nfoo123\n2024-01-05\nbar\nemail a@b.co\n4\n",
+  "exit": 0
+ },
+ "grep-cjk": {
+  "stdout": "晚餐 拉麵 260\n425\n",
+  "exit": 0
+ },
+ "grep-missing": {
+  "stdout": "rc=2\nrc=2\n",
+  "exit": 0
+ },
+ "rg": {
+  "stdout": "src/lib/util.py:    return 1  # TODO later\nsrc/main.py:TODO: fix\n3\n1:line one\n2:line two\n3:third line\nsrc/lib/util.py\nsrc/main.py\nsrc/lib/util.py\nsrc/main.py\n",
+  "exit": 0
+ },
+ "sed": {
+  "stdout": "line two\nLINE one\nLINE two\nthird LINE\n\nfifth: tail\nLine one\nline two\nthird line\nline two\nthird line\n\none line\ntwo line\n4\n",
+  "exit": 0
+ },
+ "sed-inplace": {
+  "stdout": "2\nline two\nnotes.txt.bak\n",
+  "exit": 0
+ },
+ "sed-commands": {
+  "stdout": "1\n2\nadded\n3\n4\n5\n1\ninserted\n2\n3\n1\nchanged\n3\n1\n3\n5\n5\nhippo\n1+2\n3+4\n",
+  "exit": 0
+ },
+ "sed-cjk": {
+  "stdout": "午餐 飯盒 120\n晚餐 拉麵 260\n早餐 蛋餅 45\n晚餐 拉麵 260\n",
+  "exit": 0
+ },
+ "sed-escapes": {
+  "stdout": "a|b|c\nx-y\nt^Ib$\nabbc\n",
+  "exit": 0
+ },
+ "awk-basic": {
+  "stdout": "alice 30\nbob 12\ncarol 7\ndave 45\neve 3\n97 6\n2\n2\n2\n0\n2\nalice,taipei,30\ncarol,taipei,7\nthird line\nfifth: tail\n",
+  "exit": 0
+ },
+ "awk-arrays": {
+  "stdout": "kaohsiung 45 45.0\ntainan 15 7.5\ntaipei 37 18.5\n",
+  "exit": 0
+ },
+ "awk-funcs": {
+  "stdout": "HELLO world 11 Hello 7\n3 c\nX bar X\nx is 1\n003.1|ab  |A\n7 4 256 1\n",
+  "exit": 0
+ },
+ "awk-vars": {
+  "stdout": "10\n1\n3\n5\n123\nb\na\nd\nc\n3\n1-10\n2-20\n3-30\n4-40\n",
+  "exit": 0
+ },
+ "awk-match-printf": {
+  "stdout": "42\nhi\n1,2,3\n",
+  "exit": 0
+ },
+ "awk-cjk": {
+  "stdout": "2 便當\n2 拉麵\n2 蛋餅\n425\n便\n拉\n蛋\n",
+  "exit": 0
+ },
+ "awk-script-file": {
+  "stdout": "alice\nbob\ncarol\ndave\neve\n",
+  "exit": 0
+ },
+ "jq-basic": {
+  "stdout": "3\nalice\nbob\ncarol\n{\"name\":\"alice\",\"age\":30,\"tags\":[\"a\",\"b\"]}\n3\nalice\ncarol\n[\n  \"meta\",\n  \"users\"\n]\n",
+  "exit": 0
+ },
+ "jq-transform": {
+  "stdout": "[{\"n\":\"alice\",\"t\":2},{\"n\":\"bob\",\"t\":0},{\"n\":\"carol\",\"t\":1}]\n90\ncarol\n[1,1,1]\nalice\t30\nbob\t25\ncarol\t35\n",
+  "exit": 0
+ },
+ "jq-construct": {
+  "stdout": "{\"a\":1,\"b\":2}\n[0,2,4,6,8]\n[1,2,3]\n1\n3\n[1,2,3]\n{\"greet\":\"hi\"}\n01\n[\"a\",\"b\",1,\"c\"]\n",
+  "exit": 0
+ },
+ "jq-errors": {
+  "stdout": "rc=5\nrc=1\n",
+  "exit": 0
+ },
+ "jq-csv": {
+  "stdout": "\"alice\",30\n\"bob\",25\n\"carol\",35\nalice\t30\nbob\t25\ncarol\t35\n[\"a\",\"b\"]\n",
+  "exit": 0
+ },
+ "cjk-filenames": {
+  "stdout": "data.csv\ndata.json\ndocs\nnotes 2.md\nnotes.txt\nsrc\n報告 一.txt\n帳.txt\n空白 名稱\n[notes.txt]\n[報告 一.txt]\n[帳.txt]\n報告.txt\n早餐 蛋餅 45\n午餐 便當 120\n晚餐 拉麵 260\n",
+  "exit": 0
+ },
+ "spaces-quotes-names": {
+  "stdout": "0\n",
+  "exit": 0
+ },
+ "newline-in-name": {
+  "stdout": "2\n2\n",
+  "exit": 0
+ },
+ "emoji": {
+  "stdout": "7\n8\n�\n f0 9f a5 a7 0a\n",
+  "exit": 0
+ },
+ "crlf": {
+  "stdout": "2 w.txt\na$\nb$\n0000000   a  \\n   b  \\n\n",
+  "exit": 0
+ },
+ "no-trailing-newline": {
+  "stdout": "1 f\nx\ny\n[x]\ny\n",
+  "exit": 0
+ },
+ "empty-input": {
+  "stdout": "0 e\n0\nend\n",
+  "exit": 0
+ },
+ "binary-roundtrip": {
+  "stdout": " 00 01 ff fe\nsame\n4 c.bin\n",
+  "exit": 0
+ },
+ "pipeline-report": {
+  "stdout": "kaohsiung=45\ntaipei=37\n",
+  "exit": 0
+ },
+ "pipeline-wordfreq": {
+  "stdout": "      3 line\n      1 fifth\n      1 one\n",
+  "exit": 0
+ },
+ "pipeline-csv-to-json": {
+  "stdout": "97\n",
+  "exit": 0
+ },
+ "pipeline-md-table": {
+  "stdout": "| name | amount |\n|---|---|\n| alice | 30 |\n| bob | 12 |\n",
+  "exit": 0
+ },
+ "loop-create-many": {
+  "stdout": "50\n1275\n0\n",
+  "exit": 0
+ },
+ "script-file": {
+  "stdout": "args: a b c\n- a\n- b c\nargs: z\n- z\n",
+  "exit": 0
+ },
+ "long-line": {
+  "stdout": "5000\n5001\n",
+  "exit": 0
+ },
+ "many-lines": {
+  "stdout": "5000050000\n100000\n20000\n",
+  "exit": 0
+ },
+ "gzip-roundtrip": {
+  "stdout": "n\nn.gz\n1000\n1000\n1000 n\n中文 gz\n",
+  "exit": 0
+ }
+}

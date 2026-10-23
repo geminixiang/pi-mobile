@@ -1,6 +1,8 @@
 export type FsOp =
 	| { op: "stat"; path: string }
 	| { op: "exists"; path: string }
+	| { op: "create"; path: string; directory: boolean }
+	| { op: "chmod"; path: string; mode: number }
 	| { op: "list"; path: string }
 	| { op: "readText"; path: string }
 	| { op: "readBytes"; path: string }
@@ -9,7 +11,7 @@ export type FsOp =
 	| { op: "remove"; path: string; recursive: boolean; force: boolean }
 	| { op: "rename"; from: string; to: string };
 
-export type FsValue = boolean | { kind: "file" | "directory"; size: number; mtimeMs: number } | { name: string; kind: "file" | "directory" }[] | string | Uint8Array | null;
+export type FsValue = boolean | { kind: "file" | "directory"; size: number; mtimeMs: number; executable: boolean } | { name: string; kind: "file" | "directory" }[] | string | Uint8Array | null;
 
 export type ToWorker =
 	| { type: "exec"; exec: number; bot: string; command: string; cwd: string; env: Record<string, string> }

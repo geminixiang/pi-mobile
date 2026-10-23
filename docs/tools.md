@@ -206,6 +206,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-23 | 手機資料夾的 bash：說明加上「沒有 python，用 awk 或 jq 算」和 gzip | 檔案段落多約 12 tokens | S24，`test/bash/run.ts` 136 個情境對照 GNU bash 5.2：100 個一樣，36 個是 just-bash 本身的差異（`accepted.json`）。四個實際工作（帳目分類加總、log 統計、JSON 加總存 CSV、寫腳本改檔名）在 GPT 6 Luna、Claude Haiku 5.5、GPT 6.1 Sol 都答對（12/12）。改說明前 Luna 遇到「用 python 算」會放棄，改後用程式模式算出正確答案 |
 | 2026-10-21 | 內建工具全部常駐 | 6,920 tokens | 內建工具約佔 5,000 tokens（72%） |
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |

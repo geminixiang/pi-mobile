@@ -18,9 +18,10 @@ import {
 } from "@earendil-works/pi-durable/env";
 import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
 import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
-import { messageOf } from "../../promise.ts";
+import { messageOf, onFailure } from "../../promise.ts";
 
-const TEMP_DIR = "/.tmp";
+const TEMP_DIR = "/tmp";
+const TEMP_FOLDER = ".tmp";
 const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const ABORT_GRACE_MS = 2000;
 const SCAN_CHUNK = 1024 * 1024;
@@ -37,7 +38,11 @@ function normalizePath(path: string): string {
 	return `/${parts.join("/")}`;
 }
 
-const relative = (absolute: string) => normalizePath(absolute).slice(1);
+function relative(absolute: string): string {
+	const path = normalizePath(absolute);
+	const inTemp = path === TEMP_DIR || path.startsWith(`${TEMP_DIR}/`);
+	return inTemp ? `${TEMP_FOLDER}${path.slice(TEMP_DIR.length)}` : path.slice(1);
+}
 const nameOf = (absolute: string) => absolute.slice(absolute.lastIndexOf("/") + 1);
 
 export function fromBase64(base64: string): Uint8Array {
@@ -79,8 +84,14 @@ async function serveFs(bot: string, request: FsOp): Promise<FsValue> {
 	switch (request.op) {
 		case "stat": {
 			const info = await BotFiles.stat({ bot, path: request.path });
-			return { kind: info.kind, size: info.size, mtimeMs: info.mtimeMs };
+			return { kind: info.kind, size: info.size, mtimeMs: info.mtimeMs, executable: info.executable };
 		}
+		case "create":
+			await BotFiles.create({ bot, path: request.path, directory: request.directory });
+			return null;
+		case "chmod":
+			await BotFiles.chmod({ bot, path: request.path, mode: request.mode });
+			return null;
 		case "exists":
 			return (await BotFiles.exists({ bot, path: request.path })).exists;
 		case "list":
@@ -177,6 +188,7 @@ export class PhoneEnv implements ExecutionEnv {
 	readonly id: string;
 	cwd = "/";
 	readonly #bot: string;
+	#tempReady: Promise<void> | undefined;
 
 	constructor(folder: string) {
 		this.#bot = folder;
@@ -186,6 +198,14 @@ export class PhoneEnv implements ExecutionEnv {
 	#path(path: string): string {
 		if (path === "~" || path.startsWith("~/")) return normalizePath(path.slice(1));
 		return normalizePath(path.startsWith("/") ? path : `${this.cwd}/${path}`);
+	}
+
+	#ensureTemp(): Promise<void> {
+		this.#tempReady ??= BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true });
+		onFailure(this.#tempReady, () => {
+			this.#tempReady = undefined;
+		});
+		return this.#tempReady;
 	}
 
 	#at(path: string) {
@@ -335,6 +355,7 @@ export class PhoneEnv implements ExecutionEnv {
 	async createTempDir(prefix: string | undefined, context: Context): Promise<Result<string, FileError>> {
 		const absolute = `${TEMP_DIR}/${prefix ?? "tmp-"}${crypto.randomUUID().slice(0, 8)}`;
 		return attempt(context, absolute, async () => {
+			await this.#ensureTemp();
 			await BotFiles.mkdir({ bot: this.#bot, path: relative(absolute), recursive: true });
 			return absolute;
 		});
@@ -343,6 +364,7 @@ export class PhoneEnv implements ExecutionEnv {
 	async createTempFile(options: { prefix?: string; suffix?: string } | undefined, context: Context): Promise<Result<string, FileError>> {
 		const absolute = `${TEMP_DIR}/${options?.prefix ?? ""}${crypto.randomUUID()}${options?.suffix ?? ""}`;
 		return attempt(context, absolute, async () => {
+			await this.#ensureTemp();
 			await BotFiles.write({ bot: this.#bot, path: relative(absolute), text: "" });
 			return absolute;
 		});
@@ -356,9 +378,15 @@ export class PhoneEnv implements ExecutionEnv {
 			timeoutMs = Math.min(options.timeout * 1000, MAX_TIMEOUT_MS);
 		}
 		const cwd = this.#path(options?.cwd ?? this.cwd);
+		const prepared = await Promise.all([this.#ensureTemp(), BotFiles.stat({ bot: this.#bot, path: relative(cwd) })]).then(
+			([, info]) => (info.kind === "directory" ? undefined : `Not a directory: ${cwd}`),
+			(error: unknown) => `Cannot run in ${cwd}: ${messageOf(error)}`,
+		);
+		if (prepared) return err(new ExecutionError("spawn_error", prepared));
 		const env = {
 			HOME: "/",
 			USER: "pi",
+			TMPDIR: TEMP_DIR,
 			TZ: Intl.DateTimeFormat().resolvedOptions().timeZone,
 			...(options?.env ?? {}),
 		};

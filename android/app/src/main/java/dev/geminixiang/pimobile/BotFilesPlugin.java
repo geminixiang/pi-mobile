@@ -89,6 +89,7 @@ public class BotFilesPlugin extends Plugin {
         out.put("kind", file.isDirectory() ? "directory" : "file");
         out.put("size", file.isDirectory() ? 0 : file.length());
         out.put("mtimeMs", file.lastModified());
+        out.put("executable", file.isFile() && file.canExecute());
         return out;
     }
 
@@ -103,6 +104,7 @@ public class BotFilesPlugin extends Plugin {
                     empty.put("kind", "directory");
                     empty.put("size", 0);
                     empty.put("mtimeMs", 0);
+                    empty.put("executable", false);
                     call.resolve(empty);
                     return;
                 }
@@ -208,6 +210,30 @@ public class BotFilesPlugin extends Plugin {
             try (RandomAccessFile output = new RandomAccessFile(file, "rw")) {
                 output.setLength(Math.max(number(call, "size", 0L), 0));
             }
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void create(PluginCall call) {
+        run(call, () -> {
+            File file = resolve(call, "path");
+            File parent = file.getParentFile();
+            if (parent == null || !parent.isDirectory()) throw notFound(call.getString("path"));
+            boolean directory = call.getBoolean("directory", false);
+            boolean created = directory ? file.mkdir() : file.createNewFile();
+            if (!created) throw new Failure("exists", "Already exists: " + call.getString("path"));
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void chmod(PluginCall call) {
+        run(call, () -> {
+            File file = resolve(call, "path");
+            if (!file.exists()) throw notFound(call.getString("path"));
+            boolean executable = (call.getInt("mode", 0) & 0111) != 0;
+            if (!file.setExecutable(executable, false)) throw new IOException("cannot change the mode of " + file.getName());
             call.resolve();
         });
     }

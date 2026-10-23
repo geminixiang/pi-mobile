@@ -31,6 +31,7 @@ from `CDP_PORT` (default 9333).
 | `forward.sh <serial> [port]` | Point the port at pi's DevTools socket. Needed again after a reinstall, restart, force stop, or `adb root`/`unroot`: the socket name carries the pid. |
 | `find-adb-port.js <phone ip>` | Find the phone's wireless debugging port after it changed. |
 | `ask.js "<question>"` | Ask the open bot in natural words; prints tools called, answer, seconds. Needs `CDP_PORT`. |
+| `test/bash/run.ts` (from the repo root) | The phone folder's bash against GNU bash: 136 cases, a temporary bot, `0 regressions` or the cases that changed. After a just-bash upgrade or a change to `src/agent/files/`; see docs/research/just-bash.md. |
 | `trace.js "<question>" [--image]` | Like `ask.js`, with the whole turn: each model call's time and tokens, each tool's arguments, result size, and time, and a SUMMARY line to compare runs before and after a change. Needs `CDP_PORT`; refuses unless the open bot is a test bot (name starting test, tmp, or 測試): create one per run. |
 | `inject.js <port> [--gesture] <file.js>…` | Evaluate files in the page; for probes with a bundled library, or APIs that need a user gesture. |
 | `startup-trace.js <port> [--log]` | Reload and time the start: when the transcript showed, and each native plugin call before it. |

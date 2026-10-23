@@ -1,8 +1,9 @@
-import { Bash, type CommandName, getCommandNames, type IFileSystem } from "just-bash/browser";
+import "../../shims/buffer-global.ts";
+import { Bash, type CommandName, getCommandNames, type IFileSystem, InMemoryFs, MountableFs } from "just-bash/browser";
 import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
 import { messageOf } from "../../promise.ts";
 
-const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python", "gzip", "gunzip", "zcat", "html-to-markdown"]);
+const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python", "html-to-markdown"]);
 const COMMANDS = getCommandNames().filter((name): name is CommandName => !UNAVAILABLE.has(name));
 
 const post = (message: FromWorker) => postMessage(message);
@@ -30,9 +31,18 @@ function normalize(path: string): string {
 	return `/${parts.join("/")}`;
 }
 
-const rel = (path: string) => normalize(path).slice(1);
+const TEMP_FOLDER = ".tmp";
+const DEVICE_READ_BYTES = 64 * 1024;
+const DATA_SCALE_LIMIT = 10_000_000;
+const LIMITS = {
+	maxCommandCount: DATA_SCALE_LIMIT,
+	maxLoopIterations: DATA_SCALE_LIMIT,
+	maxAwkIterations: DATA_SCALE_LIMIT,
+	maxSedIterations: DATA_SCALE_LIMIT,
+	maxJqIterations: DATA_SCALE_LIMIT,
+};
 
-function isStat(value: FsValue): value is { kind: "file" | "directory"; size: number; mtimeMs: number } {
+function isStat(value: FsValue): value is { kind: "file" | "directory"; size: number; mtimeMs: number; executable: boolean } {
 	return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Uint8Array);
 }
 
@@ -44,11 +54,13 @@ function textOf(content: string | Uint8Array, encoding: unknown): string | Uint8
 	return content;
 }
 
-function folderFs(bot: string): IFileSystem {
+function folderFs(bot: string, root = ""): IFileSystem {
+	const rel = (path: string) => [root, normalize(path).slice(1)].filter(Boolean).join("/");
 	const stat = async (path: string) => {
 		const value = await ask(bot, { op: "stat", path: rel(path) });
 		if (!isStat(value)) throw new Error(`EIO: bad stat, '${path}'`);
-		return { isFile: value.kind === "file", isDirectory: value.kind === "directory", isSymbolicLink: false, mode: value.kind === "directory" ? 0o755 : 0o644, size: value.size, mtime: new Date(value.mtimeMs) };
+		const mode = value.kind === "directory" || value.executable ? 0o755 : 0o644;
+		return { isFile: value.kind === "file", isDirectory: value.kind === "directory", isSymbolicLink: false, mode, size: value.size, mtime: new Date(value.mtimeMs), identity: `${root}${normalize(path)}` };
 	};
 	const entries = async (path: string) => {
 		const value = await ask(bot, { op: "list", path: rel(path) });
@@ -96,6 +108,9 @@ function folderFs(bot: string): IFileSystem {
 		async mkdir(path, options) {
 			await ask(bot, { op: "mkdir", path: rel(path), recursive: Boolean(options?.recursive) });
 		},
+		async createExclusive(path, options) {
+			await ask(bot, { op: "create", path: rel(path), directory: Boolean(options.directory) });
+		},
 		async readdir(path) {
 			return (await entries(path)).map((entry) => entry.name);
 		},
@@ -115,7 +130,9 @@ function folderFs(bot: string): IFileSystem {
 			await stat(path);
 			return normalize(path);
 		},
-		async chmod() {},
+		async chmod(path, mode) {
+			await ask(bot, { op: "chmod", path: rel(path), mode });
+		},
 		async utimes() {},
 		symlink: unsupported("symlink"),
 		link: unsupported("link"),
@@ -123,6 +140,70 @@ function folderFs(bot: string): IFileSystem {
 			throw new Error(`EINVAL: not a symbolic link, readlink '${path}'`);
 		},
 	};
+}
+
+function readOnly(path: string): never {
+	throw new Error(`EROFS: read-only file system, '${path}'`);
+}
+
+function deviceFs(): IFileSystem {
+	const devices: Record<string, () => Uint8Array> = {
+		"/null": () => new Uint8Array(0),
+		"/zero": () => new Uint8Array(DEVICE_READ_BYTES),
+		"/urandom": () => crypto.getRandomValues(new Uint8Array(DEVICE_READ_BYTES)),
+		"/random": () => crypto.getRandomValues(new Uint8Array(DEVICE_READ_BYTES)),
+	};
+	const device = (path: string) => {
+		const read = devices[normalize(path)];
+		if (!read) throw new Error(`ENOENT: no such device, '/dev${normalize(path)}'`);
+		return read;
+	};
+	const stat = async (path: string) => {
+		const isRoot = normalize(path) === "/";
+		if (!isRoot) device(path);
+		return { isFile: !isRoot, isDirectory: isRoot, isSymbolicLink: false, mode: isRoot ? 0o755 : 0o666, size: 0, mtime: new Date(0), identity: `/dev${normalize(path)}` };
+	};
+	const discard = async (path: string) => {
+		device(path);
+	};
+	return {
+		readFile: async (path) => new TextDecoder().decode(device(path)()),
+		readFileBuffer: async (path) => device(path)(),
+		writeFile: discard,
+		appendFile: discard,
+		exists: async (path) => normalize(path) === "/" || normalize(path) in devices,
+		stat,
+		lstat: stat,
+		mkdir: async (path) => readOnly(path),
+		readdir: async () => Object.keys(devices).map((name) => name.slice(1)),
+		rm: async (path) => readOnly(path),
+		cp: async (_from, to) => readOnly(to),
+		mv: async (from) => readOnly(from),
+		resolvePath: (base, path) => normalize(path.startsWith("/") ? path : `${base}/${path}`),
+		getAllPaths: () => [],
+		realpath: async (path) => normalize(path),
+		chmod: async (path) => readOnly(path),
+		utimes: async () => undefined,
+		symlink: async (_target, path) => readOnly(path),
+		link: async (_target, path) => readOnly(path),
+		readlink: async (path) => {
+			throw new Error(`EINVAL: not a symbolic link, readlink '${path}'`);
+		},
+	};
+}
+
+const COMMAND_STUBS = Object.fromEntries(COMMANDS.map((name) => [`/${name}`, { content: "", mode: 0o755 }]));
+
+function botFs(bot: string): IFileSystem {
+	return new MountableFs({
+		base: folderFs(bot),
+		mounts: [
+			{ mountPoint: "/tmp", filesystem: folderFs(bot, TEMP_FOLDER) },
+			{ mountPoint: "/dev", filesystem: deviceFs() },
+			{ mountPoint: "/bin", filesystem: new InMemoryFs(COMMAND_STUBS) },
+			{ mountPoint: "/usr/bin", filesystem: new InMemoryFs(COMMAND_STUBS) },
+		],
+	});
 }
 
 addEventListener("message", (event: MessageEvent<ToWorker>) => {
@@ -141,7 +222,7 @@ addEventListener("message", (event: MessageEvent<ToWorker>) => {
 	}
 	const controller = new AbortController();
 	running.set(message.exec, controller);
-	const bash = new Bash({ fs: folderFs(message.bot), cwd: message.cwd, env: message.env, commands: COMMANDS });
+	const bash = new Bash({ fs: botFs(message.bot), cwd: message.cwd, env: message.env, commands: COMMANDS, executionLimits: LIMITS });
 	bash.exec(message.command, { cwd: message.cwd, signal: controller.signal }).then(
 		(result) => post({ type: "done", exec: message.exec, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode }),
 		(error: unknown) => post({ type: "failed", exec: message.exec, message: messageOf(error) }),

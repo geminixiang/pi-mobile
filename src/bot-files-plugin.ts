@@ -5,6 +5,7 @@ export interface BotFileInfo {
 	kind: "file" | "directory";
 	size: number;
 	mtimeMs: number;
+	executable: boolean;
 }
 
 type At = { bot: string; path: string };
@@ -12,6 +13,8 @@ type At = { bot: string; path: string };
 export const BotFiles = registerPlugin<{
 	stat(options: At): Promise<BotFileInfo>;
 	exists(options: At): Promise<{ exists: boolean }>;
+	create(options: At & { directory?: boolean }): Promise<void>;
+	chmod(options: At & { mode: number }): Promise<void>;
 	list(options: At): Promise<{ entries: BotFileInfo[] }>;
 	read(options: At & { offset?: number; length?: number; text?: boolean }): Promise<{ size: number; data?: string; text?: string }>;
 	write(options: At & { text?: string; data?: string; append?: boolean }): Promise<void>;
