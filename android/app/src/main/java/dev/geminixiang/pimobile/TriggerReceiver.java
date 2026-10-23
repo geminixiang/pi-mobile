@@ -19,7 +19,24 @@ public class TriggerReceiver extends BroadcastReceiver {
         if (TriggerStore.ACTION_FIRE.equals(action)) fire(context, intent.getStringExtra(TriggerStore.EXTRA_ID), null);
         else if (TriggerStore.ACTION_TEST_HEADPHONES.equals(action)) headphones(context, intent.getStringExtra(TriggerStore.EXTRA_DEVICE));
         else if (TriggerEvents.ACTION_PLACE.equals(action)) place(context, intent);
-        else TriggerStore.armAll(context);
+        else if (ActivityTrigger.ACTION.equals(action)) ActivityTrigger.receive(context, intent);
+        else {
+            TriggerStore.armAll(context);
+            if (Intent.ACTION_TIMEZONE_CHANGED.equals(action)) timezone(context, intent.getStringExtra(Intent.EXTRA_TIMEZONE));
+        }
+    }
+
+    private static void timezone(Context context, String id) {
+        java.util.TimeZone zone = id != null ? java.util.TimeZone.getTimeZone(id) : java.util.TimeZone.getDefault();
+        String name = zone.getDisplayName(java.util.Locale.TRADITIONAL_CHINESE);
+        event(context, "timezone", "時區改成 " + zone.getID() + "（" + name + "）", null);
+    }
+
+    static void bluetooth(Context context, String device, boolean connected) {
+        event(context, "bluetooth", (connected ? "連上藍牙 " : "斷開藍牙 ") + device, item -> {
+            JSONObject when = item.optJSONObject("when");
+            return when.optString("on").equals(connected ? "connect" : "disconnect") && includes(device, when.optString("device", ""));
+        });
     }
 
     static void wifi(Context context) {

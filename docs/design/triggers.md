@@ -161,12 +161,13 @@ Android 的限制：
 |---|---|---|---|---|
 | 1 | 別的 app 的通知（**已做**） | `NotificationsListener` 寫進 `NotificationStore` 時，只有新的一則才交給 `TriggerReceiver.notification` | 收得到：系統綁著這個服務 | If 是 app（名稱或套件）和「含某段文字」，加上原本的時段和間隔。app、寄件人和前 500 字放進觸發的訊息。間隔最少 1 小時，所以還不能「每則都處理」。通知內容還沒標成不受信任的輸入（先讓流程跑通，待決定第 6 題） |
 | 1 | NFC 貼紙 | NDEF intent filter，貼紙寫入 pi 自訂的 URI | 收得到：intent 會打開 pi | 一碰就跑，像一顆實體按鈕；pi 要能幫你把貼紙寫好 |
-| 2 | 指定的藍牙裝置 | 跟耳機同一個 A2DP 廣播，加上 HFP 的 | 收得到 | 以裝置位址指定；車用音響現在被刻意排除，指定了就算 |
+| 2 | 指定的藍牙裝置連上、斷開（**已做**，未實測） | 跟耳機同一個 A2DP 廣播（`HeadphonesReceiver`） | 收得到 | 以名稱的一部分指定，不管裝置類別，所以車用音響也算 |
 | 2 | 快速設定磁貼、桌面捷徑 | `TileService`、`ShortcutManager` | 收得到：使用者按的 | 手動跑某個排程 |
 | 2 | 外部 webhook | ntfy（UnifiedPush）或 FCM | 收得到 | 待決定第 3 題 |
-| 2 | 開始走路、上車、靜止 | Activity Recognition Transition API（`play-services-location`），`PendingIntent` | 收得到 | 在晶片裡判斷，幾乎不耗電；要 `ACTIVITY_RECOGNITION` 權限 |
-| 2 | 螢幕亮、解鎖 | `SCREEN_ON`、`USER_PRESENT`，只送給執行中程序的動態廣播 | 有通知讀取時收得到：系統綁著服務，程序一直在 | 不另開前景服務 |
-| 2 | 拍了新照片、聯絡人或行事曆變了 | JobScheduler 的 `addTriggerContentUri` | 收得到 | 系統在內容變動時排一個 job，可以設定延遲合併 |
+| 2 | 開始或停止走路、跑步、騎車、坐車、靜止（**已做**，未實測） | Activity Recognition Transition API（`play-services-location`），`PendingIntent`（`ActivityTrigger`） | 收得到 | 在晶片裡判斷，幾乎不耗電；要 `ACTIVITY_RECOGNITION` 權限；超過 10 分鐘的舊事件不算 |
+| 2 | 解鎖、電量低（**已做**，未實測觸發） | `USER_PRESENT`、`BATTERY_LOW`，只送給執行中程序的動態廣播（`WhileRunningTriggers`，有線耳機也搬到這裡） | 有通知讀取時收得到：系統綁著服務，程序一直在 | 不另開前景服務 |
+| 2 | 換時區（**已做**，未實測觸發） | `TIMEZONE_CHANGED`（`TriggerReceiver`） | 收得到 | 出國時 |
+| 2 | 拍了新照片（**已做**，未實測觸發） | JobScheduler 的 `addTriggerContentUri`（`PhotoTrigger`），等 5 秒、最多 1 分鐘合併 | 收得到 | 可以限定相簿；相簿和照片 id 放進觸發的訊息，agent 可以直接 `view_photos`。聯絡人、行事曆變動還沒做 |
 
 ### 新的 If
 

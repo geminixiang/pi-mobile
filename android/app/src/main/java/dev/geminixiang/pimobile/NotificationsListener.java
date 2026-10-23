@@ -23,6 +23,7 @@ public class NotificationsListener extends NotificationListenerService {
     @Override
     public void onListenerConnected() {
         instance = this;
+        WhileRunningTriggers.listen(this);
         if (getSharedPreferences(NotificationsPlugin.DND_PREFS, 0).getBoolean(DndReceiver.PENDING, false)) DndReceiver.end(this, this);
         try {
             List<NotificationStore.Row> rows = new ArrayList<>();

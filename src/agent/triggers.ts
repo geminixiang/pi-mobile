@@ -7,6 +7,7 @@ import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
 import { requireAccess } from "./tools/notifications.ts";
+import { Notifications } from "../notifications-plugin.ts";
 import { messageOf } from "../promise.ts";
 
 const EventWindow = {
@@ -16,6 +17,16 @@ const EventWindow = {
 	gapHours: Type.Integer({ minimum: 1, maximum: 24 }),
 };
 
+const ACTIVITIES = ["walking", "running", "cycling", "vehicle", "still"] as const;
+const Activity = Type.Union(ACTIVITIES.map((activity) => Type.Literal(activity)));
+const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
+	walking: ["開始走路", "停止走路"],
+	running: ["開始跑步", "停止跑步"],
+	cycling: ["開始騎車", "停止騎車"],
+	vehicle: ["上車", "下車"],
+	still: ["靜止下來", "開始移動"],
+};
+
 const When = Type.Union([
 	Type.Object({ kind: Type.Literal("daily"), time: Type.String({ pattern: "^\\d{2}:\\d{2}$" }), days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })) }),
 	Type.Object({ kind: Type.Literal("once"), at: Type.Number() }),
@@ -23,6 +34,12 @@ const When = Type.Union([
 	Type.Object({ kind: Type.Literal("charging"), ...EventWindow }),
 	Type.Object({ kind: Type.Literal("wifi"), ssid: Type.Optional(Type.String()), ...EventWindow }),
 	Type.Object({ kind: Type.Literal("notification"), app: Type.Optional(Type.String()), contains: Type.Optional(Type.String()), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("unlock"), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("battery_low"), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("timezone"), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("photo"), album: Type.Optional(Type.String()), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("bluetooth"), on: Type.Union([Type.Literal("connect"), Type.Literal("disconnect")]), device: Type.String(), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("activity"), on: Type.Union([Type.Literal("start"), Type.Literal("stop")]), activity: Activity, ...EventWindow }),
 	Type.Object({
 		kind: Type.Literal("place"),
 		on: Type.Union([Type.Literal("arrive"), Type.Literal("leave")]),
@@ -103,6 +120,7 @@ interface TriggersPlugin {
 	started(options: { trigger: string }): Promise<void>;
 	status(): Promise<{ exactAlarms: boolean; bluetooth: boolean }>;
 	requestBluetooth(): Promise<{ granted: boolean }>;
+	requestAccess(options: { to: "photos" | "activity" }): Promise<{ granted: boolean }>;
 	requestLocationAlways(): Promise<{ foreground: boolean; background: boolean }>;
 	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;
 	requestExactAlarms(): Promise<void>;
@@ -150,17 +168,34 @@ export function describeWhen(when: When): string {
 	const window = when.from || when.until ? ` ${when.from ?? "00:00"}–${when.until ?? "24:00"}` : "";
 	const days = describeDays(when.days);
 	const limit = when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`;
-	const event =
-		when.kind === "headphones"
-			? "戴上耳機時"
-			: when.kind === "charging"
-				? "開始充電時"
-				: when.kind === "wifi"
-					? `連上 ${when.ssid ? `Wi‑Fi「${when.ssid}」` : "Wi‑Fi"}時`
-					: when.kind === "notification"
-						? `收到${when.app ? ` ${when.app} ` : ""}${when.contains ? `含「${when.contains}」的` : ""}通知時`
-						: `${when.on === "arrive" ? "到達" : "離開"}${when.label}時`;
-	return `${days === "每天" && window ? "" : days}${window} ${event}（${limit}）`.trim();
+	return `${days === "每天" && window ? "" : days}${window} ${describeEvent(when)}（${limit}）`.trim();
+}
+
+function describeEvent(when: Exclude<When, { kind: "once" | "daily" }>): string {
+	switch (when.kind) {
+		case "headphones":
+			return "戴上耳機時";
+		case "charging":
+			return "開始充電時";
+		case "wifi":
+			return `連上 ${when.ssid ? `Wi‑Fi「${when.ssid}」` : "Wi‑Fi"}時`;
+		case "notification":
+			return `收到${when.app ? ` ${when.app} ` : ""}${when.contains ? `含「${when.contains}」的` : ""}通知時`;
+		case "place":
+			return `${when.on === "arrive" ? "到達" : "離開"}${when.label}時`;
+		case "unlock":
+			return "解鎖手機時";
+		case "battery_low":
+			return "電量低時";
+		case "timezone":
+			return "換時區時";
+		case "photo":
+			return `拍了新照片${when.album ? `（${when.album}）` : ""}時`;
+		case "bluetooth":
+			return `${when.on === "connect" ? "連上" : "斷開"}藍牙「${when.device}」時`;
+		case "activity":
+			return `${ACTIVITY_NAMES[when.activity][when.on === "start" ? 0 : 1]}時`;
+	}
 }
 
 export function describeTime(at: number): string {
@@ -175,8 +210,16 @@ function summary(trigger: Trigger): string {
 	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
+let asking: Promise<unknown> = Promise.resolve();
+
+function oneDialogAtATime<T>(request: () => Promise<T>): Promise<T> {
+	const turn = asking.then(request);
+	asking = Promise.allSettled([turn]);
+	return turn;
+}
+
 async function needLocationAlways(what: string): Promise<void> {
-	const { background } = await Triggers.requestLocationAlways();
+	const { background } = await oneDialogAtATime(() => Triggers.requestLocationAlways());
 	if (!background) {
 		throw new Error(
 			`pi needs location "allow all the time" to know ${what} while it is not open, and the user has not allowed it. Tell them: 設定 › 應用程式 › pi mobile › 權限 › 位置資訊 › 一律允許, then ask again.`,
@@ -193,7 +236,7 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event (on: headphones, charging, wifi, arrive or leave a place, a notification from another app), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
@@ -206,10 +249,18 @@ export function createTriggerExtension(host: TriggerHost) {
 					Type.Literal("arrive"),
 					Type.Literal("leave"),
 					Type.Literal("notification"),
+					Type.Literal("unlock"),
+					Type.Literal("battery_low"),
+					Type.Literal("timezone"),
+					Type.Literal("photo"),
+					Type.Literal("bluetooth_connect"),
+					Type.Literal("bluetooth_disconnect"),
+					Type.Literal("activity_start"),
+					Type.Literal("activity_stop"),
 				],
 				{
 					description:
-						"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run); days, from, until apply too",
+						"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too",
 				},
 			),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
@@ -219,6 +270,9 @@ export function createTriggerExtension(host: TriggerHost) {
 			place: Type.Optional(Type.String({ description: "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory" })),
 			app: Type.Optional(Type.String({ description: "With on notification: only from this app, by its name or package, such as LINE" })),
 			contains: Type.Optional(Type.String({ description: "With on notification: only when its title, sender or text contains this" })),
+			album: Type.Optional(Type.String({ description: "With on photo: only photos in this album, such as Camera or Screenshots" })),
+			device: Type.Optional(Type.String({ description: "With on bluetooth_connect or bluetooth_disconnect: part of the device's name, such as the car's" })),
+			activity: Type.Optional(Type.Union(ACTIVITIES.map((activity) => Type.Literal(activity)), { description: "With on activity_start or activity_stop" })),
 			radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
 			from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
 			until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
@@ -227,6 +281,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		execute: async (args, api, context) => {
 			requireNative();
 			let when: When;
+			let note = "";
 			const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
 			if (args.on !== "time") {
 				const window = {
@@ -237,8 +292,29 @@ export function createTriggerExtension(host: TriggerHost) {
 				};
 				if (args.on === "headphones") {
 					when = { kind: "headphones", ...window };
-					const { granted } = await Triggers.requestBluetooth();
+					const { granted } = await oneDialogAtATime(() => Triggers.requestBluetooth());
 					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
+				} else if (args.on === "unlock" || args.on === "battery_low") {
+					when = { kind: args.on, ...window };
+					if (!(await Notifications.status()).allowed) {
+						note = " It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
+					}
+				} else if (args.on === "timezone") {
+					when = { kind: "timezone", ...window };
+				} else if (args.on === "photo") {
+					when = { kind: "photo", ...(args.album ? { album: args.album } : {}), ...window };
+					const { granted } = await oneDialogAtATime(() => Triggers.requestAccess({ to: "photos" }));
+					if (!granted) throw new Error("the user did not allow pi to see photos, so it cannot tell when a new one is saved. Ask them to allow 相片 for pi if they want it.");
+				} else if (args.on === "bluetooth_connect" || args.on === "bluetooth_disconnect") {
+					if (!args.device) throw new Error(`${args.on} needs device`);
+					when = { kind: "bluetooth", on: args.on === "bluetooth_connect" ? "connect" : "disconnect", device: args.device, ...window };
+					const { granted } = await oneDialogAtATime(() => Triggers.requestBluetooth());
+					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell which device connected. Ask them to allow 鄰近裝置 for pi if they want it.");
+				} else if (args.on === "activity_start" || args.on === "activity_stop") {
+					if (!args.activity) throw new Error(`${args.on} needs activity`);
+					when = { kind: "activity", on: args.on === "activity_start" ? "start" : "stop", activity: args.activity, ...window };
+					const { granted } = await oneDialogAtATime(() => Triggers.requestAccess({ to: "activity" }));
+					if (!granted) throw new Error("the user did not allow pi to recognize activity, so it cannot tell when they start walking or driving. Ask them to allow 體能活動 for pi if they want it.");
 				} else if (args.on === "charging") {
 					when = { kind: "charging", ...window };
 				} else if (args.on === "notification") {
@@ -279,7 +355,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				(await tx.doc(TriggerDoc)).items.push(trigger);
 			}, context);
 			host.changed();
-			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}. The user can pause or delete it in Settings.`);
+			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}. The user can pause or delete it in Settings.${note}`);
 		},
 	});
 

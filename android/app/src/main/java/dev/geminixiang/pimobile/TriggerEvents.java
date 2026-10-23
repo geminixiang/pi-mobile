@@ -44,6 +44,8 @@ final class TriggerEvents {
         Set<String> armedPlaces = prefs.getStringSet(KEY_PLACES, new HashSet<>());
         boolean charging = false;
         boolean wifi = false;
+        boolean photo = false;
+        boolean activity = false;
         Set<String> places = new HashSet<>();
         for (int i = 0; i < schedules.length(); i++) {
             JSONObject item = schedules.optJSONObject(i);
@@ -56,6 +58,12 @@ final class TriggerEvents {
                 case "wifi":
                     wifi = true;
                     break;
+                case "photo":
+                    photo = true;
+                    break;
+                case "activity":
+                    activity = true;
+                    break;
                 case "place": {
                     String key = item.optString("id") + "@" + when.optDouble("latitude") + "," + when.optDouble("longitude") + "," + when.optDouble("radius");
                     boolean armed = armedPlaces.contains(key) && alive(placeIntent(context, item.optString("id"), PendingIntent.FLAG_NO_CREATE));
@@ -66,6 +74,8 @@ final class TriggerEvents {
                     break;
             }
         }
+        PhotoTrigger.arm(context, photo);
+        ActivityTrigger.arm(context, activity);
         if (charging) scheduleCharging(context);
         else context.getSystemService(JobScheduler.class).cancel(CHARGING_JOB);
         JobScheduler jobs = context.getSystemService(JobScheduler.class);

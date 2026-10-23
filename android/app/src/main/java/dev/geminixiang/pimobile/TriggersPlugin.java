@@ -4,13 +4,10 @@ import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.database.Cursor;
-import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.OpenableColumns;
@@ -42,7 +39,9 @@ import org.json.JSONObject;
     permissions = {
         @Permission(strings = { "android.permission.BLUETOOTH_CONNECT" }, alias = "bluetooth"),
         @Permission(strings = { "android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION" }, alias = "location"),
-        @Permission(strings = { "android.permission.ACCESS_BACKGROUND_LOCATION" }, alias = "background")
+        @Permission(strings = { "android.permission.ACCESS_BACKGROUND_LOCATION" }, alias = "background"),
+        @Permission(strings = { "android.permission.READ_MEDIA_IMAGES" }, alias = "photos"),
+        @Permission(strings = { "android.permission.ACTIVITY_RECOGNITION" }, alias = "activity")
     }
 )
 public class TriggersPlugin extends Plugin {
@@ -62,7 +61,7 @@ public class TriggersPlugin extends Plugin {
 
     static boolean inFront(android.app.Activity activity) {
         return activity instanceof androidx.lifecycle.LifecycleOwner
-            && ((androidx.lifecycle.LifecycleOwner) activity).getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED);
+            && ((androidx.lifecycle.LifecycleOwner) activity).getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED);
     }
 
     static int waitingNotificationId(String triggerId) {
@@ -73,25 +72,11 @@ public class TriggersPlugin extends Plugin {
         return 0x3000 + (key.hashCode() & 0xfff);
     }
 
-    private boolean wiredRegistered = false;
-    private final BroadcastReceiver wired = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (isInitialStickyBroadcast()) return;
-            int state = intent.getIntExtra("state", -1);
-            if (state == 1) TriggerReceiver.headphones(context, "有線耳機");
-            else if (state == 0) Speaker.stopIfSpeaking();
-        }
-    };
-
     @Override
     public void load() {
         live = this;
         receiveShare(getActivity().getIntent());
-        IntentFilter filter = new IntentFilter(AudioManager.ACTION_HEADSET_PLUG);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) getContext().registerReceiver(wired, filter, Context.RECEIVER_EXPORTED);
-        else getContext().registerReceiver(wired, filter);
-        wiredRegistered = true;
+        WhileRunningTriggers.listen(getContext());
     }
 
     @Override
@@ -103,8 +88,6 @@ public class TriggersPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         if (live == this) live = null;
-        if (wiredRegistered) getContext().unregisterReceiver(wired);
-        wiredRegistered = false;
         super.handleOnDestroy();
     }
 
@@ -210,6 +193,37 @@ public class TriggersPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("granted", bluetoothGranted());
         call.resolve(result);
+    }
+
+    private boolean granted(String alias) {
+        if ("activity".equals(alias) && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true;
+        return getPermissionState(alias) == PermissionState.GRANTED;
+    }
+
+    @PluginMethod
+    public void requestAccess(PluginCall call) {
+        String to = call.getString("to", "");
+        if (!"photos".equals(to) && !"activity".equals(to)) {
+            call.reject("unknown access " + to);
+            return;
+        }
+        if (granted(to)) {
+            accessResult(call);
+            return;
+        }
+        if (!inFront(getActivity())) {
+            call.reject("pi cannot ask for this permission while it is in the background. Ask the user to open pi.");
+            return;
+        }
+        requestPermissionForAlias(to, call, "accessResult");
+    }
+
+    @PermissionCallback
+    private void accessResult(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("granted", granted(call.getString("to", "")));
+        call.resolve(result);
+        if (result.optBoolean("granted")) TriggerStore.armAll(getContext());
     }
 
     @PluginMethod

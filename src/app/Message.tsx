@@ -437,7 +437,7 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">
 				{data.kind === "followup" ? "稍後再看" : "排程"} · {data.name}
-				{data.device ? ` · ${/^(開始|連上|到了|離開|收到)/.test(data.device) ? data.device : `戴上 ${data.device}`}` : ""}
+				{data.device ? ` · ${/^(開始|連上|到了|離開|收到|解鎖|電量|時區|拍了|斷開|上車|下車|停止|靜止)/.test(data.device) ? data.device : `戴上 ${data.device}`}` : ""}
 				{clock}
 				{DELIVERY[data.delivery] ?? ""}
 			</div>

@@ -2081,6 +2081,35 @@
 		],
 		"parameters": {
 			"properties": {
+				"activity": {
+					"anyOf": [
+						{
+							"const": "walking",
+							"type": "string"
+						},
+						{
+							"const": "running",
+							"type": "string"
+						},
+						{
+							"const": "cycling",
+							"type": "string"
+						},
+						{
+							"const": "vehicle",
+							"type": "string"
+						},
+						{
+							"const": "still",
+							"type": "string"
+						}
+					],
+					"description": "With on activity_start or activity_stop"
+				},
+				"album": {
+					"description": "With on photo: only photos in this album, such as Camera or Screenshots",
+					"type": "string"
+				},
 				"app": {
 					"description": "With on notification: only from this app, by its name or package, such as LINE",
 					"type": "string"
@@ -2135,6 +2164,10 @@
 					},
 					"type": "array"
 				},
+				"device": {
+					"description": "With on bluetooth_connect or bluetooth_disconnect: part of the device's name, such as the car's",
+					"type": "string"
+				},
 				"from": {
 					"description": "With on: only from this local time HH:MM",
 					"type": "string"
@@ -2172,9 +2205,41 @@
 						{
 							"const": "notification",
 							"type": "string"
+						},
+						{
+							"const": "unlock",
+							"type": "string"
+						},
+						{
+							"const": "battery_low",
+							"type": "string"
+						},
+						{
+							"const": "timezone",
+							"type": "string"
+						},
+						{
+							"const": "photo",
+							"type": "string"
+						},
+						{
+							"const": "bluetooth_connect",
+							"type": "string"
+						},
+						{
+							"const": "bluetooth_disconnect",
+							"type": "string"
+						},
+						{
+							"const": "activity_start",
+							"type": "string"
+						},
+						{
+							"const": "activity_stop",
+							"type": "string"
 						}
 					],
-					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run); days, from, until apply too"
+					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too"
 				},
 				"place": {
 					"description": "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory",

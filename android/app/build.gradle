@@ -56,6 +56,7 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation "com.google.android.gms:play-services-mlkit-document-scanner:16.0.0"
     implementation "com.google.android.gms:play-services-mlkit-text-recognition-chinese:16.0.1"
+    implementation "com.google.android.gms:play-services-location:21.3.0"
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
 }

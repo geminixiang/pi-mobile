@@ -190,7 +190,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 		return () => void listener.then((handle) => handle.remove());
 	}, [runtime]);
 	if (!native) return null;
-	const headphones = state.items.some((item) => item.enabled && item.when.kind === "headphones");
+	const headphones = state.items.some((item) => item.enabled && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(messageOf(failure)));
 
 	return (

@@ -30,15 +30,17 @@ public class HeadphonesReceiver extends BroadcastReceiver {
 
     private static void bluetooth(Context context, Intent intent) {
         int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
+        if (state != BluetoothProfile.STATE_CONNECTED && state != BluetoothProfile.STATE_DISCONNECTED) return;
+        BluetoothDevice device = device(intent);
+        boolean mayReadDevice = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            || context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        String named = device != null && mayReadDevice ? device.getName() : null;
+        if (named != null) TriggerReceiver.bluetooth(context, named, state == BluetoothProfile.STATE_CONNECTED);
         if (state == BluetoothProfile.STATE_DISCONNECTED) {
             Speaker.stopIfSpeaking();
             return;
         }
-        if (state != BluetoothProfile.STATE_CONNECTED) return;
-        BluetoothDevice device = device(intent);
         String name = "藍牙耳機";
-        boolean mayReadDevice = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
-            || context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
         if (device != null && mayReadDevice) {
             BluetoothClass type = device.getBluetoothClass();
             if (type != null && !wearable(type.getDeviceClass())) {
