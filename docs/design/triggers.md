@@ -164,7 +164,9 @@ Android 的限制：
 | 2 | 指定的藍牙裝置 | 跟耳機同一個 A2DP 廣播，加上 HFP 的 | 收得到 | 以裝置位址指定；車用音響現在被刻意排除，指定了就算 |
 | 2 | 快速設定磁貼、桌面捷徑 | `TileService`、`ShortcutManager` | 收得到：使用者按的 | 手動跑某個排程 |
 | 2 | 外部 webhook | ntfy（UnifiedPush）或 FCM | 收得到 | 待決定第 3 題 |
-| 3 | 感測器（`significant_motion`、步數、氣壓） | `SensorManager`，要常駐前景服務 | 要先量耗電 | 只開給這支手機有的感測器，見 [capabilities.md](capabilities.md) |
+| 2 | 開始走路、上車、靜止 | Activity Recognition Transition API（`play-services-location`），`PendingIntent` | 收得到 | 在晶片裡判斷，幾乎不耗電；要 `ACTIVITY_RECOGNITION` 權限 |
+| 2 | 螢幕亮、解鎖 | `SCREEN_ON`、`USER_PRESENT`，只送給執行中程序的動態廣播 | 有通知讀取時收得到：系統綁著服務，程序一直在 | 不另開前景服務 |
+| 3 | 開始移動（`significant_motion`） | `requestTriggerSensor`，觸發一次就停，在 sensor hub 裡 | 要程序活著 | 幾乎不耗電；跟 Activity Recognition 重疊，可能不需要 |
 
 ### 新的 If
 
@@ -177,6 +179,17 @@ Android 的限制：
 - 通知：哪個 app、寄件人、標題或內文包含某段文字。
 
 被 If 擋下的不算進每天的上限，因為沒有叫醒模型。
+
+### 省電：只用系統已有的事件機制
+
+2026-10-24 的決定：觸發來源只用「系統或硬體盯著、有事才叫醒 pi」的機制：系統廣播、`PendingIntent`（鬧鐘、Geofence、JobScheduler、Activity Recognition）、系統綁著的服務（通知讀取）、觸發一次就停的感測器。pi 不自己輪詢，也不為了觸發另開常駐的前景服務。
+
+耗電由低到高：低功耗晶片自己判斷 → 系統叫醒 Java 端判斷 If 就睡回去 → 程序一直收感測器資料 → 叫醒 WebView 跑模型。前兩層可以用，第三層不做，第四層靠 If 擋。
+
+所以不做的：
+
+- **陀螺儀、加速度計的手勢**（扭手腕、甩手機、翻面）：Android 9 起在背景的 app 收不到持續回報型感測器的資料，要常駐前景服務才行。
+- **Samsung 和 Android 的系統手勢感測器**（`pick_up_gesture`、`tilt_detector`、`wake_up_motion`、`Pocket mode`、`Drop Classifier`、`Car Crash Detect`）：是系統隱藏或廠商私有的，第三方 app 拿不到；`dumpsys sensorservice` 列得出來不代表可以用。
 
 ## 待決定
 
