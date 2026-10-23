@@ -85,10 +85,7 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 									<span className="menu-text">
 										{entry.name}
 										<span className="menu-hint">{entry.description}</span>
-										<span className="toolset-load">
-											{entry.auth === "oauth" ? "需要登入" : "免登入"}
-											{entry.tested ? " · 已實測" : ""}
-										</span>
+										{entry.auth === "oauth" ? <span className="toolset-load">需要登入</span> : null}
 									</span>
 									{connected.has(entry.url) ? (
 										<span className="state on">已連接</span>

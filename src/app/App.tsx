@@ -556,7 +556,7 @@ export function App() {
 							<BotAvatar bot={bot} size={32} />
 							<span className="menu-text">
 								{bot.name}
-								<span className="menu-hint">{bot.job.split("\n")[0] || "一般助理"}</span>
+								{bot.job.trim() ? <span className="menu-hint">{bot.job.split("\n")[0]}</span> : null}
 							</span>
 						</button>
 					))}

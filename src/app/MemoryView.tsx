@@ -104,7 +104,7 @@ export function MemoryView({
 					aria-label="MEMORY.md"
 				/>
 				<p className="memory-hint">
-					{scope.kind === "global" ? "每個 Bot 都會讀" : `只有 ${botName ?? "這個 Bot"} 會讀`}，會送給模型，不要放密碼或金鑰。
+					會送給模型，不要放密碼或金鑰。
 					{saved?.updatedAt ? (
 						<>
 							<br />

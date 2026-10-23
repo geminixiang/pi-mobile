@@ -242,7 +242,7 @@ export function BotPanel({
 								{formatTokens(context.used)} / {formatTokens(context.window)}
 								<b>{percent.toFixed(0)}%</b>
 							</span>
-							<span className="context-note">{compactAt > 0 ? `${formatTokens(compactAt)} 時壓縮` : "接近上限時壓縮"}</span>
+							{compactAt > 0 ? <span className="context-note">{formatTokens(compactAt)} 時壓縮</span> : null}
 						</div>
 						<div className="context-bar">
 							<i style={{ width: `${Math.max(percent, 1.5)}%` }} />

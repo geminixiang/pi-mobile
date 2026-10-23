@@ -111,10 +111,7 @@ export function BotSheet({
 					{canDelete ? (
 						<button type="button" className="danger" onClick={() => onDelete(bot)}>
 							<TrashIcon size={18} />
-							<span className="menu-text">
-								刪除 Bot
-								<span className="menu-hint">連同對話、記憶、排程和資料夾</span>
-							</span>
+							<span className="menu-text">刪除 Bot</span>
 						</button>
 					) : null}
 				</div>

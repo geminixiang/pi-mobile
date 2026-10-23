@@ -337,7 +337,7 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 	};
 
 	return (
-		<Group title="行事曆" hint="Bot 讀到的行程會送給模型。">
+		<Group title="行事曆">
 			{calendars === undefined ? (
 				<div className="check">
 					<button type="button" className="btn" onClick={() => void load()}>
@@ -452,10 +452,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 			) : null}
 			{headphones && bluetooth === false ? (
 				<div className="check-row">
-					<span className="menu-text">
-						偵測藍牙耳機
-						<span className="menu-hint">需要「鄰近裝置」權限</span>
-					</span>
+					<span className="menu-text">偵測藍牙耳機</span>
 					<button type="button" className="btn" onClick={() => void act(Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted)))}>
 						開啟
 					</button>
@@ -481,11 +478,11 @@ function SystemAccessGroup() {
 		return () => void listener.then((handle) => handle.remove());
 	}, []);
 	if (!state) return null;
-	const row = (label: string, hint: string, on: boolean, open: () => Promise<void>) => (
+	const row = (label: string, hint: string | undefined, on: boolean, open: () => Promise<void>) => (
 		<div className="check-row">
 			<span className="menu-text">
 				{label}
-				<span className="menu-hint">{hint}</span>
+				{hint ? <span className="menu-hint">{hint}</span> : null}
 			</span>
 			<button type="button" className="btn" onClick={() => void open()}>
 				{on ? "管理" : "開啟"}
@@ -494,7 +491,7 @@ function SystemAccessGroup() {
 	);
 	return (
 		<Group title="系統權限">
-			{row("螢幕使用時間", state.usage ? "已開啟" : "讓 Bot 看每個 app 用了多久", state.usage, () => Usage.openSettings())}
+			{row("螢幕使用時間", state.usage ? undefined : "讓 Bot 看每個 app 用了多久", state.usage, () => Usage.openSettings())}
 			{row("數位助理", state.assistant ? "長按側邊鍵叫出 pi，帶著目前的畫面" : "設成數位助理，就能在任何畫面叫出 pi", state.assistant, () => System.openAssistantSettings())}
 		</Group>
 	);
@@ -554,7 +551,7 @@ function NotificationsGroup() {
 			<div className="check-row">
 				<span className="menu-text">
 					通知存取權
-					<span className="menu-hint">{allowed ? "保留 30 天" : "讓 Bot 讀其他 App 的通知"}</span>
+					{allowed ? <span className="menu-hint">保留 30 天</span> : null}
 				</span>
 				<button type="button" className="btn" onClick={() => void Notifications.openSettings()}>
 					{allowed ? "管理" : "開啟"}
@@ -583,7 +580,7 @@ function DatabaseGroup() {
 	}, []);
 	if (!tables) return null;
 	return (
-		<Group title="資料庫" hint="所有 Bot 共用。">
+		<Group title="資料庫">
 			{tables.length === 0 ? (
 				<div className="check-row">
 					<span className="menu-text">
@@ -724,7 +721,6 @@ export function SettingsView({
 			title: "帳號",
 			body: () => (
 				<>
-					<p className="page-note">憑證只存在這支手機。</p>
 					<Group title="GitHub">
 						<label>
 							<span>Token</span>
@@ -814,7 +810,7 @@ export function SettingsView({
 		services: {
 			title: "連接的服務",
 			body: () => (
-				<Group title="MCP" hint="新加的服務不會給任何 Bot，在服務下面選哪些 Bot 可以用。">
+				<Group title="MCP">
 					<McpGroup runtime={runtime} onError={(message) => showToast(message)} />
 				</Group>
 			),

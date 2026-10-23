@@ -257,7 +257,6 @@ export function Chat({
 						<h2>
 							要 pi 怎麼<em>處理</em>？
 						</h2>
-						<p>{shared === "screen" ? "剛才的畫面已經放在輸入框裡。" : shared === "image" ? "圖片已經放在輸入框裡。" : shared === "file" ? "檔案已經放在輸入框裡。" : "分享的內容已經放在輸入框裡。"}選一個，或直接打字說要做什麼。</p>
 						<ol className="suggestions">
 							{shareActions(shared).map((action, index) => (
 								<li key={action.title}>
@@ -288,7 +287,6 @@ export function Chat({
 							只屬於<em>你</em>。
 						</h2>
 						<p>對話、金鑰和紀錄都只存在這支手機上。</p>
-						<div className="strip-label">試試看</div>
 						<ol className="suggestions">
 							{suggestions(capabilities).map((suggestion, index) => (
 								<li key={suggestion.title}>

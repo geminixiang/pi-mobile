@@ -98,8 +98,6 @@ function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer:
 					</button>
 				) : null}
 			</div>
-			{computer === direct ? <p className="hint host-mode">用 {host.user} 的身分操作這台電腦</p> : null}
-			{computer === container ? <p className="hint host-mode">在這台電腦的 Linux 容器裡，憑證留在手機上</p> : null}
 			<PrepareStatus preparing={preparing} />
 			<div className="row-buttons">
 				<button type="button" className="btn" onClick={onRemove}>
@@ -203,7 +201,7 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 					<div className="check-row">
 						<span className="menu-text">
 							{peer.name}
-							<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"} · 已裝 pi-mobile</span>
+							<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"}</span>
 						</span>
 						<button type="button" className="btn" disabled={adding.state === "checking"} onClick={() => add(peer.dnsName, info)}>
 							加入
