@@ -65,6 +65,10 @@ export type Point = { latitude: number; longitude: number; label: string };
 export async function resolvePlace(place: string): Promise<Point> {
 	const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(place);
 	if (match) return { latitude: Number(match[1]), longitude: Number(match[2]), label: place.trim() };
+	// get_location's text passed on whole, as scripts do: its coordinates.
+	const latitude = /"latitude":\s*(-?\d+(?:\.\d+)?)/.exec(place)?.[1];
+	const longitude = /"longitude":\s*(-?\d+(?:\.\d+)?)/.exec(place)?.[1];
+	if (latitude && longitude) return { latitude: Number(latitude), longitude: Number(longitude), label: `${latitude},${longitude}` };
 	const found = await Phone.geocode({ query: place });
 	return { ...found, label: found.address ?? place };
 }

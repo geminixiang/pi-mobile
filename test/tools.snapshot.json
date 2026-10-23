@@ -241,7 +241,7 @@
 		"parameters": {
 			"properties": {
 				"category": {
-					"description": "OSM tag key:value, such as amenity:fuel",
+					"description": "OSM tag key:value, such as amenity:fuel, or just its value, such as cafe",
 					"type": "string"
 				},
 				"limit": {

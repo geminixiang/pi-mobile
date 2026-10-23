@@ -95,7 +95,7 @@ const findPlaces = defineAppTool({
 		"OSM has no ratings or reviews, and small or new places may be missing.",
 	].join(" "),
 	parameters: Type.Object({
-		category: Type.Optional(Type.String({ description: "OSM tag key:value, such as amenity:fuel" })),
+		category: Type.Optional(Type.String({ description: "OSM tag key:value, such as amenity:fuel, or just its value, such as cafe" })),
 		query: Type.Optional(Type.String({ description: "A name or brand, such as 鼎泰豐" })),
 		near: Type.Optional(Type.String({ description: "Place name, address, or lat,lng to search around; default the phone's location" })),
 		radius_km: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "For a category: how far to look, in km; default 1" })),
@@ -108,7 +108,9 @@ const findPlaces = defineAppTool({
 		const center = args.near ? await resolvePlace(args.near) : await currentPlace();
 		const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
 		const query = new URLSearchParams({ lat: String(center.latitude), lon: String(center.longitude), limit: String(limit) });
-		if (args.category) query.set("osm_tag", args.category.replace("=", ":"));
+		// A bare value (cafe, pharmacy, supermarket) matches it under amenity or shop, where nearly all of them are.
+		const tag = args.category?.replace("=", ":");
+		for (const filter of tag === undefined ? [] : tag.includes(":") ? [tag] : [`amenity:${tag}`, `shop:${tag}`]) query.append("osm_tag", filter);
 		let url: string;
 		if (args.query) {
 			query.set("q", args.query);

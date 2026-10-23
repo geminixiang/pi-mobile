@@ -61,12 +61,24 @@ const MODEL_TOOLS = new Set(["codemode", "bash", "read", "write", "edit", "updat
 /** Their result is an image the model must see, which a script's result leaves out: loaded with tool_search. */
 const LOADED_TOOLS = new Set(["view_photos", "read_attachment", "read_screen", "use_screen"]);
 
+/**
+ * tool_search searches only the loaded-on-demand tools; its own description says it finds any tool, so weaker models
+ * (gpt-6-luna) searched it for bash and for script-only tools, a wasted round each.
+ */
+const TOOL_SEARCH = `Load ${[...LOADED_TOOLS].join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
+
 /** Each tool as the model reaches it: offered, loaded on demand, or called from scripts only. */
 function withReach(extension: Extension): Extension {
 	return {
 		...extension,
 		tools: extension.tools?.map((tool) =>
-			MODEL_TOOLS.has(tool.name) ? tool : LOADED_TOOLS.has(tool.name) ? { ...tool, deferred: true as const } : { ...tool, callers: ["tools"] as const },
+			tool.name === "tool_search"
+				? { ...tool, description: TOOL_SEARCH }
+				: MODEL_TOOLS.has(tool.name)
+					? tool
+					: LOADED_TOOLS.has(tool.name)
+						? { ...tool, deferred: true as const }
+						: { ...tool, callers: ["tools"] as const },
 		),
 	};
 }

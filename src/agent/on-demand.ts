@@ -16,7 +16,7 @@ export function createOnDemandExtension(label: (extension: string, conversationI
 				});
 				if (lines.length === 0) return undefined;
 				return [
-					"These tools are yours but load on demand: call tool_search with what you need (a toolset's name or the task) to load the ones a task needs, then call them. Do not answer from memory what one of them would look up.",
+					"Load these with tool_search before calling them:",
 					...lines,
 				].join("\n");
 			}),
