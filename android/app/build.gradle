@@ -32,8 +32,8 @@ android {
                 keyPassword System.getenv("PI_MOBILE_KEYSTORE_PASSWORD")
             }
         }
-        // Personal sideloaded app: sign release builds with the local debug key, so a release build installs over a
-        // debug build without uninstalling (which would delete the on-device conversations).
+        // Without the release key (scripts/build-android.sh): the local debug key. A build signed so cannot replace a
+        // published release, nor be replaced by one, without uninstalling, which deletes the phone's data.
         sideload {
             storeFile file(System.getProperty("user.home") + "/.android/debug.keystore")
             storePassword "android"

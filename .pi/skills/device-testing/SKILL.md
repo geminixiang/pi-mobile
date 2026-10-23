@@ -18,8 +18,10 @@ from `CDP_PORT` (default 9333).
   agent, so ask before using it.
 - **Emulator** (`emulator-5554`): anything destructive, alarms and timers, root, filling the disk. Its numbers are
   not the phone's: measure on the phone before deciding on speed.
-- Build and install: `./scripts/build-android.sh`, then `./scripts/run-android.sh <serial> <port>`. Both phone and
-  emulator run the release build, which is not debuggable: `run-as` fails. On the emulator, `adb root` reads app data
+- Build and install: `./scripts/build-android.sh`, then `./scripts/run-android.sh <serial> <port>`. It is signed with
+  the release key, so it and a published release install over each other with the data kept; a device that still
+  has a debug-key build must uninstall it first, which deletes the app's data. Both run the release build type,
+  which is not debuggable: `run-as` fails. On the emulator, `adb root` reads app data
   (`/data/data/dev.geminixiang.pimobile`); `adb unroot` after.
 
 ## Scripts

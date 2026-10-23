@@ -14,7 +14,7 @@ npm ci --ignore-scripts
 ./scripts/run-android.sh <adb serial> # 安裝、重開 app、轉發 WebView DevTools
 ```
 
-`build-android.sh` 是**開發版**：用本機的 debug keystore 簽章，所以可以反覆覆蓋安裝而不刪掉手機上的對話；WebView 遠端除錯是開著的，方便用 `test/ui.sh` 在手機上操作測試。
+`build-android.sh` 是**開發版**：WebView 遠端除錯是開著的，方便用 `test/ui.sh` 在手機上操作測試。有發布金鑰（`~/.config/pi-mobile/release.env`）時，它用發布金鑰簽章、版本號跟 `package.json` 一樣（名稱加 `-dev`），所以開發版和正式版可以互相覆蓋安裝，不刪手機上的資料；沒有金鑰時用本機的 debug keystore，這樣的開發版和正式版不能互相覆蓋，換的時候要先移除，資料會一起清掉。
 
 發布用的版本：
 
