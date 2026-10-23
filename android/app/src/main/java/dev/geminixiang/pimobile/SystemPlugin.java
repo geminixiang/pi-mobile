@@ -5,12 +5,10 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.view.HapticFeedbackConstants;
-import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 /**
@@ -79,65 +77,5 @@ public class SystemPlugin extends Plugin {
             getContext().startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
         }
         call.resolve();
-    }
-
-    /**
-     * The system's fingerprint or face check, or the screen lock when the phone has no biometrics, before an approval
-     * (Settings › 帳號 › 核准時驗證). Resolves {ok}: false when the user cancels or fails.
-     */
-    @PluginMethod
-    public void authenticate(PluginCall call) {
-        if (android.os.Build.VERSION.SDK_INT < 30) {
-            confirmScreenLock(call);
-            return;
-        }
-        android.hardware.biometrics.BiometricPrompt prompt = new android.hardware.biometrics.BiometricPrompt.Builder(getContext())
-            .setTitle(call.getString("title", "確認是你"))
-            .setSubtitle(call.getString("subtitle", ""))
-            .setAllowedAuthenticators(
-                android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG |
-                android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .build();
-        prompt.authenticate(
-            new android.os.CancellationSignal(),
-            getContext().getMainExecutor(),
-            new android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
-                @Override
-                public void onAuthenticationSucceeded(android.hardware.biometrics.BiometricPrompt.AuthenticationResult result) {
-                    JSObject answer = new JSObject();
-                    answer.put("ok", true);
-                    call.resolve(answer);
-                }
-
-                @Override
-                public void onAuthenticationError(int code, CharSequence message) {
-                    JSObject answer = new JSObject();
-                    answer.put("ok", false);
-                    answer.put("reason", String.valueOf(message));
-                    call.resolve(answer);
-                }
-            }
-        );
-    }
-
-    private void confirmScreenLock(PluginCall call) {
-        android.app.KeyguardManager keyguard = getContext().getSystemService(android.app.KeyguardManager.class);
-        Intent intent = keyguard.createConfirmDeviceCredentialIntent(call.getString("title", "確認是你"), call.getString("subtitle", ""));
-        if (intent == null) {
-            JSObject answer = new JSObject();
-            answer.put("ok", false);
-            answer.put("reason", "手機沒有設定螢幕鎖");
-            call.resolve(answer);
-            return;
-        }
-        startActivityForResult(call, intent, "screenLockConfirmed");
-    }
-
-    @ActivityCallback
-    private void screenLockConfirmed(PluginCall call, ActivityResult result) {
-        JSObject answer = new JSObject();
-        answer.put("ok", result.getResultCode() == android.app.Activity.RESULT_OK);
-        call.resolve(answer);
     }
 }

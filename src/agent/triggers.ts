@@ -6,7 +6,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { approve, defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
+import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { parse } from "./parse.ts";
 import { resolvePlace } from "./tools/device.ts";
 
@@ -45,7 +45,7 @@ const When = Type.Union([
 ]);
 export type When = Static<typeof When>;
 
-/** A schedule the user approved, or a follow-up the bot set itself to check something later. */
+/** A schedule, or a follow-up the bot set itself to check something later. */
 export type TriggerKind = "schedule" | "followup";
 
 /** How a run started: the WebView was running ("live"), pi was opened afterwards ("later"), or from Settings ("manual"). */
@@ -127,10 +127,7 @@ interface TriggersPlugin {
 	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;
 	requestExactAlarms(): Promise<void>;
 	notify(options: { title: string; text: string; conversation?: string; avatar?: string }): Promise<void>;
-	askApproval(options: { id: string; title: string; text: string }): Promise<void>;
-	cancelApproval(options: { id: string }): Promise<void>;
 	addListener(event: "event", listener: () => void): Promise<{ remove: () => Promise<void> }>;
-	addListener(event: "approval", listener: (answer: { id: string; approved: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
 }
 
 export const Triggers = registerPlugin<TriggersPlugin>("Triggers");
@@ -220,7 +217,7 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. The user approves it first. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
@@ -281,14 +278,6 @@ export function createTriggerExtension(host: TriggerHost) {
 			}
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
-			const declined = await approve(
-				{
-					title: `新增排程「${args.name}」：${describeWhen(when)}`,
-					detail: `${when.kind === "daily" || when.kind === "once" ? "到時候" : "那時"} pi 會自動執行：\n${args.prompt}`,
-				},
-				"好，沒有加。",
-			);
-			if (declined) return declined;
 			const trigger: Trigger = {
 				id: crypto.randomUUID().slice(0, 8),
 				name: args.name,
@@ -352,17 +341,13 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const deleteSchedule = defineAppTool({
 		name: "delete_schedule",
-		description: "Delete a schedule or a pending follow-up by id. The user approves deleting a schedule.",
+		description: "Delete a schedule or a pending follow-up by id.",
 		parameters: Type.Object({ id: Type.String({ description: "The id list_schedules shows" }) }),
 		execute: async (args, api, context) => {
 			const trigger = (await api.snapshot(TriggerDoc, context))?.items.find(
 				(item) => item.id === args.id && item.conversationId === api.conversationId,
 			);
 			if (!trigger) throw new Error(`no schedule ${args.id}; list_schedules shows them`);
-			if (trigger.kind === "schedule") {
-				const declined = await approve({ title: `刪除排程「${trigger.name}」`, detail: `${describeWhen(trigger.when)}\n${trigger.prompt}` }, "好，不刪。");
-				if (declined) return declined;
-			}
 			await api.commit(async (tx) => {
 				const doc = await tx.doc(TriggerDoc);
 				doc.items = doc.items.filter((item) => item.id !== args.id);
@@ -395,7 +380,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			section("triggers", () =>
 				[
 					"create_schedule: recurring or one-time work the user asks for; it runs here. schedule_followup: check again here later.",
-					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it. Approvals go to a notification and are declined after 30 minutes.`,
+					`A message starting "[trigger]" came from a schedule and the user is not watching: do the work, answer briefly without mentioning schedules or notifications, and notify the gist only when it is worth it.`,
 					"When it says headphones connected, the user just put them on and is listening, not reading: gather what you need, read the spoken-report skill, give the report with speak, and put the details and links in the written answer. Other events (charging, Wi-Fi, arriving or leaving a place) say what happened; the user may not be looking at the phone.",
 				].join("\n"),
 			),

@@ -1,5 +1,5 @@
 // Keeps runs going while the app is in the background or the screen is locked (AgentService on Android), and tells
-// the user when a run finishes or needs approval while they are away.
+// the user when a run finishes while they are away.
 import { App } from "@capacitor/app";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { log } from "../log.ts";
@@ -33,37 +33,15 @@ export function inForeground(): boolean {
 
 let running = false;
 let workingTitles: string[] = [];
-/** What a tool asks the user to approve while pi is away; shown instead of "working" until it is answered. */
-const waiting = new Map<string, string>();
 
 function startService(options: { text: string; title?: string }): void {
 	KeepAlive.start(options).catch((error: unknown) => log.warn("keep_alive.start_failed", { error: error instanceof Error ? error.message : String(error) }));
 }
 
 function showWorking(): void {
-	const [question] = waiting.values();
-	if (question !== undefined) {
-		startService({ title: "pi 等你確認", text: question });
-		return;
-	}
 	startService({ text: workingTitles.length === 1 ? (workingTitles[0] ?? "") : `${workingTitles.length} 個對話執行中` });
 }
 
-/**
- * While an approval waits, the working notification says so. Samsung bundles pi's notifications, and collapsed, only
- * the top one (the working notification) shows; this way the user sees pi waits for them without expanding it.
- * Returns the function that ends the wait.
- */
-export function showWaiting(question: string): () => void {
-	if (!native || !running) return () => undefined;
-	const id = crypto.randomUUID();
-	waiting.set(id, question);
-	showWorking();
-	return () => {
-		waiting.delete(id);
-		if (running) showWorking();
-	};
-}
 const ASKED_KEY = "pi-mobile.notificationsAsked";
 
 /** Start, update, or stop the foreground service for the conversations that are working. */

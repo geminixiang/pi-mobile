@@ -12,8 +12,10 @@ from `CDP_PORT` (default 9333).
 
 ## Devices
 
-- **Phone**: real measurements and real data. Approvals are always declined (`ask.js --decline`); calendar writes go
-  only to the test calendar the user named; it may be locked or in use by another agent, so ask before using it.
+- **Phone**: real measurements and real data. Nothing asks before a write, so a test question that writes (a calendar
+  event, a reply, a schedule, a push, a database row) does it for real: ask only for writes the user agreed to, and
+  undo them after. Calendar writes go only to the test calendar the user named; it may be locked or in use by another
+  agent, so ask before using it.
 - **Emulator** (`emulator-5554`): anything destructive, alarms and timers, root, filling the disk. Its numbers are
   not the phone's: measure on the phone before deciding on speed.
 - Build and install: `./scripts/build-android.sh`, then `./scripts/run-android.sh <serial> <port>`. Both phone and
@@ -26,8 +28,8 @@ from `CDP_PORT` (default 9333).
 |---|---|
 | `forward.sh <serial> [port]` | Point the port at pi's DevTools socket. Needed again after a reinstall, restart, force stop, or `adb root`/`unroot`: the socket name carries the pid. |
 | `find-adb-port.js <phone ip>` | Find the phone's wireless debugging port after it changed. |
-| `ask.js "<question>" [--decline]` | Ask the open bot in natural words; prints tools called, approval dialogs, answer, seconds. Needs `CDP_PORT`. |
-| `trace.js "<question>" [--decline] [--image]` | Like `ask.js`, with the whole turn: each model call's time and tokens, each tool's arguments, result size, and time, and a SUMMARY line to compare runs before and after a change. Needs `CDP_PORT`; use a fresh bot per run. |
+| `ask.js "<question>"` | Ask the open bot in natural words; prints tools called, answer, seconds. Needs `CDP_PORT`. |
+| `trace.js "<question>" [--image]` | Like `ask.js`, with the whole turn: each model call's time and tokens, each tool's arguments, result size, and time, and a SUMMARY line to compare runs before and after a change. Needs `CDP_PORT`; use a fresh bot per run. |
 | `inject.js <port> [--gesture] <file.js>…` | Evaluate files in the page; for probes with a bundled library, or APIs that need a user gesture. |
 | `startup-trace.js <port> [--log]` | Reload and time the start: when the transcript showed, and each native plugin call before it. |
 | `resume-trace.js <port> <serial> <seconds away> [out]` | Leave pi (HOME, or `AWAY_APP=<package>`) and come back, tracing; `resume-analyze.js <out> [ms]` lists the long tasks. |

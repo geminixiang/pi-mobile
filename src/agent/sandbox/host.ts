@@ -3,7 +3,7 @@
 // (docs/design/computer-host.md). A bot works there in one of two ways:
 // - directly: pi-env runs as the user from home, and the bot operates the computer itself;
 // - in a container: the shared Linux sandbox behind the egress proxy (container.ts), when the computer has docker,
-//   podman, or nerdctl; credentials stay on the phone and writes wait for approval there.
+//   podman, or nerdctl; credentials stay on the phone.
 // The phone brings pi-env: it reads /info, uploads the daemon for the computer's system when missing, and opens a
 // WebSocket per connection.
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";

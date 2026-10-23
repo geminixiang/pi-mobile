@@ -3,14 +3,11 @@
 // wall seconds, model calls and time, tool time per tool (parallel tools of one call count once, as the slowest),
 // uncached and cached input tokens, output tokens, characters of tool results, and the tools in order. With
 // --image, a drawn receipt is attached first. Use a fresh bot for each run: an earlier turn changes what it does.
-// --decline answers every approval with 拒絕; --approve with 允許, only for a test the user asked to write for real.
-// Usage: CDP_PORT=<port> node trace.js "<question>" [--decline | --approve] [--image]
+// Usage: CDP_PORT=<port> node trace.js "<question>" [--image]
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const question = process.argv[2];
-const decline = process.argv.includes("--decline");
-const approve = process.argv.includes("--approve");
 const image = process.argv.includes("--image");
 const script = `async () => {
 	let view; const stop = window.piController.subscribe((v) => (view = v)); await sleep(300);
@@ -27,10 +24,7 @@ const script = `async () => {
 	type(${JSON.stringify(question)}); await sleep(300);
 	const t0 = performance.now(); click("送出");
 	await until(() => busy(), 20000).catch(() => 0);
-	const dialogs = [];
 	while (busy()) {
-		const dialog = document.querySelector(".layer-dialog");
-		if (dialog && (${decline} || ${approve})) { dialogs.push(dialog.innerText.replace(/\\n/g, " | ").slice(0, 300)); [...dialog.querySelectorAll("button")].find((b) => (${approve} ? /^允許$/ : /拒絕|取消/).test(b.textContent.trim()))?.click(); }
 		await sleep(400);
 		if (performance.now() - t0 > 600000) break;
 	}
@@ -44,7 +38,7 @@ const script = `async () => {
 			if (m.role === "toolResult") turn.push({ at: m.timestamp, result: m.toolName, error: m.isError || undefined, chars: text(m.content).length, images: (m.content ?? []).filter((c) => c.type === "image").length || undefined, head: text(m.content).slice(0, 200).replace(/\\n/g, " ⏎ ") });
 		}
 	}
-	return { seconds: Math.round((performance.now() - t0) / 1000), dialogs, turn, answer: [...document.querySelectorAll(".answer")].at(-1)?.innerText.slice(0, 600) };
+	return { seconds: Math.round((performance.now() - t0) / 1000), turn, answer: [...document.querySelectorAll(".answer")].at(-1)?.innerText.slice(0, 600) };
 }`;
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const out = execFileSync("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 26 }).toString();
@@ -77,7 +71,6 @@ for (const step of result.turn) {
 	console.log(JSON.stringify({ ...step, at: undefined }));
 }
 flush();
-for (const d of result.dialogs) console.log("DIALOG", d);
 console.log("ANSWER", result.answer);
 const calls = result.turn.filter((s) => s.call);
 const sum = (f) => calls.reduce((n, s) => n + (f(s) ?? 0), 0);

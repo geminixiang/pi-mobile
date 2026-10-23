@@ -10,7 +10,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Alarms of trigger schedules, the answer buttons of approval notifications, and the system events after which alarms
+ * Alarms of trigger schedules, and the system events after which alarms
  * must be set again (reboot, app update, clock or time zone change, exact alarm permission granted). Headphones
  * connecting come from HeadphonesReceiver.
  */
@@ -22,7 +22,6 @@ public class TriggerReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         if (TriggerStore.ACTION_FIRE.equals(action)) fire(context, intent.getStringExtra(TriggerStore.EXTRA_ID), null);
-        else if (TriggerStore.ACTION_APPROVAL.equals(action)) answer(context, intent);
         // Only this app can send it: the receiver is not exported, and the plugin schedules it only in development builds.
         else if (TriggerStore.ACTION_TEST_HEADPHONES.equals(action)) headphones(context, intent.getStringExtra(TriggerStore.EXTRA_DEVICE));
         else if (TriggerEvents.ACTION_PLACE.equals(action)) place(context, intent);
@@ -108,14 +107,5 @@ public class TriggerReceiver extends BroadcastReceiver {
             .setAutoCancel(true)
             .build();
         context.getSystemService(NotificationManager.class).notify(TriggersPlugin.waitingNotificationId(id), notification);
-    }
-
-    private void answer(Context context, Intent intent) {
-        String id = intent.getStringExtra(TriggerStore.EXTRA_ID);
-        if (id == null) return;
-        context.getSystemService(NotificationManager.class).cancel(TriggersPlugin.approvalNotificationId(id));
-        TriggersPlugin live = TriggersPlugin.live();
-        // Without the WebView the run that asked is gone too; it asks again when it resumes.
-        if (live != null) live.approvalAnswered(id, intent.getBooleanExtra(TriggerStore.EXTRA_APPROVED, false));
     }
 }

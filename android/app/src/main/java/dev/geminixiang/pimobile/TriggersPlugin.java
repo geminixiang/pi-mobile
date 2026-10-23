@@ -40,7 +40,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Web-side access to triggers: mirror the schedules, take and acknowledge queued events, post proactive and approval
+ * Web-side access to triggers: mirror the schedules, take and acknowledge queued events, post proactive
  * notifications, and receive what other apps share with pi. Events are announced with the "event" listener; the
  * listener carries nothing, the web side reads the queue.
  */
@@ -58,7 +58,6 @@ public class TriggersPlugin extends Plugin {
     private static final String TAG = "PiTriggers";
     /** Shared files larger than this are refused, so a video shared by mistake does not fill the WebView's memory. */
     private static final long MAX_SHARED_BYTES = 20L * 1024 * 1024;
-    private static final long APPROVAL_TIMEOUT_MS = 30 * 60 * 1000L;
 
     private static volatile TriggersPlugin live;
 
@@ -80,10 +79,6 @@ public class TriggersPlugin extends Plugin {
 
     static int waitingNotificationId(String triggerId) {
         return 0x1000 + (triggerId.hashCode() & 0xfff);
-    }
-
-    static int approvalNotificationId(String approvalId) {
-        return 0x2000 + (approvalId.hashCode() & 0xfff);
     }
 
     private static int proactiveNotificationId(String key) {
@@ -140,13 +135,6 @@ public class TriggersPlugin extends Plugin {
         }
         getActivity().runOnUiThread(() -> KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true));
         notifyListeners("event", new JSObject(), true);
-    }
-
-    void approvalAnswered(String id, boolean approved) {
-        JSObject data = new JSObject();
-        data.put("id", id);
-        data.put("approved", approved);
-        notifyListeners("approval", data, true);
     }
 
     @PluginMethod
@@ -300,50 +288,6 @@ public class TriggersPlugin extends Plugin {
             .build();
         getContext().getSystemService(NotificationManager.class).notify(proactiveNotificationId(conversation), notification);
         call.resolve();
-    }
-
-    /** Approve or decline a tool's request from the notification, without opening pi. Answered on "approval". */
-    @PluginMethod
-    public void askApproval(PluginCall call) {
-        String id = call.getString("id", "");
-        String text = call.getString("text", "");
-        AgentService.createChannels(getContext());
-        Notification notification = new Notification.Builder(getContext(), AgentService.CHANNEL_APPROVAL)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(call.getString("title", "pi 需要你確認"))
-            .setContentText(text)
-            .setStyle(new Notification.BigTextStyle().bigText(text))
-            .setContentIntent(AgentService.openApp(getContext()))
-            .addAction(new Notification.Action.Builder(null, "拒絕", answer(id, false)).build())
-            // Allowing from the lock screen first unlocks the phone: whoever holds it cannot approve for its owner.
-            .addAction(allowAction(id))
-            .setCategory(Notification.CATEGORY_REMINDER)
-            .setTimeoutAfter(APPROVAL_TIMEOUT_MS)
-            .setOngoing(true)
-            .build();
-        getContext().getSystemService(NotificationManager.class).notify(approvalNotificationId(id), notification);
-        call.resolve();
-    }
-
-    @PluginMethod
-    public void cancelApproval(PluginCall call) {
-        getContext().getSystemService(NotificationManager.class).cancel(approvalNotificationId(call.getString("id", "")));
-        call.resolve();
-    }
-
-    private Notification.Action allowAction(String id) {
-        Notification.Action.Builder allow = new Notification.Action.Builder(null, "允許", answer(id, true));
-        if (Build.VERSION.SDK_INT >= 31) allow.setAuthenticationRequired(true);
-        return allow.build();
-    }
-
-    private PendingIntent answer(String id, boolean approved) {
-        Intent intent = new Intent(getContext(), TriggerReceiver.class)
-            .setAction(TriggerStore.ACTION_APPROVAL)
-            .setData(Uri.parse("pimobile-approval://" + Uri.encode(id) + "/" + approved))
-            .putExtra(TriggerStore.EXTRA_ID, id)
-            .putExtra(TriggerStore.EXTRA_APPROVED, approved);
-        return PendingIntent.getBroadcast(getContext(), 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /** Opens pi on a conversation through a pimobile://open link, which the web side handles like any app link. */

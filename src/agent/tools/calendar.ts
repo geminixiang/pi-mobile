@@ -1,11 +1,11 @@
 // The phone's calendars, within what Settings allows (calendar-access.ts): reading the user's schedule, and adding an
-// event to an enabled account after the user approves it. Shared calendars hold other people's events; they are read
+// event to an enabled account. Shared calendars hold other people's events; they are read
 // only when turned on and asked for, and never written to.
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { approve, defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, requireNative, text } from "./common.ts";
+import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, requireNative, text } from "./common.ts";
 
 /** A visible calendar. `own`: its owner is the account it syncs through; otherwise someone shared it with the user. */
 export interface PhoneCalendar {
@@ -236,7 +236,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 	const addEvent = defineAppTool({
 		name: "add_calendar_event",
 		description:
-			"Add an event to the user's calendar. Without calendar_id it goes to the default calendar set in Settings. The user approves the account, calendar and details first; nothing is written if they decline.",
+			"Add an event to the user's calendar. Without calendar_id it goes to the default calendar set in Settings.",
 		parameters: Type.Object({
 			calendar_id: Type.Optional(Type.Integer({ minimum: 1, description: "id from list_calendars; omit for the default calendar" })),
 			title: Type.String({ description: "The event's name, as the user would write it" }),
@@ -262,14 +262,6 @@ export function createCalendarExtension(access: CalendarAccess) {
 			}
 			const calendar = calendars.find((candidate) => candidate.id === id);
 			if (!calendar) throw new Error(`calendar ${id} is not enabled for writing in Settings; call list_calendars`);
-			const declined = await approve(
-				{
-					title: `加到 ${accountLabel(calendar)} 的「${calendar.name}」行事曆`,
-					detail: [args.title, describeTimes(times, allDay), args.location, args.notes].filter(Boolean).join("\n"),
-				},
-				"好，沒有加。",
-			);
-			if (declined) return declined;
 			const created = await Calendar.insertEvent({
 				calendarId: calendar.id,
 				title: args.title,

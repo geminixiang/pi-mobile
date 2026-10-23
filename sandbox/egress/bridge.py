@@ -32,8 +32,8 @@ from urllib.parse import parse_qs, urlparse
 
 SECRET = os.environ["EGRESS_SECRET"]
 PID_FILE = "/tmp/pi-mobile-bridge.pid"
-# A write waits for the person on the phone; credentials.py gives up after its own approval timeout.
-ANSWER_TIMEOUT_SECONDS = 6 * 60
+# credentials.py gives up after 10 seconds.
+ANSWER_TIMEOUT_SECONDS = 10
 # Three missed pings.
 STALE_SECONDS = 35
 

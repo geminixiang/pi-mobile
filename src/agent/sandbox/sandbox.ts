@@ -106,7 +106,7 @@ export function containerDescription(folder: string): string {
 		"Credentials stay on the phone: when connected in the app, a proxy signs in git and gh, gcloud (default project set), and cf and wrangler (CLOUDFLARE_ACCOUNT_ID set). Their tokens are placeholders; never run any auth login.",
 		"Azure: once per sandbox `az login --identity --allow-no-subscriptions`, then `az account set -s $AZURE_SUBSCRIPTION_ID` if set.",
 		"Before the first git command that talks to GitHub, run `gh auth setup-git` once (git then signs in through gh), and if `git config --global user.email` is empty, set user.name and user.email from `gh api user` (email: the account's, else <id>+<login>@users.noreply.github.com), so commits are the user's.",
-		"Reads run directly. Writes (push, PRs, POST/PATCH/PUT/DELETE, resource changes, listKeys) wait for approval on the phone and fail with 'pi mobile: ...' when declined or not connected.",
+		"When the phone is not connected, GitHub is anonymous and the others fail with 'pi mobile: ...'.",
 		IMAGES,
 	].join(" ");
 }
@@ -125,7 +125,6 @@ export function directDescription(name: string, user: string, system: { os: Daem
 		"Do things by command first: a CLI, the app's own command line or config file, or a script (osascript reaches scriptable apps and, through System Events, settings, windows, menus, and key presses). Looking at and clicking the screen (a screen-control tool, when the user has connected one) is the fallback, for what no command or script reaches, such as a dialog that exists only on screen: there, prefer keyboard shortcuts to clicks, and check each step with a screenshot.",
 		"For websites (open, read, fill in, click, sign in with the user's accounts), use ego-browser when `command -v ego-browser` finds it: run `ego-browser skill` once and follow its guide, and do not click a browser on the screen.",
 		"Use the tools installed there; check with `command -v` before relying on one. Keep scratch files in a temp directory, not in home.",
-		"Nothing there is approved on the phone: before deleting or overwriting the user's files, sudo, installing system-wide, pushing, deploying, or changing settings, say what you will do and wait for the user's go-ahead.",
 		IMAGES,
 	].join(" ");
 }

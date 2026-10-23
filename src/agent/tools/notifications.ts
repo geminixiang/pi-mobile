@@ -4,7 +4,7 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { type ActiveNotification, Notifications, type RecordedNotification } from "../../notifications-plugin.ts";
-import { approve, defineAppTool, localTime, requireNative, text } from "./common.ts";
+import { defineAppTool, localTime, requireNative, text } from "./common.ts";
 
 /** Notification access, which reading and acting on notifications need; the user turns it on in system settings. */
 export async function requireAccess(): Promise<void> {
@@ -84,7 +84,7 @@ async function findActive(app: string, conversation: string | undefined, want: (
 const replyNotification = defineAppTool({
 	name: "reply_notification",
 	description:
-		"Reply to a chat through its notification, as typing into the notification's reply box would (LINE, Messenger, WhatsApp, Telegram, Google Messages). Works only while that chat's notification is still in the shade; otherwise tell the user to reply in the app. Asks the user first, showing the text and the chat.",
+		"Reply to a chat through its notification, as typing into the notification's reply box would (LINE, Messenger, WhatsApp, Telegram, Google Messages). Works only while that chat's notification is still in the shade; otherwise tell the user to reply in the app.",
 	parameters: Type.Object({
 		app: Type.String({ description: "The app, such as LINE" }),
 		conversation: Type.String({ description: "The chat or person, as read_notifications shows it" }),
@@ -95,8 +95,6 @@ const replyNotification = defineAppTool({
 		if (!target) {
 			throw new Error(`No ${args.app} notification for ${args.conversation} that takes a reply is in the shade now. Tell the user to reply in ${args.app}.`);
 		}
-		const declined = await approve({ title: `用 ${target.app} 回覆 ${target.title}`, detail: args.text }, "好，不回。");
-		if (declined) return declined;
 		await Notifications.reply({ key: target.key, text: args.text });
 		return text(`Sent to ${target.title} in ${target.app}.`);
 	},

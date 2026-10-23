@@ -352,10 +352,6 @@
 		],
 		"parameters": {
 			"properties": {
-				"reason": {
-					"description": "For DROP or DELETE: one sentence shown to the user in the confirmation dialog",
-					"type": "string"
-				},
 				"statements": {
 					"items": {
 						"properties": {
@@ -1808,10 +1804,6 @@
 				"path": {
 					"description": "API path with query string, starting with /",
 					"type": "string"
-				},
-				"reason": {
-					"description": "For writes: one sentence shown to the user in the confirmation dialog",
-					"type": "string"
 				}
 			},
 			"required": [
@@ -1912,10 +1904,6 @@
 						}
 					]
 				},
-				"reason": {
-					"description": "For writes: one sentence shown to the user in the confirmation dialog",
-					"type": "string"
-				},
 				"url": {
 					"description": "Full https URL",
 					"type": "string"
@@ -1979,10 +1967,6 @@
 						}
 					]
 				},
-				"reason": {
-					"description": "For writes: one sentence shown to the user in the confirmation dialog",
-					"type": "string"
-				},
 				"url": {
 					"description": "Full https URL, or a path starting with / under https://api.cloudflare.com/client/v4",
 					"type": "string"
@@ -2045,10 +2029,6 @@
 							"type": "string"
 						}
 					]
-				},
-				"reason": {
-					"description": "For writes: one sentence shown to the user in the confirmation dialog",
-					"type": "string"
 				},
 				"url": {
 					"description": "Full https URL",

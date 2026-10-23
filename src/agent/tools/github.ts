@@ -1,11 +1,10 @@
 // GitHub connector: the REST API called straight from the phone with the user's token.
-// Reads run directly; every write asks the user first.
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
-import { approve, defineAppTool } from "./common.ts";
+import { defineAppTool } from "./common.ts";
 
 /** GET /repos/{owner}/{repo}/contents/{path}: a directory listing, or one file. */
 const DirectoryListing = Type.Array(Type.Object({ type: Type.String(), path: Type.String(), size: Type.Number() }));
@@ -67,8 +66,8 @@ export function createGitHubExtension(getToken: TokenSource) {
 		name: "github_api",
 		description: [
 			"Call the GitHub REST API as the user. `path` starts with /, e.g. /user, /repos/{owner}/{repo}/issues?state=open&per_page=20,",
-			"/search/issues?q=..., /repos/{owner}/{repo}/pulls/{n}/files. GET runs immediately; POST, PATCH, PUT, and DELETE",
-			"show the user a confirmation dialog first and fail if they decline. Prefer small per_page values.",
+			"/search/issues?q=..., /repos/{owner}/{repo}/pulls/{n}/files. POST, PATCH, PUT, and DELETE change things as the user.",
+			"Prefer small per_page values.",
 		].join(" "),
 		// Scripts get the parsed response, so `(await tools.github_api(...)).body.login` works without parsing text.
 		structuredOutputSchema: Type.Object({ status: Type.Integer(), link: Type.Optional(Type.String()), body: Type.Unknown() }),
@@ -82,7 +81,6 @@ export function createGitHubExtension(getToken: TokenSource) {
 			]),
 			path: Type.String({ description: "API path with query string, starting with /" }),
 			body: Type.Optional(Type.Unknown({ description: "JSON request body for POST, PATCH, and PUT" })),
-			reason: Type.Optional(Type.String({ description: "For writes: one sentence shown to the user in the confirmation dialog" })),
 		}),
 		execute: async (args, _api, context) => {
 			if (!args.path.startsWith("/")) throw new Error("path must start with /");
@@ -94,16 +92,6 @@ export function createGitHubExtension(getToken: TokenSource) {
 				} catch {
 					// Not JSON: send the string as is.
 				}
-			}
-			if (args.method !== "GET") {
-				const declined = await approve(
-					{
-						title: `GitHub ${args.method} ${args.path}`,
-						detail: [args.reason, args.body === undefined ? undefined : JSON.stringify(args.body, null, 2)].filter(Boolean).join("\n\n"),
-					},
-					"好，不做。",
-				);
-				if (declined) return declined;
 			}
 			const result = await github(token, args.method, args.path, args.body, context.abortSignal);
 			const header = `HTTP ${result.status}${result.link ? `\nLink: ${result.link}` : ""}`;
@@ -149,7 +137,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 			section(
 				"github",
 				() =>
-					"GitHub: github_api and github_read_file; GET /user tells who the user is. Writes need the user's approval; say what you will change first.",
+					"GitHub: github_api and github_read_file; GET /user tells who the user is.",
 			),
 		],
 		tools: [api, readFile],

@@ -34,9 +34,7 @@ import org.json.JSONObject;
 final class TriggerStore {
 
     static final String ACTION_FIRE = "dev.geminixiang.pimobile.TRIGGER_FIRE";
-    static final String ACTION_APPROVAL = "dev.geminixiang.pimobile.APPROVAL";
     static final String EXTRA_ID = "id";
-    static final String EXTRA_APPROVED = "approved";
     /** TriggersPlugin.simulateHeadphones, in development builds only. */
     static final String ACTION_TEST_HEADPHONES = "dev.geminixiang.pimobile.TEST_HEADPHONES";
     static final String EXTRA_DEVICE = "device";

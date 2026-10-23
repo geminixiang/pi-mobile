@@ -50,7 +50,7 @@ curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/ins
   - `pi-mobile/sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、cf、wrangler、az、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
   - `pi-mobile/egress`：mitmproxy 加上 `credentials.py`。
 
-  所有 Bot 共用 `pim-main` 這個容器。憑證只留在手機上，寫入要先在手機上核准。
+  所有 Bot 共用 `pim-main` 這個容器。憑證只留在手機上。
 
 設計見 [design/computer-host.md](design/computer-host.md)。開發電腦上的 pi-mobile：
 

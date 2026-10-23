@@ -244,16 +244,14 @@ function preview(name: string, lines: string[]): { shown: string[]; hidden: numb
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
-	// The user said no in an approval: their decision, not a failure.
-	const declined = state?.status === "done" && state.isError && /\b(user|The user) declined\b/.test(output ?? "");
-	const status = declined ? "declined" : tone(state);
+	const status = tone(state);
 	const images = state?.status === "done" ? state.images : [];
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
 	const lines = output ? output.split("\n") : [];
-	// Errors show in full, as pi does; a declined approval says so in the header instead.
-	const { shown, hidden } = open || status === "error" ? { shown: lines, hidden: 0 } : declined ? { shown: [], hidden: 0 } : preview(call.name, lines);
+	// Errors show in full, as pi does.
+	const { shown, hidden } = open || status === "error" ? { shown: lines, hidden: 0 } : preview(call.name, lines);
 	const script = call.name === "codemode" && typeof call.arguments.code === "string" ? call.arguments.code : undefined;
 	// Collapsed boxes also stop at that many lines on screen, as pi's previews count wrapped lines: a phone wraps a lot.
 	const tail = call.name === "bash" || call.name === "codemode";
@@ -272,7 +270,6 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
 					{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
 					{status === "error" ? <span className="step-status">失敗</span> : null}
-					{status === "declined" ? <span className="step-status">已拒絕</span> : null}
 				</span>
 				{open && script ? <span className="step-script">{script}</span> : null}
 				{shown.length > 0 ? (

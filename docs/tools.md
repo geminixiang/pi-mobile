@@ -75,15 +75,14 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 缺權限或設定：錯誤訊息要告訴使用者去哪裡開，路徑寫完整（「設定 › 手機 › 系統權限 › 螢幕使用時間」）。
 - 其他錯誤：說清楚哪裡錯、模型下一步能做什麼（「list_schedules shows them」）。
 
-### 核准
+### 改動
 
-- 會改動使用者資料、或代替使用者對外送出東西的，先問：`approve()`（`common.ts`）。被拒絕時一律回傳同一種結果：`isError`，要模型用一句話說沒做（`「好，不刪。」`），不要列出原本會做什麼、不要提替代方案、不要問為什麼。
-- 只是打開一個畫面、讓使用者自己完成的（草稿、分享、地圖），不用核准，但輸出要說「使用者按了才會送出」。
-- 可以輕易復原、而且是使用者剛說的（勿擾、暫停音樂、清掉通知、鬧鐘），直接做。
+- 工具直接做，不跳核准（2026-10-23 拿掉了核准機制）。
+- 只是打開一個畫面、讓使用者自己完成的（草稿、分享、地圖），輸出要說「使用者按了才會送出」。
 
 ## 工具清單
 
-每一個工具都要列在這裡（`test/tools-node.ts` 會檢查）。「改動」：**唯讀**；**開畫面**＝打開畫面讓使用者完成；**直接**＝直接改、不問；**先問**＝要使用者核准。「結構化」＝有給腳本用的結構化輸出。需要時載入的工具組另外標出。
+每一個工具都要列在這裡（`test/tools-node.ts` 會檢查）。「改動」：**唯讀**；**開畫面**＝打開畫面讓使用者完成；**直接**＝直接改。「結構化」＝有給腳本用的結構化輸出。需要時載入的工具組另外標出。
 
 | 工具 | 工具組 | 做什麼 | 改動 | 結構化 |
 |---|---|---|---|---|
@@ -93,7 +92,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `get_travel_time` | 手機狀態 | 開車、走路、騎車的距離和時間 | 唯讀 | |
 | `weather` | 天氣 | 逐小時和逐日預報 | 唯讀 | ✓ |
 | `find_places` | 地點 | 附近的店家，或用名字找分店 | 唯讀 | ✓ |
-| `sql` | 資料庫 | 手機上的 SQLite | 直接；`DROP`、`DELETE` 先問 | ✓ |
+| `sql` | 資料庫 | 手機上的 SQLite | 直接 | ✓ |
 | `set_alarm` | 手機 App | 設鬧鐘 | 直接 | |
 | `set_timer` | 手機 App | 設計時器 | 直接 | |
 | `compose_email` | 手機 App | 信件草稿 | 開畫面 | |
@@ -103,7 +102,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `share` | 手機 App | 分享選單：文字，或 Bot 資料夾裡的一個檔案 | 開畫面 | |
 | `speak` | 語音 | 唸出來 | 直接 | |
 | `read_notifications` | 通知 | 收到的通知，留 30 天 | 唯讀 | ✓ |
-| `reply_notification` | 通知 | 從通知回覆聊天 | 先問 | |
+| `reply_notification` | 通知 | 從通知回覆聊天 | 直接 | |
 | `dismiss_notifications` | 通知 | 清掉通知欄的通知 | 直接 | |
 | `media` | 手機控制 | 在放什麼、播放、暫停、上下一首 | 直接 | |
 | `do_not_disturb` | 手機控制 | 勿擾模式，可到某個時間自動關 | 直接 | |
@@ -116,23 +115,23 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `health` | 健康 | 步數、心率、睡眠、運動、體重 | 唯讀 | ✓ |
 | `read_calendar_events` | 日曆 | 讀行程 | 唯讀 | ✓ |
 | `list_calendars` | 日曆 | 可以加活動的日曆 | 唯讀 | |
-| `add_calendar_event` | 日曆 | 加活動 | 先問 | |
+| `add_calendar_event` | 日曆 | 加活動 | 直接 | |
 | `codemode` | 程式模式 | 用腳本一次呼叫多個工具 | 依呼叫的工具 | |
 | `web_search` | 網路 | 搜尋 | 唯讀 | |
 | `web_fetch` | 網路 | 讀網頁；內容要跑 JS 才出現時，在看不見的 WebView 裡渲染（`render`，或文字少於 300 字時自動）；`save_to` 把檔案下載進 Bot 的資料夾 | 唯讀；`save_to` 直接寫進自己的資料夾 | |
-| `github_api` | GitHub（需要時載入） | GitHub REST API | `GET` 唯讀，其他先問 | ✓ |
+| `github_api` | GitHub（需要時載入） | GitHub REST API | `GET` 唯讀，其他直接 | ✓ |
 | `github_read_file` | GitHub（需要時載入） | 讀 repo 裡的檔案 | 唯讀 | |
-| `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入先問 | ✓ |
-| `cloudflare_api` | Cloudflare（需要時載入） | Cloudflare REST API | 讀取唯讀，寫入先問 | ✓ |
-| `azure_api` | Azure（需要時載入） | Azure REST API | 讀取唯讀，寫入先問 | ✓ |
-| `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡；sandbox 容器模式下對外的寫入先問 | `bash` |
+| `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入直接 | ✓ |
+| `cloudflare_api` | Cloudflare（需要時載入） | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
+| `azure_api` | Azure（需要時載入） | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
+| `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
 | `read_skill` | 固定開啟 | 讀一份 skill | 唯讀 | |
-| `create_schedule` | 固定開啟 | 新增排程（時間或事件） | 先問 | |
+| `create_schedule` | 固定開啟 | 新增排程（時間或事件） | 直接 | |
 | `schedule_followup` | 固定開啟 | 稍後自己回來看 | 直接 | |
 | `list_schedules` | 固定開啟 | 這個 Bot 的排程 | 唯讀 | |
-| `delete_schedule` | 固定開啟 | 刪排程 | 排程先問，follow-up 直接 | |
+| `delete_schedule` | 固定開啟 | 刪排程 | 直接 | |
 | `notify` | 固定開啟 | 發通知 | 直接 | |
 | `update_memory` | 固定開啟 | 改 MEMORY.md | 直接（每次都是一個看得到的步驟） | |
 | `tool_search` | 固定開啟 | 載入需要時才載入的工具 | 唯讀 | |
@@ -144,7 +143,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 2. **決定載入方式**：照上面的原則，在 `toolsets.ts` 設好 `load`。
 3. **用一般人的說法實測**：在 S24 上用暫時的 Bot 問 2–3 題，不提工具名稱，也不說「用 codemode」。記下有沒有用對工具、呼叫了幾次、花了幾秒、答案對不對。
    - 需要時載入的工具，要確認模型會自己用 `tool_search` 載入，或改用其他能完成工作的工具，而不是憑記憶回答。
-   - 會寫入的工具，要確認會跳出核准，而且拒絕後確實什麼都沒做。
+   - 會寫入的工具，用測試資料確認寫對了，測完復原。
 4. **更新這份文件**：更新下面的表格，並在「紀錄」加一行。
 
 ## 目前的量測
@@ -203,7 +202,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | Hugging Face | 4 | 4 | 7,899 | 1,612 |
 | Cloudflare 文件 | 2 | 2 | 998 | 204 |
 
-**沒標成唯讀的工具，每次呼叫都要核准**，即使它只是讀資料。例如 DeepWiki 的 3 個工具，以及 Cloudflare 監控的查詢工具 `observability_keys`。
+工具有沒有標成唯讀（`readOnlyHint`）只影響對話恢復時會不會重跑：唯讀的可以重跑，其他的不會。
 
 ## 紀錄
 
@@ -213,6 +212,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
 | 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；`create_schedule.on` 改成必填，多一個 `time` 值（模型會把選填的 `on` 隨便填一個事件，例如 `wifi`，跟 `time` 衝突而失敗兩次）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
+| 2026-10-23 | 拿掉所有核准：工具、MCP、容器的 egress 都直接執行；`github_api`、`gcp_api`、`cloudflare_api`、`azure_api`、`sql` 拿掉只給核准框用的 `reason` 參數 | 介面改變：上面 5 個工具少一個參數 | S24：容器裡 clone、push 分支再刪掉，24 秒，沒有跳任何對話框；新增、列出、刪除排程加上電腦操控截圖，31 秒，同樣沒有對話框 |
 | 2026-10-23 | 評估 computer-use-mcp（電腦上的畫面操控，`computer://` 執行），不內建 | 1 個工具，4,108 字元（約 1,000 tokens），需要時載入 | 三個只能靠畫面完成的工作，GPT 6.1 Sol 和 Claude Opus 5.5 各兩次，全部答對；每題 28–170 秒、4–24 次模型呼叫、4–22 次核准（連截圖都要），截圖每張 2–7 秒，輸入 66k–373k tokens。核准次數、截圖速度、要有 Node 三點過不了日常使用；改成自己寫，達標才內建。細節和標準見 [research/computer-use-mcp-eval.md](research/computer-use-mcp-eval.md) |
 | 2026-10-22 | 系統提示加一句：同一輪要求的工具會同時執行，已知要查的都一起要求 | 多約 40 tokens | 先確認工具本來就能平行：沒有工具設成依序執行；12 個查詢類原生呼叫（行事曆、聯絡人、相片、通知、通話、簡訊、螢幕時間、健康、狀態、定位、HTTP、SQL）同時發出，總時間就是最慢那個（S24 1.3–1.4 秒）。改的是模型的習慣。模擬器、GPT 6.1 Sol、全新 Bot，每題前後各兩次，每輪要求幾個工具：「週末去台中：天氣、餐廳、行程」前後都是一輪 4 個（本來就會）；「比較 iPhone 17 和 Pixel 11」1-1-1、1-1-3 → 1-2-3、1-5、1-4（第一個搜尋仍單獨，之後一起），123／168 秒 → 136／107／128 秒；房貸範例 3-4-2-1-1-1、3-4-1-1 → 3-4-1-1 兩次，209／158 → 139／138 秒。S24（同模型）：台中 4-3、3-1（97／70 秒）→ 3-1、4（68／68 秒）；比較手機 1-1-4、1-3-3（154／142 秒）→ 1-3-1、1-1（93／87 秒）；房貸 3-4-2-1-1 兩次（170／126 秒）→ 3-4-1-1-1、3-4-1-1-1-1-1（141／152 秒，後者多抓了幾頁）。`web_search` 的說明縮短，不再重複這條規則 |
 | 2026-10-22 | `web_search` 的說明：一次 20–60 秒，獨立的搜尋在同一輪一起要求 | 定義多約 30 tokens | 搜尋本來就平行執行（pi-durable 預設 `toolExecution: "parallel"`），但模型幾乎都一次只搜一個。改後兩次範例都把三家銀行分開、同時搜尋：一次 3 個搜尋共 40 秒（之前一次一個，3 個共 126 秒）；另一次多搜了一輪，共 6 個、95 秒。總時間 192／118 秒（之前 194／119），兩次都查齊三家的一般利率和青安利率。也試過把搜尋換成較快的模型：`gpt-6-luna` 單次 23 秒（`gpt-6.1-sol` 48–55 秒），但查到的銀行比較少；`gpt-6-astra`、`gpt-5.6-luna`、`gpt-5.6-terra` 都不比較快；`reasoning.effort: low` 沒有變快。都沒有採用 |

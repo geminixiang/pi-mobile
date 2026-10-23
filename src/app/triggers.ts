@@ -1,5 +1,5 @@
 // The app side of triggers: take queued native events (fired schedules, shares from other apps) when the runtime is
-// ready, answer approvals from notifications, and open conversations from notification taps.
+// ready, and open conversations from notification taps.
 import { App } from "@capacitor/app";
 import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
 import { nativeTriggers, type QueuedEvent, takeEvents, Triggers } from "../agent/triggers.ts";
@@ -58,23 +58,6 @@ export function processTriggerEvents(
 	return () => {
 		void event.then((handle) => handle.remove());
 		void state.then((handle) => handle.remove());
-	};
-}
-
-const approvalListeners = new Map<string, (approved: boolean) => void>();
-if (nativeTriggers) {
-	void Triggers.addListener("approval", ({ id, approved }) => approvalListeners.get(id)?.(approved));
-}
-
-/** Ask with a notification that has allow and decline buttons; `answer` gets the button pressed. Returns the cancel. */
-export function askByNotification(title: string, answer: (approved: boolean) => void): () => void {
-	if (!nativeTriggers) return () => undefined;
-	const id = crypto.randomUUID();
-	approvalListeners.set(id, answer);
-	void Triggers.askApproval({ id, title: "pi 需要你確認", text: title });
-	return () => {
-		approvalListeners.delete(id);
-		void Triggers.cancelApproval({ id });
 	};
 }
 

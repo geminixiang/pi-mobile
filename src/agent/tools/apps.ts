@@ -1,5 +1,5 @@
 // Tools that hand work to other apps on the phone through Android intents. Most open a prefilled screen and the user
-// finishes there (press send, pick a share target), so they need no approval of their own. Calendars are in calendar.ts.
+// finishes there (press send, pick a share target), so pi does not send anything itself. Calendars are in calendar.ts.
 import { App } from "@capacitor/app";
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";

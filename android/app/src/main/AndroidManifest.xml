@@ -113,7 +113,7 @@
                 android:value="Runs the user's AI agent conversation to completion while the app is not in front." />
         </service>
 
-        <!-- Trigger alarms, approval answers from notifications, and re-arming alarms after reboot or clock changes. -->
+        <!-- Trigger alarms and re-arming alarms after reboot or clock changes. -->
         <receiver android:name=".TriggerReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

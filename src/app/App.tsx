@@ -1,6 +1,5 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { setConfirmListener } from "../agent/confirm.ts";
 import type { Bot } from "../agent/bots.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
@@ -25,8 +24,8 @@ import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { inForeground, notifyAway, setWorking, showWaiting } from "./keepAlive.ts";
-import { askByNotification, listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
+import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
+import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
@@ -41,8 +40,6 @@ const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
 /** Set once the database from before bots is gone (or was never there). */
 const LEGACY_DELETED_KEY = "pi-mobile.legacyDeleted";
-/** A tool's request asked while the user is away is declined when nobody answers for this long. */
-const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
@@ -59,13 +56,7 @@ export function App() {
 	const [pendingFiles, setPendingFiles] = useState<readonly File[]>();
 	const [pendingShared, setPendingShared] = useState<SharedKind>();
 	const [overlay, setOverlay] = useState<Overlay>();
-	// Questions wait in line: tools in one round can ask at once (each write approved), and one must not replace another
-	// unanswered, which left its tool waiting forever.
-	type Asked = { request: DialogRequest; resolve: (value: string | boolean | undefined) => void };
-	const [dialogs, setDialogs] = useState<Asked[]>([]);
-	const dialog = dialogs[0];
-	const showDialog = useCallback((asked: Asked) => setDialogs((queue) => [...queue, asked]), []);
-	const dropDialog = useCallback((resolve: Asked["resolve"]) => setDialogs((queue) => queue.filter((item) => item.resolve !== resolve)), []);
+	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
@@ -101,55 +92,10 @@ export function App() {
 	// Ask is overloaded (text prompts resolve a string, confirmations a boolean); one implementation serves both.
 	const ask = useCallback(
 		((request: DialogRequest) =>
-			new Promise<string | boolean | undefined>((resolve) => showDialog({ request, resolve }))) as Ask,
-		[showDialog],
+			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
+		[],
 	);
 
-	// Tools ask the user through the same dialog. While pi is away, also with a notification the user can answer
-	// without opening pi; whichever is answered first wins, and nobody answering for 30 minutes declines.
-	// Read when asked, so a changed setting applies without registering again.
-	const approvalAuth = useRef(false);
-	approvalAuth.current = settings?.approvalAuth ?? false;
-	useEffect(() => {
-		setConfirmListener(({ title, detail, grant }) => {
-			const request: DialogRequest = {
-				title: "允許這個操作？",
-				body: title,
-				detail,
-				confirm: "允許",
-				cancel: "拒絕",
-				...(grant ? { extra: "10 分鐘內都允許" } : {}),
-				modal: true,
-			};
-			const answerOf = (value: string | boolean | undefined) => (value === "extra" ? "grant" : value === true);
-			// With 核准時驗證 on, 允許 also takes the fingerprint (or the screen lock); failing it declines.
-			if (inForeground()) {
-				return (ask(request) as Promise<string | boolean | undefined>).then(async (value) => {
-					const approved = answerOf(value);
-					if (approved === false || !approvalAuth.current || !Capacitor.isNativePlatform()) return approved;
-					return (await System.authenticate({ title: "確認是你", subtitle: title })).ok ? approved : false;
-				});
-			}
-			return new Promise<boolean | "grant">((resolve) => {
-				let settled = false;
-				const answer = (approved: boolean | "grant") => {
-					if (settled) return;
-					settled = true;
-					clearTimeout(timer);
-					cancelNotification();
-					endWaiting();
-					dropDialog(answerDialog);
-					resolve(approved);
-				};
-				const answerDialog = (value: string | boolean | undefined) => answer(answerOf(value));
-				showDialog({ request, resolve: answerDialog });
-				const endWaiting = showWaiting(title);
-				const cancelNotification = askByNotification(detail ? `${title}\n${detail}` : title, answer);
-				const timer = setTimeout(() => answer(false), AWAY_APPROVAL_TIMEOUT_MS);
-			});
-		});
-		return () => setConfirmListener(undefined);
-	}, [ask, showDialog, dropDialog]);
 
 	const start = useCallback(
 		async (next: Settings) => {
@@ -382,9 +328,8 @@ export function App() {
 				<Dialog
 					request={dialog?.request}
 					onAnswer={(value) => {
-						if (!dialog) return;
-						dropDialog(dialog.resolve);
-						dialog.resolve(value);
+						dialog?.resolve(value);
+						setDialog(undefined);
 					}}
 				/>
 			</div>
@@ -633,9 +578,8 @@ export function App() {
 			<Dialog
 				request={dialog?.request}
 				onAnswer={(value) => {
-					if (!dialog) return;
-					dropDialog(dialog.resolve);
-					dialog.resolve(value);
+					dialog?.resolve(value);
+					setDialog(undefined);
 				}}
 			/>
 

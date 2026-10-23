@@ -98,8 +98,8 @@ function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer:
 					</button>
 				) : null}
 			</div>
-			{computer === direct ? <p className="hint host-mode">用 {host.user} 的身分操作這台電腦，不會先問你</p> : null}
-			{computer === container ? <p className="hint host-mode">在這台電腦的 Linux 容器裡，GitHub 和雲端的寫入先問你</p> : null}
+			{computer === direct ? <p className="hint host-mode">用 {host.user} 的身分操作這台電腦</p> : null}
+			{computer === container ? <p className="hint host-mode">在這台電腦的 Linux 容器裡，憑證留在手機上</p> : null}
 			<PrepareStatus preparing={preparing} />
 			<div className="row-buttons">
 				<button type="button" className="btn" onClick={onRemove}>

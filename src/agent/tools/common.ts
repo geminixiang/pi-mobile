@@ -1,13 +1,12 @@
 // What every app tool shares, so they behave alike to the model (docs/tools.md § 介面規範): how a tool is defined
-// (defineAppTool cleans the arguments models fill in), how times go in and out, and how results, refusals, and
-// declined approvals read.
+// (defineAppTool cleans the arguments models fill in), how times go in and out, and how results and refusals
+// read.
 import { Capacitor } from "@capacitor/core";
 import type { TSchema } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import type { JsonValue } from "@earendil-works/chord";
 import type { Static } from "typebox";
 import { Value } from "typebox/value";
-import { requestConfirmation } from "../confirm.ts";
 
 // ─── Definition ──────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -66,23 +65,6 @@ export const json = (value: unknown): ToolExecutionResult => text(JSON.stringify
 /** Throws unless pi runs as the Android app (in a browser the plugins are not there). */
 export function requireNative(): void {
 	if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
-}
-
-/**
- * Ask the user to approve an action (a dialog, or a notification while pi is away). Declined: the result tells the
- * model to say so in one sentence, `reply`, and stop; undefined when approved, so the tool goes on.
- */
-export async function approve(request: { title: string; detail: string }, reply: string): Promise<ToolExecutionResult | undefined> {
-	if (await requestConfirmation(request)) return undefined;
-	return {
-		output: [
-			{
-				type: "text",
-				text: `The user declined; nothing was done. Reply with one short sentence that says so, such as 「${reply}」; do not list what it would have been, offer alternatives, or ask why.`,
-			},
-		],
-		isError: true,
-	};
 }
 
 // ─── Times ───────────────────────────────────────────────────────────────────────────────────────────────────────

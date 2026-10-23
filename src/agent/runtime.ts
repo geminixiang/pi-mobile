@@ -782,11 +782,6 @@ export class AgentRuntime {
 		return this.#editTriggers((items) => items.map((item) => (item.id === id ? { ...item, enabled } : item)));
 	}
 
-	/** Add a schedule as approved, without asking: for tests on a device, where approvals are always declined. */
-	addTrigger(trigger: Trigger): Promise<void> {
-		return this.#editTriggers((items) => [...items.filter((item) => item.id !== trigger.id), trigger]);
-	}
-
 	deleteTrigger(id: string): Promise<void> {
 		return this.#editTriggers((items) => items.filter((item) => item.id !== id));
 	}

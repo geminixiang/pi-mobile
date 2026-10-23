@@ -2,21 +2,19 @@
 // whatever structured records the user wants kept and counted (expenses, a reading list, a weight log), in tables
 // they design. The prompt lists the tables, so a bot reuses one another bot made instead of starting its own.
 //
-// Statements that delete data (DROP, DELETE) ask the user first; creating, inserting, and updating do not. ATTACH,
-// DETACH, and VACUUM INTO are refused: they would reach files outside the database.
+// ATTACH, DETACH, and VACUUM INTO are refused: they would reach files outside the database.
 import { Capacitor } from "@capacitor/core";
 import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
-import { approve, defineAppTool, requireNative } from "./common.ts";
+import { defineAppTool, requireNative } from "./common.ts";
 
 /** The statement's words outside string literals, quoted names, and comments, upper-cased. */
 function keywords(sql: string): string {
 	return sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g, " ").toUpperCase();
 }
 
-const DESTRUCTIVE = /\b(DROP|DELETE)\b/;
 const REFUSED = /\b(ATTACH|DETACH)\b|\bVACUUM\s+INTO\b/;
 
 function format(result: StatementResult, index: number): string {
@@ -33,7 +31,6 @@ const sql = defineAppTool({
 	description: [
 		"Run SQLite statements on the user's own database on the phone, all in one transaction (all apply or none). Keep there what the user wants recorded and counted: expenses, logs, lists, collections.",
 		"Use ? placeholders with params rather than pasting values. Queries return their rows; aggregate in SQL (SUM, GROUP BY) or in codemode rather than reading whole tables.",
-		"DROP and DELETE ask the user first.",
 	].join(" "),
 	parameters: Type.Object({
 		statements: Type.Array(
@@ -43,7 +40,6 @@ const sql = defineAppTool({
 			}),
 			{ minItems: 1 },
 		),
-		reason: Type.Optional(Type.String({ description: "For DROP or DELETE: one sentence shown to the user in the confirmation dialog" })),
 	}),
 	// Scripts get each query's rows as objects keyed by column.
 	structuredOutputSchema: Type.Object({
@@ -59,18 +55,6 @@ const sql = defineAppTool({
 		requireNative();
 		const words = args.statements.map((statement) => keywords(statement.sql));
 		if (words.some((word) => REFUSED.test(word))) throw new Error("ATTACH, DETACH, and VACUUM INTO are not allowed: the database is one file");
-		if (words.some((word) => DESTRUCTIVE.test(word))) {
-			const declined = await approve(
-				{
-					title: "刪除資料庫裡的資料",
-					detail: [args.reason, ...args.statements.map((statement) => `${statement.sql}${statement.params?.length ? `\n  ${JSON.stringify(statement.params)}` : ""}`)]
-						.filter(Boolean)
-						.join("\n\n"),
-				},
-				"好，不刪。",
-			);
-			if (declined) return declined;
-		}
 		const { results } = await Database.execute({ statements: args.statements });
 		const structured = results.map((result): JsonValue =>
 			result.columns && result.rows

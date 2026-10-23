@@ -4,17 +4,11 @@ import { Layer } from "./Sheet.tsx";
 export interface DialogRequest {
 	title: string;
 	body?: string;
-	/** Monospace detail, such as a request body to approve. */
-	detail?: string;
 	confirm: string;
 	cancel?: string;
-	/** A third answer between cancel and confirm; choosing it resolves "extra". */
-	extra?: string;
 	danger?: boolean;
 	/** Present for a text prompt: the initial value. */
 	input?: string;
-	/** The back gesture and backdrop do not dismiss it; an explicit answer is required. */
-	modal?: boolean;
 }
 
 /** In-app replacement for confirm() and prompt(): resolves true/false, or the entered text (undefined if cancelled). */
@@ -35,13 +29,12 @@ export function Dialog({ request, onAnswer }: { request: DialogRequest | undefin
 	const cancel = () => onAnswer(prompt ? undefined : false);
 	const accept = () => onAnswer(prompt ? value.trim() || undefined : true);
 	return (
-		<Layer open={Boolean(request)} kind="dialog" onClose={cancel} modal={request?.modal} label={request?.title}>
+		<Layer open={Boolean(request)} kind="dialog" onClose={cancel} label={request?.title}>
 			<header className="strip">
 				<span className="strip-title">{request?.title}</span>
 			</header>
 			<div className="dialog-body">
 				{request?.body ? <p>{request.body}</p> : null}
-				{request?.detail ? <pre className="console">{request.detail}</pre> : null}
 				{prompt ? (
 					<input
 						ref={field}
@@ -56,11 +49,6 @@ export function Dialog({ request, onAnswer }: { request: DialogRequest | undefin
 				<button type="button" className="btn" onClick={cancel}>
 					{request?.cancel ?? "取消"}
 				</button>
-				{request?.extra ? (
-					<button type="button" className="btn" onClick={() => onAnswer("extra")}>
-						{request.extra}
-					</button>
-				) : null}
 				<button type="button" className={`btn ${request?.danger ? "danger" : "primary"}`} onClick={accept}>
 					{request?.confirm}
 				</button>

@@ -65,7 +65,7 @@ public class KeepAlivePlugin extends Plugin {
         call.resolve();
     }
 
-    /** A dismissable notification, for "done" or "needs your approval" while the app is not in front. */
+    /** A dismissable notification, for "done" while the app is not in front. */
     @PluginMethod
     public void notify(PluginCall call) {
         AgentService.createChannels(getContext());

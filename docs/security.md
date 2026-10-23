@@ -9,10 +9,10 @@
 | 容器裡的檔案 | 電腦上共用容器的 volume，每個 Bot 一個資料夾；清空資料夾或刪除 Bot 會刪掉它的資料夾 |
 | 電腦的連線 | 沒有金鑰或密碼：電腦上的 pi-mobile 只接受同一個 Tailscale 使用者的裝置 |
 
-- 所有 GitHub、Google Cloud、Cloudflare、Azure 的寫入都要在手機上核准，包括 sandbox 裡的 git、gh、gcloud、cf、wrangler、az，以及手機上的 `github_api` 工具。
+- **Bot 做事不會先問你**：push、開 PR、改雲端資源、刪資料庫、回覆訊息、改行事曆、建排程、呼叫 MCP 服務，都直接執行。Bot 讀的網頁、通知、email、issue 是別人寫的，裡面的指令可能被照做（提示注入）。所以只給 Bot 你放心讓它用的工具組和權限。
 - App 允許明文 HTTP（`network_security_config.xml`），因為自架的模型 gateway 和電腦上的 pi-mobile 都只透過 Tailscale 連線，WireGuard 已經加密。
 - Bot 共用一個容器，所以一個 Bot 讀得到其他 Bot 的資料夾；它被要求只寫在自己的資料夾，但這只是提示，不是隔離。
-- 「直接」的指令以你的帳號在電腦上執行，沒有 egress proxy，也沒有寫入核准，用的是電腦自己的登入。
+- 「直接」的指令以你的帳號在電腦上執行，沒有 egress proxy，用的是電腦自己的登入。
 - 電腦上的 pi-mobile 只聽電腦的 Tailscale 位址（不聽區域網路），每個請求都用 `tailscale whois` 確認是你同一個 Tailscale 帳號的裝置，tagged 裝置和瀏覽器網頁（`Origin`）一律拒絕。所以能進入你 tailnet、又登入你帳號的裝置，都能操作這台電腦：手機遺失時，到 Tailscale 後台移除它。
 - 能登入電腦那個帳號的人，可以讀到 egress 的 CA 私鑰，以及正在使用的短效 token。
 - 發布版關閉 WebView 遠端除錯。開發版（`build-android.sh`）是開著的：能用 adb 連上手機的人可以操作 app。
@@ -31,7 +31,6 @@
 - 排程觸發時如果 pi 已經被系統清掉，要點通知才會開始執行，不會自己在背景跑。
 - 背景觸發的 run 不能要求新的權限（定位、行事曆），要先在前景用過一次授權。
 - 戴耳機觸發時如果 pi 已經被系統清掉，一樣要點通知才會開始，所以不一定能「一戴上就聽到」。
-- 核准：可以在「設定 › 帳號 › 核准時驗證」要求按「允許」後再驗證指紋、臉或螢幕鎖，驗證失敗就當作拒絕。pi 不在前景時用通知核准，鎖屏上按「允許」一律要先解鎖手機，拿到手機的人不能替你核准。
 - 螢幕使用時間和數位助理是 Android 的「受限制的設定」：不是從 Play 商店裝的 app，要先在 pi mobile 的應用程式資訊頁按「⋮ › 允許受限制的設定」才能打開。
 - 通話紀錄和簡訊在 Google Play 只開放給預設的電話和簡訊 app；pi 是自己安裝的，所以是一般的執行期權限。
 - 附件只讀 PDF、Word（docx）、Excel（xlsx）、CSV 和純文字；舊版 doc、xls 和 PowerPoint 不支援。分享單一檔案最大 20 MB。

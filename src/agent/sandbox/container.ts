@@ -1,13 +1,12 @@
 // Containers on one of the user's computers (docs/design/computer-host.md): one shared by all bots, behind the egress
 // proxy, driven by the phone with the engine's CLI (docker, podman, or nerdctl; only the subset they share) through
 // pi-mobile serve's command channel. The proxy reaches the phone through bridge.py on such a channel, so no credential
-// is stored on the computer: it asks the phone for a token, and the phone asks the user before a write.
+// is stored on the computer: it asks the phone for a token.
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
 import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
 import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
 import { log } from "../../log.ts";
-import { requestConfirmation } from "../confirm.ts";
 import type { AccessToken } from "../oauth.ts";
 import { daemon, ENV_PATH, shellQuote } from "./daemon.ts";
 import type { OpenDaemon } from "./stream-connection.ts";
@@ -26,7 +25,6 @@ const MAX_RUNNING = 6;
 const CPUS = "2";
 const MEMORY = "2g";
 const PIDS = "512";
-const APPROVAL_TIMEOUT_MS = 5 * 60_000;
 /** bridge.py exits after 35 seconds without hearing from the phone, so another phone can take over. */
 const BRIDGE_PING_MS = 10_000;
 const BRIDGE_PATH = "/tmp/pi-mobile-bridge.py";
@@ -311,33 +309,20 @@ export class ContainerHost {
 		send({ type: "result", id: message.id, result });
 	}
 
-	/** The answer to the proxy: a token for reads, and for writes the user approved on the phone. */
+	/** The answer to the proxy: a token for the service, or why there is none. */
 	async #authorize(body: unknown, credentials: Credentials): Promise<{ token?: string; reason?: string }> {
 		const field = (key: string): unknown => (typeof body === "object" && body !== null && key in body ? Reflect.get(body, key) : undefined);
 		const service = String(field("service") ?? "github");
-		const write = field("write") === true;
-		const title = String(field("title") ?? "");
-		const detail = String(field("detail") ?? "");
 		const scope = String(field("scope") ?? "");
-		const token = async (): Promise<{ token?: string; reason?: string }> => {
-			if (service === "github") return credentials.githubToken ? { token: credentials.githubToken } : { reason: "手機沒有設定 GitHub token" };
-			const label = MINTED_LABELS[service] ?? service;
-			const source = credentials.minted[service];
-			if (!source) return { reason: `手機沒有設定 ${label} 憑證` };
-			try {
-				return { token: (await source.get(scope || undefined)).token };
-			} catch (error) {
-				return { reason: `取得 ${label} token 失敗：${error instanceof Error ? error.message : String(error)}` };
-			}
-		};
-		const read = await token();
-		if (!read.token || !write) return read;
-		// One sandbox serves every bot, so the request is not attributed to one.
-		const approved = await Promise.race([
-			requestConfirmation({ title, detail: ["來自 sandbox", detail].filter(Boolean).join("\n\n") }),
-			new Promise<boolean>((resolve) => setTimeout(() => resolve(false), APPROVAL_TIMEOUT_MS)),
-		]);
-		return approved ? read : { reason: "使用者拒絕了這個寫入" };
+		if (service === "github") return credentials.githubToken ? { token: credentials.githubToken } : { reason: "手機沒有設定 GitHub token" };
+		const label = MINTED_LABELS[service] ?? service;
+		const source = credentials.minted[service];
+		if (!source) return { reason: `手機沒有設定 ${label} 憑證` };
+		try {
+			return { token: (await source.get(scope || undefined)).token };
+		} catch (error) {
+			return { reason: `取得 ${label} token 失敗：${error instanceof Error ? error.message : String(error)}` };
+		}
 	}
 
 	// ---------- Sandboxes ----------
