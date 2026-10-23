@@ -1,15 +1,3 @@
-"""mitmproxy addon: GitHub, Google Cloud, Cloudflare, and Azure credentials for sandbox containers without putting
-them in them.
-
-Sandboxes send all HTTP(S) through this proxy. Only HTTPS to the hosts below gets credentials, and only TLS to them is
-intercepted (see --allow-hosts in the Dockerfile); everything else passes through untouched. The addon drops any
-Authorization the sandbox sent (the CLIs' placeholder tokens), asks the phone (through bridge.py) for a token, and
-injects it: the user's GitHub token, or a short-lived access token the phone minted for Google Cloud, Cloudflare, or
-Azure (az signs in as a managed identity served by the bridge with placeholder tokens; the proxy asks for a token for
-the host's resource, one per scope). Without a connected phone, GitHub requests go out anonymously and the others are
-refused.
-"""
-
 import asyncio
 import base64
 import json
@@ -68,7 +56,7 @@ def set_token(request, host, token):
 
 class Credentials:
     def __init__(self):
-        self.tokens = {}  # (service, client IP, scope) -> (token or None, expiry)
+        self.tokens = {}
 
     async def token(self, client, service="github", scope=""):
         cached = self.tokens.get((service, client, scope))
@@ -82,7 +70,6 @@ class Credentials:
         return token
 
     async def minted(self, flow, client, service, label, error_body, scope=""):
-        """Services whose token the phone mints: swap the placeholder, or refuse without one."""
         flow.request.headers.pop("Authorization", None)
         token = await self.token(client, service, scope)
         if token:

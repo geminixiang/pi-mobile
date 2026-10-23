@@ -1,5 +1,3 @@
-// Creating a bot, or editing one: its name and its job, the part of its system prompt that says what it is for. From
-// an existing bot also its own MEMORY.md and deleting it. Edits save when the sheet closes; creating is a button.
 import { useEffect, useState } from "react";
 import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
 import { MemoryIcon, TrashIcon } from "./icons.tsx";
@@ -22,9 +20,7 @@ export function BotSheet({
 	onClose,
 }: {
 	edit: BotEdit | undefined;
-	/** All bots, so a new one starts with an avatar nobody has. */
 	bots: readonly Bot[];
-	/** The last bot cannot be deleted. */
 	canDelete: boolean;
 	onSave: (change: { name: string; job: string; avatar: string }) => Promise<void>;
 	onMemory: (bot: Bot) => void;
@@ -41,13 +37,10 @@ export function BotSheet({
 		setJob(edit.kind === "edit" ? edit.bot.job : "");
 		setAvatar(edit.kind === "edit" ? avatarOf(edit.bot) : freeAvatar(bots));
 		setSaving(false);
-		// Only when the sheet opens for another bot: a list update must not reset the form.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [edit]);
 	const bot = edit?.kind === "edit" ? edit.bot : undefined;
 	const changed = !bot || name.trim() !== bot.name || job.trim() !== bot.job || avatar !== avatarOf(bot);
 	const valid = Boolean(name.trim()) && job.length <= MAX_JOB;
-	/** Leave an edited bot: save what changed, then go on. */
 	const leave = (next: () => void) => () => {
 		if (bot && changed) {
 			if (valid) void onSave({ name, job, avatar });

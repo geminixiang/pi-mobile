@@ -1,15 +1,10 @@
-// The cloud sign-ins in Settings › 帳號: Google's consent page with a code to copy back, and the device code flow that
-// Cloudflare and Microsoft use.
 import { App } from "@capacitor/app";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
 import { System } from "../system-plugin.ts";
+import { messageOf, orLogged } from "../promise.ts";
 
-/**
- * Sign in with Google: opens Google's consent page in the browser; its last page shows an authorization code. When the
- * user copies it and comes back, the app finds it on the clipboard; pasting by hand works too.
- */
 export function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
 	const [signIn, setSignIn] = useState<GoogleSignIn>();
 	const [code, setCode] = useState("");
@@ -24,7 +19,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 			setCode("");
 			setState({ kind: "idle" });
 		} catch (error) {
-			setState({ kind: "failed", error: error instanceof Error ? error.message : String(error) });
+			setState({ kind: "failed", error: messageOf(error) });
 		}
 	};
 	const finishRef = useRef(finish);
@@ -33,9 +28,8 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 	useEffect(() => {
 		if (!signIn) return;
 		const listener = App.addListener("resume", async () => {
-			// Android only lets the focused app read the clipboard, and focus arrives a moment after resume.
 			await new Promise((resolve) => setTimeout(resolve, 400));
-			const { text } = await System.clipboardText().catch(() => ({ text: "" }));
+			const { text } = await orLogged(System.clipboardText(), "sign_in.clipboard_unreadable", { text: "" });
 			if (looksLikeAuthCode(text)) {
 				setCode(text.trim());
 				void finishRef.current(text);
@@ -82,10 +76,6 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 	);
 }
 
-/**
- * A device code flow: show the code, open the provider's page, and poll until the user approves it there. With
- * copyCode the code is on the clipboard too, for a page that asks for it (Microsoft's).
- */
 export function DeviceSignInPanel({
 	provider,
 	start,
@@ -109,7 +99,7 @@ export function DeviceSignInPanel({
 		try {
 			const next = await start();
 			setSignIn(next);
-			if (copyCode) await navigator.clipboard.writeText(next.userCode).catch(() => undefined);
+			if (copyCode) await orLogged(navigator.clipboard.writeText(next.userCode), "sign_in.clipboard_unwritable", undefined);
 			const controller = new AbortController();
 			abort.current = controller;
 			await System.openExternal({ url: next.url });
@@ -117,7 +107,7 @@ export function DeviceSignInPanel({
 			setSignIn(undefined);
 		} catch (failure) {
 			setSignIn(undefined);
-			if (!abort.current?.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure));
+			if (!abort.current?.signal.aborted) setError(messageOf(failure));
 		}
 	};
 

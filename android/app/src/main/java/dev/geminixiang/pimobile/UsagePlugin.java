@@ -1,10 +1,10 @@
 package dev.geminixiang.pimobile;
 
+import android.content.pm.ResolveInfo;
 import android.app.AppOpsManager;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageStatsManager;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Process;
@@ -22,11 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Screen time: how long each app was in front between two times, from UsageStatsManager's events (resumed to paused),
- * which is what Digital Wellbeing counts, rather than its daily totals that follow UTC days. Needs usage access, which
- * the user turns on in system settings.
- */
 @CapacitorPlugin(name = "Usage")
 public class UsagePlugin extends Plugin {
 
@@ -54,7 +49,6 @@ public class UsagePlugin extends Plugin {
         call.resolve();
     }
 
-    /** Per app, the time in front between `from` and `to` (ms), longest first; and how many times the screen was unlocked. */
     @PluginMethod
     public void apps(PluginCall call) {
         if (!allowed()) {
@@ -88,7 +82,6 @@ public class UsagePlugin extends Plugin {
                 case UsageEvents.Event.KEYGUARD_HIDDEN:
                     unlocks++;
                     break;
-                // The screen went off: whatever was in front stops counting, even if its pause never came.
                 case UsageEvents.Event.SCREEN_NON_INTERACTIVE:
                     for (Map.Entry<String, Long> open : started.entrySet()) total.merge(open.getKey(), event.getTimeStamp() - open.getValue(), Long::sum);
                     started.clear();
@@ -97,26 +90,19 @@ public class UsagePlugin extends Plugin {
                     break;
             }
         }
-        // Still in front at `to`.
         for (Map.Entry<String, Long> open : started.entrySet()) total.merge(open.getKey(), to - open.getValue(), Long::sum);
         PackageManager manager = getContext().getPackageManager();
+        Map<String, String> launcherLabels = new HashMap<>();
+        for (ResolveInfo launcher : manager.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)) {
+            launcherLabels.put(launcher.activityInfo.packageName, launcher.loadLabel(manager).toString());
+        }
         List<Map.Entry<String, Long>> sorted = new ArrayList<>(total.entrySet());
         sorted.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
         JSArray items = new JSArray();
         for (Map.Entry<String, Long> entry : sorted) {
-            // Under a minute is passing through (a share sheet, a notification tap), not use.
             if (entry.getValue() < 60_000) continue;
-            String label = entry.getKey();
-            boolean launcher = false;
-            try {
-                ApplicationInfo info = manager.getApplicationInfo(entry.getKey(), 0);
-                label = manager.getApplicationLabel(info).toString();
-                launcher = manager.getLaunchIntentForPackage(entry.getKey()) != null;
-            } catch (PackageManager.NameNotFoundException ignored) {
-                // An app since removed: its package name.
-            }
-            // The home screen and system UI are not "apps the user used".
-            if (!launcher || entry.getKey().equals(homePackage())) continue;
+            String label = launcherLabels.get(entry.getKey());
+            if (label == null || entry.getKey().equals(homePackage())) continue;
             JSObject item = new JSObject();
             item.put("package", entry.getKey());
             item.put("app", label);

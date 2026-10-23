@@ -1,14 +1,4 @@
 #!/bin/sh
-# Install pi-mobile on a computer: the pi mobile app on your phone can then operate it over Tailscale, as you.
-#   curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
-# It listens on this computer's Tailscale address only and answers only devices of your own Tailscale account.
-# `pi-mobile serve` runs as you, at login (launchd on macOS, systemd --user on Linux). Remove: the same command with
-# `-s uninstall`.
-#
-# On macOS it is an app, ~/Applications/pi-mobile.app, so the system's permission questions and the lists in System
-# Settings show its name and icon; and it is signed with a local identity made here once and kept in its own keychain
-# under ~/.pi/mobile, so an update is the same app to macOS and keeps what the user allowed
-# (docs/research/macos-automation.md).
 set -eu
 
 REPO="geminixiang/pi-mobile"
@@ -63,12 +53,9 @@ done
 TAILSCALE_BE_CLI=1 "$tailscale" status --json --peers=false 2>/dev/null | grep -q '"DNSName": *"[^"]' || fail "Tailscale 沒有連上：打開 Tailscale 登入後再執行一次"
 
 say "安裝 pi-mobile"
-# The latest release: pi-mobile for computers ships with the app, built from the same commit (release.yml).
 release="https://github.com/$REPO/releases/latest/download"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-# <asset> <file> [url]: from the release, checked against its checksums; a URL given (PI_MOBILE_URL, a build to test)
-# is taken as is. Fails without exiting, for the caller to decide.
 fetch() {
 	url="${3:-$release/$1}"
 	curl -fsSL "$url" -o "$2" || return 1
@@ -82,8 +69,6 @@ chmod 755 "$tmp/pi-mobile"
 version=$("$tmp/pi-mobile" version 2>/dev/null) || fail "下載的 pi-mobile 無法執行"
 step "下載 ${version}（${os} ${arch}）"
 
-# The signing identity: a self-signed code signing certificate in a keychain of its own, made once. Its password stays
-# next to it, so signing needs no prompt; the login keychain and its search list are not touched.
 sign() {
 	keychain="$SIGNING/pi-mobile.keychain-db"
 	if [ ! -f "$keychain" ]; then
@@ -91,7 +76,6 @@ sign() {
 		chmod 700 "$SIGNING"
 		/usr/bin/openssl rand -hex 24 > "$SIGNING/password"
 		chmod 600 "$SIGNING/password"
-		# macOS's own openssl (LibreSSL): Homebrew's OpenSSL 3 writes a PKCS#12 that `security` cannot read.
 		/usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 7300 -subj "/CN=$IDENTITY" \
 			-addext "basicConstraints=critical,CA:false" -addext "keyUsage=critical,digitalSignature" \
 			-addext "extendedKeyUsage=critical,codeSigning" -keyout "$tmp/key.pem" -out "$tmp/cert.pem" 2>/dev/null
@@ -102,7 +86,6 @@ sign() {
 		security import "$tmp/id.p12" -k "$keychain" -P p -T /usr/bin/codesign >/dev/null
 		security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$(cat "$SIGNING/password")" "$keychain" >/dev/null
 	fi
-	# Locked, codesign would ask for the password in a dialog.
 	security unlock-keychain -p "$(cat "$SIGNING/password")" "$keychain"
 	codesign --force --sign "$IDENTITY" --keychain "$keychain" "$1" 2>/dev/null
 	security lock-keychain "$keychain"
@@ -114,7 +97,6 @@ if [ "$os" = darwin ]; then
 	rm -rf "$APP.new"
 	mkdir -p "$APP.new/Contents/MacOS" "$APP.new/Contents/Resources"
 	mv "$tmp/pi-mobile" "$APP.new/Contents/MacOS/pi-mobile"
-	# Without the icon it still works, without a picture.
 	fetch pi-mobile.icns "$APP.new/Contents/Resources/pi-mobile.icns" "${PI_MOBILE_ICON_URL:-}" || rm -f "$APP.new/Contents/Resources/pi-mobile.icns"
 	cat > "$APP.new/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -187,11 +169,9 @@ EOF
 	fi
 fi
 
-# Asked as the phone will: over this computer's Tailscale address, which it answers for its own user.
 "$BIN" status >/dev/null 2>&1 || fail "pi-mobile 裝好了，但沒有回應。看狀態：$BIN status，紀錄：tail $DIR/pi-mobile.log"
 step "啟動，只聽 Tailscale"
 
-# serve asks for each permission as it starts, one after another; follow it, a line per answer.
 state() { "$BIN" status 2>/dev/null | sed -n "s/^Permission $1: \\([a-z]*\\).*/\\1/p"; }
 name() {
 	case "$1" in
@@ -226,7 +206,6 @@ permissions() {
 				esac
 				shown=1
 			fi
-			# The system's question has a button to the setting; in case it was closed, open the setting too.
 			[ "$key" = accessibility ] && [ "$waited" -eq 20 ] && settings accessibility
 			[ "$waited" -ge 200 ] && break
 			sleep 1
@@ -239,7 +218,6 @@ permissions() {
 			missing="$missing $key"
 		fi
 	done
-	# Screen Recording applies only to a process started after it is granted: have the user turn it on, then restart.
 	case "$missing" in
 		*screen*)
 			if [ -r /dev/tty ]; then

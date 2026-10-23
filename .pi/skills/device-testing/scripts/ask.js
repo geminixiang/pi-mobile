@@ -1,6 +1,3 @@
-// Ask the open bot something in natural words, as a user would; print the tools it called, the answer, and the
-// seconds it took.
-// Usage: CDP_PORT=<port> node ask.js "<question>"
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +5,8 @@ const question = process.argv[2];
 if (!question) throw new Error('usage: CDP_PORT=<port> node ask.js "<question>"');
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const script = `async () => {
+	const current = (await window.piRuntime.bots()).find((bot) => bot.id === window.piController.id);
+	if (!current || !/^(test|tmp|測試)/i.test(current.name)) throw new Error("ask.js asks only a test bot (name starting test, tmp, or 測試); the open bot is " + (current ? current.name : "none"));
 	type(${JSON.stringify(question)}); await sleep(300);
 	const t0 = performance.now();
 	click('送出');

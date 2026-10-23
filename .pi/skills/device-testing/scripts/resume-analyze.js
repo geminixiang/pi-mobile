@@ -1,6 +1,3 @@
-// Main-thread work around the return in a resume-trace.js trace: top-level tasks over a threshold (ms from the last
-// visibilitychange), each with what took its time, then when the first frames were drawn.
-// Usage: node resume-analyze.js trace.json [min ms, default 8]
 import { readFileSync } from "node:fs";
 const [file, minMs = "8"] = process.argv.slice(2);
 const { traceEvents: ev } = JSON.parse(readFileSync(file, "utf8"));
@@ -23,6 +20,5 @@ for (const t of tasks) {
 	const top = [...by].sort((a, b) => b[1] - a[1]).slice(0, 7).map(([k, d]) => `${k} ${(d / 1000).toFixed(1)}`);
 	console.log(`${((t.ts - t0) / 1000).toFixed(0).padStart(6)} ms  ${(t.dur / 1000).toFixed(1).padStart(6)} ms  ${top.join(" | ")}`);
 }
-// Frames the compositor drew after the return
 const draws = ev.filter((e) => e.name === "DrawFrame" || e.name === "Graphics.Pipeline" && e.args?.step === "SubmitCompositorFrame").map((e) => e.ts).filter((t) => t > t0).sort((a, b) => a - b);
 console.log("first frames after visible (ms):", draws.slice(0, 8).map((t) => ((t - t0) / 1000).toFixed(0)).join(" "));

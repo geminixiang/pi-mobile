@@ -1,13 +1,8 @@
-// Read-only view of a conversation's sandbox for the app: browse its folder, read files, and inspect git
-// repositories (changes against HEAD and recent commits). Everything runs through the same pi-env connection the
-// agent's tools use.
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ExecutionEnv, FileInfo } from "@earendil-works/pi-durable/env";
 
 const context = BACKGROUND_CONTEXT;
-/** The conversation's folder in a container sandbox. */
 export const WORKSPACE = "/workspace";
-/** Larger files are cut; the viewer says so. */
 const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_DIFF_CHARS = 1_500_000;
@@ -28,7 +23,6 @@ export type FileContent =
 	| { kind: "binary"; size: number };
 
 export interface Change {
-	/** Two-letter porcelain status, e.g. " M", "A ", "??". */
 	status: string;
 	path: string;
 	added?: number;
@@ -43,10 +37,8 @@ interface Commit {
 }
 
 export interface RepoStatus {
-	/** Absolute path of the work tree. */
 	path: string;
 	branch: string;
-	/** Commits ahead of and behind the upstream, when there is one. */
 	ahead: number;
 	behind: number;
 	changes: Change[];
@@ -68,7 +60,6 @@ function looksBinary(bytes: Uint8Array): boolean {
 
 export class Workspace {
 	readonly #env: ExecutionEnv;
-	/** The conversation's folder: /workspace in a container, a folder in the user's home on a trusted machine. */
 	readonly root: string;
 
 	constructor(env: ExecutionEnv, root: string) {
@@ -96,22 +87,18 @@ export class Workspace {
 			if (!bytes.ok) throw bytes.error;
 			return { kind: "image", url: URL.createObjectURL(new Blob([bytes.value as Uint8Array<ArrayBuffer>], { type })), size };
 		}
-		// Read only the head of large files: the viewer is for looking, not for loading whole logs.
-		// `base64 | tr` rather than GNU's `base64 -w0`: a trusted machine may be a Mac.
 		const head = await this.#exec(`head -c ${MAX_TEXT_BYTES} -- ${quote(path)} | base64 | tr -d '\\n'`);
 		const bytes = Uint8Array.from(atob(head.stdout.trim()), (char) => char.charCodeAt(0));
 		if (looksBinary(bytes)) return { kind: "binary", size };
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > MAX_TEXT_BYTES, size };
 	}
 
-	/** A whole file's bytes, to hand to another app. */
 	async bytes(path: string): Promise<Uint8Array> {
 		const result = await this.#env.readBinaryFile(path, context);
 		if (!result.ok) throw result.error;
 		return result.value;
 	}
 
-	/** Git work trees under the root, up to three levels deep. */
 	async repos(): Promise<string[]> {
 		const found = await this.#exec(
 			`find ${quote(this.root)} -maxdepth 4 -name .git -not -path '*/node_modules/*' -prune -print 2>/dev/null | sort`,
@@ -124,7 +111,6 @@ export class Workspace {
 
 	async status(repo: string): Promise<RepoStatus> {
 		const git = `git -C ${quote(repo)} -c core.quotePath=false`;
-		// One round trip: sections separated by marker lines.
 		const out = await this.#exec(
 			[
 				`${git} status --porcelain=v1 -b --untracked-files=all`,
@@ -166,7 +152,6 @@ export class Workspace {
 		};
 	}
 
-	/** Unified diff of one changed file against HEAD; untracked files show as all added. */
 	async diff(repo: string, change: Change): Promise<string> {
 		const git = `git -C ${quote(repo)} -c core.quotePath=false`;
 		const command =
@@ -176,7 +161,6 @@ export class Workspace {
 		return (await this.#exec(command)).stdout;
 	}
 
-	/** A commit's message and patch. */
 	async show(repo: string, hash: string): Promise<string> {
 		const git = `git -C ${quote(repo)} -c core.quotePath=false`;
 		return (await this.#exec(`${git} show --no-color --no-ext-diff --format='%H%n%an <%ae>%n%ad%n%n%B' ${quote(hash)}`)).stdout;

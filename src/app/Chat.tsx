@@ -1,19 +1,20 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { BusyMode, ConversationController, ConversationId, SubmissionId } from "../agent/runtime.ts";
+import type { ConversationController } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY } from "../agent/triggers.ts";
 import { parseAttachment } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon } from "./icons.tsx";
-import { type Block, type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
+import { type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import { TranscriptSkeleton } from "./Skeleton.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
+import { messageOf } from "../promise.ts";
 
 export interface Capabilities {
 	sandbox: boolean;
@@ -35,14 +36,11 @@ function text(content: unknown): string {
 interface Suggestion {
 	title: string;
 	prompt: string;
-	/** Opens the photo picker as well, for prompts that need an image. */
 	image?: boolean;
 }
 
-/** What was shared from another app: photos only, other files, or only text. */
 export type SharedKind = "image" | "file" | "text" | "screen";
 
-/** What to do with something shared from another app; picked, it goes before the shared text in the composer. */
 function shareActions(kind: SharedKind): Suggestion[] {
 	if (kind === "screen") {
 		return [
@@ -73,8 +71,6 @@ function shareActions(kind: SharedKind): Suggestion[] {
 
 function suggestions(capabilities: Capabilities): Suggestion[] {
 	return [
-		// Whole jobs rather than single tools: research handed back as a file, something watched on a schedule, the
-		// user's own calendar, a record kept over time.
 		{ title: "比較後做成表格", prompt: "比較 iPhone 17 和 Pixel 11 現在的售價、相機和電池，整理成表格檔傳給我" },
 		{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" },
 		{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" },
@@ -83,7 +79,6 @@ function suggestions(capabilities: Capabilities): Suggestion[] {
 	];
 }
 
-/** Whether the agent is working in this view. */
 export function isBusy(view: ConversationView | undefined): boolean {
 	return Boolean(liveOf(view)?.run);
 }
@@ -105,9 +100,7 @@ export function Chat({
 	capabilities: Capabilities;
 	initialDraft?: string;
 	initialFiles?: readonly File[];
-	/** Opened with something shared from another app: suggest what to do with it instead of the general examples. */
 	shared?: SharedKind;
-	/** Changes when the composer should take focus, such as after starting a new conversation. */
 	focusKey: number;
 	onError: (message: string) => void;
 	onNotice: (message: string) => void;
@@ -115,7 +108,6 @@ export function Chat({
 }) {
 	const [view, setView] = useState<ConversationView>();
 	const conversationId = String(controller.id);
-	// What was written here before, and a share's text after it.
 	const [draft, setDraft] = useState(() => [loadDraftText(conversationId), initialDraft].filter(Boolean).join("\n\n"));
 	useEffect(() => saveDraftText(conversationId, draft), [conversationId, draft]);
 	const [actionsFor, setActionsFor] = useState<EntryRecord>();
@@ -138,7 +130,6 @@ export function Chat({
 		if (focusKey || initialDraft) setComposerFocus((key) => key + 1);
 	}, [focusKey, initialDraft]);
 
-	// Follow new output only while the user is at the bottom, so scrolling back to read is not interrupted.
 	useLayoutEffect(() => {
 		const element = scroller.current;
 		if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
@@ -157,7 +148,6 @@ export function Chat({
 		observer.observe(transcript);
 		return () => observer.disconnect();
 	}, []);
-	// The streaming answer grows every frame on its own (streaming.tsx), without Chat rendering: follow it as it grows.
 	const streamObserver = useRef<ResizeObserver>(undefined);
 	const followStream = useMemo(
 		() => (element: HTMLElement | null) => {
@@ -182,7 +172,6 @@ export function Chat({
 		const states: Map<string, CallState> = finishedCalls(entries);
 		for (const tool of live?.tools ?? []) {
 			if (states.has(tool.callId)) continue;
-			// A slot reaches "done" before its result entry arrives; show it as running until then.
 			states.set(tool.callId, tool.status === "pending" ? { status: "pending" } : { status: "running", output: tool.output });
 		}
 		return states;
@@ -192,13 +181,11 @@ export function Chat({
 		item.mode === "write" ? [] : [{ id: item.id, mode: item.mode, text: text(item.content) }],
 	);
 	const running = (live?.tools ?? []).some((tool) => tool.status !== "done");
-	const fail = (error: unknown) => onError(error instanceof Error ? error.message : String(error));
+	const fail = (error: unknown) => onError(messageOf(error));
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
-	// The run's final answer: the last entry when it is an assistant message with text.
 	const lastEntry = entries.at(-1);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
 	const emptyAnswer = !busy && lastEntry !== undefined && isEmptyAnswer(lastEntry);
-	// What scrolling away left below: the transcript's size then, to tell when more arrived since.
 	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
 	const sizeWhenLeft = useRef(contentSize);
 	useEffect(() => {
@@ -209,7 +196,6 @@ export function Chat({
 		stickToBottom.current = true;
 		scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
 	};
-	// The user's messages for the composer's dial, oldest first: what they typed, and what schedules sent.
 	const prompts: DialPrompt[] = useMemo(
 		() =>
 			entries.flatMap((entry) => {
@@ -366,7 +352,6 @@ export function Chat({
 				}}
 				onStop={async () => {
 					try {
-						// Like pi: stopping returns queued messages to the editor.
 						const returned = await controller.stop();
 						if (returned.length > 0) setDraft((current) => [...returned, current].filter(Boolean).join("\n\n"));
 					} catch (error) {

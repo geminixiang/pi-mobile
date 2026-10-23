@@ -1,9 +1,3 @@
-// The tool interface, checked: every built-in tool as bots get it (src/agent/catalog.ts, with every connection
-// present), against the conventions in docs/tools.md § 介面規範 and against test/tools.snapshot.json, so a change to a
-// tool's name, parameters, or output schema is deliberate. Run by `npm run check`.
-//
-//   node --import ./test/vite-imports.js test/tools-node.ts            check
-//   node --import ./test/vite-imports.js test/tools-node.ts --update   accept the current interface into the snapshot
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
@@ -38,7 +32,6 @@ const extensions = builtinExtensions({
 	labelOf: (name) => name,
 });
 
-/** What a tool promises its callers: everything here is part of the stable interface. */
 interface ToolInterface {
 	extension: string;
 	toolset: string;
@@ -49,7 +42,6 @@ interface ToolInterface {
 	structuredOutput: unknown;
 }
 
-/** A schema as plain JSON: TypeBox's symbols and functions dropped, keys sorted so the snapshot diffs cleanly. */
 function plain(value: unknown): unknown {
 	if (Array.isArray(value)) return value.map(plain);
 	if (typeof value !== "object" || value === null) return value;
@@ -77,13 +69,8 @@ function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 
 const tools = extensions.flatMap((extension) => (extension.tools ?? []).map((tool) => ({ tool, iface: interfaceOf(extension.name, tool) })));
 
-/** pi-durable's own tools, whose interface pi defines: the app's conventions do not apply, the snapshot still does. */
 const EXTERNAL = new Set(["coding-tools", "codemode", "tool-search"]);
 
-/**
- * Tools that return records (a list of things, or measurements) and so give code mode scripts a structured output
- * to filter instead of parsing text (docs/tools.md § 介面規範).
- */
 const RECORDS = new Set([
 	"weather", "find_places", "sql", "read_notifications", "contacts", "find_photos", "call_log", "read_sms", "screen_time",
 	"health", "read_calendar_events", "github_api", "gcp_api", "cloudflare_api", "azure_api",
@@ -98,13 +85,11 @@ const listedTools = new Set(
 		.flatMap((line) => [...(line.split("|")[1] ?? "").matchAll(/`([^`]+)`/g)].map((match) => match[1])),
 );
 
-// The conventions (docs/tools.md § 介面規範), each a check with the tools that break it.
 type Rule = { rule: string; broken: (entry: (typeof tools)[number]) => string | undefined };
 const NAME = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
 const UNIT = /_(ms|seconds|minutes|hours|days|m|km|kg)$/;
 const DURATION_WORDS = /^(seconds|minutes|hours|days)$/;
 
-/** Every property name in a schema, nested objects, arrays, records, and unions included. */
 function fieldNames(schema: unknown): string[] {
 	if (typeof schema !== "object" || schema === null) return [];
 	const names: string[] = [];
@@ -174,7 +159,6 @@ const rules: Rule[] = [
 	},
 ];
 
-/** Extensions on for every bot and not in the bot panel (toolsets.ts). */
 const FIXED = new Set(["bot", "skills", "attachments", "triggers", "memory", "tool-search", "on-demand", "assistant", "sandbox"]);
 
 const failures: string[] = [];
@@ -191,7 +175,6 @@ for (const { rule, broken } of rules) {
 		.filter((value): value is string => Boolean(value));
 	if (offenders.length) failures.push(`${rule}: ${offenders.join("; ")}`);
 }
-// Schemas come from one TypeBox: pi-ai re-exports it, and two spellings for the same Type drift apart.
 const sources = readdirSync(new URL("../src", import.meta.url), { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
 const reexported = sources.filter((file) => /import \{[^}]*\bType\b[^}]*\} from "@earendil-works\/pi-ai"/.test(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8")));
 if (reexported.length) failures.push(`schemas use Type from "typebox", not from @earendil-works/pi-ai: ${reexported.join(", ")}`);

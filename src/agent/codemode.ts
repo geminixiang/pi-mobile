@@ -1,11 +1,3 @@
-// Code mode on the phone: the model writes JavaScript that calls the conversation's tools as `tools.<name>(args)`,
-// for computation, data shaping, and many tool calls in one step, without a sandbox host. Durable's codemode tool
-// journals every result, so a script resumes after the app is killed.
-//
-// Durable's README uses CodemodeSandbox (Node worker threads) or InlineCodemodeSandbox (calling thread). The WebView
-// has neither worker threads nor a thread that may block: an inline VM computing for seconds would freeze the UI.
-// RemoteCodemodeSandbox only needs an object with `execute(request, exchange)`, so a Web Worker running
-// serveCodemodeRemote (codemode-worker.ts) is the remote, and tools keep running on the main thread.
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
@@ -45,7 +37,6 @@ class WorkerRemote implements CodemodeRemote {
 			}
 			void entry.exchange(message.messages).then((reply) => this.#post({ type: "reply", id: message.id, reply }));
 		});
-		// A crashed worker ends its runs without a terminal message, which the sandbox reports as a sandbox failure.
 		worker.addEventListener("error", () => {
 			for (const entry of this.#runs.values()) entry.done();
 			this.#runs.clear();
@@ -56,7 +47,6 @@ class WorkerRemote implements CodemodeRemote {
 	}
 }
 
-/** A tool's call as the index shows it: its name and argument names, `?` after optional ones. */
 export function signatureOf(tool: { name: string; parameters: unknown }): string {
 	const schema = tool.parameters;
 	const properties: unknown = typeof schema === "object" && schema !== null ? Reflect.get(schema, "properties") : undefined;
@@ -66,7 +56,6 @@ export function signatureOf(tool: { name: string; parameters: unknown }): string
 	return `${tool.name}(${names.map((name) => (needed.has(name) ? name : `${name}?`)).join(", ")})`;
 }
 
-/** `label` names an extension's toolset for this conversation; undefined leaves its tools out of the index. */
 export function createPhoneCodemode(label: (extension: string, conversationId: string) => string | undefined) {
 	const remote = new WorkerRemote();
 	const sandbox = new RemoteCodemodeSandbox({
@@ -74,10 +63,6 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 		interruptBudget: INTERRUPT_BUDGET,
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
-	// Scripts call the conversation's tools only; models.* (classifiers, image generation) stays off for now.
-	// Most tools are for scripts only (catalog.ts), so this section is how the model knows them: an index of names and
-	// argument names by toolset, about a tenth of their definitions; describeTool() gives the rest when needed.
-	// Durable's own section (every tool's TypeScript declaration) would be most of the definitions again.
 	return [
 		defineExtension({
 			name: "codemode",
@@ -91,7 +76,6 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 						return name && tools.length > 0 ? [`- ${name}: ${tools.map(signatureOf).join("; ")}`] : [];
 					});
 					if (lines.length === 0) return undefined;
-					// Gateways may rename tools for the model (such as `mcp__x__y_get_location`); scripts need the real names.
 					return [
 						"These tools are called only from codemode scripts, as `await tools.<name>({ ...args })`, by exactly these names: put every call a task needs in one script (Promise.all for independent ones), shape the results there, and return only what the answer needs. When a tool's arguments or result are not obvious from its name, `return describeTool(name)` first. Look up rather than guess or ask: the phone's place and time, weather, travel times (no transit: estimate and say so).",
 						...lines,

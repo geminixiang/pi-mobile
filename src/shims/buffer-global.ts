@@ -1,5 +1,3 @@
-// pi-env and pi-mcp use the Buffer global; the WebView has none. The buffer package lacks the base64url encoding,
-// which pi-mcp's OAuth (PKCE) uses: added here as base64 with the URL alphabet and no padding.
 import { Buffer } from "buffer";
 
 const toString = Buffer.prototype.toString;

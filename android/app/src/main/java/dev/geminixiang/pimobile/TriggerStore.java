@@ -1,5 +1,6 @@
 package dev.geminixiang.pimobile;
 
+import com.getcapacitor.JSObject;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -19,30 +20,16 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * The native half of triggers. The web side owns the trigger definitions and mirrors their schedules here, so alarms
- * fire, and are set again after a reboot, without the WebView. What happens while the WebView is gone is recorded in
- * an event queue; the web side takes the events when it runs again and acknowledges them once handled, so an event is
- * neither lost nor handled twice.
- *
- * A schedule is {id, name, when}, with when {kind: "daily", time: "HH:MM", days: [1..7]} (ISO weekdays, Monday is 1;
- * empty means every day), {kind: "once", at: epoch ms}, or {kind: "headphones", days, from?, until?, gapHours}: when
- * headphones connect on those days, between from and until ("HH:MM", local), and not within gapHours of its last run
- * (24: not on the same day).
- * Headphones schedules have no alarm.
- */
 final class TriggerStore {
 
     static final String ACTION_FIRE = "dev.geminixiang.pimobile.TRIGGER_FIRE";
     static final String EXTRA_ID = "id";
-    /** TriggersPlugin.simulateHeadphones, in development builds only. */
     static final String ACTION_TEST_HEADPHONES = "dev.geminixiang.pimobile.TEST_HEADPHONES";
     static final String EXTRA_DEVICE = "device";
     private static final String TAG = "PiTriggers";
     private static final String PREFS = "pi-triggers";
     private static final String KEY_SCHEDULES = "schedules";
     private static final String KEY_EVENTS = "events";
-    /** A one-time schedule missed by more than this (the phone was off) is dropped instead of fired late. */
     private static final long MISSED_GRACE_MS = 6 * 60 * 60 * 1000L;
     private static final String KEY_LAST_PREFIX = "last.";
 
@@ -74,7 +61,6 @@ final class TriggerStore {
         return null;
     }
 
-    /** Replace every schedule: cancel the alarms of removed ones, set the alarms of the rest. Returns id -> next fire. */
     static synchronized JSONObject replaceSchedules(Context context, JSONArray next) {
         Set<String> keep = new HashSet<>();
         for (int i = 0; i < next.length(); i++) keep.add(next.optJSONObject(i).optString("id"));
@@ -95,24 +81,18 @@ final class TriggerStore {
         cancelAlarm(context, id);
     }
 
-    /** Set the alarm of every schedule, and arm the event sources, as after a reboot; returns id -> next fire time. */
     static synchronized JSONObject armAll(Context context) {
-        JSONObject times = new JSONObject();
+        JSObject times = new JSObject();
         JSONArray all = schedules(context);
         TriggerEvents.sync(context, all);
         for (int i = 0; i < all.length(); i++) {
             JSONObject item = all.optJSONObject(i);
             long at = arm(context, item);
-            try {
-                if (at > 0) times.put(item.optString("id"), at);
-            } catch (JSONException ignored) {
-                // A string key and a long value always fit.
-            }
+            if (at > 0) times.put(item.optString("id"), at);
         }
         return times;
     }
 
-    /** Set the alarm for the schedule's next time; returns that time, or -1 when it has none. */
     static long arm(Context context, JSONObject schedule) {
         String id = schedule.optString("id");
         long at = nextTime(schedule.optJSONObject("when"), System.currentTimeMillis());
@@ -122,8 +102,6 @@ final class TriggerStore {
         }
         AlarmManager alarms = context.getSystemService(AlarmManager.class);
         PendingIntent fire = fireIntent(context, id);
-        // Exact alarms also exempt the start of the foreground service when they fire; without the permission the
-        // alarm may come several minutes late.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, fire);
         } else {
@@ -178,19 +156,10 @@ final class TriggerStore {
         context.getSystemService(AlarmManager.class).cancel(fireIntent(context, id));
     }
 
-    /**
-     * Headphones connected: the headphones schedules that apply now, which are marked as run. The gap is counted
-     * here rather than on the web side so a reconnect a minute later (earbuds often connect twice) does not queue a
-     * second run while the first is still waiting for the WebView.
-     */
     static java.util.List<String> headphonesSchedules(Context context) {
         return eventSchedules(context, "headphones", item -> true);
     }
 
-    /**
-     * An event happened: the schedules of that kind that `match` accepts (it sees the whole schedule) and that apply now (their days, hours, and
-     * gap), which are marked as run. Headphones, charging, Wi-Fi, and places all go through here (TriggerReceiver.event).
-     */
     static synchronized java.util.List<String> eventSchedules(Context context, String kind, java.util.function.Predicate<JSONObject> match) {
         java.util.List<String> due = new java.util.ArrayList<>();
         JSONArray all = schedules(context);
@@ -206,7 +175,6 @@ final class TriggerStore {
             long last = prefs(context).getLong(KEY_LAST_PREFIX + id, 0);
             int gapHours = Math.max(1, when.optInt("gapHours", 4));
             if (gapHours >= 24) {
-                // Once a day means once per calendar day: Monday at 08:00 must not block Tuesday at 07:50.
                 java.time.LocalDate lastDay = java.time.Instant.ofEpochMilli(last).atZone(now.getZone()).toLocalDate();
                 if (last > 0 && lastDay.equals(now.toLocalDate())) continue;
             } else if (nowMs - last < gapHours * 60L * 60 * 1000) {
@@ -233,21 +201,15 @@ final class TriggerStore {
             LocalTime time = now.toLocalTime();
             LocalTime start = from.isEmpty() ? LocalTime.MIN : LocalTime.parse(from);
             LocalTime end = until.isEmpty() ? LocalTime.MAX : LocalTime.parse(until);
-            // A window such as 22:00 to 02:00 crosses midnight.
             return start.isAfter(end) ? !time.isBefore(start) || time.isBefore(end) : !time.isBefore(start) && time.isBefore(end);
         } catch (RuntimeException error) {
             return false;
         }
     }
 
-    /** Append an event; it gets an id and a time. */
-    static synchronized JSONObject enqueue(Context context, JSONObject event) {
-        try {
-            event.put("id", UUID.randomUUID().toString());
-            event.put("at", System.currentTimeMillis());
-        } catch (JSONException ignored) {
-            // String keys always fit.
-        }
+    static synchronized JSONObject enqueue(Context context, JSObject event) {
+        event.put("id", UUID.randomUUID().toString());
+        event.put("at", System.currentTimeMillis());
         JSONArray events = array(context, KEY_EVENTS);
         events.put(event);
         prefs(context).edit().putString(KEY_EVENTS, events.toString()).apply();
@@ -258,7 +220,6 @@ final class TriggerStore {
         return array(context, KEY_EVENTS);
     }
 
-    /** Drop handled events, and the files they carried. */
     static synchronized void ack(Context context, Set<String> ids) {
         JSONArray events = array(context, KEY_EVENTS);
         JSONArray kept = new JSONArray();
@@ -279,7 +240,6 @@ final class TriggerStore {
         prefs(context).edit().putString(KEY_EVENTS, kept.toString()).apply();
     }
 
-    /** Where shared files wait until the web side reads them. */
     static File inbox(Context context) {
         File dir = new File(context.getFilesDir(), "inbox");
         if (!dir.isDirectory() && !dir.mkdirs()) Log.w(TAG, "could not create " + dir);

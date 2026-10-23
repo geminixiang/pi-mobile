@@ -1,5 +1,6 @@
 package dev.geminixiang.pimobile;
 
+import android.util.Log;
 import android.app.Notification;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -10,15 +11,8 @@ import android.service.notification.StatusBarNotification;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Records the notifications other apps show (NotificationStore), once the user allows notification access in system
- * settings. Left out: pi's own, ongoing ones (music, navigation, downloads, foreground services), group summaries, and
- * ones with no text. The system binds this service and starts the app's process for it, so it records whether or not
- * pi is open.
- */
 public class NotificationsListener extends NotificationListenerService {
 
-    /** The connected listener, for what only it may do: act on notifications, set Do Not Disturb. Null while unbound. */
     static volatile NotificationsListener instance;
 
     @Override
@@ -29,16 +23,14 @@ public class NotificationsListener extends NotificationListenerService {
     @Override
     public void onListenerConnected() {
         instance = this;
-        // A Do Not Disturb end that came while the listener was unbound (DndReceiver).
         if (getSharedPreferences(NotificationsPlugin.DND_PREFS, 0).getBoolean(DndReceiver.PENDING, false)) DndReceiver.end(this, this);
-        // What is in the shade now, so a fresh grant has something to read.
         try {
             List<NotificationStore.Row> rows = new ArrayList<>();
             StatusBarNotification[] active = getActiveNotifications();
             if (active != null) for (StatusBarNotification sbn : active) rows.addAll(rowsOf(sbn));
             NotificationStore.get(this).add(rows);
-        } catch (RuntimeException ignored) {
-            // A listener the system is unbinding again; the next post records normally.
+        } catch (RuntimeException error) {
+            Log.w("pi.notifications", "could not record the notifications showing at connect", error);
         }
     }
 
@@ -58,7 +50,6 @@ public class NotificationsListener extends NotificationListenerService {
         String title = text(extras.getCharSequence(Notification.EXTRA_TITLE));
         String conversation = text(extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE));
 
-        // A chat: one row per message, so the history survives the app replacing the notification.
         Parcelable[] messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES);
         if (messages != null && messages.length > 0) {
             for (Notification.MessagingStyle.Message message : Notification.MessagingStyle.Message.getMessagesFromBundleArray(messages)) {
@@ -83,7 +74,6 @@ public class NotificationsListener extends NotificationListenerService {
         String body = text(big != null ? big : extras.getCharSequence(Notification.EXTRA_TEXT));
         CharSequence[] lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
         if (lines != null && lines.length > 0) {
-            // Inbox style (an email app's "3 new messages"): its lines are the messages.
             StringBuilder joined = new StringBuilder();
             for (CharSequence line : lines) joined.append(joined.length() > 0 ? "\n" : "").append(line);
             body = joined.toString();

@@ -1,9 +1,7 @@
-// What the user has written for a bot but not sent, kept on the phone so it survives switching bots and Android
-// ending pi in the background. The text in localStorage, read synchronously so a conversation opens with it; the
-// photos and read files in IndexedDB, as they can be megabytes. Both go when sent or cleared.
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { PreparedAttachment } from "../agent/attachments.ts";
 import { idbStore } from "../idb.ts";
+import { settled } from "../promise.ts";
 
 const textKey = (conversationId: string) => `pi-mobile.draft:${conversationId}`;
 
@@ -16,7 +14,6 @@ export function saveDraftText(conversationId: string, text: string): void {
 	else localStorage.removeItem(textKey(conversationId));
 }
 
-/** Photos and files picked for the next message; files only once read. */
 export type DraftAttachments = { images: ImageContent[]; files: PreparedAttachment[] };
 
 const store = idbStore("pi-drafts", "attachments");
@@ -39,7 +36,7 @@ const draftWrites = new Map<string, Promise<void>>();
 
 function inOrder(conversationId: string, write: () => Promise<void>): Promise<void> {
 	const done = (draftWrites.get(conversationId) ?? Promise.resolve()).then(write);
-	draftWrites.set(conversationId, done.catch(() => undefined));
+	draftWrites.set(conversationId, settled(done));
 	return done;
 }
 
@@ -68,7 +65,6 @@ export function addDraftFile(conversationId: string, file: PreparedAttachment): 
 	});
 }
 
-/** The bots with a draft: text, photos, or files. */
 export async function draftOwners(): Promise<string[]> {
 	const owners = new Set<string>();
 	for (const key of Object.keys(localStorage)) if (key.startsWith(textKey(""))) owners.add(key.slice(textKey("").length));
@@ -77,7 +73,6 @@ export async function draftOwners(): Promise<string[]> {
 	return [...owners];
 }
 
-/** A deleted bot's draft. */
 export async function clearDraft(conversationId: string): Promise<void> {
 	saveDraftText(conversationId, "");
 	await saveDraftAttachments(conversationId, { images: [], files: [] });

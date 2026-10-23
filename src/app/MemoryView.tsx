@@ -1,11 +1,9 @@
-// A MEMORY.md page: the global one, what every bot knows about the user, or one bot's notes for its job. The user
-// edits it here, and the edits are saved when the page goes away (back, the gesture, closing): there is no save button.
-// The agent edits it with update_memory; a change it makes while the page is open shows up unless the user has edits.
 import { useEffect, useRef, useState } from "react";
 import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { BackIcon } from "./icons.tsx";
+import { messageOf } from "../promise.ts";
 
 const BOT_PLACEHOLDER = `# 這份工作
 - 資料來源：
@@ -37,7 +35,6 @@ export function MemoryView({
 }: {
 	runtime: AgentRuntime;
 	scope: MemoryScope;
-	/** For a bot's memory: whose it is. */
 	botName?: string;
 	onClose: () => void;
 	onError: (message: string) => void;
@@ -48,20 +45,16 @@ export function MemoryView({
 	useEffect(
 		() =>
 			runtime.subscribeMemory(scope, (memory) => {
-				// Take the agent's change unless the user is in the middle of an edit.
 				const previous = savedText.current;
 				setDraft((current) => (current === undefined || current.trim() === previous ? memory.text : current));
 				savedText.current = memory.text;
 				setSaved(memory);
 			}),
-		// The scope is a fresh object on every render; what identifies it is its kind and bot.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined],
 	);
 	const text = draft ?? "";
 	const changed = saved !== undefined && text.trim() !== saved.text;
 	const over = text.trim().length > MEMORY_LIMIT;
-	// Unmounting is the one point every way of leaving passes through; the ref holds what is on screen then.
 	const leaving = useRef({ text, changed, over });
 	leaving.current = { text, changed, over };
 	useEffect(
@@ -72,10 +65,8 @@ export function MemoryView({
 				onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
 				return;
 			}
-			runtime.saveMemory(scope, last).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
+			runtime.saveMemory(scope, last).catch((error: unknown) => onError(messageOf(error)));
 		},
-		// Once, on unmount; the latest values come from the ref.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[],
 	);
 

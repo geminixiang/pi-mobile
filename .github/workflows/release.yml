@@ -1,11 +1,3 @@
-# Publish a release: push a tag vX.Y.Z matching package.json's version. One GitHub release carries both halves, built
-# from the same commit: the signed APK (scripts/release-android.sh) and pi-mobile for computers (host/), which
-# host/install.sh downloads from the latest release. Notes come from docs/releases/X.Y.Z.md (docs/releases/README.md).
-#
-# Secrets (Settings › Secrets and variables › Actions):
-#   PI_MOBILE_KEYSTORE_BASE64    base64 of the release keystore (the same key as 0.1.0, so updates install over it)
-#   PI_MOBILE_KEYSTORE_PASSWORD  its password (store and key)
-#   PI_MOBILE_KEY_ALIAS          the key's alias
 name: release
 
 on:
@@ -75,7 +67,6 @@ jobs:
           PI_MOBILE_RELEASE_ENV: ${{ runner.temp }}/release.env
         run: |
           scripts/release-android.sh
-          # The runner has several build-tools; a bare glob would pass the others to the first as arguments.
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
           "$apksigner" verify --print-certs "pi-mobile-$VERSION.apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 > cert.sha256
           [ -s cert.sha256 ] || { echo "::error::no signing certificate in the APK"; exit 1; }
@@ -141,7 +132,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           apk="pi-mobile-$VERSION.apk"
-          # One checksum file for every asset; install.sh checks the computer's binary against it.
           sha256sum "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns > pi-mobile.sha256
           {
             cat "docs/releases/$VERSION.md"

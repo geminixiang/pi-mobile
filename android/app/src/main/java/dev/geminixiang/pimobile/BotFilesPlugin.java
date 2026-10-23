@@ -22,16 +22,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
-/**
- * Each bot's own folder of files, in the app's private storage (files/bots/<bot>), for the agent's read, write, edit,
- * and bash (src/agent/files). Paths are relative to the bot's folder and may not leave it. Errors reject with a code
- * the app maps to pi-durable's FileError: not_found, is_directory, not_directory, exists, invalid, or io.
- */
 @CapacitorPlugin(name = "BotFiles")
 public class BotFilesPlugin extends Plugin {
 
     private static final Pattern BOT = Pattern.compile("[A-Za-z0-9_-]{1,64}");
-    /** Plugin calls run on one bridge thread; file work here, a few at a time, so a big read does not hold up the rest. */
     private final ExecutorService work = Executors.newFixedThreadPool(4);
 
     private static final class Failure extends Exception {
@@ -69,7 +63,6 @@ public class BotFilesPlugin extends Plugin {
         return new File(bots(), bot);
     }
 
-    /** The file a relative path names in the bot's folder; the folder itself for "". Never outside it. */
     private File resolve(PluginCall call, String key) throws Failure, IOException {
         File root = botRoot(call);
         String path = call.getString(key, "");
@@ -81,7 +74,6 @@ public class BotFilesPlugin extends Plugin {
         return file;
     }
 
-    /** A number from JS: Capacitor's getLong takes only a Long, and small numbers arrive as Integer. */
     private static long number(PluginCall call, String key, long fallback) {
         Object value = call.getData().opt(key);
         return value instanceof Number ? ((Number) value).longValue() : fallback;
@@ -105,7 +97,6 @@ public class BotFilesPlugin extends Plugin {
         run(call, () -> {
             File file = resolve(call, "path");
             if (!file.exists()) {
-                // The folder of a bot that has written nothing yet exists as far as the app is concerned.
                 if (file.equals(botRoot(call))) {
                     JSObject empty = new JSObject();
                     empty.put("name", "");
@@ -118,6 +109,16 @@ public class BotFilesPlugin extends Plugin {
                 throw notFound(call.getString("path"));
             }
             call.resolve(info(file));
+        });
+    }
+
+    @PluginMethod
+    public void exists(PluginCall call) {
+        run(call, () -> {
+            File file = resolve(call, "path");
+            JSObject result = new JSObject();
+            result.put("exists", file.exists() || file.equals(botRoot(call)));
+            call.resolve(result);
         });
     }
 
@@ -142,7 +143,6 @@ public class BotFilesPlugin extends Plugin {
         });
     }
 
-    /** Bytes as base64, or UTF-8 text with text: true; from offset, up to length (default: to the end). */
     @PluginMethod
     public void read(PluginCall call) {
         run(call, () -> {
@@ -167,10 +167,6 @@ public class BotFilesPlugin extends Plugin {
         });
     }
 
-    /**
-     * Write base64 data or text. A whole write goes to a temporary file that then replaces the old one, so a failed write
-     * never leaves half a file; append adds to the end. Missing parent folders are made.
-     */
     @PluginMethod
     public void write(PluginCall call) {
         run(call, () -> {
@@ -270,11 +266,6 @@ public class BotFilesPlugin extends Plugin {
         });
     }
 
-    /**
-     * Download a URL (http or https) into the folder, streamed to disk: like write, to a temporary file that then
-     * replaces the old one. Follows up to 5 redirects. Resolves {size, contentType, url (the final one)}; an HTTP error
-     * rejects with code "http".
-     */
     @PluginMethod
     public void download(PluginCall call) {
         run(call, () -> {
@@ -333,7 +324,6 @@ public class BotFilesPlugin extends Plugin {
         });
     }
 
-    /** The bots that have a folder, by id: for removing those of bots that are gone. */
     @PluginMethod
     public void listBots(PluginCall call) {
         run(call, () -> {
@@ -346,7 +336,6 @@ public class BotFilesPlugin extends Plugin {
         });
     }
 
-    /** A deleted bot's folder and everything in it. */
     @PluginMethod
     public void removeBot(PluginCall call) {
         run(call, () -> {
@@ -357,7 +346,6 @@ public class BotFilesPlugin extends Plugin {
     }
 
     private static void deleteTree(File file) throws IOException {
-        // Symbolic links are removed, never followed.
         if (file.isDirectory() && !Files.isSymbolicLink(file.toPath())) {
             File[] children = file.listFiles();
             if (children != null) for (File child : children) deleteTree(child);

@@ -17,15 +17,6 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.util.TimeZone;
 
-/**
- * The phone's calendars through CalendarContract. Events are written straight into the calendar the tool names, so the
- * account is explicit; an ACTION_INSERT intent would land in whatever the calendar app defaults to, which on a phone
- * with work and personal accounts is easy to miss. The tool asks the user before writing.
- *
- * A calendar is the user's own when its owner is the account it syncs through. Others are subscriptions, such as a
- * team's shared calendar or a colleague's: often editable, and seen by everyone in it. They are never written to, and
- * their events are read only when asked for, so someone else's meetings are not taken for the user's.
- */
 @CapacitorPlugin(
     name = "Calendar",
     permissions = { @Permission(strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR }, alias = "calendar") }
@@ -53,7 +44,6 @@ public class CalendarPlugin extends Plugin {
         else call.reject("calendar permission denied", "permission");
     }
 
-    /** A visible calendar, and whether it is the user's own and accepts new events. */
     private static final class CalendarRow {
         long id;
         String name;
@@ -94,7 +84,6 @@ public class CalendarPlugin extends Plugin {
         return rows;
     }
 
-    /** The user's own calendars that accept new events: the only ones events are ever added to. */
     private void list(PluginCall call) {
         JSArray calendars = new JSArray();
         for (CalendarRow row : visibleCalendars()) {
@@ -123,10 +112,6 @@ public class CalendarPlugin extends Plugin {
         else call.reject("calendar permission denied", "permission");
     }
 
-    /**
-     * Event instances (recurrences expanded) overlapping [from, to), earliest first: from the user's own calendars, plus
-     * the shared calendars when asked, marked as shared with their owner.
-     */
     private void events(PluginCall call) {
         boolean includeShared = Boolean.TRUE.equals(call.getBoolean("includeShared", false));
         java.util.Map<Long, CalendarRow> calendars = new java.util.HashMap<>();
@@ -156,7 +141,6 @@ public class CalendarPlugin extends Plugin {
         JSArray events = new JSArray();
         try (Cursor cursor = getContext().getContentResolver().query(range.build(), projection, selection, null, CalendarContract.Instances.BEGIN + " ASC")) {
             while (cursor != null && cursor.moveToNext()) {
-                // Declined invitations are not on the user's schedule.
                 if (!cursor.isNull(9) && cursor.getInt(9) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) continue;
                 CalendarRow calendar = calendars.get(cursor.getLong(8));
                 if (calendar == null) continue;
@@ -186,7 +170,6 @@ public class CalendarPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** Every visible calendar, for Settings to show accounts: whether it is the user's own and whether it takes events. */
     @PluginMethod
     public void listAccounts(PluginCall call) {
         if (ensurePermission(call, "accountsResult")) accounts(call);
@@ -249,7 +232,6 @@ public class CalendarPlugin extends Plugin {
         values.put(CalendarContract.Events.DTSTART, begin);
         values.put(CalendarContract.Events.DTEND, end);
         values.put(CalendarContract.Events.ALL_DAY, allDay ? 1 : 0);
-        // All-day events are stored at UTC midnight; TypeScript sends them that way.
         values.put(CalendarContract.Events.EVENT_TIMEZONE, allDay ? "UTC" : TimeZone.getDefault().getID());
         String location = call.getString("location");
         if (location != null) values.put(CalendarContract.Events.EVENT_LOCATION, location);

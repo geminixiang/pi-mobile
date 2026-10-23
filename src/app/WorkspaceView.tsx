@@ -6,6 +6,7 @@ import { BackIcon, ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { resolvePath } from "./openFile.ts";
 import { Layer } from "./Sheet.tsx";
+import { messageOf } from "../promise.ts";
 
 export type WorkspaceTab = "files" | "git";
 
@@ -34,16 +35,14 @@ function ago(time: number): string {
 }
 
 function errorText(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
+	return messageOf(error);
 }
 
-/** One Android back step per directory level below the root. */
 function BackStep({ onBack }: { onBack: () => void }) {
 	useBack(true, onBack);
 	return null;
 }
 
-/** Directory levels from the workspace root down to the folder holding `file`. */
 function levelsTo(root: string, file: string | undefined): string[] {
 	const levels = [root];
 	if (!file?.startsWith(`${root}/`)) return levels;
@@ -227,7 +226,6 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 	);
 }
 
-/** Full-screen view of the conversation's sandbox: files and git changes, with file and diff viewers on top. */
 export function WorkspaceView({
 	open,
 	load,
@@ -235,7 +233,6 @@ export function WorkspaceView({
 	onClose,
 }: {
 	open: boolean;
-	/** Resolves the workspace, or undefined when the conversation has no sandbox yet. */
 	load: () => Promise<Workspace | undefined>;
 	initial: { tab: WorkspaceTab; file?: string };
 	onClose: () => void;
@@ -259,7 +256,6 @@ export function WorkspaceView({
 			(value) => {
 				if (!current) return;
 				setWorkspace(value ?? null);
-				// Tool paths are relative to the workspace root unless absolute.
 				if (value && initial.file) setFile(resolvePath(value.root, initial.file));
 			},
 			(failure: unknown) => {

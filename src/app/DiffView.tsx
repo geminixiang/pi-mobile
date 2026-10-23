@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BackIcon } from "./icons.tsx";
 import { Layer } from "./Sheet.tsx";
+import { messageOf } from "../promise.ts";
 
 export interface DiffTarget {
 	repo: string;
@@ -18,7 +19,6 @@ interface FileDiff {
 	lines: Line[];
 }
 
-/** Split unified diff text (git diff or git show) into a commit message and per-file hunks. */
 function parse(text: string): { message: string[]; files: FileDiff[] } {
 	const message: string[] = [];
 	const files: FileDiff[] = [];
@@ -66,7 +66,6 @@ function parse(text: string): { message: string[]; files: FileDiff[] } {
 			file.lines.push({ kind: "ctx", text: raw.slice(1), old: oldLine++, new: newLine++ });
 		}
 	}
-	// A trailing newline in the output leaves one empty context line at the end.
 	for (const each of files) if (each.lines.at(-1)?.kind === "ctx" && each.lines.at(-1)?.text === "") each.lines.pop();
 	return { message: message.join("\n").trim().split("\n"), files };
 }
@@ -116,7 +115,7 @@ export function DiffView({ target, onClose }: { target: DiffTarget | undefined; 
 		setError("");
 		target.load().then(
 			(value) => live && setText(value),
-			(failure: unknown) => live && setError(failure instanceof Error ? failure.message : String(failure)),
+			(failure: unknown) => live && setError(messageOf(failure)),
 		);
 		return () => {
 			live = false;

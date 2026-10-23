@@ -1,4 +1,3 @@
-// Page-side helpers for test/cdp.ts scripts: React-aware typing and clicking by label.
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const button = (label) =>
 	[...document.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === label || b.textContent.trim() === label);

@@ -1,25 +1,21 @@
-// Settings › 電腦: the user's computers running pi-mobile serve on the tailnet (agent/sandbox/host.ts). Once one is
-// added, the others are listed from its view of the tailnet (Android gives apps none), each asked whether pi-mobile
-// serve answers: those that do are added with a tap, those that do not get the install command. The first one is added by its name. Each
-// computer is a default for bots that have not picked, directly or in its container, which the first use prepares.
 import { type ReactNode, useEffect, useState } from "react";
 import { type Host, hostFrom, type HostInfo, listPeers, parseHosts, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
+import { messageOf, orLogged } from "../promise.ts";
 
 const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
 function errorText(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
+	return messageOf(error);
 }
 
-/** A command to run on the computer: copied, or shared to it (a chat, mail, notes synced there). */
 function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 	const [copied, setCopied] = useState(false);
 	return (
 		<div className="copyable">
 			<pre className="console">{children ?? text}</pre>
 			<div className="row-buttons">
-				<button type="button" className="btn" onClick={() => void Apps.share({ text, title: "在電腦上安裝 pi-mobile" }).catch(() => undefined)}>
+				<button type="button" className="btn" onClick={() => void orLogged(Apps.share({ text, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}>
 					分享
 				</button>
 				<button
@@ -41,12 +37,10 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
-/** Containers prepared on first choice, with the build's progress; shared with the bot panel. */
 export function usePrepare(host: Host | undefined): [Preparing, () => Promise<boolean>] {
 	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
 	const prepare = async () => {
 		if (!host) return false;
-		// Checking current images takes about a second and says nothing; a build reports its lines.
 		setPreparing({ state: "running", detail: "" });
 		try {
 			await prepareContainers(host, (detail) => setPreparing({ state: "running", detail }));
@@ -110,7 +104,6 @@ function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer:
 
 type Found = { peer: Peer; info: HostInfo | undefined };
 
-/** The tailnet's other computers, as the first added one that answers sees them, each asked for pi-mobile serve. */
 function useFound(hosts: Host[]): Found[] | undefined {
 	const [found, setFound] = useState<Found[]>();
 	const known = hosts.map((host) => host.address).join(" ");
@@ -118,10 +111,10 @@ function useFound(hosts: Host[]): Found[] | undefined {
 		let stale = false;
 		void (async () => {
 			for (const host of hosts) {
-				const peers = await listPeers(host).catch(() => undefined);
+				const peers = await orLogged(listPeers(host), "hosts.peers_unavailable", undefined, { host: host.address });
 				if (!peers) continue;
 				const others = peers.filter((peer) => !hosts.some((added) => added.address === peer.dnsName));
-				const answers = await Promise.all(others.map(async (peer) => ({ peer, info: await probeHost(peer.dnsName, AbortSignal.timeout(4000)).catch(() => undefined) })));
+				const answers = await Promise.all(others.map(async (peer) => ({ peer, info: await orLogged(probeHost(peer.dnsName, AbortSignal.timeout(4000)), "hosts.peer_unreachable", undefined, { peer: peer.dnsName }) })));
 				if (!stale) setFound(answers.sort((a, b) => Number(Boolean(b.info)) - Number(Boolean(a.info)) || a.peer.name.localeCompare(b.peer.name)));
 				return;
 			}
@@ -130,7 +123,6 @@ function useFound(hosts: Host[]): Found[] | undefined {
 		return () => {
 			stale = true;
 		};
-		// The hosts' addresses, not the array: a new one each render.
 	}, [known]);
 	return found;
 }
@@ -149,7 +141,6 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 				const known = hosts.find((host) => host.address === (info.dnsName || name));
 				const host = hostFrom(name, info, known);
 				const next = known ? hosts.map((item) => (item.id === known.id ? host : item)) : [...hosts, host];
-				// The first computer becomes the default, directly.
 				onChange(next, computer || `${host.id}:direct`);
 				setAddress("");
 				setAdding({ state: "idle" });

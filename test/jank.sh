@@ -1,11 +1,4 @@
 #!/bin/bash
-# Scrolling smoothness on a device: from the bottom of the open conversation, three flings up, then the frame times
-# while it moved. Run it before and after a change that touches the transcript, on the S24 (120 Hz: 8 ms a frame).
-#
-#   test/jank.sh <adb serial> <DevTools port> [label]
-#
-# over25 is the number of frames that took longer than 25 ms, the stutter you see. Fling twice and compare runs on the
-# same conversation; the first run after opening a conversation can be slower.
 set -e
 cd "$(dirname "$0")/.."
 ADB="${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}"

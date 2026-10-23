@@ -1,16 +1,11 @@
-// Triggers: runs that start without the user typing. A trigger belongs to a bot and has a schedule and a prompt; when
-// it fires, the prompt is submitted to the bot's conversation as a `trigger.run` entry. Definitions live in a pi-durable document; the native side
-// (TriggersPlugin) keeps a mirror of the schedules so alarms fire, and survive a reboot, without the WebView, and it
-// queues what happened until the WebView runs again. See docs/design/triggers.md.
+import { Value } from "typebox/value";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
-import { parse } from "./parse.ts";
 import { resolvePlace } from "./tools/device.ts";
 
-/** The window of an event schedule: ISO weekdays (empty: every day), from and until (local HH:MM, both optional; may cross midnight), and at most one run every gapHours (24: once per calendar day). */
 const EventWindow = {
 	days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
 	from: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
@@ -19,20 +14,11 @@ const EventWindow = {
 };
 
 const When = Type.Union([
-	/** Every day, or on the given ISO weekdays (Monday is 1), at a local time. */
 	Type.Object({ kind: Type.Literal("daily"), time: Type.String({ pattern: "^\\d{2}:\\d{2}$" }), days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })) }),
-	/** Once, at an epoch time. */
 	Type.Object({ kind: Type.Literal("once"), at: Type.Number() }),
-	/**
-	 * When headphones connect, on the given ISO weekdays (empty: every day), between from and until (local HH:MM, both
-	 * optional; may cross midnight), and at most once every gapHours; 24 means once per calendar day.
-	 */
 	Type.Object({ kind: Type.Literal("headphones"), ...EventWindow }),
-	/** When the phone starts charging (TriggerEvents.java). */
 	Type.Object({ kind: Type.Literal("charging"), ...EventWindow }),
-	/** When a Wi-Fi network connects; with ssid, only that one. */
 	Type.Object({ kind: Type.Literal("wifi"), ssid: Type.Optional(Type.String()), ...EventWindow }),
-	/** When the phone arrives at or leaves a place: a circle of radius meters. */
 	Type.Object({
 		kind: Type.Literal("place"),
 		on: Type.Union([Type.Literal("arrive"), Type.Literal("leave")]),
@@ -45,20 +31,16 @@ const When = Type.Union([
 ]);
 export type When = Static<typeof When>;
 
-/** A schedule, or a follow-up the bot set itself to check something later. */
 type TriggerKind = "schedule" | "followup";
 
-/** How a run started: the WebView was running ("live"), pi was opened afterwards ("later"), or from Settings ("manual"). */
 export type Delivery = "live" | "later" | "manual";
 
-// Type aliases, not interfaces: documents need JSON-assignable types.
 export type Trigger = {
 	id: string;
 	name: string;
 	prompt: string;
 	when: When;
 	kind: TriggerKind;
-	/** The bot's conversation, where its runs go. */
 	conversationId: ConversationId;
 	enabled: boolean;
 	createdAt: number;
@@ -73,12 +55,10 @@ export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string;
 	checkpointWhen: checkpointEvery64,
 });
 
-/** Runs a trigger may start per day, and all triggers together, so one that misfires cannot spend without bound. */
 export const LIMITS = { perTrigger: 10, total: 30 };
 const MAX_TRIGGERS = 20;
 const MAX_FOLLOWUPS = 5;
 
-/** Entry kind of a triggered input; the model sees its content as a user message. */
 export const TRIGGER_ENTRY = "trigger.run";
 export const TriggerEntryData = Type.Object({
 	trigger: Type.String(),
@@ -86,9 +66,7 @@ export const TriggerEntryData = Type.Object({
 	prompt: Type.String(),
 	kind: Type.String(),
 	delivery: Type.String(),
-	/** When it fired; older entries have none. */
 	at: Type.Optional(Type.Number()),
-	/** For a headphones schedule, the headphones that connected. */
 	device: Type.Optional(Type.String()),
 });
 
@@ -99,18 +77,15 @@ const QueuedEvent = Type.Union([
 		kind: Type.Literal("alarm"),
 		trigger: Type.String(),
 		live: Type.Boolean(),
-		/** For a headphones schedule, the headphones that connected. */
 		device: Type.Optional(Type.String()),
 	}),
 	Type.Object({
 		id: Type.String(),
 		at: Type.Number(),
 		kind: Type.Literal("share"),
-		/** Sent by pi as the assistant (AssistSession.java): the screen the user summoned it on. */
 		source: Type.Optional(Type.Literal("assist")),
 		text: Type.Optional(Type.String()),
 		subject: Type.Optional(Type.String()),
-		/** Copies in the native inbox, read through Capacitor's file server (Capacitor.convertFileSrc). */
 		files: Type.Optional(Type.Array(Type.Object({ path: Type.String(), name: Type.String(), mimeType: Type.String() }))),
 	}),
 ]);
@@ -133,18 +108,17 @@ interface TriggersPlugin {
 export const Triggers = registerPlugin<TriggersPlugin>("Triggers");
 export const nativeTriggers = Capacitor.isNativePlatform();
 
-/** Queued events from the native side; an event that does not parse is dropped with the others' handling. */
 export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
 	const { events } = await Triggers.events();
 	const parsed: QueuedEvent[] = [];
 	const unreadable: string[] = [];
 	for (const event of events) {
-		try {
-			parsed.push(parse(QueuedEvent, event, "觸發事件"));
-		} catch {
-			const id = typeof event === "object" && event && "id" in event && typeof event.id === "string" ? event.id : undefined;
-			if (id) unreadable.push(id);
+		if (Value.Check(QueuedEvent, event)) {
+			parsed.push(event);
+			continue;
 		}
+		const id = typeof event === "object" && event && "id" in event && typeof event.id === "string" ? event.id : undefined;
+		if (id) unreadable.push(id);
 	}
 	return { events: parsed, unreadable };
 }
@@ -165,7 +139,6 @@ function describeDays(list: readonly number[]): string {
 	return `每週${days.map((day) => WEEKDAY_NAMES[day - 1]).join("、")}`;
 }
 
-/** When a trigger fires, in words: 每天 08:00, 平日 08:00, 10/31（六）10:00, 平日 07:00–10:00 戴上耳機時（最多每 4 小時一次）. */
 export function describeWhen(when: When): string {
 	if (when.kind === "once") return clock(when.at);
 	if (when.kind === "daily") return `${describeDays(when.days)} ${when.time}`;
@@ -191,12 +164,10 @@ const hhmm = (value: string, name: string) => parseClock(value, name).text;
 
 function summary(trigger: Trigger): string {
 	const kind = trigger.kind === "followup" ? "follow-up" : "schedule";
-	// The time in the form the tools take, for the model; describeWhen is the user's words for it.
 	const at = trigger.when.kind === "once" ? `, at ${localTime(trigger.when.at)}` : "";
 	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
-/** Location "all the time", which events while pi is not running need; asks, and says what to do when it was not given. */
 async function needLocationAlways(what: string): Promise<void> {
 	const { background } = await Triggers.requestLocationAlways();
 	if (!background) {
@@ -207,9 +178,7 @@ async function needLocationAlways(what: string): Promise<void> {
 }
 
 export interface TriggerHost {
-	/** The definitions changed: mirror them to the native side and refresh the UI. */
 	changed(): void;
-	/** Post a notification that opens `conversationId`; false when the user is looking at pi, so none was needed. */
 	notify(title: string, text: string, conversationId: ConversationId): Promise<boolean>;
 }
 
@@ -251,14 +220,12 @@ export function createTriggerExtension(host: TriggerHost) {
 				};
 				if (args.on === "headphones") {
 					when = { kind: "headphones", ...window };
-					// The broadcast that says headphones connected needs this permission from Android 12 on.
 					const { granted } = await Triggers.requestBluetooth();
 					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
 				} else if (args.on === "charging") {
 					when = { kind: "charging", ...window };
 				} else if (args.on === "wifi") {
 					when = { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window };
-					// Android shows a network's name only to apps with location, in the background "all the time".
 					if (args.wifi_name) await needLocationAlways("which Wi-Fi it is");
 				} else {
 					if (!args.place) throw new Error("arrive and leave need place");
@@ -368,7 +335,6 @@ export function createTriggerExtension(host: TriggerHost) {
 		execute: async (args, api) => {
 			requireNative();
 			const shown = await host.notify(args.title, args.text, api.conversationId);
-			// Whether it was shown is not the user's concern; either way they learn the result.
 			return text(shown ? "Notified." : "Delivered: the user has pi open and reads your answer.");
 		},
 	});

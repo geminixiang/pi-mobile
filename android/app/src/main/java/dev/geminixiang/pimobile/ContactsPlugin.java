@@ -21,10 +21,6 @@ import com.getcapacitor.annotation.PermissionCallback;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * The user's contacts, read-only: people by name, number, email, or company, with their numbers, emails, company, and
- * birthday. One query over ContactsContract.Data gives every field of the matched contacts.
- */
 @CapacitorPlugin(name = "Contacts", permissions = { @Permission(strings = { Manifest.permission.READ_CONTACTS }, alias = "contacts") })
 public class ContactsPlugin extends Plugin {
 
@@ -38,7 +34,6 @@ public class ContactsPlugin extends Plugin {
         return false;
     }
 
-    /** Contacts whose name, number, email, or company contains `query`; all of them without one. */
     @PluginMethod
     public void search(PluginCall call) {
         if (ensurePermission(call, "searchResult")) run(call);
@@ -53,8 +48,6 @@ public class ContactsPlugin extends Plugin {
     private void run(PluginCall call) {
         String query = call.getString("query", "").trim();
         ContentResolver resolver = getContext().getContentResolver();
-        // Contacts with a matching field, then every field of those contacts.
-        // The name row too, so a contact with only a name is listed.
         String where = Data.MIMETYPE + " IN (?,?,?,?,?)";
         String[] kinds = { StructuredName.CONTENT_ITEM_TYPE, Phone.CONTENT_ITEM_TYPE, Email.CONTENT_ITEM_TYPE, Event.CONTENT_ITEM_TYPE, Organization.CONTENT_ITEM_TYPE };
         java.util.Set<Long> matched = null;
@@ -98,17 +91,15 @@ public class ContactsPlugin extends Plugin {
                     JSObject phone = new JSObject();
                     phone.put("number", value);
                     phone.put("type", Phone.getTypeLabel(getContext().getResources(), cursor.getInt(4), cursor.getString(5)).toString());
-                    person.getJSONArray("phones").put(phone);
+                    person.optJSONArray("phones").put(phone);
                 } else if (Email.CONTENT_ITEM_TYPE.equals(kind)) {
-                    person.getJSONArray("emails").put(value);
+                    person.optJSONArray("emails").put(value);
                 } else if (Organization.CONTENT_ITEM_TYPE.equals(kind)) {
                     person.put("company", value);
                 } else if (Event.CONTENT_ITEM_TYPE.equals(kind) && cursor.getInt(4) == Event.TYPE_BIRTHDAY) {
                     person.put("birthday", value);
                 }
             }
-        } catch (org.json.JSONException ignored) {
-            // The arrays were put just above.
         }
         JSArray items = new JSArray();
         for (JSObject person : people.values()) items.put(person);

@@ -1,27 +1,3 @@
-// pi-mobile on a computer: lets the pi mobile app on the user's phone operate this computer over the tailnet, as the
-// user who runs it. Like rex or ollama, one name for the product and a subcommand for the role:
-//
-//	pi-mobile serve     what the login item (launchd, systemd --user) runs
-//	pi-mobile status    whether it answers, where, and which version
-//	pi-mobile version
-//
-// It listens on this computer's Tailscale IPv4 address only, never on the LAN, and accepts a request only from a device
-// of the same Tailscale user as this computer (`tailscale whois`; tagged devices have no user and are refused), and
-// only from the pi app or a non-browser client: a web page in a browser on one of the user's devices has another
-// Origin. There is no password or key; the tailnet is the authentication, as Tailscale Serve and tsnet apps use it.
-//
-// The phone brings the pi-env daemon (docs/design/computer-host.md):
-//
-//	GET  /info               this computer: os, arch, user, home, name, and the daemons it has
-//	PUT  /daemon/<sha256>    store a daemon; refused unless its bytes hash to <sha256>
-//	GET  /env?daemon=<sha256>&token=<hex>   WebSocket: runs `pi-env serve --token <hex>` in a login shell from home
-//	                          and copies its stdin and stdout as binary messages
-//	GET  /peers              the user's other computers on the tailnet (online, macOS or Linux, not tagged), for the
-//	                          phone to list: it cannot read the tailnet itself, as Android apps get no peer list
-//	GET  /exec?command=<sh>  WebSocket: runs a command in a login shell from home, for driving a container engine.
-//	                          Binary messages in are stdin, a text "eof" closes it; out, binary messages start with
-//	                          1 (stdout) or 2 (stderr), and a last text message {"exit": code} precedes the close.
-//	                          It grants nothing /env does not: both run what the user's own device asks, as the user.
 package main
 
 import (
@@ -54,13 +30,11 @@ const port = "4790"
 var version = "dev"
 
 var (
-	shaPattern   = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	tokenPattern = regexp.MustCompile(`^[0-9a-f]{16,128}$`)
-	// The pi app's WebView; requests without an Origin come from programs, not web pages.
+	shaPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	tokenPattern   = regexp.MustCompile(`^[0-9a-f]{16,128}$`)
 	allowedOrigins = map[string]bool{"http://localhost": true, "https://localhost": true, "capacitor://localhost": true}
 )
 
-// tailscaleCLI finds the Tailscale command line: on PATH, or inside the macOS app (launchd's PATH has neither).
 func tailscaleCLI() string {
 	if path, err := exec.LookPath("tailscale"); err == nil {
 		return path
@@ -91,7 +65,6 @@ func tailscaleJSON(ctx context.Context, out any, args ...string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, cli, args...)
-	// The macOS app's binary is the CLI when it runs in a terminal; from launchd it needs this (Tailscale's CLI docs).
 	cmd.Env = append(os.Environ(), "TAILSCALE_BE_CLI=1")
 	data, err := cmd.Output()
 	if err != nil {
@@ -106,7 +79,6 @@ var selfCache struct {
 	st status
 }
 
-// self is this computer's Tailscale status, asked at most every 10 s: every request needs its user.
 func self(ctx context.Context) (status, error) {
 	selfCache.Lock()
 	defer selfCache.Unlock()
@@ -131,7 +103,6 @@ func selfNow(ctx context.Context) (status, error) {
 	return st, nil
 }
 
-// owner reports whether the device at remoteAddr belongs to the Tailscale user this computer belongs to.
 func owner(ctx context.Context, remoteAddr string) (string, error) {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
@@ -169,8 +140,15 @@ func daemonsDir() string {
 }
 
 func daemons() []string {
-	entries, _ := os.ReadDir(daemonsDir())
 	out := []string{}
+	if _, err := os.Stat(daemonsDir()); err != nil {
+		return out
+	}
+	entries, err := os.ReadDir(daemonsDir())
+	if err != nil {
+		log.Printf("daemons: %v", err)
+		return out
+	}
 	for _, entry := range entries {
 		if shaPattern.MatchString(entry.Name()) {
 			out = append(out, entry.Name())
@@ -179,7 +157,6 @@ func daemons() []string {
 	return out
 }
 
-// guard admits only the user's own devices, from the app or a program.
 func guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" && !allowedOrigins[origin] {
@@ -233,7 +210,6 @@ func info(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// engines lists the container engines the user's shell finds, best first.
 func engines(ctx context.Context) []string {
 	names := []string{"docker", "podman", "nerdctl"}
 	found := make([]bool, len(names))
@@ -255,26 +231,21 @@ func engines(ctx context.Context) []string {
 	return out
 }
 
-// loginShell runs a command as the user's terminal would: their shell, its PATH (Homebrew, colima, nvm), from home.
 func loginShell(ctx context.Context, command string, args ...string) *exec.Cmd {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/sh"
 	}
-	// pi-mobile itself first, so the phone can run `pi-mobile mcp computer`.
 	self, _ := os.Executable()
 	path := `export PATH="` + filepath.Dir(self) + `:$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"; `
 	cmd := exec.CommandContext(ctx, shell, append([]string{"-l", "-c", path + command}, args...)...)
 	cmd.Dir, _ = os.UserHomeDir()
-	// Its own process group, ended whole when the phone's connection does: killing only the shell left what it started
-	// (npx, then node) running, orphaned, for good.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return endGroup(cmd) }
 	cmd.WaitDelay = 5 * time.Second
 	return cmd
 }
 
-// endGroup asks a command's process group to stop, and kills what is left of it two seconds later.
 func endGroup(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return nil
@@ -285,7 +256,6 @@ func endGroup(cmd *exec.Cmd) error {
 	return err
 }
 
-// taggedWriter sends a command's output to the phone as binary messages, tagged 1 for stdout and 2 for stderr.
 type taggedWriter struct {
 	tag    byte
 	conn   *websocket.Conn
@@ -342,7 +312,6 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	// Wait returns when the shell exits, or WaitDelay after the phone left; what the shell left in its group ends too.
 	err = cmd.Wait()
 	_ = endGroup(cmd)
 	code := 0
@@ -442,7 +411,6 @@ func env(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such daemon; PUT it first", http.StatusNotFound)
 		return
 	}
-	// The Origin was checked in guard.
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
 	if err != nil {
 		return
@@ -451,7 +419,6 @@ func env(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// A login shell, so commands find what the user's terminal finds (Homebrew, nvm, ~/.local/bin).
 	cmd := loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
@@ -493,16 +460,10 @@ func env(w http.ResponseWriter, r *http.Request) {
 	_ = endGroup(cmd)
 }
 
-// macOS asks the user before a program reads the protected folders, controls another app, or records the screen, and
-// it counts what commands from the phone do against pi-mobile serve, which launchd started. A command that reaches one
-// of these waits for the answer on the computer's screen, where nobody is. So serve asks for all of them as it starts,
-// right after the install, while the user is at the computer: each is touched once, macOS asks one after another, and
-// what was granted passes silently from then on: install.sh signs the app with the same local identity every time, so
-// an update keeps the grants. The answers go to permissionsFile for `pi-mobile status` and install.sh.
 type permission struct {
 	key   string
-	label string // what the user is asked, in the words macOS uses
-	fix   string // where to change it later
+	label string
+	fix   string
 	check func(home string) error
 }
 
@@ -538,7 +499,6 @@ func permissionsFile() string {
 	return filepath.Join(home, ".pi", "mobile", "permissions.json")
 }
 
-// askPermissions touches each in turn, writing what is known so far after each answer.
 func askPermissions() {
 	if runtime.GOOS != "darwin" {
 		return
@@ -548,14 +508,14 @@ func askPermissions() {
 		answers := map[string]bool{}
 		for _, p := range permissions {
 			answers[p.key] = p.check(home) == nil
-			if data, err := json.Marshal(answers); err == nil {
-				_ = os.WriteFile(permissionsFile(), data, 0o600)
+			data, _ := json.Marshal(answers)
+			if err := os.WriteFile(permissionsFile(), data, 0o600); err != nil {
+				log.Printf("permissions: %v", err)
 			}
 		}
 	}()
 }
 
-// readPermissions is what serve found, or nil before it has asked anything.
 func readPermissions() map[string]bool {
 	data, err := os.ReadFile(permissionsFile())
 	if err != nil {
@@ -568,7 +528,6 @@ func readPermissions() map[string]bool {
 	return answers
 }
 
-// listen binds this computer's Tailscale IPv4 address, waiting for Tailscale to come up.
 func listen() net.Listener {
 	for {
 		st, err := self(context.Background())
@@ -616,7 +575,6 @@ func main() {
 	}
 }
 
-// status asks the running serve over this computer's Tailscale address, as the phone would. 0 when it answers.
 func printStatus() int {
 	st, err := selfNow(context.Background())
 	if err != nil {
@@ -630,7 +588,6 @@ func printStatus() int {
 		}
 		client := http.Client{Timeout: 5 * time.Second}
 		response, err := client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
-		// Just (re)started, it takes a few seconds to ask Tailscale for its address and listen.
 		for wait := 0; err != nil && errors.Is(err, syscall.ECONNREFUSED) && wait < 15; wait++ {
 			time.Sleep(time.Second)
 			response, err = client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
@@ -674,7 +631,11 @@ func printStatus() int {
 }
 
 func serve() {
-	_ = os.Remove(permissionsFile())
+	if _, err := os.Stat(permissionsFile()); err == nil {
+		if err := os.Remove(permissionsFile()); err != nil {
+			log.Printf("permissions: %v", err)
+		}
+	}
 	askPermissions()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/info", guard(info))
@@ -686,7 +647,6 @@ func serve() {
 		ln := listen()
 		server := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 		err := server.Serve(ln)
-		// The address went away (Tailscale restarted or the IP changed): bind again.
 		log.Printf("serve: %v", err)
 		time.Sleep(2 * time.Second)
 	}

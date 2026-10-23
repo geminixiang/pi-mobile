@@ -1,8 +1,3 @@
-// The bot folder on the phone (src/agent/files/phone-env.ts), checked end to end on a device: paths, reads and
-// writes, binary round trips, line scans, renames, and bash (just-bash in its worker): pipes, awk, jq, redirects,
-// timeouts, spilled output, and that nothing outside the folder or on the network is reachable. Makes a temporary
-// bot and deletes it with its folder.
-// Usage: CDP_PORT=<port> ./test/ui.sh "$(cat .pi/skills/device-testing/scripts/phone-folder-check.js)"
 async () => {
 	await until(() => window.piRuntime, 40000);
 	const bot = await window.piRuntime.createBot({ name: "資料夾檢查", job: "", avatar: "coder" });
@@ -16,7 +11,6 @@ async () => {
 		const res = await env.exec(command, { onOutput: (text) => (out += text), ...options }, ctx);
 		return { ms: Math.round(performance.now() - t), code: res.ok ? res.value.exitCode : `ERR ${res.error.code}`, out: out.slice(0, 300), ...(res.ok && res.value.spillPath ? { spill: res.value.spillPath } : {}) };
 	};
-	// Files.
 	r.abs = [val(await env.absolutePath("notes/a.md", ctx)), val(await env.absolutePath("../../etc/passwd", ctx)), val(await env.absolutePath("~/x", ctx))];
 	r.write = val(await env.writeFile("/報告/銀行比較.csv", "銀行,利率\n台銀,2.1\n", ctx));
 	r.read = val(await env.readTextFile("報告/銀行比較.csv", ctx));
@@ -37,7 +31,6 @@ async () => {
 	r.rename = val(await env.renameFile("/bin.dat", "/old/bin.dat", ctx));
 	r.mkdirRename = [val(await env.createDir("/old", { recursive: true }, ctx)), val(await env.renameFile("/bin.dat", "/old/bin.dat", ctx)), val(await env.exists("/old/bin.dat", ctx))];
 	r.canonicalMissing = val(await env.canonicalPath("/missing/x", ctx));
-	// bash.
 	r.ls = await sh("ls -R / | head -20");
 	r.awk = await sh("awk -F, 'NR>1{print $1\":\"$2}' 報告/銀行比較.csv | sort -t: -k2 -n");
 	r.redirect = await sh("echo 第一行 > memo.txt && echo 第二行 >> memo.txt && wc -l memo.txt && cat memo.txt");

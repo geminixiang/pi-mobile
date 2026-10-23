@@ -1,6 +1,3 @@
-// Skills: instructions for one kind of task, loaded when the task comes up rather than sent with every request. The
-// system prompt lists each skill's name and when to use it; read_skill returns the full text. Same idea as pi's
-// skills. Built in for now; a bot's own skills can join the list later.
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "./tools/common.ts";
 import { Type } from "typebox";
@@ -8,7 +5,6 @@ import spokenReport from "./skills/spoken-report.md?raw";
 
 interface Skill {
 	name: string;
-	/** When to read it, for the list in the system prompt. */
 	when: string;
 	text: string;
 }

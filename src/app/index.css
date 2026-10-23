@@ -1,11 +1,5 @@
-/*
- * Entry stylesheet. Every component style is in the "app" cascade layer (styles.css); the few rules that must win over
- * all of them stay outside any layer here, which beats layered rules whatever their specificity. That is what
- * !important used to do, and why it is not needed (see .agents/skills/css/SKILL.md).
- */
 @import "./styles.css" layer(app);
 
-/* The hidden attribute hides, even on elements whose class sets a display (such as .input-row, display: flex). */
 [hidden] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {

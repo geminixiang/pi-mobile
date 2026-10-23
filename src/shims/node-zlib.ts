@@ -1,4 +1,3 @@
-// just-bash's gzip, gunzip, and zcat use node:zlib, which the WebView lacks; in the app they fail with this message.
 const unavailable = () => {
 	throw new Error("gzip is not available on the phone");
 };

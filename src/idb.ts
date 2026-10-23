@@ -1,10 +1,5 @@
-// One IndexedDB object store, opened per operation: the app's few stores are used now and then, so no connection is
-// kept open between uses.
-
 export interface IdbStore {
-	/** One request, resolving with its result. */
 	request<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T>;
-	/** Several operations in one transaction, resolving when it commits. */
 	transaction(mode: IDBTransactionMode, run: (store: IDBObjectStore) => void): Promise<void>;
 }
 

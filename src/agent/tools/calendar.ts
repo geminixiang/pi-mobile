@@ -1,13 +1,9 @@
-// The phone's calendars, within what Settings allows (calendar-access.ts): reading the user's schedule, and adding an
-// event to an enabled account. Shared calendars hold other people's events; they are read
-// only when turned on and asked for, and never written to.
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, requireNative, text } from "./common.ts";
 
-/** A visible calendar. `own`: its owner is the account it syncs through; otherwise someone shared it with the user. */
 export interface PhoneCalendar {
 	id: number;
 	name: string;
@@ -15,7 +11,6 @@ export interface PhoneCalendar {
 	accountType: string;
 	owner: string;
 	own: boolean;
-	/** Own, and accepts new events. */
 	writable: boolean;
 	primary: boolean;
 }
@@ -54,16 +49,13 @@ export const Calendar = registerPlugin<CalendarPlugin>("Calendar");
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-/** All-day events are stored as UTC days. */
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-/** A local date's day, for all-day events, which the calendar provider keeps as UTC midnights. */
 function utcDay(ms: number): number {
 	const date = new Date(ms);
 	return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-/** Event times for the calendar provider: local instants, or UTC midnights for all-day events (end exclusive). */
 function eventTimes(start: string, end: string | undefined, allDay: boolean): { begin: number; end: number } {
 	const from = parseLocalTime(start, "start");
 	const to = end ? parseLocalTime(end, "end") : undefined;
@@ -94,7 +86,6 @@ function describeTimes(times: { begin: number; end: number }, allDay: boolean): 
 		: `${date(times.begin)} ${time(times.begin)} – ${date(times.end)} ${time(times.end)}`;
 }
 
-/** How the account reads to the user: an email for Google, otherwise with the provider's type. */
 function accountLabel(calendar: { account: string; accountType: string }): string {
 	if (calendar.accountType === "com.google") return calendar.account;
 	if (calendar.accountType === "LOCAL") return "這支手機";
@@ -102,7 +93,6 @@ function accountLabel(calendar: { account: string; accountType: string }): strin
 	return `${calendar.account}（${calendar.accountType}）`;
 }
 
-// A type, not an interface: structured outputs must be JSON-assignable.
 type FormattedEvent = {
 	title: string;
 	allDay?: true;
@@ -118,7 +108,6 @@ type FormattedEvent = {
 	owner?: string;
 };
 
-/** Local "YYYY-MM-DD HH:MM" for the model; all-day events as dates. */
 function formatEvent(event: PhoneEvent): FormattedEvent {
 	return {
 		title: event.title,
@@ -133,7 +122,6 @@ function formatEvent(event: PhoneEvent): FormattedEvent {
 	};
 }
 
-/** The calendars events may be added to under `access`, the default first. */
 async function writableCalendars(access: CalendarAccess): Promise<PhoneCalendar[]> {
 	const { calendars } = await Calendar.listAccounts();
 	return calendars
@@ -179,10 +167,8 @@ export function createCalendarExtension(access: CalendarAccess) {
 			today.setHours(0, 0, 0, 0);
 			const to = args.to ? parseLocalBound(args.to, "to", true) : today.getTime() + 2 * DAY;
 			if (to <= from) throw new Error("to must be after from");
-			// Over a year is almost always a mistake, and the list would not fit.
 			if (to - from > 366 * DAY) throw new Error("the range can be at most a year");
 			const { events } = await Calendar.listEvents({ from, to, includeShared: args.include_shared ?? false });
-			// The local query range catches all-day events of a neighbouring UTC day; keep those whose days overlap.
 			const first = localDate(from);
 			const last = localDate(to - 1);
 			const allowed = events.filter(
@@ -283,13 +269,11 @@ export function createCalendarExtension(access: CalendarAccess) {
 	});
 }
 
-/** Own calendars grouped by account, for Settings. */
 export function groupByAccount(calendars: PhoneCalendar[]): { key: string; label: string; calendars: PhoneCalendar[] }[] {
 	const groups = new Map<string, { key: string; label: string; calendars: PhoneCalendar[] }>();
 	for (const calendar of calendars) {
 		if (!calendar.own) continue;
 		const key = accountKey(calendar);
-		// Local calendars are each their own "account" with an internal name; show the calendar's name instead.
 		const label = calendar.accountType === "LOCAL" ? `${calendar.name}（只在這支手機上）` : accountLabel(calendar);
 		const group = groups.get(key) ?? { key, label, calendars: [] };
 		group.calendars.push(calendar);

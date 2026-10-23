@@ -1,8 +1,3 @@
-/*
- * pi.dev's design language on a phone: evening blue (or moonstone paper), a faint drafting grid, square edges,
- * hairline panels with monospace header strips, serif prose. Color comes only from the pi mark
- * (coral, blue, yellow) and one accent blue. The only gradients are pi.dev's own page grid and its fade.
- */
 :root {
 	color-scheme: light dark;
 
@@ -24,17 +19,14 @@
 	--error: #b5543a;
 	--error-bg: rgb(181 84 58 / 0.1);
 	--pending-bg: rgb(37 47 61 / 0.05);
-	/* pi's tool box colors (light.json toolPendingBg, toolSuccessBg, toolErrorBg, toolTitle, toolOutput). */
 	--tool-pending: #e4e5e6;
 	--tool-success: #dee9e1;
 	--tool-error: #eee2e1;
 	--tool-title: #3b3f41;
 	--tool-output: #677176;
-	/* light.json userMessageBg, customMessageBg, customMessageLabel. */
 	--user-bg: #dfe7ec;
 	--custom-bg: #e6e4ee;
 	--custom-label: #7459b4;
-	/* light.json thinkingOff ... thinkingMax: the editor's border follows the thinking level. */
 	--think-off: #c2c8ca;
 	--think-minimal: #b5c4cb;
 	--think-low: #9fc2d5;
@@ -44,7 +36,6 @@
 	--think-max: #fe7479;
 	--console-bg: #252f3d;
 	--console-text: #e4e2df;
-	/* pi.dev's page grid: 4px minor, 20px major, a + at every major crossing, faded out toward the bottom. */
 	--grid-minor: #252f3d08;
 	--grid-major: #252f3d12;
 	--grid-cross: #252f3d1d;
@@ -92,7 +83,6 @@
 		--error: #e8704f;
 		--error-bg: rgb(232 112 79 / 0.09);
 		--pending-bg: rgb(255 255 255 / 0.035);
-		/* dark.json */
 		--tool-pending: #34383a;
 		--tool-success: #254131;
 		--tool-error: #5b282a;
@@ -129,14 +119,11 @@ button:disabled { opacity: 0.4; cursor: default; }
 input::placeholder, textarea::placeholder { color: var(--faint); }
 ::selection { background: var(--accent-soft); }
 
-/* ---------- Brand ---------- */
 .pi-mark { display: block; flex-shrink: 0; }
 .pi-mark.live .pi-mark-cursor { animation: cursor 1s steps(1) infinite; }
 @keyframes cursor { 50% { opacity: 0.2; } }
 @keyframes blink { 50% { opacity: 0; } }
 .block-cursor { display: inline-block; width: 0.55em; height: 1.1em; vertical-align: -0.18em; background: var(--accent); animation: blink 1s steps(1) infinite; flex-shrink: 0; }
-/* ---------- Skeleton (Skeleton.tsx, index.html) ----------
-   The app's outline while it starts, in its own lines and colors, gently pulsing. */
 .skeleton i { display: block; background: var(--line); animation: skeleton-pulse 1.4s ease-in-out infinite; }
 .skeleton-mark { width: 52px; display: grid; place-items: center; }
 .skeleton-title { display: flex; flex-direction: column; gap: 8px; padding: 6px; }
@@ -150,7 +137,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .skeleton-composer { flex-shrink: 0; height: calc(env(safe-area-inset-bottom) + 76px); border-top: 1px solid var(--line-strong); }
 @keyframes skeleton-pulse { 50% { opacity: 0.45; } }
 
-/* Small uppercase monospace labels, as on pi.dev's panels. */
 .strip-label, .strip-title {
 	font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
 }
@@ -160,7 +146,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .strip-title { color: var(--text); text-transform: none; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Bracketed text buttons: [ 送出 ] */
 .btn {
 	display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 14px;
 	border: 1px solid var(--line-strong); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--text);
@@ -195,11 +180,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	max-height: 280px; overflow: hidden auto;
 }
 
-/* ---------- Layout ---------- */
 .app {
 	--editor-border: var(--think-off);
 	position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden;
-	/* pi.dev's body::before and body::after, folded into one background (first layer paints on top). */
 	background-color: var(--bg);
 	background-image:
 		linear-gradient(to bottom, var(--vignette), var(--bg) 90%),
@@ -230,11 +213,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .bar-heading { flex: 1; margin: 0; font-family: var(--mono); font-size: 12px; font-weight: 400; letter-spacing: 0.16em; text-align: center; }
 .bar-spacer { width: 44px; }
-/* Context window in use: a hairline under the bar, like pi.dev's active stripe. */
 .meter { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
 .meter i { display: block; height: 100%; background: var(--accent); transition: width 400ms var(--ease); }
 
-/* ---------- Transcript ---------- */
 .chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .transcript {
 	--top: calc(env(safe-area-inset-top) + var(--bar-h) + 22px);
@@ -242,15 +223,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	padding: var(--top) var(--space) calc(var(--composer-h, 92px) + 28px); scroll-padding: var(--top) 0 var(--composer-h, 92px);
 }
 .chat > .skeleton-transcript { padding-top: calc(env(safe-area-inset-top) + var(--bar-h) + 22px); }
-/*
- * Messages off screen skip layout and paint. After about a minute away, the WebView drops its caches and lays out the
- * whole document again on return: on the S24, a 35-message conversation took 225 ms (1 s after using Chrome), one
- * frozen frame. The last messages always lay out, so opening a conversation at its end lands on real heights; earlier
- * ones are estimated until first drawn, then keep that height (auto), and scroll anchoring holds the view meanwhile.
- */
 .transcript > :nth-last-child(n + 6) { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 
-/* The user's message as pi's: a full-width block in userMessageBg, no border; the color alone says who spoke. */
 .prompt { cursor: pointer; margin: 0 calc(-1 * var(--space)); }
 .bubble {
 	padding: 14px var(--space); background: var(--user-bg); color: var(--text);
@@ -260,7 +234,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .prompt:active .bubble { filter: brightness(1.18); }
 .bubble .markdown p { margin: 0; }
 .bubble .attachment { max-width: 60%; max-height: 220px; object-fit: cover; align-self: flex-start; border: 1px solid var(--line); }
-/* An input a schedule or a follow-up sent, as pi's custom messages: customMessageBg, a label in customMessageLabel. */
 .trigger-entry {
 	display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); padding: 14px var(--space);
 	background: var(--custom-bg);
@@ -271,26 +244,19 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	font-size: 14px; line-height: 1.55; color: var(--tool-output); white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .trigger-prompt.open { display: block; }
-/*
- * In the transcript, full-bleed like .prompt with the copy padded back in: the tool boxes' negative margins then stay
- * inside the answer's box. Overflowing it, content-visibility on older messages (above) clipped them to the text width.
- */
 .answer { display: flex; flex-direction: column; gap: 14px; overflow-wrap: anywhere; }
 .transcript > .answer { margin: 0 calc(-1 * var(--space)); padding: 0 var(--space); }
 .answer.aborted .markdown { opacity: 0.6; }
 .note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--faint); }
 .note.error { color: var(--error); letter-spacing: 0.02em; padding: 10px 12px; background: var(--error-bg); border-left: 2px solid var(--error); }
 
-/* Prose in serif, like pi.dev's body copy. */
 .answer .markdown { font-family: var(--serif); font-size: 16.5px; line-height: 1.8; color: var(--copy); }
 .markdown > :first-child { margin-top: 0; }
 .markdown > :last-child { margin-bottom: 0; }
 .markdown p, .markdown ul, .markdown ol { margin: 0.7em 0; }
 .markdown ul, .markdown ol { padding-left: 1.4em; }
 .markdown li + li { margin-top: 0.3em; }
-/* Bullets and numbers share one column, the list's padding; the text starts at the same place in both. */
 .markdown ul > li::marker { content: "■  "; font-size: 0.5em; color: var(--accent); }
-/* A task item (- [ ] / - [x]) has its box at the start of the text in place of a bullet, in any list. */
 .markdown ul > .task-list-item::marker { content: ""; }
 .task-list-item input {
 	appearance: none; width: 15px; height: 15px; margin: 0 10px 0 0; vertical-align: -2px;
@@ -305,8 +271,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown code { font-family: var(--mono); font-size: 0.82em; }
 .markdown :not(pre) > code { padding: 1px 5px; background: var(--panel-2); color: var(--text); }
 .markdown blockquote { margin: 0.8em 0; padding: 2px 0 2px 14px; border-left: 2px solid var(--line-strong); color: var(--muted); }
-/* A table (Message.tsx Table) scrolls sideways in its frame; columns take the width their content needs, numbers never
-   break, and long text wraps at a readable width. */
 .markdown .table { margin: 0.9em 0; overflow-x: auto; border: 1px solid var(--line); }
 .markdown table { border-collapse: collapse; width: max-content; min-width: 100%; font-family: var(--sans); font-size: 14px; line-height: 1.5; }
 .markdown th {
@@ -330,17 +294,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .code-head button::after { content: " ]"; }
 .code pre { margin: 0; padding: 12px 14px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
 .code pre code { background: none; padding: 0; color: inherit; }
-/* A mermaid block drawn (Mermaid.tsx): on the panel color the diagram's own colors assume, scrolled when wider. */
 .diagram { overflow-x: auto; background: var(--panel); }
 .diagram > svg { display: block; max-width: none; margin: 0 auto; }
 .diagram.fit > svg { width: 100%; height: auto; }
 .diagram-loading { height: 160px; background: var(--panel); }
-/* A streaming answer's words (streaming.tsx): each fades in once, when it mounts; words already shown keep their
-   element, so they do not fade again. */
 .fade { animation: word-in 260ms ease-out both; }
-/* Opacity only: a blur filter on every new word dropped frames on the S24. */
 @keyframes word-in { from { opacity: 0; } }
-/* Block cursor at the end of a streaming answer. */
 .markdown.caret > :last-child::after {
 	content: ""; display: inline-block; width: 0.5em; height: 1.05em; margin-left: 3px; vertical-align: -0.15em;
 	background: var(--accent); animation: blink 1s steps(1) infinite;
@@ -353,8 +312,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thinking-body { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line-strong); font-family: var(--serif); font-size: 14.5px; line-height: 1.7; color: var(--muted); white-space: pre-wrap; }
 .chevron { transition: transform 160ms var(--ease); flex-shrink: 0; color: var(--faint); }
 
-/* Tool calls as pi's tool boxes: full-width blocks tinted by status, a blank line apart, the call on top and its
-   output a blank line below, in toolTitle and toolOutput colors. */
 .steps { display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); }
 .step { position: relative; background: var(--tool-pending); }
 .step.ok { background: var(--tool-success); }
@@ -368,42 +325,33 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-name { font-weight: 700; color: var(--tool-title); flex-shrink: 0; }
 .step-label { flex: 1; min-width: 0; color: var(--tool-output); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .step.open .step-label { white-space: pre-wrap; overflow-wrap: anywhere; }
-/* A shell command is the call itself: pi prints it bold in the title color. */
 .step[data-tool="bash"] .step-label { color: var(--tool-title); font-weight: 700; }
 .step-status { font-size: 11px; letter-spacing: 0.1em; flex-shrink: 0; color: var(--tool-title); }
 .step-output, .step-script { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--tool-output); }
 .step-script { color: var(--tool-title); }
 .step-more { color: var(--tool-output); opacity: 0.8; }
-/* Collapsed previews in lines on screen: the first 10 of most tools, the last 5 of a shell command or script. */
 .step-output.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden; }
 .step-output.clamp-end { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(5 * 1.55em); overflow: hidden; }
 .step.open .step-output { max-height: 60vh; overflow: hidden auto; }
-/* Steps from back-to-back model turns read as one stack, a blank line apart. */
-/* The condition in :where() adds no specificity. */
 :where(.answer:has(> .steps:last-child) + .answer) > .steps:first-child { margin-top: -12px; }
 
 .working { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-/* "Scroll to the newest": a tab sitting on the composer's top line, in the line's color. */
 .input { position: relative; border-top: 1px solid var(--editor-border); background: none; padding-bottom: calc(env(safe-area-inset-bottom) + 14px); }
 .input::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--glass); backdrop-filter: blur(22px); }
-/* The finger owns the tab while it presses: no scrolling, no text selection, no context menu. */
 .scroll-hint {
 	touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 	position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); z-index: 3;
 	display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px;
-	/* Translucent: the content and the line show through, the outline keeps it a button. */
 	background: color-mix(in srgb, var(--editor-border) 28%, transparent); backdrop-filter: blur(8px);
 	border: 1px solid var(--editor-border); color: var(--text);
 	font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em;
 	white-space: nowrap; animation: fade-in 160ms ease;
 }
-/* A target larger than the tab, for the thumb. */
 .scroll-hint::before { content: ""; position: absolute; inset: -12px -18px; }
 .scroll-hint:active { filter: brightness(1.15); }
 .scroll-hint.new { animation: fade-in 160ms ease, hint-pulse 1.6s ease-out 2; }
-/* At the bottom there is no tab, but the same spot above the line still takes the long press. */
 .scroll-hint.ghost {
 	width: 140px; height: 24px; padding: 0; transform: translate(-50%, -100%);
 	background: none; border: none; backdrop-filter: none; animation: none;
@@ -417,8 +365,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .composer:has(.scroll-hint:not(.ghost))::before { left: 0; right: anchor(--scroll-hint left); }
 .composer:has(.scroll-hint:not(.ghost))::after { left: anchor(--scroll-hint right); right: 0; }
 
-/* The prompt dial, in the composer's language: a ruler bent around the thumb, growing out of the editor line, in the
-   thinking level's color; the selected cell lights up in place. */
 .dial { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: color-mix(in srgb, var(--bg-deep) 72%, transparent); animation: fade-in 120ms ease; }
 .dial-ring { position: fixed; inset: 0; overflow: visible; }
 .dial-track { fill: var(--panel); stroke: color-mix(in srgb, var(--editor-border) 55%, transparent); stroke-width: 1; }
@@ -431,9 +377,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .dial-number.selected, .dial-more.selected { fill: var(--text); font-weight: 600; font-size: 16px; }
 .dial-more { letter-spacing: 0.04em; }
-/* While the dial is open the track stands in for the scroll tab. */
 .scroll-hint:has(~ .dial) { opacity: 0; }
-/* The prompt the dial points at, as it reads in the transcript. */
 .dial-preview {
 	position: fixed; left: 0; right: 0; top: 18%;
 	display: flex; flex-direction: column; gap: 6px; padding: 14px var(--space);
@@ -441,9 +385,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .dial-count { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .dial-text { font-size: 15px; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
-/* The message the dial jumped to. */
 .prompt.flash .bubble, .trigger-entry.flash { animation: entry-flash 1.2s ease-out; }
-/* The ring and a light tint, both inset shadows (a brightness filter here would repaint every frame). */
 @keyframes entry-flash {
 	0%, 30% { box-shadow: inset 0 0 0 2px var(--editor-border), inset 0 0 0 999px rgb(255 255 255 / 0.1); }
 	100% { box-shadow: inset 0 0 0 2px transparent, inset 0 0 0 999px transparent; }
@@ -454,7 +396,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-/* ---------- Empty state ---------- */
 .empty { margin: auto 0; padding: 12px 2px; }
 .empty h2, .welcome h2 { margin: 28px 0 12px; font-family: var(--serif); font-size: 27px; font-weight: 400; line-height: 1.45; color: var(--text); }
 .empty h2 em, .welcome h2 em { font-style: normal; color: var(--accent); }
@@ -468,10 +409,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .suggestion-text strong { font-size: 15px; font-weight: 600; color: var(--text); }
 .suggestion-text span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---------- Composer ---------- */
-/* The composer as pi's editor: full width, no side borders, a line above in the thinking level's color. pi's line
-   below separates the editor from its footer; here the screen edge or the keyboard ends it. */
-/* Room below the input, so it does not sit on the gesture bar, and taller targets for the thumb. */
 .composer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; padding-top: 8px; }
 .app[data-thinking="minimal"] { --editor-border: var(--think-minimal); }
 .app[data-thinking="low"] { --editor-border: var(--think-low); }
@@ -485,7 +422,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	flex: 1; min-width: 0; resize: none; border: none; outline: none; background: none;
 	padding: 15px 4px; min-height: 54px; max-height: 176px; font-size: 16px; line-height: 1.45; field-sizing: content;
 }
-/* Send, stop, and the microphone are icons only, like the image button. */
 .send { display: grid; place-items: center; width: 52px; height: 54px; flex-shrink: 0; background: transparent; color: var(--accent); }
 .send:active { background: var(--accent-soft); }
 .send:disabled { color: var(--faint); opacity: 1; }
@@ -494,7 +430,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .busy-actions .btn { height: 32px; }
 .pending-images { display: flex; gap: 8px; padding: 10px 10px 2px; overflow-x: auto; }
 .pending-files { display: flex; flex-direction: column; gap: 6px; padding: 10px 10px 2px; }
-/* An attached file: in the composer (a button that removes it) and in the user's message. */
 .file-chip { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg-deep); text-align: left; }
 .file-chip > svg { flex-shrink: 0; color: var(--muted); }
 .file-chip-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -505,13 +440,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb-remove { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 20px; height: 20px; background: var(--console-bg); color: var(--console-text); }
 .queue { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-/* Queued input: the user's own block, faded until it is placed. */
 .queue li { display: flex; align-items: center; gap: 10px; padding-left: var(--space); background: color-mix(in srgb, var(--user-bg) 55%, transparent); backdrop-filter: blur(22px); }
 .queue-mode { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Notices (Toasts.tsx, Base UI Toast): stacked above the composer, the newest in front (--toast-index 0); older ones
-   peek out above it. A swipe moves one through --toast-swipe-movement-x. */
 .toasts { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 80px); z-index: 30; }
 .toast {
 	position: absolute; left: 0; right: 0; bottom: 0; z-index: calc(10 - var(--toast-index));
@@ -527,16 +459,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .toast[data-limited] { opacity: 0; }
 .toast-text { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; line-height: 1.5; }
 
-/* ---------- Layers (Sheet.tsx: Base UI Dialog and Drawer) ----------
-   Each part rests in its open style and transitions from and to [data-starting-style] / [data-ending-style].
-   Every layer has z-index 20, so the one opened last, last in the document, is on top: a sheet opened from a page
-   covers the page. */
 .backdrop {
 	position: fixed; inset: 0; z-index: 20; background: var(--scrim);
 	transition: opacity 200ms ease;
 }
 .backdrop[data-starting-style], .backdrop[data-ending-style] { opacity: 0; }
-/* A sheet's backdrop also follows a swipe down (Base UI's --drawer-swipe-progress, 0 until a swipe). */
 .sheet-backdrop { opacity: calc(1 - var(--drawer-swipe-progress)); }
 .sheet-backdrop[data-swiping] { transition: none; }
 .sheet-viewport { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
@@ -583,17 +510,14 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .toggles input:checked { border-color: var(--accent); background: var(--accent-soft); }
 .toggles input:checked::after { transform: translateX(20px); background: var(--accent); }
-/* A toolset this phone has not set up (BotPanel): dimmed, its switch off and inert. */
 .toggles > .unavailable > .menu-text { opacity: 0.55; }
 .toggles input:disabled { opacity: 0.4; }
-/* A toolset's place in the requests (BotPanel): 常駐 or 需要時載入, and about how many tokens. */
 .toolset-load { display: block; font-family: var(--mono); font-size: 11px; color: var(--faint); }
 
 .context-card { border: 1px solid var(--line); background: var(--panel); padding: 14px; flex-shrink: 0; }
 .context-top { display: flex; justify-content: space-between; align-items: baseline; }
 .context-numbers { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .context-numbers b { margin-left: 8px; color: var(--text); font-weight: 700; }
-/* Context bar drawn as cells, echoing the pixel mark. */
 .context-bar {
 	height: 10px; margin: 12px 0; background-color: var(--bg-deep);
 	background-image: linear-gradient(90deg, transparent 9px, var(--panel) 9px);
@@ -628,9 +552,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .model-id { font-family: var(--mono); font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .model-list > .more { justify-content: center; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--accent); }
 
-/* ---------- Side panels (SidePanel.tsx, Base UI Drawer) ----------
-   Base UI moves the popup through --drawer-swipe-movement-x while a swipe holds it (0 when settled) and marks it
-   data-swiping meanwhile; data-starting-style and data-ending-style are the closed position it slides from and to. */
 .side-swipe { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .side-backdrop {
 	position: fixed; inset: 0; z-index: 20; background: var(--scrim);
@@ -649,7 +570,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .side-popup[data-swiping], .side-backdrop[data-swiping] { transition: none; }
 .chat, .drawer, .panel { touch-action: pan-y; }
 
-/* ---------- Drawer ---------- */
 .drawer {
 	height: 100%; display: flex; flex-direction: column; gap: 12px;
 	padding: calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px);
@@ -673,7 +593,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .drawer-status span { display: inline-grid; place-items: center; color: var(--faint); opacity: 0.45; }
 .drawer-status span.on { color: var(--text); opacity: 1; }
 
-/* ---------- Settings ---------- */
 .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .settings { flex: 1; overflow: hidden auto; padding: 18px var(--space) calc(env(safe-area-inset-bottom) + 28px); display: flex; flex-direction: column; gap: 22px; }
 .welcome { padding: 8px 2px 0; }
@@ -683,7 +602,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .group { border: 1px solid var(--line); background: var(--panel); }
 .group-body > label, .provider > label { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0; }
 .group-body > label > span, .provider > label > span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-/* Text fields; a switch in a group (.toggles) keeps its own size. */
 .group-body input:where(:not([type="checkbox"])) {
 	width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line); background: var(--bg-deep); outline: none; border-radius: 0;
 	font-family: var(--mono); font-size: 13.5px;
@@ -697,8 +615,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .check-ok::before { content: "OK  "; }
 .check-error::before { content: "ERR  "; }
 
-
-/* ---------- Workspace: files and git ---------- */
 .tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid var(--line); background: var(--bg); }
 .tabs button { flex: 1; height: 42px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; color: var(--muted); text-align: center; }
 .tabs button.selected { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -738,12 +654,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .commit-text .file-name { font-family: var(--sans); font-size: 14px; }
 .commit-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
 
-/* Opening a file from a tool step. */
 .step-open { position: absolute; top: 4px; right: calc(var(--space) - 12px); width: 40px; height: 40px; display: grid; place-items: center; color: var(--muted); z-index: 1; }
 .step:has(.step-open) .step-head { padding-right: 32px; }
 .step-open:active { background: var(--accent-soft); }
 
-/* File and diff viewers. */
 .bar-center.static { cursor: default; }
 .bar-center.static:active { background: none; }
 .bar-action { height: 32px; margin-right: 8px; }
@@ -773,8 +687,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .diff-text { padding-right: 14px; color: var(--text); }
 .diff-hunk { padding: 4px 12px; font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-soft); white-space: pre; }
 
-
-/* Dictation: replaces the input row while the system recognizer listens. */
 .send.mic { background: transparent; color: var(--accent); }
 .send.mic:active { background: var(--accent-soft); }
 .dictation { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px 6px 12px; }
@@ -793,15 +705,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-image { display: block; margin: 0 var(--space) 12px; padding: 0; background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; border: 1px solid var(--line); }
 .step-image img { display: block; max-width: 100%; max-height: 420px; }
 
-/* Elapsed time on a running step, so a quiet command does not look stuck. */
 .step-elapsed { font-family: var(--mono); font-size: 11px; color: var(--muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
-/* Actions under the latest answer. */
 .answer-actions { display: flex; gap: 8px; margin-top: -8px; }
 .answer-actions .btn { height: 30px; padding: 0 10px; font-size: 11px; }
-/* Conversations with a run in progress. */
 .drawer-running { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); animation: blink 1s steps(1) infinite; }
 .manual > summary::-webkit-details-marker { display: none; }
-/* After the computers and the install steps, the last thing in its group. */
 .machine ~ .manual { padding-bottom: 14px; }
 .manual > summary::before { content: "▸ "; color: var(--faint); }
 .manual[open] > summary::before { content: "▾ "; }
@@ -811,7 +719,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .more-rows + .check-row { border-top: 1px solid var(--line); }
 .check-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .row-actions { display: flex; gap: 8px; flex-shrink: 0; }
-/* Settings › MCP: a server, then the bots that may use it as square chips (McpGroup.tsx). */
 .mcp-server + .mcp-server, .mcp-server + label { border-top: 1px solid var(--line); }
 .mcp-url { overflow-wrap: anywhere; }
 .catalog { display: flex; flex-direction: column; gap: 18px; }
@@ -832,7 +739,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sign-in p { margin: 0; }
 .dialog-actions.inline { padding: 0; }
 .user-code { font-family: var(--mono); font-size: 26px; letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
-/* On/off for one permission, such as reading or writing a calendar account. */
 .toggle {
 	flex-shrink: 0; min-width: 52px; height: 32px; padding: 0 10px; border: 1px solid var(--line-strong);
 	font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; color: var(--faint);
@@ -845,10 +751,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .trigger-actions button { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--accent); padding: 4px 0; }
 .trigger-actions button.danger { color: var(--error); }
 .menu-hint.error { color: var(--error); }
-/* Narration before a tool call: part of the work, not the answer. */
 .markdown.interim { font-family: var(--sans, inherit); font-size: 13px; line-height: 1.5; color: var(--faint); }
 .markdown.interim p { margin: 0; }
-/* MEMORY.md: a plain file, edited in place. */
 .memory { display: flex; flex-direction: column; }
 .memory-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px var(--space) calc(16px + env(safe-area-inset-bottom)); }
 .memory-file { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; color: var(--muted); }
@@ -861,14 +765,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .memory-text::placeholder { color: var(--faint); }
 .memory-hint { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
 
-/* Settings › 電腦: one block per computer, then the add form. */
 .machine + .machine, .machine + .machine-add, .machine + .btn { border-top: 1px solid var(--line); }
 .machine .check-error, .machine-add .check-error, .check-error.machine-error { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: 11.5px; }
 .machine-add > label { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0; }
 .machine-add > label > span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .row-buttons { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; }
 .group-body > .btn { margin: 14px 16px; }
-/* A model provider in Settings (ProvidersGroup.tsx): its name and remove button, then its fields. */
 .provider { border-bottom: 1px solid var(--line); }
 .provider-head { width: 100%; text-align: left; }
 .provider-head > .chevron { color: var(--muted); flex-shrink: 0; }
@@ -879,8 +781,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .pair-steps code { font-family: var(--mono); font-size: 12px; color: var(--text); }
 .machine .check-progress { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 
-/* ---------- Bots ---------- */
-/* A bot's pixel head, drawn on its own dark tile; square like everything else. */
 .bot-avatar { flex-shrink: 0; display: block; align-self: center; border: 1px solid var(--line); }
 .bar-title .bot-avatar { display: inline-block; vertical-align: -3px; margin-right: 7px; border: none; }
 .bot-item .drawer-open { align-items: center; gap: 12px; }
@@ -915,7 +815,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .avatar-picker button.selected { border-color: var(--accent); outline: 1px solid var(--accent); }
 .avatar-picker img { display: block; width: 100%; height: 100%; }
 
-/* ---------- Bot panel (from the right) ---------- */
 .panel {
 	height: 100%; overflow: hidden auto; display: flex; flex-direction: column; gap: 18px;
 	padding: calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 18px);

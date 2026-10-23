@@ -1,6 +1,3 @@
-// Asking macOS for Accessibility and Screen Recording the way an app does, so pi-mobile is added to their lists in
-// System Settings, with its name and icon, and the user is asked; checking alone (AXIsProcessTrusted) never adds it.
-// docs/research/macos-automation.md.
 package main
 
 import (
@@ -39,13 +36,11 @@ func loadAccess() (*access, error) {
 	purego.RegisterLibFunc(&a.screenRequest, services, "CGRequestScreenCaptureAccess")
 	purego.RegisterLibFunc(&a.dictionary, foundation, "CFDictionaryCreate")
 	purego.RegisterLibFunc(&a.release, foundation, "CFRelease")
-	// Globals: the symbol is the variable's address; the CFTypeRefs are read from it, the callback structs passed as is.
 	read := func(lib uintptr, name string) (uintptr, error) {
 		address, err := purego.Dlsym(lib, name)
 		if err != nil {
 			return 0, err
 		}
-		// The address seen as a pointer to the variable (vet allows converting the pointer to it, not the uintptr).
 		return **(**uintptr)(unsafe.Pointer(&address)), nil
 	}
 	if a.promptKey, err = read(services, "kAXTrustedCheckOptionPrompt"); err != nil {
@@ -63,8 +58,6 @@ func loadAccess() (*access, error) {
 	return a, nil
 }
 
-// requestAccessibility asks for Accessibility unless it is granted, and waits up to `wait` for the user to turn it on:
-// the system's question is asynchronous, and the grant applies to the running process.
 func requestAccessibility(wait time.Duration) bool {
 	a, err := loadAccess()
 	if err != nil {
@@ -85,8 +78,6 @@ func requestAccessibility(wait time.Duration) bool {
 	return false
 }
 
-// requestScreenCapture asks for Screen Recording unless it is granted. A grant applies only to processes started
-// after it, so false here may still be granted by the next start.
 func requestScreenCapture() bool {
 	a, err := loadAccess()
 	if err != nil {

@@ -1,15 +1,12 @@
-// Cloudflare credentials for cf and wrangler in the sandbox. Sign-in is the OAuth device flow of Cloudflare's `cf`
-// CLI (its public client ID): the app shows a code, the user approves it in the browser, the app polls for tokens.
-// The refresh token stays on the phone; the egress proxy only ever gets short-lived access tokens. An API token pasted in
-// settings works too and is passed on as is.
 import { type Static, Type } from "typebox";
-import { type AccessToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, startDeviceFlow, tokensFrom } from "./oauth.ts";
-import { parse, parseJson } from "./parse.ts";
+import { type AccessToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, startDeviceFlow, checkTokens } from "./oauth.ts";
+import { type Checked, check, checkJson, parse } from "./parse.ts";
+import { log } from "../log.ts";
+import { messageOf } from "../promise.ts";
 
 const AUTH_DOMAIN = "https://dash.cloudflare.com";
 const TOKEN_URL = `${AUTH_DOMAIN}/oauth2/token`;
 const CLIENT_ID = "cbca97e7-c331-4cdd-8fd8-e25a451b98bf";
-/** The scopes `cf auth login` asks for by default, minus ones only Cloudflare staff can grant. */
 const SCOPES = [
 	"account:read",
 	"user:read",
@@ -52,24 +49,19 @@ const ApiTokenCredential = Type.Object({
 const CloudflareCredential = Type.Union([OAuthCredential, ApiTokenCredential]);
 export type CloudflareCredential = Static<typeof CloudflareCredential>;
 
-/** Cloudflare's API envelope, with only the fields read here. */
 const UserResponse = Type.Object({ result: Type.Optional(Type.Object({ email: Type.Optional(Type.String()) })) });
 const AccountsResponse = Type.Object({
 	result: Type.Optional(Type.Array(Type.Object({ id: Type.String(), name: Type.String() }))),
 });
 
-function parseCloudflare(json: string): CloudflareCredential {
-	return parse(CloudflareCredential, parseJson(json, "Cloudflare 憑證"), "Cloudflare 憑證");
+export function checkCloudflareCredential(json: string): Checked<CloudflareCredential> {
+	return checkJson(CloudflareCredential, json, "Cloudflare 憑證");
 }
 
-/** What settings show for a stored credential. */
 export function describeCloudflare(json: string): string {
-	let credential: CloudflareCredential;
-	try {
-		credential = parseCloudflare(json);
-	} catch (error) {
-		return error instanceof Error ? error.message : String(error);
-	}
+	const checked = checkCloudflareCredential(json);
+	if (!checked.ok) return checked.problem;
+	const credential = checked.value;
 	switch (credential.type) {
 		case "cloudflare_api_token":
 			return `API token${credential.account_id ? ` · ${credential.account_id.slice(0, 8)}…` : ""}`;
@@ -82,7 +74,6 @@ export function describeCloudflare(json: string): string {
 	}
 }
 
-/** An API token pasted in settings, stored in the same shape as a sign-in. */
 export function apiTokenCredential(token: string): string {
 	return JSON.stringify({ type: "cloudflare_api_token", token: token.trim() } satisfies Static<typeof ApiTokenCredential>);
 }
@@ -93,27 +84,27 @@ export async function startCloudflareSignIn(): Promise<DeviceSignIn> {
 		form: { client_id: CLIENT_ID, scope: SCOPES.join(" ") },
 		what: "Cloudflare 登入",
 	});
-	// Only open Cloudflare's own page, as cf does.
 	if (new URL(signIn.url).origin !== AUTH_DOMAIN) throw new Error(`Cloudflare 回傳了不信任的登入網址：${signIn.url}`);
 	return signIn;
 }
 
-async function api<T extends Parameters<typeof parse>[0]>(token: string, path: string, schema: T): Promise<Static<T> | undefined> {
-	try {
-		const response = await getJson({ url: `https://api.cloudflare.com/client/v4${path}`, token, what: "Cloudflare API" });
-		return parse(schema, response.body, "Cloudflare API");
-	} catch {
-		return undefined; // Display details only; sign-in does not depend on them.
-	}
+async function accountDetail<T extends Parameters<typeof parse>[0]>(token: string, path: string, schema: T): Promise<Static<T> | undefined> {
+	const response = await getJson({ url: `https://api.cloudflare.com/client/v4${path}`, token, what: "Cloudflare API" }).then(
+		(ok) => ok,
+		(error: unknown) => {
+			log.warn("cloudflare.account_detail_unavailable", { path, error: messageOf(error) });
+			return undefined;
+		},
+	);
+	const checked = response && check(schema, response.body, "Cloudflare API");
+	return checked?.ok ? checked.value : undefined;
 }
 
-/** Poll until the user approves the code; resolves with the credential JSON to store. */
 export async function finishCloudflareSignIn(signIn: DeviceSignIn, signal: AbortSignal): Promise<string> {
 	const tokens = await pollDeviceFlow({ signIn, url: TOKEN_URL, form: { client_id: CLIENT_ID }, what: "Cloudflare", signal });
 	if (!tokens.refresh) throw new Error("Cloudflare 登入失敗：沒有拿到 refresh token");
-	// Who signed in, and the first account, so cf and wrangler know which account to use.
-	const user = await api(tokens.access.token, "/user", UserResponse);
-	const account = (await api(tokens.access.token, "/accounts?per_page=5", AccountsResponse))?.result?.[0];
+	const user = await accountDetail(tokens.access.token, "/user", UserResponse);
+	const account = (await accountDetail(tokens.access.token, "/accounts?per_page=5", AccountsResponse))?.result?.[0];
 	return JSON.stringify({
 		type: "cloudflare_oauth",
 		refresh_token: tokens.refresh,
@@ -123,18 +114,14 @@ export async function finishCloudflareSignIn(signIn: DeviceSignIn, signal: Abort
 	} satisfies Static<typeof OAuthCredential>);
 }
 
-/**
- * Mints access tokens from the stored credential. Cloudflare rotates refresh tokens: every refresh returns a new one
- * and retires the old, so `onRotate` must persist it before the next refresh.
- */
 export class CloudflareTokens {
 	#credential: CloudflareCredential;
 	readonly #onRotate: (json: string) => Promise<void>;
 	#cached: AccessToken | undefined;
 	#pending: Promise<AccessToken> | undefined;
 
-	constructor(json: string, onRotate: (json: string) => Promise<void>) {
-		this.#credential = parseCloudflare(json);
+	constructor(credential: CloudflareCredential, onRotate: (json: string) => Promise<void>) {
+		this.#credential = credential;
 		this.#onRotate = onRotate;
 	}
 
@@ -158,12 +145,9 @@ export class CloudflareTokens {
 			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID },
 			what: "Cloudflare token",
 		});
-		let tokens;
-		try {
-			tokens = tokensFrom(response, "Cloudflare token");
-		} catch (error) {
-			throw new Error(`${error instanceof Error ? error.message : String(error)}（可能需要在設定重新登入）`);
-		}
+		const checked = checkTokens(response, "Cloudflare token");
+		if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
+		const tokens = checked.value;
 		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
 			this.#credential = { ...credential, refresh_token: tokens.refresh };
 			await this.#onRotate(JSON.stringify(this.#credential));

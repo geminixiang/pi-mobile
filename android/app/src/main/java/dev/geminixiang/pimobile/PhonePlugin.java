@@ -42,10 +42,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Context about the phone for the agent: one location fix with its address, device status, and a single reading of
- * the environmental sensors. Everything is read once, when a tool asks; nothing runs in the background.
- */
 @CapacitorPlugin(
     name = "Phone",
     permissions = {
@@ -63,9 +59,6 @@ public class PhonePlugin extends Plugin {
         return getContext().checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
     }
 
-    // ---------- Location ----------
-
-    /** Coarse alone is enough: the user may choose "approximate" in the permission dialog. */
     private boolean anyLocation() {
         return granted(Manifest.permission.ACCESS_COARSE_LOCATION) || granted(Manifest.permission.ACCESS_FINE_LOCATION);
     }
@@ -114,8 +107,6 @@ public class PhonePlugin extends Plugin {
         };
         main.postDelayed(timeout, FIX_TIMEOUT_MS);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // The fused provider sometimes answers null at once (no recent fix); then ask the network and GPS
-            // providers in turn before falling back to the last known location, all within the timeout.
             java.util.List<String> order = new java.util.ArrayList<>();
             order.add(provider);
             for (String other : new String[] { LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER }) {
@@ -185,7 +176,6 @@ public class PhonePlugin extends Plugin {
         return best;
     }
 
-    /** Reports the fix, with an address from the platform geocoder when it has one. Geocoding blocks, so off the main thread. */
     private void resolve(PluginCall call, Location location, boolean lastKnown) {
         JSObject result = new JSObject();
         result.put("latitude", location.getLatitude());
@@ -225,7 +215,6 @@ public class PhonePlugin extends Plugin {
         }
     }
 
-    /** Address or place name to coordinates, with the platform geocoder (no API key). Blocks, so off the main thread. */
     @PluginMethod
     @SuppressWarnings("deprecation")
     public void geocode(PluginCall call) {
@@ -256,8 +245,6 @@ public class PhonePlugin extends Plugin {
             }
         }).start();
     }
-
-    // ---------- Device status ----------
 
     @PluginMethod
     public void getStatus(PluginCall call) {
@@ -340,9 +327,6 @@ public class PhonePlugin extends Plugin {
         }
     }
 
-    // ---------- Sensors ----------
-
-    /** Listens to the environmental sensors for a moment and reports the latest value of each. */
     @PluginMethod
     public void readSensors(PluginCall call) {
         SensorManager manager = getContext().getSystemService(SensorManager.class);
@@ -386,7 +370,6 @@ public class PhonePlugin extends Plugin {
         }, SENSOR_WINDOW_MS);
     }
 
-    /** Heading from the rotation vector: magnetic, and true north when a recent location gives the declination. */
     @SuppressWarnings("MissingPermission")
     private JSObject compass(float[] vector) {
         float[] matrix = new float[9];

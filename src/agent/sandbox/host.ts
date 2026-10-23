@@ -1,11 +1,3 @@
-// One of the user's computers running pi-mobile serve (host/main.go), reached over the tailnet: no SSH, no key, no
-// password. pi-mobile serve accepts only devices of the same Tailscale user, so the tailnet is the authentication
-// (docs/design/computer-host.md). A bot works there in one of two ways:
-// - directly: pi-env runs as the user from home, and the bot operates the computer itself;
-// - in a container: the shared Linux sandbox behind the egress proxy (container.ts), when the computer has docker,
-//   podman, or nerdctl; credentials stay on the phone.
-// The phone brings pi-env: it reads /info, uploads the daemon for the computer's system when missing, and opens a
-// WebSocket per connection.
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
@@ -23,6 +15,8 @@ import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, SharedEnvs } from "./sandbox.ts";
 import { lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
+import { decode } from "../parse.ts";
+import { onFailure } from "../../promise.ts";
 
 const HOST_PORT = 4790;
 
@@ -45,29 +39,19 @@ export type HostInfo = Static<typeof HostInfo>;
 
 const Host = Type.Object({
 	id: Type.String(),
-	/** What the user calls it: the computer's own name. */
 	name: Type.String(),
-	/** Its MagicDNS name (or Tailscale IP), where pi-mobile serve listens on HOST_PORT. */
 	address: Type.String(),
 	...System,
 	user: Type.String(),
 	home: Type.String(),
-	/** The container engine there, first of docker, podman, nerdctl; absent without one. */
 	engine: Type.Optional(Type.String()),
 });
 export type Host = Static<typeof Host>;
 
 export type HostMode = "direct" | "container";
 
-/** The settings' hosts JSON; entries that do not parse are dropped. */
 export function parseHosts(json: string): Host[] {
-	if (!json) return [];
-	try {
-		const value: unknown = JSON.parse(json);
-		return Array.isArray(value) ? value.filter((item): item is Host => Value.Check(Host, item)) : [];
-	} catch {
-		return [];
-	}
+	return (decode(Type.Array(Type.Unknown()), json) ?? []).filter((item): item is Host => Value.Check(Host, item));
 }
 
 function base(address: string): string {
@@ -80,14 +64,13 @@ function socketUrl(address: string, path: string, params: Record<string, string>
 	return url;
 }
 
-/** What pi-mobile serve on `address` says about its computer; throws in words the user can act on. */
 export async function probeHost(address: string, signal?: AbortSignal): Promise<HostInfo> {
-	let response: Response;
-	try {
-		response = await fetch(`${base(address)}/info`, { signal: signal ?? AbortSignal.timeout(15_000) });
-	} catch {
-		throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile`);
-	}
+	const response = await fetch(`${base(address)}/info`, { signal: signal ?? AbortSignal.timeout(15_000) }).then(
+		(ok) => ok,
+		() => {
+			throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile`);
+		},
+	);
 	if (response.status === 403) throw new Error(`${address} 拒絕了這支手機：手機和電腦要登入同一個 Tailscale 帳號`);
 	if (!response.ok) throw new Error(`${address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
 	const info: unknown = await response.json();
@@ -95,11 +78,9 @@ export async function probeHost(address: string, signal?: AbortSignal): Promise<
 	return info;
 }
 
-/** A host from what it said about itself, keeping what was known of it. */
 export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 	const engine = info.engines[0];
 	return {
-		// Its tailnet name, so that a computer removed and added again is the one bots had picked.
 		id: known?.id ?? (info.dnsName || address),
 		name: info.name,
 		address: info.dnsName || address,
@@ -114,7 +95,6 @@ export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 const Peers = Type.Array(Type.Object({ name: Type.String(), dnsName: Type.String(), os: System.os }));
 export type Peer = Static<typeof Peers>[number];
 
-/** The user's other computers on the tailnet, as one running pi-mobile sees them; Android gives apps no peer list. */
 export async function listPeers(host: Host): Promise<Peer[]> {
 	const response = await fetch(`${base(host.address)}/peers`, { signal: AbortSignal.timeout(8000) });
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -122,7 +102,6 @@ export async function listPeers(host: Host): Promise<Peer[]> {
 	return Value.Check(Peers, peers) ? peers : [];
 }
 
-/** A WebSocket opened with its first bytes listened for before `open` resolves (they can arrive in the same task). */
 function openSocket(url: URL, what: string, onMessage: (data: ArrayBuffer | string) => void, onClose: (reason: string | undefined) => void): Promise<WebSocket> {
 	const socket = new WebSocket(url);
 	socket.binaryType = "arraybuffer";
@@ -144,7 +123,6 @@ function openSocket(url: URL, what: string, onMessage: (data: ArrayBuffer | stri
 
 const ExitMessage = Type.Object({ exit: Type.Number() });
 
-/** Shell commands on the computer through pi-mobile serve's /exec: one WebSocket per command. */
 class HostCommands implements CommandClient {
 	readonly #host: Pick<Host, "address" | "name">;
 
@@ -164,12 +142,8 @@ class HostCommands implements CommandClient {
 			this.#host.name,
 			(data) => {
 				if (typeof data === "string") {
-					try {
-						const message: unknown = JSON.parse(data);
-						if (Value.Check(ExitMessage, message)) exit(message.exit);
-					} catch {
-						// Not ours.
-					}
+					const message = decode(ExitMessage, data);
+					if (message) exit(message.exit);
 					return;
 				}
 				const bytes = new Uint8Array(data);
@@ -206,13 +180,8 @@ class HostCommands implements CommandClient {
 	}
 }
 
-/** Preparations in flight or done this app run, by address: the settings, the bot panel, and a bot share one. */
 const preparing = new Map<string, { done: Promise<void>; listeners: Set<(detail: string) => void> }>();
 
-/**
- * Build the container images on a host unless they are current: about a second when they are, minutes the first time.
- * Once per app run; `onProgress` gets the build's last line, also when another caller started it.
- */
 export function prepareContainers(host: Host, onProgress: (detail: string) => void = () => undefined): Promise<void> {
 	if (!host.engine) return Promise.reject(new Error(`${host.name} 沒有 docker、podman 或 nerdctl`));
 	let entry = preparing.get(host.address);
@@ -224,7 +193,7 @@ export function prepareContainers(host: Host, onProgress: (detail: string) => vo
 		});
 		entry = { done, listeners };
 		preparing.set(host.address, entry);
-		done.catch(() => preparing.delete(host.address));
+		onFailure(done, () => preparing.delete(host.address));
 	}
 	const { done, listeners } = entry;
 	listeners.add(onProgress);
@@ -247,7 +216,6 @@ export class HostSandbox implements Sandbox {
 			const commands = new HostCommands(host);
 			const containers = new ContainerHost(host.engine, async () => commands);
 			this.#stopBridge = containers.bridge(credentials);
-			// Per-service settings from the phone, such as the default Google Cloud project or Cloudflare account.
 			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
 			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog });
 			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => `${WORKSPACE}/${folder}`);
@@ -260,7 +228,6 @@ export class HostSandbox implements Sandbox {
 		return this.mode === "direct";
 	}
 
-	/** pi-env as the user from home: the daemon uploaded when the computer lacks it, once per app run. */
 	#direct(): OpenDaemon {
 		return async (token, handlers) => {
 			const sha = await this.#daemon();
@@ -291,7 +258,7 @@ export class HostSandbox implements Sandbox {
 			}
 			return sha;
 		})();
-		this.#ready.catch(() => {
+		onFailure(this.#ready, () => {
 			this.#ready = undefined;
 		});
 		return this.#ready;
@@ -302,7 +269,6 @@ export class HostSandbox implements Sandbox {
 	}
 
 	async env(folder: string): Promise<ExecutionEnv> {
-		// The images, built the first time a bot works in this computer's container.
 		if (!this.direct) await prepareContainers(this.host, (detail) => log.info("host.prepare", { host: this.host.name, detail }));
 		return this.#envs.env(folder);
 	}
@@ -312,7 +278,6 @@ export class HostSandbox implements Sandbox {
 	}
 
 	remove(folder: string): Promise<void> {
-		// Directly, the working directory is the user's home, never deleted from here.
 		if (this.direct) return Promise.reject(new Error("直接操作的電腦不會刪除檔案"));
 		return this.#envs.remove(folder);
 	}
@@ -327,24 +292,15 @@ export class HostSandbox implements Sandbox {
 	}
 }
 
-/** An MCP server URL that runs on one of the user's computers: computer://<address>?command=<shell command>. */
 const COMPUTER_MCP = "computer:";
 
 export function parseComputerMcp(url: string): { address: string; command: string } | undefined {
-	try {
-		const parsed = new URL(url);
-		const command = parsed.searchParams.get("command");
-		return parsed.protocol === COMPUTER_MCP && parsed.hostname && command ? { address: parsed.hostname, command } : undefined;
-	} catch {
-		return undefined;
-	}
+	if (!URL.canParse(url)) return undefined;
+	const parsed = new URL(url);
+	const command = parsed.searchParams.get("command");
+	return parsed.protocol === COMPUTER_MCP && parsed.hostname && command ? { address: parsed.hostname, command } : undefined;
 }
 
-/**
- * MCP over stdio, the way local servers speak it (newline-delimited JSON-RPC), with the server started on the computer
- * through pi-mobile serve's /exec: so a server that only runs on a desktop, such as computer use, serves the phone,
- * reached only by the user's own devices. One process per connection; it ends when the connection does.
- */
 export class HostStdioTransport implements McpTransport {
 	readonly #address: string;
 	readonly #command: string;

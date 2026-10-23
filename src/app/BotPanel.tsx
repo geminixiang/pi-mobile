@@ -1,6 +1,3 @@
-// Everything about the bot on screen, in a panel from the right (the drawer on the left is every bot): who it is,
-// its schedules, its memory, its folder, and its conversation's context. Opened with the bar's ⋯ or by swiping the
-// conversation to the left (SidePanel.tsx).
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
@@ -14,6 +11,7 @@ import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
+import { messageOf } from "../promise.ts";
 
 export interface PanelActions {
 	edit: () => void;
@@ -37,7 +35,6 @@ function Item({ icon, label, hint, danger, disabled, onClick }: { icon: ReactNod
 	);
 }
 
-/** A toolset on one line: its name and a switch; one that needs setting up first says so. */
 function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle: (id: string, enabled: boolean) => void }) {
 	return (
 		<label className={toolset.available ? "" : "unavailable"}>
@@ -53,14 +50,11 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 	);
 }
 
-/** Where the bot works; a container is prepared when chosen, with the build's progress here. */
 function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
 	const key = runtime.computerOf(bot.id).key;
 	const [preparing, prepare] = usePrepare(key.endsWith(":container") ? runtime.hostOf(key) : undefined);
 	useEffect(() => {
-		// Already prepared this run, this answers at once; otherwise the progress shows while it builds.
 		if (key.endsWith(":container")) void prepare();
-		// Once per choice.
 	}, [key]);
 	return (
 		<Section title="電腦">
@@ -72,7 +66,7 @@ function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRunti
 					void runtime
 						.setComputer(bot.id, event.target.value)
 						.then(() => reload(bot.id))
-						.catch((error: unknown) => onError(`切換電腦失敗：${error instanceof Error ? error.message : String(error)}`))
+						.catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`))
 				}
 			>
 				{runtime.computers().map((computer) => (
@@ -115,10 +109,8 @@ export function BotPanel({
 	runtime: AgentRuntime;
 	view: ConversationView | undefined;
 	usage: Usage;
-	/** The newest answer's prompt cache hit rate in percent (latestCacheHitRate). */
 	cacheHitRate: number | undefined;
 	context: { used: number; window: number };
-	/** Where automatic compaction starts, in tokens; 0 for the model's own limit. */
 	compactAt: number;
 	prefs: Prefs;
 	onPrefs: (change: Partial<Prefs>) => void;
@@ -151,7 +143,7 @@ export function BotPanel({
 		runtime
 			.setToolset(bot.id, id, enabled)
 			.then(() => reload(bot.id))
-			.catch((error: unknown) => onError(`工具設定失敗：${error instanceof Error ? error.message : String(error)}`));
+			.catch((error: unknown) => onError(`工具設定失敗：${messageOf(error)}`));
 	};
 
 	const run = (action: () => void) => () => {

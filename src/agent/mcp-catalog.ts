@@ -1,9 +1,3 @@
-// The MCP services offered in Settings › MCP › 瀏覽服務: well-known remote servers that work from the phone. Each was
-// probed on 2026-10-21: it answered without sign-in, or its OAuth accepted dynamic registration with the loopback
-// redirect (mcp.ts REDIRECT_URL). "tested" marks those also signed in and used on the S24. The official MCP Registry
-// lists some 7,000 remote servers of every quality; this list is the ones worth showing first. docs/tools.md says how
-// one gets in.
-
 export type CatalogCategory = "work" | "dev" | "knowledge" | "business" | "automation";
 
 export const CATEGORIES: Record<CatalogCategory, string> = {
@@ -18,11 +12,8 @@ export interface CatalogEntry {
 	name: string;
 	url: string;
 	category: CatalogCategory;
-	/** What a bot can do with it, in a line. */
 	description: string;
-	/** "oauth": the user signs in with the service's account in the browser. */
 	auth: "none" | "oauth";
-	/** Signed in and used on the S24, beyond the probe. */
 	tested?: true;
 }
 

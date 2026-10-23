@@ -1,6 +1,3 @@
-// PDF attachments with pdf.js, loaded only when a PDF is attached: the text of each page, and pages rendered as
-// images for those without text (scans) or when the model asks to see a page (charts, layout). pdf.js's CMaps, fonts
-// and wasm are served from /pdfjs (vite.config.ts); without the CMaps, text in CJK fonts comes out empty.
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
@@ -9,7 +6,6 @@ import { normalizeCjk } from "./attachments.ts";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-/** A page with fewer characters than this is taken to have no text layer. */
 const BLANK_PAGE_CHARS = 20;
 const MAX_IMAGE_EDGE = 1600;
 
@@ -25,7 +21,6 @@ async function openPdf(data: ArrayBuffer): Promise<PDFDocumentProxy> {
 
 const isTextItem = (item: unknown): item is TextItem => typeof item === "object" && item !== null && typeof Reflect.get(item, "str") === "string";
 
-/** Each page's text, and which pages have none. */
 export async function extractPdf(file: Blob): Promise<{ units: string[]; blankPages: number[] }> {
 	const pdf = await openPdf(await file.arrayBuffer());
 	try {
@@ -51,7 +46,6 @@ export async function extractPdf(file: Blob): Promise<{ units: string[]; blankPa
 	}
 }
 
-/** Pages rendered as JPEGs that fit the model's image limits, like photos (Composer.tsx). */
 export async function renderPages(file: Blob, pages: readonly number[]): Promise<ImageContent[]> {
 	const pdf = await openPdf(await file.arrayBuffer());
 	try {

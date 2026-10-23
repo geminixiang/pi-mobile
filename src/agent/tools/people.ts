@@ -1,5 +1,3 @@
-// The user's contacts and photos on the phone, read-only (ContactsPlugin.java, PhotosPlugin.java). Each asks for its
-// Android permission the first time a bot uses it, while pi is in front.
 import { registerPlugin } from "@capacitor/core";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
@@ -12,7 +10,6 @@ type Contact = {
 	name: string;
 	starred?: boolean;
 	company?: string;
-	/** As the phone has it: YYYY-MM-DD, or --MM-DD without a year. */
 	birthday?: string;
 	phones: { number: string; type: string }[];
 	emails: string[];
@@ -35,7 +32,6 @@ const Photos = registerPlugin<{
 	view(options: { id: string; edge?: number }): Promise<{ data: string; width: number; height: number }>;
 }>("Photos");
 
-/** Days from today to the next `--MM-DD` or `YYYY-MM-DD` birthday. */
 function daysUntil(birthday: string): number | undefined {
 	const match = /(\d{2})-(\d{2})$/.exec(birthday);
 	if (!match) return undefined;
@@ -92,7 +88,6 @@ const contacts = defineAppTool({
 	},
 });
 
-/** Distance in km between two points (haversine). */
 function km(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
 	const rad = Math.PI / 180;
 	const dLat = (b.latitude - a.latitude) * rad;
@@ -135,7 +130,6 @@ const findPhotos = defineAppTool({
 			...(args.from ? { from: parseLocalBound(args.from, "from", false) } : {}),
 			...(args.to ? { to: parseLocalBound(args.to, "to", true) } : {}),
 			...(args.album ? { album: args.album } : {}),
-			// Placed photos are filtered here, so fetch more than are shown.
 			limit: center ? 2000 : limit,
 		});
 		const near = center

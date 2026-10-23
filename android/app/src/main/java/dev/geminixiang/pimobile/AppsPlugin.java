@@ -17,14 +17,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import org.json.JSONException;
 
-/**
- * Hands work to other apps with intents. Most open a prefilled screen where the user finishes (save, send, share);
- * alarms and timers are set without a screen, so the tool asks first. Arguments are validated in TypeScript.
- */
 @CapacitorPlugin(name = "Apps")
 public class AppsPlugin extends Plugin {
 
-    /** Starts the intent; rejects when no app handles it, so the agent can say so instead of claiming success. */
     private void launch(PluginCall call, Intent intent) {
         try {
             getActivity().startActivity(intent);
@@ -93,14 +88,12 @@ public class AppsPlugin extends Plugin {
         launch(call, intent);
     }
 
-    /** Opens a link or deep link in the app that handles it. TypeScript limits which schemes get here. */
     @PluginMethod
     public void open(PluginCall call) {
         String uri = call.getString("uri", "");
         launch(call, new Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addCategory(Intent.CATEGORY_BROWSABLE));
     }
 
-    /** A file opened in the app that views its type (PDF, spreadsheet, document…), staged like a shared one. */
     @PluginMethod
     public void openFile(PluginCall call) {
         String name = new File(call.getString("fileName", "file")).getName();
@@ -122,7 +115,6 @@ public class AppsPlugin extends Plugin {
         launch(call, view);
     }
 
-    /** The share sheet, with text and optionally one file written to the cache and served through the FileProvider. */
     @PluginMethod
     public void share(PluginCall call) {
         Intent send = new Intent(Intent.ACTION_SEND);
@@ -135,7 +127,6 @@ public class AppsPlugin extends Plugin {
             File file = new File(dir, name);
             try {
                 if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
-                // Only the latest shared file is kept.
                 File[] old = dir.listFiles();
                 if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
                 try (FileOutputStream out = new FileOutputStream(file)) {

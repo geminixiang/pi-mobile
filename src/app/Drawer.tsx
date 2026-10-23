@@ -16,7 +16,6 @@ function time(updatedAt: number, now: Date): string {
 	return date.toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
 }
 
-/** The bots, each one long conversation, most recently talked to first. */
 export function Drawer({
 	open,
 	busy,
@@ -34,13 +33,10 @@ export function Drawer({
 	busy: boolean;
 	bots: Bot[];
 	currentId: ConversationId | undefined;
-	/** Connected services, shown as marks: full color when set up, dimmed when not. */
 	status: { label: string; icon: ReactNode; on: boolean }[];
 	onOpen: (id: ConversationId) => void;
 	onCreate: () => void;
-	/** The bot's settings, from the row's menu or a long press. */
 	onEdit: (bot: Bot) => void;
-	/** Bots with a run in progress. */
 	running: ReadonlySet<ConversationId>;
 	onSettings: () => void;
 	onClose: () => void;

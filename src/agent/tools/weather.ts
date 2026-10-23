@@ -1,13 +1,9 @@
-// weather: the forecast for a place, or where the phone is, from Open-Meteo (free, no key; national weather models,
-// for Taiwan JMA's and ECMWF's among them). Current conditions, the hours ahead, and the days ahead, so 「等等會下雨嗎」
-// and 「週六宜蘭要帶傘嗎」 get numbers instead of a guess.
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, type Point, resolvePlace } from "./device.ts";
 
-/** WMO weather interpretation codes, as Open-Meteo reports them. */
 const CONDITIONS: Record<number, string> = {
 	0: "晴",
 	1: "大致晴朗",
@@ -118,7 +114,6 @@ const weather = defineAppTool({
 		if (!response.ok) throw new Error(`weather service: HTTP ${response.status} ${await response.text()}`);
 		const body = parse(Forecast, await response.json(), "weather forecast");
 		const c = body.current;
-		// The hourly series starts at the current hour; its first rain chance stands for now.
 		const now = {
 			time: c.time.replace("T", " "),
 			condition: condition(c.weather_code),

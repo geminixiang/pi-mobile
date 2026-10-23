@@ -1,7 +1,4 @@
 #!/bin/sh
-# Point a local port at pi's WebView DevTools socket on a device. Run again after every reinstall, app restart,
-# force stop, or `adb root`/`unroot`: each one changes the pid in the socket's name or drops the forward.
-# Usage: forward.sh <adb serial> [port, default 9333]
 set -e
 SERIAL="$1"
 PORT="${2:-9333}"

@@ -19,11 +19,6 @@ import com.getcapacitor.annotation.PermissionCallback;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * The phone's call log and text messages, read-only. Google Play restricts both permissions to default dialer and SMS
- * apps; pi is installed by its owner, so they are ordinary runtime permissions here. Names come from the contacts when
- * that permission is granted too.
- */
 @CapacitorPlugin(
     name = "Records",
     permissions = {
@@ -43,7 +38,6 @@ public class RecordsPlugin extends Plugin {
         return false;
     }
 
-    /** Calls since `since` (ms), newest first, at most `limit`: number, name, incoming/outgoing/missed/rejected, length. */
     @PluginMethod
     public void calls(PluginCall call) {
         if (ensure(call, "calls", "callsResult")) readCalls(call);
@@ -99,7 +93,6 @@ public class RecordsPlugin extends Plugin {
         }
     }
 
-    /** Messages since `since`, newest first, at most `limit`; with `query`, those whose text or sender contains it. */
     @PluginMethod
     public void sms(PluginCall call) {
         if (ensure(call, "sms", "smsResult")) readSms(call);
@@ -140,7 +133,6 @@ public class RecordsPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** The contact's name for a number, when the contacts permission is granted and one matches. */
     private String contactName(String number) {
         if (number == null || number.isEmpty()) return null;
         ContentResolver resolver = getContext().getContentResolver();

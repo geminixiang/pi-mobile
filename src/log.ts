@@ -1,5 +1,3 @@
-// Structured diagnostics: one event name plus fields, as one JSON line, so `adb logcat` (Chromium console) output can
-// be searched by event and correlated by conversation or sandbox. The only place that writes to the console.
 type Fields = Record<string, string | number | boolean | undefined>;
 
 function write(level: "info" | "warn" | "error", event: string, fields: Fields): void {

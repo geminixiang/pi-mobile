@@ -1,12 +1,10 @@
-// Settings › MCP: the user's MCP servers (agent/mcp.ts). Adding one by URL connects at once, outside the settings
-// form; a server that needs it gets a 登入 button that signs in in the browser. Each server's tools become a toolset
-// that bots get when the user picks them, here or in their panels.
 import { useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogCategory, type CatalogEntry } from "../agent/mcp-catalog.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { Sheet } from "./Sheet.tsx";
+import { messageOf } from "../promise.ts";
 
 function statusText(status: McpStatus | undefined): string {
 	switch (status?.state) {
@@ -25,13 +23,11 @@ function statusText(status: McpStatus | undefined): string {
 	}
 }
 
-/** Re-renders when a server is added, removed, or changes status. */
 function useMcp(runtime: AgentRuntime | undefined): void {
 	const [, setVersion] = useState(0);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 }
 
-/** Which bots may use a server: none until the user picks them, here or in a bot's panel. */
 function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; server: McpServer; onError: (message: string) => void }) {
 	const [bots, setBots] = useState<{ bot: Bot; enabled: boolean }[]>([]);
 	const toolset = extensionName(server);
@@ -52,7 +48,7 @@ function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; serve
 							const next = event.target.checked;
 							setBots((current) => current.map((item) => (item.bot.id === bot.id ? { ...item, enabled: next } : item)));
 							runtime.setToolset(bot.id, toolset, next).catch((error: unknown) => {
-								onError(error instanceof Error ? error.message : String(error));
+								onError(messageOf(error));
 								load();
 							});
 						}}
@@ -64,13 +60,12 @@ function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; serve
 	);
 }
 
-/** The catalog of services (mcp-catalog.ts) by category; 連接 adds one and, when it needs it, starts its sign-in. */
 function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
 	const connected = new Set(runtime.mcp.servers.map((server) => server.url));
 	const connect = (entry: CatalogEntry) => {
 		const server = runtime.mcp.add(entry.name, entry.url);
 		onClose();
-		if (entry.auth === "oauth") runtime.mcp.login(server.id).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
+		if (entry.auth === "oauth") runtime.mcp.login(server.id).catch((error: unknown) => onError(messageOf(error)));
 	};
 	const categories = Object.keys(CATEGORIES).filter((key): key is CatalogCategory => key in CATEGORIES);
 	return (
@@ -114,20 +109,15 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 
 	const add = () => {
 		const url = draft.url.trim();
-		let host = url;
-		try {
-			host = new URL(url).hostname;
-		} catch {
-			// validUrl said it is one.
-		}
+		const host = URL.canParse(url) ? new URL(url).hostname : url;
 		runtime?.mcp.add(draft.name.trim() || host, url);
 		setDraft({ name: "", url: "" });
 	};
-	const remove = (id: string) => void runtime?.mcp.remove(id).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
+	const remove = (id: string) => void runtime?.mcp.remove(id).catch((error: unknown) => onError(messageOf(error)));
 	const run = (action: () => Promise<void> | void) => () => {
 		void Promise.resolve()
 			.then(action)
-			.catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
+			.catch((error: unknown) => onError(messageOf(error)));
 	};
 
 	return (

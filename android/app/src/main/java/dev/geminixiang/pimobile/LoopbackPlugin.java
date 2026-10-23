@@ -1,5 +1,6 @@
 package dev.geminixiang.pimobile;
 
+import android.util.Log;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -15,18 +16,10 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
-/**
- * The loopback redirect of an OAuth sign-in (RFC 8252 section 7.3), which many MCP authorization servers accept where
- * they refuse an app's own scheme: listens on 127.0.0.1 for the one request the browser makes when sign-in ends,
- * answers it with a page that opens pi again (an app may not bring itself to the front from the background; the
- * browser may open it, through the scheme MainActivity filters), and reports the URL as a "redirect" event. One
- * sign-in at a time; it gives up after ten minutes.
- */
 @CapacitorPlugin(name = "Loopback")
 public class LoopbackPlugin extends Plugin {
 
     private static final int WAIT_MS = 10 * 60_000;
-    /** Opens pi from the browser (MainActivity's intent filter); carries nothing. */
     private static final String BACK = "dev.geminixiang.pimobile:/back";
     private ServerSocket server;
 
@@ -65,7 +58,6 @@ public class LoopbackPlugin extends Plugin {
                     client.setSoTimeout(10_000);
                     BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
                     String line = reader.readLine();
-                    // "GET /oauth/mcp?code=...&state=... HTTP/1.1"
                     String[] parts = line == null ? new String[0] : line.split(" ");
                     boolean ours = parts.length >= 2 && "GET".equals(parts[0]) && parts[1].startsWith(path);
                     reply(client.getOutputStream(), ours);
@@ -77,9 +69,7 @@ public class LoopbackPlugin extends Plugin {
                 }
             }
         } catch (SocketTimeoutException e) {
-            // Nobody came back: the sign-in was abandoned.
         } catch (IOException e) {
-            // Closed by stop() or a new sign-in.
         } finally {
             closeQuietly(socket);
         }
@@ -108,8 +98,8 @@ public class LoopbackPlugin extends Plugin {
     private static void closeQuietly(ServerSocket socket) {
         try {
             socket.close();
-        } catch (IOException ignored) {
-            // Already closed.
+        } catch (IOException error) {
+            Log.w("pi.loopback", "could not close the redirect server", error);
         }
     }
 }

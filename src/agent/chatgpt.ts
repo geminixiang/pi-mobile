@@ -1,19 +1,12 @@
-// Sign in with ChatGPT: the OpenAI provider used with the user's ChatGPT subscription instead of an API key, OpenAI's
-// own flow for agents. pi-ai implements it for Node (a callback server on 127.0.0.1:1455, node:crypto), which the
-// WebView has neither of; this is the same flow with the loopback redirect served by LoopbackPlugin.java, PKCE from
-// WebCrypto, and token requests over native HTTP. It replaces the OpenAI provider's auth.oauth, so pi-ai still owns
-// refreshing (under its credential-store lock) and request auth.
-//
-// The flow, as pi-ai's auth/oauth/openai-chatgpt.ts: authorize with the client "dynamic_agent_client", an agent name
-// and a stable host id for this installation; the callback brings the code and the client id OpenAI issued; the code
-// is exchanged with PKCE; the grant must include the direct-token scope; the access token is then the API key.
 import type { PluginListenerHandle } from "@capacitor/core";
 import { Loopback } from "../loopback-plugin.ts";
 import type { Api, ApiStreamOptions, Model, OAuthAuth, OAuthCredential, Provider, SimpleStreamOptions, TranscriptContext } from "@earendil-works/pi-ai";
 import { streamFetch } from "../stream-fetch.ts";
 import { Type } from "typebox";
 import { base64url, postForm } from "./oauth.ts";
-import { parse } from "./parse.ts";
+import { decode, parse, readStored } from "./parse.ts";
+import { log } from "../log.ts";
+import { messageOf } from "../promise.ts";
 
 const AUTHORIZE_URL = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL = "https://auth.openai.com/api/accounts/oauth/token";
@@ -25,11 +18,9 @@ const PATH = "/auth/callback";
 const REDIRECT_URI = `http://127.0.0.1:${PORT}${PATH}`;
 const DIRECT_TOKEN_SCOPE = "chatgpt.tokens.use.direct";
 const SCOPE = `openid profile email offline_access resource.invoke ${DIRECT_TOKEN_SCOPE}`;
-/** Refresh this long before expiry, so a request never starts with a token about to lapse. */
 const EXPIRY_MARGIN_MS = 3 * 60_000;
 const WAIT_MS = 10 * 60_000;
 const DEVICE_KEY = "pi-mobile.device-id";
-
 
 const TokenResponse = Type.Object({
 	access_token: Type.String({ minLength: 1 }),
@@ -39,7 +30,6 @@ const TokenResponse = Type.Object({
 	id_token: Type.Optional(Type.String()),
 });
 
-/** This installation's stable id, which OpenAI knows the agent host by. */
 function deviceId(): string {
 	let id = localStorage.getItem(DEVICE_KEY);
 	if (!id) {
@@ -73,10 +63,6 @@ async function requestToken(form: Record<string, string>, clientId: string): Pro
 	};
 }
 
-/**
- * Sign in in the browser and return the credential, or throw. `openUrl` opens the authorization page; the browser
- * comes back to the loopback address, whose page returns to pi.
- */
 export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>): Promise<OAuthCredential> {
 	const { verifier, challenge } = await pkce();
 	const state = random();
@@ -137,10 +123,6 @@ const chatgptOAuth: OAuthAuth = {
 	toAuth: async (credential) => ({ apiKey: credential.access }),
 };
 
-/**
- * The OpenAI provider with this sign-in as its OAuth, and its requests over native HTTP (stream-fetch.ts): answers to
- * a ChatGPT token carry no CORS headers, so the WebView may not read them. Everything else stays pi-ai's.
- */
 export function withChatGPTSignIn(provider: Provider): Provider {
 	const wrapped: Provider = Object.create(provider);
 	return Object.defineProperties(wrapped, {
@@ -152,7 +134,6 @@ export function withChatGPTSignIn(provider: Provider): Provider {
 
 const AllowedModels = Type.Object({ models: Type.Array(Type.Object({ slug: Type.String() })) });
 
-/** The provider offering only these models of its catalog. */
 export function withOnlyModels(provider: Provider, ids: readonly string[]): Provider {
 	const wrapped: Provider = Object.create(provider);
 	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().filter((model) => ids.includes(model.id)) });
@@ -160,41 +141,30 @@ export function withOnlyModels(provider: Provider, ids: readonly string[]): Prov
 
 const MODELS_KEY = "pi-mobile.chatgpt-models";
 
-/** The subscription's models: fresh when OpenAI answers within a few seconds, else those from the last time. */
+const MODEL_LIST_WAIT_MS = 5000;
+
 export async function chatgptModelsCached(credential: OAuthCredential): Promise<string[] | undefined> {
-	try {
-		const ids = await Promise.race([chatgptModels(credential), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))]);
-		localStorage.setItem(MODELS_KEY, JSON.stringify(ids));
-		return ids;
-	} catch {
-		try {
-			const value: unknown = JSON.parse(localStorage.getItem(MODELS_KEY) ?? "null");
-			return Array.isArray(value) && value.every((id) => typeof id === "string") ? value : undefined;
-		} catch {
-			return undefined;
-		}
+	const fresh = await chatgptModels(credential, AbortSignal.timeout(MODEL_LIST_WAIT_MS)).then(
+		(ids) => ({ ids }),
+		(error: unknown) => ({ failed: messageOf(error) }),
+	);
+	if ("ids" in fresh) {
+		localStorage.setItem(MODELS_KEY, JSON.stringify(fresh.ids));
+		return fresh.ids;
 	}
+	log.warn("chatgpt.models_unavailable", { error: fresh.failed });
+	return readStored(Type.Array(Type.String()), MODELS_KEY);
 }
 
-/**
- * The models a ChatGPT subscription may use, from OpenAI's /v1/models with its token (a list of slugs, unlike the
- * API's). Others answer "not supported when using Codex with a ChatGPT account".
- */
-export async function chatgptModels(credential: OAuthCredential): Promise<string[]> {
-	const response = await streamFetch(`${RESOURCE}/models`, { headers: { Authorization: `Bearer ${credential.access}` } });
+export async function chatgptModels(credential: OAuthCredential, signal?: AbortSignal): Promise<string[]> {
+	const response = await streamFetch(`${RESOURCE}/models`, { headers: { Authorization: `Bearer ${credential.access}` }, ...(signal ? { signal } : {}) });
 	if (!response.ok) throw new Error(`ChatGPT models: HTTP ${response.status}`);
 	return parse(AllowedModels, await response.json(), "ChatGPT models").models.map((model) => model.slug);
 }
 
-/** A stored sign-in, from its JSON in the Keystore; undefined when it is not one. */
+const StoredOAuthCredential = Type.Object({ type: Type.Literal("oauth"), access: Type.String(), refresh: Type.String(), expires: Type.Number() });
+
 export function parseOAuthCredential(json: string): OAuthCredential | undefined {
-	try {
-		const value: unknown = JSON.parse(json);
-		if (typeof value !== "object" || value === null) return undefined;
-		const { access, refresh, expires } = { access: Reflect.get(value, "access"), refresh: Reflect.get(value, "refresh"), expires: Reflect.get(value, "expires") };
-		if (Reflect.get(value, "type") !== "oauth" || typeof access !== "string" || typeof refresh !== "string" || typeof expires !== "number") return undefined;
-		return { ...Object.fromEntries(Object.entries(value)), type: "oauth", access, refresh, expires };
-	} catch {
-		return undefined;
-	}
+	const value = decode(StoredOAuthCredential, json);
+	return value && { ...value };
 }

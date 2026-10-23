@@ -4,6 +4,7 @@ import { DEFAULT_MODEL_ID } from "./agent/models.ts";
 import { readStored } from "./agent/parse.ts";
 import { log } from "./log.ts";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
+import { messageOf } from "./promise.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
 const DEFAULT_COMPACT_AT_TOKENS = 256_000;
@@ -67,7 +68,7 @@ async function readSecret(key: string): Promise<string> {
 		},
 		(error: unknown) => {
 			unreadableSecrets.add(key);
-			log.warn("settings.secret_unreadable", { key, error: error instanceof Error ? error.message : String(error) });
+			log.warn("settings.secret_unreadable", { key, error: messageOf(error) });
 			return "";
 		},
 	);

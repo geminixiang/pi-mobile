@@ -1,6 +1,3 @@
-// Controlling the phone through notification access (NotificationsPlugin.java): what plays in media apps and its
-// transport, and Do Not Disturb. Notification access is what Android lets a listener do both with, so no other
-// permission is asked for.
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { type DndMode, Notifications } from "../../notifications-plugin.ts";

@@ -1,11 +1,9 @@
-// Keeps runs going while the app is in the background or the screen is locked (AgentService on Android), and tells
-// the user when a run finishes while they are away.
 import { App } from "@capacitor/app";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { log } from "../log.ts";
+import { messageOf } from "../promise.ts";
 
 interface KeepAlivePlugin {
-	/** Starts the service, or updates its notification; the title defaults to "pi 工作中". */
 	start(options: { text: string; title?: string }): Promise<void>;
 	stop(): Promise<void>;
 	notify(options: { title: string; text: string }): Promise<void>;
@@ -26,7 +24,6 @@ if (native) {
 	});
 }
 
-/** Whether the user is looking at the app. */
 export function inForeground(): boolean {
 	return active;
 }
@@ -35,7 +32,7 @@ let running = false;
 let workingTitles: string[] = [];
 
 function startService(options: { text: string; title?: string }): void {
-	KeepAlive.start(options).catch((error: unknown) => log.warn("keep_alive.start_failed", { error: error instanceof Error ? error.message : String(error) }));
+	KeepAlive.start(options).catch((error: unknown) => log.warn("keep_alive.start_failed", { error: messageOf(error) }));
 }
 
 function showWorking(): void {
@@ -44,7 +41,6 @@ function showWorking(): void {
 
 const ASKED_KEY = "pi-mobile.notificationsAsked";
 
-/** Start, update, or stop the foreground service for the conversations that are working. */
 export function setWorking(titles: string[]): void {
 	if (!native) return;
 	if (titles.length === 0) {
@@ -54,7 +50,6 @@ export function setWorking(titles: string[]): void {
 	}
 	running = true;
 	workingTitles = titles;
-	// Ask once, when it first matters: without it the "working" and "done" notifications stay hidden.
 	if (!localStorage.getItem(ASKED_KEY)) {
 		localStorage.setItem(ASKED_KEY, "1");
 		void KeepAlive.requestNotifications();
@@ -62,12 +57,10 @@ export function setWorking(titles: string[]): void {
 	showWorking();
 }
 
-/** Stop the foreground service a fired schedule started natively, when no run followed it. */
 export function releaseIfIdle(): void {
 	if (native && !running) void KeepAlive.stop();
 }
 
-/** Notify only while the app is not in front; in front, the screen already shows it. */
 export function notifyAway(title: string, text: string): void {
 	if (native && !active) void KeepAlive.notify({ title, text });
 }

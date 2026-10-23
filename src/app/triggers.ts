@@ -1,22 +1,16 @@
-// The app side of triggers: take queued native events (fired schedules, shares from other apps) when the runtime is
-// ready, and open conversations from notification taps.
 import { App } from "@capacitor/app";
 import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
 import { nativeTriggers, type QueuedEvent, takeEvents, Triggers } from "../agent/triggers.ts";
 import { log } from "../log.ts";
 import { releaseIfIdle } from "./keepAlive.ts";
+import { messageOf } from "../promise.ts";
 
 export type SharedItem = Extract<QueuedEvent, { kind: "share" }>;
 
-/**
- * Handle queued events now, whenever the native side announces more, and when pi comes to the front. Runs one pass
- * at a time, and acknowledges each event only after it was handled, so an event is never handled twice or lost.
- */
 export function processTriggerEvents(
 	runtime: AgentRuntime,
 	handlers: {
 		onShare: (item: SharedItem) => Promise<void>;
-		/** A run the user started by opening pi from its notification: show its conversation. */
 		onOpened: (conversation: ConversationId) => void;
 	},
 ): () => void {
@@ -33,21 +27,18 @@ export function processTriggerEvents(
 						log.info("trigger.run", { trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
 						await Triggers.started({ trigger: event.trigger });
 						if (!event.live && conversation) handlers.onOpened(conversation);
-						// The native side started the foreground service for it; release it if no run is going by then.
 						setTimeout(releaseIfIdle, 30_000);
 					} else {
 						await handlers.onShare(event);
 					}
 				} catch (error) {
-					log.warn("trigger.failed", { kind: event.kind, error: error instanceof Error ? error.message : String(error) });
+					log.warn("trigger.failed", { kind: event.kind, error: messageOf(error) });
 				}
 				handled.push(event.id);
 			}
 			if (handled.length > 0) await Triggers.ack({ ids: handled });
 		});
-		// A failed pass (the bridge rejecting events or ack) must not stop the later ones: the chain would stay
-		// rejected and skip every pass after it until pi restarts. Unacknowledged events come again next pass.
-		pass = pass.catch((error: unknown) => log.warn("trigger.drain_failed", { error: error instanceof Error ? error.message : String(error) }));
+		pass = pass.catch((error: unknown) => log.warn("trigger.drain_failed", { error: messageOf(error) }));
 		return pass;
 	};
 	void drain();
@@ -61,7 +52,6 @@ export function processTriggerEvents(
 	};
 }
 
-/** pimobile://open?conversation=ID links, from notifications of triggered runs. */
 export function listenForOpenLinks(onOpen: (conversation: string) => void): () => void {
 	if (!nativeTriggers) return () => undefined;
 	const handle = (link: string | undefined) => {

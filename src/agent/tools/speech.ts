@@ -1,11 +1,8 @@
-// speak: read text aloud with the phone's text-to-speech, for reports the user hears rather than reads, such as a
-// headphones schedule's briefing. Plays through whatever is connected; other audio is ducked meanwhile.
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Voice } from "../../voice-plugin.ts";
 import { defineAppTool, requireNative, text } from "./common.ts";
 
-/** About ten minutes of speech; a report longer than that should be shorter. */
 const MAX_CHARS = 3000;
 
 const speak = defineAppTool({
@@ -24,7 +21,6 @@ const speak = defineAppTool({
 		try {
 			const result = await Voice.speak({ text: args.text, language: args.language ?? "zh-TW" });
 			if (result.spoken) return text("Spoken.");
-			// Stopped by the user (headphones out, stop button): not worth repeating aloud.
 			return { output: [{ type: "text", text: `Not finished: ${result.reason ?? "stopped"}. Do not speak it again unless the user asks.` }], isError: true };
 		} finally {
 			context.abortSignal?.removeEventListener("abort", stop);

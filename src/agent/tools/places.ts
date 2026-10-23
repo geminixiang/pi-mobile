@@ -1,8 +1,3 @@
-// find_places: shops, restaurants, and services near a place or the phone, from OpenStreetMap. Photon (komoot's OSM
-// search) finds them, by category (the nearest of a tag, such as amenity:fuel) or by name; Nominatim then adds what a
-// search result lacks (opening hours, phone, branch, website), for all results in one request. Both are free and
-// keyless on fair use; the public Overpass servers are not used, as they are for people, not apps, and often full.
-// OSM has no ratings or reviews: the section points the model to web_search for which one is good.
 import { CapacitorHttp } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
@@ -10,8 +5,8 @@ import { defineAppTool } from "./common.ts";
 import { Value } from "typebox/value";
 import { parse, parseJson } from "../parse.ts";
 import { currentPlace, type Point, resolvePlace } from "./device.ts";
+import { orLogged } from "../../promise.ts";
 
-// Nominatim's usage policy asks apps to identify themselves; native HTTP can set the header, the WebView cannot.
 const HEADERS = { "User-Agent": "pi-mobile (+https://github.com/geminixiang/pi-mobile)", Accept: "application/json" };
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
 
@@ -45,7 +40,6 @@ const NominatimDetails = Type.Array(
 	Type.Object({ osm_type: Type.String(), osm_id: Type.Number(), extratags: Type.Optional(Type.Record(Type.String(), Type.String())) }),
 );
 
-/** The extra tags worth showing, by OSM key. */
 const DETAILS = ["branch", "opening_hours", "phone", "contact:phone", "website", "contact:website", "cuisine", "brand"] as const;
 
 const Place = Type.Object({
@@ -63,7 +57,6 @@ const Place = Type.Object({
 	cuisine: Type.Optional(Type.String()),
 });
 
-/** Great-circle distance in meters. */
 function distance(a: Point, latitude: number, longitude: number): number {
 	const rad = Math.PI / 180;
 	const dLat = (latitude - a.latitude) * rad;
@@ -72,7 +65,6 @@ function distance(a: Point, latitude: number, longitude: number): number {
 	return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
 }
 
-/** Compass direction from `a`, in eight steps. */
 function direction(a: Point, latitude: number, longitude: number): string {
 	const y = (longitude - a.longitude) * Math.cos(a.latitude * (Math.PI / 180));
 	const x = latitude - a.latitude;
@@ -108,7 +100,6 @@ const findPlaces = defineAppTool({
 		const center = args.near ? await resolvePlace(args.near) : await currentPlace();
 		const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
 		const query = new URLSearchParams({ lat: String(center.latitude), lon: String(center.longitude), limit: String(limit) });
-		// A bare value (cafe, pharmacy, supermarket) matches it under amenity or shop, where nearly all of them are.
 		const tag = args.category?.replace("=", ":");
 		for (const filter of tag === undefined ? [] : tag.includes(":") ? [tag] : [`amenity:${tag}`, `shop:${tag}`]) query.append("osm_tag", filter);
 		let url: string;
@@ -116,23 +107,21 @@ const findPlaces = defineAppTool({
 			query.set("q", args.query);
 			url = `https://photon.komoot.io/api/?${query}`;
 		} else {
-			// Reverse geocoding with a tag filter: the nearest places of that kind within the radius.
 			query.set("radius", String(Math.min(Math.max(args.radius_km ?? 1, 0.1), 50)));
 			url = `https://photon.komoot.io/reverse?${query}`;
 		}
 		const found = parse(PhotonResults, await getJson(url, "place search"), "place search").features.filter((feature) => feature.properties.name);
 
-		// One Nominatim request for all results' details; without it the places are still useful.
 		const ids = found.map((feature) => `${feature.properties.osm_type}${feature.properties.osm_id}`);
 		const details = new Map<string, Record<string, string>>();
 		if (ids.length > 0) {
-			try {
-				const body = await getJson(`https://nominatim.openstreetmap.org/lookup?osm_ids=${ids.join(",")}&format=jsonv2&extratags=1&addressdetails=0`, "place details");
-				if (Value.Check(NominatimDetails, body)) {
-					for (const item of body) details.set(`${item.osm_type[0]?.toUpperCase()}${item.osm_id}`, item.extratags ?? {});
-				}
-			} catch {
-				// Details are extra.
+			const body = await orLogged(
+				getJson(`https://nominatim.openstreetmap.org/lookup?osm_ids=${ids.join(",")}&format=jsonv2&extratags=1&addressdetails=0`, "place details"),
+				"places.details_unavailable",
+				undefined,
+			);
+			if (Value.Check(NominatimDetails, body)) {
+				for (const item of body) details.set(`${item.osm_type[0]?.toUpperCase()}${item.osm_id}`, item.extratags ?? {});
 			}
 		}
 

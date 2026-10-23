@@ -1,5 +1,7 @@
 package dev.geminixiang.pimobile;
 
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
 import android.app.assist.AssistStructure;
 import android.content.ComponentName;
 import android.content.Context;
@@ -18,20 +20,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
-/**
- * One summon of pi as the assistant: the system hands over what is on screen, the text of the app in front
- * (AssistStructure) and a screenshot, when the user allowed them in the assistant settings. They go to pi like a
- * share (TriggerStore's queue): the screenshot as a photo and the text as a file, in the composer, for the user to ask
- * about. pi sees the screen only when the user summons it.
- */
 public class AssistSession extends VoiceInteractionSession {
 
     private static final String TAG = "PiAssist";
-    /** The structure and the screenshot come separately; wait this long for the second. */
     private static final long WAIT_MS = 1500;
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -73,7 +65,6 @@ public class AssistSession extends VoiceInteractionSession {
         if (structureDone) main.post(this::send);
     }
 
-    /** The visible text of a view tree, each distinct line once, in reading order. */
     private static void collect(AssistStructure.ViewNode node, Set<String> lines) {
         if (node == null || node.getVisibility() != android.view.View.VISIBLE) return;
         CharSequence text = node.getText();
@@ -93,23 +84,22 @@ public class AssistSession extends VoiceInteractionSession {
         }
     }
 
-    /** Queue what was captured as a share from the assistant and open pi on it; once, whatever arrived by then. */
     private void send() {
         if (sent) return;
         sent = true;
         Context context = getContext();
-        JSONObject event = new JSONObject();
+        JSObject event = new JSObject();
         try {
             event.put("kind", "share");
             event.put("source", "assist");
             if (appName != null) event.put("subject", appName);
-            JSONArray files = new JSONArray();
+            JSArray files = new JSArray();
             if (screenshot != null) {
                 File image = new File(TriggerStore.inbox(context), UUID.randomUUID() + ".jpg");
                 try (FileOutputStream out = new FileOutputStream(image)) {
                     screenshot.compress(Bitmap.CompressFormat.JPEG, 85, out);
                 }
-                files.put(new JSONObject().put("path", image.getAbsolutePath()).put("name", "畫面.jpg").put("mimeType", "image/jpeg"));
+                files.put(new JSObject().put("path", image.getAbsolutePath()).put("name", "畫面.jpg").put("mimeType", "image/jpeg"));
             }
             if (screenText != null && !screenText.isEmpty()) {
                 File text = new File(TriggerStore.inbox(context), UUID.randomUUID() + ".txt");
@@ -117,17 +107,15 @@ public class AssistSession extends VoiceInteractionSession {
                     out.write(screenText.getBytes(StandardCharsets.UTF_8));
                 }
                 String name = (appName != null ? appName : "畫面") + " 的文字.txt";
-                files.put(new JSONObject().put("path", text.getAbsolutePath()).put("name", name).put("mimeType", "text/plain"));
+                files.put(new JSObject().put("path", text.getAbsolutePath()).put("name", name).put("mimeType", "text/plain"));
             }
             if (files.length() > 0) event.put("files", files);
-        } catch (JSONException | IOException error) {
+        } catch (IOException error) {
             Log.w(TAG, "could not keep the screen", error);
         }
         TriggerStore.enqueue(context, event);
         TriggersPlugin plugin = TriggersPlugin.live();
         if (plugin != null) plugin.announce();
-        // pi's own task, not startAssistantActivity: that starts a second MainActivity in an assistant task, a second
-        // WebView and runtime on the same storage. Starting from the session is allowed while its window shows.
         Intent open = new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(open);
         finish();

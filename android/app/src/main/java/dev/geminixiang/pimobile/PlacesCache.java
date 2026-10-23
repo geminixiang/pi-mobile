@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Where each photo (by MediaStore id) was taken, from its EXIF, read once. NONE marks a photo without a place. */
 final class PlacesCache extends SQLiteOpenHelper {
 
     static final double[] NONE = new double[0];
@@ -32,7 +31,6 @@ final class PlacesCache extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
 
-    /** The known ones among `ids`; a photo without a place maps to NONE. */
     Map<Long, double[]> lookup(List<Long> ids) {
         Map<Long, double[]> known = new HashMap<>();
         SQLiteDatabase db = getReadableDatabase();

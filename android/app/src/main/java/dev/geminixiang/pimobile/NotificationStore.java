@@ -8,10 +8,6 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * The notifications other apps showed, kept on the phone for the agent's read_notifications tool for 30 days. A chat's notification is stored per message (LINE and others repost one notification with every new
- * message), anything else once per distinct title and text; `dedup` makes a repost a no-op.
- */
 final class NotificationStore extends SQLiteOpenHelper {
 
     static final long KEEP_MS = 30L * 24 * 3600_000;
@@ -73,10 +69,6 @@ final class NotificationStore extends SQLiteOpenHelper {
         }
     }
 
-    /**
-     * Newest first: since `since`, optionally of apps whose name or package contains `app`, or text containing `query`;
-     * all of them when `limit` is 0.
-     */
     synchronized List<Row> list(long since, String app, String query, int limit) {
         List<String> args = new ArrayList<>();
         StringBuilder where = new StringBuilder("time >= ?");

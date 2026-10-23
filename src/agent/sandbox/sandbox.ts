@@ -1,6 +1,3 @@
-// Where the agent's coding tools (read, write, edit, bash) run off the phone: one of the user's computers running
-// pi-mobile serve (host.ts), either directly as its user from home, or in the Linux container shared by all bots (as
-// Grok Bot shares one computer), each bot working in its own folder there.
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
@@ -10,21 +7,16 @@ import { BotIndex } from "../bots.ts";
 import { type DaemonArch, type DaemonOs, shellQuote } from "./daemon.ts";
 import type { StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
+import { onFailure } from "../../promise.ts";
 
-/** The one container's name: pim-main. */
 export const SHARED_SANDBOX = "main";
 
 export interface Sandbox {
-	/** Whether the tools run on the machine itself, from its home directory: no bot folders are made or deleted there. */
 	readonly direct: boolean;
-	/** A bot's folder there (the home directory when direct): its working directory, where tool paths resolve. */
 	root(folder: string): string;
 	env(folder: string): Promise<ExecutionEnv>;
-	/** Whether the folder exists already; browsing files should not create it. */
 	exists(folder: string): Promise<boolean>;
-	/** Delete a bot's folder and everything in it. */
 	remove(folder: string): Promise<void>;
-	/** What a bot's model is told about where its tools run. */
 	describe(folder: string): string;
 	close(): void;
 }
@@ -32,10 +24,6 @@ export interface Sandbox {
 const IMAGES =
 	"To show an image, save PNG or JPEG of at most 2000 px and 3 MB (`magick in.png -resize 1600x1600\\> out.png`) and `read` it.";
 
-/**
- * Environments over one daemon connection: one per bot folder (same id, so writes to a file serialize across bots),
- * plus one at the base for creating, testing, and removing folders.
- */
 export class SharedEnvs {
 	readonly #connection: StreamConnection;
 	readonly #base: string;
@@ -52,7 +40,6 @@ export class SharedEnvs {
 	}
 
 	#make(cwd: string): RemoteExecutionEnv {
-		// RemoteExecutionEnv only uses info/session/request/kill/close, which StreamConnection implements.
 		return new RemoteExecutionEnv({ connection: this.#connection as unknown as Connection, id: `sandbox:${SHARED_SANDBOX}`, cwd });
 	}
 
@@ -69,7 +56,7 @@ export class SharedEnvs {
 			made = this.#run(`mkdir -p ${shellQuote(root)}`).then((code) => {
 				if (code !== 0) throw new Error(`cannot create ${root}`);
 			});
-			made.catch(() => this.#made.delete(folder));
+			onFailure(made, () => this.#made.delete(folder));
 			this.#made.set(folder, made);
 		}
 		await made;
@@ -97,7 +84,6 @@ export class SharedEnvs {
 	}
 }
 
-/** The shared container: the same image and proxy on every computer. */
 export function containerDescription(folder: string): string {
 	return [
 		`read, write, edit, and bash run in a Linux sandbox on the user's computer, not the phone, shared by all of the user's bots: Debian 13 as root, with internet,`,
@@ -111,7 +97,6 @@ export function containerDescription(folder: string): string {
 	].join(" ");
 }
 
-/** What a bot operating one of the user's computers directly is told; `process` is what macOS asks permissions for. */
 export function directDescription(name: string, user: string, system: { os: DaemonOs; arch: DaemonArch; home: string } | undefined, process: string): string {
 	const where = system ? `${name} (${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch})` : name;
 	const desktop =
@@ -128,7 +113,6 @@ export function directDescription(name: string, user: string, system: { os: Daem
 	].join(" ");
 }
 
-/** The section a bot's model sees, from the sandbox that bot works in, for its folder; none on the phone. */
 export function createSandboxExtension(sandboxOf: (conversationId: string) => Sandbox | undefined, folderOf: (conversationId: string) => string | undefined) {
 	return defineExtension({
 		name: "sandbox",
@@ -138,7 +122,6 @@ export function createSandboxExtension(sandboxOf: (conversationId: string) => Sa
 				const sandbox = sandboxOf(String(input.conversationId));
 				if (!folder || !sandbox) return undefined;
 				if (sandbox.direct) return sandbox.describe(folder);
-				// Folders are named by id, so say whose the others are.
 				const others = ((await input.read.snapshot(BotIndex, context))?.items ?? []).filter((bot) => bot.folder !== folder);
 				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";
 				return sandbox.describe(folder) + whose;

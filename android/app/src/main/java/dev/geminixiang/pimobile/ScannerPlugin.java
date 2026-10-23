@@ -29,11 +29,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 
-/**
- * ML Kit through Google Play services, whose models it downloads and updates, so the app carries none: the document
- * scanner (the system's camera screen that finds the page edges and flattens them; the user takes the pages and
- * presses done), and text recognition for Chinese and Latin script, on the phone.
- */
 @CapacitorPlugin(name = "Scanner")
 public class ScannerPlugin extends Plugin {
 
@@ -43,13 +38,14 @@ public class ScannerPlugin extends Plugin {
 
     @Override
     public void load() {
-        // Registered while the activity is created, as the Activity Result API requires.
         launcher = getActivity().registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
             PluginCall call = pending;
             pending = null;
             if (call == null) return;
             if (result.getResultCode() != Activity.RESULT_OK) {
-                call.reject("cancelled", "cancelled");
+                JSObject cancelled = new JSObject();
+                cancelled.put("cancelled", true);
+                call.resolve(cancelled);
                 return;
             }
             GmsDocumentScanningResult scan = GmsDocumentScanningResult.fromActivityResultIntent(result.getData());
@@ -60,6 +56,7 @@ public class ScannerPlugin extends Plugin {
             try {
                 File pdf = copy(scan.getPdf().getUri(), ".pdf");
                 JSObject answer = new JSObject();
+                answer.put("cancelled", false);
                 answer.put("pdf", pdf.getAbsolutePath());
                 answer.put("pages", scan.getPdf().getPageCount());
                 call.resolve(answer);
@@ -69,7 +66,6 @@ public class ScannerPlugin extends Plugin {
         });
     }
 
-    /** The scan into its own folder, which the web side reads through Capacitor's file server. */
     private File copy(Uri uri, String suffix) throws IOException {
         File target = new File(emptyScansFolder(), UUID.randomUUID() + suffix);
         try (InputStream in = getContext().getContentResolver().openInputStream(uri); OutputStream out = new FileOutputStream(target)) {
@@ -89,7 +85,6 @@ public class ScannerPlugin extends Plugin {
         return folder;
     }
 
-    /** Open the document scanner; resolves {pdf, pages} (pdf is a path), or rejects "cancelled". Only with pi in front. */
     @PluginMethod
     public void scan(PluginCall call) {
         if (!TriggersPlugin.inFront(getActivity())) {
@@ -112,7 +107,6 @@ public class ScannerPlugin extends Plugin {
             .addOnFailureListener(error -> call.reject("the scanner is not available: " + error.getMessage()));
     }
 
-    /** Text in an image (base64 JPEG or PNG), Chinese and Latin script, in reading order as lines. */
     @PluginMethod
     public void ocr(PluginCall call) {
         byte[] bytes = Base64.decode(call.getString("data", ""), Base64.DEFAULT);

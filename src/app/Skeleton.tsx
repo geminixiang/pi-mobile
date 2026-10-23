@@ -1,9 +1,5 @@
-// The app's outline while it starts: bar, a conversation's shape, and the composer's line, where they will be, so the
-// screen does not jump from a centered mark to the app. index.html has the same markup, painted before any script
-// loads; keep the two alike. Styles: styles.css, Skeleton.
 import { PiMark } from "./PiMark.tsx";
 
-/** A conversation's shape: a prompt band and an answer's lines. */
 export function TranscriptSkeleton() {
 	return (
 		<div className="skeleton-transcript" aria-hidden="true">

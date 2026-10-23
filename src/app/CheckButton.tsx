@@ -1,9 +1,8 @@
-// 測試連線: runs a settings check and shows what it reached or why it failed.
 import { type ReactNode, useState } from "react";
+import { messageOf } from "../promise.ts";
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ok"; detail: string } | { state: "error"; detail: string };
 
-/** `children`: more buttons for the same item (移除), at the end of the row. */
 export function CheckButton({ run, disabled, children }: { run: () => Promise<string>; disabled: boolean; children?: ReactNode }) {
 	const [check, setCheck] = useState<Check>({ state: "idle" });
 	return (
@@ -17,7 +16,7 @@ export function CheckButton({ run, disabled, children }: { run: () => Promise<st
 					try {
 						setCheck({ state: "ok", detail: await run() });
 					} catch (error) {
-						setCheck({ state: "error", detail: error instanceof Error ? error.message : String(error) });
+						setCheck({ state: "error", detail: messageOf(error) });
 					}
 				}}
 			>

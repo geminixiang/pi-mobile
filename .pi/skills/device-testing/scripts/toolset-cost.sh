@@ -1,8 +1,4 @@
 #!/bin/bash
-# What one toolset adds to a short request: two temporary bots, one with the toolset off, each asked the same short
-# question; prints the prompt tokens of both and the difference. The bots are deleted afterwards. For every toolset at
-# once (and the table in docs/tools.md), use test/tool-cost.sh instead.
-# Usage: toolset-cost.sh <port> <toolset id, e.g. files>
 set -e
 cd "$(dirname "$0")/../../../.."
 PORT=$1

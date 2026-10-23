@@ -1,13 +1,13 @@
 import { App } from "@capacitor/app";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
 import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
 import { showToast } from "./Toasts.tsx";
-import { checkGitHub, checkModels } from "../agent/checks.ts";
-import { checkGcloud, describeCredential, parseCredential } from "../agent/gcloud.ts";
+import { checkGitHub } from "../agent/checks.ts";
+import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
 import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../agent/cloudflare.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
@@ -28,14 +28,7 @@ import { McpGroup } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-
-function gcloudIdentity(json: string): string {
-	try {
-		return describeCredential(parseCredential(json));
-	} catch (error) {
-		return error instanceof Error ? error.message : String(error);
-	}
-}
+import { messageOf } from "../promise.ts";
 
 function Group({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
 	return (
@@ -49,10 +42,6 @@ function Group({ title, hint, children }: { title: string; hint?: ReactNode; chi
 	);
 }
 
-/**
- * Per account: whether the agent may read its calendars and add events to them, the default calendar, and whether
- * shared calendars (colleagues', a team's) can be read. Reading the calendars needs the permission, asked on a tap.
- */
 function CalendarGroup({ value, onChange }: { value: string; onChange: (json: string) => void }) {
 	const [calendars, setCalendars] = useState<PhoneCalendar[]>();
 	const [error, setError] = useState("");
@@ -60,7 +49,7 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 	const load = () =>
 		Calendar.listAccounts().then(
 			({ calendars }) => setCalendars(calendars),
-			(failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)),
+			(failure: unknown) => setError(messageOf(failure)),
 		);
 	useEffect(() => {
 		if (!native) return;
@@ -83,7 +72,6 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 		const ids = new Set(group.calendars.map((calendar) => calendar.id));
 		let defaultCalendar = access.defaultCalendar;
 		if (!on && defaultCalendar !== undefined && ids.has(defaultCalendar)) defaultCalendar = undefined;
-		// The first account turned on becomes the default, so adding works without another step.
 		if (on && defaultCalendar === undefined) {
 			const target = group.calendars.find((calendar) => calendar.writable && calendar.primary) ?? group.calendars.find((c) => c.writable);
 			defaultCalendar = target?.id;
@@ -95,7 +83,6 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 			set({ ...access, hidden: toggle(access.hidden, group.key, false) });
 			return;
 		}
-		// Hiding an account also stops writes to it.
 		const holdsDefault = group.calendars.some((calendar) => calendar.id === access.defaultCalendar);
 		set({
 			...access,
@@ -180,10 +167,6 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 	);
 }
 
-/**
- * Schedules and pending follow-ups the agent created: pause, run now, delete. They take effect at once (they are not
- * part of the form). Exact alarms make them fire on time; Android 14 and later turn that off for new apps.
- */
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const [state, setState] = useState<TriggerState>({ items: [], next: {} });
 	const [bots, setBots] = useState<Bot[]>([]);
@@ -208,7 +191,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	}, [runtime]);
 	if (!native) return null;
 	const headphones = state.items.some((item) => item.enabled && item.when.kind === "headphones");
-	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));
+	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(messageOf(failure)));
 
 	return (
 		<Group title="排程">
@@ -255,10 +238,6 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	);
 }
 
-/**
- * The grants Android keeps in its own settings pages, which pi can only open: usage access (screen time) and pi as the
- * digital assistant. Rechecked when the user comes back from there.
- */
 function SystemAccessGroup() {
 	const [state, setState] = useState<{ usage: boolean; assistant: boolean }>();
 	useEffect(() => {
@@ -289,7 +268,6 @@ function SystemAccessGroup() {
 	);
 }
 
-/** Notification permission and battery exemption, which background runs depend on. Rechecked when the app resumes. */
 function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
 	useEffect(() => {
@@ -324,10 +302,6 @@ function BackgroundGroup() {
 	);
 }
 
-/**
- * Notification access, for bots with the 通知 toolset. Off until the user allows it in system settings; rechecked when
- * the app resumes, which is how the user comes back from there.
- */
 function NotificationsGroup() {
 	const [allowed, setAllowed] = useState<boolean>();
 	useEffect(() => {
@@ -363,7 +337,6 @@ function NotificationsGroup() {
 	);
 }
 
-/** The bots' SQLite database: its tables and how full they are, and a copy to keep or open elsewhere. */
 function DatabaseGroup() {
 	const [tables, setTables] = useState<TableInfo[]>();
 	useEffect(() => {
@@ -391,7 +364,7 @@ function DatabaseGroup() {
 			)}
 			<div className="check-row">
 				<span className="menu-text">匯出</span>
-				<button type="button" className="btn" onClick={() => void Database.export().catch((error: unknown) => showToast(`匯出失敗：${error instanceof Error ? error.message : String(error)}`))}>
+				<button type="button" className="btn" onClick={() => void Database.export().catch((error: unknown) => showToast(`匯出失敗：${messageOf(error)}`))}>
 					匯出
 				</button>
 			</div>
@@ -401,7 +374,6 @@ function DatabaseGroup() {
 
 type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "schedules" | "data";
 
-/** One line per page, with what is set there on the right. */
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
 	const [triggers, setTriggers] = useState<number>();
 	const [tables, setTables] = useState<number>();
@@ -448,7 +420,6 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	);
 }
 
-/** The settings that are text, which field() binds to an input. */
 type TextSetting = { [K in keyof Settings]: Settings[K] extends string ? K : never }[keyof Settings];
 
 export function SettingsView({
@@ -461,11 +432,8 @@ export function SettingsView({
 }: {
 	initial: Settings;
 	status?: string;
-	/** The running agent, for what takes effect at once instead of on save (schedules). */
 	runtime?: AgentRuntime;
-	/** First run: 開始 saves and starts. */
 	onSave: (settings: Settings) => void;
-	/** Opened from the app: every edit; the app saves and applies it shortly after, and at once on leaving. */
 	onDraft?: (settings: Settings, changed: boolean) => void;
 	onCancel?: () => void;
 }) {
@@ -524,7 +492,7 @@ export function SettingsView({
 						{settings.gcloudCredential ? (
 							<div className="check-row">
 								<span className="menu-text">
-									{gcloudIdentity(settings.gcloudCredential)}
+									{describeGcloud(settings.gcloudCredential)}
 								</span>
 								<button type="button" className="btn" onClick={() => change({ gcloudCredential: "" })}>
 									移除
@@ -636,7 +604,6 @@ export function SettingsView({
 		data: { title: "資料庫", body: () => <DatabaseGroup /> },
 	};
 
-	// The global MEMORY.md is its own page with its own bar (MemoryView), the same one a bot's memory uses.
 	if (page === "memory" && runtime) {
 		return <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => setPage(undefined)} onError={(message) => showToast(message)} />;
 	}

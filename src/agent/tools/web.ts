@@ -1,6 +1,3 @@
-// Web tools, run from the phone. Search uses the model service's own hosted search (OpenAI Responses `web_search`, or
-// Anthropic Messages `web_search_20250305`), so it works with any endpoint that passes those through, with no search
-// API key. Fetch uses Capacitor's native HTTP, which is not subject to the WebView's CORS rules.
 import { Capacitor, CapacitorHttp, registerPlugin } from "@capacitor/core";
 import type { Context } from "@earendil-works/chord";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
@@ -12,8 +9,8 @@ import { defineAppTool } from "./common.ts";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
+import { messageOf } from "../../promise.ts";
 
-/** The parts of a Responses API answer read here: message text and its URL citations. */
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(
 		Type.Array(
@@ -32,7 +29,6 @@ const ResponsesAnswer = Type.Object({
 	),
 });
 
-/** The parts of a Messages API answer read here: text blocks and web search results. */
 const MessagesAnswer = Type.Object({
 	content: Type.Optional(
 		Type.Array(
@@ -47,21 +43,14 @@ const MessagesAnswer = Type.Object({
 const SearchResults = Type.Array(Type.Object({ url: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }));
 
 const MAX_FETCH_CHARS = 40_000;
-/** A fetched page with less visible text than this is rendered: it is likely built by its scripts. */
 const RENDER_BELOW_CHARS = 300;
 
-/** PagePlugin.java: a page rendered in a WebView no one sees, after its scripts ran. */
 const Page = registerPlugin<{ render(options: { url: string }): Promise<{ html: string; title: string; url: string; ms: number; settled: boolean }> }>("Page");
 
-/** Characters of text, not counting whitespace or the title line htmlToText adds. */
 const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+/g, "").length;
 
 const formatSize = (bytes: number) => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 
-/**
- * A PDF on the web read as an attachment is (attachments.ts): its text by page, scanned pages by OCR, a preview with
- * how to read on when it is long, kept for read_attachment. Fetched again as bytes: the first fetch read it as text.
- */
 async function readPdf(url: string, conversationId: string): Promise<(TextContent | ImageContent)[]> {
 	const response = await CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile" }, connectTimeout: 15_000, readTimeout: 60_000 });
 	if (response.status >= 400 || typeof response.data !== "string") throw new Error(`HTTP ${response.status} ${response.url}`);
@@ -71,7 +60,6 @@ async function readPdf(url: string, conversationId: string): Promise<(TextConten
 	return [{ type: "text", text: `PDF ${response.url || url}` }, ...prepared.content];
 }
 
-/** A file from the web into the bot's folder: streamed to disk on the phone, through the app into a sandbox. */
 async function download(env: ExecutionEnv, url: string, path: string, context: Context): Promise<{ path: string; size: number; contentType: string; url: string }> {
 	if (env instanceof PhoneEnv) {
 		const saved = await env.download(url, path, context);
@@ -92,11 +80,9 @@ async function download(env: ExecutionEnv, url: string, path: string, context: C
 export interface WebConfig {
 	baseUrl: string;
 	apiKey: string;
-	/** Model IDs the endpoint offers; the search backend is picked from these. */
 	modelIds: readonly string[];
 }
 
-/** First available model per backend, best first. */
 const RESPONSES_SEARCH_MODELS = [/^gpt-6\.1/, /^gpt-6/, /^gpt-5\.6/, /^gpt-5/];
 const ANTHROPIC_SEARCH_MODELS = [/^claude-sonnet/, /^claude-opus/, /^claude/];
 
@@ -154,18 +140,15 @@ async function searchAnthropic(config: WebConfig, model: string, query: string, 
 	const text = (body.content ?? []).flatMap((block) => (block.type === "text" ? [block.text ?? ""] : [])).join("").trim();
 	const sources = (body.content ?? [])
 		.filter((block) => block.type === "web_search_tool_result")
-		// A result block holds an array of results, or an error object that has no sources.
 		.flatMap((block) => (Value.Check(SearchResults, block.content) ? block.content : []))
 		.filter((result) => result.url)
 		.map((result) => `- ${result.title ?? result.url}: ${result.url}`);
 	return [text, sources.length ? `\nSources:\n${[...new Set(sources)].join("\n")}` : ""].join("\n");
 }
 
-/** Visible text of an HTML page: title, then the body without scripts, styles, and navigation chrome. */
 function htmlToText(html: string): string {
 	const doc = new DOMParser().parseFromString(html, "text/html");
 	for (const element of doc.querySelectorAll("script, style, noscript, svg, nav, footer, header, aside, form, iframe")) element.remove();
-	// The page's main part, unless it holds less than half its text (apps that render their content elsewhere).
 	const main = doc.querySelector("main, article");
 	const root = main && (main.textContent?.length ?? 0) * 2 >= (doc.body?.textContent?.length ?? 0) ? main : doc.body;
 	for (const element of root?.querySelectorAll("p, div, li, h1, h2, h3, h4, h5, h6, tr, br, pre, blockquote") ?? []) element.append("\n");
@@ -230,11 +213,10 @@ export function createWebExtension(config: WebConfig) {
 			const html = type.includes("html");
 			let text = html ? htmlToText(body) : body;
 			let header = `HTTP ${response.status} ${response.url}`;
-			// A page that builds its content in scripts: asked for, or so little text that it is likely a shell.
 			if (html && response.status < 400 && Capacitor.isNativePlatform() && (args.render || visibleLength(text) < RENDER_BELOW_CHARS)) {
 				const page = await Page.render({ url: response.url || args.url }).then(
 					(value) => ({ ok: true as const, value }),
-					(error: unknown) => ({ ok: false as const, message: error instanceof Error ? error.message : String(error) }),
+					(error: unknown) => ({ ok: false as const, message: messageOf(error) }),
 				);
 				if (!page.ok) {
 					header += `\n[rendering failed: ${page.message}; this is the page without its scripts]`;

@@ -1,8 +1,3 @@
-/**
- * pi mobile's mark: the shape of pi.dev's pixel glyph, recolored with pi.dev's site palette (accent blue, sage,
- * sunkissed) instead of the logo's coral, blue, and yellow. The right leg doubles as the app's activity light:
- * it blinks like a terminal cursor while the agent works.
- */
 export function PiMark({ size = 24, live = false }: { size?: number; live?: boolean }) {
 	return (
 		<svg className={`pi-mark${live ? " live" : ""}`} width={size} height={size} viewBox="0 0 4 4" shapeRendering="crispEdges" aria-hidden="true">

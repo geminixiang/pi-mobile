@@ -1,12 +1,10 @@
-// A pi-env Connection over a byte stream, for runtimes without child processes (the app WebView).
-//
-// Port of @earendil-works/pi-env's Connection (src/connection.ts): same frames, sync line, pings, and session
-// semantics, with `spawn` replaced by a stream that some transport opens to `pi-env serve --token <hex>`: a WebSocket to
-// pi-mobile serve (host.ts), directly or through a container engine's exec.
-// RemoteExecutionEnv only calls info(), session(), request(), kill(), and close(), which this class provides.
+import { Type } from "typebox";
 import { RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
+import { decode } from "../parse.ts";
+import { settled, onFailure } from "../../promise.ts";
 
 type Json = Record<string, unknown>;
+const FrameJson = Type.Record(Type.String(), Type.Unknown());
 
 const REQUEST = 1;
 const RESULT = 2;
@@ -18,7 +16,6 @@ const PING = 6;
 const MAX_FRAME = 16 * 1024 * 1024;
 const PING_INTERVAL_MS = 5000;
 const SILENCE_LIMIT_MS = 30_000;
-/** Includes creating a container or uploading the daemon on first use. */
 const START_TIMEOUT_MS = 60_000;
 
 const encoder = new TextEncoder();
@@ -61,7 +58,6 @@ function indexOf(haystack: Uint8Array, needle: Uint8Array): number {
 	return -1;
 }
 
-/** A duplex byte stream to one `pi-env serve` process. */
 interface DaemonStream {
 	send(data: Uint8Array<ArrayBuffer>): void;
 	close(): void;
@@ -69,14 +65,9 @@ interface DaemonStream {
 
 interface StreamHandlers {
 	onData(data: Uint8Array): void;
-	/** The stream ended; `reason` says why when the transport knows. */
 	onClose(reason?: string): void;
 }
 
-/**
- * Starts `pi-env serve --token <token>` and resolves once its stream is open; rejects when it cannot be reached. The
- * handlers may be called before the promise resolves (the daemon's first bytes can arrive with the open).
- */
 export type OpenDaemon = (token: string, handlers: StreamHandlers) => Promise<DaemonStream>;
 
 export interface StreamConnectionOptions {
@@ -159,7 +150,7 @@ export class StreamConnection {
 		if (this.#ready === undefined) {
 			const ready = this.#start();
 			this.#ready = ready;
-			ready.catch(() => {
+			onFailure(ready, () => {
 				if (this.#ready === ready) this.#ready = undefined;
 			});
 		}
@@ -206,7 +197,7 @@ export class StreamConnection {
 			rejectStart = reject;
 			startTimer = setTimeout(() => reject(lost(`Sandbox did not answer within ${START_TIMEOUT_MS / 1000} s`)), START_TIMEOUT_MS);
 		});
-		failed.catch(() => {});
+		void settled(failed);
 		try {
 			session.stream = await this.#options.open(token, {
 				onData: (data) => this.#onData(session, data),
@@ -222,7 +213,6 @@ export class StreamConnection {
 			this.#teardown(session, reason);
 			throw reason;
 		}
-		// The stream may have closed while it opened.
 		if (!session.live) {
 			clearTimeout(startTimer);
 			session.stream.close();
@@ -265,7 +255,6 @@ export class StreamConnection {
 		session.lastSeen = Date.now();
 		session.append(chunk);
 		if (!session.synced) {
-			// The daemon's first output is `PI-ENV <token>\n`; anything before it is shell noise.
 			const marker = encoder.encode(`PI-ENV ${session.token}\n`);
 			const index = indexOf(session.buffer, marker);
 			if (index === -1) {
@@ -290,13 +279,8 @@ export class StreamConnection {
 			const type = view.getUint8(offset + 4);
 			const id = view.getUint32(offset + 5);
 			const jsonLength = view.getUint32(offset + 9);
-			let json: Json;
-			try {
-				if (9 + jsonLength > length) throw new Error("JSON length out of range");
-				const parsed: unknown = JSON.parse(decoder.decode(buffer.subarray(offset + 13, offset + 13 + jsonLength)));
-				if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("not an object");
-				json = parsed as Json;
-			} catch {
+			const json = 9 + jsonLength > length ? undefined : decode(FrameJson, decoder.decode(buffer.subarray(offset + 13, offset + 13 + jsonLength)));
+			if (!json) {
 				this.#teardown(session, lost("Corrupt frame from pi-env"));
 				return;
 			}

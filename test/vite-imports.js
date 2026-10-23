@@ -1,5 +1,3 @@
-// Node module hooks for Vite's import suffixes, so test scripts can import app modules as Vite builds them:
-// "?raw" is the file's text, "?url" its path. Used as: node --import ./test/vite-imports.js <script>
 import { register } from "node:module";
 
 register(

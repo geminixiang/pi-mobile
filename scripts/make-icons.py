@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the launcher icon from the Pi mark: adaptive-icon vectors plus legacy PNGs, and the macOS app icon of
-pi-mobile on computers (host/macos/pi-mobile.icns, with iconutil).
-
-The mark (see src/app/PiMark.tsx) is pi.dev's pixel glyph shape in pi.dev's site palette, on evening blue with a
-faint grid aligned to the mark's cells. PNGs are rendered with headless Chrome from the same SVG.
-Usage: scripts/make-icons.py (from the repo root)
-"""
 import os
 import subprocess
 import tempfile
@@ -14,15 +7,13 @@ RES = "android/app/src/main/res"
 MAC_ICNS = "host/macos/pi-mobile.icns"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 BG = "#161D27"
-GRID = "#14FFFFFF"  # ARGB, faint
+GRID = "#14FFFFFF"
 
-# Glyph cells in grid units (x, y, w, h).
 TOP = [(0, 0, 3, 1), (2, 1, 1, 1)]
 LEFT = [(0, 1, 1, 3), (1, 2, 1, 1)]
 RIGHT = [(3, 2, 1, 2)]
 TOP_COLOR, LEFT_COLOR, RIGHT_COLOR = "#6A9FCC", "#A3A473", "#E1B06E"
 
-# 108dp adaptive canvas; the safe zone is the centered 66dp circle.
 UNIT = 11
 WIDTH, HEIGHT = 4 * UNIT, 4 * UNIT
 OX, OY = (108 - WIDTH) / 2, (108 - HEIGHT) / 2
@@ -94,7 +85,6 @@ def main():
     for name in ("ic_launcher", "ic_launcher_round"):
         write(f"{RES}/mipmap-anydpi-v26/{name}.xml", adaptive)
 
-    # Legacy PNGs (API 24-25): the full 108 canvas cropped to the 72dp icon area.
     svg_cells = lambda cells, color: "".join(
         f'<rect x="{OX + x * UNIT:g}" y="{OY + y * UNIT:g}" width="{w * UNIT:g}" height="{h * UNIT:g}" fill="{color}"/>'
         for x, y, w, h in cells
@@ -129,16 +119,14 @@ def main():
             stale = f"{RES}/mipmap-{density}/ic_launcher_foreground.png"
             if os.path.exists(stale):
                 os.remove(stale)
-    # Also write the master SVG for the README and the store.
     write("assets/icon.svg", svg.replace('viewBox="18 18 72 72"', 'viewBox="0 0 108 108"'))
 
 
 def mac_icon():
-    """macOS's icon grid: on a 1024 canvas, an 824 rounded square (radius 185) with room for the system's shadow."""
     cells = lambda items, color: "".join(
         f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{color}"/>' for x, y, w, h in items
     )
-    unit = 824 * UNIT / 72  # the mark at the size it has in the Android icon's 72dp visible area
+    unit = 824 * UNIT / 72
     ox = oy = 100 + (824 - 4 * unit) / 2
     place = lambda items: [(ox + x * unit, oy + y * unit, w * unit, h * unit) for x, y, w, h in items]
     grid = "".join(

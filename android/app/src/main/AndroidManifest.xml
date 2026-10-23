@@ -23,7 +23,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Back to pi from the browser when a sign-in ends (LoopbackPlugin.java's page): dev.geminixiang.pimobile:/back -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -31,7 +30,6 @@
                 <data android:scheme="dev.geminixiang.pimobile" />
             </intent-filter>
 
-            <!-- "Share" -> pi from other apps: text, links, photos, and the files pi reads (attachments.ts), one or several. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -55,7 +53,6 @@
 
         </activity>
 
-        <!-- Health Connect asks an app why it wants health data before it shows the request; pi's own screen answers. -->
         <activity-alias
             android:name=".HealthPermissionsRationale"
             android:exported="true"
@@ -67,7 +64,6 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- pi as the digital assistant: summoned, it gets the screen (AssistSession). -->
         <service
             android:name=".AssistService"
             android:exported="true"
@@ -90,7 +86,6 @@
             </intent-filter>
         </service>
 
-        <!-- Charging and Wi-Fi schedules: jobs that run while the phone charges or is on Wi-Fi (TriggerEvents). -->
         <service
             android:name=".TriggerEvents$ChargingJob"
             android:exported="false"
@@ -100,10 +95,8 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <!-- Ends a Do Not Disturb the agent set with an end time. -->
         <receiver android:name=".DndReceiver" android:exported="false" />
 
-        <!-- Keeps the agent loop running while the app is in the background or the screen is locked. -->
         <service
             android:name=".AgentService"
             android:exported="false"
@@ -113,7 +106,6 @@
                 android:value="Runs the user's AI agent conversation to completion while the app is not in front." />
         </service>
 
-        <!-- Trigger alarms and re-arming alarms after reboot or clock changes. -->
         <receiver android:name=".TriggerReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -124,14 +116,12 @@
             </intent-filter>
         </receiver>
 
-        <!-- Bluetooth headphones connecting, sent by the Bluetooth stack's own process, hence exported. -->
         <receiver android:name=".HeadphonesReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 
-        <!-- Records other apps' notifications for read_notifications, once the user allows notification access. -->
         <service
             android:name=".NotificationsListener"
             android:exported="true"
@@ -153,8 +143,6 @@
         </provider>
     </application>
 
-    <!-- Permissions -->
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -162,45 +150,35 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- Normal permission: lets the alarm and timer tools set them without opening the clock app. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
-    <!-- The calendar tools: list calendars with their accounts, and add an event to the one the user picked. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <!-- Health Connect, read-only (HealthPlugin). -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.READ_SMS" />
-    <!-- Screen time: the user turns on usage access in system settings. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
-    <!-- get_location reads one fix while the app is in use; there is no background location. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!-- Place schedules and a Wi-Fi schedule's network name while pi is not running ("allow all the time"). -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Triggers: schedules fire on time (the user grants this in system settings), and alarms survive a reboot. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Headphones schedules: Bluetooth connection broadcasts (BLUETOOTH before Android 12). -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
 
-    <!-- Package visibility (API 30+): lets SpeechRecognizer find the system recognition service. -->
     <queries>
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
-        <!-- Launcher apps, so a recorded notification shows its app's name (LINE) rather than its package. -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

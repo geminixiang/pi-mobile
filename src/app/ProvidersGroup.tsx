@@ -1,5 +1,3 @@
-// Settings › 模型供應商: where the models come from (agent/providers.ts). Any number of providers: pi-ai's built-in ones
-// with an API key, and custom endpoints that speak the OpenAI or Anthropic API. Below them, the model a new bot uses.
 import { useState } from "react";
 import { checkModels, checkProvider } from "../agent/checks.ts";
 import type { ModelInfo } from "../agent/models.ts";
@@ -10,10 +8,11 @@ import { System } from "../system-plugin.ts";
 import { CheckButton } from "./CheckButton.tsx";
 import { ChevronIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { messageOf } from "../promise.ts";
+import { hostOf } from "../agent/parse.ts";
 
 type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;
 
-/** Sign in with ChatGPT for the OpenAI provider: a button, or who is signed in and a way out. */
 function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: string) => void }) {
 	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "error"; message: string }>({ kind: "idle" });
 	if (signIn) {
@@ -45,7 +44,7 @@ function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: 
 							setState({ kind: "idle" });
 							onSignIn(JSON.stringify(credential));
 						})
-						.catch((error: unknown) => setState({ kind: "error", message: error instanceof Error ? error.message : String(error) }));
+						.catch((error: unknown) => setState({ kind: "error", message: messageOf(error) }));
 				}}
 			>
 				{state.kind === "busy" ? "登入中…" : "登入"}
@@ -94,7 +93,6 @@ function ProviderRow({
 }) {
 	const info = config.kind === "builtin" ? builtinInfo(config.id) : undefined;
 	const complete = config.kind === "custom" ? Boolean(config.baseUrl) : Boolean(apiKey || signIn);
-	// Set up ones fold to a line; a new or unfinished one opens.
 	const [open, setOpen] = useState(!complete);
 	const summary = !complete
 		? "未完成"
@@ -115,13 +113,6 @@ function ProviderRow({
 	);
 }
 
-function hostOf(url: string): string {
-	try {
-		return new URL(url).host;
-	} catch {
-		return url;
-	}
-}
 
 function ProviderFields({
 	config,
@@ -193,7 +184,6 @@ export function ProvidersGroup({
 	onChange,
 }: {
 	settings: ProviderSettings;
-	/** The running agent's models, for the default; none before the first start. */
 	models: readonly ModelInfo[];
 	onChange: (change: Partial<ProviderSettings>) => void;
 }) {

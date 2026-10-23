@@ -1,17 +1,13 @@
-// The pi-env daemons the app carries, and the shell helpers for running things on the user's computers.
 
-export type DaemonOs = "darwin" | "linux";
+import { onFailure } from "../../promise.ts";export type DaemonOs = "darwin" | "linux";
 export type DaemonArch = "x64" | "arm64";
 
-/** Single-quote for sh: works the same in bash, zsh, dash, and ash. */
 export function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-/** Where docker, podman, or nerdctl usually are when the shell's own PATH is short. */
 export const ENV_PATH = 'export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"';
 
-/** The daemons the app carries (vite.config.ts copies them from @earendil-works/pi-env), loaded and checked once. */
 const daemons = new Map<string, Promise<{ bytes: Uint8Array; sha: string }>>();
 export function daemon(os: DaemonOs, arch: DaemonArch): Promise<{ bytes: Uint8Array; sha: string }> {
 	const name = `${os}-${arch}`;
@@ -28,7 +24,7 @@ export function daemon(os: DaemonOs, arch: DaemonArch): Promise<{ bytes: Uint8Ar
 			if (sha !== expected) throw new Error(`app 裡 ${name} 的 pi-env 跟建置時不一樣，不會上傳`);
 			return { bytes, sha };
 		})();
-		pending.catch(() => daemons.delete(name));
+		onFailure(pending, () => daemons.delete(name));
 		daemons.set(name, pending);
 	}
 	return pending;

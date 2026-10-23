@@ -1,4 +1,3 @@
-// Stroke icons drawn on a 24px grid; they inherit currentColor.
 import type { ReactNode } from "react";
 
 function Icon({ children, size = 22, width = 1.8 }: { children: ReactNode; size?: number; width?: number }) {
@@ -62,7 +61,6 @@ export const GearIcon = ({ size = 20 }: { size?: number }) => (
 		<circle cx="12" cy="12" r="3" />
 	</Icon>
 );
-/** A note with lines: MEMORY.md. */
 export const MemoryIcon = ({ size = 20 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="M6 3h9l3 3v15H6z" />
@@ -169,7 +167,6 @@ export const MicIcon = ({ size = 22 }: { size?: number }) => (
 	</Icon>
 );
 
-/** Brand marks, filled. GitHub, Google Cloud and Cloudflare are from Simple Icons (CC0); Azure is drawn here. */
 function Mark({ d, size }: { d: string; size: number }) {
 	return (
 		<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

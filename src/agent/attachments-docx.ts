@@ -1,6 +1,3 @@
-// Word (.docx) attachments as Markdown: a docx is a zip whose word/document.xml holds the body. Paragraphs become
-// lines, heading styles become #, list items -, tables Markdown tables. Text only, as ChatGPT and Claude read docx;
-// images in it are not seen.
 import { strFromU8, unzipSync } from "fflate";
 
 const children = (element: Element, name: string) => [...element.children].filter((child) => child.localName === name);
@@ -20,7 +17,6 @@ function paragraphText(paragraph: Element): string {
 				case "cr":
 					text += "\n";
 					break;
-				// Deleted text of tracked changes, and field instructions, are not the document's text.
 				case "del":
 				case "instrText":
 					break;

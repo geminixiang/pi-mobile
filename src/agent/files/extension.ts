@@ -1,5 +1,3 @@
-// What a bot's model is told about its folder on the phone, when there is no sandbox: the coding tools (read, write,
-// edit, bash) then work there (phone-env.ts).
 import { defineExtension, section } from "@earendil-works/pi-durable";
 
 const FOLDER = [
@@ -7,7 +5,6 @@ const FOLDER = [
 	"bash runs built-in commands only (cat, ls, find, grep, sed, awk, jq, sort, uniq, wc, head, tail, cut, tr, diff, cp, mv, rm, mkdir, date, xargs…); no other programs, no network.",
 ].join(" ");
 
-/** The section for the bots that work on the phone. */
 export function createFilesExtension(onPhone: (conversationId: string) => boolean) {
 	return defineExtension({
 		name: "files",

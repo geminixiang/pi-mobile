@@ -1,12 +1,9 @@
-// health: the user's Health Connect data, read-only (HealthPlugin.java): steps and average heart rate per day, sleep
-// and exercise sessions, weight. Samsung Health, Fitbit, and others write there when their sync is on.
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, duration, localTime, requireNative, text } from "./common.ts";
 
 type Metric = "steps" | "heart_rate" | "sleep" | "exercise" | "weight";
-// A type, not an interface: structured outputs must be JSON-assignable.
 type HealthRecord = {
 	source: string;
 	start?: number;

@@ -1,13 +1,8 @@
-// Azure credentials for az in the sandbox. Sign-in is Microsoft's device code flow with the Azure CLI's public client:
-// the app shows a code (and copies it), the user enters it at microsoft.com/devicelogin, the app polls. The refresh
-// token stays on the phone; the egress proxy asks for access tokens per resource (ARM, Graph, Key Vault) when it needs
-// one. In the sandbox, az is signed in as a managed identity served by the proxy's bridge, which hands out placeholders.
 import { type Static, Type } from "typebox";
-import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, postForm, startDeviceFlow, tokensFrom } from "./oauth.ts";
-import { parse, parseJson } from "./parse.ts";
+import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, postForm, startDeviceFlow, checkTokens } from "./oauth.ts";
+import { type Checked, checkJson, parse } from "./parse.ts";
 
 const LOGIN = "https://login.microsoftonline.com";
-/** The Azure CLI's public client. */
 const CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
 const ARM_SCOPE = "https://management.core.windows.net//.default";
 
@@ -30,17 +25,13 @@ const Subscriptions = Type.Object({
 	value: Type.Array(Type.Object({ subscriptionId: Type.String(), displayName: Type.String(), tenantId: Type.String() })),
 });
 
-function parseAzure(json: string): AzureCredential {
-	return parse(AzureCredential, parseJson(json, "Azure 憑證"), "Azure 憑證");
+export function checkAzureCredential(json: string): Checked<AzureCredential> {
+	return checkJson(AzureCredential, json, "Azure 憑證");
 }
 
 export function describeAzure(json: string): string {
-	try {
-		const credential = parseAzure(json);
-		return [credential.username, credential.subscription_name].filter(Boolean).join(" · ");
-	} catch (error) {
-		return error instanceof Error ? error.message : String(error);
-	}
+	const checked = checkAzureCredential(json);
+	return checked.ok ? [checked.value.username, checked.value.subscription_name].filter(Boolean).join(" · ") : checked.problem;
 }
 
 export function startAzureSignIn(): Promise<DeviceSignIn> {
@@ -51,7 +42,6 @@ export function startAzureSignIn(): Promise<DeviceSignIn> {
 	});
 }
 
-/** Poll until the user enters the code; then pick the tenant and subscription az will use. */
 export async function finishAzureSignIn(signIn: DeviceSignIn, signal: AbortSignal): Promise<string> {
 	const tokens = await pollDeviceFlow({
 		signIn,
@@ -62,7 +52,6 @@ export async function finishAzureSignIn(signIn: DeviceSignIn, signal: AbortSigna
 	});
 	if (!tokens.refresh) throw new Error("Azure 登入失敗：沒有拿到 refresh token");
 	const claims = parse(SignInClaims, jwtPayload(tokens.idToken ?? tokens.access.token), "Microsoft ID token");
-	// The first subscription decides the tenant; without one, the sign-in's own tenant.
 	const response = await getJson({
 		url: "https://management.azure.com/subscriptions?api-version=2022-12-01",
 		token: tokens.access.token,
@@ -79,19 +68,17 @@ export async function finishAzureSignIn(signIn: DeviceSignIn, signal: AbortSigna
 	} satisfies AzureCredential);
 }
 
-/** Access tokens per resource scope; Microsoft may rotate the refresh token, which `onRotate` persists. */
 export class AzureTokens {
 	#credential: AzureCredential;
 	readonly #onRotate: (json: string) => Promise<void>;
 	readonly #cache = new Map<string, AccessToken>();
 	readonly #pending = new Map<string, Promise<AccessToken>>();
 
-	constructor(json: string, onRotate: (json: string) => Promise<void>) {
-		this.#credential = parseAzure(json);
+	constructor(credential: AzureCredential, onRotate: (json: string) => Promise<void>) {
+		this.#credential = credential;
 		this.#onRotate = onRotate;
 	}
 
-	/** What the sandbox's placeholder tokens and az's profile need: tenant and subscription. */
 	get env(): Record<string, string> {
 		return {
 			AZURE_TENANT_ID: this.#credential.tenant_id,
@@ -117,12 +104,9 @@ export class AzureTokens {
 			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID, scope: `${scope} offline_access` },
 			what: "Azure token",
 		});
-		let tokens;
-		try {
-			tokens = tokensFrom(response, "Azure token");
-		} catch (error) {
-			throw new Error(`${error instanceof Error ? error.message : String(error)}（可能需要在設定重新登入）`);
-		}
+		const checked = checkTokens(response, "Azure token");
+		if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
+		const tokens = checked.value;
 		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
 			this.#credential = { ...credential, refresh_token: tokens.refresh };
 			await this.#onRotate(JSON.stringify(this.#credential));

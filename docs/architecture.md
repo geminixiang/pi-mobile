@@ -58,9 +58,42 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 
 **登入用的 OAuth client**：Google、Cloudflare、Azure 的 app 內登入，借用的是各家官方 CLI 公開發布的 client（`gcloud auth application-default login`、`cf auth login`、`az login` 用的同一組），所以同意頁上顯示的是那些 CLI 的名稱。這讓你不用自己去各家註冊 OAuth app；代價是哪天供應商限制這些 client，登入就可能失效。
 
+## 程式碼看不出來的原因
+
+程式碼不寫註解（見 AGENTS.md）。名稱和結構說不清、又不能改的外部原因，記在這裡。
+
+**儲存**
+- 對話存在 WebView 的 IndexedDB。2026-10-22 在模擬器量過 SQLite（`@capacitor-community/sqlite`）：啟動要 73 次 bridge 呼叫，約 2 秒（2.1–6.2 秒）才看到對話；IndexedDB 是 0.6 秒。
+- `IndexedDbStorage` 只能有一個擁有者，所以用 Web Lock 擋住第二個 WebView（數位助理以前會開一個）。reload 時舊頁面走了才放鎖，新頁面最多等 5 秒。
+
+**背景執行（Android）**
+- WebView 的 JavaScript 跑在 Chromium 的 renderer 程序，不在前景服務保護的 app 程序裡。WebView 看不見時 Chromium 會降低 renderer 的重要性，所以 `KeepAlivePlugin` 在 agent 工作時把它拉高。
+- Blink 會凍結隱藏超過一分鐘的頁面（計時器、plugin callback 都停），`PiWebView` 讓它在背景時仍算可見。
+- Samsung 會讓 app 睡著，所以設定裡可以申請不受電池最佳化限制。
+- Android 14 起精確鬧鐘預設關閉，排程要使用者在系統設定裡打開才會準時；沒打開時會晚幾分鐘。
+- 鬧鐘觸發後的短暫豁免期內才能啟動前景服務，所以 `TriggerReceiver` 一收到就先啟動服務。
+- 返回鍵用 `@capacitor/app` 的 backButton 事件，不用瀏覽器 history：Chromium 會跳過頁面自己推的 history。
+
+**效能（S24，`test/jank.sh`）**
+- 對話的每一則訊息都 memo：Chat 每個按鍵、每個串流 token 都會重繪，全部重算 Markdown 時打字每鍵要 30–40 ms。
+- 串流中只解析正在寫的段落（以程式碼區塊外的空行切開），已完成的段落 memo；每幀全文解析會掉 3% 的幀。文字一陣一陣到（約 150 ms 一批），`useSmoothText` 每幀補一點，在一批的間隔內追上。
+- Mermaid 圖：inline SVG、SVG `<img>`、畫一次的 PNG 都只掉 0–2 幀（每次約 260 幀），跟藏起來一樣，所以用最簡單的 inline。
+
+**外部服務**
+- pi-durable 在請求超過 contextWindow 減掉保留量（預設 16k）時壓縮。把使用者的門檻加上保留量回報成 window，就會在門檻壓縮，而不是接近模型上限才壓。
+- Cloudflare 每次 refresh 都換新的 refresh token、作廢舊的，Microsoft 有時也會；新的要在下一次 refresh 之前寫回 Keystore。
+- Google 的 installed-app client secret 是公開的（寫在每一份 Cloud SDK 裡），不是秘密。
+- Nominatim 的使用規範要求 app 表明身分；WebView 不能設 User-Agent，所以走原生 HTTP。
+- 原生 HTTP 不受 WebView 的 CORS 限制：沒有 CORS 標頭的 API（ChatGPT 登入後的 OpenAI）走 `StreamFetchPlugin`，因為 CapacitorHttp 會把串流回應整個收完才交出來。
+- 通話紀錄和簡訊的權限 Google Play 只給預設電話和簡訊 app；pi 是自己安裝的，在這裡是一般的執行時權限。
+
+**電腦（macOS）**
+- `screencapture` 取圖（macOS 15 起 CoreGraphics 的擷取已移除），Quartz 事件送滑鼠和鍵盤。
+- 控制其他 app 時 macOS 每個 app 各問一次權限，沒辦法事先問完；安裝時只問最常用的 System Events。
+
 ## 專案結構
 
-每個檔案開頭的註解說明它做什麼；這裡只列從哪裡找起。
+這裡只列從哪裡找起。
 
 | 路徑 | 內容 |
 |---|---|

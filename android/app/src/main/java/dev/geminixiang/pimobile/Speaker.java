@@ -13,15 +13,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/**
- * Reads text aloud with the system's text-to-speech engine, for the speak tool. One engine for the process, created on
- * first use; it also works while pi is in the background, so a run started by a trigger can talk into the headphones.
- * Other audio is ducked while it speaks. stop() ends the speech at once, for example when the headphones disconnect.
- */
 final class Speaker {
 
     interface Done {
-        /** Null when everything was spoken; otherwise why not. */
         void finished(String error);
     }
 
@@ -32,7 +26,6 @@ final class Speaker {
     private final AudioManager audio;
     private final AudioFocusRequest focus;
     private TextToSpeech engine;
-    /** Null until the engine answered; then whether it can speak. */
     private Boolean ready;
     private final List<Runnable> waiting = new ArrayList<>();
     private String current;
@@ -53,7 +46,6 @@ final class Speaker {
         return instance;
     }
 
-    /** Stop speaking, if it is, without creating the engine. */
     static synchronized void stopIfSpeaking() {
         if (instance != null) instance.stop("stopped");
     }
@@ -86,7 +78,6 @@ final class Speaker {
         });
     }
 
-    /** Speak `text` in `language` (a BCP 47 tag such as zh-TW); `done` runs once, when it ends, fails, or is stopped. */
     synchronized void speak(String text, String language, Done done) {
         stop("replaced by newer speech");
         withEngine(() -> {
@@ -109,7 +100,6 @@ final class Speaker {
                 audio.requestAudioFocus(focus);
                 List<String> parts = split(text, Math.min(TextToSpeech.getMaxSpeechInputLength(), 1000));
                 for (int i = 0; i < parts.size(); i++) {
-                    // Only the last part carries the id that ends the speech.
                     String utterance = i == parts.size() - 1 ? id : id + "/" + i;
                     engine.speak(parts.get(i), TextToSpeech.QUEUE_ADD, new Bundle(), utterance);
                 }
@@ -131,7 +121,6 @@ final class Speaker {
         if (callback != null) callback.finished(error);
     }
 
-    /** Pieces no longer than `max`, cut after sentence ends where possible. */
     static List<String> split(String text, int max) {
         List<String> parts = new ArrayList<>();
         String rest = text.trim();

@@ -1,13 +1,8 @@
-// Web Worker that runs bash for a bot's folder on the phone: just-bash, a bash interpreter written in TypeScript with
-// its own grep, sed, awk, jq, find, sort and the rest, so commands never start a process and can reach nothing but
-// the folder. Its file system asks the main thread for every operation (protocol.ts). just-bash has no network unless
-// given one, and runs no JavaScript or Python unless enabled; neither is.
 import { Bash, type CommandName, getCommandNames, type IFileSystem } from "just-bash/browser";
 import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
+import { messageOf } from "../../promise.ts";
 
-/** Commands the browser build cannot run (they need Node), that need node:zlib, or a DOM, which a worker lacks. */
 const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python", "gzip", "gunzip", "zcat", "html-to-markdown"]);
-/** Only the rest are registered, so a missing one is plainly "command not found". */
 const COMMANDS = getCommandNames().filter((name): name is CommandName => !UNAVAILABLE.has(name));
 
 const post = (message: FromWorker) => postMessage(message);
@@ -15,7 +10,6 @@ const pending = new Map<number, { resolve: (value: FsValue) => void; reject: (er
 let nextCall = 0;
 const running = new Map<number, AbortController>();
 
-/** Node-style codes, which just-bash's commands print and test for. */
 const NODE_CODES: Record<string, string> = { not_found: "ENOENT", is_directory: "EISDIR", not_directory: "ENOTDIR", exists: "EEXIST", invalid: "EINVAL" };
 
 function ask(bot: string, request: FsOp): Promise<FsValue> {
@@ -36,7 +30,6 @@ function normalize(path: string): string {
 	return `/${parts.join("/")}`;
 }
 
-/** The folder-relative path the plugin takes. */
 const rel = (path: string) => normalize(path).slice(1);
 
 function isStat(value: FsValue): value is { kind: "file" | "directory"; size: number; mtimeMs: number } {
@@ -70,14 +63,7 @@ function folderFs(bot: string): IFileSystem {
 	const write = async (path: string, content: string | Uint8Array, append: boolean) => {
 		await ask(bot, { op: "write", path: rel(path), content, append });
 	};
-	const exists = async (path: string) => {
-		try {
-			await stat(path);
-			return true;
-		} catch {
-			return false;
-		}
-	};
+	const exists = async (path: string) => (await ask(bot, { op: "exists", path: rel(path) })) === true;
 	const copy = async (from: string, to: string, recursive: boolean): Promise<void> => {
 		const info = await stat(from);
 		if (info.isFile) return write(to, await readBytes(from), false);
@@ -124,7 +110,6 @@ function folderFs(bot: string): IFileSystem {
 			await ask(bot, { op: "rename", from: rel(from), to: rel(to) });
 		},
 		resolvePath: (base, path) => normalize(path.startsWith("/") ? path : `${base}/${path}`),
-		// Globs list directories with readdir; nothing in just-bash needs every path at once.
 		getAllPaths: () => [],
 		async realpath(path) {
 			await stat(path);
@@ -159,6 +144,6 @@ addEventListener("message", (event: MessageEvent<ToWorker>) => {
 	const bash = new Bash({ fs: folderFs(message.bot), cwd: message.cwd, env: message.env, commands: COMMANDS });
 	bash.exec(message.command, { cwd: message.cwd, signal: controller.signal }).then(
 		(result) => post({ type: "done", exec: message.exec, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode }),
-		(error: unknown) => post({ type: "failed", exec: message.exec, message: error instanceof Error ? error.message : String(error) }),
+		(error: unknown) => post({ type: "failed", exec: message.exec, message: messageOf(error) }),
 	).finally(() => running.delete(message.exec));
 });

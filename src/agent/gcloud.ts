@@ -1,9 +1,7 @@
-// Google Cloud credentials for the sandbox's gcloud. The long-lived credential (a user refresh token from signing in,
-// or a service account key) stays on the phone; only short-lived access tokens it mints go to the egress proxy, on
-// request, to inject.
+import { Value } from "typebox/value";
 import { type Static, Type } from "typebox";
 import { type AccessToken, base64url, jwtPayload, postForm, tokensFrom } from "./oauth.ts";
-import { parse, parseJson } from "./parse.ts";
+import { type Checked, checkJson, parse } from "./parse.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -14,7 +12,6 @@ const AuthorizedUser = Type.Object({
 	client_secret: Type.String(),
 	refresh_token: Type.String(),
 	quota_project_id: Type.Optional(Type.String()),
-	/** Recorded at sign-in in the app, for display. */
 	account: Type.Optional(Type.String()),
 });
 
@@ -29,18 +26,26 @@ const ServiceAccount = Type.Object({
 const Credential = Type.Union([AuthorizedUser, ServiceAccount]);
 type Credential = Static<typeof Credential>;
 
-/** Parse stored or pasted credential JSON; the message suits the settings screen. */
-export function parseCredential(json: string): Credential {
-	const value = parseJson(json, "Google 憑證");
-	try {
-		return parse(Credential, value, "Google 憑證");
-	} catch {
-		throw new Error("需要 authorized_user（用 Google 登入，或 gcloud auth application-default login 產生）或 service_account 金鑰");
-	}
+const EXPECTED_CREDENTIAL = "需要 authorized_user（用 Google 登入，或 gcloud auth application-default login 產生）或 service_account 金鑰";
+
+export function checkGcloudCredential(json: string): Checked<Credential> {
+	const value = checkJson(Type.Unknown(), json, "Google 憑證");
+	if (!value.ok) return value;
+	return Value.Check(Credential, value.value) ? { ok: true, value: value.value } : { ok: false, problem: EXPECTED_CREDENTIAL };
 }
 
-/** Who the credential acts as and its project, for the settings screen. */
-export function describeCredential(credential: Credential): string {
+function parseCredential(json: string): Credential {
+	const checked = checkGcloudCredential(json);
+	if (!checked.ok) throw new Error(checked.problem);
+	return checked.value;
+}
+
+export function describeGcloud(json: string): string {
+	const checked = checkGcloudCredential(json);
+	return checked.ok ? describeCredential(checked.value) : checked.problem;
+}
+
+function describeCredential(credential: Credential): string {
 	switch (credential.type) {
 		case "service_account":
 			return `${credential.client_email}${credential.project_id ? ` · ${credential.project_id}` : ""}`;
@@ -53,7 +58,6 @@ export function describeCredential(credential: Credential): string {
 	}
 }
 
-/** A JWT assertion for the service account's token grant, signed RS256 with WebCrypto. */
 async function serviceAccountAssertion(credential: Static<typeof ServiceAccount>): Promise<string> {
 	const now = Math.floor(Date.now() / 1000);
 	const encode = (value: object) => base64url(new TextEncoder().encode(JSON.stringify(value)));
@@ -87,14 +91,13 @@ async function exchange(credential: Credential): Promise<AccessToken> {
 	return tokensFrom(response, "Google token").access;
 }
 
-/** Mints and caches access tokens; a token is reused until five minutes before it expires. */
 export class GcloudTokens {
 	readonly #credential: Credential;
 	#cached: AccessToken | undefined;
 	#pending: Promise<AccessToken> | undefined;
 
-	constructor(json: string) {
-		this.#credential = parseCredential(json);
+	constructor(credential: Credential) {
+		this.#credential = credential;
 	}
 
 	get(): Promise<AccessToken> {
@@ -110,34 +113,24 @@ export class GcloudTokens {
 		return this.#pending;
 	}
 
-	/** The credential's own project, used as the default when settings name none. */
 	get project(): string | undefined {
 		return this.#credential.type === "service_account" ? this.#credential.project_id : this.#credential.quota_project_id;
 	}
 }
 
-/** Settings check: mint a token and report who it acts as. */
 export async function checkGcloud(json: string): Promise<string> {
 	const credential = parseCredential(json);
 	await exchange(credential);
 	return describeCredential(credential);
 }
 
-// ---------- Sign in with Google ----------
-//
-// The same flow as `gcloud auth application-default login --no-launch-browser`: gcloud's public OAuth client for
-// application default credentials, PKCE, and Google's page on sdk.cloud.google.com that shows the authorization code
-// for the user to copy back. The result is the authorized_user credential that command would write.
-
 const ADC_CLIENT_ID = "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com";
-// Not a secret: Google publishes it in every Cloud SDK (api_lib/auth/util.py); installed-app clients cannot keep one.
 const ADC_CLIENT_SECRET = "d-FL95Q19q7MQmFpd7hHD0Ty";
 const ADC_REDIRECT_URI = "https://sdk.cloud.google.com/applicationdefaultauthcode.html";
 const SIGN_IN_SCOPES = ["openid", "https://www.googleapis.com/auth/userinfo.email", SCOPE];
 
 export interface GoogleSignIn {
 	url: string;
-	/** PKCE verifier for the code exchange; keep it until the user brings the code back. */
 	verifier: string;
 }
 
@@ -160,14 +153,12 @@ export async function startGoogleSignIn(): Promise<GoogleSignIn> {
 	return { url: url.href, verifier };
 }
 
-/** Whether clipboard text looks like the authorization code Google's page shows (e.g. 4/0Ab...). */
 export function looksLikeAuthCode(text: string): boolean {
 	return /^4\/[0-9A-Za-z_-]{20,}$/.test(text.trim());
 }
 
 const IdClaims = Type.Object({ email: Type.Optional(Type.String()) });
 
-/** Exchange the code for the credential JSON to store; it records the signed-in account for display. */
 export async function finishGoogleSignIn(signIn: GoogleSignIn, code: string): Promise<string> {
 	const response = await postForm({
 		url: TOKEN_URL,

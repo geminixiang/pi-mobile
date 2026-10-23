@@ -1,12 +1,8 @@
-// The phone's own records, read-only: calls and text messages (RecordsPlugin.java), and screen time (UsagePlugin.java).
-// Calls and messages ask for their Android permission the first time; screen time needs usage access, turned on in
-// system settings.
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, duration, localTime, parseDay, requireNative, text } from "./common.ts";
 
-// Types, not interfaces: structured outputs must be JSON-assignable.
 type CallRecord = {
 	number: string;
 	name?: string;
@@ -124,7 +120,6 @@ const screenTime = defineAppTool({
 			throw new Error("Usage access is off. Tell the user to turn it on in pi's 設定 › 手機 › 系統權限 › 螢幕使用時間.");
 		}
 		const span = args.days && args.days > 1;
-		// The last `days` days, today included; or the one day asked for.
 		const from = span ? parseDay("today", "day") - ((args.days ?? 1) - 1) * DAY : parseDay(args.day ?? "today", "day");
 		const to = span ? Date.now() : from + DAY;
 		const { items, unlocks } = await Usage.apps({ from, to });

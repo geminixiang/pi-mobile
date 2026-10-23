@@ -1,5 +1,3 @@
-// Tools that hand work to other apps on the phone through Android intents. Most open a prefilled screen and the user
-// finishes there (press send, pick a share target), so pi does not send anything itself. Calendars are in calendar.ts.
 import { App } from "@capacitor/app";
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
@@ -13,13 +11,11 @@ interface AppsPlugin {
 	composeSms(options: { to: string; body: string }): Promise<void>;
 	open(options: { uri: string }): Promise<void>;
 	share(options: { text?: string; title?: string; fileBase64?: string; fileName?: string; mimeType?: string }): Promise<void>;
-	/** Open a file in the app that views its type; rejects with code "NO_APP" when there is none. */
 	openFile(options: { fileBase64: string; fileName: string; mimeType: string }): Promise<void>;
 }
 
 export const Apps = registerPlugin<AppsPlugin>("Apps");
 
-/** Android blocks activity starts from the background; fail clearly instead of silently doing nothing. */
 async function launch(action: () => Promise<void>): Promise<void> {
 	requireNative();
 	if (!(await App.getState()).isActive)
@@ -39,7 +35,6 @@ const setAlarm = defineAppTool({
 	}),
 	execute: async (args) => {
 		const { hour, minute } = parseClock(args.time, "time");
-		// Android's EXTRA_DAYS uses java.util.Calendar's numbering: Sunday is 1.
 		const days = args.repeat?.map((day) => WEEKDAYS.indexOf(day) + 1);
 		await launch(() => Apps.setAlarm({ hour, minute, label: args.label, days }));
 		return text(`Alarm set for ${args.time}${days ? ` repeating ${args.repeat?.join(", ")}` : ""}.`);
@@ -107,7 +102,6 @@ const openMaps = defineAppTool({
 	},
 });
 
-/** Schemes that reach into the app itself or the file system rather than another app. */
 const BLOCKED_SCHEMES = new Set(["intent", "file", "content", "javascript", "data", "about", "blob", "android-app", "pimobile", "dev.geminixiang.pimobile"]);
 
 const openLink = defineAppTool({

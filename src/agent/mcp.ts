@@ -1,18 +1,3 @@
-// MCP servers the user adds in settings (a name and a URL), each a toolset: its tools are the server's, named
-// <server>_<tool>. Connected with @earendil-works/pi-mcp over Streamable HTTP, or, for a computer://<address>?command=
-// URL, over stdio to a server started on one of the user's computers through pi-mobile serve (sandbox/host.ts).
-//
-// - Requests go through native HTTP (CapacitorHttp), so servers need not allow the WebView's origin. It returns whole
-//   responses, which suits request and response; the server-to-client GET stream, which never ends, is not opened.
-// - Sign-in is MCP's OAuth: discovery, dynamic client registration, and PKCE, in the browser, which returns to a
-//   loopback address (REDIRECT_URL, RFC 8252 section 7.3) that LoopbackPlugin.java listens on during the sign-in.
-//   Of 30 well-known servers, 13 accepted the app's own scheme as a redirect and 22 the loopback address (all 13
-//   among them). Tokens and the registered client stay in the Keystore.
-// - The server list is the hub's own (localStorage), so adding one, from the catalog or by URL, takes effect at once.
-// - Each server's tool list is kept in localStorage, so its tools exist at launch without waiting for the network; a
-//   connection opens on first use and refreshes the list.
-// - Tools are for code mode scripts only: codemode.ts lists them by name in a bot's prompt, so a request carries no
-//   definitions of them (catalog.ts).
 import { CapacitorHttp, type PluginListenerHandle } from "@capacitor/core";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, defineTool, type Extension, section } from "@earendil-works/pi-durable";
@@ -27,14 +12,14 @@ import {
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { Value } from "typebox/value";
 import { Type } from "typebox";
+import { decode } from "./parse.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { Loopback } from "../loopback-plugin.ts";
+import { messageOf, settled } from "../promise.ts";
 
-/** Where the authorization server sends the browser back: a fixed loopback port, so a registration stays valid. */
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";
 const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
-
 
 const SERVERS_KEY = "pi-mobile.mcp-servers";
 
@@ -42,15 +27,9 @@ const McpServer = Type.Object({ id: Type.String(), name: Type.String(), url: Typ
 export type McpServer = { id: string; name: string; url: string };
 
 function parseMcpServers(json: string): McpServer[] {
-	try {
-		const value: unknown = JSON.parse(json || "[]");
-		return Array.isArray(value) ? value.filter((item): item is McpServer => Value.Check(McpServer, item)) : [];
-	} catch {
-		return [];
-	}
+	return (decode(Type.Array(Type.Unknown()), json) ?? []).filter((item): item is McpServer => Value.Check(McpServer, item));
 }
 
-/** A short ASCII id for a server, used in its tools' names: from its name or host, never one already taken. */
 function serverId(name: string, url: string, taken: readonly string[]): string {
 	const ascii = (text: string) =>
 		text
@@ -59,18 +38,12 @@ function serverId(name: string, url: string, taken: readonly string[]): string {
 			.replace(/[^a-z0-9]+/g, "_")
 			.replace(/^_+|_+$/g, "")
 			.slice(0, 16);
-	let host = "";
-	try {
-		host = new URL(url).hostname.replace(/^(www|mcp|api)\./, "").split(".")[0] ?? "";
-	} catch {
-		// Not a URL: the name decides.
-	}
+	const host = URL.canParse(url) ? (new URL(url).hostname.replace(/^(www|mcp|api)\./, "").split(".")[0] ?? "") : "";
 	const base = ascii(name) || ascii(host) || "mcp";
 	if (!taken.includes(base)) return base;
 	for (let n = 2; ; n++) if (!taken.includes(`${base}${n}`)) return `${base}${n}`;
 }
 
-/** The extension holding a server's tools; also its toolset's id. */
 export const extensionName = (server: McpServer) => `mcp-${server.id}`;
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: 60_000 };
@@ -83,13 +56,11 @@ function headersOf(init: RequestInit | undefined): Record<string, string> {
 	return headers;
 }
 
-/** fetch over native HTTP, which no CORS policy limits. */
 const nativeFetch: McpFetch = async (input, init) => {
 	const headers = headersOf(init);
 	let data: unknown;
 	const body = init?.body;
 	if (typeof body === "string") {
-		// The plugin serializes JSON bodies itself; a JSON string would be sent quoted.
 		data = (headers["content-type"] ?? "").includes("json") ? JSON.parse(body) : body;
 	} else if (body instanceof URLSearchParams) {
 		data = body.toString();
@@ -113,23 +84,17 @@ const nativeFetch: McpFetch = async (input, init) => {
 
 const stateKey = (server: McpServer) => `mcp.${server.id}`;
 
-/** Our own stored JSON: its shape is ours, so its server URL is what needs checking. */
 function isState(value: unknown): value is McpOAuthState {
 	return typeof value === "object" && value !== null && "serverUrl" in value && typeof value.serverUrl === "string";
 }
 
-/** OAuth state per server in the Keystore: the registered client, tokens, and a sign-in in progress. */
 function stateStore(server: McpServer) {
 	return {
 		load: async (): Promise<McpOAuthState | undefined> => {
-			const stored = await SecureStorage.get(stateKey(server)).catch(() => null);
-			if (typeof stored !== "string") return undefined;
-			try {
-				const value: unknown = JSON.parse(stored);
-				return isState(value) && value.serverUrl === server.url ? value : undefined;
-			} catch {
-				return undefined;
-			}
+			if (!(await SecureStorage.keys()).includes(stateKey(server))) return undefined;
+			const stored = await SecureStorage.get(stateKey(server));
+			const value = typeof stored === "string" ? decode(Type.Unknown(), stored) : undefined;
+			return isState(value) && value.serverUrl === server.url ? value : undefined;
 		},
 		save: async (state: McpOAuthState) => {
 			await SecureStorage.set(stateKey(server), JSON.stringify(state));
@@ -147,22 +112,15 @@ export type McpStatus =
 type Cached = { tools: Tool[]; instructions?: string };
 const cacheKey = (server: McpServer) => `pi-mobile.mcp:${server.id}:${server.url}`;
 
-/** Our own cached JSON: a tool list as the server sent it. */
 function isCached(value: unknown): value is Cached {
 	return typeof value === "object" && value !== null && "tools" in value && Array.isArray(value.tools);
 }
 
 function loadCache(server: McpServer): Cached | undefined {
-	try {
-		const value: unknown = JSON.parse(localStorage.getItem(cacheKey(server)) ?? "null");
-		if (isCached(value)) return value;
-	} catch {
-		// Unreadable: as if never connected.
-	}
-	return undefined;
+	const value = decode(Type.Unknown(), localStorage.getItem(cacheKey(server)));
+	return isCached(value) ? value : undefined;
 }
 
-/** Provider tool names are at most 64 characters of [A-Za-z0-9_-]. */
 const toolName = (server: McpServer, name: string) => `${server.id}_${name}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64);
 
 class Connection {
@@ -173,18 +131,8 @@ class Connection {
 	readonly #install: (extension: Extension) => void;
 	readonly #changed: () => void;
 	readonly #openUrl: (url: string) => Promise<void>;
-	/**
-	 * The user pressed 登入. pi-mcp starts the authorization on any 401, background connections and tool calls
-	 * included; only a sign-in the user started may open the browser.
-	 */
 	#signingIn = false;
-	/**
-	 * pi-mcp's auth provider, held back where it would start a sign-in on its own: with tokens, a 401 refreshes them;
-	 * without, it only reports that the user must sign in. Otherwise a connection made while the user starts signing
-	 * in registers a second client, and the code from the browser fails to exchange ("Client ID mismatch").
-	 */
 	readonly #auth: AuthProvider;
-	/** The redirect listener of the sign-in in progress; a new sign-in replaces it, so one code is exchanged once. */
 	#redirect: PluginListenerHandle | undefined;
 
 	constructor(server: McpServer, hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void> }) {
@@ -217,7 +165,6 @@ class Connection {
 		this.#changed();
 	}
 
-	/** The connected client, connecting when there is none; a dropped connection reconnects on the next call. */
 	client(): Promise<McpClient> {
 		this.#client ??= this.#connect().catch((error: unknown) => {
 			this.#client = undefined;
@@ -245,7 +192,7 @@ class Connection {
 				this.#set({ state: "login", tools: this.status.tools });
 				throw new Error(`${this.server.name} needs the user to sign in: settings › MCP › ${this.server.name} › 登入.`);
 			}
-			this.#set({ state: "error", tools: this.status.tools, message: error instanceof Error ? error.message : String(error) });
+			this.#set({ state: "error", tools: this.status.tools, message: messageOf(error) });
 			throw error;
 		}
 		client.onClose(() => {
@@ -259,19 +206,13 @@ class Connection {
 		return client;
 	}
 
-	/** Connect now, to check the server and refresh its tools; failures show in the status. */
 	refresh(): void {
 		this.#client = undefined;
-		this.client().catch(() => undefined);
+		void settled(this.client());
 	}
 
-	/**
-	 * Start signing in: listen on the loopback address, register if needed, and open the authorization page in the
-	 * browser. The sign-in finishes when the browser comes back (complete), or not at all if the user gives up.
-	 */
 	async login(): Promise<void> {
 		await this.#provider.invalidateCredentials("tokens");
-		// A client registered with another redirect (the app's scheme, before) cannot use this one: register again.
 		const client = await this.#provider.clientInformation();
 		if (client && "redirect_uris" in client && Array.isArray(client.redirect_uris) && !client.redirect_uris.includes(REDIRECT_URL)) {
 			await this.#provider.invalidateCredentials("client");
@@ -282,7 +223,7 @@ class Connection {
 			void listener.remove();
 			if (this.#redirect === listener) this.#redirect = undefined;
 			this.complete(new URL(url)).catch((error: unknown) =>
-				this.#set({ state: "error", tools: this.status.tools, message: error instanceof Error ? error.message : String(error) }),
+				this.#set({ state: "error", tools: this.status.tools, message: messageOf(error) }),
 			);
 		});
 		this.#redirect = listener;
@@ -306,10 +247,9 @@ class Connection {
 		}
 	}
 
-	/** The browser came back with this redirect: finish signing in when it is ours. */
 	async complete(url: URL): Promise<boolean> {
 		const state = url.searchParams.get("state");
-		if (!state || state !== (await this.#provider.state().catch(() => undefined))) return false;
+		if (!state || state !== (await this.#provider.state())) return false;
 		const error = url.searchParams.get("error");
 		if (error) {
 			this.#set({ state: "error", tools: this.status.tools, message: `${error}${url.searchParams.get("error_description") ? `: ${url.searchParams.get("error_description")}` : ""}` });
@@ -324,7 +264,7 @@ class Connection {
 	}
 
 	async logout(): Promise<void> {
-		await SecureStorage.remove(stateKey(this.server)).catch(() => false);
+		if ((await SecureStorage.keys()).includes(stateKey(this.server))) await SecureStorage.remove(stateKey(this.server));
 		this.#client = undefined;
 		this.#set({ state: "idle", tools: this.status.tools });
 	}
@@ -333,15 +273,12 @@ class Connection {
 		const server = this.server;
 		const tools = cached.tools.map((tool) => {
 			const readOnly = tool.annotations?.readOnlyHint === true;
-			// defineTool, not defineAppTool: the server owns the schema, so its arguments go to it as the model wrote them.
 			return defineTool({
 				name: toolName(server, tool.name),
 				description: `[${server.name}] ${tool.description ?? tool.title ?? tool.name}`,
-				// Providers require an object schema, and some reject one without properties.
 				parameters: Type.Unsafe<Record<string, unknown>>({ ...tool.inputSchema, type: "object", properties: tool.inputSchema.properties ?? {} }),
 				...(tool.outputSchema ? { structuredOutputSchema: Type.Unsafe(tool.outputSchema) } : {}),
 				replay: readOnly ? "safe" : "unsafe",
-				// Called from code mode scripts, listed in its index (catalog.ts, codemode.ts).
 				callers: ["tools"],
 				execute: async (args, _api, context) => {
 					const client = await this.client();
@@ -379,7 +316,6 @@ class Connection {
 	}
 }
 
-/** Every configured server's connection; tells the app when one's status changes. */
 export class McpHub {
 	readonly #connections = new Map<string, Connection>();
 	readonly #listeners = new Set<() => void>();
@@ -405,7 +341,6 @@ export class McpHub {
 		localStorage.setItem(SERVERS_KEY, JSON.stringify(this.servers));
 	}
 
-	/** Add a server by name and URL; it connects at once. Returns it, with its id. */
 	add(name: string, url: string): McpServer {
 		const existing = this.servers.find((server) => server.url === url);
 		if (existing) return existing;
@@ -416,7 +351,6 @@ export class McpHub {
 		return server;
 	}
 
-	/** Remove a server: its sign-in, its cached tools, and its toolset. Bots that had it lose it. */
 	async remove(id: string): Promise<void> {
 		const connection = this.#connections.get(id);
 		if (!connection) return;
@@ -441,7 +375,6 @@ export class McpHub {
 		return () => this.#listeners.delete(listener);
 	}
 
-	/** Connect every server in the background, refreshing their tools. */
 	refreshAll(): void {
 		for (const connection of this.#connections.values()) connection.refresh();
 	}

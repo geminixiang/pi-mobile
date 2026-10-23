@@ -1,10 +1,4 @@
 #!/bin/bash
-# What each toolset's tool definitions take of a bot's requests, measured on a device, as Markdown rows for
-# docs/tools.md. A temporary bot with every built-in toolset on (and the given MCP services) reports its resolved
-# tools through runtime.toolCost(); then two short questions, one with all built-ins on and one with all off, give
-# the prompt tokens they add. The bots are deleted afterwards.
-#
-#   test/tool-cost.sh <DevTools port> [mcp-<server> ...]
 set -e
 cd "$(dirname "$0")/.."
 PORT=$1

@@ -19,7 +19,6 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
-/** Web-side control of AgentService, completion notifications, and the permissions they need. */
 @CapacitorPlugin(
     name = "KeepAlive",
     permissions = { @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notifications") }
@@ -43,12 +42,6 @@ public class KeepAlivePlugin extends Plugin {
         call.resolve();
     }
 
-    /**
-     * The WebView's JavaScript runs in Chromium's renderer process, not in the app process the foreground service
-     * protects. By default Chromium waives the renderer's importance when the WebView is not visible, so in the
-     * background Android caches and freezes it and the agent loop stops even though the app process lives on. And
-     * Chromium itself freezes a page hidden for a minute; PiWebView keeps it visible to Chromium while the agent works.
-     */
     private void setRendererImportant(boolean important) {
         getActivity().runOnUiThread(() -> keepWebViewRunning(getBridge().getWebView(), important));
     }
@@ -65,7 +58,6 @@ public class KeepAlivePlugin extends Plugin {
         call.resolve();
     }
 
-    /** A dismissable notification, for "done" while the app is not in front. */
     @PluginMethod
     public void notify(PluginCall call) {
         AgentService.createChannels(getContext());
@@ -110,7 +102,6 @@ public class KeepAlivePlugin extends Plugin {
         call.resolve(granted(getPermissionState("notifications") == PermissionState.GRANTED));
     }
 
-    /** Opens the system dialog that exempts the app from battery optimization (Samsung otherwise sleeps it). */
     @PluginMethod
     public void requestUnrestrictedBattery(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getContext().getPackageName()));

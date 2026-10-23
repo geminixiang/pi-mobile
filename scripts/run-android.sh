@@ -1,6 +1,4 @@
 #!/bin/sh
-# Install pi-mobile.apk on a device, restart the app, and forward its WebView DevTools socket.
-# Usage: scripts/run-android.sh <adb serial> [cdp port]
 set -e
 cd "$(dirname "$0")/.."
 SERIAL="$1"

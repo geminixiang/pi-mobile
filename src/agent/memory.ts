@@ -1,24 +1,16 @@
-// MEMORY.md, in two scopes: the global one, what every bot should know about the user (home, work, people,
-// preferences), and each bot's own, notes for its job. Markdown notes stored on the phone; the user edits them on their
-// page, the agent with update_memory. Every request carries both in the system prompt, so they also reach the model
-// service.
 import { Type } from "typebox";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { defineAppTool, text } from "./tools/common.ts";
 
-/** Long enough for a page of notes; short enough that sending it with every request costs little. */
 export const MEMORY_LIMIT = 4000;
 
-// A type alias, not an interface: documents need JSON-assignable types.
 export type Memory = { text: string; updatedAt: number; updatedBy: "user" | "agent" | "" };
 
 const empty = (): Memory => ({ text: "", updatedAt: 0, updatedBy: "" });
 
-/** The global MEMORY.md, shared by every bot. */
 export const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: empty, checkpointWhen: checkpointEvery64 });
 
-/** A bot's own MEMORY.md, in its conversation. */
 export const BotMemoryDoc = defineDoc<Memory>({
 	kind: "app.bot.memory",
 	version: 1,
@@ -29,10 +21,8 @@ export const BotMemoryDoc = defineDoc<Memory>({
 	checkpointWhen: checkpointEvery64,
 });
 
-/** Which MEMORY.md: the global one, or one bot's. */
 export type MemoryScope = { kind: "global" } | { kind: "bot"; id: ConversationId };
 
-/** Apply one edit: replace `oldText` (which must occur exactly once), or append `newText` as its own line. */
 function editMemory(current: string, oldText: string | undefined, newText: string): string {
 	if (!oldText) return current.trim() ? `${current.trimEnd()}\n${newText.trim()}` : newText.trim();
 	const at = current.indexOf(oldText);
@@ -44,7 +34,6 @@ function editMemory(current: string, oldText: string | undefined, newText: strin
 export function createMemoryExtension(host: { changed: () => void }) {
 	const updateMemory = defineAppTool({
 		name: "update_memory",
-		// Not from code mode scripts: every change to the memory gets its own step the user can see.
 		callers: ["model"],
 		description:
 			"Edit a MEMORY.md. scope global: facts about the user that every bot should know. scope bot: your own notes for your job. Without old_text, new_text is added as a new line. With old_text (copied exactly from the memory section), it is replaced by new_text; an empty new_text deletes it.",

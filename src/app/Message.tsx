@@ -17,13 +17,8 @@ import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
-/** One content part of any message the transcript shows. */
 export type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
 
-/**
- * What the trace shows for a call. Running calls have live output; finished calls have their result, and only they
- * can have failed or carry images (such as a chart the agent read back from the sandbox).
- */
 export type CallState =
 	| { status: "pending" }
 	| { status: "running"; output?: string }
@@ -40,7 +35,6 @@ function message(entry: EntryRecord): ModelMessage | undefined {
 	return entry.model?.[0];
 }
 
-/** Results of finished calls, keyed by tool call ID, from the transcript's tool-result entries. */
 export function finishedCalls(entries: readonly EntryRecord[]): Map<string, CallState> {
 	const calls = new Map<string, CallState>();
 	for (const entry of entries) {
@@ -64,7 +58,6 @@ function formatSize(bytes: number): string {
 	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** An attached file, in the user's message and the composer: its name, kind, and size; its text is the model's. */
 export function AttachmentChip({ card, status, onRemove }: { card: Pick<AttachmentCard, "name" | "kind" | "size" | "pages">; status?: string; onRemove?: () => void }) {
 	const detail = status ?? [KIND_LABEL[card.kind], card.pages ? `${card.pages} 頁` : "", formatSize(card.size)].filter(Boolean).join(" · ");
 	const body = (
@@ -86,7 +79,6 @@ export function AttachmentChip({ card, status, onRemove }: { card: Pick<Attachme
 	);
 }
 
-/** Text of a message, for copying: without its attachments' text. */
 export function entryText(entry: EntryRecord): string {
 	return withoutAttachments(blocks(message(entry)?.content))
 		.filter((block) => block.type === "text")
@@ -99,13 +91,11 @@ const ON_LABEL: Record<string, string> = { headphones: "戴上耳機時", chargi
 const str = (value: unknown): string => (typeof value === "string" ? value : typeof value === "number" ? String(value) : "");
 const join = (...parts: string[]): string => parts.filter(Boolean).join(" · ");
 
-/** "2026-10-31T10:00" -> "10/31 10:00"; other text unchanged. */
 function shortTime(value: unknown): string {
 	const match = /^\d{4}-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?/.exec(str(value));
 	return match ? `${Number(match[1])}/${Number(match[2])}${match[3] ? ` ${match[3]}` : ""}` : str(value);
 }
 
-/** What the phone's own tools did, in words instead of their JSON arguments. */
 function phoneLabel(name: string, args: Record<string, unknown>): string | undefined {
 	switch (name) {
 		case "set_alarm":
@@ -158,7 +148,6 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 	}
 }
 
-/** One line describing a tool call: the command, path, or API route. */
 function callLabel(name: string, args: Record<string, unknown>): string {
 	const phone = phoneLabel(name, args);
 	if (phone !== undefined) return phone;
@@ -167,7 +156,6 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 	if (name === "web_search" && typeof args.query === "string") return args.query;
 	if (name === "web_fetch" && typeof args.url === "string") return typeof args.save_to === "string" && args.save_to ? `${args.url} → ${args.save_to}` : args.url;
 	if (name === "bash" && typeof args.command === "string") return args.command;
-	// Code mode: the script's first line that is not a comment or option header.
 	if (name === "codemode" && typeof args.code === "string") {
 		return args.code.split("\n").find((line) => line.trim() && !line.trim().startsWith("//"))?.trim() ?? "";
 	}
@@ -186,9 +174,7 @@ function tone(state: CallState | undefined): Tone {
 	return state.isError ? "error" : "ok";
 }
 
-/** Short tool label, as pi's TUI prints it. */
 function toolName(name: string): string {
-	// pi prints a shell call as its prompt and the command: `$ ls -la`.
 	if (name === "bash") return "$";
 	if (name === "github_api") return "github";
 	if (name === "github_read_file") return "github read";
@@ -217,7 +203,6 @@ function toolName(name: string): string {
 	return name;
 }
 
-/** Seconds since this component mounted while `running`, updated every second. */
 function useElapsed(running: boolean): number {
 	const [started] = useState(() => Date.now());
 	const [now, setNow] = useState(started);
@@ -229,18 +214,12 @@ function useElapsed(running: boolean): number {
 	return Math.floor((now - started) / 1000);
 }
 
-/**
- * How much output a collapsed box shows, as pi's renderers do: the last 5 lines of a shell command or script (its
- * newest output), nothing of a file read, and the first 10 lines of anything else.
- */
 function preview(name: string, lines: string[]): { shown: string[]; hidden: number } {
-	// pi shows nothing of a collapsed read, not even a count; tapping still opens it.
 	if (name === "read") return { shown: [], hidden: 0 };
 	if (name === "bash" || name === "codemode") return { shown: lines.slice(-5), hidden: Math.max(0, lines.length - 5) };
 	return { shown: lines.slice(0, 10), hidden: Math.max(0, lines.length - 10) };
 }
 
-/** One tool call as pi's tool box: a full-width block tinted by status, the call on top and its output below. */
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
@@ -250,10 +229,8 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
 	const lines = output ? output.split("\n") : [];
-	// Errors show in full, as pi does.
 	const { shown, hidden } = open || status === "error" ? { shown: lines, hidden: 0 } : preview(call.name, lines);
 	const script = call.name === "codemode" && typeof call.arguments.code === "string" ? call.arguments.code : undefined;
-	// Collapsed boxes also stop at that many lines on screen, as pi's previews count wrapped lines: a phone wraps a lot.
 	const tail = call.name === "bash" || call.name === "codemode";
 	const expandable = lines.length > 0 || Boolean(script);
 	return (
@@ -290,7 +267,6 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	);
 }
 
-/** Consecutive tool calls, stacked like pi's tool boxes. */
 function Steps({ group, calls, prefs }: { group: Call[]; calls: CallStates; prefs: Prefs }) {
 	return (
 		<div className="steps">
@@ -316,13 +292,8 @@ function Thinking({ text, streaming }: { text: string; streaming?: boolean }) {
 	);
 }
 
-// The diagram renderer is about 2 MB: loaded the first time an answer has a diagram, not at launch.
 const Mermaid = lazy(() => import("./Mermaid.tsx"));
 
-/**
- * Fenced code with a language label and a copy button. A finished answer's mermaid block is drawn as a diagram, with
- * a switch to its source; while streaming it stays source, since half a diagram does not parse.
- */
 function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: boolean }) {
 	const [copied, setCopied] = useState(false);
 	const [showSource, setShowSource] = useState(false);
@@ -363,7 +334,6 @@ function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: 
 	);
 }
 
-/** Tables scroll sideways inside a frame instead of squeezing their columns to the screen. */
 function Table(props: ComponentProps<"table">) {
 	return (
 		<div className="table">
@@ -373,22 +343,15 @@ function Table(props: ComponentProps<"table">) {
 }
 
 export const markdownComponents = { pre: (props: ComponentProps<"pre">) => <CodeBlock {...props} diagrams />, table: Table };
-/** For text still arriving: no diagrams yet. */
 export const streamingMarkdownComponents = { pre: CodeBlock, table: Table };
-// CJK-friendly emphasis: CommonMark misses **粗體**是 when the closing ** follows CJK punctuation.
 export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 
-/**
- * Text a model sometimes emits instead of an answer: a stray mode tag, or a tool call written out as text (which runs
- * nothing). Not shown; the chat offers a retry when that is all an answer has.
- */
 const BROKEN_TEXT = /^\s*(<thinking_mode>[^<]*<\/thinking_mode>\s*|<invoke name=[\s\S]*|<function_calls>[\s\S]*)$/;
 
 function isBrokenText(text: string): boolean {
 	return BROKEN_TEXT.test(text);
 }
 
-/** A finished answer with nothing to show: no tool call and no text beyond what isBrokenText hides. */
 export function isEmptyAnswer(entry: EntryRecord): boolean {
 	const model = message(entry);
 	if (entry.kind !== "pi.assistant" || model?.role !== "assistant") return false;
@@ -399,7 +362,6 @@ export function isEmptyAnswer(entry: EntryRecord): boolean {
 }
 
 function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
-	// Consecutive tool calls form one trace group.
 	const groups: (Block | Call[])[] = [];
 	for (const block of content) {
 		const last = groups.at(-1);
@@ -409,7 +371,6 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 		} else groups.push(block);
 	}
 	const lastText = content.findLastIndex((block) => block.type === "text");
-	// Text written before a tool call in the same message narrates the work, not the answer; it is shown quietly.
 	const lastCall = content.findLastIndex((block) => block.type === "toolCall");
 	return (
 		<>
@@ -459,7 +420,6 @@ export function StreamingAnswer({
 	content: Block[];
 	prefs: Prefs;
 	calls: CallStates;
-	/** The answer's element, which grows every frame while it streams (streaming.tsx). */
 	answerRef?: (element: HTMLElement | null) => void;
 }) {
 	return (
@@ -469,7 +429,6 @@ export function StreamingAnswer({
 	);
 }
 
-/** An input a schedule or a follow-up sent: who sent it and when; the instruction folds to two lines. */
 function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEntryData> }) {
 	const [open, setOpen] = useState(false);
 	const time = data.at === undefined ? undefined : new Date(data.at);
@@ -491,11 +450,6 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 	);
 }
 
-/**
- * One entry of the transcript. Memoized: Chat re-renders on every keystroke in the composer and every streamed token,
- * and redrawing every answer then (Markdown parsing included) made typing take 30 to 40 ms a key on the S24 in a
- * 27-entry conversation, growing with the conversation. Its props change only when the entry does.
- */
 export const EntryView = memo(function EntryView({
 	entry,
 	prefs,
@@ -508,8 +462,6 @@ export const EntryView = memo(function EntryView({
 	onActions: (entry: EntryRecord) => void;
 }) {
 	const model = message(entry);
-	// Long press on the user's own message opens its actions, like a context menu. Not on answers: there it is Android's
-	// text selection, which taking the long press cut short at the first character.
 	const longPress = {
 		onContextMenu: (event: { preventDefault: () => void }) => {
 			event.preventDefault();
@@ -541,6 +493,5 @@ export const EntryView = memo(function EntryView({
 			</article>
 		);
 	}
-	// Tool results render inside the trace of the call that produced them.
 	return null;
 });

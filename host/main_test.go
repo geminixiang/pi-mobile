@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// alive counts the processes whose command line has marker.
 func alive(marker string) int {
 	out, _ := exec.Command("pgrep", "-f", marker).Output()
 	return len(strings.Fields(string(out)))
@@ -22,8 +21,6 @@ func waitFor(condition func() bool) {
 	}
 }
 
-// What a command started (a server under npx, a job in the background) ends with the phone's connection: the
-// cancelled context ends the command's whole process group, not just its shell.
 func TestCancelEndsWhatTheCommandStarted(t *testing.T) {
 	marker := fmt.Sprintf("pi-mobile-test-%d", time.Now().UnixNano())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -43,8 +40,6 @@ func TestCancelEndsWhatTheCommandStarted(t *testing.T) {
 	}
 }
 
-// A command that exits but leaves something holding its output does not keep the connection waiting for good, and
-// what it left ends.
 func TestWaitReturnsWhenTheShellExits(t *testing.T) {
 	marker := fmt.Sprintf("pi-mobile-test-%d", time.Now().UnixNano())
 	cmd := loginShell(context.Background(), fmt.Sprintf(`(exec -a %s sleep 300) & echo started`, marker))

@@ -5,6 +5,7 @@ import { Apps, base64, MIME_TYPES } from "../agent/tools/apps.ts";
 import { BackIcon } from "./icons.tsx";
 import { markdownComponents, remarkPlugins } from "./Message.tsx";
 import { Layer } from "./Sheet.tsx";
+import { messageOf } from "../promise.ts";
 
 function CodeLines({ text }: { text: string }) {
 	const lines = text.replace(/\n$/, "").split("\n");
@@ -39,7 +40,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 				if (value.kind === "image") url = value.url;
 				if (live) setContent(value);
 			},
-			(failure: unknown) => live && setError(failure instanceof Error ? failure.message : String(failure)),
+			(failure: unknown) => live && setError(messageOf(failure)),
 		);
 		return () => {
 			live = false;
@@ -72,7 +73,6 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 							{copied ? "已複製" : "複製"}
 						</button>
 					) : content ? (
-						// PDF, spreadsheets, documents, and pictures in the app the phone views them with.
 						<button
 							type="button"
 							className="btn bar-action"
@@ -86,7 +86,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 									.then((bytes) => Apps.openFile({ fileBase64: base64(bytes), fileName: name, mimeType: type }))
 									.catch((failure: unknown) => {
 										const code = typeof failure === "object" && failure !== null ? Reflect.get(failure, "code") : undefined;
-										setError(code === "NO_APP" ? "手機上沒有能開這種檔案的 app" : failure instanceof Error ? failure.message : String(failure));
+										setError(code === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure));
 									})
 									.finally(() => setOpening(false));
 							}}
@@ -117,7 +117,6 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 					{content?.kind === "text" && markdown && mode === "preview" ? (
 						<div className="answer viewer-markdown">
 							<div className="markdown">
-								{/* README badges and logos are inline HTML; the preview skips it rather than printing tags. */}
 								<Markdown remarkPlugins={remarkPlugins} components={markdownComponents} skipHtml>
 									{content.text}
 								</Markdown>

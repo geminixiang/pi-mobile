@@ -35,18 +35,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * Web-side access to triggers: mirror the schedules, take and acknowledge queued events, post proactive
- * notifications, and receive what other apps share with pi. Events are announced with the "event" listener; the
- * listener carries nothing, the web side reads the queue.
- */
 @CapacitorPlugin(
     name = "Triggers",
-    // Android 12 and later deliver Bluetooth connection broadcasts only with it; earlier versions need no prompt.
     permissions = {
         @Permission(strings = { "android.permission.BLUETOOTH_CONNECT" }, alias = "bluetooth"),
         @Permission(strings = { "android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION" }, alias = "location"),
@@ -56,22 +48,18 @@ import org.json.JSONObject;
 public class TriggersPlugin extends Plugin {
 
     private static final String TAG = "PiTriggers";
-    /** Shared files larger than this are refused, so a video shared by mistake does not fill the WebView's memory. */
     private static final long MAX_SHARED_BYTES = 20L * 1024 * 1024;
 
     private static volatile TriggersPlugin live;
 
-    /** The plugin of a running WebView, or null when there is none (the process was started for a broadcast). */
     static TriggersPlugin live() {
         return live;
     }
 
-    /** Tell the web side the queue has new events (AssistSession queues from outside the plugin). */
     void announce() {
         notifyListeners("event", new JSObject(), true);
     }
 
-    /** Whether the user is looking at pi: a permission dialog asked from the background would wait unseen. */
     static boolean inFront(android.app.Activity activity) {
         return activity instanceof androidx.lifecycle.LifecycleOwner
             && ((androidx.lifecycle.LifecycleOwner) activity).getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED);
@@ -85,11 +73,10 @@ public class TriggersPlugin extends Plugin {
         return 0x3000 + (key.hashCode() & 0xfff);
     }
 
-    /** Wired headphones: their broadcast only reaches receivers registered by a running app, so only while pi runs. */
+    private boolean wiredRegistered = false;
     private final BroadcastReceiver wired = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // Registering delivers the current state at once; only a change counts.
             if (isInitialStickyBroadcast()) return;
             int state = intent.getIntExtra("state", -1);
             if (state == 1) TriggerReceiver.headphones(context, "有線耳機");
@@ -104,6 +91,7 @@ public class TriggersPlugin extends Plugin {
         IntentFilter filter = new IntentFilter(AudioManager.ACTION_HEADSET_PLUG);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) getContext().registerReceiver(wired, filter, Context.RECEIVER_EXPORTED);
         else getContext().registerReceiver(wired, filter);
+        wiredRegistered = true;
     }
 
     @Override
@@ -115,18 +103,11 @@ public class TriggersPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         if (live == this) live = null;
-        try {
-            getContext().unregisterReceiver(wired);
-        } catch (IllegalArgumentException ignored) {
-            // Not registered.
-        }
+        if (wiredRegistered) getContext().unregisterReceiver(wired);
+        wiredRegistered = false;
         super.handleOnDestroy();
     }
 
-    /**
-     * A trigger fired while the WebView runs. Start the foreground service now, while the alarm's exemption from the
-     * background start restriction lasts, and raise the renderer's priority (see KeepAlivePlugin), then tell the web side.
-     */
     void wake(String text) {
         try {
             getContext().startForegroundService(new Intent(getContext(), AgentService.class).putExtra(AgentService.EXTRA_TEXT, text));
@@ -162,7 +143,6 @@ public class TriggersPlugin extends Plugin {
         call.resolve();
     }
 
-    /** Clear the "tap to start" notification of a trigger that is now running. */
     @PluginMethod
     public void started(PluginCall call) {
         String trigger = call.getString("trigger", "");
@@ -183,11 +163,6 @@ public class TriggersPlugin extends Plugin {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || getPermissionState("bluetooth") == PermissionState.GRANTED;
     }
 
-    /**
-     * Location for place schedules and a Wi-Fi schedule's network name, which work while pi is not running only with
-     * "allow all the time". Android asks for that in two steps: location first, then the background, which the system
-     * shows as its settings page. Resolves {foreground, background}.
-     */
     @PluginMethod
     public void requestLocationAlways(PluginCall call) {
         if (TriggerEvents.backgroundLocation(getContext())) {
@@ -214,11 +189,9 @@ public class TriggersPlugin extends Plugin {
         result.put("foreground", getPermissionState("location") == com.getcapacitor.PermissionState.GRANTED);
         result.put("background", TriggerEvents.backgroundLocation(getContext()));
         call.resolve(result);
-        // Place schedules that could not be armed without it.
         TriggerStore.armAll(getContext());
     }
 
-    /** Ask for the Bluetooth permission a headphones schedule needs; resolves {granted}. Only with pi in front. */
     @PluginMethod
     public void requestBluetooth(PluginCall call) {
         if (bluetoothGranted()) {
@@ -239,12 +212,6 @@ public class TriggersPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /**
-     * Act as if headphones connected, for tests on devices without them (the emulator). Only in development builds:
-     * those with WebView debugging on, which release-android.sh turns off. delayMs lets a test put pi in the
-     * background first. It goes through an alarm, as a broadcast to TriggerReceiver: a cached process is frozen, so a
-     * delayed callback in it would not run, while a broadcast thaws it like the real Bluetooth one does.
-     */
     @PluginMethod
     public void simulateHeadphones(PluginCall call) {
         if (!getBridge().getConfig().isWebContentsDebuggingEnabled()) {
@@ -262,7 +229,6 @@ public class TriggersPlugin extends Plugin {
         call.resolve();
     }
 
-    /** The system page where the user allows exact alarms (off by default since Android 14). */
     @PluginMethod
     public void requestExactAlarms(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getContext().getPackageName()));
@@ -271,7 +237,6 @@ public class TriggersPlugin extends Plugin {
         call.resolve();
     }
 
-    /** What a run wants the user to know. Tapping opens the conversation it came from. */
     @PluginMethod
     public void notify(PluginCall call) {
         String conversation = call.getString("conversation", "");
@@ -290,7 +255,6 @@ public class TriggersPlugin extends Plugin {
         call.resolve();
     }
 
-    /** Opens pi on a conversation through a pimobile://open link, which the web side handles like any app link. */
     private PendingIntent openConversation(String conversation) {
         if (conversation.isEmpty()) return AgentService.openApp(getContext());
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation)), getContext(), MainActivity.class)
@@ -298,16 +262,10 @@ public class TriggersPlugin extends Plugin {
         return PendingIntent.getActivity(getContext(), conversation.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    /**
-     * What another app shared with pi ("Share" -> pi): text, and files (one, or several with SEND_MULTIPLE). Each file
-     * is copied into the inbox with its name and type; the web side reads it from there by its path and decides what
-     * it can take (attachments.ts), so this side does not need to know file kinds.
-     */
     private void receiveShare(Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
         if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
-        // Mark it handled: the activity keeps its launch intent, and load() must not take it again.
         intent.setAction(Intent.ACTION_MAIN);
         if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
         String text = intent.getStringExtra(Intent.EXTRA_TEXT);
@@ -315,26 +273,22 @@ public class TriggersPlugin extends Plugin {
         String sharedType = intent.getType();
         List<Uri> streams = sharedStreams(intent);
         new Thread(() -> {
-            JSONObject event = new JSONObject();
-            try {
-                event.put("kind", "share");
-                if (text != null) event.put("text", text);
-                if (subject != null) event.put("subject", subject);
-                JSONArray files = new JSONArray();
-                for (Uri stream : streams) {
-                    File copy = copyShared(stream);
-                    if (copy == null) continue;
-                    String type = getContext().getContentResolver().getType(stream);
-                    JSONObject file = new JSONObject();
-                    file.put("path", copy.getAbsolutePath());
-                    file.put("name", displayName(stream));
-                    file.put("mimeType", type != null ? type : sharedType != null ? sharedType : "");
-                    files.put(file);
-                }
-                if (files.length() > 0) event.put("files", files);
-            } catch (JSONException ignored) {
-                // String keys always fit.
+            JSObject event = new JSObject();
+            event.put("kind", "share");
+            if (text != null) event.put("text", text);
+            if (subject != null) event.put("subject", subject);
+            JSArray files = new JSArray();
+            for (Uri stream : streams) {
+                File copy = copyShared(stream);
+                if (copy == null) continue;
+                String type = getContext().getContentResolver().getType(stream);
+                JSObject file = new JSObject();
+                file.put("path", copy.getAbsolutePath());
+                file.put("name", displayName(stream));
+                file.put("mimeType", type != null ? type : sharedType != null ? sharedType : "");
+                files.put(file);
             }
+            if (files.length() > 0) event.put("files", files);
             TriggerStore.enqueue(getContext(), event);
             notifyListeners("event", new JSObject(), true);
         }).start();
@@ -357,7 +311,6 @@ public class TriggersPlugin extends Plugin {
         return streams;
     }
 
-    /** The file's name as the sharing app gives it (OpenableColumns.DISPLAY_NAME), else the last part of the URI. */
     private String displayName(Uri uri) {
         try (Cursor cursor = getContext().getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
             if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getString(0);

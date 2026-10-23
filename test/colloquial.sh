@@ -1,8 +1,4 @@
 #!/bin/sh
-# Send one casual prompt in a new conversation and report what the agent did: the tools it called (as the UI labels
-# them) and the start of its answer. Writes happen: ask only for what may be written for real.
-# A prompt starting with "+" continues the current conversation instead of starting a new one.
-# Usage: CDP_PORT=9334 test/colloquial.sh '附近有啥好喝的咖啡'
 cd "$(dirname "$0")/.."
 case "$1" in
 	+*) NEW=false; TEXT=${1#+} ;;

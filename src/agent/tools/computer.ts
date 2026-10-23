@@ -1,16 +1,13 @@
-// The screen of the computer a bot works on: see it and use its mouse and keyboard, through pi-mobile mcp computer
-// (host/computer.go), an MCP server the phone starts on that computer through pi-mobile serve's /exec. Every bot on a
-// computer has it (toolsets.ts); the screen is the fallback to commands (sandbox.ts tells the model so).
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { McpClient, toLlmContent } from "@earendil-works/pi-mcp";
 import { Type } from "typebox";
 import { type Host, HostStdioTransport } from "../sandbox/host.ts";
 import { defineAppTool } from "./common.ts";
+import { messageOf, onFailure } from "../../promise.ts";
 
 const COMMAND = "pi-mobile mcp computer";
 
-/** One server per computer, started on first use and kept while it lives. */
 const clients = new Map<string, Promise<McpClient>>();
 
 function client(host: Host): Promise<McpClient> {
@@ -22,7 +19,7 @@ function client(host: Host): Promise<McpClient> {
 			created.onClose(() => clients.delete(host.address));
 			return created;
 		})();
-		entry.catch(() => clients.delete(host.address));
+		onFailure(entry, () => clients.delete(host.address));
 		clients.set(host.address, entry);
 	}
 	return entry;
@@ -35,7 +32,7 @@ async function call(host: Host | undefined, tool: "screenshot" | "act", args: Re
 		server = await client(host);
 	} catch (error) {
 		throw new Error(
-			`Screen control did not start on ${host.name}: ${error instanceof Error ? error.message : String(error)}. pi-mobile there may be older than screen control: tell the user to run the install command on ${host.name} again (Settings › 電腦).`,
+			`Screen control did not start on ${host.name}: ${messageOf(error)}. pi-mobile there may be older than screen control: tell the user to run the install command on ${host.name} again (Settings › 電腦).`,
 		);
 	}
 	const result = await server.callTool(tool, args, signal ? { signal } : {});

@@ -1,31 +1,21 @@
-// Cloud connectors without a sandbox: Google Cloud, Cloudflare, and Azure REST APIs called straight from the phone with
-// the credentials signed in under settings. The long-lived credential never leaves the phone and never enters the
-// conversation; each request gets a short-lived access token.
 import { Type } from "typebox";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { CapacitorHttp } from "@capacitor/core";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
+import { jsonOrText } from "../parse.ts";
 
 const MAX_OUTPUT_CHARS = 40_000;
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 30_000 };
 
 export interface CloudService {
-	/** The extension's name, which toolsets.ts turns on or off per bot. */
 	id: "gcp" | "cloudflare" | "azure";
-	/** The tool's name, such as gcp_api. */
 	tool: string;
-	/** Shown in errors. */
 	label: string;
-	/** Hosts the tool may call; a token is never sent anywhere else. */
 	hosts: readonly RegExp[];
-	/** The token for a request to `host`, or why there is none. */
 	token(host: string): Promise<string>;
-	/** Extra headers, such as Google's quota project. */
 	headers?: Record<string, string>;
-	/** Turns a path into a full URL, for services with one API root. */
 	base?: string;
-	/** One line for the tool description: what the URLs look like. */
 	usage: string;
 }
 
@@ -60,15 +50,7 @@ function cloudTool(service: CloudService) {
 			if (url.protocol !== "https:" || !service.hosts.some((host) => host.test(url.hostname))) {
 				throw new Error(`${service.tool} only calls ${service.label} hosts over https; ${url.hostname} is not one.`);
 			}
-			let body: unknown = args.body;
-			// Models sometimes pass the body as a JSON string; send it as the object it encodes.
-			if (typeof body === "string") {
-				try {
-					body = JSON.parse(body);
-				} catch {
-					// Not JSON: send the string as is.
-				}
-			}
+			const body: unknown = typeof args.body === "string" ? jsonOrText(args.body) : args.body;
 			if (context.abortSignal?.aborted) throw new Error("Aborted");
 			const token = await service.token(url.hostname);
 			const response = await CapacitorHttp.request({
@@ -85,12 +67,7 @@ function cloudTool(service: CloudService) {
 				...TIMEOUTS,
 			});
 			const raw = typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? null);
-			let parsed: unknown = raw;
-			try {
-				parsed = raw ? JSON.parse(raw) : null;
-			} catch {
-				// Not JSON: returned as text.
-			}
+			const parsed = raw ? jsonOrText(raw) : null;
 			const out = `HTTP ${response.status}\n${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`;
 			if (response.status < 200 || response.status >= 300) throw new Error(truncate(out));
 			return { output: [{ type: "text" as const, text: truncate(out) }], structuredOutput: { status: response.status, body: toJson(parsed) } };
@@ -112,7 +89,6 @@ export function googleService(token: () => Promise<string>, project: string | un
 		label: "Google Cloud",
 		hosts: [/^[a-z0-9.-]+\.googleapis\.com$/],
 		token: () => token(),
-		// A user's sign-in bills API quota to a project only when the request names one.
 		...(project ? { headers: { "x-goog-user-project": project } } : {}),
 		usage: [
 			"Any *.googleapis.com URL, e.g. https://run.googleapis.com/v2/projects/{project}/locations/{region}/services,",
@@ -156,7 +132,6 @@ export function azureService(token: (scope: string) => Promise<string>, subscrip
 	};
 }
 
-/** One extension per signed-in cloud, named by its id, so each can be turned off per bot. */
 export function createCloudExtensions(services: readonly CloudService[]) {
 	return services.map((service) =>
 		defineExtension({

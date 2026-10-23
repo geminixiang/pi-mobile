@@ -1,34 +1,18 @@
-// Bots: the user's long-lived assistants (after Grok Bot). Each bot is one durable conversation that never ends,
-// with a name, a job the model is told, its own MEMORY.md, its schedules, and a folder in the shared sandbox. Long
-// conversations are kept affordable by automatic compaction (settings › 自動壓縮). Facts about the user that every bot
-// should know live in the global MEMORY.md.
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { checkpointEvery64 } from "./doc-policy.ts";
 
-// A type alias, not an interface: documents need JSON-assignable types.
 export type Bot = {
-	/** The bot's conversation. */
 	id: ConversationId;
 	name: string;
-	/** What the bot is for and how it works; part of its system prompt. Empty for a general assistant. */
 	job: string;
-	/**
-	 * Its folder's name, on the phone (files/bots/<folder>) and in the sandbox: a UUIDv7 made with the bot, as
-	 * pi-coding-agent names sessions. Not the conversation id, which a new database mints again from the start, and not
-	 * the name, which two bots (or two phones sharing a sandbox) can have.
-	 */
 	folder: string;
-	/** Where its coding tools run (computers.ts); unset or gone: the default from settings. */
 	computer?: string;
-	/** One of AVATARS; bots from before avatars have none and show the first. */
 	avatar?: string;
 	createdAt: number;
-	/** Last message, for the list's order. */
 	updatedAt: number;
 };
 
-/** The bots, in no particular order; the app sorts them. */
 export const BotIndex = defineDoc<{ items: Bot[] }>({
 	kind: "app.bots",
 	version: 1,
@@ -37,7 +21,6 @@ export const BotIndex = defineDoc<{ items: Bot[] }>({
 	checkpointWhen: checkpointEvery64,
 });
 
-/** The avatar set (public/avatars/<id>.webp), pixel heads in the pi mark's palette, each with a role's prop. */
 export const AVATARS = [
 	{ id: "helper", label: "助手" },
 	{ id: "secretary", label: "秘書" },
@@ -57,7 +40,6 @@ export function avatarOf(bot: Pick<Bot, "avatar">): string {
 	return AVATARS.find((avatar) => avatar.id === bot.avatar)?.id ?? AVATARS[0].id;
 }
 
-/** The first avatar no bot has yet, for a new bot's form. */
 export function freeAvatar(bots: readonly Bot[]): string {
 	return (AVATARS.find((avatar) => !bots.some((bot) => avatarOf(bot) === avatar.id)) ?? AVATARS[0]).id;
 }
@@ -66,7 +48,6 @@ export const DEFAULT_BOT = { name: "pi", job: "", avatar: "helper" };
 export const MAX_BOTS = 12;
 export const MAX_JOB = 1500;
 
-/** A new bot's folder name. */
 export const newFolder = (): string => uuidv7();
 
 export const BotExtension = defineExtension({

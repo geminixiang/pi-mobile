@@ -19,11 +19,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * The user's own SQLite database for the agent's sql tool: one file on the phone (databases/pi-data.db), shared by the
- * bots, holding whatever tables they create (a ledger, a reading list, a weight log). Statements of one call run in one
- * transaction. Off the main thread, since a query can take a while.
- */
 @CapacitorPlugin(name = "Database")
 public class DatabasePlugin extends Plugin {
 
@@ -38,7 +33,6 @@ public class DatabasePlugin extends Plugin {
         return db;
     }
 
-    /** statements: [{ sql, params? }]; results: one per statement, rows for queries, changes for the rest. */
     @PluginMethod
     public void execute(PluginCall call) {
         JSArray statements = call.getArray("statements");
@@ -132,7 +126,6 @@ public class DatabasePlugin extends Plugin {
         }
     }
 
-    /** Tables with their columns and row counts, for the prompt and settings. */
     @PluginMethod
     public void schema(PluginCall call) {
         new Thread(() -> {
@@ -162,7 +155,6 @@ public class DatabasePlugin extends Plugin {
         }).start();
     }
 
-    /** The share sheet with a copy of the database file, for a backup or a desktop SQLite tool. */
     @PluginMethod
     public void export(PluginCall call) {
         new Thread(() -> {
@@ -173,7 +165,6 @@ public class DatabasePlugin extends Plugin {
                 File[] old = dir.listFiles();
                 if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
                 File copy = new File(dir, NAME);
-                // VACUUM INTO writes a consistent copy even while the database is open.
                 database.execSQL("VACUUM INTO ?", new Object[] { copy.getAbsolutePath() });
                 Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", copy);
                 Intent send = new Intent(Intent.ACTION_SEND)

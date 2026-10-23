@@ -1,6 +1,3 @@
-// The screen on macOS: screencapture for the picture (CoreGraphics' own capture is gone since macOS 15), and Quartz
-// events and the accessibility API through purego, so the binary stays cgo-free and cross-compiles. Both need the
-// permissions macOS gives pi-mobile serve, whose child this is: Screen Recording and Accessibility.
 package main
 
 import (
@@ -23,7 +20,6 @@ import (
 
 type cgPoint struct{ X, Y float64 }
 
-// Quartz event types, mouse buttons, and the click-count field.
 const (
 	leftDown, leftUp, rightDown, rightUp, mouseMoved, leftDragged = 1, 2, 3, 4, 5, 6
 	otherDown, otherUp                                            = 25, 26
@@ -44,7 +40,6 @@ var modifiers = map[string]modifier{
 	"fn": {63, 0x800000},
 }
 
-// Virtual key codes of the US layout, which shortcuts use whatever the layout.
 var keyCodes = map[string]uint16{
 	"a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14,
 	"r": 15, "y": 16, "t": 17, "1": 18, "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27,
@@ -118,7 +113,6 @@ func (s *macScreen) capture() (image.Image, float64, float64, error) {
 	defer file.Close()
 	img, err := jpeg.Decode(file)
 	if err != nil {
-		// An empty or tiny file: macOS answered without Screen Recording.
 		return nil, 0, 0, errors.New("no screenshot: macOS has not given pi-mobile Screen Recording; tell the user to turn on pi-mobile in System Settings › Privacy & Security › Screen & System Audio Recording on the computer")
 	}
 	display := s.mainDisplay()
@@ -168,8 +162,6 @@ func (s *macScreen) state() (string, string, float64, float64) {
 var lsappinfoPID = regexp.MustCompile(`\bpid = (\d+)`)
 var lsappinfoName = regexp.MustCompile(`^"([^"]*)"`)
 
-// frontApp is the front app's name and pid from Launch Services (lsappinfo, about 10 ms; the system-wide
-// accessibility element does not answer a background process).
 func frontApp() (string, int) {
 	out, err := exec.Command("/bin/sh", "-c", "a=$(/usr/bin/lsappinfo front) && /usr/bin/lsappinfo info -only name $a && /usr/bin/lsappinfo info -only pid $a").Output()
 	if err != nil {
@@ -191,7 +183,6 @@ var (
 	lsappinfoQuoted = regexp.MustCompile(`^([^"]*)"`)
 )
 
-// apps are the foreground apps from Launch Services (lsappinfo list, about 35 ms): what the Dock shows.
 func (s *macScreen) apps() map[int]string {
 	out, err := exec.Command("/usr/bin/lsappinfo", "list").Output()
 	if err != nil {
@@ -217,7 +208,6 @@ func (s *macScreen) apps() map[int]string {
 	return apps
 }
 
-// quit ends apps with SIGTERM, without asking to save what the session typed in them, and kills what is left after 1.5 s.
 func (s *macScreen) quit(pids []int) {
 	for _, pid := range pids {
 		_ = syscall.Kill(pid, syscall.SIGTERM)
@@ -289,7 +279,6 @@ func (s *macScreen) scroll(x, y float64, dx, dy int) error {
 	if err := s.move(x, y); err != nil {
 		return err
 	}
-	// Line units; Quartz counts up and left as positive.
 	s.send(s.scrollEvent(0, 1, 2, int32(-dy), int32(-dx), 0))
 	return nil
 }
@@ -314,8 +303,6 @@ func (s *macScreen) key(keys string) error {
 	if !ok {
 		return fmt.Errorf("unknown key %q in %q", name, keys)
 	}
-	// The modifiers go down and up as keys of their own, as a hand would press them: system shortcuts such as
-	// Spotlight's cmd+space ignore a key that only carries the flags.
 	press := func(code uint16, down bool, flags uint64) {
 		event := s.keyboardEvent(0, code, down)
 		s.setFlags(event, flags)
@@ -335,7 +322,6 @@ func (s *macScreen) key(keys string) error {
 	return nil
 }
 
-// typeText types any text, CJK included, as Unicode key events; a newline presses return.
 func (s *macScreen) typeText(text string) error {
 	if !s.axTrusted() {
 		return errNoAccessibility
@@ -346,7 +332,6 @@ func (s *macScreen) typeText(text string) error {
 				return err
 			}
 		}
-		// One character per key event: some apps (Calculator) read only the first of an event's string.
 		for _, r := range line {
 			units := utf16.Encode([]rune{r})
 			for _, down := range []bool{true, false} {

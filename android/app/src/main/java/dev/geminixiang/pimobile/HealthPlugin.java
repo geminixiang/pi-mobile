@@ -32,11 +32,6 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.util.concurrent.Executor;
 
-/**
- * Health Connect, read-only, through the platform API of Android 14+ (no Kotlin client library): steps and heart rate
- * per day, sleep and exercise sessions, weight. Samsung Health writes there once its Health Connect sync is on. Each
- * data type is a permission of its own, which the system asks for on Health Connect's screen.
- */
 @CapacitorPlugin(
     name = "Health",
     permissions = {
@@ -62,7 +57,6 @@ public class HealthPlugin extends Plugin {
         return getContext().getMainExecutor();
     }
 
-    /** Asks for the health permissions when none is granted yet, with pi in front; then reads. */
     @PluginMethod
     public void read(PluginCall call) {
         if (manager() == null) {
@@ -80,7 +74,6 @@ public class HealthPlugin extends Plugin {
         requestPermissionForAlias("health", call, "readResult");
     }
 
-    /** The user may allow some types and not others; reading what is allowed is still useful. */
     private boolean anyGranted() {
         for (String permission : new String[] { "android.permission.health.READ_STEPS", "android.permission.health.READ_SLEEP", "android.permission.health.READ_HEART_RATE", "android.permission.health.READ_EXERCISE", "android.permission.health.READ_WEIGHT" }) {
             if (getContext().checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) return true;

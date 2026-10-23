@@ -1,6 +1,3 @@
-// fetch over native HTTP that streams the response (StreamFetchPlugin.java): for APIs whose responses the WebView may
-// not read, such as OpenAI's with a Sign in with ChatGPT token, which carry no CORS headers. It gives a standard
-// Response whose body is a stream of the chunks as Android reads them, so streamed answers still stream.
 import { Capacitor, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 
 interface StreamFetchPlugin {
@@ -32,7 +29,6 @@ function decode(base64: string): Uint8Array {
 	return bytes;
 }
 
-/** One set of listeners for all requests, routed by id. */
 function listen(): Promise<void> {
 	listening ??= Promise.all([
 		StreamFetch.addListener("head", ({ id, status, headers }) => {
@@ -87,7 +83,6 @@ function headersOf(init: RequestInit | undefined, input: RequestInfo | URL): Rec
 	return headers;
 }
 
-/** fetch through Android; outside the app, the WebView's own. */
 export async function streamFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
 	if (!Capacitor.isNativePlatform()) return fetch(input, init);
 	const url = input instanceof Request ? input.url : String(input);

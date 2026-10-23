@@ -11,17 +11,12 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-/**
- * Small system bridges: open a URL in the user's browser, read the clipboard (the WebView's API cannot), and haptic
- * ticks, which the system plays without the vibrate permission and as the user set them in Settings.
- */
 @CapacitorPlugin(name = "System")
 public class SystemPlugin extends Plugin {
 
     @PluginMethod
     public void openExternal(PluginCall call) {
         String url = call.getString("url");
-        // https, or http on this device's loopback (a local test server for MCP sign-ins).
         boolean loopback = url != null && (url.startsWith("http://localhost:") || url.startsWith("http://127.0.0.1:"));
         if (url == null || !(url.startsWith("https://") || loopback)) {
             call.reject("https URL required");
@@ -32,10 +27,6 @@ public class SystemPlugin extends Plugin {
         call.resolve();
     }
 
-    /**
-     * kind: "tick" (a dial snapping into a detent: Android 14's segment tick, made for segmented sliders, else the
-     * clock tick), "press" (a long press took effect), "confirm".
-     */
     @PluginMethod
     public void haptic(PluginCall call) {
         String kind = call.getString("kind", "tick");
@@ -57,7 +48,6 @@ public class SystemPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** Whether pi is the digital assistant (summoned with the side key, it gets the screen: AssistSession). */
     @PluginMethod
     public void assistant(PluginCall call) {
         android.app.role.RoleManager roles = getContext().getSystemService(android.app.role.RoleManager.class);
@@ -66,7 +56,6 @@ public class SystemPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** The system page where the user picks the digital assistant; Android does not let an app ask for the role. */
     @PluginMethod
     public void openAssistantSettings(PluginCall call) {
         android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)

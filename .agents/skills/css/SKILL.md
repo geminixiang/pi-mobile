@@ -79,8 +79,10 @@ compositor without repainting the element or laying out the page. Everything els
 - `opacity` on a parent fades its children. To dim a backdrop behind a panel, make the backdrop a sibling of the
   panel, or change only its background color.
 - No inline styles except custom properties that carry state; everything else is a class.
-- Square edges, hairlines, monospace labels: follow the existing components (see the comment at the top of
-  `styles.css`). No rounded cards, shadows, or gradients beyond pi.dev's page grid.
+- pi.dev's design language: evening blue (or moonstone paper), a faint drafting grid (4px minor, 20px major, a + at
+  every major crossing, fading toward the bottom), square edges, hairline panels with monospace header strips, serif
+  prose. Color comes only from the pi mark (coral, blue, yellow) and one accent blue; tool, message, and thinking
+  colors are pi's theme (`light.json`, `dark.json`). No rounded cards, shadows, or gradients beyond the page grid.
 
 ## Check
 

@@ -16,7 +16,6 @@ export function thinkingLabel(level: string): string {
 	return THINKING_LEVELS.find(([value]) => value === level)?.[1] ?? level;
 }
 
-/** Model family, for the small swatch next to each model. */
 function family(id: string): string {
 	const lower = id.toLowerCase();
 	if (lower.includes("claude")) return "claude";
@@ -25,17 +24,14 @@ function family(id: string): string {
 	return "other";
 }
 
-/** Model name without the vendor prefix, for the narrow header. */
 export function shortModelName(name: string): string {
 	return name.replace(/^Claude /, "");
 }
 
-/** What a model can do, in a line: its context window, and vision and thinking when it has them. */
 function traits(model: ModelInfo): string {
 	return [`${formatTokens(model.ownWindow)} context`, model.vision ? "看圖" : "", model.reasoning ? "思考" : ""].filter(Boolean).join(" · ");
 }
 
-/** Models shown before 顯示全部: those a catalog knows from custom endpoints, and every model of built-in providers. */
 const FIRST_SHOWN = 12;
 
 export function ModelSheet({
@@ -83,7 +79,6 @@ export function ModelSheet({
 			</label>
 			{providers.map(([provider, name]) => {
 				const list = matches.filter((model) => model.provider === provider);
-				// A long list (a gateway's, OpenRouter's) shows its known models first, and the current one.
 				const preferred = list.filter((model) => model.known || isCurrent(model));
 				const short = (preferred.length > 0 ? preferred : list).slice(0, FIRST_SHOWN);
 				const all = Boolean(filter) || expanded.has(provider) || list.length <= FIRST_SHOWN;

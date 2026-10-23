@@ -1,6 +1,3 @@
-// Typed reads of a conversation view's documents. ConversationView.docs is keyed by each document's persisted kind
-// and holds that document's state, so the token both names the entry and types it. This is the one place that cast
-// lives; components read documents through here instead of indexing `docs` with string keys.
 import {
 	AgentDoc,
 	type AgentState,

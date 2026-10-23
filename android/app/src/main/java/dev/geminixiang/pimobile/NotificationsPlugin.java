@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** The recorded notifications (NotificationsListener) for the agent, and notification access for settings. */
 @CapacitorPlugin(name = "Notifications")
 public class NotificationsPlugin extends Plugin {
 
@@ -38,7 +37,6 @@ public class NotificationsPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** The system page where the user allows or revokes notification access; pi's own entry when the system has one. */
     @PluginMethod
     public void openSettings(PluginCall call) {
         Intent intent;
@@ -88,14 +86,12 @@ public class NotificationsPlugin extends Plugin {
         call.resolve();
     }
 
-    /** The listener, or a rejected call saying notification access is off. */
     private NotificationsListener listener(PluginCall call) {
         NotificationsListener listener = NotificationsListener.instance;
         if (listener == null) call.reject("notification access is off");
         return listener;
     }
 
-    /** Whether `sbn` is `app`'s (name or package, any case) and, with `conversation`, its title or chat contains it. */
     private boolean matches(NotificationsListener listener, StatusBarNotification sbn, String app, String conversation) {
         String label = listener.appLabel(sbn.getPackageName()).toLowerCase(Locale.ROOT);
         String needle = app.toLowerCase(Locale.ROOT);
@@ -108,7 +104,6 @@ public class NotificationsPlugin extends Plugin {
         return title.toLowerCase(Locale.ROOT).contains(c) || chat.toLowerCase(Locale.ROOT).contains(c);
     }
 
-    /** The action that takes typed text (a chat's reply), if the notification has one. */
     private static Notification.Action replyAction(StatusBarNotification sbn) {
         Notification.Action[] actions = sbn.getNotification().actions;
         if (actions == null) return null;
@@ -120,7 +115,6 @@ public class NotificationsPlugin extends Plugin {
         return null;
     }
 
-    /** Notifications in the shade now that `app` (and `conversation`) match, newest first; whether each takes a reply. */
     @PluginMethod
     public void active(PluginCall call) {
         NotificationsListener listener = listener(call);
@@ -148,7 +142,6 @@ public class NotificationsPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** Send `text` through a notification's reply action, as typing it into the notification would. */
     @PluginMethod
     public void reply(PluginCall call) {
         NotificationsListener listener = listener(call);
@@ -211,7 +204,6 @@ public class NotificationsPlugin extends Plugin {
         }
     }
 
-    /** What is playing or paused in each app with a media session (music, podcasts, video). */
     @PluginMethod
     public void media(PluginCall call) {
         NotificationsListener listener = listener(call);
@@ -238,7 +230,6 @@ public class NotificationsPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** play, pause, next, previous, or stop, on `package`'s session or the first one (the system orders them by recency). */
     @PluginMethod
     public void mediaControl(PluginCall call) {
         if (listener(call) == null) return;
@@ -276,7 +267,6 @@ public class NotificationsPlugin extends Plugin {
 
     private static final String[] DND_NAMES = { "unknown", "off", "priority", "silent", "alarms" };
 
-    /** Do Not Disturb now: off, priority (only important people and apps), alarms (only alarms), or silent. */
     @PluginMethod
     public void dnd(PluginCall call) {
         int filter = getContext().getSystemService(NotificationManager.class).getCurrentInterruptionFilter();
@@ -290,10 +280,6 @@ public class NotificationsPlugin extends Plugin {
     static final String DND_UNTIL = "until";
     static final String ACTION_DND_END = "dev.geminixiang.pimobile.DND_END";
 
-    /**
-     * Set Do Not Disturb through the listener, which notification access allows without the separate policy access.
-     * With `until`, an alarm turns it off again then, whether or not pi runs (DndReceiver).
-     */
     @PluginMethod
     public void setDnd(PluginCall call) {
         NotificationsListener listener = listener(call);
@@ -315,7 +301,6 @@ public class NotificationsPlugin extends Plugin {
         long until = call.getLong("until", 0L);
         alarms.cancel(end);
         if (filter != NotificationListenerService.INTERRUPTION_FILTER_ALL && until > System.currentTimeMillis()) {
-            // On time when exact alarms are allowed (schedules use them too); otherwise within a few minutes.
             if (Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
             else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
         } else {

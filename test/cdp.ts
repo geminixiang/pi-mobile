@@ -1,6 +1,3 @@
-// Drives the app's WebView over the Chrome DevTools Protocol, for on-device tests of debug builds.
-// Forward the socket first: adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>
-// Usage: node test/cdp.ts '<js expression to evaluate in the page>'
 export {};
 const port = process.env.CDP_PORT ?? "9333";
 const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];

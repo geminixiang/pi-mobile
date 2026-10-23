@@ -1,15 +1,3 @@
-// pi-mobile mcp computer: an MCP server on stdio (newline-delimited JSON-RPC) that lets the phone's model see and use
-// this computer's screen, started by the phone through /exec (computer://<address>?command=pi-mobile mcp computer).
-//
-// Two tools, from the evaluation of computer-use-mcp (docs/research/computer-use-mcp-eval.md):
-//   - screenshot: the screen as a small JPEG, with the front app, its window title, and the pointer as text;
-//   - act: several mouse and keyboard steps in one call, answered with the screenshot after them, so a step and seeing
-//     its result take one model call instead of two.
-//
-// The screen and input are per system (computer_darwin.go); coordinates are always the screenshot's pixels.
-//
-// It answers for what it opens, not the model: apps that came up while it was in use are quit when the session ends,
-// two minutes after the last call, or when the phone's connection or the server ends. Apps open before stay.
 package main
 
 import (
@@ -31,23 +19,15 @@ import (
 	"golang.org/x/image/draw"
 )
 
-// The screenshot's longer side: legible text in about a thousand image tokens.
 const shotLongSide = 1280
 
-// A settled screen after the last step: menus, sheets, and new windows take a moment to appear.
 const settle = 400 * time.Millisecond
 
-// A session ends this long after its last call.
 const sessionIdle = 2 * time.Minute
 
-// screen is what each system provides.
 type screen interface {
-	// apps are the running apps the user sees (in the Dock), by pid.
 	apps() map[int]string
-	// quit ends apps the session opened, within about two seconds: pi-mobile serve kills the server two seconds after
-	// asking it to stop.
 	quit(pids []int)
-	// capture is the main display as an image, and its size in the units input takes (points on macOS).
 	capture() (image.Image, float64, float64, error)
 	state() (app, window string, x, y float64)
 	click(x, y float64, button string, count int) error
@@ -75,18 +55,14 @@ type step struct {
 
 type computer struct {
 	screen screen
-	// From screenshot pixels to input units, as of the last screenshot.
-	scale float64
+	scale  float64
 
-	mu sync.Mutex
-	// The apps running when the session began; nil between sessions.
+	mu     sync.Mutex
 	before map[int]string
-	// The apps that came up since, which the session ends.
 	opened map[int]string
 	idle   *time.Timer
 }
 
-// touch starts a session if none is open, and puts off its end.
 func (c *computer) touch() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -101,7 +77,6 @@ func (c *computer) touch() {
 	}
 }
 
-// noteOpened records the apps that came up since the session began.
 func (c *computer) noteOpened() {
 	now := c.screen.apps()
 	c.mu.Lock()
@@ -116,7 +91,6 @@ func (c *computer) noteOpened() {
 	}
 }
 
-// end quits the apps the session opened that still run.
 func (c *computer) end() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -205,7 +179,6 @@ func (c *computer) act(steps []step) ([]any, error) {
 		if err := c.run(s); err != nil {
 			return nil, fmt.Errorf("step %d (%s): %w; the steps before it were done", i+1, s.Action, err)
 		}
-		// Let each step land before the next: a click focuses a field before typing goes to it.
 		time.Sleep(60 * time.Millisecond)
 	}
 	time.Sleep(settle)
@@ -258,7 +231,6 @@ type rpcMessage struct {
 	Params json.RawMessage `json:"params,omitempty"`
 }
 
-// serveComputerMCP answers MCP requests on stdin until it closes.
 func serveComputerMCP() int {
 	s, err := newScreen()
 	if err != nil {
@@ -266,7 +238,6 @@ func serveComputerMCP() int {
 		return 1
 	}
 	c := &computer{screen: s}
-	// The phone left (pi-mobile serve ends the process group) or the input ended: the session ends with it.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	go func() {
@@ -287,14 +258,17 @@ func serveComputerMCP() int {
 	for in.Scan() {
 		var m rpcMessage
 		if json.Unmarshal(in.Bytes(), &m) != nil || len(m.ID) == 0 {
-			continue // notifications and responses need no answer
+			continue
 		}
 		switch m.Method {
 		case "initialize":
 			var p struct {
 				ProtocolVersion string `json:"protocolVersion"`
 			}
-			_ = json.Unmarshal(m.Params, &p)
+			if err := json.Unmarshal(m.Params, &p); err != nil {
+				fail(m.ID, -32602, "invalid initialize params: "+err.Error())
+				continue
+			}
 			reply(m.ID, map[string]any{
 				"protocolVersion": p.ProtocolVersion,
 				"capabilities":    map[string]any{"tools": map[string]any{}},
@@ -339,7 +313,6 @@ func serveComputerMCP() int {
 	return 0
 }
 
-// keyChord splits "cmd+shift+t" into its modifiers and the key, lower-cased.
 func keyChord(keys string) (mods []string, key string, err error) {
 	parts := strings.Split(strings.ToLower(strings.TrimSpace(keys)), "+")
 	if len(parts) == 0 || parts[len(parts)-1] == "" {

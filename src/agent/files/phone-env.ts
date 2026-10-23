@@ -1,7 +1,3 @@
-// A bot's folder on the phone as pi-durable's ExecutionEnv, so read, write, edit, and bash work without a sandbox.
-// The files are in the app's private storage (BotFilesPlugin.java, files/bots/<bot>); bash is just-bash in a Web
-// Worker (shell-worker.ts), whose file operations come back here. Tool paths are absolute in the folder: "/" is its
-// root and nothing outside it exists, so no path can reach the app's own data.
 import type { Context } from "@earendil-works/chord";
 import {
 	type BinaryReader,
@@ -22,19 +18,15 @@ import {
 } from "@earendil-works/pi-durable/env";
 import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
 import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
+import { messageOf } from "../../promise.ts";
 
-/** Where temporary files go, inside the folder: bash's spilled output, pi-durable's temp files. */
 const TEMP_DIR = "/.tmp";
-/** pi-durable's bound on a command's timeout. */
 const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000;
-/** How long an aborted command may take to stop before its worker is replaced. */
 const ABORT_GRACE_MS = 2000;
-/** Bytes read at a time when scanning a file for lines. */
 const SCAN_CHUNK = 1024 * 1024;
 
 const FILE_CODES: Record<string, FileErrorCode> = { not_found: "not_found", is_directory: "is_directory", not_directory: "not_directory", invalid: "invalid", exists: "invalid" };
 
-/** "/a/../b/./c" as "/b/c"; ".." stops at the folder's root. */
 function normalizePath(path: string): string {
 	const parts: string[] = [];
 	for (const part of path.split("/")) {
@@ -61,10 +53,9 @@ function toBase64(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
-/** The plugin's rejection as a FileError. */
 function fileError(error: unknown, path?: string): FileError {
 	const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
-	const message = error instanceof Error ? error.message : String(error);
+	const message = messageOf(error);
 	return new FileError(typeof code === "string" ? (FILE_CODES[code] ?? "unknown") : "unknown", message, path);
 }
 
@@ -82,16 +73,16 @@ async function attempt<T>(context: Context, path: string | undefined, run: () =>
 
 const infoOf = (absolute: string, info: BotFileInfo): FileInfo => ({ name: nameOf(absolute), path: absolute, kind: info.kind, size: info.size, mtimeMs: info.mtimeMs });
 
-/** Text as decoding the bytes would give it: a leading byte-order mark dropped. */
 const withoutBom = (text: string) => (text.startsWith("\uFEFF") ? text.slice(1) : text);
 
-/** One file operation from the bash worker, on the bot's folder. */
 async function serveFs(bot: string, request: FsOp): Promise<FsValue> {
 	switch (request.op) {
 		case "stat": {
 			const info = await BotFiles.stat({ bot, path: request.path });
 			return { kind: info.kind, size: info.size, mtimeMs: info.mtimeMs };
 		}
+		case "exists":
+			return (await BotFiles.exists({ bot, path: request.path })).exists;
 		case "list":
 			return (await BotFiles.list({ bot, path: request.path })).entries.map((entry) => ({ name: entry.name, kind: entry.kind }));
 		case "readText":
@@ -115,7 +106,6 @@ async function serveFs(bot: string, request: FsOp): Promise<FsValue> {
 
 type Finished = { type: "done"; stdout: string; stderr: string; exitCode: number } | { type: "failed"; message: string };
 
-/** The bash worker, shared by every bot's folder; replaced when a command will not stop. */
 class Shell {
 	#worker: Worker | undefined;
 	#nextExec = 0;
@@ -147,7 +137,6 @@ class Shell {
 		return worker;
 	}
 
-	/** End the worker and every command still in it. */
 	#fail(message: string): void {
 		this.#worker?.terminate();
 		this.#worker = undefined;
@@ -155,7 +144,6 @@ class Shell {
 		this.#running.clear();
 	}
 
-	/** Run a command; settles with "aborted" when the signal fires or the timeout passes, killing the worker if it must. */
 	run(bot: string, command: string, cwd: string, env: Record<string, string>, timeoutMs: number | undefined, signal: AbortSignal | undefined): Promise<Finished | { type: "aborted" } | { type: "timeout" }> {
 		const worker = this.#start();
 		const exec = ++this.#nextExec;
@@ -163,7 +151,6 @@ class Shell {
 			let stopping: ReturnType<typeof setTimeout> | undefined;
 			const stop = (why: "aborted" | "timeout") => {
 				worker.postMessage({ type: "abort", exec } satisfies ToWorker);
-				// just-bash stops at the next statement; a command stuck in one long builtin takes its worker with it.
 				stopping = setTimeout(() => this.#fail(`bash did not stop: ${why}`), ABORT_GRACE_MS);
 				outcome = why;
 			};
@@ -184,19 +171,15 @@ class Shell {
 
 const shell = new Shell();
 
-/** A command as one shell string; an array's words quoted so they reach the command unparsed. */
 const commandLine = (command: string | readonly string[]) => (typeof command === "string" ? command : command.map((word) => `'${word.replaceAll("'", `'\\''`)}'`).join(" "));
 
-/** One bot's folder (files/bots/<Bot.folder>): files through the native plugin, commands through the shared bash worker. */
 export class PhoneEnv implements ExecutionEnv {
 	readonly id: string;
 	cwd = "/";
 	readonly #bot: string;
 
-	/** `folder`: the bot's folder name (Bot.folder). */
 	constructor(folder: string) {
 		this.#bot = folder;
-		// Each bot's "/" is its own folder, so two bots never name the same file.
 		this.id = `phone:${folder}`;
 	}
 
@@ -262,12 +245,10 @@ export class PhoneEnv implements ExecutionEnv {
 			info: async () => ok(info),
 			read,
 			scanLines: async (range, scanContext) => {
-				let scanner: LineScanner;
-				try {
-					scanner = new LineScanner(range.startLine, range.endLine);
-				} catch {
-					return err(new FileError("invalid", "Invalid line range", absolute));
-				}
+				const endLine = range.endLine ?? Number.POSITIVE_INFINITY;
+				const isValidRange = Number.isSafeInteger(range.startLine) && range.startLine >= 0 && endLine > range.startLine && (endLine === Number.POSITIVE_INFINITY || Number.isSafeInteger(endLine));
+				if (!isValidRange) return err(new FileError("invalid", "Invalid line range", absolute));
+				const scanner = new LineScanner(range.startLine, range.endLine);
 				for (let position = 0; ; position += SCAN_CHUNK) {
 					const chunk = await read(position, SCAN_CHUNK, scanContext);
 					if (!chunk.ok) return chunk;
@@ -292,7 +273,6 @@ export class PhoneEnv implements ExecutionEnv {
 	}
 
 	async flushFile(path: string, context: Context): Promise<Result<void, FileError>> {
-		// Every write is synced by the plugin before it resolves.
 		return attempt(context, path, async () => {});
 	}
 
@@ -379,7 +359,6 @@ export class PhoneEnv implements ExecutionEnv {
 		const env = {
 			HOME: "/",
 			USER: "pi",
-			// date and friends in the user's own time zone; just-bash defaults to UTC.
 			TZ: Intl.DateTimeFormat().resolvedOptions().timeZone,
 			...(options?.env ?? {}),
 		};
@@ -387,14 +366,12 @@ export class PhoneEnv implements ExecutionEnv {
 		if (finished.type === "aborted") return err(new ExecutionError("aborted", "Aborted"));
 		if (finished.type === "timeout") return err(new ExecutionError("timeout", `Command timed out after ${options?.timeout} seconds`));
 		if (finished.type === "failed") return err(new ExecutionError("unknown", finished.message));
-		// just-bash returns its output when the command ends: one chunk per stream.
 		if (finished.stdout) options?.onOutput?.(finished.stdout, context, { stream: "stdout" });
 		if (finished.stderr) options?.onOutput?.(finished.stderr, context, { stream: "stderr" });
 		const spillPath = await this.#spill(finished.stdout + finished.stderr, options, context);
 		return ok({ exitCode: finished.exitCode, ...(spillPath ? { spillPath } : {}) });
 	}
 
-	/** The whole output in a temporary file when it crosses the thresholds, so the tool can point to it. */
 	async #spill(output: string, options: ShellExecOptions | undefined, context: Context): Promise<string | undefined> {
 		const spill = options?.spill;
 		if (!spill) return undefined;
@@ -407,7 +384,6 @@ export class PhoneEnv implements ExecutionEnv {
 		return written.ok ? file.value : undefined;
 	}
 
-	/** Download a URL into the folder, streamed to disk by the native side. */
 	async download(url: string, path: string, context: Context): Promise<Result<{ path: string; size: number; contentType: string; url: string }, FileError>> {
 		const absolute = this.#path(path);
 		return attempt(context, absolute, async () => ({ path: absolute, ...(await BotFiles.download({ ...this.#at(path), url })) }));
@@ -416,12 +392,10 @@ export class PhoneEnv implements ExecutionEnv {
 	async cleanup(): Promise<void> {}
 }
 
-/** A deleted bot's folder and everything in it. */
 export async function removePhoneFolder(bot: string): Promise<void> {
 	await BotFiles.removeBot({ bot });
 }
 
-/** The folder names on the phone (Bot.folder). */
 export async function phoneFolderOwners(): Promise<string[]> {
 	return (await BotFiles.listBots()).ids;
 }

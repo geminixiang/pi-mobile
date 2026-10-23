@@ -1,23 +1,3 @@
-"""Bridge between the egress proxy and the phone (docs/design/computer-host.md).
-
-The phone starts it with `<engine> exec -i pi-mobile-egress python3 /tmp/pi-mobile-bridge.py` through pi-mobile serve's
-command channel and keeps that channel open while it is connected. It serves two HTTP endpoints:
-
-- 127.0.0.1:9001 POST /egress/authorize, called by credentials.py (BRIDGE_URL) for every intercepted request: each one
-  goes to the phone as a JSON line on stdout, and the phone's answer (a token, or a reason) comes back on stdin.
-- 0.0.0.0:9002 GET /azure/identity, az's managed identity endpoint for the sandboxes (IDENTITY_ENDPOINT): placeholder
-  tokens with the tenant the phone sent; the proxy swaps them for real ones on Azure's hosts.
-
-Nothing is stored. When the phone goes away its channel closes, stdin ends, and the bridge exits: the proxy then
-refuses requests that need a credential.
-
-One phone at a time: the phone pings every 10 seconds, and a bridge that has not heard from it for STALE_SECONDS
-exits, since a phone that lost its network can leave the channel half open for a long time. A new bridge replaces an
-older one only when that one is stale; otherwise it says it is busy and exits, and its phone retries later. Replacing
-a live bridge would let two phones take it from each other in turn, each answering the other's requests with its own
-credentials, or with none.
-"""
-
 import base64
 import itertools
 import json
@@ -32,9 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 SECRET = os.environ["EGRESS_SECRET"]
 PID_FILE = "/tmp/pi-mobile-bridge.pid"
-# credentials.py gives up after 10 seconds.
 ANSWER_TIMEOUT_SECONDS = 10
-# Three missed pings.
 STALE_SECONDS = 35
 
 pending = {}
@@ -83,7 +61,6 @@ def read_phone():
             tenant = message.get("azureTenant")
             if isinstance(tenant, str) and tenant:
                 config["azureTenant"] = tenant
-    # The phone's channel closed.
     os._exit(0)
 
 
@@ -141,7 +118,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def older_is_live():
-    """Whether another bridge holds the ports and has heard from its phone lately."""
     request = urllib.request.Request("http://127.0.0.1:9001/egress/alive", headers={"x-egress-secret": SECRET})
     try:
         with urllib.request.urlopen(request, timeout=3) as response:
@@ -158,7 +134,6 @@ def watch_phone():
 
 
 def take_over():
-    """Stop an older bridge whose phone went quiet, and record this one."""
     try:
         with open(PID_FILE) as file:
             old = int(file.read().strip())

@@ -1,9 +1,3 @@
-// Evaluate files in the app's page, in order, as one script, and print the value of the last one. For probes that
-// need a library the app does not ship: bundle it first, e.g.
-//   npx esbuild entry.ts --bundle --format=iife --platform=browser --outfile=/tmp/lib.js
-// where entry.ts puts what the probe needs on globalThis. Add --gesture to run with a user gesture (file and save
-// pickers, Contact Picker, and other APIs that require one).
-// Usage: node inject.js <port> [--gesture] <file.js> [more.js ...]
 import { readFileSync } from "node:fs";
 
 const args = process.argv.slice(2);

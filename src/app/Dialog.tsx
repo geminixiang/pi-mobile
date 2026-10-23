@@ -7,11 +7,9 @@ export interface DialogRequest {
 	confirm: string;
 	cancel?: string;
 	danger?: boolean;
-	/** Present for a text prompt: the initial value. */
 	input?: string;
 }
 
-/** In-app replacement for confirm() and prompt(): resolves true/false, or the entered text (undefined if cancelled). */
 export type Ask = {
 	(request: DialogRequest & { input: string }): Promise<string | undefined>;
 	(request: DialogRequest): Promise<boolean>;

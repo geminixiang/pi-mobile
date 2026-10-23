@@ -1,6 +1,3 @@
-// read_attachment: the rest of a file the user attached, when its message showed only the start (attachments.ts). By
-// line window, by PDF pages, or by search; PDF pages also as images, for scans, charts, and layout. Always on and not
-// listed in the bot panel, like memory: it matters only in conversations with attachments, and costs little.
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
@@ -10,12 +7,10 @@ import { codeNote } from "../codes.ts";
 import { defineAppTool, requireNative } from "./common.ts";
 
 const DEFAULT_LINES = 400;
-/** One call returns at most this much text, so one read cannot flood the context; the notice says where to go on. */
 const MAX_TOKENS = 8_000;
 const MAX_IMAGES = 4;
 const MAX_MATCHES = 20;
 
-/** "3", "3-5", "1,4,7-8" as page numbers within 1..count. */
 function pageList(spec: string, count: number): number[] {
 	const pages = new Set<number>();
 	for (const part of spec.split(",")) {
@@ -26,7 +21,6 @@ function pageList(spec: string, count: number): number[] {
 	return [...pages].sort((a, b) => a - b);
 }
 
-/** Lines from `start` (1-based) up to `limit` lines or MAX_TOKENS, and where the next window starts. */
 function window(lines: string[], start: number, limit: number): { text: string; next?: number } {
 	const out: string[] = [];
 	let tokens = 0;
@@ -110,14 +104,9 @@ const scanDocument = defineAppTool({
 	parameters: Type.Object({ pages: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "At most this many pages (default 20)" })) }),
 	execute: async (args, api) => {
 		requireNative();
-		let scan: { pdf: string; pages: number };
-		try {
-			scan = await Scanner.scan({ pages: args.pages ?? 20 });
-		} catch (error) {
-			if (error instanceof Error && Reflect.get(error, "code") === "cancelled") {
-				return { output: [{ type: "text", text: "The user closed the scanner; nothing was scanned. Reply with one short sentence that says so, such as 「好，沒有掃。」" }], isError: true };
-			}
-			throw error;
+		const scan = await Scanner.scan({ pages: args.pages ?? 20 });
+		if (scan.cancelled) {
+			return { output: [{ type: "text", text: "The user closed the scanner; nothing was scanned. Reply with one short sentence that says so, such as 「好，沒有掃。」" }], isError: true };
 		}
 		const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
 		const file = await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf");

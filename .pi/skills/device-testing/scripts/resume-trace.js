@@ -1,8 +1,3 @@
-// Leave pi for a while, come back, and trace what the WebView does in the first seconds back: a Chrome trace of the
-// whole time (open it in chrome://tracing, or read it with resume-analyze.js), and from the page the frame gaps,
-// long tasks, and resize/visibility events after it became visible. Leaves with HOME, or into another app with
-// AWAY_APP=<package> (it opens a web page there, e.g. AWAY_APP=com.android.chrome).
-// Usage: node resume-trace.js <port> <adb serial> <seconds away> [out.json]
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
@@ -32,7 +27,6 @@ const send = (method, params = {}) => {
 };
 const evaluate = async (expression) => (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result?.value;
 
-// In the page: when it becomes visible, frame gaps and long tasks for 5 s.
 await evaluate(`(() => {
 	const rec = (window.__resume = { visibleAt: 0, frames: [], long: [], events: [] });
 	new PerformanceObserver((list) => { for (const e of list.getEntries()) if (rec.visibleAt) rec.long.push([Math.round(e.startTime - rec.visibleAt), Math.round(e.duration)]); }).observe({ type: "longtask" });

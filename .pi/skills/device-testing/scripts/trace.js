@@ -1,15 +1,11 @@
-// Ask the open bot a question and print the whole turn: every model call (duration, tokens, text, tool calls with
-// arguments) and every tool result (size, error, start of the text, time), then one SUMMARY line to compare runs:
-// wall seconds, model calls and time, tool time per tool (parallel tools of one call count once, as the slowest),
-// uncached and cached input tokens, output tokens, characters of tool results, and the tools in order. With
-// --image, a drawn receipt is attached first. Use a fresh bot for each run: an earlier turn changes what it does.
-// Usage: CDP_PORT=<port> node trace.js "<question>" [--image]
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const question = process.argv[2];
 const image = process.argv.includes("--image");
 const script = `async () => {
+	const current = (await window.piRuntime.bots()).find((bot) => bot.id === window.piController.id);
+	if (!current || !/^(test|tmp|測試)/i.test(current.name)) throw new Error("trace.js asks only a test bot (name starting test, tmp, or 測試); the open bot is " + (current ? current.name : "none"));
 	let view; const stop = window.piController.subscribe((v) => (view = v)); await sleep(300);
 	const from = view.entries.length;
 	${image ? `{
@@ -45,7 +41,6 @@ const out = execFileSync("./test/ui.sh", [script], { cwd: repo, env: process.env
 const result = JSON.parse(out);
 if (!result.turn) { console.log(out.slice(0, 2000)); process.exit(1); }
 console.log(`## ${result.seconds} s`);
-// A tool's time: from the end of the model call that asked for it (its timestamp is when it started) to its result.
 const toolS = {};
 let call;
 let group = [];

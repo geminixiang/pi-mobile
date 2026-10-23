@@ -16,13 +16,6 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.util.ArrayList;
 
-/**
- * Dictation with the system speech recognizer (Google's on Android). Emits `partial` while the user speaks, `level`
- * for the microphone meter, then `final` with the recognized text, or `error`; `end` always comes last.
- * Silence detection stops a session by itself; `stop()` finishes early and still delivers the text.
- *
- * Also the other direction: `speak()` reads text aloud (see Speaker) and resolves once it was spoken.
- */
 @CapacitorPlugin(name = "Voice", permissions = { @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = "microphone") })
 public class VoicePlugin extends Plugin {
 
@@ -61,7 +54,6 @@ public class VoicePlugin extends Plugin {
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
                 .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                // Dictation pauses are longer than voice-command pauses.
                 .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
                 .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
             recognizer.startListening(intent);
@@ -77,7 +69,6 @@ public class VoicePlugin extends Plugin {
         });
     }
 
-    /** Resolves {spoken: true} when done, or {spoken: false, reason} when stopped or the engine cannot speak. */
     @PluginMethod
     public void speak(PluginCall call) {
         String text = call.getString("text", "");

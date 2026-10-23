@@ -1,12 +1,10 @@
-// GitHub connector: the REST API called straight from the phone with the user's token.
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { parse } from "../parse.ts";
+import { parse, jsonOrText } from "../parse.ts";
 import { defineAppTool } from "./common.ts";
 
-/** GET /repos/{owner}/{repo}/contents/{path}: a directory listing, or one file. */
 const DirectoryListing = Type.Array(Type.Object({ type: Type.String(), path: Type.String(), size: Type.Number() }));
 const FileContents = Type.Object({
 	encoding: Type.Optional(Type.String()),
@@ -18,7 +16,6 @@ const FileContents = Type.Object({
 const API = "https://api.github.com";
 const MAX_OUTPUT_CHARS = 40_000;
 
-/** A parsed response body as a JSON value: JSON.parse only produces those; anything else becomes null. */
 function toJson(value: unknown): JsonValue {
 	return isJsonValue(value) ? value : null;
 }
@@ -46,12 +43,7 @@ async function github(token: string, method: string, path: string, body?: unknow
 		signal,
 	});
 	const raw = await response.text();
-	let parsed: unknown = raw;
-	try {
-		parsed = raw ? JSON.parse(raw) : null;
-	} catch {
-		// Non-JSON bodies (diffs, raw media types) are returned as text.
-	}
+	const parsed = raw ? jsonOrText(raw) : null;
 	return { status: response.status, ok: response.ok, link: response.headers.get("link") ?? undefined, body: parsed };
 }
 
@@ -69,7 +61,6 @@ export function createGitHubExtension(getToken: TokenSource) {
 			"/search/issues?q=..., /repos/{owner}/{repo}/pulls/{n}/files. POST, PATCH, PUT, and DELETE change things as the user.",
 			"Prefer small per_page values.",
 		].join(" "),
-		// Scripts get the parsed response, so `(await tools.github_api(...)).body.login` works without parsing text.
 		structuredOutputSchema: Type.Object({ status: Type.Integer(), link: Type.Optional(Type.String()), body: Type.Unknown() }),
 		parameters: Type.Object({
 			method: Type.Union([
@@ -85,15 +76,8 @@ export function createGitHubExtension(getToken: TokenSource) {
 		execute: async (args, _api, context) => {
 			if (!args.path.startsWith("/")) throw new Error("path must start with /");
 			const token = await requireToken();
-			// Models sometimes pass the body as a JSON string; send it as the object it encodes.
-			if (typeof args.body === "string") {
-				try {
-					args.body = JSON.parse(args.body);
-				} catch {
-					// Not JSON: send the string as is.
-				}
-			}
-			const result = await github(token, args.method, args.path, args.body, context.abortSignal);
+			const requestBody: unknown = typeof args.body === "string" ? jsonOrText(args.body) : args.body;
+			const result = await github(token, args.method, args.path, requestBody, context.abortSignal);
 			const header = `HTTP ${result.status}${result.link ? `\nLink: ${result.link}` : ""}`;
 			const body = typeof result.body === "string" ? result.body : JSON.stringify(result.body);
 			if (!result.ok) throw new Error(`${header}\n${body}`);

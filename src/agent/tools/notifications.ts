@@ -1,12 +1,8 @@
-// read_notifications: what other apps notified the user of (LINE, Messenger, Slack, email, deliveries), recorded on
-// the phone for 30 days once the user allows notification access. Notifications never leave the phone except as this
-// tool's output, and only bots with the 通知 toolset have the tool.
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { type ActiveNotification, Notifications, type RecordedNotification } from "../../notifications-plugin.ts";
 import { defineAppTool, localTime, requireNative, text } from "./common.ts";
 
-/** Notification access, which reading and acting on notifications need; the user turns it on in system settings. */
 export async function requireAccess(): Promise<void> {
 	requireNative();
 	if (!(await Notifications.status()).allowed) {
@@ -14,7 +10,6 @@ export async function requireAccess(): Promise<void> {
 	}
 }
 
-/** One line per notification: when, which app, who or what, and the text. */
 function line(item: RecordedNotification): string {
 	const where = item.sender
 		? `${item.sender}${item.conversation && item.conversation !== item.sender ? `（${item.conversation}）` : ""}`
@@ -32,7 +27,6 @@ const readNotifications = defineAppTool({
 		query: Type.Optional(Type.String({ description: "Only notifications whose title, text, sender, or chat contains this" })),
 		limit: Type.Optional(Type.Integer({ minimum: 1, description: "At most this many, newest first; default all" })),
 	}),
-	// Scripts get the items as objects: filter and group them there, return only what the answer needs.
 	structuredOutputSchema: Type.Object({
 		items: Type.Array(
 			Type.Object({
@@ -55,7 +49,6 @@ const readNotifications = defineAppTool({
 			...(args.query ? { query: args.query } : {}),
 			...(args.limit ? { limit: args.limit } : {}),
 		});
-		// Oldest first reads as a conversation.
 		const ordered = [...items].reverse();
 		const structuredOutput = {
 			items: ordered.map((item) => ({
@@ -74,7 +67,6 @@ const readNotifications = defineAppTool({
 	},
 });
 
-/** The notifications in the shade from `app` (and `conversation`) that `want` accepts, newest first. */
 async function findActive(app: string, conversation: string | undefined, want: (item: ActiveNotification) => boolean): Promise<ActiveNotification[]> {
 	await requireAccess();
 	const { items } = await Notifications.active({ app, ...(conversation ? { conversation } : {}) });

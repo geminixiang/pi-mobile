@@ -1,10 +1,4 @@
 #!/bin/sh
-# Build the web app, sync it into the Android project, and assemble a minified release APK with WebView remote
-# debugging on, for development (scripts/release-android.sh builds the published one).
-#
-# With the release key (~/.config/pi-mobile/release.env, docs/releases/README.md) it is signed as releases are, and
-# numbered as package.json's version: a release installs over it and it over a release, keeping the phone's data.
-# Without the key it is signed with the local debug key; such a build and a release cannot replace each other.
 set -e
 cd "$(dirname "$0")/.."
 ENV_FILE="${PI_MOBILE_RELEASE_ENV:-$HOME/.config/pi-mobile/release.env}"

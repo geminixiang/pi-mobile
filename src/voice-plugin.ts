@@ -1,5 +1,3 @@
-// VoicePlugin on Android: dictation for the composer (src/app/voice.ts) and speech for the agent's speak tool
-// (src/agent/tools/speech.ts). Registered once here, since both sides use it.
 import type { PluginListenerHandle } from "@capacitor/core";
 import { registerPlugin } from "@capacitor/core";
 
@@ -8,7 +6,6 @@ export interface VoicePlugin {
 	start(options: { language: string }): Promise<void>;
 	stop(): Promise<void>;
 	cancel(): Promise<void>;
-	/** Resolves when it was all spoken, or with the reason it stopped: another speech, headphones out, stopSpeaking. */
 	speak(options: { text: string; language: string }): Promise<{ spoken: boolean; reason?: string }>;
 	stopSpeaking(): Promise<void>;
 	addListener(event: "partial" | "final", listener: (data: { text: string }) => void): Promise<PluginListenerHandle>;

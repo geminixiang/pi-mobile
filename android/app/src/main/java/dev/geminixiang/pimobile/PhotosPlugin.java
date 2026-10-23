@@ -31,11 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * The user's photos through MediaStore, read-only: which were taken when, where (their EXIF location, which Android
- * hides without ACCESS_MEDIA_LOCATION), in which album; and a photo itself, scaled down, for the model to look at.
- * Android 14+ may grant only the photos the user picked; then those are all there is.
- */
 @CapacitorPlugin(
     name = "Photos",
     permissions = {
@@ -45,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 )
 public class PhotosPlugin extends Plugin {
 
-    /** Granted in full, or only for photos the user picked (Android 14+). */
     private boolean allowed() {
         return getPermissionState("photos") == PermissionState.GRANTED
             || (Build.VERSION.SDK_INT >= 34 && getPermissionState("selected") == PermissionState.GRANTED);
@@ -61,7 +55,6 @@ public class PhotosPlugin extends Plugin {
         return false;
     }
 
-    /** Photos taken between `from` and `to` (ms), newest first, at most `limit`; with their place when known. */
     @PluginMethod
     public void search(PluginCall call) {
         if (ensurePermission(call, "searchResult")) list(call);
@@ -88,9 +81,7 @@ public class PhotosPlugin extends Plugin {
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
         };
-        // DATE_TAKEN is empty for some (screenshots, downloads); DATE_ADDED is in seconds.
         String taken = "COALESCE(" + MediaStore.Images.Media.DATE_TAKEN + ", " + MediaStore.Images.Media.DATE_ADDED + " * 1000)";
-        // The times inline, as numbers: selection arguments bind as text, and in SQLite an integer is less than any text.
         String where = taken + " >= " + from + " AND " + taken + " <= " + to + (album != null ? " AND " + MediaStore.Images.Media.BUCKET_DISPLAY_NAME + " LIKE ?" : "");
         String[] args = album != null ? new String[] { "%" + album + "%" } : null;
         List<JSObject> rows = new ArrayList<>();
@@ -109,7 +100,6 @@ public class PhotosPlugin extends Plugin {
                 ids.add(id);
             }
         }
-        // Off the plugin thread: the first look at many photos reads each file's EXIF.
         new Thread(() -> {
             Map<Long, double[]> places = places(resolver, ids);
             JSArray items = new JSArray();
@@ -127,10 +117,6 @@ public class PhotosPlugin extends Plugin {
         }).start();
     }
 
-    /**
-     * Where each photo was taken. A photo's EXIF does not change, so each is read once and kept (PlacesCache, with "no
-     * place" too); the reads of the rest run in parallel.
-     */
     private Map<Long, double[]> places(ContentResolver resolver, List<Long> ids) {
         PlacesCache cache = PlacesCache.get(getContext());
         Map<Long, double[]> known = cache.lookup(ids);
@@ -156,7 +142,6 @@ public class PhotosPlugin extends Plugin {
         return known;
     }
 
-    /** The photo's EXIF location; the original file's, since MediaStore strips it for apps without ACCESS_MEDIA_LOCATION. */
     private static double[] place(ContentResolver resolver, Uri uri) {
         try (InputStream input = resolver.openInputStream(MediaStore.setRequireOriginal(uri))) {
             if (input == null) return null;
@@ -168,7 +153,6 @@ public class PhotosPlugin extends Plugin {
         }
     }
 
-    /** One photo as a JPEG whose longer side is at most `edge` pixels, as base64. */
     @PluginMethod
     public void view(PluginCall call) {
         if (!allowed()) {

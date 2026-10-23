@@ -1,8 +1,3 @@
-// sql: the user's own SQLite database on the phone, shared by the bots that have the 資料庫 toolset. Bots keep there
-// whatever structured records the user wants kept and counted (expenses, a reading list, a weight log), in tables
-// they design. The prompt lists the tables, so a bot reuses one another bot made instead of starting its own.
-//
-// ATTACH, DETACH, and VACUUM INTO are refused: they would reach files outside the database.
 import { Capacitor } from "@capacitor/core";
 import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "typebox";
@@ -10,7 +5,6 @@ import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
 import { defineAppTool, requireNative } from "./common.ts";
 
-/** The statement's words outside string literals, quoted names, and comments, upper-cased. */
 function keywords(sql: string): string {
 	return sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g, " ").toUpperCase();
 }
@@ -41,7 +35,6 @@ const sql = defineAppTool({
 			{ minItems: 1 },
 		),
 	}),
-	// Scripts get each query's rows as objects keyed by column.
 	structuredOutputSchema: Type.Object({
 		results: Type.Array(
 			Type.Object({
@@ -75,7 +68,7 @@ export const DatabaseExtension = defineExtension({
 	sections: [
 		section("database", async () => {
 			if (!Capacitor.isNativePlatform()) return undefined;
-			const { tables } = await Database.schema().catch(() => ({ tables: [] }));
+			const { tables } = await Database.schema();
 			return [
 				"sql is the user's SQLite database, shared by their bots: reuse a fitting table, English names, times as YYYY-MM-DD HH:MM, amounts as numbers, a column for what they filter or total by.",
 				tables.length > 0 ? `Tables now:\n${tables.map((table) => `${table.sql}; -- ${table.rows} rows`).join("\n")}` : "It has no tables yet.",

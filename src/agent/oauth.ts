@@ -1,21 +1,17 @@
-// Shared OAuth plumbing for the cloud sign-ins (Google, Cloudflare, Azure): native HTTP with timeouts, token
-// responses, device-flow polling, and JWT payloads. Native HTTP because the providers' endpoints do not allow the
-// WebView's origin, and with timeouts because a request sent while the network drops would otherwise wait forever.
 import { CapacitorHttp } from "@capacitor/core";
 import { type Static, Type } from "typebox";
-import { parse, parseJson } from "./parse.ts";
+import { check, type Checked, parse, parseJson } from "./parse.ts";
+import { orLogged } from "../promise.ts";
 
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
 
 export interface AccessToken {
 	token: string;
-	/** Milliseconds since the epoch. */
 	expiresAt: number;
 }
 
 export interface HttpResponse {
 	status: number;
-	/** The parsed JSON body, unchecked; `{}` for an empty body. */
 	body: unknown;
 }
 
@@ -39,7 +35,6 @@ export async function getJson({ url, token, what }: { url: string; token: string
 	return { status: response.status, body: bodyOf(response.data, what) };
 }
 
-/** An OAuth token endpoint's answer: tokens, or an RFC 6749 error. */
 const TokenResponse = Type.Object({
 	access_token: Type.Optional(Type.String()),
 	refresh_token: Type.Optional(Type.String()),
@@ -50,27 +45,33 @@ const TokenResponse = Type.Object({
 });
 type TokenResponse = Static<typeof TokenResponse>;
 
-/** A successful token response: an access token, maybe a rotated refresh token, and when it expires. */
 export interface Tokens {
 	access: AccessToken;
 	refresh: string | undefined;
 	idToken: string | undefined;
 }
 
-/** Read a token response, or throw with the provider's error description. */
-export function tokensFrom(response: HttpResponse, what: string): Tokens {
-	const body = parse(TokenResponse, response.body, what);
-	if (response.status !== 200 || !body.access_token) {
-		throw new Error(`${what}：${body.error_description ?? body.error ?? `HTTP ${response.status}`}`);
-	}
+export function checkTokens(response: HttpResponse, what: string): Checked<Tokens> {
+	const checked = check(TokenResponse, response.body, what);
+	if (!checked.ok) return checked;
+	const body = checked.value;
+	if (response.status !== 200 || !body.access_token) return { ok: false, problem: `${what}：${body.error_description ?? body.error ?? `HTTP ${response.status}`}` };
 	return {
-		access: { token: body.access_token, expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000 },
-		refresh: body.refresh_token,
-		idToken: body.id_token,
+		ok: true,
+		value: {
+			access: { token: body.access_token, expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000 },
+			refresh: body.refresh_token,
+			idToken: body.id_token,
+		},
 	};
 }
 
-/** The device authorization endpoint's answer (RFC 8628). */
+export function tokensFrom(response: HttpResponse, what: string): Tokens {
+	const checked = checkTokens(response, what);
+	if (!checked.ok) throw new Error(checked.problem);
+	return checked.value;
+}
+
 const DeviceAuthorization = Type.Object({
 	device_code: Type.String(),
 	user_code: Type.String(),
@@ -82,7 +83,6 @@ const DeviceAuthorization = Type.Object({
 
 export interface DeviceSignIn {
 	userCode: string;
-	/** The page that approves the code; with the code filled in when the provider offers one. */
 	url: string;
 	deviceCode: string;
 	intervalMs: number;
@@ -105,10 +105,6 @@ export async function startDeviceFlow({ url, form, what }: { url: string; form: 
 	};
 }
 
-/**
- * Poll the token endpoint until the user approves the device code (RFC 8628 §3.5). Network errors are retried: the
- * phone's network often drops for a moment while the user is in the browser.
- */
 export async function pollDeviceFlow({
 	signIn,
 	url,
@@ -118,7 +114,6 @@ export async function pollDeviceFlow({
 }: {
 	signIn: DeviceSignIn;
 	url: string;
-	/** Everything but the device code, which is added here. */
 	form: Record<string, string>;
 	what: string;
 	signal: AbortSignal;
@@ -127,16 +122,14 @@ export async function pollDeviceFlow({
 	while (Date.now() < signIn.expiresAt) {
 		await new Promise((resolve) => setTimeout(resolve, interval));
 		if (signal.aborted) throw new Error("已取消");
-		let response: HttpResponse;
-		try {
-			response = await postForm({
-				url,
-				form: { ...form, grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: signIn.deviceCode },
-				what,
-			});
-		} catch {
-			continue;
-		}
+		const response = await orLogged(
+			postForm({ url, form: { ...form, grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: signIn.deviceCode }, what }),
+			"oauth.poll_unreachable",
+			undefined,
+			{ what },
+		);
+		const isTransientNetworkFailure = response === undefined;
+		if (isTransientNetworkFailure) continue;
 		const body = parse(TokenResponse, response.body, what);
 		if (body.error === "authorization_pending") continue;
 		if (body.error === "slow_down") {
@@ -149,7 +142,6 @@ export async function pollDeviceFlow({
 	throw new Error("登入逾時，請再試一次");
 }
 
-/** The payload of a JWT, unverified: for display and routing only, never for authorization decisions. */
 export function jwtPayload(token: string): unknown {
 	const part = token.split(".")[1];
 	if (!part) return {};

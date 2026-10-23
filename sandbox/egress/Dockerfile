@@ -1,9 +1,6 @@
-# Egress proxy for sandbox containers: mitmproxy with the GitHub credential addon (credentials.py).
-# Only GitHub, Google Cloud, Cloudflare, and Azure API hosts are intercepted; all other traffic is passed through without TLS interception.
 FROM mitmproxy/mitmproxy:12.2.3
 
 COPY credentials.py /egress/credentials.py
-# For sandboxes reached over SSH: the phone runs it with `exec -i` and answers credentials.py through it (bridge.py).
 COPY bridge.py /egress/bridge.py
 
 CMD ["mitmdump", "--listen-port", "8080", "--set", "block_global=false", "--set", "connection_strategy=lazy", \

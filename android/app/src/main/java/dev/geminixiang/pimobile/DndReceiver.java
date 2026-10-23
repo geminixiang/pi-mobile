@@ -7,11 +7,6 @@ import android.content.Intent;
 import android.service.notification.NotificationListenerService;
 import android.util.Log;
 
-/**
- * Ends a Do Not Disturb the agent set with an end time (NotificationsPlugin.setDnd). Only the notification listener may
- * change it; when pi's process was gone, the system has not bound the listener yet, so this asks for a rebind and the
- * listener turns it off when it connects (NotificationsListener.onListenerConnected).
- */
 public class DndReceiver extends BroadcastReceiver {
 
     @Override

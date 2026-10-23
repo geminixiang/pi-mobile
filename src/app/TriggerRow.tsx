@@ -1,7 +1,7 @@
-// One schedule or pending follow-up, with pause, run now, and delete: in Settings (every bot's) and in a bot's panel.
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { describeTime, describeWhen, type Trigger } from "../agent/triggers.ts";
+import { messageOf } from "../promise.ts";
 
 const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", manual: "手動執行" };
 
@@ -14,12 +14,11 @@ export function TriggerRow({
 }: {
 	trigger: Trigger;
 	next: number | undefined;
-	/** Shown when the list has every bot's; undefined in the bot's own panel. */
 	bot?: Bot | "deleted";
 	runtime: AgentRuntime;
 	onError: (message: string) => void;
 }) {
-	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => onError(failure instanceof Error ? failure.message : String(failure)));
+	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => onError(messageOf(failure)));
 	const last = trigger.last;
 	return (
 		<div className="check-row trigger-row">

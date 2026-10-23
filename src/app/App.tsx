@@ -26,19 +26,18 @@ import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
 import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
-import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
+import { Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
+import { messageOf, orLogged } from "../promise.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 
-/** Which share suggestions fit: photos only, other files, or text. */
 const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
-/** Set once the database from before bots is gone (or was never there). */
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
@@ -60,9 +59,7 @@ export function App() {
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
 	const [memoryBot, setMemoryBot] = useState<Bot>();
-	/** Something shared from another app, waiting for the user to pick the bot it goes to. */
 	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
-	/** Remounts the chat when a bot is opened with a draft, so the composer takes it. */
 	const [chatKey, setChatKey] = useState(0);
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
 	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
@@ -71,8 +68,6 @@ export function App() {
 	}, []);
 	const openFile = useCallback((file: string) => openWorkspace({ tab: "files", file }), [openWorkspace]);
 	const close = useCallback(() => setOverlay(undefined), []);
-	// Settings apply as they change, a moment after the last edit (so typing a token restarts once), and at once when
-	// the page is left: the latest edits, and whether they differ from what is saved.
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
 	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const applyRef = useRef<() => Promise<void>>(undefined);
@@ -86,15 +81,13 @@ export function App() {
 		log.warn("app.notice", { message });
 		showToast(message);
 	}, []);
-	const fail = useCallback((error: unknown) => notify(error instanceof Error ? error.message : String(error)), [notify]);
+	const fail = useCallback((error: unknown) => notify(messageOf(error)), [notify]);
 
-	// Ask is overloaded (text prompts resolve a string, confirmations a boolean); one implementation serves both.
 	const ask = useCallback(
 		((request: DialogRequest) =>
 			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
 		[],
 	);
-
 
 	const start = useCallback(
 		async (next: Settings) => {
@@ -116,11 +109,10 @@ export function App() {
 					},
 				});
 				setRuntime(opened);
-				// Later, without holding up the start: what a removal cut short.
 				setTimeout(() => void sweepBotData(async () => (await opened.bots()).map((bot) => ({ id: String(bot.id), folder: bot.folder }))), 10_000);
 				setOpenError("");
 			} catch (error) {
-				setOpenError(`開啟失敗：${error instanceof Error ? error.message : String(error)}`);
+				setOpenError(`開啟失敗：${messageOf(error)}`);
 			}
 		},
 		[notify],
@@ -135,14 +127,12 @@ export function App() {
 
 	useEffect(() => (runtime ? runtime.subscribeBots(setBots) : undefined), [runtime]);
 
-	// Keep working conversations running in the background; say when one finishes while the app is away.
 	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
 	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
 	useEffect(() => (runtime ? runtime.subscribeActivity(setBusyIds) : undefined), [runtime]);
 	useEffect(() => {
 		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
 		setWorking([...busyIds].map(title));
-		// A triggered run tells the user itself (the notify tool) only when there is something worth it.
 		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.takeTriggered(id));
 		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
 		previousBusy.current = busyIds;
@@ -166,8 +156,6 @@ export function App() {
 		[runtime, controller],
 	);
 
-	// The open bot was deleted by something other than its menu (a test, a script): close it, and the effect below
-	// opens another. Checked against a fresh list, since a bot just created can be open before the list reaches us.
 	useEffect(() => {
 		if (!runtime || !controller) return;
 		if (bots.some((bot) => bot.id === controller.id)) return;
@@ -183,25 +171,20 @@ export function App() {
 		};
 	}, [runtime, controller, bots]);
 
-	// Open the last bot once the runtime is ready.
 	useEffect(() => {
 		if (!runtime || controller) return;
 		void runtime.bots().then((items) => {
 			const last = localStorage.getItem(LAST_BOT_KEY);
 			const target = items.find((bot) => String(bot.id) === last) ?? items[0];
-			// After settings applied, the settings page stays open over it.
 			if (target) void openConversation(target.id, undefined, undefined, undefined, true);
 		});
 	}, [runtime, controller, openConversation]);
 
-	// Fired schedules and shares from other apps. A share goes into a bot's composer, so the user says what to do with
-	// it: the only bot's, or the one the user picks.
 	const openRef = useRef(openConversation);
 	openRef.current = openConversation;
 	useEffect(() => {
 		if (!runtime) return;
 		const onShare = async (item: SharedItem) => {
-			// The native side copied each file into its inbox; Capacitor's file server hands it to the WebView as is.
 			const files = await Promise.all(
 				(item.files ?? []).map(async (file) => {
 					const blob = await (await fetch(Capacitor.convertFileSrc(file.path))).blob();
@@ -215,7 +198,6 @@ export function App() {
 			}
 			const items = await runtime.bots();
 			const kind = item.source === "assist" ? "screen" : sharedKind(files);
-			// The screen goes to the bot the user was in: summoning pi is for a quick question, not a choice.
 			const last = items.find((bot) => String(bot.id) === localStorage.getItem(LAST_BOT_KEY)) ?? (items.length === 1 ? items[0] : undefined);
 			if (last && (kind === "screen" || items.length === 1)) await openRef.current(last.id, item.source === "assist" ? "" : draft, files, kind);
 			else setSharing({ draft, files });
@@ -233,7 +215,6 @@ export function App() {
 		};
 	}, [runtime, notify]);
 
-	// Debug hook for test/cdp.ts.
 	useEffect(() => {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
 	}, [runtime, controller]);
@@ -245,22 +226,18 @@ export function App() {
 	);
 
 	const applying = useRef<Promise<void>>(Promise.resolve());
-	// What a queued apply acts on: the state when it runs, not when it was queued.
 	const live = useRef({ settings, runtime, controller });
 	live.current = { settings, runtime, controller };
 
-	// The side panels: the bot list on the left, the bot on screen on the right (SidePanel.tsx).
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
 	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
 
-	// Until the runtime opens (about half a second, most of it loading the app), its outline, as index.html showed.
 	const splash = <Skeleton />;
 	if (!settings) return splash;
 
 	const saveAndRestart = async (edited: Settings) => {
 		const next = await saveSettings(edited);
 		setSettings(next);
-		// First run: a paired sandbox is saved, but the agent starts only once the model service is filled in.
 		if (!isConfigured(next)) return;
 		setOverlay(undefined);
 		controller?.dispose();
@@ -270,7 +247,6 @@ export function App() {
 		setRuntime(undefined);
 		await start(next);
 	};
-	// Settings changed on the settings page: saved, and the agent restarted under the page, which stays open.
 	applyRef.current = () => {
 		const draft = settingsDraft.current;
 		if (!draft?.changed || !isConfigured(draft.settings)) return Promise.resolve();
@@ -303,7 +279,6 @@ export function App() {
 
 	if (!runtime) {
 		if (isConfigured(settings) && !openError) return splash;
-		// First run, or the runtime could not open: settings are the whole screen.
 		return (
 			<div className="app">
 				<SettingsView initial={settings} status={openError} onSave={saveAndRestart} />
@@ -317,7 +292,6 @@ export function App() {
 			</div>
 		);
 	}
-	// Where the open bot works; the bot list re-renders this when a bot moves.
 	const onSandbox = controller ? runtime.sandboxOf(controller.id) !== undefined : false;
 
 	const agent = agentOf(view);
@@ -511,7 +485,7 @@ export function App() {
 					if (!sure) return;
 					try {
 						await runtime.removeBot(bot.id);
-						await clearDraft(String(bot.id)).catch(() => undefined);
+						await orLogged(clearDraft(String(bot.id)), "drafts.clear_failed", undefined);
 						if (bot.id === controller?.id) {
 							controller.dispose();
 							setController(undefined);

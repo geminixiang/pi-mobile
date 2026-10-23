@@ -1,6 +1,3 @@
-// Spreadsheet attachments (.xlsx, .csv, .tsv): ChatGPT and Claude compute over tables with code instead of reading
-// them, so each sheet is imported into the user's SQLite database (the sql tool), one table a sheet, its first row the
-// columns. The rows are also kept as tab-separated text, for small tables inline and for read_attachment.
 import { Capacitor } from "@capacitor/core";
 import readXlsxFile from "read-excel-file/universal";
 import { Database, type SqlValue } from "../database-plugin.ts";
@@ -11,7 +8,6 @@ interface Sheet {
 	rows: Cell[][];
 }
 
-/** RFC 4180 fields: quotes around fields with the separator, quotes, or line breaks; "" for a quote. */
 function parseDelimited(text: string, separator: string): Cell[][] {
 	const rows: Cell[][] = [];
 	let row: Cell[] = [];
@@ -67,7 +63,6 @@ async function readSheets(file: File): Promise<Sheet[]> {
 
 const isEmpty = (row: Cell[]) => row.every((cell) => cell === null || cell === "");
 
-/** A name SQLite takes without surprises: letters, digits (any script), and underscores. */
 const sqlName = (text: string) => text.trim().replace(/[^\p{L}\p{N}_]+/gu, "_").replace(/^_+|_+$/g, "") || "column";
 
 function columnsOf(header: Cell[]): string[] {
@@ -81,7 +76,6 @@ function columnsOf(header: Cell[]): string[] {
 	});
 }
 
-/** INTEGER or REAL when every value in the column is such a number, else TEXT. */
 function typeOf(rows: Cell[][], index: number): string {
 	const values = rows.map((row) => row[index]).filter((value) => value !== null && value !== "");
 	if (values.length === 0) return "TEXT";
@@ -109,7 +103,6 @@ async function importSheet(table: string, columns: string[], rows: Cell[][]): Pr
 
 const tsv = (rows: Cell[][]) => rows.map((row) => row.map((cell) => (cell === null ? "" : String(cell).replace(/[\t\n]/g, " "))).join("\t")).join("\n");
 
-/** The sheets as text, and the tables they became (none outside the app, where there is no database). */
 export async function extractSheet(file: File): Promise<{ text: string; tables: { name: string; sheet: string; rows: number; columns: string[] }[] }> {
 	const sheets = (await readSheets(file)).map((sheet) => ({ ...sheet, rows: sheet.rows.filter((row) => !isEmpty(row)) })).filter((sheet) => sheet.rows.length > 0);
 	const taken = new Set(Capacitor.isNativePlatform() ? (await Database.schema()).tables.map((table) => table.name.toLowerCase()) : []);

@@ -1,6 +1,4 @@
-// The app's agent runtime: one durable Harness over on-device storage, with bots (one long conversation each), models,
-// and connectors.
-// No DOM rendering here; the React UI talks to it through AgentRuntime and ConversationController.
+import { Type } from "typebox";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
 import {
@@ -29,9 +27,9 @@ import { builtinInfo, type ProviderConfig, providerName, parseProviders } from "
 import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
-import { AzureTokens } from "./azure.ts";
-import { CloudflareTokens } from "./cloudflare.ts";
-import { GcloudTokens } from "./gcloud.ts";
+import { AzureTokens, checkAzureCredential } from "./azure.ts";
+import { checkCloudflareCredential, CloudflareTokens } from "./cloudflare.ts";
+import { checkGcloudCredential, GcloudTokens } from "./gcloud.ts";
 import type { MintedService } from "./sandbox/container.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
@@ -50,10 +48,11 @@ import {
 	type TriggerHost,
 	Triggers,
 } from "./triggers.ts";
+import { messageOf, orLogged, settled } from "../promise.ts";
+import { readStored, hostOf } from "./parse.ts";
 
 const context = BACKGROUND_CONTEXT;
 
-/** The local date with its weekday and time zone, such as "Tuesday 2026-10-20, Asia/Taipei"; no time, so the prompt stays cacheable all day. */
 function today(): string {
 	const now = new Date();
 	const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -83,20 +82,15 @@ const Assistant = defineExtension({
 
 export type UserContent = (TextContent | ImageContent)[];
 
-/** How input sent while the agent works is placed: after the current tool round, or after the whole run. */
 export type BusyMode = "steer" | "followUp";
 
 export interface ConversationController {
 	readonly id: ConversationId;
 	subscribe(listener: (view: ConversationView) => void): () => void;
 	send(content: UserContent, whenBusy?: BusyMode): Promise<void>;
-	/** Withdraw one queued input. */
 	withdraw(submissionId: SubmissionId): Promise<void>;
-	/** Stop the run. Queued inputs are withdrawn and their text returned, so the UI can put it back in the editor. */
 	stop(): Promise<string[]>;
-	/** Summarize older entries; resolves whether a summary was written (short conversations have nothing to compact). */
 	compact(): Promise<boolean>;
-	/** Start a new context in this conversation: the model no longer sees earlier entries. */
 	reset(): Promise<void>;
 	setModel(provider: string, modelId: string): Promise<void>;
 	setThinking(level: string): Promise<void>;
@@ -112,10 +106,6 @@ function contentText(content: unknown): string {
 		.join("\n");
 }
 
-/**
- * Where web_search runs: the provider's own search, OpenAI's Responses web_search or Anthropic's server tool. A custom
- * endpoint first (a gateway usually serves both), else OpenAI, else Anthropic, with a key; none disables it.
- */
 function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
 	const custom = configs.find((config) => config.kind === "custom");
 	if (custom?.kind === "custom") return { baseUrl: custom.baseUrl, apiKey: keys[custom.id] ?? "", modelIds: lists[custom.id] ?? [] };
@@ -126,39 +116,19 @@ function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string
 	return { baseUrl: "", apiKey: "", modelIds: [] };
 }
 
-/** A toolset's name for an extension, for the list of tools that load on demand. */
 function labelOf(extension: string, mcp: McpHub): string {
 	const server = mcp.servers.find((candidate) => extensionName(candidate) === extension);
 	if (server) return `${server.name} (a service the user connected)`;
 	return TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.label ?? extension;
 }
 
-function hostOf(url: string): string {
-	try {
-		return new URL(url).host;
-	} catch {
-		return url;
-	}
-}
-
-/** A token source, or none when the credential does not parse (settings say why). */
-function tryTokens<T>(json: string, open: (json: string) => T): T | undefined {
-	if (!json) return undefined;
-	try {
-		return open(json);
-	} catch {
-		return undefined;
-	}
-}
-
-/**
- * The signed-in clouds, each with one token source shared by the phone's API tools and the sandbox's egress proxy, so
- * a rotating refresh token (Cloudflare, Azure) is only ever refreshed by one owner.
- */
 function cloudConnections(settings: Settings) {
-	const gcloud = tryTokens(settings.gcloudCredential, (json) => new GcloudTokens(json));
-	const cloudflare = tryTokens(settings.cloudflareCredential, (json) => new CloudflareTokens(json, saveCloudflareCredential));
-	const azure = tryTokens(settings.azureCredential, (json) => new AzureTokens(json, saveAzureCredential));
+	const gcloudCredential = settings.gcloudCredential ? checkGcloudCredential(settings.gcloudCredential) : undefined;
+	const cloudflareCredential = settings.cloudflareCredential ? checkCloudflareCredential(settings.cloudflareCredential) : undefined;
+	const azureCredential = settings.azureCredential ? checkAzureCredential(settings.azureCredential) : undefined;
+	const gcloud = gcloudCredential?.ok ? new GcloudTokens(gcloudCredential.value) : undefined;
+	const cloudflare = cloudflareCredential?.ok ? new CloudflareTokens(cloudflareCredential.value, saveCloudflareCredential) : undefined;
+	const azure = azureCredential?.ok ? new AzureTokens(azureCredential.value, saveAzureCredential) : undefined;
 	const project = settings.gcloudProject || gcloud?.project;
 	const minted: Record<string, MintedService> = {};
 	const services: CloudService[] = [];
@@ -177,10 +147,8 @@ function cloudConnections(settings: Settings) {
 	return { minted, services };
 }
 
-/** Per extension: characters of tool definitions in every request (offered) and loadable on demand (deferred). */
 export type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
-/** Triggers with the next time each fires, for Settings. */
 export interface TriggerState {
 	items: Trigger[];
 	next: Record<string, number>;
@@ -197,19 +165,14 @@ export class AgentRuntime {
 	readonly #harness: Harness;
 	readonly #settings: Settings;
 	readonly #computers: Computers;
-	/** Each bot's choice of computer, by conversation id (Bot.computer). */
 	readonly #choices: Map<string, string | undefined>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
-	/** Each bot's folder in the sandbox, by conversation id; the sandbox section and environments read it. */
 	readonly #folders: Map<string, string>;
 	#triggerListeners = new Set<(state: TriggerState) => void>();
 	#memoryListeners = new Set<() => void>();
 	#triggerState: TriggerState = { items: [], next: {} };
-	/** Conversations whose current run a trigger started. */
 	#triggered = new Set<ConversationId>();
-	/** Names of the installed extensions: which toolsets this phone has set up. */
 	readonly #installed: () => ReadonlySet<string>;
-	/** The MCP servers from settings and their connections. */
 	readonly mcp: McpHub;
 	#toolsetWrites: Promise<void> = Promise.resolve();
 
@@ -233,32 +196,26 @@ export class AgentRuntime {
 		this.#choices = choices;
 	}
 
-	/** Whether the user has a computer besides the phone. */
 	get hasSandbox(): boolean {
 		return this.#computers.any;
 	}
 
-	/** Where a bot's tools run, by its choice or the default. */
 	computerOf(id: ConversationId): Computer {
 		return this.#computers.resolve(this.#choices.get(String(id)));
 	}
 
-	/** The computers a bot can pick. */
 	computers(): Computer[] {
 		return this.#computers.list();
 	}
 
-	/** The computer behind a key from computers(); undefined for the phone. */
 	hostOf(key: string): Host | undefined {
 		return this.#computers.host(key);
 	}
 
-	/** A bot's sandbox, undefined when it works on the phone. */
 	sandboxOf(id: ConversationId | string): Sandbox | undefined {
 		return this.#computers.sandbox(this.#computers.resolve(this.#choices.get(String(id))).key);
 	}
 
-	/** Move a bot to another computer; its next tool call runs there. Files stay where they were. */
 	async setComputer(id: ConversationId, key: string): Promise<void> {
 		await this.#editBots((items) => {
 			const bot = items.find((candidate) => candidate.id === id);
@@ -266,7 +223,6 @@ export class AgentRuntime {
 		});
 	}
 
-	/** Where a bot works: its folder's path, and the sandbox it is in, in words; undefined without a sandbox. */
 	folderOf(id: ConversationId): { path: string; where: string } | undefined {
 		const folder = this.#folders.get(String(id));
 		const sandbox = this.sandboxOf(id);
@@ -275,11 +231,6 @@ export class AgentRuntime {
 		return { path: sandbox.root(folder), where: sandbox.direct ? name : `${name} 的容器` };
 	}
 
-	/**
-	 * Each custom provider's models. The list from the last start when there is one, so starting does not wait on the
-	 * network (over Tailscale or a phone network that took up to 0.7 s); the endpoint is asked anyway and its answer
-	 * kept for the next start. The first start waits for it.
-	 */
 	static startModelList(settings: Settings): Promise<Record<string, string[]>> {
 		const lists = parseProviders(settings.providers)
 			.filter((provider) => provider.kind === "custom")
@@ -290,17 +241,9 @@ export class AgentRuntime {
 					if (ids.length > 0) localStorage.setItem(key, JSON.stringify(ids));
 					return ids;
 				});
-				let cached: unknown;
-				try {
-					cached = JSON.parse(localStorage.getItem(key) ?? "null");
-				} catch {
-					cached = null;
-				}
-				if (Array.isArray(cached) && cached.length > 0 && cached.every((id) => typeof id === "string")) {
-					fresh.catch((error: unknown) => log.warn("models.refresh_failed", { error: error instanceof Error ? error.message : String(error) }));
-					return [provider.id, cached];
-				}
-				return [provider.id, await fresh.catch(() => [])];
+				const refreshed = orLogged(fresh, "models.refresh_failed", [], { provider: provider.id });
+				const cached = readStored(Type.Array(Type.String()), key) ?? [];
+				return [provider.id, cached.length > 0 ? cached : await refreshed];
 			});
 		return Promise.all(lists).then(Object.fromEntries);
 	}
@@ -310,11 +253,8 @@ export class AgentRuntime {
 		settings: Settings,
 		options: {
 			onReport?: (message: string) => void;
-			/** Post a notification opening the conversation, unless the user is looking at pi; resolves whether it did. */
 			notify?: (title: string, text: string, conversationId: ConversationId, avatar: string | undefined) => Promise<boolean>;
-			/** Open a URL in the user's browser, for MCP sign-ins. */
 			openUrl?: (url: string) => Promise<void>;
-			/** The custom providers' lists, already asked for while storage opened (startModelList). */
 			modelIds?: Promise<Record<string, string[]>>;
 		} = {},
 	): Promise<AgentRuntime> {
@@ -322,11 +262,9 @@ export class AgentRuntime {
 		const configs = usableProviders(settings);
 		const [lists, loaded, catalog] = await Promise.all([
 			(options.modelIds ?? AgentRuntime.startModelList(settings)).catch((error: unknown): Record<string, string[]> => {
-				options.onReport?.(`model list unavailable: ${error instanceof Error ? error.message : String(error)}`);
+				options.onReport?.(`model list unavailable: ${messageOf(error)}`);
 				return {};
 			}),
-			// Built-in providers, each its own chunk with its catalog. Signed in with ChatGPT, OpenAI offers only the models
-			// the subscription may use.
 			Promise.all(
 				configs.map(async (config) => {
 					if (config.kind !== "builtin") return undefined;
@@ -339,7 +277,6 @@ export class AgentRuntime {
 			),
 			gatewayCatalog(configs),
 		]);
-		// API keys go through pi-ai's credential store, as each provider's auth resolves them.
 		const credentials = memoryCredentials(
 			Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])),
 			settings.providerOAuth,
@@ -363,7 +300,6 @@ export class AgentRuntime {
 		});
 
 		const registry = createRegistry();
-		// The tools need the runtime, which exists only after the Harness opens.
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
 			changed: () => void runtimeRef?.syncTriggers(),
@@ -392,7 +328,6 @@ export class AgentRuntime {
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id) },
 			hostOf: (id: string) => computers.host(computers.resolve(choices.get(id)).key),
-			// A bot on the phone has no screen to load.
 			labelOf: (name, id) => (name === "computer" && !sandboxOf(id) ? undefined : labelOf(name, mcp)),
 		})) {
 			registry.install(extension);
@@ -402,7 +337,6 @@ export class AgentRuntime {
 			{
 				models,
 				registry,
-				// Built-in toolsets by default; services only where a bot adds them (toolsets.ts).
 				settings: {
 					get extensions() {
 						return registry
@@ -411,8 +345,7 @@ export class AgentRuntime {
 							.filter((extension) => !extension.name.startsWith("mcp-"));
 					},
 				},
-				onReport: (error) => options.onReport?.(error instanceof Error ? error.message : String(error)),
-				// The bot's folder in the sandbox when there is one, and otherwise its folder on the phone.
+				onReport: (error) => options.onReport?.(messageOf(error)),
 				env: ({ conversationId }) => {
 					const folder = folders.get(String(conversationId));
 					if (!folder) return undefined;
@@ -431,19 +364,15 @@ export class AgentRuntime {
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			mcp,
 		);
-		// In the background: the tools from the last connection are installed already.
 		mcp.refreshAll();
 		runtimeRef = runtime;
-		// The folders must be known before a run resumes and asks for its environment.
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
-		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${error instanceof Error ? error.message : String(error)}`));
-		// Scheduling starts lazily on submit or wait; start it now so runs an app kill interrupted continue at launch.
+		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${messageOf(error)}`));
 		harness.resume();
 		return runtime;
 	}
 
-	/** A new bot's model: the default from settings, or the first model there is when that one is gone. */
 	#defaultAgent() {
 		const { defaultProvider: provider, defaultModelId: modelId } = this.#settings;
 		const known = this.models.some((model) => model.provider === provider && model.id === modelId);
@@ -453,7 +382,6 @@ export class AgentRuntime {
 		return { model, thinkingLevel: isThinkingLevel(thinking) ? thinking : "low" };
 	}
 
-	/** The bots, the one talked to most recently first. */
 	async bots(): Promise<Bot[]> {
 		const index = await this.#harness.snapshot(BotIndex, context);
 		return [...(index?.items ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -514,29 +442,24 @@ export class AgentRuntime {
 			bot.job = change.job.trim();
 			bot.avatar = change.avatar;
 		});
-		await this.syncTriggers().catch((error: unknown) => log.warn("triggers.sync_failed", { error: error instanceof Error ? error.message : String(error) }));
+		await this.syncTriggers().catch((error: unknown) => log.warn("triggers.sync_failed", { error: messageOf(error) }));
 	}
 
-	/**
-	 * Remove a bot with its memory, schedules, attachments, and folder; the last one stays. Its transcript stays in
-	 * storage, unlisted: pi-durable has no way to delete a conversation.
-	 */
 	async removeBot(id: ConversationId): Promise<void> {
 		const bots = await this.bots();
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
-		// Its folder in every container it may have used, not only the one it is on now; nothing is deleted directly.
 		await Promise.all(
 			this.#computers
 				.list()
 				.map((computer) => this.#computers.sandbox(computer.key))
 				.filter((sandbox) => sandbox && !sandbox.direct)
-				.map((sandbox) => sandbox?.remove(bot.folder).catch(() => undefined)),
+				.map((sandbox) => sandbox && orLogged(sandbox.remove(bot.folder), "bot.remove_container_folder_failed", undefined, { bot: bot.folder })),
 		);
-		await removePhoneFolder(bot.folder).catch(() => undefined);
+		await orLogged(removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
 		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
-		await deleteAttachments({ conversationId: String(id) }).catch(() => undefined);
+		await orLogged(deleteAttachments({ conversationId: String(id) }), "bot.remove_attachments_failed", undefined, { bot: String(id) });
 		await this.#harness.commit(async (tx) => {
 			const items = (await tx.doc(BotIndex)).items;
 			const at = items.findIndex((candidate) => candidate.id === id);
@@ -546,10 +469,6 @@ export class AgentRuntime {
 		await this.#publishBots();
 	}
 
-	/**
-	 * Conversations with live work (runs, tool calls, compactions), from the harness's task graph. Background tasks
-	 * do not count. Calls `listener` now and on every change; returns the unsubscribe function.
-	 */
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {
 		let disposed = false;
 		let dispose = () => {
@@ -572,7 +491,6 @@ export class AgentRuntime {
 		return () => dispose();
 	}
 
-	/** A bot's folder in the sandbox, or undefined when it has not used it yet. */
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
 		const folder = this.#folders.get(String(id));
 		const sandbox = this.sandboxOf(id);
@@ -580,13 +498,11 @@ export class AgentRuntime {
 		return new Workspace(await sandbox.env(folder), sandbox.root(folder));
 	}
 
-	/** A bot's folder on the phone, where its coding tools work when there is no sandbox. */
 	phoneFolder(id: ConversationId): ExecutionEnv | undefined {
 		const folder = this.#folders.get(String(id));
 		return folder ? new PhoneEnv(folder) : undefined;
 	}
 
-	/** Empty a bot's folder in the sandbox; the bot and its conversation stay. */
 	async resetSandbox(id: ConversationId): Promise<void> {
 		const folder = this.#folders.get(String(id));
 		const sandbox = this.sandboxOf(id);
@@ -598,7 +514,6 @@ export class AgentRuntime {
 		const conversation: Conversation | undefined = await this.#harness.conversation(id, context);
 		if (!conversation) throw new Error(`Unknown conversation ${id}`);
 		const view = await conversation.viewState(context);
-		// Submissions still on their way to storage; stop waits for them so a queued message is never lost.
 		const inFlight = new Set<Promise<unknown>>();
 		return {
 			id,
@@ -623,7 +538,6 @@ export class AgentRuntime {
 				await this.#harness.abortSubmission(submissionId, context, id);
 			},
 			stop: async () => {
-				// Withdraw queued input first: an abort alone would let the next queued item start a new run.
 				await Promise.allSettled(inFlight);
 				const inbox = await this.#harness.snapshot(InboxDoc, id, context);
 				const returned: string[] = [];
@@ -649,10 +563,6 @@ export class AgentRuntime {
 		};
 	}
 
-	/**
-	 * What a bot's tools take of each request, by extension: the characters of the definitions sent (name,
-	 * description, parameter schema), and of those it can load on demand.
-	 */
 	async toolCost(id: ConversationId): Promise<ToolCost> {
 		const conversation = await this.#harness.conversation(id, context);
 		if (!conversation) return {};
@@ -671,7 +581,6 @@ export class AgentRuntime {
 		return cost;
 	}
 
-	/** The built-in toolsets, then one per MCP server. */
 	#allToolsets(): Toolset[] {
 		return [
 			...TOOLSETS,
@@ -685,11 +594,9 @@ export class AgentRuntime {
 		];
 	}
 
-	/** A bot's toolsets: which this phone has set up, and which the bot may use. */
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 		const installed = this.#installed();
-		// The coding tools come as one of two toolsets, by where the bot works; the screen only with a computer.
 		const notHere = new Set(this.sandboxOf(id) ? ["files"] : ["sandbox", "computer"]);
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
@@ -698,22 +605,19 @@ export class AgentRuntime {
 		}));
 	}
 
-	/** Turn a toolset on or off for a bot; its next request has the tools or not. */
 	setToolset(id: ConversationId, toolset: ToolsetId | string, enabled: boolean): Promise<void> {
-		// One change at a time: each reads the stored list and writes it whole, so two quick switches would lose one.
 		const change = this.#toolsetWrites.then(async () => {
 			const target = this.#allToolsets().find((candidate) => candidate.id === toolset);
 			const conversation = await this.#harness.conversation(id, context);
 			if (!target || !conversation) return;
 			const selection = withToolset(selectionOf(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
-			// Stored by name; an extension is identified by its name alone.
 			const named = (names: string[]) => names.map((name) => ({ name }));
 			await conversation.configure(
 				{ extensions: selection.add.length + selection.remove.length > 0 ? { add: named(selection.add), remove: named(selection.remove) } : null },
 				context,
 			);
 		});
-		this.#toolsetWrites = change.catch(() => undefined);
+		this.#toolsetWrites = settled(change);
 		return change;
 	}
 
@@ -722,7 +626,6 @@ export class AgentRuntime {
 		return { ...(memory ?? { text: "", updatedAt: 0, updatedBy: "" }) };
 	}
 
-	/** Calls `listener` now and whenever the user or the agent changes that MEMORY.md. */
 	subscribeMemory(scope: MemoryScope, listener: (memory: Memory) => void): () => void {
 		const reload = () => void this.memory(scope).then(listener);
 		this.#memoryListeners.add(reload);
@@ -734,7 +637,6 @@ export class AgentRuntime {
 		for (const listener of this.#memoryListeners) listener();
 	}
 
-	/** The user's edit of a MEMORY.md. */
 	async saveMemory(scope: MemoryScope, text: string): Promise<void> {
 		const trimmed = text.trim();
 		if (trimmed.length > MEMORY_LIMIT) throw new Error(`記憶最多 ${MEMORY_LIMIT} 字，現在是 ${trimmed.length} 字`);
@@ -753,7 +655,6 @@ export class AgentRuntime {
 		return () => this.#triggerListeners.delete(listener);
 	}
 
-	/** Mirror the enabled schedules to the native side, which sets their alarms, and tell Settings. */
 	async syncTriggers(): Promise<void> {
 		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
 		const avatars = new Map((await this.bots()).map((bot) => [bot.id, avatarOf(bot)]));
@@ -781,11 +682,6 @@ export class AgentRuntime {
 		return this.#editTriggers((items) => items.filter((item) => item.id !== id));
 	}
 
-	/**
-	 * Submit a trigger's prompt to its conversation. Resolves the conversation, or undefined when the trigger is gone or
-	 * over its daily limit (recorded as its last result). `device`: for an event schedule, what happened (the
-	 * headphones that connected, 開始充電, 到了 家).
-	 */
 	async runTrigger(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
@@ -808,7 +704,6 @@ export class AgentRuntime {
 			}
 			item.last = { at: now, delivery };
 			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: now }];
-			// A one-time schedule is done once it ran (not when run by hand from Settings).
 			if (item.when.kind === "once" && delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
 		}, context);
 		await this.syncTriggers();
@@ -819,7 +714,6 @@ export class AgentRuntime {
 			const bot = items.find((candidate) => candidate.id === conversationId);
 			if (bot) bot.updatedAt = now;
 		});
-		// What happened, for an event schedule: the headphones that connected, or the event's own words (開始充電, 到了 家).
 		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
 		const heard = event ? (device ?? trigger.when.kind) : undefined;
 		const label =
@@ -844,7 +738,6 @@ export class AgentRuntime {
 		return conversationId;
 	}
 
-	/** Whether a trigger started the run that just ended in this conversation; forgets it. */
 	takeTriggered(id: ConversationId): boolean {
 		return this.#triggered.delete(id);
 	}

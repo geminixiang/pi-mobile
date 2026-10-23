@@ -4,7 +4,12 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 
 - `npm run check` (TypeScript and Stylelint) must pass before a commit.
 - Before changing CSS, animations, or overlays, read `.agents/skills/css/SKILL.md`. No `!important`.
-- UI copy is Traditional Chinese (zh-TW); code comments and model prompts are English.
+- UI copy is Traditional Chinese (zh-TW); model prompts are English.
+- Code carries no comments, in any language: a comment marks a design flaw or a hidden bug. Make names, types, and
+  structure say it; a reason that still needs words goes in `docs/`. `npm run check` fails on a comment.
+- Look before you leap (LBYL): check the precondition (it exists, is permitted, is available, parses) before acting.
+  A failure no check can foresee (network, native I/O) surfaces to the user or becomes a named outcome; never
+  swallow it with `catch(() => undefined)`.
 - UI design: avoid unnecessary secondary labels and descriptions; let the layout do the explaining.
 - A change to the transcript or scrolling is measured on the S24 (120 Hz) with `test/jank.sh`, before and after. Virtualizing the transcript (react-virtuoso) was reverted for this: rows mounting while scrolling up dropped frames.
 - Before a new tool or toolset goes in, measure it as `docs/tools.md` describes (`test/tool-cost.sh` on the S24, before and after, and natural questions in a temporary bot), choose always or on demand there, and update its table and log.

@@ -16,12 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * fetch over native HTTP that streams: for APIs whose responses the WebView may not read (no CORS headers), where
- * CapacitorHttp would buffer a streamed answer whole. start() returns the request's id at once; the status and
- * headers arrive as a "head" event, the body as "chunk" events (base64, as read), then "end" or "error", each with
- * the request's id. abort() stops one.
- */
 @CapacitorPlugin(name = "StreamFetch")
 public class StreamFetchPlugin extends Plugin {
 

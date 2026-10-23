@@ -12,6 +12,7 @@ import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 import { addDraftFile, loadDraftAttachments, receiveDraftFiles, saveDraftAttachments } from "./drafts.ts";
+import { messageOf, orLogged } from "../promise.ts";
 
 const MAX_IMAGE_EDGE = 1600;
 
@@ -22,7 +23,6 @@ function discardPrepared(prepared: PreparedAttachment): void {
 	}
 }
 
-/** Downscale a photo to a JPEG that fits the model's image limits and keeps requests small. */
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
 	const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
@@ -35,7 +35,6 @@ async function toImageContent(file: File): Promise<ImageContent> {
 	return { type: "image", mimeType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
 }
 
-/** A file picked for the next message: being read on the phone, or ready with its message content. */
 type PendingFile =
 	| { key: string; state: "reading"; name: string; kind: AttachmentKind; size: number }
 	| { key: string; state: "ready"; prepared: PreparedAttachment };
@@ -70,20 +69,15 @@ export function Composer({
 	queued: QueuedItem[];
 	focusKey: number;
 	pickImageKey: number;
-	/** The bot this composer writes to, which its attachments belong to. */
 	conversationId: string;
-	/** Files to start with, shared from another app: taken as if picked. */
 	initialFiles?: readonly File[];
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
 	onNotice: (message: string) => void;
-	/** Shown on the composer's top line when the transcript is scrolled up: "latest", or "new" once more arrived. */
 	scrollHint?: "latest" | "new";
 	onScrollToBottom: () => void;
-	/** The user's messages, oldest first, for the dial. */
 	prompts: DialPrompt[];
-	/** Scroll to one of them, or to the newest when undefined. */
 	onJump: (id: string | undefined) => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>([]);
@@ -113,13 +107,9 @@ export function Composer({
 		if (pickImageKey) fileInput.current?.click();
 	}, [pickImageKey]);
 
-	// Once: the composer is remounted for each conversation it opens with (App.tsx chatKey). The photos and files left
-	// here unsent come back first, then a share's files join them.
 	const restored = useRef(false);
 	useEffect(() => {
-		void loadDraftAttachments(conversationId)
-			.catch(() => undefined)
-			.then((saved) => {
+		void orLogged(loadDraftAttachments(conversationId), "drafts.load_failed", undefined).then((saved) => {
 				if (saved) {
 					setImages((current) => [...saved.images, ...current]);
 					setFiles((current) => [...saved.files.map((prepared) => ({ key: prepared.card.id, state: "ready" as const, prepared })), ...current]);
@@ -127,12 +117,11 @@ export function Composer({
 				restored.current = true;
 				if (initialFiles?.length) void attach([...initialFiles]);
 			});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	useEffect(() => {
 		if (!restored.current) return;
 		const draft = { images, files: files.flatMap((file) => (file.state === "ready" ? [file.prepared] : [])) };
-		saveDraftAttachments(conversationId, draft).catch(() => undefined);
+		void orLogged(saveDraftAttachments(conversationId, draft), "drafts.save_failed", undefined);
 	}, [conversationId, images, files]);
 
 	const unmounted = useRef(false);
@@ -156,25 +145,25 @@ export function Composer({
 		onDraftChange("");
 		setImages([]);
 		setFiles([]);
-		// QR codes and barcodes in the photos, decoded here (a few hundred ms a photo, none without photos).
 		void codeNote(photos, (index) => `photo ${index + 1}`).then((codes) =>
 			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...photos, ...(codes ? [codes] : [])], whenBusy),
 		);
 	};
 
-	/** The phone's document scanner; its PDF is attached like a picked one. */
 	const scanDocument = async () => {
 		setAttachMenu(false);
-		try {
-			const scan = await Scanner.scan({});
-			const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
-			await attach([await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf")]);
-		} catch (error) {
-			if (!(error instanceof Error && Reflect.get(error, "code") === "cancelled")) onNotice(`掃描失敗：${error instanceof Error ? error.message : String(error)}`);
-		}
+		const scan = await Scanner.scan({}).then(
+			(result) => result,
+			(error: unknown): { cancelled: true } => {
+				onNotice(`掃描失敗：${messageOf(error)}`);
+				return { cancelled: true };
+			},
+		);
+		if (scan.cancelled) return;
+		const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
+		await attach([await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf")]);
 	};
 
-	/** Photos become images at once; other files are read on the phone (attachments.ts), shown as reading meanwhile. */
 	const attach = async (picked: File[]) => {
 		const photos = picked.filter((file) => file.type.startsWith("image/"));
 		for (const file of picked) {
@@ -189,12 +178,12 @@ export function Composer({
 			prepareAttachment(file, conversationId).then(
 				(prepared) => {
 					if (removedWhileReading.current.delete(key)) discardPrepared(prepared);
-					else if (unmounted.current) addDraftFile(conversationId, prepared).catch(() => undefined);
+					else if (unmounted.current) void orLogged(addDraftFile(conversationId, prepared), "drafts.save_failed", undefined);
 					else setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
 				},
 				(error: unknown) => {
 					setFiles((current) => current.filter((item) => item.key !== key));
-					onNotice(`讀不了 ${file.name}：${error instanceof Error ? error.message : String(error)}`);
+					onNotice(`讀不了 ${file.name}：${messageOf(error)}`);
 				},
 			);
 		}
@@ -204,7 +193,6 @@ export function Composer({
 	};
 
 	return (
-		// Touches here are not side swipes (SidePanel.tsx): the scroll tab's slide opens the prompt dial.
 		<div className="composer" onTouchStart={(event) => event.stopPropagation()}>
 			{queued.length > 0 ? (
 				<ul className="queue">
@@ -220,7 +208,6 @@ export function Composer({
 				</ul>
 			) : null}
 			<div className="input">
-				{/* A tab on the editor's line, as pi writes "↓ N more" into it; a long press opens the prompt dial. */}
 				<ScrollTab hint={scrollHint} prompts={prompts} onScrollToBottom={onScrollToBottom} onJump={onJump} />
 				{files.length > 0 ? (
 					<div className="pending-files">

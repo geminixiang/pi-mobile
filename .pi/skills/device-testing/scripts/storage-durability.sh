@@ -1,8 +1,4 @@
 #!/bin/bash
-# Whether the WebView's own storage (OPFS and IndexedDB, where pi keeps its conversations) survives what Android does
-# to an app: a force stop, the system trimming caches, an app update, and nearly full storage. Writes a marker into
-# each, then checks it after every step. EMULATOR ONLY: it uses root, fills the disk, and trims every app's caches.
-# Usage: storage-durability.sh <emulator serial> <port> [apk to reinstall, default pi-mobile.apk]
 set -e
 cd "$(dirname "$0")/../../../.."
 SERIAL=$1

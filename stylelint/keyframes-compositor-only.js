@@ -1,8 +1,3 @@
-// Stylelint rule pi-mobile/keyframes-compositor-only: in @keyframes, animate only what the compositor moves without
-// repainting or re-laying out the page: opacity and transform, plus a few paint-only properties used for a one-off
-// highlight. A filter (blur, brightness) is redrawn every frame: a 2 px blur fading in each streamed word dropped 20 to
-// 35 of about 1500 frames on the S24, against 1 or 2 with opacity alone. Layout properties (width, margin, top, ...)
-// re-lay out the page every frame. See .agents/skills/css/SKILL.md.
 import stylelint from "stylelint";
 
 const name = "pi-mobile/keyframes-compositor-only";

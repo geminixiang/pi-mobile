@@ -17,12 +17,6 @@ import android.os.PowerManager;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * Keeps the app process running while the agent works: a foreground service (so Android does not freeze or kill the
- * process when the app is in the background or the screen is locked) plus a partial wake lock (so the CPU keeps
- * running with the screen off). The WebView, and the agent loop in it, live in the same process and keep going.
- * Started and stopped by KeepAlivePlugin from the web side when runs begin and end.
- */
 public class AgentService extends Service {
 
     static final String CHANNEL_WORKING = "agent-working";
@@ -31,7 +25,6 @@ public class AgentService extends Service {
     static final String EXTRA_TEXT = "text";
     static final String EXTRA_TITLE = "title";
     private static final int NOTIFICATION_ID = 1;
-    /** Safety net: release the wake lock even if the web side never says the run ended. */
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
 
     private PowerManager.WakeLock wakeLock;
@@ -94,7 +87,6 @@ public class AgentService extends Service {
             wakeLock.setReferenceCounted(false);
         }
         wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS);
-        // Not sticky: if Android kills the process anyway, the next launch resumes the run (pi-durable).
         return START_NOT_STICKY;
     }
 
