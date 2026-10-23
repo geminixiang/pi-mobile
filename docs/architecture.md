@@ -82,9 +82,10 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 - 鬧鐘觸發後的短暫豁免期內才能啟動前景服務，所以 `TriggerReceiver` 一收到就先啟動服務。
 - 返回鍵用 `@capacitor/app` 的 backButton 事件，不用瀏覽器 history：Chromium 會跳過頁面自己推的 history。
 
-**效能（S24，`test/jank.sh`）**
+**效能（S24，`test/jank.sh`；2026-10 起用 `test/perf/run.ts`，見 development.md）**
 - 對話的每一則訊息都 memo：Chat 每個按鍵、每個串流 token 都會重繪，全部重算 Markdown 時打字每鍵要 30–40 ms。
-- 串流中只解析正在寫的段落（以程式碼區塊外的空行切開），已完成的段落 memo；每幀全文解析會掉 3% 的幀。文字一陣一陣到（約 150 ms 一批），`useSmoothText` 每幀補一點，在一批的間隔內追上。
+- `EntryView` 的 memo 只比對這則訊息自己的工具呼叫狀態，不比對整個 `calls`：送出和回答完成時對話紀錄會變，`calls` 每次都是新的 Map，原本會讓每一則訊息重新解析 Markdown，一次約 230 ms。
+- 串流中只解析正在寫的段落（以程式碼區塊外的空行切開），已完成的段落 memo；每幀全文解析會掉 3% 的幀。文字一陣一陣到（約 150 ms 一批），`useSmoothText` 每幀補一點，在一批的間隔內追上。串流的字不做淡入：每個字一個 `<span>` 加 opacity 動畫，在 120 Hz 下串流時有 61% 的幀超時，拿掉後 9%。
 - Mermaid 圖：inline SVG、SVG `<img>`、畫一次的 PNG 都只掉 0–2 幀（每次約 260 幀），跟藏起來一樣，所以用最簡單的 inline。
 
 **外部服務**
