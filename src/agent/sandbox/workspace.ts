@@ -4,6 +4,7 @@ import type { ExecutionEnv, FileInfo } from "@earendil-works/pi-durable/env";
 const context = BACKGROUND_CONTEXT;
 export const WORKSPACE = "/workspace";
 const MAX_TEXT_BYTES = 512 * 1024;
+const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_DIFF_CHARS = 1_500_000;
 const IMAGE_TYPES: Record<string, string> = {
@@ -18,7 +19,7 @@ const IMAGE_TYPES: Record<string, string> = {
 export type FileEntry = FileInfo;
 
 export type FileContent =
-	| { kind: "text"; text: string; truncated: boolean; size: number }
+	| { kind: "text"; text: string; truncated: boolean; size: number; limit: number }
 	| { kind: "image"; url: string; size: number }
 	| { kind: "binary"; size: number };
 
@@ -58,13 +59,17 @@ function looksBinary(bytes: Uint8Array): boolean {
 	return sample.includes(0);
 }
 
+export const isHtml = (path: string): boolean => /^html?$/.test(extension(path));
+
 export class Workspace {
 	readonly #env: ExecutionEnv;
 	readonly root: string;
+	readonly git: boolean;
 
-	constructor(env: ExecutionEnv, root: string) {
+	constructor(env: ExecutionEnv, root: string, options: { git: boolean }) {
 		this.#env = env;
 		this.root = root;
+		this.git = options.git;
 	}
 
 	async list(path: string): Promise<FileEntry[]> {
@@ -87,10 +92,11 @@ export class Workspace {
 			if (!bytes.ok) throw bytes.error;
 			return { kind: "image", url: URL.createObjectURL(new Blob([bytes.value as Uint8Array<ArrayBuffer>], { type })), size };
 		}
-		const head = await this.#exec(`head -c ${MAX_TEXT_BYTES} -- ${quote(path)} | base64 | tr -d '\\n'`);
+		const limit = isHtml(path) ? MAX_HTML_BYTES : MAX_TEXT_BYTES;
+		const head = await this.#exec(`head -c ${limit} ${quote(path)} | base64 | tr -d '\\n'`);
 		const bytes = Uint8Array.from(atob(head.stdout.trim()), (char) => char.charCodeAt(0));
 		if (looksBinary(bytes)) return { kind: "binary", size };
-		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > MAX_TEXT_BYTES, size };
+		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > limit, size, limit };
 	}
 
 	async bytes(path: string): Promise<Uint8Array> {

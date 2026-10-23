@@ -665,6 +665,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .viewer > .banner, .viewer > .ws-loading, .viewer > .ws-empty, .viewer > .note { margin: 0 var(--space); }
 .viewer-image { display: block; max-width: calc(100% - 2 * var(--space)); margin: 0 var(--space); border: 1px solid var(--line); background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; }
 .viewer-markdown { padding: 0 var(--space); }
+.viewer-html { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
 .code-view { display: flex; min-width: min-content; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
 .code-view pre { margin: 0; font: inherit; }
 .code-gutter { position: sticky; left: 0; padding: 0 10px 0 var(--space); text-align: right; color: var(--faint); background: var(--bg); border-right: 1px solid var(--line); user-select: none; }

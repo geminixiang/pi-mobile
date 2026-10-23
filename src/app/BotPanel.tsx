@@ -161,7 +161,7 @@ export function BotPanel({
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
 	const place = runtime.workplaces.at(String(bot.id));
-	const folder = place?.kind === "computer" ? place.root : undefined;
+	const folder = place?.kind === "computer" ? place.root : place?.kind === "phone" ? "手機上的資料夾" : undefined;
 	const lastAnswer = [...(view?.entries ?? [])].reverse().find((entry) => entry.kind === "pi.assistant");
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
 

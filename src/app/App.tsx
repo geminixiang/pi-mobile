@@ -295,6 +295,7 @@ export function App() {
 	}
 	const place = controller ? runtime.workplaces.at(String(controller.id)) : undefined;
 	const onSandbox = place?.kind === "computer";
+	const hasFolder = place?.kind === "computer" || place?.kind === "phone";
 
 	const agent = agentOf(view);
 	const modelId = agent?.model?.modelId ?? "";
@@ -397,7 +398,7 @@ export function App() {
 								});
 								if (sure) await controller.reset().catch(fail);
 							},
-							workspace: onSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
+							workspace: hasFolder ? () => openWorkspace({ tab: "files" }) : undefined,
 							emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
 								? async () => {
 										if (!controller) return;
@@ -415,7 +416,7 @@ export function App() {
 				}
 			>
 				{controller ? (
-					<OpenFileContext.Provider value={onSandbox ? openFile : undefined}>
+					<OpenFileContext.Provider value={hasFolder ? openFile : undefined}>
 					<Chat
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}

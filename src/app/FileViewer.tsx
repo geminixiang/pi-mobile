@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
-import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
+import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
 import { Apps, base64, MIME_TYPES } from "../agent/tools/apps.ts";
 import { BackIcon } from "./icons.tsx";
 import { markdownComponents, remarkPlugins } from "./Message.tsx";
 import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
+
+const HTML_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:">`;
+
+function withCsp(html: string): string {
+	const head = /<head(\s[^>]*)?>/i.exec(html);
+	return head ? `${html.slice(0, head.index + head[0].length)}${HTML_CSP}${html.slice(head.index + head[0].length)}` : `${HTML_CSP}${html}`;
+}
+
+const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
+
+function HtmlPreview({ html }: { html: string }) {
+	return <iframe className="viewer-html" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={withCsp(html)} title="預覽" />;
+}
 
 function CodeLines({ text }: { text: string }) {
 	const lines = text.replace(/\n$/, "").split("\n");
@@ -25,8 +38,21 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [copied, setCopied] = useState(false);
 	const [opening, setOpening] = useState(false);
+	const [sharing, setSharing] = useState(false);
 	const name = path?.split("/").at(-1) ?? "";
 	const markdown = /\.(md|markdown)$/i.test(name);
+	const html = isHtml(name) && htmlPreviewIsolated();
+	const previewable = markdown || html;
+	const mimeType = MIME_TYPES[name.split(".").at(-1)?.toLowerCase() ?? ""] ?? "application/octet-stream";
+	const share = () => {
+		if (!path) return;
+		setSharing(true);
+		void workspace
+			.bytes(path)
+			.then((bytes) => Apps.share({ title: name, fileBase64: base64(bytes), fileName: name, mimeType }))
+			.catch((failure: unknown) => setError(messageOf(failure)))
+			.finally(() => setSharing(false));
+	};
 
 	useEffect(() => {
 		if (!path) return;
@@ -59,7 +85,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 						<span className="bar-title">{name}</span>
 						<span className="bar-model">{path}</span>
 					</div>
-					{content?.kind === "text" ? (
+					{content?.kind === "text" && !html ? (
 						<button
 							type="button"
 							className="btn bar-action"
@@ -72,7 +98,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 						>
 							{copied ? "已複製" : "複製"}
 						</button>
-					) : content ? (
+					) : content && content.kind !== "text" ? (
 						<button
 							type="button"
 							className="btn bar-action"
@@ -80,10 +106,9 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 							onClick={() => {
 								if (!path) return;
 								setOpening(true);
-								const type = MIME_TYPES[name.split(".").at(-1)?.toLowerCase() ?? ""] ?? "application/octet-stream";
 								void workspace
 									.bytes(path)
-									.then((bytes) => Apps.openFile({ fileBase64: base64(bytes), fileName: name, mimeType: type }))
+									.then((bytes) => Apps.openFile({ fileBase64: base64(bytes), fileName: name, mimeType }))
 									.catch((failure: unknown) => {
 										const code = typeof failure === "object" && failure !== null ? Reflect.get(failure, "code") : undefined;
 										setError(code === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure));
@@ -94,8 +119,13 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 							用其他 app 開啟
 						</button>
 					) : null}
+					{content ? (
+						<button type="button" className="btn bar-action" disabled={sharing} onClick={share}>
+							分享
+						</button>
+					) : null}
 				</header>
-				{markdown && content?.kind === "text" ? (
+				{previewable && content?.kind === "text" ? (
 					<div className="tabs" role="tablist">
 						{(
 							[
@@ -123,8 +153,11 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 							</div>
 						</div>
 					) : null}
-					{content?.kind === "text" && !(markdown && mode === "preview") ? <CodeLines text={content.text} /> : null}
-					{content?.kind === "text" && content.truncated ? <div className="note">只顯示前 512 KB</div> : null}
+					{content?.kind === "text" && html && mode === "preview" ? (
+						content.truncated ? <div className="ws-empty">檔案超過 {content.limit / 1024 / 1024} MB，分享後用瀏覽器開</div> : <HtmlPreview html={content.text} />
+					) : null}
+					{content?.kind === "text" && !(previewable && mode === "preview") ? <CodeLines text={content.text} /> : null}
+					{content?.kind === "text" && content.truncated && !(html && mode === "preview") ? <div className="note">只顯示前 {content.limit >= 1024 * 1024 ? `${content.limit / 1024 / 1024} MB` : `${content.limit / 1024} KB`}</div> : null}
 				</div>
 			</div>
 		</Layer>

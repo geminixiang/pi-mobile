@@ -4,7 +4,7 @@ import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { BackIcon, ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
-import { resolvePath } from "./openFile.ts";
+import { joinPath, resolvePath } from "./openFile.ts";
 import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
 
@@ -45,9 +45,10 @@ function BackStep({ onBack }: { onBack: () => void }) {
 
 function levelsTo(root: string, file: string | undefined): string[] {
 	const levels = [root];
-	if (!file?.startsWith(`${root}/`)) return levels;
-	const parts = file.slice(root.length + 1).split("/").slice(0, -1);
-	for (const part of parts) levels.push(`${levels.at(-1)}/${part}`);
+	const prefix = joinPath(root, "");
+	if (!file?.startsWith(prefix)) return levels;
+	const parts = file.slice(prefix.length).split("/").slice(0, -1);
+	for (const part of parts) levels.push(joinPath(levels.at(-1) ?? root, part));
 	return levels;
 }
 
@@ -112,7 +113,7 @@ function FileBrowser({
 					<li key={entry.name}>
 						<button
 							type="button"
-							onClick={() => (entry.kind === "directory" ? setStack([...stack, `${path}/${entry.name}`]) : onOpen(`${path}/${entry.name}`))}
+							onClick={() => (entry.kind === "directory" ? setStack([...stack, joinPath(path, entry.name)]) : onOpen(joinPath(path, entry.name)))}
 						>
 							<span className={`file-kind ${entry.kind}`}>{entry.kind === "directory" ? "▸" : <FileIcon size={14} />}</span>
 							<span className="file-name">
@@ -285,7 +286,7 @@ export function WorkspaceView({
 					{(
 						[
 							["files", "檔案"],
-							["git", "變更"],
+							...(workspace?.git === false ? [] : [["git", "變更"] as const]),
 						] as const
 					).map(([value, label]) => (
 						<button type="button" role="tab" key={value} aria-selected={tab === value} className={tab === value ? "selected" : ""} onClick={() => setTab(value)}>
@@ -294,10 +295,10 @@ export function WorkspaceView({
 					))}
 				</div>
 				{error ? <div className="ws-pane"><div className="banner error">{error}</div></div> : null}
-				{workspace === undefined && !error ? <div className="ws-pane"><div className="ws-loading">連接 sandbox</div></div> : null}
+				{workspace === undefined && !error ? <div className="ws-pane"><div className="ws-loading">連接電腦</div></div> : null}
 				{workspace === null ? (
 					<div className="ws-pane">
-						<div className="ws-empty">這個 Bot 還沒用過 sandbox。請它在 sandbox 裡做點事，檔案就會出現在這裡。</div>
+						<div className="ws-empty">這個 Bot 還沒在電腦上做過事。請它做點事，檔案就會出現在這裡。</div>
 					</div>
 				) : null}
 				{workspace && tab === "files" ? (

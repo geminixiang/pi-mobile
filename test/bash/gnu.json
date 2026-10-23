@@ -622,5 +622,9 @@
  "dev_zero_head": {
   "stdout": "3000000\n100000\n",
   "exit": 0
+ },
+ "double_dash_end_of_options": {
+  "stdout": "x\nx\nx\nx\nx\n",
+  "exit": 2
  }
 }

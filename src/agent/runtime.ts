@@ -346,8 +346,9 @@ export class AgentRuntime {
 
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
 		const place = this.workplaces.at(String(id));
+		if (place?.kind === "phone") return new Workspace(place.env(), "/", { git: false });
 		if (place?.kind !== "computer" || !(await place.sandbox.exists(place.folder))) return undefined;
-		return new Workspace(await place.env(), place.root);
+		return new Workspace(await place.env(), place.root, { git: true });
 	}
 
 	phoneFolder(id: ConversationId): ExecutionEnv | undefined {

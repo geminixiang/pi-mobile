@@ -154,5 +154,6 @@
  "awk_printf_100k": "seq 1 100000 | awk '{printf \"%d,\", $1}' | wc -c",
  "awk_bare_length": "printf 'abc\\nde\\n' | awk '{print length}'; printf 'abc\\nde\\n' | awk 'length > 2'",
  "awk_records_over_1m": "seq 1 1200000 | awk '{n++} END{print n}'",
- "dev_zero_head": "head -c 3000000 /dev/zero | wc -c; head -c 100000 /dev/urandom | wc -c"
+ "dev_zero_head": "head -c 3000000 /dev/zero | wc -c; head -c 100000 /dev/urandom | wc -c",
+ "double_dash_end_of_options": "echo x > t.txt; head -n1 -- t.txt; tail -n1 -- t.txt; sort -- t.txt; cut -c1 -- t.txt; sed -n 1p -- t.txt; awk 1 -- t.txt"
 }

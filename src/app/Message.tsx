@@ -220,6 +220,15 @@ function preview(name: string, lines: string[]): { shown: string[]; hidden: numb
 	return { shown: lines.slice(0, 10), hidden: Math.max(0, lines.length - 10) };
 }
 
+const HTML_PATH = /(?:^|[\s"'`(])((?:\/|\.\/)?[^\s"'`()<>]+\.html?)(?=$|[\s"'`),.:;，。])/gim;
+
+function htmlPathsIn(output: string | undefined): string[] {
+	if (!output) return [];
+	const found = new Set<string>();
+	for (const match of output.matchAll(HTML_PATH)) if (match[1]) found.add(match[1]);
+	return [...found];
+}
+
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
@@ -228,6 +237,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
+	const openable = filePath ? [filePath] : call.name === "codemode" || call.name === "bash" ? htmlPathsIn(output) : [];
 	const lines = output ? output.split("\n") : [];
 	const { shown, hidden } = open || status === "error" ? { shown: lines, hidden: 0 } : preview(call.name, lines);
 	const script = call.name === "codemode" && typeof call.arguments.code === "string" ? call.arguments.code : undefined;
@@ -235,8 +245,8 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const expandable = lines.length > 0 || Boolean(script);
 	return (
 		<div className={`step ${status}${open ? " open" : ""}`} data-tool={call.name}>
-			{openFile && filePath && status !== "running" ? (
-				<button type="button" className="step-open" onClick={() => openFile(filePath)} aria-label="開啟檔案">
+			{openFile && status !== "running" && openable[0] ? (
+				<button type="button" className="step-open" onClick={() => openFile(openable[0])} aria-label={`開啟 ${openable[0].split("/").at(-1) ?? "檔案"}`}>
 					<FileIcon size={14} />
 				</button>
 			) : null}

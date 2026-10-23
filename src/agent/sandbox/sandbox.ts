@@ -7,6 +7,7 @@ import { BotIndex } from "../bots.ts";
 import { type DaemonArch, type DaemonOs, shellQuote } from "./daemon.ts";
 import type { StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
+import { SHOWN_AS_FILE } from "../files/extension.ts";
 import type { Workplace } from "../workplaces.ts";
 import { onFailure } from "../../promise.ts";
 
@@ -95,6 +96,7 @@ export function containerDescription(folder: string): string {
 		"Before the first git command that talks to GitHub, run `gh auth setup-git` once (git then signs in through gh), and if `git config --global user.email` is empty, set user.name and user.email from `gh api user` (email: the account's, else <id>+<login>@users.noreply.github.com), so commits are the user's.",
 		"When the phone is not connected, GitHub is anonymous and the others fail with 'pi mobile: ...'.",
 		IMAGES,
+		SHOWN_AS_FILE,
 	].join(" ");
 }
 
@@ -111,6 +113,7 @@ export function directDescription(name: string, user: string, system: { os: Daem
 		"Websites: ego-browser if `command -v ego-browser` finds it (run `ego-browser skill` once and follow it), never by clicking a browser.",
 		"Scratch files go in a temp directory.",
 		IMAGES,
+		SHOWN_AS_FILE,
 	].join(" ");
 }
 
