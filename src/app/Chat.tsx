@@ -204,7 +204,7 @@ export function Chat({
 					return [{ id: String(entry.id), text: typed || "（圖片）" }];
 				}
 				if (entry.kind === TRIGGER_ENTRY && typeof entry.data === "object" && entry.data && "name" in entry.data) {
-					return [{ id: String(entry.id), text: `排程：${String(entry.data.name)}` }];
+					return [{ id: String(entry.id), text: `自動化：${String(entry.data.name)}` }];
 				}
 				return [];
 			}),

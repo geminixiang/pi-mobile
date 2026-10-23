@@ -39,7 +39,7 @@ public class AgentService extends Service {
         done.setDescription("app 不在前景時，agent 完成");
         manager.createNotificationChannel(done);
         NotificationChannel proactive = new NotificationChannel(CHANNEL_PROACTIVE, "pi 主動通知", NotificationManager.IMPORTANCE_DEFAULT);
-        proactive.setDescription("排程和其他觸發執行的結果");
+        proactive.setDescription("自動化執行的結果");
         manager.createNotificationChannel(proactive);
     }
 

@@ -27,7 +27,7 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "control", label: "手機控制", hint: "音樂播放、勿擾模式（需要通知讀取）", extensions: ["phone_control"] },
 	{ kind: "builtin", id: "notifications", label: "通知", hint: "讀、回覆、清除手機收到的通知：LINE、信件、外送…（設定 › 手機）", extensions: ["notifications"] },
 	{ kind: "builtin", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },
-	{ kind: "builtin", id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機排程只寫文字", extensions: ["speech"] },
+	{ kind: "builtin", id: "speech", label: "語音", hint: "用耳機念出來；關掉後耳機的自動化只寫文字", extensions: ["speech"] },
 	{ kind: "builtin", id: "github", label: "GitHub", hint: "用你的 token 呼叫 REST API", extensions: ["github"] },
 	{ kind: "builtin", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API", extensions: ["gcp"] },
 	{ kind: "builtin", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API", extensions: ["cloudflare"] },

@@ -1,12 +1,47 @@
 import type { ReactNode } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
-import { GearIcon, MoreIcon, PlusIcon } from "./icons.tsx";
+import { GearIcon, MoreIcon, PlusIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
+import type { Trigger, When } from "../agent/triggers.ts";
+import { symbolsOf } from "./triggerSymbol.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { SidePanel } from "./SidePanel.tsx";
 
 const DAY = 24 * 60 * 60 * 1000;
+const SHOWN_SYMBOLS = 3;
+
+const SYMBOL_NAMES: Record<TriggerSymbol, string> = {
+	clock: "時間",
+	headphones: "耳機",
+	bell: "通知",
+	pin: "地點",
+	wifi: "Wi‑Fi",
+	charging: "充電",
+	battery: "電量",
+	unlock: "解鎖",
+	image: "照片",
+	car: "坐車",
+	globe: "時區",
+	bluetooth: "藍牙",
+	walk: "走路",
+	bike: "騎車",
+	still: "靜止",
+};
+
+function BotAutomations({ whens }: { whens: readonly When[] }) {
+	const symbols = symbolsOf(whens);
+	if (symbols.length === 0) return null;
+	const hidden = symbols.length - SHOWN_SYMBOLS;
+	return (
+		<span className="bot-automations" aria-label={`自動化：${symbols.map((symbol) => SYMBOL_NAMES[symbol]).join("、")}`}>
+			{symbols.slice(0, SHOWN_SYMBOLS).map((symbol) => (
+				<TriggerIcon key={symbol} symbol={symbol} size={13} />
+			))}
+			{hidden > 0 ? <span className="bot-automations-more">+{hidden}</span> : null}
+		</span>
+	);
+}
 
 function time(updatedAt: number, now: Date): string {
 	const date = new Date(updatedAt);
@@ -20,6 +55,7 @@ export function Drawer({
 	open,
 	busy,
 	bots,
+	automations,
 	currentId,
 	status,
 	onOpen,
@@ -32,6 +68,7 @@ export function Drawer({
 	open: boolean;
 	busy: boolean;
 	bots: Bot[];
+	automations: readonly Trigger[];
 	currentId: ConversationId | undefined;
 	status: { label: string; icon: ReactNode; on: boolean }[];
 	onOpen: (id: ConversationId) => void;
@@ -67,7 +104,8 @@ export function Drawer({
 								<span className="bot-text">
 									<span className="drawer-title">
 										{running.has(bot.id) ? <span className="drawer-running" aria-label="執行中" /> : null}
-										{bot.name}
+										<span className="bot-name">{bot.name}</span>
+										<BotAutomations whens={automations.filter((item) => item.enabled && item.conversationId === bot.id).map((item) => item.when)} />
 									</span>
 									<span className="bot-job">{bot.job.split("\n")[0] || "一般助理"}</span>
 								</span>

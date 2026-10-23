@@ -194,11 +194,11 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(messageOf(failure)));
 
 	return (
-		<Group title="排程">
+		<Group title="自動化">
 			{state.items.length === 0 ? (
 				<div className="check-row">
 					<span className="menu-text">
-						還沒有排程
+						還沒有自動化
 						<span className="menu-hint">跟 Bot 說就會建立</span>
 					</span>
 				</div>
@@ -402,7 +402,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		...(native
 			? [
 					{ page: "phone" as const, label: "手機", value: undefined },
-					{ page: "schedules" as const, label: "排程", value: triggers ? `${triggers} 個` : "" },
+					{ page: "schedules" as const, label: "自動化", value: triggers ? `${triggers} 個` : "" },
 					{ page: "data" as const, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" },
 				]
 			: []),
@@ -600,7 +600,7 @@ export function SettingsView({
 				</>
 			),
 		},
-		schedules: { title: "排程", body: () => (runtime ? <TriggersGroup runtime={runtime} /> : null) },
+		schedules: { title: "自動化", body: () => (runtime ? <TriggersGroup runtime={runtime} /> : null) },
 		data: { title: "資料庫", body: () => <DatabaseGroup /> },
 	};
 

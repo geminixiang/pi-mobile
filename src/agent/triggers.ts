@@ -90,6 +90,8 @@ export const TriggerEntryData = Type.Object({
 	delivery: Type.String(),
 	at: Type.Optional(Type.Number()),
 	device: Type.Optional(Type.String()),
+	on: Type.Optional(Type.String()),
+	activity: Type.Optional(Type.String()),
 });
 
 const QueuedEvent = Type.Union([
@@ -168,7 +170,7 @@ export function describeWhen(when: When): string {
 	const window = when.from || when.until ? ` ${when.from ?? "00:00"}–${when.until ?? "24:00"}` : "";
 	const days = describeDays(when.days);
 	const limit = when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`;
-	return `${days === "每天" && window ? "" : days}${window} ${describeEvent(when)}（${limit}）`.trim();
+	return `${days === "每天" ? "" : days}${window} ${describeEvent(when)}（${limit}）`.trim();
 }
 
 function describeEvent(when: Exclude<When, { kind: "once" | "daily" }>): string {
@@ -546,6 +548,7 @@ export class TriggerRuns {
 				: heard
 					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
 					: `schedule "${trigger.name}"`;
+		const activity: Record<string, string> = trigger.when.kind === "activity" ? { activity: trigger.when.activity } : {};
 		try {
 			await conversation.submit(
 				{
@@ -554,7 +557,17 @@ export class TriggerRuns {
 					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
 					entry: {
 						kind: TRIGGER_ENTRY,
-						data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now, ...(heard ? { device: heard } : {}) },
+						data: {
+							trigger: id,
+							name: trigger.name,
+							prompt: trigger.prompt,
+							kind: trigger.kind,
+							delivery,
+							at: now,
+							on: trigger.when.kind,
+							...activity,
+							...(heard ? { device: heard } : {}),
+						},
 					},
 					whenBusy: "followUp",
 				},

@@ -205,7 +205,7 @@ export class AgentRuntime {
 		runtimeRef = runtime;
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
-		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`排程同步失敗：${messageOf(error)}`));
+		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`自動化同步失敗：${messageOf(error)}`));
 		harness.resume();
 		for (const bot of await runtime.#allBots()) {
 			if (bot.removing) void orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });

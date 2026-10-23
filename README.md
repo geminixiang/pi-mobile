@@ -13,7 +13,7 @@
 <img src="docs/screenshots/diff.png" width="200" alt="工作區：diff">
 </p>
 
-- **幾個長期的 Bot**：每個 Bot 有自己的名字、工作說明、記憶、排程，和一條一直延續的對話，太長時自動壓縮。
+- **幾個長期的 Bot**：每個 Bot 有自己的名字、工作說明、記憶、自動化，和一條一直延續的對話，太長時自動壓縮。
 - **Agent 在手機上跑**：對話和執行狀態存在手機上。鎖屏、切到背景都會繼續跑，app 被系統清掉後也會接著跑。
 - **模型用你自己的 key**：透過 pi-ai 接 OpenAI、Anthropic、Gemini、OpenRouter、xAI、DeepSeek 等供應商，也能接任何 OpenAI 或 Anthropic 相容的端點（自架 gateway、Ollama）；可以同時用好幾家。OpenAI 也可以直接用 ChatGPT 訂閱登入。
 - **手機的能力**：天氣、附近的店家、行事曆、通知、鬧鐘、語音、記帳用的 SQLite 資料庫……都是工具，每個 Bot 可以分別開關。
@@ -36,12 +36,12 @@
 
 ## 文件
 
-- [功能細節](docs/features.md)：Bot、記憶、排程與耳機觸發、工具、工作區、操作手勢
+- [功能細節](docs/features.md)：Bot、記憶、自動化、工具、工作區、操作手勢
 - [工具與 context](docs/tools.md)：工具怎麼交給模型（程式模式為主）、MCP 服務市集、新工具上線前的量測
 - [架構](docs/architecture.md)：手機與 sandbox 怎麼連、憑證與 egress proxy、專案結構
 - [開發](docs/development.md)：從原始碼建置、安裝 sandbox 主機、測試
 - [安全模型與已知限制](docs/security.md)
-- 設計文件：[排程與觸發](docs/design/triggers.md)、[把電腦交給 pi](docs/design/computer-host.md)
+- 設計文件：[自動化](docs/design/triggers.md)、[把電腦交給 pi](docs/design/computer-host.md)
 
 ## 關於這個專案
 

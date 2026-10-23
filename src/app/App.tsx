@@ -26,7 +26,7 @@ import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
 import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
-import { Triggers } from "../agent/triggers.ts";
+import { type Trigger, Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
@@ -127,6 +127,8 @@ export function App() {
 	}, [start]);
 
 	useEffect(() => (runtime ? runtime.subscribeBots(setBots) : undefined), [runtime]);
+	const [automations, setAutomations] = useState<readonly Trigger[]>([]);
+	useEffect(() => (runtime ? runtime.triggers.subscribe((state) => setAutomations(state.items)) : undefined), [runtime]);
 
 	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
 	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
@@ -344,6 +346,7 @@ export function App() {
 						open={overlay === "drawer"}
 						busy={busy}
 						bots={bots}
+						automations={automations}
 						currentId={controller?.id}
 						status={[
 							{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
@@ -481,7 +484,7 @@ export function App() {
 					setBotEdit(undefined);
 					const sure = await ask({
 						title: `刪除 ${bot.name}`,
-						body: "它的記憶、排程、附件和資料夾都會刪除，無法復原。對話紀錄不再顯示，但還留在手機的資料庫裡。",
+						body: "它的記憶、自動化、附件和資料夾都會刪除，無法復原。對話紀錄不再顯示，但還留在手機的資料庫裡。",
 						confirm: "刪除",
 						danger: true,
 					});

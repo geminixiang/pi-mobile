@@ -239,6 +239,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	background: var(--custom-bg);
 }
 .trigger-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--custom-label); }
+.trigger-head > svg { vertical-align: -2px; margin-right: 6px; }
 .trigger-prompt {
 	display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: left;
 	font-size: 14px; line-height: 1.55; color: var(--tool-output); white-space: pre-wrap; overflow-wrap: anywhere;
@@ -748,6 +749,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .toggle:disabled { opacity: 0.35; }
 .toggle + .toggle { margin-left: -4px; }
 .group-body select.field { appearance: none; color: var(--text); }
+.trigger-symbol { display: flex; align-self: flex-start; margin-top: 1px; color: var(--muted); }
+.trigger-row.paused > .trigger-symbol, .trigger-row.paused > .menu-text { opacity: 0.5; }
 .trigger-actions { display: flex; gap: 16px; margin-top: 4px; }
 .trigger-actions button { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--accent); padding: 4px 0; }
 .trigger-actions button.danger { color: var(--error); }
@@ -788,6 +791,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .bot-item.current .bot-avatar { border-color: var(--accent); }
 .bot-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bot-text .drawer-title { display: flex; align-items: center; gap: 8px; }
+.bot-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bot-automations { display: flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--faint); }
+.bot-automations-more { font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
 .bot-job { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drawer-add {
 	display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; margin-top: 4px;

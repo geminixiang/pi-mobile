@@ -5,7 +5,8 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
-import { ChevronIcon, CloseIcon, FileIcon } from "./icons.tsx";
+import { ChevronIcon, CloseIcon, FileIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
+import { isWhenKind, triggerSymbol } from "./triggerSymbol.ts";
 import { type AttachmentCard, parseAttachment, withoutAttachments } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import type { Prefs } from "./prefs.ts";
@@ -439,15 +440,27 @@ export function StreamingAnswer({
 	);
 }
 
+function entrySymbol(data: Static<typeof TriggerEntryData>): TriggerSymbol {
+	if (data.on && isWhenKind(data.on)) return triggerSymbol({ kind: data.on, ...(data.activity ? { activity: data.activity } : {}) });
+	if (data.kind === "followup" || !data.device) return "clock";
+	if (data.device.startsWith("開始充電")) return "charging";
+	if (data.device.startsWith("連上")) return "wifi";
+	if (/^(到了|離開)/.test(data.device)) return "pin";
+	if (data.device.startsWith("收到")) return "bell";
+	return "headphones";
+}
+
 function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEntryData> }) {
 	const [open, setOpen] = useState(false);
+	const symbol = entrySymbol(data);
 	const time = data.at === undefined ? undefined : new Date(data.at);
 	const clock = time ? ` · ${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}` : "";
 	return (
 		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">
-				{data.kind === "followup" ? "稍後再看" : "排程"} · {data.name}
-				{data.device ? ` · ${/^(開始|連上|到了|離開|收到|解鎖|電量|時區|拍了|斷開|上車|下車|停止|靜止)/.test(data.device) ? data.device : `戴上 ${data.device}`}` : ""}
+				<TriggerIcon symbol={symbol} size={13} />
+				{data.kind === "followup" ? `稍後再看：${data.name}` : data.name}
+				{data.device ? ` · ${symbol === "headphones" ? `戴上 ${data.device}` : data.device}` : ""}
 				{clock}
 				{DELIVERY[data.delivery] ?? ""}
 			</div>

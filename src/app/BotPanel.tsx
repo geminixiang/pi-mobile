@@ -179,11 +179,11 @@ export function BotPanel({
 					</span>
 				</button>
 
-				<Section title="排程">
+				<Section title="自動化">
 					<div className="menu">
 						{mine.length === 0 ? (
 							<div className="check-row">
-								<span className="menu-text">還沒有排程</span>
+								<span className="menu-text">還沒有自動化</span>
 							</div>
 						) : (
 							mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={onError} />)

@@ -98,7 +98,7 @@ public class TriggerReceiver extends BroadcastReceiver {
         if (id == null) return;
         JSONObject schedule = TriggerStore.schedule(context, id);
         if (schedule == null) return;
-        String name = schedule.optString("name", "排程");
+        String name = schedule.optString("name", "自動化");
         TriggersPlugin live = TriggersPlugin.live();
         JSObject event = new JSObject();
         event.put("kind", "alarm");

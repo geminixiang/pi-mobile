@@ -2,6 +2,8 @@ import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { describeTime, describeWhen, type Trigger } from "../agent/triggers.ts";
 import { messageOf } from "../promise.ts";
+import { TriggerIcon } from "./icons.tsx";
+import { triggerSymbol } from "./triggerSymbol.ts";
 
 const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", manual: "手動執行" };
 
@@ -21,7 +23,10 @@ export function TriggerRow({
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => onError(messageOf(failure)));
 	const last = trigger.last;
 	return (
-		<div className="check-row trigger-row">
+		<div className={`check-row trigger-row${trigger.enabled ? "" : " paused"}`}>
+			<span className="trigger-symbol">
+				<TriggerIcon symbol={triggerSymbol(trigger.when)} />
+			</span>
 			<span className="menu-text">
 				{trigger.kind === "followup" ? `稍後再看：${trigger.name}` : trigger.name}
 				<span className="menu-hint">
