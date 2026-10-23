@@ -21,6 +21,9 @@
 | 60 萬行的 `awk`、`cut` 中途停下；`yes \| head -n 500000` 默默只給 10 萬行 | just-bash 預設的迭代上限是 10 萬 | 迴圈、指令數、awk、sed、jq 上限提高到 1,000 萬；真正的保護是逾時和中止 |
 | 在不存在的目錄執行，`pwd` 照樣成功 | 沒先檢查 | 先確認工作目錄存在，否則回 `spawn_error` |
 | `gzip`、`gunzip`、`zcat` 不能用 | `node:zlib` 的替身只會丟錯；Worker 裡沒有 `Buffer` | 用 fflate 實作 `gzipSync`、`gunzipSync`，Worker 載入 `Buffer`；和 Mac 的 gzip 互相解得開 |
+| awk 處理超過 100 萬筆、grep 超過 100 萬行就停（`record array limit exceeded`） | `maxArrayElements` 預設 100 萬 | 和其他上限一樣提高到 1,000 萬；200 萬行的 awk 加總 3.8 秒、`sed -i` 6.4 秒 |
+| `head -c 1M /dev/zero` 只給 64 KB | `/dev` 一次讀取回固定大小 | 一次讀取改為 4 MB；`/dev/urandom` 分 64 KB 填（`getRandomValues` 的上限） |
+| 檔名 255 字的檔案寫不進去（EIO） | 原生端原子寫入的暫存檔名是 `.<檔名>.pi-write`，超過 255 | 暫存檔改用 `File.createTempFile`，和檔名長度無關 |
 
 ## 安全
 
@@ -65,12 +68,15 @@
 | `date -d '2024-02-28 +1 day'`、`3 days ago` | 不支援相對日期 | 沒人報 |
 | `yes` | 跟著迭代上限產生 1,000 萬行才交給 `head`（S24 上 7 秒） | 刻意的設計；我們改成最多 100 萬行 |
 | `uniq -c` | 數字寬 4 | 格式差異；改成和 GNU 一樣寬 7 |
+| awk `printf` | 每呼叫一次就重算整段輸出的位元組數，O(n²)：4 萬行 28 秒，10 萬行超過兩分鐘（`print` 是線性的） | 沒人報。改用和 `print` 一樣的長度檢查後 10 萬行 0.15 秒 |
+| awk 沒加括號的 `length` | 當成變數，印空字串；`awk 'length > 80'` 什麼都不印 | #608 |
 
 ## 還留著的差異（`accepted.json`）
 
 152 個情境裡 127 個和 GNU 一樣。其餘 25 個：
 
-- 會直接報錯的：`trap`（沒有實作）、`grep -s`、`seq -f`、`realpath`。
+- 會直接報錯的：`trap`（沒有實作）、`grep -s`、`seq -f`、`realpath`、`cmp`（#611）、`dd`、`bc`、`shuf`、`cksum`。
+- `tr '\0' x`、`tr -d '\0'`：`\0` 被當成字元 0，NUL 不會被換掉或刪掉（`\t`、`\n` 正常）。沒人報。
 - 二進位：`printf '\xff' > f` 寫成 UTF-8 的兩個位元組（重導向依內容猜編碼），二進位資料寫不出來。
 - 和 GNU 不同但不算錯：`cut -c`、`wc -m` 以字元計（GNU 以位元組）；`ls`、`find` 對中文用語系排序；`grep -r` 不加 `./`；`rg` 一律印行號；`wc` 的欄寬；`tree` 用 ASCII 線條；`od -c` 的間距；背景工作 `&` 不會真的並行；`date -d '… 12:00 +3 hours'` 我們加三小時，GNU 把 `+3` 當成時區。
 - `sed -i.bak` 不留備份、`env -i` 多印 `PWD`、`tree` 的目錄數算錯。
@@ -80,6 +86,39 @@
 四個工作：帳目分類加總並找最大一筆、log 依模組和小時統計 ERROR、JSON 篩選加總存成 CSV、寫腳本依序改檔名並執行。GPT 6 Luna、Claude Haiku 5.5、GPT 6.1 Sol 各跑一次，12/12 答對，沒有一次卡在上面的差異。
 
 說明裡原本只寫「沒有其他程式」，Luna 被要求「用 python 算」時會放棄；加上「沒有 python，用 awk 或 jq 算」之後，它改用程式模式算出正確答案。Haiku 本來就會改用 awk。
+
+## 份量與嚴苛操作（2026-10-24，S24）
+
+48 個情境，三類：規模、濫用、邊界。腳本直接呼叫 Bot 資料夾的 `exec`，不經過模型。
+
+**規模**（修完 awk printf 和 `maxArrayElements` 之後）
+
+| 工作 | 時間 |
+|---|---|
+| 寫 200 萬行（14 MB）、`wc -l` | 2.7 秒 |
+| 對它 awk 加總 / `sort -rn` / `sed -i` | 3.8 / 3.0 / 6.4 秒 |
+| 50 萬行過 8 段管線（awk、sort、uniq -c、sort -rn、head、awk、tr、sed） | 3.0 秒 |
+| 100 萬行 `sort \| uniq -c \| sort -rn` | 5.9 秒 |
+| awk 產生 10 萬筆 JSON（3.4 MB）再 `jq group_by` | 2.3 秒（修之前 awk 這段超過 5 分鐘） |
+| 14 MB 的 gzip 來回 | 3.3 秒 |
+| 建 2,000 個小檔 / `find \| xargs grep` 掃它們 / `rm -r` | 20 / 6.7 / 0.1 秒（每個檔 3 次原生呼叫，10 ms） |
+| 60 層深的目錄 | 0.4 秒 |
+| 1 MB 的單一行：`cut -c`、awk `length`、`grep -c` | 0.8 秒 |
+| 輸出 14 MB 到對話 | 2.0 秒（工具呼叫時會改寫到 `/tmp/pi-output-*.log`） |
+
+**濫用**：無窮迴圈由逾時收掉（逾時 2 秒，實際 4 秒回來），之後下一個指令 0.1 秒；`f(){ f|f; }; f` 和 3,000 層遞迴在第 100 層被擋（`maxCallDepth`）；5 次各 3 MB 的變數、200 個連續指令、`&` 背景工作、執行中 abort，之後都正常；4 個指令同時送、兩個 Bot 同時跑，各自的檔案互不可見。擋下來的上限：`{1..1000000}`（brace 的工作上限 10 萬）、`yes` 100 萬行、`seq` 1,000 萬。
+
+**邊界**：空白、引號、中文、emoji、開頭是 `-` 的檔名；255 字的檔名；CRLF；10 萬位元組的二進位檔經 `cp`、管線、gzip 來回後 md5 相同；`cat 目錄`、`rm 不存在`、`mkdir 已存在` 的 exit code；`cd /..`、`/proc`、`/data`、`/etc` 都看不到；`ln -s` 回 ENOSYS；`chmod 000` 不擋讀取（資料夾沒有權限位元）；3,000 行的 here-doc 腳本 `set -euo pipefail` 照 GNU 停在 `false`；陣列、關聯陣列、`BASH_REMATCH`、process substitution、`$(( ))` 裡的指令替換、`date -d` 相對日期、`xargs -I -P`。
+
+**模型實際用起來（第二輪）**：六個工作各放一份資料在 Bot 資料夾：5,000 筆帳目（note 欄位有引號包的逗號）分類加總和最大一筆；10 萬行 log 的 ERROR 總數、某小時的數量、前三個 module；2 萬筆 JSON 篩選排序存成 CSV；2,000 個使用者對 2 萬筆訂單的 join 前 5 名；300 個檔案寫腳本改名；散文裡 400 個數字加總。答案由 Python 事先算好。
+
+| 模型 | 結果 | 時間 |
+|---|---|---|
+| Claude Haiku 5.5 | 6/6 | 81 秒 |
+| GPT 6 Luna，`files` 說明改之前 | 3/6 | 237 秒 |
+| GPT 6 Luna，改之後 | 6/6 | 94 秒 |
+
+Luna 錯的三題都不是 bash 的問題：它用 `read` 讀檔案的前 1,000 行就開始算（log 的 ERROR 數成了 68）、JSON 只有一行而 `read` 截在 51,200 字（篩出 1 筆）、或是認定 CSV 是附件而沒去資料夾看（連 `ls` 都沒跑就回「請附上檔案」）。`files` 的說明加上一句「使用者提到的檔案多半已經在資料夾裡：先 `ls`，用 bash 處理而不是整個讀進來」之後，三題都用 bash 算對。
 
 ## 為什麼不是別的（2026-10-24）
 
@@ -96,7 +135,7 @@
 | 系統 Linux Terminal（AVF） | 真的 Debian VM | 有 | S24 不支援 | 換手機再說 |
 | 不給 bash，只給 read/write/edit 和 code mode 的 JS | — | 有 | 模型要改用 JS 做文字處理 | 弱模型自然會寫 awk、jq；四個工作 12/12 是靠 bash 做到的 |
 
-結論：在這組限制下，just-bash 是唯一一個「純 JS、VFS 可接、語法是 bash」的選擇；它的代價是上游還年輕，差異要自己補。補的方式已經讓升級時哪條失效會在 build 就知道，上游也在動（我們找到的有 8 項已有 issue，`/dev/null` 已合併未發版）。
+結論：在這組限制下，just-bash 是唯一一個「純 JS、VFS 可接、語法是 bash」的選擇；它的代價是上游還年輕，差異要自己補。補的方式已經讓升級時哪條失效會在 build 就知道，上游也在動（我們找到的有 9 項已有 issue，`/dev/null` 已合併未發版）。
 
 ## Cloudflare Computer 怎麼用（2026-10-23，v0.7.0）
 

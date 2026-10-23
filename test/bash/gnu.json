@@ -606,5 +606,21 @@
  "idiom-seq-range": {
   "stdout": "done\n6\n1,2,3\n",
   "exit": 0
+ },
+ "awk_printf_100k": {
+  "stdout": "588895\n",
+  "exit": 0
+ },
+ "awk_bare_length": {
+  "stdout": "3\n2\nabc\n",
+  "exit": 0
+ },
+ "awk_records_over_1m": {
+  "stdout": "1200000\n",
+  "exit": 0
+ },
+ "dev_zero_head": {
+  "stdout": "3000000\n100000\n",
+  "exit": 0
  }
 }

@@ -127,6 +127,16 @@ const PATCHES: Patch[] = [
 		replace: `var Go=1e6,Td={maxResults:Go,`,
 	},
 	{
+		name: "awk printf does not re-measure the whole output on every call",
+		find: `let o=e.maxOutputSize>0?Math.max(0,e.maxOutputSize-M(e.output)):void 0,l=Ra(s,i,o);`,
+		replace: `let o=e.maxOutputSize>0?Math.max(0,e.maxOutputSize-e.output.length):void 0,l=Ra(s,i,o);`,
+	},
+	{
+		name: "awk length without parentheses is length($0)",
+		find: `return{type:"array_access",array:t,key:r}}return{type:"variable",name:t}}`,
+		replace: `return{type:"array_access",array:t,key:r}}return t==="length"?{type:"call",name:"length",args:[]}:{type:"variable",name:t}}`,
+	},
+	{
 		name: "date -d with a relative offset",
 		find: `function bC(e,t){if(e.startsWith("@")){`,
 		replace: `function bC(e,t){let __jbRelative=__jbRelativeDate(e,t,bC);if(__jbRelative!==void 0)return __jbRelative;if(e.startsWith("@")){`,

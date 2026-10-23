@@ -186,7 +186,7 @@ public class BotFilesPlugin extends Plugin {
                     output.write(bytes);
                 }
             } else {
-                File temp = new File(parent, "." + file.getName() + ".pi-write");
+                File temp = File.createTempFile(".pi-write-", "", parent);
                 try (FileOutputStream output = new FileOutputStream(temp)) {
                     output.write(bytes);
                     output.getFD().sync();
@@ -322,7 +322,7 @@ public class BotFilesPlugin extends Plugin {
             }
             File parent = file.getParentFile();
             if (parent != null && !parent.isDirectory() && !parent.mkdirs() && !parent.isDirectory()) throw new IOException("cannot create " + parent.getName());
-            File temp = new File(parent, "." + file.getName() + ".pi-write");
+            File temp = File.createTempFile(".pi-write-", "", parent);
             long size = 0;
             try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
                 byte[] buffer = new byte[64 * 1024];

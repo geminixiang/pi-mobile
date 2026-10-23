@@ -32,7 +32,8 @@ function normalize(path: string): string {
 }
 
 const TEMP_FOLDER = ".tmp";
-const DEVICE_READ_BYTES = 64 * 1024;
+const DEVICE_READ_BYTES = 4 * 1024 * 1024;
+const RANDOM_CHUNK = 64 * 1024;
 const DATA_SCALE_LIMIT = 10_000_000;
 const LIMITS = {
 	maxCommandCount: DATA_SCALE_LIMIT,
@@ -41,6 +42,7 @@ const LIMITS = {
 	maxSedIterations: DATA_SCALE_LIMIT,
 	maxJqIterations: DATA_SCALE_LIMIT,
 	maxBraceExpansionResults: DATA_SCALE_LIMIT,
+	maxArrayElements: DATA_SCALE_LIMIT,
 };
 
 function isStat(value: FsValue): value is { kind: "file" | "directory"; size: number; mtimeMs: number; executable: boolean } {
@@ -147,12 +149,18 @@ function readOnly(path: string): never {
 	throw new Error(`EROFS: read-only file system, '${path}'`);
 }
 
+function randomBytes(): Uint8Array {
+	const bytes = new Uint8Array(DEVICE_READ_BYTES);
+	for (let at = 0; at < bytes.length; at += RANDOM_CHUNK) crypto.getRandomValues(bytes.subarray(at, at + RANDOM_CHUNK));
+	return bytes;
+}
+
 function deviceFs(): IFileSystem {
 	const devices: Record<string, () => Uint8Array> = {
 		"/null": () => new Uint8Array(0),
 		"/zero": () => new Uint8Array(DEVICE_READ_BYTES),
-		"/urandom": () => crypto.getRandomValues(new Uint8Array(DEVICE_READ_BYTES)),
-		"/random": () => crypto.getRandomValues(new Uint8Array(DEVICE_READ_BYTES)),
+		"/urandom": randomBytes,
+		"/random": randomBytes,
 	};
 	const device = (path: string) => {
 		const read = devices[normalize(path)];

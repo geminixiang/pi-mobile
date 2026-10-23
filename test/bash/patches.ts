@@ -47,7 +47,17 @@ const checks: [string, string][] = [
 	["TZ=UTC date -d '2026-01-10 3 days ago' +%F", "2026-01-07\n"],
 	["TZ=UTC date -d '2026-01-10 +2 weeks' +%F", "2026-01-24\n"],
 	["TZ=UTC date -d @0 +%F", "1970-01-01\n"],
+	["printf 'abc\\nde\\n' | awk '{print length}'", "3\n2\n"],
+	["printf 'abc\\nde\\n' | awk 'length > 2'", "abc\n"],
+	["printf 'abc\\n' | awk '{x = length; print x * 2, length(), length($0)}'", "6 3 3\n"],
 ];
+const printfStart = performance.now();
+const printfResult = await b.exec("seq 1 40000 | awk '{printf \"%d,\", $1}' | wc -c");
+const printfMs = performance.now() - printfStart;
+if (printfResult.stdout !== "228894\n" || printfMs > 5000) {
+	console.error(`just-bash patches: awk printf over 40000 lines gave ${JSON.stringify(printfResult.stdout)} in ${Math.round(printfMs)} ms`);
+	process.exit(1);
+}
 const failures: string[] = [];
 for (const [script, expected] of checks) {
 	const result = await b.exec(script);
