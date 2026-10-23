@@ -319,6 +319,15 @@ export class AgentRuntime {
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
+		await (await this.#harness.conversation(id, context))?.abort(context, { background: true });
+		await this.triggers.removeBot(id);
+		await this.#harness.commit(async (tx) => {
+			const items = (await tx.doc(BotIndex)).items;
+			const at = items.findIndex((candidate) => candidate.id === id);
+			if (at >= 0) items.splice(at, 1);
+			await tx.retireDoc(BotMemoryDoc, id);
+		}, context);
+		await this.#publishBots();
 		await Promise.all(
 			this.#computers
 				.list()
@@ -327,15 +336,7 @@ export class AgentRuntime {
 				.map((sandbox) => sandbox && orLogged(sandbox.remove(bot.folder), "bot.remove_container_folder_failed", undefined, { bot: bot.folder })),
 		);
 		await orLogged(removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
-		await this.triggers.removeBot(id);
 		await orLogged(deleteAttachments({ conversationId: String(id) }), "bot.remove_attachments_failed", undefined, { bot: String(id) });
-		await this.#harness.commit(async (tx) => {
-			const items = (await tx.doc(BotIndex)).items;
-			const at = items.findIndex((candidate) => candidate.id === id);
-			if (at >= 0) items.splice(at, 1);
-			await tx.retireDoc(BotMemoryDoc, id);
-		}, context);
-		await this.#publishBots();
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {

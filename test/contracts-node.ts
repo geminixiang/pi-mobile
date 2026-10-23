@@ -134,6 +134,21 @@ check("a new MCP service is given to no bot, even over a grant its name left beh
 	}
 });
 
+check("a removed bot is gone from the list with its schedules and memory", async () => {
+	const runtime = await AgentRuntime.open(new MemoryStorage(), settings, { modelIds: Promise.resolve({}) });
+	try {
+		const [keep] = await runtime.bots();
+		assert(keep);
+		const gone = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+		await runtime.removeBot(gone);
+		assert.deepEqual((await runtime.bots()).map((bot) => bot.id), [keep.id]);
+		assert.deepEqual(await runtime.memory({ kind: "bot", id: gone }), { text: "", updatedAt: 0, updatedBy: "" });
+		await assert.rejects(runtime.removeBot(keep.id), /至少要留一個 Bot/);
+	} finally {
+		await runtime.close();
+	}
+});
+
 async function triggerFixture(when: When, enabled = true) {
 	const storage = new MemoryStorage();
 	const { models } = await loadModels(settings, Promise.resolve({}));

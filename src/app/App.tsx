@@ -479,7 +479,7 @@ export function App() {
 					setBotEdit(undefined);
 					const sure = await ask({
 						title: `刪除 ${bot.name}`,
-						body: "它的對話、記憶、排程和資料夾都會刪除，無法復原。",
+						body: "它的記憶、排程、附件和資料夾都會刪除，無法復原。對話紀錄不再顯示，但還留在手機的資料庫裡。",
 						confirm: "刪除",
 						danger: true,
 					});
