@@ -5,6 +5,8 @@ import { log } from "../log.ts";
 import { releaseIfIdle } from "./keepAlive.ts";
 import { messageOf } from "../promise.ts";
 
+const RETRY_FOR_MS = 24 * 60 * 60 * 1000;
+
 export type SharedItem = Extract<QueuedEvent, { kind: "share" }>;
 
 export function processTriggerEvents(
@@ -23,7 +25,7 @@ export function processTriggerEvents(
 			for (const event of events) {
 				try {
 					if (event.kind === "alarm") {
-						const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", event.device);
+						const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
 						log.info("trigger.run", { trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
 						await Triggers.started({ trigger: event.trigger });
 						if (!event.live && conversation) handlers.onOpened(conversation);
@@ -31,10 +33,12 @@ export function processTriggerEvents(
 					} else {
 						await handlers.onShare(event);
 					}
+					handled.push(event.id);
 				} catch (error) {
-					log.warn("trigger.failed", { kind: event.kind, error: messageOf(error) });
+					const expired = Date.now() - event.at > RETRY_FOR_MS;
+					log.warn(expired ? "trigger.dropped" : "trigger.retry_later", { kind: event.kind, error: messageOf(error) });
+					if (expired) handled.push(event.id);
 				}
-				handled.push(event.id);
 			}
 			if (handled.length > 0) await Triggers.ack({ ids: handled });
 		});

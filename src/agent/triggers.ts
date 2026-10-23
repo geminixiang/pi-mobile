@@ -48,7 +48,7 @@ export type Trigger = {
 	last?: { at: number; delivery: Delivery; error?: string };
 };
 
-export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string; at: number }[] }>({
+export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string; at: number; request?: string }[] }>({
 	kind: "app.triggers",
 	version: 1,
 	scope: "session",
@@ -418,47 +418,38 @@ export class TriggerRuns {
 		return this.#edit((items) => items.filter((item) => item.id !== id));
 	}
 
-	async run(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
+	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string } = {}): Promise<ConversationId | undefined> {
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
-		if (!trigger) return undefined;
+		if (!trigger || (delivery !== "manual" && !trigger.enabled)) return undefined;
 		const today = startOfToday();
 		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
 		const overLimit =
 			delivery !== "manual" &&
 			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
 		const known = new Set((await this.#bots()).map((bot) => bot.id));
-		const conversationId = !overLimit && known.has(trigger.conversationId) ? trigger.conversationId : undefined;
+		const conversation = !overLimit && known.has(trigger.conversationId) ? await this.#harness.conversation(trigger.conversationId, context) : undefined;
 		const now = Date.now();
-		await this.#harness.commit(async (tx) => {
-			const triggers = await tx.doc(TriggerDoc);
-			const item = triggers.items.find((candidate) => candidate.id === id);
-			if (!item) return;
-			if (!conversationId) {
-				item.last = { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" };
-				return;
-			}
-			item.last = { at: now, delivery };
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: now }];
-			if (item.when.kind === "once" && delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
-		}, context);
-		await this.sync();
-		if (!conversationId) return undefined;
-		const conversation = await this.#harness.conversation(conversationId, context);
-		if (!conversation) return undefined;
+		if (!conversation) {
+			await this.#record(id, { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" });
+			return undefined;
+		}
+		const conversationId = trigger.conversationId;
 		await this.#touchBot(conversationId, now);
 		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
-		const heard = event ? (device ?? trigger.when.kind) : undefined;
+		const heard = event ? (delivered.device ?? trigger.when.kind) : undefined;
 		const label =
 			trigger.kind === "followup"
 				? "follow-up you scheduled"
 				: heard
 					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
 					: `schedule "${trigger.name}"`;
+		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
 		this.#started.add(conversationId);
 		await conversation.submit(
 			{
 				type: "input",
+				...(request ? { requestId: request } : {}),
 				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
 				entry: {
 					kind: TRIGGER_ENTRY,
@@ -468,7 +459,23 @@ export class TriggerRuns {
 			},
 			context,
 		);
+		await this.#record(id, { at: now, delivery }, request);
 		return conversationId;
+	}
+
+	async #record(id: string, last: NonNullable<Trigger["last"]>, request?: string): Promise<void> {
+		const today = startOfToday();
+		await this.#harness.commit(async (tx) => {
+			const triggers = await tx.doc(TriggerDoc);
+			const item = triggers.items.find((candidate) => candidate.id === id);
+			if (!item) return;
+			item.last = last;
+			if (last.error !== undefined) return;
+			if (request && triggers.runs.some((run) => run.request === request)) return;
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: last.at, ...(request ? { request } : {}) }];
+			if (item.when.kind === "once" && last.delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
+		}, context);
+		await this.sync();
 	}
 
 	takeStarted(id: ConversationId): boolean {

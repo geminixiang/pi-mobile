@@ -45,7 +45,11 @@ mock.module(new URL("../node_modules/@aparajita/capacitor-secure-storage/dist/es
 const { Computers } = await import("../src/agent/computers.ts");
 const { AgentRuntime } = await import("../src/agent/runtime.ts");
 const { extensionName } = await import("../src/agent/mcp.ts");
-const { MemoryStorage } = await import("@earendil-works/pi-durable");
+const { createRegistry, Harness, MemoryStorage } = await import("@earendil-works/pi-durable");
+const { BACKGROUND_CONTEXT } = await import("@earendil-works/chord/context");
+const { loadModels } = await import("../src/agent/available-models.ts");
+const { TRIGGER_ENTRY, TriggerDoc, TriggerRuns } = await import("../src/agent/triggers.ts");
+type When = import("../src/agent/triggers.ts").Trigger["when"];
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 const settings: Settings = {
@@ -127,6 +131,82 @@ check("a new MCP service is given to no bot, even over a grant its name left beh
 		assert.equal((await after.toolsets(bot.id)).find((item) => item.id === extensionName(second))?.enabled, false);
 	} finally {
 		await after.close();
+	}
+});
+
+async function triggerFixture(when: When, enabled = true) {
+	const storage = new MemoryStorage();
+	const { models } = await loadModels(settings, Promise.resolve({}));
+	const harness = await Harness.open(storage, { models, registry: createRegistry() }, BACKGROUND_CONTEXT);
+	const conversation = await harness.createConversation({ ownership: { kind: "ownerless" } }, BACKGROUND_CONTEXT);
+	await harness.commit(async (tx) => {
+		(await tx.doc(TriggerDoc)).items.push({ id: "t1", name: "fixture", prompt: "fixture", when, kind: "schedule", conversationId: conversation.id, enabled, createdAt: Date.now() });
+	}, BACKGROUND_CONTEXT);
+	let failSubmit = false;
+	const flaky = new Proxy(harness, {
+		get(target, key) {
+			if (key === "conversation")
+				return async (...args: Parameters<typeof target.conversation>) => {
+					const found = await target.conversation(...args);
+					if (!found || !failSubmit) return found;
+					return new Proxy(found, {
+						get(inner, name) {
+							if (name === "submit") return async () => Promise.reject(new Error("submission refused"));
+							const value: unknown = Reflect.get(inner, name, inner);
+							return typeof value === "function" ? value.bind(inner) : value;
+						},
+					});
+				};
+			const value: unknown = Reflect.get(target, key, target);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+	});
+	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, avatar: "helper" }], async () => undefined);
+	const doc = async () => (await harness.snapshot(TriggerDoc, BACKGROUND_CONTEXT)) ?? { items: [], runs: [] };
+	const delivered = async () => {
+		const page = await storage.scanEntries({ conversationId: conversation.id }, 100, undefined, BACKGROUND_CONTEXT);
+		return page.items.filter((entry) => entry.kind === TRIGGER_ENTRY).length;
+	};
+	return { runs, doc, delivered, refuse: (refuse: boolean) => (failSubmit = refuse), close: () => harness.close(BACKGROUND_CONTEXT) };
+}
+
+check("a one-time schedule whose input was refused is still there to retry", async () => {
+	const fixture = await triggerFixture({ kind: "once", at: Date.now() - 1000 });
+	try {
+		fixture.refuse(true);
+		await assert.rejects(fixture.runs.run("t1", "live", { event: "e1" }), /submission refused/);
+		assert.equal((await fixture.doc()).items.length, 1);
+		assert.equal((await fixture.doc()).runs.length, 0);
+		fixture.refuse(false);
+		assert.ok(await fixture.runs.run("t1", "later", { event: "e1" }));
+		assert.equal((await fixture.doc()).items.length, 0);
+		assert.equal((await fixture.doc()).runs.length, 1);
+		assert.equal(await fixture.delivered(), 1);
+	} finally {
+		await fixture.close();
+	}
+});
+
+check("an event delivered twice is one input and one run", async () => {
+	const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] });
+	try {
+		await fixture.runs.run("t1", "live", { event: "e1" });
+		await fixture.runs.run("t1", "live", { event: "e1" });
+		assert.equal(await fixture.delivered(), 1);
+		assert.equal((await fixture.doc()).runs.length, 1);
+	} finally {
+		await fixture.close();
+	}
+});
+
+check("an event queued before its schedule was paused does not run", async () => {
+	const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, false);
+	try {
+		assert.equal(await fixture.runs.run("t1", "later", { event: "e1" }), undefined);
+		assert.equal(await fixture.delivered(), 0);
+		assert.ok(await fixture.runs.run("t1", "manual"));
+	} finally {
+		await fixture.close();
 	}
 });
 
