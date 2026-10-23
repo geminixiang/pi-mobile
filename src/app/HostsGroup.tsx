@@ -1,9 +1,9 @@
-// Settings › 電腦: the user's computers running pi-host on the tailnet (agent/sandbox/host.ts). Adding one is its name:
-// the app asks pi-host about it, and pi-host answers only a phone of the same Tailscale user. When it does not answer,
-// the one command that installs pi-host there is shown. Each computer is a default for bots that have not picked:
-// directly, or in its container, which the first tap prepares (builds the images there, minutes the first time).
-import { type ReactNode, useState } from "react";
-import { type Host, hostFrom, parseHosts, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
+// Settings › 電腦: the user's computers running pi-host on the tailnet (agent/sandbox/host.ts). Once one is added, the
+// others are listed from its view of the tailnet (Android gives apps none), each asked whether pi-host answers: those
+// that do are added with a tap, those that do not get the install command. The first one is added by its name. Each
+// computer is a default for bots that have not picked, directly or in its container, which the first use prepares.
+import { type ReactNode, useEffect, useState } from "react";
+import { type Host, hostFrom, type HostInfo, listPeers, parseHosts, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 
 export const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
@@ -23,15 +23,15 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 					分享
 				</button>
 				<button
-				type="button"
-				className="btn"
-				onClick={() =>
-					void navigator.clipboard.writeText(text).then(() => {
-						setCopied(true);
-						setTimeout(() => setCopied(false), 1500);
-					})
-				}
-			>
+					type="button"
+					className="btn"
+					onClick={() =>
+						void navigator.clipboard.writeText(text).then(() => {
+							setCopied(true);
+							setTimeout(() => setCopied(false), 1500);
+						})
+					}
+				>
 					{copied ? "已複製" : "複製"}
 				</button>
 			</div>
@@ -41,36 +41,36 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
-function HostRow({
-	host,
-	computer,
-	onChoose,
-	onReady,
-	onRemove,
-}: {
-	host: Host;
-	/** The default computer key (settings.computer). */
-	computer: string;
-	onChoose: (key: string) => void;
-	/** Its containers are ready: saved, and chosen as the default. */
-	onReady: () => void;
-	onRemove: () => void;
-}) {
+/** Containers prepared on first choice, with the build's progress; shared with the bot panel. */
+export function usePrepare(host: Host | undefined): [Preparing, () => Promise<boolean>] {
 	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
+	const prepare = async () => {
+		if (!host) return false;
+		// Checking current images takes about a second and says nothing; a build reports its lines.
+		setPreparing({ state: "running", detail: "" });
+		try {
+			await prepareContainers(host, (detail) => setPreparing({ state: "running", detail }));
+			setPreparing({ state: "idle" });
+			return true;
+		} catch (error) {
+			setPreparing({ state: "error", detail: errorText(error) });
+			return false;
+		}
+	};
+	return [preparing, prepare];
+}
+
+export function PrepareStatus({ preparing }: { preparing: Preparing }) {
+	if (preparing.state === "running" && preparing.detail) return <span className="check-progress">準備容器：{preparing.detail}</span>;
+	if (preparing.state === "error") return <span className="check-error">{preparing.detail}</span>;
+	return null;
+}
+
+function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer: string; onChoose: (key: string) => void; onRemove: () => void }) {
+	const [preparing, prepare] = usePrepare(host);
 	const direct = `${host.id}:direct`;
 	const container = `${host.id}:container`;
 	const choose = (key: string) => onChoose(computer === key ? "" : key);
-	const chooseContainer = () => {
-		if (host.containersReady) return choose(container);
-		setPreparing({ state: "running", detail: "檢查容器" });
-		prepareContainers(host, (detail) => setPreparing({ state: "running", detail })).then(
-			() => {
-				setPreparing({ state: "idle" });
-				onReady();
-			},
-			(error: unknown) => setPreparing({ state: "error", detail: errorText(error) }),
-		);
-	};
 	return (
 		<div className="machine">
 			<div className="check-row">
@@ -84,15 +84,23 @@ function HostRow({
 					直接
 				</button>
 				{host.engine ? (
-					<button type="button" className="toggle" aria-pressed={computer === container} disabled={preparing.state === "running"} onClick={chooseContainer}>
-						{preparing.state === "running" ? "準備中…" : "容器"}
+					<button
+						type="button"
+						className="toggle"
+						aria-pressed={computer === container}
+						disabled={preparing.state === "running"}
+						onClick={() => {
+							if (computer === container) return choose(container);
+							void prepare().then((ready) => ready && onChoose(container));
+						}}
+					>
+						容器
 					</button>
 				) : null}
 			</div>
 			{computer === direct ? <p className="hint host-mode">用 {host.user} 的身分操作這台電腦，不會先問你</p> : null}
 			{computer === container ? <p className="hint host-mode">在這台電腦的 Linux 容器裡，GitHub 和雲端的寫入先問你</p> : null}
-			{preparing.state === "running" ? <span className="check-progress">{preparing.detail}</span> : null}
-			{preparing.state === "error" ? <span className="check-error">{preparing.detail}</span> : null}
+			<PrepareStatus preparing={preparing} />
 			<div className="row-buttons">
 				<button type="button" className="btn" onClick={onRemove}>
 					移除
@@ -102,25 +110,43 @@ function HostRow({
 	);
 }
 
+type Found = { peer: Peer; info: HostInfo | undefined };
+
+/** The tailnet's other computers, as the first added one that answers sees them, each asked for pi-host. */
+function useFound(hosts: Host[]): Found[] | undefined {
+	const [found, setFound] = useState<Found[]>();
+	const known = hosts.map((host) => host.address).join(" ");
+	useEffect(() => {
+		let stale = false;
+		void (async () => {
+			for (const host of hosts) {
+				const peers = await listPeers(host).catch(() => undefined);
+				if (!peers) continue;
+				const others = peers.filter((peer) => !hosts.some((added) => added.address === peer.dnsName));
+				const answers = await Promise.all(others.map(async (peer) => ({ peer, info: await probeHost(peer.dnsName, AbortSignal.timeout(4000)).catch(() => undefined) })));
+				if (!stale) setFound(answers.sort((a, b) => Number(Boolean(b.info)) - Number(Boolean(a.info)) || a.peer.name.localeCompare(b.peer.name)));
+				return;
+			}
+			if (!stale) setFound(undefined);
+		})();
+		return () => {
+			stale = true;
+		};
+		// The hosts' addresses, not the array: a new one each render.
+	}, [known]);
+	return found;
+}
+
 type Adding = { state: "idle" } | { state: "checking" } | { state: "error"; detail: string };
 
-export function HostsGroup({
-	value,
-	computer,
-	onChange,
-}: {
-	value: string;
-	computer: string;
-	onChange: (hosts: Host[], computer: string) => void;
-}) {
+export function HostsGroup({ value, computer, onChange }: { value: string; computer: string; onChange: (hosts: Host[], computer: string) => void }) {
 	const hosts = parseHosts(value);
+	const found = useFound(hosts);
 	const [address, setAddress] = useState("");
 	const [adding, setAdding] = useState<Adding>({ state: "idle" });
-	const add = () => {
-		const name = address.trim();
-		if (!name) return;
+	const add = (name: string, answered?: HostInfo) => {
 		setAdding({ state: "checking" });
-		probeHost(name).then(
+		(answered ? Promise.resolve(answered) : probeHost(name)).then(
 			(info) => {
 				const known = hosts.find((host) => host.address === (info.dnsName || name));
 				const host = hostFrom(name, info, known);
@@ -133,6 +159,34 @@ export function HostsGroup({
 			(error: unknown) => setAdding({ state: "error", detail: errorText(error) }),
 		);
 	};
+	const ready = found?.filter((item) => item.info) ?? [];
+	const missing = found?.filter((item) => !item.info) ?? [];
+	const manual = (
+		<div className="machine-add">
+			<label>
+				<span>電腦名稱</span>
+				<input
+					value={address}
+					onChange={(event) => {
+						setAddress(event.target.value);
+						setAdding({ state: "idle" });
+					}}
+					onKeyDown={(event) => {
+						if (event.key === "Enter" && address.trim()) add(address.trim());
+					}}
+					placeholder="Tailscale 裡的名稱或 IP"
+					autoCapitalize="off"
+					autoComplete="off"
+					enterKeyHint="go"
+				/>
+			</label>
+			<div className="row-buttons">
+				<button type="button" className="btn primary" disabled={!address.trim() || adding.state === "checking"} onClick={() => add(address.trim())}>
+					{adding.state === "checking" ? "連線中…" : "加入"}
+				</button>
+			</div>
+		</div>
+	);
 	return (
 		<>
 			{hosts.map((host) => (
@@ -141,43 +195,36 @@ export function HostsGroup({
 					host={host}
 					computer={computer}
 					onChoose={(key) => onChange(hosts, key)}
-					onReady={() => onChange(hosts.map((item) => (item.id === host.id ? { ...item, containersReady: Date.now() } : item)), `${host.id}:container`)}
 					onRemove={() => onChange(hosts.filter((item) => item.id !== host.id), computer.startsWith(`${host.id}:`) ? "" : computer)}
 				/>
 			))}
-			<div className="machine-add">
-				<label>
-					<span>電腦名稱</span>
-					<input
-						value={address}
-						onChange={(event) => {
-							setAddress(event.target.value);
-							setAdding({ state: "idle" });
-						}}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") add();
-						}}
-						placeholder="Tailscale 裡的名稱或 IP"
-						autoCapitalize="off"
-						autoComplete="off"
-						enterKeyHint="go"
-					/>
-				</label>
-				<div className="row-buttons">
-					<button type="button" className="btn primary" disabled={!address.trim() || adding.state === "checking"} onClick={add}>
-						{adding.state === "checking" ? "連線中…" : "加入"}
-					</button>
+			{ready.map(({ peer, info }) => (
+				<div className="machine" key={peer.dnsName}>
+					<div className="check-row">
+						<span className="menu-text">
+							{peer.name}
+							<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"} · 已裝 pi-host</span>
+						</span>
+						<button type="button" className="btn" disabled={adding.state === "checking"} onClick={() => add(peer.dnsName, info)}>
+							加入
+						</button>
+					</div>
 				</div>
-				{adding.state === "error" ? (
-					<>
-						<span className="check-error">{adding.detail}</span>
-						<div className="pair-steps">
-							<p>還沒裝的話，在那台電腦的終端機執行：</p>
-							<Copyable text={INSTALL_HOST} />
-						</div>
-					</>
-				) : null}
-			</div>
+			))}
+			{hosts.length === 0 ? manual : null}
+			{adding.state === "error" ? <span className="check-error machine-error">{adding.detail}</span> : null}
+			{missing.length > 0 || hosts.length === 0 ? (
+				<div className="pair-steps">
+					<p>{missing.length > 0 ? `還沒裝 pi-host：${missing.map((item) => item.peer.name).join("、")}。` : null}在電腦的終端機執行：</p>
+					<Copyable text={INSTALL_HOST} />
+				</div>
+			) : null}
+			{hosts.length > 0 ? (
+				<details className="manual">
+					<summary>手動輸入</summary>
+					{manual}
+				</details>
+			) : null}
 		</>
 	);
 }

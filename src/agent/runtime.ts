@@ -19,6 +19,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "./catalog.ts";
 import { type Computer, Computers } from "./computers.ts";
+import type { Host } from "./sandbox/host.ts";
 import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
@@ -246,6 +247,11 @@ export class AgentRuntime {
 	/** The computers a bot can pick. */
 	computers(): Computer[] {
 		return this.#computers.list();
+	}
+
+	/** The computer behind a key from computers(); undefined for the phone. */
+	hostOf(key: string): Host | undefined {
+		return this.#computers.host(key);
 	}
 
 	/** A bot's sandbox, undefined when it works on the phone. */

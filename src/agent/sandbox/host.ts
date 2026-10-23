@@ -46,8 +46,6 @@ const Host = Type.Object({
 	home: Type.String(),
 	/** The container engine there, first of docker, podman, nerdctl; absent without one. */
 	engine: Type.Optional(Type.String()),
-	/** When its container images were last checked ready; the container choice shows only then. */
-	containersReady: Type.Optional(Type.Number()),
 });
 export type Host = Static<typeof Host>;
 
@@ -102,8 +100,18 @@ export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 		user: info.user,
 		home: info.home,
 		...(engine ? { engine } : {}),
-		...(engine && engine === known?.engine && known.containersReady ? { containersReady: known.containersReady } : {}),
 	};
+}
+
+const Peers = Type.Array(Type.Object({ name: Type.String(), dnsName: Type.String(), os: System.os }));
+export type Peer = Static<typeof Peers>[number];
+
+/** The user's other computers on the tailnet, as one with pi-host sees them; Android gives apps no peer list. */
+export async function listPeers(host: Host): Promise<Peer[]> {
+	const response = await fetch(`${base(host.address)}/peers`, { signal: AbortSignal.timeout(8000) });
+	if (!response.ok) throw new Error(`HTTP ${response.status}`);
+	const peers: unknown = await response.json();
+	return Value.Check(Peers, peers) ? peers : [];
 }
 
 /** A WebSocket opened with its first bytes listened for before `open` resolves (they can arrive in the same task). */
@@ -190,11 +198,29 @@ class HostCommands implements CommandClient {
 	}
 }
 
-/** Build or check the container images on a host; `onProgress` gets the build's last line. Minutes the first time. */
-export function prepareContainers(host: Host, onProgress: (detail: string) => void): Promise<void> {
+/** Preparations in flight or done this app run, by address: the settings, the bot panel, and a bot share one. */
+const preparing = new Map<string, { done: Promise<void>; listeners: Set<(detail: string) => void> }>();
+
+/**
+ * Build the container images on a host unless they are current: about a second when they are, minutes the first time.
+ * Once per app run; `onProgress` gets the build's last line, also when another caller started it.
+ */
+export function prepareContainers(host: Host, onProgress: (detail: string) => void = () => undefined): Promise<void> {
 	if (!host.engine) return Promise.reject(new Error(`${host.name} 沒有 docker、podman 或 nerdctl`));
-	const commands = new HostCommands(host);
-	return new ContainerHost(host.engine, async () => commands).ensureImages(host.home, onProgress);
+	let entry = preparing.get(host.address);
+	if (!entry) {
+		const listeners = new Set<(detail: string) => void>();
+		const commands = new HostCommands(host);
+		const done = new ContainerHost(host.engine, async () => commands).ensureImages(host.home, (detail) => {
+			for (const listener of listeners) listener(detail);
+		});
+		entry = { done, listeners };
+		preparing.set(host.address, entry);
+		done.catch(() => preparing.delete(host.address));
+	}
+	const { done, listeners } = entry;
+	listeners.add(onProgress);
+	return done.finally(() => listeners.delete(onProgress));
 }
 
 export class HostSandbox implements Sandbox {
@@ -267,7 +293,9 @@ export class HostSandbox implements Sandbox {
 		return this.direct ? this.host.home : `${WORKSPACE}/${folder}`;
 	}
 
-	env(folder: string): Promise<ExecutionEnv> {
+	async env(folder: string): Promise<ExecutionEnv> {
+		// The images, built the first time a bot works in this computer's container.
+		if (!this.direct) await prepareContainers(this.host, (detail) => log.info("host.prepare", { host: this.host.name, detail }));
 		return this.#envs.env(folder);
 	}
 

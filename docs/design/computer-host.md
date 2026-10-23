@@ -29,16 +29,19 @@
   - `GET /env?daemon=<sha>&token=<hex>`：WebSocket。在使用者的 login shell 裡、從家目錄執行 `pi-env serve --token`，把 stdin 和 stdout 當成二進位訊息雙向轉送。
   - `GET /exec?command=<sh>`：WebSocket。在 login shell 裡執行一個指令，用來驅動容器引擎：建 image、啟動 `pim-main` 和 egress、在容器裡跑 pi-env，以及 egress 的 `bridge.py`。它沒有比 `/env` 多給任何權限，兩者都是以使用者身分，執行使用者自己裝置要求的指令。
   - `/info` 也回報 login shell 找得到、而且 `info` 答得出來的容器引擎（docker、podman、nerdctl）。
+  - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS 或 Linux、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，pi-host 不用跟著更新。
 - **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔要看到 `TERM` 才會當 CLI 用，launchd 不會設 `TERM`，所以 pi-host 自己補上 `TERM=dumb`。
 
 ## 手機（`src/agent/sandbox/host.ts`）
 
-- `settings.hosts`：電腦清單（JSON），每台記著 id、名稱、MagicDNS 名稱、os、arch、帳號、家目錄、容器引擎，以及容器準備好的時間。id 就是它的 MagicDNS 名稱，所以移除後再加入，Bot 原本的選擇還在。
-- 設定 › 電腦 › 加入：呼叫 `probeHost(名稱)`，等於 `GET /info`。只輸入短名稱也行，因為 Tailscale 的 DNS 會補上 tailnet 網域。
+- `settings.hosts`：電腦清單（JSON），每台記著 id、名稱、MagicDNS 名稱、os、arch、帳號、家目錄、容器引擎。id 就是它的 MagicDNS 名稱，所以移除後再加入，Bot 原本的選擇還在。
+- 設定 › 電腦：
+  - **第一台**：輸入名稱，按「加入」，呼叫 `probeHost(名稱)`，等於 `GET /info`。只輸入短名稱也行，因為 Tailscale 的 DNS 會補上 tailnet 網域。
+  - **之後**：手機向已加入的電腦要 `/peers`，再逐台問 `/info`。有回應的列成一行，按「加入」就好；沒回應的列出名稱，下面附安裝指令。輸入名稱的欄位收進「手動輸入」。實測列出 8 台、逐台確認，共 2.9 秒。
   - 連不到：顯示安裝指令。
   - 回 403：告訴使用者手機和電腦要登入同一個 Tailscale 帳號。
-- 加入後，第一台電腦成為預設（直接）。設定頁在選中的方式下面寫一句它代表什麼：「直接」不會先問你，「容器」的寫入會先問你。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
+- 加入後，第一台電腦成為預設（直接）。有容器引擎的電腦，在設定或 Bot 面板選「容器」都可以：第一次使用時會先建 image（`prepareContainers`，同一次 app 執行裡只做一次，設定、Bot 面板、Bot 本身共用同一個準備動作），建置時顯示進度。設定頁在選中的方式下面寫一句它代表什麼：「直接」不會先問你，「容器」的寫入會先問你。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
 - `HostSandbox` 有兩種模式：
   - **直接**：每次 app 執行時第一次連線，先 `/info`，沒有對應的 daemon 就 `PUT` 上去，再開 `/env` 的 WebSocket，接到 `StreamConnection` 上。工作目錄是家目錄，提示是 `directDescription`。刪 Bot 不會刪電腦上的任何檔案。
   - **容器**：`ContainerHost`（`container.ts`）透過 `/exec` 驅動容器引擎，跟以前透過 SSH 時一樣：所有 Bot 共用 `pim-main`，各自在 `/workspace/<Bot 資料夾>`；egress proxy 的 `bridge.py` 也跑在一條 `/exec` 上，向手機要 token、請使用者核准寫入。

@@ -8,6 +8,7 @@ import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
 import type { ToolCost } from "../agent/runtime.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
+import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { BoxIcon, CopyIcon, FileIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
@@ -50,6 +51,39 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 				onChange={(event) => onToggle(toolset.id, event.target.checked)}
 			/>
 		</label>
+	);
+}
+
+/** Where the bot works; a container is prepared when chosen, with the build's progress here. */
+function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
+	const key = runtime.computerOf(bot.id).key;
+	const [preparing, prepare] = usePrepare(key.endsWith(":container") ? runtime.hostOf(key) : undefined);
+	useEffect(() => {
+		// Already prepared this run, this answers at once; otherwise the progress shows while it builds.
+		if (key.endsWith(":container")) void prepare();
+		// Once per choice.
+	}, [key]);
+	return (
+		<Section title="電腦">
+			<select
+				className="field"
+				value={key}
+				aria-label="電腦"
+				onChange={(event) =>
+					void runtime
+						.setComputer(bot.id, event.target.value)
+						.then(() => reload(bot.id))
+						.catch((error: unknown) => onError(`切換電腦失敗：${error instanceof Error ? error.message : String(error)}`))
+				}
+			>
+				{runtime.computers().map((computer) => (
+					<option key={computer.key} value={computer.key}>
+						{computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`}
+					</option>
+				))}
+			</select>
+			<PrepareStatus preparing={preparing} />
+		</Section>
 	);
 }
 
@@ -204,27 +238,7 @@ export function BotPanel({
 					</div>
 				</Section>
 
-				{runtime.hasSandbox ? (
-					<Section title="電腦">
-						<select
-							className="field"
-							value={runtime.computerOf(bot.id).key}
-							aria-label="電腦"
-							onChange={(event) =>
-								void runtime
-									.setComputer(bot.id, event.target.value)
-									.then(() => reload(bot.id))
-									.catch((error: unknown) => onError(`切換電腦失敗：${error instanceof Error ? error.message : String(error)}`))
-							}
-						>
-							{runtime.computers().map((computer) => (
-								<option key={computer.key} value={computer.key}>
-									{computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`}
-								</option>
-							))}
-						</select>
-					</Section>
-				) : null}
+				{runtime.hasSandbox ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} onError={onError} /> : null}
 				{folder ? (
 					<Section title="資料夾">
 						<div className="menu">

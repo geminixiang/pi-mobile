@@ -11,6 +11,8 @@
 //	PUT  /daemon/<sha256>    store a daemon; refused unless its bytes hash to <sha256>
 //	GET  /env?daemon=<sha256>&token=<hex>   WebSocket: runs `pi-env serve --token <hex>` in a login shell from home
 //	                          and copies its stdin and stdout as binary messages
+//	GET  /peers              the user's other computers on the tailnet (online, macOS or Linux, not tagged), for the
+//	                          phone to list: it cannot read the tailnet itself, as Android apps get no peer list
 //	GET  /exec?command=<sh>  WebSocket: runs a command in a login shell from home, for driving a container engine.
 //	                          Binary messages in are stdin, a text "eof" closes it; out, binary messages start with
 //	                          1 (stdout) or 2 (stderr), and a last text message {"exit": code} precedes the close.
@@ -341,6 +343,36 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 	conn.Close(websocket.StatusNormalClosure, "")
 }
 
+func peers(w http.ResponseWriter, r *http.Request) {
+	var st struct {
+		Self struct {
+			UserID int64 `json:"UserID"`
+		} `json:"Self"`
+		Peer map[string]struct {
+			HostName string   `json:"HostName"`
+			DNSName  string   `json:"DNSName"`
+			OS       string   `json:"OS"`
+			Online   bool     `json:"Online"`
+			UserID   int64    `json:"UserID"`
+			Tags     []string `json:"Tags"`
+		} `json:"Peer"`
+	}
+	if err := tailscaleJSON(r.Context(), &st, "status", "--json"); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	out := []map[string]string{}
+	for _, peer := range st.Peer {
+		os := map[string]string{"macOS": "darwin", "linux": "linux"}[peer.OS]
+		if !peer.Online || os == "" || len(peer.Tags) > 0 || peer.UserID != st.Self.UserID {
+			continue
+		}
+		out = append(out, map[string]string{"name": peer.HostName, "dnsName": strings.TrimSuffix(peer.DNSName, "."), "os": os})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(out)
+}
+
 func putDaemon(w http.ResponseWriter, r *http.Request) {
 	sha := strings.TrimPrefix(r.URL.Path, "/daemon/")
 	if r.Method != http.MethodPut || !shaPattern.MatchString(sha) {
@@ -488,6 +520,7 @@ func main() {
 	mux.HandleFunc("/daemon/", guard(putDaemon))
 	mux.HandleFunc("/env", guard(env))
 	mux.HandleFunc("/exec", guard(runCommand))
+	mux.HandleFunc("/peers", guard(peers))
 	for {
 		ln := listen()
 		server := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}

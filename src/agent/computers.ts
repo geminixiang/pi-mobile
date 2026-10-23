@@ -2,7 +2,7 @@
 // directly or in its container (sandbox/host.ts). Each bot picks one (Bot.computer); a bot that has not picked uses the
 // default from settings › 電腦. Sandboxes open when a bot first uses them and are shared by the bots on the same one.
 import type { MintedService } from "./sandbox/container.ts";
-import { type HostMode, HostSandbox, parseHosts } from "./sandbox/host.ts";
+import { type Host, type HostMode, HostSandbox, parseHosts } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
 
@@ -34,14 +34,20 @@ export class Computers {
 		this.#minted = minted;
 	}
 
-	/** Every place a bot can work: the phone, and each computer directly and, once its images are ready, in a container. */
+	/** Every place a bot can work: the phone, and each computer directly and, with a container engine, in its container. */
 	list(): Computer[] {
 		const items: Computer[] = [{ key: PHONE, name: "手機", mode: "手機" }];
 		for (const host of parseHosts(this.#settings.hosts)) {
 			items.push({ key: `${host.id}:direct`, name: host.name, mode: MODE_LABEL.direct });
-			if (host.engine && host.containersReady) items.push({ key: `${host.id}:container`, name: host.name, mode: MODE_LABEL.container });
+			if (host.engine) items.push({ key: `${host.id}:container`, name: host.name, mode: MODE_LABEL.container });
 		}
 		return items;
+	}
+
+	/** The computer behind a key; undefined for the phone. */
+	host(key: string): Host | undefined {
+		const parsed = parseKey(key);
+		return parsed && parseHosts(this.#settings.hosts).find((candidate) => candidate.id === parsed.id);
 	}
 
 	/** The default from settings, else the phone. */
@@ -60,7 +66,7 @@ export class Computers {
 		const open = this.#open.get(key);
 		if (open) return open;
 		const parsed = parseKey(key);
-		const host = parsed && parseHosts(this.#settings.hosts).find((candidate) => candidate.id === parsed.id);
+		const host = this.host(key);
 		if (!parsed || !host) return undefined;
 		const sandbox = new HostSandbox(host, parsed.mode, { githubToken: this.#settings.githubToken || undefined, minted: this.#minted });
 		this.#open.set(key, sandbox);
