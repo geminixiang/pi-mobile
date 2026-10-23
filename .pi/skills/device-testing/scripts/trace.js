@@ -3,12 +3,14 @@
 // wall seconds, model calls and time, tool time per tool (parallel tools of one call count once, as the slowest),
 // uncached and cached input tokens, output tokens, characters of tool results, and the tools in order. With
 // --image, a drawn receipt is attached first. Use a fresh bot for each run: an earlier turn changes what it does.
-// Usage: CDP_PORT=<port> node trace.js "<question>" [--decline] [--image]
+// --decline answers every approval with 拒絕; --approve with 允許, only for a test the user asked to write for real.
+// Usage: CDP_PORT=<port> node trace.js "<question>" [--decline | --approve] [--image]
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const question = process.argv[2];
 const decline = process.argv.includes("--decline");
+const approve = process.argv.includes("--approve");
 const image = process.argv.includes("--image");
 const script = `async () => {
 	let view; const stop = window.piController.subscribe((v) => (view = v)); await sleep(300);
@@ -28,7 +30,7 @@ const script = `async () => {
 	const dialogs = [];
 	while (busy()) {
 		const dialog = document.querySelector(".layer-dialog");
-		if (dialog && ${decline}) { dialogs.push(dialog.innerText.replace(/\\n/g, " | ").slice(0, 300)); [...dialog.querySelectorAll("button")].find((b) => /拒絕|取消/.test(b.textContent))?.click(); }
+		if (dialog && (${decline} || ${approve})) { dialogs.push(dialog.innerText.replace(/\\n/g, " | ").slice(0, 300)); [...dialog.querySelectorAll("button")].find((b) => (${approve} ? /^允許$/ : /拒絕|取消/).test(b.textContent.trim()))?.click(); }
 		await sleep(400);
 		if (performance.now() - t0 > 600000) break;
 	}
