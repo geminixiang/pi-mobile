@@ -43,7 +43,7 @@ npm ci --ignore-scripts
 curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
 ```
 
-它會安裝 pi-host，並設定成登入時自動啟動。最後印出一個名稱，到手機的設定 › 電腦輸入它。
+它會安裝 `pi-mobile`，並設定成登入時自動執行 `pi-mobile serve`。之後可以用 `~/.pi/mobile/bin/pi-mobile status` 確認它有沒有在跑。最後印出一個名稱，到手機的設定 › 電腦輸入它。
 
 - **直接**：Bot 以你的帳號、從家目錄操作這台電腦。
 - **容器**：電腦上有 docker、podman 或 nerdctl 時才會出現。第一次按下時會在電腦上建好兩個 image：
@@ -52,10 +52,10 @@ curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/ins
 
   所有 Bot 共用 `pim-main` 這個容器。憑證只留在手機上，寫入要先在手機上核准。
 
-設計見 [design/computer-host.md](design/computer-host.md)。開發 pi-host：
+設計見 [design/computer-host.md](design/computer-host.md)。開發電腦上的 pi-mobile：
 
 ```sh
-cd host && go build -o /tmp/pi-host-darwin-arm64 . && PI_HOST_URL=file:///tmp/pi-host-darwin-arm64 sh install.sh
+cd host && go build -o /tmp/pi-mobile-darwin-arm64 . && PI_MOBILE_URL=file:///tmp/pi-mobile-darwin-arm64 sh install.sh
 ```
 
 移除：`sh host/install.sh uninstall`。

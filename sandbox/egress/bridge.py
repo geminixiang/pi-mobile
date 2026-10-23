@@ -1,6 +1,6 @@
 """Bridge between the egress proxy and the phone (docs/design/computer-host.md).
 
-The phone starts it with `<engine> exec -i pi-mobile-egress python3 /tmp/pi-mobile-bridge.py` through pi-host's
+The phone starts it with `<engine> exec -i pi-mobile-egress python3 /tmp/pi-mobile-bridge.py` through pi-mobile serve's
 command channel and keeps that channel open while it is connected. It serves two HTTP endpoints:
 
 - 127.0.0.1:9001 POST /egress/authorize, called by credentials.py (BRIDGE_URL) for every intercepted request: each one

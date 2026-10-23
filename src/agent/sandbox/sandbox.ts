@@ -1,6 +1,6 @@
 // Where the agent's coding tools (read, write, edit, bash) run off the phone: one of the user's computers running
-// pi-host (host.ts), either directly as its user from home, or in the Linux container shared by all bots (as Grok Bot
-// shares one computer), each bot working in its own folder there.
+// pi-mobile serve (host.ts), either directly as its user from home, or in the Linux container shared by all bots (as
+// Grok Bot shares one computer), each bot working in its own folder there.
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";

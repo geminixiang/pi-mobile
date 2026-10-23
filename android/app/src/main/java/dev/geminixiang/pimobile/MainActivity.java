@@ -31,7 +31,7 @@ public class MainActivity extends BridgeActivity {
         removeSshKey();
     }
 
-    /** Dev builds reached computers over SSH with a key kept here; pi-host needs none. Remove once no device has it. */
+    /** Dev builds reached computers over SSH with a key kept here; none is needed now. Remove once no device has it. */
     private void removeSshKey() {
         File dir = new File(getFilesDir(), "ssh");
         File[] files = dir.listFiles();

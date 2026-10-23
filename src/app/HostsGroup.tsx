@@ -1,6 +1,6 @@
-// Settings › 電腦: the user's computers running pi-host on the tailnet (agent/sandbox/host.ts). Once one is added, the
-// others are listed from its view of the tailnet (Android gives apps none), each asked whether pi-host answers: those
-// that do are added with a tap, those that do not get the install command. The first one is added by its name. Each
+// Settings › 電腦: the user's computers running pi-mobile serve on the tailnet (agent/sandbox/host.ts). Once one is
+// added, the others are listed from its view of the tailnet (Android gives apps none), each asked whether pi-mobile
+// serve answers: those that do are added with a tap, those that do not get the install command. The first one is added by its name. Each
 // computer is a default for bots that have not picked, directly or in its container, which the first use prepares.
 import { type ReactNode, useEffect, useState } from "react";
 import { type Host, hostFrom, type HostInfo, listPeers, parseHosts, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
@@ -19,7 +19,7 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 		<div className="copyable">
 			<pre className="console">{children ?? text}</pre>
 			<div className="row-buttons">
-				<button type="button" className="btn" onClick={() => void Apps.share({ text, title: "安裝 pi-host" }).catch(() => undefined)}>
+				<button type="button" className="btn" onClick={() => void Apps.share({ text, title: "在電腦上安裝 pi-mobile" }).catch(() => undefined)}>
 					分享
 				</button>
 				<button
@@ -112,7 +112,7 @@ function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer:
 
 type Found = { peer: Peer; info: HostInfo | undefined };
 
-/** The tailnet's other computers, as the first added one that answers sees them, each asked for pi-host. */
+/** The tailnet's other computers, as the first added one that answers sees them, each asked for pi-mobile serve. */
 function useFound(hosts: Host[]): Found[] | undefined {
 	const [found, setFound] = useState<Found[]>();
 	const known = hosts.map((host) => host.address).join(" ");
@@ -203,7 +203,7 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 					<div className="check-row">
 						<span className="menu-text">
 							{peer.name}
-							<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"} · 已裝 pi-host</span>
+							<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"} · 已裝 pi-mobile</span>
 						</span>
 						<button type="button" className="btn" disabled={adding.state === "checking"} onClick={() => add(peer.dnsName, info)}>
 							加入
@@ -215,7 +215,7 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 			{adding.state === "error" ? <span className="check-error machine-error">{adding.detail}</span> : null}
 			{missing.length > 0 || hosts.length === 0 ? (
 				<div className="pair-steps">
-					<p>{missing.length > 0 ? `還沒裝 pi-host：${missing.map((item) => item.peer.name).join("、")}。` : null}在電腦的終端機執行：</p>
+					<p>{missing.length > 0 ? `還沒裝 pi-mobile：${missing.map((item) => item.peer.name).join("、")}。` : null}在電腦的終端機執行：</p>
 					<Copyable text={INSTALL_HOST} />
 				</div>
 			) : null}

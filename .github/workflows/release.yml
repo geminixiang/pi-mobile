@@ -1,6 +1,6 @@
 # Publish a release: push a tag vX.Y.Z matching package.json's version. Builds the signed APK with
-# scripts/release-android.sh and creates the GitHub release with notes from docs/releases/X.Y.Z.md. pi-host has its own
-# workflow (host.yml).
+# scripts/release-android.sh and creates the GitHub release with notes from docs/releases/X.Y.Z.md. pi-mobile for computers
+# has its own workflow (computer.yml).
 #
 # Secrets (Settings › Secrets and variables › Actions):
 #   PI_MOBILE_KEYSTORE_BASE64    base64 of the release keystore (the same key as 0.1.0, so updates install over it)

@@ -1,4 +1,9 @@
-// pi-host: lets pi mobile operate this computer over the tailnet, as the user who runs it.
+// pi-mobile on a computer: lets the pi mobile app on the user's phone operate this computer over the tailnet, as the
+// user who runs it. Like rex or ollama, one name for the product and a subcommand for the role:
+//
+//	pi-mobile serve     what the login item (launchd, systemd --user) runs
+//	pi-mobile status    whether it answers, where, and which version
+//	pi-mobile version
 //
 // It listens on this computer's Tailscale IPv4 address only, never on the LAN, and accepts a request only from a device
 // of the same Tailscale user as this computer (`tailscale whois`; tagged devices have no user and are refused), and
@@ -161,7 +166,7 @@ func owner(ctx context.Context, remoteAddr string) (string, error) {
 
 func daemonsDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".pi", "host", "daemons")
+	return filepath.Join(home, ".pi", "mobile", "daemons")
 }
 
 func daemons() []string {
@@ -472,9 +477,9 @@ func env(w http.ResponseWriter, r *http.Request) {
 	_ = cmd.Wait()
 }
 
-// askFolders reads the folders macOS protects, so that it asks whether pi-host may right after it is installed, while
+// askFolders reads the folders macOS protects, so that it asks whether pi-mobile may right after it is installed, while
 // the user is at the computer, rather than later, when a command from the phone would wait on the question until it
-// times out. Once answered, macOS does not ask again (until pi-host's binary changes).
+// times out. Once answered, macOS does not ask again (until the binary changes).
 func askFolders() {
 	if runtime.GOOS != "darwin" {
 		return
@@ -495,7 +500,7 @@ func listen() net.Listener {
 			for _, ip := range st.Self.TailscaleIPs {
 				if !strings.Contains(ip, ":") {
 					if ln, err := net.Listen("tcp", net.JoinHostPort(ip, port)); err == nil {
-						log.Printf("pi-host %s listening on %s (%s)", version, ln.Addr(), strings.TrimSuffix(st.Self.DNSName, "."))
+						log.Printf("pi-mobile %s listening on %s (%s)", version, ln.Addr(), strings.TrimSuffix(st.Self.DNSName, "."))
 						return ln
 					} else {
 						log.Printf("listen %s: %v", ip, err)
@@ -510,10 +515,64 @@ func listen() net.Listener {
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		fmt.Println(version)
-		return
+	command := ""
+	if len(os.Args) > 1 {
+		command = os.Args[1]
 	}
+	switch command {
+	case "serve":
+		serve()
+	case "status":
+		os.Exit(printStatus())
+	case "version", "--version":
+		fmt.Println(version)
+	default:
+		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile version")
+		if command != "" && command != "help" && command != "--help" && command != "-h" {
+			os.Exit(2)
+		}
+	}
+}
+
+// status asks the running serve over this computer's Tailscale address, as the phone would. 0 when it answers.
+func printStatus() int {
+	st, err := selfNow(context.Background())
+	if err != nil {
+		fmt.Printf("Tailscale: %v\n", err)
+		return 1
+	}
+	name := strings.TrimSuffix(st.Self.DNSName, ".")
+	for _, ip := range st.Self.TailscaleIPs {
+		if strings.Contains(ip, ":") {
+			continue
+		}
+		client := http.Client{Timeout: 5 * time.Second}
+		response, err := client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
+		if err != nil {
+			fmt.Printf("pi-mobile %s: not answering on %s:%s (%v)\n", version, ip, port, err)
+			return 1
+		}
+		defer response.Body.Close()
+		var info struct {
+			Version string   `json:"version"`
+			Engines []string `json:"engines"`
+		}
+		if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&info) != nil {
+			fmt.Printf("pi-mobile: %s:%s answered HTTP %d\n", ip, port, response.StatusCode)
+			return 1
+		}
+		engines := "none"
+		if len(info.Engines) > 0 {
+			engines = strings.Join(info.Engines, ", ")
+		}
+		fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, strings.Split(name, ".")[0], engines)
+		return 0
+	}
+	fmt.Println("Tailscale has no IPv4 address here")
+	return 1
+}
+
+func serve() {
 	askFolders()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/info", guard(info))

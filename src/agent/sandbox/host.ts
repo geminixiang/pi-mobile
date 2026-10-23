@@ -1,5 +1,5 @@
-// One of the user's computers running pi-host (host/main.go), reached over the tailnet: no SSH, no key, no password.
-// pi-host accepts only devices of the same Tailscale user, so the tailnet is the authentication
+// One of the user's computers running pi-mobile serve (host/main.go), reached over the tailnet: no SSH, no key, no
+// password. pi-mobile serve accepts only devices of the same Tailscale user, so the tailnet is the authentication
 // (docs/design/computer-host.md). A bot works there in one of two ways:
 // - directly: pi-env runs as the user from home, and the bot operates the computer itself;
 // - in a container: the shared Linux sandbox behind the egress proxy (container.ts), when the computer has docker,
@@ -39,7 +39,7 @@ const Host = Type.Object({
 	id: Type.String(),
 	/** What the user calls it: the computer's own name. */
 	name: Type.String(),
-	/** Its MagicDNS name (or Tailscale IP), where pi-host listens on HOST_PORT. */
+	/** Its MagicDNS name (or Tailscale IP), where pi-mobile serve listens on HOST_PORT. */
 	address: Type.String(),
 	...System,
 	user: Type.String(),
@@ -72,18 +72,18 @@ function socketUrl(address: string, path: string, params: Record<string, string>
 	return url;
 }
 
-/** What pi-host on `address` says about its computer; throws in words the user can act on. */
+/** What pi-mobile serve on `address` says about its computer; throws in words the user can act on. */
 export async function probeHost(address: string, signal?: AbortSignal): Promise<HostInfo> {
 	let response: Response;
 	try {
 		response = await fetch(`${base(address)}/info`, { signal: signal ?? AbortSignal.timeout(15_000) });
 	} catch {
-		throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-host`);
+		throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile`);
 	}
 	if (response.status === 403) throw new Error(`${address} 拒絕了這支手機：手機和電腦要登入同一個 Tailscale 帳號`);
 	if (!response.ok) throw new Error(`${address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
 	const info: unknown = await response.json();
-	if (!Value.Check(HostInfo, info)) throw new Error(`${address} 的回應看不懂，pi-host 可能要更新`);
+	if (!Value.Check(HostInfo, info)) throw new Error(`${address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
 	return info;
 }
 
@@ -106,7 +106,7 @@ export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 const Peers = Type.Array(Type.Object({ name: Type.String(), dnsName: Type.String(), os: System.os }));
 export type Peer = Static<typeof Peers>[number];
 
-/** The user's other computers on the tailnet, as one with pi-host sees them; Android gives apps no peer list. */
+/** The user's other computers on the tailnet, as one running pi-mobile sees them; Android gives apps no peer list. */
 export async function listPeers(host: Host): Promise<Peer[]> {
 	const response = await fetch(`${base(host.address)}/peers`, { signal: AbortSignal.timeout(8000) });
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -136,7 +136,7 @@ function openSocket(url: URL, what: string, onMessage: (data: ArrayBuffer | stri
 
 const ExitMessage = Type.Object({ exit: Type.Number() });
 
-/** Shell commands on the computer through pi-host's /exec: one WebSocket per command. */
+/** Shell commands on the computer through pi-mobile serve's /exec: one WebSocket per command. */
 class HostCommands implements CommandClient {
 	readonly #host: Host;
 
@@ -310,7 +310,7 @@ export class HostSandbox implements Sandbox {
 	}
 
 	describe(folder: string): string {
-		return this.direct ? directDescription(this.host.name, this.host.user, this.host, "pi-host") : containerDescription(folder);
+		return this.direct ? directDescription(this.host.name, this.host.user, this.host, "pi-mobile") : containerDescription(folder);
 	}
 
 	close(): void {

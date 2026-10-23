@@ -15,7 +15,7 @@ const LEGACY_SECRET_API_KEY = "cliproxyapi.apiKey";
 const providerKey = (id: string) => `provider.${id}.apiKey`;
 const providerOAuthKey = (id: string) => `provider.${id}.oauth`;
 const SECRET_GITHUB_TOKEN = "github.token";
-/** The sandbox relay's token, before computers ran pi-host; removed. */
+/** The sandbox relay's token, before computers ran pi-mobile serve; removed. */
 const LEGACY_SECRET_SANDBOX_TOKEN = "sandbox.token";
 const SECRET_GCLOUD = "gcloud.credential";
 const SECRET_CLOUDFLARE = "cloudflare.credential";
@@ -43,7 +43,7 @@ export interface Settings {
 	defaultThinking: string;
 	/** Which calendar accounts the agent may read and write, as JSON (agent/calendar-access.ts); empty for the defaults. */
 	calendarAccess: string;
-	/** The user's computers running pi-host on the tailnet, as JSON (agent/sandbox/host.ts). */
+	/** The user's computers running pi-mobile serve on the tailnet, as JSON (agent/sandbox/host.ts). */
 	hosts: string;
 	/** Where a bot that has not picked works (agent/computers.ts): "<host id>:direct" or ":container"; empty, the phone. */
 	computer: string;
@@ -71,7 +71,7 @@ const PlainSettings = Type.Object({
 type PlainSettings = Static<typeof PlainSettings>;
 
 /** Stored plain settings; anything unreadable counts as unset rather than breaking startup. */
-/** Settings of computers reached before pi-host: 0.1.0's sandbox relay, then SSH machines. */
+/** Settings of computers reached before pi-mobile serve: 0.1.0's sandbox relay, then SSH machines. */
 const REMOVED_PLAIN = ["sandboxUrl", "machines", "sandboxMachine"];
 
 function loadPlain(): PlainSettings {

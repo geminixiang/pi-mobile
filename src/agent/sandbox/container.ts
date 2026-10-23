@@ -1,7 +1,7 @@
 // Containers on one of the user's computers (docs/design/computer-host.md): one shared by all bots, behind the egress
 // proxy, driven by the phone with the engine's CLI (docker, podman, or nerdctl; only the subset they share) through
-// pi-host's command channel. The proxy reaches the phone through bridge.py on such a channel, so no credential is
-// stored on the computer: it asks the phone for a token, and the phone asks the user before a write.
+// pi-mobile serve's command channel. The proxy reaches the phone through bridge.py on such a channel, so no credential
+// is stored on the computer: it asks the phone for a token, and the phone asks the user before a write.
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
 import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
@@ -81,7 +81,7 @@ export interface CommandChannel {
 	close(): void;
 }
 
-/** Runs shell commands on the computer, as its user, from home (pi-host's /exec). */
+/** Runs shell commands on the computer, as its user, from home (pi-mobile serve's /exec). */
 export interface CommandClient {
 	exec(command: string, handlers: CommandHandlers): Promise<CommandChannel>;
 	/** Run a command to the end: its stdout as text, stderr, and exit code. `input` is sent as stdin. */

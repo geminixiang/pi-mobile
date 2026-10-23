@@ -82,7 +82,7 @@
 
 ## 決定
 
-選 B（2026-10-23），因為 A 一定要打開 port 22，而它會聽區域網路和公共 Wi‑Fi。做法見 [design/computer-host.md](../design/computer-host.md)：pi-host 只聽 Tailscale 位址，用 `tailscale whois` 確認對方是同一個使用者。
+選 B（2026-10-23），因為 A 一定要打開 port 22，而它會聽區域網路和公共 Wi‑Fi。做法見 [design/computer-host.md](../design/computer-host.md)：電腦上的 pi-mobile 只聽 Tailscale 位址，用 `tailscale whois` 確認對方是同一個使用者。
 
 ## 原本的建議
 

@@ -1,4 +1,4 @@
-// Where a bot's coding tools run: the phone (its folder there), or one of the user's computers running pi-host,
+// Where a bot's coding tools run: the phone (its folder there), or one of the user's computers running pi-mobile serve,
 // directly or in its container (sandbox/host.ts). Each bot picks one (Bot.computer); a bot that has not picked uses the
 // default from settings › 電腦. Sandboxes open when a bot first uses them and are shared by the bots on the same one.
 import type { MintedService } from "./sandbox/container.ts";

@@ -2,7 +2,7 @@
 //
 // Port of @earendil-works/pi-env's Connection (src/connection.ts): same frames, sync line, pings, and session
 // semantics, with `spawn` replaced by a stream that some transport opens to `pi-env serve --token <hex>`: a WebSocket to
-// pi-host (host.ts), directly or through a container engine's exec.
+// pi-mobile serve (host.ts), directly or through a container engine's exec.
 // RemoteExecutionEnv only calls info(), session(), request(), kill(), and close(), which this class provides.
 import { RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
 
