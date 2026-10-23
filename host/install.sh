@@ -120,6 +120,25 @@ permissions() {
 		sleep 2
 		waited=$((waited + 2))
 	done
+	# Screen recording takes effect only in a process started after it is granted: open its settings, wait for the
+	# user, and restart serve to check again.
+	if ! "$BIN" status | grep -q 'Permission screen: granted'; then
+		say ""
+		say "錄製螢幕要在系統設定裡打開：已經幫你打開那一頁，把 pi-mobile 打開。"
+		open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture" 2>/dev/null || true
+		if [ -r /dev/tty ]; then
+			printf '打開後回到這裡按 Enter（不需要截圖的話直接按 Enter）'
+			read -r _ < /dev/tty || true
+			launchctl kickstart -k "gui/$(id -u)/$LABEL"
+			sleep 2
+			waited=0
+			while ! "$BIN" status >/dev/null 2>&1 || "$BIN" status | grep -q ': waiting'; do
+				[ "$waited" -ge 30 ] && break
+				sleep 1
+				waited=$((waited + 1))
+			done
+		fi
+	fi
 	say ""
 	"$BIN" status | sed -n 's/^Permission \([a-z]*\): \(.*\)$/\1 \2/p' | while read -r key state rest; do
 		case "$key" in
@@ -133,7 +152,7 @@ permissions() {
 		case "$state" in
 			granted) say "  ✓ ${name}" ;;
 			waiting) say "  … ${name}：還沒回答，之後 Bot 用到時會卡住；回答後執行 ${BIN} status 確認" ;;
-			*) say "  ✗ ${name}：沒有允許，Bot 碰到時會失敗。要改：${rest}" ;;
+			*) say "  ✗ ${name}：沒有允許，Bot 碰到時會失敗。要改：${rest}，改完執行 launchctl kickstart -k gui/$(id -u)/$LABEL" ;;
 		esac
 	done
 }
