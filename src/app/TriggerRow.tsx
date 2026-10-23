@@ -48,9 +48,13 @@ export function TriggerRow({
 					</button>
 				</span>
 			</span>
-			<button type="button" className="toggle" aria-pressed={trigger.enabled} onClick={() => void act(runtime.triggers.setEnabled(trigger.id, !trigger.enabled))}>
-				{trigger.enabled ? "開啟" : "暫停"}
-			</button>
+			<input
+				type="checkbox"
+				className="switch"
+				aria-label={trigger.name}
+				checked={trigger.enabled}
+				onChange={(event) => void act(runtime.triggers.setEnabled(trigger.id, event.target.checked))}
+			/>
 		</div>
 	);
 }

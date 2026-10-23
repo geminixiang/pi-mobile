@@ -43,6 +43,7 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 			{toolset.available ? null : <span className="index-value">未設定</span>}
 			<input
 				type="checkbox"
+				className="switch"
 				disabled={!toolset.available}
 				checked={toolset.available && toolset.enabled}
 				onChange={(event) => onToggle(toolset.id, event.target.checked)}
@@ -292,11 +293,11 @@ export function BotPanel({
 					<div className="menu toggles">
 						<label>
 							<span className="menu-text">顯示思考過程</span>
-							<input type="checkbox" checked={prefs.showThinking} onChange={(event) => onPrefs({ showThinking: event.target.checked })} />
+							<input type="checkbox" className="switch" checked={prefs.showThinking} onChange={(event) => onPrefs({ showThinking: event.target.checked })} />
 						</label>
 						<label>
 							<span className="menu-text">預設展開工具輸出</span>
-							<input type="checkbox" checked={prefs.expandTools} onChange={(event) => onPrefs({ expandTools: event.target.checked })} />
+							<input type="checkbox" className="switch" checked={prefs.expandTools} onChange={(event) => onPrefs({ expandTools: event.target.checked })} />
 						</label>
 					</div>
 				</Section>
