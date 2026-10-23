@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ModelInfo } from "../agent/models.ts";
 import { CheckIcon, SearchIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { Segmented } from "./Segmented.tsx";
 import { formatTokens } from "./usage.ts";
 
 const THINKING_LEVELS = [
@@ -59,20 +60,12 @@ export function ModelSheet({
 	return (
 		<Sheet open={open} onClose={onClose} title="模型">
 			<div className="strip-label">思考強度</div>
-			<div className="segmented" role="radiogroup" aria-label="思考強度">
-				{THINKING_LEVELS.map(([level, label]) => (
-					<button
-						type="button"
-						role="radio"
-						aria-checked={level === thinking}
-						key={level}
-						className={level === thinking ? "selected" : ""}
-						onClick={() => onChange({ thinking: level })}
-					>
-						{label}
-					</button>
-				))}
-			</div>
+			<Segmented<string>
+				label="思考強度"
+				value={thinking}
+				options={THINKING_LEVELS.map(([value, label]) => ({ value, label }))}
+				onChange={(level) => onChange({ thinking: level })}
+			/>
 			<label className="field-icon">
 				<SearchIcon />
 				<input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="搜尋模型或供應商" autoCapitalize="off" />

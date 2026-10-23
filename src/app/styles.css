@@ -161,8 +161,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .icon-button { display: inline-grid; place-items: center; width: 44px; height: 44px; color: var(--text); flex-shrink: 0; }
 .icon-button:active { background: var(--accent-soft); }
 .icon-button.small { width: 36px; height: 36px; color: var(--faint); }
-:where(.btn, .icon-button, .send, .toggle, .code-head button, .scroll-hint) { transition: background-color 280ms ease, border-color 280ms ease, scale 450ms var(--spring); }
-:where(.btn, .icon-button, .send, .toggle, .code-head button, .scroll-hint):not(:disabled):active { scale: 0.92; transition: background-color 0ms, border-color 0ms, scale 90ms ease-out; }
+:where(.btn, .icon-button, .send, .code-head button, .scroll-hint) { transition: background-color 280ms ease, border-color 280ms ease, scale 450ms var(--spring); }
+:where(.btn, .icon-button, .send, .code-head button, .scroll-hint):not(:disabled):active { scale: 0.92; transition: background-color 0ms, border-color 0ms, scale 90ms ease-out; }
 .field {
 	width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--bg-deep);
 	font-family: var(--mono); font-size: 14px; outline: none; border-radius: 0;
@@ -544,6 +544,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .segmented button { flex: 1; height: 40px; font-size: 14px; color: var(--muted); text-align: center; }
 .segmented button + button { border-left: 1px solid var(--line); }
 .segmented button.selected { background: var(--accent-soft); color: var(--accent); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+.segmented.inline button { flex: none; height: 32px; padding: 0 10px; font-size: 12.5px; }
+.segmented button:disabled { color: var(--faint); opacity: 0.5; }
 .model-list > button.selected { box-shadow: inset 2px 0 0 var(--accent); }
 .model-list > button.selected > svg { color: var(--accent); }
 .swatch { width: 8px; height: 8px; flex-shrink: 0; background: var(--faint); }
@@ -741,14 +743,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sign-in p { margin: 0; }
 .dialog-actions.inline { padding: 0; }
 .user-code { font-family: var(--mono); font-size: 26px; letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
-.toggle {
-	flex-shrink: 0; min-width: 52px; height: 32px; padding: 0 10px; border: 1px solid var(--line-strong);
-	font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; color: var(--faint);
-}
-.toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-.toggle:disabled { opacity: 0.35; }
-.toggle + .toggle { margin-left: -4px; }
 .group-body select.field { appearance: none; color: var(--text); }
+.check-row > select.field { width: auto; max-width: 60%; flex-shrink: 0; }
 .trigger-symbol { display: flex; align-self: flex-start; margin-top: 1px; color: var(--muted); }
 .trigger-row.paused > .trigger-symbol, .trigger-row.paused > .menu-text { opacity: 0.5; }
 .trigger-actions { display: flex; gap: 16px; margin-top: 4px; }

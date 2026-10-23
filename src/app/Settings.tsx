@@ -28,6 +28,7 @@ import { McpGroup } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
+import { Segmented } from "./Segmented.tsx";
 import { messageOf } from "../promise.ts";
 
 function Group({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
@@ -67,36 +68,19 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 		(calendar) => calendar.writable && access.writable.includes(accountKey(calendar)) && !access.hidden.includes(accountKey(calendar)),
 	);
 
-	const setWrite = (group: { key: string; calendars: PhoneCalendar[] }, on: boolean) => {
-		const writable = toggle(access.writable, group.key, on);
+	type Use = "off" | "read" | "write";
+	const choose = (group: { key: string; calendars: PhoneCalendar[] }, use: Use) => {
 		const ids = new Set(group.calendars.map((calendar) => calendar.id));
-		let defaultCalendar = access.defaultCalendar;
-		if (!on && defaultCalendar !== undefined && ids.has(defaultCalendar)) defaultCalendar = undefined;
-		if (on && defaultCalendar === undefined) {
-			const target = group.calendars.find((calendar) => calendar.writable && calendar.primary) ?? group.calendars.find((c) => c.writable);
-			defaultCalendar = target?.id;
-		}
-		set({ ...access, writable, defaultCalendar });
-	};
-	const setRead = (group: { key: string; calendars: PhoneCalendar[] }, on: boolean) => {
-		if (on) {
-			set({ ...access, hidden: toggle(access.hidden, group.key, false) });
-			return;
-		}
-		const holdsDefault = group.calendars.some((calendar) => calendar.id === access.defaultCalendar);
+		const holdsDefault = access.defaultCalendar !== undefined && ids.has(access.defaultCalendar);
+		const writeTarget = group.calendars.find((calendar) => calendar.writable && calendar.primary) ?? group.calendars.find((calendar) => calendar.writable);
 		set({
 			...access,
-			hidden: toggle(access.hidden, group.key, true),
-			writable: toggle(access.writable, group.key, false),
-			defaultCalendar: holdsDefault ? undefined : access.defaultCalendar,
+			hidden: toggle(access.hidden, group.key, use === "off"),
+			writable: toggle(access.writable, group.key, use === "write"),
+			defaultCalendar:
+				use === "write" ? (access.defaultCalendar ?? writeTarget?.id) : holdsDefault ? undefined : access.defaultCalendar,
 		});
 	};
-
-	const switchButton = (label: string, on: boolean, change: (on: boolean) => void, disabled = false) => (
-		<button type="button" className="toggle" aria-pressed={on} disabled={disabled} onClick={() => change(!on)}>
-			{label}
-		</button>
-	);
 
 	const accountRow = (group: { key: string; label: string; calendars: PhoneCalendar[] }) => {
 		const readable = !access.hidden.includes(group.key);
@@ -109,8 +93,17 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 						<span className="menu-hint">{group.calendars.map((calendar) => calendar.name).join("、")}</span>
 					) : null}
 				</span>
-				{switchButton("讀取", readable, (on) => setRead(group, on))}
-				{switchButton("寫入", readable && access.writable.includes(group.key), (on) => setWrite(group, on), !readable || !canWrite)}
+				<Segmented<Use>
+					label={`${group.label} 的權限`}
+					inline
+					value={!readable ? "off" : access.writable.includes(group.key) ? "write" : "read"}
+					options={[
+						{ value: "off", label: "不用" },
+						{ value: "read", label: "只讀" },
+						{ value: "write", label: "讀寫", disabled: !canWrite },
+					]}
+					onChange={(use) => choose(group, use)}
+				/>
 			</div>
 		);
 	};
@@ -139,7 +132,7 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 								分享的行事曆
 								<span className="menu-hint">{sharedCount} 個，只能讀</span>
 							</span>
-							{switchButton("讀取", access.shared, (on) => set({ ...access, shared: on }))}
+							<input type="checkbox" className="switch" aria-label="讀取分享的行事曆" checked={access.shared} onChange={(event) => set({ ...access, shared: event.target.checked })} />
 						</div>
 					) : null}
 					{writableTargets.length > 0 ? (

@@ -37,13 +37,13 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
-export function usePrepare(host: Host | undefined): [Preparing, () => Promise<boolean>] {
+export function usePrepare(host: Host | undefined): [Preparing, (target?: Host) => Promise<boolean>] {
 	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
-	const prepare = async () => {
-		if (!host) return false;
+	const prepare = async (target: Host | undefined = host) => {
+		if (!target) return false;
 		setPreparing({ state: "running", detail: "" });
 		try {
-			await prepareContainers(host, (detail) => setPreparing({ state: "running", detail }));
+			await prepareContainers(target, (detail) => setPreparing({ state: "running", detail }));
 			setPreparing({ state: "idle" });
 			return true;
 		} catch (error) {
@@ -60,11 +60,7 @@ export function PrepareStatus({ preparing }: { preparing: Preparing }) {
 	return null;
 }
 
-function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer: string; onChoose: (key: string) => void; onRemove: () => void }) {
-	const [preparing, prepare] = usePrepare(host);
-	const direct = `${host.id}:direct`;
-	const container = `${host.id}:container`;
-	const choose = (key: string) => onChoose(computer === key ? "" : key);
+function HostRow({ host, onRemove }: { host: Host; onRemove: () => void }) {
 	return (
 		<div className="machine">
 			<div className="check-row">
@@ -74,30 +70,41 @@ function HostRow({ host, computer, onChoose, onRemove }: { host: Host; computer:
 						{host.os === "darwin" ? "macOS" : "Linux"} · {host.user}
 					</span>
 				</span>
-				<button type="button" className="toggle" aria-pressed={computer === direct} onClick={() => choose(direct)}>
-					直接
-				</button>
-				{host.engine ? (
-					<button
-						type="button"
-						className="toggle"
-						aria-pressed={computer === container}
-						disabled={preparing.state === "running"}
-						onClick={() => {
-							if (computer === container) return choose(container);
-							void prepare().then((ready) => ready && onChoose(container));
-						}}
-					>
-						容器
-					</button>
-				) : null}
-			</div>
-			<PrepareStatus preparing={preparing} />
-			<div className="row-buttons">
 				<button type="button" className="btn" onClick={onRemove}>
 					移除
 				</button>
 			</div>
+		</div>
+	);
+}
+
+function DefaultComputer({ hosts, computer, onChoose }: { hosts: Host[]; computer: string; onChoose: (key: string) => void }) {
+	const [preparing, prepare] = usePrepare(undefined);
+	const choose = (key: string) => {
+		const [id, mode] = key.split(":");
+		const host = hosts.find((item) => item.id === id);
+		if (mode !== "container" || !host) return onChoose(key);
+		void prepare(host).then((ready) => ready && onChoose(key));
+	};
+	return (
+		<div className="machine">
+			<label className="check-row">
+				<span className="menu-text">預設</span>
+				<select className="field" value={computer} aria-label="預設" disabled={preparing.state === "running"} onChange={(event) => choose(event.target.value)}>
+					<option value="">手機</option>
+					{hosts.map((host) => [
+						<option key={`${host.id}:direct`} value={`${host.id}:direct`}>
+							{host.name} · 直接
+						</option>,
+						host.engine ? (
+							<option key={`${host.id}:container`} value={`${host.id}:container`}>
+								{host.name} · 容器
+							</option>
+						) : null,
+					])}
+				</select>
+			</label>
+			<PrepareStatus preparing={preparing} />
 		</div>
 	);
 }
@@ -182,11 +189,10 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 				<HostRow
 					key={host.id}
 					host={host}
-					computer={computer}
-					onChoose={(key) => onChange(hosts, key)}
 					onRemove={() => onChange(hosts.filter((item) => item.id !== host.id), computer.startsWith(`${host.id}:`) ? "" : computer)}
 				/>
 			))}
+			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}
 			{ready.map(({ peer, info }) => (
 				<div className="machine" key={peer.dnsName}>
 					<div className="check-row">
