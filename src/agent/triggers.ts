@@ -6,6 +6,7 @@ import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
+import { requireAccess } from "./tools/notifications.ts";
 import { messageOf } from "../promise.ts";
 
 const EventWindow = {
@@ -21,6 +22,7 @@ const When = Type.Union([
 	Type.Object({ kind: Type.Literal("headphones"), ...EventWindow }),
 	Type.Object({ kind: Type.Literal("charging"), ...EventWindow }),
 	Type.Object({ kind: Type.Literal("wifi"), ssid: Type.Optional(Type.String()), ...EventWindow }),
+	Type.Object({ kind: Type.Literal("notification"), app: Type.Optional(Type.String()), contains: Type.Optional(Type.String()), ...EventWindow }),
 	Type.Object({
 		kind: Type.Literal("place"),
 		on: Type.Union([Type.Literal("arrive"), Type.Literal("leave")]),
@@ -155,7 +157,9 @@ export function describeWhen(when: When): string {
 				? "開始充電時"
 				: when.kind === "wifi"
 					? `連上 ${when.ssid ? `Wi‑Fi「${when.ssid}」` : "Wi‑Fi"}時`
-					: `${when.on === "arrive" ? "到達" : "離開"}${when.label}時`;
+					: when.kind === "notification"
+						? `收到${when.app ? ` ${when.app} ` : ""}${when.contains ? `含「${when.contains}」的` : ""}通知時`
+						: `${when.on === "arrive" ? "到達" : "離開"}${when.label}時`;
 	return `${days === "每天" && window ? "" : days}${window} ${event}（${limit}）`.trim();
 }
 
@@ -189,15 +193,23 @@ export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
-			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event (on: headphones, charging, wifi, arrive or leave a place), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event (on: headphones, charging, wifi, arrive or leave a place, a notification from another app), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
 		parameters: Type.Object({
 			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
 			on: Type.Union(
-				[Type.Literal("time"), Type.Literal("headphones"), Type.Literal("charging"), Type.Literal("wifi"), Type.Literal("arrive"), Type.Literal("leave")],
+				[
+					Type.Literal("time"),
+					Type.Literal("headphones"),
+					Type.Literal("charging"),
+					Type.Literal("wifi"),
+					Type.Literal("arrive"),
+					Type.Literal("leave"),
+					Type.Literal("notification"),
+				],
 				{
 					description:
-						"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place; days, from, until apply too",
+						"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run); days, from, until apply too",
 				},
 			),
 			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
@@ -205,6 +217,8 @@ export function createTriggerExtension(host: TriggerHost) {
 			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DD HH:MM; give either time or at" })),
 			wifi_name: Type.Optional(Type.String({ description: "With on wifi: only this network (its SSID); omit for any Wi-Fi" })),
 			place: Type.Optional(Type.String({ description: "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory" })),
+			app: Type.Optional(Type.String({ description: "With on notification: only from this app, by its name or package, such as LINE" })),
+			contains: Type.Optional(Type.String({ description: "With on notification: only when its title, sender or text contains this" })),
 			radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
 			from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
 			until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
@@ -227,6 +241,9 @@ export function createTriggerExtension(host: TriggerHost) {
 					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
 				} else if (args.on === "charging") {
 					when = { kind: "charging", ...window };
+				} else if (args.on === "notification") {
+					await requireAccess();
+					when = { kind: "notification", ...(args.app ? { app: args.app } : {}), ...(args.contains ? { contains: args.contains } : {}), ...window };
 				} else if (args.on === "wifi") {
 					when = { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window };
 					if (args.wifi_name) await needLocationAlways("which Wi-Fi it is");

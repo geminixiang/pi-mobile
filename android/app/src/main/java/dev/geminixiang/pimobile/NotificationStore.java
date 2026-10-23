@@ -45,8 +45,9 @@ final class NotificationStore extends SQLiteOpenHelper {
         String dedup;
     }
 
-    synchronized void add(List<Row> rows) {
-        if (rows.isEmpty()) return;
+    synchronized List<Row> add(List<Row> rows) {
+        List<Row> added = new ArrayList<>();
+        if (rows.isEmpty()) return added;
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
@@ -60,13 +61,14 @@ final class NotificationStore extends SQLiteOpenHelper {
                 values.put("text", row.text);
                 values.put("time", row.time);
                 values.put("dedup", row.dedup);
-                db.insertWithOnConflict("notifications", null, values, SQLiteDatabase.CONFLICT_IGNORE);
+                if (db.insertWithOnConflict("notifications", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1) added.add(row);
             }
             db.delete("notifications", "time < ?", new String[] { String.valueOf(System.currentTimeMillis() - KEEP_MS) });
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
         }
+        return added;
     }
 
     synchronized List<Row> list(long since, String app, String query, int limit) {

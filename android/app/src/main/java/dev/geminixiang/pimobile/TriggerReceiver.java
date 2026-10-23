@@ -30,6 +30,27 @@ public class TriggerReceiver extends BroadcastReceiver {
         });
     }
 
+    private static final int NOTIFICATION_TEXT_LIMIT = 500;
+
+    static void notification(Context context, NotificationStore.Row row) {
+        String from = row.sender != null && !row.sender.isEmpty() ? row.sender : row.title;
+        String body = row.text.length() > NOTIFICATION_TEXT_LIMIT ? row.text.substring(0, NOTIFICATION_TEXT_LIMIT) + "…" : row.text;
+        String detail = "收到 " + row.app + " 的通知：" + (from.isEmpty() ? "" : from + "：") + body;
+        event(context, "notification", detail, item -> {
+            JSONObject when = item.optJSONObject("when");
+            String app = when.optString("app", "");
+            String contains = when.optString("contains", "");
+            boolean appMatches = app.isEmpty() || includes(row.app, app) || includes(row.packageName, app);
+            boolean textMatches = contains.isEmpty()
+                || includes(row.title, contains) || includes(row.text, contains) || includes(row.sender, contains) || includes(row.conversation, contains);
+            return appMatches && textMatches;
+        });
+    }
+
+    private static boolean includes(String value, String part) {
+        return value != null && value.toLowerCase(java.util.Locale.ROOT).contains(part.toLowerCase(java.util.Locale.ROOT));
+    }
+
     private static void place(Context context, Intent intent) {
         String id = intent.getStringExtra(TriggerStore.EXTRA_ID);
         boolean entering = intent.getBooleanExtra(android.location.LocationManager.KEY_PROXIMITY_ENTERING, false);
@@ -49,7 +70,7 @@ public class TriggerReceiver extends BroadcastReceiver {
             cause.put("device", detail);
             fire(context, id, cause);
         }
-        Log.i(TAG, kind + " event: " + detail);
+        Log.i(TAG, kind + " event" + ("notification".equals(kind) ? "" : ": " + detail));
     }
 
     static void headphones(Context context, String device) {

@@ -2081,6 +2081,10 @@
 		],
 		"parameters": {
 			"properties": {
+				"app": {
+					"description": "With on notification: only from this app, by its name or package, such as LINE",
+					"type": "string"
+				},
 				"at": {
 					"description": "One-time: local date and time YYYY-MM-DD HH:MM; give either time or at",
 					"type": "string"
@@ -2090,6 +2094,10 @@
 					"maximum": 24,
 					"minimum": 1,
 					"type": "integer"
+				},
+				"contains": {
+					"description": "With on notification: only when its title, sender or text contains this",
+					"type": "string"
 				},
 				"days": {
 					"description": "Recurring: weekdays; omit for every day",
@@ -2160,9 +2168,13 @@
 						{
 							"const": "leave",
 							"type": "string"
+						},
+						{
+							"const": "notification",
+							"type": "string"
 						}
 					],
-					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place; days, from, until apply too"
+					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run); days, from, until apply too"
 				},
 				"place": {
 					"description": "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory",

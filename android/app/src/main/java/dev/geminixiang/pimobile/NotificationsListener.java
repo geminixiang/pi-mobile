@@ -36,7 +36,7 @@ public class NotificationsListener extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
-        NotificationStore.get(this).add(rowsOf(sbn));
+        for (NotificationStore.Row row : NotificationStore.get(this).add(rowsOf(sbn))) TriggerReceiver.notification(this, row);
     }
 
     private List<NotificationStore.Row> rowsOf(StatusBarNotification sbn) {
