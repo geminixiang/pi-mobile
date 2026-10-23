@@ -445,7 +445,7 @@ export function App() {
 										if (!controller) return;
 										const sure = await ask({
 											title: "清空資料夾",
-											body: `${current?.name ?? "這個 Bot"} 在 sandbox 裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
+											body: `${current?.name ?? "這個 Bot"} 在容器裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
 											confirm: "清空",
 											danger: true,
 										});
@@ -522,7 +522,7 @@ export function App() {
 					setBotEdit(undefined);
 					const sure = await ask({
 						title: `刪除 ${bot.name}`,
-						body: "它的對話、記憶、排程和 sandbox 資料夾都會刪除，無法復原。",
+						body: "它的對話、記憶、排程和資料夾都會刪除，無法復原。",
 						confirm: "刪除",
 						danger: true,
 					});

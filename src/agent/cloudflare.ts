@@ -87,9 +87,7 @@ export function apiTokenCredential(token: string): string {
 	return JSON.stringify({ type: "cloudflare_api_token", token: token.trim() } satisfies Static<typeof ApiTokenCredential>);
 }
 
-export type { DeviceSignIn };
-
-export async function startDeviceSignIn(): Promise<DeviceSignIn> {
+export async function startCloudflareSignIn(): Promise<DeviceSignIn> {
 	const signIn = await startDeviceFlow({
 		url: `${AUTH_DOMAIN}/oauth2/device/auth`,
 		form: { client_id: CLIENT_ID, scope: SCOPES.join(" ") },
@@ -110,7 +108,7 @@ async function api<T extends Parameters<typeof parse>[0]>(token: string, path: s
 }
 
 /** Poll until the user approves the code; resolves with the credential JSON to store. */
-export async function finishDeviceSignIn(signIn: DeviceSignIn, signal: AbortSignal): Promise<string> {
+export async function finishCloudflareSignIn(signIn: DeviceSignIn, signal: AbortSignal): Promise<string> {
 	const tokens = await pollDeviceFlow({ signIn, url: TOKEN_URL, form: { client_id: CLIENT_ID }, what: "Cloudflare", signal });
 	if (!tokens.refresh) throw new Error("Cloudflare 登入失敗：沒有拿到 refresh token");
 	// Who signed in, and the first account, so cf and wrangler know which account to use.

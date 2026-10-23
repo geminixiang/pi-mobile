@@ -43,8 +43,6 @@ export function describeAzure(json: string): string {
 	}
 }
 
-export type AzureDeviceSignIn = DeviceSignIn;
-
 export function startAzureSignIn(): Promise<DeviceSignIn> {
 	return startDeviceFlow({
 		url: `${LOGIN}/organizations/oauth2/v2.0/devicecode`,

@@ -50,7 +50,7 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "azure", label: "Azure", hint: "從手機呼叫 API", extensions: ["azure"] },
 	// A bot on a computer can see and use its screen; on the phone there is none (runtime.ts makes it unavailable there).
 	{ kind: "builtin", id: "computer", label: "電腦畫面", hint: "看電腦的螢幕，用它的滑鼠和鍵盤", extensions: ["computer"] },
-	{ kind: "builtin", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
+	{ kind: "builtin", id: "sandbox", label: "電腦", hint: "在電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
 	// The same tools without a sandbox: only one of the two is available, whichever the app has.
 	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"] },
 ];

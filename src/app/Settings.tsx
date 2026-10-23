@@ -7,17 +7,10 @@ import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
 import { showToast } from "./Toasts.tsx";
 import { checkGitHub, checkModels } from "../agent/checks.ts";
-import {
-	checkGcloud,
-	describeCredential,
-	finishGoogleSignIn,
-	type GoogleSignIn,
-	looksLikeAuthCode,
-	parseCredential,
-	startGoogleSignIn,
-} from "../agent/gcloud.ts";
-import { type AzureDeviceSignIn, describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
-import { apiTokenCredential, type DeviceSignIn, describeCloudflare, finishDeviceSignIn, startDeviceSignIn } from "../agent/cloudflare.ts";
+import { checkGcloud, describeCredential, parseCredential } from "../agent/gcloud.ts";
+import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
+import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../agent/cloudflare.ts";
+import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
 import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
@@ -35,207 +28,6 @@ import { McpGroup } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-
-/**
- * Sign in with Google: opens Google's consent page in the browser; its last page shows an authorization code. When the
- * user copies it and comes back, the app finds it on the clipboard; pasting by hand works too.
- */
-function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
-	const [signIn, setSignIn] = useState<GoogleSignIn>();
-	const [code, setCode] = useState("");
-	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "failed"; error: string }>({ kind: "idle" });
-
-	const finish = async (value: string) => {
-		if (!signIn || !value.trim()) return;
-		setState({ kind: "busy" });
-		try {
-			onCredential(await finishGoogleSignIn(signIn, value));
-			setSignIn(undefined);
-			setCode("");
-			setState({ kind: "idle" });
-		} catch (error) {
-			setState({ kind: "failed", error: error instanceof Error ? error.message : String(error) });
-		}
-	};
-	const finishRef = useRef(finish);
-	finishRef.current = finish;
-
-	useEffect(() => {
-		if (!signIn) return;
-		const listener = App.addListener("resume", async () => {
-			// Android only lets the focused app read the clipboard, and focus arrives a moment after resume.
-			await new Promise((resolve) => setTimeout(resolve, 400));
-			const { text } = await System.clipboardText().catch(() => ({ text: "" }));
-			if (looksLikeAuthCode(text)) {
-				setCode(text.trim());
-				void finishRef.current(text);
-			}
-		});
-		return () => void listener.then((handle) => handle.remove());
-	}, [signIn]);
-
-	if (!signIn) {
-		return (
-			<div className="check-row">
-				<span className="menu-text">
-					用 Google 帳號登入
-				</span>
-				<button
-					type="button"
-					className="btn primary"
-					onClick={async () => {
-						const next = await startGoogleSignIn();
-						setSignIn(next);
-						setState({ kind: "idle" });
-						await System.openExternal({ url: next.url });
-					}}
-				>
-					登入
-				</button>
-			</div>
-		);
-	}
-	return (
-		<div className="sign-in">
-			<p>複製最後一頁的授權碼，回來會自動帶入，或貼在這裡：</p>
-			<input className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
-			{state.kind === "failed" ? <div className="check-error">{state.error}</div> : null}
-			<div className="dialog-actions inline">
-				<button type="button" className="btn" onClick={() => setSignIn(undefined)}>
-					取消
-				</button>
-				<button type="button" className="btn primary" disabled={!code.trim() || state.kind === "busy"} onClick={() => void finish(code)}>
-					{state.kind === "busy" ? "登入中…" : "完成"}
-				</button>
-			</div>
-		</div>
-	);
-}
-
-/** Cloudflare's device flow: show the code, open the approval page, and poll until the user approves it there. */
-function CloudflareSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
-	const [signIn, setSignIn] = useState<DeviceSignIn>();
-	const [error, setError] = useState("");
-	const abort = useRef<AbortController>(undefined);
-	useEffect(() => () => abort.current?.abort(), []);
-
-	const begin = async () => {
-		setError("");
-		try {
-			const next = await startDeviceSignIn();
-			setSignIn(next);
-			const controller = new AbortController();
-			abort.current = controller;
-			await System.openExternal({ url: next.url });
-			onCredential(await finishDeviceSignIn(next, controller.signal));
-			setSignIn(undefined);
-		} catch (failure) {
-			setSignIn(undefined);
-			if (!abort.current?.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure));
-		}
-	};
-
-	if (!signIn) {
-		return (
-			<>
-				<div className="check-row">
-					<span className="menu-text">
-						用 Cloudflare 帳號登入
-					</span>
-					<button type="button" className="btn primary" onClick={() => void begin()}>
-						登入
-					</button>
-				</div>
-				{error ? <div className="check-row check-error">{error}</div> : null}
-			</>
-		);
-	}
-	return (
-		<div className="sign-in">
-			<p>在 Cloudflare 頁面確認這組代碼：</p>
-			<div className="user-code">{signIn.userCode}</div>
-			<p className="ws-loading">等待授權</p>
-			<div className="dialog-actions inline">
-				<button
-					type="button"
-					className="btn"
-					onClick={() => {
-						abort.current?.abort();
-						setSignIn(undefined);
-					}}
-				>
-					取消
-				</button>
-				<button type="button" className="btn" onClick={() => void System.openExternal({ url: signIn.url })}>
-					重新開啟頁面
-				</button>
-			</div>
-		</div>
-	);
-}
-
-/** Microsoft's device code flow: the code is copied for the user to paste at microsoft.com/devicelogin. */
-function AzureSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
-	const [signIn, setSignIn] = useState<AzureDeviceSignIn>();
-	const [error, setError] = useState("");
-	const abort = useRef<AbortController>(undefined);
-	useEffect(() => () => abort.current?.abort(), []);
-
-	const begin = async () => {
-		setError("");
-		try {
-			const next = await startAzureSignIn();
-			setSignIn(next);
-			await navigator.clipboard.writeText(next.userCode).catch(() => undefined);
-			const controller = new AbortController();
-			abort.current = controller;
-			await System.openExternal({ url: next.url });
-			onCredential(await finishAzureSignIn(next, controller.signal));
-			setSignIn(undefined);
-		} catch (failure) {
-			setSignIn(undefined);
-			if (!abort.current?.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure));
-		}
-	};
-
-	if (!signIn) {
-		return (
-			<>
-				<div className="check-row">
-					<span className="menu-text">
-						用 Microsoft 帳號登入
-					</span>
-					<button type="button" className="btn primary" onClick={() => void begin()}>
-						登入
-					</button>
-				</div>
-				{error ? <div className="check-row check-error">{error}</div> : null}
-			</>
-		);
-	}
-	return (
-		<div className="sign-in">
-			<p>代碼已複製，在 Microsoft 的頁面貼上：</p>
-			<div className="user-code">{signIn.userCode}</div>
-			<p className="ws-loading">等待授權</p>
-			<div className="dialog-actions inline">
-				<button
-					type="button"
-					className="btn"
-					onClick={() => {
-						abort.current?.abort();
-						setSignIn(undefined);
-					}}
-				>
-					取消
-				</button>
-				<button type="button" className="btn" onClick={() => void System.openExternal({ url: signIn.url })}>
-					重新開啟頁面
-				</button>
-			</div>
-		</div>
-	);
-}
 
 function gcloudIdentity(json: string): string {
 	try {
@@ -774,7 +566,7 @@ export function SettingsView({
 							</div>
 						) : (
 							<>
-								<CloudflareSignInPanel onCredential={(json) => change({ cloudflareCredential: json })} />
+								<DeviceSignInPanel provider="Cloudflare" start={startCloudflareSignIn} finish={finishCloudflareSignIn} onCredential={(json) => change({ cloudflareCredential: json })} />
 								<details className="manual">
 									<summary>改用 API token</summary>
 									<label>
@@ -801,7 +593,7 @@ export function SettingsView({
 								</button>
 							</div>
 						) : (
-							<AzureSignInPanel onCredential={(json) => change({ azureCredential: json })} />
+							<DeviceSignInPanel provider="Microsoft" start={startAzureSignIn} finish={finishAzureSignIn} copyCode onCredential={(json) => change({ azureCredential: json })} />
 						)}
 					</Group>
 				</>

@@ -10,7 +10,7 @@
 - 資料庫：手機上一個 SQLite 資料庫，所有 Bot 共用。Bot 自己建表、記錄、查詢：「幫我記帳：午餐 150」「這個月花了多少」。設定 › 資料庫可以看資料表與筆數，或匯出整個 .db 檔。
 - MCP：設定 › MCP › 瀏覽服務，從精選的服務（Notion、Linear、Todoist、Stripe、Sentry、Context7……）一鍵連接，或直接輸入網址；需要登入的在瀏覽器完成 OAuth（自動註冊、PKCE、本機跳轉網址，token 存在 Keystore），新加的服務不會給任何 Bot，在服務下面或 Bot 面板的「連接的服務」選哪些 Bot 可以用。服務的工具需要時才載入（tool_search），平常不佔提示。服務沒標成唯讀的工具，執行前會先問你。
 - 通知讀取（設定 › 通知讀取，開一次系統權限）：其他 App 的通知（LINE、Messenger、信件、外送…）在手機上留 30 天，開了「通知」工具的 Bot 就能回答「剛剛誰找我」「有沒有要處理的」。聊天通知逐則記錄，含發話者；只看得到通知裡顯示的內容。
-- Bot 面板的「工具」可以逐組開關這個 Bot 能用的工具：網路、天氣、地點、手機狀態、手機 App、日曆、通知、資料庫、語音、GitHub、Google Cloud、Cloudflare、Azure、Sandbox、程式模式。關掉的工具模型看不到，程式模式的腳本也呼叫不到。手機的日常工具常駐；Sandbox、GitHub 和三家雲端需要時才載入（tool_search），面板上每組標出常駐或需要時載入、約佔多少 tokens；還沒在設定裡連接的顯示「尚未設定」。記憶、skills 和排程一直開著。執行中的 Bot 有閃爍標記。
+- Bot 面板的「工具」可以逐組開關這個 Bot 能用的工具：網路、天氣、地點、手機狀態、手機 App、日曆、通知、資料庫、語音、GitHub、Google Cloud、Cloudflare、Azure、電腦、程式模式。關掉的工具模型看不到，程式模式的腳本也呼叫不到。手機的日常工具常駐；電腦、GitHub 和三家雲端需要時才載入（tool_search），面板上每組標出常駐或需要時載入、約佔多少 tokens；還沒在設定裡連接的顯示「尚未設定」。記憶、skills 和排程一直開著。執行中的 Bot 有閃爍標記。
 - OpenAI 可以用 **Sign in with ChatGPT**：在瀏覽器用 ChatGPT 帳號登入，改用訂閱、不需要 API key；模型清單只列訂閱能用的那些。
 - 模型和思考強度選單，依供應商分組，每個模型標出 context 長度、能不能看圖、支不支援思考。模型和規格來自 pi-ai 的目錄；自訂端點的模型取自它的 `/v1/models`，認得的模型（例如 gateway 轉發的 Claude、GPT）也套用目錄的規格。
 - Agent 工作時可以「插話」（插到下一輪工具之後）或「稍後」（等這次跑完）。排隊的訊息可以撤回；按停止時，排隊的訊息會放回輸入框。
@@ -73,7 +73,7 @@
   - `set_alarm`、`set_timer`：直接設定鬧鐘和計時器，不開時鐘 app。
   - Android 不允許背景的 app 打開其他 app，所以 pi 在背景時這些工具會失敗，並請你回到 pi。
 - **Code mode**：模型可以寫 JavaScript，在一個腳本裡批次呼叫工具（`tools.<name>(args)`）、整理資料。腳本在手機上的 QuickJS VM 裡跑，VM 放在 Web Worker 裡，所以不會卡住 UI；每個結果都先記下來，app 被殺掉後會接著跑。
-- Sandbox 的 `read`、`write`、`edit`、`bash`，見[架構](architecture.md)。
+- 電腦上的 `read`、`write`、`edit`、`bash`，見[架構](architecture.md)。
 
 **工作區**
 - 瀏覽 Bot 在 sandbox 裡的資料夾（例如 `/workspace/pi`）、看檔案（行號、Markdown 預覽、圖片）、每個 git repo 的變更、diff 和最近的 commit。
