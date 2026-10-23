@@ -81,6 +81,23 @@
 
 說明裡原本只寫「沒有其他程式」，Luna 被要求「用 python 算」時會放棄；加上「沒有 python，用 awk 或 jq 算」之後，它改用程式模式算出正確答案。Haiku 本來就會改用 awk。
 
+## 為什麼不是別的（2026-10-24）
+
+手機資料夾的 bash 要同時滿足：跑在 WebView 裡（沒有 `SharedArrayBuffer`，見 phone-runtime.md）、只碰得到 Bot 自己的資料夾、沒有網路、使用者不用另外裝東西、模型寫的是 bash 不是 sh。對照過的替代方案：
+
+| 方案 | 真實度 | 擋不擋得住 | 代價 | 不選的原因 |
+|---|---|---|---|---|
+| **just-bash**（現在） | bash 語法齊，工具是 TS 重寫，127/152 和 GNU 一樣 | 檔案系統是我們接的 VFS，天生只看得到 Bot 資料夾 | 約 20 條 build 時的 patch，升級要重做 | — |
+| 把 bash、coreutils、gawk、jq 的 arm64 靜態檔打包成 `lib*.so`，`ProcessBuilder` 執行 | 真的 GNU | **擋不住**：行程是 app 的 uid，`cat ../../app_webview/…` 讀得到對話資料庫和設定。要擋要用 `isolatedProcess` 加 fd 傳遞和 C 寫的 launcher，SELinux 對 isolated_app 能不能 exec app 的 lib 沒有定論 | APK 多 5–8 MB、`useLegacyPackaging`、四個 ABI | 隔離要自己做，而且做錯就是整個 app 的資料外洩 |
+| Wasmer 的 `bash`（WASIX） | 真的 bash | 有 | 需要 `SharedArrayBuffer`，WebView 沒有 cross-origin isolation；外部工具要另外包 | 跑不起來 |
+| `wasi-sh`（BusyBox ash 編成 wasm32-wasi） | ash 不是 bash：沒有陣列、`[[ ]]`、process substitution；管線一樣不串流 | 有 | 小 | 比 just-bash 更不像模型寫的 bash |
+| v86 / JSLinux（在瀏覽器模擬一台 x86 跑 Linux） | 真的 Linux，有 python | 有（VM） | image 數十 MB，開機數秒，單核模擬，資料夾要經 9p 橋接 | 太重，且只是為了 awk 和 jq |
+| Termux（`RUN_COMMAND`） | 真的 Linux | 沒有：Termux 自己的家目錄和網路 | 使用者要裝 Termux、開 allow-external-apps | 那是「手機內 sandbox」的方案（android-system-capabilities.md），不是資料夾的 shell |
+| 系統 Linux Terminal（AVF） | 真的 Debian VM | 有 | S24 不支援 | 換手機再說 |
+| 不給 bash，只給 read/write/edit 和 code mode 的 JS | — | 有 | 模型要改用 JS 做文字處理 | 弱模型自然會寫 awk、jq；四個工作 12/12 是靠 bash 做到的 |
+
+結論：在這組限制下，just-bash 是唯一一個「純 JS、VFS 可接、語法是 bash」的選擇；它的代價是上游還年輕，差異要自己補。補的方式已經讓升級時哪條失效會在 build 就知道，上游也在動（我們找到的有 8 項已有 issue，`/dev/null` 已合併未發版）。
+
 ## Cloudflare Computer 怎麼用（2026-10-23，v0.7.0）
 
 [cloudflare/computer](https://github.com/cloudflare/computer) 的 worker-shell backend 也把 just-bash 接到自己的檔案系統：每次執行在 Dynamic Worker 裡 `new Bash({ fs: WorkspaceFsAdapter })`，檔案操作經 Workers RPC 回到 Durable Object 的 SQLite（`packages/computer/src/backends/worker-shell/adapter.ts`、`entrypoint.ts`）。鎖定 just-bash 3.2.0，標為 Experimental。
