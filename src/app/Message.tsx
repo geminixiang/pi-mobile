@@ -473,17 +473,52 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 	);
 }
 
+function sameCall(before: CallState | undefined, after: CallState | undefined): boolean {
+	if (before === after) return true;
+	if (!before || !after || before.status !== after.status) return false;
+	if (before.status === "pending") return true;
+	if (before.status === "running") return after.status === "running" && before.output === after.output;
+	return (
+		after.status === "done" &&
+		before.isError === after.isError &&
+		before.output === after.output &&
+		before.images.length === after.images.length &&
+		before.images.every((image, index) => image.data === after.images[index]?.data)
+	);
+}
+
+function sameCallsFor(entry: EntryRecord, before: CallStates, after: CallStates): boolean {
+	if (before === after) return true;
+	const content = message(entry)?.content;
+	if (!Array.isArray(content)) return true;
+	for (const block of content) {
+		if (block.type === "toolCall" && !sameCall(before.get(block.id), after.get(block.id))) return false;
+	}
+	return true;
+}
+
+type EntryViewProps = {
+	entry: EntryRecord;
+	prefs: Prefs;
+	calls: CallStates;
+	onActions: (entry: EntryRecord) => void;
+};
+
+function sameEntryView(before: EntryViewProps, after: EntryViewProps): boolean {
+	return (
+		before.entry === after.entry &&
+		before.prefs === after.prefs &&
+		before.onActions === after.onActions &&
+		sameCallsFor(after.entry, before.calls, after.calls)
+	);
+}
+
 export const EntryView = memo(function EntryView({
 	entry,
 	prefs,
 	calls,
 	onActions,
-}: {
-	entry: EntryRecord;
-	prefs: Prefs;
-	calls: CallStates;
-	onActions: (entry: EntryRecord) => void;
-}) {
+}: EntryViewProps) {
 	const model = message(entry);
 	const longPress = {
 		onContextMenu: (event: { preventDefault: () => void }) => {
@@ -517,4 +552,4 @@ export const EntryView = memo(function EntryView({
 		);
 	}
 	return null;
-});
+}, sameEntryView);
