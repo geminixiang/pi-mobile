@@ -7,6 +7,9 @@
 //     its result take one model call instead of two.
 //
 // The screen and input are per system (computer_darwin.go); coordinates are always the screenshot's pixels.
+//
+// It answers for what it opens, not the model: apps that came up while it was in use are quit when the session ends,
+// two minutes after the last call, or when the phone's connection or the server ends. Apps open before stay.
 package main
 
 import (
@@ -19,7 +22,10 @@ import (
 	"image"
 	"image/jpeg"
 	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/image/draw"
@@ -31,8 +37,16 @@ const shotLongSide = 1280
 // A settled screen after the last step: menus, sheets, and new windows take a moment to appear.
 const settle = 400 * time.Millisecond
 
+// A session ends this long after its last call.
+const sessionIdle = 2 * time.Minute
+
 // screen is what each system provides.
 type screen interface {
+	// apps are the running apps the user sees (in the Dock), by pid.
+	apps() map[int]string
+	// quit ends apps the session opened, within about two seconds: pi-mobile serve kills the server two seconds after
+	// asking it to stop.
+	quit(pids []int)
 	// capture is the main display as an image, and its size in the units input takes (points on macOS).
 	capture() (image.Image, float64, float64, error)
 	state() (app, window string, x, y float64)
@@ -63,6 +77,65 @@ type computer struct {
 	screen screen
 	// From screenshot pixels to input units, as of the last screenshot.
 	scale float64
+
+	mu sync.Mutex
+	// The apps running when the session began; nil between sessions.
+	before map[int]string
+	// The apps that came up since, which the session ends.
+	opened map[int]string
+	idle   *time.Timer
+}
+
+// touch starts a session if none is open, and puts off its end.
+func (c *computer) touch() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.before == nil {
+		c.before = c.screen.apps()
+		c.opened = map[int]string{}
+	}
+	if c.idle == nil {
+		c.idle = time.AfterFunc(sessionIdle, c.end)
+	} else {
+		c.idle.Reset(sessionIdle)
+	}
+}
+
+// noteOpened records the apps that came up since the session began.
+func (c *computer) noteOpened() {
+	now := c.screen.apps()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.before == nil {
+		return
+	}
+	for pid, name := range now {
+		if _, was := c.before[pid]; !was {
+			c.opened[pid] = name
+		}
+	}
+}
+
+// end quits the apps the session opened that still run.
+func (c *computer) end() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.before == nil {
+		return
+	}
+	running := c.screen.apps()
+	var pids []int
+	for pid, name := range c.opened {
+		if running[pid] == name {
+			pids = append(pids, pid)
+		}
+	}
+	c.screen.quit(pids)
+	c.before, c.opened = nil, nil
+	if c.idle != nil {
+		c.idle.Stop()
+		c.idle = nil
+	}
 }
 
 func (c *computer) shot() ([]any, error) {
@@ -142,7 +215,7 @@ func (c *computer) act(steps []step) ([]any, error) {
 var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
-		"description": "See the computer's screen now: a JPEG of the main display, and as text its size, the front app, the title of its focused window, and the pointer. Coordinates everywhere are this screenshot's pixels.",
+		"description": "See the computer's screen now: a JPEG of the main display, and as text its size, the front app, the title of its focused window, and the pointer. Coordinates everywhere are this screenshot's pixels. Apps opened while using the screen are quit two minutes after the last use.",
 		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},
@@ -193,6 +266,15 @@ func serveComputerMCP() int {
 		return 1
 	}
 	c := &computer{screen: s}
+	// The phone left (pi-mobile serve ends the process group) or the input ended: the session ends with it.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	go func() {
+		<-stop
+		c.end()
+		os.Exit(0)
+	}()
+	defer c.end()
 	out := json.NewEncoder(os.Stdout)
 	reply := func(id json.RawMessage, result any) {
 		_ = out.Encode(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
@@ -235,6 +317,7 @@ func serveComputerMCP() int {
 			}
 			var content []any
 			var err error
+			c.touch()
 			switch p.Name {
 			case "screenshot":
 				content, err = c.shot()
@@ -243,6 +326,7 @@ func serveComputerMCP() int {
 			default:
 				err = fmt.Errorf("no tool %q", p.Name)
 			}
+			c.noteOpened()
 			if err != nil {
 				reply(m.ID, map[string]any{"isError": true, "content": []any{map[string]any{"type": "text", "text": err.Error()}}})
 				continue

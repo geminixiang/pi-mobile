@@ -38,7 +38,6 @@
 - **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔要看到 `TERM` 才會當 CLI 用，launchd 不會設 `TERM`，所以 `pi-mobile serve` 自己補上 `TERM=dumb`。
 
 - **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
-- 模型的提示也說：做完要關掉為這件事開的 app、視窗、伺服器、背景程序和暫存檔，之前就開著的不動；背景程序會在手機斷線時結束，要長期跑的要跟使用者說。
 
 ## 手機（`src/agent/sandbox/host.ts`）
 
@@ -60,6 +59,7 @@
 - 兩個工具：`screenshot`（唯讀）和 `act`（一次多個步驟，做完回傳新截圖）。截圖附上前景 app、視窗標題和游標位置。
 - **有電腦就有這組工具**：手機上是內建的工具組「電腦畫面」（`src/agent/tools/computer.ts`，`read_screen`、`use_screen`），需要時載入，每台電腦一個連線。Bot 在手機上時這組不可用，也不會列在需要時載入的清單裡。不用另外加 MCP 服務。
 - macOS 用 `screencapture` 截圖，用 purego 呼叫 Quartz 事件和輔助使用 API，不用 cgo。權限算在 `pi-mobile serve` 頭上，不用另外授權。Linux 還沒做。
+- **它開的 app 由它收掉，不靠模型**：第一次呼叫時記下正在跑的 app（`lsappinfo list` 裡的 Foreground，約 35 毫秒），每次呼叫後記下新出現的。session 結束時，用 SIGTERM 結束這些 app（不問要不要存檔），1.5 秒後還在的就強制結束。原本就開著的 app 不動，即使 Bot 在裡面開了新視窗。session 在三種情況結束：最後一次呼叫後 2 分鐘、手機斷線（stdin 結束）、收到 SIGTERM（serve 結束整個程序群組時）。三種都在 Mac mini 上實測過。
 - 為什麼這樣設計、和 computer-use-mcp 的比較，見 [research/computer-use-mcp-eval.md](../research/computer-use-mcp-eval.md)。
 
 ## macOS 的隱私權限

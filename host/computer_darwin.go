@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"image"
@@ -13,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf16"
 
@@ -182,6 +184,51 @@ func frontApp() (string, int) {
 		pid, _ = strconv.Atoi(string(m[1]))
 	}
 	return name, pid
+}
+
+var (
+	lsappinfoEntry  = regexp.MustCompile(`(?m)^\s*\d+\) "`)
+	lsappinfoQuoted = regexp.MustCompile(`^([^"]*)"`)
+)
+
+// apps are the foreground apps from Launch Services (lsappinfo list, about 35 ms): what the Dock shows.
+func (s *macScreen) apps() map[int]string {
+	out, err := exec.Command("/usr/bin/lsappinfo", "list").Output()
+	if err != nil {
+		return map[int]string{}
+	}
+	apps := map[int]string{}
+	starts := lsappinfoEntry.FindAllIndex(out, -1)
+	for i, start := range starts {
+		end := len(out)
+		if i+1 < len(starts) {
+			end = starts[i+1][0]
+		}
+		entry := out[start[1]:end]
+		name := lsappinfoQuoted.FindSubmatch(entry)
+		pid := lsappinfoPID.FindSubmatch(entry)
+		if name == nil || pid == nil || !bytes.Contains(entry, []byte(`type="Foreground"`)) {
+			continue
+		}
+		if n, err := strconv.Atoi(string(pid[1])); err == nil {
+			apps[n] = string(name[1])
+		}
+	}
+	return apps
+}
+
+// quit ends apps with SIGTERM, without asking to save what the session typed in them, and kills what is left after 1.5 s.
+func (s *macScreen) quit(pids []int) {
+	for _, pid := range pids {
+		_ = syscall.Kill(pid, syscall.SIGTERM)
+	}
+	deadline := time.Now().Add(1500 * time.Millisecond)
+	for _, pid := range pids {
+		for syscall.Kill(pid, 0) == nil && time.Now().Before(deadline) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
 }
 
 func (s *macScreen) send(event uintptr) {
