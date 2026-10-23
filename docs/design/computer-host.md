@@ -10,7 +10,7 @@
    curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
    ```
    它會下載對應平台的 `pi-mobile`，比對 checksum，設定成登入時自動啟動（macOS 用 launchd，Linux 用 `systemd --user`），用 `pi-mobile status` 從這台電腦的 Tailscale 位址確認它有回應，最後印出要在手機上輸入的名稱。
-   - 由 `.github/workflows/computer.yml` 建置：`host/` 在 main 上有變動時，覆蓋 prerelease `computer` 的檔案（4 個平台的 `pi-mobile-<os>-<arch>` 和 `pi-mobile.sha256`）。用 prerelease，所以它不會變成 app 的 latest release。
+   - 從**最新的 release** 下載（`releases/latest/download`）。每個 release 由 `.github/workflows/release.yml` 從同一個 commit 建出 APK 和電腦端：4 個平台的 `pi-mobile-<os>-<arch>`、`pi-mobile.icns`，以及涵蓋所有檔案的 `pi-mobile.sha256`。所以手機和電腦的版本永遠成對。
 3. 手機：設定 › 電腦 › 輸入那個名稱 › 加入。第一台會成為預設（直接）；電腦上有容器引擎時，按「容器」會先在那裡建好 image（第一次要幾分鐘），之後就能選。每個 Bot 也可以在面板的「電腦」自己選。
 
 移除：執行同一行指令，最後加上 `-s uninstall`。
@@ -68,7 +68,7 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 
 所以權限在安裝的那一次全部問完：
 
-- **它是一個 app**：`~/Applications/pi-mobile.app`（bundle id `dev.pi-mobile`，有 Pi 的圖示、`LSUIElement` 不出現在 Dock）。launchd 執行 app 裡的程式，plist 填了 `AssociatedBundleIdentifiers`，所以權限詢問和系統設定的列表都顯示 pi-mobile 的名稱和圖示。`~/.pi/mobile/bin/pi-mobile` 是指向它的連結。圖示由 `scripts/make-icons.py` 產生（`host/macos/pi-mobile.icns`），隨 binary 放在 prerelease。
+- **它是一個 app**：`~/Applications/pi-mobile.app`（bundle id `dev.pi-mobile`，有 Pi 的圖示、`LSUIElement` 不出現在 Dock）。launchd 執行 app 裡的程式，plist 填了 `AssociatedBundleIdentifiers`，所以權限詢問和系統設定的列表都顯示 pi-mobile 的名稱和圖示。`~/.pi/mobile/bin/pi-mobile` 是指向它的連結。圖示由 `scripts/make-icons.py` 產生（`host/macos/pi-mobile.icns`），隨 binary 放在 release。
 - **固定的簽章**：安裝腳本第一次執行時，在 `~/.pi/mobile/signing/` 建一個自己的鑰匙圈和一張自簽的程式碼簽章憑證「pi-mobile (local)」，密碼存在旁邊，所以簽章不會跳出詢問；不碰登入鑰匙圈，也不加進鑰匙圈的搜尋清單。之後每次更新都用同一張憑證簽，DR 是 `identifier "dev.pi-mobile" and certificate leaf = H"…"`，macOS 就把新版認成同一個 app（`docs/research/macos-automation.md`）。移除時連同憑證一起刪掉。
 - `pi-mobile serve` 一啟動，就依序碰一次：讀桌面、文件、下載項目，用 osascript 問 System Events，**向系統要輔助使用**（`AXIsProcessTrustedWithOptions` 加上詢問，最多等 3 分鐘），**要錄製螢幕**（`CGRequestScreenCaptureAccess`）再截一張螢幕。主動要，pi-mobile 才會出現在設定的列表裡，不用使用者按「+」。macOS 一個接一個問；已經允許的直接通過，不會再問。
 - 每一項的結果寫進 `~/.pi/mobile/permissions.json`，`pi-mobile status` 會列出 granted、denied 或 waiting。

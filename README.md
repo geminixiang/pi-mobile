@@ -25,15 +25,19 @@
 
 ## 開始使用
 
-1. **安裝**：從 [Releases](../../releases) 下載 APK 安裝。需要 Android 7.0 以上的 arm64 手機。
+1. **安裝**：從[最新的 release](../../releases/latest) 下載 `pi-mobile-<版本>.apk` 安裝。需要 Android 7.0 以上的 arm64 手機。
 2. **加入模型供應商**：第一次打開時，選一家供應商填上 API key，或填自訂端點的網址。到這一步就能聊天。
-3. **（選用）** 在設定裡連接 GitHub、雲端帳號、MCP 服務，或把你的電腦交給 pi。
-4. **背景執行**：在設定 › 背景執行允許通知，並讓 app 不受電池最佳化限制。
+3. **（選用）把你的電腦交給 pi**：在 Mac 或 Linux 上（要裝好 Tailscale，手機也登入同一個帳號）執行下面這行，再到手機的設定 › 電腦輸入它印出的名稱。之後更新也是同一行。
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
+   ```
+4. **（選用）** 在設定裡連接 GitHub、雲端帳號、MCP 服務。
+5. **背景執行**：在設定 › 背景執行允許通知，並讓 app 不受電池最佳化限制。
 
 ## 文件
 
 - [功能細節](docs/features.md)：Bot、記憶、排程與耳機觸發、工具、工作區、操作手勢
-- [工具與 context](docs/tools.md)：每組工具佔多少提示、常駐或需要時載入、MCP 服務市集、新工具上線前的量測
+- [工具與 context](docs/tools.md)：工具怎麼交給模型（程式模式為主）、MCP 服務市集、新工具上線前的量測
 - [架構](docs/architecture.md)：手機與 sandbox 怎麼連、憑證與 egress proxy、專案結構
 - [開發](docs/development.md)：從原始碼建置、安裝 sandbox 主機、測試
 - [安全模型與已知限制](docs/security.md)

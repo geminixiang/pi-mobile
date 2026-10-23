@@ -1,6 +1,6 @@
-# Publish a release: push a tag vX.Y.Z matching package.json's version. Builds the signed APK with
-# scripts/release-android.sh and creates the GitHub release with notes from docs/releases/X.Y.Z.md. pi-mobile for computers
-# has its own workflow (computer.yml).
+# Publish a release: push a tag vX.Y.Z matching package.json's version. One GitHub release carries both halves, built
+# from the same commit: the signed APK (scripts/release-android.sh) and pi-mobile for computers (host/), which
+# host/install.sh downloads from the latest release. Notes come from docs/releases/X.Y.Z.md (docs/releases/README.md).
 #
 # Secrets (Settings › Secrets and variables › Actions):
 #   PI_MOBILE_KEYSTORE_BASE64    base64 of the release keystore (the same key as 0.1.0, so updates install over it)
@@ -19,18 +19,28 @@ concurrency:
   group: release-${{ github.ref }}
 
 jobs:
-  android:
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Tag matches package.json
+      - id: version
+        name: Tag matches package.json
         run: |
           version=$(node -p 'require("./package.json").version')
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME, package.json $version"; exit 1; }
           [ -f "docs/releases/$version.md" ] || { echo "::error::missing docs/releases/$version.md"; exit 1; }
-          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -63,21 +73,77 @@ jobs:
       - name: Build APK
         env:
           PI_MOBILE_RELEASE_ENV: ${{ runner.temp }}/release.env
-        run: scripts/release-android.sh
+        run: |
+          scripts/release-android.sh
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "pi-mobile-$VERSION.apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 > cert.sha256
+
+      - name: Remove key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/release.env"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: |
+            pi-mobile-${{ env.VERSION }}.apk
+            cert.sha256
+
+  computer:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: host/go.mod
+          cache-dependency-path: host/go.sum
+
+      - name: Build
+        working-directory: host
+        run: |
+          go vet ./...
+          go test ./...
+          for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
+            os=${target%/*}; arch=${target#*/}; name=$arch; [ "$arch" = amd64 ] && name=x64
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "../pi-mobile-$os-$name" .
+          done
+          cp macos/pi-mobile.icns ../pi-mobile.icns
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: computer
+          path: |
+            pi-mobile-darwin-*
+            pi-mobile-linux-*
+            pi-mobile.icns
+
+  release:
+    needs: [check, android, computer]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
 
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           apk="pi-mobile-$VERSION.apk"
-          apk_sha=$(sha256sum "$apk" | cut -d' ' -f1)
-          cert_sha=$("$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          # One checksum file for every asset; install.sh checks the computer's binary against it.
+          sha256sum "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns > pi-mobile.sha256
           {
             cat "docs/releases/$VERSION.md"
-            printf '\n## 驗證\n- APK SHA-256：`%s`\n- 簽章憑證 SHA-256：`%s`\n' "$apk_sha" "$cert_sha"
+            printf '\n## 驗證\n- APK SHA-256：`%s`\n- 簽章憑證 SHA-256：`%s`\n- 所有檔案的 SHA-256：`pi-mobile.sha256`\n' \
+              "$(sha256sum "$apk" | cut -d' ' -f1)" "$(cat cert.sha256)"
           } > notes.md
-          gh release create "$GITHUB_REF_NAME" "$apk" --title "pi mobile $VERSION" --notes-file notes.md --verify-tag
-
-      - name: Remove key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/release.env"
+          gh release create "$GITHUB_REF_NAME" "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns pi-mobile.sha256 \
+            --title "pi mobile $VERSION" --notes-file notes.md --verify-tag --latest

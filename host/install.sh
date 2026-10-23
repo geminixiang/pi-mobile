@@ -63,7 +63,8 @@ done
 TAILSCALE_BE_CLI=1 "$tailscale" status --json --peers=false 2>/dev/null | grep -q '"DNSName": *"[^"]' || fail "Tailscale 沒有連上：打開 Tailscale 登入後再執行一次"
 
 say "安裝 pi-mobile"
-release="https://github.com/$REPO/releases/download/computer"
+# The latest release: pi-mobile for computers ships with the app, built from the same commit (release.yml).
+release="https://github.com/$REPO/releases/latest/download"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 # <asset> <file> [url]: from the release, checked against its checksums; a URL given (PI_MOBILE_URL, a build to test)
