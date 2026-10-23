@@ -65,7 +65,7 @@ func tailscaleCLI() string {
 	if path, err := exec.LookPath("tailscale"); err == nil {
 		return path
 	}
-	for _, path := range []string{"/Applications/Tailscale.app/Contents/MacOS/tailscale", "/usr/bin/tailscale", "/usr/local/bin/tailscale", "/opt/homebrew/bin/tailscale"} {
+	for _, path := range []string{"/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/usr/bin/tailscale", "/usr/local/bin/tailscale", "/opt/homebrew/bin/tailscale"} {
 		if _, err := os.Stat(path); err == nil {
 			return path
 		}
@@ -91,10 +91,8 @@ func tailscaleJSON(ctx context.Context, out any, args ...string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, cli, args...)
-	// The macOS app's binary is the CLI only when it runs in a terminal, which it tells by TERM; launchd sets none.
-	if os.Getenv("TERM") == "" {
-		cmd.Env = append(os.Environ(), "TERM=dumb")
-	}
+	// The macOS app's binary is the CLI when it runs in a terminal; from launchd it needs this (Tailscale's CLI docs).
+	cmd.Env = append(os.Environ(), "TAILSCALE_BE_CLI=1")
 	data, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("tailscale %s: %w", args[0], err)
@@ -499,8 +497,8 @@ func env(w http.ResponseWriter, r *http.Request) {
 // it counts what commands from the phone do against pi-mobile serve, which launchd started. A command that reaches one
 // of these waits for the answer on the computer's screen, where nobody is. So serve asks for all of them as it starts,
 // right after the install, while the user is at the computer: each is touched once, macOS asks one after another, and
-// what was granted passes silently from then on (until the binary changes, as it is signed ad hoc). The answers go to
-// permissionsFile for `pi-mobile status` and install.sh.
+// what was granted passes silently from then on: install.sh signs the app with the same local identity every time, so
+// an update keeps the grants. The answers go to permissionsFile for `pi-mobile status` and install.sh.
 type permission struct {
 	key   string
 	label string // what the user is asked, in the words macOS uses
@@ -515,7 +513,14 @@ var permissions = []permission{
 	{"automation", "控制「System Events」", "系統設定 › 隱私權與安全性 › 自動化", func(string) error {
 		return exec.Command("osascript", "-e", `tell application "System Events" to get name of first process`).Run()
 	}},
+	{"accessibility", "輔助使用", "系統設定 › 隱私權與安全性 › 輔助使用", func(string) error {
+		if !requestAccessibility(3 * time.Minute) {
+			return errors.New("not granted")
+		}
+		return nil
+	}},
 	{"screen", "錄製螢幕", "系統設定 › 隱私權與安全性 › 螢幕與系統錄音", func(string) error {
+		requestScreenCapture()
 		file := filepath.Join(os.TempDir(), "pi-mobile-screen-check.png")
 		defer os.Remove(file)
 		if err := exec.Command("screencapture", "-x", file).Run(); err != nil {
@@ -625,6 +630,11 @@ func printStatus() int {
 		}
 		client := http.Client{Timeout: 5 * time.Second}
 		response, err := client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
+		// Just (re)started, it takes a few seconds to ask Tailscale for its address and listen.
+		for wait := 0; err != nil && errors.Is(err, syscall.ECONNREFUSED) && wait < 15; wait++ {
+			time.Sleep(time.Second)
+			response, err = client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
+		}
 		if err != nil {
 			fmt.Printf("pi-mobile %s: not answering on %s:%s (%v)\n", version, ip, port, err)
 			return 1

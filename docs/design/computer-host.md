@@ -35,7 +35,7 @@
   - `/info` 也回報 login shell 找得到、而且 `info` 答得出來的容器引擎（docker、podman、nerdctl）。
   - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS 或 Linux、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，電腦上的 pi-mobile 不用跟著更新。
-- **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔要看到 `TERM` 才會當 CLI 用，launchd 不會設 `TERM`，所以 `pi-mobile serve` 自己補上 `TERM=dumb`。
+- **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔從 launchd 啟動時不會自己當 CLI 用，照 Tailscale 文件設 `TAILSCALE_BE_CLI=1`（`docs/research/tailscale.md`）。
 
 - **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
 
@@ -68,11 +68,12 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 
 所以權限在安裝的那一次全部問完：
 
-- `pi-mobile serve` 一啟動，就依序碰一次：讀桌面、文件、下載項目，用 osascript 問 System Events，截一張螢幕。macOS 一個接一個問；已經允許的直接通過，不會再問。
+- **它是一個 app**：`~/Applications/pi-mobile.app`（bundle id `dev.pi-mobile`，有 Pi 的圖示、`LSUIElement` 不出現在 Dock）。launchd 執行 app 裡的程式，plist 填了 `AssociatedBundleIdentifiers`，所以權限詢問和系統設定的列表都顯示 pi-mobile 的名稱和圖示。`~/.pi/mobile/bin/pi-mobile` 是指向它的連結。圖示由 `scripts/make-icons.py` 產生（`host/macos/pi-mobile.icns`），隨 binary 放在 prerelease。
+- **固定的簽章**：安裝腳本第一次執行時，在 `~/.pi/mobile/signing/` 建一個自己的鑰匙圈和一張自簽的程式碼簽章憑證「pi-mobile (local)」，密碼存在旁邊，所以簽章不會跳出詢問；不碰登入鑰匙圈，也不加進鑰匙圈的搜尋清單。之後每次更新都用同一張憑證簽，DR 是 `identifier "dev.pi-mobile" and certificate leaf = H"…"`，macOS 就把新版認成同一個 app（`docs/research/macos-automation.md`）。移除時連同憑證一起刪掉。
+- `pi-mobile serve` 一啟動，就依序碰一次：讀桌面、文件、下載項目，用 osascript 問 System Events，**向系統要輔助使用**（`AXIsProcessTrustedWithOptions` 加上詢問，最多等 3 分鐘），**要錄製螢幕**（`CGRequestScreenCaptureAccess`）再截一張螢幕。主動要，pi-mobile 才會出現在設定的列表裡，不用使用者按「+」。macOS 一個接一個問；已經允許的直接通過，不會再問。
 - 每一項的結果寫進 `~/.pi/mobile/permissions.json`，`pi-mobile status` 會列出 granted、denied 或 waiting。
-- 安裝腳本先說明 Mac 接下來會問哪幾項、請都按允許，然後等到每一項都有結果（最多 5 分鐘），再逐項列出；被拒絕的項目附上在系統設定裡的位置。
+- 安裝腳本跟著 serve 一項一項走：等到每一項有結果就印一行 ✓，等太久的印出要做什麼；輔助使用等 20 秒還沒開就直接打開那一頁設定。最後列出沒拿到的項目和設定的位置。`pi-mobile status` 在服務剛重啟、還沒開始聽時，會等它最多 15 秒。
 - 模型的提示也寫了：遇到 `Operation not permitted` 或逾時，就請使用者到 Mac 上允許，不要一直重試。
-- `pi-mobile` 只有 ad-hoc 簽章，macOS 依執行檔辨認它，所以**更新後會再問一次**。更新也是在電腦前跑安裝指令，所以剛好又是使用者在場的時候。要讓允許跨版本保留，得用固定的簽章身分（Developer ID，或至少一張固定的自簽憑證）。
 - 錄製螢幕跟其他項目不同：要在系統設定裡打開，而且要重新啟動的程式才看得到。所以沒拿到時，安裝腳本會直接打開那一頁設定，等使用者按 Enter，再重新啟動 `pi-mobile serve` 確認一次。
 - 打開之後，macOS 還會另外問一次「pi-mobile 正在要求略過系統私密視窗選擇器並直接取用你的畫面和音訊」，要再按一次「允許」。這是 macOS Sequoia 之後所有直接截取螢幕的程式都會遇到的確認，**每個月會再問一次**（[TechSmith 的說明](https://support.techsmith.com/hc/en-us/articles/30302332343693)），一般 app 無法略過。`pi-mobile serve` 每次啟動（通常是登入時）都會截圖檢查，所以到期後的詢問多半在使用者剛登入、人在電腦前時出現。允許後重新啟動 serve，不會再問。
 - 控制其他 app（Finder、Safari、音樂）是每個 app 各問一次，沒辦法事先問完；安裝時只問最常用的 System Events。

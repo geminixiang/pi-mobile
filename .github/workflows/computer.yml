@@ -42,11 +42,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sha256sum pi-mobile-* > pi-mobile.sha256
+          cp host/macos/pi-mobile.icns pi-mobile.icns
+          sha256sum pi-mobile-* pi-mobile.icns > pi-mobile.sha256
           notes="pi-mobile for computers $VERSION, built from ${GITHUB_SHA}. Install on a Mac or Linux computer: curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/host/install.sh | sh"
           if gh release view computer > /dev/null 2>&1; then
-            gh release upload computer pi-mobile-* pi-mobile.sha256 --clobber
+            gh release upload computer pi-mobile-* pi-mobile.icns pi-mobile.sha256 --clobber
             gh release edit computer --notes "$notes" --target "$GITHUB_SHA"
           else
-            gh release create computer pi-mobile-* pi-mobile.sha256 --prerelease --title "pi-mobile for computers" --notes "$notes" --target "$GITHUB_SHA"
+            gh release create computer pi-mobile-* pi-mobile.icns pi-mobile.sha256 --prerelease --title "pi-mobile for computers" --notes "$notes" --target "$GITHUB_SHA"
           fi

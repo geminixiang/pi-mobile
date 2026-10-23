@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generate the launcher icon from the Pi mark: adaptive-icon vectors plus legacy PNGs.
+"""Generate the launcher icon from the Pi mark: adaptive-icon vectors plus legacy PNGs, and the macOS app icon of
+pi-mobile on computers (host/macos/pi-mobile.icns, with iconutil).
 
 The mark (see src/app/PiMark.tsx) is pi.dev's pixel glyph shape in pi.dev's site palette, on evening blue with a
 faint grid aligned to the mark's cells. PNGs are rendered with headless Chrome from the same SVG.
@@ -10,6 +11,7 @@ import subprocess
 import tempfile
 
 RES = "android/app/src/main/res"
+MAC_ICNS = "host/macos/pi-mobile.icns"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 BG = "#161D27"
 GRID = "#14FFFFFF"  # ARGB, faint
@@ -131,5 +133,47 @@ def main():
     write("assets/icon.svg", svg.replace('viewBox="18 18 72 72"', 'viewBox="0 0 108 108"'))
 
 
+def mac_icon():
+    """macOS's icon grid: on a 1024 canvas, an 824 rounded square (radius 185) with room for the system's shadow."""
+    cells = lambda items, color: "".join(
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{color}"/>' for x, y, w, h in items
+    )
+    unit = 824 * UNIT / 72  # the mark at the size it has in the Android icon's 72dp visible area
+    ox = oy = 100 + (824 - 4 * unit) / 2
+    place = lambda items: [(ox + x * unit, oy + y * unit, w * unit, h * unit) for x, y, w, h in items]
+    grid = "".join(
+        f'<rect x="{100 + (ox - 100) % unit + i * unit - 1:g}" y="100" width="2" height="824" fill="#fff" fill-opacity="0.08"/>'
+        f'<rect x="100" y="{100 + (oy - 100) % unit + i * unit - 1:g}" width="824" height="2" fill="#fff" fill-opacity="0.08"/>'
+        for i in range(int(824 / unit) + 1)
+    )
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">'
+        '<defs><clipPath id="c"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath></defs>'
+        f'<g clip-path="url(#c)"><rect x="100" y="100" width="824" height="824" fill="{BG}"/>{grid}</g>'
+        + cells(place(TOP), TOP_COLOR) + cells(place(LEFT), LEFT_COLOR) + cells(place(RIGHT), RIGHT_COLOR)
+        + "</svg>"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        html = os.path.join(tmp, "icon.html")
+        with open(html, "w") as f:
+            f.write(f'<html><body style="margin:0;background:transparent">{svg}</body></html>')
+        master = os.path.join(tmp, "icon.png")
+        subprocess.run(
+            [CHROME, "--headless=new", "--hide-scrollbars", "--default-background-color=00000000",
+             "--window-size=1024,1024", f"--screenshot={master}", f"file://{html}"],
+            check=True, capture_output=True,
+        )
+        iconset = os.path.join(tmp, "pi-mobile.iconset")
+        os.makedirs(iconset)
+        for size in (16, 32, 128, 256, 512):
+            for scale in (1, 2):
+                name = f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png"
+                subprocess.run(["sips", "-z", str(size * scale), str(size * scale), master, "--out", os.path.join(iconset, name)],
+                               check=True, capture_output=True)
+        os.makedirs(os.path.dirname(MAC_ICNS), exist_ok=True)
+        subprocess.run(["iconutil", "-c", "icns", iconset, "-o", MAC_ICNS], check=True)
+
+
 if __name__ == "__main__":
     main()
+    mac_icon()

@@ -19,7 +19,7 @@
 **自簽憑證可以給出固定的 DR（實測）。**
 - 用 openssl 產生一張 `extendedKeyUsage=codeSigning` 的自簽憑證，匯入鑰匙圈。`security find-identity` 會把它列為 `CSSMERR_TP_NOT_TRUSTED`，但 `codesign -s "pi-mobile (local)" -i dev.pi-mobile` 照樣能簽。
 - 簽完的 DR 是 `identifier "dev.pi-mobile" and certificate leaf = H"71fd…"`，`codesign --verify --strict` 通過，也滿足這條 DR。
-- **還沒驗證**：TCC 是否接受這種未被信任的憑證，並在換新版、用同一張憑證簽之後保留權限。TN3127 建議的是 Apple Development 或發布用的身分；自簽憑證能不能被 TCC 接受，要實際授權一次再更新一次才能確定。
+- **實測，可行**：用這張憑證把 `pi-mobile.app` 授權一輪（檔案、System Events、輔助使用、螢幕錄製），再裝一個不同版本、雜湊不同的 binary，用同一張憑證簽：六項都還是允許，沒有跳出任何詢問。TN3127 建議的是 Apple 發的身分；未被信任的自簽憑證，TCC 一樣接受。
 
 ## 怎麼要權限
 
@@ -30,7 +30,13 @@
 | 檔案與檔案夾、自動化 | 無公開 API | 實際去讀資料夾、送 Apple Event 時才會問 | （`host/main.go` 的 `permissions` 就是這樣做的） |
 
 - **為什麼這次輔助使用不在列表裡**：程式從沒呼叫過要求的 API，只用 `AXIsProcessTrusted()` 檢查，所以系統不會把它加進列表，也不會詢問。改用 `AXIsProcessTrustedWithOptions` 加上 prompt 就會。
-- **詢問視窗沒有 logo**：pi-mobile 是單一執行檔，沒有 app bundle，系統拿不到名稱和圖示。包成 `.app`（Info.plist 加 `.icns`），並在 launchd plist 填 `AssociatedBundleIdentifiers`，詢問和設定列表就會顯示 app 的名稱與圖示。（推論自上面兩份 Apple 文件，尚未實測。）
+- **名稱和 logo（實測）**：包成 `pi-mobile.app`（Info.plist、`.icns`），launchd plist 填 `AssociatedBundleIdentifiers` 後：
+  - 系統設定的列表顯示 pi-mobile 的 logo。
+  - 詢問視窗寫的是「pi-mobile」，並帶上 Info.plist 的用途說明（例：「讓手機上的 pi 讀寫桌面上的檔案。」）。但詢問視窗的圖示是系統的（資料夾、鎖頭），不是 app 的 logo。
+- **主動要的效果（實測）**：
+  - 輔助使用：`AXIsProcessTrustedWithOptions` 加上 prompt 之後，系統跳出詢問，並把 pi-mobile 加進列表。
+  - 螢幕錄製：`CGRequestScreenCaptureAccess` 也一樣，但它的詢問會排在其他系統詢問後面，前一個關掉才出現。打開開關後要重新啟動程式才生效，接著 macOS 會再問一次「略過系統私密視窗選擇器」。
+  - 打開輔助使用的開關需要使用者的登入密碼。
 
 ## 螢幕錄製的「每月再問一次」
 
