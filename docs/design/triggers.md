@@ -166,7 +166,7 @@ Android 的限制：
 | 2 | 外部 webhook | ntfy（UnifiedPush）或 FCM | 收得到 | 待決定第 3 題 |
 | 2 | 開始走路、上車、靜止 | Activity Recognition Transition API（`play-services-location`），`PendingIntent` | 收得到 | 在晶片裡判斷，幾乎不耗電；要 `ACTIVITY_RECOGNITION` 權限 |
 | 2 | 螢幕亮、解鎖 | `SCREEN_ON`、`USER_PRESENT`，只送給執行中程序的動態廣播 | 有通知讀取時收得到：系統綁著服務，程序一直在 | 不另開前景服務 |
-| 3 | 開始移動（`significant_motion`） | `requestTriggerSensor`，觸發一次就停，在 sensor hub 裡 | 要程序活著 | 幾乎不耗電；跟 Activity Recognition 重疊，可能不需要 |
+| 2 | 拍了新照片、聯絡人或行事曆變了 | JobScheduler 的 `addTriggerContentUri` | 收得到 | 系統在內容變動時排一個 job，可以設定延遲合併 |
 
 ### 新的 If
 
@@ -188,7 +188,7 @@ Android 的限制：
 
 所以不做的：
 
-- **陀螺儀、加速度計的手勢**（扭手腕、甩手機、翻面）：Android 9 起在背景的 app 收不到持續回報型感測器的資料，要常駐前景服務才行。
+- **用感測器當觸發**（扭手腕、甩手機、翻面、`significant_motion`、步數）：Android 9 起在背景的 app 收不到任何感測器的事件，持續回報、有變化才回報、觸發一次就停的都一樣，要常駐前景服務才行。觸發後的 run 有 `AgentService` 這個前景服務，所以 `read_sensors` 在那時讀得到。
 - **Samsung 和 Android 的系統手勢感測器**（`pick_up_gesture`、`tilt_detector`、`wake_up_motion`、`Pocket mode`、`Drop Classifier`、`Car Crash Detect`）：是系統隱藏或廠商私有的，第三方 app 拿不到；`dumpsys sensorservice` 列得出來不代表可以用。
 
 ## 待決定
