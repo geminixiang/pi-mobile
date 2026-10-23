@@ -75,11 +75,11 @@ function suggestions(capabilities: Capabilities): Suggestion[] {
 	return [
 		// Whole jobs rather than single tools: research handed back as a file, something watched on a schedule, the
 		// user's own calendar, a record kept over time.
-		{ title: "比較後做成表格", prompt: "查台銀、土銀、合庫現在的首購房貸利率，整理成表格檔傳給我" },
+		{ title: "比較後做成表格", prompt: "比較 iPhone 17 和 Pixel 11 現在的售價、相機和電池，整理成表格檔傳給我" },
 		{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" },
 		{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" },
 		{ title: "拍收據記帳", prompt: "幫我把這張收據記進帳本，之後問這個月花多少要算得出來", image: true },
-		...(capabilities.sandbox ? [{ title: "畫一張圖表", prompt: "在 sandbox 用 Python 畫一張台灣六都人口的長條圖給我看" }] : []),
+		...(capabilities.sandbox ? [{ title: "畫一張圖表", prompt: "在電腦上用 Python 畫一張台灣六都人口的長條圖給我看" }] : []),
 	];
 }
 

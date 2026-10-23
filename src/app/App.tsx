@@ -29,7 +29,6 @@ import { inForeground, notifyAway, setWorking, showWaiting } from "./keepAlive.t
 import { askByNotification, listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { TRIGGER_ENTRY, Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
-import { parseHosts } from "../agent/sandbox/host.ts";
 import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
@@ -48,12 +47,6 @@ const AWAY_APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
 const SETTINGS_APPLY_MS = 800;
-
-/** The computer a bot that has not picked works on, in words; empty for the phone. */
-function sandboxName(settings: Settings): string {
-	const id = settings.computer.split(":")[0];
-	return parseHosts(settings.hosts).find((host) => host.id === id)?.name ?? "";
-}
 
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
@@ -350,7 +343,6 @@ export function App() {
 		draft.changed = false;
 		applying.current = applying.current
 			.then(async () => {
-				const before = sandboxName(live.current.settings ?? draft.settings);
 				const next = await saveSettings(draft.settings);
 				setSettings(next);
 				live.current.controller?.dispose();
@@ -358,8 +350,6 @@ export function App() {
 				setView(undefined);
 				await live.current.runtime?.close();
 				await start(next);
-				const after = sandboxName(next);
-				if (after !== before) notify(after ? `已切換到 ${after}` : "Bot 改在手機上工作");
 			})
 			.catch(fail);
 		return applying.current;
