@@ -26,6 +26,15 @@ final class WhileRunningTriggers {
         listening = true;
     }
 
+    private static int batteryPercent(Context context) {
+        Intent battery = context.getApplicationContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int level = battery == null ? -1 : battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = battery == null ? -1 : battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+        return level >= 0 && scale > 0
+            ? Math.round(level * 100f / scale)
+            : context.getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+    }
+
     private static final BroadcastReceiver RECEIVER = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -34,8 +43,7 @@ final class WhileRunningTriggers {
             if (Intent.ACTION_USER_PRESENT.equals(action)) {
                 TriggerReceiver.event(context, "unlock", "解鎖手機", null);
             } else if (Intent.ACTION_BATTERY_LOW.equals(action)) {
-                int level = context.getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-                TriggerReceiver.event(context, "battery_low", "電量剩 " + level + "%", null);
+                TriggerReceiver.event(context, "battery_low", "電量剩 " + batteryPercent(context) + "%", null);
             } else if (AudioManager.ACTION_HEADSET_PLUG.equals(action)) {
                 int state = intent.getIntExtra("state", -1);
                 if (state == 1) TriggerReceiver.headphones(context, "有線耳機");
