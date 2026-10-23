@@ -75,7 +75,10 @@ jobs:
           PI_MOBILE_RELEASE_ENV: ${{ runner.temp }}/release.env
         run: |
           scripts/release-android.sh
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "pi-mobile-$VERSION.apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 > cert.sha256
+          # The runner has several build-tools; a bare glob would pass the others to the first as arguments.
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs "pi-mobile-$VERSION.apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 > cert.sha256
+          [ -s cert.sha256 ] || { echo "::error::no signing certificate in the APK"; exit 1; }
 
       - name: Remove key
         if: always()
