@@ -11,6 +11,10 @@ export interface Computer {
 	mode: string;
 }
 
+export type Placement = { kind: "ready"; computer: Computer } | { kind: "missing"; key: string };
+
+export const MISSING_COMPUTER = "這個 Bot 選的電腦已經從設定移除，請在 Bot 面板重新選一台電腦";
+
 const MODE_LABEL: Record<HostMode, string> = { direct: "直接", container: "容器" };
 
 function parseKey(key: string): { id: string; mode: HostMode } | undefined {
@@ -46,9 +50,15 @@ export class Computers {
 		return this.list().some((item) => item.key === this.#settings.computer) ? this.#settings.computer : PHONE;
 	}
 
-	resolve(choice: string | undefined): Computer {
+	resolve(choice: string | undefined): Placement {
 		const items = this.list();
-		return items.find((item) => item.key === choice) ?? items.find((item) => item.key === this.defaultKey) ?? items[0]!;
+		const key = choice || this.defaultKey;
+		const computer = items.find((item) => item.key === key);
+		return computer ? { kind: "ready", computer } : { kind: "missing", key };
+	}
+
+	sandboxAt(placement: Placement): Sandbox | undefined {
+		return placement.kind === "ready" ? this.sandbox(placement.computer.key) : undefined;
 	}
 
 	sandbox(key: string): Sandbox | undefined {

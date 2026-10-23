@@ -36,7 +36,7 @@ export interface CatalogDeps {
 	web: WebConfig;
 	triggers: TriggerHost;
 	memory: { changed(): void };
-	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined };
+	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined; onPhone: (conversationId: string) => boolean };
 	hostOf: (conversationId: string) => Host | undefined;
 	labelOf: (extension: string, conversationId: string) => string | undefined;
 }
@@ -88,7 +88,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createTriggerExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
 		createSandboxExtension(deps.sandbox.sandboxOf, deps.sandbox.folderOf),
-		createFilesExtension((id) => !deps.sandbox.sandboxOf(id)),
+		createFilesExtension(deps.sandbox.onPhone),
 		createComputerExtension(deps.hostOf),
 		SandboxTools,
 		createToolSearchExtension(),

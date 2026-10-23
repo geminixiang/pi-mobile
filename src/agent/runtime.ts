@@ -21,7 +21,7 @@ import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { type Computer, Computers } from "./computers.ts";
+import { type Computer, Computers, MISSING_COMPUTER, type Placement } from "./computers.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
@@ -119,7 +119,7 @@ export class AgentRuntime {
 		return this.#computers.any;
 	}
 
-	computerOf(id: ConversationId): Computer {
+	computerOf(id: ConversationId | string): Placement {
 		return this.#computers.resolve(this.#choices.get(String(id)));
 	}
 
@@ -132,7 +132,7 @@ export class AgentRuntime {
 	}
 
 	sandboxOf(id: ConversationId | string): Sandbox | undefined {
-		return this.#computers.sandbox(this.#computers.resolve(this.#choices.get(String(id))).key);
+		return this.#computers.sandboxAt(this.computerOf(id));
 	}
 
 	async setComputer(id: ConversationId, key: string): Promise<void> {
@@ -144,9 +144,10 @@ export class AgentRuntime {
 
 	folderOf(id: ConversationId): { path: string; where: string } | undefined {
 		const folder = this.#folders.get(String(id));
-		const sandbox = this.sandboxOf(id);
-		if (!sandbox || !folder) return undefined;
-		const name = this.computerOf(id).name;
+		const placement = this.computerOf(id);
+		const sandbox = this.#computers.sandboxAt(placement);
+		if (placement.kind === "missing" || !sandbox || !folder) return undefined;
+		const name = placement.computer.name;
 		return { path: sandbox.root(folder), where: sandbox.direct ? name : `${name} 的容器` };
 	}
 
@@ -174,7 +175,8 @@ export class AgentRuntime {
 		const clouds = connectClouds(settings);
 		const choices = new Map<string, string | undefined>();
 		const computers = new Computers(settings, clouds.minted);
-		const sandboxOf = (id: string) => computers.sandbox(computers.resolve(choices.get(id)).key);
+		const placementOf = (id: string) => computers.resolve(choices.get(id));
+		const sandboxOf = (id: string) => computers.sandboxAt(placementOf(id));
 		const mcp: McpHub = new McpHub({
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
@@ -188,8 +190,11 @@ export class AgentRuntime {
 			web: webSearch,
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
-			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id) },
-			hostOf: (id: string) => computers.host(computers.resolve(choices.get(id)).key),
+			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id), onPhone: (id: string) => placementOf(id).kind === "ready" && !sandboxOf(id) },
+			hostOf: (id: string) => {
+				const placement = placementOf(id);
+				return placement.kind === "ready" ? computers.host(placement.computer.key) : undefined;
+			},
 			labelOf: (name, id) => (name === "computer" && !sandboxOf(id) ? undefined : labelOf(name, mcp)),
 		})) {
 			registry.install(extension);
@@ -211,6 +216,7 @@ export class AgentRuntime {
 				env: ({ conversationId }) => {
 					const folder = folders.get(String(conversationId));
 					if (!folder) return undefined;
+					if (placementOf(String(conversationId)).kind === "missing") throw new Error(MISSING_COMPUTER);
 					return sandboxOf(String(conversationId))?.env(folder) ?? new PhoneEnv(folder);
 				},
 			},
@@ -454,7 +460,7 @@ export class AgentRuntime {
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 		const installed = this.#installed();
-		const notHere = new Set(this.sandboxOf(id) ? ["files"] : ["sandbox", "computer"]);
+		const notHere = new Set(this.computerOf(id).kind === "missing" ? ["files", "sandbox", "computer"] : this.sandboxOf(id) ? ["files"] : ["sandbox", "computer"]);
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
 			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),

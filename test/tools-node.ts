@@ -27,7 +27,7 @@ const extensions = builtinExtensions({
 	web: { baseUrl: "", apiKey: "", modelIds: [] },
 	triggers: { changed: () => undefined, notify: async () => false },
 	memory: { changed: () => undefined },
-	sandbox: { sandboxOf: () => sandbox, folderOf: () => undefined },
+	sandbox: { sandboxOf: () => sandbox, folderOf: () => undefined, onPhone: () => false },
 	hostOf: () => undefined,
 	labelOf: (name) => name,
 });

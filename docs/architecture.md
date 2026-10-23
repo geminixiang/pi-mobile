@@ -39,6 +39,8 @@ pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。
 - **直接**：從家目錄直接操作這台電腦，不另開資料夾；刪 Bot 不會刪電腦上的檔案。
 - **容器**：電腦上有 docker、podman 或 nerdctl 時才有。手機透過 電腦上的 pi-mobile 的 `/exec` 驅動容器引擎：建好 image，所有 Bot 共用 `pim-main`，各自一個資料夾。egress proxy 透過另一條 `/exec` 通道上的 `bridge.py` 向手機要 token，所以憑證只在手機上。
 
+沒選過電腦的 Bot 跟著設定 › 電腦的預設。選過的電腦後來從設定移除（或那台電腦不再有容器），Bot 不會改到別台電腦或手機：它的檔案工具回錯誤，面板顯示「已移除的電腦」，直到重新選一台。不同電腦的權限範圍不同，原本在容器裡的指令不能默默改在電腦帳號下執行。
+
 設計見 [design/computer-host.md](design/computer-host.md)。
 
 ### 憑證與 egress proxy

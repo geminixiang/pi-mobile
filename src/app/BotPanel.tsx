@@ -52,7 +52,8 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 }
 
 function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
-	const key = runtime.computerOf(bot.id).key;
+	const placement = runtime.computerOf(bot.id);
+	const key = placement.kind === "ready" ? placement.computer.key : placement.key;
 	const [preparing, prepare] = usePrepare(key.endsWith(":container") ? runtime.hostOf(key) : undefined);
 	useEffect(() => {
 		if (key.endsWith(":container")) void prepare();
@@ -70,6 +71,11 @@ function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRunti
 						.catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`))
 				}
 			>
+				{placement.kind === "missing" ? (
+					<option value={key} disabled>
+						已移除的電腦
+					</option>
+				) : null}
 				{runtime.computers().map((computer) => (
 					<option key={computer.key} value={computer.key}>
 						{computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`}
