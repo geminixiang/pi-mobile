@@ -34,6 +34,7 @@ const extensions = builtinExtensions({
 	triggers: { changed: () => undefined, notify: async () => false },
 	memory: { changed: () => undefined },
 	sandbox: { sandboxOf: () => sandbox, folderOf: () => undefined },
+	hostOf: () => undefined,
 	labelOf: (name) => name,
 });
 

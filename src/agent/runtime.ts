@@ -394,7 +394,9 @@ export class AgentRuntime {
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id) },
-			labelOf: (name) => labelOf(name, mcp),
+			hostOf: (id: string) => computers.host(computers.resolve(choices.get(id)).key),
+			// A bot on the phone has no screen to load.
+			labelOf: (name, id) => (name === "computer" && !sandboxOf(id) ? undefined : labelOf(name, mcp)),
 		})) {
 			registry.install(extension);
 		}
@@ -694,11 +696,11 @@ export class AgentRuntime {
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 		const installed = this.#installed();
-		// The coding tools come as one of two toolsets, by where the bot works.
-		const elsewhere = this.sandboxOf(id) ? "files" : "sandbox";
+		// The coding tools come as one of two toolsets, by where the bot works; the screen only with a computer.
+		const notHere = new Set(this.sandboxOf(id) ? ["files"] : ["sandbox", "computer"]);
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
-			available: toolset.id !== elsewhere && toolset.extensions.every((name) => installed.has(name)),
+			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),
 			enabled: isEnabled(selection, toolset),
 		}));
 	}

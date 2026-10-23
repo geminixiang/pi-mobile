@@ -15,7 +15,7 @@
 // needs triggers' instructions and notify, whatever the bot may otherwise do).
 import type { AgentState } from "@earendil-works/pi-durable";
 
-export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "health" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "sandbox" | "files" | "codemode";
+export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "health" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "computer" | "sandbox" | "files" | "codemode";
 
 export type ToolsetKind = "builtin" | "service";
 
@@ -53,6 +53,8 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", load: "on-demand", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API", extensions: ["gcp"] },
 	{ kind: "builtin", load: "on-demand", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API", extensions: ["cloudflare"] },
 	{ kind: "builtin", load: "on-demand", id: "azure", label: "Azure", hint: "從手機呼叫 API", extensions: ["azure"] },
+	// A bot on a computer can see and use its screen; on the phone there is none (runtime.ts makes it unavailable there).
+	{ kind: "builtin", load: "on-demand", id: "computer", label: "電腦畫面", hint: "看電腦的螢幕，用它的滑鼠和鍵盤", extensions: ["computer"] },
 	{ kind: "builtin", load: "always", id: "sandbox", label: "Sandbox", hint: "在遠端電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
 	// The same tools without a sandbox: only one of the two is available, whichever the app has.
 	{ kind: "builtin", load: "always", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"] },

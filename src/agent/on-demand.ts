@@ -3,17 +3,18 @@
 // turned on is listed; tool_search loads them, and loaded ones are offered from then on and drop out of the list.
 import { defineExtension, section } from "@earendil-works/pi-durable";
 
-export function createOnDemandExtension(label: (extension: string) => string) {
+export function createOnDemandExtension(label: (extension: string, conversationId: string) => string | undefined) {
 	return defineExtension({
 		name: "on-demand",
 		sections: [
 			section("on-demand", (input) => {
 				const deferred = new Set(input.agent.deferred.map((tool) => tool.name));
-				if (deferred.size === 0) return undefined;
 				const lines = input.agent.extensions.flatMap((extension) => {
 					const names = (extension.tools ?? []).map((tool) => tool.name).filter((name) => deferred.has(name));
-					return names.length > 0 ? [`- ${label(extension.name)}: ${names.join(", ")}`] : [];
+					const name = label(extension.name, String(input.conversationId));
+					return names.length > 0 && name ? [`- ${name}: ${names.join(", ")}`] : [];
 				});
+				if (lines.length === 0) return undefined;
 				return [
 					"These tools are yours but load on demand: call tool_search with what you need (a toolset's name or the task) to load the ones a task needs, then call them. Do not answer from memory what one of them would look up.",
 					...lines,

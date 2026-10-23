@@ -53,8 +53,9 @@
 
 ## 畫面操控（`pi-mobile mcp computer`，`host/computer.go`）
 
-- 一個 stdio 的 MCP 服務，手機用 `computer://<電腦>?command=pi-mobile mcp computer` 透過 `/exec` 啟動。`/exec` 的 PATH 最前面是 pi-mobile 自己的資料夾，所以不用寫完整路徑。
+- 一個 stdio 的 MCP 服務，手機透過 `/exec` 啟動 `pi-mobile mcp computer`。`/exec` 的 PATH 最前面是 pi-mobile 自己的資料夾，所以不用寫完整路徑。
 - 兩個工具：`screenshot`（唯讀）和 `act`（一次多個步驟，做完回傳新截圖）。截圖附上前景 app、視窗標題和游標位置。
+- **有電腦就有這組工具**：手機上是內建的工具組「電腦畫面」（`src/agent/tools/computer.ts`，`read_screen`、`use_screen`），需要時載入，每台電腦一個連線。Bot 在手機上時這組不可用，也不會列在需要時載入的清單裡。不用另外加 MCP 服務。
 - macOS 用 `screencapture` 截圖，用 purego 呼叫 Quartz 事件和輔助使用 API，不用 cgo。權限算在 `pi-mobile serve` 頭上，不用另外授權。Linux 還沒做。
 - 為什麼這樣設計、和 computer-use-mcp 的比較，見 [research/computer-use-mcp-eval.md](../research/computer-use-mcp-eval.md)。
 

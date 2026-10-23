@@ -2380,6 +2380,130 @@
 		"structuredOutput": null
 	},
 	{
+		"extension": "computer",
+		"toolset": "computer",
+		"name": "read_screen",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "computer",
+		"toolset": "computer",
+		"name": "use_screen",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"steps": {
+					"items": {
+						"properties": {
+							"action": {
+								"anyOf": [
+									{
+										"const": "click",
+										"type": "string"
+									},
+									{
+										"const": "move",
+										"type": "string"
+									},
+									{
+										"const": "drag",
+										"type": "string"
+									},
+									{
+										"const": "scroll",
+										"type": "string"
+									},
+									{
+										"const": "key",
+										"type": "string"
+									},
+									{
+										"const": "type",
+										"type": "string"
+									},
+									{
+										"const": "wait",
+										"type": "string"
+									}
+								]
+							},
+							"button": {
+								"anyOf": [
+									{
+										"const": "left",
+										"type": "string"
+									},
+									{
+										"const": "right",
+										"type": "string"
+									},
+									{
+										"const": "middle",
+										"type": "string"
+									}
+								]
+							},
+							"count": {
+								"type": "integer"
+							},
+							"dx": {
+								"type": "integer"
+							},
+							"dy": {
+								"type": "integer"
+							},
+							"keys": {
+								"type": "string"
+							},
+							"ms": {
+								"type": "integer"
+							},
+							"text": {
+								"type": "string"
+							},
+							"to_x": {
+								"type": "number"
+							},
+							"to_y": {
+								"type": "number"
+							},
+							"x": {
+								"type": "number"
+							},
+							"y": {
+								"type": "number"
+							}
+						},
+						"required": [
+							"action"
+						],
+						"type": "object"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"required": [
+				"steps"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "read",

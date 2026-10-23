@@ -124,6 +124,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入直接 | ✓ |
 | `cloudflare_api` | Cloudflare（需要時載入） | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
 | `azure_api` | Azure（需要時載入） | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
+| `read_screen` | 電腦畫面（需要時載入，只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
+| `use_screen` | 電腦畫面（需要時載入，只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
 | `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
@@ -212,6 +214,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
 | 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；`create_schedule.on` 改成必填，多一個 `time` 值（模型會把選填的 `on` 隨便填一個事件，例如 `wifi`，跟 `time` 衝突而失敗兩次）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
+| 2026-10-23 | 「電腦畫面」成為內建工具組（`read_screen`、`use_screen`），有電腦的 Bot 就有，手機上不可用 | 2 個新工具，需要時載入 | S24 → Mac mini，三題各兩次全部答對：Claude 12–24 秒、3–4 次呼叫；GPT 32–61 秒、5–7 次（供應商回應慢，有過載）。都會自己用 `tool_search` 載入 |
 | 2026-10-23 | 電腦上的畫面操控改成自己寫的 `pi-mobile mcp computer`（Go，macOS），取代 computer-use-mcp | 2 個工具，1,569 字元（computer-use-mcp 4,108），需要時載入 | 同樣三題、兩個模型各兩次，全部答對、0 次核准、不用 Node：GPT 每題 26–31 秒、4–5 次呼叫（原本 39–170 秒、6–24 次）；Claude 14–24 秒、3–4 次（原本 28–55 秒、4–7 次）；輸入 tokens 少 40–60%。細節見 [research/computer-use-mcp-eval.md](research/computer-use-mcp-eval.md) |
 | 2026-10-23 | 拿掉所有核准：工具、MCP、容器的 egress 都直接執行；`github_api`、`gcp_api`、`cloudflare_api`、`azure_api`、`sql` 拿掉只給核准框用的 `reason` 參數 | 介面改變：上面 5 個工具少一個參數 | S24：容器裡 clone、push 分支再刪掉，24 秒，沒有跳任何對話框；新增、列出、刪除排程加上電腦操控截圖，31 秒，同樣沒有對話框 |
 | 2026-10-23 | 評估 computer-use-mcp（電腦上的畫面操控，`computer://` 執行），不內建 | 1 個工具，4,108 字元（約 1,000 tokens），需要時載入 | 三個只能靠畫面完成的工作，GPT 6.1 Sol 和 Claude Opus 5.5 各兩次，全部答對；每題 28–170 秒、4–24 次模型呼叫、4–22 次核准（連截圖都要），截圖每張 2–7 秒，輸入 66k–373k tokens。核准次數、截圖速度、要有 Node 三點過不了日常使用；改成自己寫，達標才內建。細節和標準見 [research/computer-use-mcp-eval.md](research/computer-use-mcp-eval.md) |

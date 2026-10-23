@@ -13,6 +13,7 @@ import { createPhoneCodemode } from "./codemode.ts";
 import { createMemoryExtension } from "./memory.ts";
 import { createFilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
+import type { Host } from "./sandbox/host.ts";
 import { createSandboxExtension, type Sandbox, SandboxTools } from "./sandbox/sandbox.ts";
 import { SkillsExtension } from "./skills.ts";
 import { ON_DEMAND_EXTENSIONS } from "./toolsets.ts";
@@ -26,6 +27,7 @@ import { DeviceExtension } from "./tools/device.ts";
 import { createGitHubExtension, type TokenSource } from "./tools/github.ts";
 import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
+import { createComputerExtension } from "./tools/computer.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
@@ -47,8 +49,10 @@ export interface CatalogDeps {
 	memory: { changed(): void };
 	/** The computer a bot's coding tools run on; undefined: they work in its folder on the phone. */
 	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined };
-	/** The name a loadable extension goes by in the on-demand list (an MCP server's label, a toolset's). */
-	labelOf: (extension: string) => string;
+	/** The computer whose screen a bot can use; undefined on the phone. */
+	hostOf: (conversationId: string) => Host | undefined;
+	/** The name a loadable extension goes by in a bot's on-demand list (an MCP server's label, a toolset's); undefined leaves it out. */
+	labelOf: (extension: string, conversationId: string) => string | undefined;
 }
 
 /** Deferred tools for the toolsets that load on demand; others as they are. */
@@ -85,6 +89,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createMemoryExtension(deps.memory),
 		createSandboxExtension(deps.sandbox.sandboxOf, deps.sandbox.folderOf),
 		createFilesExtension((id) => !deps.sandbox.sandboxOf(id)),
+		createComputerExtension(deps.hostOf),
 		SandboxTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
