@@ -107,6 +107,7 @@ export function containerDescription(folder: string): string {
 		"Azure: once per sandbox `az login --identity --allow-no-subscriptions`, then `az account set -s $AZURE_SUBSCRIPTION_ID` if set.",
 		"Before the first git command that talks to GitHub, run `gh auth setup-git` once (git then signs in through gh), and if `git config --global user.email` is empty, set user.name and user.email from `gh api user` (email: the account's, else <id>+<login>@users.noreply.github.com), so commits are the user's.",
 		"When the phone is not connected, GitHub is anonymous and the others fail with 'pi mobile: ...'.",
+		"Stop servers and background jobs you started when the task is done; they end anyway when the phone's connection does.",
 		IMAGES,
 	].join(" ");
 }
@@ -125,6 +126,7 @@ export function directDescription(name: string, user: string, system: { os: Daem
 		"Do things by command first: a CLI, the app's own command line or config file, or a script (osascript reaches scriptable apps and, through System Events, settings, windows, menus, and key presses). Looking at and clicking the screen (read_screen and use_screen) is the fallback, for what no command or script reaches, such as a dialog that exists only on screen: there, prefer keyboard shortcuts to clicks, and check each step with a screenshot.",
 		"For websites (open, read, fill in, click, sign in with the user's accounts), use ego-browser when `command -v ego-browser` finds it: run `ego-browser skill` once and follow its guide, and do not click a browser on the screen.",
 		"Use the tools installed there; check with `command -v` before relying on one. Keep scratch files in a temp directory, not in home.",
+		"When a task is done, close what you opened for it and the user did not ask to keep: apps and windows you opened (an unsaved document you made only for the task is closed without saving), servers and background jobs you started, temp files. Leave alone what was open before. Processes you start in the background end when the phone's connection does; for something meant to stay running, tell the user it will not.",
 		IMAGES,
 	].join(" ");
 }

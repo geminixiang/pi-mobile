@@ -37,6 +37,9 @@
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，電腦上的 pi-mobile 不用跟著更新。
 - **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔要看到 `TERM` 才會當 CLI 用，launchd 不會設 `TERM`，所以 `pi-mobile serve` 自己補上 `TERM=dumb`。
 
+- **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
+- 模型的提示也說：做完要關掉為這件事開的 app、視窗、伺服器、背景程序和暫存檔，之前就開著的不動；背景程序會在手機斷線時結束，要長期跑的要跟使用者說。
+
 ## 手機（`src/agent/sandbox/host.ts`）
 
 - `settings.hosts`：電腦清單（JSON），每台記著 id、名稱、MagicDNS 名稱、os、arch、帳號、家目錄、容器引擎。id 就是它的 MagicDNS 名稱，所以移除後再加入，Bot 原本的選擇還在。

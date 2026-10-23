@@ -43,6 +43,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/coder/websocket"
@@ -267,7 +268,40 @@ func loginShell(ctx context.Context, command string, args ...string) *exec.Cmd {
 	path := `export PATH="` + filepath.Dir(self) + `:$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"; `
 	cmd := exec.CommandContext(ctx, shell, append([]string{"-l", "-c", path + command}, args...)...)
 	cmd.Dir, _ = os.UserHomeDir()
+	// Its own process group, ended whole when the phone's connection does: killing only the shell left what it started
+	// (npx, then node) running, orphaned, for good.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return endGroup(cmd) }
+	cmd.WaitDelay = 5 * time.Second
 	return cmd
+}
+
+// endGroup asks a command's process group to stop, and kills what is left of it two seconds later.
+func endGroup(cmd *exec.Cmd) error {
+	if cmd.Process == nil {
+		return nil
+	}
+	group := -cmd.Process.Pid
+	err := syscall.Kill(group, syscall.SIGTERM)
+	time.AfterFunc(2*time.Second, func() { _ = syscall.Kill(group, syscall.SIGKILL) })
+	return err
+}
+
+// taggedWriter sends a command's output to the phone as binary messages, tagged 1 for stdout and 2 for stderr.
+type taggedWriter struct {
+	tag    byte
+	conn   *websocket.Conn
+	ctx    context.Context
+	writes *sync.Mutex
+}
+
+func (t taggedWriter) Write(data []byte) (int, error) {
+	t.writes.Lock()
+	defer t.writes.Unlock()
+	if err := t.conn.Write(t.ctx, websocket.MessageBinary, append([]byte{t.tag}, data...)); err != nil {
+		return 0, err
+	}
+	return len(data), nil
 }
 
 func runCommand(w http.ResponseWriter, r *http.Request) {
@@ -285,36 +319,13 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	cmd := loginShell(ctx, command)
 	stdin, _ := cmd.StdinPipe()
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
+	var writes sync.Mutex
+	cmd.Stdout = taggedWriter{1, conn, ctx, &writes}
+	cmd.Stderr = taggedWriter{2, conn, ctx, &writes}
 	if err := cmd.Start(); err != nil {
 		conn.Close(websocket.StatusInternalError, "cannot start the command")
 		return
 	}
-	var writes sync.Mutex
-	var copies sync.WaitGroup
-	pump := func(tag byte, from io.Reader) {
-		defer copies.Done()
-		buffer := make([]byte, 256<<10)
-		for {
-			n, err := from.Read(buffer[1:])
-			if n > 0 {
-				buffer[0] = tag
-				writes.Lock()
-				werr := conn.Write(ctx, websocket.MessageBinary, buffer[:n+1])
-				writes.Unlock()
-				if werr != nil {
-					return
-				}
-			}
-			if err != nil {
-				return
-			}
-		}
-	}
-	copies.Add(2)
-	go pump(1, stdout)
-	go pump(2, stderr)
 	go func() {
 		for {
 			kind, data, err := conn.Read(ctx)
@@ -333,9 +344,13 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	copies.Wait()
+	// Wait returns when the shell exits, or WaitDelay after the phone left; what the shell left in its group ends too.
+	err = cmd.Wait()
+	_ = endGroup(cmd)
 	code := 0
-	if err := cmd.Wait(); err != nil {
+	if errors.Is(err, exec.ErrWaitDelay) {
+		code = cmd.ProcessState.ExitCode()
+	} else if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
 			code = exit.ExitCode()
@@ -477,6 +492,7 @@ func env(w http.ResponseWriter, r *http.Request) {
 	done("")
 	stdin.Close()
 	_ = cmd.Wait()
+	_ = endGroup(cmd)
 }
 
 // macOS asks the user before a program reads the protected folders, controls another app, or records the screen, and
