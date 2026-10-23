@@ -116,13 +116,13 @@ export function directDescription(name: string, user: string, system: { os: Daem
 	const where = system ? `${name} (${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch})` : name;
 	const desktop =
 		system?.os === "darwin"
-			? `\`open\` opens files, URLs, and apps; \`osascript\` drives apps and System Events; \`screencapture -x /tmp/s.png\` and then \`read\` shows the screen. macOS asks on that screen before ${process} reads protected folders (Desktop, Documents, Downloads, iCloud Drive), records the screen, or controls an app with osascript, and the command waits for the answer: when one fails with "Operation not permitted" or times out there, tell the user to allow ${process} on the computer (System Settings › Privacy & Security) rather than retrying.`
+			? `\`open\` opens files, URLs, and apps; \`osascript\` drives apps and System Events. macOS asks on that screen before ${process} reads protected folders (Desktop, Documents, Downloads, iCloud Drive), records the screen, or controls an app with osascript, and the command waits for the answer: when one fails with "Operation not permitted" or times out there, tell the user to allow ${process} on the computer (System Settings › Privacy & Security) rather than retrying.`
 			: "`xdg-open` opens files and URLs when a desktop session is running.";
 	return [
 		`You operate ${where}, the user's own computer, directly as its user ${user}: read, write, edit, and bash run there (not the phone, not a container), from the home directory ${system?.home ?? "~"}, with the user's files, apps, and sign-ins (git, gh, cloud CLIs).`,
 		"Work wherever on the computer the task needs, as the user would at its keyboard; find things with ls, find, and mdfind or locate rather than asking where they are.",
 		desktop,
-		"Do things by command first: a CLI, the app's own command line or config file, or a script (osascript reaches scriptable apps and, through System Events, settings, windows, menus, and key presses). Looking at and clicking the screen (read_screen and use_screen) is the fallback, for what no command or script reaches, such as a dialog that exists only on screen: there, prefer keyboard shortcuts to clicks, and check each step with a screenshot.",
+		"Do things by command first: a CLI, the app's own command line or config file, or a script (osascript reaches scriptable apps and, through System Events, settings, windows, menus, and key presses). The screen is the fallback, for what no command or script reaches, such as a dialog that exists only on screen or what a window shows: read_screen to look (a small screenshot with the front app and window title), use_screen to click and type (it returns the screenshot after its steps); prefer keyboard shortcuts to clicks.",
 		"For websites (open, read, fill in, click, sign in with the user's accounts), use ego-browser when `command -v ego-browser` finds it: run `ego-browser skill` once and follow its guide, and do not click a browser on the screen.",
 		"Use the tools installed there; check with `command -v` before relying on one. Keep scratch files in a temp directory, not in home.",
 		IMAGES,
