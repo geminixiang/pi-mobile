@@ -1,0 +1,9 @@
+//go:build !darwin
+
+package main
+
+import "errors"
+
+func newScreen() (screen, error) {
+	return nil, errors.New("screen control is only on macOS for now")
+}

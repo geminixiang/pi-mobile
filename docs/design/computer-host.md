@@ -51,6 +51,13 @@
   - **容器**：`ContainerHost`（`container.ts`）透過 `/exec` 驅動容器引擎，跟以前透過 SSH 時一樣：所有 Bot 共用 `pim-main`，各自在 `/workspace/<Bot 資料夾>`；egress proxy 的 `bridge.py` 也跑在一條 `/exec` 上，向手機要 token。
 - `Computers` 裡的 key 是 `<電腦 id>:direct` 或 `<電腦 id>:container`；`settings.computer` 是沒有自己選的 Bot 用的預設，空的就是手機。
 
+## 畫面操控（`pi-mobile mcp computer`，`host/computer.go`）
+
+- 一個 stdio 的 MCP 服務，手機用 `computer://<電腦>?command=pi-mobile mcp computer` 透過 `/exec` 啟動。`/exec` 的 PATH 最前面是 pi-mobile 自己的資料夾，所以不用寫完整路徑。
+- 兩個工具：`screenshot`（唯讀）和 `act`（一次多個步驟，做完回傳新截圖）。截圖附上前景 app、視窗標題和游標位置。
+- macOS 用 `screencapture` 截圖，用 purego 呼叫 Quartz 事件和輔助使用 API，不用 cgo。權限算在 `pi-mobile serve` 頭上，不用另外授權。Linux 還沒做。
+- 為什麼這樣設計、和 computer-use-mcp 的比較，見 [research/computer-use-mcp-eval.md](../research/computer-use-mcp-eval.md)。
+
 ## macOS 的隱私權限
 
 macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控制別的 app、或錄製螢幕之前，會在 Mac 的螢幕上問使用者。它把手機下的指令算在 `pi-mobile serve` 頭上（launchd 啟動的程式），所以那個指令會卡在詢問上，直到逾時，而這時通常沒有人在電腦前。

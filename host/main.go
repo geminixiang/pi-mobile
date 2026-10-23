@@ -262,7 +262,9 @@ func loginShell(ctx context.Context, command string, args ...string) *exec.Cmd {
 	if shell == "" {
 		shell = "/bin/sh"
 	}
-	path := `export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"; `
+	// pi-mobile itself first, so the phone can run `pi-mobile mcp computer`.
+	self, _ := os.Executable()
+	path := `export PATH="` + filepath.Dir(self) + `:$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"; `
 	cmd := exec.CommandContext(ctx, shell, append([]string{"-l", "-c", path + command}, args...)...)
 	cmd.Dir, _ = os.UserHomeDir()
 	return cmd
@@ -579,8 +581,14 @@ func main() {
 		os.Exit(printStatus())
 	case "version", "--version":
 		fmt.Println(version)
+	case "mcp":
+		if len(os.Args) < 3 || os.Args[2] != "computer" {
+			fmt.Fprintln(os.Stderr, "usage: pi-mobile mcp computer")
+			os.Exit(2)
+		}
+		os.Exit(serveComputerMCP())
 	default:
-		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile version")
+		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
 		if command != "" && command != "help" && command != "--help" && command != "-h" {
 			os.Exit(2)
 		}
