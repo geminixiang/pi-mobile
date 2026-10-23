@@ -60,14 +60,17 @@ Animations run every frame, so what they change decides what they cost. `opacity
 compositor without repainting the element or laying out the page. Everything else costs a repaint (`filter`,
 `box-shadow`, colors) or a layout (`width`, `height`, `margin`, `padding`, `top`, `left`, ...) on every frame.
 
-- An animation that runs often or on many elements at once (streamed words, list rows, anything during scrolling or
-  streaming) uses only `opacity` and `transform`.
-- No `filter` in an animation, blur included. Measured on the S24: fading in each streamed word with
-  `opacity` plus `filter: blur(2px)` dropped 20 and 35 of about 1,500 frames over 25 ms; `opacity` alone, 1 and 2.
+- An animation that runs often or on many elements at once (list rows, anything during scrolling or streaming) uses
+  only `opacity` and `transform`, and still costs something per element: the browser does not give each inline
+  element its own layer, so it repaints them. Streamed words used to fade in, each in its own `<span>` with an
+  `opacity` animation; on the S24 at 120 Hz that missed 61% of frames while streaming, and without it 9%.
+  Streamed text is not animated.
+- No `filter` in an animation, blur included.
 - A one-off highlight (the dial's jump flash) may animate `box-shadow` or a color; a tint is an inset shadow
   (`inset 0 0 0 999px rgb(255 255 255 / 0.1)`), not `filter: brightness()`.
-- Measure a new animation on the S24 before and after (frames over 25 ms, as `test/jank.sh` and the recorders in the
-  perf commits do), and change one thing at a time: two changes measured together cannot tell which one helped.
+- Measure a new animation on the S24 before and after with `test/perf/run.ts` (docs/development.md § 效能量測),
+  and change one thing at a time: two changes measured together cannot tell which one helped. A style can be tried
+  without a build: inject it into the page, as `INJECT_CSS` experiments in the perf commits did.
 
 `pi-mobile/keyframes-compositor-only` (`stylelint/keyframes-compositor-only.js`) enforces the `@keyframes` part in
 `npm run check`: opacity and transform, plus `box-shadow`, `background-color`, `color`, and `visibility`.

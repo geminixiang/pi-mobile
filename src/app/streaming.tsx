@@ -1,4 +1,3 @@
-import type { Element, ElementContent, Root } from "hast";
 import { memo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remend from "remend";
@@ -39,30 +38,6 @@ function useSmoothText(text: string): string {
 	return text.slice(0, Math.min(shown, text.length));
 }
 
-const segmenter = new Intl.Segmenter("zh-Hant", { granularity: "word" });
-
-function rehypeFadeIn() {
-	const wrap = (parent: Root | Element) => {
-		const children: ElementContent[] = [];
-		for (const child of parent.children) {
-			if (child.type === "text") {
-				for (const { segment } of segmenter.segment(child.value)) {
-					children.push({ type: "element", tagName: "span", properties: { className: ["fade"] }, children: [{ type: "text", value: segment }] });
-				}
-			} else if (child.type === "element") {
-				if (child.tagName !== "pre") wrap(child);
-				children.push(child);
-			} else if (child.type !== "doctype") {
-				children.push(child);
-			}
-		}
-		parent.children = children;
-	};
-	return (tree: Root) => wrap(tree);
-}
-
-const rehypePlugins = [rehypeFadeIn];
-
 function paragraphs(text: string): string[] {
 	const out: string[] = [];
 	let current: string[] = [];
@@ -82,7 +57,7 @@ function paragraphs(text: string): string[] {
 
 const Paragraph = memo(function Paragraph({ text }: { text: string }) {
 	return (
-		<Markdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={streamingMarkdownComponents}>
+		<Markdown remarkPlugins={remarkPlugins} components={streamingMarkdownComponents}>
 			{text}
 		</Markdown>
 	);

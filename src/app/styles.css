@@ -299,8 +299,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .diagram > svg { display: block; max-width: none; margin: 0 auto; }
 .diagram.fit > svg { width: 100%; height: auto; }
 .diagram-loading { height: 160px; background: var(--panel); }
-.fade { animation: word-in 260ms ease-out both; }
-@keyframes word-in { from { opacity: 0; } }
 .markdown.caret > :last-child::after {
 	content: ""; display: inline-block; width: 0.5em; height: 1.05em; margin-left: 3px; vertical-align: -0.15em;
 	background: var(--accent); animation: blink 1s steps(1) infinite;
