@@ -39,7 +39,7 @@ pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。
 - **直接**：從家目錄直接操作這台電腦，不另開資料夾；刪 Bot 不會刪電腦上的檔案。
 - **容器**：電腦上有 docker、podman 或 nerdctl 時才有。手機透過 電腦上的 pi-mobile 的 `/exec` 驅動容器引擎：建好 image，所有 Bot 共用 `pim-main`，各自一個資料夾。egress proxy 透過另一條 `/exec` 通道上的 `bridge.py` 向手機要 token，所以憑證只在手機上。
 
-沒選過電腦的 Bot 跟著設定 › 電腦的預設。選過的電腦後來從設定移除（或那台電腦不再有容器），Bot 不會改到別台電腦或手機：它的檔案工具回錯誤，面板顯示「已移除的電腦」，直到重新選一台。不同電腦的權限範圍不同，原本在容器裡的指令不能默默改在電腦帳號下執行。
+沒選過電腦的 Bot 跟著設定 › 電腦的預設。選過的電腦後來從設定移除（或那台電腦不再有容器），Bot 不會改到別台電腦或手機：它沒有執行環境，`read`、`write`、`edit`、`bash` 回錯誤，提示裡也告訴模型原因，其他工具照常；面板顯示「已移除的電腦」（就算一台電腦都不剩也會顯示選單），直到重新選一台。不同電腦的權限範圍不同，原本在容器裡的指令不能默默改在電腦帳號下執行。
 
 設計見 [design/computer-host.md](design/computer-host.md)。
 
@@ -69,7 +69,9 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 - `IndexedDbStorage` 只能有一個擁有者，所以用 Web Lock 擋住第二個 WebView（數位助理以前會開一個）。reload 時舊頁面走了才放鎖，新頁面最多等 5 秒。
 
 **Runtime 的生命週期**
-- 每次改設定，`App.tsx` 會關掉整個 `AgentRuntime` 再開一個新的。`close()` 要收掉它自己開的東西：MCP 連線、電腦連線、harness。
+- 每次改設定，`App.tsx` 會關掉整個 `AgentRuntime` 再開一個新的。`close()` 先關 harness（停下正在跑的工作），再關 MCP 和電腦連線；前一步失敗也照樣關後面的。
+- MCP 的每條連線有一個 generation：重新連線、登出、關閉都會讓它加一，舊的連線不管在哪一步完成，都只關掉自己，不改狀態、不安裝工具。關閉後的連線不會再被 `refresh` 或登入的回呼打開。新增和移除服務排成一列；移除中的服務已經不在清單上，不能再開給 Bot。
+- 刪除 Bot 先在 `BotIndex` 標成刪除中（清單上不再出現，不再收輸入，排程也不會再送），再停下它的工作、清資料夾和附件，全部清完才把它從 `BotIndex` 拿掉並刪掉記憶。電腦連不上、容器資料夾沒刪掉，或刪到一半 app 被關掉，下次打開時接著做。pi-durable 不能刪除一條對話，所以對話紀錄留在 IndexedDB。
 - Code mode 的 QuickJS Worker 和手機資料夾的 bash Worker 跟著 app，不跟著 runtime，一個 app 各一個：它們不帶 runtime 的狀態，跟著 runtime 開關的話，每改一次設定就多留一個 Worker。
 
 **背景執行（Android）**

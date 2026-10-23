@@ -4,7 +4,7 @@ import { BotExtension } from "./bots.ts";
 import type { CalendarAccess } from "./calendar-access.ts";
 import { createPhoneCodemode } from "./codemode.ts";
 import { createMemoryExtension } from "./memory.ts";
-import { createFilesExtension } from "./files/extension.ts";
+import { createFilesExtension, type Workplace } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
 import type { Host } from "./sandbox/host.ts";
 import { createSandboxExtension, type Sandbox, SandboxTools } from "./sandbox/sandbox.ts";
@@ -36,7 +36,7 @@ export interface CatalogDeps {
 	web: WebConfig;
 	triggers: TriggerHost;
 	memory: { changed(): void };
-	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined; onPhone: (conversationId: string) => boolean };
+	sandbox: { sandboxOf: (conversationId: string) => Sandbox | undefined; folderOf: (conversationId: string) => string | undefined; workplace: (conversationId: string) => Workplace };
 	hostOf: (conversationId: string) => Host | undefined;
 	labelOf: (extension: string, conversationId: string) => string | undefined;
 }
@@ -88,7 +88,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createTriggerExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
 		createSandboxExtension(deps.sandbox.sandboxOf, deps.sandbox.folderOf),
-		createFilesExtension(deps.sandbox.onPhone),
+		createFilesExtension(deps.sandbox.workplace),
 		createComputerExtension(deps.hostOf),
 		SandboxTools,
 		createToolSearchExtension(),

@@ -3,11 +3,34 @@ import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
 import { nativeTriggers, type QueuedEvent, takeEvents, Triggers } from "../agent/triggers.ts";
 import { log } from "../log.ts";
 import { releaseIfIdle } from "./keepAlive.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf, orLogged } from "../promise.ts";
 
 const RETRY_FOR_MS = 24 * 60 * 60 * 1000;
 
 export type SharedItem = Extract<QueuedEvent, { kind: "share" }>;
+
+export async function deliverEvents(
+	queue: { events: readonly QueuedEvent[]; unreadable: readonly string[] },
+	handle: (event: QueuedEvent) => Promise<void>,
+	drop: (event: QueuedEvent, error: unknown) => Promise<void>,
+	now = Date.now(),
+): Promise<string[]> {
+	const handled = [...queue.unreadable];
+	for (const event of queue.events) {
+		const trigger = event.kind === "alarm" ? event.trigger : "";
+		try {
+			await handle(event);
+			handled.push(event.id);
+		} catch (error) {
+			const expired = now - event.at > RETRY_FOR_MS;
+			log.warn(expired ? "trigger.dropped" : "trigger.retry_later", { id: event.id, kind: event.kind, trigger, at: event.at, error: messageOf(error) });
+			if (!expired) continue;
+			await orLogged(drop(event, error), "trigger.drop_failed", undefined, { id: event.id });
+			handled.push(event.id);
+		}
+	}
+	return handled;
+}
 
 export function processTriggerEvents(
 	runtime: AgentRuntime,
@@ -17,29 +40,20 @@ export function processTriggerEvents(
 	},
 ): () => void {
 	if (!nativeTriggers) return () => undefined;
+	const handle = async (event: QueuedEvent) => {
+		if (event.kind !== "alarm") return handlers.onShare(event);
+		const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
+		log.info("trigger.run", { id: event.id, trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
+		await Triggers.started({ trigger: event.trigger });
+		if (!event.live && conversation) handlers.onOpened(conversation);
+		setTimeout(releaseIfIdle, 30_000);
+	};
 	let pass = Promise.resolve();
 	const drain = () => {
 		pass = pass.then(async () => {
-			const { events, unreadable } = await takeEvents();
-			const handled = [...unreadable];
-			for (const event of events) {
-				try {
-					if (event.kind === "alarm") {
-						const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
-						log.info("trigger.run", { trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
-						await Triggers.started({ trigger: event.trigger });
-						if (!event.live && conversation) handlers.onOpened(conversation);
-						setTimeout(releaseIfIdle, 30_000);
-					} else {
-						await handlers.onShare(event);
-					}
-					handled.push(event.id);
-				} catch (error) {
-					const expired = Date.now() - event.at > RETRY_FOR_MS;
-					log.warn(expired ? "trigger.dropped" : "trigger.retry_later", { kind: event.kind, error: messageOf(error) });
-					if (expired) handled.push(event.id);
-				}
-			}
+			const handled = await deliverEvents(await takeEvents(), handle, async (event, error) => {
+				if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
+			});
 			if (handled.length > 0) await Triggers.ack({ ids: handled });
 		});
 		pass = pass.catch((error: unknown) => log.warn("trigger.drain_failed", { error: messageOf(error) }));

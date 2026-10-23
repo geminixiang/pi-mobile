@@ -13,8 +13,6 @@ export interface Computer {
 
 export type Placement = { kind: "ready"; computer: Computer } | { kind: "missing"; key: string };
 
-export const MISSING_COMPUTER = "這個 Bot 選的電腦已經從設定移除，請在 Bot 面板重新選一台電腦";
-
 const MODE_LABEL: Record<HostMode, string> = { direct: "直接", container: "容器" };
 
 function parseKey(key: string): { id: string; mode: HostMode } | undefined {

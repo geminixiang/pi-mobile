@@ -54,10 +54,11 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
 	const placement = runtime.computerOf(bot.id);
 	const key = placement.kind === "ready" ? placement.computer.key : placement.key;
-	const [preparing, prepare] = usePrepare(key.endsWith(":container") ? runtime.hostOf(key) : undefined);
+	const container = placement.kind === "ready" && key.endsWith(":container");
+	const [preparing, prepare] = usePrepare(container ? runtime.hostOf(key) : undefined);
 	useEffect(() => {
-		if (key.endsWith(":container")) void prepare();
-	}, [key]);
+		if (container) void prepare();
+	}, [key, container]);
 	return (
 		<Section title="電腦">
 			<select
@@ -222,7 +223,7 @@ export function BotPanel({
 					</div>
 				</Section>
 
-				{runtime.hasSandbox ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} onError={onError} /> : null}
+				{runtime.offersComputers(bot.id) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} onError={onError} /> : null}
 				{folder ? (
 					<Section title="資料夾">
 						<div className="menu">

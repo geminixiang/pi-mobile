@@ -123,12 +123,19 @@ function loadCache(server: McpServer): Cached | undefined {
 
 const toolName = (server: McpServer, name: string) => `${server.id}_${name}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64);
 
+class Superseded extends Error {
+	constructor() {
+		super("superseded by a newer connection");
+	}
+}
+
 class Connection {
 	readonly server: McpServer;
 	status: McpStatus;
 	#client: Promise<McpClient> | undefined;
 	#live: McpClient | undefined;
 	#generation = 0;
+	#disposed = false;
 	readonly #provider: McpOAuthProvider;
 	readonly #install: (extension: Extension) => void;
 	readonly #changed: () => void;
@@ -168,8 +175,9 @@ class Connection {
 	}
 
 	client(): Promise<McpClient> {
+		if (this.#disposed) return Promise.reject(new Error(`${this.server.name} was removed`));
 		if (this.#client) return this.#client;
-		const pending = this.#connect(this.#generation).catch((error: unknown) => {
+		const pending: Promise<McpClient> = this.#connect(this.#generation).catch((error: unknown) => {
 			if (this.#client === pending) this.#client = undefined;
 			throw error;
 		});
@@ -178,6 +186,7 @@ class Connection {
 	}
 
 	async #connect(generation: number): Promise<McpClient> {
+		const current = () => generation === this.#generation && !this.#disposed;
 		this.#set({ state: "connecting", tools: this.status.tools });
 		const client = new McpClient({ name: "pi-mobile", version: "1.0.0" });
 		const onComputer = parseComputerMcp(this.server.url);
@@ -189,9 +198,15 @@ class Connection {
 					openGetStream: false,
 					authProvider: this.#auth,
 				});
+		let tools: Tool[];
 		try {
 			await client.connect(transport);
+			if (current()) this.#live = client;
+			tools = await client.listTools();
 		} catch (error) {
+			if (this.#live === client) this.#live = undefined;
+			await orLogged(client.close(), "mcp.close_failed", undefined, { server: this.server.id });
+			if (!current()) throw new Superseded();
 			if (error instanceof McpOAuthAuthorizationRequiredError) {
 				this.#set({ state: "login", tools: this.status.tools });
 				throw new Error(`${this.server.name} needs the user to sign in: settings › MCP › ${this.server.name} › 登入.`);
@@ -199,17 +214,15 @@ class Connection {
 			this.#set({ state: "error", tools: this.status.tools, message: messageOf(error) });
 			throw error;
 		}
-		if (generation !== this.#generation) {
-			await client.close();
-			throw new Error(`${this.server.name}: superseded by a newer connection`);
+		if (!current()) {
+			await orLogged(client.close(), "mcp.close_failed", undefined, { server: this.server.id });
+			throw new Superseded();
 		}
-		this.#live = client;
 		client.onClose(() => {
 			if (this.#live !== client) return;
 			this.#live = undefined;
 			this.#client = undefined;
 		});
-		const tools = await client.listTools();
 		const cached: Cached = { tools, ...(client.instructions ? { instructions: client.instructions } : {}) };
 		localStorage.setItem(cacheKey(this.server), JSON.stringify(cached));
 		this.#install(this.#extension(cached));
@@ -225,8 +238,19 @@ class Connection {
 		if (live) await orLogged(live.close(), "mcp.close_failed", undefined, { server: this.server.id });
 	}
 
+	async dispose(): Promise<void> {
+		this.#disposed = true;
+		if (this.#redirect) {
+			void this.#redirect.remove();
+			this.#redirect = undefined;
+			await orLogged(Loopback.stop(), "mcp.loopback_stop_failed", undefined, { server: this.server.id });
+		}
+		await this.close();
+	}
+
 	refresh(): void {
-		void this.close().then(() => settled(this.client()));
+		if (this.#disposed) return;
+		void this.close().then(() => (this.#disposed ? undefined : settled(this.client())));
 	}
 
 	async login(): Promise<void> {
@@ -266,6 +290,7 @@ class Connection {
 	}
 
 	async complete(url: URL): Promise<boolean> {
+		if (this.#disposed) return false;
 		const state = url.searchParams.get("state");
 		if (!state || state !== (await this.#provider.state())) return false;
 		const error = url.searchParams.get("error");
@@ -299,7 +324,7 @@ class Connection {
 				replay: readOnly ? "safe" : "unsafe",
 				callers: ["tools"],
 				execute: async (args, _api, context) => {
-					const client = await this.client();
+					const client = await this.client().catch((error: unknown) => (error instanceof Superseded ? this.client() : Promise.reject(error)));
 					const result = await client.callTool(tool.name, args, context.abortSignal ? { signal: context.abortSignal } : {});
 					const content = toLlmContent(result);
 					if (content.length === 0) content.push({ type: "text", text: result.isError ? `${tool.name} failed` : "Done." });
@@ -334,18 +359,22 @@ class Connection {
 	}
 }
 
+export type Grant = { extension: string; toolPrefix: string };
+
 type McpHooks = {
 	install: (extension: Extension) => void;
 	uninstall: (name: string) => void;
-	revoke: (extension: string) => Promise<void>;
+	revoke: (grant: Grant) => Promise<void>;
 	openUrl: (url: string) => Promise<void>;
 };
 
 export class McpHub {
 	readonly #connections = new Map<string, Connection>();
+	readonly #removing = new Set<string>();
 	readonly #listeners = new Set<() => void>();
-
 	readonly #hooks: McpHooks;
+	#changes: Promise<void> = Promise.resolve();
+	#closed = false;
 
 	constructor(hooks: McpHooks) {
 		this.#hooks = hooks;
@@ -366,31 +395,56 @@ export class McpHub {
 		localStorage.setItem(SERVERS_KEY, JSON.stringify(this.servers));
 	}
 
-	async add(name: string, url: string): Promise<McpServer> {
-		const existing = this.servers.find((server) => server.url === url);
-		if (existing) return existing;
-		const server: McpServer = { id: serverId(name, url, this.servers.map((item) => item.id)), name, url };
-		await this.#hooks.revoke(extensionName(server));
-		this.#open(server).refresh();
-		this.#save();
-		this.#changed();
-		return server;
+	#serialized<T>(change: () => Promise<T>): Promise<T> {
+		const result = this.#changes.then(() => {
+			if (this.#closed) throw new Error("MCP services are closed");
+			return change();
+		});
+		this.#changes = settled(result);
+		return result;
 	}
 
-	async remove(id: string): Promise<void> {
-		const connection = this.#connections.get(id);
-		if (!connection) return;
-		await this.#hooks.revoke(extensionName(connection.server));
-		await connection.logout();
-		localStorage.removeItem(cacheKey(connection.server));
-		this.#connections.delete(id);
-		this.#hooks.uninstall(extensionName(connection.server));
-		this.#save();
-		this.#changed();
+	#grant(server: McpServer): Grant {
+		return { extension: extensionName(server), toolPrefix: `${server.id}_` };
+	}
+
+	add(name: string, url: string): Promise<McpServer> {
+		return this.#serialized(async () => {
+			const existing = this.servers.find((server) => server.url === url);
+			if (existing) return existing;
+			const server: McpServer = { id: serverId(name, url, [...this.#connections.keys()]), name, url };
+			await this.#hooks.revoke(this.#grant(server));
+			this.#open(server).refresh();
+			this.#save();
+			this.#changed();
+			return server;
+		});
+	}
+
+	remove(id: string): Promise<void> {
+		return this.#serialized(async () => {
+			const connection = this.#connections.get(id);
+			if (!connection || this.#removing.has(id)) return;
+			this.#removing.add(id);
+			this.#save();
+			this.#changed();
+			try {
+				await this.#hooks.revoke(this.#grant(connection.server));
+				await connection.logout();
+				await connection.dispose();
+				localStorage.removeItem(cacheKey(connection.server));
+				this.#connections.delete(id);
+				this.#hooks.uninstall(extensionName(connection.server));
+			} finally {
+				this.#removing.delete(id);
+				this.#save();
+				this.#changed();
+			}
+		});
 	}
 
 	get servers(): McpServer[] {
-		return [...this.#connections.values()].map((connection) => connection.server);
+		return [...this.#connections.values()].filter((connection) => !this.#removing.has(connection.server.id)).map((connection) => connection.server);
 	}
 
 	status(id: string): McpStatus | undefined {
@@ -421,7 +475,8 @@ export class McpHub {
 	}
 
 	async close(): Promise<void> {
-		await Promise.all([...this.#connections.values()].map((connection) => connection.close()));
+		this.#closed = true;
+		await this.#changes;
+		await Promise.all([...this.#connections.values()].map((connection) => connection.dispose()));
 	}
-
 }

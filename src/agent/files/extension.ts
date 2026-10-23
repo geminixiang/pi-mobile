@@ -5,9 +5,15 @@ const FOLDER = [
 	"bash runs built-in commands only (cat, ls, find, grep, sed, awk, jq, sort, uniq, wc, head, tail, cut, tr, diff, cp, mv, rm, mkdir, date, xargs, gzip…); no python or other programs, no network: compute with awk or jq.",
 ].join(" ");
 
-export function createFilesExtension(onPhone: (conversationId: string) => boolean) {
+const MISSING = "The computer you were set to work on was removed from the user's settings, so read, write, edit, and bash cannot run anywhere until the user picks a computer for you in your bot panel (電腦). Say so if a task needs them; everything else works.";
+
+export type Workplace = "phone" | "computer" | "missing";
+
+const SECTION: Record<Workplace, string | undefined> = { phone: FOLDER, computer: undefined, missing: MISSING };
+
+export function createFilesExtension(workplace: (conversationId: string) => Workplace) {
 	return defineExtension({
 		name: "files",
-		sections: [section("files", (input) => (onPhone(String(input.conversationId)) ? FOLDER : undefined))],
+		sections: [section("files", (input) => SECTION[workplace(String(input.conversationId))])],
 	});
 }

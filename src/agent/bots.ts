@@ -11,6 +11,7 @@ export type Bot = {
 	avatar?: string;
 	createdAt: number;
 	updatedAt: number;
+	removing?: { at: number };
 };
 
 export const BotIndex = defineDoc<{ items: Bot[] }>({

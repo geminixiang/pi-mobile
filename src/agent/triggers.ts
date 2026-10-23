@@ -6,6 +6,7 @@ import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
+import { messageOf } from "../promise.ts";
 
 const EventWindow = {
 	days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
@@ -46,6 +47,7 @@ export type Trigger = {
 	enabled: boolean;
 	createdAt: number;
 	last?: { at: number; delivery: Delivery; error?: string };
+	fired?: boolean;
 };
 
 export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string; at: number; request?: string }[] }>({
@@ -359,6 +361,8 @@ export interface TriggerState {
 	next: Record<string, number>;
 }
 
+const RUNS_KEPT_MS = 24 * 60 * 60 * 1000;
+
 function startOfToday(): number {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -395,7 +399,7 @@ export class TriggerRuns {
 		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
 		const avatars = new Map((await this.#bots()).map((bot) => [bot.id, bot.avatar]));
 		const schedules = items
-			.filter((item) => item.enabled)
+			.filter((item) => item.enabled && !item.fired)
 			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
 		const next = nativeTriggers ? (await Triggers.sync({ schedules })).next : {};
 		this.#state = { items: [...items], next };
@@ -419,9 +423,15 @@ export class TriggerRuns {
 	}
 
 	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string } = {}): Promise<ConversationId | undefined> {
+		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
+		if (request && doc?.runs.some((run) => run.request === request)) {
+			await this.sync();
+			return trigger?.conversationId;
+		}
 		if (!trigger || (delivery !== "manual" && !trigger.enabled)) return undefined;
+		if (trigger.when.kind === "once" && delivery !== "manual" && !trigger.fired) await this.#markFired(id);
 		const today = startOfToday();
 		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
 		const overLimit =
@@ -435,7 +445,6 @@ export class TriggerRuns {
 			return undefined;
 		}
 		const conversationId = trigger.conversationId;
-		await this.#touchBot(conversationId, now);
 		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
 		const heard = event ? (delivered.device ?? trigger.when.kind) : undefined;
 		const label =
@@ -444,27 +453,43 @@ export class TriggerRuns {
 				: heard
 					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
 					: `schedule "${trigger.name}"`;
-		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
-		this.#started.add(conversationId);
-		await conversation.submit(
-			{
-				type: "input",
-				...(request ? { requestId: request } : {}),
-				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
-				entry: {
-					kind: TRIGGER_ENTRY,
-					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now, ...(heard ? { device: heard } : {}) },
+		try {
+			await conversation.submit(
+				{
+					type: "input",
+					...(request ? { requestId: request } : {}),
+					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
+					entry: {
+						kind: TRIGGER_ENTRY,
+						data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now, ...(heard ? { device: heard } : {}) },
+					},
+					whenBusy: "followUp",
 				},
-				whenBusy: "followUp",
-			},
-			context,
-		);
+				context,
+			);
+		} catch (error) {
+			await this.#record(id, { at: now, delivery, error: `沒有送出，會再試：${messageOf(error)}` });
+			throw error;
+		}
+		this.#started.add(conversationId);
+		await this.#touchBot(conversationId, now);
 		await this.#record(id, { at: now, delivery }, request);
 		return conversationId;
 	}
 
+	gaveUp(id: string, reason: string): Promise<void> {
+		return this.#record(id, { at: Date.now(), delivery: "later", error: `一天內都沒有送出，這次跳過：${reason}` });
+	}
+
+	async #markFired(id: string): Promise<void> {
+		await this.#harness.commit(async (tx) => {
+			const item = (await tx.doc(TriggerDoc)).items.find((candidate) => candidate.id === id);
+			if (item) item.fired = true;
+		}, context);
+	}
+
 	async #record(id: string, last: NonNullable<Trigger["last"]>, request?: string): Promise<void> {
-		const today = startOfToday();
+		const kept = startOfToday() - RUNS_KEPT_MS;
 		await this.#harness.commit(async (tx) => {
 			const triggers = await tx.doc(TriggerDoc);
 			const item = triggers.items.find((candidate) => candidate.id === id);
@@ -472,7 +497,7 @@ export class TriggerRuns {
 			item.last = last;
 			if (last.error !== undefined) return;
 			if (request && triggers.runs.some((run) => run.request === request)) return;
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: last.at, ...(request ? { request } : {}) }];
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: id, at: last.at, ...(request ? { request } : {}) }];
 			if (item.when.kind === "once" && last.delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
 		}, context);
 		await this.sync();

@@ -1,7 +1,6 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import {
-	AgentDoc,
 	type Conversation,
 	type ConversationId,
 	type ConversationView,
@@ -13,15 +12,17 @@ import {
 } from "@earendil-works/pi-durable";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Settings } from "../settings.ts";
-import { orLogged, messageOf, settled } from "../promise.ts";
+import { log } from "../log.ts";
+import { orLogged, messageOf } from "../promise.ts";
 import { Assistant } from "./assistant.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { loadModels, startModelList } from "./available-models.ts";
+import { BotToolsets } from "./bot-toolsets.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { type Computer, Computers, MISSING_COMPUTER, type Placement } from "./computers.ts";
+import { type Computer, Computers, type Placement } from "./computers.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
@@ -30,7 +31,7 @@ import { hostOf } from "./parse.ts";
 import type { Host } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isEnabled, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { isEnabled, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -81,7 +82,7 @@ export class AgentRuntime {
 	readonly #installed: () => ReadonlySet<string>;
 	readonly mcp: McpHub;
 	readonly triggers: TriggerRuns;
-	#toolsetWrites: Promise<void> = Promise.resolve();
+	readonly #botToolsets: BotToolsets;
 
 	private constructor(
 		harness: Harness,
@@ -106,6 +107,7 @@ export class AgentRuntime {
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
 		);
+		this.#botToolsets = new BotToolsets(harness, () => this.bots(), () => this.#allToolsets());
 	}
 
 	#touchBot(id: ConversationId, at: number): Promise<void> {
@@ -121,6 +123,10 @@ export class AgentRuntime {
 
 	computerOf(id: ConversationId | string): Placement {
 		return this.#computers.resolve(this.#choices.get(String(id)));
+	}
+
+	offersComputers(id: ConversationId): boolean {
+		return this.#computers.any || this.computerOf(id).kind === "missing";
 	}
 
 	computers(): Computer[] {
@@ -180,7 +186,7 @@ export class AgentRuntime {
 		const mcp: McpHub = new McpHub({
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
-			revoke: (extension) => runtimeRef?.revokeEverywhere(extension) ?? Promise.resolve(),
+			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 		});
 		for (const extension of builtinExtensions({
@@ -191,7 +197,7 @@ export class AgentRuntime {
 			web: webSearch,
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
-			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id), onPhone: (id: string) => placementOf(id).kind === "ready" && !sandboxOf(id) },
+			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id), workplace: (id: string) => (placementOf(id).kind === "missing" ? "missing" : sandboxOf(id) ? "computer" : "phone") },
 			hostOf: (id: string) => {
 				const placement = placementOf(id);
 				return placement.kind === "ready" ? computers.host(placement.computer.key) : undefined;
@@ -217,7 +223,7 @@ export class AgentRuntime {
 				env: ({ conversationId }) => {
 					const folder = folders.get(String(conversationId));
 					if (!folder) return undefined;
-					if (placementOf(String(conversationId)).kind === "missing") throw new Error(MISSING_COMPUTER);
+					if (placementOf(String(conversationId)).kind === "missing") return undefined;
 					return sandboxOf(String(conversationId))?.env(folder) ?? new PhoneEnv(folder);
 				},
 			},
@@ -239,6 +245,9 @@ export class AgentRuntime {
 		else await runtime.#publishBots();
 		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`排程同步失敗：${messageOf(error)}`));
 		harness.resume();
+		for (const bot of await runtime.#allBots()) {
+			if (bot.removing) void orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });
+		}
 		return runtime;
 	}
 
@@ -252,8 +261,11 @@ export class AgentRuntime {
 	}
 
 	async bots(): Promise<Bot[]> {
-		const index = await this.#harness.snapshot(BotIndex, context);
-		return [...(index?.items ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
+		return (await this.#allBots()).filter((bot) => !bot.removing).sort((a, b) => b.updatedAt - a.updatedAt);
+	}
+
+	async #allBots(): Promise<Bot[]> {
+		return [...((await this.#harness.snapshot(BotIndex, context))?.items ?? [])];
 	}
 
 	subscribeBots(listener: (bots: Bot[]) => void): () => void {
@@ -319,24 +331,43 @@ export class AgentRuntime {
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
-		await (await this.#harness.conversation(id, context))?.abort(context, { background: true });
+		await this.#editBots((items) => {
+			const item = items.find((candidate) => candidate.id === id);
+			if (item) item.removing = { at: Date.now() };
+		});
 		await this.triggers.removeBot(id);
-		await this.#harness.commit(async (tx) => {
-			const items = (await tx.doc(BotIndex)).items;
-			const at = items.findIndex((candidate) => candidate.id === id);
-			if (at >= 0) items.splice(at, 1);
-			await tx.retireDoc(BotMemoryDoc, id);
-		}, context);
-		await this.#publishBots();
-		await Promise.all(
-			this.#computers
-				.list()
-				.map((computer) => this.#computers.sandbox(computer.key))
-				.filter((sandbox) => sandbox && !sandbox.direct)
-				.map((sandbox) => sandbox && orLogged(sandbox.remove(bot.folder), "bot.remove_container_folder_failed", undefined, { bot: bot.folder })),
+		await this.#finishRemoval(bot);
+	}
+
+	async #finishRemoval(bot: Bot): Promise<void> {
+		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
+		const containers = this.#computers
+			.list()
+			.flatMap((computer) => {
+				const sandbox = this.#computers.sandbox(computer.key);
+				return sandbox && !sandbox.direct ? [{ key: computer.key, sandbox }] : [];
+			});
+		const left = await Promise.all(
+			containers.map(({ key, sandbox }) =>
+				sandbox.remove(bot.folder).then(
+					() => undefined,
+					(error: unknown) => {
+						log.warn("bot.remove_container_folder_failed", { bot: bot.folder, computer: key, error: messageOf(error) });
+						return key;
+					},
+				),
+			),
 		);
 		await orLogged(removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
-		await orLogged(deleteAttachments({ conversationId: String(id) }), "bot.remove_attachments_failed", undefined, { bot: String(id) });
+		await orLogged(deleteAttachments({ conversationId: String(bot.id) }), "bot.remove_attachments_failed", undefined, { bot: String(bot.id) });
+		if (left.some((key) => key !== undefined)) return;
+		await this.#harness.commit(async (tx) => {
+			const items = (await tx.doc(BotIndex)).items;
+			const at = items.findIndex((candidate) => candidate.id === bot.id);
+			if (at >= 0) items.splice(at, 1);
+			await tx.retireDoc(BotMemoryDoc, bot.id);
+		}, context);
+		await this.#publishBots();
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {
@@ -393,6 +424,8 @@ export class AgentRuntime {
 			},
 			send: (content, whenBusy = "steer") => {
 				const submitted = (async () => {
+					const bot = (await this.#allBots()).find((candidate) => candidate.id === id);
+					if (!bot || bot.removing) throw new Error("這個 Bot 已經刪除");
 					if (content.length > 0) await this.#touchBot(id, Date.now());
 					await conversation.submit({ type: "input", content, whenBusy }, context);
 				})();
@@ -460,7 +493,7 @@ export class AgentRuntime {
 	}
 
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
-		const selection = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
+		const selection = await this.#botToolsets.selection(id);
 		const installed = this.#installed();
 		const notHere = new Set(this.computerOf(id).kind === "missing" ? ["files", "sandbox", "computer"] : this.sandboxOf(id) ? ["files"] : ["sandbox", "computer"]);
 		return this.#allToolsets().map((toolset) => ({
@@ -471,37 +504,7 @@ export class AgentRuntime {
 	}
 
 	setToolset(id: ConversationId, toolset: ToolsetId | string, enabled: boolean): Promise<void> {
-		return this.#writeToolsets(async () => {
-			const target = this.#allToolsets().find((candidate) => candidate.id === toolset);
-			if (target) await this.#select(id, (selection) => withToolset(selection, target, enabled));
-		});
-	}
-
-	revokeEverywhere(extension: string): Promise<void> {
-		return this.#writeToolsets(async () => {
-			for (const bot of await this.bots()) {
-				await this.#select(bot.id, (selection) => ({ add: selection.add.filter((name) => name !== extension), remove: selection.remove }));
-			}
-		});
-	}
-
-	#writeToolsets(write: () => Promise<void>): Promise<void> {
-		const change = this.#toolsetWrites.then(write);
-		this.#toolsetWrites = settled(change);
-		return change;
-	}
-
-	async #select(id: ConversationId, change: (selection: Selection) => Selection): Promise<void> {
-		const conversation = await this.#harness.conversation(id, context);
-		if (!conversation) return;
-		const before = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
-		const selection = change(before);
-		if (JSON.stringify(selection) === JSON.stringify(before)) return;
-		const named = (names: string[]) => names.map((name) => ({ name }));
-		await conversation.configure(
-			{ extensions: selection.add.length + selection.remove.length > 0 ? { add: named(selection.add), remove: named(selection.remove) } : null },
-			context,
-		);
+		return this.#botToolsets.set(id, toolset, enabled);
 	}
 
 	async memory(scope: MemoryScope): Promise<Memory> {
@@ -537,9 +540,12 @@ export class AgentRuntime {
 	}
 
 	async close(): Promise<void> {
-		await this.mcp.close();
-		await this.#harness.close(context);
-		this.#computers.close();
+		try {
+			await this.#harness.close(context);
+		} finally {
+			await this.mcp.close();
+			this.#computers.close();
+		}
 	}
 }
 
