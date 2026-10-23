@@ -62,3 +62,19 @@
 四個工作：帳目分類加總並找最大一筆、log 依模組和小時統計 ERROR、JSON 篩選加總存成 CSV、寫腳本依序改檔名並執行。GPT 6 Luna、Claude Haiku 5.5、GPT 6.1 Sol 各跑一次，12/12 答對，沒有一次卡在上面的差異。
 
 說明裡原本只寫「沒有其他程式」，Luna 被要求「用 python 算」時會放棄；加上「沒有 python，用 awk 或 jq 算」之後，它改用程式模式算出正確答案。Haiku 本來就會改用 awk。
+
+## Cloudflare Computer 怎麼用（2026-10-23，v0.7.0）
+
+[cloudflare/computer](https://github.com/cloudflare/computer) 的 worker-shell backend 也把 just-bash 接到自己的檔案系統：每次執行在 Dynamic Worker 裡 `new Bash({ fs: WorkspaceFsAdapter })`，檔案操作經 Workers RPC 回到 Durable Object 的 SQLite（`packages/computer/src/backends/worker-shell/adapter.ts`、`entrypoint.ts`）。鎖定 just-bash 3.2.0，標為 Experimental。
+
+| 我們遇到的 | 他們 |
+|---|---|
+| `/dev/null` 變成真的檔案 | 一樣遇到，adapter 裡把 `/dev/null` 做成虛擬檔、寫入丟掉，有測試；沒有 `/dev/zero`、`/dev/urandom` |
+| 每個指令都查 `$PATH` | 一樣遇到，但只把它當成 wrangler dev 記錄裡的雜訊（`docs/12_worker_backend.md` § Known fidelity gaps），把 `exists` 改成不丟例外；沒處理成本 |
+| `split`、`cp a b` 因為沒有檔案身分而失敗 | adapter 的 stat 沒有 `identity`、沒有 `createExclusive`，用他們鎖定的 3.2.0 實測一樣失敗；issue 和測試裡都沒有 |
+| `chmod`、執行腳本 | 他們的儲存本來就有權限位元和 symlink，沒有這個問題 |
+| 10 萬的迭代上限 | 只設了 `maxOutputSize`（1 MiB），其他用預設，所以 awk、cut、`seq` 在 10 萬行停下的問題也在；沒有相關 issue |
+| gzip | workerd 有 `node:zlib`，不用替身 |
+| just-bash 本身的差異（`jq unique`、`@csv`、`od -t`、`trap`、`xargs -I`、`$( )` 裡遞迴） | 沒有 issue、PR 或文件提到；測試只驗 adapter 和接線（讀寫、`mv`、輸出截斷、exit code），沒有和 GNU bash 對照 |
+
+他們文件記下的差異只有：輸出不串流（整段結束才回來）、沒有 hard link 和 `utimes`、不能重新接上執行中的指令、`$PATH` 探查的記錄雜訊。給模型的 skill（`examples/worker-shell/src/skills/exec/SKILL.md`）寫的是「管線、變數、迴圈、函式和 bash 一樣」「`xargs` 等常用工具都有」，沒有提到上面這些差異。
