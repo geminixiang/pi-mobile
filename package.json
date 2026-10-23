@@ -9,7 +9,7 @@
 		"build": "npm run check && vite build",
 		"check": "tsc --noEmit && stylelint \"src/**/*.css\" && node test/no-comments.ts && npm run check:tools && npm run check:contracts && node test/bash/patches.ts",
 		"check:tools": "node --import ./test/vite-imports.js test/tool-args-node.ts && node --import ./test/vite-imports.js test/tools-node.ts",
-		"check:contracts": "node --experimental-test-module-mocks --no-warnings --import ./test/vite-imports.js test/contracts/run.ts"
+		"check:contracts": "node --import ./test/vite-imports.js test/contracts/run.ts"
 	},
 	"dependencies": {
 		"@aparajita/capacitor-secure-storage": "8.0.1",

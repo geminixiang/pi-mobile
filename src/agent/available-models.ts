@@ -1,4 +1,4 @@
-import { createModels } from "@earendil-works/pi-ai";
+import { createModels, type Models } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { type Settings, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { messageOf, orLogged } from "../promise.ts";
@@ -7,6 +7,7 @@ import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
 import { readStored } from "./parse.ts";
 import { builtinInfo, type ProviderConfig, parseProviders, providerName } from "./providers.ts";
+import type { WebConfig } from "./tools/web.ts";
 
 function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
 	const custom = configs.find((config) => config.kind === "custom");
@@ -35,11 +36,9 @@ export function startModelList(settings: Settings): Promise<Record<string, strin
 	return Promise.all(lists).then(Object.fromEntries);
 }
 
-export async function loadModels(
-	settings: Settings,
-	modelIds: Promise<Record<string, string[]>>,
-	onReport?: (message: string) => void,
-) {
+export type LoadedModels = { models: Models; infos: ModelInfo[]; lists: Record<string, string[]>; webSearch: WebConfig };
+
+export async function loadModels(settings: Settings, modelIds: Promise<Record<string, string[]>>, onReport?: (message: string) => void): Promise<LoadedModels> {
 	const compactAt = settings.compactAt;
 	const configs = usableProviders(settings);
 	const [lists, loaded, catalog] = await Promise.all([

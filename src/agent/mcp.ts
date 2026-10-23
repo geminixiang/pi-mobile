@@ -1,7 +1,7 @@
-import { CapacitorHttp, type PluginListenerHandle } from "@capacitor/core";
+import type { PluginListenerHandle } from "@capacitor/core";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, defineTool, type Extension, section } from "@earendil-works/pi-durable";
-import { type AuthProvider, McpClient, type McpFetch, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
+import { type AuthProvider, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
 import {
 	adaptOAuthProvider,
 	authorizeMcp,
@@ -9,10 +9,10 @@ import {
 	McpOAuthProvider,
 	type McpOAuthState,
 } from "@earendil-works/pi-mcp/oauth";
-import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { Value } from "typebox/value";
 import { Type } from "typebox";
 import { decode } from "./parse.ts";
+import { type McpSession, nativeFetch, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { Loopback } from "../loopback-plugin.ts";
 import { messageOf, orLogged, settled } from "../promise.ts";
@@ -46,58 +46,22 @@ function serverId(name: string, url: string, taken: readonly string[]): string {
 
 export const extensionName = (server: McpServer) => `mcp-${server.id}`;
 
-const TIMEOUTS = { connectTimeout: 15_000, readTimeout: 60_000 };
-
-function headersOf(init: RequestInit | undefined): Record<string, string> {
-	const headers: Record<string, string> = {};
-	new Headers(init?.headers).forEach((value, key) => {
-		headers[key] = value;
-	});
-	return headers;
-}
-
-const nativeFetch: McpFetch = async (input, init) => {
-	const headers = headersOf(init);
-	let data: unknown;
-	const body = init?.body;
-	if (typeof body === "string") {
-		data = (headers["content-type"] ?? "").includes("json") ? JSON.parse(body) : body;
-	} else if (body instanceof URLSearchParams) {
-		data = body.toString();
-		headers["content-type"] ??= "application/x-www-form-urlencoded";
-	} else if (body != null) {
-		throw new Error("unsupported request body");
-	}
-	if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-	const response = await CapacitorHttp.request({
-		url: String(input),
-		method: init?.method ?? "GET",
-		headers,
-		...(data === undefined ? {} : { data }),
-		responseType: "text",
-		...TIMEOUTS,
-	});
-	const text = typeof response.data === "string" ? response.data : response.data == null ? "" : JSON.stringify(response.data);
-	const nullBody = [101, 204, 205, 304].includes(response.status);
-	return new Response(nullBody ? null : text, { status: response.status, headers: response.headers });
-};
-
 const stateKey = (server: McpServer) => `mcp.${server.id}`;
 
 function isState(value: unknown): value is McpOAuthState {
 	return typeof value === "object" && value !== null && "serverUrl" in value && typeof value.serverUrl === "string";
 }
 
-function stateStore(server: McpServer) {
+function stateStore(server: McpServer, secrets: Platform["secrets"]) {
 	return {
 		load: async (): Promise<McpOAuthState | undefined> => {
-			if (!(await SecureStorage.keys()).includes(stateKey(server))) return undefined;
-			const stored = await SecureStorage.get(stateKey(server));
-			const value = typeof stored === "string" ? decode(Type.Unknown(), stored) : undefined;
+			if (!(await secrets.keys()).includes(stateKey(server))) return undefined;
+			const stored = await secrets.get(stateKey(server));
+			const value = stored === undefined ? undefined : decode(Type.Unknown(), stored);
 			return isState(value) && value.serverUrl === server.url ? value : undefined;
 		},
 		save: async (state: McpOAuthState) => {
-			await SecureStorage.set(stateKey(server), JSON.stringify(state));
+			await secrets.set(stateKey(server), JSON.stringify(state));
 		},
 	};
 }
@@ -116,8 +80,8 @@ function isCached(value: unknown): value is Cached {
 	return typeof value === "object" && value !== null && "tools" in value && Array.isArray(value.tools);
 }
 
-function loadCache(server: McpServer): Cached | undefined {
-	const value = decode(Type.Unknown(), localStorage.getItem(cacheKey(server)));
+function loadCache(server: McpServer, plain: Platform["plain"]): Cached | undefined {
+	const value = decode(Type.Unknown(), plain.get(cacheKey(server)));
 	return isCached(value) ? value : undefined;
 }
 
@@ -132,8 +96,8 @@ class Superseded extends Error {
 class Connection {
 	readonly server: McpServer;
 	status: McpStatus;
-	#client: Promise<McpClient> | undefined;
-	#live: McpClient | undefined;
+	#client: Promise<McpSession> | undefined;
+	#live: McpSession | undefined;
 	#generation = 0;
 	#disposed = false;
 	readonly #provider: McpOAuthProvider;
@@ -143,9 +107,11 @@ class Connection {
 	#signingIn = false;
 	readonly #auth: AuthProvider;
 	#redirect: PluginListenerHandle | undefined;
+	readonly #platform: Platform;
 
-	constructor(server: McpServer, hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void> }) {
+	constructor(server: McpServer, platform: Platform, hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void> }) {
 		this.server = server;
+		this.#platform = platform;
 		this.#install = hooks.install;
 		this.#changed = hooks.changed;
 		this.#openUrl = hooks.openUrl;
@@ -153,7 +119,7 @@ class Connection {
 			serverUrl: server.url,
 			redirectUrl: REDIRECT_URL,
 			clientMetadata: { client_name: "pi mobile", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" },
-			store: stateStore(server),
+			store: stateStore(server, platform.secrets),
 			onRedirect: (url) => (this.#signingIn ? this.#openUrl(url.toString()) : undefined),
 		});
 		const adapted = adaptOAuthProvider(this.#provider);
@@ -164,7 +130,7 @@ class Connection {
 				await adapted.onUnauthorized?.(context);
 			},
 		};
-		const cached = loadCache(server);
+		const cached = loadCache(server, platform.plain);
 		this.status = { state: "idle", tools: cached?.tools.length ?? 0 };
 		this.#install(this.#extension(cached ?? { tools: [] }));
 	}
@@ -174,10 +140,10 @@ class Connection {
 		this.#changed();
 	}
 
-	client(): Promise<McpClient> {
+	client(): Promise<McpSession> {
 		if (this.#disposed) return Promise.reject(new Error(`${this.server.name} was removed`));
 		if (this.#client) return this.#client;
-		const pending: Promise<McpClient> = this.#connect(this.#generation).catch((error: unknown) => {
+		const pending: Promise<McpSession> = this.#connect(this.#generation).catch((error: unknown) => {
 			if (this.#client === pending) this.#client = undefined;
 			throw error;
 		});
@@ -185,10 +151,10 @@ class Connection {
 		return pending;
 	}
 
-	async #connect(generation: number): Promise<McpClient> {
+	async #connect(generation: number): Promise<McpSession> {
 		const current = () => generation === this.#generation && !this.#disposed;
 		this.#set({ state: "connecting", tools: this.status.tools });
-		const client = new McpClient({ name: "pi-mobile", version: "1.0.0" });
+		const client = this.#platform.mcpClient();
 		const onComputer = parseComputerMcp(this.server.url);
 		const transport = onComputer
 			? new HostStdioTransport(onComputer.address, onComputer.command)
@@ -224,7 +190,7 @@ class Connection {
 			this.#client = undefined;
 		});
 		const cached: Cached = { tools, ...(client.instructions ? { instructions: client.instructions } : {}) };
-		localStorage.setItem(cacheKey(this.server), JSON.stringify(cached));
+		this.#platform.plain.set(cacheKey(this.server), JSON.stringify(cached));
 		this.#install(this.#extension(cached));
 		this.#set({ state: "ready", tools: tools.length, ...(client.serverInfo?.name ? { serverName: client.serverInfo.name } : {}) });
 		return client;
@@ -307,7 +273,8 @@ class Connection {
 	}
 
 	async logout(): Promise<void> {
-		if ((await SecureStorage.keys()).includes(stateKey(this.server))) await SecureStorage.remove(stateKey(this.server));
+		const secrets = this.#platform.secrets;
+		if ((await secrets.keys()).includes(stateKey(this.server))) await secrets.remove(stateKey(this.server));
 		await this.close();
 		this.#set({ state: "idle", tools: this.status.tools });
 	}
@@ -373,16 +340,18 @@ export class McpHub {
 	readonly #removing = new Set<string>();
 	readonly #listeners = new Set<() => void>();
 	readonly #hooks: McpHooks;
+	readonly #platform: Platform;
 	#changes: Promise<void> = Promise.resolve();
 	#closed = false;
 
-	constructor(hooks: McpHooks) {
+	constructor(platform: Platform, hooks: McpHooks) {
+		this.#platform = platform;
 		this.#hooks = hooks;
-		for (const server of parseMcpServers(localStorage.getItem(SERVERS_KEY) ?? "")) this.#open(server);
+		for (const server of parseMcpServers(platform.plain.get(SERVERS_KEY) ?? "")) this.#open(server);
 	}
 
 	#open(server: McpServer): Connection {
-		const connection = new Connection(server, { ...this.#hooks, changed: () => this.#changed() });
+		const connection = new Connection(server, this.#platform, { ...this.#hooks, changed: () => this.#changed() });
 		this.#connections.set(server.id, connection);
 		return connection;
 	}
@@ -392,7 +361,7 @@ export class McpHub {
 	}
 
 	#save(): void {
-		localStorage.setItem(SERVERS_KEY, JSON.stringify(this.servers));
+		this.#platform.plain.set(SERVERS_KEY, JSON.stringify(this.servers));
 	}
 
 	#serialized<T>(change: () => Promise<T>): Promise<T> {
@@ -432,7 +401,7 @@ export class McpHub {
 				await this.#hooks.revoke(this.#grant(connection.server));
 				await connection.logout();
 				await connection.dispose();
-				localStorage.removeItem(cacheKey(connection.server));
+				this.#platform.plain.remove(cacheKey(connection.server));
 				this.#connections.delete(id);
 				this.#hooks.uninstall(extensionName(connection.server));
 			} finally {

@@ -2,7 +2,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { FauxResponseStep } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { AgentRuntime, type ConversationId } from "../../src/agent/runtime.ts";
-import { faux, settings } from "./setup.ts";
+import { faux, platform, settings } from "./setup.ts";
 
 export const context = BACKGROUND_CONTEXT;
 
@@ -18,7 +18,7 @@ export function keepOpen(memory: MemoryStorage): MemoryStorage {
 
 export async function openRuntime(storage: MemoryStorage = new MemoryStorage(), overrides: Partial<typeof settings> = {}) {
 	const reports: string[] = [];
-	const runtime = await AgentRuntime.open(storage, { ...settings, ...overrides }, { onReport: (message) => reports.push(message) });
+	const runtime = await AgentRuntime.open(storage, { ...settings, ...overrides }, platform, { onReport: (message) => reports.push(message) });
 	return { runtime, reports, storage };
 }
 

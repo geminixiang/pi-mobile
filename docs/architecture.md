@@ -118,6 +118,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/agent/attachments*.ts` | 附件：PDF、Word、試算表、圖片 |
 | `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
 | `src/agent/computers.ts`、`src/agent/sandbox/` | Bot 在哪台電腦工作：直接或容器、pi-env 的 frame 協定、檔案與 git |
+| `src/agent/platform.ts` | `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。App 給 Capacitor 的實作，`test/contracts/` 給記憶體的 |
 | `src/agent/parse.ts` | 邊界驗證（typebox） |
 | `src/storage.ts`、`src/idb.ts`、`src/settings.ts` | pi-durable 的 IndexedDB 儲存、其他 IndexedDB 資料、設定（密鑰在 Keystore） |
 | `src/*-plugin.ts` | 原生 plugin 的 TypeScript 介面，各自對應 `android/.../<名稱>Plugin.java` |
@@ -127,4 +128,4 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、`mcp computer`，與安裝腳本 |
 | `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
-| `test/` | 手機上的 UI 測試（CDP）、工具介面的檢查 |
+| `test/` | 手機上的 UI 測試（CDP）、工具介面的檢查；`contracts/` 用假的模型和記憶體的 `Platform` 開一個真的 `AgentRuntime`，驗生命週期的約定 |

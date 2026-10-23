@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { extensionName } from "../../src/agent/mcp.ts";
 import { agentState, keepOpen, openRuntime } from "./fixtures.ts";
-import { type Check, deferred, mcp, openClients, resetMcp, secrets, settle } from "./setup.ts";
+import { type Check, deferred, mcp, openClients, platform, resetMcp, secrets, settle } from "./setup.ts";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 
 const granted = (state: unknown, extension: string) => JSON.stringify(state ?? {}).includes(`"${extension}"`);
@@ -39,7 +39,7 @@ export const checks: Check[] = [
 			await settle();
 			await before.runtime.setToolset(bot.id, extensionName(first), true);
 			await before.runtime.close();
-			localStorage.setItem("pi-mobile.mcp-servers", "[]");
+			platform.plain.remove("pi-mobile.mcp-servers");
 			const after = await openRuntime(storage);
 			try {
 				const second = await after.runtime.mcp.add("Notes", "https://other.invalid/mcp");
@@ -55,7 +55,7 @@ export const checks: Check[] = [
 		"two services added at once with the same name both stay, each with its own id",
 		async () => {
 			resetMcp();
-			localStorage.setItem("pi-mobile.mcp-servers", "[]");
+			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
 			try {
 				const [a, b] = await Promise.all([runtime.mcp.add("Work", "https://a.invalid/mcp"), runtime.mcp.add("Work", "https://b.invalid/mcp")]);
@@ -72,7 +72,7 @@ export const checks: Check[] = [
 		"a connection still opening when the runtime closes is closed when it arrives",
 		async () => {
 			resetMcp();
-			localStorage.setItem("pi-mobile.mcp-servers", "[]");
+			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
 			const gate = deferred();
 			const server = await runtime.mcp.add("Slow", "https://slow.invalid/mcp");
@@ -91,7 +91,7 @@ export const checks: Check[] = [
 		"a connection replaced while it lists its tools does not publish them",
 		async () => {
 			resetMcp();
-			localStorage.setItem("pi-mobile.mcp-servers", "[]");
+			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
 			try {
 				const gate = deferred();
@@ -112,7 +112,7 @@ export const checks: Check[] = [
 		"a service whose tool list fails shows the error and closes its client",
 		async () => {
 			resetMcp();
-			localStorage.setItem("pi-mobile.mcp-servers", "[]");
+			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
 			try {
 				mcp.listFails = true;
@@ -129,7 +129,7 @@ export const checks: Check[] = [
 		"a service being removed cannot be granted again before it is gone",
 		async () => {
 			resetMcp();
-			localStorage.setItem("pi-mobile.mcp-servers", "[]");
+			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
 			try {
 				const [bot] = await runtime.bots();

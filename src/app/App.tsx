@@ -34,6 +34,7 @@ import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { startModelList } from "../agent/available-models.ts";
+import { capacitorPlatform } from "../agent/platform.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 
@@ -99,8 +100,7 @@ export function App() {
 					await sweepBotData(async () => []);
 					localStorage.removeItem(LAST_BOT_KEY);
 				}
-				const opened = await AgentRuntime.open(storage, next, {
-					modelIds,
+				const opened = await AgentRuntime.open(storage, next, capacitorPlatform(modelIds), {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
 					notify: async (title, text, conversationId, avatar) => {

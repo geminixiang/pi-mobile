@@ -1,26 +1,21 @@
-import { mock } from "node:test";
+import { createModels, fauxProvider } from "@earendil-works/pi-ai";
+import { memoryCredentials } from "../../src/agent/credentials.ts";
+import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
+import type { McpSession, Platform } from "../../src/agent/platform.ts";
 import type { Settings } from "../../src/settings.ts";
 
-const stored = new Map<string, string>();
-Object.defineProperty(globalThis, "localStorage", {
-	value: {
-		getItem: (key: string) => stored.get(key) ?? null,
-		setItem: (key: string, value: string) => stored.set(key, String(value)),
-		removeItem: (key: string) => stored.delete(key),
-		clear: () => stored.clear(),
-	},
-	configurable: true,
-});
 globalThis.fetch = async () => {
 	throw new Error("contracts run offline");
 };
 
 export const logged: { level: string; event: string; fields: Record<string, unknown> }[] = [];
-const record =
-	(level: string) =>
-	(event: string, fields: Record<string, unknown> = {}) =>
-		void logged.push({ level, event, fields });
-mock.module(new URL("../../src/log.ts", import.meta.url).href, { namedExports: { log: { info: record("info"), warn: record("warn"), error: record("error") } } });
+for (const level of ["info", "warn", "error"] as const) {
+	console[level] = (line: unknown) => {
+		if (typeof line !== "string" || !line.startsWith("{")) return;
+		const { event, ...fields } = JSON.parse(line);
+		logged.push({ level, event, fields });
+	};
+}
 
 export function deferred<T = void>() {
 	let resolve: (value: T) => void = () => undefined;
@@ -34,8 +29,10 @@ export function deferred<T = void>() {
 
 type Gate = { promise: Promise<void> } | undefined;
 
-class FakeMcpClient {
+class FakeMcpClient implements McpSession {
 	closed = false;
+	readonly serverInfo = undefined;
+	readonly instructions = undefined;
 	readonly #closeListeners: (() => void)[] = [];
 	readonly #closing = deferred();
 	constructor() {
@@ -45,16 +42,21 @@ class FakeMcpClient {
 		await Promise.race([gate?.promise, this.#closing.promise]);
 		if (this.closed) throw new Error("MCP client is closed");
 	}
-	async connect(): Promise<void> {
+	async connect() {
 		await this.#wait(mcp.connectGate);
+		return { protocolVersion: "contract", capabilities: {}, serverInfo: { name: "fixture", version: "0" } };
 	}
 	async listTools() {
 		await this.#wait(mcp.listGate);
 		if (mcp.listFails) throw new Error("tools/list failed");
 		return [{ name: "fixture", description: "A contract fixture, never called.", inputSchema: { type: "object", properties: {} } }];
 	}
-	onClose(listener: () => void): void {
+	callTool(): never {
+		throw new Error("contract fixtures are never called");
+	}
+	onClose(listener: () => void): () => void {
 		this.#closeListeners.push(listener);
+		return () => void this.#closeListeners.splice(this.#closeListeners.indexOf(listener), 1);
 	}
 	async close(): Promise<void> {
 		if (this.closed) return;
@@ -77,49 +79,41 @@ export function resetMcp(): void {
 
 export const openClients = () => mcp.clients.filter((client) => !client.closed).length;
 
-const mcpModule = new URL("../../node_modules/@earendil-works/pi-mcp/dist/index.js", import.meta.url).href;
-mock.module(mcpModule, { namedExports: { ...(await import(mcpModule)), McpClient: FakeMcpClient } });
-
 export const secrets: { removeGate: Gate } = { removeGate: undefined };
-mock.module(new URL("../../node_modules/@aparajita/capacitor-secure-storage/dist/esm/index.js", import.meta.url).href, {
-	namedExports: {
-		SecureStorage: {
-			keys: async () => {
-				await secrets.removeGate?.promise;
-				return [];
-			},
-			remove: async () => undefined,
-			get: async () => null,
-			set: async () => undefined,
-		},
-	},
-});
 
 export const folders: { removeGate: Gate; removed: string[] } = { removeGate: undefined, removed: [] };
-const phoneEnv = new URL("../../src/agent/files/phone-env.ts", import.meta.url).href;
-mock.module(phoneEnv, {
-	namedExports: {
-		...(await import(phoneEnv)),
-		removePhoneFolder: async (bot: string) => {
-			folders.removed.push(bot);
-			await folders.removeGate?.promise;
-		},
-	},
-});
 
-const { createModels, fauxProvider } = await import("@earendil-works/pi-ai");
 export const faux = fauxProvider({ provider: "faux", models: [{ id: "model" }] });
-const { memoryCredentials } = await import("../../src/agent/credentials.ts");
-mock.module(new URL("../../src/agent/available-models.ts", import.meta.url).href, {
-	namedExports: {
-		startModelList: () => Promise.resolve({}),
-		loadModels: async () => {
-			const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });
-			models.setProvider(faux.provider);
-			return { models, infos: [], lists: {}, webSearch: { baseUrl: "", apiKey: "", modelIds: [] } };
-		},
+
+const plain = new Map<string, string>();
+
+export const platform: Platform = {
+	plain: {
+		get: (key) => plain.get(key) ?? null,
+		set: (key, value) => void plain.set(key, value),
+		remove: (key) => void plain.delete(key),
 	},
-});
+	secrets: {
+		keys: async () => {
+			await secrets.removeGate?.promise;
+			return [];
+		},
+		get: async () => undefined,
+		set: async () => undefined,
+		remove: async () => undefined,
+	},
+	mcpClient: () => new FakeMcpClient(),
+	phoneFolder: (folder) => new PhoneEnv(folder),
+	removePhoneFolder: async (folder) => {
+		folders.removed.push(folder);
+		await folders.removeGate?.promise;
+	},
+	models: async () => {
+		const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });
+		models.setProvider(faux.provider);
+		return { models, infos: [], lists: {}, webSearch: { baseUrl: "", apiKey: "", modelIds: [] } };
+	},
+};
 
 export const settings: Settings = {
 	providers: "[]",

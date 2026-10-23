@@ -16,18 +16,17 @@ import { log } from "../log.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { Assistant } from "./assistant.ts";
 import { deleteAttachments } from "./attachments.ts";
-import { loadModels, startModelList } from "./available-models.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
 import { type Computer, Computers, type Placement } from "./computers.ts";
-import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import { hostOf } from "./parse.ts";
+import type { Platform } from "./platform.ts";
 import type { Host } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
@@ -83,10 +82,12 @@ export class AgentRuntime {
 	readonly mcp: McpHub;
 	readonly triggers: TriggerRuns;
 	readonly #botToolsets: BotToolsets;
+	readonly #platform: Platform;
 
 	private constructor(
 		harness: Harness,
 		settings: Settings,
+		platform: Platform,
 		models: ModelInfo[],
 		computers: Computers,
 		folders: Map<string, string>,
@@ -95,6 +96,7 @@ export class AgentRuntime {
 		mcp: McpHub,
 	) {
 		this.#installed = installed;
+		this.#platform = platform;
 		this.mcp = mcp;
 		this.#harness = harness;
 		this.#settings = settings;
@@ -160,14 +162,14 @@ export class AgentRuntime {
 	static async open(
 		storage: Storage,
 		settings: Settings,
+		platform: Platform,
 		options: {
 			onReport?: (message: string) => void;
 			notify?: (title: string, text: string, conversationId: ConversationId, avatar: string | undefined) => Promise<boolean>;
 			openUrl?: (url: string) => Promise<void>;
-			modelIds?: Promise<Record<string, string[]>>;
 		} = {},
 	): Promise<AgentRuntime> {
-		const { models, infos, webSearch } = await loadModels(settings, options.modelIds ?? startModelList(settings), options.onReport);
+		const { models, infos, webSearch } = await platform.models(settings, options.onReport);
 		const registry = createRegistry();
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
@@ -183,7 +185,7 @@ export class AgentRuntime {
 		const computers = new Computers(settings, clouds.minted);
 		const placementOf = (id: string) => computers.resolve(choices.get(id));
 		const sandboxOf = (id: string) => computers.sandboxAt(placementOf(id));
-		const mcp: McpHub = new McpHub({
+		const mcp: McpHub = new McpHub(platform, {
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
 			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
@@ -224,7 +226,7 @@ export class AgentRuntime {
 					const folder = folders.get(String(conversationId));
 					if (!folder) return undefined;
 					if (placementOf(String(conversationId)).kind === "missing") return undefined;
-					return sandboxOf(String(conversationId))?.env(folder) ?? new PhoneEnv(folder);
+					return sandboxOf(String(conversationId))?.env(folder) ?? platform.phoneFolder(folder);
 				},
 			},
 			context,
@@ -232,6 +234,7 @@ export class AgentRuntime {
 		const runtime = new AgentRuntime(
 			harness,
 			settings,
+			platform,
 			infos,
 			computers,
 			folders,
@@ -358,7 +361,7 @@ export class AgentRuntime {
 				),
 			),
 		);
-		await orLogged(removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
+		await orLogged(this.#platform.removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
 		await orLogged(deleteAttachments({ conversationId: String(bot.id) }), "bot.remove_attachments_failed", undefined, { bot: String(bot.id) });
 		if (left.some((key) => key !== undefined)) return;
 		await this.#harness.commit(async (tx) => {
@@ -401,7 +404,7 @@ export class AgentRuntime {
 
 	phoneFolder(id: ConversationId): ExecutionEnv | undefined {
 		const folder = this.#folders.get(String(id));
-		return folder ? new PhoneEnv(folder) : undefined;
+		return folder ? this.#platform.phoneFolder(folder) : undefined;
 	}
 
 	async resetSandbox(id: ConversationId): Promise<void> {

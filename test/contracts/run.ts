@@ -19,8 +19,8 @@ for (const [name, run] of checks) {
 	}
 }
 if (failures.length > 0) {
-	console.error(`contracts: ${failures.length} of ${checks.length} failed\n${failures.join("\n")}`);
+	process.stderr.write(`contracts: ${failures.length} of ${checks.length} failed\n${failures.join("\n")}\n`);
 	process.exit(1);
 }
-console.log(`contracts: ${checks.length} hold`);
+process.stdout.write(`contracts: ${checks.length} hold\n`);
 process.exit(0);
