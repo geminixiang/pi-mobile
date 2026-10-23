@@ -2,7 +2,7 @@
 // for Taiwan JMA's and ECMWF's among them). Current conditions, the hours ahead, and the days ahead, so 「等等會下雨嗎」
 // and 「週六宜蘭要帶傘嗎」 get numbers instead of a guess.
 import { Type } from "typebox";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, type Point, resolvePlace } from "./device.ts";
@@ -162,7 +162,4 @@ const weather = defineAppTool({
 export const WeatherExtension = defineExtension({
 	name: "weather",
 	tools: [weather],
-	sections: [
-		section("weather", () => "Weather comes from the weather tool (a forecast, not a guess); without a place it is where the phone is. Say the place it is for."),
-	],
 });

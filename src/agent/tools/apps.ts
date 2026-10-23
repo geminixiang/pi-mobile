@@ -173,11 +173,6 @@ export const AppsExtension = defineExtension({
 	name: "phone_apps",
 	tools: [setAlarm, setTimer, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
-		section("phone_apps", () =>
-			[
-				"Other apps: alarms, timers, email and SMS drafts, maps, links, the share sheet. Drafts and shares open a screen the user finishes; never say something was sent.",
-				"Opening an app takes the user out of pi: do it only when they ask to go, navigate, open, call, or send. For 「X nearby」, answer here with a few picks and walking times.",
-			].join("\n"),
-		),
+		section("phone_apps", () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send."),
 	],
 });

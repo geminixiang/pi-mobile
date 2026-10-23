@@ -4,7 +4,9 @@
 // up are left out (GitHub without a token). The coding tools come with the sandbox when there is one, and otherwise
 // with the bot's folder on the phone (files/).
 //
-// Toolsets that load on demand (toolsets.ts) have their tools marked deferred here.
+// How the model reaches each tool is decided here (withReach), so that a request carries few definitions: the model is
+// offered code mode, the coding tools, memory, and tool_search; tools whose result it must see as an image are loaded
+// with tool_search; every other tool is called from code mode scripts only, listed by name in the codemode section.
 import type { Extension } from "@earendil-works/pi-durable";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import { BotExtension } from "./bots.ts";
@@ -16,7 +18,6 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import type { Host } from "./sandbox/host.ts";
 import { createSandboxExtension, type Sandbox, SandboxTools } from "./sandbox/sandbox.ts";
 import { SkillsExtension } from "./skills.ts";
-import { ON_DEMAND_EXTENSIONS } from "./toolsets.ts";
 import { AppsExtension } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
@@ -55,10 +56,19 @@ export interface CatalogDeps {
 	labelOf: (extension: string, conversationId: string) => string | undefined;
 }
 
-/** Deferred tools for the toolsets that load on demand; others as they are. */
-function withLoad(extension: Extension): Extension {
-	if (!ON_DEMAND_EXTENSIONS.has(extension.name)) return extension;
-	return { ...extension, tools: extension.tools?.map((tool) => ({ ...tool, deferred: true as const })) };
+/** Offered to the model in every request. */
+const MODEL_TOOLS = new Set(["codemode", "bash", "read", "write", "edit", "update_memory", "tool_search"]);
+/** Their result is an image the model must see, which a script's result leaves out: loaded with tool_search. */
+const LOADED_TOOLS = new Set(["view_photos", "read_attachment", "read_screen", "use_screen"]);
+
+/** Each tool as the model reaches it: offered, loaded on demand, or called from scripts only. */
+function withReach(extension: Extension): Extension {
+	return {
+		...extension,
+		tools: extension.tools?.map((tool) =>
+			MODEL_TOOLS.has(tool.name) ? tool : LOADED_TOOLS.has(tool.name) ? { ...tool, deferred: true as const } : { ...tool, callers: ["tools"] as const },
+		),
+	};
 }
 
 export function builtinExtensions(deps: CatalogDeps): Extension[] {
@@ -81,7 +91,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		SkillsExtension,
 		AttachmentsExtension,
 		createCalendarExtension(deps.calendarAccess),
-		...createPhoneCodemode(),
+		...createPhoneCodemode(deps.labelOf),
 		...(deps.githubToken ? [createGitHubExtension(deps.githubToken)] : []),
 		...createCloudExtensions(deps.clouds),
 		createWebExtension(deps.web),
@@ -94,5 +104,5 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
 	];
-	return extensions.map(withLoad);
+	return extensions.map(withReach);
 }

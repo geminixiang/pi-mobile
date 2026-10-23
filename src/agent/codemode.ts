@@ -56,33 +56,18 @@ class WorkerRemote implements CodemodeRemote {
 	}
 }
 
-/**
- * A structured output's shape, as short as the model needs to read results: field names, `?` for optional ones,
- * nested objects in braces, `[]` for arrays; types left out (they read from the names and the tool's description).
- * From the schema itself, so it cannot drift from what the tool returns.
- */
-export function shapeOf(schema: unknown): string {
-	if (typeof schema !== "object" || schema === null) return "";
-	const items: unknown = Reflect.get(schema, "items");
-	if (Reflect.get(schema, "type") === "array") return `${shapeOf(items) || "value"}[]`;
-	const properties: unknown = Reflect.get(schema, "properties");
-	if (typeof properties === "object" && properties !== null) {
-		const required: unknown = Reflect.get(schema, "required");
-		const needed = new Set(Array.isArray(required) ? required : []);
-		const fields = Object.entries(properties).map(([key, inner]) => {
-			const nested = shapeOf(inner);
-			return `${key}${needed.has(key) ? "" : "?"}${nested ? `: ${nested}` : ""}`;
-		});
-		return `{ ${fields.join(", ")} }`;
-	}
-	// A record: TypeBox writes its values under patternProperties, JSON Schema often under additionalProperties.
-	const patterns: unknown = Reflect.get(schema, "patternProperties");
-	const values: unknown = typeof patterns === "object" && patterns !== null ? Object.values(patterns)[0] : Reflect.get(schema, "additionalProperties");
-	if (typeof values === "object" && values !== null && Reflect.get(schema, "type") === "object") return `Record<key, ${shapeOf(values) || "value"}>`;
-	return "";
+/** A tool's call as the index shows it: its name and argument names, `?` after optional ones. */
+export function signatureOf(tool: { name: string; parameters: unknown }): string {
+	const schema = tool.parameters;
+	const properties: unknown = typeof schema === "object" && schema !== null ? Reflect.get(schema, "properties") : undefined;
+	const required: unknown = typeof schema === "object" && schema !== null ? Reflect.get(schema, "required") : undefined;
+	const needed = new Set(Array.isArray(required) ? required : []);
+	const names = typeof properties === "object" && properties !== null ? Object.keys(properties) : [];
+	return `${tool.name}(${names.map((name) => (needed.has(name) ? name : `${name}?`)).join(", ")})`;
 }
 
-export function createPhoneCodemode() {
+/** `label` names an extension's toolset for this conversation; undefined leaves its tools out of the index. */
+export function createPhoneCodemode(label: (extension: string, conversationId: string) => string | undefined) {
 	const remote = new WorkerRemote();
 	const sandbox = new RemoteCodemodeSandbox({
 		remote: () => remote,
@@ -90,21 +75,27 @@ export function createPhoneCodemode() {
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
 	// Scripts call the conversation's tools only; models.* (classifiers, image generation) stays off for now.
-	// Durable's own section lists every tool's description and TypeScript declaration again (12k characters here), all
-	// of which the model already has from the tool definitions; this short note replaces it.
+	// Most tools are for scripts only (catalog.ts), so this section is how the model knows them: an index of names and
+	// argument names by toolset, about a tenth of their definitions; describeTool() gives the rest when needed.
+	// Durable's own section (every tool's TypeScript declaration) would be most of the definitions again.
 	return [
 		defineExtension({
 			name: "codemode",
 			tools: [createCodemodeTool({ sandbox, models: false })],
 			sections: [
 				section("codemode", (input) => {
+					const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
+					const lines = input.agent.extensions.flatMap((extension) => {
+						const name = label(extension.name, String(input.conversationId));
+						const tools = (extension.tools ?? []).filter((tool) => !offered.has(tool.name) && input.agent.callable.some((callable) => callable.name === tool.name));
+						return name && tools.length > 0 ? [`- ${name}: ${tools.map(signatureOf).join("; ")}`] : [];
+					});
+					if (lines.length === 0) return undefined;
 					// Gateways may rename tools for the model (such as `mcp__x__y_get_location`); scripts need the real names.
-					const callable = input.agent.callable.filter((tool) => tool.name !== "codemode");
-					const structured = callable.filter((tool) => tool.structuredOutputSchema).map((tool) => `${tool.name}: ${shapeOf(tool.structuredOutputSchema)}`);
 					return [
-						`Scripts call your other tools as \`await tools.<name>(args)\` with the same arguments, by exactly these names, never with a prefix: ${callable.map((tool) => tool.name).join(", ")}.`,
-						`Results are text${structured.length ? `, except these, which return objects: ${structured.join("; ")}` : ""}.`,
-						"Scripts run on the phone in QuickJS, not in the sandbox; Date.now() only advances between tool calls. Use them to batch tool calls and shape data; heavy computation goes to bash.",
+						"These tools are called only from codemode scripts, as `await tools.<name>({ ...args })`, by exactly these names: put every call a task needs in one script (Promise.all for independent ones), shape the results there, and return only what the answer needs. When a tool's arguments or result are not obvious from its name, `return describeTool(name)` first. Look up rather than guess or ask: the phone's place and time, weather, travel times (no transit: estimate and say so).",
+						...lines,
+						"Scripts run on the phone in QuickJS, not on a computer; Date.now() only advances between tool calls. Heavy computation goes to bash.",
 					].join("\n");
 				}),
 			],

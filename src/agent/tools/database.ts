@@ -77,7 +77,7 @@ export const DatabaseExtension = defineExtension({
 			if (!Capacitor.isNativePlatform()) return undefined;
 			const { tables } = await Database.schema().catch(() => ({ tables: [] }));
 			return [
-				"The user's SQLite database (the sql tool) keeps structured records for them and their other bots. Reuse a table that fits before creating one; name tables and columns in English, keep the user's text as they wrote it; store times as ISO text (YYYY-MM-DD HH:MM, local) and amounts as numbers with a currency column when it can vary. Give what the user will filter or total by its own column (for expenses: category, payment method), not only free text; ALTER TABLE ADD COLUMN when a table lacks one.",
+				"sql is the user's SQLite database, shared by their bots: reuse a fitting table, English names, times as YYYY-MM-DD HH:MM, amounts as numbers, a column for what they filter or total by.",
 				tables.length > 0 ? `Tables now:\n${tables.map((table) => `${table.sql}; -- ${table.rows} rows`).join("\n")}` : "It has no tables yet.",
 			].join("\n");
 		}),

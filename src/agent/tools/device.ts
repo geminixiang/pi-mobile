@@ -2,7 +2,7 @@
 // sensors. Each is read when the tool runs; nothing is tracked in the background.
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { defineAppTool, json, requireNative } from "./common.ts";
@@ -133,12 +133,4 @@ const travelTime = defineAppTool({
 export const DeviceExtension = defineExtension({
 	name: "device",
 	tools: [deviceInfo, getLocation, readSensors, travelTime],
-	sections: [
-		section("device", () =>
-			[
-				"Phone context: device_info, get_location, read_sensors. Read them instead of asking (anything nearby or from here).",
-				"Trip times come from get_travel_time, not guesses. It has no transit: estimate it, say so, and offer open_maps.",
-			].join("\n"),
-		),
-	],
 });

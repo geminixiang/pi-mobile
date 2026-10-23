@@ -5,7 +5,6 @@ import type { ConversationId, ConversationView } from "@earendil-works/pi-durabl
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
-import type { ToolCost } from "../agent/runtime.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
@@ -14,7 +13,7 @@ import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-import { formatTokens, hasCacheActivity, tokensOf, type Usage } from "./usage.ts";
+import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
 
 export interface PanelActions {
 	edit: () => void;
@@ -133,19 +132,12 @@ export function BotPanel({
 	const botId = bot?.id;
 	useEffect(() => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => setMemory(next.text))), [runtime, botId]);
 	const [toolsets, setToolsets] = useState<ToolsetState[]>([]);
-	const [cost, setCost] = useState<ToolCost>({});
-	const reload = (id: ConversationId) =>
-		Promise.all([runtime.toolsets(id), runtime.toolCost(id)]).then(([nextToolsets, nextCost]) => {
-			setToolsets(nextToolsets);
-			setCost(nextCost);
-		});
+	const reload = (id: ConversationId) => runtime.toolsets(id).then(setToolsets);
 	useEffect(() => {
 		if (botId === undefined || !open) return;
 		let live = true;
-		void Promise.all([runtime.toolsets(botId), runtime.toolCost(botId)]).then(([nextToolsets, nextCost]) => {
-			if (!live) return;
-			setToolsets(nextToolsets);
-			setCost(nextCost);
+		void runtime.toolsets(botId).then((next) => {
+			if (live) setToolsets(next);
 		});
 		return () => {
 			live = false;
@@ -153,8 +145,6 @@ export function BotPanel({
 	}, [runtime, botId, open]);
 	if (!bot) return null;
 	const services = toolsets.filter((toolset) => toolset.kind === "service");
-	/** What a toolset's definitions add to each request, in characters. */
-	const charsOf = (toolset: ToolsetState) => toolset.extensions.reduce((sum, name) => sum + (cost[name]?.offered ?? 0), 0);
 
 	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
@@ -211,20 +201,15 @@ export function BotPanel({
 					</div>
 				</Section>
 
-				{(["always", "on-demand"] as const).map((kind) => {
-					const list = toolsets.filter((toolset) => toolset.kind === "builtin" && toolset.load === kind);
-					if (list.length === 0) return null;
-					const tokens = kind === "always" ? tokensOf(list.filter((toolset) => toolset.enabled).reduce((sum, toolset) => sum + charsOf(toolset), 0)) : 0;
-					return (
-						<Section key={kind} title={kind === "always" ? `常駐工具${tokens ? ` · 約 ${formatTokens(tokens)} tokens` : ""}` : "需要時載入的工具"}>
-							<div className="menu toggles">
-								{list.map((toolset) => (
-									<ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />
-								))}
-							</div>
-						</Section>
-					);
-				})}
+				<Section title="工具">
+					<div className="menu toggles">
+						{toolsets
+							.filter((toolset) => toolset.kind === "builtin")
+							.map((toolset) => (
+								<ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />
+							))}
+					</div>
+				</Section>
 
 				<Section title="連接的服務">
 					<div className="menu toggles">

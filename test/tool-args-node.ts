@@ -3,7 +3,7 @@
 // Run by `npm run check`.
 import { deepStrictEqual, throws } from "node:assert/strict";
 import { Type } from "typebox";
-import { shapeOf } from "../src/agent/codemode.ts";
+import { signatureOf } from "../src/agent/codemode.ts";
 import { defineAppTool, parseLocalBound, parseLocalTime, parseNextTime } from "../src/agent/tools/common.ts";
 
 const tool = defineAppTool({
@@ -43,10 +43,7 @@ throws(() => parseLocalTime("10/22 07:00", "at"), /YYYY-MM-DD HH:MM/);
 const next = parseNextTime("07:00", "until");
 if (next <= Date.now() || next - Date.now() > 86_400_000) throw new Error("07:00 is the next 07:00");
 
-// Code mode tells the model each structured output's shape, read from the schema.
-deepStrictEqual(
-	shapeOf(Type.Object({ items: Type.Array(Type.Object({ time: Type.String(), name: Type.Optional(Type.String()) })), counts: Type.Record(Type.String(), Type.Number()) })),
-	"{ items: { time, name? }[], counts: Record<key, value> }",
-);
+// Code mode's index shows each script-only tool as its name and argument names, read from the schema.
+deepStrictEqual(signatureOf({ name: "weather", parameters: Type.Object({ place: Type.String(), days: Type.Optional(Type.Integer()) }) }), "weather(place, days?)");
 
-console.log("tool arguments: cleaning, time parsing, and structured shapes behave");
+console.log("tool arguments: cleaning, time parsing, and code mode signatures behave");

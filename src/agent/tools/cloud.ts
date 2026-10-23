@@ -4,7 +4,7 @@
 import { Type } from "typebox";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { CapacitorHttp } from "@capacitor/core";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool } from "./common.ts";
 
 const MAX_OUTPUT_CHARS = 40_000;
@@ -161,12 +161,6 @@ export function createCloudExtensions(services: readonly CloudService[]) {
 	return services.map((service) =>
 		defineExtension({
 			name: service.id,
-			sections: [
-				section(
-					service.id,
-					() => `${service.label} from the phone with ${service.tool}, no sandbox needed; prefer it to the sandbox's CLI for a quick look.`,
-				),
-			],
 			tools: [cloudTool(service)],
 		}),
 	);

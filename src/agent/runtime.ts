@@ -683,7 +683,6 @@ export class AgentRuntime {
 			...TOOLSETS,
 			...this.mcp.servers.map((server) => ({
 				kind: "service" as const,
-				load: "on-demand" as const,
 				id: extensionName(server),
 				label: server.name,
 				hint: hostOf(server.url),

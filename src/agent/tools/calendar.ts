@@ -278,12 +278,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		name: "calendar",
 		tools: [readEvents, listCalendars, addEvent],
 		sections: [
-			section("calendar", () =>
-				[
-					"Events marked shared are other people's (a team or colleague calendar); never present them as the user's plans.",
-					"Add events to the default calendar unless the user names another account. With no default and several enabled, ask, naming the accounts; never guess work or personal from the content.",
-				].join("\n"),
-			),
+			section("calendar", () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account."),
 		],
 	});
 }

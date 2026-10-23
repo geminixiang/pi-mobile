@@ -1,32 +1,26 @@
 # 工具與 context
 
-Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 schema）。工具越多，每次請求越大，模型也越容易選錯。這份文件記錄每組工具佔多少、為什麼常駐或需要時才載入，以及新工具上線前要做的量測。
+Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 schema）。工具越多，每次請求越大，模型也越容易選錯。這份文件記錄工具怎麼交給模型、各佔多少，以及新工具上線前要做的量測。
 
 ## 怎麼管理
 
-每組工具（`src/agent/toolsets.ts`）有兩個屬性：
+**開關**由使用者在 Bot 面板決定（`src/agent/toolsets.ts`）：
+- 內建工具預設開啟。
+- 連接的服務（MCP）預設關閉，要在設定 › MCP 或 Bot 面板裡給特定的 Bot。
+- 程式模式、記憶、附件、skills、排程一律開啟，不列在面板上。
 
-- **開關**，由使用者在 Bot 面板決定。
-  - 內建工具預設開啟。
-  - 連接的服務（MCP）預設關閉，要在設定 › MCP 或 Bot 面板裡給特定的 Bot。
-- **載入方式**，由我們決定，使用者不用管：
-  - **常駐**：每次請求都帶著。
-  - **需要時載入**：工具標成 deferred。系統提示只列出名稱（`src/agent/on-demand.ts`），模型用 `tool_search` 載入需要的工具。載入後就留在那條對話裡，壓縮後也還在。
+**模型怎麼拿到工具**由每個工具決定（`src/agent/catalog.ts` 的 `withReach`），使用者不用管。從 2026-10-23 起以程式模式為主：
 
-記憶、附件、skills、排程、`tool_search` 一律開啟，不列在面板上。
+| 方式 | 哪些工具 | 每次請求帶什麼 |
+|---|---|---|
+| **直接提供** | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
+| **需要時載入** | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話 |
+| **只給腳本** | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
-### 常駐還是需要時載入
-
-- **常駐**：手機的日常能力，大多數 Bot 在一般對話裡就會用到。例如天氣、日曆、通知、地點、資料庫。
-- **需要時載入**：符合任一項就是。
-  - 專門領域的工具，大多數 Bot 很少用。例如開發、雲端。
-  - 定義很大（超過約 2,000 字元），又不是每天會用。
-  - 所有 MCP 服務。工具數量不固定，而且來自外部。
-- 拿不準的時候先常駐，量過再改。
-
-需要時載入的代價：
-- 每組工具第一次用時，多一次來回（搜尋、載入），大約多 2–4 秒。
-- 那一次請求拿不到提示快取，GPT 和 Claude 都一樣。因為載入後會留著，每個 Bot、每組工具只會發生一次。
+- 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
+- 代價：
+  - 模型不認得參數時，要先用一個腳本查 `describeTool`，多一次來回。
+  - 需要好幾步的手機任務（例：找附近咖啡店再算步行時間）會拆成幾個腳本，可能比以前慢。
 
 ## 介面規範
 
@@ -64,7 +58,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ### 輸出
 
-- code mode 的系統提示列出每個有結構化輸出的工具和它的欄位，是從 schema 自動產生的（`codemode.ts` 的 `shapeOf`），所以改了 schema 就會跟著改，不用手動同步。
+- codemode 段落列出只給腳本的工具和參數名稱，是從 schema 自動產生的（`codemode.ts` 的 `signatureOf`），所以改了 schema 就會跟著改，不用手動同步；結果的欄位由 `describeTool` 給。
 - 給模型的是文字。時間用跟輸入一樣的當地格式（`YYYY-MM-DD HH:MM`），模型讀到的可以直接再傳回來。
 - **回傳一串紀錄的工具要有 `structuredOutputSchema`**：通知、聯絡人、相片、通話、簡訊、螢幕時間、健康、行事曆、地點、天氣、資料庫、雲端 API。這樣 code mode 腳本可以直接過濾、加總，不用解析文字。結構化輸出的欄位名稱也用 snake_case，時間也用當地格式。
 - 一次回傳的量有上限時，要說還有多少、怎麼繼續讀（`offset=`、縮小 `query`）。
@@ -82,7 +76,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ## 工具清單
 
-每一個工具都要列在這裡（`test/tools-node.ts` 會檢查）。「改動」：**唯讀**；**開畫面**＝打開畫面讓使用者完成；**直接**＝直接改。「結構化」＝有給腳本用的結構化輸出。需要時載入的工具組另外標出。
+每一個工具都要列在這裡（`test/tools-node.ts` 會檢查）。「改動」：**唯讀**；**開畫面**＝打開畫面讓使用者完成；**直接**＝直接改。「結構化」＝有給腳本用的結構化輸出。模型怎麼拿到每個工具，見上面〈怎麼管理〉。
 
 | 工具 | 工具組 | 做什麼 | 改動 | 結構化 |
 |---|---|---|---|---|
@@ -119,13 +113,13 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `codemode` | 程式模式 | 用腳本一次呼叫多個工具 | 依呼叫的工具 | |
 | `web_search` | 網路 | 搜尋 | 唯讀 | |
 | `web_fetch` | 網路 | 讀網頁；內容要跑 JS 才出現時，在看不見的 WebView 裡渲染（`render`，或文字少於 300 字時自動）；`save_to` 把檔案下載進 Bot 的資料夾 | 唯讀；`save_to` 直接寫進自己的資料夾 | |
-| `github_api` | GitHub（需要時載入） | GitHub REST API | `GET` 唯讀，其他直接 | ✓ |
-| `github_read_file` | GitHub（需要時載入） | 讀 repo 裡的檔案 | 唯讀 | |
-| `gcp_api` | Google Cloud（需要時載入） | Google Cloud REST API | 讀取唯讀，寫入直接 | ✓ |
-| `cloudflare_api` | Cloudflare（需要時載入） | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
-| `azure_api` | Azure（需要時載入） | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
-| `read_screen` | 電腦畫面（需要時載入，只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
-| `use_screen` | 電腦畫面（需要時載入，只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
+| `github_api` | GitHub | GitHub REST API | `GET` 唯讀，其他直接 | ✓ |
+| `github_read_file` | GitHub | 讀 repo 裡的檔案 | 唯讀 | |
+| `gcp_api` | Google Cloud | Google Cloud REST API | 讀取唯讀，寫入直接 | ✓ |
+| `cloudflare_api` | Cloudflare | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
+| `azure_api` | Azure | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
+| `read_screen` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
+| `use_screen` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
 | `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
@@ -149,6 +143,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 4. **更新這份文件**：更新下面的表格，並在「紀錄」加一行。
 
 ## 目前的量測
+
+2026-10-22 的量測，當時工具全部直接提供；2026-10-23 改成程式模式為主之後，每次請求的大小見〈紀錄〉，這張表等重新量過再更新。
 
 2026-10-22，S24，GPT 6.1 Sol。暫時的 Bot 開著全部內建工具（MCP 服務那兩列是 2026-10-21 另外量的）。tokens 是用字元數 ÷ 4.9 估計的；這個比例是實測得到的：24,495 字元的定義讓請求多了 5,029 tokens。
 
@@ -214,6 +210,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 2026-10-21 | MCP 服務需要時載入、預設不給 Bot | 9,223 → 7,510 tokens | 只開 Cloudflare MCP：直接帶工具 9,223、延遲載入 7,510；Workers 與 D1 的問題正確率與時間相同 |
 | 2026-10-21 | Sandbox、GitHub、三家雲端改為需要時載入 | 6,920 → 5,914 tokens | 系統版本、GitHub repo、GCP 專案三題都答對，8–17 秒 |
 | 2026-10-22 | 整理工具介面：`defineAppTool` 統一清理參數、時間格式和核准；紀錄類工具加結構化輸出；`catalog.ts` 一份清單；`npm run check` 檢查規範和快照 | 7,620 → 8,103 tokens（補齊參數說明 +287；code mode 列出全部 16 個結構化輸出的欄位 +196） | 介面改變：`find_places.radiusKm` → `radius_km`；`contacts.birthdays_within_days` → `upcoming_birthdays`（模型會把沒用到的天數填成 1，真的篩掉了人）；`create_schedule.on` 改成必填，多一個 `time` 值（模型會把選填的 `on` 隨便填一個事件，例如 `wifi`，跟 `time` 衝突而失敗兩次）；輸出時間一律 `YYYY-MM-DD HH:MM`；結構化輸出的欄位改成 snake_case（`weather` 的 `temperature_c`、`rain_chance`…，`find_places` 的 `distance_m`、`opening_hours`，`sql` 的 `last_insert_id`），code mode 的說明改成從 schema 產生，不再手寫。S24 上 11 題：行程、加活動（拒絕後回「好，沒有加入行事曆」）、附近 500 公尺、通話次數、聯絡人電話、勿擾開關、三天螢幕時間（code mode 用結構化輸出）、LINE 誰傳最多，都對；之後用 code mode 依新欄位名稱算降雨（`rain_chance`）、咖啡廳距離（`distance_m`）、LINE 每人則數，也都對。發現「提醒我」選了鬧鐘而不是 `schedule_followup`、鬧鐘沒辦法取消，留給之後 |
+| 2026-10-23 | **改成程式模式為主**：只直接提供 `codemode`、coding tools、`update_memory`、`tool_search`；看圖片的工具需要時載入；其他（含 MCP）只給腳本，codemode 段落列名稱和參數名稱。手機工具組的說明段落縮成一句或拿掉，直接模式的提示從 1.9k 縮到約 0.9k 字元。面板改成一個「工具」清單 | 每次請求（第一次呼叫的輸入）：GPT 8,799 → 3,373 tokens，Claude 12,596 → 2,433 | 介面改變：除了上面 7 個，所有工具 `callers` 變成 `["tools"]`，4 個看圖工具變成 deferred；拿掉「程式模式」工具組（固定開啟）。S24，Bot 在 Mac 上，GPT 6.1 Sol 和 Claude Opus 5.5 各一次，全部答對。每題的輸入 tokens：手機題（天氣、明天行程、走幾步、天氣加行程）GPT 17.6k–27.5k → 6.8k–9.0k、Claude 29.4k → 5.6k–8.0k；附近咖啡店 GPT 38.0k → 16.9k、Claude 46.8k → 28.2k，但變慢（GPT 30 → 47 秒、Claude 14 → 51 秒，拆成 3–4 個腳本）；Mac 題（硬碟、音量、視窗、Wi‑Fi、對話框）GPT 18k–28k → 6.8k–12.3k、Claude 30k–47k → 8.0k–13.8k。Claude 有兩次把工具呼叫寫成文字（改前改後各一次） |
 | 2026-10-23 | 直接模式的提示：拿掉 `screencapture` 加 `read` 的看畫面方式，畫面一律用 `read_screen`／`use_screen`，也拿掉「每一步截圖確認」（`use_screen` 本來就回傳截圖） | 提示少約 20 tokens | S24 → Mac mini，七個平常的問題，不指定方法，GPT 6.1 Sol 和 Claude Opus 5.5 各一次：全部答對；硬碟、音量、視窗、Wi‑Fi、外觀、計算機都用 shell（df、osascript、networksetup），只有「畫面上有沒有對話框」看畫面。改之前看畫面是 `screencapture` 存全尺寸 PNG 再 `read`；改之後用 `read_screen`：對話框那題 GPT 22→17 秒、41k→28k tokens，Claude 17→11 秒、66k→31k；計算機那題 Claude 不再截圖確認，27→18 秒、102k→82k。各只跑一次，數字有誤差 |
 | 2026-10-23 | 「電腦畫面」成為內建工具組（`read_screen`、`use_screen`），有電腦的 Bot 就有，手機上不可用 | 2 個新工具，需要時載入 | S24 → Mac mini，三題各兩次全部答對：Claude 12–24 秒、3–4 次呼叫；GPT 32–61 秒、5–7 次（供應商回應慢，有過載）。都會自己用 `tool_search` 載入 |
 | 2026-10-23 | 電腦上的畫面操控改成自己寫的 `pi-mobile mcp computer`（Go，macOS），取代 computer-use-mcp | 2 個工具，1,569 字元（computer-use-mcp 4,108），需要時載入 | 同樣三題、兩個模型各兩次，全部答對、0 次核准、不用 Node：GPT 每題 26–31 秒、4–5 次呼叫（原本 39–170 秒、6–24 次）；Claude 14–24 秒、3–4 次（原本 28–55 秒、4–7 次）；輸入 tokens 少 40–60%。細節見 [research/computer-use-mcp-eval.md](research/computer-use-mcp-eval.md) |

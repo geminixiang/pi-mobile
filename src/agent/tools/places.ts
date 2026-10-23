@@ -191,11 +191,6 @@ export const PlacesExtension = defineExtension({
 	name: "places",
 	tools: [findPlaces],
 	sections: [
-		section("places", () =>
-			[
-				"Places nearby or by name: find_places (OpenStreetMap). Its distances are straight-line: for the closest few, get_travel_time gives the real time; open_maps navigates.",
-				"OSM has no ratings: when the user wants a good one, check the candidates with web_search. Opening hours are in OSM syntax; judge open now from the time it gives, and say when hours are unknown.",
-			].join("\n"),
-		),
+		section("places", () => "find_places is OpenStreetMap: straight-line distances (get_travel_time for the real ones) and no ratings (check good ones with web_search)."),
 	],
 });

@@ -5,7 +5,6 @@
 		"name": "device_info",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -20,7 +19,6 @@
 		"name": "get_location",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -35,7 +33,6 @@
 		"name": "read_sensors",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -50,7 +47,6 @@
 		"name": "get_travel_time",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -95,7 +91,6 @@
 		"name": "weather",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -241,7 +236,6 @@
 		"name": "find_places",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -347,7 +341,6 @@
 		"name": "sql",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -443,7 +436,6 @@
 		"name": "set_alarm",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -506,7 +498,6 @@
 		"name": "set_timer",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -535,7 +526,6 @@
 		"name": "compose_email",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -569,7 +559,6 @@
 		"name": "compose_sms",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -596,7 +585,6 @@
 		"name": "open_maps",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -644,7 +632,6 @@
 		"name": "open_link",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -667,7 +654,6 @@
 		"name": "share",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -695,7 +681,6 @@
 		"name": "speak",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -722,7 +707,6 @@
 		"name": "read_notifications",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -800,7 +784,6 @@
 		"name": "reply_notification",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -833,7 +816,6 @@
 		"name": "dismiss_notifications",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -856,7 +838,6 @@
 		"name": "media",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -904,7 +885,6 @@
 		"name": "do_not_disturb",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -952,7 +932,6 @@
 		"name": "contacts",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1033,7 +1012,6 @@
 		"name": "find_photos",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1122,7 +1100,7 @@
 		"extension": "photos",
 		"toolset": "photos",
 		"name": "view_photos",
-		"deferred": false,
+		"deferred": true,
 		"callers": [
 			"model",
 			"tools"
@@ -1152,7 +1130,6 @@
 		"name": "call_log",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1244,7 +1221,6 @@
 		"name": "read_sms",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1313,7 +1289,6 @@
 		"name": "screen_time",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1386,7 +1361,6 @@
 		"name": "health",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1506,7 +1480,6 @@
 		"name": "read_skill",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1532,7 +1505,7 @@
 		"extension": "attachments",
 		"toolset": "fixed",
 		"name": "read_attachment",
-		"deferred": false,
+		"deferred": true,
 		"callers": [
 			"model",
 			"tools"
@@ -1579,7 +1552,6 @@
 		"name": "scan_document",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1601,7 +1573,6 @@
 		"name": "read_calendar_events",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1683,7 +1654,6 @@
 		"name": "list_calendars",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1698,7 +1668,6 @@
 		"name": "add_calendar_event",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1743,7 +1712,7 @@
 	},
 	{
 		"extension": "codemode",
-		"toolset": "codemode",
+		"toolset": "fixed",
 		"name": "codemode",
 		"deferred": false,
 		"callers": [
@@ -1767,9 +1736,8 @@
 		"extension": "github",
 		"toolset": "github",
 		"name": "github_api",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1833,9 +1801,8 @@
 		"extension": "github",
 		"toolset": "github",
 		"name": "github_read_file",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1870,9 +1837,8 @@
 		"extension": "gcp",
 		"toolset": "gcp",
 		"name": "gcp_api",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1933,9 +1899,8 @@
 		"extension": "cloudflare",
 		"toolset": "cloudflare",
 		"name": "cloudflare_api",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -1996,9 +1961,8 @@
 		"extension": "azure",
 		"toolset": "azure",
 		"name": "azure_api",
-		"deferred": true,
+		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2061,7 +2025,6 @@
 		"name": "web_search",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2084,7 +2047,6 @@
 		"name": "web_fetch",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2115,7 +2077,6 @@
 		"name": "create_schedule",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2244,7 +2205,6 @@
 		"name": "schedule_followup",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2279,7 +2239,6 @@
 		"name": "list_schedules",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2294,7 +2253,6 @@
 		"name": "delete_schedule",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {
@@ -2317,7 +2275,6 @@
 		"name": "notify",
 		"deferred": false,
 		"callers": [
-			"model",
 			"tools"
 		],
 		"parameters": {

@@ -1,6 +1,6 @@
 // GitHub connector: the REST API called straight from the phone with the user's token.
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
@@ -133,13 +133,6 @@ export function createGitHubExtension(getToken: TokenSource) {
 
 	return defineExtension({
 		name: "github",
-		sections: [
-			section(
-				"github",
-				() =>
-					"GitHub: github_api and github_read_file; GET /user tells who the user is.",
-			),
-		],
 		tools: [api, readFile],
 	});
 }
