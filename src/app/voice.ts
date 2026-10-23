@@ -5,7 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Voice } from "../voice-plugin.ts";
 
-export type DictationState = "idle" | "starting" | "listening";
+type DictationState = "idle" | "starting" | "listening";
 
 export interface Dictation {
 	supported: boolean;

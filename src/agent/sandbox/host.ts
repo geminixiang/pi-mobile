@@ -24,7 +24,7 @@ import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, 
 import { lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 
-export const HOST_PORT = 4790;
+const HOST_PORT = 4790;
 
 const System = {
 	os: Type.Union([Type.Literal("darwin"), Type.Literal("linux")]),
@@ -328,7 +328,7 @@ export class HostSandbox implements Sandbox {
 }
 
 /** An MCP server URL that runs on one of the user's computers: computer://<address>?command=<shell command>. */
-export const COMPUTER_MCP = "computer:";
+const COMPUTER_MCP = "computer:";
 
 export function parseComputerMcp(url: string): { address: string; command: string } | undefined {
 	try {

@@ -4,7 +4,7 @@ import { CheckIcon, SearchIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { formatTokens } from "./usage.ts";
 
-export const THINKING_LEVELS = [
+const THINKING_LEVELS = [
 	["off", "關"],
 	["low", "低"],
 	["medium", "中"],

@@ -33,7 +33,7 @@ export const BotMemoryDoc = defineDoc<Memory>({
 export type MemoryScope = { kind: "global" } | { kind: "bot"; id: ConversationId };
 
 /** Apply one edit: replace `oldText` (which must occur exactly once), or append `newText` as its own line. */
-export function editMemory(current: string, oldText: string | undefined, newText: string): string {
+function editMemory(current: string, oldText: string | undefined, newText: string): string {
 	if (!oldText) return current.trim() ? `${current.trimEnd()}\n${newText.trim()}` : newText.trim();
 	const at = current.indexOf(oldText);
 	if (at < 0) throw new Error("old_text is not in that MEMORY.md; copy it exactly from the memory section");

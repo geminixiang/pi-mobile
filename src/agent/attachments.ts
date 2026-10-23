@@ -50,7 +50,7 @@ export function attachmentKind(file: { name: string; type: string }): Attachment
 const INLINE_TOKENS = 20_000;
 const PREVIEW_TOKENS = 2_000;
 /** Scanned pages rendered into the message itself; more are read with read_attachment's images. */
-export const INLINE_PAGE_IMAGES = 4;
+const INLINE_PAGE_IMAGES = 4;
 
 /**
  * CJK radicals and compatibility ideographs as the ideographs they stand for. PDFs often draw CJK with them, such as
@@ -91,7 +91,7 @@ export interface StoredAttachment {
 
 const files = idbStore("pi-attachments", "files", { keyPath: "id" });
 
-export async function saveAttachment(attachment: StoredAttachment): Promise<void> {
+async function saveAttachment(attachment: StoredAttachment): Promise<void> {
 	await files.request("readwrite", (store) => store.put(attachment));
 }
 
@@ -136,7 +136,7 @@ export async function attachmentOwners(): Promise<string[]> {
 	return [...owners];
 }
 
-export const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;
+const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;
 
 /** The full text, a PDF's pages marked so the model can cite them. */
 export function fullText(attachment: Pick<StoredAttachment, "kind" | "units">): string {
@@ -161,7 +161,7 @@ function head(text: string, tokens: number): { text: string; lines: number } {
 }
 
 /** The message text for an attachment: an <attachment> element with the file's text, or a preview and how to read on. */
-export function formatAttachment(attachment: StoredAttachment): TextContent {
+function formatAttachment(attachment: StoredAttachment): TextContent {
 	const text = fullText(attachment);
 	const tokens = estimateTokens(text);
 	const attributes: Record<string, string> = {

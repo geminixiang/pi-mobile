@@ -384,7 +384,7 @@ export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
  */
 const BROKEN_TEXT = /^\s*(<thinking_mode>[^<]*<\/thinking_mode>\s*|<invoke name=[\s\S]*|<function_calls>[\s\S]*)$/;
 
-export function isBrokenText(text: string): boolean {
+function isBrokenText(text: string): boolean {
 	return BROKEN_TEXT.test(text);
 }
 

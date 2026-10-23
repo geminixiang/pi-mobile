@@ -30,7 +30,7 @@ const Subscriptions = Type.Object({
 	value: Type.Array(Type.Object({ subscriptionId: Type.String(), displayName: Type.String(), tenantId: Type.String() })),
 });
 
-export function parseAzure(json: string): AzureCredential {
+function parseAzure(json: string): AzureCredential {
 	return parse(AzureCredential, parseJson(json, "Azure 憑證"), "Azure 憑證");
 }
 

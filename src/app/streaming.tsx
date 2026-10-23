@@ -25,7 +25,7 @@ function boundary(text: string, index: number): number {
 	return code >= 0xd800 && code <= 0xdbff ? index + 1 : index;
 }
 
-export function useSmoothText(text: string): string {
+function useSmoothText(text: string): string {
 	const [shown, setShown] = useState(0);
 	const state = useRef({ shown: 0, target: text });
 	state.current.target = text;

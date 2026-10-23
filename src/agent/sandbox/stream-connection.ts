@@ -62,12 +62,12 @@ function indexOf(haystack: Uint8Array, needle: Uint8Array): number {
 }
 
 /** A duplex byte stream to one `pi-env serve` process. */
-export interface DaemonStream {
+interface DaemonStream {
 	send(data: Uint8Array<ArrayBuffer>): void;
 	close(): void;
 }
 
-export interface StreamHandlers {
+interface StreamHandlers {
 	onData(data: Uint8Array): void;
 	/** The stream ended; `reason` says why when the transport knows. */
 	onClose(reason?: string): void;

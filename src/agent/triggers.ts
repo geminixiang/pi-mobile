@@ -46,7 +46,7 @@ const When = Type.Union([
 export type When = Static<typeof When>;
 
 /** A schedule, or a follow-up the bot set itself to check something later. */
-export type TriggerKind = "schedule" | "followup";
+type TriggerKind = "schedule" | "followup";
 
 /** How a run started: the WebView was running ("live"), pi was opened afterwards ("later"), or from Settings ("manual"). */
 export type Delivery = "live" | "later" | "manual";

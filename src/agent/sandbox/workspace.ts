@@ -35,7 +35,7 @@ export interface Change {
 	removed?: number;
 }
 
-export interface Commit {
+interface Commit {
 	hash: string;
 	subject: string;
 	author: string;

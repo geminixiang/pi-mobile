@@ -18,7 +18,7 @@
 │   └─ 容器：docker exec ─▶ pim-main：pi-env serve，/workspace/<bot>│
 │              bridge.py ◀── pi-mobile-egress（mitmproxy）          │
 │              只攔 GitHub、Google、Cloudflare、Azure，               │
-│              向手機要 token，寫入先問手機                           │
+│              向手機要 token                                       │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,24 +60,28 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 
 ## 專案結構
 
+每個檔案開頭的註解說明它做什麼；這裡只列從哪裡找起。
+
 | 路徑 | 內容 |
 |---|---|
-| `src/agent/runtime.ts` | `AgentRuntime`：harness、Bot 清單、每個 Bot 的控制器、執行狀態（task graph） |
-| `src/agent/bots.ts`、`memory.ts`、`triggers.ts` | Bot 的資料與系統提示、全域和 Bot 的記憶、排程 |
-| `src/agent/providers.ts`、`credentials.ts`、`models.ts` | 模型供應商：pi-ai 內建的供應商（各自一個 chunk，用到才載入）、API key 的 credential store；自訂端點的 provider（Claude 走 anthropic-messages，gpt-5.6/gpt-6 走 openai-responses，其他走 openai-completions，規格查 pi-ai 的目錄） |
-| `src/agent/tools/` | `device.ts`（`device_info`、`get_location`、`read_sensors`、`get_travel_time`）、`github_api`、`github_read_file`、`web_search`、`web_fetch`；`apps.ts` 是交給其他 app 的工具（Intent），`calendar.ts` 是行事曆（權限設定在 `src/agent/calendar-access.ts`） |
-| `src/agent/codemode.ts`、`codemode-worker.ts` | Code mode：`RemoteCodemodeSandbox` 的 remote 是一個跑 `serveCodemodeRemote` 的 Web Worker |
-| `src/agent/parse.ts`、`oauth.ts` | 邊界驗證（typebox schema）與三家雲端共用的 OAuth：原生 HTTP 加逾時、token 回應、device flow 輪詢 |
-| `src/agent/gcloud.ts` | Google 憑證：app 內登入（PKCE）、refresh token 換 access token，或用 WebCrypto 簽 service account 的 JWT |
-| `src/agent/cloudflare.ts` | Cloudflare 憑證：device flow 登入、refresh token 輪替 |
-| `src/agent/azure.ts` | Azure 憑證：Microsoft device code 登入、每個資源各自換 token |
-| `src/agent/computers.ts`、`src/agent/sandbox/` | 每個 Bot 在哪工作；`host.ts`（電腦上的 pi-mobile：直接或容器）、`container.ts`（容器、egress 和 bridge）、`stream-connection.ts`（pi-env 的 frame 協定）、`daemon.ts`（app 附的 pi-env）、`sandbox.ts`（模型看到的說明和每個 Bot 的資料夾）、`workspace.ts`（檔案與 git） |
-| `src/storage.ts` | pi-durable 的 IndexedDB 儲存，用 Web Lock 確保只有一個擁有者；只為了讀 v0.1.0 的舊資料庫保留 SQLite |
-| `src/settings.ts` | 設定；密鑰存在 Keystore |
+| `src/agent/runtime.ts` | `AgentRuntime`：harness、Bot 清單、每個 Bot 的控制器、執行狀態 |
+| `src/agent/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
+| `src/agent/tools/` | 內建工具，一個領域一個檔案；`common.ts` 是共用的 `defineAppTool` |
+| `src/agent/codemode.ts`、`on-demand.ts`、`toolsets.ts` | Code mode（QuickJS Web Worker）、需要時才載入的工具、Bot 可選的工具組 |
+| `src/agent/bots.ts`、`memory.ts`、`triggers.ts`、`skills.ts` | Bot 的資料與系統提示、MEMORY.md、排程、技能 |
+| `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
+| `src/agent/mcp.ts`、`mcp-catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
+| `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts` | 三家雲端的登入與憑證 |
+| `src/agent/attachments*.ts` | 附件：PDF、Word、試算表、圖片 |
+| `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
+| `src/agent/computers.ts`、`src/agent/sandbox/` | Bot 在哪台電腦工作：直接或容器、pi-env 的 frame 協定、檔案與 git |
+| `src/agent/parse.ts` | 邊界驗證（typebox） |
+| `src/storage.ts`、`src/idb.ts`、`src/settings.ts` | pi-durable 的 IndexedDB 儲存、其他 IndexedDB 資料、設定（密鑰在 Keystore） |
+| `src/*-plugin.ts` | 原生 plugin 的 TypeScript 介面，各自對應 `android/.../<名稱>Plugin.java` |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI；`docs.ts` 以 pi-durable 的文件 token 型別讀取對話狀態；`keepAlive.ts`、`voice.ts` 是對應 Android 原生功能的那一層 |
-| `android/.../AgentService.java`、`KeepAlivePlugin.java`、`VoicePlugin.java`、`AppsPlugin.java`、`CalendarPlugin.java`、`PhonePlugin.java`、`TriggersPlugin.java` | 前景服務與通知、語音辨識、用 Intent 交給其他 app、行事曆、位置與感測器、排程與分享 |
-| `host/` | 電腦上的 `pi-mobile`（Go）與安裝腳本 |
-| `sandbox/` | 容器的 image 和 egress proxy（app 透過 電腦上的 pi-mobile 在電腦上建置） |
+| `src/app/` | React UI |
+| `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
+| `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、`mcp computer`，與安裝腳本 |
+| `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
 | `test/` | 手機上的 UI 測試（CDP）、工具介面的檢查 |

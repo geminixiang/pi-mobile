@@ -29,7 +29,7 @@ export interface Sandbox {
 	close(): void;
 }
 
-export const IMAGES =
+const IMAGES =
 	"To show an image, save PNG or JPEG of at most 2000 px and 3 MB (`magick in.png -resize 1600x1600\\> out.png`) and `read` it.";
 
 /**

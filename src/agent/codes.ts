@@ -4,7 +4,7 @@
 // there is no code.
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 
-export const CODES_TAG = "image-codes";
+const CODES_TAG = "image-codes";
 
 interface DetectedCode {
 	format: string;

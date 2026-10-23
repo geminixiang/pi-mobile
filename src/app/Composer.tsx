@@ -23,7 +23,7 @@ function discardPrepared(prepared: PreparedAttachment): void {
 }
 
 /** Downscale a photo to a JPEG that fits the model's image limits and keeps requests small. */
-export async function toImageContent(file: File): Promise<ImageContent> {
+async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
 	const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
 	const canvas = document.createElement("canvas");

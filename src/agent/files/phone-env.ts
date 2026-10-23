@@ -35,7 +35,7 @@ const SCAN_CHUNK = 1024 * 1024;
 const FILE_CODES: Record<string, FileErrorCode> = { not_found: "not_found", is_directory: "is_directory", not_directory: "not_directory", invalid: "invalid", exists: "invalid" };
 
 /** "/a/../b/./c" as "/b/c"; ".." stops at the folder's root. */
-export function normalizePath(path: string): string {
+function normalizePath(path: string): string {
 	const parts: string[] = [];
 	for (const part of path.split("/")) {
 		if (!part || part === ".") continue;
@@ -55,7 +55,7 @@ export function fromBase64(base64: string): Uint8Array {
 	return bytes;
 }
 
-export function toBase64(bytes: Uint8Array): string {
+function toBase64(bytes: Uint8Array): string {
 	let binary = "";
 	for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
 	return btoa(binary);

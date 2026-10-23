@@ -95,7 +95,7 @@ function describeTimes(times: { begin: number; end: number }, allDay: boolean): 
 }
 
 /** How the account reads to the user: an email for Google, otherwise with the provider's type. */
-export function accountLabel(calendar: { account: string; accountType: string }): string {
+function accountLabel(calendar: { account: string; accountType: string }): string {
 	if (calendar.accountType === "com.google") return calendar.account;
 	if (calendar.accountType === "LOCAL") return "這支手機";
 	if (calendar.accountType === "com.osp.app.signin") return `${calendar.account}（Samsung 帳號）`;

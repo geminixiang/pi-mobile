@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { type Host, hostFrom, type HostInfo, listPeers, parseHosts, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 
-export const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
+const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
 function errorText(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);

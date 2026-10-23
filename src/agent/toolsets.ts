@@ -16,7 +16,7 @@ import type { AgentState } from "@earendil-works/pi-durable";
 
 export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "health" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "computer" | "sandbox" | "files";
 
-export type ToolsetKind = "builtin" | "service";
+type ToolsetKind = "builtin" | "service";
 
 export interface Toolset {
 	kind: ToolsetKind;

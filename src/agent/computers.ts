@@ -6,7 +6,7 @@ import { type Host, type HostMode, HostSandbox, parseHosts } from "./sandbox/hos
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
 
-export const PHONE = "phone";
+const PHONE = "phone";
 
 export interface Computer {
 	/** Stored on the bot: "phone", or "<host id>:direct" / "<host id>:container". */

@@ -27,7 +27,7 @@ export interface ActiveNotification {
 	clearable: boolean;
 }
 
-export interface MediaSession {
+interface MediaSession {
 	package: string;
 	app: string;
 	state: "playing" | "paused" | "buffering" | "stopped" | "none" | "other";

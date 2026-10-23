@@ -33,7 +33,7 @@ import { Loopback } from "../loopback-plugin.ts";
 /** Where the authorization server sends the browser back: a fixed loopback port, so a registration stays valid. */
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";
-export const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
+const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
 
 
 const SERVERS_KEY = "pi-mobile.mcp-servers";
@@ -41,7 +41,7 @@ const SERVERS_KEY = "pi-mobile.mcp-servers";
 const McpServer = Type.Object({ id: Type.String(), name: Type.String(), url: Type.String() });
 export type McpServer = { id: string; name: string; url: string };
 
-export function parseMcpServers(json: string): McpServer[] {
+function parseMcpServers(json: string): McpServer[] {
 	try {
 		const value: unknown = JSON.parse(json || "[]");
 		return Array.isArray(value) ? value.filter((item): item is McpServer => Value.Check(McpServer, item)) : [];
@@ -51,7 +51,7 @@ export function parseMcpServers(json: string): McpServer[] {
 }
 
 /** A short ASCII id for a server, used in its tools' names: from its name or host, never one already taken. */
-export function serverId(name: string, url: string, taken: readonly string[]): string {
+function serverId(name: string, url: string, taken: readonly string[]): string {
 	const ascii = (text: string) =>
 		text
 			.normalize("NFKD")

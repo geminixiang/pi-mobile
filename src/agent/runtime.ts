@@ -10,7 +10,6 @@ import {
 	type ConversationView,
 	createRegistry,
 	defineExtension,
-	type EntryId,
 	Harness,
 	InboxDoc,
 	type SubmissionId,
@@ -875,4 +874,4 @@ export class AgentRuntime {
 	}
 }
 
-export type { ConversationId, EntryId, SubmissionId };
+export type { ConversationId, SubmissionId };

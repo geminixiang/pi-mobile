@@ -40,7 +40,7 @@ export async function getJson({ url, token, what }: { url: string; token: string
 }
 
 /** An OAuth token endpoint's answer: tokens, or an RFC 6749 error. */
-export const TokenResponse = Type.Object({
+const TokenResponse = Type.Object({
 	access_token: Type.Optional(Type.String()),
 	refresh_token: Type.Optional(Type.String()),
 	id_token: Type.Optional(Type.String()),
@@ -48,7 +48,7 @@ export const TokenResponse = Type.Object({
 	error: Type.Optional(Type.String()),
 	error_description: Type.Optional(Type.String()),
 });
-export type TokenResponse = Static<typeof TokenResponse>;
+type TokenResponse = Static<typeof TokenResponse>;
 
 /** A successful token response: an access token, maybe a rotated refresh token, and when it expires. */
 export interface Tokens {

@@ -58,7 +58,7 @@ const AccountsResponse = Type.Object({
 	result: Type.Optional(Type.Array(Type.Object({ id: Type.String(), name: Type.String() }))),
 });
 
-export function parseCloudflare(json: string): CloudflareCredential {
+function parseCloudflare(json: string): CloudflareCredential {
 	return parse(CloudflareCredential, parseJson(json, "Cloudflare 憑證"), "Cloudflare 憑證");
 }
 

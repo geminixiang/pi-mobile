@@ -19,7 +19,7 @@ const DEFAULT_CONTEXT_WINDOW = 200_000;
  */
 const COMPACTION_RESERVE = 16_384;
 
-export function windowFor(own: number, compactAt: number): number {
+function windowFor(own: number, compactAt: number): number {
 	return compactAt > 0 ? Math.min(own, compactAt + COMPACTION_RESERVE) : own;
 }
 

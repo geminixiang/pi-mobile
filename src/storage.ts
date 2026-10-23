@@ -95,7 +95,7 @@ class Transaction extends Executor {
 	}
 }
 
-export class CapacitorSqliteDatabase implements SqliteDatabase {
+class CapacitorSqliteDatabase implements SqliteDatabase {
 	readonly #db: SQLiteDBConnection;
 	readonly #direct: Executor;
 	readonly #queue = new SerialQueue();

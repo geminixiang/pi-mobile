@@ -9,7 +9,7 @@ import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
 /** A bot's conversation never ends; compacting at 256k tokens keeps each request's cost bounded. */
-export const DEFAULT_COMPACT_AT = 256_000;
+const DEFAULT_COMPACT_AT = 256_000;
 /** The single model service's key, before providers: moved to the custom provider it becomes. */
 const LEGACY_SECRET_API_KEY = "cliproxyapi.apiKey";
 const providerKey = (id: string) => `provider.${id}.apiKey`;
