@@ -314,8 +314,6 @@ export class AgentRuntime {
 			notify?: (title: string, text: string, conversationId: ConversationId, avatar: string | undefined) => Promise<boolean>;
 			/** Open a URL in the user's browser, for MCP sign-ins. */
 			openUrl?: (url: string) => Promise<void>;
-			/** The global MEMORY.md from before bots, written once when the new one is empty. */
-			importMemory?: string;
 			/** The custom providers' lists, already asked for while storage opened (startModelList). */
 			modelIds?: Promise<Record<string, string[]>>;
 		} = {},
@@ -439,9 +437,6 @@ export class AgentRuntime {
 		// The folders must be known before a run resumes and asks for its environment.
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
-		if (options.importMemory?.trim() && !(await runtime.memory({ kind: "global" })).text) {
-			await runtime.saveMemory({ kind: "global" }, options.importMemory);
-		}
 		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${error instanceof Error ? error.message : String(error)}`));
 		// Scheduling starts lazily on submit or wait; start it now so runs an app kill interrupted continue at launch.
 		harness.resume();
@@ -852,16 +847,6 @@ export class AgentRuntime {
 	/** Whether a trigger started the run that just ended in this conversation; forgets it. */
 	takeTriggered(id: ConversationId): boolean {
 		return this.#triggered.delete(id);
-	}
-
-	/** The global MEMORY.md of a database from before bots (src/storage.ts takeLegacyStorage), read without running it. */
-	static async readLegacyMemory(storage: Storage): Promise<string> {
-		const harness = await Harness.open(storage, { models: createModels(), registry: createRegistry() }, context);
-		try {
-			return (await harness.snapshot(MemoryDoc, context))?.text ?? "";
-		} finally {
-			await harness.close(context);
-		}
 	}
 
 	inspect(): Promise<unknown> {

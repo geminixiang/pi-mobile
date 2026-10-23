@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
-import { openAppStorage, takeLegacyStorage } from "../storage.ts";
+import { openAppStorage } from "../storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Capacitor } from "@capacitor/core";
@@ -39,7 +39,6 @@ const LAST_BOT_KEY = "pi-mobile.lastBot";
 const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
 /** Set once the database from before bots is gone (or was never there). */
-const LEGACY_DELETED_KEY = "pi-mobile.legacyDeleted";
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
@@ -101,29 +100,12 @@ export function App() {
 		async (next: Settings) => {
 			try {
 				const modelIds = AgentRuntime.startModelList(next);
-				// Do not leave it unhandled if storage fails first; open() reports a failure.
-				modelIds.catch(() => undefined);
-				// The database from before bots (v0.1.0) goes, with every old conversation; only the global MEMORY.md stays.
-				let importMemory: string | undefined;
-				// Once moved, the check (opening SQLite to look for the old file) is skipped on later starts.
-				const legacy = localStorage.getItem(LEGACY_DELETED_KEY) ? null : await takeLegacyStorage().catch(() => null);
-				if (legacy) {
-					importMemory = await AgentRuntime.readLegacyMemory(legacy.storage).catch(() => undefined);
-					await legacy.discard().then(
-						() => localStorage.setItem(LEGACY_DELETED_KEY, "1"),
-						(error: unknown) => log.warn("storage.legacy_discard_failed", { error: String(error) }),
-					);
-				} else if (legacy === undefined) {
-					localStorage.setItem(LEGACY_DELETED_KEY, "1");
-				}
-				const { storage, fresh } = await openAppStorage();
-				// A new database mints bot ids from the start: what other stores kept by id belongs to no bot now.
-				if (fresh) {
+				const { storage, isNewDatabase } = await openAppStorage();
+				if (isNewDatabase) {
 					await sweepBotData(async () => []);
 					localStorage.removeItem(LAST_BOT_KEY);
 				}
 				const opened = await AgentRuntime.open(storage, next, {
-					...(importMemory ? { importMemory } : {}),
 					modelIds,
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
