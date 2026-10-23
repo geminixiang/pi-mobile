@@ -3,3 +3,4 @@ dist
 *.apk
 .shots
 pi-mobile-*.apk
+test/perf/out/

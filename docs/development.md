@@ -68,3 +68,21 @@ npm run check                                   # 型別檢查
 # 手機上的 UI（先跑 run-android.sh 轉發 DevTools）
 CDP_PORT=9333 ./test/ui.sh 'async () => { return (await window.piRuntime.bots()).map((bot) => bot.name); }'
 ```
+
+### 效能量測（120 Hz）
+
+只在 S24 上量；模擬器的 vsync、GPU、CPU 都不是手機的，數字只能拿來驗證腳本。
+
+```sh
+node test/perf/server.ts &                                  # 固定輸出的模型（localhost:8399）
+node test/perf/fixture.ts setup <serial>                    # 測試 provider、「測試效能」Bot、30 則固定回答
+node test/perf/run.ts --serial <serial> --label before     # 5 個場景，各暖機 1 次、量 5 次，取中位數
+node test/perf/run.ts --serial <serial> --label after --compare test/perf/out/before.json
+node test/perf/fixture.ts teardown <serial>                 # 移除 Bot、provider 和它的 key
+```
+
+- 場景：`scroll`（往上 3 次、往下 3 次 fling）、`stream`（停在底部串流約 10,000 字、42 秒，每 150 ms 一批）、`streamscroll`（串流中來回捲）、`typing`（輸入框打 30 個字）、`panel`（側欄開關 3 次）。`--scenes` 可以只跑其中幾個。
+- 一幀的預算是 8.33 ms，超過 1.5 個 vsync（12.5 ms）就算掉幀。`gfx*` 來自 `dumpsys gfxinfo`，是畫面實際送出的幀，包含 compositor 和 GPU；`raf*`、`loaf*`、`input*` 是頁面的主執行緒（rAF 間隔、Long Animation Frames、Event Timing），用來找原因。
+- 頁面不在 120 Hz、開著的不是測試 Bot 時，`run.ts` 拒絕量。每一次量之前，熱狀態要是 0、AP 不超過 50°C，不然就等（`PERF_MAX_THERMAL_STATUS`、`PERF_MAX_AP`）。充電時手機比較熱，量要比較的數字前先拔掉。
+- `typing` 時沒有動畫，Samsung 會把更新率降到 60 Hz，所以只看 `inputP95`。
+- 每次 `stream` 都會在對話留下一則回答，DOM 越跑越大（每次約 +230 個節點，記在每一輪的 `nodes`）。比較前後時，兩邊都先 `teardown` 再 `setup`。
