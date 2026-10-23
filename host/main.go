@@ -477,19 +477,72 @@ func env(w http.ResponseWriter, r *http.Request) {
 	_ = cmd.Wait()
 }
 
-// askFolders reads the folders macOS protects, so that it asks whether pi-mobile may right after it is installed, while
-// the user is at the computer, rather than later, when a command from the phone would wait on the question until it
-// times out. Once answered, macOS does not ask again (until the binary changes).
-func askFolders() {
+// macOS asks the user before a program reads the protected folders, controls another app, or records the screen, and
+// it counts what commands from the phone do against pi-mobile serve, which launchd started. A command that reaches one
+// of these waits for the answer on the computer's screen, where nobody is. So serve asks for all of them as it starts,
+// right after the install, while the user is at the computer: each is touched once, macOS asks one after another, and
+// what was granted passes silently from then on (until the binary changes, as it is signed ad hoc). The answers go to
+// permissionsFile for `pi-mobile status` and install.sh.
+type permission struct {
+	key   string
+	label string // what the user is asked, in the words macOS uses
+	fix   string // where to change it later
+	check func(home string) error
+}
+
+var permissions = []permission{
+	{"desktop", "取用「桌面」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", func(home string) error { _, err := os.ReadDir(filepath.Join(home, "Desktop")); return err }},
+	{"documents", "取用「文件」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", func(home string) error { _, err := os.ReadDir(filepath.Join(home, "Documents")); return err }},
+	{"downloads", "取用「下載項目」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", func(home string) error { _, err := os.ReadDir(filepath.Join(home, "Downloads")); return err }},
+	{"automation", "控制「System Events」", "系統設定 › 隱私權與安全性 › 自動化", func(string) error {
+		return exec.Command("osascript", "-e", `tell application "System Events" to get name of first process`).Run()
+	}},
+	{"screen", "錄製螢幕", "系統設定 › 隱私權與安全性 › 螢幕與系統錄音", func(string) error {
+		file := filepath.Join(os.TempDir(), "pi-mobile-screen-check.png")
+		defer os.Remove(file)
+		if err := exec.Command("screencapture", "-x", file).Run(); err != nil {
+			return err
+		}
+		if info, err := os.Stat(file); err != nil || info.Size() == 0 {
+			return errors.New("no image")
+		}
+		return nil
+	}},
+}
+
+func permissionsFile() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".pi", "mobile", "permissions.json")
+}
+
+// askPermissions touches each in turn, writing what is known so far after each answer.
+func askPermissions() {
 	if runtime.GOOS != "darwin" {
 		return
 	}
 	home, _ := os.UserHomeDir()
 	go func() {
-		for _, dir := range []string{"Desktop", "Documents", "Downloads"} {
-			_, _ = os.ReadDir(filepath.Join(home, dir))
+		answers := map[string]bool{}
+		for _, p := range permissions {
+			answers[p.key] = p.check(home) == nil
+			if data, err := json.Marshal(answers); err == nil {
+				_ = os.WriteFile(permissionsFile(), data, 0o600)
+			}
 		}
 	}()
+}
+
+// readPermissions is what serve found, or nil before it has asked anything.
+func readPermissions() map[string]bool {
+	data, err := os.ReadFile(permissionsFile())
+	if err != nil {
+		return nil
+	}
+	answers := map[string]bool{}
+	if json.Unmarshal(data, &answers) != nil {
+		return nil
+	}
+	return answers
 }
 
 // listen binds this computer's Tailscale IPv4 address, waiting for Tailscale to come up.
@@ -566,6 +619,20 @@ func printStatus() int {
 			engines = strings.Join(info.Engines, ", ")
 		}
 		fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, strings.Split(name, ".")[0], engines)
+		if runtime.GOOS == "darwin" {
+			answers := readPermissions()
+			for _, p := range permissions {
+				granted, asked := answers[p.key]
+				switch {
+				case !asked:
+					fmt.Printf("Permission %s: waiting\n", p.key)
+				case granted:
+					fmt.Printf("Permission %s: granted\n", p.key)
+				default:
+					fmt.Printf("Permission %s: denied (%s: %s)\n", p.key, p.label, p.fix)
+				}
+			}
+		}
 		return 0
 	}
 	fmt.Println("Tailscale has no IPv4 address here")
@@ -573,7 +640,8 @@ func printStatus() int {
 }
 
 func serve() {
-	askFolders()
+	_ = os.Remove(permissionsFile())
+	askPermissions()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/info", guard(info))
 	mux.HandleFunc("/daemon/", guard(putDaemon))

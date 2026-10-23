@@ -108,16 +108,43 @@ EOF
 	fi
 fi
 
+# macOS asks before pi-mobile reads the protected folders, controls an app, or records the screen; serve asks for all
+# of them as it starts, so that it is now, with the user here, not later when a command from the phone waits on it.
+permissions() {
+	say ""
+	say "接下來這台 Mac 會依序問幾個權限，請都按「允許」，Bot 才能像你一樣使用這台電腦："
+	say "  取用桌面、文件、下載項目　控制 System Events　錄製螢幕（要在系統設定裡打開 pi-mobile）"
+	waited=0
+	while "$BIN" status | grep -q ': waiting'; do
+		[ "$waited" -ge 300 ] && break
+		sleep 2
+		waited=$((waited + 2))
+	done
+	say ""
+	"$BIN" status | sed -n 's/^Permission \([a-z]*\): \(.*\)$/\1 \2/p' | while read -r key state rest; do
+		case "$key" in
+			desktop) name="取用桌面" ;;
+			documents) name="取用文件" ;;
+			downloads) name="取用下載項目" ;;
+			automation) name="控制 System Events" ;;
+			screen) name="錄製螢幕" ;;
+			*) name="$key" ;;
+		esac
+		case "$state" in
+			granted) say "  ✓ ${name}" ;;
+			waiting) say "  … ${name}：還沒回答，之後 Bot 用到時會卡住；回答後執行 ${BIN} status 確認" ;;
+			*) say "  ✗ ${name}：沒有允許，Bot 碰到時會失敗。要改：${rest}" ;;
+		esac
+	done
+}
+
 # Asked as the phone will: over this computer's Tailscale address, which it answers for its own user.
 for _ in 1 2 3 4 5 6 7 8 9 10; do
 	if "$BIN" status >/dev/null 2>&1; then
 		say ""
 		"$BIN" status | sed -n 's/^On the phone, add: /好了。在手機的 pi › 設定 › 電腦 輸入：/p'
 		say "手機要登入同一個 Tailscale 帳號。"
-		if [ "$os" = darwin ]; then
-			say "這台 Mac 接著會問「pi-mobile 想要取用桌面、文件、下載項目」：按允許，Bot 才看得到這些資料夾。"
-			say "Bot 第一次截圖時也會問一次螢幕錄製。"
-		fi
+		[ "$os" = darwin ] && permissions
 		exit 0
 	fi
 	sleep 1

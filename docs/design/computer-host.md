@@ -53,12 +53,16 @@
 
 ## macOS 的隱私權限
 
-電腦上的 pi-mobile 由 launchd 啟動，所以 macOS 把它當成一個獨立的程式來問權限：
+macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控制別的 app、或錄製螢幕之前，會在 Mac 的螢幕上問使用者。它把手機下的指令算在 `pi-mobile serve` 頭上（launchd 啟動的程式），所以那個指令會卡在詢問上，直到逾時，而這時通常沒有人在電腦前。
 
-- 讀「桌面」「文件」「下載項目」這類受保護的資料夾，或截圖時，Mac 的螢幕上會跳出「pi-mobile 想要取用…」。使用者按允許之前，那個指令會卡住，直到逾時。
-- 所以 `pi-mobile serve` 一啟動就先讀一次這三個資料夾，讓 macOS 在安裝的當下就問（安裝腳本也先說明了），而不是等手機下指令時才卡住。螢幕錄製只能等第一次截圖時再問。
-- 模型的提示寫了：遇到 `Operation not permitted` 或逾時，就請使用者到 Mac 上允許，不要一直重試。實測時模型的確這樣回覆了。
-- `pi-mobile` 只有 ad-hoc 簽章，macOS 依執行檔辨認它，所以 **它更新後會再問一次**。要避免這件事，得用 Developer ID 簽章。
+所以權限在安裝的那一次全部問完：
+
+- `pi-mobile serve` 一啟動，就依序碰一次：讀桌面、文件、下載項目，用 osascript 問 System Events，截一張螢幕。macOS 一個接一個問；已經允許的直接通過，不會再問。
+- 每一項的結果寫進 `~/.pi/mobile/permissions.json`，`pi-mobile status` 會列出 granted、denied 或 waiting。
+- 安裝腳本先說明 Mac 接下來會問哪幾項、請都按允許，然後等到每一項都有結果（最多 5 分鐘），再逐項列出；被拒絕的項目附上在系統設定裡的位置。
+- 模型的提示也寫了：遇到 `Operation not permitted` 或逾時，就請使用者到 Mac 上允許，不要一直重試。
+- `pi-mobile` 只有 ad-hoc 簽章，macOS 依執行檔辨認它，所以**更新後會再問一次**。更新也是在電腦前跑安裝指令，所以剛好又是使用者在場的時候。要讓允許跨版本保留，得用固定的簽章身分（Developer ID，或至少一張固定的自簽憑證）。
+- 控制其他 app（Finder、Safari、音樂）是每個 app 各問一次，沒辦法事先問完；安裝時只問最常用的 System Events。
 
 ## 還沒做
 
