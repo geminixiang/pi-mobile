@@ -1,0 +1,18 @@
+{
+  "content": [
+    {
+      "text": "step 1 (key): unknown key \"not-a-key\" in \"not-a-key\"; earlier steps were done, later steps were not run",
+      "type": "text"
+    },
+    {
+      "type": "image",
+      "mimeType": "image/jpeg",
+      "bytes": 59950
+    },
+    {
+      "text": "{\"app\":\"Google Chrome\",\"pointer\":[871,501],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+      "type": "text"
+    }
+  ],
+  "isError": true
+}

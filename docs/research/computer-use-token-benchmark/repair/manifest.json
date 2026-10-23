@@ -1,0 +1,16 @@
+{
+  "dateLocal": "2026-10-24",
+  "repoHeadWhenRecordingAfterTests": "8c15ac716c58fba934c719ca6ce7deb68f7e6200",
+  "sourceModifiedWithoutCommit": "host/computer.go",
+  "sourceSha256": "4f6572ce3a0e2aa98d489a45cb02a823392df86ebcf9800ae0a99ca46747e6d9",
+  "binarySha256": "38eb6d82d955199e62ebfd2759fd85b24a51d7f2fd4927026ccb3583dcd19414",
+  "baselineBinarySha256": "9c96130fa2beffbd145ef0f297a43ed6d040cf3d4e953c1cd3f2d9d76b66bcd1",
+  "driverSha256": "230fb7ddadf306d430459b12847e2ee4b7f3c4762d7d96304e4c936696187ca6",
+  "modelRoute": "CLIProxyAPI / gpt-6.1-sol",
+  "api": "OpenAI chat/completions",
+  "reasoningEffort": "low",
+  "modelAttempts": { "orders": 5, "expense": 1, "projects": 1 },
+  "nativeAttempts": { "baseline": 10, "fixed": 10 },
+  "comparisonScope": "Targeted regression validation; no new upstream arm, no replacement of original benchmark attempts",
+  "deployment": "Temporary test binary only; installed host and phone app unchanged"
+}

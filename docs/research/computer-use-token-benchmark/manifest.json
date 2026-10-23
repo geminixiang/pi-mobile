@@ -1,0 +1,19 @@
+{
+  "capturedAt": "2026-10-23T17:47:54.244Z",
+  "node": "v24.21.0",
+  "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0\nBuildVersion:\t\t26A428",
+  "repoHead": "21d0394a2541b7851f43e1feb827fb5604ab25d7",
+  "modelRoute": "CLIProxyAPI / gpt-6.1-sol",
+  "api": "OpenAI chat/completions",
+  "thinking": "low",
+  "sources": {
+    "direct.mjs": "35dc8f8d99e6773e55a03e0d329785c0d82dae204b1c5a8f4fec37603a7193a4",
+    "run.mjs": "ef9ce2c139a7ed0ee281e2ff12eb5a0aae041650f7499070d043bfce4a1960d6",
+    "fixture.html": "f499187bb72cc419c0da11e5749c9199922761ae876ab081fbdb73af07064807",
+    "server.mjs": "b8691b2120fea20c78a6ed05f3621840956a5e0deae2f3fe36bd516d6a134ac2",
+    "PROTOCOL.md": "f48df54c8227b969440fc20f15f4bd77abe566b2bd1d6779cbbf90be27812c54"
+  },
+  "binarySha256": "9c96130fa2beffbd145ef0f297a43ed6d040cf3d4e953c1cd3f2d9d76b66bcd1",
+  "upstreamVersion": "1.8.0",
+  "documentationNote": "PROTOCOL.md hash updated after an editorial clarification that screenshots are sent to the model API; experiment code and settings were not changed."
+}

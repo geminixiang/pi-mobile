@@ -174,12 +174,32 @@ func (c *computer) run(s step) error {
 	return fmt.Errorf("unknown action %q", s.Action)
 }
 
+func pauseAfter(s step) time.Duration {
+	if s.Action == "key" {
+		_, key, err := keyChord(s.Keys)
+		if err == nil {
+			switch key {
+			case "return", "enter", "esc", "escape":
+				return settle
+			}
+		}
+	}
+	return 60 * time.Millisecond
+}
+
 func (c *computer) act(steps []step) ([]any, error) {
 	for i, s := range steps {
 		if err := c.run(s); err != nil {
-			return nil, fmt.Errorf("step %d (%s): %w; the steps before it were done", i+1, s.Action, err)
+			failure := fmt.Errorf("step %d (%s): %w; earlier steps were done, later steps were not run", i+1, s.Action, err)
+			content, captureError := c.shot()
+			if captureError != nil {
+				return content, errors.Join(failure, fmt.Errorf("failure screenshot: %w", captureError))
+			}
+			return content, failure
 		}
-		time.Sleep(60 * time.Millisecond)
+		if i+1 < len(steps) {
+			time.Sleep(pauseAfter(s))
+		}
 	}
 	time.Sleep(settle)
 	return c.shot()
@@ -302,7 +322,8 @@ func serveComputerMCP() int {
 			}
 			c.noteOpened()
 			if err != nil {
-				reply(m.ID, map[string]any{"isError": true, "content": []any{map[string]any{"type": "text", "text": err.Error()}}})
+				content = append([]any{map[string]any{"type": "text", "text": err.Error()}}, content...)
+				reply(m.ID, map[string]any{"isError": true, "content": content})
 				continue
 			}
 			reply(m.ID, map[string]any{"content": content})

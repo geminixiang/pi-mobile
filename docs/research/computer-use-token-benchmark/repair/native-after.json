@@ -1,0 +1,2972 @@
+[
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 676.6000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 677,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1657,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1657.6000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1743.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1744,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1800.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1801.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1812.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1813,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1817.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1817.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1825.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1826.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1842.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1842.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1842.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1842.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1842.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1842.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1859.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1859.6000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1859.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1859.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1875.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1876.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1876.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1876.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1876.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1876.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1977.1000003814697,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 1977.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 1977.6000003814697,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 1978,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 1978,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 656.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 657.2000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1659.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1659.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1756.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1757.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1812.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1813.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1823.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1824,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1824.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1824.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1839.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1840.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1840.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1841.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1856.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1856.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1856.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1856.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1856.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1857.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1872.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1873.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1873.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1873.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1889.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1890.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1890.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1890.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1990.8000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 1991.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 1991.3000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 1991.7000002861023,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 1991.7000002861023,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 684.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 684.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1700.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1700.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1803.1999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1803.7999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1853.1999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1854.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1869.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1870.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1870.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1871,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1885.7999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1886.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1886.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1886.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1902.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1903,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1903.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1903.1999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1903.1999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1903.3999996185303,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1919.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1919.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1919.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1919.8999996185303,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1919.8999996185303,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1920,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1936.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1936.8999996185303,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2036.5999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2036.7999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2036.8999996185303,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2037.2999997138977,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2037.2999997138977,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 687.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 688.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1699.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1700.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1803.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1803.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1846.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1848.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1869.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1870.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1870.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1870.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1870.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1870.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1886.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1886.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1886.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1887.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1903,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1903.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1903.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1903.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1919.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1920.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1936.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1937.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1937.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1938,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1938.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1938.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2036.9000000953674,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2037,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2037.0999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2037.3000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2037.3000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 685.6000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 686.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1684.2000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1684.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1785.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1785.6000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1835.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1836.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1851.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1852.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1852.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1852.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1867.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1868.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1869.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1870,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1870.1000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1870.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1884.6000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1885.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1885.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1885.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1900.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1901.1000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1901.1000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1901.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1901.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1901.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1917.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1918.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2018.3000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2018.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2018.7000002861023,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2019,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2019,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 677,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 677.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1666.1000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1666.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1752,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1752.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1807.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1809.1000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1818.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1819.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1834.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1835.6000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1835.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1836.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1836.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1836.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1851.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1851.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1851.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1852,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1867.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1868.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1868.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1868.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1868.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1868.6000003814697,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1884.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1884.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1884.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1885,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1985.4000000953674,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 1985.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 1985.8000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 1986.2000002861023,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 1986.2000002861023,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 733.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 733.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1717.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1718.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1816.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1817,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1867.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1868.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1883.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1883.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1884.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1884.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1899.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1900.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1900.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1901.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1916,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1916.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1916.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1916.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1932.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1933.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1933.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1933.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1933.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1934,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1949.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1949.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1949.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1949.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2049.9000000953674,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2050.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2050.300000190735,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2050.5999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2050.5999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 668.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 669.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1824.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1825.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1921.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1921.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1967.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1968.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1988.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1988.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1988.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1988.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1989.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1989.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 2004.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 2005.1999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 2005.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 2005.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 2005.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 2005.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 2021.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 2021.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 2021.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 2022.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 2038.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 2038.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 2038.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 2038.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 2054.7999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 2055.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2155.0999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2155.199999809265,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2155.2999997138977,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2155.5999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2155.5999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 667.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 668.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1671.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1671.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1768.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1768.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1824.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1825.6999998092651,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1834.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1835.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1835.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1835.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1851.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1852.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1852.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1852.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1867.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1868.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1868.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1868.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1884.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1885,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1885.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1885.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1885.2999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1885.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1901.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1901.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1901.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1901.7999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2001.5999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2001.7999997138977,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2002.0999999046326,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2002.4000000953674,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2002.4000000953674,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "請於下午送達，先電話聯絡",
+      "checked": true,
+      "active": "verified",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 665.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 666.2000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1679.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1680.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 1770.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "focusin",
+          "t": 1771,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": ""
+        },
+        {
+          "kind": "keydown",
+          "t": 1826.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "請",
+          "value": ""
+        },
+        {
+          "kind": "input",
+          "t": 1827,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請"
+        },
+        {
+          "kind": "keydown",
+          "t": 1836.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "於",
+          "value": "請"
+        },
+        {
+          "kind": "input",
+          "t": 1837.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於"
+        },
+        {
+          "kind": "keydown",
+          "t": 1853.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "下",
+          "value": "請於"
+        },
+        {
+          "kind": "input",
+          "t": 1853.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下"
+        },
+        {
+          "kind": "keydown",
+          "t": 1853.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "午",
+          "value": "請於下"
+        },
+        {
+          "kind": "input",
+          "t": 1854,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午"
+        },
+        {
+          "kind": "keydown",
+          "t": 1854.5,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "送",
+          "value": "請於下午"
+        },
+        {
+          "kind": "input",
+          "t": 1854.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "keydown",
+          "t": 1869.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "達",
+          "value": "請於下午送"
+        },
+        {
+          "kind": "input",
+          "t": 1870,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "keydown",
+          "t": 1870,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "，",
+          "value": "請於下午送達"
+        },
+        {
+          "kind": "input",
+          "t": 1870.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "keydown",
+          "t": 1870.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "先",
+          "value": "請於下午送達，"
+        },
+        {
+          "kind": "input",
+          "t": 1870.2000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "keydown",
+          "t": 1886.3000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "電",
+          "value": "請於下午送達，先"
+        },
+        {
+          "kind": "input",
+          "t": 1886.5999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "keydown",
+          "t": 1886.7000002861023,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "話",
+          "value": "請於下午送達，先電"
+        },
+        {
+          "kind": "input",
+          "t": 1886.9000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "keydown",
+          "t": 1887,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "聯",
+          "value": "請於下午送達，先電話"
+        },
+        {
+          "kind": "input",
+          "t": 1887.0999999046326,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "keydown",
+          "t": 1903.4000000953674,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "key": "絡",
+          "value": "請於下午送達，先電話聯"
+        },
+        {
+          "kind": "input",
+          "t": 1903.8000001907349,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "pointerdown",
+          "t": 2003.8000001907349,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2004,
+          "name": "note",
+          "tag": "TEXTAREA",
+          "value": "請於下午送達，先電話聯絡"
+        },
+        {
+          "kind": "focusin",
+          "t": 2004.2000002861023,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "input",
+          "t": 2004.5,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        },
+        {
+          "kind": "change",
+          "t": 2004.5,
+          "name": "verified",
+          "tag": "INPUT",
+          "value": "on"
+        }
+      ]
+    }
+  }
+]

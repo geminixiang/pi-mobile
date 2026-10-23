@@ -1,0 +1,55 @@
+{
+  "measurement": "local exact tokenization of canonical JSON; NOT provider usage or end-to-end task tokens",
+  "tiktoken_version": "0.14.0",
+  "serialization": "UTF-8, ensure_ascii=False, sort_keys=True, separators=(comma,colon)",
+  "rows": [
+    {
+      "arm": "own",
+      "surface": "mcp_tools_list",
+      "tool_count": 2,
+      "characters": 1572,
+      "utf8_bytes": 1572,
+      "sha256": "6744c4561df3966e245a4b44237b7daa1fa90cc397b0a50d345d8802af562cf2",
+      "tokens": {
+        "o200k_base": 404,
+        "cl100k_base": 382
+      }
+    },
+    {
+      "arm": "own",
+      "surface": "openai_functions",
+      "tool_count": 2,
+      "characters": 1520,
+      "utf8_bytes": 1520,
+      "sha256": "aa5e7337102964408931ae36aa817cf883591c97073e1c92a37b302db727f28e",
+      "tokens": {
+        "o200k_base": 390,
+        "cl100k_base": 374
+      }
+    },
+    {
+      "arm": "upstream",
+      "surface": "mcp_tools_list",
+      "tool_count": 1,
+      "characters": 4063,
+      "utf8_bytes": 4065,
+      "sha256": "60980ce58a1690d28deaa9776725527052f762fb59f43631d935ce3320286406",
+      "tokens": {
+        "o200k_base": 899,
+        "cl100k_base": 893
+      }
+    },
+    {
+      "arm": "upstream",
+      "surface": "openai_functions",
+      "tool_count": 1,
+      "characters": 3979,
+      "utf8_bytes": 3981,
+      "sha256": "27fe192fe258b1f63072dd96e7d78b83b4bdfd3576dc99052b9c939320953730",
+      "tokens": {
+        "o200k_base": 880,
+        "cl100k_base": 878
+      }
+    }
+  ]
+}

@@ -1,0 +1,552 @@
+{
+  "complete": true,
+  "expectedAttempts": 30,
+  "actualAttempts": 30,
+  "totals": {
+    "own": {
+      "attempts": 15,
+      "successes": 14,
+      "input": 1474307,
+      "cached": 1106432,
+      "uncached": 367875,
+      "output": 9956,
+      "total": 1484263,
+      "modelCalls": 184,
+      "toolCalls": 169,
+      "screenshots": 169,
+      "steps": 476,
+      "medianInput": 76101,
+      "inputRange": [
+        50865,
+        178350
+      ],
+      "medianSeconds": 52.272
+    },
+    "upstream": {
+      "attempts": 15,
+      "successes": 15,
+      "input": 4799092,
+      "cached": 4273280,
+      "uncached": 525812,
+      "output": 13180,
+      "total": 4812272,
+      "modelCalls": 520,
+      "toolCalls": 505,
+      "screenshots": 141,
+      "steps": 364,
+      "medianInput": 336125,
+      "inputRange": [
+        217658,
+        401061
+      ],
+      "medianSeconds": 139.014
+    }
+  },
+  "inputReductionPercent": 69.27945953109463,
+  "totalReductionPercent": 69.15671017764582,
+  "byTask": {
+    "orders": {
+      "own": {
+        "attempts": 5,
+        "successes": 4,
+        "input": 330914,
+        "cached": 233856,
+        "uncached": 97058,
+        "output": 2669,
+        "total": 333583,
+        "modelCalls": 51,
+        "toolCalls": 46,
+        "screenshots": 46,
+        "steps": 135,
+        "medianInput": 63186,
+        "inputRange": [
+          50865,
+          90099
+        ],
+        "medianSeconds": 51.066
+      },
+      "upstream": {
+        "attempts": 5,
+        "successes": 5,
+        "input": 1263976,
+        "cached": 1079168,
+        "uncached": 184808,
+        "output": 3781,
+        "total": 1267757,
+        "modelCalls": 148,
+        "toolCalls": 143,
+        "screenshots": 41,
+        "steps": 102,
+        "medianInput": 250103,
+        "inputRange": [
+          217658,
+          273056
+        ],
+        "medianSeconds": 114.493
+      }
+    },
+    "expense": {
+      "own": {
+        "attempts": 5,
+        "successes": 5,
+        "input": 369317,
+        "cached": 248064,
+        "uncached": 121253,
+        "output": 2980,
+        "total": 372297,
+        "modelCalls": 54,
+        "toolCalls": 49,
+        "screenshots": 49,
+        "steps": 151,
+        "medianInput": 75923,
+        "inputRange": [
+          51275,
+          90095
+        ],
+        "medianSeconds": 50.311
+      },
+      "upstream": {
+        "attempts": 5,
+        "successes": 5,
+        "input": 1591599,
+        "cached": 1405568,
+        "uncached": 186031,
+        "output": 4829,
+        "total": 1596428,
+        "modelCalls": 190,
+        "toolCalls": 185,
+        "screenshots": 43,
+        "steps": 142,
+        "medianInput": 336125,
+        "inputRange": [
+          288002,
+          343345
+        ],
+        "medianSeconds": 146.811
+      }
+    },
+    "projects": {
+      "own": {
+        "attempts": 5,
+        "successes": 5,
+        "input": 774076,
+        "cached": 624512,
+        "uncached": 149564,
+        "output": 4307,
+        "total": 778383,
+        "modelCalls": 79,
+        "toolCalls": 74,
+        "screenshots": 74,
+        "steps": 190,
+        "medianInput": 158240,
+        "inputRange": [
+          139350,
+          178350
+        ],
+        "medianSeconds": 75.709
+      },
+      "upstream": {
+        "attempts": 5,
+        "successes": 5,
+        "input": 1943517,
+        "cached": 1788544,
+        "uncached": 154973,
+        "output": 4570,
+        "total": 1948087,
+        "modelCalls": 182,
+        "toolCalls": 177,
+        "screenshots": 57,
+        "steps": 120,
+        "medianInput": 389742,
+        "inputRange": [
+          377799,
+          401061
+        ],
+        "medianSeconds": 134.985
+      }
+    }
+  },
+  "bothSuccessful": {
+    "pairs": 14,
+    "totals": {
+      "own": {
+        "attempts": 14,
+        "successes": 14,
+        "input": 1423442,
+        "cached": 1076608,
+        "uncached": 346834,
+        "output": 9515,
+        "total": 1432957,
+        "modelCalls": 175,
+        "toolCalls": 161,
+        "screenshots": 161,
+        "steps": 455,
+        "medianInput": 83098,
+        "inputRange": [
+          51275,
+          178350
+        ],
+        "medianSeconds": 53.614000000000004
+      },
+      "upstream": {
+        "attempts": 14,
+        "successes": 14,
+        "input": 4526036,
+        "cached": 4040576,
+        "uncached": 485460,
+        "output": 12419,
+        "total": 4538455,
+        "modelCalls": 490,
+        "toolCalls": 476,
+        "screenshots": 132,
+        "steps": 344,
+        "medianInput": 336125,
+        "inputRange": [
+          217658,
+          401061
+        ],
+        "medianSeconds": 136.9995
+      }
+    },
+    "inputReductionPercent": 68.54991873683727
+  },
+  "failures": [
+    {
+      "run": "confirm-orders-1-own",
+      "limited": false,
+      "answer": "已完成核對、確認並儲存「青禾工作室」的訂單，訂單編號：**B1049**。\n\n- 收件人：林安\n- 電話：0912345678\n- 配送：隔日\n- 備註：請於下午送達，先電話聯絡\n\n未更動其他訂單。"
+    }
+  ],
+  "attempts": [
+    {
+      "run": "confirm-expense-1-own",
+      "success": true,
+      "seconds": 50.311,
+      "input": 75923,
+      "cached": 52864,
+      "output": 597,
+      "total": 76520,
+      "modelCalls": 11,
+      "toolCalls": 10
+    },
+    {
+      "run": "confirm-expense-1-upstream",
+      "success": true,
+      "seconds": 139.412,
+      "input": 288002,
+      "cached": 243584,
+      "output": 936,
+      "total": 288938,
+      "modelCalls": 36,
+      "toolCalls": 35
+    },
+    {
+      "run": "confirm-expense-2-own",
+      "success": true,
+      "seconds": 50.243,
+      "input": 76101,
+      "cached": 41088,
+      "output": 590,
+      "total": 76691,
+      "modelCalls": 11,
+      "toolCalls": 10
+    },
+    {
+      "run": "confirm-expense-2-upstream",
+      "success": true,
+      "seconds": 146.811,
+      "input": 336125,
+      "cached": 299776,
+      "output": 1009,
+      "total": 337134,
+      "modelCalls": 39,
+      "toolCalls": 38
+    },
+    {
+      "run": "confirm-expense-3-own",
+      "success": true,
+      "seconds": 50.574,
+      "input": 75923,
+      "cached": 55168,
+      "output": 615,
+      "total": 76538,
+      "modelCalls": 11,
+      "toolCalls": 10
+    },
+    {
+      "run": "confirm-expense-3-upstream",
+      "success": true,
+      "seconds": 148.005,
+      "input": 343345,
+      "cached": 308736,
+      "output": 1006,
+      "total": 344351,
+      "modelCalls": 40,
+      "toolCalls": 39
+    },
+    {
+      "run": "confirm-expense-4-own",
+      "success": true,
+      "seconds": 46.292,
+      "input": 51275,
+      "cached": 38784,
+      "output": 534,
+      "total": 51809,
+      "modelCalls": 9,
+      "toolCalls": 8
+    },
+    {
+      "run": "confirm-expense-4-upstream",
+      "success": true,
+      "seconds": 127.255,
+      "input": 288002,
+      "cached": 256896,
+      "output": 928,
+      "total": 288930,
+      "modelCalls": 36,
+      "toolCalls": 35
+    },
+    {
+      "run": "confirm-orders-1-own",
+      "success": false,
+      "seconds": 42.928,
+      "input": 50865,
+      "cached": 29824,
+      "output": 441,
+      "total": 51306,
+      "modelCalls": 9,
+      "toolCalls": 8
+    },
+    {
+      "run": "confirm-orders-1-upstream",
+      "success": true,
+      "seconds": 213.523,
+      "input": 273056,
+      "cached": 232704,
+      "output": 761,
+      "total": 273817,
+      "modelCalls": 30,
+      "toolCalls": 29
+    },
+    {
+      "run": "confirm-orders-2-own",
+      "success": true,
+      "seconds": 51.066,
+      "input": 63186,
+      "cached": 41088,
+      "output": 597,
+      "total": 63783,
+      "modelCalls": 10,
+      "toolCalls": 9
+    },
+    {
+      "run": "confirm-orders-2-upstream",
+      "success": true,
+      "seconds": 114.493,
+      "input": 273056,
+      "cached": 227456,
+      "output": 752,
+      "total": 273808,
+      "modelCalls": 30,
+      "toolCalls": 29
+    },
+    {
+      "run": "confirm-orders-3-own",
+      "success": true,
+      "seconds": 55.926,
+      "input": 75466,
+      "cached": 52480,
+      "output": 524,
+      "total": 75990,
+      "modelCalls": 11,
+      "toolCalls": 10
+    },
+    {
+      "run": "confirm-orders-3-upstream",
+      "success": true,
+      "seconds": 111.867,
+      "input": 250103,
+      "cached": 211968,
+      "output": 741,
+      "total": 250844,
+      "modelCalls": 29,
+      "toolCalls": 28
+    },
+    {
+      "run": "confirm-orders-4-own",
+      "success": true,
+      "seconds": 52.272,
+      "input": 90099,
+      "cached": 72960,
+      "output": 595,
+      "total": 90694,
+      "modelCalls": 12,
+      "toolCalls": 11
+    },
+    {
+      "run": "confirm-orders-4-upstream",
+      "success": true,
+      "seconds": 101.566,
+      "input": 250103,
+      "cached": 217728,
+      "output": 753,
+      "total": 250856,
+      "modelCalls": 29,
+      "toolCalls": 28
+    },
+    {
+      "run": "confirm-projects-1-own",
+      "success": true,
+      "seconds": 63.328,
+      "input": 139586,
+      "cached": 118528,
+      "output": 794,
+      "total": 140380,
+      "modelCalls": 15,
+      "toolCalls": 14
+    },
+    {
+      "run": "confirm-projects-1-upstream",
+      "success": true,
+      "seconds": 134.985,
+      "input": 392340,
+      "cached": 361728,
+      "output": 955,
+      "total": 393295,
+      "modelCalls": 38,
+      "toolCalls": 37
+    },
+    {
+      "run": "confirm-projects-2-own",
+      "success": true,
+      "seconds": 75.709,
+      "input": 158550,
+      "cached": 131072,
+      "output": 945,
+      "total": 159495,
+      "modelCalls": 16,
+      "toolCalls": 15
+    },
+    {
+      "run": "confirm-projects-2-upstream",
+      "success": true,
+      "seconds": 123.978,
+      "input": 382575,
+      "cached": 352256,
+      "output": 856,
+      "total": 383431,
+      "modelCalls": 34,
+      "toolCalls": 33
+    },
+    {
+      "run": "confirm-projects-3-own",
+      "success": true,
+      "seconds": 72.499,
+      "input": 139350,
+      "cached": 104448,
+      "output": 767,
+      "total": 140117,
+      "modelCalls": 15,
+      "toolCalls": 14
+    },
+    {
+      "run": "confirm-projects-3-upstream",
+      "success": true,
+      "seconds": 139.014,
+      "input": 377799,
+      "cached": 344064,
+      "output": 922,
+      "total": 378721,
+      "modelCalls": 37,
+      "toolCalls": 36
+    },
+    {
+      "run": "confirm-projects-4-own",
+      "success": true,
+      "seconds": 78.038,
+      "input": 158240,
+      "cached": 119808,
+      "output": 870,
+      "total": 159110,
+      "modelCalls": 16,
+      "toolCalls": 15
+    },
+    {
+      "run": "confirm-projects-4-upstream",
+      "success": true,
+      "seconds": 128.971,
+      "input": 389742,
+      "cached": 359680,
+      "output": 899,
+      "total": 390641,
+      "modelCalls": 35,
+      "toolCalls": 34
+    },
+    {
+      "run": "direct-pilot-expense-1-own",
+      "success": true,
+      "seconds": 54.956,
+      "input": 90095,
+      "cached": 60160,
+      "output": 644,
+      "total": 90739,
+      "modelCalls": 12,
+      "toolCalls": 11
+    },
+    {
+      "run": "direct-pilot-expense-1-upstream",
+      "success": true,
+      "seconds": 192.97,
+      "input": 336125,
+      "cached": 296576,
+      "output": 950,
+      "total": 337075,
+      "modelCalls": 39,
+      "toolCalls": 38
+    },
+    {
+      "run": "direct-pilot-orders-1-own",
+      "success": true,
+      "seconds": 43.001,
+      "input": 51298,
+      "cached": 37504,
+      "output": 512,
+      "total": 51810,
+      "modelCalls": 9,
+      "toolCalls": 8
+    },
+    {
+      "run": "direct-pilot-orders-1-upstream",
+      "success": true,
+      "seconds": 142.583,
+      "input": 217658,
+      "cached": 189312,
+      "output": 774,
+      "total": 218432,
+      "modelCalls": 30,
+      "toolCalls": 29
+    },
+    {
+      "run": "direct-pilot-projects-1-own",
+      "success": true,
+      "seconds": 83.876,
+      "input": 178350,
+      "cached": 150656,
+      "output": 931,
+      "total": 179281,
+      "modelCalls": 17,
+      "toolCalls": 16
+    },
+    {
+      "run": "direct-pilot-projects-1-upstream",
+      "success": true,
+      "seconds": 191.235,
+      "input": 401061,
+      "cached": 370816,
+      "output": 938,
+      "total": 401999,
+      "modelCalls": 38,
+      "toolCalls": 37
+    }
+  ]
+}

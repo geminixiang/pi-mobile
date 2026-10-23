@@ -1,0 +1,1642 @@
+[
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 752.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 753.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1814.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1815.3000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1826.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827.3000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1827.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1828,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1828.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1828.6000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1828.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 651.3999996185303,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 652.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1717.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1717.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1726.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1726.8999996185303,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1726.8999996185303,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1727.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1727.3999996185303,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1727.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1727.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1728,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1728.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1728.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1728.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1728.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 663.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 664.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1724,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1724.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1738.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1739.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1740.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1740.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1740.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1740.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 682.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 683.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1753.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1754,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1762,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1762.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1762.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 750.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 751.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1819.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1820.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1837.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1837.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1837.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1837.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1838.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 681.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 682,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1749.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1750.2000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.1000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.3000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.6000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 646.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 647.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1693.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1694.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1705.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1705.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1705.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1705.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1706.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1706.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1707,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1707.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1707.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1707.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1707.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1708,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 669.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 670.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1748.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1749.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1758.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.1000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.3000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.6000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1759.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.1000003814697,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1760.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1761.2000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 674.3000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 674.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1737,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1737.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.2000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.8000001907349,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1753.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1754.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1754.4000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1754.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1754.7000002861023,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  },
+  {
+    "steps": [
+      {
+        "action": "key",
+        "keys": "down"
+      },
+      {
+        "action": "key",
+        "keys": "return"
+      },
+      {
+        "action": "click",
+        "x": 453.0416666666667,
+        "y": 431.0416666666667
+      },
+      {
+        "action": "type",
+        "text": "請於下午送達，先電話聯絡"
+      },
+      {
+        "action": "click",
+        "x": 257.6666666666667,
+        "y": 474.7083333333333
+      }
+    ],
+    "content": [
+      {
+        "text": "{\"app\":\"Google Chrome\",\"pointer\":[257,474],\"size\":[1280,720],\"window\":\"GUI Benchmark — 隔離測試 - Google Chrome\"}",
+        "type": "text"
+      }
+    ],
+    "images": 1,
+    "observed": {
+      "note": "",
+      "checked": false,
+      "active": "shipping",
+      "events": [
+        {
+          "kind": "pointerdown",
+          "t": 680.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "focusin",
+          "t": 680.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "標準"
+        },
+        {
+          "kind": "input",
+          "t": 1757.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "change",
+          "t": 1757.5999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "請",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "於",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "下",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "午",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.6999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "送",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.7999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "達",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1770.9000000953674,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "，",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1771.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "先",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1771.0999999046326,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "電",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1771.1999998092651,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "話",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1771.2999997138977,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "聯",
+          "value": "隔日"
+        },
+        {
+          "kind": "keydown",
+          "t": 1771.5,
+          "name": "shipping",
+          "tag": "SELECT",
+          "key": "絡",
+          "value": "隔日"
+        }
+      ]
+    }
+  }
+]

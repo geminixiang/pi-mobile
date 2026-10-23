@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant"><meta charset="utf-8"><title>GUI Benchmark — 隔離測試</title>
+<style>
+:root { --ink:#172536; --paper:#f5f7fa; --line:#bcc8d6; --accent:#194a96; }
+body { font:18px system-ui; color:var(--ink); background:var(--paper); margin:28px; }
+main { max-width:1150px; margin:auto; }
+button,input,select,textarea { font:inherit; padding:8px; margin:5px; }
+button { cursor:pointer; }
+nav,section,fieldset { margin:18px 0; padding:18px; border:1px solid var(--line); }
+label { display:block; margin:12px 0; }
+table { border-collapse:collapse; width:100%; }
+th,td { border-bottom:1px solid var(--line); padding:14px; text-align:left; }
+h1 { font-size:28px; }
+.notice { color:var(--accent); }
+textarea { width:500px; }
+</style>
+<main><h1>營運工作台 · 隔離測試</h1><p>僅有合成資料，不連接任何真實帳號。</p><nav><button onclick="screen='orders';render()">訂單</button><button onclick="screen='expense';render()">費用報銷</button><button onclick="screen='projects';render()">專案任務</button></nav><div id="app"></div></main>
+<script>
+const seedOrders=Array.from({length:12},(_,i)=>({id:'B'+(1041+i),customer:i===8?'青禾工作室':i===3?'青禾設計':'測試客戶'+(i+1),status:i%3===0?'已出貨':'待處理',recipient:'王小明',phone:'0911000000',shipping:'標準',note:'',confirmed:false}));
+const seedTasks=Array.from({length:9},(_,i)=>({id:'T'+(201+i),name:['首頁調整','報表匯出','權限整理','測試補齊','通知重試','搜尋索引','備份演練','資料遷移','文件更新'][i],project:i%2===0?'Pilot':'Core',owner:i===4?'林安':'陳宇',priority:i%2===0?'高':'中',status:'待辦',due:'2026-11-10'}));
+window.state={orders:seedOrders,expense:{title:'十月差旅',department:'業務',owner:'陳宇',date:'2026-10-24',items:[{name:'車票',amount:480},{name:'住宿',amount:920},{name:'餐費',amount:200}],receipt:false,submitted:false},tasks:seedTasks};
+let screen='orders',page=0,filter='全部',selected=null,stage=1,notice='',chosen=new Set();
+const app=document.getElementById('app');
+const escapeText=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
+const options=(values,current)=>values.map(v=>`<option ${v===current?'selected':''}>${v}</option>`).join('');
+const persist=()=>fetch('/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)});
+function render(){
+ if(screen==='orders')orders();
+ if(screen==='expense')expense();
+ if(screen==='projects')projects();
+}
+function orders(){
+ if(selected){const o=state.orders.find(o=>o.id===selected);app.innerHTML=`<h2>編輯訂單 ${o.id} · ${o.customer}</h2><form id="order"><label>收件人 <input name="recipient" value="${escapeText(o.recipient)}" required></label><label>電話 <input name="phone" value="${o.phone}" pattern="[0-9]{10}" required></label><label>配送方式 <select name="shipping">${options(['標準','隔日','自取'],o.shipping)}</select></label><label>備註 <textarea name="note">${escapeText(o.note)}</textarea></label><label><input name="verified" type="checkbox" required>已核對收件資料</label><button>下一步：確認</button><button type="button" onclick="selected=null;render()">返回</button></form>`;document.getElementById('order').onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));app.innerHTML=`<h2>確認 ${o.id}</h2><p>收件人：${escapeText(data.recipient)}｜${escapeText(data.phone)}｜${data.shipping}</p><p>${escapeText(data.note)}</p><label>輸入訂單編號以確認 <input id="confirmId"></label><button id="commit">儲存變更</button><p id="error"></p>`;document.getElementById('commit').onclick=()=>{if(document.getElementById('confirmId').value!==o.id){document.getElementById('error').textContent='編號不符';return;}Object.assign(o,{recipient:data.recipient,phone:data.phone,shipping:data.shipping,note:data.note,confirmed:true});persist();selected=null;notice='已儲存 '+o.id;render();};};return;}
+ const rows=state.orders.filter(o=>filter==='全部'||o.status===filter),shown=rows.slice(page*4,page*4+4);
+ app.innerHTML=`<h2>訂單管理</h2><p class="notice">${notice}</p><label>狀態 <select id="filter">${options(['全部','待處理','已出貨'],filter)}</select></label><table><tr><th>編號</th><th>客戶</th><th>狀態</th><th>配送</th><th>操作</th></tr>${shown.map(o=>`<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.status}</td><td>${o.shipping}</td><td><button onclick="selected='${o.id}';render()">編輯 ${o.id}</button></td></tr>`).join('')}</table><button id="prev" ${page===0?'disabled':''}>上一頁</button><span>第 ${page+1} / ${Math.ceil(rows.length/4)} 頁</span><button id="next" ${(page+1)*4>=rows.length?'disabled':''}>下一頁</button>`;
+ document.getElementById('filter').onchange=e=>{filter=e.target.value;page=0;render();};document.getElementById('prev').onclick=()=>{page--;render();};document.getElementById('next').onclick=()=>{page++;render();};
+}
+function expense(){
+ const x=state.expense;
+ if(x.submitted){app.innerHTML=`<h2>報銷單已送出</h2><p>${escapeText(x.title)}｜${x.department}｜${x.owner}</p><p>總額：${x.items.reduce((s,i)=>s+i.amount,0)} 元</p>`;return;}
+ if(stage===1){app.innerHTML=`<h2>報銷草稿 · 1 / 3 基本資料</h2><form id="expense"><label>用途 <input name="title" value="${escapeText(x.title)}" required></label><label>部門 <select name="department">${options(['業務','工程','行政'],x.department)}</select></label><label>申請人 <input name="owner" value="${x.owner}" required></label><label>日期 <input name="date" value="${x.date}" required></label><button>下一步：費用明細</button></form>`;document.getElementById('expense').onsubmit=e=>{e.preventDefault();Object.assign(x,Object.fromEntries(new FormData(e.target)));persist();stage=2;render();};return;}
+ if(stage===2){app.innerHTML=`<h2>報銷草稿 · 2 / 3 費用明細</h2><table><tr><th>項目</th><th>金額</th><th>操作</th></tr>${x.items.map((i,n)=>`<tr><td><input aria-label="項目 ${n+1}" value="${escapeText(i.name)}" onchange="state.expense.items[${n}].name=this.value;persist()"></td><td><input type="number" aria-label="金額 ${n+1}" value="${i.amount}" onchange="state.expense.items[${n}].amount=Number(this.value);persist()"></td><td><button onclick="state.expense.items.splice(${n},1);persist();render()">刪除第 ${n+1} 列</button></td></tr>`).join('')}</table><button onclick="state.expense.items.push({name:'',amount:0});persist();render()">新增項目</button><p><button onclick="stage=1;render()">上一步</button><button onclick="stage=3;render()">下一步：核對</button></p>`;return;}
+ app.innerHTML=`<h2>報銷草稿 · 3 / 3 核對送出</h2><p>${escapeText(x.title)}｜${x.department}｜${x.owner}｜${x.date}</p><ul>${x.items.map(i=>`<li>${escapeText(i.name)}：${i.amount}</li>`).join('')}</ul><p>總額：${x.items.reduce((s,i)=>s+i.amount,0)} 元</p><label><input id="receipt" type="checkbox">已附齊單據</label><button onclick="stage=2;render()">返回修改</button><button id="submit">送出報銷單</button><p id="error"></p>`;
+ document.getElementById('submit').onclick=()=>{if(!document.getElementById('receipt').checked){document.getElementById('error').textContent='請確認單據';return;}x.receipt=true;x.submitted=true;persist();render();};
+}
+function projects(){
+ if(selected){const t=state.tasks.find(t=>t.id===selected);app.innerHTML=`<h2>編輯任務 ${t.id} · ${t.name}</h2><form id="task"><label>負責人 <select name="owner">${options(['陳宇','林安','張晴'],t.owner)}</select></label><label>優先度 <select name="priority">${options(['高','中','低'],t.priority)}</select></label><label>狀態 <select name="status">${options(['待辦','進行中','完成'],t.status)}</select></label><label>到期日 <input name="due" value="${t.due}" required></label><button>儲存任務</button></form>`;document.getElementById('task').onsubmit=e=>{e.preventDefault();Object.assign(t,Object.fromEntries(new FormData(e.target)));persist();selected=null;render();};return;}
+ const rows=state.tasks.filter(t=>filter==='全部'||t.project===filter),shown=rows.slice(page*3,page*3+3);
+ app.innerHTML=`<h2>專案任務</h2><label>專案 <select id="filter">${options(['全部','Pilot','Core'],filter)}</select></label><table><tr><th>選取</th><th>編號／名稱</th><th>專案</th><th>負責人</th><th>狀態</th><th>操作</th></tr>${shown.map(t=>`<tr><td><input type="checkbox" ${chosen.has(t.id)?'checked':''} onchange="if(this.checked)chosen.add('${t.id}');else chosen.delete('${t.id}')"></td><td>${t.id} ${t.name}</td><td>${t.project}</td><td>${t.owner}</td><td>${t.status}</td><td><button onclick="selected='${t.id}';render()">編輯 ${t.id}</button></td></tr>`).join('')}</table><button id="prev" ${page===0?'disabled':''}>上一頁</button><span>第 ${page+1} / ${Math.ceil(rows.length/3)} 頁</span><button id="next" ${(page+1)*3>=rows.length?'disabled':''}>下一頁</button><section><label>批次狀態 <select id="bulk">${options(['進行中','完成'],'進行中')}</select></label><button id="apply">套用到已選任務</button></section>`;
+ document.getElementById('filter').onchange=e=>{filter=e.target.value;page=0;render();};document.getElementById('prev').onclick=()=>{page--;render();};document.getElementById('next').onclick=()=>{page++;render();};document.getElementById('apply').onclick=()=>{for(const t of state.tasks)if(chosen.has(t.id))t.status=document.getElementById('bulk').value;chosen.clear();persist();render();};
+}
+window.fixtureReady=true;
+render();persist();
+</script></html>

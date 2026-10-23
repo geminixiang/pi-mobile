@@ -1,0 +1,90 @@
+[
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "title": "Screenshot"
+    },
+    "description": "See the computer's screen now: a JPEG of the main display, and as text its size, the front app, the title of its focused window, and the pointer. Coordinates everywhere are this screenshot's pixels. Apps opened while using the screen are quit two minutes after the last use.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "screenshot"
+  },
+  {
+    "annotations": {
+      "title": "Mouse and keyboard"
+    },
+    "description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the screenshot after them, as screenshot does. Put the steps you can already tell in one call (click a field, type, press return); prefer keys to clicks. Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click}; move {x, y}; drag {x, y, to_x, to_y}; scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms}.",
+    "inputSchema": {
+      "properties": {
+        "steps": {
+          "items": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "click",
+                  "move",
+                  "drag",
+                  "scroll",
+                  "key",
+                  "type",
+                  "wait"
+                ],
+                "type": "string"
+              },
+              "button": {
+                "enum": [
+                  "left",
+                  "right",
+                  "middle"
+                ],
+                "type": "string"
+              },
+              "count": {
+                "type": "integer"
+              },
+              "dx": {
+                "type": "integer"
+              },
+              "dy": {
+                "type": "integer"
+              },
+              "keys": {
+                "type": "string"
+              },
+              "ms": {
+                "type": "integer"
+              },
+              "text": {
+                "type": "string"
+              },
+              "to_x": {
+                "type": "number"
+              },
+              "to_y": {
+                "type": "number"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps"
+      ],
+      "type": "object"
+    },
+    "name": "act"
+  }
+]
