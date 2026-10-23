@@ -56,8 +56,9 @@ export function signatureOf(tool: { name: string; parameters: unknown }): string
 	return `${tool.name}(${names.map((name) => (needed.has(name) ? name : `${name}?`)).join(", ")})`;
 }
 
+const remote = new WorkerRemote();
+
 export function createPhoneCodemode(label: (extension: string, conversationId: string) => string | undefined) {
-	const remote = new WorkerRemote();
 	const sandbox = new RemoteCodemodeSandbox({
 		remote: () => remote,
 		interruptBudget: INTERRUPT_BUDGET,

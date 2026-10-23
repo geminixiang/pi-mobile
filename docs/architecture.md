@@ -68,6 +68,10 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 - 對話存在 WebView 的 IndexedDB。2026-10-22 在模擬器量過 SQLite（`@capacitor-community/sqlite`）：啟動要 73 次 bridge 呼叫，約 2 秒（2.1–6.2 秒）才看到對話；IndexedDB 是 0.6 秒。
 - `IndexedDbStorage` 只能有一個擁有者，所以用 Web Lock 擋住第二個 WebView（數位助理以前會開一個）。reload 時舊頁面走了才放鎖，新頁面最多等 5 秒。
 
+**Runtime 的生命週期**
+- 每次改設定，`App.tsx` 會關掉整個 `AgentRuntime` 再開一個新的。`close()` 要收掉它自己開的東西：MCP 連線、電腦連線、harness。
+- Code mode 的 QuickJS Worker 和手機資料夾的 bash Worker 跟著 app，不跟著 runtime，一個 app 各一個：它們不帶 runtime 的狀態，跟著 runtime 開關的話，每改一次設定就多留一個 Worker。
+
 **背景執行（Android）**
 - WebView 的 JavaScript 跑在 Chromium 的 renderer 程序，不在前景服務保護的 app 程序裡。WebView 看不見時 Chromium 會降低 renderer 的重要性，所以 `KeepAlivePlugin` 在 agent 工作時把它拉高。
 - Blink 會凍結隱藏超過一分鐘的頁面（計時器、plugin callback 都停），`PiWebView` 讓它在背景時仍算可見。
