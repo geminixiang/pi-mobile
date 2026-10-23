@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
-import { Computers } from "../../src/agent/computers.ts";
+import { Workplaces } from "../../src/agent/workplaces.ts";
 import { openRuntime, toolResults, turn } from "./fixtures.ts";
-import { type Check, settings } from "./setup.ts";
+import { type Check, platform, settings } from "./setup.ts";
 
 const host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture" };
 
@@ -10,13 +10,22 @@ export const checks: Check[] = [
 	[
 		"a bot whose computer was removed does not move to another computer",
 		async () => {
-			const computers = new Computers({ ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" }, {});
-			assert.deepEqual(computers.resolve("a.example:container"), { kind: "missing", key: "a.example:container" });
-			assert.equal(computers.sandboxAt(computers.resolve("a.example:container")), undefined);
-			const inherited = computers.resolve(undefined);
-			assert.equal(inherited.kind === "ready" && inherited.computer.key, "b.example:direct");
-			const chosen = computers.resolve("phone");
-			assert.equal(chosen.kind === "ready" && chosen.computer.key, "phone");
+			const bots = new Map([
+				["gone", { folder: "f1", computer: "a.example:container" }],
+				["inherits", { folder: "f2" }],
+				["phone", { folder: "f3", computer: "phone" }],
+			]);
+			const workplaces = new Workplaces({ ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" }, {}, platform.phoneFolder, (id) => bots.get(id));
+			try {
+				assert.deepEqual(workplaces.at("gone"), { kind: "missing", key: "a.example:container" });
+				const inherited = workplaces.at("inherits");
+				assert.equal(inherited?.kind === "computer" && inherited.computer.key, "b.example:direct");
+				const phone = workplaces.at("phone");
+				assert.equal(phone?.kind, "phone");
+				assert.equal(workplaces.at("unknown"), undefined);
+			} finally {
+				workplaces.close();
+			}
 		},
 	],
 	[
@@ -48,11 +57,11 @@ export const checks: Check[] = [
 			try {
 				const [bot] = await runtime.bots();
 				assert(bot);
-				assert.equal(runtime.offersComputers(bot.id), false);
+				assert.equal(runtime.workplaces.offers(String(bot.id)), false);
 				await runtime.setComputer(bot.id, "gone.example:direct");
-				assert.equal(runtime.offersComputers(bot.id), true);
+				assert.equal(runtime.workplaces.offers(String(bot.id)), true);
 				assert.deepEqual(
-					runtime.computers().map((computer) => computer.key),
+					runtime.workplaces.list().map((computer) => computer.key),
 					["phone"],
 				);
 			} finally {

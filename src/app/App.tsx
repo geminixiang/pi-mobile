@@ -293,7 +293,8 @@ export function App() {
 			</div>
 		);
 	}
-	const onSandbox = controller ? runtime.sandboxOf(controller.id) !== undefined : false;
+	const place = controller ? runtime.workplaces.at(String(controller.id)) : undefined;
+	const onSandbox = place?.kind === "computer";
 
 	const agent = agentOf(view);
 	const modelId = agent?.model?.modelId ?? "";
@@ -345,7 +346,7 @@ export function App() {
 						currentId={controller?.id}
 						status={[
 							{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
-							{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.hasSandbox },
+							{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.workplaces.any },
 							{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
 							{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
 							{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
@@ -397,7 +398,7 @@ export function App() {
 								if (sure) await controller.reset().catch(fail);
 							},
 							workspace: onSandbox ? () => openWorkspace({ tab: "files" }) : undefined,
-							emptyFolder: controller && onSandbox && !runtime.sandboxOf(controller.id)?.direct
+							emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
 								? async () => {
 										if (!controller) return;
 										const sure = await ask({

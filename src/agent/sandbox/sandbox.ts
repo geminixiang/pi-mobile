@@ -7,6 +7,7 @@ import { BotIndex } from "../bots.ts";
 import { type DaemonArch, type DaemonOs, shellQuote } from "./daemon.ts";
 import type { StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
+import type { Workplace } from "../workplaces.ts";
 import { onFailure } from "../../promise.ts";
 
 export const SHARED_SANDBOX = "main";
@@ -113,14 +114,14 @@ export function directDescription(name: string, user: string, system: { os: Daem
 	].join(" ");
 }
 
-export function createSandboxExtension(sandboxOf: (conversationId: string) => Sandbox | undefined, folderOf: (conversationId: string) => string | undefined) {
+export function createSandboxExtension(workplace: (conversationId: string) => Workplace | undefined) {
 	return defineExtension({
 		name: "sandbox",
 		sections: [
 			section("sandbox", async (input, context) => {
-				const folder = folderOf(String(input.conversationId));
-				const sandbox = sandboxOf(String(input.conversationId));
-				if (!folder || !sandbox) return undefined;
+				const place = workplace(String(input.conversationId));
+				if (place?.kind !== "computer") return undefined;
+				const { folder, sandbox } = place;
 				if (sandbox.direct) return sandbox.describe(folder);
 				const others = ((await input.read.snapshot(BotIndex, context))?.items ?? []).filter((bot) => bot.folder !== folder);
 				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";

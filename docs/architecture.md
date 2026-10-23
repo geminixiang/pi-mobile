@@ -117,7 +117,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |
 | `src/agent/attachments*.ts` | 附件：PDF、Word、試算表、圖片 |
 | `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
-| `src/agent/computers.ts`、`src/agent/sandbox/` | Bot 在哪台電腦工作：直接或容器、pi-env 的 frame 協定、檔案與 git |
+| `src/agent/workplaces.ts`、`src/agent/sandbox/` | `Workplaces.at(bot)` 回答一個 Bot 在哪裡工作（手機、電腦直接或容器、已移除的電腦），帶著它的執行環境；pi-env 的 frame 協定、檔案與 git |
 | `src/agent/platform.ts` | `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。App 給 Capacitor 的實作，`test/contracts/` 給記憶體的 |
 | `src/agent/parse.ts` | 邊界驗證（typebox） |
 | `src/storage.ts`、`src/idb.ts`、`src/settings.ts` | pi-durable 的 IndexedDB 儲存、其他 IndexedDB 資料、設定（密鑰在 Keystore） |

@@ -52,10 +52,10 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 }
 
 function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
-	const placement = runtime.computerOf(bot.id);
-	const key = placement.kind === "ready" ? placement.computer.key : placement.key;
-	const container = placement.kind === "ready" && key.endsWith(":container");
-	const [preparing, prepare] = usePrepare(container ? runtime.hostOf(key) : undefined);
+	const place = runtime.workplaces.at(String(bot.id));
+	const key = place?.kind === "computer" ? place.computer.key : place?.kind === "missing" ? place.key : "phone";
+	const container = place?.kind === "computer" && !place.sandbox.direct ? place.host : undefined;
+	const [preparing, prepare] = usePrepare(container);
 	useEffect(() => {
 		if (container) void prepare();
 	}, [key, container]);
@@ -72,12 +72,12 @@ function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRunti
 						.catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`))
 				}
 			>
-				{placement.kind === "missing" ? (
+				{place?.kind === "missing" ? (
 					<option value={key} disabled>
 						已移除的電腦
 					</option>
 				) : null}
-				{runtime.computers().map((computer) => (
+				{runtime.workplaces.list().map((computer) => (
 					<option key={computer.key} value={computer.key}>
 						{computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`}
 					</option>
@@ -160,7 +160,8 @@ export function BotPanel({
 	};
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
-	const folder = runtime.folderOf(bot.id);
+	const place = runtime.workplaces.at(String(bot.id));
+	const folder = place?.kind === "computer" ? place.root : undefined;
 	const lastAnswer = [...(view?.entries ?? [])].reverse().find((entry) => entry.kind === "pi.assistant");
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
 
@@ -223,11 +224,11 @@ export function BotPanel({
 					</div>
 				</Section>
 
-				{runtime.offersComputers(bot.id) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} onError={onError} /> : null}
+				{runtime.workplaces.offers(String(bot.id)) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} onError={onError} /> : null}
 				{folder ? (
 					<Section title="資料夾">
 						<div className="menu">
-							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder.path} onClick={run(actions.workspace)} /> : null}
+							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder} onClick={run(actions.workspace)} /> : null}
 							{actions.emptyFolder ? (
 								<Item icon={<BoxIcon size={18} />} label="清空資料夾" danger onClick={run(actions.emptyFolder)} />
 							) : null}

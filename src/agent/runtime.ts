@@ -21,17 +21,15 @@ import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder
 import { parseCalendarAccess } from "./calendar-access.ts";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { type Computer, Computers, type Placement } from "./computers.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
-import type { Host } from "./sandbox/host.ts";
-import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { isEnabled, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
+import { type Workplace, Workplaces } from "./workplaces.ts";
 
 const context = BACKGROUND_CONTEXT;
 
@@ -69,14 +67,19 @@ function labelOf(extension: string, mcp: McpHub): string {
 
 export type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
+const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
+	phone: new Set(["sandbox", "computer"]),
+	computer: new Set(["files"]),
+	missing: new Set(["files", "sandbox", "computer"]),
+};
+
 export class AgentRuntime {
 	readonly models: ModelInfo[];
 	readonly #harness: Harness;
 	readonly #settings: Settings;
-	readonly #computers: Computers;
-	readonly #choices: Map<string, string | undefined>;
+	readonly workplaces: Workplaces;
+	readonly #placed: Map<string, { folder: string; computer?: string }>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
-	readonly #folders: Map<string, string>;
 	#memoryListeners = new Set<() => void>();
 	readonly #installed: () => ReadonlySet<string>;
 	readonly mcp: McpHub;
@@ -89,9 +92,8 @@ export class AgentRuntime {
 		settings: Settings,
 		platform: Platform,
 		models: ModelInfo[],
-		computers: Computers,
-		folders: Map<string, string>,
-		choices: Map<string, string | undefined>,
+		workplaces: Workplaces,
+		placed: Map<string, { folder: string; computer?: string }>,
 		installed: () => ReadonlySet<string>,
 		mcp: McpHub,
 	) {
@@ -101,9 +103,8 @@ export class AgentRuntime {
 		this.#harness = harness;
 		this.#settings = settings;
 		this.models = models;
-		this.#computers = computers;
-		this.#folders = folders;
-		this.#choices = choices;
+		this.workplaces = workplaces;
+		this.#placed = placed;
 		this.triggers = new TriggerRuns(
 			harness,
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, avatar: avatarOf(bot) })),
@@ -119,44 +120,11 @@ export class AgentRuntime {
 		});
 	}
 
-	get hasSandbox(): boolean {
-		return this.#computers.any;
-	}
-
-	computerOf(id: ConversationId | string): Placement {
-		return this.#computers.resolve(this.#choices.get(String(id)));
-	}
-
-	offersComputers(id: ConversationId): boolean {
-		return this.#computers.any || this.computerOf(id).kind === "missing";
-	}
-
-	computers(): Computer[] {
-		return this.#computers.list();
-	}
-
-	hostOf(key: string): Host | undefined {
-		return this.#computers.host(key);
-	}
-
-	sandboxOf(id: ConversationId | string): Sandbox | undefined {
-		return this.#computers.sandboxAt(this.computerOf(id));
-	}
-
 	async setComputer(id: ConversationId, key: string): Promise<void> {
 		await this.#editBots((items) => {
 			const bot = items.find((candidate) => candidate.id === id);
 			if (bot) bot.computer = key;
 		});
-	}
-
-	folderOf(id: ConversationId): { path: string; where: string } | undefined {
-		const folder = this.#folders.get(String(id));
-		const placement = this.computerOf(id);
-		const sandbox = this.#computers.sandboxAt(placement);
-		if (placement.kind === "missing" || !sandbox || !folder) return undefined;
-		const name = placement.computer.name;
-		return { path: sandbox.root(folder), where: sandbox.direct ? name : `${name} 的容器` };
 	}
 
 	static async open(
@@ -179,12 +147,10 @@ export class AgentRuntime {
 				return (await options.notify?.(title, text, conversationId, bot && avatarOf(bot))) ?? false;
 			},
 		};
-		const folders = new Map<string, string>();
+		const placed = new Map<string, { folder: string; computer?: string }>();
 		const clouds = connectClouds(settings);
-		const choices = new Map<string, string | undefined>();
-		const computers = new Computers(settings, clouds.minted);
-		const placementOf = (id: string) => computers.resolve(choices.get(id));
-		const sandboxOf = (id: string) => computers.sandboxAt(placementOf(id));
+		const workplaces = new Workplaces(settings, clouds.minted, platform.phoneFolder, (id) => placed.get(id));
+		const at = (id: string) => workplaces.at(id);
 		const mcp: McpHub = new McpHub(platform, {
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
@@ -199,12 +165,8 @@ export class AgentRuntime {
 			web: webSearch,
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
-			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id), workplace: (id: string) => (placementOf(id).kind === "missing" ? "missing" : sandboxOf(id) ? "computer" : "phone") },
-			hostOf: (id: string) => {
-				const placement = placementOf(id);
-				return placement.kind === "ready" ? computers.host(placement.computer.key) : undefined;
-			},
-			labelOf: (name, id) => (name === "computer" && !sandboxOf(id) ? undefined : labelOf(name, mcp)),
+			workplace: at,
+			labelOf: (name, id) => (name === "computer" && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
 		})) {
 			registry.install(extension);
 		}
@@ -223,10 +185,8 @@ export class AgentRuntime {
 				},
 				onReport: (error) => options.onReport?.(messageOf(error)),
 				env: ({ conversationId }) => {
-					const folder = folders.get(String(conversationId));
-					if (!folder) return undefined;
-					if (placementOf(String(conversationId)).kind === "missing") return undefined;
-					return sandboxOf(String(conversationId))?.env(folder) ?? platform.phoneFolder(folder);
+					const place = at(String(conversationId));
+					return place?.kind === "missing" ? undefined : place?.env();
 				},
 			},
 			context,
@@ -236,9 +196,8 @@ export class AgentRuntime {
 			settings,
 			platform,
 			infos,
-			computers,
-			folders,
-			choices,
+			workplaces,
+			placed,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			mcp,
 		);
@@ -279,12 +238,8 @@ export class AgentRuntime {
 
 	async #publishBots(): Promise<void> {
 		const bots = await this.bots();
-		this.#folders.clear();
-		this.#choices.clear();
-		for (const bot of bots) {
-			this.#folders.set(String(bot.id), bot.folder);
-			this.#choices.set(String(bot.id), bot.computer);
-		}
+		this.#placed.clear();
+		for (const bot of bots) this.#placed.set(String(bot.id), { folder: bot.folder, ...(bot.computer ? { computer: bot.computer } : {}) });
 		for (const listener of this.#botListeners) listener(bots);
 	}
 
@@ -344,14 +299,8 @@ export class AgentRuntime {
 
 	async #finishRemoval(bot: Bot): Promise<void> {
 		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
-		const containers = this.#computers
-			.list()
-			.flatMap((computer) => {
-				const sandbox = this.#computers.sandbox(computer.key);
-				return sandbox && !sandbox.direct ? [{ key: computer.key, sandbox }] : [];
-			});
 		const left = await Promise.all(
-			containers.map(({ key, sandbox }) =>
+			this.workplaces.containers().map(({ key, sandbox }) =>
 				sandbox.remove(bot.folder).then(
 					() => undefined,
 					(error: unknown) => {
@@ -396,22 +345,20 @@ export class AgentRuntime {
 	}
 
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
-		const folder = this.#folders.get(String(id));
-		const sandbox = this.sandboxOf(id);
-		if (!sandbox || !folder || !(await sandbox.exists(folder))) return undefined;
-		return new Workspace(await sandbox.env(folder), sandbox.root(folder));
+		const place = this.workplaces.at(String(id));
+		if (place?.kind !== "computer" || !(await place.sandbox.exists(place.folder))) return undefined;
+		return new Workspace(await place.env(), place.root);
 	}
 
 	phoneFolder(id: ConversationId): ExecutionEnv | undefined {
-		const folder = this.#folders.get(String(id));
+		const folder = this.#placed.get(String(id))?.folder;
 		return folder ? this.#platform.phoneFolder(folder) : undefined;
 	}
 
 	async resetSandbox(id: ConversationId): Promise<void> {
-		const folder = this.#folders.get(String(id));
-		const sandbox = this.sandboxOf(id);
-		if (!sandbox || !folder) throw new Error("No sandbox configured");
-		await sandbox.remove(folder);
+		const place = this.workplaces.at(String(id));
+		if (place?.kind !== "computer") throw new Error("No sandbox configured");
+		await place.sandbox.remove(place.folder);
 	}
 
 	async openConversation(id: ConversationId): Promise<ConversationController> {
@@ -498,7 +445,7 @@ export class AgentRuntime {
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = await this.#botToolsets.selection(id);
 		const installed = this.#installed();
-		const notHere = new Set(this.computerOf(id).kind === "missing" ? ["files", "sandbox", "computer"] : this.sandboxOf(id) ? ["files"] : ["sandbox", "computer"]);
+		const notHere = NOT_HERE[this.workplaces.at(String(id))?.kind ?? "missing"];
 		return this.#allToolsets().map((toolset) => ({
 			...toolset,
 			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),
@@ -547,7 +494,7 @@ export class AgentRuntime {
 			await this.#harness.close(context);
 		} finally {
 			await this.mcp.close();
-			this.#computers.close();
+			this.workplaces.close();
 		}
 	}
 }

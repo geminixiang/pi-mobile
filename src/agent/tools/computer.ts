@@ -3,6 +3,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { McpClient, toLlmContent } from "@earendil-works/pi-mcp";
 import { Type } from "typebox";
 import { type Host, HostStdioTransport } from "../sandbox/host.ts";
+import type { Workplace } from "../workplaces.ts";
 import { defineAppTool } from "./common.ts";
 import { messageOf, onFailure } from "../../promise.ts";
 
@@ -41,7 +42,11 @@ async function call(host: Host | undefined, tool: "screenshot" | "act", args: Re
 	return { output, ...(result.isError ? { isError: true } : {}), ...(structured !== undefined ? { structuredOutput: structured } : {}) };
 }
 
-export function createComputerExtension(hostOf: (conversationId: string) => Host | undefined) {
+export function createComputerExtension(workplace: (conversationId: string) => Workplace | undefined) {
+	const hostOf = (conversationId: string): Host | undefined => {
+		const place = workplace(conversationId);
+		return place?.kind === "computer" ? place.host : undefined;
+	};
 	const readScreen = defineAppTool({
 		name: "read_screen",
 		description:
