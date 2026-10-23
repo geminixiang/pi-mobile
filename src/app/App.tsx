@@ -33,6 +33,7 @@ import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
+import { startModelList } from "../agent/available-models.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 
@@ -92,7 +93,7 @@ export function App() {
 	const start = useCallback(
 		async (next: Settings) => {
 			try {
-				const modelIds = AgentRuntime.startModelList(next);
+				const modelIds = startModelList(next);
 				const { storage, isNewDatabase } = await openAppStorage();
 				if (isNewDatabase) {
 					await sweepBotData(async () => []);
@@ -133,7 +134,7 @@ export function App() {
 	useEffect(() => {
 		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
 		setWorking([...busyIds].map(title));
-		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.takeTriggered(id));
+		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.triggers.takeStarted(id));
 		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
 		previousBusy.current = busyIds;
 	}, [busyIds, bots, runtime]);

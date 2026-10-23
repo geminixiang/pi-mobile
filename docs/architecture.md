@@ -97,14 +97,16 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 
 | 路徑 | 內容 |
 |---|---|
-| `src/agent/runtime.ts` | `AgentRuntime`：harness、Bot 清單、每個 Bot 的控制器、執行狀態 |
+| `src/agent/runtime.ts` | `AgentRuntime`：開啟 harness 並接好各部分；Bot 清單、對話控制器、每個 Bot 的電腦、工具組和記憶 |
+| `src/agent/available-models.ts` | 這支手機能用哪些模型：各供應商的模型清單、金鑰、web 搜尋用哪一家 |
+| `src/agent/assistant.ts` | 每個 Bot 共用的開頭提示 |
 | `src/agent/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
 | `src/agent/tools/` | 內建工具，一個領域一個檔案；`common.ts` 是共用的 `defineAppTool` |
 | `src/agent/codemode.ts`、`on-demand.ts`、`toolsets.ts` | Code mode（QuickJS Web Worker）、需要時才載入的工具、Bot 可選的工具組 |
-| `src/agent/bots.ts`、`memory.ts`、`triggers.ts`、`skills.ts` | Bot 的資料與系統提示、MEMORY.md、排程、技能 |
+| `src/agent/bots.ts`、`memory.ts`、`triggers.ts`、`skills.ts` | Bot 的資料與系統提示、MEMORY.md、排程（定義、工具，和 `TriggerRuns`：同步到原生鬧鐘、觸發時的次數上限）、技能 |
 | `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
 | `src/agent/mcp.ts`、`mcp-catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
-| `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts` | 三家雲端的登入與憑證 |
+| `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |
 | `src/agent/attachments*.ts` | 附件：PDF、Word、試算表、圖片 |
 | `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
 | `src/agent/computers.ts`、`src/agent/sandbox/` | Bot 在哪台電腦工作：直接或容器、pi-env 的 frame 協定、檔案與 git |

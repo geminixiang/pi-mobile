@@ -1,7 +1,8 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
+import type { AgentRuntime } from "../agent/runtime.ts";
+import type { TriggerState } from "../agent/triggers.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
@@ -120,7 +121,7 @@ export function BotPanel({
 }) {
 	const [triggers, setTriggers] = useState<TriggerState>({ items: [], next: {} });
 	const [memory, setMemory] = useState("");
-	useEffect(() => runtime.subscribeTriggers(setTriggers), [runtime]);
+	useEffect(() => runtime.triggers.subscribe(setTriggers), [runtime]);
 	const botId = bot?.id;
 	useEffect(() => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => setMemory(next.text))), [runtime, botId]);
 	const [toolsets, setToolsets] = useState<ToolsetState[]>([]);

@@ -35,15 +35,15 @@ export function TriggerRow({
 					</span>
 				) : null}
 				<span className="trigger-actions">
-					<button type="button" onClick={() => void act(runtime.runTrigger(trigger.id, "manual"))}>
+					<button type="button" onClick={() => void act(runtime.triggers.run(trigger.id, "manual"))}>
 						立即執行
 					</button>
-					<button type="button" className="danger" onClick={() => void act(runtime.deleteTrigger(trigger.id))}>
+					<button type="button" className="danger" onClick={() => void act(runtime.triggers.delete(trigger.id))}>
 						刪除
 					</button>
 				</span>
 			</span>
-			<button type="button" className="toggle" aria-pressed={trigger.enabled} onClick={() => void act(runtime.setTriggerEnabled(trigger.id, !trigger.enabled))}>
+			<button type="button" className="toggle" aria-pressed={trigger.enabled} onClick={() => void act(runtime.triggers.setEnabled(trigger.id, !trigger.enabled))}>
 				{trigger.enabled ? "開啟" : "暫停"}
 			</button>
 		</div>

@@ -1,84 +1,39 @@
-import { Type } from "typebox";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { createModels, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import {
 	AgentDoc,
 	type Conversation,
 	type ConversationId,
 	type ConversationView,
 	createRegistry,
-	defineExtension,
 	Harness,
 	InboxDoc,
-	type SubmissionId,
-	section,
 	type Storage,
+	type SubmissionId,
 } from "@earendil-works/pi-durable";
-import { builtinExtensions } from "./catalog.ts";
-import { type Computer, Computers } from "./computers.ts";
-import type { Host } from "./sandbox/host.ts";
-import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
-import { extensionName, McpHub } from "./mcp.ts";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
+import { type Settings } from "../settings.ts";
+import { orLogged, messageOf, settled } from "../promise.ts";
+import { Assistant } from "./assistant.ts";
+import { deleteAttachments } from "./attachments.ts";
+import { loadModels, startModelList } from "./available-models.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
-import { type Settings, saveAzureCredential, saveCloudflareCredential, saveProviderOAuth, usableProviders } from "../settings.ts";
-import { log } from "../log.ts";
-import { customProvider, describe, fetchModelIds, inCatalog, isThinkingLevel, type ModelInfo, withCompaction } from "./models.ts";
-import { builtinInfo, type ProviderConfig, providerName, parseProviders } from "./providers.ts";
-import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
-import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { parseCalendarAccess } from "./calendar-access.ts";
-import { AzureTokens, checkAzureCredential } from "./azure.ts";
-import { checkCloudflareCredential, CloudflareTokens } from "./cloudflare.ts";
-import { checkGcloudCredential, GcloudTokens } from "./gcloud.ts";
-import type { MintedService } from "./sandbox/container.ts";
+import { builtinExtensions } from "./catalog.ts";
+import { connectClouds } from "./clouds.ts";
+import { type Computer, Computers } from "./computers.ts";
+import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
+import { extensionName, McpHub } from "./mcp.ts";
+import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
+import { isThinkingLevel, type ModelInfo } from "./models.ts";
+import { hostOf } from "./parse.ts";
+import type { Host } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
-import { deleteAttachments } from "./attachments.ts";
-import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
-import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
-import {
-	type Delivery,
-	LIMITS,
-	nativeTriggers,
-	type Trigger,
-	TRIGGER_ENTRY,
-	TriggerDoc,
-	type TriggerHost,
-	Triggers,
-} from "./triggers.ts";
-import { messageOf, orLogged, settled } from "../promise.ts";
-import { readStored, hostOf } from "./parse.ts";
+import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { type TriggerHost, TriggerRuns } from "./triggers.ts";
 
 const context = BACKGROUND_CONTEXT;
-
-function today(): string {
-	const now = new Date();
-	const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-	const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
-	return `${weekday} ${date}, ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
-}
-
-const Assistant = defineExtension({
-	name: "assistant",
-	sections: [
-		section(
-			"preamble",
-			() =>
-				[
-					"You run in pi, an assistant app on the user's phone; your conversation and the user's credentials stay on the device. Reply in Traditional Chinese (Taiwan) unless the user writes otherwise; Markdown, concise for a small screen.",
-					"A ```mermaid block is drawn as a diagram (flowchart, sequence, state, class, ER, xychart-beta): use one when a picture explains better than prose, laid out top-down (flowchart TD) to fit the narrow screen.",
-					"Users type short and casual (「明天有啥」「附近咖啡」「週六爬山 記一下」): act on the obvious intent; ask only when a wrong guess costs something.",
-					"Vague times: pick a default, act, and say it. 等等、待會 +30 min; 晚點 +2 h; 早上 09:00; 中午 12:00; 下午 14:00; 晚上 19:00 (今晚提醒 21:00); 週末 Saturday. Events last 1 h, outings 3 h. 「記一下」 with a time means a calendar event.",
-					"Text outside thinking is shown, also before tool calls: do date math in thinking, and usually call tools without a preface.",
-					"Tool calls asked for in one turn run at the same time: ask for every lookup you already know you need together (each search, page, place, and the calendar), not one per turn; wait only for what depends on an earlier result.",
-					`Today: ${today()}. The time of day is not given here: read it with device_info before anything that depends on it (今晚, 等等, an alarm or event today).`,
-				].join("\n"),
-			{ tag: false },
-		),
-	],
-});
 
 export type UserContent = (TextContent | ImageContent)[];
 
@@ -106,59 +61,13 @@ function contentText(content: unknown): string {
 		.join("\n");
 }
 
-function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
-	const custom = configs.find((config) => config.kind === "custom");
-	if (custom?.kind === "custom") return { baseUrl: custom.baseUrl, apiKey: keys[custom.id] ?? "", modelIds: lists[custom.id] ?? [] };
-	const ids = (provider: string) => infos.filter((info) => info.provider === provider).map((info) => info.id);
-	const keyed = (provider: string) => configs.some((config) => config.id === provider) && Boolean(keys[provider]);
-	if (keyed("openai")) return { baseUrl: "https://api.openai.com", apiKey: keys.openai ?? "", modelIds: ids("openai") };
-	if (keyed("anthropic")) return { baseUrl: "https://api.anthropic.com", apiKey: keys.anthropic ?? "", modelIds: ids("anthropic") };
-	return { baseUrl: "", apiKey: "", modelIds: [] };
-}
-
 function labelOf(extension: string, mcp: McpHub): string {
 	const server = mcp.servers.find((candidate) => extensionName(candidate) === extension);
 	if (server) return `${server.name} (a service the user connected)`;
 	return TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.label ?? extension;
 }
 
-function cloudConnections(settings: Settings) {
-	const gcloudCredential = settings.gcloudCredential ? checkGcloudCredential(settings.gcloudCredential) : undefined;
-	const cloudflareCredential = settings.cloudflareCredential ? checkCloudflareCredential(settings.cloudflareCredential) : undefined;
-	const azureCredential = settings.azureCredential ? checkAzureCredential(settings.azureCredential) : undefined;
-	const gcloud = gcloudCredential?.ok ? new GcloudTokens(gcloudCredential.value) : undefined;
-	const cloudflare = cloudflareCredential?.ok ? new CloudflareTokens(cloudflareCredential.value, saveCloudflareCredential) : undefined;
-	const azure = azureCredential?.ok ? new AzureTokens(azureCredential.value, saveAzureCredential) : undefined;
-	const project = settings.gcloudProject || gcloud?.project;
-	const minted: Record<string, MintedService> = {};
-	const services: CloudService[] = [];
-	if (gcloud) {
-		minted.gcloud = { get: () => gcloud.get(), env: project ? { CLOUDSDK_CORE_PROJECT: project } : {} };
-		services.push(googleService(async () => (await gcloud.get()).token, project));
-	}
-	if (cloudflare) {
-		minted.cloudflare = { get: () => cloudflare.get(), env: cloudflare.accountId ? { CLOUDFLARE_ACCOUNT_ID: cloudflare.accountId } : {} };
-		services.push(cloudflareService(async () => (await cloudflare.get()).token, cloudflare.accountId));
-	}
-	if (azure) {
-		minted.azure = { get: (scope) => azure.get(scope), env: azure.env };
-		services.push(azureService(async (scope) => (await azure.get(scope)).token, azure.env.AZURE_SUBSCRIPTION_ID));
-	}
-	return { minted, services };
-}
-
 export type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
-
-export interface TriggerState {
-	items: Trigger[];
-	next: Record<string, number>;
-}
-
-function startOfToday(): number {
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	return today.getTime();
-}
 
 export class AgentRuntime {
 	readonly models: ModelInfo[];
@@ -168,12 +77,10 @@ export class AgentRuntime {
 	readonly #choices: Map<string, string | undefined>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	readonly #folders: Map<string, string>;
-	#triggerListeners = new Set<(state: TriggerState) => void>();
 	#memoryListeners = new Set<() => void>();
-	#triggerState: TriggerState = { items: [], next: {} };
-	#triggered = new Set<ConversationId>();
 	readonly #installed: () => ReadonlySet<string>;
 	readonly mcp: McpHub;
+	readonly triggers: TriggerRuns;
 	#toolsetWrites: Promise<void> = Promise.resolve();
 
 	private constructor(
@@ -194,6 +101,18 @@ export class AgentRuntime {
 		this.#computers = computers;
 		this.#folders = folders;
 		this.#choices = choices;
+		this.triggers = new TriggerRuns(
+			harness,
+			async () => (await this.bots()).map((bot) => ({ id: bot.id, avatar: avatarOf(bot) })),
+			(id, at) => this.#touchBot(id, at),
+		);
+	}
+
+	#touchBot(id: ConversationId, at: number): Promise<void> {
+		return this.#editBots((items) => {
+			const bot = items.find((candidate) => candidate.id === id);
+			if (bot) bot.updatedAt = at;
+		});
 	}
 
 	get hasSandbox(): boolean {
@@ -231,23 +150,6 @@ export class AgentRuntime {
 		return { path: sandbox.root(folder), where: sandbox.direct ? name : `${name} 的容器` };
 	}
 
-	static startModelList(settings: Settings): Promise<Record<string, string[]>> {
-		const lists = parseProviders(settings.providers)
-			.filter((provider) => provider.kind === "custom")
-			.map(async (provider): Promise<[string, string[]]> => {
-				if (provider.kind !== "custom") return [provider.id, []];
-				const key = `pi-mobile.models:${provider.baseUrl}`;
-				const fresh = fetchModelIds(provider.baseUrl, settings.providerKeys[provider.id] ?? "", AbortSignal.timeout(5000)).then((ids) => {
-					if (ids.length > 0) localStorage.setItem(key, JSON.stringify(ids));
-					return ids;
-				});
-				const refreshed = orLogged(fresh, "models.refresh_failed", [], { provider: provider.id });
-				const cached = readStored(Type.Array(Type.String()), key) ?? [];
-				return [provider.id, cached.length > 0 ? cached : await refreshed];
-			});
-		return Promise.all(lists).then(Object.fromEntries);
-	}
-
 	static async open(
 		storage: Storage,
 		settings: Settings,
@@ -258,58 +160,18 @@ export class AgentRuntime {
 			modelIds?: Promise<Record<string, string[]>>;
 		} = {},
 	): Promise<AgentRuntime> {
-		const compactAt = settings.compactAt;
-		const configs = usableProviders(settings);
-		const [lists, loaded, catalog] = await Promise.all([
-			(options.modelIds ?? AgentRuntime.startModelList(settings)).catch((error: unknown): Record<string, string[]> => {
-				options.onReport?.(`model list unavailable: ${messageOf(error)}`);
-				return {};
-			}),
-			Promise.all(
-				configs.map(async (config) => {
-					if (config.kind !== "builtin") return undefined;
-					const provider = await builtinInfo(config.id)?.load();
-					const signIn = parseOAuthCredential(settings.providerOAuth[config.id] ?? "");
-					if (!provider || !signIn) return provider;
-					const allowed = await chatgptModelsCached(signIn);
-					return allowed ? withOnlyModels(provider, allowed) : provider;
-				}),
-			),
-			gatewayCatalog(configs),
-		]);
-		const credentials = memoryCredentials(
-			Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])),
-			settings.providerOAuth,
-			(id, json) => void saveProviderOAuth(id, json).catch((error: unknown) => log.warn("provider.oauth_save_failed", { id, error: String(error) })),
-		);
-		const models = createModels({ credentials });
-		const infos: ModelInfo[] = [];
-		configs.forEach((config, index) => {
-			const name = providerName(config);
-			if (config.kind === "custom") {
-				const ids = lists[config.id] ?? [];
-				const provider = customProvider(config, settings.providerKeys[config.id] ?? "", ids, catalog);
-				models.setProvider(withCompaction(provider, compactAt));
-				for (const model of provider.getModels()) infos.push(describe(model, name, compactAt, inCatalog(catalog, model.id)));
-				return;
-			}
-			const provider = loaded[index];
-			if (!provider) return;
-			models.setProvider(withCompaction(provider, compactAt));
-			for (const model of provider.getModels()) infos.push(describe(model, name, compactAt));
-		});
-
+		const { models, infos, webSearch } = await loadModels(settings, options.modelIds ?? startModelList(settings), options.onReport);
 		const registry = createRegistry();
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
-			changed: () => void runtimeRef?.syncTriggers(),
+			changed: () => void runtimeRef?.triggers.sync(),
 			notify: async (title, text, conversationId) => {
 				const bot = (await runtimeRef?.bots())?.find((candidate) => candidate.id === conversationId);
 				return (await options.notify?.(title, text, conversationId, bot && avatarOf(bot))) ?? false;
 			},
 		};
 		const folders = new Map<string, string>();
-		const clouds = cloudConnections(settings);
+		const clouds = connectClouds(settings);
 		const choices = new Map<string, string | undefined>();
 		const computers = new Computers(settings, clouds.minted);
 		const sandboxOf = (id: string) => computers.sandbox(computers.resolve(choices.get(id)).key);
@@ -323,7 +185,7 @@ export class AgentRuntime {
 			calendarAccess: parseCalendarAccess(settings.calendarAccess),
 			...(settings.githubToken ? { githubToken: async () => settings.githubToken || undefined } : {}),
 			clouds: clouds.services,
-			web: webSearchConfig(configs, settings.providerKeys, lists, infos),
+			web: webSearch,
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			sandbox: { sandboxOf, folderOf: (id: string) => folders.get(id) },
@@ -368,7 +230,7 @@ export class AgentRuntime {
 		runtimeRef = runtime;
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
-		await runtime.syncTriggers().catch((error: unknown) => options.onReport?.(`排程同步失敗：${messageOf(error)}`));
+		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`排程同步失敗：${messageOf(error)}`));
 		harness.resume();
 		return runtime;
 	}
@@ -442,7 +304,7 @@ export class AgentRuntime {
 			bot.job = change.job.trim();
 			bot.avatar = change.avatar;
 		});
-		await this.syncTriggers().catch((error: unknown) => log.warn("triggers.sync_failed", { error: messageOf(error) }));
+		await orLogged(this.triggers.sync(), "triggers.sync_failed", undefined);
 	}
 
 	async removeBot(id: ConversationId): Promise<void> {
@@ -458,7 +320,7 @@ export class AgentRuntime {
 				.map((sandbox) => sandbox && orLogged(sandbox.remove(bot.folder), "bot.remove_container_folder_failed", undefined, { bot: bot.folder })),
 		);
 		await orLogged(removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
-		await this.#editTriggers((items) => items.filter((item) => item.conversationId !== id));
+		await this.triggers.removeBot(id);
 		await orLogged(deleteAttachments({ conversationId: String(id) }), "bot.remove_attachments_failed", undefined, { bot: String(id) });
 		await this.#harness.commit(async (tx) => {
 			const items = (await tx.doc(BotIndex)).items;
@@ -523,12 +385,7 @@ export class AgentRuntime {
 			},
 			send: (content, whenBusy = "steer") => {
 				const submitted = (async () => {
-					if (content.length > 0) {
-						await this.#editBots((items) => {
-							const bot = items.find((candidate) => candidate.id === id);
-							if (bot) bot.updatedAt = Date.now();
-						});
-					}
+					if (content.length > 0) await this.#touchBot(id, Date.now());
 					await conversation.submit({ type: "input", content, whenBusy }, context);
 				})();
 				inFlight.add(submitted);
@@ -647,99 +504,6 @@ export class AgentRuntime {
 			memory.updatedBy = "user";
 		}, context);
 		this.publishMemory();
-	}
-
-	subscribeTriggers(listener: (state: TriggerState) => void): () => void {
-		this.#triggerListeners.add(listener);
-		listener(this.#triggerState);
-		return () => this.#triggerListeners.delete(listener);
-	}
-
-	async syncTriggers(): Promise<void> {
-		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
-		const avatars = new Map((await this.bots()).map((bot) => [bot.id, avatarOf(bot)]));
-		const schedules = items
-			.filter((item) => item.enabled)
-			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
-		const next = nativeTriggers ? (await Triggers.sync({ schedules })).next : {};
-		this.#triggerState = { items: [...items], next };
-		for (const listener of this.#triggerListeners) listener(this.#triggerState);
-	}
-
-	async #editTriggers(edit: (items: Trigger[]) => Trigger[]): Promise<void> {
-		await this.#harness.commit(async (tx) => {
-			const doc = await tx.doc(TriggerDoc);
-			doc.items = edit(doc.items);
-		}, context);
-		await this.syncTriggers();
-	}
-
-	setTriggerEnabled(id: string, enabled: boolean): Promise<void> {
-		return this.#editTriggers((items) => items.map((item) => (item.id === id ? { ...item, enabled } : item)));
-	}
-
-	deleteTrigger(id: string): Promise<void> {
-		return this.#editTriggers((items) => items.filter((item) => item.id !== id));
-	}
-
-	async runTrigger(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
-		const doc = await this.#harness.snapshot(TriggerDoc, context);
-		const trigger = doc?.items.find((item) => item.id === id);
-		if (!trigger) return undefined;
-		const today = startOfToday();
-		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
-		const overLimit =
-			delivery !== "manual" &&
-			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
-		const known = new Set((await this.bots()).map((bot) => bot.id));
-		const conversationId = !overLimit && known.has(trigger.conversationId) ? trigger.conversationId : undefined;
-		const now = Date.now();
-		await this.#harness.commit(async (tx) => {
-			const triggers = await tx.doc(TriggerDoc);
-			const item = triggers.items.find((candidate) => candidate.id === id);
-			if (!item) return;
-			if (!conversationId) {
-				item.last = { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" };
-				return;
-			}
-			item.last = { at: now, delivery };
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: now }];
-			if (item.when.kind === "once" && delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
-		}, context);
-		await this.syncTriggers();
-		if (!conversationId) return undefined;
-		const conversation = await this.#harness.conversation(conversationId, context);
-		if (!conversation) return undefined;
-		await this.#editBots((items) => {
-			const bot = items.find((candidate) => candidate.id === conversationId);
-			if (bot) bot.updatedAt = now;
-		});
-		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
-		const heard = event ? (device ?? trigger.when.kind) : undefined;
-		const label =
-			trigger.kind === "followup"
-				? "follow-up you scheduled"
-				: heard
-					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
-					: `schedule "${trigger.name}"`;
-		this.#triggered.add(conversationId);
-		await conversation.submit(
-			{
-				type: "input",
-				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
-				entry: {
-					kind: TRIGGER_ENTRY,
-					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now, ...(heard ? { device: heard } : {}) },
-				},
-				whenBusy: "followUp",
-			},
-			context,
-		);
-		return conversationId;
-	}
-
-	takeTriggered(id: ConversationId): boolean {
-		return this.#triggered.delete(id);
 	}
 
 	inspect(): Promise<unknown> {

@@ -14,8 +14,8 @@ import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
 import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime, TriggerState } from "../agent/runtime.ts";
-import { Triggers } from "../agent/triggers.ts";
+import type { AgentRuntime } from "../agent/runtime.ts";
+import { Triggers, type TriggerState } from "../agent/triggers.ts";
 import { isConfigured, type Settings } from "../settings.ts";
 import { BackIcon, ChevronIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
@@ -173,7 +173,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const [exact, setExact] = useState<boolean>();
 	const [bluetooth, setBluetooth] = useState<boolean>();
 	const [error, setError] = useState("");
-	useEffect(() => runtime.subscribeTriggers(setState), [runtime]);
+	useEffect(() => runtime.triggers.subscribe(setState), [runtime]);
 	useEffect(() => runtime.subscribeBots(setBots), [runtime]);
 	useEffect(() => {
 		if (!native) return;
@@ -185,7 +185,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 		refresh();
 		const listener = App.addListener("resume", () => {
 			refresh();
-			void runtime.syncTriggers();
+			void runtime.triggers.sync();
 		});
 		return () => void listener.then((handle) => handle.remove());
 	}, [runtime]);
@@ -380,7 +380,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	const [, setVersion] = useState(0);
 	const [memory, setMemory] = useState<number>();
 	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text.trim().length)), [runtime]);
-	useEffect(() => runtime?.subscribeTriggers((state) => setTriggers(state.items.length)), [runtime]);
+	useEffect(() => runtime?.triggers.subscribe((state) => setTriggers(state.items.length)), [runtime]);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 	useEffect(() => {
 		if (native) void Database.schema().then((schema) => setTables(schema.tables.length));

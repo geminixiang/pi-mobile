@@ -23,7 +23,7 @@ export function processTriggerEvents(
 			for (const event of events) {
 				try {
 					if (event.kind === "alarm") {
-						const conversation = await runtime.runTrigger(event.trigger, event.live ? "live" : "later", event.device);
+						const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", event.device);
 						log.info("trigger.run", { trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
 						await Triggers.started({ trigger: event.trigger });
 						if (!event.live && conversation) handlers.onOpened(conversation);

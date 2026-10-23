@@ -1,6 +1,7 @@
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Value } from "typebox/value";
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
@@ -351,4 +352,126 @@ export function createTriggerExtension(host: TriggerHost) {
 			),
 		],
 	});
+}
+
+export interface TriggerState {
+	items: Trigger[];
+	next: Record<string, number>;
+}
+
+function startOfToday(): number {
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+	return today.getTime();
+}
+
+const context = BACKGROUND_CONTEXT;
+
+export class TriggerRuns {
+	readonly #harness: Harness;
+	readonly #bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>;
+	readonly #touchBot: (id: ConversationId, at: number) => Promise<void>;
+	readonly #listeners = new Set<(state: TriggerState) => void>();
+	#state: TriggerState = { items: [], next: {} };
+	readonly #started = new Set<ConversationId>();
+
+	constructor(harness: Harness, bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>, touchBot: (id: ConversationId, at: number) => Promise<void>) {
+		this.#harness = harness;
+		this.#bots = bots;
+		this.#touchBot = touchBot;
+	}
+
+	removeBot(conversationId: ConversationId): Promise<void> {
+		return this.#edit((items) => items.filter((item) => item.conversationId !== conversationId));
+	}
+
+	subscribe(listener: (state: TriggerState) => void): () => void {
+		this.#listeners.add(listener);
+		listener(this.#state);
+		return () => this.#listeners.delete(listener);
+	}
+
+	async sync(): Promise<void> {
+		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
+		const avatars = new Map((await this.#bots()).map((bot) => [bot.id, bot.avatar]));
+		const schedules = items
+			.filter((item) => item.enabled)
+			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
+		const next = nativeTriggers ? (await Triggers.sync({ schedules })).next : {};
+		this.#state = { items: [...items], next };
+		for (const listener of this.#listeners) listener(this.#state);
+	}
+
+	async #edit(edit: (items: Trigger[]) => Trigger[]): Promise<void> {
+		await this.#harness.commit(async (tx) => {
+			const doc = await tx.doc(TriggerDoc);
+			doc.items = edit(doc.items);
+		}, context);
+		await this.sync();
+	}
+
+	setEnabled(id: string, enabled: boolean): Promise<void> {
+		return this.#edit((items) => items.map((item) => (item.id === id ? { ...item, enabled } : item)));
+	}
+
+	delete(id: string): Promise<void> {
+		return this.#edit((items) => items.filter((item) => item.id !== id));
+	}
+
+	async run(id: string, delivery: Delivery, device?: string): Promise<ConversationId | undefined> {
+		const doc = await this.#harness.snapshot(TriggerDoc, context);
+		const trigger = doc?.items.find((item) => item.id === id);
+		if (!trigger) return undefined;
+		const today = startOfToday();
+		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
+		const overLimit =
+			delivery !== "manual" &&
+			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
+		const known = new Set((await this.#bots()).map((bot) => bot.id));
+		const conversationId = !overLimit && known.has(trigger.conversationId) ? trigger.conversationId : undefined;
+		const now = Date.now();
+		await this.#harness.commit(async (tx) => {
+			const triggers = await tx.doc(TriggerDoc);
+			const item = triggers.items.find((candidate) => candidate.id === id);
+			if (!item) return;
+			if (!conversationId) {
+				item.last = { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" };
+				return;
+			}
+			item.last = { at: now, delivery };
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= today), { trigger: id, at: now }];
+			if (item.when.kind === "once" && delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
+		}, context);
+		await this.sync();
+		if (!conversationId) return undefined;
+		const conversation = await this.#harness.conversation(conversationId, context);
+		if (!conversation) return undefined;
+		await this.#touchBot(conversationId, now);
+		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
+		const heard = event ? (device ?? trigger.when.kind) : undefined;
+		const label =
+			trigger.kind === "followup"
+				? "follow-up you scheduled"
+				: heard
+					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
+					: `schedule "${trigger.name}"`;
+		this.#started.add(conversationId);
+		await conversation.submit(
+			{
+				type: "input",
+				content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
+				entry: {
+					kind: TRIGGER_ENTRY,
+					data: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, at: now, ...(heard ? { device: heard } : {}) },
+				},
+				whenBusy: "followUp",
+			},
+			context,
+		);
+		return conversationId;
+	}
+
+	takeStarted(id: ConversationId): boolean {
+		return this.#started.delete(id);
+	}
 }
