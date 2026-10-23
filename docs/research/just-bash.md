@@ -78,3 +78,22 @@
 | just-bash 本身的差異（`jq unique`、`@csv`、`od -t`、`trap`、`xargs -I`、`$( )` 裡遞迴） | 沒有 issue、PR 或文件提到；測試只驗 adapter 和接線（讀寫、`mv`、輸出截斷、exit code），沒有和 GNU bash 對照 |
 
 他們文件記下的差異只有：輸出不串流（整段結束才回來）、沒有 hard link 和 `utimes`、不能重新接上執行中的指令、`$PATH` 探查的記錄雜訊。給模型的 skill（`examples/worker-shell/src/skills/exec/SKILL.md`）寫的是「管線、變數、迴圈、函式和 bash 一樣」「`xargs` 等常用工具都有」，沒有提到上面這些差異。
+
+### 他們有沒有回報上游
+
+沒有。cloudflare/computer 的貢獻者（aron-cf、mattzcarey、ndisidore、ghostwriternr、scuffi、Caio-Nogueira、cjol）在 vercel-labs/just-bash 沒有開過 issue 或 PR；Cloudflare 組織和這些人也沒有 fork（288 個 fork 裡唯一叫 cloudflare-computer 的是 soonee-ai 的，沒有自己的 commit）。他們直接用 npm 上的 just-bash，沒有 patch，差異全靠 `adapter.ts` 在外面補。
+
+上游很活躍（667 個 issue 和 PR，多半來自社群；最新版 3.6.0 在 2026-10-01），我們找到的有一部分已經有人報：
+
+| 我們的發現 | 上游 |
+|---|---|
+| `> /dev/null` 寫進檔案系統 | #558 已關，修正 #562 在 2026-10-13 合併，還沒發版 |
+| `$(( ))` 裡呼叫函式找不到 | #610 開著 |
+| `xargs -I{}` | #466 開著，修正 #536 還沒合併 |
+| `awk -f` | #468 開著 |
+| awk `printf` 補零 | #608 開著 |
+| 執行上限、上限設成無限會壞 | #599、#612 開著 |
+| `printf` 的位元組跳脫 | #553 開著（UTF-8 的部分） |
+| 瀏覽器版引入 `node:zlib` | #510、#526 開著 |
+
+沒人報過的：`jq unique` 不排序、`@csv` 不加引號、`od -t x1`、`trap`、`date -d` 的相對日期、`sort -g`、`head -n -N`、沒有檔案身分時 `split` 和 `cp` 失敗、`yes` 到上限默默停下。
