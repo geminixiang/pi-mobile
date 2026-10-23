@@ -4,9 +4,9 @@
 
 ## 怎麼測
 
-- `test/bash/cases.json`：136 個情境，涵蓋語法（參數展開、陣列、函式、here-doc、process substitution、glob、`set -e`、`pipefail`）、coreutils、grep/rg、sed、awk、jq、中文與奇怪的檔名、CRLF、二進位、模型常寫的管線。
+- `test/bash/cases.json`：152 個情境（另有 16 個是模型常寫的寫法：BRE、join、`find -exec`、相對日期、`$(( ))` 裡的函式…），涵蓋語法（參數展開、陣列、函式、here-doc、process substitution、glob、`set -e`、`pipefail`）、coreutils、grep/rg、sed、awk、jq、中文與奇怪的檔名、CRLF、二進位、模型常寫的管線。
 - `test/bash/gnu.sh` 在 Debian 13（bash 5.2、GNU coreutils、gawk、jq 1.7）跑同一批情境，產生 `gnu.json`。
-- `CDP_PORT=… node test/bash/run.ts` 在手機上開一個暫時的 Bot 跑一遍，和 GNU 比 stdout 與 exit code；不一樣但已知的差異記在 `accepted.json`，其他算回歸。跑完會刪掉那個 Bot。
+- `CDP_PORT=… node test/bash/run.ts` 在手機上開一個暫時的 Bot 跑一遍，和 GNU 比 stdout 與 exit code；不一樣但已知的差異記在 `accepted.json`，其他算回歸。跑完會刪掉那個 Bot。差異是刻意接受的時候，加 `--accept` 重寫 `accepted.json`。
 - 另外手動測了：路徑逃脫、別的 Bot 的資料夾、大檔案（60 萬行、4 MB）、300 個小檔、輸出洪水、無窮迴圈的逾時、中止、同時執行、深遞迴。
 
 ## 我們這邊修掉的
@@ -39,23 +39,41 @@
 | 輸出 130 萬字元 | 0.2 秒，超過的部分寫到 `/tmp/pi-output-*.log` |
 | `yes \| head -n 500000` | 8.9 秒：管線不是串流，`yes` 先產生到上限才交給 `head` |
 
-## just-bash 本身的差異（`accepted.json`）
+## 我們 patch 掉的 just-bash 問題
 
-會默默給錯答案的，最需要注意：
+上游沒修、或修了還沒發版的，在建置時直接改 just-bash 的瀏覽器版（`vite-plugins/just-bash.ts`）。每個 patch 是一段原文和替換，原文在 bundle 裡必須剛好出現一次，否則建置失敗並指回這份文件。just-bash 鎖定在 3.6.0；升級時這些 patch 要對新的 bundle 重做，上游已經修好的就拿掉。`npm run check` 會跑 `test/bash/patches.ts`，用 Node 載入 patch 過的 bundle 驗證 38 個情境。
 
-- `jq unique` 不排序（`[3,1,2]` → `[3,1,2]`），`@csv` 不幫字串加引號。
-- `od -t x1` 忽略格式，照樣印八進位。
-- `printf '\xff' > f` 寫成 UTF-8 的兩個位元組：重導向依內容猜編碼，二進位資料寫不出來。
-- `yes` 到迭代上限會默默停下。
-- awk 的 `printf "%05.1f"` 不補零。
-- `tree` 的目錄數算錯。
+| 問題 | 原本 | 上游 |
+|---|---|---|
+| `jq unique` | 不排序 | 沒人報 |
+| `jq @csv` | 字串不加引號 | 沒人報 |
+| `od -tx1`（格式黏在選項上） | 忽略格式，印八進位 | 沒人報 |
+| `grep` 的 BRE `\+`、`\?` | 當成字面的 + 和 ?，`grep -o '[0-9]\+'` 什麼都找不到 | 沒人報 |
+| awk 讀取 `a[k]` | 不會建立元素，`NR==FNR{k[$1];next} $1 in k` 這種兩個檔案的 join 什麼都不印 | 沒人報 |
+| awk `length(陣列)` | 回 0 | #647 |
+| `awk -v OFS=…`（ORS、SUBSEP 也是） | 不生效 | 沒人報 |
+| awk `printf "%05.1f"`、`%+f`、`% f` | 不補零、不加正負號 | #608 |
+| `sort -k1,1nr` 遇到行首空白（`uniq -c` 的輸出） | 第一欄變成空字串，排序錯 | 沒人報 |
+| `sort -g` | 不支援 | 沒人報 |
+| `head -n -N` | 不支援 | 沒人報 |
+| `xargs -I{}`、`-n2`、`-d,`、`-P4` | 選項值黏著寫就不認 | #466，修正 #536 未合併 |
+| `paste -s` 沒給檔案 | 不讀 stdin | 沒人報 |
+| `awk -f 程式檔` | 不支援 | #468 |
+| `sed '1a\文字'` | 多印一個反斜線 | 沒人報 |
+| `$(( $(函式) ))` | 找不到函式（遞迴函式算不出來） | #610 |
+| `{1..N}` 超過 1 萬 | 默默只展開 1 萬個 | #610 |
+| `date -d '2024-02-28 +1 day'`、`3 days ago` | 不支援相對日期 | 沒人報 |
+| `yes` | 跟著迭代上限產生 1,000 萬行才交給 `head`（S24 上 7 秒） | 刻意的設計；我們改成最多 100 萬行 |
+| `uniq -c` | 數字寬 4 | 格式差異；改成和 GNU 一樣寬 7 |
 
-直接報錯的（模型看得到，會換別的寫法）：
+## 還留著的差異（`accepted.json`）
 
-- 不支援：`trap`、`xargs -I`、`head -n -N`、`sort -g`、`awk -f`、`grep -s`、`paste -s` 讀 stdin（要寫 `-`）、`date -d '… +1 day'`。
-- 在 `$( )` 裡遞迴呼叫函式會找不到函式。
+152 個情境裡 127 個和 GNU 一樣。其餘 25 個：
 
-只是格式不同：`uniq -c` 的欄寬、`grep -r` 不加 `./`、`rg` 一律印行號、`ls` 和 `sort` 對中文用語系排序、`cut -c` 和 `wc -m` 以字元計算（GNU 以位元組計算）、背景工作 `&` 不會真的並行。
+- 會直接報錯的：`trap`（沒有實作）、`grep -s`、`seq -f`、`realpath`。
+- 二進位：`printf '\xff' > f` 寫成 UTF-8 的兩個位元組（重導向依內容猜編碼），二進位資料寫不出來。
+- 和 GNU 不同但不算錯：`cut -c`、`wc -m` 以字元計（GNU 以位元組）；`ls`、`find` 對中文用語系排序；`grep -r` 不加 `./`；`rg` 一律印行號；`wc` 的欄寬；`tree` 用 ASCII 線條；`od -c` 的間距；背景工作 `&` 不會真的並行；`date -d '… 12:00 +3 hours'` 我們加三小時，GNU 把 `+3` 當成時區。
+- `sed -i.bak` 不留備份、`env -i` 多印 `PWD`、`tree` 的目錄數算錯。
 
 ## 模型實際用起來
 

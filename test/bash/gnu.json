@@ -542,5 +542,69 @@
  "gzip-roundtrip": {
   "stdout": "n\nn.gz\n1000\n1000\n1000 n\n中文 gz\n",
   "exit": 0
+ },
+ "idiom-grep-bre": {
+  "stdout": "120+260+45\n3\nline one\nline two\n4\n",
+  "exit": 0
+ },
+ "idiom-sed-groups": {
+  "stdout": "kaohsiung:dave=45\ntainan:eve=3\none line\nline two\nthird line\n\n",
+  "exit": 0
+ },
+ "idiom-tr-classes": {
+  "stdout": "hello world 123\nab\nx y\n",
+  "exit": 0
+ },
+ "idiom-awk-join": {
+  "stdout": "alice,taipei,30\ncarol,taipei,7\nalice\t30\nbob\t12\n3\n",
+  "exit": 0
+ },
+ "idiom-sort-uniq-top": {
+  "stdout": "      2 tainan\n      2 taipei\ndave\n",
+  "exit": 0
+ },
+ "idiom-find-exec": {
+  "stdout": " 5 total\nreadme.md\nsrc/lib/util.py:1\nsrc/main.py:1\n",
+  "exit": 0
+ },
+ "idiom-jq-more": {
+  "stdout": "alice\ncarol\n30\n0 alice\n1 bob\n2 carol\n\"default\"\n2\n{\"alice\":30,\"bob\":25,\"carol\":35}\n",
+  "exit": 0
+ },
+ "idiom-column-printf": {
+  "stdout": "name   city       amount\nalice  taipei     30\nbob    tainan     12\nabc     |  3.1|\nxy      | 10.0|\nitem-001\nitem-002\nitem-003\n",
+  "exit": 0
+ },
+ "idiom-date-epoch": {
+  "stdout": "1970-01-02 00:00\n1792713600\n2026-10-23 10:00\n2026-03-03\n",
+  "exit": 0
+ },
+ "idiom-heredoc-file": {
+  "stdout": "# Report\nTotal: 97\n2 report.md\n",
+  "exit": 0
+ },
+ "idiom-arith-funcs": {
+  "stdout": "14\n5\n",
+  "exit": 0
+ },
+ "idiom-while-read-sum": {
+  "stdout": "97\n5\n",
+  "exit": 0
+ },
+ "idiom-xargs-attached": {
+  "stdout": "d\nc\nfile:src/main.py\n",
+  "exit": 0
+ },
+ "idiom-head-tail-neg": {
+  "stdout": "carol,taipei,7\n3\n",
+  "exit": 0
+ },
+ "idiom-csv-quote": {
+  "stdout": "\"alice\",\"a;b\",30\n\"bob\",\"\",25\n\"carol\",\"b\",35\n",
+  "exit": 0
+ },
+ "idiom-seq-range": {
+  "stdout": "done\n6\n1,2,3\n",
+  "exit": 0
  }
 }

@@ -1,14 +1,6 @@
 {
- "recursion": {
-  "stdout": "0\n0\n",
-  "exit": 0
- },
  "trap-exit": {
   "stdout": "work\n",
-  "exit": 0
- },
- "xargs": {
-  "stdout": "a b c\n1 2\n3 4\n5\nf1 f2\n",
   "exit": 0
  },
  "xargs-files": {
@@ -23,36 +15,16 @@
   "stdout": "late\nearly\ndone\n",
   "exit": 0
  },
- "head-tail": {
-  "stdout": "name,city,amount\nalice,taipei,30\nname,city,\ndave,kaohsiung,45\neve,tainan,3\ncarol,taipei,7\ndave,kaohsiung,45\neve,tainan,3\nainan,3\n",
-  "exit": 1
- },
- "sort-keys": {
-  "stdout": "y 1 a\nz 3 a\nx 3 b\n",
-  "exit": 1
- },
- "uniq": {
-  "stdout": "a\nb\na\nc\n   2 a\n   1 b\na\nb\n   2 taipei\n   2 tainan\n   1 kaohsiung\n",
-  "exit": 0
- },
  "cut": {
   "stdout": "name,amount\nalice,30\nbob,12\ncarol,7\ndave,45\neve,3\nline\nline\nthir\n\nfift\n便當\n拉麵\n蛋餅\nb:c:d\n午餐\n晚餐\n早餐\n",
   "exit": 0
- },
- "paste": {
-  "stdout": "1,a\n2,b\n3,c\n1\t2\t3\n4\t5\t6\n",
-  "exit": 1
  },
  "rev-tac-nl": {
   "stdout": "eno enil\nowt enil\nenil driht\n\nliat :htfif\nfifth: tail\n\nthird line\nline two\nline one\n     1\tline one\n     2\tline two\n     3\tthird line\n      \t\n     4\tfifth: tail\n     1\tline one\n     2\tline two\n     3\tthird line\n     4\t\n     5\tfifth: tail\n",
   "exit": 0
  },
- "date-fixed": {
-  "stdout": "1970-01-01_00:00:00\n2026/03/01 12 34 56 Sunday 060\n1\n",
-  "exit": 0
- },
  "base64-od": {
-  "stdout": "cGkgbW9iaWxl\npi mobile\n 101 102 012\n0000000    h   i\n0000002\n",
+  "stdout": "cGkgbW9iaWxl\npi mobile\n 41 42 0a\n0000000    h   i\n0000002\n",
   "exit": 0
  },
  "find": {
@@ -87,10 +59,6 @@
   "stdout": "line one\nline two\nthird line\n1:line one\n2:line two\n3:third line\n3\n\nfifth: tail\n3\nline two\nline\nline\nline\nl\nline one\nthird line\nsrc/lib/util.py:    return 1  # TODO later\nsrc/main.py:TODO: fix\nsrc/lib/util.py\nsrc/main.py\n    return 1  # TODO later\nTODO: fix\n",
   "exit": 0
  },
- "grep-cjk": {
-  "stdout": "晚餐 拉麵 260\n\n",
-  "exit": 0
- },
  "grep-missing": {
   "stdout": "rc=2\nrc=1\n",
   "exit": 0
@@ -103,32 +71,12 @@
   "stdout": "2\nline two\n",
   "exit": 2
  },
- "sed-commands": {
-  "stdout": "1\n2\n\\added\n3\n4\n5\n1\n\\inserted\n2\n3\n1\n\\changed\n3\n1\n3\n5\n5\nhippo\n1+2\n3+4\n",
-  "exit": 0
- },
- "awk-funcs": {
-  "stdout": "HELLO world 11 Hello 7\n3 c\nX bar X\nx is 1\n  3.1|ab  |A\n7 4 256 1\n",
-  "exit": 0
- },
- "awk-script-file": {
-  "stdout": "",
-  "exit": 1
- },
- "jq-construct": {
-  "stdout": "{\"a\":1,\"b\":2}\n[0,2,4,6,8]\n[1,2,3]\n1\n3\n[3,1,2]\n{\"greet\":\"hi\"}\n01\n[\"a\",\"b\",1,\"c\"]\n",
-  "exit": 0
- },
- "jq-csv": {
-  "stdout": "alice,30\nbob,25\ncarol,35\nalice\t30\nbob\t25\ncarol\t35\n[\"a\",\"b\"]\n",
-  "exit": 0
- },
  "cjk-filenames": {
   "stdout": "空白 名稱\n帳.txt\n報告 一.txt\ndata.csv\ndata.json\ndocs\nnotes 2.md\nnotes.txt\nsrc\n[notes.txt]\n[報告 一.txt]\n[帳.txt]\n報告.txt\n早餐 蛋餅 45\n午餐 便當 120\n晚餐 拉麵 260\n",
   "exit": 0
  },
  "emoji": {
-  "stdout": "7\n8\n🥧\n 360 237 245 247 012\n",
+  "stdout": "7\n8\n🥧\n f0 9f a5 a7 0a\n",
   "exit": 0
  },
  "crlf": {
@@ -136,11 +84,19 @@
   "exit": 0
  },
  "binary-roundtrip": {
-  "stdout": " 000 001 303 277 303 276\na2bff19a7d71b6957b464e861a4832d2  b.bin\na2bff19a7d71b6957b464e861a4832d2  c.bin\n6 c.bin\n",
+  "stdout": " 00 01 c3 bf c3 be\na2bff19a7d71b6957b464e861a4832d2  b.bin\na2bff19a7d71b6957b464e861a4832d2  c.bin\n6 c.bin\n",
   "exit": 0
  },
- "pipeline-wordfreq": {
-  "stdout": "   1 fifth\n   1 one\n   1 tail\n",
+ "idiom-find-exec": {
+  "stdout": "  5 total\nreadme.md\nsrc/lib/util.py:1\nsrc/main.py:1\n",
+  "exit": 0
+ },
+ "idiom-column-printf": {
+  "stdout": "name   city       amount\nalice  taipei     30\nbob    tainan     12\nabc     |  3.1|\nxy      | 10.0|\n",
+  "exit": 1
+ },
+ "idiom-date-epoch": {
+  "stdout": "1970-01-02 00:00\n1792713600\n2026-10-23 15:00\n2026-03-03\n",
   "exit": 0
  }
 }

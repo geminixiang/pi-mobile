@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { justBashPatches } from "./vite-plugins/just-bash.ts";
 
 const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, import.meta.url));
 
@@ -49,7 +50,7 @@ function pdfjsAssets(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [react(), piEnvDaemons(), pdfjsAssets()],
+	plugins: [react(), piEnvDaemons(), pdfjsAssets(), justBashPatches()],
 	define: {
 		__PI_ENV_DAEMONS__: JSON.stringify(
 			Object.fromEntries(DAEMONS.map((name) => [name, createHash("sha256").update(readFileSync(daemonFile(name))).digest("hex")])),
@@ -58,7 +59,7 @@ export default defineConfig({
 			`${execSync("git rev-parse --short HEAD").toString().trim()} · ${new Date().toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}`,
 		),
 	},
-	worker: { format: "es" },
+	worker: { format: "es", plugins: () => [justBashPatches()] },
 	resolve: {
 		alias: {
 			"@earendil-works/pi-env": shim("pi-env.ts"),

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 
@@ -6,7 +6,8 @@ const Outcome = Type.Object({ stdout: Type.String(), exit: Type.Number() });
 type Outcome = { stdout: string; exit: number };
 
 const port = process.env.CDP_PORT ?? "9333";
-const only = process.argv[2];
+const accept = process.argv.includes("--accept");
+const only = process.argv.slice(2).find((arg) => !arg.startsWith("--"));
 const here = new URL(".", import.meta.url);
 const read = <T>(name: string): T => JSON.parse(readFileSync(new URL(name, here), "utf8"));
 const cases = read<Record<string, string>>("cases.json");
@@ -43,6 +44,7 @@ await evaluate(`(async () => {
 	window.__bashRegression = { id, env: rt.phoneFolder(id) };
 })()`);
 
+const differences: Record<string, Outcome> = {};
 const regressions: string[] = [];
 const fixed: string[] = [];
 let matchesGnu = 0;
@@ -57,6 +59,7 @@ for (const [name, body] of Object.entries(cases)) {
 		return { stdout, exit: result.ok ? result.value.exitCode : -1 };
 	})()`));
 	const same = (expected: Outcome | undefined) => expected !== undefined && expected.stdout === outcome.stdout && expected.exit === outcome.exit;
+	if (!same(gnu[name])) differences[name] = outcome;
 	if (same(gnu[name])) {
 		matchesGnu += 1;
 		if (accepted[name]) fixed.push(name);
@@ -69,6 +72,11 @@ for (const [name, body] of Object.entries(cases)) {
 
 await evaluate(`window.piRuntime.removeBot(window.__bashRegression.id)`);
 socket.close();
+if (accept && !only) {
+	writeFileSync(new URL("accepted.json", here), `${JSON.stringify(differences, null, 1)}\n`);
+	console.log(`accepted.json now holds the ${Object.keys(differences).length} cases that differ from GNU`);
+	process.exit(0);
+}
 console.log(`bash: ${matchesGnu} match GNU, ${acceptedGaps} known gaps (accepted.json), ${regressions.length} regressions`);
 if (fixed.length > 0) console.log(`now match GNU, drop from accepted.json: ${fixed.join(" ")}`);
 if (regressions.length > 0) {

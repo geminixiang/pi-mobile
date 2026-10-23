@@ -40,6 +40,7 @@ const LIMITS = {
 	maxAwkIterations: DATA_SCALE_LIMIT,
 	maxSedIterations: DATA_SCALE_LIMIT,
 	maxJqIterations: DATA_SCALE_LIMIT,
+	maxBraceExpansionResults: DATA_SCALE_LIMIT,
 };
 
 function isStat(value: FsValue): value is { kind: "file" | "directory"; size: number; mtimeMs: number; executable: boolean } {
