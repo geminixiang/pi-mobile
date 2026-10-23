@@ -15,7 +15,7 @@ import { Type } from "typebox";
 import { decode } from "./parse.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { Loopback } from "../loopback-plugin.ts";
-import { messageOf, settled } from "../promise.ts";
+import { messageOf, orLogged, settled } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";
@@ -127,6 +127,8 @@ class Connection {
 	readonly server: McpServer;
 	status: McpStatus;
 	#client: Promise<McpClient> | undefined;
+	#live: McpClient | undefined;
+	#generation = 0;
 	readonly #provider: McpOAuthProvider;
 	readonly #install: (extension: Extension) => void;
 	readonly #changed: () => void;
@@ -166,14 +168,16 @@ class Connection {
 	}
 
 	client(): Promise<McpClient> {
-		this.#client ??= this.#connect().catch((error: unknown) => {
-			this.#client = undefined;
+		if (this.#client) return this.#client;
+		const pending = this.#connect(this.#generation).catch((error: unknown) => {
+			if (this.#client === pending) this.#client = undefined;
 			throw error;
 		});
-		return this.#client;
+		this.#client = pending;
+		return pending;
 	}
 
-	async #connect(): Promise<McpClient> {
+	async #connect(generation: number): Promise<McpClient> {
 		this.#set({ state: "connecting", tools: this.status.tools });
 		const client = new McpClient({ name: "pi-mobile", version: "1.0.0" });
 		const onComputer = parseComputerMcp(this.server.url);
@@ -195,7 +199,14 @@ class Connection {
 			this.#set({ state: "error", tools: this.status.tools, message: messageOf(error) });
 			throw error;
 		}
+		if (generation !== this.#generation) {
+			await client.close();
+			throw new Error(`${this.server.name}: superseded by a newer connection`);
+		}
+		this.#live = client;
 		client.onClose(() => {
+			if (this.#live !== client) return;
+			this.#live = undefined;
 			this.#client = undefined;
 		});
 		const tools = await client.listTools();
@@ -206,9 +217,16 @@ class Connection {
 		return client;
 	}
 
-	refresh(): void {
+	async close(): Promise<void> {
+		this.#generation++;
 		this.#client = undefined;
-		void settled(this.client());
+		const live = this.#live;
+		this.#live = undefined;
+		if (live) await orLogged(live.close(), "mcp.close_failed", undefined, { server: this.server.id });
+	}
+
+	refresh(): void {
+		void this.close().then(() => settled(this.client()));
 	}
 
 	async login(): Promise<void> {
@@ -265,7 +283,7 @@ class Connection {
 
 	async logout(): Promise<void> {
 		if ((await SecureStorage.keys()).includes(stateKey(this.server))) await SecureStorage.remove(stateKey(this.server));
-		this.#client = undefined;
+		await this.close();
 		this.#set({ state: "idle", tools: this.status.tools });
 	}
 
@@ -316,13 +334,20 @@ class Connection {
 	}
 }
 
+type McpHooks = {
+	install: (extension: Extension) => void;
+	uninstall: (name: string) => void;
+	revoke: (extension: string) => Promise<void>;
+	openUrl: (url: string) => Promise<void>;
+};
+
 export class McpHub {
 	readonly #connections = new Map<string, Connection>();
 	readonly #listeners = new Set<() => void>();
 
-	readonly #hooks: { install: (extension: Extension) => void; uninstall: (name: string) => void; openUrl: (url: string) => Promise<void> };
+	readonly #hooks: McpHooks;
 
-	constructor(hooks: { install: (extension: Extension) => void; uninstall: (name: string) => void; openUrl: (url: string) => Promise<void> }) {
+	constructor(hooks: McpHooks) {
 		this.#hooks = hooks;
 		for (const server of parseMcpServers(localStorage.getItem(SERVERS_KEY) ?? "")) this.#open(server);
 	}
@@ -341,10 +366,11 @@ export class McpHub {
 		localStorage.setItem(SERVERS_KEY, JSON.stringify(this.servers));
 	}
 
-	add(name: string, url: string): McpServer {
+	async add(name: string, url: string): Promise<McpServer> {
 		const existing = this.servers.find((server) => server.url === url);
 		if (existing) return existing;
 		const server: McpServer = { id: serverId(name, url, this.servers.map((item) => item.id)), name, url };
+		await this.#hooks.revoke(extensionName(server));
 		this.#open(server).refresh();
 		this.#save();
 		this.#changed();
@@ -354,6 +380,7 @@ export class McpHub {
 	async remove(id: string): Promise<void> {
 		const connection = this.#connections.get(id);
 		if (!connection) return;
+		await this.#hooks.revoke(extensionName(connection.server));
 		await connection.logout();
 		localStorage.removeItem(cacheKey(connection.server));
 		this.#connections.delete(id);
@@ -391,6 +418,10 @@ export class McpHub {
 
 	logout(id: string): Promise<void> {
 		return this.#connections.get(id)?.logout() ?? Promise.resolve();
+	}
+
+	async close(): Promise<void> {
+		await Promise.all([...this.#connections.values()].map((connection) => connection.close()));
 	}
 
 }

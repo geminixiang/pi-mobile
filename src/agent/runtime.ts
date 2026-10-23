@@ -30,7 +30,7 @@ import { hostOf } from "./parse.ts";
 import type { Host } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isEnabled, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
+import { isEnabled, type Selection, selectionOf, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, withToolset } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -180,6 +180,7 @@ export class AgentRuntime {
 		const mcp: McpHub = new McpHub({
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
+			revoke: (extension) => runtimeRef?.revokeEverywhere(extension) ?? Promise.resolve(),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 		});
 		for (const extension of builtinExtensions({
@@ -469,19 +470,37 @@ export class AgentRuntime {
 	}
 
 	setToolset(id: ConversationId, toolset: ToolsetId | string, enabled: boolean): Promise<void> {
-		const change = this.#toolsetWrites.then(async () => {
+		return this.#writeToolsets(async () => {
 			const target = this.#allToolsets().find((candidate) => candidate.id === toolset);
-			const conversation = await this.#harness.conversation(id, context);
-			if (!target || !conversation) return;
-			const selection = withToolset(selectionOf(await this.#harness.snapshot(AgentDoc, id, context)), target, enabled);
-			const named = (names: string[]) => names.map((name) => ({ name }));
-			await conversation.configure(
-				{ extensions: selection.add.length + selection.remove.length > 0 ? { add: named(selection.add), remove: named(selection.remove) } : null },
-				context,
-			);
+			if (target) await this.#select(id, (selection) => withToolset(selection, target, enabled));
 		});
+	}
+
+	revokeEverywhere(extension: string): Promise<void> {
+		return this.#writeToolsets(async () => {
+			for (const bot of await this.bots()) {
+				await this.#select(bot.id, (selection) => ({ add: selection.add.filter((name) => name !== extension), remove: selection.remove }));
+			}
+		});
+	}
+
+	#writeToolsets(write: () => Promise<void>): Promise<void> {
+		const change = this.#toolsetWrites.then(write);
 		this.#toolsetWrites = settled(change);
 		return change;
+	}
+
+	async #select(id: ConversationId, change: (selection: Selection) => Selection): Promise<void> {
+		const conversation = await this.#harness.conversation(id, context);
+		if (!conversation) return;
+		const before = selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
+		const selection = change(before);
+		if (JSON.stringify(selection) === JSON.stringify(before)) return;
+		const named = (names: string[]) => names.map((name) => ({ name }));
+		await conversation.configure(
+			{ extensions: selection.add.length + selection.remove.length > 0 ? { add: named(selection.add), remove: named(selection.remove) } : null },
+			context,
+		);
 	}
 
 	async memory(scope: MemoryScope): Promise<Memory> {
@@ -517,6 +536,7 @@ export class AgentRuntime {
 	}
 
 	async close(): Promise<void> {
+		await this.mcp.close();
 		await this.#harness.close(context);
 		this.#computers.close();
 	}

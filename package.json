@@ -7,8 +7,9 @@
 	"scripts": {
 		"dev": "vite --host 0.0.0.0",
 		"build": "npm run check && vite build",
-		"check": "tsc --noEmit && stylelint \"src/**/*.css\" && node test/no-comments.ts && npm run check:tools && node --import ./test/vite-imports.js test/contracts-node.ts && node test/bash/patches.ts",
-		"check:tools": "node --import ./test/vite-imports.js test/tool-args-node.ts && node --import ./test/vite-imports.js test/tools-node.ts"
+		"check": "tsc --noEmit && stylelint \"src/**/*.css\" && node test/no-comments.ts && npm run check:tools && npm run check:contracts && node test/bash/patches.ts",
+		"check:tools": "node --import ./test/vite-imports.js test/tool-args-node.ts && node --import ./test/vite-imports.js test/tools-node.ts",
+		"check:contracts": "node --experimental-test-module-mocks --no-warnings --import ./test/vite-imports.js test/contracts-node.ts"
 	},
 	"dependencies": {
 		"@aparajita/capacitor-secure-storage": "8.0.1",

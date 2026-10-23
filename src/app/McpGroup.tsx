@@ -63,9 +63,11 @@ function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; serve
 function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
 	const connected = new Set(runtime.mcp.servers.map((server) => server.url));
 	const connect = (entry: CatalogEntry) => {
-		const server = runtime.mcp.add(entry.name, entry.url);
 		onClose();
-		if (entry.auth === "oauth") runtime.mcp.login(server.id).catch((error: unknown) => onError(messageOf(error)));
+		runtime.mcp
+			.add(entry.name, entry.url)
+			.then((server) => (entry.auth === "oauth" ? runtime.mcp.login(server.id) : undefined))
+			.catch((error: unknown) => onError(messageOf(error)));
 	};
 	const categories = Object.keys(CATEGORIES).filter((key): key is CatalogCategory => key in CATEGORIES);
 	return (
@@ -110,7 +112,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 	const add = () => {
 		const url = draft.url.trim();
 		const host = URL.canParse(url) ? new URL(url).hostname : url;
-		runtime?.mcp.add(draft.name.trim() || host, url);
+		runtime?.mcp.add(draft.name.trim() || host, url).catch((error: unknown) => onError(messageOf(error)));
 		setDraft({ name: "", url: "" });
 	};
 	const remove = (id: string) => void runtime?.mcp.remove(id).catch((error: unknown) => onError(messageOf(error)));
