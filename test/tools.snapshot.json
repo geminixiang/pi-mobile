@@ -1489,6 +1489,10 @@
 						{
 							"const": "spoken-report",
 							"type": "string"
+						},
+						{
+							"const": "html-page",
+							"type": "string"
 						}
 					],
 					"description": "A skill listed in the system prompt"

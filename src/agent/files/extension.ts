@@ -2,7 +2,7 @@ import { defineExtension, section } from "@earendil-works/pi-durable";
 import type { Workplace } from "../workplaces.ts";
 
 export const SHOWN_AS_FILE =
-	"To give the user something to look at or send on (a report, a comparison, a chart, a small tool), write a self-contained .html file: inline CSS and JS, SVG or canvas for charts, no CDN or network. The app shows it and can share it; tell the user the file name.";
+	"To give the user something to look at or send on (a report, a comparison, a chart, a small tool), write a self-contained .html file after reading the html-page skill. The app shows it and can share it.";
 
 const FOLDER = [
 	"read, write, edit, and bash work in your own folder on this phone; / is its root and nothing outside it exists. It is private and kept across conversations: put there what the user will want as a file, or what is too long for the conversation; short facts go in memory. A file the user names is probably already there: ls before saying it is missing, and work on it with bash rather than reading it whole.",

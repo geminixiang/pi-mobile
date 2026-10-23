@@ -77,7 +77,7 @@
 
 **工作區**
 - 瀏覽 Bot 的資料夾——在手機上，或在電腦上（例如 `/workspace/pi`）——看檔案（行號、Markdown 預覽、圖片），電腦上還有每個 git repo 的變更、diff 和最近的 commit。
-- **HTML 成果**：請 Bot 做報告、比較表、圖表、小工具，它會寫成一個 `.html` 檔；在工作區打開就是預覽（在隔離的框裡跑，碰不到 app、沒有網路），右上角「分享」把檔案傳到 LINE、email、Drive 或存到裝置。設計見 `docs/design/artifacts.md`。
+- **HTML 成果**：請 Bot 做報告、比較表、圖表、小工具，它會先讀 `html-page` 技能（`src/agent/skills/html-page.md`：文件的樣子、結論先講、一個強調色、圖上標數值、不連網），寫成一個 `.html` 檔；在工作區打開就是預覽（在隔離的框裡跑，碰不到 app、沒有網路），右上角「分享」把檔案傳到 LINE、email、Drive 或存到裝置。設計見 `docs/design/artifacts.md`。
 - Agent 用 `read` 讀回來的圖片（圖表、轉檔後的照片）會直接顯示在對話裡；工具步驟上的檔案圖示會在工作區打開那個檔案，code mode 或 bash 的輸出提到 `.html` 時也有。
 
 **操作**

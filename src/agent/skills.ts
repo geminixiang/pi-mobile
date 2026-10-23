@@ -1,6 +1,7 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "./tools/common.ts";
 import { Type } from "typebox";
+import htmlPage from "./skills/html-page.md?raw";
 import spokenReport from "./skills/spoken-report.md?raw";
 
 interface Skill {
@@ -14,6 +15,11 @@ const SKILLS: readonly Skill[] = [
 		name: "spoken-report",
 		when: "before writing anything for speak: a headphones briefing, or when the user wants to hear a report",
 		text: spokenReport,
+	},
+	{
+		name: "html-page",
+		when: "before writing an .html file for the user: a report, a comparison, a chart, a small tool",
+		text: htmlPage,
 	},
 ];
 
