@@ -59,7 +59,13 @@ export function App() {
 	const [pendingFiles, setPendingFiles] = useState<readonly File[]>();
 	const [pendingShared, setPendingShared] = useState<SharedKind>();
 	const [overlay, setOverlay] = useState<Overlay>();
-	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
+	// Questions wait in line: tools in one round can ask at once (each write approved), and one must not replace another
+	// unanswered, which left its tool waiting forever.
+	type Asked = { request: DialogRequest; resolve: (value: string | boolean | undefined) => void };
+	const [dialogs, setDialogs] = useState<Asked[]>([]);
+	const dialog = dialogs[0];
+	const showDialog = useCallback((asked: Asked) => setDialogs((queue) => [...queue, asked]), []);
+	const dropDialog = useCallback((resolve: Asked["resolve"]) => setDialogs((queue) => queue.filter((item) => item.resolve !== resolve)), []);
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
@@ -95,8 +101,8 @@ export function App() {
 	// Ask is overloaded (text prompts resolve a string, confirmations a boolean); one implementation serves both.
 	const ask = useCallback(
 		((request: DialogRequest) =>
-			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
-		[],
+			new Promise<string | boolean | undefined>((resolve) => showDialog({ request, resolve }))) as Ask,
+		[showDialog],
 	);
 
 	// Tools ask the user through the same dialog. While pi is away, also with a notification the user can answer
@@ -132,18 +138,18 @@ export function App() {
 					clearTimeout(timer);
 					cancelNotification();
 					endWaiting();
-					setDialog((current) => (current?.resolve === answerDialog ? undefined : current));
+					dropDialog(answerDialog);
 					resolve(approved);
 				};
 				const answerDialog = (value: string | boolean | undefined) => answer(answerOf(value));
-				setDialog({ request, resolve: answerDialog });
+				showDialog({ request, resolve: answerDialog });
 				const endWaiting = showWaiting(title);
 				const cancelNotification = askByNotification(detail ? `${title}\n${detail}` : title, answer);
 				const timer = setTimeout(() => answer(false), AWAY_APPROVAL_TIMEOUT_MS);
 			});
 		});
 		return () => setConfirmListener(undefined);
-	}, [ask]);
+	}, [ask, showDialog, dropDialog]);
 
 	const start = useCallback(
 		async (next: Settings) => {
@@ -376,8 +382,9 @@ export function App() {
 				<Dialog
 					request={dialog?.request}
 					onAnswer={(value) => {
-						dialog?.resolve(value);
-						setDialog(undefined);
+						if (!dialog) return;
+						dropDialog(dialog.resolve);
+						dialog.resolve(value);
 					}}
 				/>
 			</div>
@@ -626,8 +633,9 @@ export function App() {
 			<Dialog
 				request={dialog?.request}
 				onAnswer={(value) => {
-					dialog?.resolve(value);
-					setDialog(undefined);
+					if (!dialog) return;
+					dropDialog(dialog.resolve);
+					dialog.resolve(value);
 				}}
 			/>
 
