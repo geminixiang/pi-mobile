@@ -153,7 +153,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .btn::before { content: "["; color: var(--faint); }
 .btn::after { content: "]"; color: var(--faint); }
-.btn:active { background: var(--accent-soft); border-color: var(--accent); }
+.btn:not(:disabled):active { background: var(--accent-soft); border-color: var(--accent); }
 .btn.primary { color: var(--accent); border-color: var(--accent); }
 .btn.danger { color: var(--error); border-color: var(--error); }
 .btn.wide { width: 100%; }
@@ -165,7 +165,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 :where(.btn, .icon-button, .send, .code-head button, .scroll-hint):not(:disabled):active { scale: 0.92; transition: background-color 0ms, border-color 0ms, scale 90ms ease-out; }
 .field {
 	width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--bg-deep);
-	font-family: var(--mono); font-size: 14px; outline: none; border-radius: 0;
+	font-family: var(--mono); font-size: 14px; border-radius: 0;
 }
 .field:focus { border-color: var(--accent); }
 .field-icon {
