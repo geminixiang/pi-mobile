@@ -2,7 +2,7 @@ import { App } from "@capacitor/app";
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool, parseClock, requireNative, text } from "./common.ts";
+import { defineAppTool, oneOf, parseClock, requireNative, text } from "./common.ts";
 
 interface AppsPlugin {
 	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
@@ -31,7 +31,7 @@ const setAlarm = defineAppTool({
 	parameters: Type.Object({
 		time: Type.String({ description: "24-hour local time, HH:MM" }),
 		label: Type.Optional(Type.String({ description: "Shown when it rings" })),
-		repeat: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Weekdays to repeat on; omit for once" })),
+		repeat: Type.Optional(Type.Array(oneOf(WEEKDAYS), { description: "Weekdays to repeat on; omit for once" })),
 	}),
 	execute: async (args) => {
 		const { hour, minute } = parseClock(args.time, "time");
@@ -89,7 +89,7 @@ const openMaps = defineAppTool({
 	parameters: Type.Object({
 		destination: Type.String({ description: "Address, place name, or lat,lng" }),
 		origin: Type.Optional(Type.String({ description: "Default: current location" })),
-		mode: Type.Optional(Type.Union(TRAVEL_MODES.map((mode) => Type.Literal(mode)), { description: "How the user goes; default the maps app's" })),
+		mode: Type.Optional(oneOf(TRAVEL_MODES, { description: "How the user goes; default the maps app's" })),
 	}),
 	execute: async (args) => {
 		const url = new URL("https://www.google.com/maps/dir/");

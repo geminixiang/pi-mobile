@@ -2,8 +2,16 @@ import { Capacitor } from "@capacitor/core";
 import type { TSchema } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import type { JsonValue } from "@earendil-works/chord";
-import type { Static } from "typebox";
+import { type Static, type TLiteral, type TLiteralValue, type TSchemaOptions, type TUnion, Type } from "typebox";
 import { Value } from "typebox/value";
+
+type Literals<T extends readonly TLiteralValue[]> = { -readonly [K in keyof T]: T[K] extends TLiteralValue ? TLiteral<T[K]> : never };
+
+export function oneOf<const T extends readonly TLiteralValue[]>(values: T, options?: TSchemaOptions): TUnion<Literals<T>> {
+	// why: typebox's Static of a Union is never unless the members are a tuple type, and Array.map returns an array type, so the schemas built from a const list need their tuple type restored.
+	const literals = values.map((value) => Type.Literal(value)) as unknown as [...Literals<T>];
+	return Type.Union<Literals<T>>(literals, options);
+}
 
 function unset(value: unknown, schema: unknown): boolean {
 	if (value === "" || value === null || (Array.isArray(value) && value.length === 0)) return true;
