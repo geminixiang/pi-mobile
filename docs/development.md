@@ -86,3 +86,7 @@ node test/perf/fixture.ts teardown <serial>                 # 移除 Bot、provi
 - 頁面不在 120 Hz、開著的不是測試 Bot 時，`run.ts` 拒絕量。每一次量之前，熱狀態要是 0、AP 不超過 50°C，不然就等（`PERF_MAX_THERMAL_STATUS`、`PERF_MAX_AP`）。充電時手機比較熱，量要比較的數字前先拔掉。
 - `typing` 時沒有動畫，Samsung 會把更新率降到 60 Hz，所以只看 `inputP95`。
 - 每次 `stream` 都會在對話留下一則回答，DOM 越跑越大（每次約 +230 個節點，記在每一輪的 `nodes`）。比較前後時，兩邊都先 `teardown` 再 `setup`。
+
+### 手機 Git inspection 草稿回歸
+
+`node --import ./test/vite-imports.js test/bash/git-inspection.ts` 已接入 `npm run check`，使用記憶體 VFS 與禁止網路的 fixture。此草稿由無 Node/npm 的手機編寫，尚未執行；不能以已安裝 0.5.0 的命令結果代表新原始碼已通過。支援形式、公開 API 來源及仍未實作的 `ls-remote` 見 [research/phone-git-inspection.md](research/phone-git-inspection.md)。
