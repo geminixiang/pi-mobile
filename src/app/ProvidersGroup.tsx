@@ -197,7 +197,8 @@ export function ProvidersGroup({
 	const groups = providers
 		.map((config) => ({ config, models: models.filter((model) => model.provider === config.id) }))
 		.filter((group) => group.models.length > 0);
-	const current = JSON.stringify([settings.defaultProvider, settings.defaultModelId]);
+	const choices = new Map(groups.flatMap(({ models: list }) => list.map((model) => [`${model.provider}\n${model.id}`, model])));
+	const current = `${settings.defaultProvider}\n${settings.defaultModelId}`;
 
 	return (
 		<>
@@ -228,19 +229,17 @@ export function ProvidersGroup({
 						className="field"
 						value={current}
 						onChange={(event) => {
-							const value: unknown = JSON.parse(event.target.value);
-							if (Array.isArray(value) && typeof value[0] === "string" && typeof value[1] === "string") {
-								onChange({ defaultProvider: value[0], defaultModelId: value[1] });
-							}
+							const model = choices.get(event.target.value);
+							if (model) onChange({ defaultProvider: model.provider, defaultModelId: model.id });
 						}}
 					>
-						{groups.some(({ models: list }) => list.some((model) => JSON.stringify([model.provider, model.id]) === current)) ? null : (
+						{choices.has(current) ? null : (
 							<option value={current}>{settings.defaultModelId || "選一個模型"}</option>
 						)}
 						{groups.map(({ config, models: list }) => (
 							<optgroup key={config.id} label={providerName(config)}>
 								{list.map((model) => (
-									<option key={model.id} value={JSON.stringify([model.provider, model.id])}>
+									<option key={model.id} value={`${model.provider}\n${model.id}`}>
 										{model.name}
 									</option>
 								))}
