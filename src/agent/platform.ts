@@ -4,6 +4,7 @@ import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { McpClient, type McpFetch } from "@earendil-works/pi-mcp";
 import type { Settings } from "../settings.ts";
 import { loadModels, type LoadedModels } from "./available-models.ts";
+import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
@@ -12,7 +13,7 @@ export interface Platform {
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
 	mcpClient(): McpSession;
-	phoneFolder(folder: string): ExecutionEnv;
+	phoneFolder(folder: string, network: FolderNetwork): ExecutionEnv;
 	removePhoneFolder(folder: string): Promise<void>;
 	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
@@ -74,7 +75,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 			},
 		},
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),
-		phoneFolder: (folder) => new PhoneEnv(folder),
+		phoneFolder: (folder, network) => new PhoneEnv(folder, network),
 		removePhoneFolder,
 		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
 	};

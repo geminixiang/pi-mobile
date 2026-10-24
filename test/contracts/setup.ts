@@ -103,7 +103,7 @@ export const platform: Platform = {
 		remove: async () => undefined,
 	},
 	mcpClient: () => new FakeMcpClient(),
-	phoneFolder: (folder) => new PhoneEnv(folder),
+	phoneFolder: (folder, network) => new PhoneEnv(folder, network),
 	removePhoneFolder: async (folder) => {
 		folders.removed.push(folder);
 		await folders.removeGate?.promise;

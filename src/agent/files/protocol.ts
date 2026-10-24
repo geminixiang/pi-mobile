@@ -13,13 +13,19 @@ export type FsOp =
 
 export type FsValue = boolean | { kind: "file" | "directory"; size: number; mtimeMs: number; executable: boolean } | { name: string; kind: "file" | "directory" }[] | string | Uint8Array | null;
 
+export type HttpRequest = { url: string; method: string; headers: Record<string, string>; body?: Uint8Array };
+export type HttpResponse = { status: number; headers: Record<string, string>; body: Uint8Array };
+
 export type ToWorker =
 	| { type: "exec"; exec: number; bot: string; command: string; cwd: string; env: Record<string, string> }
 	| { type: "abort"; exec: number }
 	| { type: "fs-reply"; call: number; ok: true; value: FsValue }
-	| { type: "fs-reply"; call: number; ok: false; code: string; message: string };
+	| { type: "fs-reply"; call: number; ok: false; code: string; message: string }
+	| { type: "http-reply"; call: number; ok: true; response: HttpResponse }
+	| { type: "http-reply"; call: number; ok: false; message: string };
 
 export type FromWorker =
 	| { type: "fs"; call: number; bot: string; request: FsOp }
+	| { type: "http"; call: number; exec: number; request: HttpRequest }
 	| { type: "done"; exec: number; stdout: string; stderr: string; exitCode: number }
 	| { type: "failed"; exec: number; message: string };

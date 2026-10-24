@@ -13,6 +13,7 @@
 - App 允許明文 HTTP（`network_security_config.xml`），因為自架的模型 gateway 和電腦上的 pi-mobile 都只透過 Tailscale 連線，WireGuard 已經加密。
 - Bot 共用一個容器，所以一個 Bot 讀得到其他 Bot 的資料夾；它被要求只寫在自己的資料夾，但這只是提示，不是隔離。
 - 「直接」的指令以你的帳號在電腦上執行，沒有 egress proxy，用的是電腦自己的登入。
+- 手機資料夾的 bash 有 `git` 和 `gh`，可以連 GitHub（只有 GitHub）。GitHub token 在 app 送出請求時才加上，不會出現在 bash 的環境變數、檔案或 git 設定裡；push、開 PR、留言一樣不會先問你。
 - 電腦上的 pi-mobile 只聽電腦的 Tailscale 位址（不聽區域網路），每個請求都用 `tailscale whois` 確認是你同一個 Tailscale 帳號的裝置，tagged 裝置和瀏覽器網頁（`Origin`）一律拒絕。所以能進入你 tailnet、又登入你帳號的裝置，都能操作這台電腦：手機遺失時，到 Tailscale 後台移除它。
 - 能登入電腦那個帳號的人，可以讀到 egress 的 CA 私鑰，以及正在使用的短效 token。
 - 發布版關閉 WebView 遠端除錯。開發版（`build-android.sh`）是開著的：能用 adb 連上手機的人可以操作 app。

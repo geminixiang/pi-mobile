@@ -1,6 +1,9 @@
 import "../../shims/buffer-global.ts";
 import { Bash, type CommandName, getCommandNames, type IFileSystem, InMemoryFs, MountableFs } from "just-bash/browser";
-import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
+import type { FromWorker, FsOp, FsValue, HttpRequest, HttpResponse, ToWorker } from "./protocol.ts";
+import { folderFetch } from "./folder-fetch.ts";
+import { gitCommand } from "./git-command.ts";
+import { ghCommand } from "./gh-command.ts";
 import { messageOf } from "../../promise.ts";
 
 const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python", "html-to-markdown"]);
@@ -10,6 +13,21 @@ const post = (message: FromWorker) => postMessage(message);
 const pending = new Map<number, { resolve: (value: FsValue) => void; reject: (error: Error) => void }>();
 let nextCall = 0;
 const running = new Map<number, AbortController>();
+const httpPending = new Map<number, { resolve: (response: HttpResponse) => void; reject: (error: Error) => void }>();
+const NETWORK_COMMANDS = ["git", "gh"];
+
+function askHttp(exec: number, request: HttpRequest): Promise<HttpResponse> {
+	return new Promise((resolve, reject) => {
+		const call = ++nextCall;
+		httpPending.set(call, { resolve, reject });
+		post({ type: "http", call, exec, request });
+	});
+}
+
+function networkCommands(exec: number) {
+	const fetch = folderFetch((request) => askHttp(exec, request));
+	return [gitCommand(fetch), ghCommand(fetch)];
+}
 
 const NODE_CODES: Record<string, string> = { not_found: "ENOENT", is_directory: "EISDIR", not_directory: "ENOTDIR", exists: "EEXIST", invalid: "EINVAL" };
 
@@ -201,7 +219,7 @@ function deviceFs(): IFileSystem {
 	};
 }
 
-const COMMAND_STUBS = Object.fromEntries(COMMANDS.map((name) => [`/${name}`, { content: "", mode: 0o755 }]));
+const COMMAND_STUBS = Object.fromEntries([...COMMANDS, ...NETWORK_COMMANDS].map((name) => [`/${name}`, { content: "", mode: 0o755 }]));
 
 function botFs(bot: string): IFileSystem {
 	return new MountableFs({
@@ -225,13 +243,21 @@ addEventListener("message", (event: MessageEvent<ToWorker>) => {
 		else waiter.reject(Object.assign(new Error(`${NODE_CODES[message.code] ?? "EIO"}: ${message.message}`), { code: NODE_CODES[message.code] ?? "EIO" }));
 		return;
 	}
+	if (message.type === "http-reply") {
+		const waiter = httpPending.get(message.call);
+		httpPending.delete(message.call);
+		if (!waiter) return;
+		if (message.ok) waiter.resolve(message.response);
+		else waiter.reject(new TypeError(message.message));
+		return;
+	}
 	if (message.type === "abort") {
 		running.get(message.exec)?.abort();
 		return;
 	}
 	const controller = new AbortController();
 	running.set(message.exec, controller);
-	const bash = new Bash({ fs: botFs(message.bot), cwd: message.cwd, env: message.env, commands: COMMANDS, executionLimits: LIMITS });
+	const bash = new Bash({ fs: botFs(message.bot), cwd: message.cwd, env: message.env, commands: COMMANDS, customCommands: networkCommands(message.exec), executionLimits: LIMITS });
 	bash.exec(message.command, { cwd: message.cwd, signal: controller.signal }).then(
 		(result) => post({ type: "done", exec: message.exec, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode }),
 		(error: unknown) => post({ type: "failed", exec: message.exec, message: messageOf(error) }),

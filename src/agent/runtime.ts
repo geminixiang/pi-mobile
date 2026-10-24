@@ -357,7 +357,7 @@ export class AgentRuntime {
 
 	phoneFolder(id: ConversationId): ExecutionEnv | undefined {
 		const folder = this.#placed.get(String(id))?.folder;
-		return folder ? this.#platform.phoneFolder(folder) : undefined;
+		return folder ? this.#platform.phoneFolder(folder, this.workplaces.network) : undefined;
 	}
 
 	async resetSandbox(id: ConversationId): Promise<void> {

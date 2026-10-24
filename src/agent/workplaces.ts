@@ -3,6 +3,7 @@ import type { MintedService } from "./sandbox/container.ts";
 import { type Host, type HostMode, HostSandbox, parseHosts } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
+import type { FolderNetwork } from "./files/folder-network.ts";
 
 const PHONE = "phone";
 
@@ -29,11 +30,11 @@ function parseKey(key: string): { id: string; mode: HostMode } | undefined {
 export class Workplaces {
 	readonly #settings: Settings;
 	readonly #minted: Record<string, MintedService>;
-	readonly #phoneFolder: (folder: string) => ExecutionEnv;
+	readonly #phoneFolder: (folder: string, network: FolderNetwork) => ExecutionEnv;
 	readonly #placed: (id: string) => Placed | undefined;
 	readonly #open = new Map<string, Sandbox>();
 
-	constructor(settings: Settings, minted: Record<string, MintedService>, phoneFolder: (folder: string) => ExecutionEnv, placed: (id: string) => Placed | undefined) {
+	constructor(settings: Settings, minted: Record<string, MintedService>, phoneFolder: (folder: string, network: FolderNetwork) => ExecutionEnv, placed: (id: string) => Placed | undefined) {
 		this.#settings = settings;
 		this.#minted = minted;
 		this.#phoneFolder = phoneFolder;
@@ -64,12 +65,16 @@ export class Workplaces {
 		const key = choice || (items.some((item) => item.key === this.#settings.computer) ? this.#settings.computer : PHONE);
 		const computer = items.find((item) => item.key === key);
 		if (!computer) return { kind: "missing", key };
-		if (key === PHONE) return { kind: "phone", folder, env: () => this.#phoneFolder(folder) };
+		if (key === PHONE) return { kind: "phone", folder, env: () => this.#phoneFolder(folder, this.network) };
 		const parsed = parseKey(key);
 		const host = parsed && parseHosts(this.#settings.hosts).find((candidate) => candidate.id === parsed.id);
 		if (!parsed || !host) return { kind: "missing", key };
 		const sandbox = this.#sandbox(key, host, parsed.mode);
 		return { kind: "computer", folder, computer, host, sandbox, root: sandbox.root(folder), env: () => sandbox.env(folder) };
+	}
+
+	get network(): FolderNetwork {
+		return { githubToken: this.#settings.githubToken || undefined };
 	}
 
 	offers(id: string): boolean {

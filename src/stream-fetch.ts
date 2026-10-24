@@ -1,7 +1,7 @@
 import { Capacitor, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 
 interface StreamFetchPlugin {
-	start(options: { url: string; method: string; headers: Record<string, string>; body?: string }): Promise<{ id: string }>;
+	start(options: { url: string; method: string; headers: Record<string, string>; body?: string; bodyBase64?: string }): Promise<{ id: string }>;
 	abort(options: { id: string }): Promise<void>;
 	addListener(event: "head", listener: (data: { id: string; status: number; headers: Record<string, string> }) => void): Promise<PluginListenerHandle>;
 	addListener(event: "chunk", listener: (data: { id: string; data: string }) => void): Promise<PluginListenerHandle>;
@@ -27,6 +27,12 @@ function decode(base64: string): Uint8Array {
 	const bytes = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 	return bytes;
+}
+
+function encode(bytes: Uint8Array): string {
+	let binary = "";
+	for (let at = 0; at < bytes.length; at += 0x8000) binary += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+	return btoa(binary);
 }
 
 function listen(): Promise<void> {
@@ -87,15 +93,17 @@ export async function streamFetch(input: RequestInfo | URL, init?: RequestInit):
 	if (!Capacitor.isNativePlatform()) return fetch(input, init);
 	const url = input instanceof Request ? input.url : String(input);
 	const method = init?.method ?? (input instanceof Request ? input.method : "GET");
-	let body: string | undefined;
-	const raw = init?.body ?? (input instanceof Request ? await input.text() : undefined);
-	if (typeof raw === "string") body = raw;
-	else if (raw instanceof URLSearchParams) body = raw.toString();
-	else if (raw instanceof Uint8Array || raw instanceof ArrayBuffer) body = new TextDecoder().decode(raw);
+	let body: { body: string } | { bodyBase64: string } | undefined;
+	const fromRequest = input instanceof Request && input.body ? new Uint8Array(await input.arrayBuffer()) : undefined;
+	const raw = init?.body ?? fromRequest;
+	if (typeof raw === "string") body = { body: raw };
+	else if (raw instanceof URLSearchParams) body = { body: raw.toString() };
+	else if (raw instanceof Uint8Array) body = { bodyBase64: encode(raw) };
+	else if (raw instanceof ArrayBuffer) body = { bodyBase64: encode(new Uint8Array(raw)) };
 	else if (raw != null) throw new TypeError("streamFetch: unsupported body");
 	if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 	await listen();
-	const { id } = await StreamFetch.start({ url, method, headers: headersOf(init, input), ...(body === undefined ? {} : { body }) });
+	const { id } = await StreamFetch.start({ url, method, headers: headersOf(init, input), ...body });
 	return new Promise<Response>((resolve, reject) => {
 		pending.set(id, { head: resolve, fail: reject, early: [], ended: false });
 		init?.signal?.addEventListener(

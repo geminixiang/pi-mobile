@@ -28,7 +28,9 @@
 ## 安全
 
 - `..`、`/../..`、絕對路徑都停在 Bot 自己的資料夾；碰不到別的 Bot 的資料夾，也碰不到 `/data`、`/sdcard`、`/etc`、`/proc`。
-- 沒有 python、node、curl、wget、git、tar，也沒有網路。
+- 沒有 python、node、curl、wget、tar。
+- 網路只有 `git` 和 `gh`，只到 GitHub（`github.com`、`api.github.com`、`uploads.github.com`、`codeload.github.com`、`*.githubusercontent.com`，https）。請求從 Worker 交給主執行緒，經原生 HTTP 送出（`github.com` 的 git 協定沒有 CORS 標頭）；GitHub token 在主執行緒才加上，bash 裡的環境變數、檔案、`git config` 都看不到它（`files/folder-network.ts`）。
+- 「資料夾不能連網」不是安全界線：Bot 本來就能用 `web_fetch` 對任意網址送 GET、用 `github_api` 寫入，資料夾的內容模型也讀得到。要守的是憑證不進 bash：送出一次請求的傷害有限，token 外流則一直能用。
 - 不支援 symlink 和 hard link（`ENOSYS`）。
 
 ## 效能（S24）
@@ -123,7 +125,7 @@ Luna 錯的三題都不是 bash 的問題：它用 `read` 讀檔案的前 1,000 
 
 ## 為什麼不是別的（2026-10-24）
 
-手機資料夾的 bash 要同時滿足：跑在 WebView 裡（沒有 `SharedArrayBuffer`，見 phone-runtime.md）、只碰得到 Bot 自己的資料夾、沒有網路、使用者不用另外裝東西、模型寫的是 bash 不是 sh。對照過的替代方案：
+手機資料夾的 bash 要同時滿足：跑在 WebView 裡（沒有 `SharedArrayBuffer`，見 phone-runtime.md）、只碰得到 Bot 自己的資料夾、使用者不用另外裝東西、模型寫的是 bash 不是 sh。對照過的替代方案：
 
 | 方案 | 真實度 | 擋不擋得住 | 代價 | 不選的原因 |
 |---|---|---|---|---|
@@ -172,3 +174,20 @@ Luna 錯的三題都不是 bash 的問題：它用 `read` 讀檔案的前 1,000 
 | 瀏覽器版引入 `node:zlib` | #510、#526 開著 |
 
 沒人報過的：`jq unique` 不排序、`@csv` 不加引號、`od -t x1`、`trap`、`date -d` 的相對日期、`sort -g`、`head -n -N`、沒有檔案身分時 `split` 和 `cp` 失敗、`yes` 到上限默默停下。
+
+## git 和 gh（2026-10-24，S24）
+
+- `git` 是 [just-git](https://github.com/blindmansion/just-git) 1.10.0（MIT，純 TypeScript，沒有相依套件，壓縮用 WebView 的 `CompressionStream`），第一次用到時才載入。38 個子指令，對照 git 2.55 做隨機測試；沒有 `rev-list`、submodule、LFS、SSH 遠端。
+- 資料夾不支援 symlink，所以交給 just-git 的檔案系統拿掉 `symlink`／`readlink`：repo 裡的 symlink 會寫成內容是目標路徑的一般檔案（同 `core.symlinks=false`）。
+- commit 類的子指令（commit、merge、rebase、cherry-pick、revert、tag、stash、pull）先問 GitHub `/user`，作者用 `名字 <id+login@users.noreply.github.com>`；沒有 token 時照 git 的規則（`git config user.name`）。
+- `gh` 是自己寫的子集（`files/gh-command.ts`）：`api`（`-X`、`-f`、`-F`、`-H`、`--jq`、`--paginate`、`--input`、`graphql`）、`pr list/view/create/diff/checkout/comment/merge/close/reopen`、`issue list/view/create/comment/close/reopen`、`repo clone/view`、`auth status`。`--json` 的欄位照 gh 的名字（`headRefName`、`author.login`…），`--jq` 交給 just-bash 的 jq。沒做的子指令和旗標回錯誤，叫模型改用 `gh api`。
+
+| 操作 | 時間 |
+|---|---|
+| `git clone --depth 1` octocat/Hello-World | 1.3 秒 |
+| `git clone --depth 1` jqlang/jq（436 個檔案） | 6.5 秒 |
+| `git clone` geminixiang/pi-mobile 全部歷史（481 個檔案） | 6.8 秒 |
+| `gh pr list -R cli/cli -L 3` | 0.5 秒 |
+| 私有 repo：clone、開分支、commit、push、刪遠端分支 | 0.8 + 2.3 + 1.9 秒 |
+
+模型（GPT 6.1 Sol）用一般的問法：「把 octocat/Hello-World 抓下來，README 寫了什麼、最後一個 commit 是誰」用 git；「cli/cli 最近三個 open 的 PR」先試 `gh pr list --search`（當時沒有，之後補上），失敗後改用 `gh api`；「我 pi-mobile 的 issue 2 在講什麼」用 `gh api` 讀 issue 和留言。三題都答對。

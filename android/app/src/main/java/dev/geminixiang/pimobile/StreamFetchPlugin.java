@@ -29,7 +29,9 @@ public class StreamFetchPlugin extends Plugin {
         String url = call.getString("url");
         String method = call.getString("method", "GET");
         JSObject headers = call.getObject("headers", new JSObject());
-        String body = call.getString("body");
+        String text = call.getString("body");
+        String base64 = call.getString("bodyBase64");
+        byte[] body = base64 != null ? Base64.decode(base64, Base64.NO_WRAP) : text != null ? text.getBytes(java.nio.charset.StandardCharsets.UTF_8) : null;
         JSObject result = new JSObject();
         result.put("id", id);
         call.resolve(result);
@@ -45,7 +47,7 @@ public class StreamFetchPlugin extends Plugin {
         call.resolve();
     }
 
-    private void run(String id, String url, String method, JSObject headers, String body) {
+    private void run(String id, String url, String method, JSObject headers, byte[] body) {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(url).openConnection();
@@ -61,7 +63,7 @@ public class StreamFetchPlugin extends Plugin {
             if (body != null) {
                 connection.setDoOutput(true);
                 try (OutputStream out = connection.getOutputStream()) {
-                    out.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    out.write(body);
                 }
             }
             int status = connection.getResponseCode();

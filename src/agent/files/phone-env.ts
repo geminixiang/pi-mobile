@@ -18,6 +18,7 @@ import {
 } from "@earendil-works/pi-durable/env";
 import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
 import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
+import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { messageOf, onFailure } from "../../promise.ts";
 
 const TEMP_DIR = "/tmp";
@@ -121,6 +122,7 @@ class Shell {
 	#worker: Worker | undefined;
 	#nextExec = 0;
 	readonly #running = new Map<number, (finished: Finished) => void>();
+	readonly #networks = new Map<number, FolderNetwork>();
 
 	#start(): Worker {
 		if (this.#worker) return this.#worker;
@@ -139,8 +141,22 @@ class Shell {
 				);
 				return;
 			}
+			if (message.type === "http") {
+				const network = this.#networks.get(message.exec);
+				const failed = (text: string) => worker.postMessage({ type: "http-reply", call: message.call, ok: false, message: text } satisfies ToWorker);
+				if (!network) {
+					failed("network: the command that asked has finished");
+					return;
+				}
+				sendFromFolder(message.request, network).then(
+					(response) => worker.postMessage({ type: "http-reply", call: message.call, ok: true, response } satisfies ToWorker, [response.body.buffer]),
+					(error: unknown) => failed(messageOf(error)),
+				);
+				return;
+			}
 			const settle = this.#running.get(message.exec);
 			this.#running.delete(message.exec);
+			this.#networks.delete(message.exec);
 			settle?.(message.type === "done" ? { type: "done", stdout: message.stdout, stderr: message.stderr, exitCode: message.exitCode } : { type: "failed", message: message.message });
 		});
 		worker.addEventListener("error", (event) => this.#fail(`bash stopped: ${event.message}`));
@@ -153,9 +169,10 @@ class Shell {
 		this.#worker = undefined;
 		for (const settle of this.#running.values()) settle({ type: "failed", message });
 		this.#running.clear();
+		this.#networks.clear();
 	}
 
-	run(bot: string, command: string, cwd: string, env: Record<string, string>, timeoutMs: number | undefined, signal: AbortSignal | undefined): Promise<Finished | { type: "aborted" } | { type: "timeout" }> {
+	run(bot: string, command: string, cwd: string, env: Record<string, string>, network: FolderNetwork, timeoutMs: number | undefined, signal: AbortSignal | undefined): Promise<Finished | { type: "aborted" } | { type: "timeout" }> {
 		const worker = this.#start();
 		const exec = ++this.#nextExec;
 		return new Promise((resolve) => {
@@ -175,6 +192,7 @@ class Shell {
 				signal?.removeEventListener("abort", onAbort);
 				resolve(outcome === "aborted" ? { type: "aborted" } : outcome === "timeout" ? { type: "timeout" } : finished);
 			});
+			this.#networks.set(exec, network);
 			worker.postMessage({ type: "exec", exec, bot, command, cwd, env } satisfies ToWorker);
 		});
 	}
@@ -188,10 +206,12 @@ export class PhoneEnv implements ExecutionEnv {
 	readonly id: string;
 	cwd = "/";
 	readonly #bot: string;
+	readonly #network: FolderNetwork;
 	#tempReady: Promise<void> | undefined;
 
-	constructor(folder: string) {
+	constructor(folder: string, network: FolderNetwork = {}) {
 		this.#bot = folder;
+		this.#network = network;
 		this.id = `phone:${folder}`;
 	}
 
@@ -390,7 +410,7 @@ export class PhoneEnv implements ExecutionEnv {
 			TZ: Intl.DateTimeFormat().resolvedOptions().timeZone,
 			...(options?.env ?? {}),
 		};
-		const finished = await shell.run(this.#bot, commandLine(command), cwd, env, timeoutMs, context.abortSignal);
+		const finished = await shell.run(this.#bot, commandLine(command), cwd, env, this.#network, timeoutMs, context.abortSignal);
 		if (finished.type === "aborted") return err(new ExecutionError("aborted", "Aborted"));
 		if (finished.type === "timeout") return err(new ExecutionError("timeout", `Command timed out after ${options?.timeout} seconds`));
 		if (finished.type === "failed") return err(new ExecutionError("unknown", finished.message));
