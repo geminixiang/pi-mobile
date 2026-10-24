@@ -27,7 +27,7 @@ function client(host: Host): Promise<McpClient> {
 }
 
 async function call(host: Host | undefined, tool: "screenshot" | "act", args: Record<string, unknown>, signal: AbortSignal | undefined): Promise<ToolExecutionResult> {
-	if (!host) throw new Error("This bot works on the phone, which has no screen to control: the user picks a computer in the bot's panel.");
+	if (!host) throw new Error("This bot works on the phone: the phone's own screen is read_phone_screen and use_phone_screen; a computer's screen needs a computer picked in the bot's panel.");
 	let server: McpClient;
 	try {
 		server = await client(host);

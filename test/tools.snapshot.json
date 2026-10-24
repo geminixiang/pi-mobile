@@ -833,6 +833,146 @@
 		"structuredOutput": null
 	},
 	{
+		"extension": "phone_screen",
+		"toolset": "phone_screen",
+		"name": "read_phone_screen",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_screen",
+		"toolset": "phone_screen",
+		"name": "use_phone_screen",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"steps": {
+					"items": {
+						"properties": {
+							"action": {
+								"anyOf": [
+									{
+										"const": "tap",
+										"type": "string"
+									},
+									{
+										"const": "long_press",
+										"type": "string"
+									},
+									{
+										"const": "swipe",
+										"type": "string"
+									},
+									{
+										"const": "scroll",
+										"type": "string"
+									},
+									{
+										"const": "type",
+										"type": "string"
+									},
+									{
+										"const": "clear",
+										"type": "string"
+									},
+									{
+										"const": "key",
+										"type": "string"
+									},
+									{
+										"const": "open",
+										"type": "string"
+									},
+									{
+										"const": "wait",
+										"type": "string"
+									}
+								]
+							},
+							"app": {
+								"description": "open: app name as on the home screen, or its package",
+								"type": "string"
+							},
+							"direction": {
+								"anyOf": [
+									{
+										"const": "down",
+										"type": "string"
+									},
+									{
+										"const": "up",
+										"type": "string"
+									},
+									{
+										"const": "left",
+										"type": "string"
+									},
+									{
+										"const": "right",
+										"type": "string"
+									}
+								],
+								"description": "scroll: which way the content moves into view; default down"
+							},
+							"keys": {
+								"description": "key: back, home, recents, notifications, quick_settings, or enter",
+								"type": "string"
+							},
+							"ms": {
+								"description": "swipe: duration, default 300; wait: how long",
+								"minimum": 1,
+								"type": "integer"
+							},
+							"text": {
+								"description": "type: the text",
+								"type": "string"
+							},
+							"to_x": {
+								"description": "swipe: where it ends",
+								"type": "number"
+							},
+							"to_y": {
+								"description": "swipe: where it ends",
+								"type": "number"
+							},
+							"x": {
+								"description": "Screenshot pixels from the left",
+								"type": "number"
+							},
+							"y": {
+								"description": "Screenshot pixels from the top",
+								"type": "number"
+							}
+						},
+						"required": [
+							"action"
+						],
+						"type": "object"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"required": [
+				"steps"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
 		"extension": "phone_control",
 		"toolset": "control",
 		"name": "media",

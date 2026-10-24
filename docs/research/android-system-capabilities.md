@@ -53,7 +53,7 @@
 
 Gemini app 的「螢幕自動化」是 beta，只支援特定 app、特定機型和地區。開發者可以用 Gemini API 的 Computer Use 工具自己做：程式送截圖，模型回傳 `click`、`type` 等動作，但 **API 本身不給你控制手機的能力**，要自己實作執行層（官方範例是對模擬器下 ADB 指令）。([Gemini 說明](https://support.google.com/gemini/answer/16940971)、[Computer Use 文件](https://ai.google.dev/gemini-api/docs/computer-use.md))
 
-**結論**：在手機上要自己操作其他 app，只能用無障礙服務（AccessibilityService），權限很大、風險也高，與這個 app「寫入都要你核准」的原則衝突。不建議。
+**結論**：在手機上要自己操作其他 app，只能用無障礙服務（AccessibilityService），權限很大、風險也高。當時不建議；2026-10-25 照使用者的決定做了，見 [phone-screen.md](phone-screen.md)。
 
 ## 5. Android 17（API 37）中與 pi mobile 有關的改變
 

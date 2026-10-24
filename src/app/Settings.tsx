@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { KeepAlive, native } from "./keepAlive.ts";
 import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
+import { PhoneScreen } from "../phone-screen-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
 import { useBriefly } from "./briefly.ts";
@@ -331,6 +332,36 @@ function NotificationsGroup() {
 	);
 }
 
+function PhoneScreenGroup() {
+	const [allowed, setAllowed] = useState<boolean>();
+	useEffect(() => {
+		if (!native) return;
+		const refresh = () => void PhoneScreen.status().then((status) => setAllowed(status.allowed));
+		refresh();
+		const listener = App.addListener("resume", refresh);
+		return () => void listener.then((handle) => handle.remove());
+	}, []);
+	if (allowed === undefined) return null;
+	return (
+		<Group title="手機畫面">
+			<div className="check-row">
+				<span className="menu-text">
+					無障礙服務
+					{allowed ? null : <span className="menu-hint">開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定</span>}
+				</span>
+				{allowed ? null : (
+					<button type="button" className="btn" onClick={() => void PhoneScreen.openAppInfo()}>
+						App 資訊
+					</button>
+				)}
+				<button type="button" className="btn" onClick={() => void PhoneScreen.openSettings()}>
+					{allowed ? "管理" : "開啟"}
+				</button>
+			</div>
+		</Group>
+	);
+}
+
 function DatabaseGroup() {
 	const [tables, setTables] = useState<TableInfo[]>();
 	const [exportError, setExportError] = useState<string>();
@@ -603,6 +634,7 @@ export function SettingsView({
 				<>
 					<CalendarGroup value={settings.calendarAccess} onChange={(json) => change({ calendarAccess: json })} />
 					<NotificationsGroup />
+					<PhoneScreenGroup />
 					<SystemAccessGroup />
 					<BackgroundGroup />
 				</>

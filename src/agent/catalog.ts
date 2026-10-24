@@ -19,6 +19,7 @@ import { createGitHubExtension, type TokenSource } from "./tools/github.ts";
 import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
+import { PhoneScreenExtension } from "./tools/phone-screen.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
@@ -41,7 +42,7 @@ export interface CatalogDeps {
 }
 
 const MODEL_TOOLS = new Set(["codemode", "bash", "read", "write", "edit", "update_memory", "tool_search"]);
-const LOADED_TOOLS = new Set(["view_photos", "read_attachment", "read_screen", "use_screen"]);
+const LOADED_TOOLS = new Set(["view_photos", "read_attachment", "read_screen", "use_screen", "read_phone_screen", "use_phone_screen"]);
 
 const TOOL_SEARCH = `Load ${[...LOADED_TOOLS].join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
 
@@ -71,6 +72,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		AppsExtension,
 		SpeechExtension,
 		NotificationsExtension,
+		PhoneScreenExtension,
 		ControlExtension,
 		ContactsExtension,
 		PhotosExtension,
