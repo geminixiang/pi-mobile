@@ -353,8 +353,27 @@ function Table(props: ComponentProps<"table">) {
 	);
 }
 
-export const markdownComponents = { pre: (props: ComponentProps<"pre">) => <CodeBlock {...props} diagrams />, table: Table };
-export const streamingMarkdownComponents = { pre: CodeBlock, table: Table };
+const ENCODED = /%[0-9a-f]{2}/i;
+
+function Link({ href, children, ...props }: ComponentProps<"a">) {
+	const openFile = useContext(OpenFileContext);
+	return (
+		<a
+			{...props}
+			href={href}
+			onClick={(event) => {
+				if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href)) return;
+				event.preventDefault();
+				openFile?.(ENCODED.test(href) ? decodeURIComponent(href) : href);
+			}}
+		>
+			{children}
+		</a>
+	);
+}
+
+export const markdownComponents = { pre: (props: ComponentProps<"pre">) => <CodeBlock {...props} diagrams />, table: Table, a: Link };
+export const streamingMarkdownComponents = { pre: CodeBlock, table: Table, a: Link };
 export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 
 const BROKEN_TEXT = /^\s*(<thinking_mode>[^<]*<\/thinking_mode>\s*|<invoke name=[\s\S]*|<function_calls>[\s\S]*)$/;

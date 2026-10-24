@@ -70,7 +70,7 @@ agent 在它工作的任何一個環境（手機資料夾、電腦直接、電�
 
 0. **實測**（模擬器，WebView 133）：`sandbox="allow-scripts"` 的 iframe 裡 `location.origin` 是 `null`，`window.Capacitor` 和 `androidBridge` 都不存在，讀 `parent.*`、`localStorage`、`indexedDB`、`cookie`、`top.location` 全部 SecurityError；CSP `<meta>` 放在 `srcdoc` 裡，`fetch`、`<img src=https://…>`、WebSocket 都被擋；`<script>` 照跑。主 frame 的 `androidBridge` 有 `addEventListener`（`addWebMessageListener` 的那種），檢視器以此判斷能不能渲染，退回 `addJavascriptInterface` 的舊 WebView 只給原始碼。
 1. 做完：那句提示（`SHOWN_AS_FILE`，三個環境的說明都有）、手機資料夾的工作區（沒有 git 分頁）、`.html` 的預覽／原始碼、「分享」。順手修的：工作區路徑在根目錄會變成 `//x`；`Workspace.read` 用了 `head -- `，just-bash 的 `head` 不認 `--`。code mode 或 bash 的輸出裡出現 `.html` 路徑時，步驟卡片也給「開啟」。模擬器上 GPT 6 Luna 一次寫出含 SVG 長條圖的頁面，預覽正確，分享表列出 `.html` 檔。
-2. 回答裡的檔名可點；「列印成 PDF」（`PrintManager`）；在預覽上長按選字→「引用」放進輸入框。
+2. 回答裡指向資料夾檔案的 Markdown 連結（`[報告](報告.html)`）會在檢視器打開（做完：之前它讓 WebView 導向 `http://localhost/報告.html`，整個 app 變成「網頁無法使用」）；「列印成 PDF」（`PrintManager`）；在預覽上長按選字→「引用」放進輸入框。
 
 ## 上一版草稿拿掉的，和為什麼
 
