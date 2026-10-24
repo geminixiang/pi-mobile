@@ -43,10 +43,6 @@ export const GUARDS: Record<GuardId, Guard> = {
 
 export const DEFAULT_GUARDS: readonly GuardId[] = ["instructions", "secrets"];
 
-export function isGuardId(value: string): value is GuardId {
-	return (GUARD_IDS as readonly string[]).includes(value);
-}
-
 export const ONLY_IF = "only_if";
 
 export function screeningQuestions(guards: readonly GuardId[], onlyIf: string | undefined): Record<string, Question> {
