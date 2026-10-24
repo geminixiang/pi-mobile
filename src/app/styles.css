@@ -337,7 +337,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-output.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden; }
 .step-output.clamp-end { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(5 * 1.55em); overflow: hidden; }
 .step.open .step-output { max-height: 60vh; overflow: hidden auto; }
-:where(.answer:has(> .steps:last-child) + .answer) > .steps:first-child { margin-top: -12px; }
+:where(.answer:has(> .steps:last-child)) + .answer:has(> .steps:first-child) { margin-top: -12px; }
 
 .working { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
