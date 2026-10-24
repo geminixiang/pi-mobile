@@ -461,6 +461,7 @@ function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEnt
 				<TriggerIcon symbol={symbol} size={13} />
 				{data.kind === "followup" ? `稍後再看：${data.name}` : data.name}
 				{data.device ? ` · ${symbol === "headphones" ? `戴上 ${data.device}` : data.device}` : ""}
+				{data.judged !== undefined ? ` · 判斷 ${Math.round(data.judged * 100)}%` : ""}
 				{clock}
 				{DELIVERY[data.delivery] ?? ""}
 			</div>

@@ -7,6 +7,15 @@ import { triggerSymbol } from "./triggerSymbol.ts";
 
 const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", manual: "手動執行" };
 
+const percent = (probability: number) => `${Math.round(probability * 100)}%`;
+
+function lastRun(last: NonNullable<Trigger["last"]>): string {
+	if (last.error) return last.error;
+	if (last.skipped) return `略過（${percent(last.judged ?? 0)}）`;
+	const judged = last.judged !== undefined ? ` · 判斷 ${percent(last.judged)}` : last.unjudged ? " · 沒有判斷" : "";
+	return `${DELIVERY_LABEL[last.delivery]}${judged}`;
+}
+
 export function TriggerRow({
 	trigger,
 	next,
@@ -34,9 +43,10 @@ export function TriggerRow({
 					{describeWhen(trigger.when)}
 					{trigger.enabled && next ? ` · 下次 ${describeTime(next)}` : ""}
 				</span>
+				{trigger.onlyIf ? <span className="menu-hint">只在：{trigger.onlyIf}</span> : null}
 				{last ? (
 					<span className={`menu-hint${last.error ? " error" : ""}`}>
-						上次 {describeTime(last.at)} {last.error ?? DELIVERY_LABEL[last.delivery]}
+						上次 {describeTime(last.at)} {lastRun(last)}
 					</span>
 				) : null}
 				<span className="trigger-actions">

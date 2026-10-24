@@ -3,19 +3,33 @@ import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durab
 import { loadModels } from "../../src/agent/available-models.ts";
 import { LIMITS, type QueuedEvent, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns } from "../../src/agent/triggers.ts";
 import { deliverEvents } from "../../src/app/triggers.ts";
+import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import { context, entriesOf } from "./fixtures.ts";
 import { type Check, logged, settings } from "./setup.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-async function triggerFixture(when: Trigger["when"], options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[] } = {}) {
+async function triggerFixture(
+	when: Trigger["when"],
+	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; verdict?: Verdict } = {},
+) {
 	const storage = new MemoryStorage();
 	const { models } = await loadModels(settings, Promise.resolve({}));
 	const harness = await Harness.open(storage, { models, registry: createRegistry() }, context);
 	const conversation = await harness.createConversation({ ownership: { kind: "ownerless" } }, context);
 	await harness.commit(async (tx) => {
 		const doc = await tx.doc(TriggerDoc);
-		doc.items.push({ id: "t1", name: "fixture", prompt: "fixture", when, kind: "schedule", conversationId: conversation.id, enabled: options.enabled ?? true, createdAt: Date.now() });
+		doc.items.push({
+			id: "t1",
+			name: "fixture",
+			prompt: "fixture",
+			when,
+			...(options.onlyIf ? { onlyIf: options.onlyIf } : {}),
+			kind: "schedule",
+			conversationId: conversation.id,
+			enabled: options.enabled ?? true,
+			createdAt: Date.now(),
+		});
 		doc.runs = options.runs ?? [];
 	}, context);
 	let refuse = false;
@@ -38,10 +52,18 @@ async function triggerFixture(when: Trigger["when"], options: { enabled?: boolea
 		},
 	});
 	const touched: number[] = [];
-	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, avatar: "helper" }], async (_id, at) => void touched.push(at));
+	const asked: string[] = [];
+	const judge: Judge = {
+		ask: async (question) => {
+			asked.push(question);
+			return options.verdict ?? { kind: "unanswered", reason: "no judge in this fixture" };
+		},
+	};
+	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, avatar: "helper" }], async (_id, at) => void touched.push(at), judge);
 	return {
 		runs,
 		touched,
+		asked,
 		conversation: conversation.id,
 		doc: async () => (await harness.snapshot(TriggerDoc, context)) ?? { items: [], runs: [] },
 		delivered: () => entriesOf(storage, conversation.id, TRIGGER_ENTRY),
@@ -61,6 +83,49 @@ async function withTrigger(fixture: Awaited<ReturnType<typeof triggerFixture>>, 
 const alarm = (id: string, at = Date.now()): QueuedEvent => ({ id, at, kind: "alarm", trigger: "t1", live: true });
 
 export const checks: Check[] = [
+	[
+		"an event the judge finds unlikely wakes no one, is not counted, and says it was skipped",
+		async () => {
+			const fixture = await triggerFixture({ kind: "unlock", days: [], gapHours: 1 }, { onlyIf: "Is it morning?", verdict: { kind: "answered", probability: 0.1, model: "jev" } });
+			await withTrigger(fixture, async () => {
+				assert.equal(await fixture.runs.run("t1", "live", { event: "e1", device: "解鎖手機" }), undefined);
+				assert.deepEqual(fixture.asked, ["Is it morning?"]);
+				assert.equal(await fixture.delivered(), 0);
+				const after = await fixture.doc();
+				assert.equal(after.runs.length, 0);
+				assert.equal(after.items[0]?.last?.skipped, true);
+				assert.equal(after.items[0]?.last?.judged, 0.1);
+				assert.deepEqual(fixture.touched, []);
+			});
+		},
+	],
+	[
+		"an event the judge finds likely runs and keeps the probability",
+		async () => {
+			const fixture = await triggerFixture({ kind: "unlock", days: [], gapHours: 1 }, { onlyIf: "Is it morning?", verdict: { kind: "answered", probability: 0.9, model: "jev" } });
+			await withTrigger(fixture, async () => {
+				assert.ok(await fixture.runs.run("t1", "live", { event: "e1", device: "解鎖手機" }));
+				assert.equal(await fixture.delivered(), 1);
+				const after = await fixture.doc();
+				assert.equal(after.runs.length, 1);
+				assert.equal(after.items[0]?.last?.judged, 0.9);
+				assert.equal(after.items[0]?.last?.skipped, undefined);
+			});
+		},
+	],
+	[
+		"an event the judge cannot answer runs anyway and says it was not checked; a manual run asks nothing",
+		async () => {
+			const fixture = await triggerFixture({ kind: "unlock", days: [], gapHours: 1 }, { onlyIf: "Is it morning?" });
+			await withTrigger(fixture, async () => {
+				assert.ok(await fixture.runs.run("t1", "live", { event: "e1", device: "解鎖手機" }));
+				assert.match((await fixture.doc()).items[0]?.last?.unjudged ?? "", /no judge/);
+				assert.ok(await fixture.runs.run("t1", "manual"));
+				assert.equal(fixture.asked.length, 1);
+				assert.equal(await fixture.delivered(), 2);
+			});
+		},
+	],
 	[
 		"a one-time schedule whose input was refused is still there to retry, says so, and is not armed again",
 		async () => {

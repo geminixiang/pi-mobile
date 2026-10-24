@@ -1,3 +1,4 @@
+import { createJudge, type Judge } from "./judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import {
@@ -96,6 +97,7 @@ export class AgentRuntime {
 		placed: Map<string, { folder: string; computer?: string }>,
 		installed: () => ReadonlySet<string>,
 		mcp: McpHub,
+		judge: Judge,
 	) {
 		this.#installed = installed;
 		this.#platform = platform;
@@ -109,6 +111,7 @@ export class AgentRuntime {
 			harness,
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
+			judge,
 		);
 		this.#botToolsets = new BotToolsets(harness, () => this.bots(), () => this.#allToolsets());
 	}
@@ -200,6 +203,7 @@ export class AgentRuntime {
 			placed,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			mcp,
+			createJudge(models),
 		);
 		mcp.refreshAll();
 		runtimeRef = runtime;

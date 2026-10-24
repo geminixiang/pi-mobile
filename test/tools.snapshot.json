@@ -2245,6 +2245,10 @@
 					],
 					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too"
 				},
+				"only_if": {
+					"description": "With an event: a yes/no question about it that a small classifier answers before you are woken; the run happens only when the answer is likely yes. For what app and contains cannot tell, such as \"Does this message need a reply?\" or \"Is it about money?\"",
+					"type": "string"
+				},
 				"place": {
 					"description": "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory",
 					"type": "string"

@@ -9,6 +9,7 @@ import { resolvePlace } from "./tools/device.ts";
 import { requireAccess } from "./tools/notifications.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { messageOf } from "../promise.ts";
+import { type Judge, LIKELY } from "./judge.ts";
 
 const EventWindow = {
 	days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
@@ -61,11 +62,12 @@ export type Trigger = {
 	name: string;
 	prompt: string;
 	when: When;
+	onlyIf?: string;
 	kind: TriggerKind;
 	conversationId: ConversationId;
 	enabled: boolean;
 	createdAt: number;
-	last?: { at: number; delivery: Delivery; error?: string };
+	last?: { at: number; delivery: Delivery; error?: string; judged?: number; skipped?: true; unjudged?: string };
 	fired?: boolean;
 };
 
@@ -92,6 +94,7 @@ export const TriggerEntryData = Type.Object({
 	device: Type.Optional(Type.String()),
 	on: Type.Optional(Type.String()),
 	activity: Type.Optional(Type.String()),
+	judged: Type.Optional(Type.Number()),
 });
 
 const QueuedEvent = Type.Union([
@@ -209,7 +212,8 @@ const hhmm = (value: string, name: string) => parseClock(value, name).text;
 function summary(trigger: Trigger): string {
 	const kind = trigger.kind === "followup" ? "follow-up" : "schedule";
 	const at = trigger.when.kind === "once" ? `, at ${localTime(trigger.when.at)}` : "";
-	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
+	const asked = trigger.onlyIf ? `, only if: ${trigger.onlyIf}` : "";
+	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}${asked}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
 let asking: Promise<unknown> = Promise.resolve();
@@ -278,6 +282,12 @@ export function createTriggerExtension(host: TriggerHost) {
 			radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
 			from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
 			until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
+			only_if: Type.Optional(
+				Type.String({
+					description:
+						"With an event: a yes/no question about it that a small classifier answers before you are woken; the run happens only when the answer is likely yes. For what app and contains cannot tell, such as \"Does this message need a reply?\" or \"Is it about money?\"",
+				}),
+			),
 			at_most_every_hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24, description: "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)" })),
 		}),
 		execute: async (args, api, context) => {
@@ -331,6 +341,8 @@ export function createTriggerExtension(host: TriggerHost) {
 					when = { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m ?? 200, ...window };
 					await needLocationAlways("where the phone is");
 				}
+			} else if (args.only_if) {
+				throw new Error("only_if is for events; a time needs no question");
 			} else if (args.at && !args.time) {
 				const { ms: at, hasTime } = parseLocalTime(args.at, "at");
 				if (!hasTime) throw new Error("at needs a time: YYYY-MM-DD HH:MM");
@@ -348,6 +360,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				name: args.name,
 				prompt: args.prompt,
 				when,
+				...(args.only_if ? { onlyIf: args.only_if } : {}),
 				kind: "schedule",
 				conversationId: api.conversationId,
 				enabled: true,
@@ -357,7 +370,8 @@ export function createTriggerExtension(host: TriggerHost) {
 				(await tx.doc(TriggerDoc)).items.push(trigger);
 			}, context);
 			host.changed();
-			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}. The user can pause or delete it in Settings.${note}`);
+			const asked = trigger.onlyIf ? ` Only if: ${trigger.onlyIf}` : "";
+			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}.${asked} The user can pause or delete it in Settings.${note}`);
 		},
 	});
 
@@ -470,14 +484,21 @@ export class TriggerRuns {
 	readonly #harness: Harness;
 	readonly #bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>;
 	readonly #touchBot: (id: ConversationId, at: number) => Promise<void>;
+	readonly #judge: Judge;
 	readonly #listeners = new Set<(state: TriggerState) => void>();
 	#state: TriggerState = { items: [], next: {} };
 	readonly #started = new Set<ConversationId>();
 
-	constructor(harness: Harness, bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>, touchBot: (id: ConversationId, at: number) => Promise<void>) {
+	constructor(
+		harness: Harness,
+		bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>,
+		touchBot: (id: ConversationId, at: number) => Promise<void>,
+		judge: Judge,
+	) {
 		this.#harness = harness;
 		this.#bots = bots;
 		this.#touchBot = touchBot;
+		this.#judge = judge;
 	}
 
 	removeBot(conversationId: ConversationId): Promise<void> {
@@ -542,11 +563,24 @@ export class TriggerRuns {
 		const conversationId = trigger.conversationId;
 		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
 		const heard = event ? (delivered.device ?? trigger.when.kind) : undefined;
+		const verdict = heard && trigger.onlyIf ? await this.#judge.ask(trigger.onlyIf, { automation: trigger.name, purpose: trigger.prompt, event: heard }) : undefined;
+		if (verdict?.kind === "answered" && verdict.probability < LIKELY) {
+			await this.#record(id, { at: now, delivery, judged: verdict.probability, skipped: true });
+			return undefined;
+		}
+		const judged: { judged?: number } = verdict?.kind === "answered" ? { judged: verdict.probability } : {};
+		const unjudged: { unjudged?: string } = verdict?.kind === "unanswered" ? { unjudged: verdict.reason } : {};
+		const judgement =
+			verdict?.kind === "answered"
+				? `, likely yes (${verdict.probability.toFixed(2)}) to "${trigger.onlyIf}"`
+				: verdict?.kind === "unanswered"
+					? `, not checked against "${trigger.onlyIf}" (${verdict.reason}): decide yourself whether it applies`
+					: "";
 		const label =
 			trigger.kind === "followup"
 				? "follow-up you scheduled"
 				: heard
-					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}`
+					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}`
 					: `schedule "${trigger.name}"`;
 		const activity: Record<string, string> = trigger.when.kind === "activity" ? { activity: trigger.when.activity } : {};
 		try {
@@ -566,6 +600,7 @@ export class TriggerRuns {
 							at: now,
 							on: trigger.when.kind,
 							...activity,
+							...judged,
 							...(heard ? { device: heard } : {}),
 						},
 					},
@@ -579,7 +614,7 @@ export class TriggerRuns {
 		}
 		this.#started.add(conversationId);
 		await this.#touchBot(conversationId, now);
-		await this.#record(id, { at: now, delivery }, request);
+		await this.#record(id, { at: now, delivery, ...judged, ...unjudged }, request);
 		return conversationId;
 	}
 
@@ -601,7 +636,7 @@ export class TriggerRuns {
 			const item = triggers.items.find((candidate) => candidate.id === id);
 			if (!item) return;
 			item.last = last;
-			if (last.error !== undefined) return;
+			if (last.error !== undefined || last.skipped) return;
 			if (request && triggers.runs.some((run) => run.request === request)) return;
 			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: id, at: last.at, ...(request ? { request } : {}) }];
 			if (item.when.kind === "once" && last.delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
