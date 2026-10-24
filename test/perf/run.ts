@@ -44,13 +44,21 @@ const center = (element) => { const r = element.getBoundingClientRect(); return 
 class Page {
 	#socket: WebSocket;
 	#next = 0;
-	#pending = new Map<number, (reply: Reply) => void>();
+	#pending = new Map<number, { resolve: (reply: Reply) => void; reject: (error: Error) => void }>();
+	#closed: Error | undefined;
 
 	private constructor(socket: WebSocket) {
 		this.#socket = socket;
 		socket.onmessage = (event) => {
 			const message = JSON.parse(String(event.data)) as { id?: number; result?: Reply };
-			if (message.id !== undefined) this.#pending.get(message.id)?.(message.result ?? {});
+			if (message.id === undefined) return;
+			this.#pending.get(message.id)?.resolve(message.result ?? {});
+			this.#pending.delete(message.id);
+		};
+		socket.onclose = () => {
+			this.#closed = new Error("The DevTools connection closed: the phone disconnected or pi restarted");
+			for (const { reject } of this.#pending.values()) reject(this.#closed);
+			this.#pending.clear();
 		};
 	}
 
@@ -67,9 +75,10 @@ class Page {
 	}
 
 	async eval<T>(body: string): Promise<T> {
+		if (this.#closed) throw this.#closed;
 		const id = ++this.#next;
 		const expression = `(async () => { ${PAGE_HELPERS} ${body} })()`;
-		const reply = new Promise<Reply>((resolve) => this.#pending.set(id, resolve));
+		const reply = new Promise<Reply>((resolve, reject) => this.#pending.set(id, { resolve, reject }));
 		this.#socket.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression, awaitPromise: true, returnByValue: true } }));
 		const { result, exceptionDetails } = await reply;
 		if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? JSON.stringify(exceptionDetails));
@@ -288,6 +297,8 @@ if (checked.rafHz < 110) throw new Error(`The page runs at ${checked.rafHz} Hz, 
 
 const charging = /AC powered: true|USB powered: true|Wireless powered: true/.test(adb("dumpsys", "battery"));
 if (charging) console.error("The phone is charging: it runs warmer and may throttle. Unplug it for numbers you will compare.");
+mkdirSync("test/perf/out", { recursive: true });
+const file = `test/perf/out/${label}.json`;
 const report = { label, at: new Date().toISOString(), device: adb("getprop", "ro.product.model").trim(), charging, bot: checked.bot, rafHz: checked.rafHz, runs, scenes: {} as Record<string, { median: Record<string, number>; runs: Sample[] }> };
 for (const scene of scenes) {
 	console.error(`${scene}: warm-up`);
@@ -316,12 +327,10 @@ for (const scene of scenes) {
 		},
 		runs: samples,
 	};
+	writeFileSync(file, `${JSON.stringify(report, null, "\t")}\n`);
 }
 page.close();
 
-mkdirSync("test/perf/out", { recursive: true });
-const file = `test/perf/out/${label}.json`;
-writeFileSync(file, `${JSON.stringify(report, null, "\t")}\n`);
 const rows = Object.entries(report.scenes).map(([scene, { median }]) => ({ scene, ...median }));
 const baseline = option("compare", "");
 if (baseline) {
