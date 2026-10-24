@@ -66,6 +66,10 @@ compositor without repainting the element or laying out the page. Everything els
   `opacity` animation; on the S24 at 120 Hz that missed 61% of frames while streaming, and without it 9%.
   Streamed text is not animated.
 - No `filter` in an animation, blur included.
+- No `backdrop-filter` (Stylelint refuses it). The bar and the composer were frosted glass over the transcript;
+  the blur was recomputed on the GPU every frame the text under them moved. Without it, streaming while scrolling
+  on the S24 missed 12% of frames instead of 19%. Overlays are opaque: mix a tint into `--bg`, not into
+  `transparent`.
 - A one-off highlight (the dial's jump flash) may animate `box-shadow` or a color; a tint is an inset shadow
   (`inset 0 0 0 999px rgb(255 255 255 / 0.1)`), not `filter: brightness()`.
 - Measure a new animation on the S24 before and after with `test/perf/run.ts` (docs/development.md § 效能量測),

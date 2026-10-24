@@ -9,5 +9,6 @@ export default {
 		"selector-max-specificity": "0,4,2",
 		"no-duplicate-selectors": true,
 		"no-descending-specificity": null,
+		"property-disallowed-list": [["backdrop-filter"], { message: "backdrop-filter costs a GPU pass every frame the content under it moves; see the CSS skill" }],
 	},
 };
