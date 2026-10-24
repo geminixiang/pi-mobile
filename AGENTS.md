@@ -10,6 +10,11 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Look before you leap (LBYL): check the precondition (it exists, is permitted, is available, parses) before acting.
   A failure no check can foresee (network, native I/O) surfaces to the user or becomes a named outcome; never
   swallow it with `catch(() => undefined)`.
+- Validate an unknown value once, at the boundary that owns it (`src/agent/parse.ts`), and pass typed values inward; do not re-check what a type or schema already guarantees. No `as`, no `any`.
+- Split code by responsibility, not by size. Do not extract a helper used once; inline a value used once. A function reads as its happy path, with early returns instead of `else` and `const` instead of reassignment; supporting details go in named helpers below it only when they name a real concept.
+- Before adding code for a speculative race, edge case, or security concern, state the concrete failure, how likely it is, and what the code costs, and get the user's buy-in; over-design is itself a mistake.
+- Tests run the real implementation: no mocks, no `globalThis` patching, no logic copied into the test. A fix comes with a test that fails on the old code.
+- Branch names are at most three words joined by hyphens, no slashes or type prefixes (`helpers`, `fix-scroll-state`). Commits are `type(scope): summary` with `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`.
 - UI design: avoid unnecessary secondary labels and descriptions; let the layout do the explaining. No toasts: a result or an error shows where the action happened (the button's own label, under its section, in the composer); one with no place of its own goes at the end of the transcript, like a model error.
 - A change to the transcript, scrolling, streaming, or an animation is measured on the S24 (120 Hz) with `test/perf/run.ts` (docs/development.md § 效能量測), before and after. Virtualizing the transcript (react-virtuoso) was reverted for this: rows mounting while scrolling up dropped frames.
 - Before a new tool or toolset goes in, measure it as `docs/tools.md` describes (`test/tool-cost.sh` on the S24, before and after, and natural questions in a temporary bot), choose always or on demand there, and update its table and log.
