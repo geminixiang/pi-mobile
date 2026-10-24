@@ -37,6 +37,7 @@ from `CDP_PORT` (default 9333).
 | `startup-trace.js <port> [--log]` | Reload and time the start: when the transcript showed, and each native plugin call before it. |
 | `resume-trace.js <port> <serial> <seconds away> [out]` | Leave pi (HOME, or `AWAY_APP=<package>`) and come back, tracing; `resume-analyze.js <out> [ms]` lists the long tasks. |
 | `toolset-cost.sh <port> <toolset id>` | Prompt tokens one toolset adds to a short request. Every toolset at once: `test/tool-cost.sh`. |
+| `phone-screen.js read\|act '<steps>'\|status\|on <serial>` | The phone-screen plugin without a model: what `read_phone_screen` sees (time, app, elements, screenshot size), or run `use_phone_screen` steps such as `'[{action:"open",app:"時鐘"}]'`. `on` turns the accessibility service on over adb. Needs `CDP_PORT`. See docs/research/phone-screen.md. |
 | `phone-folder-check.js` | The bot folder on the phone and its bash, end to end: `CDP_PORT=<port> ./test/ui.sh "$(cat <it>)"`. |
 | `storage-durability.sh <emulator> <port> [apk]` | Whether OPFS and IndexedDB survive a force stop, cache trims, an update, and a nearly full disk. Emulator only. |
 
@@ -59,3 +60,13 @@ from `CDP_PORT` (default 9333).
 - `adb root`/`unroot` restart adbd and drop every forward.
 - Test with the words a user would say. Naming a tool tests nothing.
 - One change at a time, measured before and after on the same device.
+- A native tool goes in three layers, each working before the next: the plugin alone (`phone-screen.js`, a
+  `Capacitor.Plugins` call), then the tool in a temporary bot asked in plain words, then the measurement. A model on a
+  broken plugin only says "cannot"; the plugin call says why.
+- Installing a build turns the accessibility service off (S24): `phone-screen.js on <serial>` after every
+  `run-android.sh`, or `read` answers `off`. Apps that were open while it was switched on and off may stop answering
+  it until force-stopped.
+- While a bot uses another app, pi is in the background and `ui.sh` calls into its page can hang: bring it to the
+  front first (`adb shell am start -n dev.geminixiang.pimobile/.MainActivity`).
+- A screen-control question writes for real in the user's apps: use throwaway data (a note named pi 測試), undo it,
+  and when the bot clears or deletes in bulk, read the confirmation it tapped ("2 個項目") to know nothing else went.
