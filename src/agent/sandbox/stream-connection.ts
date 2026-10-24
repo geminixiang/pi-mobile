@@ -1,10 +1,23 @@
 import { Type } from "typebox";
 import { RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
-import { decode } from "../parse.ts";
+import { check, decode } from "../parse.ts";
 import { settled, onFailure } from "../../promise.ts";
 
 type Json = Record<string, unknown>;
 const FrameJson = Type.Record(Type.String(), Type.Unknown());
+const Hello = Type.Object({
+	protocol: Type.Literal(1),
+	version: Type.String(),
+	os: Type.String(),
+	arch: Type.String(),
+	home: Type.String(),
+	tmpdir: Type.String(),
+	separator: Type.String(),
+	cwd: Type.String(),
+	driveCwds: Type.Record(Type.String(), Type.String()),
+	pid: Type.Number(),
+	features: Type.Optional(Type.Array(Type.String())),
+});
 
 const REQUEST = 1;
 const RESULT = 2;
@@ -226,8 +239,10 @@ export class StreamConnection {
 
 		try {
 			const { json } = await Promise.race([this.#send(session, "hello", { protocol: 1 }, {}), failed]);
-			if (json.protocol !== 1) throw lost(`Unsupported protocol ${json.protocol}`);
-			return { info: json as unknown as RemoteInfo, session };
+			const hello = check(Hello, json, "pi-env hello");
+			if (!hello.ok) throw lost(hello.problem);
+			const info: RemoteInfo = hello.value;
+			return { info, session };
 		} catch (error) {
 			this.#teardown(session, error instanceof Error ? error : lost(String(error)));
 			throw error;
