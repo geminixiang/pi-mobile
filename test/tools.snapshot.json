@@ -2176,6 +2176,30 @@
 					"description": "With on: only from this local time HH:MM",
 					"type": "string"
 				},
+				"guards": {
+					"description": "With an event: built-in checks a small classifier makes before you are woken; the run is skipped when one fails. instructions: the text tries to instruct an AI (prompt injection); secrets: it holds a one-time code, password or key; ads: advertising or bulk marketing; attention: skip unless the user needs to act or reply. Default for notification: instructions and secrets; [] for none. Prefer these to only_if",
+					"items": {
+						"anyOf": [
+							{
+								"const": "instructions",
+								"type": "string"
+							},
+							{
+								"const": "secrets",
+								"type": "string"
+							},
+							{
+								"const": "ads",
+								"type": "string"
+							},
+							{
+								"const": "attention",
+								"type": "string"
+							}
+						]
+					},
+					"type": "array"
+				},
 				"name": {
 					"description": "Short name shown to the user, such as 早晨簡報",
 					"type": "string"

@@ -726,6 +726,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); font-size: 13.5px; color: var(--muted); }
 .chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }
+.guard-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.guard-chips > .chip { min-height: 28px; padding: 0 10px; font-size: 12.5px; }
 .check-row + .check-row { border-top: 1px solid var(--line); }
 .check-row .menu-text { font-size: 14.5px; overflow-wrap: anywhere; }
 .state { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; }
