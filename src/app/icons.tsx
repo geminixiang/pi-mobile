@@ -127,6 +127,19 @@ export const CopyIcon = ({ size = 16 }: { size?: number }) => (
 		<path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" />
 	</Icon>
 );
+export const ShareIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<circle cx="17.5" cy="5.5" r="2.5" />
+		<circle cx="6.5" cy="12" r="2.5" />
+		<circle cx="17.5" cy="18.5" r="2.5" />
+		<path d="m8.7 10.7 6.6-3.9M8.7 13.3l6.6 3.9" />
+	</Icon>
+);
+export const OpenOutsideIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M13.5 4.5h6v6M19.5 4.5 11 13M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+	</Icon>
+);
 export const TerminalIcon = ({ size = 16 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="m5 7 5 5-5 5M12.5 17.5H19" />

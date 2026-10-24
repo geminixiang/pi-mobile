@@ -6,6 +6,7 @@ import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { ChevronIcon, CloseIcon, FileIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
+import { CopyButton } from "./CopyButton.tsx";
 import { isWhenKind, triggerSymbol } from "./triggerSymbol.ts";
 import { type AttachmentCard, parseAttachment, withoutAttachments } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
@@ -306,7 +307,6 @@ function Thinking({ text, streaming }: { text: string; streaming?: boolean }) {
 const Mermaid = lazy(() => import("./Mermaid.tsx"));
 
 function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: boolean }) {
-	const [copied, setCopied] = useState(false);
 	const [showSource, setShowSource] = useState(false);
 	const code = (children as { props?: { className?: string; children?: unknown } } | undefined)?.props;
 	const language = /language-(\S+)/.exec(code?.className ?? "")?.[1] ?? "";
@@ -318,21 +318,11 @@ function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: 
 			<div className="code-head">
 				<span>{language || "text"}</span>
 				{diagram ? (
-					<button type="button" onClick={() => setShowSource(!showSource)}>
+					<button type="button" className="code-toggle" onClick={() => setShowSource(!showSource)}>
 						{showSource ? "圖表" : "原始碼"}
 					</button>
 				) : null}
-				<button
-					type="button"
-					onClick={() =>
-						void navigator.clipboard.writeText(source).then(() => {
-							setCopied(true);
-							setTimeout(() => setCopied(false), 1500);
-						})
-					}
-				>
-					{copied ? "已複製" : "複製"}
-				</button>
+				<CopyButton text={source} className="code-copy" />
 			</div>
 			{diagram && !showSource ? (
 				<Suspense fallback={<div className="diagram-loading" />}>

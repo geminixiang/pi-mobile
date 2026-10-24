@@ -2,30 +2,25 @@ import { type ReactNode, useEffect, useState } from "react";
 import { type Host, hostFrom, type HostInfo, listPeers, parseHosts, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
+import { CopyButton } from "./CopyButton.tsx";
+import { ShareIcon } from "./icons.tsx";
 
 const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
 function Copyable({ text, children }: { text: string; children?: ReactNode }) {
-	const [copied, setCopied] = useState(false);
 	return (
 		<div className="copyable">
 			<pre className="console">{children ?? text}</pre>
 			<div className="row-buttons">
-				<button type="button" className="btn" onClick={() => void orLogged(Apps.share({ text, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}>
-					分享
-				</button>
 				<button
 					type="button"
-					className="btn"
-					onClick={() =>
-						void navigator.clipboard.writeText(text).then(() => {
-							setCopied(true);
-							setTimeout(() => setCopied(false), 1500);
-						})
-					}
+					className="icon-button small"
+					aria-label="分享"
+					onClick={() => void orLogged(Apps.share({ text, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}
 				>
-					{copied ? "已複製" : "複製"}
+					<ShareIcon size={16} />
 				</button>
+				<CopyButton text={text} />
 			</div>
 		</div>
 	);

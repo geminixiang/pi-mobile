@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
 import { Apps, base64, MIME_TYPES } from "../agent/tools/apps.ts";
-import { BackIcon } from "./icons.tsx";
+import { BackIcon, OpenOutsideIcon, ShareIcon } from "./icons.tsx";
+import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./Message.tsx";
 import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
@@ -36,7 +37,6 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 	const [content, setContent] = useState<FileContent>();
 	const [error, setError] = useState("");
 	const [mode, setMode] = useState<"preview" | "source">("preview");
-	const [copied, setCopied] = useState(false);
 	const [opening, setOpening] = useState(false);
 	const [sharing, setSharing] = useState(false);
 	const name = path?.split("/").at(-1) ?? "";
@@ -86,22 +86,12 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 						<span className="bar-model">{path}</span>
 					</div>
 					{content?.kind === "text" && !html ? (
-						<button
-							type="button"
-							className="btn bar-action"
-							onClick={() =>
-								void navigator.clipboard.writeText(content.text).then(() => {
-									setCopied(true);
-									setTimeout(() => setCopied(false), 1500);
-								})
-							}
-						>
-							{copied ? "已複製" : "複製"}
-						</button>
+						<CopyButton text={content.text} className="icon-button" size={18} />
 					) : content && content.kind !== "text" ? (
 						<button
 							type="button"
-							className="btn bar-action"
+							className="icon-button"
+							aria-label="用其他 app 開啟"
 							disabled={opening}
 							onClick={() => {
 								if (!path) return;
@@ -116,12 +106,12 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 									.finally(() => setOpening(false));
 							}}
 						>
-							用其他 app 開啟
+							<OpenOutsideIcon />
 						</button>
 					) : null}
 					{content ? (
-						<button type="button" className="btn bar-action" disabled={sharing} onClick={share}>
-							分享
+						<button type="button" className="icon-button" aria-label="分享" disabled={sharing} onClick={share}>
+							<ShareIcon />
 						</button>
 					) : null}
 				</header>

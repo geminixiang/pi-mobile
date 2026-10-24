@@ -6,7 +6,8 @@ import { parseAttachment } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
-import { ArrowIcon, CopyIcon } from "./icons.tsx";
+import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
+import { CopyButton } from "./CopyButton.tsx";
 import { type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
@@ -15,7 +16,6 @@ import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
-import { useBriefly } from "./briefly.ts";
 import { haptic } from "./haptics.ts";
 
 export interface Capabilities {
@@ -191,7 +191,6 @@ export function Chat({
 	);
 	const running = (live?.tools ?? []).some((tool) => tool.status !== "done");
 	const fail = (error: unknown) => onError(messageOf(error));
-	const [copied, showCopied] = useBriefly();
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	const lastEntry = entries.at(-1);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
@@ -311,13 +310,7 @@ export function Chat({
 				))}
 				{lastAnswer && !busy ? (
 					<div className="answer-actions">
-						<button
-							type="button"
-							className="btn"
-							onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => showCopied("已複製"), fail)}
-						>
-							{copied ?? "複製回答"}
-						</button>
+						<CopyButton text={entryText(lastAnswer)} />
 					</div>
 				) : null}
 				{emptyAnswer ? (
@@ -325,7 +318,8 @@ export function Chat({
 						<span className="note">沒有回答</span>
 						<button
 							type="button"
-							className="btn"
+							className="icon-button small"
+							aria-label="再試一次"
 							onClick={() => {
 								stickToBottom.current = true;
 								controller
@@ -333,7 +327,7 @@ export function Chat({
 									.catch(fail);
 							}}
 						>
-							再試一次
+							<RefreshIcon size={16} />
 						</button>
 					</div>
 				) : null}

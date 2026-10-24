@@ -295,9 +295,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(213 216 219 / 0.55);
 }
 .code-head > span { flex: 1; }
-.code-head button { padding: 6px 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; color: rgb(213 216 219 / 0.75); }
-.code-head button::before { content: "[ "; }
-.code-head button::after { content: " ]"; }
+.code-head button { color: rgb(213 216 219 / 0.75); }
+.code-toggle { padding: 6px 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
+.code-toggle::before { content: "[ "; }
+.code-toggle::after { content: " ]"; }
+.code-copy { display: grid; place-items: center; width: 34px; height: 34px; }
 .code pre { margin: 0; padding: 12px 14px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
 .code pre code { background: none; padding: 0; color: inherit; }
 .diagram { overflow-x: auto; background: var(--panel); }
@@ -658,7 +660,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 .bar-center.static { cursor: default; }
 .bar-center.static:active { background: none; }
-.bar-action { height: 32px; margin-right: 8px; }
 .viewer { flex: 1; min-height: 0; overflow: auto; padding: 12px 0 calc(env(safe-area-inset-bottom) + 24px); display: flex; flex-direction: column; gap: 12px; }
 .viewer > .banner, .viewer > .ws-loading, .viewer > .ws-empty, .viewer > .note { margin: 0 var(--space); }
 .viewer-image { display: block; max-width: calc(100% - 2 * var(--space)); margin: 0 var(--space); border: 1px solid var(--line); background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; }
@@ -705,8 +706,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-image img { display: block; max-width: 100%; max-height: 420px; }
 
 .step-elapsed { font-family: var(--mono); font-size: 11px; color: var(--muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.answer-actions { display: flex; gap: 8px; margin-top: -8px; }
-.answer-actions .btn { height: 30px; padding: 0 10px; font-size: 11px; }
+.answer-actions { display: flex; align-items: center; gap: 4px; margin: -12px 0 0 -10px; }
+.answer-actions .note { margin-left: 10px; }
 .drawer-running { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); animation: blink 1s steps(1) infinite; }
 .manual > summary::-webkit-details-marker { display: none; }
 .machine ~ .manual { padding-bottom: 14px; }
@@ -775,6 +776,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .provider > .link { margin: 10px 16px 0; padding: 0; font-size: 13px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
 .copyable { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding-bottom: 12px; }
 .copyable .console { align-self: stretch; }
+.copyable .row-buttons { gap: 0; padding: 0; margin: -4px -10px 0 0; }
 .pair-steps code { font-family: var(--mono); font-size: 12px; color: var(--text); }
 .machine .check-progress { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 
