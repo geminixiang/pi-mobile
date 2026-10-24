@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { justBashPatches } from "./vite-plugins/just-bash.ts";
+import { sideDrawerBounds } from "./vite-plugins/side-drawer-bounds.ts";
 
 const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, import.meta.url));
 
@@ -50,7 +51,7 @@ function pdfjsAssets(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [react(), piEnvDaemons(), pdfjsAssets(), justBashPatches()],
+	plugins: [react(), piEnvDaemons(), pdfjsAssets(), justBashPatches(), sideDrawerBounds()],
 	define: {
 		__PI_ENV_DAEMONS__: JSON.stringify(
 			Object.fromEntries(DAEMONS.map((name) => [name, createHash("sha256").update(readFileSync(daemonFile(name))).digest("hex")])),

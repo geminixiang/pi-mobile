@@ -1,0 +1,345 @@
+{
+	"label": "side-bounds-after",
+	"at": "2026-10-24T04:56:37.864Z",
+	"device": "SM-S9210",
+	"charging": false,
+	"bot": "tmp-git",
+	"rafHz": 120,
+	"runs": 5,
+	"scenes": {
+		"panel": {
+			"median": {
+				"gfxFrames": 247,
+				"gfxJankyPct": 3.7,
+				"gfxOver12ms": 9,
+				"gfxOver33ms": 0,
+				"gfxP90": 9,
+				"gfxP99": 16,
+				"gpuP99": 6,
+				"rafMissedPct": 0.5,
+				"rafDroppedVsyncs": 5,
+				"rafFreezes": 0,
+				"rafP99": 8.5,
+				"loafBlockingMs": 0,
+				"inputP95": 32
+			},
+			"runs": [
+				{
+					"heat": {
+						"status": 0,
+						"ap": 35.5,
+						"battery": 31.5
+					},
+					"nodes": 517,
+					"gfx": {
+						"frames": 347,
+						"janky": 39,
+						"jankyPct": 11.2,
+						"over12ms": 28,
+						"over33ms": 0,
+						"p50": 7,
+						"p90": 10,
+						"p99": 20,
+						"gpuP99": 13,
+						"missedVsync": 0,
+						"slowUi": 3,
+						"slowDraw": 35,
+						"deadlineMissed": 39
+					},
+					"raf": {
+						"frames": 1043,
+						"hz": 120.5,
+						"missed": 7,
+						"missedPct": 0.7,
+						"droppedVsyncs": 9,
+						"freezes": 1,
+						"p95": 8.4,
+						"p99": 8.5,
+						"max": 33.3
+					},
+					"loaf": {
+						"count": 0,
+						"blockingMs": 0,
+						"worst": []
+					},
+					"input": {
+						"slow": 132,
+						"p95": 32,
+						"worst": [
+							{
+								"name": "mousedown",
+								"ms": 40,
+								"processing": 0,
+								"delay": 9
+							},
+							{
+								"name": "mouseup",
+								"ms": 40,
+								"processing": 0,
+								"delay": 9
+							},
+							{
+								"name": "click",
+								"ms": 40,
+								"processing": 18,
+								"delay": 9
+							}
+						]
+					}
+				},
+				{
+					"heat": {
+						"status": 0,
+						"ap": 35.1,
+						"battery": 31.5
+					},
+					"nodes": 552,
+					"gfx": {
+						"frames": 246,
+						"janky": 9,
+						"jankyPct": 3.7,
+						"over12ms": 9,
+						"over33ms": 0,
+						"p50": 7,
+						"p90": 10,
+						"p99": 18,
+						"gpuP99": 6,
+						"missedVsync": 0,
+						"slowUi": 1,
+						"slowDraw": 8,
+						"deadlineMissed": 9
+					},
+					"raf": {
+						"frames": 1057,
+						"hz": 120.5,
+						"missed": 6,
+						"missedPct": 0.6,
+						"droppedVsyncs": 6,
+						"freezes": 0,
+						"p95": 8.4,
+						"p99": 8.5,
+						"max": 16.8
+					},
+					"loaf": {
+						"count": 0,
+						"blockingMs": 0,
+						"worst": []
+					},
+					"input": {
+						"slow": 119,
+						"p95": 40,
+						"worst": [
+							{
+								"name": "pointerover",
+								"ms": 40,
+								"processing": 1,
+								"delay": 5
+							},
+							{
+								"name": "pointerenter",
+								"ms": 40,
+								"processing": 0,
+								"delay": 6
+							},
+							{
+								"name": "pointerenter",
+								"ms": 40,
+								"processing": 0,
+								"delay": 6
+							}
+						]
+					}
+				},
+				{
+					"heat": {
+						"status": 0,
+						"ap": 35.6,
+						"battery": 31.7
+					},
+					"nodes": 552,
+					"gfx": {
+						"frames": 248,
+						"janky": 11,
+						"jankyPct": 4.4,
+						"over12ms": 5,
+						"over33ms": 0,
+						"p50": 7,
+						"p90": 8,
+						"p99": 16,
+						"gpuP99": 4,
+						"missedVsync": 0,
+						"slowUi": 0,
+						"slowDraw": 9,
+						"deadlineMissed": 11
+					},
+					"raf": {
+						"frames": 1075,
+						"hz": 120.5,
+						"missed": 3,
+						"missedPct": 0.3,
+						"droppedVsyncs": 4,
+						"freezes": 0,
+						"p95": 8.4,
+						"p99": 8.5,
+						"max": 25
+					},
+					"loaf": {
+						"count": 0,
+						"blockingMs": 0,
+						"worst": []
+					},
+					"input": {
+						"slow": 131,
+						"p95": 32,
+						"worst": [
+							{
+								"name": "pointerover",
+								"ms": 32,
+								"processing": 1,
+								"delay": 6
+							},
+							{
+								"name": "pointerenter",
+								"ms": 32,
+								"processing": 0,
+								"delay": 6
+							},
+							{
+								"name": "pointerenter",
+								"ms": 32,
+								"processing": 0,
+								"delay": 6
+							}
+						]
+					}
+				},
+				{
+					"heat": {
+						"status": 0,
+						"ap": 34.8,
+						"battery": 31.7
+					},
+					"nodes": 552,
+					"gfx": {
+						"frames": 246,
+						"janky": 9,
+						"jankyPct": 3.7,
+						"over12ms": 9,
+						"over33ms": 0,
+						"p50": 6,
+						"p90": 9,
+						"p99": 15,
+						"gpuP99": 6,
+						"missedVsync": 0,
+						"slowUi": 0,
+						"slowDraw": 9,
+						"deadlineMissed": 9
+					},
+					"raf": {
+						"frames": 1056,
+						"hz": 120.5,
+						"missed": 5,
+						"missedPct": 0.5,
+						"droppedVsyncs": 5,
+						"freezes": 0,
+						"p95": 8.4,
+						"p99": 8.5,
+						"max": 16.8
+					},
+					"loaf": {
+						"count": 0,
+						"blockingMs": 0,
+						"worst": []
+					},
+					"input": {
+						"slow": 144,
+						"p95": 32,
+						"worst": [
+							{
+								"name": "mousedown",
+								"ms": 40,
+								"processing": 0,
+								"delay": 12
+							},
+							{
+								"name": "mouseup",
+								"ms": 40,
+								"processing": 0,
+								"delay": 12
+							},
+							{
+								"name": "click",
+								"ms": 40,
+								"processing": 20,
+								"delay": 12
+							}
+						]
+					}
+				},
+				{
+					"heat": {
+						"status": 0,
+						"ap": 34.6,
+						"battery": 31.7
+					},
+					"nodes": 552,
+					"gfx": {
+						"frames": 247,
+						"janky": 9,
+						"jankyPct": 3.6,
+						"over12ms": 8,
+						"over33ms": 0,
+						"p50": 7,
+						"p90": 9,
+						"p99": 16,
+						"gpuP99": 5,
+						"missedVsync": 0,
+						"slowUi": 0,
+						"slowDraw": 9,
+						"deadlineMissed": 9
+					},
+					"raf": {
+						"frames": 1069,
+						"hz": 120.5,
+						"missed": 4,
+						"missedPct": 0.4,
+						"droppedVsyncs": 5,
+						"freezes": 0,
+						"p95": 8.4,
+						"p99": 8.4,
+						"max": 25
+					},
+					"loaf": {
+						"count": 0,
+						"blockingMs": 0,
+						"worst": []
+					},
+					"input": {
+						"slow": 131,
+						"p95": 40,
+						"worst": [
+							{
+								"name": "pointerover",
+								"ms": 40,
+								"processing": 1,
+								"delay": 4
+							},
+							{
+								"name": "pointerenter",
+								"ms": 40,
+								"processing": 0,
+								"delay": 5
+							},
+							{
+								"name": "pointerenter",
+								"ms": 40,
+								"processing": 0,
+								"delay": 5
+							}
+						]
+					}
+				}
+			]
+		}
+	}
+}
