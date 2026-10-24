@@ -74,6 +74,11 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 - 刪除 Bot 先在 `BotIndex` 標成刪除中（清單上不再出現，不再收輸入，排程也不會再送），再停下它的工作、清資料夾和附件，全部清完才把它從 `BotIndex` 拿掉並刪掉記憶。電腦連不上、容器資料夾沒刪掉，或刪到一半 app 被關掉，下次打開時接著做。pi-durable 不能刪除一條對話，所以對話紀錄留在 IndexedDB。
 - Code mode 的 QuickJS Worker 和手機資料夾的 bash Worker 跟著 app，不跟著 runtime，一個 app 各一個：它們不帶 runtime 的狀態，跟著 runtime 開關的話，每改一次設定就多留一個 Worker。
 
+**不做背景任務（2026-10-24 的決定）**
+- 評估過兩種：pi-durable example 22 的 subagent（助手是另一條對話，另一個模型在想）和 example 23 的 child task（純程式的 durable task，沒有模型）。前者做完了、也在模擬器上跑過（分支 `helpers`，含 `docs/design/helpers.md` 和 contracts），後者寫了 demo（example 23 的骨架換成四條真的 shell 指令）。
+- 都不上：手機上的工作是幾秒到半分鐘一件，code mode 一輪裡 `Promise.all` 已經是「一次做很多事」，排程已經是「晚點做、做完叫我」。subagent 對十秒的任務是純協調成本（三件事 300 秒、多一份上下文、還錯一題），只在要跑幾分鐘、要反覆試的電腦任務上划算；child task 要配一整套卡片、取消、中斷標記的 UI，換到的只有「幾分鐘以上的指令不卡回合」。
+- 哪天要回來做：subagent 從 `helpers` 分支撿，先加門檻（只派幾分鐘以上、不需要你參與的事）、做成預設關的工具組、處理兩個助手搶螢幕；child task 照 demo 的形狀，把報告以 follow-up 送回對話。
+
 **背景執行（Android）**
 - WebView 的 JavaScript 跑在 Chromium 的 renderer 程序，不在前景服務保護的 app 程序裡。WebView 看不見時 Chromium 會降低 renderer 的重要性，所以 `KeepAlivePlugin` 在 agent 工作時把它拉高。
 - Blink 會凍結隱藏超過一分鐘的頁面（計時器、plugin callback 都停），`PiWebView` 讓它在背景時仍算可見。
