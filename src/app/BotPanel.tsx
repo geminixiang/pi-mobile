@@ -6,7 +6,7 @@ import type { TriggerState } from "../agent/triggers.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
-import { BoxIcon, CopyIcon, FileIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
+import { BoxIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
@@ -20,7 +20,6 @@ export interface PanelActions {
 	memory: () => void;
 	compact: () => Promise<boolean>;
 	reset: () => void;
-	workspace?: () => void;
 	emptyFolder?: () => Promise<boolean>;
 	copy: (text: string) => Promise<void>;
 }
@@ -172,8 +171,6 @@ export function BotPanel({
 	};
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
-	const place = runtime.workplaces.at(String(bot.id));
-	const folder = place?.kind === "computer" ? place.root : place?.kind === "phone" ? "手機上的資料夾" : undefined;
 	const lastAnswer = [...(view?.entries ?? [])].reverse().find((entry) => entry.kind === "pi.assistant");
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
 
@@ -237,19 +234,16 @@ export function BotPanel({
 				</Section>
 
 				{runtime.workplaces.offers(String(bot.id)) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} problem={problem} onError={(text) => setProblem({ section: "電腦", text })} /> : null}
-				{folder ? (
+				{actions.emptyFolder ? (
 					<Section title="資料夾" problem={problem}>
 						<div className="menu">
-							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder} onClick={run(actions.workspace)} /> : null}
-							{actions.emptyFolder ? (
-								<Item
-									icon={<BoxIcon size={18} />}
-									label="清空資料夾"
-									hint={emptied}
-									danger
-									onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("資料夾"))}
-								/>
-							) : null}
+							<Item
+								icon={<BoxIcon size={18} />}
+								label="清空資料夾"
+								hint={emptied}
+								danger
+								onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("資料夾"))}
+							/>
 						</div>
 					</Section>
 				) : null}

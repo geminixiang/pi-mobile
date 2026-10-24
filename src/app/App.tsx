@@ -11,7 +11,7 @@ import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { AzureMark, ChevronDownIcon, CloudflareMark, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
+import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
@@ -339,6 +339,11 @@ export function App() {
 						<ChevronDownIcon />
 					</span>
 				</button>
+				{hasFolder ? (
+					<button type="button" className="icon-button" aria-label="資料夾" onClick={() => openWorkspace({ tab: "files" })}>
+						<FolderIcon />
+					</button>
+				) : null}
 				<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => setOverlay("panel")}>
 					<MoreIcon />
 				</button>
@@ -406,7 +411,6 @@ export function App() {
 								});
 								if (sure) await controller.reset().catch(fail);
 							},
-							workspace: hasFolder ? () => openWorkspace({ tab: "files" }) : undefined,
 							emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
 								? async () => {
 										if (!controller) return false;
