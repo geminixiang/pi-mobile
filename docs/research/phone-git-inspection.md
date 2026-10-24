@@ -1,6 +1,6 @@
-# 手機 Git inspection 草稿
+# 手機 Git inspection
 
-狀態：修訂 2 原始碼草稿，尚未執行修訂 2 的測試、建置或安裝。修訂 1 的外部驗證結果另列於下方，不代表本手機執行過檢查。已安裝的 0.5.0 行為不變，仍不支援這些新 inspection 命令。
+狀態：0.6.0 起在 app 裡。`npm run check` 會跑 `test/bash/git-inspection.ts`；2026-10-25 在模擬器上由 Bot 的手機資料夾跑過 `git diff --check`、`git diff --check --cached`、`git cat-file -t/-s/-p`，輸出和下表一致，`HEAD:f.txt` 這類 `<rev>:<path>` 如表所寫回不支援。S24 還沒跑過。
 
 ## 實作與介面
 
