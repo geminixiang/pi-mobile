@@ -1,6 +1,6 @@
 # 各平台能做到什麼
 
-狀態：2026-10-24 整理，只是盤點。現在以 Android 開發為主，這張表用來在寫 Android 功能時，順便知道它在別的平台會落在哪一格。
+狀態：2026-10-24 整理。pi mobile 主打隨身帶著走的 AI agent，所以**只做 Android 和 iOS，外殼繼續用 Capacitor**。桌面三欄留著參考，現在不做。這張表用來在寫 Android 功能時，順便知道它在 iOS 會落在哪一格。
 
 - **Android** 一欄是現況。
 - **其他欄**是依照 [research/platforms.md](../research/platforms.md) 查到的官方文件填的，來源都在那裡，但都還沒在真的裝置上試過。要做某個平台時，先驗證那一欄。
@@ -77,14 +77,50 @@
 | 版面 | 有（直立手機） | 可（同 Android） | 要做寬螢幕版面、hover、鍵盤 | 同 macOS | 同 macOS |
 | 發佈 | GitHub 上的 APK | 只能走 App Store、TestFlight（每個 build 90 天）或 ad hoc（最多 100 台），都要付費帳號；code mode 執行模型寫的程式，要先評估會不會卡審核 | Developer ID 簽章加上公證 | 簽章；SmartScreen 要累積信譽；最好用 MSIX，讀通知和分享目標都要 package identity | 自己打包 |
 
-## 規劃上要先決定的事
+## 決定
 
-1. **外殼**：Capacitor 官方只支援 Android 和 iOS，社群的 Electron 平台已經不維護。Tauri 2 一套程式碼可以出五個平台，`plugin-http` 也已經能做繞過 CORS 的串流；代價是原生層要改寫成 Tauri plugin（Android 那邊可以繼續用 Java）。
-2. **iOS 做到什麼程度**：通知、通話紀錄和簡訊、螢幕使用時間都拿不到；背景執行只有 `BGContinuedProcessingTask` 一條路。要先在真的 iPhone 上量 WebKit 會不會跟著活，再決定 iOS 值不值得做。
-3. **資料**：同一個 Bot 在手機和電腦上是兩份，還是要同步。
+- **只做 Android 和 iOS，外殼繼續用 Capacitor**（2026-10-24）。Capacitor 官方支援的正好是這兩個平台。桌面以後要做，再看 Tauri 2（見研究文件）。電腦的角色仍然是被手機控制的那一台（host）。
+- **還沒決定**：同一個人有 Android 和 iPhone 時，Bot 的資料是兩份還是同步。
+
+## iOS 要做的事
+
+### 先量，量完再決定要不要投入
+
+1. **背景**：用 `BGContinuedProcessingTask` 開始一輪對話，切出 app，量 WKWebView 裡的 agent 會不會繼續跑、能跑多久。如果 WebKit 的 process 會被暫停，iOS 上一輪對話就只能在前景跑完。
+2. **審核**：code mode 執行模型寫的程式、skills 從外面下載，對照審核規則 2.5.2 和 4.7，先確認上得了 App Store 或 TestFlight。上不了的話，iOS 只剩 ad hoc（最多 100 台）。
+
+### 地基：用 Swift 寫 Capacitor plugin
+
+| Plugin | iOS 上的做法 |
+|---|---|
+| `StreamFetch` | `URLSession`，資料一段一段用事件送回 JS（`CapacitorHttp` 不能串流） |
+| `Loopback` | 本機 HTTP server 接 OAuth 回呼，或改用 `ASWebAuthenticationSession` |
+| `BotFiles` | app 自己的檔案目錄 |
+| `Database` | SQLite |
+| `System` | 開連結、剪貼簿、震動 |
+| `KeepAlive` | 改成 `BGContinuedProcessingTask`，看上面第 1 點量出來的結果 |
+| 金鑰 | `capacitor-secure-storage` 本來就支援 iOS（Keychain） |
+
+### 手機功能：做得到的
+
+位置、動作和氣壓感測器（CoreMotion）、鬧鐘和計時器（AlarmKit，iOS 26）、寫信和簡訊（只打開撰寫畫面）、地圖、連結、分享、朗讀、聯絡人、照片（PhotoKit）、健康（HealthKit）、掃描文件（VisionKit）、行事曆（EventKit）、通知、語音輸入（SpeechAnalyzer，iOS 26）、從其他 app 分享給 pi（Share Extension）、Siri（App Intents）。
+
+### 手機功能：做不到的，iOS 上模型看不到這些工具
+
+讀通知、回覆通知、通話紀錄、讀簡訊、螢幕使用時間、勿擾、控制其他 app 的媒體播放（只能控制 Apple Music）。這要靠 [capabilities.md](capabilities.md) 先做好：工具在安裝時就依平台過濾，不是呼叫了才失敗。
+
+### 自動化
+
+Android 上的自動化靠系統廣播在背景叫醒 pi，iOS 沒有這種機制。能用的只有：
+
+- **時間**：系統的背景工作不準時。準時的只有通知和 AlarmKit，時間到了提醒使用者，打開 pi 才會跑。
+- **地點**：地理圍欄要「一律允許」位置權限，可以把 pi 在背景叫起來，但能跑多久要量。
+- **其他事件**：pi 提供 App Intent，由使用者在 Shortcuts 建立個人自動化（時間、打開某個 app、NFC、Wi-Fi、電量）去觸發。
+
+所以 iOS 上的自動化比較像「到時候提醒你，你點一下 pi 就接手」，不是 Android 那種在背景自己跑完。
 
 ## 寫 Android 功能時
 
-- **地基**（第 1 節）：新的原生能力如果每個平台都需要，介面放在 `Platform`（`src/agent/platform.ts`），不要在功能程式裡直接 `registerPlugin`。現在直接呼叫的有 35 個檔案，之後要慢慢收進去。
-- **工具**：新工具在第 2 節加一列。只有 Android 做得到的也沒關係，以後由 [capabilities.md](capabilities.md) 讓沒有這個能力的平台看不到這個工具。現在是呼叫時才失敗（`requireNative()`）。
+- **地基**（第 1 節）：新的原生能力如果 iOS 也需要，介面放在 `Platform`（`src/agent/platform.ts`），不要在功能程式裡直接 `registerPlugin`。現在直接呼叫的有 35 個檔案，之後要慢慢收進去。Plugin 的 JS 介面寫成 iOS 也實作得出來的樣子，不要讓 Android 才有的概念（intent、package 名稱、content URI）出現在介面上。
+- **工具**：新工具在第 2 節加一列，填上 iOS 那一格。只有 Android 做得到的也沒關係，以後由 [capabilities.md](capabilities.md) 讓 iOS 上看不到這個工具。現在是呼叫時才失敗（`requireNative()`）。
 - **寫死 Android 的地方**：給模型的提示（`triggers.ts`、`apps.ts`、`common.ts`），以及 `web.ts` 的 User-Agent。新寫的提示說「這支裝置」就好，不要寫「Android」。
