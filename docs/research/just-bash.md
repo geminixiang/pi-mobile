@@ -180,7 +180,7 @@ Luna 錯的三題都不是 bash 的問題：它用 `read` 讀檔案的前 1,000 
 - `git` 是 [just-git](https://github.com/blindmansion/just-git) 1.10.0（MIT，純 TypeScript，沒有相依套件，壓縮用 WebView 的 `CompressionStream`），第一次用到時才載入。38 個子指令，對照 git 2.55 做隨機測試；沒有 `rev-list`、submodule、LFS、SSH 遠端。
 - 資料夾不支援 symlink，所以交給 just-git 的檔案系統拿掉 `symlink`／`readlink`：repo 裡的 symlink 會寫成內容是目標路徑的一般檔案（同 `core.symlinks=false`）。
 - commit 類的子指令（commit、merge、rebase、cherry-pick、revert、tag、stash、pull）先問 GitHub `/user`，作者用 `名字 <id+login@users.noreply.github.com>`；沒有 token 時照 git 的規則（`git config user.name`）。
-- `gh` 是自己寫的子集（`files/gh-command.ts`）：`api`（`-X`、`-f`、`-F`、`-H`、`--jq`、`--paginate`、`--input`、`graphql`）、`pr list/view/create/diff/checkout/comment/merge/close/reopen`、`issue list/view/create/comment/close/reopen`、`repo clone/view`、`auth status`。`--json` 的欄位照 gh 的名字（`headRefName`、`author.login`…），`--jq` 交給 just-bash 的 jq。沒做的子指令和旗標回錯誤，叫模型改用 `gh api`。
+- `gh` 是自己寫的子集（`files/gh-command.ts`）：`api`（`-X`、`-f`、`-F`、`-H`、`--jq`、`--paginate`、`--input`、`graphql`）、`pr list/view/create/diff/checkout/comment/merge/close/reopen`、`issue list/view/create/comment/close/reopen`、`repo clone/view`、`search issues/prs`（跨 GitHub，`--repo`、`--owner`、`--state`、`--author`、`--label`）、`auth status`。`--json` 的欄位照 gh 的名字（`headRefName`、`author.login`…），`--jq` 交給 just-bash 的 jq。沒做的子指令和旗標回錯誤，叫模型改用 `gh api`。
 
 | 操作 | 時間 |
 |---|---|
@@ -189,5 +189,9 @@ Luna 錯的三題都不是 bash 的問題：它用 `read` 讀檔案的前 1,000 
 | `git clone` geminixiang/pi-mobile 全部歷史（481 個檔案） | 6.8 秒 |
 | `gh pr list -R cli/cli -L 3` | 0.5 秒 |
 | 私有 repo：clone、開分支、commit、push、刪遠端分支 | 0.8 + 2.3 + 1.9 秒 |
+| `gh search issues symlink --repo vercel-labs/just-bash` | 0.8 秒 |
+| `gh issue create`、`comment`、`close` | 3.4 秒 |
+| 開 base 和 head 分支、commit、push、`gh pr create` | 5.8 秒 |
+| `gh pr view`、`gh pr diff`、`gh pr merge --squash` | 5.9 秒 |
 
 模型（GPT 6.1 Sol）用一般的問法：「把 octocat/Hello-World 抓下來，README 寫了什麼、最後一個 commit 是誰」用 git；「cli/cli 最近三個 open 的 PR」先試 `gh pr list --search`（當時沒有，之後補上），失敗後改用 `gh api`；「我 pi-mobile 的 issue 2 在講什麼」用 `gh api` 讀 issue 和留言。三題都答對。

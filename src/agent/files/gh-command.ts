@@ -138,6 +138,8 @@ function itemField(item: unknown, field: string): unknown {
 			return at(at(item, "base"), "ref") ?? null;
 		case "isDraft":
 			return at(item, "draft") === true;
+		case "repository":
+			return { nameWithOwner: text(at(item, "repository_url")).replace(`${API}/repos/`, "") };
 	}
 	return undefined;
 }
@@ -425,6 +427,34 @@ async function repoCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecR
 	throw new GhError(`unknown command "repo ${action}"; supported: clone, view. Use \`gh api\` for anything else.`);
 }
 
+const SEARCH_KINDS: Record<string, string> = { issues: "is:issue", prs: "is:pr" };
+
+async function searchCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
+	const [kind = "", ...rest] = args;
+	const qualifier = SEARCH_KINDS[kind];
+	if (!qualifier) throw new GhError(`unknown command "search ${kind}"; supported: issues, prs. Use \`gh api search/...\` for anything else.`);
+	const flags = parseFlags(rest, { "--repo": "repo", "-R": "repo", "--owner": "owner", "--state": "state", "--author": "author", "--label": "label", "--limit": "limit", "-L": "limit", "--json": "json", "--jq": "jq", "-q": "jq" }, {});
+	const state = one(flags, "state");
+	const terms = [
+		...flags.positional,
+		qualifier,
+		...(flags.values.get("repo") ?? []).map((repo) => `repo:${repo}`),
+		...(flags.values.get("owner") ?? []).map((owner) => `user:${owner}`),
+		...(flags.values.get("label") ?? []).map((label) => `label:"${label}"`),
+		state ? `state:${state}` : "",
+		one(flags, "author") ? `author:${one(flags, "author")}` : "",
+	].filter(Boolean);
+	if (flags.positional.length === 0 && terms.length === 1) throw new GhError(`usage: gh search ${kind} QUERY [--repo OWNER/REPO] [--state open|closed] [--limit N]`);
+	const limit = Math.min(100, Number(one(flags, "limit") ?? DEFAULT_LIMIT));
+	const result = await client.json("GET", `/search/issues?per_page=${limit}&q=${encodeURIComponent(terms.join(" "))}`);
+	const matches = at(result, "items");
+	const found = (Array.isArray(matches) ? matches : []).slice(0, limit);
+	const repoOf = (item: unknown) => text(at(item, "repository_url")).replace(`${API}/repos/`, "");
+	return present(ctx, flags, found, [...ITEM_FIELDS, "repository"], () =>
+		found.map((item) => `${[repoOf(item), text(at(item, "number")), text(itemField(item, "state")), text(at(item, "title")), text(at(item, "updated_at"))].join("\t")}\n`).join(""),
+	);
+}
+
 async function auth(args: string[], client: Api): Promise<ExecResult> {
 	if (args[0] !== "status") throw new GhError("only `gh auth status` is available: the token comes from pi mobile's settings");
 	const response = await client.raw("GET", "/user");
@@ -445,10 +475,12 @@ export function ghCommand(fetch: FolderFetch): Command {
 					return await items(group, rest, ctx, client);
 				case "repo":
 					return await repoCommand(rest, ctx, client);
+				case "search":
+					return await searchCommand(rest, ctx, client);
 				case "auth":
 					return await auth(rest, client);
 			}
-			return failed(`gh: unknown command "${group}"; this gh has api, pr, issue, repo, auth status`);
+			return failed(`gh: unknown command "${group}"; this gh has api, pr, issue, repo, search, auth status`);
 		} catch (error) {
 			if (error instanceof GhError) return failed(`gh: ${error.message}`);
 			throw error;

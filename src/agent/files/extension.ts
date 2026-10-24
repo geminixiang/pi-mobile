@@ -7,7 +7,7 @@ export const SHOWN_AS_FILE =
 const FOLDER = [
 	"read, write, edit, and bash work in your own folder on this phone; / is its root and nothing outside it exists. It is private and kept across conversations: put there what the user will want as a file, or what is too long for the conversation; short facts go in memory. A file the user names is probably already there: ls before saying it is missing, and work on it with bash rather than reading it whole.",
 	SHOWN_AS_FILE,
-	"bash runs built-in commands only (cat, ls, find, grep, sed, awk, jq, sort, uniq, wc, head, tail, cut, tr, diff, cp, mv, rm, mkdir, date, xargs, gzip…); no python or other programs: compute with awk or jq. git and gh reach GitHub as the user (gh has api, pr, issue, repo, auth status; clone with --depth 1); nothing else reaches the network.",
+	"bash runs built-in commands only (cat, ls, find, grep, sed, awk, jq, sort, uniq, wc, head, tail, cut, tr, diff, cp, mv, rm, mkdir, date, xargs, gzip…); no python or other programs: compute with awk or jq. git and gh reach GitHub as the user (gh has api, pr, issue, repo, search, auth status; clone with --depth 1); nothing else reaches the network.",
 ].join(" ");
 
 const MISSING = "The computer you were set to work on was removed from the user's settings, so read, write, edit, and bash cannot run anywhere until the user picks a computer for you in your bot panel (電腦). Say so if a task needs them; everything else works.";
