@@ -34,10 +34,6 @@ function ago(time: number): string {
 	return relative.format(Math.round(value), "year");
 }
 
-function errorText(error: unknown): string {
-	return messageOf(error);
-}
-
 function BackStep({ onBack }: { onBack: () => void }) {
 	useBack(true, onBack);
 	return null;
@@ -74,7 +70,7 @@ function FileBrowser({
 		setError("");
 		workspace.list(path).then(
 			(items) => live && setEntries(items),
-			(failure: unknown) => live && setError(errorText(failure)),
+			(failure: unknown) => live && setError(messageOf(failure)),
 		);
 		return () => {
 			live = false;
@@ -158,7 +154,7 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 			.then((paths) => Promise.all(paths.map((path) => workspace.status(path))))
 			.then(
 				(items) => live && setRepos(items),
-				(failure: unknown) => live && setError(errorText(failure)),
+				(failure: unknown) => live && setError(messageOf(failure)),
 			);
 		return () => {
 			live = false;
@@ -260,7 +256,7 @@ export function WorkspaceView({
 				if (value && initial.file) setFile(resolvePath(value.root, initial.file));
 			},
 			(failure: unknown) => {
-				if (current) setError(errorText(failure));
+				if (current) setError(messageOf(failure));
 			},
 		);
 		return () => {

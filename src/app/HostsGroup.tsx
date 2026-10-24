@@ -5,10 +5,6 @@ import { messageOf, orLogged } from "../promise.ts";
 
 const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
-function errorText(error: unknown): string {
-	return messageOf(error);
-}
-
 function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 	const [copied, setCopied] = useState(false);
 	return (
@@ -47,7 +43,7 @@ export function usePrepare(host: Host | undefined): [Preparing, (target?: Host) 
 			setPreparing({ state: "idle" });
 			return true;
 		} catch (error) {
-			setPreparing({ state: "error", detail: errorText(error) });
+			setPreparing({ state: "error", detail: messageOf(error) });
 			return false;
 		}
 	};
@@ -152,7 +148,7 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 				setAddress("");
 				setAdding({ state: "idle" });
 			},
-			(error: unknown) => setAdding({ state: "error", detail: errorText(error) }),
+			(error: unknown) => setAdding({ state: "error", detail: messageOf(error) }),
 		);
 	};
 	const ready = found?.filter((item) => item.info) ?? [];
