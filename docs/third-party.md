@@ -2,7 +2,7 @@
 
 ## Lucide
 
-自動化的圖示（`src/app/icons.tsx` 的 `TRIGGER_PATHS`）取自 [Lucide](https://lucide.dev) 1.61.0：clock、headphones、bell、map-pin、wifi、battery-charging、battery-low、lock-open、image、car、globe、bluetooth、footprints、bike、person-standing。clock 和 globe 的圓半徑從 10 改成 9，跟 app 其他圖示的外框一致；其餘照原樣，只換成 app 自己的線寬。
+自動化的圖示（`src/app/icons.tsx` 的 `TRIGGER_PATHS`）取自 [Lucide](https://lucide.dev) 1.61.0：clock、headphones、bell、map-pin、wifi、battery-charging、battery-low、lock-open、image、car、globe、bluetooth、footprints、bike、person-standing。clock 和 globe 的圓半徑從 10 改成 9，跟 app 其他圖示的外框一致；其餘照原樣，只換成 app 自己的線寬。輸入框「附加」選單的相機（`CameraIcon`）也取自 Lucide 的 camera。
 
 ```
 ISC License

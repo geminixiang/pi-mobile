@@ -5,7 +5,7 @@ import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
 import { Capacitor } from "@capacitor/core";
 import { inboxFile, Scanner } from "../scanner-plugin.ts";
-import { CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "./icons.tsx";
+import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { Database } from "../database-plugin.ts";
 import { AttachmentChip } from "./Message.tsx";
@@ -83,6 +83,7 @@ export function Composer({
 	const [problem, setProblem] = useState<string>();
 	const [attachMenu, setAttachMenu] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
+	const cameraInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const reading = files.some((file) => file.state === "reading");
 	const hasInput = draft.trim() !== "" || images.length > 0 || files.length > 0;
@@ -278,6 +279,16 @@ export function Composer({
 								type="button"
 								onClick={() => {
 									setAttachMenu(false);
+									cameraInput.current?.click();
+								}}
+							>
+								<CameraIcon />
+								<span className="menu-text">拍照</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setAttachMenu(false);
 									fileInput.current?.click();
 								}}
 							>
@@ -290,6 +301,18 @@ export function Composer({
 							</button>
 						</div>
 					</Sheet>
+					<input
+						ref={cameraInput}
+						type="file"
+						accept="image/*"
+						capture="environment"
+						hidden
+						onChange={(event) => {
+							const picked = [...(event.target.files ?? [])];
+							event.target.value = "";
+							void attach(picked);
+						}}
+					/>
 					<input
 						ref={fileInput}
 						type="file"

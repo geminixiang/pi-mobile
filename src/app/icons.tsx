@@ -45,6 +45,12 @@ export const ScanIcon = ({ size = 18 }: { size?: number }) => (
 		<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M4 12h16" />
 	</Icon>
 );
+export const CameraIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" />
+		<circle cx="12" cy="13" r="3" />
+	</Icon>
+);
 export const PaperclipIcon = ({ size = 22 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
