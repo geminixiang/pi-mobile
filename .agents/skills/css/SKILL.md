@@ -92,6 +92,26 @@ compositor without repainting the element or laying out the page. Everything els
   prose. Color comes only from the pi mark (coral, blue, yellow) and one accent blue; tool, message, and thinking
   colors are pi's theme (`light.json`, `dark.json`). No rounded cards, shadows, or gradients beyond the page grid.
 
+## 6. Layout and copy
+
+- **Optical alignment over arithmetic alignment.** Icons, text, and controls in one row share a visual centre, not
+  the same box edge: an icon with visual weight on one side gets nudged; a 40px tap target holds a 16px glyph at its
+  optical centre; text baselines line up across the row. Check at 2x on the device, not in the DOM inspector.
+- **Nested shapes share one geometry.** The app is square-edged; a square inside a square stays square. If a shape
+  ever gets a radius, the shape nested inside it uses the same centre with the radius reduced by the padding
+  (concentric), never the same radius.
+- **No explanatory copy.** No sentences telling the user what a screen is for, what will happen, or what to do next;
+  the layout, the labels, and the empty state's one noun phrase do that. A hint is allowed only when it carries a
+  fact the user cannot see (a count, a date, a limit). Error text says what failed, not why it might have.
+- **No eyebrows.** No small uppercase label above a heading that repeats or decorates it; a strip label is a
+  section's own title, not a caption over one. Hierarchy comes from size, weight, spacing, and whitespace. The
+  only label above a title is one that adds a category or context the title does not say.
+- **Few decisions, placed where the user already is deciding.** Do not open a choice the user did not come for.
+  When a choice is unavoidable, put it in the control the user is already operating (the picker, the row's own
+  action), with the common case as the default. Before adding an element, rank what is on the screen by what the
+  user came for; the first thing the eye lands on must be the most important, and anything below the fold must be
+  less important than everything above it.
+
 ## Check
 
 ```sh
