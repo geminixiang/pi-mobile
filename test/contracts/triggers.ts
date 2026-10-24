@@ -96,7 +96,7 @@ export const checks: Check[] = [
 				assert.equal(await fixture.delivered(), 0);
 				const after = await fixture.doc();
 				assert.equal(after.runs.length, 0);
-				assert.deepEqual(after.items[0]?.last?.skipped, { reason: "Is it morning?", probability: 0.1 });
+				assert.deepEqual(after.items[0]?.last?.skipped, { reason: "不符合「Is it morning?」", probability: 0.9 });
 				assert.deepEqual(fixture.touched, []);
 			});
 		},

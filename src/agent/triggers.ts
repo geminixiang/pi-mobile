@@ -125,6 +125,7 @@ interface TriggersPlugin {
 	events(): Promise<{ events: unknown[] }>;
 	ack(options: { ids: string[] }): Promise<void>;
 	started(options: { trigger: string }): Promise<void>;
+	skipped(options: { trigger: string }): Promise<void>;
 	status(): Promise<{ exactAlarms: boolean; bluetooth: boolean }>;
 	requestBluetooth(): Promise<{ granted: boolean }>;
 	requestAccess(options: { to: "photos" | "activity" }): Promise<{ granted: boolean }>;
@@ -595,6 +596,7 @@ export class TriggerRuns {
 		if (screening && !screening.pass) {
 			const skipped = { reason: screening.reason, ...(screening.probability !== undefined ? { probability: screening.probability } : {}) };
 			await this.#record(id, { at: now, delivery, skipped, ...(screening.unjudged ? { unjudged: screening.unjudged } : {}) });
+			if (nativeTriggers) await Triggers.skipped({ trigger: id });
 			return undefined;
 		}
 		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};

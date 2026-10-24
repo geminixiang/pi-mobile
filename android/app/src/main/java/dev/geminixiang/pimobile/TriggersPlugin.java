@@ -134,6 +134,12 @@ public class TriggersPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void skipped(PluginCall call) {
+        TriggerStore.giveBackGap(getContext(), call.getString("trigger", ""));
+        call.resolve();
+    }
+
+    @PluginMethod
     public void status(PluginCall call) {
         AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
         JSObject result = new JSObject();

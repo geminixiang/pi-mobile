@@ -32,6 +32,7 @@ final class TriggerStore {
     private static final String KEY_EVENTS = "events";
     private static final long MISSED_GRACE_MS = 6 * 60 * 60 * 1000L;
     private static final String KEY_LAST_PREFIX = "last.";
+    private static final String KEY_BEFORE_PREFIX = "before.";
 
     private TriggerStore() {}
 
@@ -180,11 +181,17 @@ final class TriggerStore {
             } else if (nowMs - last < gapHours * 60L * 60 * 1000) {
                 continue;
             }
-            editor.putLong(KEY_LAST_PREFIX + id, nowMs);
+            editor.putLong(KEY_BEFORE_PREFIX + id, last).putLong(KEY_LAST_PREFIX + id, nowMs);
             due.add(id);
         }
         editor.apply();
         return due;
+    }
+
+    static synchronized void giveBackGap(Context context, String id) {
+        SharedPreferences prefs = prefs(context);
+        if (!prefs.contains(KEY_BEFORE_PREFIX + id)) return;
+        prefs.edit().putLong(KEY_LAST_PREFIX + id, prefs.getLong(KEY_BEFORE_PREFIX + id, 0)).remove(KEY_BEFORE_PREFIX + id).apply();
     }
 
     static boolean headphonesWindow(JSONObject when, ZonedDateTime now) {

@@ -17,7 +17,7 @@ function GuardChips({ trigger, onChange }: { trigger: Trigger; onChange: (guards
 						checked={chosen.has(guard)}
 						onChange={(event) => onChange(GUARD_IDS.filter((id) => (id === guard ? event.target.checked : chosen.has(id))))}
 					/>
-					{GUARDS[guard].skipWhenYes ? `擋${GUARDS[guard].label}` : `只在${GUARDS[guard].label}`}
+					{GUARDS[guard].short}
 				</label>
 			))}
 		</span>
