@@ -42,7 +42,12 @@ export class SharedEnvs {
 	}
 
 	#make(cwd: string): RemoteExecutionEnv {
-		return new RemoteExecutionEnv({ connection: this.#connection as unknown as Connection, id: `sandbox:${SHARED_SANDBOX}`, cwd });
+		return new RemoteExecutionEnv({ connection: this.#asConnection(), id: `sandbox:${SHARED_SANDBOX}`, cwd });
+	}
+
+	#asConnection(): Connection {
+		// why: pi-env's Connection is a class with private fields, so no reimplementation is assignable to it; StreamConnection has its whole public API (info, session, request, close, kill), which is all RemoteExecutionEnv calls.
+		return this.#connection as unknown as Connection;
 	}
 
 	async #run(command: string): Promise<number> {
