@@ -298,7 +298,7 @@ export function WorkspaceView({
 				{workspace === undefined && !error ? <div className="ws-pane"><div className="ws-loading">連接電腦</div></div> : null}
 				{workspace === null ? (
 					<div className="ws-pane">
-						<div className="ws-empty">這個 Bot 還沒在電腦上做過事。請它做點事，檔案就會出現在這裡。</div>
+						<div className="ws-empty">還沒有資料夾</div>
 					</div>
 				) : null}
 				{workspace && tab === "files" ? (

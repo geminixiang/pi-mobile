@@ -154,7 +154,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 						</div>
 					) : null}
 					{content?.kind === "text" && html && mode === "preview" ? (
-						content.truncated ? <div className="ws-empty">檔案超過 {content.limit / 1024 / 1024} MB，分享後用瀏覽器開</div> : <HtmlPreview html={content.text} />
+						content.truncated ? <div className="ws-empty">超過 {content.limit / 1024 / 1024} MB，無法預覽</div> : <HtmlPreview html={content.text} />
 					) : null}
 					{content?.kind === "text" && !(previewable && mode === "preview") ? <CodeLines text={content.text} /> : null}
 					{content?.kind === "text" && content.truncated && !(html && mode === "preview") ? <div className="note">只顯示前 {content.limit >= 1024 * 1024 ? `${content.limit / 1024 / 1024} MB` : `${content.limit / 1024} KB`}</div> : null}

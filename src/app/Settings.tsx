@@ -5,7 +5,7 @@ import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
-import { showToast } from "./Toasts.tsx";
+import { useBriefly } from "./briefly.ts";
 import { checkGitHub } from "../agent/checks.ts";
 import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
 import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
@@ -297,6 +297,7 @@ function BackgroundGroup() {
 
 function NotificationsGroup() {
 	const [allowed, setAllowed] = useState<boolean>();
+	const [cleared, showCleared] = useBriefly();
 	useEffect(() => {
 		if (!native) return;
 		const refresh = () => void Notifications.status().then((status) => setAllowed(status.allowed));
@@ -321,8 +322,8 @@ function NotificationsGroup() {
 					<span className="menu-text">
 						清除記錄
 					</span>
-					<button type="button" className="btn" onClick={() => void Notifications.clear().then(() => showToast("已清除通知記錄"))}>
-						清除
+					<button type="button" className="btn" disabled={Boolean(cleared)} onClick={() => void Notifications.clear().then(() => showCleared("已清除"))}>
+						{cleared ?? "清除"}
 					</button>
 				</div>
 			) : null}
@@ -332,6 +333,7 @@ function NotificationsGroup() {
 
 function DatabaseGroup() {
 	const [tables, setTables] = useState<TableInfo[]>();
+	const [exportError, setExportError] = useState<string>();
 	useEffect(() => {
 		if (!native) return;
 		void Database.schema().then((schema) => setTables(schema.tables));
@@ -357,10 +359,18 @@ function DatabaseGroup() {
 			)}
 			<div className="check-row">
 				<span className="menu-text">匯出</span>
-				<button type="button" className="btn" onClick={() => void Database.export().catch((error: unknown) => showToast(`匯出失敗：${messageOf(error)}`))}>
+				<button
+					type="button"
+					className="btn"
+					onClick={() => {
+						setExportError(undefined);
+						void Database.export().catch((error: unknown) => setExportError(`匯出失敗：${messageOf(error)}`));
+					}}
+				>
 					匯出
 				</button>
 			</div>
+			{exportError ? <div className="note error">{exportError}</div> : null}
 		</Group>
 	);
 }
@@ -442,7 +452,12 @@ export function SettingsView({
 
 	useEffect(() => onDraft?.(settings, changed), [settings, changed, onDraft]);
 	const [page, setPage] = useState<Page>();
-	useBack(page !== undefined, () => setPage(undefined));
+	const [problem, setProblem] = useState<string>();
+	const go = (next: Page | undefined) => {
+		setProblem(undefined);
+		setPage(next);
+	};
+	useBack(page !== undefined, () => go(undefined));
 	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
 
 	const models = (
@@ -564,7 +579,7 @@ export function SettingsView({
 			title: "連接的服務",
 			body: () => (
 				<Group title="MCP">
-					<McpGroup runtime={runtime} onError={(message) => showToast(message)} />
+					<McpGroup runtime={runtime} onError={setProblem} />
 				</Group>
 			),
 		},
@@ -598,14 +613,14 @@ export function SettingsView({
 	};
 
 	if (page === "memory" && runtime) {
-		return <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => setPage(undefined)} onError={(message) => showToast(message)} />;
+		return <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => go(undefined)} onError={setProblem} />;
 	}
 	const current = page && page !== "memory" ? pages[page] : undefined;
 	return (
 		<div className="screen">
 			<header className="bar">
 				{current ? (
-					<button type="button" className="icon-button" onClick={() => setPage(undefined)} aria-label="返回">
+					<button type="button" className="icon-button" onClick={() => go(undefined)} aria-label="返回">
 						<BackIcon />
 					</button>
 				) : onCancel ? (
@@ -637,7 +652,8 @@ export function SettingsView({
 					</div>
 				)}
 				{status ? <div className="banner error">{status}</div> : null}
-				{current ? current.body() : onCancel ? <SettingsIndex settings={settings} runtime={runtime} onOpen={setPage} /> : models}
+				{problem ? <div className="banner error">{problem}</div> : null}
+				{current ? current.body() : onCancel ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
 				{current ? null : <p className="about">pi mobile · {__BUILD__}</p>}
 			</form>
 		</div>

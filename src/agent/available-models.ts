@@ -43,7 +43,7 @@ export async function loadModels(settings: Settings, modelIds: Promise<Record<st
 	const configs = usableProviders(settings);
 	const [lists, loaded, catalog] = await Promise.all([
 		modelIds.catch((error: unknown): Record<string, string[]> => {
-			onReport?.(`model list unavailable: ${messageOf(error)}`);
+			onReport?.(`讀不到模型清單：${messageOf(error)}`);
 			return {};
 		}),
 		Promise.all(

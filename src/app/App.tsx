@@ -7,9 +7,8 @@ import { openAppStorage } from "../storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Capacitor } from "@capacitor/core";
-import { Chat, isBusy, type SharedKind } from "./Chat.tsx";
+import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
-import { showToast } from "./Toasts.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
@@ -37,6 +36,7 @@ import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform } from "../agent/platform.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
+const MAX_NOTICES = 3;
 
 const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
@@ -79,10 +79,14 @@ export function App() {
 		if (changed) applyTimer.current = setTimeout(() => void applyRef.current?.(), SETTINGS_APPLY_MS);
 	}, []);
 
+	const [notices, setNotices] = useState<readonly Notice[]>([]);
+	const lastNotice = useRef(0);
 	const notify = useCallback((message: string) => {
 		log.warn("app.notice", { message });
-		showToast(message);
+		const id = ++lastNotice.current;
+		setNotices((current) => [...current.filter((notice) => notice.text !== message), { id, text: message }].slice(-MAX_NOTICES));
 	}, []);
+	const dismissNotices = useCallback((ids: readonly number[]) => setNotices((current) => current.filter((notice) => !ids.includes(notice.id))), []);
 	const fail = useCallback((error: unknown) => notify(messageOf(error)), [notify]);
 
 	const ask = useCallback(
@@ -271,8 +275,14 @@ export function App() {
 		clearTimeout(applyTimer.current);
 		const draft = settingsDraft.current;
 		settingsDraft.current = undefined;
-		if (draft?.changed && !isConfigured(draft.settings)) notify("沒有可用的模型供應商，變更沒有儲存");
-		else if (draft?.changed) {
+		if (draft?.changed && !isConfigured(draft.settings)) {
+			void ask({ title: "變更沒有儲存", body: "沒有可用的模型供應商。離開會放棄這次的變更。", confirm: "放棄變更", danger: true }).then((sure) => {
+				if (sure) close();
+				else settingsDraft.current = draft;
+			});
+			return;
+		}
+		if (draft?.changed) {
 			settingsDraft.current = draft;
 			void applyRef.current?.();
 			settingsDraft.current = undefined;
@@ -375,7 +385,6 @@ export function App() {
 						compactAt={settings.compactAt}
 						prefs={prefs}
 						onPrefs={updatePrefs}
-						onError={notify}
 						onClose={close}
 						actions={{
 							edit: () => {
@@ -386,12 +395,8 @@ export function App() {
 								setMemoryBot(current);
 								setOverlay("botMemory");
 							},
-							copy: (text) => navigator.clipboard.writeText(text).then(() => notify("已複製最後的回答"), fail),
-							compact: () => {
-								if (!controller) return;
-								notify("壓縮中…");
-								controller.compact().then((done) => notify(done ? "已把較早的對話壓縮成摘要" : "對話還短，不需要壓縮"), fail);
-							},
+							copy: (text) => navigator.clipboard.writeText(text),
+							compact: () => (controller ? controller.compact() : Promise.resolve(false)),
 							reset: async () => {
 								if (!controller) return;
 								const sure = await ask({
@@ -404,14 +409,16 @@ export function App() {
 							workspace: hasFolder ? () => openWorkspace({ tab: "files" }) : undefined,
 							emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
 								? async () => {
-										if (!controller) return;
+										if (!controller) return false;
 										const sure = await ask({
 											title: "清空資料夾",
 											body: `${current?.name ?? "這個 Bot"} 在容器裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
 											confirm: "清空",
 											danger: true,
 										});
-										if (sure) await runtime.resetSandbox(controller.id).then(() => notify("已清空資料夾"), fail);
+										if (!sure) return false;
+										await runtime.resetSandbox(controller.id);
+										return true;
 									}
 								: undefined,
 						}}
@@ -430,8 +437,9 @@ export function App() {
 						shared={pendingShared}
 						focusKey={focusKey}
 						onView={setView}
+						notices={notices}
+						onDismissNotices={dismissNotices}
 						onError={notify}
-						onNotice={notify}
 					/>
 					</OpenFileContext.Provider>
 				) : (
@@ -460,6 +468,7 @@ export function App() {
 				canDelete={bots.length > 1}
 				bots={bots}
 				onClose={() => setBotEdit(undefined)}
+				onError={notify}
 				onSave={async (change) => {
 					try {
 						if (botEdit?.kind === "edit") {

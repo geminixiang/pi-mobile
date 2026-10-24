@@ -254,6 +254,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .answer.aborted .markdown { opacity: 0.6; }
 .note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--faint); }
 .note.error { color: var(--error); letter-spacing: 0.02em; padding: 10px 12px; background: var(--error-bg); border-left: 2px solid var(--error); }
+.notice { display: block; width: 100%; text-align: left; }
 
 .answer .markdown { font-family: var(--serif); font-size: 16.5px; line-height: 1.8; color: var(--copy); }
 .markdown > :first-child { margin-top: 0; }
@@ -342,6 +343,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .input { position: relative; border-top: 1px solid var(--editor-border); background: none; padding-bottom: calc(env(safe-area-inset-bottom) + 14px); }
+.composer-problem {
+	display: block; width: 100%; padding: 10px var(--space) 0; text-align: left; color: var(--error);
+	font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.02em; line-height: 1.5;
+}
 .input::before {
 	content: ""; position: absolute; inset: calc(-1 * var(--edge-fade)) 0 0; z-index: -1; pointer-events: none;
 	background: linear-gradient(to top, var(--bg) calc(100% - var(--edge-fade)), transparent);
@@ -450,20 +455,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .queue-mode { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.toasts { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 80px); z-index: 30; }
-.toast {
-	position: absolute; left: 0; right: 0; bottom: 0; z-index: calc(10 - var(--toast-index));
-	background: var(--console-bg); color: var(--console-text); border-left: 2px solid var(--accent);
-	transform: translateX(var(--toast-swipe-movement-x)) translateY(calc(var(--toast-index) * -8px)) scale(calc(1 - var(--toast-index) * 0.04));
-	transition: transform 220ms var(--ease), opacity 200ms ease;
-}
-.toast[data-starting-style] { opacity: 0; transform: translateY(16px); }
-.toast[data-ending-style] { opacity: 0; }
-.toast[data-ending-style][data-swipe-direction="left"] { transform: translateX(-110%); }
-.toast[data-ending-style][data-swipe-direction="right"] { transform: translateX(110%); }
-.toast[data-swiping] { transition: none; }
-.toast[data-limited] { opacity: 0; }
-.toast-text { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; line-height: 1.5; }
 
 .backdrop {
 	position: fixed; inset: 0; z-index: 20; background: var(--scrim);
@@ -586,8 +577,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .drawer-top { display: flex; align-items: center; min-height: 36px; padding: 0 4px; }
 .brand { display: inline-flex; align-items: center; gap: 12px; }
 .brand-name { font-family: var(--display); font-style: italic; font-size: 24px; line-height: 1; }
-.drawer-list { flex: 1; overflow: hidden auto; margin: 0 -12px; }
-.drawer-list h3 { margin: 16px 16px 6px; }
+.drawer-list { flex: 1; overflow: hidden auto; margin: 0 -12px; padding-top: 12px; }
 .drawer-item { display: flex; align-items: center; padding-right: 4px; border-left: 2px solid transparent; }
 .drawer-item:active { background: var(--accent-soft); }
 .drawer-item.current { background: var(--panel-2); border-left-color: var(--accent); }

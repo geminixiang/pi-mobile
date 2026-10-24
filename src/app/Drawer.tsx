@@ -89,7 +89,6 @@ export function Drawer({
 					</span>
 				</div>
 				<div className="drawer-list">
-					<h3 className="strip-label">Bots</h3>
 					{bots.map((bot) => (
 						<div
 							key={String(bot.id)}

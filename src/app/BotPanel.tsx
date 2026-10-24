@@ -13,15 +13,16 @@ import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
+import { useBriefly } from "./briefly.ts";
 
 export interface PanelActions {
 	edit: () => void;
 	memory: () => void;
-	compact: () => void;
+	compact: () => Promise<boolean>;
 	reset: () => void;
 	workspace?: () => void;
-	emptyFolder?: () => void;
-	copy: (text: string) => void;
+	emptyFolder?: () => Promise<boolean>;
+	copy: (text: string) => Promise<void>;
 }
 
 function Item({ icon, label, hint, danger, disabled, onClick }: { icon: ReactNode; label: string; hint?: string; danger?: boolean; disabled?: boolean; onClick: () => void }) {
@@ -52,7 +53,7 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 	);
 }
 
-function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
+function ComputerPicker({ runtime, bot, reload, problem, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; problem?: Problem; onError: (message: string) => void }) {
 	const place = runtime.workplaces.at(String(bot.id));
 	const key = place?.kind === "computer" ? place.computer.key : place?.kind === "missing" ? place.key : "phone";
 	const container = place?.kind === "computer" && !place.sandbox.direct ? place.host : undefined;
@@ -61,7 +62,7 @@ function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRunti
 		if (container) void prepare();
 	}, [key, container]);
 	return (
-		<Section title="電腦">
+		<Section title="電腦" problem={problem}>
 			<select
 				className="field"
 				value={key}
@@ -89,14 +90,17 @@ function ComputerPicker({ runtime, bot, reload, onError }: { runtime: AgentRunti
 	);
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, problem, children }: { title: string; problem?: Problem; children: ReactNode }) {
 	return (
 		<section className="panel-section">
 			<h3 className="strip-label">{title}</h3>
 			{children}
+			{problem?.section === title ? <div className="note error">{problem.text}</div> : null}
 		</section>
 	);
 }
+
+type Problem = { section: string; text: string };
 
 export function BotPanel({
 	open,
@@ -110,7 +114,6 @@ export function BotPanel({
 	prefs,
 	onPrefs,
 	actions,
-	onError,
 	onClose,
 }: {
 	open: boolean;
@@ -124,9 +127,17 @@ export function BotPanel({
 	prefs: Prefs;
 	onPrefs: (change: Partial<Prefs>) => void;
 	actions: PanelActions;
-	onError: (message: string) => void;
 	onClose: () => void;
 }) {
+	const [problem, setProblem] = useState<Problem>();
+	const [compacting, setCompacting] = useState(false);
+	const [compacted, showCompacted] = useBriefly();
+	const [copied, showCopied] = useBriefly();
+	const [emptied, showEmptied] = useBriefly();
+	useEffect(() => {
+		if (!open) setProblem(undefined);
+	}, [open]);
+	const failIn = (section: string) => (error: unknown) => setProblem({ section, text: messageOf(error) });
 	const [triggers, setTriggers] = useState<TriggerState>({ items: [], next: {} });
 	const [memory, setMemory] = useState("");
 	useEffect(() => runtime.triggers.subscribe(setTriggers), [runtime]);
@@ -152,7 +163,7 @@ export function BotPanel({
 		runtime
 			.setToolset(bot.id, id, enabled)
 			.then(() => reload(bot.id))
-			.catch((error: unknown) => onError(`工具設定失敗：${messageOf(error)}`));
+			.catch((error: unknown) => setProblem({ section: "工具", text: `工具設定失敗：${messageOf(error)}` }));
 	};
 
 	const run = (action: () => void) => () => {
@@ -180,14 +191,14 @@ export function BotPanel({
 					</span>
 				</button>
 
-				<Section title="自動化">
+				<Section title="自動化" problem={problem}>
 					<div className="menu">
 						{mine.length === 0 ? (
 							<div className="check-row">
 								<span className="menu-text">還沒有自動化</span>
 							</div>
 						) : (
-							mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={onError} />)
+							mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
 						)}
 					</div>
 				</Section>
@@ -203,7 +214,7 @@ export function BotPanel({
 					</div>
 				</Section>
 
-				<Section title="工具">
+				<Section title="工具" problem={problem}>
 					<div className="menu toggles">
 						{toolsets
 							.filter((toolset) => toolset.kind === "builtin")
@@ -225,19 +236,25 @@ export function BotPanel({
 					</div>
 				</Section>
 
-				{runtime.workplaces.offers(String(bot.id)) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} onError={onError} /> : null}
+				{runtime.workplaces.offers(String(bot.id)) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} problem={problem} onError={(text) => setProblem({ section: "電腦", text })} /> : null}
 				{folder ? (
-					<Section title="資料夾">
+					<Section title="資料夾" problem={problem}>
 						<div className="menu">
 							{actions.workspace ? <Item icon={<FileIcon size={18} />} label={folder} onClick={run(actions.workspace)} /> : null}
 							{actions.emptyFolder ? (
-								<Item icon={<BoxIcon size={18} />} label="清空資料夾" danger onClick={run(actions.emptyFolder)} />
+								<Item
+									icon={<BoxIcon size={18} />}
+									label="清空資料夾"
+									hint={emptied}
+									danger
+									onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("資料夾"))}
+								/>
 							) : null}
 						</div>
 					</Section>
 				) : null}
 
-				<Section title="上下文">
+				<Section title="上下文" problem={problem}>
 					<div className="context-card">
 						<div className="context-top">
 							<span className="context-numbers">
@@ -278,13 +295,25 @@ export function BotPanel({
 						</details>
 					</div>
 					<div className="menu">
-						<Item icon={<LayersIcon />} label="現在壓縮" onClick={run(actions.compact)} />
+						<Item
+							icon={<LayersIcon />}
+							label="現在壓縮"
+							hint={compacting ? "壓縮中…" : compacted}
+							disabled={compacting}
+							onClick={() => {
+								setCompacting(true);
+								void actions
+									.compact()
+									.then((done) => showCompacted(done ? "已把較早的對話壓縮成摘要" : "對話還短，不需要壓縮"), failIn("上下文"))
+									.finally(() => setCompacting(false));
+							}}
+						/>
 						<Item icon={<RefreshIcon />} label="新的上下文" hint="紀錄保留，模型看不到" onClick={run(actions.reset)} />
 						<Item
 							icon={<CopyIcon size={18} />}
-							label="複製最後的回答"
+							label={copied ?? "複製最後的回答"}
 							disabled={!lastAnswer}
-							onClick={run(() => lastAnswer && actions.copy(entryText(lastAnswer)))}
+							onClick={() => lastAnswer && void actions.copy(entryText(lastAnswer)).then(() => showCopied("已複製"), failIn("上下文"))}
 						/>
 					</div>
 				</Section>

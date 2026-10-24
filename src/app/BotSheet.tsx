@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
 import { MemoryIcon, TrashIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { showToast } from "./Toasts.tsx";
 
 export type BotEdit = { kind: "create" } | { kind: "edit"; bot: Bot };
 
@@ -17,6 +16,7 @@ export function BotSheet({
 	onSave,
 	onMemory,
 	onDelete,
+	onError,
 	onClose,
 }: {
 	edit: BotEdit | undefined;
@@ -25,6 +25,7 @@ export function BotSheet({
 	onSave: (change: { name: string; job: string; avatar: string }) => Promise<void>;
 	onMemory: (bot: Bot) => void;
 	onDelete: (bot: Bot) => void;
+	onError: (message: string) => void;
 	onClose: () => void;
 }) {
 	const [name, setName] = useState("");
@@ -44,7 +45,7 @@ export function BotSheet({
 	const leave = (next: () => void) => () => {
 		if (bot && changed) {
 			if (valid) void onSave({ name, job, avatar });
-			else showToast(name.trim() ? `工作說明超過 ${MAX_JOB} 字，沒有儲存` : "沒有名字，沒有儲存");
+			else onError(name.trim() ? `工作說明超過 ${MAX_JOB} 字，沒有儲存` : "沒有名字，沒有儲存");
 		}
 		next();
 	};

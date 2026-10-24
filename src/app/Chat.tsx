@@ -15,6 +15,8 @@ import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
+import { useBriefly } from "./briefly.ts";
+import { haptic } from "./haptics.ts";
 
 export interface Capabilities {
 	sandbox: boolean;
@@ -79,6 +81,11 @@ function suggestions(capabilities: Capabilities): Suggestion[] {
 	];
 }
 
+export interface Notice {
+	id: number;
+	text: string;
+}
+
 export function isBusy(view: ConversationView | undefined): boolean {
 	return Boolean(liveOf(view)?.run);
 }
@@ -91,8 +98,9 @@ export function Chat({
 	initialFiles,
 	shared,
 	focusKey,
+	notices,
+	onDismissNotices,
 	onError,
-	onNotice,
 	onView,
 }: {
 	controller: ConversationController;
@@ -102,8 +110,9 @@ export function Chat({
 	initialFiles?: readonly File[];
 	shared?: SharedKind;
 	focusKey: number;
+	notices: readonly Notice[];
+	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
-	onNotice: (message: string) => void;
 	onView?: (view: ConversationView) => void;
 }) {
 	const [view, setView] = useState<ConversationView>();
@@ -182,6 +191,7 @@ export function Chat({
 	);
 	const running = (live?.tools ?? []).some((tool) => tool.status !== "done");
 	const fail = (error: unknown) => onError(messageOf(error));
+	const [copied, showCopied] = useBriefly();
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	const lastEntry = entries.at(-1);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
@@ -304,15 +314,15 @@ export function Chat({
 						<button
 							type="button"
 							className="btn"
-							onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => onNotice("已複製回答"), fail)}
+							onClick={() => void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => showCopied("已複製"), fail)}
 						>
-							複製回答
+							{copied ?? "複製回答"}
 						</button>
 					</div>
 				) : null}
 				{emptyAnswer ? (
 					<div className="answer-actions">
-						<span className="note">這次沒有產生回答，模型服務偶爾會這樣。</span>
+						<span className="note">沒有回答</span>
 						<button
 							type="button"
 							className="btn"
@@ -331,6 +341,11 @@ export function Chat({
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
 				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}
+				{notices.map((notice) => (
+					<button type="button" key={notice.id} className="note error notice" onClick={() => onDismissNotices([notice.id])}>
+						{notice.text}
+					</button>
+				))}
 			</div>
 			<Composer
 				scrollHint={scrollHint}
@@ -347,6 +362,7 @@ export function Chat({
 				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
+					if (notices.length > 0) onDismissNotices(notices.map((notice) => notice.id));
 					setAtBottom(true);
 					controller.send(content, whenBusy).catch(fail);
 				}}
@@ -359,7 +375,6 @@ export function Chat({
 					}
 				}}
 				onWithdraw={(id) => controller.withdraw(id).catch(fail)}
-				onNotice={onNotice}
 			/>
 
 			<Sheet open={Boolean(actionsFor)} title={actionsFor?.kind === "pi.user" ? "你的訊息" : "回答"} onClose={() => setActionsFor(undefined)}>
@@ -369,7 +384,7 @@ export function Chat({
 						onClick={async () => {
 							const entry = actionsFor;
 							setActionsFor(undefined);
-							if (entry) await navigator.clipboard.writeText(entryText(entry)).then(() => onNotice("已複製"), fail);
+							if (entry) await navigator.clipboard.writeText(entryText(entry)).then(() => haptic("confirm"), fail);
 						}}
 					>
 						<CopyIcon size={18} />

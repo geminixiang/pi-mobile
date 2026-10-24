@@ -57,7 +57,6 @@ export function Composer({
 	onSend,
 	onStop,
 	onWithdraw,
-	onNotice,
 	scrollHint,
 	onScrollToBottom,
 	prompts,
@@ -74,7 +73,6 @@ export function Composer({
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
-	onNotice: (message: string) => void;
 	scrollHint?: "latest" | "new";
 	onScrollToBottom: () => void;
 	prompts: DialPrompt[];
@@ -82,6 +80,7 @@ export function Composer({
 }) {
 	const [images, setImages] = useState<ImageContent[]>([]);
 	const [files, setFiles] = useState<PendingFile[]>([]);
+	const [problem, setProblem] = useState<string>();
 	const [attachMenu, setAttachMenu] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const textArea = useRef<HTMLTextAreaElement>(null);
@@ -93,7 +92,7 @@ export function Composer({
 		const current = latestDraft.current;
 		onDraftChange(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`);
 		textArea.current?.focus();
-	}, onNotice);
+	}, setProblem);
 	const listening = dictation.state !== "idle";
 
 	useEffect(() => {
@@ -143,6 +142,7 @@ export function Composer({
 		const attached = files.flatMap((file) => (file.state === "ready" ? file.prepared.content : []));
 		const photos = images;
 		onDraftChange("");
+		setProblem(undefined);
 		setImages([]);
 		setFiles([]);
 		void codeNote(photos, (index) => `photo ${index + 1}`).then((codes) =>
@@ -152,10 +152,11 @@ export function Composer({
 
 	const scanDocument = async () => {
 		setAttachMenu(false);
+		setProblem(undefined);
 		const scan = await Scanner.scan({}).then(
 			(result) => result,
 			(error: unknown): { cancelled: true } => {
-				onNotice(`掃描失敗：${messageOf(error)}`);
+				setProblem(`掃描失敗：${messageOf(error)}`);
 				return { cancelled: true };
 			},
 		);
@@ -165,12 +166,13 @@ export function Composer({
 	};
 
 	const attach = async (picked: File[]) => {
+		setProblem(undefined);
 		const photos = picked.filter((file) => file.type.startsWith("image/"));
 		for (const file of picked) {
 			if (file.type.startsWith("image/")) continue;
 			const kind = attachmentKind(file);
 			if (!kind) {
-				onNotice(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
+				setProblem(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
 				continue;
 			}
 			const key = crypto.randomUUID();
@@ -183,7 +185,7 @@ export function Composer({
 				},
 				(error: unknown) => {
 					setFiles((current) => current.filter((item) => item.key !== key));
-					onNotice(`讀不了 ${file.name}：${messageOf(error)}`);
+					setProblem(`讀不了 ${file.name}：${messageOf(error)}`);
 				},
 			);
 		}
@@ -242,6 +244,11 @@ export function Composer({
 							</button>
 						))}
 					</div>
+				) : null}
+				{problem ? (
+					<button type="button" className="composer-problem" onClick={() => setProblem(undefined)}>
+						{problem}
+					</button>
 				) : null}
 				{listening ? (
 					<div className="dictation" aria-live="polite">

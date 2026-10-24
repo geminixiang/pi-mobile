@@ -7,7 +7,8 @@ printed document, not an app or a landing page.
 ## Look
 
 - One quiet look: light background, dark text, one accent colour for emphasis and charts, greys for everything else.
-  No gradients, shadows, badges, rounded cards, hero banners, or decorative English labels.
+  No gradients, shadows, badges, rounded cards, hero banners, or small uppercase captions above headings; hierarchy
+  comes from size, weight, and spacing.
 - System fonts (`system-ui, "Noto Sans TC", sans-serif`); body text 16px or more; generous line height and spacing;
   content width fits a phone without horizontal scrolling, and stays readable on a wider screen.
 - Traditional Chinese throughout, matching the conversation; units and dates written the way the user writes them.
