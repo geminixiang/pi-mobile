@@ -11,6 +11,11 @@ const HASH_FILE = /(\.(sh|py|yml|yaml|pro|properties)|Dockerfile)$/;
 const MARKUP_FILE = /\.(html|xml)$/;
 const GO_DIRECTIVE = /^\/\/go:/;
 const TRIPLE_SLASH_REFERENCE = /^\/\/\/ <reference /;
+const WHY = /^(\/\/|\/\*+|#|<!--)\s*why: \S/;
+
+export function isWhy(source: string, comment: Comment): boolean {
+	return WHY.test(source.slice(comment.start, comment.end));
+}
 
 function scriptComments(file: string, source: string): Comment[] {
 	return parseSync(file, source)
@@ -95,17 +100,22 @@ export function checkedFiles(): string[] {
 }
 
 if (import.meta.main) {
+	let whys = 0;
 	const findings = checkedFiles().flatMap((file) => {
 		const source = readFileSync(file, "utf8");
-		return commentsIn(file, source).map(({ start }) => ({
-			file,
-			line: source.slice(0, start).split("\n").length,
-			text: source.slice(start, source.indexOf("\n", start) === -1 ? undefined : source.indexOf("\n", start)),
-		}));
+		const comments = commentsIn(file, source);
+		whys += comments.filter((comment) => isWhy(source, comment)).length;
+		return comments
+			.filter((comment) => !isWhy(source, comment))
+			.map(({ start }) => ({
+				file,
+				line: source.slice(0, start).split("\n").length,
+				text: source.slice(start, source.indexOf("\n", start) === -1 ? undefined : source.indexOf("\n", start)),
+			}));
 	});
 	const files = new Set(findings.map((finding) => finding.file));
 	if (findings.length === 0) {
-		console.log("no-comments: no comments in the code");
+		console.log(whys === 0 ? "no-comments: no comments in the code" : `no-comments: ${whys} why: comments, no others`);
 	} else {
 		for (const finding of findings) console.error(`${finding.file}:${finding.line}: ${finding.text}`);
 		console.error(`no-comments: ${findings.length} comments in ${files.size} files`);

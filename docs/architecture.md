@@ -62,7 +62,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 
 ## 程式碼看不出來的原因
 
-程式碼不寫註解（見 AGENTS.md）。名稱和結構說不清、又不能改的外部原因，記在這裡。
+程式碼不寫註解（見 AGENTS.md）；唯一的例外是一兩行的 `// why: …`，寫程式表達不出、讀的人也猜不到的限制。超過一兩行、或牽涉幾個檔案的外部原因，記在這裡。
 
 **儲存**
 - 對話存在 WebView 的 IndexedDB。2026-10-22 在模擬器量過 SQLite（`@capacitor-community/sqlite`）：啟動要 73 次 bridge 呼叫，約 2 秒（2.1–6.2 秒）才看到對話；IndexedDB 是 0.6 秒。

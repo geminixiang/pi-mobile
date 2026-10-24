@@ -6,7 +6,9 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Before changing CSS, animations, or overlays, read `.agents/skills/css/SKILL.md`. No `!important`.
 - UI copy is Traditional Chinese (zh-TW); model prompts are English.
 - Code carries no comments, in any language: a comment marks a design flaw or a hidden bug. Make names, types, and
-  structure say it; a reason that still needs words goes in `docs/`. `npm run check` fails on a comment.
+  structure say it; a reason that still needs words goes in `docs/`. The one exception is a constraint the code cannot
+  express and the reader cannot guess (an OS quirk, a wire format, a measured limit), written as `// why: …` in one or
+  two lines; `npm run check` fails on any other comment and counts the `why:` ones.
 - Look before you leap (LBYL): check the precondition (it exists, is permitted, is available, parses) before acting.
   A failure no check can foresee (network, native I/O) surfaces to the user or becomes a named outcome; never
   swallow it with `catch(() => undefined)`.
