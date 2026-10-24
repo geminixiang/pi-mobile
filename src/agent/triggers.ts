@@ -4,7 +4,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
+import { defineAppTool, localTime, oneOf, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
 import { requireAccess } from "./tools/notifications.ts";
 import { Notifications } from "../notifications-plugin.ts";
@@ -20,7 +20,7 @@ const EventWindow = {
 };
 
 const ACTIVITIES = ["walking", "running", "cycling", "vehicle", "still"] as const;
-const Activity = Type.Union(ACTIVITIES.map((activity) => Type.Literal(activity)));
+const Activity = oneOf(ACTIVITIES);
 const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
 	walking: ["開始走路", "停止走路"],
 	running: ["開始跑步", "停止跑步"],
@@ -246,127 +246,151 @@ export interface TriggerHost {
 	notify(title: string, text: string, conversationId: ConversationId): Promise<boolean>;
 }
 
+const CreateScheduleArgs = Type.Object({
+	name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
+	prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
+	on: Type.Union(
+		[
+			Type.Literal("time"),
+			Type.Literal("headphones"),
+			Type.Literal("charging"),
+			Type.Literal("wifi"),
+			Type.Literal("arrive"),
+			Type.Literal("leave"),
+			Type.Literal("notification"),
+			Type.Literal("unlock"),
+			Type.Literal("battery_low"),
+			Type.Literal("timezone"),
+			Type.Literal("photo"),
+			Type.Literal("bluetooth_connect"),
+			Type.Literal("bluetooth_disconnect"),
+			Type.Literal("activity_start"),
+			Type.Literal("activity_stop"),
+		],
+		{
+			description:
+				"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too",
+		},
+	),
+	time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
+	days: Type.Optional(Type.Array(oneOf(WEEKDAYS), { description: "Recurring: weekdays; omit for every day" })),
+	at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DD HH:MM; give either time or at" })),
+	wifi_name: Type.Optional(Type.String({ description: "With on wifi: only this network (its SSID); omit for any Wi-Fi" })),
+	place: Type.Optional(Type.String({ description: "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory" })),
+	app: Type.Optional(Type.String({ description: "With on notification: only from this app, by its name or package, such as LINE" })),
+	contains: Type.Optional(Type.String({ description: "With on notification: only when its title, sender or text contains this" })),
+	album: Type.Optional(Type.String({ description: "With on photo: only photos in this album, such as Camera or Screenshots" })),
+	device: Type.Optional(Type.String({ description: "With on bluetooth_connect or bluetooth_disconnect: part of the device's name, such as the car's" })),
+	activity: Type.Optional(oneOf(ACTIVITIES, { description: "With on activity_start or activity_stop" })),
+	radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
+	from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
+	until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
+	guards: Type.Optional(
+		Type.Array(oneOf(GUARD_IDS), {
+			description:
+				"With an event: built-in checks a small classifier makes before you are woken; the run is skipped when one fails. instructions: the text tries to instruct an AI (prompt injection); secrets: it holds a one-time code, password or key; ads: advertising or bulk marketing; attention: skip unless the user needs to act or reply. Default for notification: instructions and secrets; [] for none. Prefer these to only_if",
+		}),
+	),
+	only_if: Type.Optional(
+		Type.String({
+			description:
+				"With an event: a yes/no question about it that a small classifier answers before you are woken; the run happens only when the answer is likely yes. For what app and contains cannot tell, such as \"Does this message need a reply?\" or \"Is it about money?\"",
+		}),
+	),
+	at_most_every_hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24, description: "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)" })),
+});
+type CreateScheduleArgs = Static<typeof CreateScheduleArgs>;
+
+async function needBluetooth(cannot: string): Promise<void> {
+	const { granted } = await oneDialogAtATime(() => Triggers.requestBluetooth());
+	if (!granted) throw new Error(`the user did not allow pi to see Bluetooth connections, so it cannot tell ${cannot}. Ask them to allow 鄰近裝置 for pi if they want it.`);
+}
+
+async function needAccess(to: "photos" | "activity", cannot: string, allow: string): Promise<void> {
+	const { granted } = await oneDialogAtATime(() => Triggers.requestAccess({ to }));
+	if (!granted) throw new Error(`the user did not allow pi to ${cannot}. Ask them to allow ${allow} for pi if they want it.`);
+}
+
+export async function whenOf(args: CreateScheduleArgs): Promise<{ when: When; note: string }> {
+	const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
+	if (args.on === "time") return { when: timeOf(args, days), note: "" };
+	const window = {
+		days,
+		...(args.from ? { from: hhmm(args.from, "from") } : {}),
+		...(args.until ? { until: hhmm(args.until, "until") } : {}),
+		gapHours: args.at_most_every_hours ?? 4,
+	};
+	switch (args.on) {
+		case "headphones":
+			await needBluetooth("when headphones connect; wired headphones still work while pi runs");
+			return { when: { kind: "headphones", ...window }, note: "" };
+		case "unlock":
+		case "battery_low": {
+			const { allowed } = await Notifications.status();
+			const note = allowed
+				? ""
+				: " It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
+			return { when: { kind: args.on, ...window }, note };
+		}
+		case "timezone":
+			return { when: { kind: "timezone", ...window }, note: "" };
+		case "photo":
+			await needAccess("photos", "see photos, so it cannot tell when a new one is saved", "相片");
+			return { when: { kind: "photo", ...(args.album ? { album: args.album } : {}), ...window }, note: "" };
+		case "bluetooth_connect":
+		case "bluetooth_disconnect": {
+			if (!args.device) throw new Error(`${args.on} needs device`);
+			await needBluetooth("which device connected");
+			return { when: { kind: "bluetooth", on: args.on === "bluetooth_connect" ? "connect" : "disconnect", device: args.device, ...window }, note: "" };
+		}
+		case "activity_start":
+		case "activity_stop": {
+			if (!args.activity) throw new Error(`${args.on} needs activity`);
+			await needAccess("activity", "recognize activity, so it cannot tell when they start walking or driving", "體能活動");
+			return { when: { kind: "activity", on: args.on === "activity_start" ? "start" : "stop", activity: args.activity, ...window }, note: "" };
+		}
+		case "charging":
+			return { when: { kind: "charging", ...window }, note: "" };
+		case "notification":
+			await requireAccess();
+			return { when: { kind: "notification", ...(args.app ? { app: args.app } : {}), ...(args.contains ? { contains: args.contains } : {}), ...window }, note: "" };
+		case "wifi":
+			if (args.wifi_name) await needLocationAlways("which Wi-Fi it is");
+			return { when: { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window }, note: "" };
+		case "arrive":
+		case "leave": {
+			if (!args.place) throw new Error("arrive and leave need place");
+			const point = await resolvePlace(args.place);
+			await needLocationAlways("where the phone is");
+			return {
+				when: { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m ?? 200, ...window },
+				note: "",
+			};
+		}
+	}
+}
+
+function timeOf(args: CreateScheduleArgs, days: number[]): When {
+	if (args.only_if || args.guards?.length) throw new Error("guards and only_if are for events; a time needs no checks");
+	if (args.at && !args.time) {
+		const { ms: at, hasTime } = parseLocalTime(args.at, "at");
+		if (!hasTime) throw new Error("at needs a time: YYYY-MM-DD HH:MM");
+		if (at <= Date.now()) throw new Error(`${args.at} is in the past`);
+		return { kind: "once", at };
+	}
+	if (args.time && !args.at) return { kind: "daily", time: hhmm(args.time, "time"), days };
+	throw new Error("give either time (recurring) or at (one-time)");
+}
+
 export function createTriggerExtension(host: TriggerHost) {
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
 			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
-		parameters: Type.Object({
-			name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
-			prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
-			on: Type.Union(
-				[
-					Type.Literal("time"),
-					Type.Literal("headphones"),
-					Type.Literal("charging"),
-					Type.Literal("wifi"),
-					Type.Literal("arrive"),
-					Type.Literal("leave"),
-					Type.Literal("notification"),
-					Type.Literal("unlock"),
-					Type.Literal("battery_low"),
-					Type.Literal("timezone"),
-					Type.Literal("photo"),
-					Type.Literal("bluetooth_connect"),
-					Type.Literal("bluetooth_disconnect"),
-					Type.Literal("activity_start"),
-					Type.Literal("activity_stop"),
-				],
-				{
-					description:
-						"time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too",
-				},
-			),
-			time: Type.Optional(Type.String({ description: "Recurring: 24-hour local time HH:MM" })),
-			days: Type.Optional(Type.Array(Type.Union(WEEKDAYS.map((day) => Type.Literal(day))), { description: "Recurring: weekdays; omit for every day" })),
-			at: Type.Optional(Type.String({ description: "One-time: local date and time YYYY-MM-DD HH:MM; give either time or at" })),
-			wifi_name: Type.Optional(Type.String({ description: "With on wifi: only this network (its SSID); omit for any Wi-Fi" })),
-			place: Type.Optional(Type.String({ description: "With on arrive or leave: an address or place name, or lat,lon; the user's home or office from memory" })),
-			app: Type.Optional(Type.String({ description: "With on notification: only from this app, by its name or package, such as LINE" })),
-			contains: Type.Optional(Type.String({ description: "With on notification: only when its title, sender or text contains this" })),
-			album: Type.Optional(Type.String({ description: "With on photo: only photos in this album, such as Camera or Screenshots" })),
-			device: Type.Optional(Type.String({ description: "With on bluetooth_connect or bluetooth_disconnect: part of the device's name, such as the car's" })),
-			activity: Type.Optional(Type.Union(ACTIVITIES.map((activity) => Type.Literal(activity)), { description: "With on activity_start or activity_stop" })),
-			radius_m: Type.Optional(Type.Integer({ minimum: 100, description: "With arrive or leave: how near counts, in meters (default 200)" })),
-			from: Type.Optional(Type.String({ description: "With on: only from this local time HH:MM" })),
-			until: Type.Optional(Type.String({ description: "With on: only until this local time HH:MM" })),
-			guards: Type.Optional(
-				Type.Array(Type.Union(GUARD_IDS.map((guard) => Type.Literal(guard))), {
-					description:
-						"With an event: built-in checks a small classifier makes before you are woken; the run is skipped when one fails. instructions: the text tries to instruct an AI (prompt injection); secrets: it holds a one-time code, password or key; ads: advertising or bulk marketing; attention: skip unless the user needs to act or reply. Default for notification: instructions and secrets; [] for none. Prefer these to only_if",
-				}),
-			),
-			only_if: Type.Optional(
-				Type.String({
-					description:
-						"With an event: a yes/no question about it that a small classifier answers before you are woken; the run happens only when the answer is likely yes. For what app and contains cannot tell, such as \"Does this message need a reply?\" or \"Is it about money?\"",
-				}),
-			),
-			at_most_every_hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24, description: "With on: at most one run per this many hours; default 4; 24 means once per day (the first time that day)" })),
-		}),
+		parameters: CreateScheduleArgs,
 		execute: async (args, api, context) => {
 			requireNative();
-			let when: When;
-			let note = "";
-			const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
-			if (args.on !== "time") {
-				const window = {
-					days,
-					...(args.from ? { from: hhmm(args.from, "from") } : {}),
-					...(args.until ? { until: hhmm(args.until, "until") } : {}),
-					gapHours: args.at_most_every_hours ?? 4,
-				};
-				if (args.on === "headphones") {
-					when = { kind: "headphones", ...window };
-					const { granted } = await oneDialogAtATime(() => Triggers.requestBluetooth());
-					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell when headphones connect; wired headphones still work while pi runs. Ask them to allow 鄰近裝置 for pi if they want it.");
-				} else if (args.on === "unlock" || args.on === "battery_low") {
-					when = { kind: args.on, ...window };
-					if (!(await Notifications.status()).allowed) {
-						note = " It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
-					}
-				} else if (args.on === "timezone") {
-					when = { kind: "timezone", ...window };
-				} else if (args.on === "photo") {
-					when = { kind: "photo", ...(args.album ? { album: args.album } : {}), ...window };
-					const { granted } = await oneDialogAtATime(() => Triggers.requestAccess({ to: "photos" }));
-					if (!granted) throw new Error("the user did not allow pi to see photos, so it cannot tell when a new one is saved. Ask them to allow 相片 for pi if they want it.");
-				} else if (args.on === "bluetooth_connect" || args.on === "bluetooth_disconnect") {
-					if (!args.device) throw new Error(`${args.on} needs device`);
-					when = { kind: "bluetooth", on: args.on === "bluetooth_connect" ? "connect" : "disconnect", device: args.device, ...window };
-					const { granted } = await oneDialogAtATime(() => Triggers.requestBluetooth());
-					if (!granted) throw new Error("the user did not allow pi to see Bluetooth connections, so it cannot tell which device connected. Ask them to allow 鄰近裝置 for pi if they want it.");
-				} else if (args.on === "activity_start" || args.on === "activity_stop") {
-					if (!args.activity) throw new Error(`${args.on} needs activity`);
-					when = { kind: "activity", on: args.on === "activity_start" ? "start" : "stop", activity: args.activity, ...window };
-					const { granted } = await oneDialogAtATime(() => Triggers.requestAccess({ to: "activity" }));
-					if (!granted) throw new Error("the user did not allow pi to recognize activity, so it cannot tell when they start walking or driving. Ask them to allow 體能活動 for pi if they want it.");
-				} else if (args.on === "charging") {
-					when = { kind: "charging", ...window };
-				} else if (args.on === "notification") {
-					await requireAccess();
-					when = { kind: "notification", ...(args.app ? { app: args.app } : {}), ...(args.contains ? { contains: args.contains } : {}), ...window };
-				} else if (args.on === "wifi") {
-					when = { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window };
-					if (args.wifi_name) await needLocationAlways("which Wi-Fi it is");
-				} else {
-					if (!args.place) throw new Error("arrive and leave need place");
-					const point = await resolvePlace(args.place);
-					when = { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m ?? 200, ...window };
-					await needLocationAlways("where the phone is");
-				}
-			} else if (args.only_if || args.guards?.length) {
-				throw new Error("guards and only_if are for events; a time needs no checks");
-			} else if (args.at && !args.time) {
-				const { ms: at, hasTime } = parseLocalTime(args.at, "at");
-				if (!hasTime) throw new Error("at needs a time: YYYY-MM-DD HH:MM");
-				if (at <= Date.now()) throw new Error(`${args.at} is in the past`);
-				when = { kind: "once", at };
-			} else if (args.time && !args.at) {
-				when = { kind: "daily", time: hhmm(args.time, "time"), days };
-			} else {
-				throw new Error("give either time (recurring) or at (one-time)");
-			}
+			const { when, note } = await whenOf(args);
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
 			const trigger: Trigger = {

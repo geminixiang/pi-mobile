@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { loadModels } from "../../src/agent/available-models.ts";
-import { LIMITS, type QueuedEvent, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns } from "../../src/agent/triggers.ts";
+import { LIMITS, type QueuedEvent, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns, whenOf } from "../../src/agent/triggers.ts";
 import { deliverEvents } from "../../src/app/triggers.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
@@ -86,6 +86,28 @@ async function withTrigger(fixture: Awaited<ReturnType<typeof triggerFixture>>, 
 const alarm = (id: string, at = Date.now()): QueuedEvent => ({ id, at, kind: "alarm", trigger: "t1", live: true });
 
 export const checks: Check[] = [
+	[
+		"create_schedule turns its arguments into a When, and refuses the mixes it names",
+		async () => {
+			const base = { name: "t", prompt: "p" };
+			assert.deepEqual(await whenOf({ ...base, on: "time", time: "08:00", days: ["mon", "fri"] }), { when: { kind: "daily", time: "08:00", days: [1, 5] }, note: "" });
+			const tomorrow = new Date(Date.now() + DAY);
+			const at = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")} 09:30`;
+			const once = await whenOf({ ...base, on: "time", at });
+			assert.equal(once.when.kind, "once");
+			assert.deepEqual(await whenOf({ ...base, on: "charging", from: "22:00", at_most_every_hours: 2 }), {
+				when: { kind: "charging", days: [], from: "22:00", gapHours: 2 },
+				note: "",
+			});
+			assert.deepEqual(await whenOf({ ...base, on: "timezone" }), { when: { kind: "timezone", days: [], gapHours: 4 }, note: "" });
+			await assert.rejects(whenOf({ ...base, on: "time" }), /either time/);
+			await assert.rejects(whenOf({ ...base, on: "time", time: "08:00", at }), /either time/);
+			await assert.rejects(whenOf({ ...base, on: "time", at: "2020-01-01 09:00" }), /in the past/);
+			await assert.rejects(whenOf({ ...base, on: "time", time: "08:00", only_if: "sunny" }), /for events/);
+			await assert.rejects(whenOf({ ...base, on: "bluetooth_connect" }), /needs device/);
+			await assert.rejects(whenOf({ ...base, on: "arrive" }), /need place/);
+		},
+	],
 	[
 		"an event the judge finds unlikely for only_if wakes no one, is not counted, and says why it was skipped",
 		async () => {
