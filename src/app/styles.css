@@ -53,6 +53,7 @@
 
 	--space: 18px;
 	--bar-h: 56px;
+	--edge-fade: 32px;
 	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 	--spring: linear(0, 0.111, 0.359, 0.638, 0.879, 1.047, 1.137, 1.163, 1.145, 1.105, 1.059, 1.02, 0.992, 0.978, 0.973, 0.976, 0.983, 0.99, 0.997, 1.001, 1.004, 1.004, 1.004, 1.003, 1.002);
 
@@ -201,7 +202,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	min-height: calc(env(safe-area-inset-top) + var(--bar-h)); padding: env(safe-area-inset-top) 4px 0;
 	background: var(--bg); border-bottom: 1px solid var(--line);
 }
-.app:not(.skeleton) > .bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; background: var(--bg); }
+.app:not(.skeleton) > .bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; background: none; border-bottom-color: transparent; }
+.app:not(.skeleton) > .bar::before {
+	content: ""; position: absolute; inset: 0 0 calc(-1 * var(--edge-fade)); z-index: -1; pointer-events: none;
+	background: linear-gradient(to bottom, var(--bg) calc(100% - var(--edge-fade)), transparent);
+}
 .brand-button { width: 52px; }
 .bar-center { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 6px 6px; }
 .bar-center:active { background: var(--accent-soft); }
@@ -337,7 +342,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .input { position: relative; border-top: 1px solid var(--editor-border); background: none; padding-bottom: calc(env(safe-area-inset-bottom) + 14px); }
-.input::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--bg); }
+.input::before {
+	content: ""; position: absolute; inset: calc(-1 * var(--edge-fade)) 0 0; z-index: -1; pointer-events: none;
+	background: linear-gradient(to top, var(--bg) calc(100% - var(--edge-fade)), transparent);
+}
 .scroll-hint {
 	touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 	position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); z-index: 3;
