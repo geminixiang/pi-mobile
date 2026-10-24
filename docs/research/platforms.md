@@ -21,6 +21,7 @@
   - `beginBackgroundTask`：多要一點時間把手上的事做完，不是長期[^ios-bg-time]。
   - `BGAppRefreshTask` 最多 30 秒。`BGProcessingTask` 只在裝置閒置時跑，使用者一拿起手機就會被中止。兩種都是由系統決定什麼時候跑，`earliestBeginDate` 的意思是「不早於」，不是「準時」[^ios-bgtasks]。
   - **`BGContinuedProcessingTask`（iOS 26）**：使用者在前景**親手開始**的工作，離開 app 後可以繼續，系統用 Live Activity 顯示進度，使用者可以取消。它不能在背景中開始一件新的工作[^ios-continued]。這是 iOS 上唯一跟「Bot 正在做事，我先切出去」對得上的機制。但 WebKit 的網頁內容跑在另一個 process，那個 process 會不會跟著活著，**要實際量**。
+  - **模擬器上量到的**（2026-10-25，分支 `ios-bg-probe` 的 `probe/ios-bg`）：模擬器不支援 `BGTaskScheduler`（`submit` 回「not available on this platform」），所以 `BGContinuedProcessingTask` 只能在真機上量。不開背景任務時，切出去後 JS 的計時器先被節流，大約 30 秒後整個 process 被暫停，回到前景才繼續。WebView 的 `inactiveSchedulingPolicy` 設成 `.none` 沒有差別。
 - **macOS**：被移出視窗的 `WKWebView` 預設會被暫停（`inactiveSchedulingPolicy` 預設是 `.suspend`），macOS 14 以上可以設成 `.none`。不在前景的頁面，計時器也會被 WebKit 節流[^mac-wk-sched]。
 - **Windows**：WebView2 的 `IsVisible = false` 時，計時器會被節流，但不會停。`TrySuspendAsync` 才會讓它停下[^wv2-bg]。
 
