@@ -95,7 +95,7 @@
 | 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
 | 3 | Swift plugin：`KeepAlive`（背景）、`System`、`StreamFetch`、`Loopback` | 做好了，模擬器和 iPad 都驗過 |
 | 4 | Swift plugin：`BotFiles`、`Database` | 做好了，模擬器和 iPad 都驗過 |
-| 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | 進行中：`Phone`（位置、裝置狀態、氣壓、地名查座標）帶出天氣、地點、手機狀態；`Calendar`（EventKit）帶出行事曆 |
+| 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | 進行中：`Phone`（位置、裝置狀態、氣壓、地名查座標）帶出天氣、地點、手機狀態；`Calendar`（EventKit）帶出行事曆；`Voice`（朗讀、語音輸入）、`Contacts`、`Photos` |
 
 模擬器和 iPad 上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋、Bot 資料夾（檔案、bash）、資料庫（`sql`、記帳）、背景跑完一輪和完成通知、ChatGPT 和 MCP 的登入流程。工具組有「網路」「檔案」「資料庫」；時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
 
@@ -116,6 +116,12 @@
 - **其他**：設定供應商（金鑰存 Keychain）、對話、code mode、網路搜尋都正常，回答的時間正確。
 - **`Phone`（2026-10-26）**：位置用 Core Location（只要「使用 App 期間」），地址用反向地理編碼；地名查座標用 MapKit 的 `MKLocalSearch`，`CLGeocoder` 只認得地址，「台北101」「新竹火車站」查不到，「合歡山」會對到新莊。裝置狀態有電量、低耗電、網路、耳機、儲存空間，沒有響鈴模式和勿擾（iOS 不給）。氣壓計用 `CMAltimeter`，要「動作與健身」權限。iPad 上：時間電量、天氣、開車時間、海拔都答對；羅盤沒有讀數：Wi‑Fi 版 iPad 沒有電子羅盤（行動網路版才有），`noReading` 照實列出。
 - **`Calendar`（2026-10-26）**：EventKit，要「完整取用」（iOS 17 起只讀也要）。介面沿用 Android 的數字行事曆 id：EventKit 的 id 是字串，第一次看到時配一個數字，存在 `UserDefaults`，設定裡的「預設寫入」才不會變。全天活動照 Android 的慣例換成 UTC 午夜。訂閱和生日行事曆算「分享的」，只能讀。模擬器上讀、新增（含全天）、讀週末都對；iPad 上只讀（真實資料），讀到 iCloud 的居家、工作和兩個訂閱。
+- **`Voice`、`Contacts`、`Photos`（2026-10-26）**：
+  - 語音輸入用 iOS 26 的 `SpeechAnalyzer`（`SpeechTranscriber`，不支援的語言退回 `DictationTranscriber`），在裝置上辨識。舊的 `SFSpeechRecognizer` 在 iPad 上回錯誤 201「Siri and Dictation are disabled」，打開聽寫也一樣；新 API 不看 Siri 和聽寫的設定，也不需要語音辨識權限，只要麥克風。iPad 上說「你好」，送出後 Bot 回答了。
+  - 朗讀用 `AVSpeechSynthesizer`，講完才回傳。
+  - 聯絡人用 Contacts framework，沒有「最愛」可讀，所以沒有 `starred`。
+  - 照片用 PhotoKit，「部分照片」也算有權限，只看得到使用者選的。相簿名稱是系統依 app 語言給的英文（Screenshots），用中文「截圖」找不到。
+  - 模擬器上：查電話、近期生日、找 2012 年的照片並看第一張（瀑布）、朗讀早安都對。iPad 上讀到聯絡人和照片（只看數量）。
 
 ### 先量，量完再決定要不要投入
 

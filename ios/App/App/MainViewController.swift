@@ -11,5 +11,8 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(DatabasePlugin())
         bridge?.registerPluginInstance(PhonePlugin())
         bridge?.registerPluginInstance(CalendarPlugin())
+        bridge?.registerPluginInstance(VoicePlugin())
+        bridge?.registerPluginInstance(ContactsPlugin())
+        bridge?.registerPluginInstance(PhotosPlugin())
     }
 }

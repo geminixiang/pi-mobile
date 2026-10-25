@@ -47,16 +47,7 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private var granted: Bool {
-        if #available(iOS 17.0, *) { return EKEventStore.authorizationStatus(for: .event) == .fullAccess }
-        return EKEventStore.authorizationStatus(for: .event) == .authorized
-    }
-
-    private func request(_ answer: @escaping (Bool) -> Void) {
-        if #available(iOS 17.0, *) {
-            store.requestFullAccessToEvents { granted, _ in answer(granted) }
-        } else {
-            store.requestAccess(to: .event) { granted, _ in answer(granted) }
-        }
+        EKEventStore.authorizationStatus(for: .event) == .fullAccess
     }
 
     private func withAccess(_ call: CAPPluginCall, _ then: @escaping () -> Void) {
@@ -71,7 +62,7 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("pi has no calendar permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.")
                     return
                 }
-                self.request { granted in
+                self.store.requestFullAccessToEvents { granted, _ in
                     if granted { then() } else { call.reject("calendar permission denied", "permission") }
                 }
             }
