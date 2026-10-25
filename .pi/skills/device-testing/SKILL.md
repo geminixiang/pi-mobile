@@ -37,7 +37,8 @@ from `CDP_PORT` (default 9333).
   `ssh macbook 'nohup ~/.local/bin/uvx pymobiledevice3 webinspector cdp --native --port 9223 &'`, then
   `ssh -f -N -L 9223:localhost:9223 macbook`; `CDP_PORT=9223 ./test/ui.sh` and `ask.js` work as on Android.
   `--native` reaches the iPad through CoreDevice over USB or the local network alike; forwarding usbmuxd works only
-  while it is on USB. Keep the MacBook Air awake (`caffeinate -dis`) and the iPad unlocked to launch pi. The iPad reaches this Mac only by its `*.ts.net` name
+  while it is on USB. Keep the MacBook Air awake (`caffeinate -dis`) and the iPad unlocked to launch pi. Screenshot
+  there with `uvx pymobiledevice3 developer dvt screenshot --native <file>.png`. The iPad reaches this Mac only by its `*.ts.net` name
   (ATS blocks plain HTTP to `100.x`).
 
 ## Scripts

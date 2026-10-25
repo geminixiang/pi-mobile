@@ -7,5 +7,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(SystemPlugin())
         bridge?.registerPluginInstance(StreamFetchPlugin())
         bridge?.registerPluginInstance(LoopbackPlugin())
+        bridge?.registerPluginInstance(BotFilesPlugin())
+        bridge?.registerPluginInstance(DatabasePlugin())
     }
 }

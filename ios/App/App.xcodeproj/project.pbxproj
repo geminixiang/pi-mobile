@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5E3C684FF3F3D4337D50A676 /* DatabasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */; };
+		2AE1328E613E8FC032EDA53E /* BotFilesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */; };
 		81C1DF172A5C0A9BBF038182 /* LoopbackPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */; };
 		B49426A6F2B7780971947BD1 /* StreamFetchPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFE57915E1272603C48FB06 /* StreamFetchPlugin.swift */; };
 		E489B93115A627D5C2FA3AD6 /* SystemPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69172BBD1ADEB99F83852C5A /* SystemPlugin.swift */; };
@@ -24,6 +26,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabasePlugin.swift; sourceTree = "<group>"; };
+		A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotFilesPlugin.swift; sourceTree = "<group>"; };
 		ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopbackPlugin.swift; sourceTree = "<group>"; };
 		BEFE57915E1272603C48FB06 /* StreamFetchPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamFetchPlugin.swift; sourceTree = "<group>"; };
 		69172BBD1ADEB99F83852C5A /* SystemPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPlugin.swift; sourceTree = "<group>"; };
@@ -77,6 +81,8 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */,
+				A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */,
 				ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */,
 				BEFE57915E1272603C48FB06 /* StreamFetchPlugin.swift */,
 				69172BBD1ADEB99F83852C5A /* SystemPlugin.swift */,
@@ -174,6 +180,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				5E3C684FF3F3D4337D50A676 /* DatabasePlugin.swift in Sources */,
+				2AE1328E613E8FC032EDA53E /* BotFilesPlugin.swift in Sources */,
 				81C1DF172A5C0A9BBF038182 /* LoopbackPlugin.swift in Sources */,
 				B49426A6F2B7780971947BD1 /* StreamFetchPlugin.swift in Sources */,
 				E489B93115A627D5C2FA3AD6 /* SystemPlugin.swift in Sources */,

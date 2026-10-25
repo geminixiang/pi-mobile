@@ -94,10 +94,10 @@
 | 1 | 啟動時檢查有哪些原生 plugin，沒有的工具不安裝（[capabilities.md](capabilities.md)） | 做好了 |
 | 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
 | 3 | Swift plugin：`KeepAlive`（背景）、`System`、`StreamFetch`、`Loopback` | 做好了，模擬器和 iPad 都驗過 |
-| 4 | Swift plugin：`BotFiles`、`Database` | |
+| 4 | Swift plugin：`BotFiles`、`Database` | 做好了，模擬器和 iPad 都驗過 |
 | 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | |
 
-模擬器上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋；工具組只有「網路」，時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
+模擬器和 iPad 上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋、Bot 資料夾（檔案、bash）、資料庫（`sql`、記帳）、背景跑完一輪和完成通知、ChatGPT 和 MCP 的登入流程。工具組有「網路」「檔案」「資料庫」；時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
 
 ### 實機量到的（2026-10-25，iPad Air 5，iPadOS 26.7）
 
@@ -126,8 +126,8 @@
 |---|---|
 | `StreamFetch` | `URLSession`，資料一段一段用事件送回 JS（`CapacitorHttp` 不能串流） |
 | `Loopback` | 本機 HTTP server 接 OAuth 回呼（`NWListener`，只綁 127.0.0.1）。登入頁開在 pi 裡的 Safari 視窗（`SFSafariViewController`），pi 不會離開前景，回呼一到就關掉視窗 |
-| `BotFiles` | app 自己的檔案目錄 |
-| `Database` | SQLite |
+| `BotFiles` | `Application Support/bots/<bot>`，不進 iCloud 備份（跟 Android 的 `allowBackup=false` 一致）；路徑解開 symlink 後必須在 Bot 的資料夾裡 |
+| `Database` | SQLite3 C API，`Application Support/pi-data.db`。`ATTACH`/`DETACH` 用 authorizer 擋；一個 `sql` 只能有一個 statement（Android 會默默忽略後面的，這裡直接報錯）。匯出用分享畫面 |
 | `System` | 開連結、剪貼簿、震動 |
 | `KeepAlive` | 改成 `BGContinuedProcessingTask`，看上面第 1 點量出來的結果 |
 | 金鑰 | `capacitor-secure-storage` 本來就支援 iOS（Keychain） |
