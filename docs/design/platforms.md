@@ -106,7 +106,10 @@
 - **背景，有 `KeepAlive`（`BGContinuedProcessingTask`）**：對話開始時送出一個 continued processing 請求，系統在動態島或鎖定畫面顯示進度，使用者可以取消；對話結束就交還。
   - 用網路搜尋再寫長文的對話，送出 4 秒後切走：8 次裡 7 次在背景跑完（27–68 秒），切回來時已經有答案；跑完後 JS 就停了。
   - 探測 75 秒：WebView 的計時器、`fetch`、IndexedDB、Worker 在背景都照常，沒有 `KeepAlive` 的對照組在 20 秒停住。
-  - 第一次那輪失敗：剛切走時 IndexedDB 報「Attempt to get a record from database without an in-progress transaction」，pi-durable 的工作階段因此失效（`SessionFailed`），要重開 app。之後 7 次沒再出現；原因還不知道，要繼續觀察。
+  - 第一次那輪失敗：剛切走時 IndexedDB 報「Attempt to get a record from database without an in-progress transaction」，pi-durable 的工作階段因此失效（`SessionFailed`），要重開 app。之後 7 次沒再出現。
+    - 原因：WebKit 暫停頁面時，會強制中止進行中的 IndexedDB 交易來釋放資料庫鎖（[WebKit bug 202705](https://bugs.webkit.org/show_bug.cgi?id=202705)，還沒修）。pi-durable 把存放層的錯誤一律當成致命錯誤，並說暫時性錯誤要由存放層自己重試。
+    - 對策（2026-10-26）：`src/storage.ts` 的 `surviveSuspension` 遇到這個錯誤就重試同一個呼叫（200 ms、1 s、3 s）。每個呼叫是一個交易，中止了就什麼都沒寫，所以重試是安全的。
+    - 還是失敗時，`App.tsx` 看 `runtime.closed`：工作階段因錯誤關閉，就關掉再重開，從已經提交的資料繼續。開啟後 10 秒內又失敗就不再重開，改成顯示錯誤，避免無限重開。
   - 進度條：一輪對話沒有可量的總量，所以每 2 秒前進一格，讓系統知道還在跑（Apple 說沒有進度的工作比較容易被終止）。
 - **其他**：設定供應商（金鑰存 Keychain）、對話、code mode、網路搜尋都正常，回答的時間正確。
 

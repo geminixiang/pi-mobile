@@ -8,6 +8,7 @@ import {
 	createRegistry,
 	Harness,
 	InboxDoc,
+	type SessionEnd,
 	type Storage,
 	type SubmissionId,
 } from "@earendil-works/pi-durable";
@@ -493,6 +494,10 @@ export class AgentRuntime {
 			memory.updatedBy = "user";
 		}, context);
 		this.publishMemory();
+	}
+
+	get closed(): Promise<SessionEnd> {
+		return this.#harness.closed;
 	}
 
 	inspect(): Promise<unknown> {

@@ -1,5 +1,7 @@
 import type { Storage } from "@earendil-works/pi-durable";
 import { IndexedDbStorage } from "@earendil-works/pi-durable/storage/indexeddb";
+import { log } from "./log.ts";
+import { messageOf } from "./promise.ts";
 
 const DATABASE = "pi-mobile-bots";
 const SINGLE_OWNER_LOCK = "pi-mobile.storage";
@@ -37,10 +39,43 @@ async function askToKeepDataUnderStoragePressure(): Promise<void> {
 	await navigator.storage.persist();
 }
 
+const SUSPENDED = /without an in-progress transaction/;
+const RETRY_MS = [200, 1000, 3000];
+
+async function retried(first: Promise<unknown>, call: () => unknown): Promise<unknown> {
+	let attempt = first;
+	for (const wait of RETRY_MS) {
+		try {
+			return await attempt;
+		} catch (error) {
+			if (!SUSPENDED.test(messageOf(error))) throw error;
+			log.warn("storage.retry_after_suspension", { error: messageOf(error), waitMs: wait });
+			await new Promise((resolve) => setTimeout(resolve, wait));
+			attempt = Promise.resolve(call());
+		}
+	}
+	return attempt;
+}
+
+// why: WebKit aborts an IndexedDB transaction in flight when it suspends pi going to the background (WebKit bug 202705); every Storage call is one transaction that leaves nothing behind when aborted, so it is retried
+export function surviveSuspension(storage: Storage): Storage {
+	return new Proxy(storage, {
+		get(target, key) {
+			const value: unknown = Reflect.get(target, key, target);
+			if (typeof value !== "function") return value;
+			return (...args: unknown[]) => {
+				const call = (): unknown => Reflect.apply(value, target, args);
+				const first = call();
+				return first instanceof Promise ? retried(first, call) : first;
+			};
+		},
+	});
+}
+
 export async function openAppStorage(): Promise<{ storage: Storage; isNewDatabase: boolean }> {
 	ownerLock ??= acquireOwnerLockForPageLifetime();
 	await ownerLock;
 	void askToKeepDataUnderStoragePressure();
 	const isNewDatabase = !(await indexedDB.databases()).some((database) => database.name === DATABASE);
-	return { storage: await IndexedDbStorage.open(DATABASE), isNewDatabase };
+	return { storage: surviveSuspension(await IndexedDbStorage.open(DATABASE)), isNewDatabase };
 }

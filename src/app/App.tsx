@@ -37,6 +37,7 @@ import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform } from "../agent/platform.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
+const REOPEN_AFTER_MS = 10_000;
 const MAX_NOTICES = 3;
 
 const sharedKind = (files: readonly File[]): SharedKind =>
@@ -115,6 +116,21 @@ export function App() {
 					},
 				});
 				setRuntime(opened);
+				const openedAt = Date.now();
+				void opened.closed.then(async (end) => {
+					if (end.reason !== "failed") return;
+					log.warn("runtime.failed", { error: messageOf(end.error) });
+					if (Date.now() - openedAt < REOPEN_AFTER_MS) {
+						setOpenError(`資料出錯，請重開 pi：${messageOf(end.error)}`);
+						return;
+					}
+					live.current.controller?.dispose();
+					setController(undefined);
+					setView(undefined);
+					await orLogged(opened.close(), "runtime.close_failed", undefined);
+					setRuntime(undefined);
+					await start(live.current.settings ?? next);
+				});
 				setTimeout(() => void sweepBotData(async () => (await opened.bots()).map((bot) => ({ id: String(bot.id), folder: bot.folder }))), 10_000);
 				setOpenError("");
 			} catch (error) {
