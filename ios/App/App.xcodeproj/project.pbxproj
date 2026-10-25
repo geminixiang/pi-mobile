@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F4B240F4A185C128726C9B70 /* CalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60FE74B7C18902FEA69D8DD7 /* CalendarPlugin.swift */; };
 		8A03EA71BACB3F828640377F /* PhonePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524C023F65E57D63254CC12C /* PhonePlugin.swift */; };
 		5E3C684FF3F3D4337D50A676 /* DatabasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */; };
 		2AE1328E613E8FC032EDA53E /* BotFilesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */; };
@@ -27,6 +28,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		60FE74B7C18902FEA69D8DD7 /* CalendarPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPlugin.swift; sourceTree = "<group>"; };
 		524C023F65E57D63254CC12C /* PhonePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlugin.swift; sourceTree = "<group>"; };
 		5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabasePlugin.swift; sourceTree = "<group>"; };
 		A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotFilesPlugin.swift; sourceTree = "<group>"; };
@@ -83,6 +85,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				60FE74B7C18902FEA69D8DD7 /* CalendarPlugin.swift */,
 				524C023F65E57D63254CC12C /* PhonePlugin.swift */,
 				5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */,
 				A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */,
@@ -183,6 +186,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				F4B240F4A185C128726C9B70 /* CalendarPlugin.swift in Sources */,
 				8A03EA71BACB3F828640377F /* PhonePlugin.swift in Sources */,
 				5E3C684FF3F3D4337D50A676 /* DatabasePlugin.swift in Sources */,
 				2AE1328E613E8FC032EDA53E /* BotFilesPlugin.swift in Sources */,

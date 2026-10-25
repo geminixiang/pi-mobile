@@ -6,6 +6,10 @@
 	<array>
 		<string>dev.geminixiang.pimobile.turn.*</string>
 	</array>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>讓 Bot 讀你的行程、幫你新增活動；只用你在設定裡打開的日曆。</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>讓 Bot 讀你的行程、幫你新增活動；只用你在設定裡打開的日曆。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>讓 Bot 知道你在哪裡：天氣、附近的店、交通時間。</string>
 	<key>NSMotionUsageDescription</key>

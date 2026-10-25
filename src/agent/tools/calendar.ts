@@ -41,7 +41,7 @@ interface CalendarPlugin {
 		allDay: boolean;
 		location?: string;
 		description?: string;
-	}): Promise<{ id: number }>;
+	}): Promise<{ id: number | string }>;
 	checkPermissions(): Promise<{ calendar: string }>;
 }
 
