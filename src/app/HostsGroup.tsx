@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
+import { hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, probeHost, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
@@ -30,11 +30,9 @@ type Preparing = { state: "idle" } | { state: "running"; detail: string } | { st
 
 export function usePrepare(host: PairedHost | undefined): [Preparing, (target?: PairedHost) => Promise<boolean>] {
 	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
-	const prepare = async (target: PairedHost | undefined = host) => {
-		if (!target) return false;
-		setPreparing({ state: "running", detail: "" });
+	const follow = async (done: Promise<void>) => {
 		try {
-			await prepareContainers(target, (detail) => setPreparing({ state: "running", detail }));
+			await done;
 			setPreparing({ state: "idle" });
 			return true;
 		} catch (error) {
@@ -42,6 +40,24 @@ export function usePrepare(host: PairedHost | undefined): [Preparing, (target?: 
 			return false;
 		}
 	};
+	const prepare = (target: PairedHost | undefined = host) => {
+		if (!target) return Promise.resolve(false);
+		setPreparing({ state: "running", detail: "" });
+		return follow(prepareContainers(target, (detail) => setPreparing({ state: "running", detail })));
+	};
+	const address = host?.address;
+	useEffect(() => {
+		if (!host) return undefined;
+		let current = true;
+		const running = watchPrepare(host, (detail) => current && setPreparing({ state: "running", detail }));
+		if (running) {
+			setPreparing({ state: "running", detail: "" });
+			void follow(running);
+		}
+		return () => {
+			current = false;
+		};
+	}, [address]);
 	return [preparing, prepare];
 }
 

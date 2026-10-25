@@ -55,10 +55,12 @@
   - 連不到：顯示安裝指令。
   - 回 403：告訴使用者手機和電腦要登入同一個 Tailscale 帳號。
   - 回 401（沒有金鑰或金鑰不對）：告訴使用者在那台電腦執行 `pi-mobile pair`。在這次改版之前加入的電腦沒有金鑰，列表上直接顯示配對碼欄位。
-- 加入後，第一台電腦成為預設（直接）。有容器引擎的電腦，在設定或 Bot 面板選「容器」都可以：第一次使用時會先建 image（`prepareContainers`，同一次 app 執行裡只做一次，設定、Bot 面板、Bot 本身共用同一個準備動作），建置時顯示進度。設定頁在選中的方式下面寫一句它代表什麼：「直接」用使用者的身分操作，「容器」的憑證留在手機上。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
+- 加入後，第一台電腦成為預設（直接）。有容器引擎的電腦，在設定或 Bot 面板選「容器」都可以：第一次使用時會先建 image（`prepareContainers`，同一次 app 執行裡只做一次，設定、Bot 面板、Bot 本身共用同一個準備動作），建置時顯示進度。準備只由三件事啟動：使用者在設定或面板選了容器、Bot 第一次用到它、面板上的重試；打開面板或冷啟動只會顯示已經在進行的準備，不會自己開始（2026-10-26 之前面板一掛載就準備，冷啟動時手機還沒做任何事就先對電腦跑了 12 個 `/exec`）。egress 的 bridge 也一樣，在 Bot 第一次用到容器時才開。設定頁在選中的方式下面寫一句它代表什麼：「直接」用使用者的身分操作，「容器」的憑證留在手機上。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
 - `HostSandbox` 有兩種模式：
   - **直接**：每次 app 執行時第一次連線，先 `/info`，沒有對應的 daemon 就 `PUT` 上去，再開 `/env` 的 WebSocket，接到 `StreamConnection` 上。工作目錄是家目錄，提示是 `directDescription`。刪 Bot 不會刪電腦上的任何檔案。
   - **容器**：`ContainerHost`（`container.ts`）透過 `/exec` 驅動容器引擎，跟以前透過 SSH 時一樣：所有 Bot 共用 `pim-main`，各自在 `/workspace/<Bot 資料夾>`；egress proxy 的 `bridge.py` 也跑在一條 `/exec` 上，向手機要 token。
+- Bot 面板的「電腦」區塊顯示這台電腦的連線狀態（連線中、已連線、幾點幾分連線中斷：原因），由 `StreamConnection` 的事件導出，不輪詢；它說的是上一條連線的事，不代表下一個指令一定成功或失敗。
+- 指令送到電腦之後連線才斷，工具回的錯誤會寫明「the request had been sent, so its outcome is unknown: check before retrying」；還沒送出就斷的寫「before the request was sent」。模型據此決定要不要重跑有副作用的指令（push、開 PR）。
 - `Workplaces` 裡的 key 是 `<電腦 id>:direct` 或 `<電腦 id>:container`；`settings.computer` 是沒有自己選的 Bot 用的預設，空的就是手機。
 
 ## 畫面操控（`pi-mobile mcp computer`，`host/computer.go`）

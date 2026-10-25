@@ -1,9 +1,11 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../agent/triggers.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
+import type { Sandbox } from "../agent/sandbox/sandbox.ts";
+import type { ConnectionStatus } from "../agent/sandbox/stream-connection.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { BoxIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
@@ -53,27 +55,43 @@ function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle:
 	);
 }
 
+function statusText(status: ConnectionStatus): { text: string; error: boolean } | undefined {
+	switch (status.kind) {
+		case "connecting":
+			return { text: "連線中", error: false };
+		case "connected":
+			return { text: "已連線", error: false };
+		case "lost":
+			return { text: `${new Date(status.at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })} 連線中斷：${status.reason}`, error: true };
+		default:
+			return undefined;
+	}
+}
+
+function HostStatus({ sandbox }: { sandbox: Sandbox }) {
+	const status = useSyncExternalStore(
+		(onChange) => sandbox.subscribe(onChange),
+		() => sandbox.status,
+	);
+	const shown = statusText(status);
+	if (!shown) return null;
+	return <span className={shown.error ? "menu-hint error" : "menu-hint"}>{shown.text}</span>;
+}
+
 function ComputerPicker({ runtime, bot, reload, problem, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; problem?: Problem; onError: (message: string) => void }) {
 	const place = runtime.workplaces.at(String(bot.id));
 	const key = place?.kind === "computer" ? place.computer.key : place?.kind === "missing" ? place.key : "phone";
 	const container = place?.kind === "computer" && !place.sandbox.direct ? place.host : undefined;
 	const [preparing, prepare] = usePrepare(container);
-	useEffect(() => {
-		if (container) void prepare();
-	}, [key, container]);
+	const choose = async (next: string) => {
+		await runtime.setComputer(bot.id, next);
+		reload(bot.id);
+		const chosen = runtime.workplaces.at(String(bot.id));
+		if (chosen?.kind === "computer" && !chosen.sandbox.direct) await prepare(chosen.host);
+	};
 	return (
 		<Section title="電腦" problem={problem}>
-			<select
-				className="field"
-				value={key}
-				aria-label="電腦"
-				onChange={(event) =>
-					void runtime
-						.setComputer(bot.id, event.target.value)
-						.then(() => reload(bot.id))
-						.catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`))
-				}
-			>
+			<select className="field" value={key} aria-label="電腦" onChange={(event) => void choose(event.target.value).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`))}>
 				{place?.kind === "missing" ? (
 					<option value={key} disabled>
 						已移除的電腦
@@ -85,6 +103,7 @@ function ComputerPicker({ runtime, bot, reload, problem, onError }: { runtime: A
 					</option>
 				))}
 			</select>
+			{place?.kind === "computer" ? <HostStatus sandbox={place.sandbox} /> : null}
 			<PrepareStatus preparing={preparing} />
 		</Section>
 	);

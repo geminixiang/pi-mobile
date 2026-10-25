@@ -2,11 +2,33 @@ import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
 import { openRuntime, toolResults, turn } from "./fixtures.ts";
-import { type Check, platform, settings } from "./setup.ts";
+import { type Check, logged, platform, settings } from "./setup.ts";
 
 const host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture" };
 
 export const checks: Check[] = [
+	[
+		"resolving a container placement reaches the computer only when the bot uses it",
+		async () => {
+			const unreachable = { ...host, id: "127.0.0.1", address: "127.0.0.1", engine: "docker" };
+			const config = { ...settings, hosts: JSON.stringify([unreachable]), computer: "127.0.0.1:container" };
+			const workplaces = new Workplaces(config, {}, platform.phone, (id) => ({ folder: id }));
+			const before = logged.length;
+			try {
+				const place = workplaces.at("bot");
+				assert(place?.kind === "computer" && !place.sandbox.direct);
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				assert.deepEqual(place.sandbox.status, { kind: "idle" });
+				assert.deepEqual(
+					logged.slice(before).map((entry) => entry.event),
+					[],
+				);
+				await assert.rejects(place.env());
+			} finally {
+				workplaces.close();
+			}
+		},
+	],
 	[
 		"unchanged computer resolution preserves the host used by preparation effects",
 		async () => {

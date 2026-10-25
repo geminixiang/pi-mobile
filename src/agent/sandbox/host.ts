@@ -13,7 +13,7 @@ import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials } from "./container.ts";
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, SharedEnvs } from "./sandbox.ts";
-import { lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
+import { type ConnectionStatus, lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
@@ -226,6 +226,13 @@ class HostCommands implements CommandClient {
 
 const preparing = new Map<string, { done: Promise<void>; listeners: Set<(detail: string) => void> }>();
 
+export function watchPrepare(host: PairedHost, onProgress: (detail: string) => void): Promise<void> | undefined {
+	const entry = preparing.get(host.address);
+	if (!entry) return undefined;
+	entry.listeners.add(onProgress);
+	return entry.done.finally(() => entry.listeners.delete(onProgress));
+}
+
 export function prepareContainers(host: PairedHost, onProgress: (detail: string) => void = () => undefined): Promise<void> {
 	if (!host.engine) return Promise.reject(new Error(`${host.name} 沒有 docker、podman 或 nerdctl`));
 	let entry = preparing.get(host.address);
@@ -249,27 +256,44 @@ export class HostSandbox implements Sandbox {
 	readonly host: PairedHost;
 	readonly mode: HostMode;
 	readonly #envs: SharedEnvs;
-	readonly #stopBridge: (() => void) | undefined;
+	readonly #startBridge: (() => () => void) | undefined;
+	#stopBridge: (() => void) | undefined;
 	#ready: Promise<string> | undefined;
+	#status: ConnectionStatus = { kind: "idle" };
+	readonly #listeners = new Set<(status: ConnectionStatus) => void>();
 
 	constructor(host: PairedHost, mode: HostMode, credentials: Credentials) {
 		this.host = host;
 		this.mode = mode;
 		const onLog = (text: string) => log.warn("sandbox.daemon_output", { host: host.name, text });
+		const onStatus = (status: ConnectionStatus) => {
+			this.#status = status;
+			log.info("host.connection", { host: host.name, mode, status: status.kind, ...(status.kind === "lost" ? { reason: status.reason } : {}) });
+			for (const listener of this.#listeners) listener(status);
+		};
 		if (mode === "container" && host.engine) {
 			const commands = new HostCommands(host);
 			const containers = new ContainerHost(host.engine, async () => commands);
-			this.#stopBridge = containers.bridge(credentials);
+			this.#startBridge = () => containers.bridge(credentials);
 			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
-			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog });
+			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog, onStatus });
 			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => `${WORKSPACE}/${folder}`);
 		} else {
-			this.#envs = new SharedEnvs(new StreamConnection({ open: this.#direct(), onLog }), host.home, () => host.home);
+			this.#envs = new SharedEnvs(new StreamConnection({ open: this.#direct(), onLog, onStatus }), host.home, () => host.home);
 		}
 	}
 
 	get direct(): boolean {
 		return this.mode === "direct";
+	}
+
+	get status(): ConnectionStatus {
+		return this.#status;
+	}
+
+	subscribe(listener: (status: ConnectionStatus) => void): () => void {
+		this.#listeners.add(listener);
+		return () => this.#listeners.delete(listener);
 	}
 
 	#direct(): OpenDaemon {
@@ -314,6 +338,7 @@ export class HostSandbox implements Sandbox {
 
 	async env(folder: string): Promise<ExecutionEnv> {
 		if (!this.direct) await prepareContainers(this.host, (detail) => log.info("host.prepare", { host: this.host.name, detail }));
+		if (this.#startBridge && !this.#stopBridge) this.#stopBridge = this.#startBridge();
 		return this.#envs.env(folder);
 	}
 

@@ -5,7 +5,7 @@ import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { BotIndex } from "../bots.ts";
 import { type DaemonArch, type DaemonOs, shellQuote } from "./daemon.ts";
-import type { StreamConnection } from "./stream-connection.ts";
+import type { ConnectionStatus, StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";
 import type { Workplace } from "../workplaces.ts";
@@ -15,6 +15,8 @@ export const SHARED_SANDBOX = "main";
 
 export interface Sandbox {
 	readonly direct: boolean;
+	readonly status: ConnectionStatus;
+	subscribe(listener: (status: ConnectionStatus) => void): () => void;
 	root(folder: string): string;
 	env(folder: string): Promise<ExecutionEnv>;
 	exists(folder: string): Promise<boolean>;
