@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { messageOf } from "../../promise.ts";
+import { refuseCleartextSecret } from "../cleartext.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(
@@ -102,6 +103,7 @@ const INSTRUCTIONS =
 	"Search the web for the query and answer it concisely with the facts found, in the query's language. List the source URLs you relied on.";
 
 async function searchResponses(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
+	refuseCleartextSecret(config.baseUrl);
 	const response = await fetch(`${root(config.baseUrl)}/v1/responses`, {
 		method: "POST",
 		headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
@@ -118,6 +120,7 @@ async function searchResponses(config: WebConfig, model: string, query: string, 
 }
 
 async function searchAnthropic(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
+	refuseCleartextSecret(config.baseUrl);
 	const response = await fetch(`${root(config.baseUrl)}/v1/messages`, {
 		method: "POST",
 		headers: {

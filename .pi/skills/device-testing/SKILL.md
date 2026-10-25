@@ -17,7 +17,9 @@ from `CDP_PORT` (default 9333).
   undo them after. Calendar writes go only to the test calendar the user named; it may be locked or in use by another
   agent, so ask before using it.
 - **Emulator** (`emulator-5554`): anything destructive, alarms and timers, root, filling the disk. Its numbers are
-  not the phone's: measure on the phone before deciding on speed.
+  not the phone's: measure on the phone before deciding on speed. A model gateway on this computer is
+  `adb -s emulator-5554 reverse tcp:8317 tcp:8317` and `http://localhost:8317` in the app: pi refuses to send a key
+  over plain HTTP to anything but loopback and Tailscale, so `10.0.2.2` no longer works.
 - Build and install: `./scripts/build-android.sh`, then `./scripts/run-android.sh <serial> <port>`. It is signed with
   the release key, so it and a published release install over each other with the data kept; a device that still
   has a debug-key build must uninstall it first, which deletes the app's data. Both run the release build type,

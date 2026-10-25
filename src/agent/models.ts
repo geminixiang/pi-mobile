@@ -4,6 +4,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { Type } from "typebox";
 import { parse } from "./parse.ts";
+import { refuseCleartextSecret } from "./cleartext.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -96,6 +97,7 @@ function toModel(id: string, provider: string, baseUrl: string, catalog: Catalog
 
 export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<string[]> {
 	const url = `${rootUrl(baseUrl)}/v1/models`;
+	if (apiKey) refuseCleartextSecret(url);
 	const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 	let response = await fetch(url, { headers, signal });
 	if (response.status === 401 || response.status === 403) {
@@ -113,7 +115,15 @@ export function customProvider(config: { id: string; name: string; baseUrl: stri
 	return createProvider({
 		id: config.id,
 		name: config.name,
-		auth: { apiKey: { name: "API key", resolve: async () => ({ auth: { apiKey } }) } },
+		auth: {
+			apiKey: {
+				name: "API key",
+				resolve: async () => {
+					if (apiKey) refuseCleartextSecret(config.baseUrl);
+					return { auth: { apiKey } };
+				},
+			},
+		},
 		models: modelIds.map((id) => toModel(id, config.id, config.baseUrl, catalog)),
 		api: {
 			"anthropic-messages": anthropicMessagesApi(),

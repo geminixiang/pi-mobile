@@ -6,6 +6,7 @@ import type { Settings } from "../settings.ts";
 import { loadModels, type LoadedModels } from "./available-models.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
+import { refuseCleartextSecret } from "./cleartext.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
@@ -44,6 +45,7 @@ export const nativeFetch: McpFetch = async (input, init) => {
 	} else if (body != null) {
 		throw new Error("unsupported request body");
 	}
+	if (headers.authorization) refuseCleartextSecret(String(input));
 	if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 	const response = await CapacitorHttp.request({
 		url: String(input),
