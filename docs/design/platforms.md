@@ -93,7 +93,7 @@
 | 0 | `ios/` 專案，`scripts/run-ios.sh` 在模擬器上建置、安裝、打開 | 做好了 |
 | 1 | 啟動時檢查有哪些原生 plugin，沒有的工具不安裝（[capabilities.md](capabilities.md)） | 做好了 |
 | 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
-| 3 | Swift plugin：`KeepAlive`（背景）做好了；`System`、`StreamFetch`、`Loopback` 還沒 | 進行中 |
+| 3 | Swift plugin：`KeepAlive`（背景）、`System`、`StreamFetch`、`Loopback` | 做好了（模擬器驗證；iPad 待驗） |
 | 4 | Swift plugin：`BotFiles`、`Database` | |
 | 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | |
 
@@ -123,7 +123,7 @@
 | Plugin | iOS 上的做法 |
 |---|---|
 | `StreamFetch` | `URLSession`，資料一段一段用事件送回 JS（`CapacitorHttp` 不能串流） |
-| `Loopback` | 本機 HTTP server 接 OAuth 回呼，或改用 `ASWebAuthenticationSession` |
+| `Loopback` | 本機 HTTP server 接 OAuth 回呼（`NWListener`，只綁 127.0.0.1）。登入頁開在 pi 裡的 Safari 視窗（`SFSafariViewController`），pi 不會離開前景，回呼一到就關掉視窗 |
 | `BotFiles` | app 自己的檔案目錄 |
 | `Database` | SQLite |
 | `System` | 開連結、剪貼簿、震動 |

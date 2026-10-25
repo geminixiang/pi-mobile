@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		81C1DF172A5C0A9BBF038182 /* LoopbackPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */; };
+		B49426A6F2B7780971947BD1 /* StreamFetchPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFE57915E1272603C48FB06 /* StreamFetchPlugin.swift */; };
+		E489B93115A627D5C2FA3AD6 /* SystemPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69172BBD1ADEB99F83852C5A /* SystemPlugin.swift */; };
 		FD3559C85513C34EE6239078 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 338115FB3109390EA2598B19 /* MainViewController.swift */; };
 		E1B473BA92B2708A135C2187 /* KeepAlivePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95C11FC7B958CEC2124D3E92 /* KeepAlivePlugin.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
@@ -21,6 +24,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopbackPlugin.swift; sourceTree = "<group>"; };
+		BEFE57915E1272603C48FB06 /* StreamFetchPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamFetchPlugin.swift; sourceTree = "<group>"; };
+		69172BBD1ADEB99F83852C5A /* SystemPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPlugin.swift; sourceTree = "<group>"; };
 		338115FB3109390EA2598B19 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		95C11FC7B958CEC2124D3E92 /* KeepAlivePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAlivePlugin.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -71,6 +77,9 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */,
+				BEFE57915E1272603C48FB06 /* StreamFetchPlugin.swift */,
+				69172BBD1ADEB99F83852C5A /* SystemPlugin.swift */,
 				338115FB3109390EA2598B19 /* MainViewController.swift */,
 				95C11FC7B958CEC2124D3E92 /* KeepAlivePlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -165,6 +174,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				81C1DF172A5C0A9BBF038182 /* LoopbackPlugin.swift in Sources */,
+				B49426A6F2B7780971947BD1 /* StreamFetchPlugin.swift in Sources */,
+				E489B93115A627D5C2FA3AD6 /* SystemPlugin.swift in Sources */,
 				FD3559C85513C34EE6239078 /* MainViewController.swift in Sources */,
 				E1B473BA92B2708A135C2187 /* KeepAlivePlugin.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
