@@ -19,15 +19,19 @@ function reply(id: number, json: Record<string, unknown>): Uint8Array<ArrayBuffe
 	return out;
 }
 
-type Daemon = { connection: StreamConnection; sent: string[]; drop: (reason: string) => void; statuses: ConnectionStatus[] };
+type Daemon = { connection: StreamConnection; sent: string[]; drop: (reason: string) => void; link: (up: boolean) => void; answer: (id: number, json: Record<string, unknown>) => void; statuses: ConnectionStatus[] };
 
 function daemonAnswering(hello: Record<string, unknown>): Daemon {
 	const sent: string[] = [];
 	const statuses: ConnectionStatus[] = [];
 	let drop: (reason: string) => void = () => undefined;
+	let link: (up: boolean) => void = () => undefined;
+	let answer: (id: number, json: Record<string, unknown>) => void = () => undefined;
 	const connection = new StreamConnection({
 		open: async (token, handlers) => {
 			drop = (reason) => handlers.onClose(reason);
+			link = (up) => handlers.onLink?.(up);
+			answer = (id, json) => handlers.onData(reply(id, json));
 			let greeted = false;
 			return {
 				send: (data) => {
@@ -37,7 +41,7 @@ function daemonAnswering(hello: Record<string, unknown>): Daemon {
 					const id = view.getUint32(5);
 					const jsonLength = view.getUint32(9);
 					const request = JSON.parse(decoder.decode(data.subarray(13, 13 + jsonLength)));
-					sent.push(request.op);
+					sent.push(`${request.op}:${id}`);
 					if (request.op === "hello") queueMicrotask(() => handlers.onData(reply(id, hello)));
 				},
 				close: () => undefined,
@@ -45,7 +49,7 @@ function daemonAnswering(hello: Record<string, unknown>): Daemon {
 		},
 		onStatus: (status) => statuses.push(status),
 	});
-	return { connection, sent, drop: (reason) => drop(reason), statuses };
+	return { connection, sent, drop: (reason) => drop(reason), link: (up) => link(up), answer: (id, json) => answer(id, json), statuses };
 }
 
 function lostError(error: unknown): error is RemoteError {
@@ -98,11 +102,11 @@ export const checks: Check[] = [
 			try {
 				const session = await connection.session();
 				const inFlight = connection.request("exec", { command: "gh pr create" }, { session });
-				assert.deepEqual(sent, ["hello", "exec"]);
+				assert.deepEqual(sent, ["hello:1", "exec:2"]);
 				drop("socket dropped");
 				await assert.rejects(inFlight, (error: unknown) => lostError(error) && error.fields.outcome === "unknown" && /had been sent/.test(error.message) && error.message.includes("socket dropped"));
 				await assert.rejects(connection.request("exec", { command: "gh pr create" }, { session }), (error: unknown) => lostError(error) && error.fields.outcome === "unsent" && /before the request was sent/.test(error.message));
-				assert.deepEqual(sent, ["hello", "exec"]);
+				assert.deepEqual(sent, ["hello:1", "exec:2"]);
 			} finally {
 				connection.close();
 			}
@@ -125,6 +129,30 @@ export const checks: Check[] = [
 				connection.close();
 			}
 			assert.deepEqual(connection.status, { kind: "closed" });
+		},
+	],
+	[
+		"a request outlives a link that goes down and comes back, and its answer still lands",
+		async () => {
+			const { connection, sent, drop, link, answer, statuses } = daemonAnswering(fullHello);
+			try {
+				const session = await connection.session();
+				const inFlight = connection.request("exec", { command: "sleep 90" }, { session });
+				const id = Number(sent.at(-1)?.split(":")[1]);
+				link(false);
+				const down = statuses.at(-1);
+				assert(down?.kind === "reattaching" && down.session === session);
+				await new Promise((resolve) => setTimeout(resolve, 50));
+				assert.equal(connection.status.kind, "reattaching");
+				link(true);
+				assert.deepEqual(connection.status, { kind: "connected", session });
+				answer(id, { exitCode: 0 });
+				assert.deepEqual((await inFlight).json, { exitCode: 0 });
+				drop("pi-env exited");
+				assert.equal(connection.status.kind, "lost");
+			} finally {
+				connection.close();
+			}
 		},
 	],
 ];

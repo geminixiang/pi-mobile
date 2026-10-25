@@ -61,6 +61,8 @@ function statusText(status: ConnectionStatus): { text: string; error: boolean } 
 			return { text: "連線中", error: false };
 		case "connected":
 			return { text: "已連線", error: false };
+		case "reattaching":
+			return { text: `${new Date(status.since).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })} 起重新連線中`, error: false };
 		case "lost":
 			return { text: `${new Date(status.at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })} 連線中斷：${status.reason}`, error: true };
 		default:

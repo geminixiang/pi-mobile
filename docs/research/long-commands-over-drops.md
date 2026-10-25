@@ -69,11 +69,24 @@ daemon 在 stdin 結束後保留 N 秒、允許帶 token 重接並重放緩衝�
 
 sandbox 描述加一句：預期超過一分鐘的指令用 `nohup … > log 2>&1 &` 再輪詢。零程式碼，今天就能做；但靠模型記得，而且輸出要自己去撈。可以當 A 完成前的過渡，不當解法。
 
-## 建議
+## 做了 A（2026-10-26）
 
-1. **先量發生率**（一到兩週）：A4 的診斷記錄已經有 `host.connection` 事件；再加一個欄位記「斷線時有沒有在途請求」。看實際用手機開發時，工作中斷線一週發生幾次。零次就把 B1 降到 C。
-2. 有需求就做 **A**，分兩個 commit：電腦端保留 + attach（Go，測試：斷線後 pi-env 仍活著、寬限期後被殺、attach 吐出緩衝）；手機端 reattach（contract：在途請求跨一次斷線完成、超過寬限期回結果不明）。
-3. 之後再看 bash replay-safe：這是 pi-durable 的語意變更，另開題。
+電腦端 `host/held.go`、手機端 `src/agent/sandbox/resumable-socket.ts`，設計寫在 [design/computer-host.md](../design/computer-host.md)。第一版只在偵測到斷線後才替 pi-env 送心跳，S24 實測手機 Tailscale 停掉後 pi-env 30 秒內就死了：手機沒網路時不會送 FIN，電腦不知道連線已斷。改成電腦一律送心跳、並主動 ping 手機偵測斷線之後，再測一次：
+
+| | |
+| --- | --- |
+| 指令 | 容器內 `for i in $(seq 1 24); do sleep 10; echo tick $i; done`（240 s） |
+| 斷線 | 執行 21 秒後 `am force-stop com.tailscale.ipn`，75 秒後重新啟動 |
+| 電腦判定斷線 | 19 秒後（10 秒 ping 間隔 + 10 秒逾時） |
+| 手機回來 | Tailscale 起來後約 1 秒接上，電腦補送 21 則訊息 |
+| 結果 | 24 行 tick 與 `finished` 全部回到對話；pi-env 同一個行程（token 相同）活到最後 |
+
+之後 App 退到背景、工作結束、頁面被凍結時又斷了一次，回到前景 1 秒內接回並補送 5 則；這是預期行為。
+
+## 建議（更新）
+
+1. A 已做。診斷記錄的 `host.resume` 事件（dropped、attached、gave_up）可以看實際發生率與重接次數。
+2. 之後再看 App 被殺的情況：bash replay-safe 加上以 request 對回保留的 session，這是 pi-durable 的語意變更，另開題。
 4. **B3 不做**：實測顯示工作中的連線撐得住，閒置時斷掉是正常。
 5. **B4 等 A**：A 會讓新 App 配舊 host 出現第二個不相容點（第一個是 `/unpair`），到時 `/info` 加 `features`。
 

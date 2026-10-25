@@ -340,9 +340,41 @@ func (t taggedWriter) Write(data []byte) (int, error) {
 }
 
 func runCommand(w http.ResponseWriter, r *http.Request) {
+	if attach := r.URL.Query().Get("attach"); attach != "" {
+		if !tokenPattern.MatchString(attach) {
+			http.Error(w, "bad token", http.StatusBadRequest)
+			return
+		}
+		attachHeld(w, r, "exec:"+attach)
+		return
+	}
 	command := r.URL.Query().Get("command")
 	if command == "" {
 		http.Error(w, "command required", http.StatusBadRequest)
+		return
+	}
+	if session := r.URL.Query().Get("session"); session != "" {
+		if !tokenPattern.MatchString(session) {
+			http.Error(w, "bad session token", http.StatusBadRequest)
+			return
+		}
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+		if err != nil {
+			return
+		}
+		conn.SetReadLimit(32 << 20)
+		var heartbeat []byte
+		if r.URL.Query().Get("heartbeat") == "pi-env" {
+			heartbeat = piEnvPing
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		held, err := startHeld("exec:"+session, loginShell(ctx, command), cancel, heartbeat, true, conn, r.Context())
+		if err != nil {
+			cancel()
+			conn.Close(websocket.StatusInternalError, "cannot start the command")
+			return
+		}
+		held.serve(conn, r.Context())
 		return
 	}
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
@@ -468,6 +500,14 @@ func putDaemon(w http.ResponseWriter, r *http.Request) {
 }
 
 func env(w http.ResponseWriter, r *http.Request) {
+	if attach := r.URL.Query().Get("attach"); attach != "" {
+		if !tokenPattern.MatchString(attach) {
+			http.Error(w, "bad token", http.StatusBadRequest)
+			return
+		}
+		attachHeld(w, r, "env:"+attach)
+		return
+	}
 	sha, token := r.URL.Query().Get("daemon"), r.URL.Query().Get("token")
 	if !shaPattern.MatchString(sha) || !tokenPattern.MatchString(token) {
 		http.Error(w, "daemon and token required", http.StatusBadRequest)
@@ -484,47 +524,14 @@ func env(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.SetReadLimit(32 << 20)
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	cmd := loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
-	stdin, _ := cmd.StdinPipe()
-	stdout, _ := cmd.StdoutPipe()
-	cmd.Stderr = log.Writer()
-	if err := cmd.Start(); err != nil {
+	session, err := startHeld("env:"+token, cmd, cancel, piEnvPing, false, conn, r.Context())
+	if err != nil {
+		cancel()
 		conn.Close(websocket.StatusInternalError, "cannot start pi-env")
 		return
 	}
-	var once sync.Once
-	done := func(reason string) { once.Do(func() { cancel(); conn.Close(websocket.StatusNormalClosure, reason) }) }
-	go func() {
-		buffer := make([]byte, 256<<10)
-		for {
-			n, err := stdout.Read(buffer)
-			if n > 0 {
-				if werr := conn.Write(ctx, websocket.MessageBinary, buffer[:n]); werr != nil {
-					done("")
-					return
-				}
-			}
-			if err != nil {
-				done("pi-env exited")
-				return
-			}
-		}
-	}()
-	for {
-		_, data, err := conn.Read(ctx)
-		if err != nil {
-			break
-		}
-		if _, err := stdin.Write(data); err != nil {
-			break
-		}
-	}
-	done("")
-	stdin.Close()
-	_ = cmd.Wait()
-	_ = endGroup(cmd)
+	session.serve(conn, r.Context())
 }
 
 type permission struct {

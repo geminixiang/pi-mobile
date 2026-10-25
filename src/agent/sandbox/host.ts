@@ -14,6 +14,7 @@ import { type CommandChannel, type CommandClient, type CommandHandlers, Containe
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, SharedEnvs } from "./sandbox.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
+import { type OpenRaw, type RawMessage, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
@@ -152,7 +153,11 @@ export async function listPeers(host: Reach): Promise<Peer[]> {
 	return Value.Check(Peers, peers) ? peers : [];
 }
 
-function openSocket(url: URL, what: string, onMessage: (data: ArrayBuffer | string) => void, onClose: (reason: string | undefined) => void): Promise<WebSocket> {
+function rawOpener(what: string): OpenRaw {
+	return (url, onMessage, onClose) => openSocket(url, what, onMessage, onClose);
+}
+
+function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void): Promise<WebSocket> {
 	const socket = new WebSocket(url);
 	socket.binaryType = "arraybuffer";
 	socket.addEventListener("message", (event) => {
@@ -180,31 +185,45 @@ class HostCommands implements CommandClient {
 		this.#host = host;
 	}
 
-	async exec(command: string, handlers: CommandHandlers): Promise<CommandChannel> {
+	async exec(command: string, handlers: CommandHandlers, session?: string): Promise<CommandChannel> {
 		let exited = false;
 		const exit = (code: number | undefined) => {
 			if (exited) return;
 			exited = true;
 			handlers.onExit(code);
 		};
-		const socket = await openSocket(
-			socketUrl(this.#host, "/exec", { command }),
-			this.#host.name,
-			(data) => {
-				if (typeof data === "string") {
-					const message = decode(ExitMessage, data);
-					if (message) exit(message.exit);
-					return;
-				}
-				const bytes = new Uint8Array(data);
-				if (bytes[0] === 1) handlers.onStdout(bytes.subarray(1));
-				else if (bytes[0] === 2) handlers.onStderr?.(bytes.subarray(1));
-			},
-			() => exit(undefined),
-		).catch(async (error: unknown) => {
+		const onMessage = (data: RawMessage) => {
+			if (typeof data === "string") {
+				const message = decode(ExitMessage, data);
+				if (message) exit(message.exit);
+				return;
+			}
+			const bytes = new Uint8Array(data);
+			if (bytes[0] === 1) handlers.onStdout(bytes.subarray(1));
+			else if (bytes[0] === 2) handlers.onStderr?.(bytes.subarray(1));
+		};
+		const unreachable = async (error: unknown) => {
 			await probeHost(this.#host, AbortSignal.timeout(5000));
 			throw error;
-		});
+		};
+		if (session) {
+			const resumable = await ResumableSocket.connect({
+				first: socketUrl(this.#host, "/exec", { command, session, heartbeat: "pi-env" }),
+				attach: (received) => socketUrl(this.#host, "/exec", { attach: session, received: String(received) }),
+				open: rawOpener(this.#host.name),
+				what: this.#host.name,
+				onMessage,
+				onClose: () => exit(undefined),
+				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
+			}).catch(unreachable);
+			return {
+				write: (data) => resumable.send(data.slice()),
+				end: () => resumable.send("eof"),
+				close: () => resumable.close(),
+				retry: () => resumable.retry(),
+			};
+		}
+		const socket = await openSocket(socketUrl(this.#host, "/exec", { command }), this.#host.name, onMessage, () => exit(undefined)).catch(unreachable);
 		return {
 			write: (data) => {
 				if (socket.readyState === WebSocket.OPEN) socket.send(data.slice());
@@ -308,20 +327,19 @@ export class HostSandbox implements Sandbox {
 	#direct(): OpenDaemon {
 		return async (token, handlers) => {
 			const sha = await this.#daemon();
-			const socket = await openSocket(
-				socketUrl(this.host, "/env", { daemon: sha, token }),
-				`${this.host.name}（${this.host.address}）`,
-				(data) => {
+			const what = `${this.host.name}（${this.host.address}）`;
+			const socket = await ResumableSocket.connect({
+				first: socketUrl(this.host, "/env", { daemon: sha, token }),
+				attach: (received) => socketUrl(this.host, "/env", { attach: token, received: String(received) }),
+				open: rawOpener(what),
+				what,
+				onMessage: (data) => {
 					if (data instanceof ArrayBuffer) handlers.onData(new Uint8Array(data));
 				},
-				handlers.onClose,
-			);
-			return {
-				send: (data) => {
-					if (socket.readyState === WebSocket.OPEN) socket.send(data);
-				},
-				close: () => socket.close(),
-			};
+				onClose: handlers.onClose,
+				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
+			});
+			return { send: (data) => socket.send(data), close: () => socket.close(), retry: () => socket.retry() };
 		};
 	}
 

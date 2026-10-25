@@ -62,16 +62,18 @@ export interface CommandHandlers {
 	onStdout(data: Uint8Array): void;
 	onStderr?(data: Uint8Array): void;
 	onExit(code: number | undefined): void;
+	onLink?(up: boolean): void;
 }
 
 export interface CommandChannel {
 	write(data: Uint8Array): void;
 	end(): void;
 	close(): void;
+	retry?(): void;
 }
 
 export interface CommandClient {
-	exec(command: string, handlers: CommandHandlers): Promise<CommandChannel>;
+	exec(command: string, handlers: CommandHandlers, session?: string): Promise<CommandChannel>;
 	run(command: string, input?: Uint8Array): Promise<{ stdout: string; stderr: string; code: number | undefined }>;
 }
 
@@ -389,9 +391,11 @@ export class ContainerHost {
 						release();
 						handlers.onClose(stderr.trim() || `daemon exited ${code ?? "?"}`);
 					},
+					...(handlers.onLink ? { onLink: handlers.onLink } : {}),
 				},
+				token,
 			);
-			return { send: (data) => channel.write(data), close: () => channel.close() };
+			return { send: (data) => channel.write(data), close: () => channel.close(), ...(channel.retry ? { retry: channel.retry } : {}) };
 		};
 	}
 

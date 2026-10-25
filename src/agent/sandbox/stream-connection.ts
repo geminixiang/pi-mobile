@@ -71,6 +71,7 @@ export type ConnectionStatus =
 	| { kind: "idle" }
 	| { kind: "connecting" }
 	| { kind: "connected"; session: number }
+	| { kind: "reattaching"; session: number; since: number }
 	| { kind: "lost"; reason: string; at: number }
 	| { kind: "closed" };
 
@@ -86,14 +87,16 @@ function indexOf(haystack: Uint8Array, needle: Uint8Array): number {
 	return -1;
 }
 
-interface DaemonStream {
+export interface DaemonStream {
 	send(data: Uint8Array<ArrayBuffer>): void;
 	close(): void;
+	retry?(): void;
 }
 
-interface StreamHandlers {
+export interface StreamHandlers {
 	onData(data: Uint8Array): void;
 	onClose(reason?: string): void;
+	onLink?(up: boolean): void;
 }
 
 export type OpenDaemon = (token: string, handlers: StreamHandlers) => Promise<DaemonStream>;
@@ -121,6 +124,7 @@ class Session {
 	lastSeen = Date.now();
 	timer: ReturnType<typeof setInterval> | undefined;
 	live = true;
+	linkUp = true;
 
 	constructor(id: number, token: string) {
 		this.id = id;
@@ -257,6 +261,12 @@ export class StreamConnection {
 					rejectStart(lost(`Sandbox connection closed before it was ready${reason ? `: ${reason}` : ""}`));
 					this.#teardown(session, error);
 				},
+				onLink: (up) => {
+					if (!session.live) return;
+					session.linkUp = up;
+					session.lastSeen = Date.now();
+					this.#setStatus(up ? { kind: "connected", session: session.id } : { kind: "reattaching", session: session.id, since: Date.now() });
+				},
 			});
 		} catch (error) {
 			clearTimeout(startTimer);
@@ -271,8 +281,15 @@ export class StreamConnection {
 		}
 
 		session.timer = setInterval(() => {
+			if (!session.linkUp) return;
 			this.#write(session, frame(PING, 0, {}));
-			if (Date.now() - session.lastSeen > SILENCE_LIMIT_MS) this.#teardown(session, lost("pi-env connection timed out"));
+			if (Date.now() - session.lastSeen <= SILENCE_LIMIT_MS) return;
+			if (session.stream?.retry) {
+				session.lastSeen = Date.now();
+				session.stream.retry();
+				return;
+			}
+			this.#teardown(session, lost("pi-env connection timed out"));
 		}, PING_INTERVAL_MS);
 
 		try {
