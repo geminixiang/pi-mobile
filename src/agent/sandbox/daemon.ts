@@ -16,9 +16,9 @@ export function daemon(os: DaemonOs, arch: DaemonArch): Promise<{ bytes: Uint8Ar
 		pending = (async () => {
 			const expected = __PI_ENV_DAEMONS__[name];
 			if (!expected) throw new Error(`app 沒有附 ${name} 的 pi-env`);
-			const response = await fetch(`/pi-env/${name}.bin`);
-			if (!response.ok) throw new Error(`讀不到 app 裡 ${name} 的 pi-env（HTTP ${response.status}）`);
-			const bytes = new Uint8Array(await response.arrayBuffer());
+			const response = await fetch(`/pi-env/${name}.bin.gzip`);
+			if (!response.ok || !response.body) throw new Error(`讀不到 app 裡 ${name} 的 pi-env（HTTP ${response.status}）`);
+			const bytes = new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
 			const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
 			const sha = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 			if (sha !== expected) throw new Error(`app 裡 ${name} 的 pi-env 跟建置時不一樣，不會上傳`);

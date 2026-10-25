@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { justBashPatches } from "./vite-plugins/just-bash.ts";
@@ -16,14 +17,15 @@ function piEnvDaemons(): Plugin {
 		name: "pi-env-daemons",
 		configureServer(server) {
 			server.middlewares.use((request, response, next) => {
-				const name = request.url?.match(/^\/pi-env\/([a-z0-9-]+)\.bin$/)?.[1];
+				const name = request.url?.match(/^\/pi-env\/([a-z0-9-]+)\.bin\.gzip$/)?.[1];
 				if (!name || !DAEMONS.includes(name)) return next();
-				response.setHeader("Content-Type", "application/octet-stream");
-				response.end(readFileSync(daemonFile(name)));
+				response.setHeader("Content-Type", "application/gzip");
+				response.end(gzipSync(readFileSync(daemonFile(name))));
 			});
 		},
+		// why: App Store Connect refuses Mach-O files besides the app's own, so these ship compressed, as .gzip since Android unpacks .gz assets
 		generateBundle() {
-			for (const name of DAEMONS) this.emitFile({ type: "asset", fileName: `pi-env/${name}.bin`, source: readFileSync(daemonFile(name)) });
+			for (const name of DAEMONS) this.emitFile({ type: "asset", fileName: `pi-env/${name}.bin.gzip`, source: gzipSync(readFileSync(daemonFile(name)), { level: 9 }) });
 		},
 	};
 }
