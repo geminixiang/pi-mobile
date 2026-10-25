@@ -4,7 +4,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { Type } from "typebox";
 import { parse } from "./parse.ts";
-import { refuseCleartextSecret, refuseIpOnIos } from "./cleartext.ts";
+import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "./cleartext.ts";
 import { ios } from "../native.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
@@ -101,7 +101,13 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 	refuseIpOnIos(url, ios);
 	if (apiKey) refuseCleartextSecret(url);
 	const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
-	let response = await fetch(url, { headers, signal });
+	const reach = (request: Promise<Response>) =>
+		onTailnet(url)
+			? request.catch((error: unknown) => {
+					throw new Error(`連不到 ${new URL(url).host}：Tailscale 要連著${tailscaleHint(ios)}`, { cause: error });
+				})
+			: request;
+	let response = await reach(fetch(url, { headers, signal }));
 	if (response.status === 401 || response.status === 403) {
 		response = await fetch(url, {
 			headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },

@@ -27,7 +27,12 @@
 
 1. **安裝**：從[最新的 release](../../releases/latest) 下載 `pi-mobile-<版本>.apk` 安裝。需要 Android 7.0 以上的 arm64 手機。
 2. **加入模型供應商**：第一次打開時，選一家供應商填上 API key，或填自訂端點的網址。到這一步就能聊天。
-3. **（選用）把你的電腦交給 pi**：在 Mac 或 Linux 上（要裝好 Tailscale，手機也登入同一個帳號）執行下面這行，再到手機的設定 › 電腦輸入它印出的名稱。之後更新也是同一行。
+   - 自訂端點在自己的電腦上（例如 CLIProxyAPI）時，在那台電腦用 Tailscale Serve 給它一個 https 網址，手機填 `https://<電腦>.<tailnet>.ts.net:8318`：
+     ```sh
+     tailscale serve --bg --https=8318 http://127.0.0.1:8317
+     ```
+     tailnet 後台要開 MagicDNS 和 HTTPS 憑證。直接填 `http://` 也能用，但 iPhone、iPad 上只能填 Tailscale 名稱，不能填 IP。
+3. **（選用）把你的電腦交給 pi**：在 Mac 或 Linux 上（要裝好 Tailscale，手機也登入同一個帳號）執行下面這行，再到手機的設定 › 電腦輸入它印出的名稱和配對碼。之後更新也是同一行。
    ```sh
    curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
    ```

@@ -69,5 +69,10 @@
 |---|---|---|---|
 | A. 連不上時的錯誤訊息提到 Tailscale app 的 VPN On Demand | 一句文案 | 很小 | 少掉「Tailscale 沒開」這種失敗 |
 | B. 模型閘道建議用 Tailscale Serve 的 https 網址 | 文件、設定頁提示 | 小，使用者要跑一行指令 | iOS 和網頁版都能用，金鑰走 https |
+
+A 和 B 在 2026-10-25 做了：
+- iOS 上電腦或 tailnet 裡的閘道連不到時，訊息會加上 VPN On Demand 的提示。
+- 自訂端點的提示改成 `https://mac.xxxx.ts.net:8318`，README 寫了 `tailscale serve --bg --https=8318 http://127.0.0.1:8317`。
+- 這台 Mac 的閘道已經這樣開好，iPad 經由它列出模型、串流對話都正常。
 | C. 電腦端改由 Tailscale Serve 提供 https/wss | `host/` 的監聽和身分檢查、安裝腳本 | 中 | 網頁版也能連電腦；iOS 不靠 ATS 例外 |
 | D. TailscaleKit 放進 app | 原生網路層、建置 | 大 | 不用裝 Tailscale app |

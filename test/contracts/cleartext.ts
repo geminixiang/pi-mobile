@@ -14,9 +14,19 @@ export const checks: Check[] = [
 				await assert.rejects(fetchModelIds(url, "secret"), refused, url);
 			}
 			for (const url of ["https://api.example.com", "http://localhost:8317", "http://127.0.0.1:8317", "http://[::1]:8317", "http://100.64.0.1:8317", "http://mac.tailnet.ts.net:8317", "http://[fd7a:115c:a1e0::1]:8317"]) {
-				await assert.rejects(fetchModelIds(url, "secret"), offline, url);
+				await assert.rejects(fetchModelIds(url, "secret"), (error) => !refused.test(String(error)), url);
 			}
 			await assert.rejects(fetchModelIds("http://192.168.1.20:11434", ""), offline, "a keyless server on the LAN is still reachable");
+		},
+	],
+	[
+		"a gateway in the tailnet that does not answer is reported as Tailscale being off, not as a failed load",
+		async () => {
+			for (const url of ["https://mac.tailnet.ts.net:8318", "http://100.64.0.1:8317"]) {
+				await assert.rejects(fetchModelIds(url, "secret"), /連不到 .*Tailscale 要連著/, url);
+			}
+			await assert.rejects(fetchModelIds("http://mac:8317", ""), /連不到 mac:8317：Tailscale 要連著/, "a short MagicDNS name");
+			for (const url of ["https://api.example.com", "http://localhost:8317"]) await assert.rejects(fetchModelIds(url, "secret"), offline, url);
 		},
 	],
 	[

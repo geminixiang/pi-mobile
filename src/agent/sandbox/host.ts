@@ -17,7 +17,7 @@ import { lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts"
 import { WORKSPACE } from "./workspace.ts";
 import { decode } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
-import { refuseIpOnIos } from "../cleartext.ts";
+import { refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";
 
 const HOST_PORT = 4790;
@@ -86,7 +86,7 @@ async function reached(address: string, request: Promise<Response>): Promise<Res
 	const response = await request.then(
 		(ok) => ok,
 		() => {
-			throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile`);
+			throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile${tailscaleHint(ios)}`);
 		},
 	);
 	if (response.status === 401) throw new Error(`${address} 還沒跟這支手機配對：在那台電腦執行 pi-mobile pair，把配對碼輸入手機`);

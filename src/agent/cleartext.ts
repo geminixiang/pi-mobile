@@ -1,12 +1,27 @@
-function tailnetOrLoopback(hostname: string): boolean {
-	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-	if (host === "localhost" || host === "::1" || host.endsWith(".ts.net")) return true;
-	if (host.startsWith("fd7a:115c:a1e0:")) return true;
+const bare = (hostname: string) => hostname.replace(/^\[|\]$/g, "").toLowerCase();
+
+function octetsOf(host: string): number[] | undefined {
 	const octets = host.split(".").map(Number);
-	if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false;
-	const [first = 0, second = 0] = octets;
-	return first === 127 || (first === 100 && second >= 64 && second <= 127);
+	return octets.length === 4 && octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255) ? octets : undefined;
 }
+
+function inTailnet(host: string): boolean {
+	if (host.endsWith(".ts.net") || host.startsWith("fd7a:115c:a1e0:")) return true;
+	const [first, second = 0] = octetsOf(host) ?? [];
+	return first === 100 && second >= 64 && second <= 127;
+}
+
+const loopback = (host: string) => host === "localhost" || host === "::1" || octetsOf(host)?.[0] === 127;
+
+const tailnetOrLoopback = (hostname: string) => inTailnet(bare(hostname)) || loopback(bare(hostname));
+
+export function onTailnet(url: string): boolean {
+	if (!URL.canParse(url)) return false;
+	const host = bare(new URL(url).hostname);
+	return inTailnet(host) || (!host.includes(".") && !host.includes(":") && host !== "localhost");
+}
+
+export const tailscaleHint = (ios: boolean) => (ios ? "；在 Tailscale app 開「VPN On Demand」，有網路就會自動連上" : "");
 
 export function refuseCleartextSecret(url: string): void {
 	if (!URL.canParse(url)) return;
