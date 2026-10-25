@@ -131,6 +131,7 @@ export const settings: Settings = {
 	defaultThinking: "off",
 	calendarAccess: "",
 	hosts: "",
+	hostKeys: {},
 	computer: "",
 	compactAt: 256_000,
 };

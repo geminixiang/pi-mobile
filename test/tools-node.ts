@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
-import type { Host } from "../src/agent/sandbox/host.ts";
+import type { PairedHost } from "../src/agent/sandbox/host.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
@@ -20,7 +20,7 @@ const sandbox: Sandbox = {
 	describe: () => "",
 	close: () => undefined,
 };
-const host: Host = { id: "fixture", address: "fixture", name: "fixture", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture" };
+const host: PairedHost = { id: "fixture", address: "fixture", name: "fixture", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture", key: "fixture" };
 const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { key: "fixture:container", name: "fixture", mode: "容器" }, host, sandbox, root: "fixture", env: unused };
 
 const extensions = builtinExtensions({

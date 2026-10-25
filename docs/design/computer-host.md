@@ -9,9 +9,9 @@
    ```sh
    curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
    ```
-   它會下載對應平台的 `pi-mobile`，比對 checksum，設定成登入時自動啟動（macOS 用 launchd，Linux 用 `systemd --user`），用 `pi-mobile status` 從這台電腦的 Tailscale 位址確認它有回應，最後印出要在手機上輸入的名稱。
+   它會下載對應平台的 `pi-mobile`，比對 checksum，設定成登入時自動啟動（macOS 用 launchd，Linux 用 `systemd --user`），用 `pi-mobile status` 從這台電腦的 Tailscale 位址確認它有回應，最後印出要在手機上輸入的名稱和一組配對碼（15 分鐘內有效）。
    - 從**最新的 release** 下載（`releases/latest/download`）。每個 release 由 `.github/workflows/release.yml` 從同一個 commit 建出 APK 和電腦端：4 個平台的 `pi-mobile-<os>-<arch>`、`pi-mobile.icns`，以及涵蓋所有檔案的 `pi-mobile.sha256`。所以手機和電腦的版本永遠成對。
-3. 手機：設定 › 電腦 › 輸入那個名稱 › 加入。第一台會成為預設（直接）；電腦上有容器引擎時，按「容器」會先在那裡建好 image（第一次要幾分鐘），之後就能選。每個 Bot 也可以在面板的「電腦」自己選。
+3. 手機：設定 › 電腦 › 輸入那個名稱和配對碼 › 加入。配對碼過期了，在電腦上執行 `pi-mobile pair` 拿一組新的。第一台會成為預設（直接）；電腦上有容器引擎時，按「容器」會先在那裡建好 image（第一次要幾分鐘），之後就能選。每個 Bot 也可以在面板的「電腦」自己選。
 
 移除：執行同一行指令，最後加上 `-s uninstall`。
 
@@ -26,8 +26,15 @@
   - 用 `tailscale whois --json <來源 IP>` 查出對方裝置，跟 `tailscale status` 裡這台電腦的使用者比對，必須是同一個使用者。
   - tagged 裝置（沒有使用者身分）一律拒絕。
   - 帶了 `Origin` 標頭的請求，只接受 pi app 的 WebView（`http://localhost`），避免使用者自己裝置上的瀏覽器網頁來呼叫它。
-  - 不需要密碼或金鑰：WireGuard 已經驗證了對方是哪台裝置，所以 tailnet 本身就是認證。Tailscale Serve 和 tsnet 的 app 也是這樣做。
+  - **還要配對過的金鑰**（2026-10-25 起）。Tailscale 證明的是「哪台裝置」，不是「哪個 app」：手機上任何有網路權限的 app 都經由同一個 VPN 連得到這個 port。實測 S24 上的 adb shell（uid 2000，不是 pi）拿 `/info` 得到 200，`/exec` 用同一道檢查。所以除了 `/version` 和 `/pair`，每個請求都要帶 `key`，而且必須是這台電腦配對時發出去的：
+    - `pi-mobile pair` 產生一組 6 位數配對碼，15 分鐘內有效，錯 5 次作廢；`~/.pi/mobile/pairing.json` 只存它的 SHA-256。
+    - `POST /pair?code=` 用掉配對碼，回一把 32 bytes 的金鑰；`~/.pi/mobile/paired.json` 只存金鑰的 SHA-256 和配對的裝置名稱。配對碼錯回 422，沒有等待中的配對碼回 410。
+    - 金鑰放在 query（`?key=`），因為 WebView 的 WebSocket 不能帶標頭；電腦端的 log 只記路徑。
+    - 手機把金鑰存在 Keystore（`host.<id>.key`），不放在 `settings.hosts`。
+    - 撤銷：刪掉 `~/.pi/mobile/paired.json` 裡那一行（或整個檔案），再重新配對。
 - **端點**：
+  - `GET /version`：只回版本，不用金鑰；`pi-mobile status` 和手機找 peers 時用它判斷有沒有裝。
+  - `POST /pair?code=<6 位數>`：見上面。
   - `GET /info`：回傳 os、arch、帳號、家目錄、電腦名稱、MagicDNS 名稱，以及已經有的 daemon。
   - `PUT /daemon/<sha256>`：存入一個 pi-env daemon。內容的 SHA-256 必須跟網址裡的一致，存在 `~/.pi/mobile/daemons/`。
   - `GET /env?daemon=<sha>&token=<hex>`：WebSocket。在使用者的 login shell 裡、從家目錄執行 `pi-env serve --token`，把 stdin 和 stdout 當成二進位訊息雙向轉送。
@@ -43,10 +50,11 @@
 
 - `settings.hosts`：電腦清單（JSON），每台記著 id、名稱、MagicDNS 名稱、os、arch、帳號、家目錄、容器引擎。id 就是它的 MagicDNS 名稱，所以移除後再加入，Bot 原本的選擇還在。
 - 設定 › 電腦：
-  - **第一台**：輸入名稱，按「加入」，呼叫 `probeHost(名稱)`，等於 `GET /info`。只輸入短名稱也行，因為 Tailscale 的 DNS 會補上 tailnet 網域。
-  - **之後**：手機向已加入的電腦要 `/peers`，再逐台問 `/info`。有回應的列成一行，按「加入」就好；沒回應的列出名稱，下面附安裝指令。輸入名稱的欄位收進「手動輸入」。實測列出 8 台、逐台確認，共 2.9 秒。
+  - **第一台**：輸入名稱和配對碼，按「加入」：先 `pairHost` 換到金鑰，再 `probeHost`（`GET /info`）。只輸入短名稱也行，因為 Tailscale 的 DNS 會補上 tailnet 網域。
+  - **之後**：手機向已加入的電腦要 `/peers`，再逐台問 `/version`。有裝的列成一行，輸入那台的配對碼按「加入」；沒回應的列出名稱，下面附安裝指令。輸入名稱的欄位收進「手動輸入」。實測列出 8 台、逐台確認，共 2.9 秒。
   - 連不到：顯示安裝指令。
   - 回 403：告訴使用者手機和電腦要登入同一個 Tailscale 帳號。
+  - 回 401（沒有金鑰或金鑰不對）：告訴使用者在那台電腦執行 `pi-mobile pair`。在這次改版之前加入的電腦沒有金鑰，列表上直接顯示配對碼欄位。
 - 加入後，第一台電腦成為預設（直接）。有容器引擎的電腦，在設定或 Bot 面板選「容器」都可以：第一次使用時會先建 image（`prepareContainers`，同一次 app 執行裡只做一次，設定、Bot 面板、Bot 本身共用同一個準備動作），建置時顯示進度。設定頁在選中的方式下面寫一句它代表什麼：「直接」用使用者的身分操作，「容器」的憑證留在手機上。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
 - `HostSandbox` 有兩種模式：
   - **直接**：每次 app 執行時第一次連線，先 `/info`，沒有對應的 daemon 就 `PUT` 上去，再開 `/env` 的 WebSocket，接到 `StreamConnection` 上。工作目錄是家目錄，提示是 `directDescription`。刪 Bot 不會刪電腦上的任何檔案。

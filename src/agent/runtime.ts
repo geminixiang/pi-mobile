@@ -16,6 +16,7 @@ import { type Settings } from "../settings.ts";
 import { log } from "../log.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
+import { pairedHosts } from "./sandbox/host.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
@@ -159,6 +160,7 @@ export class AgentRuntime {
 			uninstall: (name) => registry.uninstall({ name }),
 			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
+			hostKey: (address) => pairedHosts(settings).find((host) => host.address === address)?.key ?? "",
 		});
 		for (const extension of builtinExtensions({
 			onPhone: platform.phone !== undefined,

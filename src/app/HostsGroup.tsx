@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { type Host, hostFrom, type HostInfo, listPeers, parseHosts, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
+import { hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, probeHost } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
@@ -28,9 +28,9 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
-export function usePrepare(host: Host | undefined): [Preparing, (target?: Host) => Promise<boolean>] {
+export function usePrepare(host: PairedHost | undefined): [Preparing, (target?: PairedHost) => Promise<boolean>] {
 	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
-	const prepare = async (target: Host | undefined = host) => {
+	const prepare = async (target: PairedHost | undefined = host) => {
 		if (!target) return false;
 		setPreparing({ state: "running", detail: "" });
 		try {
@@ -51,7 +51,26 @@ export function PrepareStatus({ preparing }: { preparing: Preparing }) {
 	return null;
 }
 
-function HostRow({ host, onRemove }: { host: Host; onRemove: () => void }) {
+function CodeField({ value, onChange, onEnter }: { value: string; onChange: (code: string) => void; onEnter: () => void }) {
+	return (
+		<input
+			className="field code-field"
+			value={value}
+			onChange={(event) => onChange(event.target.value.replace(/\D/g, "").slice(0, 6))}
+			onKeyDown={(event) => {
+				if (event.key === "Enter" && value.length === 6) onEnter();
+			}}
+			placeholder="6 位數"
+			aria-label="配對碼"
+			inputMode="numeric"
+			autoComplete="one-time-code"
+			enterKeyHint="go"
+		/>
+	);
+}
+
+function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boolean; onPair: (code: string) => void; onRemove: () => void }) {
+	const [code, setCode] = useState("");
 	return (
 		<div className="machine">
 			<div className="check-row">
@@ -65,11 +84,39 @@ function HostRow({ host, onRemove }: { host: Host; onRemove: () => void }) {
 					移除
 				</button>
 			</div>
+			{host.key ? null : (
+				<div className="check-row pair-row">
+					<CodeField value={code} onChange={setCode} onEnter={() => onPair(code)} />
+					<button type="button" className="btn primary" disabled={code.length !== 6 || busy} onClick={() => onPair(code)}>
+						配對
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }
 
-function DefaultComputer({ hosts, computer, onChoose }: { hosts: Host[]; computer: string; onChoose: (key: string) => void }) {
+function PeerRow({ peer, busy, onAdd }: { peer: Peer; busy: boolean; onAdd: (code: string) => void }) {
+	const [code, setCode] = useState("");
+	return (
+		<div className="machine">
+			<div className="check-row">
+				<span className="menu-text">
+					{peer.name}
+					<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"}</span>
+				</span>
+			</div>
+			<div className="check-row pair-row">
+				<CodeField value={code} onChange={setCode} onEnter={() => onAdd(code)} />
+				<button type="button" className="btn" disabled={code.length !== 6 || busy} onClick={() => onAdd(code)}>
+					加入
+				</button>
+			</div>
+		</div>
+	);
+}
+
+function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; computer: string; onChoose: (key: string) => void }) {
 	const [preparing, prepare] = usePrepare(undefined);
 	const choose = (key: string) => {
 		const [id, mode] = key.split(":");
@@ -100,9 +147,9 @@ function DefaultComputer({ hosts, computer, onChoose }: { hosts: Host[]; compute
 	);
 }
 
-type Found = { peer: Peer; info: HostInfo | undefined };
+type Found = { peer: Peer; installed: boolean };
 
-function useFound(hosts: Host[]): Found[] | undefined {
+function useFound(hosts: PairedHost[]): Found[] | undefined {
 	const [found, setFound] = useState<Found[]>();
 	const known = hosts.map((host) => host.address).join(" ");
 	useEffect(() => {
@@ -112,8 +159,8 @@ function useFound(hosts: Host[]): Found[] | undefined {
 				const peers = await orLogged(listPeers(host), "hosts.peers_unavailable", undefined, { host: host.address });
 				if (!peers) continue;
 				const others = peers.filter((peer) => !hosts.some((added) => added.address === peer.dnsName));
-				const answers = await Promise.all(others.map(async (peer) => ({ peer, info: await orLogged(probeHost(peer.dnsName, AbortSignal.timeout(4000)), "hosts.peer_unreachable", undefined, { peer: peer.dnsName }) })));
-				if (!stale) setFound(answers.sort((a, b) => Number(Boolean(b.info)) - Number(Boolean(a.info)) || a.peer.name.localeCompare(b.peer.name)));
+				const answers = await Promise.all(others.map(async (peer) => ({ peer, installed: await hasPiMobile(peer.dnsName, AbortSignal.timeout(4000)) })));
+				if (!stale) setFound(answers.sort((a, b) => Number(b.installed) - Number(a.installed) || a.peer.name.localeCompare(b.peer.name)));
 				return;
 			}
 			if (!stale) setFound(undefined);
@@ -127,27 +174,27 @@ function useFound(hosts: Host[]): Found[] | undefined {
 
 type Adding = { state: "idle" } | { state: "checking" } | { state: "error"; detail: string };
 
-export function HostsGroup({ value, computer, onChange }: { value: string; computer: string; onChange: (hosts: Host[], computer: string) => void }) {
-	const hosts = parseHosts(value);
+export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[]; computer: string; onChange: (hosts: PairedHost[], computer: string) => void }) {
 	const found = useFound(hosts);
 	const [address, setAddress] = useState("");
+	const [code, setCode] = useState("");
 	const [adding, setAdding] = useState<Adding>({ state: "idle" });
-	const add = (name: string, answered?: HostInfo) => {
+	const add = (name: string, pairingCode: string) => {
 		setAdding({ state: "checking" });
-		(answered ? Promise.resolve(answered) : probeHost(name)).then(
-			(info) => {
-				const known = hosts.find((host) => host.address === (info.dnsName || name));
-				const host = hostFrom(name, info, known);
-				const next = known ? hosts.map((item) => (item.id === known.id ? host : item)) : [...hosts, host];
-				onChange(next, computer || `${host.id}:direct`);
-				setAddress("");
-				setAdding({ state: "idle" });
-			},
-			(error: unknown) => setAdding({ state: "error", detail: messageOf(error) }),
-		);
+		void (async () => {
+			const key = await pairHost(name, pairingCode);
+			const info = await probeHost({ address: name, key });
+			const known = hosts.find((host) => host.address === (info.dnsName || name));
+			const host: PairedHost = { ...hostFrom(name, info, known), key };
+			const next = known ? hosts.map((item) => (item.id === known.id ? host : item)) : [...hosts, host];
+			onChange(next, computer || `${host.id}:direct`);
+			setAddress("");
+			setCode("");
+			setAdding({ state: "idle" });
+		})().catch((error: unknown) => setAdding({ state: "error", detail: messageOf(error) }));
 	};
-	const ready = found?.filter((item) => item.info) ?? [];
-	const missing = found?.filter((item) => !item.info) ?? [];
+	const ready = found?.filter((item) => item.installed) ?? [];
+	const missing = found?.filter((item) => !item.installed) ?? [];
 	const manual = (
 		<div className="machine-add">
 			<label>
@@ -158,17 +205,25 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 						setAddress(event.target.value);
 						setAdding({ state: "idle" });
 					}}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" && address.trim()) add(address.trim());
-					}}
 					placeholder="Tailscale 裡的名稱或 IP"
 					autoCapitalize="off"
 					autoComplete="off"
-					enterKeyHint="go"
+					enterKeyHint="next"
+				/>
+			</label>
+			<label>
+				<span>配對碼</span>
+				<CodeField
+					value={code}
+					onChange={(next) => {
+						setCode(next);
+						setAdding({ state: "idle" });
+					}}
+					onEnter={() => address.trim() && add(address.trim(), code)}
 				/>
 			</label>
 			<div className="row-buttons">
-				<button type="button" className="btn primary" disabled={!address.trim() || adding.state === "checking"} onClick={() => add(address.trim())}>
+				<button type="button" className="btn primary" disabled={!address.trim() || code.length !== 6 || adding.state === "checking"} onClick={() => add(address.trim(), code)}>
 					{adding.state === "checking" ? "連線中…" : "加入"}
 				</button>
 			</div>
@@ -180,22 +235,14 @@ export function HostsGroup({ value, computer, onChange }: { value: string; compu
 				<HostRow
 					key={host.id}
 					host={host}
+					busy={adding.state === "checking"}
+					onPair={(pairingCode) => add(host.address, pairingCode)}
 					onRemove={() => onChange(hosts.filter((item) => item.id !== host.id), computer.startsWith(`${host.id}:`) ? "" : computer)}
 				/>
 			))}
 			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}
-			{ready.map(({ peer, info }) => (
-				<div className="machine" key={peer.dnsName}>
-					<div className="check-row">
-						<span className="menu-text">
-							{peer.name}
-							<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"}</span>
-						</span>
-						<button type="button" className="btn" disabled={adding.state === "checking"} onClick={() => add(peer.dnsName, info)}>
-							加入
-						</button>
-					</div>
-				</div>
+			{ready.map(({ peer }) => (
+				<PeerRow key={peer.dnsName} peer={peer} busy={adding.state === "checking"} onAdd={(pairingCode) => add(peer.dnsName, pairingCode)} />
 			))}
 			{hosts.length === 0 ? manual : null}
 			{adding.state === "error" ? <span className="check-error machine-error">{adding.detail}</span> : null}

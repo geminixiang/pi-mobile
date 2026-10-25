@@ -48,6 +48,13 @@ const Host = Type.Object({
 });
 export type Host = Static<typeof Host>;
 
+export type PairedHost = Host & { key: string };
+type Reach = Pick<PairedHost, "address" | "key">;
+
+export function pairedHosts(settings: { hosts: string; hostKeys: Record<string, string> }): PairedHost[] {
+	return parseHosts(settings.hosts).map((host) => ({ ...host, key: settings.hostKeys[host.id] ?? "" }));
+}
+
 export type HostMode = "direct" | "container";
 
 export function parseHosts(json: string): Host[] {
@@ -58,23 +65,53 @@ function base(address: string): string {
 	return `http://${address.includes(":") ? `[${address}]` : address}:${HOST_PORT}`;
 }
 
-function socketUrl(address: string, path: string, params: Record<string, string>): URL {
-	const url = new URL(path, base(address).replace(/^http/, "ws"));
-	for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-	return url;
+// why: a WebSocket from the WebView cannot carry headers, so the pairing key rides in the query on every request alike.
+function url(reach: Reach, path: string, params: Record<string, string> = {}): URL {
+	const target = new URL(path, base(reach.address));
+	for (const [key, value] of Object.entries({ ...params, key: reach.key })) target.searchParams.set(key, value);
+	return target;
 }
 
-export async function probeHost(address: string, signal?: AbortSignal): Promise<HostInfo> {
-	const response = await fetch(`${base(address)}/info`, { signal: signal ?? AbortSignal.timeout(15_000) }).then(
+function socketUrl(reach: Reach, path: string, params: Record<string, string>): URL {
+	const target = url(reach, path, params);
+	target.protocol = "ws:";
+	return target;
+}
+
+async function reached(address: string, request: Promise<Response>): Promise<Response> {
+	const response = await request.then(
 		(ok) => ok,
 		() => {
 			throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile`);
 		},
 	);
+	if (response.status === 401) throw new Error(`${address} 還沒跟這支手機配對：在那台電腦執行 pi-mobile pair，把配對碼輸入手機`);
 	if (response.status === 403) throw new Error(`${address} 拒絕了這支手機：手機和電腦要登入同一個 Tailscale 帳號`);
+	return response;
+}
+
+const PairAnswer = Type.Object({ key: Type.String() });
+
+export async function pairHost(address: string, code: string): Promise<string> {
+	const response = await reached(address, fetch(`${base(address)}/pair?code=${encodeURIComponent(code)}`, { method: "POST", signal: AbortSignal.timeout(15_000) }));
+	if (response.status === 410) throw new Error(`${address} 沒有等待中的配對碼：在那台電腦執行 pi-mobile pair`);
+	if (response.status === 422) throw new Error("配對碼不對；錯 5 次要在電腦上重新執行 pi-mobile pair");
 	if (!response.ok) throw new Error(`${address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
+	const answer: unknown = await response.json();
+	if (!Value.Check(PairAnswer, answer)) throw new Error(`${address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
+	return answer.key;
+}
+
+export async function hasPiMobile(address: string, signal: AbortSignal): Promise<boolean> {
+	const response = await fetch(`${base(address)}/version`, { signal }).catch(() => undefined);
+	return response?.ok ?? false;
+}
+
+export async function probeHost(reach: Reach, signal?: AbortSignal): Promise<HostInfo> {
+	const response = await reached(reach.address, fetch(url(reach, "/info"), { signal: signal ?? AbortSignal.timeout(15_000) }));
+	if (!response.ok) throw new Error(`${reach.address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
 	const info: unknown = await response.json();
-	if (!Value.Check(HostInfo, info)) throw new Error(`${address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
+	if (!Value.Check(HostInfo, info)) throw new Error(`${reach.address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
 	return info;
 }
 
@@ -95,8 +132,8 @@ export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 const Peers = Type.Array(Type.Object({ name: Type.String(), dnsName: Type.String(), os: System.os }));
 export type Peer = Static<typeof Peers>[number];
 
-export async function listPeers(host: Host): Promise<Peer[]> {
-	const response = await fetch(`${base(host.address)}/peers`, { signal: AbortSignal.timeout(8000) });
+export async function listPeers(host: Reach): Promise<Peer[]> {
+	const response = await fetch(url(host, "/peers"), { signal: AbortSignal.timeout(8000) });
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
 	const peers: unknown = await response.json();
 	return Value.Check(Peers, peers) ? peers : [];
@@ -124,9 +161,9 @@ function openSocket(url: URL, what: string, onMessage: (data: ArrayBuffer | stri
 const ExitMessage = Type.Object({ exit: Type.Number() });
 
 class HostCommands implements CommandClient {
-	readonly #host: Pick<Host, "address" | "name">;
+	readonly #host: Pick<PairedHost, "address" | "name" | "key">;
 
-	constructor(host: Pick<Host, "address" | "name">) {
+	constructor(host: Pick<PairedHost, "address" | "name" | "key">) {
 		this.#host = host;
 	}
 
@@ -138,7 +175,7 @@ class HostCommands implements CommandClient {
 			handlers.onExit(code);
 		};
 		const socket = await openSocket(
-			socketUrl(this.#host.address, "/exec", { command }),
+			socketUrl(this.#host, "/exec", { command }),
 			this.#host.name,
 			(data) => {
 				if (typeof data === "string") {
@@ -151,7 +188,10 @@ class HostCommands implements CommandClient {
 				else if (bytes[0] === 2) handlers.onStderr?.(bytes.subarray(1));
 			},
 			() => exit(undefined),
-		);
+		).catch(async (error: unknown) => {
+			await probeHost(this.#host, AbortSignal.timeout(5000));
+			throw error;
+		});
 		return {
 			write: (data) => {
 				if (socket.readyState === WebSocket.OPEN) socket.send(data.slice());
@@ -182,7 +222,7 @@ class HostCommands implements CommandClient {
 
 const preparing = new Map<string, { done: Promise<void>; listeners: Set<(detail: string) => void> }>();
 
-export function prepareContainers(host: Host, onProgress: (detail: string) => void = () => undefined): Promise<void> {
+export function prepareContainers(host: PairedHost, onProgress: (detail: string) => void = () => undefined): Promise<void> {
 	if (!host.engine) return Promise.reject(new Error(`${host.name} 沒有 docker、podman 或 nerdctl`));
 	let entry = preparing.get(host.address);
 	if (!entry) {
@@ -202,13 +242,13 @@ export function prepareContainers(host: Host, onProgress: (detail: string) => vo
 
 export class HostSandbox implements Sandbox {
 	readonly kind = "host";
-	readonly host: Host;
+	readonly host: PairedHost;
 	readonly mode: HostMode;
 	readonly #envs: SharedEnvs;
 	readonly #stopBridge: (() => void) | undefined;
 	#ready: Promise<string> | undefined;
 
-	constructor(host: Host, mode: HostMode, credentials: Credentials) {
+	constructor(host: PairedHost, mode: HostMode, credentials: Credentials) {
 		this.host = host;
 		this.mode = mode;
 		const onLog = (text: string) => log.warn("sandbox.daemon_output", { host: host.name, text });
@@ -232,7 +272,7 @@ export class HostSandbox implements Sandbox {
 		return async (token, handlers) => {
 			const sha = await this.#daemon();
 			const socket = await openSocket(
-				socketUrl(this.host.address, "/env", { daemon: sha, token }),
+				socketUrl(this.host, "/env", { daemon: sha, token }),
 				`${this.host.name}（${this.host.address}）`,
 				(data) => {
 					if (data instanceof ArrayBuffer) handlers.onData(new Uint8Array(data));
@@ -250,10 +290,10 @@ export class HostSandbox implements Sandbox {
 
 	#daemon(): Promise<string> {
 		this.#ready ??= (async () => {
-			const info = await probeHost(this.host.address);
+			const info = await probeHost(this.host);
 			const { bytes, sha } = await daemon(info.os, info.arch);
 			if (!info.daemons.includes(sha)) {
-				const response = await fetch(`${base(this.host.address)}/daemon/${sha}`, { method: "PUT", body: new Blob([bytes.slice()]) });
+				const response = await fetch(url(this.host, `/daemon/${sha}`), { method: "PUT", body: new Blob([bytes.slice()]) });
 				if (!response.ok) throw new Error(`上傳 pi-env 到 ${this.host.name} 失敗：HTTP ${response.status} ${(await response.text()).trim()}`);
 			}
 			return sha;
@@ -302,7 +342,7 @@ export function parseComputerMcp(url: string): { address: string; command: strin
 }
 
 export class HostStdioTransport implements McpTransport {
-	readonly #address: string;
+	readonly #reach: Reach;
 	readonly #command: string;
 	#channel: CommandChannel | undefined;
 	#buffer = "";
@@ -311,14 +351,14 @@ export class HostStdioTransport implements McpTransport {
 	readonly #error = new Set<McpTransportErrorListener>();
 	readonly #close = new Set<McpTransportCloseListener>();
 
-	constructor(address: string, command: string) {
-		this.#address = address;
+	constructor(reach: Reach, command: string) {
+		this.#reach = reach;
 		this.#command = command;
 	}
 
 	async start(): Promise<void> {
 		let stderr = "";
-		this.#channel = await new HostCommands({ address: this.#address, name: this.#address }).exec(this.#command, {
+		this.#channel = await new HostCommands({ ...this.#reach, name: this.#reach.address }).exec(this.#command, {
 			onStdout: (data) => {
 				this.#buffer += new TextDecoder().decode(data, { stream: true });
 				let newline = this.#buffer.indexOf("\n");
@@ -338,11 +378,11 @@ export class HostStdioTransport implements McpTransport {
 			},
 			onStderr: (data) => {
 				stderr = (stderr + new TextDecoder().decode(data)).slice(-2000);
-				log.info("mcp.computer_stderr", { address: this.#address, text: new TextDecoder().decode(data).slice(0, 500) });
+				log.info("mcp.computer_stderr", { address: this.#reach.address, text: new TextDecoder().decode(data).slice(0, 500) });
 			},
 			onExit: (code) => {
 				if (!this.#closed && code !== 0) {
-					const error = new Error(`MCP server on ${this.#address} exited${code === undefined ? "" : ` with ${code}`}: ${stderr.trim().split("\n").slice(-3).join(" / ")}`);
+					const error = new Error(`MCP server on ${this.#reach.address} exited${code === undefined ? "" : ` with ${code}`}: ${stderr.trim().split("\n").slice(-3).join(" / ")}`);
 					for (const listener of this.#error) listener(error);
 				}
 				this.#closed = true;

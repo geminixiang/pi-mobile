@@ -157,31 +157,80 @@ func daemons() []string {
 	return out
 }
 
+func fromOwner(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if origin := r.Header.Get("Origin"); origin != "" && !allowedOrigins[origin] {
+		http.Error(w, "origin not allowed", http.StatusForbidden)
+		log.Printf("refused %s: origin %s", r.RemoteAddr, origin)
+		return "", false
+	}
+	device, err := owner(r.Context(), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, "not your device: "+err.Error(), http.StatusForbidden)
+		log.Printf("refused %s: %v", r.RemoteAddr, err)
+		return "", false
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST")
+		w.Header().Set("Vary", "Origin")
+	}
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return "", false
+	}
+	return device, true
+}
+
 func guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if origin := r.Header.Get("Origin"); origin != "" && !allowedOrigins[origin] {
-			http.Error(w, "origin not allowed", http.StatusForbidden)
-			log.Printf("refused %s: origin %s", r.RemoteAddr, origin)
+		device, ok := fromOwner(w, r)
+		if !ok {
 			return
 		}
-		device, err := owner(r.Context(), r.RemoteAddr)
-		if err != nil {
-			http.Error(w, "not your device: "+err.Error(), http.StatusForbidden)
-			log.Printf("refused %s: %v", r.RemoteAddr, err)
-			return
-		}
-		if origin := r.Header.Get("Origin"); origin != "" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, PUT")
-			w.Header().Set("Vary", "Origin")
-		}
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+		// why: Tailscale vouches for the device, not the app; any app on the phone reaches this port through the VPN.
+		if !pairedWith(stateDir(), r.URL.Query().Get("key")) {
+			http.Error(w, "not paired: run `pi-mobile pair` on this computer and enter the code on the phone", http.StatusUnauthorized)
+			log.Printf("refused %s %s from %s: not paired", r.Method, r.URL.Path, device)
 			return
 		}
 		log.Printf("%s %s from %s", r.Method, r.URL.Path, device)
 		next(w, r)
 	}
+}
+
+func pair(w http.ResponseWriter, r *http.Request) {
+	device, ok := fromOwner(w, r)
+	if !ok {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	key, err := redeem(stateDir(), r.URL.Query().Get("code"), device, time.Now())
+	switch {
+	case errors.Is(err, errNoCode):
+		http.Error(w, err.Error(), http.StatusGone)
+		return
+	case errors.Is(err, errWrongCode):
+		http.Error(w, errWrongCode.Error(), http.StatusUnprocessableEntity)
+		log.Printf("wrong pairing code from %s", device)
+		return
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("paired with %s", device)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"key": key})
+}
+
+func versionOnly(w http.ResponseWriter, r *http.Request) {
+	if _, ok := fromOwner(w, r); !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"version": version})
 }
 
 func info(w http.ResponseWriter, r *http.Request) {
@@ -561,6 +610,13 @@ func main() {
 		os.Exit(printStatus())
 	case "version", "--version":
 		fmt.Println(version)
+	case "pair":
+		code, err := newCode(stateDir(), time.Now())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "pi-mobile pair: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Pairing code: %s (for %d minutes)\n", code, int(codeLifetime.Minutes()))
 	case "mcp":
 		if len(os.Args) < 3 || os.Args[2] != "computer" {
 			fmt.Fprintln(os.Stderr, "usage: pi-mobile mcp computer")
@@ -568,7 +624,7 @@ func main() {
 		}
 		os.Exit(serveComputerMCP())
 	default:
-		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
+		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile pair      a one-time code that lets a phone in\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
 		if command != "" && command != "help" && command != "--help" && command != "-h" {
 			os.Exit(2)
 		}
@@ -587,10 +643,10 @@ func printStatus() int {
 			continue
 		}
 		client := http.Client{Timeout: 5 * time.Second}
-		response, err := client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
+		response, err := client.Get("http://" + net.JoinHostPort(ip, port) + "/version")
 		for wait := 0; err != nil && errors.Is(err, syscall.ECONNREFUSED) && wait < 15; wait++ {
 			time.Sleep(time.Second)
-			response, err = client.Get("http://" + net.JoinHostPort(ip, port) + "/info")
+			response, err = client.Get("http://" + net.JoinHostPort(ip, port) + "/version")
 		}
 		if err != nil {
 			fmt.Printf("pi-mobile %s: not answering on %s:%s (%v)\n", version, ip, port, err)
@@ -598,18 +654,17 @@ func printStatus() int {
 		}
 		defer response.Body.Close()
 		var info struct {
-			Version string   `json:"version"`
-			Engines []string `json:"engines"`
+			Version string `json:"version"`
 		}
 		if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&info) != nil {
 			fmt.Printf("pi-mobile: %s:%s answered HTTP %d\n", ip, port, response.StatusCode)
 			return 1
 		}
-		engines := "none"
-		if len(info.Engines) > 0 {
-			engines = strings.Join(info.Engines, ", ")
+		found := "none"
+		if names := engines(context.Background()); len(names) > 0 {
+			found = strings.Join(names, ", ")
 		}
-		fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, strings.Split(name, ".")[0], engines)
+		fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, strings.Split(name, ".")[0], found)
 		if runtime.GOOS == "darwin" {
 			answers := readPermissions()
 			for _, p := range permissions {
@@ -638,6 +693,8 @@ func serve() {
 	}
 	askPermissions()
 	mux := http.NewServeMux()
+	mux.HandleFunc("/version", versionOnly)
+	mux.HandleFunc("/pair", pair)
 	mux.HandleFunc("/info", guard(info))
 	mux.HandleFunc("/daemon/", guard(putDaemon))
 	mux.HandleFunc("/env", guard(env))

@@ -5,6 +5,7 @@ import { readStored } from "./agent/parse.ts";
 import { log } from "./log.ts";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 import { messageOf } from "./promise.ts";
+import { parseHosts } from "./agent/sandbox/host.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";
 const DEFAULT_COMPACT_AT_TOKENS = 256_000;
@@ -14,6 +15,7 @@ const SECRET_GITHUB_TOKEN = "github.token";
 const SECRET_GCLOUD = "gcloud.credential";
 const SECRET_CLOUDFLARE = "cloudflare.credential";
 const SECRET_AZURE = "azure.credential";
+const hostKey = (id: string) => `host.${id}.key`;
 
 export interface Settings {
 	providers: string;
@@ -29,6 +31,7 @@ export interface Settings {
 	defaultThinking: string;
 	calendarAccess: string;
 	hosts: string;
+	hostKeys: Record<string, string>;
 	computer: string;
 	compactAt: number;
 }
@@ -102,7 +105,9 @@ export async function loadSettings(): Promise<Settings> {
 	storedSecretKeys.clear();
 	for (const key of await SecureStorage.keys()) storedSecretKeys.add(key);
 	const providers = parseProviders(plain.providers ?? "");
-	const [keys, oauth, githubToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+	const hosts = parseHosts(plain.hosts ?? "");
+	const [hostKeys, keys, oauth, githubToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+		Promise.all(hosts.map(async (host) => [host.id, await readSecret(hostKey(host.id))] as const)),
 		Promise.all(providers.map(async (provider) => [provider.id, await readSecret(providerKey(provider.id))] as const)),
 		Promise.all(providers.map(async (provider) => [provider.id, await readSecret(providerOAuthKey(provider.id))] as const)),
 		...[SECRET_GITHUB_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(readSecret),
@@ -121,6 +126,7 @@ export async function loadSettings(): Promise<Settings> {
 		defaultThinking: plain.defaultThinking ?? "low",
 		calendarAccess: plain.calendarAccess ?? "",
 		hosts: plain.hosts ?? "",
+		hostKeys: Object.fromEntries(hostKeys.filter(([, key]) => key)),
 		computer: plain.computer ?? "",
 		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT_TOKENS,
 	};
@@ -133,7 +139,8 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 		cloudflareCredential: keepRotated(SECRET_CLOUDFLARE, edited.cloudflareCredential),
 		azureCredential: keepRotated(SECRET_AZURE, edited.azureCredential),
 	};
-	const before = parseProviders(loadPlain().providers ?? "");
+	const previous = loadPlain();
+	const before = parseProviders(previous.providers ?? "");
 	const providers = parseProviders(settings.providers);
 	const plain: PlainSettings = {
 		providers: JSON.stringify(providers),
@@ -155,6 +162,9 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 		await removeSecret(providerKey(provider.id));
 		await removeSecret(providerOAuthKey(provider.id));
 	}
+	const hosts = parseHosts(settings.hosts);
+	for (const host of hosts) await saveSecret(hostKey(host.id), settings.hostKeys[host.id] ?? "");
+	for (const host of parseHosts(previous.hosts ?? "").filter((old) => !hosts.some((kept) => kept.id === old.id))) await removeSecret(hostKey(host.id));
 	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
 	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
 	await saveSecret(SECRET_CLOUDFLARE, settings.cloudflareCredential);

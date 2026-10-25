@@ -246,4 +246,5 @@ permissions() {
 
 say ""
 "$BIN" status | sed -n 's/^On the phone, add: /好了。在手機的 pi › 設定 › 電腦 輸入：/p'
+"$BIN" pair | sed -n 's/^Pairing code: \([0-9]*\) (for \([0-9]*\) minutes)$/配對碼：\1（\2 分鐘內有效；過期了在這台電腦執行 pi-mobile pair 拿新的）/p'
 say "手機要登入同一個 Tailscale 帳號。"

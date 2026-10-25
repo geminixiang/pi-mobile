@@ -1,6 +1,6 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { MintedService } from "./sandbox/container.ts";
-import { type Host, type HostMode, HostSandbox, parseHosts } from "./sandbox/host.ts";
+import { type HostMode, HostSandbox, type PairedHost, pairedHosts } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
@@ -16,7 +16,7 @@ export interface Computer {
 
 export type Workplace =
 	| { kind: "phone"; folder: string; env(): ExecutionEnv }
-	| { kind: "computer"; folder: string; computer: Computer; host: Host; sandbox: Sandbox; root: string; env(): Promise<ExecutionEnv> }
+	| { kind: "computer"; folder: string; computer: Computer; host: PairedHost; sandbox: Sandbox; root: string; env(): Promise<ExecutionEnv> }
 	| { kind: "missing"; key: string };
 
 export type Placed = { folder: string; computer?: string };
@@ -30,7 +30,7 @@ function parseKey(key: string): { id: string; mode: HostMode } | undefined {
 
 export class Workplaces {
 	readonly #settings: Settings;
-	readonly #hosts: Host[];
+	readonly #hosts: PairedHost[];
 	readonly #minted: Record<string, MintedService>;
 	readonly #phone: PhoneApp | undefined;
 	readonly #placed: (id: string) => Placed | undefined;
@@ -38,7 +38,7 @@ export class Workplaces {
 
 	constructor(settings: Settings, minted: Record<string, MintedService>, phone: PhoneApp | undefined, placed: (id: string) => Placed | undefined) {
 		this.#settings = settings;
-		this.#hosts = parseHosts(settings.hosts);
+		this.#hosts = pairedHosts(settings);
 		this.#minted = minted;
 		this.#phone = phone;
 		this.#placed = placed;
@@ -93,7 +93,7 @@ export class Workplaces {
 		});
 	}
 
-	#sandbox(key: string, host: Host, mode: HostMode): Sandbox {
+	#sandbox(key: string, host: PairedHost, mode: HostMode): Sandbox {
 		const open = this.#open.get(key);
 		if (open) return open;
 		const sandbox = new HostSandbox(host, mode, { githubToken: this.#settings.githubToken || undefined, minted: this.#minted });

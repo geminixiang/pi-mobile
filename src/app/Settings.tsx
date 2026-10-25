@@ -20,7 +20,7 @@ import { Triggers, type TriggerState } from "../agent/triggers.ts";
 import { isConfigured, type Settings } from "../settings.ts";
 import { BackIcon, ChevronIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
-import { parseHosts } from "../agent/sandbox/host.ts";
+import { pairedHosts, parseHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { parseProviders, providerName } from "../agent/providers.ts";
 import { CheckButton } from "./CheckButton.tsx";
@@ -620,9 +620,16 @@ export function SettingsView({
 				<>
 					<Group title="電腦">
 						<HostsGroup
-							value={settings.hosts}
+							hosts={pairedHosts(settings)}
 							computer={settings.computer}
-							onChange={(hosts, computer) => setSettings((current) => ({ ...current, hosts: JSON.stringify(hosts), computer }))}
+							onChange={(hosts, computer) =>
+								setSettings((current) => ({
+									...current,
+									hosts: JSON.stringify(hosts.map(({ key: _key, ...host }) => host)),
+									hostKeys: Object.fromEntries(hosts.map((host) => [host.id, host.key])),
+									computer,
+								}))
+							}
 						/>
 					</Group>
 				</>

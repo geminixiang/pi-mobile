@@ -2,7 +2,7 @@ import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { McpClient, toLlmContent } from "@earendil-works/pi-mcp";
 import { Type } from "typebox";
-import { type Host, HostStdioTransport } from "../sandbox/host.ts";
+import { HostStdioTransport, type PairedHost } from "../sandbox/host.ts";
 import type { Workplace } from "../workplaces.ts";
 import { defineAppTool } from "./common.ts";
 import { messageOf, onFailure } from "../../promise.ts";
@@ -11,12 +11,12 @@ const COMMAND = "pi-mobile mcp computer";
 
 const clients = new Map<string, Promise<McpClient>>();
 
-function client(host: Host): Promise<McpClient> {
+function client(host: PairedHost): Promise<McpClient> {
 	let entry = clients.get(host.address);
 	if (!entry) {
 		entry = (async () => {
 			const created = new McpClient({ name: "pi-mobile", version: "1.0.0" });
-			await created.connect(new HostStdioTransport(host.address, COMMAND));
+			await created.connect(new HostStdioTransport(host, COMMAND));
 			created.onClose(() => clients.delete(host.address));
 			return created;
 		})();
@@ -26,7 +26,7 @@ function client(host: Host): Promise<McpClient> {
 	return entry;
 }
 
-async function call(host: Host | undefined, tool: "screenshot" | "act", args: Record<string, unknown>, signal: AbortSignal | undefined): Promise<ToolExecutionResult> {
+async function call(host: PairedHost | undefined, tool: "screenshot" | "act", args: Record<string, unknown>, signal: AbortSignal | undefined): Promise<ToolExecutionResult> {
 	if (!host) throw new Error("This bot works on the phone: the phone's own screen is read_phone_screen and use_phone_screen; a computer's screen needs a computer picked in the bot's panel.");
 	let server: McpClient;
 	try {
@@ -43,7 +43,7 @@ async function call(host: Host | undefined, tool: "screenshot" | "act", args: Re
 }
 
 export function createComputerExtension(workplace: (conversationId: string) => Workplace | undefined) {
-	const hostOf = (conversationId: string): Host | undefined => {
+	const hostOf = (conversationId: string): PairedHost | undefined => {
 		const place = workplace(conversationId);
 		return place?.kind === "computer" ? place.host : undefined;
 	};

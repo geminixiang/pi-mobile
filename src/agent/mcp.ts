@@ -104,13 +104,19 @@ class Connection {
 	readonly #install: (extension: Extension) => void;
 	readonly #changed: () => void;
 	readonly #openUrl: (url: string) => Promise<void>;
+	readonly #hostKey: (address: string) => string;
 	#signingIn = false;
 	readonly #auth: AuthProvider;
 	#redirect: PluginListenerHandle | undefined;
 	readonly #platform: Platform;
 
-	constructor(server: McpServer, platform: Platform, hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void> }) {
+	constructor(
+		server: McpServer,
+		platform: Platform,
+		hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void>; hostKey: (address: string) => string },
+	) {
 		this.server = server;
+		this.#hostKey = hooks.hostKey;
 		this.#platform = platform;
 		this.#install = hooks.install;
 		this.#changed = hooks.changed;
@@ -157,7 +163,7 @@ class Connection {
 		const client = this.#platform.mcpClient();
 		const onComputer = parseComputerMcp(this.server.url);
 		const transport = onComputer
-			? new HostStdioTransport(onComputer.address, onComputer.command)
+			? new HostStdioTransport({ address: onComputer.address, key: this.#hostKey(onComputer.address) }, onComputer.command)
 			: new StreamableHttpTransport({
 					url: this.server.url,
 					fetch: nativeFetch,
@@ -333,6 +339,7 @@ type McpHooks = {
 	uninstall: (name: string) => void;
 	revoke: (grant: Grant) => Promise<void>;
 	openUrl: (url: string) => Promise<void>;
+	hostKey: (address: string) => string;
 };
 
 export class McpHub {
