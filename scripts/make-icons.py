@@ -162,6 +162,38 @@ def mac_icon():
         subprocess.run(["iconutil", "-c", "icns", iconset, "-o", MAC_ICNS], check=True)
 
 
+IOS_ICON = "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
+
+
+def ios_icon():
+    scale = 1024 / 108
+    cells = lambda items, color: "".join(
+        f'<rect x="{(OX + x * UNIT) * scale:g}" y="{(OY + y * UNIT) * scale:g}" width="{w * UNIT * scale:g}" height="{h * UNIT * scale:g}" fill="{color}"/>'
+        for x, y, w, h in items
+    )
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">'
+        f'<rect width="1024" height="1024" fill="{BG}"/>'
+        f'<g transform="scale({scale:g})"><path fill="#fff" fill-opacity="0.08" d="{grid_path()}"/></g>'
+        + cells(TOP, TOP_COLOR) + cells(LEFT, LEFT_COLOR) + cells(RIGHT, RIGHT_COLOR)
+        + "</svg>"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        html = os.path.join(tmp, "icon.html")
+        with open(html, "w") as f:
+            f.write(f'<html><body style="margin:0;background:{BG}">{svg}</body></html>')
+        shot = os.path.join(tmp, "icon.png")
+        subprocess.run(
+            [CHROME, "--headless=new", "--hide-scrollbars", "--window-size=1024,1024", f"--screenshot={shot}", f"file://{html}"],
+            check=True, capture_output=True,
+        )
+        # why: App Store Connect rejects an app icon with an alpha channel, even a fully opaque one; a round trip through JPEG drops it
+        flat = os.path.join(tmp, "icon.jpg")
+        subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "100", shot, "--out", flat], check=True, capture_output=True)
+        subprocess.run(["sips", "-s", "format", "png", flat, "--out", IOS_ICON], check=True, capture_output=True)
+
+
 if __name__ == "__main__":
     main()
     mac_icon()
+    ios_icon()

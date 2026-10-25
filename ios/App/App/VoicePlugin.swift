@@ -34,7 +34,7 @@ public class VoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDelega
             }
             Task { @MainActor in
                 await self.transcription?.cancel()
-                let transcription = Transcription { [weak self] event, data in self?.notifyListeners(event, data: data) }
+                let transcription = Transcription { [weak plugin = self] event, data in plugin?.notifyListeners(event, data: data) }
                 self.transcription = transcription
                 do {
                     try await transcription.start(language: language)

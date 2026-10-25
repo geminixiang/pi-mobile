@@ -99,6 +99,17 @@
 
 模擬器和 iPad 上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋、Bot 資料夾（檔案、bash）、資料庫（`sql`、記帳）、背景跑完一輪和完成通知、ChatGPT 和 MCP 的登入流程。工具組有「網路」「檔案」「資料庫」；時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
 
+### TestFlight（2026-10-26）
+
+`TEAM=<team id> ./scripts/testflight-ios.sh` 在有 Xcode、已登入開發者帳號的 Mac 上打包並上傳，只給內部測試員。透過 SSH 時要在桌面工作階段跑（鑰匙圈），見 device-testing skill。第一次要先在開發者網站註冊明確的套件 ID（Xcode 開發時用的是萬用描述檔），再到 App Store Connect 建 app 資料；這兩步只能在網頁上做。
+
+上傳前補的：
+- App 圖示：`scripts/make-icons.py` 產生 1024×1024、不透明的 pi 圖示（App Store Connect 不收有 alpha 通道的圖）。
+- `PrivacyInfo.xcprivacy`：UserDefaults（行事曆 id）、檔案時間（Bot 資料夾）、剩餘空間（手機狀態）。
+- `ITSAppUsesNonExemptEncryption = false`：只用 HTTPS。
+- 相機權限說明：拍照附加用。
+- 給電腦用的 pi-env 執行檔改成壓縮的 `.bin.gzip`：App Store Connect 不收 app 裡有別的 Mach-O 檔；用 `.gzip` 是因為 Android 建置會把 `.gz` 解開。APK 也因此小了約 4 MB。
+
 ### 最低 iOS 26，用新 API（2026-10-26）
 
 使用者要求盡量用新版 API，所以 iOS 版的最低版本是 iOS 26，不寫舊系統的退路：

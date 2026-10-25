@@ -8,6 +8,10 @@
 	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>讓 Bot 讀你的行程、幫你新增活動；只用你在設定裡打開的日曆。</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>拍照附加到對話裡。</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>讓 Bot 幫你設鬧鐘和計時器。</string>
 	<key>NSContactsUsageDescription</key>

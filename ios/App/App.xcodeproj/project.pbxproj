@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D96B1B1359725137B001DB36 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B999D34CFB3F999153779436 /* PrivacyInfo.xcprivacy */; };
 		E17C34996A77220DD4A33601 /* AppsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 284F5282F527EF2EA0AE7A2B /* AppsPlugin.swift */; };
 		518EC3F478C3CBBAA9FACF87 /* Transcription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766F845BDBE5CEDDDBB11261 /* Transcription.swift */; };
 		F277DDEB81AB376707C5C2EB /* PhotosPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3D20C9119237D4FE63D96E /* PhotosPlugin.swift */; };
@@ -33,6 +34,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		B999D34CFB3F999153779436 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		284F5282F527EF2EA0AE7A2B /* AppsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppsPlugin.swift; sourceTree = "<group>"; };
 		766F845BDBE5CEDDDBB11261 /* Transcription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcription.swift; sourceTree = "<group>"; };
 		8B3D20C9119237D4FE63D96E /* PhotosPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotosPlugin.swift; sourceTree = "<group>"; };
@@ -95,6 +97,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				B999D34CFB3F999153779436 /* PrivacyInfo.xcprivacy */,
 				284F5282F527EF2EA0AE7A2B /* AppsPlugin.swift */,
 				766F845BDBE5CEDDDBB11261 /* Transcription.swift */,
 				8B3D20C9119237D4FE63D96E /* PhotosPlugin.swift */,
@@ -187,6 +190,7 @@
 				504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
+				D96B1B1359725137B001DB36 /* PrivacyInfo.xcprivacy in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
