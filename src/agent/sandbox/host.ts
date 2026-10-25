@@ -106,6 +106,15 @@ export async function pairHost(address: string, code: string): Promise<string> {
 	return answer.key;
 }
 
+export async function unpairHost(host: Reach): Promise<void> {
+	const response = await reached(host.address, fetch(url(host, "/unpair"), { method: "DELETE", signal: AbortSignal.timeout(8000) }));
+	if (response.status === 204) return;
+	const body = (await response.text()).trim();
+	if (response.status === 404 && body.includes("not paired")) return;
+	if (response.status === 404 || response.status === 405) throw new Error(`${host.address} 上的 pi-mobile 太舊，不會撤銷配對：更新它之後執行 pi-mobile pair 重新配對，或刪掉 ~/.pi/mobile/paired.json`);
+	throw new Error(`${host.address} 回應 HTTP ${response.status}：${body}`);
+}
+
 export async function hasPiMobile(address: string, signal: AbortSignal): Promise<boolean> {
 	const response = await fetch(`${base(address)}/version`, { signal }).catch(() => undefined);
 	return response?.ok ?? false;

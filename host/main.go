@@ -225,6 +225,24 @@ func pair(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"key": key})
 }
 
+func unpairHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "DELETE only", http.StatusMethodNotAllowed)
+		return
+	}
+	removed, err := unpair(stateDir(), r.URL.Query().Get("key"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !removed {
+		http.Error(w, "that key was not paired", http.StatusNotFound)
+		return
+	}
+	log.Printf("unpaired a device")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func versionOnly(w http.ResponseWriter, r *http.Request) {
 	if _, ok := fromOwner(w, r); !ok {
 		return
@@ -695,6 +713,7 @@ func serve() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", versionOnly)
 	mux.HandleFunc("/pair", pair)
+	mux.HandleFunc("/unpair", guard(unpairHandler))
 	mux.HandleFunc("/info", guard(info))
 	mux.HandleFunc("/daemon/", guard(putDaemon))
 	mux.HandleFunc("/env", guard(env))

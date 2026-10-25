@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, probeHost, watchPrepare } from "../agent/sandbox/host.ts";
+import { hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, probeHost, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
@@ -253,7 +253,13 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 					host={host}
 					busy={adding.state === "checking"}
 					onPair={(pairingCode) => add(host.address, pairingCode)}
-					onRemove={() => onChange(hosts.filter((item) => item.id !== host.id), computer.startsWith(`${host.id}:`) ? "" : computer)}
+					onRemove={() => {
+						onChange(
+							hosts.filter((item) => item.id !== host.id),
+							computer.startsWith(`${host.id}:`) ? "" : computer,
+						);
+						if (host.key) void unpairHost(host).catch((error: unknown) => setAdding({ state: "error", detail: `已從手機移除，但電腦上的配對還在：${messageOf(error)}` }));
+					}}
 				/>
 			))}
 			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}

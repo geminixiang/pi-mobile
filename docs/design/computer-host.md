@@ -31,7 +31,7 @@
     - `POST /pair?code=` 用掉配對碼，回一把 32 bytes 的金鑰；`~/.pi/mobile/paired.json` 只存金鑰的 SHA-256 和配對的裝置名稱。配對碼錯回 422，沒有等待中的配對碼回 410。
     - 金鑰放在 query（`?key=`），因為 WebView 的 WebSocket 不能帶標頭；電腦端的 log 只記路徑。
     - 手機把金鑰存在 Keystore（`host.<id>.key`），不放在 `settings.hosts`。
-    - 撤銷：刪掉 `~/.pi/mobile/paired.json` 裡那一行（或整個檔案），再重新配對。
+    - 撤銷：手機「移除」這台電腦時會送 `DELETE /unpair`（帶自己的金鑰），電腦端只刪掉那一把；連不到或電腦端太舊（沒有這個端點）時手機照樣移除，並說明配對還留在電腦上。手動撤銷：刪掉 `~/.pi/mobile/paired.json` 裡那一行（或整個檔案），再重新配對。
 - **端點**：
   - `GET /version`：只回版本，不用金鑰；`pi-mobile status` 和手機找 peers 時用它判斷有沒有裝。
   - `POST /pair?code=<6 位數>`：見上面。
@@ -40,6 +40,7 @@
   - `GET /env?daemon=<sha>&token=<hex>`：WebSocket。在使用者的 login shell 裡、從家目錄執行 `pi-env serve --token`，把 stdin 和 stdout 當成二進位訊息雙向轉送。
   - `GET /exec?command=<sh>`：WebSocket。在 login shell 裡執行一個指令，用來驅動容器引擎：建 image、啟動 `pim-main` 和 egress、在容器裡跑 pi-env，以及 egress 的 `bridge.py`。它沒有比 `/env` 多給任何權限，兩者都是以使用者身分，執行使用者自己裝置要求的指令。
   - `/info` 也回報 login shell 找得到、而且 `info` 答得出來的容器引擎（docker、podman、nerdctl）。
+  - `DELETE /unpair`：撤銷呼叫者自己的金鑰，回 204；金鑰不在清單上回 404。
   - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS 或 Linux、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，電腦上的 pi-mobile 不用跟著更新。
 - **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔從 launchd 啟動時不會自己當 CLI 用，照 Tailscale 文件設 `TAILSCALE_BE_CLI=1`（`docs/research/tailscale.md`）。

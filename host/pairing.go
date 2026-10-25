@@ -128,3 +128,30 @@ func pairedWith(dir, key string) bool {
 	}
 	return found == 1
 }
+
+func unpair(dir, key string) (bool, error) {
+	pairingMu.Lock()
+	defer pairingMu.Unlock()
+	if key == "" {
+		return false, nil
+	}
+	path := filepath.Join(dir, "paired.json")
+	var devices []paired
+	if err := readJSON(path, &devices); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	hash := digest(key)
+	kept := devices[:0]
+	for _, device := range devices {
+		if subtle.ConstantTimeCompare([]byte(hash), []byte(device.Hash)) != 1 {
+			kept = append(kept, device)
+		}
+	}
+	if len(kept) == len(devices) {
+		return false, nil
+	}
+	return true, writeJSON(path, kept)
+}

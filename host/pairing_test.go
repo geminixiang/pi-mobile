@@ -54,3 +54,25 @@ func TestAPairingCodeExpiresAndStopsAfterFiveWrongTries(t *testing.T) {
 		t.Fatalf("the code still works after %d wrong tries: %v", codeTries, err)
 	}
 }
+
+func TestUnpairForgetsOnlyThatKey(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now()
+	code, _ := newCode(dir, now)
+	phone, _ := redeem(dir, code, "phone", now)
+	code, _ = newCode(dir, now)
+	laptop, _ := redeem(dir, code, "laptop", now)
+	removed, err := unpair(dir, phone)
+	if err != nil || !removed {
+		t.Fatalf("the paired key is not removed: %v %v", removed, err)
+	}
+	if pairedWith(dir, phone) || !pairedWith(dir, laptop) {
+		t.Fatal("unpair touched the wrong device")
+	}
+	if removed, err := unpair(dir, phone); err != nil || removed {
+		t.Fatalf("an unknown key counts as removed: %v %v", removed, err)
+	}
+	if removed, err := unpair(t.TempDir(), "x"); err != nil || removed {
+		t.Fatalf("a computer that never paired fails: %v %v", removed, err)
+	}
+}
