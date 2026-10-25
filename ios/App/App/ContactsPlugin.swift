@@ -19,9 +19,7 @@ public class ContactsPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func withAccess(_ call: CAPPluginCall, _ then: @escaping () -> Void) {
         let status = CNContactStore.authorizationStatus(for: .contacts)
-        var limited = false
-        if #available(iOS 18.0, *) { limited = status == .limited }
-        if status == .authorized || limited {
+        if status == .authorized || status == .limited {
             DispatchQueue.global(qos: .userInitiated).async(execute: then)
             return
         }

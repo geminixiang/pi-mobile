@@ -99,6 +99,15 @@
 
 模擬器和 iPad 上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋、Bot 資料夾（檔案、bash）、資料庫（`sql`、記帳）、背景跑完一輪和完成通知、ChatGPT 和 MCP 的登入流程。工具組有「網路」「檔案」「資料庫」；時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
 
+### 最低 iOS 26，用新 API（2026-10-26）
+
+使用者要求盡量用新版 API，所以 iOS 版的最低版本是 iOS 26，不寫舊系統的退路：
+- 語音輸入只用 `SpeechAnalyzer`，不用 `SFSpeechRecognizer`（也就不需要語音辨識權限）。
+- 位置用 `CLLocationUpdate.liveUpdates()` 加 `CLServiceSession` 取得授權，不用 delegate 的 `requestLocation`。
+- 反向地理編碼用 MapKit 的 `MKReverseGeocodingRequest`（`CLGeocoder` 在 iOS 26 淘汰）。它給整行地址、城市（區）、國家，沒有分開的縣市和街道，所以 `address` 只有 `line`、`locality`、`country`。
+- 背景用 `BGContinuedProcessingTask`，不用檢查版本。
+- Capacitor 產生的 `Package.swift` 要用 swift-tools 6.2 才有 `.v26`（`capacitor.config.ts` 的 `experimental.ios.spm.swiftToolsVersion`）。
+
 ### 實機量到的（2026-10-25，iPad Air 5，iPadOS 26.7）
 
 - **明文 HTTP**：iOS 的 ATS 預設全擋（錯誤 -1022，JS 只看到 `Load failed`），`http://` 和 `ws://` 都一樣。`Info.plist` 現在放行 `*.ts.net` 和本機網路：用 Tailscale 名稱（`mac.tailnet.ts.net:8317`）的模型閘道和電腦端都通，`100.x` 的 IP 還是被擋，ATS 沒辦法用 IP 範圍放行。決定（2026-10-25）：不整個放行（`NSAllowsArbitraryLoads`），iOS 上用 Tailscale 名稱；填了 IP 時 `refuseIpOnIos` 直接說要改填名稱，不讓使用者只看到 `Load failed`。
@@ -117,7 +126,7 @@
 - **`Phone`（2026-10-26）**：位置用 Core Location（只要「使用 App 期間」），地址用反向地理編碼；地名查座標用 MapKit 的 `MKLocalSearch`，`CLGeocoder` 只認得地址，「台北101」「新竹火車站」查不到，「合歡山」會對到新莊。裝置狀態有電量、低耗電、網路、耳機、儲存空間，沒有響鈴模式和勿擾（iOS 不給）。氣壓計用 `CMAltimeter`，要「動作與健身」權限。iPad 上：時間電量、天氣、開車時間、海拔都答對；羅盤沒有讀數：Wi‑Fi 版 iPad 沒有電子羅盤（行動網路版才有），`noReading` 照實列出。
 - **`Calendar`（2026-10-26）**：EventKit，要「完整取用」（iOS 17 起只讀也要）。介面沿用 Android 的數字行事曆 id：EventKit 的 id 是字串，第一次看到時配一個數字，存在 `UserDefaults`，設定裡的「預設寫入」才不會變。全天活動照 Android 的慣例換成 UTC 午夜。訂閱和生日行事曆算「分享的」，只能讀。模擬器上讀、新增（含全天）、讀週末都對；iPad 上只讀（真實資料），讀到 iCloud 的居家、工作和兩個訂閱。
 - **`Voice`、`Contacts`、`Photos`（2026-10-26）**：
-  - 語音輸入用 iOS 26 的 `SpeechAnalyzer`（`SpeechTranscriber`，不支援的語言退回 `DictationTranscriber`），在裝置上辨識。舊的 `SFSpeechRecognizer` 在 iPad 上回錯誤 201「Siri and Dictation are disabled」，打開聽寫也一樣；新 API 不看 Siri 和聽寫的設定，也不需要語音辨識權限，只要麥克風。iPad 上說「你好」，送出後 Bot 回答了。
+  - 語音輸入用 `SpeechAnalyzer`（`SpeechTranscriber`，不支援的語言改用 `DictationTranscriber`），在裝置上辨識。先試過的 `SFSpeechRecognizer` 在 iPad 上回錯誤 201「Siri and Dictation are disabled」，打開聽寫也一樣；新 API 不看 Siri 和聽寫的設定，也不需要語音辨識權限，只要麥克風。iPad 上說「你好」，送出後 Bot 回答了。
   - 朗讀用 `AVSpeechSynthesizer`，講完才回傳。
   - 聯絡人用 Contacts framework，沒有「最愛」可讀，所以沒有 `starred`。
   - 照片用 PhotoKit，「部分照片」也算有權限，只看得到使用者選的。相簿名稱是系統依 app 語言給的英文（Screenshots），用中文「截圖」找不到。

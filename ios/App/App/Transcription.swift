@@ -1,7 +1,6 @@
 import AVFoundation
 import Speech
 
-@available(iOS 26.0, *)
 final class Transcription {
     private let engine = AVAudioEngine()
     private var analyzer: SpeechAnalyzer?

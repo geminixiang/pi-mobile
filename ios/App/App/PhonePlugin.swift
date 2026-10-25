@@ -22,73 +22,64 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
         manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         return manager
     }()
-    private var waitingForPermission: [CAPPluginCall] = []
-    private var waitingForFix: [CAPPluginCall] = []
     private var headings: [(CLHeading) -> Void] = []
     private let altimeter = CMAltimeter()
     private let motion = CMMotionManager()
 
-    private var allowed: Bool {
-        [.authorizedWhenInUse, .authorizedAlways].contains(locations.authorizationStatus)
-    }
-
     @objc func getLocation(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
-            switch self.locations.authorizationStatus {
-            case .denied, .restricted:
-                call.reject("location permission denied: the user can allow it in Settings › pi mobile › Location", "permission")
-            case .notDetermined:
-                guard UIApplication.shared.applicationState != .background else {
-                    call.reject("pi has no location permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.")
-                    return
+        Task { @MainActor in
+            if self.locations.authorizationStatus == .notDetermined, UIApplication.shared.applicationState == .background {
+                call.reject("pi has no location permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.")
+                return
+            }
+            guard CLLocationManager.locationServicesEnabled() else {
+                call.reject("location is turned off on the phone", "disabled")
+                return
+            }
+            let session = CLServiceSession(authorization: .whenInUse)
+            defer { session.invalidate() }
+            let fix = await withTaskGroup(of: Result<CLLocation, LocationFailure>?.self) { group in
+                group.addTask { await Self.firstFix() }
+                group.addTask {
+                    try? await Task.sleep(for: .seconds(fixTimeout))
+                    return nil
                 }
-                self.waitingForPermission.append(call)
-                self.locations.requestWhenInUseAuthorization()
-            default:
-                self.locate(call)
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first
+            }
+            switch fix {
+            case let .success(location):
+                await self.answer(call, location, lastKnown: false)
+            case let .failure(failure):
+                call.reject(failure.message, failure.code)
+            case nil:
+                if let last = self.locations.location {
+                    await self.answer(call, last, lastKnown: true)
+                } else {
+                    call.reject("no location fix within \(Int(fixTimeout)) seconds", "timeout")
+                }
             }
         }
     }
 
-    private func locate(_ call: CAPPluginCall) {
-        guard CLLocationManager.locationServicesEnabled() else {
-            call.reject("location is turned off on the phone", "disabled")
-            return
-        }
-        waitingForFix.append(call)
-        locations.requestLocation()
-        DispatchQueue.main.asyncAfter(deadline: .now() + fixTimeout) {
-            guard let index = self.waitingForFix.firstIndex(where: { $0 === call }) else { return }
-            self.waitingForFix.remove(at: index)
-            if let last = self.locations.location {
-                self.answer(call, last, lastKnown: true)
-            } else {
-                call.reject("no location fix within \(Int(fixTimeout)) seconds", "timeout")
+    private struct LocationFailure: Error {
+        let message: String
+        let code: String
+    }
+
+    private static func firstFix() async -> Result<CLLocation, LocationFailure>? {
+        do {
+            for try await update in CLLocationUpdate.liveUpdates() {
+                if update.authorizationDenied || update.authorizationDeniedGlobally || update.authorizationRestricted {
+                    return .failure(LocationFailure(message: "location permission denied: the user can allow it in Settings › pi mobile › Location", code: "permission"))
+                }
+                if let location = update.location { return .success(location) }
             }
+        } catch {
+            return .failure(LocationFailure(message: "location failed: \(error.localizedDescription)", code: "failed"))
         }
-    }
-
-    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard manager.authorizationStatus != .notDetermined else { return }
-        let waiting = waitingForPermission
-        waitingForPermission = []
-        for call in waiting {
-            if allowed { locate(call) } else { call.reject("location permission denied", "permission") }
-        }
-    }
-
-    public func locationManager(_ manager: CLLocationManager, didUpdateLocations updates: [CLLocation]) {
-        guard let location = updates.last else { return }
-        let waiting = waitingForFix
-        waitingForFix = []
-        for call in waiting { answer(call, location, lastKnown: false) }
-    }
-
-    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        guard (error as? CLError)?.code != .locationUnknown else { return }
-        let waiting = waitingForFix
-        waitingForFix = []
-        for call in waiting { call.reject("location failed: \(error.localizedDescription)", "failed") }
+        return nil
     }
 
     public func locationManager(_ manager: CLLocationManager, didUpdateHeading heading: CLHeading) {
@@ -98,7 +89,7 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
         for answer in waiting { answer(heading) }
     }
 
-    private func answer(_ call: CAPPluginCall, _ location: CLLocation, lastKnown: Bool) {
+    private func answer(_ call: CAPPluginCall, _ location: CLLocation, lastKnown: Bool) async {
         var result: [String: Any] = [
             "latitude": location.coordinate.latitude,
             "longitude": location.coordinate.longitude,
@@ -111,21 +102,19 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
         if location.verticalAccuracy >= 0 { result["altitudeMeters"] = Int(location.altitude.rounded()) }
         if location.speed >= 0 { result["speedMetersPerSecond"] = (location.speed * 10).rounded() / 10 }
         if location.course >= 0 { result["bearingDegrees"] = Int(location.course.rounded()) }
-        CLGeocoder().reverseGeocodeLocation(location) { places, _ in
-            if let place = places?.first { result["address"] = Self.address(place) }
-            call.resolve(result)
+        if let request = MKReverseGeocodingRequest(location: location), let item = try? await request.mapItems.first {
+            result["address"] = Self.address(item)
         }
+        call.resolve(result)
     }
 
-    private static func address(_ place: CLPlacemark) -> [String: Any] {
+    private static func address(_ item: MKMapItem) -> [String: Any] {
         var address: [String: Any] = [:]
-        let line = [place.administrativeArea, place.locality, place.subLocality, place.thoroughfare, place.subThoroughfare].compactMap { $0 }.joined()
-        if !line.isEmpty { address["line"] = line }
-        if let value = place.country { address["country"] = value }
-        if let value = place.administrativeArea { address["adminArea"] = value }
-        if let value = place.locality { address["locality"] = value }
-        if let value = place.subLocality { address["subLocality"] = value }
-        if let value = place.thoroughfare { address["street"] = value }
+        if let line = item.address?.shortAddress ?? item.address?.fullAddress { address["line"] = line }
+        if let parts = item.addressRepresentations {
+            if let country = parts.regionName { address["country"] = country }
+            if let city = parts.cityName { address["locality"] = city }
+        }
         return address
     }
 
@@ -144,10 +133,8 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
                 call.reject(none ? "no place found for \(query)" : "geocoding failed: \(error?.localizedDescription ?? "")", none ? "not_found" : "failed")
                 return
             }
-            let place = item.placemark
-            let line = Self.address(place)["line"] as? String
-            var result: [String: Any] = ["latitude": place.coordinate.latitude, "longitude": place.coordinate.longitude]
-            let label = [item.name, line].compactMap { $0 }.filter { !$0.isEmpty }
+            var result: [String: Any] = ["latitude": item.location.coordinate.latitude, "longitude": item.location.coordinate.longitude]
+            let label = [item.name, Self.address(item)["line"] as? String].compactMap { $0 }.filter { !$0.isEmpty }
             if !label.isEmpty { result["address"] = label.joined(separator: "，") }
             call.resolve(result)
         }

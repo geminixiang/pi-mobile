@@ -12,6 +12,10 @@ const config: CapacitorConfig = {
 	android: {
 		webContentsDebuggingEnabled: isDevelopmentBuild,
 	},
+	experimental: {
+		// why: the iOS app targets iOS 26, and Swift tools before 6.2 have no .v26 for the Package.swift Capacitor writes
+		ios: { spm: { swiftToolsVersion: "6.2" } },
+	},
 };
 
 export default config;

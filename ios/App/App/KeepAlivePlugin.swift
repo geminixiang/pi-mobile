@@ -16,19 +16,15 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestUnrestrictedBattery", returnType: CAPPluginReturnPromise),
     ]
 
-    private var task: AnyObject?
+    private var task: BGContinuedProcessingTask?
     private var pending = false
     private var ticker: Timer?
 
     @objc func start(_ call: CAPPluginCall) {
         let title = call.getString("title") ?? "pi 工作中"
         let text = call.getString("text") ?? ""
-        guard #available(iOS 26.0, *) else {
-            call.resolve()
-            return
-        }
         DispatchQueue.main.async {
-            if let running = self.task as? BGContinuedProcessingTask {
+            if let running = self.task {
                 running.updateTitle(title, subtitle: text)
                 call.resolve()
                 return
@@ -54,7 +50,6 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    @available(iOS 26.0, *)
     private func run(_ task: BGContinuedProcessingTask) {
         pending = false
         self.task = task
@@ -71,7 +66,7 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
     private func finish(success: Bool) {
         ticker?.invalidate()
         ticker = nil
-        if #available(iOS 26.0, *), let running = task as? BGContinuedProcessingTask {
+        if let running = task {
             running.progress.completedUnitCount = running.progress.totalUnitCount
             running.setTaskCompleted(success: success)
         }

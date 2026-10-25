@@ -14,8 +14,6 @@
 	<string>讓 Bot 依時間、地點找照片並看內容，例如找昨天拍的收據。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>用說的輸入訊息。</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>把你說的話轉成文字，可以的話在這支裝置上轉。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>讓 Bot 知道你在哪裡：天氣、附近的店、交通時間。</string>
 	<key>NSMotionUsageDescription</key>
