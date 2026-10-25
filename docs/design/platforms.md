@@ -93,7 +93,7 @@
 | 0 | `ios/` 專案，`scripts/run-ios.sh` 在模擬器上建置、安裝、打開 | 做好了 |
 | 1 | 啟動時檢查有哪些原生 plugin，沒有的工具不安裝（[capabilities.md](capabilities.md)） | 做好了 |
 | 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
-| 3 | Swift plugin：`System`、`StreamFetch`、`Loopback` | |
+| 3 | Swift plugin：`KeepAlive`（背景）做好了；`System`、`StreamFetch`、`Loopback` 還沒 | 進行中 |
 | 4 | Swift plugin：`BotFiles`、`Database` | |
 | 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | |
 
@@ -102,7 +102,12 @@
 ### 實機量到的（2026-10-25，iPad Air 5，iPadOS 26.7）
 
 - **明文 HTTP**：iOS 的 ATS 預設全擋（錯誤 -1022，JS 只看到 `Load failed`），`http://` 和 `ws://` 都一樣。`Info.plist` 現在放行 `*.ts.net` 和本機網路：用 Tailscale 名稱（`mac.tailnet.ts.net:8317`）的模型閘道和電腦端都通，`100.x` 的 IP 還是被擋，ATS 沒辦法用 IP 範圍放行。決定（2026-10-25）：不整個放行（`NSAllowsArbitraryLoads`），iOS 上用 Tailscale 名稱；填了 IP 時 `refuseIpOnIos` 直接說要改填名稱，不讓使用者只看到 `Load failed`。
-- **背景**：送出一輪對話後切到別的 app，JS 再跑約 15–20 秒就停了；當時正在等的網路搜尋失敗，切回來後模型照常收尾，回答「無法連上網路搜尋」。對話沒有壞，但背景裡做不完事。要在背景跑完，得用 `BGContinuedProcessingTask`（原生端），再量一次。
+- **背景，沒有 `KeepAlive`**：送出一輪對話後切到別的 app，JS 再跑約 15–20 秒就停了；當時正在等的網路搜尋失敗，切回來後模型照常收尾，回答「無法連上網路搜尋」。
+- **背景，有 `KeepAlive`（`BGContinuedProcessingTask`）**：對話開始時送出一個 continued processing 請求，系統在動態島或鎖定畫面顯示進度，使用者可以取消；對話結束就交還。
+  - 用網路搜尋再寫長文的對話，送出 4 秒後切走：8 次裡 7 次在背景跑完（27–68 秒），切回來時已經有答案；跑完後 JS 就停了。
+  - 探測 75 秒：WebView 的計時器、`fetch`、IndexedDB、Worker 在背景都照常，沒有 `KeepAlive` 的對照組在 20 秒停住。
+  - 第一次那輪失敗：剛切走時 IndexedDB 報「Attempt to get a record from database without an in-progress transaction」，pi-durable 的工作階段因此失效（`SessionFailed`），要重開 app。之後 7 次沒再出現；原因還不知道，要繼續觀察。
+  - 進度條：一輪對話沒有可量的總量，所以每 2 秒前進一格，讓系統知道還在跑（Apple 說沒有進度的工作比較容易被終止）。
 - **其他**：設定供應商（金鑰存 Keychain）、對話、code mode、網路搜尋都正常，回答的時間正確。
 
 ### 先量，量完再決定要不要投入

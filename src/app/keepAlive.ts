@@ -9,7 +9,7 @@ interface KeepAlivePlugin {
 	stop(): Promise<void>;
 	notify(options: { title: string; text: string }): Promise<void>;
 	clearNotification(): Promise<void>;
-	status(): Promise<{ notifications: boolean; unrestrictedBattery: boolean }>;
+	status(): Promise<{ notifications: boolean; unrestrictedBattery?: boolean }>;
 	requestNotifications(): Promise<{ granted: boolean }>;
 	requestUnrestrictedBattery(): Promise<void>;
 }

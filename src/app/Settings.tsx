@@ -264,7 +264,7 @@ function SystemAccessGroup() {
 }
 
 function BackgroundGroup() {
-	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
+	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery?: boolean }>();
 	useEffect(() => {
 		if (!native.has("KeepAlive")) return;
 		const refresh = () => void KeepAlive.status().then(setStatus);
@@ -290,9 +290,9 @@ function BackgroundGroup() {
 			{row("通知", status.notifications, () =>
 				void KeepAlive.requestNotifications().then(() => KeepAlive.status().then(setStatus)),
 			)}
-			{row("不受電池最佳化限制", status.unrestrictedBattery, () =>
-				void KeepAlive.requestUnrestrictedBattery(),
-			)}
+			{status.unrestrictedBattery === undefined
+				? null
+				: row("不受電池最佳化限制", status.unrestrictedBattery, () => void KeepAlive.requestUnrestrictedBattery())}
 		</Group>
 	);
 }

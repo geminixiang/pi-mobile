@@ -14,6 +14,7 @@ import { TriggerRow } from "./TriggerRow.tsx";
 import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
+import { native } from "../native.ts";
 
 export interface PanelActions {
 	edit: () => void;
@@ -188,17 +189,19 @@ export function BotPanel({
 					</span>
 				</button>
 
-				<Section title="自動化" problem={problem}>
-					<div className="menu">
-						{mine.length === 0 ? (
-							<div className="check-row">
-								<span className="menu-text">還沒有自動化</span>
-							</div>
-						) : (
-							mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
-						)}
-					</div>
-				</Section>
+				{native.has("Triggers") ? (
+					<Section title="自動化" problem={problem}>
+						<div className="menu">
+							{mine.length === 0 ? (
+								<div className="check-row">
+									<span className="menu-text">還沒有自動化</span>
+								</div>
+							) : (
+								mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
+							)}
+						</div>
+					</Section>
+				) : null}
 
 				<Section title="記憶">
 					<div className="menu">
