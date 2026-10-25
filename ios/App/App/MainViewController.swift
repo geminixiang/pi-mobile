@@ -9,5 +9,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(LoopbackPlugin())
         bridge?.registerPluginInstance(BotFilesPlugin())
         bridge?.registerPluginInstance(DatabasePlugin())
+        bridge?.registerPluginInstance(PhonePlugin())
     }
 }
