@@ -66,7 +66,9 @@ from `CDP_PORT` (default 9333).
 - Installing a build turns the accessibility service off (S24): `phone-screen.js on <serial>` after every
   `run-android.sh`, or `read` answers `off`. Apps that were open while it was switched on and off may stop answering
   it until force-stopped.
-- While a bot uses another app, pi is in the background and `ui.sh` calls into its page can hang: bring it to the
-  front first (`adb shell am start -n dev.geminixiang.pimobile/.MainActivity`).
+- When a turn ends while another app is in front, pi's foreground service stops and the WebView is hidden, so its
+  timers stop: a `ui.sh` call into the page waits until pi comes back. The bot did not stall; the test did.
+  `ask.js` and `trace.js` bring pi to the front once its AgentService is gone when `ANDROID_SERIAL` is set
+  (`keep-front.js`); for a single `ui.sh` call, `adb shell am start -n dev.geminixiang.pimobile/.MainActivity` first.
 - A screen-control question writes for real in the user's apps: use throwaway data (a note named pi 測試), undo it,
   and when the bot clears or deletes in bulk, read the confirmation it tapped ("2 個項目") to know nothing else went.

@@ -1,4 +1,6 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { keepPiInFront } from "./keep-front.js";
 import { fileURLToPath } from "node:url";
 
 const question = process.argv[2];
@@ -37,7 +39,9 @@ const script = `async () => {
 	return { seconds: Math.round((performance.now() - t0) / 1000), turn, answer: [...document.querySelectorAll(".answer")].at(-1)?.innerText.slice(0, 600) };
 }`;
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
-const out = execFileSync("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 26 }).toString();
+const release = keepPiInFront();
+const out = (await promisify(execFile)("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 26 })).stdout;
+release();
 const result = JSON.parse(out);
 if (!result.turn) { console.log(out.slice(0, 2000)); process.exit(1); }
 console.log(`## ${result.seconds} s`);

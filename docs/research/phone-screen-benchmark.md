@@ -82,3 +82,8 @@
 - 測試中 Bot 在別的 app 時，pi 在背景偶爾整個停住（一次卡了 9 分鐘，叫回前景就繼續）。量測時用一個小腳本，在 AgentService 不在時把 pi 叫回前景；這本身是要查的問題：Bot 正在操作其他 app 時，pi 必須在背景繼續跑。
 
 **判斷**：這五題只靠清單就夠，token 明顯少，成功率沒降，達到 15% 的標準。但這五題的畫面都有文字標籤；沒有標籤的圖示、圖片內容、地圖、遊戲只有截圖看得到。所以下一個版本是「預設只給清單，`read_phone_screen` 可以要截圖」，量的時候加一題要看圖的（例如相簿最新一張照片裡有什麼），確定模型需要時會要。
+
+**之後（同一天）**：
+
+- 「pi 在背景停住」查過了，**不是 Bot 停住，是量測腳本**。`list-alarms-2` 的 trace 寫的是 39 秒就答完；卡住的是之後的 DevTools 呼叫。Bot 在別的 app 做完一輪時，AgentService 停掉、WebView 回到隱藏，頁面的計時器跟著停，`ui.sh` 送進頁面的呼叫（`trace.js` 裡的 `sleep`）要等 pi 回到前景才繼續。實測：Bot 整輪都在時鐘 app 裡、pi 在背景，照樣做完（28 秒）；做完後在背景等 2 分鐘，一個 1 秒的 `setTimeout` 等不到（`isFrozen=false`，不是系統的凍結）。修在測試工具：`ask.js`、`trace.js` 在 `ANDROID_SERIAL` 有設時，於 AgentService 結束後把 pi 叫回前景（`device-testing` 的 `keep-front.js`）。
+- 截圖改成預設不給，要的時候 `screenshot: true`（兩個工具都有）。照使用者的決定，這一版沒有再跑一輪量測。

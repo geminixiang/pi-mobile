@@ -1,4 +1,6 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { keepPiInFront } from "./keep-front.js";
 import { fileURLToPath } from "node:url";
 
 const question = process.argv[2];
@@ -21,4 +23,6 @@ const script = `async () => {
 	for (let el = last.nextElementSibling; el; el = el.nextElementSibling) for (const s of el.querySelectorAll('.step')) steps.push(s.dataset.tool + ' ' + s.innerText.slice(0, 220).replace(/\\n/g, ' ⏎ '));
 	return { seconds: Math.round((performance.now() - t0) / 1000), steps, answer: [...document.querySelectorAll('.answer')].at(-1)?.innerText.slice(0, 500) };
 }`;
-process.stdout.write(execFileSync("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 24 }).toString() + "\n");
+const release = keepPiInFront();
+process.stdout.write((await promisify(execFile)("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 24 })).stdout + "\n");
+release();

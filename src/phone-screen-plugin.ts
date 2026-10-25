@@ -32,8 +32,8 @@ export interface PhoneScreenPlugin {
 	status(): Promise<{ allowed: boolean; screenshots: boolean }>;
 	openSettings(): Promise<void>;
 	openAppInfo(): Promise<void>;
-	read(): Promise<PhoneScreenSnapshot>;
-	act(options: { steps: PhoneScreenStep[] }): Promise<PhoneScreenSnapshot>;
+	read(options: { screenshot: boolean }): Promise<PhoneScreenSnapshot>;
+	act(options: { steps: PhoneScreenStep[]; screenshot: boolean }): Promise<PhoneScreenSnapshot>;
 }
 
 export const PhoneScreen = registerPlugin<PhoneScreenPlugin>("PhoneScreen");

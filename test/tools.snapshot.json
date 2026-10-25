@@ -842,7 +842,12 @@
 			"tools"
 		],
 		"parameters": {
-			"properties": {},
+			"properties": {
+				"screenshot": {
+					"description": "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false",
+					"type": "boolean"
+				}
+			},
 			"type": "object"
 		},
 		"structuredOutput": null
@@ -858,6 +863,10 @@
 		],
 		"parameters": {
 			"properties": {
+				"screenshot": {
+					"description": "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false",
+					"type": "boolean"
+				},
 				"steps": {
 					"items": {
 						"properties": {
@@ -948,11 +957,11 @@
 								"type": "number"
 							},
 							"x": {
-								"description": "Screenshot pixels from the left",
+								"description": "Points from the left",
 								"type": "number"
 							},
 							"y": {
-								"description": "Screenshot pixels from the top",
+								"description": "Points from the top",
 								"type": "number"
 							}
 						},

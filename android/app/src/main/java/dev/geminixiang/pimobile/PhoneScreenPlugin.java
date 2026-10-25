@@ -103,7 +103,7 @@ public class PhoneScreenPlugin extends Plugin {
         }
         worker.execute(() -> {
             try {
-                call.resolve(snapshot(service));
+                call.resolve(snapshot(service, call.getBoolean("screenshot", false)));
             } catch (RuntimeException | InterruptedException e) {
                 call.reject(String.valueOf(e.getMessage()));
             }
@@ -133,7 +133,7 @@ public class PhoneScreenPlugin extends Plugin {
                     done = i + 1;
                     settle(service, i + 1 < steps.length() ? 1500 : SETTLE_CAP_MS);
                 }
-                JSObject result = snapshot(service);
+                JSObject result = snapshot(service, call.getBoolean("screenshot", false));
                 result.put("done", done);
                 if (failure != null) result.put("error", failure);
                 call.resolve(result);
@@ -389,7 +389,7 @@ public class PhoneScreenPlugin extends Plugin {
         while (service.quietFor() < QUIET_MS && System.currentTimeMillis() - start < cap) Thread.sleep(50);
     }
 
-    private JSObject snapshot(PhoneScreenService service) throws InterruptedException {
+    private JSObject snapshot(PhoneScreenService service, boolean withScreenshot) throws InterruptedException {
         DisplayMetrics screen = metrics(service);
         float scale = (float) SHOT_WIDTH / screen.widthPixels;
         JSObject result = new JSObject();
@@ -433,6 +433,7 @@ public class PhoneScreenPlugin extends Plugin {
         result.put("keyboard", keyboard);
         result.put("elements", String.join("\n", lines.subList(0, Math.min(lines.size(), MAX_ELEMENTS))));
         result.put("more", Math.max(0, lines.size() - MAX_ELEMENTS));
+        if (!withScreenshot) return result;
         String shot = screenshot(service, scale, result);
         if (shot != null) result.put("jpeg", shot);
         return result;

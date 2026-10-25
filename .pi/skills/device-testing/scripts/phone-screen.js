@@ -12,7 +12,7 @@ if (what === "on") {
 	process.exit(0);
 }
 
-const call = what === "status" ? "P.status()" : what === "read" ? "P.read()" : `P.act({ steps: ${steps} })`;
+const call = what === "status" ? "P.status()" : what === "read" ? "P.read({ screenshot: true })" : `P.act({ steps: ${steps}, screenshot: true })`;
 const script = `async () => {
 	await until(() => window.Capacitor, 20000);
 	const P = window.Capacitor.Plugins.PhoneScreen;
