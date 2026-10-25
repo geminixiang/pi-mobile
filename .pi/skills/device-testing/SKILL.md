@@ -25,6 +25,10 @@ from `CDP_PORT` (default 9333).
   has a debug-key build must uninstall it first, which deletes the app's data. Both run the release build type,
   which is not debuggable: `run-as` fails. On the emulator, `adb root` reads app data
   (`/data/data/dev.geminixiang.pimobile`); `adb unroot` after.
+- **iOS simulator**: `./scripts/run-ios.sh ["iPhone 18 Pro"]` builds, installs, opens, and starts
+  `ios_webkit_debug_proxy` (Homebrew); then `WEBKIT=1 ./test/ui.sh '<async fn>'` drives it like the Android WebView.
+  It uses Xcode through `DEVELOPER_DIR`, so `xcode-select` stays on the Command Line Tools. The simulator shares this
+  computer's network: the gateway is `http://localhost:8317`. Screenshot with `xcrun simctl io booted screenshot`.
 
 ## Scripts
 

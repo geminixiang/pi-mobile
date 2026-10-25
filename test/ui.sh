@@ -1,4 +1,6 @@
 #!/bin/sh
 cd "$(dirname "$0")/.."
-node test/cdp.ts "(async () => { $(cat test/ui.js)
+DRIVER=test/cdp.ts
+[ -n "$WEBKIT" ] && DRIVER=test/webkit.ts
+node "$DRIVER" "(async () => { $(cat test/ui.js)
 return await ($1)(); })()"

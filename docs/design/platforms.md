@@ -84,7 +84,24 @@
 
 ## iOS 要做的事
 
+### 進度（2026-10-25）
+
+一步一步來，跟 Android 一樣邊用邊加工具，不求第一版就有很多工具。
+
+| 步驟 | 內容 | 狀態 |
+|---|---|---|
+| 0 | `ios/` 專案，`scripts/run-ios.sh` 在模擬器上建置、安裝、打開 | 做好了 |
+| 1 | 啟動時檢查有哪些原生 plugin，沒有的工具不安裝（[capabilities.md](capabilities.md)） | 做好了 |
+| 2 | 實機量背景和連電腦（下一節） | 要 iPhone |
+| 3 | Swift plugin：`System`、`StreamFetch`、`Loopback` | |
+| 4 | Swift plugin：`BotFiles`、`Database` | |
+| 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | |
+
+模擬器上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋；工具組只有「網路」，時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
+
 ### 先量，量完再決定要不要投入
+
+0. **連電腦**：app 的網址是 `capacitor://localhost`，iOS 預設擋明文 HTTP，要量 `http://100.x`、`ws://` 到電腦端會不會被擋。被擋的話，電腦端改用 Tailscale 發的 `*.ts.net` 憑證走 https。
 
 1. **背景**：用 `BGContinuedProcessingTask` 開始一輪對話，切出 app，量 WKWebView 裡的 agent 會不會繼續跑、能跑多久。如果 WebKit 的 process 會被暫停，iOS 上一輪對話就只能在前景跑完。
 2. **審核**：code mode 執行模型寫的程式、skills 從外面下載，對照審核規則 2.5.2 和 4.7，先確認上得了 App Store 或 TestFlight。上不了的話，iOS 只剩 ad hoc（最多 100 台）。
