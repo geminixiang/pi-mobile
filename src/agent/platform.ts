@@ -1,5 +1,5 @@
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
-import { Capacitor, CapacitorHttp } from "@capacitor/core";
+import { CapacitorHttp } from "@capacitor/core";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { McpClient, type McpFetch } from "@earendil-works/pi-mcp";
 import type { Settings } from "../settings.ts";
@@ -7,6 +7,7 @@ import { loadModels, type LoadedModels } from "./available-models.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { refuseCleartextSecret } from "./cleartext.ts";
+import { inApp, native, type NativePlugin } from "../native.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
@@ -16,6 +17,8 @@ export interface PhoneApp {
 }
 
 export interface Platform {
+	inApp: boolean;
+	native: ReadonlySet<NativePlugin>;
 	phone: PhoneApp | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
@@ -62,7 +65,9 @@ export const nativeFetch: McpFetch = async (input, init) => {
 
 export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): Platform {
 	return {
-		phone: Capacitor.isNativePlatform() ? { folder: (folder, network) => new PhoneEnv(folder, network), removeFolder: removePhoneFolder } : undefined,
+		inApp,
+		native,
+		phone: native.has("BotFiles") ? { folder: (folder, network) => new PhoneEnv(folder, network), removeFolder: removePhoneFolder } : undefined,
 		plain: {
 			get: (key) => localStorage.getItem(key),
 			set: (key, value) => localStorage.setItem(key, value),

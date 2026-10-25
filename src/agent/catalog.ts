@@ -27,11 +27,12 @@ import { SpeechExtension } from "./tools/speech.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "./triggers.ts";
-import { PHONE_ONLY_EXTENSIONS } from "./toolsets.ts";
+import type { NativePlugin } from "../native.ts";
+import { TOOL_NEEDS, unusableExtensions } from "./toolsets.ts";
 import type { Workplace } from "./workplaces.ts";
 
 export interface CatalogDeps {
-	onPhone: boolean;
+	native: ReadonlySet<NativePlugin>;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;
 	githubToken?: TokenSource;
@@ -48,10 +49,14 @@ const LOADED_TOOLS = new Set(["view_photos", "read_attachment", "read_screen", "
 
 const TOOL_SEARCH = `Load ${[...LOADED_TOOLS].join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
 
-function withReach(extension: Extension): Extension {
+function withReach(extension: Extension, native: ReadonlySet<NativePlugin>): Extension {
+	const usableTool = (name: string) => {
+		const needs = TOOL_NEEDS[name];
+		return !needs || native.has(needs);
+	};
 	return {
 		...extension,
-		tools: extension.tools?.map((tool) =>
+		tools: extension.tools?.filter((tool) => usableTool(tool.name)).map((tool) =>
 			tool.name === "tool_search"
 				? { ...tool, description: TOOL_SEARCH }
 				: MODEL_TOOLS.has(tool.name)
@@ -97,5 +102,6 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
 	];
-	return extensions.filter((extension) => deps.onPhone || !PHONE_ONLY_EXTENSIONS.has(extension.name)).map(withReach);
+	const unusable = unusableExtensions(deps.native);
+	return extensions.filter((extension) => !unusable.has(extension.name)).map((extension) => withReach(extension, deps.native));
 }

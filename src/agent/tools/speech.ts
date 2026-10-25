@@ -1,7 +1,7 @@
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Voice } from "../../voice-plugin.ts";
-import { defineAppTool, requireNative, text } from "./common.ts";
+import { defineAppTool, text } from "./common.ts";
 
 const MAX_CHARS = 3000;
 
@@ -14,7 +14,6 @@ const speak = defineAppTool({
 		language: Type.Optional(Type.String({ description: "BCP 47 tag of the text's language; default zh-TW" })),
 	}),
 	execute: async (args, _api, context) => {
-		requireNative();
 		if (args.text.length > MAX_CHARS) throw new Error(`text is ${args.text.length} characters; keep it under ${MAX_CHARS}`);
 		const stop = () => void Voice.stopSpeaking();
 		context.abortSignal?.addEventListener("abort", stop, { once: true });

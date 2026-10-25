@@ -1,4 +1,5 @@
-import { Capacitor, CapacitorHttp, registerPlugin } from "@capacitor/core";
+import { CapacitorHttp, registerPlugin } from "@capacitor/core";
+import { native } from "../../native.ts";
 import type { Context } from "@earendil-works/chord";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
@@ -216,7 +217,7 @@ export function createWebExtension(config: WebConfig) {
 			const html = type.includes("html");
 			let text = html ? htmlToText(body) : body;
 			let header = `HTTP ${response.status} ${response.url}`;
-			if (html && response.status < 400 && Capacitor.isNativePlatform() && (args.render || visibleLength(text) < RENDER_BELOW_CHARS)) {
+			if (html && response.status < 400 && native.has("Page") && (args.render || visibleLength(text) < RENDER_BELOW_CHARS)) {
 				const page = await Page.render({ url: response.url || args.url }).then(
 					(value) => ({ ok: true as const, value }),
 					(error: unknown) => ({ ok: false as const, message: messageOf(error) }),

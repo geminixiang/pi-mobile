@@ -1,7 +1,7 @@
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, duration, localTime, parseDay, requireNative, text } from "./common.ts";
+import { defineAppTool, duration, localTime, parseDay, text } from "./common.ts";
 
 type CallRecord = {
 	number: string;
@@ -52,7 +52,6 @@ const callLog = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		requireNative();
 		const hours = args.hours ?? 48;
 		const { items } = await Records.calls({ since: Date.now() - hours * 3600_000, limit: 200 });
 		const shown = args.missed_only ? items.filter((call) => call.type === "missed" || call.type === "rejected") : items;
@@ -86,7 +85,6 @@ const readSms = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		requireNative();
 		const hours = args.hours ?? 24;
 		const { items } = await Records.sms({ since: Date.now() - hours * 3600_000, limit: 100, ...(args.query ? { query: args.query } : {}) });
 		const structuredOutput = { items: items.map((sms) => ({ ...sms, time: localTime(sms.time) })) };
@@ -115,7 +113,6 @@ const screenTime = defineAppTool({
 		apps: Type.Array(Type.Object({ app: Type.String(), package: Type.String(), minutes: Type.Number() })),
 	}),
 	execute: async (args) => {
-		requireNative();
 		if (!(await Usage.status()).allowed) {
 			throw new Error("Usage access is off. Tell the user to turn it on in pi's 設定 › 手機 › 系統權限 › 螢幕使用時間.");
 		}

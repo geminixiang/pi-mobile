@@ -3,7 +3,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { codeNote } from "../codes.ts";
-import { defineAppTool, localTime, parseLocalBound, requireNative, text } from "./common.ts";
+import { defineAppTool, localTime, parseLocalBound, text } from "./common.ts";
 import { resolvePlace } from "./device.ts";
 
 type Contact = {
@@ -63,7 +63,6 @@ const contacts = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		requireNative();
 		let { items } = await Contacts.search({ ...(args.query ? { query: args.query } : {}) });
 		if (args.upcoming_birthdays) {
 			const within = 30;
@@ -123,7 +122,6 @@ const findPhotos = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		requireNative();
 		const center = args.place ? await resolvePlace(args.place) : undefined;
 		const limit = args.limit ?? 30;
 		const { items } = await Photos.search({
@@ -163,7 +161,6 @@ const viewPhotos = defineAppTool({
 	description: `Look at photos by the ids find_photos gave, at most ${MAX_VIEW} a call, scaled down. To show one to the user, describe it; they see it in their gallery.`,
 	parameters: Type.Object({ ids: Type.Array(Type.String(), { minItems: 1, maxItems: MAX_VIEW, description: "Photo ids from find_photos" }) }),
 	execute: async (args) => {
-		requireNative();
 		const images: ImageContent[] = [];
 		for (const id of args.ids.slice(0, MAX_VIEW)) {
 			const { data } = await Photos.view({ id });

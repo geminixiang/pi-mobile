@@ -2,7 +2,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { Type } from "typebox";
 import { PhoneScreen, type PhoneScreenSnapshot } from "../../phone-screen-plugin.ts";
 import { messageOf } from "../../promise.ts";
-import { defineAppTool, oneOf, requireNative } from "./common.ts";
+import { defineAppTool, oneOf } from "./common.ts";
 
 const ACTIONS = ["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"] as const;
 const DIRECTIONS = ["down", "up", "left", "right"] as const;
@@ -29,7 +29,6 @@ function present(snapshot: PhoneScreenSnapshot): ToolExecutionResult {
 }
 
 async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecutionResult> {
-	requireNative();
 	if (!(await PhoneScreen.status()).allowed) throw new Error(OFF);
 	try {
 		return present(await work());

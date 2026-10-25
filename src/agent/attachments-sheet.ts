@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { native } from "../native.ts";
 import readXlsxFile from "read-excel-file/universal";
 import { Database, type SqlValue } from "../database-plugin.ts";
 
@@ -105,7 +105,7 @@ const tsv = (rows: Cell[][]) => rows.map((row) => row.map((cell) => (cell === nu
 
 export async function extractSheet(file: File): Promise<{ text: string; tables: { name: string; sheet: string; rows: number; columns: string[] }[] }> {
 	const sheets = (await readSheets(file)).map((sheet) => ({ ...sheet, rows: sheet.rows.filter((row) => !isEmpty(row)) })).filter((sheet) => sheet.rows.length > 0);
-	const taken = new Set(Capacitor.isNativePlatform() ? (await Database.schema()).tables.map((table) => table.name.toLowerCase()) : []);
+	const taken = new Set(native.has("Database") ? (await Database.schema()).tables.map((table) => table.name.toLowerCase()) : []);
 	const base = sqlName(file.name.replace(/\.[^.]+$/, ""));
 	const tables: { name: string; sheet: string; rows: number; columns: string[] }[] = [];
 	const texts: string[] = [];
@@ -113,7 +113,7 @@ export async function extractSheet(file: File): Promise<{ text: string; tables: 
 		const [header, ...rows] = sheet.rows;
 		const columns = columnsOf(header);
 		texts.push(sheets.length > 1 ? `## ${sheet.name}\n${tsv(sheet.rows)}` : tsv(sheet.rows));
-		if (!Capacitor.isNativePlatform()) continue;
+		if (!native.has("Database")) continue;
 		let name = sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base;
 		for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base}_${n}`;
 		taken.add(name.toLowerCase());

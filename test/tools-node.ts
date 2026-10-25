@@ -7,6 +7,7 @@ import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
 import { TOOLSETS } from "../src/agent/toolsets.ts";
+import { NATIVE_PLUGINS } from "../src/native.ts";
 
 const SNAPSHOT = new URL("./tools.snapshot.json", import.meta.url);
 
@@ -24,7 +25,7 @@ const host: PairedHost = { id: "fixture", address: "fixture", name: "fixture", o
 const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { key: "fixture:container", name: "fixture", mode: "容器" }, host, sandbox, root: "fixture", env: unused };
 
 const extensions = builtinExtensions({
-	onPhone: true,
+	native: new Set(NATIVE_PLUGINS),
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
 	githubToken: async () => "token",

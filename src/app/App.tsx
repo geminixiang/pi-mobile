@@ -23,7 +23,8 @@ import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { inForeground, native, notifyAway, setWorking } from "./keepAlive.ts";
+import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
+import { native } from "../native.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { type Trigger, Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
@@ -108,7 +109,7 @@ export function App() {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
 					notify: async (title, text, conversationId, avatar) => {
-						if (inForeground()) return false;
+						if (inForeground() || !native.has("Triggers")) return false;
 						await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
 						return true;
 					},
@@ -435,7 +436,7 @@ export function App() {
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
 						prefs={prefs}
-						capabilities={{ phone: native, sandbox: onSandbox }}
+						capabilities={{ native, sandbox: onSandbox }}
 						initialDraft={pendingDraft}
 						initialFiles={pendingFiles}
 						shared={pendingShared}

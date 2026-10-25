@@ -1,7 +1,7 @@
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, duration, localTime, requireNative, text } from "./common.ts";
+import { defineAppTool, duration, localTime, text } from "./common.ts";
 
 type Metric = "steps" | "heart_rate" | "sleep" | "exercise" | "weight";
 type HealthRecord = {
@@ -47,7 +47,6 @@ const health = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		requireNative();
 		const days = args.days ?? 7;
 		const result = await Health.read({ metric: args.metric, days });
 		const none = `No ${args.metric.replace("_", " ")} data in Health Connect for the last ${days} days. If the user tracks it in Samsung Health, it writes there only with 同意處理健康和保健資料 on (Samsung Health › 設定) and Health Connect allowed.`;

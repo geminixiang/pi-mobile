@@ -1,4 +1,5 @@
-import { Capacitor, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
+import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
+import { native } from "./native.ts";
 
 interface StreamFetchPlugin {
 	start(options: { url: string; method: string; headers: Record<string, string>; body?: string; bodyBase64?: string }): Promise<{ id: string }>;
@@ -90,7 +91,7 @@ function headersOf(init: RequestInit | undefined, input: RequestInfo | URL): Rec
 }
 
 export async function streamFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-	if (!Capacitor.isNativePlatform()) return fetch(input, init);
+	if (!native.has("StreamFetch")) return fetch(input, init);
 	const url = input instanceof Request ? input.url : String(input);
 	const method = init?.method ?? (input instanceof Request ? input.method : "GET");
 	let body: { body: string } | { bodyBase64: string } | undefined;

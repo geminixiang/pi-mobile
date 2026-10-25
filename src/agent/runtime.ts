@@ -29,7 +29,7 @@ import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isEnabled, PHONE_ONLY, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState } from "./toolsets.ts";
+import { isEnabled, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, usable } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
 import { type Workplace, Workplaces } from "./workplaces.ts";
 
@@ -163,8 +163,8 @@ export class AgentRuntime {
 			hostKey: (address) => pairedHosts(settings).find((host) => host.address === address)?.key ?? "",
 		});
 		for (const extension of builtinExtensions({
-			onPhone: platform.phone !== undefined,
-			assistant: createAssistant(platform.phone !== undefined),
+			native: platform.native,
+			assistant: createAssistant(platform.inApp, platform.native.has("Phone")),
 			calendarAccess: parseCalendarAccess(settings.calendarAccess),
 			...(settings.githubToken ? { githubToken: async () => settings.githubToken || undefined } : {}),
 			clouds: clouds.services,
@@ -455,7 +455,7 @@ export class AgentRuntime {
 		const selection = await this.#botToolsets.selection(id);
 		const installed = this.#installed();
 		const notHere = NOT_HERE[this.workplaces.at(String(id))?.kind ?? "missing"];
-		const here = this.#platform.phone ? this.#allToolsets() : this.#allToolsets().filter((toolset) => !PHONE_ONLY.has(toolset.id));
+		const here = this.#allToolsets().filter((toolset) => usable(toolset, this.#platform.native));
 		return here.map((toolset) => ({
 			...toolset,
 			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),

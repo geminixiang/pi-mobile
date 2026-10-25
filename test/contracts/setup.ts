@@ -1,4 +1,5 @@
 import { createModels, fauxProvider } from "@earendil-works/pi-ai";
+import { NATIVE_PLUGINS } from "../../src/native.ts";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
@@ -88,6 +89,9 @@ export const faux = fauxProvider({ provider: "faux", models: [{ id: "model" }] }
 const plain = new Map<string, string>();
 
 export const platform: Platform = {
+	inApp: true,
+	// why: the database section reads the real plugin, which Node does not have
+	native: new Set(NATIVE_PLUGINS.filter((plugin) => plugin !== "Database")),
 	plain: {
 		get: (key) => plain.get(key) ?? null,
 		set: (key, value) => void plain.set(key, value),

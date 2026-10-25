@@ -66,7 +66,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ### 錯誤
 
-- 不在 Android 上：`requireNative()`，訊息統一。
+- 要原生 plugin 的工具：在工具組寫 `needs`（`toolsets.ts`），沒有那個 plugin 的平台不會安裝，不用在工具裡檢查（[capabilities.md](design/capabilities.md)）。
 - 缺權限或設定：錯誤訊息要告訴使用者去哪裡開，路徑寫完整（「設定 › 手機 › 系統權限 › 螢幕使用時間」）。
 - 其他錯誤：說清楚哪裡錯、模型下一步能做什麼（「list_schedules shows them」）。
 

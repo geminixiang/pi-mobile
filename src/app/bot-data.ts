@@ -1,11 +1,12 @@
 import { attachmentOwners, deleteAttachments } from "../agent/attachments.ts";
 import { phoneFolderOwners, removePhoneFolder } from "../agent/files/phone-env.ts";
 import { log } from "../log.ts";
+import { native } from "../native.ts";
 import { clearDraft, draftOwners } from "./drafts.ts";
 import { orLogged } from "../promise.ts";
 
 export async function sweepBotData(current: () => Promise<readonly { id: string; folder: string }[]>): Promise<string[]> {
-	const folders = await orLogged(phoneFolderOwners(), "bot_data.folders_unreadable", []);
+	const folders = native.has("BotFiles") ? await orLogged(phoneFolderOwners(), "bot_data.folders_unreadable", []) : [];
 	const ids = new Set([...(await orLogged(attachmentOwners(), "bot_data.attachments_unreadable", [])), ...(await orLogged(draftOwners(), "bot_data.drafts_unreadable", []))]);
 	const bots = await current();
 	const keepFolders = new Set(bots.map((bot) => bot.folder));

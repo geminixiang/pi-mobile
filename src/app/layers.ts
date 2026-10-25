@@ -1,11 +1,11 @@
 import { App } from "@capacitor/app";
-import { Capacitor } from "@capacitor/core";
+import { inApp } from "../native.ts";
 import { useEffect, useRef } from "react";
 
 const stack: (() => void)[] = [];
 Object.assign(globalThis, { piLayers: stack });
 
-if (Capacitor.isNativePlatform()) {
+if (inApp) {
 	void App.addListener("backButton", () => {
 		const top = stack.at(-1);
 		if (top) top();

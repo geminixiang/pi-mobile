@@ -1,9 +1,8 @@
-import { Capacitor } from "@capacitor/core";
 import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
-import { defineAppTool, requireNative } from "./common.ts";
+import { defineAppTool } from "./common.ts";
 
 function keywords(sql: string): string {
 	return sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g, " ").toUpperCase();
@@ -45,7 +44,6 @@ const sql = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		requireNative();
 		const words = args.statements.map((statement) => keywords(statement.sql));
 		if (words.some((word) => REFUSED.test(word))) throw new Error("ATTACH, DETACH, and VACUUM INTO are not allowed: the database is one file");
 		const { results } = await Database.execute({ statements: args.statements });
@@ -67,7 +65,6 @@ export const DatabaseExtension = defineExtension({
 	tools: [sql],
 	sections: [
 		section("database", async () => {
-			if (!Capacitor.isNativePlatform()) return undefined;
 			const { tables } = await Database.schema();
 			return [
 				"sql is the user's SQLite database, shared by their bots: reuse a fitting table, English names, times as YYYY-MM-DD HH:MM, amounts as numbers, a column for what they filter or total by.",

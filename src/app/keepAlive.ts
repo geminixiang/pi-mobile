@@ -1,5 +1,6 @@
 import { App } from "@capacitor/app";
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { registerPlugin } from "@capacitor/core";
+import { native } from "../native.ts";
 import { log } from "../log.ts";
 import { messageOf } from "../promise.ts";
 
@@ -14,10 +15,10 @@ interface KeepAlivePlugin {
 }
 
 export const KeepAlive = registerPlugin<KeepAlivePlugin>("KeepAlive");
-export const native = Capacitor.isNativePlatform();
+const available = native.has("KeepAlive");
 
 let active = true;
-if (native) {
+if (available) {
 	void App.addListener("appStateChange", ({ isActive }) => {
 		active = isActive;
 		if (isActive) void KeepAlive.clearNotification();
@@ -42,7 +43,7 @@ function showWorking(): void {
 const ASKED_KEY = "pi-mobile.notificationsAsked";
 
 export function setWorking(titles: string[]): void {
-	if (!native) return;
+	if (!available) return;
 	if (titles.length === 0) {
 		if (running) void KeepAlive.stop();
 		running = false;
@@ -58,9 +59,9 @@ export function setWorking(titles: string[]): void {
 }
 
 export function releaseIfIdle(): void {
-	if (native && !running) void KeepAlive.stop();
+	if (available && !running) void KeepAlive.stop();
 }
 
 export function notifyAway(title: string, text: string): void {
-	if (native && !active) void KeepAlive.notify({ title, text });
+	if (available && !active) void KeepAlive.notify({ title, text });
 }

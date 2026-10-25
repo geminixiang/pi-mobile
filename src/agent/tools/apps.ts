@@ -2,7 +2,7 @@ import { App } from "@capacitor/app";
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool, oneOf, parseClock, requireNative, text } from "./common.ts";
+import { defineAppTool, oneOf, parseClock, text } from "./common.ts";
 
 interface AppsPlugin {
 	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
@@ -17,7 +17,6 @@ interface AppsPlugin {
 export const Apps = registerPlugin<AppsPlugin>("Apps");
 
 async function launch(action: () => Promise<void>): Promise<void> {
-	requireNative();
 	if (!(await App.getState()).isActive)
 		throw new Error("pi is in the background, and Android does not let it open other apps from there. Ask the user to open pi and try again.");
 	await action();

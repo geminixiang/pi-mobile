@@ -4,6 +4,7 @@ import type { ModelInfo } from "../agent/models.ts";
 import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, parseProviders, providerName } from "../agent/providers.ts";
 import type { Settings } from "../settings.ts";
 import { signInWithChatGPT } from "../agent/chatgpt.ts";
+import { native } from "../native.ts";
 import { System } from "../system-plugin.ts";
 import { CheckButton } from "./CheckButton.tsx";
 import { ChevronIcon } from "./icons.tsx";
@@ -165,7 +166,7 @@ function ProviderFields({
 					取得 {info.name} 的 API key
 				</button>
 			) : null}
-			{info?.chatgpt ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
+			{info?.chatgpt && native.has("Loopback") ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
 			<CheckButton
 				disabled={config.kind === "custom" ? !config.baseUrl : !apiKey && !signIn}
 				run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}

@@ -1,4 +1,3 @@
-import { Capacitor } from "@capacitor/core";
 import type { TSchema } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import type { JsonValue } from "@earendil-works/chord";
@@ -49,10 +48,6 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 export const text = (value: string): ToolExecutionResult => ({ output: [{ type: "text", text: value }] });
 
 export const json = (value: unknown): ToolExecutionResult => text(JSON.stringify(value, null, 2));
-
-export function requireNative(): void {
-	if (!Capacitor.isNativePlatform()) throw new Error("only available in the Android app");
-}
 
 const pad = (value: number) => String(value).padStart(2, "0");
 

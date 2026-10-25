@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { native } from "../native.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Voice } from "../voice-plugin.ts";
 import { messageOf } from "../promise.ts";
@@ -24,7 +24,7 @@ export function useDictation(onText: (text: string) => void, onError: (message: 
 	callbacks.current = { onText, onError };
 
 	useEffect(() => {
-		if (!Capacitor.isNativePlatform()) return;
+		if (!native.has("Voice")) return;
 		void Voice.available().then(({ available }) => setSupported(available));
 		const handles = [
 			Voice.addListener("ready", () => setState("listening")),

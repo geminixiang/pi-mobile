@@ -1,10 +1,9 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { type ActiveNotification, Notifications, type RecordedNotification } from "../../notifications-plugin.ts";
-import { defineAppTool, localTime, requireNative, text } from "./common.ts";
+import { defineAppTool, localTime, text } from "./common.ts";
 
 export async function requireAccess(): Promise<void> {
-	requireNative();
 	if (!(await Notifications.status()).allowed) {
 		throw new Error("Notification access is off. Tell the user to turn it on in pi's 設定 › 手機 › 通知讀取; nothing can be done with notifications until then.");
 	}

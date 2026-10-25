@@ -1,6 +1,16 @@
 # 這支手機能用哪些工具
 
-狀態：2026-10-24 提出，還沒實作。
+狀態：2026-10-24 提出。第一層（這個 app 有沒有那個原生 plugin）2026-10-25 做好了；硬體這一層還沒做。
+
+## 第一層：plugin（已做）
+
+App 啟動時，`src/native.ts` 用 `Capacitor.isPluginAvailable` 逐一檢查 pi 自己的原生 plugin，結果是 `Platform.native`。工具組在 `toolsets.ts` 寫它要的 plugin（`needs`），工具組以外的單一工具寫在 `TOOL_NEEDS`（`scan_document` 要 `Scanner`），排程整組要 `Triggers`。少了 plugin 的工具不安裝，面板也不列；設定頁的分頁、首頁的建議、附加選單同樣看這個結果。
+
+- Android：20 個都有，跟以前一樣。
+- 瀏覽器：一個都沒有，等於以前的「只在手機上」清單。
+- iOS：寫好一個 plugin，對應的工具就出現，不用改其他地方。
+
+所以 `requireNative()` 拿掉了：工具只在有 plugin 時才裝，呼叫時不用再檢查。新工具用到新的原生 plugin 時，把名字加進 `NATIVE_PLUGINS`，在它的工具組寫 `needs`。
 
 ## 問題
 

@@ -1,6 +1,7 @@
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
-import { KeepAlive, native } from "./keepAlive.ts";
+import { KeepAlive } from "./keepAlive.ts";
+import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { PhoneScreen } from "../phone-screen-plugin.ts";
@@ -54,12 +55,12 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 			(failure: unknown) => setError(messageOf(failure)),
 		);
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("Calendar")) return;
 		void Calendar.checkPermissions().then(({ calendar }) => {
 			if (calendar === "granted") void load();
 		});
 	}, []);
-	if (!native) return null;
+	if (!native.has("Calendar")) return null;
 
 	const set = (next: CalendarAccess) => onChange(JSON.stringify(next));
 	const toggle = (list: string[], key: string, on: boolean) => (on ? [...new Set([...list, key])] : list.filter((item) => item !== key));
@@ -170,7 +171,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	useEffect(() => runtime.triggers.subscribe(setState), [runtime]);
 	useEffect(() => runtime.subscribeBots(setBots), [runtime]);
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("Triggers")) return;
 		const refresh = () =>
 			void Triggers.status().then((status) => {
 				setExact(status.exactAlarms);
@@ -183,7 +184,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 		});
 		return () => void listener.then((handle) => handle.remove());
 	}, [runtime]);
-	if (!native) return null;
+	if (!native.has("Triggers")) return null;
 	const headphones = state.items.some((item) => item.enabled && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(messageOf(failure)));
 
@@ -235,7 +236,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 function SystemAccessGroup() {
 	const [state, setState] = useState<{ usage: boolean; assistant: boolean }>();
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("Usage")) return;
 		const refresh = () =>
 			void Promise.all([Usage.status(), System.assistant()]).then(([usage, assistant]) => setState({ usage: usage.allowed, assistant: assistant.held }));
 		refresh();
@@ -265,7 +266,7 @@ function SystemAccessGroup() {
 function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery: boolean }>();
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("KeepAlive")) return;
 		const refresh = () => void KeepAlive.status().then(setStatus);
 		refresh();
 		const listener = App.addListener("resume", refresh);
@@ -300,7 +301,7 @@ function NotificationsGroup() {
 	const [allowed, setAllowed] = useState<boolean>();
 	const [cleared, showCleared] = useBriefly();
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("Notifications")) return;
 		const refresh = () => void Notifications.status().then((status) => setAllowed(status.allowed));
 		refresh();
 		const listener = App.addListener("resume", refresh);
@@ -335,7 +336,7 @@ function NotificationsGroup() {
 function PhoneScreenGroup() {
 	const [allowed, setAllowed] = useState<boolean>();
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("PhoneScreen")) return;
 		const refresh = () => void PhoneScreen.status().then((status) => setAllowed(status.allowed));
 		refresh();
 		const listener = App.addListener("resume", refresh);
@@ -366,7 +367,7 @@ function DatabaseGroup() {
 	const [tables, setTables] = useState<TableInfo[]>();
 	const [exportError, setExportError] = useState<string>();
 	useEffect(() => {
-		if (!native) return;
+		if (!native.has("Database")) return;
 		void Database.schema().then((schema) => setTables(schema.tables));
 	}, []);
 	if (!tables) return null;
@@ -406,6 +407,8 @@ function DatabaseGroup() {
 	);
 }
 
+const PHONE_PAGE: readonly NativePlugin[] = ["Calendar", "Notifications", "PhoneScreen", "Usage", "KeepAlive"];
+
 type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "schedules" | "data";
 
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
@@ -417,7 +420,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	useEffect(() => runtime?.triggers.subscribe((state) => setTriggers(state.items.length)), [runtime]);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 	useEffect(() => {
-		if (native) void Database.schema().then((schema) => setTables(schema.tables.length));
+		if (native.has("Database")) void Database.schema().then((schema) => setTables(schema.tables.length));
 	}, []);
 	const accounts = [
 		settings.githubToken && "GitHub",
@@ -433,13 +436,9 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		{ page: "accounts", label: "帳號", value: accounts.join("、") },
 		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
 		{ page: "machines", label: "電腦", value: host ? `${host.name}${settings.computer.endsWith(":container") ? " · 容器" : ""}` : undefined },
-		...(native
-			? [
-					{ page: "phone" as const, label: "手機", value: undefined },
-					{ page: "schedules" as const, label: "自動化", value: triggers ? `${triggers} 個` : "" },
-					{ page: "data" as const, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" },
-				]
-			: []),
+		...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, label: "手機", value: undefined }] : []),
+		...(native.has("Triggers") ? [{ page: "schedules" as const, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
+		...(native.has("Database") ? [{ page: "data" as const, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
 	];
 	return (
 		<nav className="menu settings-index">
@@ -687,7 +686,7 @@ export function SettingsView({
 							<br />
 							只屬於<em>你</em>。
 						</h2>
-						<p>加入一個模型供應商就能開始。對話和金鑰都只存在{native ? "這支手機上" : "這個瀏覽器裡"}。</p>
+						<p>加入一個模型供應商就能開始。對話和金鑰都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
 					</div>
 				)}
 				{status ? <div className="banner error">{status}</div> : null}

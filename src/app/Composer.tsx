@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, deleteAttachments, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { Capacitor } from "@capacitor/core";
 import { inboxFile, Scanner } from "../scanner-plugin.ts";
 import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -13,6 +12,7 @@ import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 import { addDraftFile, loadDraftAttachments, receiveDraftFiles, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
+import { native } from "../native.ts";
 
 const MAX_IMAGE_EDGE = 1600;
 
@@ -270,7 +270,7 @@ export function Composer({
 					</div>
 				) : null}
 				<div className="input-row" hidden={listening}>
-					<button type="button" className="icon-button" onClick={() => (Capacitor.isNativePlatform() ? setAttachMenu(true) : fileInput.current?.click())} aria-label="附加檔案或照片">
+					<button type="button" className="icon-button" onClick={() => (native.has("Scanner") ? setAttachMenu(true) : fileInput.current?.click())} aria-label="附加檔案或照片">
 						<PaperclipIcon />
 					</button>
 					<Sheet open={attachMenu} title="附加" onClose={() => setAttachMenu(false)}>

@@ -1,10 +1,11 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Value } from "typebox/value";
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { registerPlugin } from "@capacitor/core";
+import { native } from "../native.ts";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, oneOf, parseClock, parseLocalTime, requireNative, text } from "./tools/common.ts";
+import { defineAppTool, localTime, oneOf, parseClock, parseLocalTime, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
 import { requireAccess } from "./tools/notifications.ts";
 import { Notifications } from "../notifications-plugin.ts";
@@ -137,7 +138,7 @@ interface TriggersPlugin {
 }
 
 export const Triggers = registerPlugin<TriggersPlugin>("Triggers");
-export const nativeTriggers = Capacitor.isNativePlatform();
+export const nativeTriggers = native.has("Triggers");
 
 export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
 	const { events } = await Triggers.events();
@@ -389,7 +390,6 @@ export function createTriggerExtension(host: TriggerHost) {
 			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
 		parameters: CreateScheduleArgs,
 		execute: async (args, api, context) => {
-			requireNative();
 			const { when, note } = await whenOf(args);
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
@@ -424,7 +424,6 @@ export function createTriggerExtension(host: TriggerHost) {
 			note: Type.String({ description: "What to check or do then, as an instruction to yourself" }),
 		}),
 		execute: async (args, api, context) => {
-			requireNative();
 			const existing = await api.snapshot(TriggerDoc, context);
 			const pending = existing?.items.filter((item) => item.kind === "followup").length ?? 0;
 			if (pending >= MAX_FOLLOWUPS) throw new Error(`there are already ${MAX_FOLLOWUPS} pending follow-ups`);
@@ -484,7 +483,6 @@ export function createTriggerExtension(host: TriggerHost) {
 			text: Type.String({ description: "One to three short lines" }),
 		}),
 		execute: async (args, api) => {
-			requireNative();
 			const shown = await host.notify(args.title, args.text, api.conversationId);
 			return text(shown ? "Notified." : "Delivered: the user has pi open and reads your answer.");
 		},

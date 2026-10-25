@@ -107,7 +107,7 @@
 
 ### 手機功能：做不到的，iOS 上模型看不到這些工具
 
-讀通知、回覆通知、通話紀錄、讀簡訊、螢幕使用時間、勿擾、控制其他 app 的媒體播放（只能控制 Apple Music）。這要靠 [capabilities.md](capabilities.md) 先做好：工具在安裝時就依平台過濾，不是呼叫了才失敗。
+讀通知、回覆通知、通話紀錄、讀簡訊、螢幕使用時間、勿擾、控制其他 app 的媒體播放（只能控制 Apple Music）。啟動時檢查有哪些原生 plugin（[capabilities.md](capabilities.md)），沒寫的 plugin 對應的工具就不安裝，所以 iOS 上不用特別處理這些。
 
 ### 自動化
 
@@ -122,5 +122,5 @@ Android 上的自動化靠系統廣播在背景叫醒 pi，iOS 沒有這種機�
 ## 寫 Android 功能時
 
 - **地基**（第 1 節）：新的原生能力如果 iOS 也需要，介面放在 `Platform`（`src/agent/platform.ts`），不要在功能程式裡直接 `registerPlugin`。現在直接呼叫的有 35 個檔案，之後要慢慢收進去。Plugin 的 JS 介面寫成 iOS 也實作得出來的樣子，不要讓 Android 才有的概念（intent、package 名稱、content URI）出現在介面上。
-- **工具**：新工具在第 2 節加一列，填上 iOS 那一格。只有 Android 做得到的也沒關係，以後由 [capabilities.md](capabilities.md) 讓 iOS 上看不到這個工具。現在是呼叫時才失敗（`requireNative()`）。
+- **工具**：新工具在第 2 節加一列，填上 iOS 那一格。只有 Android 做得到的也沒關係：iOS 沒有那個 plugin，啟動時檢查完就不會安裝這個工具（[capabilities.md](capabilities.md)）。
 - **寫死 Android 的地方**：給模型的提示（`triggers.ts`、`apps.ts`、`common.ts`），以及 `web.ts` 的 User-Agent。新寫的提示說「這支裝置」就好，不要寫「Android」。

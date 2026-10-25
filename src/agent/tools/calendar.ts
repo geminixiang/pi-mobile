@@ -2,7 +2,7 @@ import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, requireNative, text } from "./common.ts";
+import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, text } from "./common.ts";
 
 export interface PhoneCalendar {
 	id: number;
@@ -159,7 +159,6 @@ export function createCalendarExtension(access: CalendarAccess) {
 		}),
 		replay: "safe",
 		execute: async (args) => {
-			requireNative();
 			if (args.include_shared && !access.shared)
 				throw new Error("Reading shared calendars is turned off in Settings → 行事曆. Tell the user; do not retry.");
 			const from = args.from ? parseLocalBound(args.from, "from", false) : Date.now();
@@ -201,7 +200,6 @@ export function createCalendarExtension(access: CalendarAccess) {
 		parameters: Type.Object({}),
 		replay: "safe",
 		execute: async () => {
-			requireNative();
 			const calendars = await writableCalendars(access);
 			if (calendars.length === 0) return text(NO_WRITABLE);
 			return text(
@@ -235,7 +233,6 @@ export function createCalendarExtension(access: CalendarAccess) {
 			notes: Type.Optional(Type.String({ description: "Anything else to remember" })),
 		}),
 		execute: async (args) => {
-			requireNative();
 			const allDay = args.all_day ?? false;
 			const times = eventTimes(args.start, args.end, allDay);
 			const calendars = await writableCalendars(access);

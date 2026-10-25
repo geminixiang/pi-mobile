@@ -1,9 +1,9 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
-import { defineAppTool, json, requireNative } from "./common.ts";
+import { defineAppTool, json } from "./common.ts";
 
 interface PhonePlugin {
 	getStatus(): Promise<Record<string, unknown>>;
@@ -27,7 +27,6 @@ const deviceInfo = defineAppTool({
 			language: navigator.language,
 			screen: `${screen.width}x${screen.height} @${devicePixelRatio}x`,
 		};
-		if (!Capacitor.isNativePlatform()) return json({ ...basics, online: navigator.onLine });
 		return json({ ...basics, ...(await Phone.getStatus()) });
 	},
 });
@@ -39,7 +38,6 @@ const getLocation = defineAppTool({
 	parameters: Type.Object({}),
 	replay: "safe",
 	execute: async () => {
-		requireNative();
 		return json(await Phone.getLocation());
 	},
 });
@@ -51,7 +49,6 @@ const readSensors = defineAppTool({
 	parameters: Type.Object({}),
 	replay: "safe",
 	execute: async () => {
-		requireNative();
 		return json(await Phone.readSensors());
 	},
 });
@@ -77,7 +74,6 @@ const FixAddress = Type.Object({
 });
 
 export async function currentPlace(): Promise<Point> {
-	requireNative();
 	const fix = await Phone.getLocation();
 	const latitude = number(fix.latitude);
 	const longitude = number(fix.longitude);
@@ -105,7 +101,6 @@ const travelTime = defineAppTool({
 	}),
 	replay: "safe",
 	execute: async (args, _api, context) => {
-		requireNative();
 		const [from, to] = await Promise.all([args.origin ? resolvePlace(args.origin) : currentPlace(), resolvePlace(args.destination)]);
 		const url = `https://routing.openstreetmap.de/${OSRM_PROFILES[args.mode]}/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=false`;
 		const response = await fetch(url, { signal: context.abortSignal });

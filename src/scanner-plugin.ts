@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { native } from "./native.ts";
 
 export const Scanner = registerPlugin<{
 	scan(options: { pages?: number }): Promise<{ cancelled: true } | { cancelled: false; pdf: string; pages: number }>;
@@ -11,6 +12,6 @@ export async function inboxFile(path: string, name: string, type: string): Promi
 }
 
 export async function ocr(data: string): Promise<string> {
-	if (!Capacitor.isNativePlatform()) return "";
+	if (!native.has("Scanner")) return "";
 	return (await Scanner.ocr({ data })).text.trim();
 }

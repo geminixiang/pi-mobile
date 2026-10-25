@@ -4,7 +4,7 @@ import { defineExtension } from "@earendil-works/pi-durable";
 import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
 import { inboxFile, Scanner } from "../../scanner-plugin.ts";
 import { codeNote } from "../codes.ts";
-import { defineAppTool, requireNative } from "./common.ts";
+import { defineAppTool } from "./common.ts";
 
 const DEFAULT_LINES = 400;
 const MAX_TOKENS = 8_000;
@@ -103,7 +103,6 @@ const scanDocument = defineAppTool({
 		"Open the phone's document scanner for the user to photograph paper (a contract, a receipt, a letter): it finds the edges and flattens the pages. Returns the pages as an attachment with their text (OCR on the phone), like a PDF the user attached. Only when the user asks to scan something now.",
 	parameters: Type.Object({ pages: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "At most this many pages (default 20)" })) }),
 	execute: async (args, api) => {
-		requireNative();
 		const scan = await Scanner.scan({ pages: args.pages ?? 20 });
 		if (scan.cancelled) {
 			return { output: [{ type: "text", text: "The user closed the scanner; nothing was scanned. Reply with one short sentence that says so, such as 「好，沒有掃。」" }], isError: true };
