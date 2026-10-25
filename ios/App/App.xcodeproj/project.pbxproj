@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E17C34996A77220DD4A33601 /* AppsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 284F5282F527EF2EA0AE7A2B /* AppsPlugin.swift */; };
 		518EC3F478C3CBBAA9FACF87 /* Transcription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766F845BDBE5CEDDDBB11261 /* Transcription.swift */; };
 		F277DDEB81AB376707C5C2EB /* PhotosPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3D20C9119237D4FE63D96E /* PhotosPlugin.swift */; };
 		054ABD7158138AAB2F4DBBD2 /* ContactsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 218749A972338FC5615715FF /* ContactsPlugin.swift */; };
@@ -32,6 +33,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		284F5282F527EF2EA0AE7A2B /* AppsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppsPlugin.swift; sourceTree = "<group>"; };
 		766F845BDBE5CEDDDBB11261 /* Transcription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcription.swift; sourceTree = "<group>"; };
 		8B3D20C9119237D4FE63D96E /* PhotosPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotosPlugin.swift; sourceTree = "<group>"; };
 		218749A972338FC5615715FF /* ContactsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsPlugin.swift; sourceTree = "<group>"; };
@@ -93,6 +95,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				284F5282F527EF2EA0AE7A2B /* AppsPlugin.swift */,
 				766F845BDBE5CEDDDBB11261 /* Transcription.swift */,
 				8B3D20C9119237D4FE63D96E /* PhotosPlugin.swift */,
 				218749A972338FC5615715FF /* ContactsPlugin.swift */,
@@ -198,6 +201,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				E17C34996A77220DD4A33601 /* AppsPlugin.swift in Sources */,
 				518EC3F478C3CBBAA9FACF87 /* Transcription.swift in Sources */,
 				F277DDEB81AB376707C5C2EB /* PhotosPlugin.swift in Sources */,
 				054ABD7158138AAB2F4DBBD2 /* ContactsPlugin.swift in Sources */,

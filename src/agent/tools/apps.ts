@@ -18,7 +18,7 @@ export const Apps = registerPlugin<AppsPlugin>("Apps");
 
 async function launch(action: () => Promise<void>): Promise<void> {
 	if (!(await App.getState()).isActive)
-		throw new Error("pi is in the background, and Android does not let it open other apps from there. Ask the user to open pi and try again.");
+		throw new Error("pi is in the background, and the phone does not let it open other apps from there. Ask the user to open pi and try again.");
 	await action();
 }
 
@@ -137,7 +137,7 @@ export function base64(bytes: Uint8Array): string {
 const share = defineAppTool({
 	name: "share",
 	description:
-		"Open the Android share sheet with text and/or one file from your folder (on the phone, or in the sandbox when there is one), so the user can send it to another app (LINE, Drive, email…). The user picks the target.",
+		"Open the phone's share sheet with text and/or one file from your folder (on the phone, or in the sandbox when there is one), so the user can send it to another app (LINE, Drive, email…). The user picks the target.",
 	parameters: Type.Object({
 		text: Type.Optional(Type.String({ description: "Text to share" })),
 		path: Type.Optional(Type.String({ description: "File in your folder to share, as read takes it, e.g. report.csv" })),

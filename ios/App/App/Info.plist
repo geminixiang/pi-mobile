@@ -8,6 +8,8 @@
 	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>讓 Bot 讀你的行程、幫你新增活動；只用你在設定裡打開的日曆。</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>讓 Bot 幫你設鬧鐘和計時器。</string>
 	<key>NSContactsUsageDescription</key>
 	<string>讓 Bot 用名字找到聯絡人的電話、email 和生日。</string>
 	<key>NSPhotoLibraryUsageDescription</key>

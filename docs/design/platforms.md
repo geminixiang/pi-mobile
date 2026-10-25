@@ -95,7 +95,7 @@
 | 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
 | 3 | Swift plugin：`KeepAlive`（背景）、`System`、`StreamFetch`、`Loopback` | 做好了，模擬器和 iPad 都驗過 |
 | 4 | Swift plugin：`BotFiles`、`Database` | 做好了，模擬器和 iPad 都驗過 |
-| 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | 進行中：`Phone`（位置、裝置狀態、氣壓、地名查座標）帶出天氣、地點、手機狀態；`Calendar`（EventKit）帶出行事曆；`Voice`（朗讀、語音輸入）、`Contacts`、`Photos` |
+| 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | 進行中：`Phone`（位置、裝置狀態、氣壓、地名查座標）帶出天氣、地點、手機狀態；`Calendar`（EventKit）帶出行事曆；`Voice`（朗讀、語音輸入）、`Contacts`、`Photos`；`Apps`（鬧鐘、計時器、草稿、地圖、連結、分享、預覽檔案） |
 
 模擬器和 iPad 上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋、Bot 資料夾（檔案、bash）、資料庫（`sql`、記帳）、背景跑完一輪和完成通知、ChatGPT 和 MCP 的登入流程。工具組有「網路」「檔案」「資料庫」；時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
 
@@ -131,6 +131,10 @@
   - 聯絡人用 Contacts framework，沒有「最愛」可讀，所以沒有 `starred`。
   - 照片用 PhotoKit，「部分照片」也算有權限，只看得到使用者選的。相簿名稱是系統依 app 語言給的英文（Screenshots），用中文「截圖」找不到。
   - 模擬器上：查電話、近期生日、找 2012 年的照片並看第一張（瀑布）、朗讀早安都對。iPad 上讀到聯絡人和照片（只看數量）。
+- **`Apps`（2026-10-26）**：
+  - 鬧鐘和計時器用 AlarmKit（iOS 26），不打開時鐘 app，專注模式也會響。計時器排成「到點響的鬧鐘」：AlarmKit 的倒數計時要另外做 widget extension 顯示 Live Activity。
+  - 第一次要授權，等使用者按允許時，計時器的結束時間要從授權後才算。iPad 上第一次等了 5 分鐘，時間已經過了，AlarmKit 回「error 0」。修正後，泡麵計時器和一次性鬧鐘都響了。
+  - 寫信和簡訊用系統的撰寫畫面；裝置不能寄（例如 iPad 沒設郵件帳號）時，改開 `mailto:`／`sms:`。分享用系統的分享畫面，預覽檔案用 Quick Look。開地圖和連結交給系統。
 
 ### 先量，量完再決定要不要投入
 
