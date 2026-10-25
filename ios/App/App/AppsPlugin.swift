@@ -38,7 +38,7 @@ public class AppsPlugin: CAPPlugin, CAPBridgedPlugin, MFMailComposeViewControlle
                     return
                 }
                 let stop = AlarmButton(text: "停止", textColor: .white, systemImageName: "stop.circle")
-                let presentation = AlarmPresentation(alert: AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: label), stopButton: stop))
+                let presentation = AlarmPresentation(alert: AlarmPresentation.Alert(title: "\(label)", stopButton: stop))
                 let attributes = AlarmAttributes<PiAlarm>(presentation: presentation, tintColor: .orange)
                 _ = try await AlarmManager.shared.schedule(id: UUID(), configuration: .alarm(schedule: alarm(), attributes: attributes))
                 call.resolve()
