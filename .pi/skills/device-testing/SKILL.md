@@ -32,10 +32,12 @@ from `CDP_PORT` (default 9333).
 - **iPad** (iPad Air 5, iPadOS 26.7): plugged into the MacBook Air (`ssh macbook`), which has Xcode and the
   a paid Apple developer team. Build there through `~/pi-mobile-ios/gui-run.sh "<command>"`, which runs it as a launchd
   job in the desktop session: over SSH the login keychain is locked and codesign fails with `errSecInternalComponent`.
-  Install and open with `xcrun devicectl device install app` / `process launch` there. To drive it from this Mac:
-  `ssh -f -N -L 27015:/var/run/usbmuxd macbook`, then
-  `USBMUXD_SOCKET_ADDRESS=127.0.0.1:27015 uvx pymobiledevice3 webinspector cdp --userspace --port 9223`, then
-  `CDP_PORT=9223 ./test/ui.sh` and `ask.js` work as on Android. The iPad reaches this Mac only by its `*.ts.net` name
+  Install and open with `xcrun devicectl device install app` / `process launch` there. To drive it from this Mac,
+  run the CDP bridge on the MacBook Air and forward its port:
+  `ssh macbook 'nohup ~/.local/bin/uvx pymobiledevice3 webinspector cdp --native --port 9223 &'`, then
+  `ssh -f -N -L 9223:localhost:9223 macbook`; `CDP_PORT=9223 ./test/ui.sh` and `ask.js` work as on Android.
+  `--native` reaches the iPad through CoreDevice over USB or the local network alike; forwarding usbmuxd works only
+  while it is on USB. Keep the MacBook Air awake (`caffeinate -dis`) and the iPad unlocked to launch pi. The iPad reaches this Mac only by its `*.ts.net` name
   (ATS blocks plain HTTP to `100.x`).
 
 ## Scripts
