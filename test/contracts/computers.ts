@@ -8,6 +8,32 @@ const host = { id: "b.example", address: "b.example", name: "B", os: "linux", ar
 
 export const checks: Check[] = [
 	[
+		"unchanged computer resolution preserves the host used by preparation effects",
+		async () => {
+			const config = { ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" };
+			const workplaces = new Workplaces(config, {}, platform.phoneFolder, (id) => ({ folder: id }));
+			const replacement = new Workplaces({ ...config, hosts: JSON.stringify([{ ...host, address: "new.example" }]) }, {}, platform.phoneFolder, (id) => ({ folder: id }));
+			try {
+				const first = workplaces.at("first");
+				assert(first?.kind === "computer");
+				for (let i = 0; i < 100; i++) {
+					const next = workplaces.at(`bot-${i}`);
+					assert(next?.kind === "computer");
+					assert.equal(next.host, first.host);
+					assert.equal(next.sandbox, first.sandbox);
+				}
+				const changed = replacement.at("first");
+				assert(changed?.kind === "computer");
+				assert.notEqual(changed.host, first.host);
+				assert.equal(changed.host.address, "new.example");
+				assert.equal(first.host.address, "b.example");
+			} finally {
+				workplaces.close();
+				replacement.close();
+			}
+		},
+	],
+	[
 		"a bot whose computer was removed does not move to another computer",
 		async () => {
 			const bots = new Map([

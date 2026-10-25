@@ -29,6 +29,7 @@ function parseKey(key: string): { id: string; mode: HostMode } | undefined {
 
 export class Workplaces {
 	readonly #settings: Settings;
+	readonly #hosts: Host[];
 	readonly #minted: Record<string, MintedService>;
 	readonly #phoneFolder: (folder: string, network: FolderNetwork) => ExecutionEnv;
 	readonly #placed: (id: string) => Placed | undefined;
@@ -36,6 +37,7 @@ export class Workplaces {
 
 	constructor(settings: Settings, minted: Record<string, MintedService>, phoneFolder: (folder: string, network: FolderNetwork) => ExecutionEnv, placed: (id: string) => Placed | undefined) {
 		this.#settings = settings;
+		this.#hosts = parseHosts(settings.hosts);
 		this.#minted = minted;
 		this.#phoneFolder = phoneFolder;
 		this.#placed = placed;
@@ -43,7 +45,7 @@ export class Workplaces {
 
 	list(): Computer[] {
 		const items: Computer[] = [{ key: PHONE, name: "手機", mode: "手機" }];
-		for (const host of parseHosts(this.#settings.hosts)) {
+		for (const host of this.#hosts) {
 			items.push({ key: `${host.id}:direct`, name: host.name, mode: MODE_LABEL.direct });
 			if (host.engine) items.push({ key: `${host.id}:container`, name: host.name, mode: MODE_LABEL.container });
 		}
@@ -67,7 +69,7 @@ export class Workplaces {
 		if (!computer) return { kind: "missing", key };
 		if (key === PHONE) return { kind: "phone", folder, env: () => this.#phoneFolder(folder, this.network) };
 		const parsed = parseKey(key);
-		const host = parsed && parseHosts(this.#settings.hosts).find((candidate) => candidate.id === parsed.id);
+		const host = parsed && this.#hosts.find((candidate) => candidate.id === parsed.id);
 		if (!parsed || !host) return { kind: "missing", key };
 		const sandbox = this.#sandbox(key, host, parsed.mode);
 		return { kind: "computer", folder, computer, host, sandbox, root: sandbox.root(folder), env: () => sandbox.env(folder) };
@@ -84,7 +86,7 @@ export class Workplaces {
 	containers(): { key: string; sandbox: Sandbox }[] {
 		return this.list().flatMap((computer) => {
 			const parsed = parseKey(computer.key);
-			const host = parsed && parseHosts(this.#settings.hosts).find((candidate) => candidate.id === parsed.id);
+			const host = parsed && this.#hosts.find((candidate) => candidate.id === parsed.id);
 			return parsed?.mode === "container" && host ? [{ key: computer.key, sandbox: this.#sandbox(computer.key, host, parsed.mode) }] : [];
 		});
 	}
