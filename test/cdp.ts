@@ -25,9 +25,9 @@ function send(method: string, params: object): Promise<unknown> {
 
 const expression = process.argv[2];
 if (!expression) throw new Error("Pass an expression");
-const result = (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })) as {
-	result?: { value?: unknown };
-	exceptionDetails?: unknown;
-};
-console.log(JSON.stringify(result.exceptionDetails ?? result.result?.value, null, 2));
+type Evaluated = { result?: { objectId?: string; value?: unknown; description?: string }; exceptionDetails?: unknown; wasThrown?: boolean };
+// why: the iPad's CDP bridge (pymobiledevice3) ignores awaitPromise on evaluate but supports Runtime.awaitPromise
+const started = (await send("Runtime.evaluate", { expression })) as Evaluated;
+const result = started.exceptionDetails ? started : ((await send("Runtime.awaitPromise", { promiseObjectId: started.result?.objectId, returnByValue: true })) as Evaluated);
+console.log(JSON.stringify(result.exceptionDetails ?? (result.wasThrown ? result.result?.description : result.result?.value), null, 2));
 socket.close();

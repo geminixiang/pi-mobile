@@ -29,6 +29,14 @@ from `CDP_PORT` (default 9333).
   `ios_webkit_debug_proxy` (Homebrew); then `WEBKIT=1 ./test/ui.sh '<async fn>'` drives it like the Android WebView.
   It uses Xcode through `DEVELOPER_DIR`, so `xcode-select` stays on the Command Line Tools. The simulator shares this
   computer's network: the gateway is `http://localhost:8317`. Screenshot with `xcrun simctl io booted screenshot`.
+- **iPad** (iPad Air 5, iPadOS 26.7): plugged into the MacBook Air (`ssh macbook`), which has Xcode and the
+  a paid Apple developer team. Build there through `~/pi-mobile-ios/gui-run.sh "<command>"`, which runs it as a launchd
+  job in the desktop session: over SSH the login keychain is locked and codesign fails with `errSecInternalComponent`.
+  Install and open with `xcrun devicectl device install app` / `process launch` there. To drive it from this Mac:
+  `ssh -f -N -L 27015:/var/run/usbmuxd macbook`, then
+  `USBMUXD_SOCKET_ADDRESS=127.0.0.1:27015 uvx pymobiledevice3 webinspector cdp --userspace --port 9223`, then
+  `CDP_PORT=9223 ./test/ui.sh` and `ask.js` work as on Android. The iPad reaches this Mac only by its `*.ts.net` name
+  (ATS blocks plain HTTP to `100.x`).
 
 ## Scripts
 

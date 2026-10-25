@@ -92,16 +92,20 @@
 |---|---|---|
 | 0 | `ios/` 專案，`scripts/run-ios.sh` 在模擬器上建置、安裝、打開 | 做好了 |
 | 1 | 啟動時檢查有哪些原生 plugin，沒有的工具不安裝（[capabilities.md](capabilities.md)） | 做好了 |
-| 2 | 實機量背景和連電腦（下一節） | 要 iPhone |
+| 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
 | 3 | Swift plugin：`System`、`StreamFetch`、`Loopback` | |
 | 4 | Swift plugin：`BotFiles`、`Database` | |
 | 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | |
 
 模擬器上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋；工具組只有「網路」，時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
 
-### 先量，量完再決定要不要投入
+### 實機量到的（2026-10-25，iPad Air 5，iPadOS 26.7）
 
-0. **連電腦**：app 的網址是 `capacitor://localhost`，iOS 預設擋明文 HTTP，要量 `http://100.x`、`ws://` 到電腦端會不會被擋。被擋的話，電腦端改用 Tailscale 發的 `*.ts.net` 憑證走 https。
+- **明文 HTTP**：iOS 的 ATS 預設全擋（錯誤 -1022，JS 只看到 `Load failed`），`http://` 和 `ws://` 都一樣。`Info.plist` 現在放行 `*.ts.net` 和本機網路：用 Tailscale 名稱（`mac.tailnet.ts.net:8317`）的模型閘道和電腦端都通，`100.x` 的 IP 還是被擋，ATS 沒辦法用 IP 範圍放行。要讓 IP 也能用，只能整個放行（`NSAllowsArbitraryLoads`），送金鑰的限制仍由 `refuseCleartextSecret` 把關，跟 Android 一樣。
+- **背景**：送出一輪對話後切到別的 app，JS 再跑約 15–20 秒就停了；當時正在等的網路搜尋失敗，切回來後模型照常收尾，回答「無法連上網路搜尋」。對話沒有壞，但背景裡做不完事。要在背景跑完，得用 `BGContinuedProcessingTask`（原生端），再量一次。
+- **其他**：設定供應商（金鑰存 Keychain）、對話、code mode、網路搜尋都正常，回答的時間正確。
+
+### 先量，量完再決定要不要投入
 
 1. **背景**：用 `BGContinuedProcessingTask` 開始一輪對話，切出 app，量 WKWebView 裡的 agent 會不會繼續跑、能跑多久。如果 WebKit 的 process 會被暫停，iOS 上一輪對話就只能在前景跑完。
 2. **審核**：code mode 執行模型寫的程式、skills 從外面下載，對照審核規則 2.5.2 和 4.7，先確認上得了 App Store 或 TestFlight。上不了的話，iOS 只剩 ad hoc（最多 100 台）。
