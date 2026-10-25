@@ -17,6 +17,8 @@ import { lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts"
 import { WORKSPACE } from "./workspace.ts";
 import { decode } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
+import { refuseIpOnIos } from "../cleartext.ts";
+import { ios } from "../../native.ts";
 
 const HOST_PORT = 4790;
 
@@ -62,7 +64,9 @@ export function parseHosts(json: string): Host[] {
 }
 
 function base(address: string): string {
-	return `http://${address.includes(":") ? `[${address}]` : address}:${HOST_PORT}`;
+	const root = `http://${address.includes(":") ? `[${address}]` : address}:${HOST_PORT}`;
+	refuseIpOnIos(root, ios);
+	return root;
 }
 
 // why: a WebSocket from the WebView cannot carry headers, so the pairing key rides in the query on every request alike.

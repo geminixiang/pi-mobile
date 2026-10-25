@@ -27,4 +27,6 @@ export type NativePlugin = (typeof NATIVE_PLUGINS)[number];
 
 export const inApp = Capacitor.isNativePlatform();
 
+export const ios = Capacitor.getPlatform() === "ios";
+
 export const native: ReadonlySet<NativePlugin> = new Set(NATIVE_PLUGINS.filter((name) => Capacitor.isPluginAvailable(name)));

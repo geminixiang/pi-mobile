@@ -101,7 +101,7 @@
 
 ### 實機量到的（2026-10-25，iPad Air 5，iPadOS 26.7）
 
-- **明文 HTTP**：iOS 的 ATS 預設全擋（錯誤 -1022，JS 只看到 `Load failed`），`http://` 和 `ws://` 都一樣。`Info.plist` 現在放行 `*.ts.net` 和本機網路：用 Tailscale 名稱（`mac.tailnet.ts.net:8317`）的模型閘道和電腦端都通，`100.x` 的 IP 還是被擋，ATS 沒辦法用 IP 範圍放行。要讓 IP 也能用，只能整個放行（`NSAllowsArbitraryLoads`），送金鑰的限制仍由 `refuseCleartextSecret` 把關，跟 Android 一樣。
+- **明文 HTTP**：iOS 的 ATS 預設全擋（錯誤 -1022，JS 只看到 `Load failed`），`http://` 和 `ws://` 都一樣。`Info.plist` 現在放行 `*.ts.net` 和本機網路：用 Tailscale 名稱（`mac.tailnet.ts.net:8317`）的模型閘道和電腦端都通，`100.x` 的 IP 還是被擋，ATS 沒辦法用 IP 範圍放行。決定（2026-10-25）：不整個放行（`NSAllowsArbitraryLoads`），iOS 上用 Tailscale 名稱；填了 IP 時 `refuseIpOnIos` 直接說要改填名稱，不讓使用者只看到 `Load failed`。
 - **背景**：送出一輪對話後切到別的 app，JS 再跑約 15–20 秒就停了；當時正在等的網路搜尋失敗，切回來後模型照常收尾，回答「無法連上網路搜尋」。對話沒有壞，但背景裡做不完事。要在背景跑完，得用 `BGContinuedProcessingTask`（原生端），再量一次。
 - **其他**：設定供應商（金鑰存 Keychain）、對話、code mode、網路搜尋都正常，回答的時間正確。
 

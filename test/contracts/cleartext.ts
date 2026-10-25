@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { refuseIpOnIos } from "../../src/agent/cleartext.ts";
 import { fetchModelIds } from "../../src/agent/models.ts";
 import { type Check } from "./setup.ts";
 
@@ -16,6 +17,18 @@ export const checks: Check[] = [
 				await assert.rejects(fetchModelIds(url, "secret"), offline, url);
 			}
 			await assert.rejects(fetchModelIds("http://192.168.1.20:11434", ""), offline, "a keyless server on the LAN is still reachable");
+		},
+	],
+	[
+		"on iOS a plain HTTP address is a Tailscale name, which ATS lets through, not an IP, which it blocks",
+		async () => {
+			for (const url of ["http://100.64.0.1:8317", "ws://100.64.0.1:4790/exec", "http://[fd7a:115c:a1e0::1]:4790", "http://192.168.1.20:11434"]) {
+				assert.throws(() => refuseIpOnIos(url, true), /Tailscale 名稱/, url);
+				assert.doesNotThrow(() => refuseIpOnIos(url, false), url);
+			}
+			for (const url of ["http://mac.tailnet.ts.net:8317", "http://mac:4790", "http://localhost:8317", "http://127.0.0.1:8317", "https://100.64.0.1"]) {
+				assert.doesNotThrow(() => refuseIpOnIos(url, true), url);
+			}
 		},
 	],
 ];

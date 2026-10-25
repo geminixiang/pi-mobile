@@ -4,7 +4,8 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { Type } from "typebox";
 import { parse } from "./parse.ts";
-import { refuseCleartextSecret } from "./cleartext.ts";
+import { refuseCleartextSecret, refuseIpOnIos } from "./cleartext.ts";
+import { ios } from "../native.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -97,6 +98,7 @@ function toModel(id: string, provider: string, baseUrl: string, catalog: Catalog
 
 export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<string[]> {
 	const url = `${rootUrl(baseUrl)}/v1/models`;
+	refuseIpOnIos(url, ios);
 	if (apiKey) refuseCleartextSecret(url);
 	const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 	let response = await fetch(url, { headers, signal });

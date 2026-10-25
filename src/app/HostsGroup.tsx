@@ -205,7 +205,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 						setAddress(event.target.value);
 						setAdding({ state: "idle" });
 					}}
-					placeholder="Tailscale 裡的名稱或 IP"
+					placeholder="Tailscale 裡的名稱"
 					autoCapitalize="off"
 					autoComplete="off"
 					enterKeyHint="next"

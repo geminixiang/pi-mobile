@@ -143,7 +143,7 @@ function ProviderFields({
 						<input
 							value={config.baseUrl}
 							onChange={(event) => onConfig({ ...config, baseUrl: event.target.value.trim() })}
-							placeholder="http://100.x.y.z:8317"
+							placeholder="http://mac.xxxx.ts.net:8317"
 							autoCapitalize="off"
 							autoComplete="off"
 							inputMode="url"
