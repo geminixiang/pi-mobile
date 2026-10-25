@@ -55,9 +55,24 @@ export function lost(message: string): RemoteError {
 	return new RemoteError({ code: "unknown", message, lost: true });
 }
 
+function unsent(): RemoteError {
+	return new RemoteError({ code: "unknown", message: "pi-env connection lost before the request was sent", lost: true, outcome: "unsent" });
+}
+
+function unknownOutcome(cause: RemoteError): RemoteError {
+	return new RemoteError({ ...cause.fields, message: `${cause.message}; the request had been sent, so its outcome is unknown: check before retrying`, outcome: "unknown" });
+}
+
 function closed(): RemoteError {
 	return new RemoteError({ code: "unknown", message: "Connection closed" });
 }
+
+export type ConnectionStatus =
+	| { kind: "idle" }
+	| { kind: "connecting" }
+	| { kind: "connected"; session: number }
+	| { kind: "lost"; reason: string; at: number }
+	| { kind: "closed" };
 
 function randomHex(bytes: number): string {
 	return [...crypto.getRandomValues(new Uint8Array(bytes))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -86,12 +101,14 @@ export type OpenDaemon = (token: string, handlers: StreamHandlers) => Promise<Da
 export interface StreamConnectionOptions {
 	open: OpenDaemon;
 	onLog?: (text: string) => void;
+	onStatus?: (status: ConnectionStatus) => void;
 }
 
 type Pending = {
 	resolve: (value: Reply) => void;
 	reject: (error: Error) => void;
 	onEvent?: (json: Json, payload: Uint8Array) => void;
+	sent: boolean;
 };
 
 class Session {
@@ -125,9 +142,19 @@ export class StreamConnection {
 	#sessions = 0;
 	#nextId = 1;
 	#closed = false;
+	#status: ConnectionStatus = { kind: "idle" };
 
 	constructor(options: StreamConnectionOptions) {
 		this.#options = options;
+	}
+
+	get status(): ConnectionStatus {
+		return this.#status;
+	}
+
+	#setStatus(status: ConnectionStatus): void {
+		this.#status = status;
+		this.#options.onStatus?.(status);
 	}
 
 	async info(): Promise<RemoteInfo> {
@@ -141,7 +168,7 @@ export class StreamConnection {
 	async request(op: string, json: Json, options: RequestOptions = {}): Promise<Reply> {
 		if (options.session !== undefined) {
 			const current = this.#session;
-			if (current === undefined || current.id !== options.session || !current.live) throw lost("pi-env connection lost");
+			if (current === undefined || current.id !== options.session || !current.live) throw unsent();
 			return this.#send(current, op, json, options);
 		}
 		const { session } = await this.#connect();
@@ -151,6 +178,7 @@ export class StreamConnection {
 	close(): void {
 		this.#closed = true;
 		if (this.#session) this.#teardown(this.#session, closed());
+		this.#setStatus({ kind: "closed" });
 	}
 
 	kill(id: number, session: number): void {
@@ -171,12 +199,12 @@ export class StreamConnection {
 	}
 
 	#send(session: Session, op: string, json: Json, options: RequestOptions): Promise<Reply> {
-		if (!session.live) return Promise.reject(lost("pi-env connection lost"));
+		if (!session.live) return Promise.reject(unsent());
 		const id = this.#nextId++;
 		return new Promise((resolve, reject) => {
 			const onAbort = () => this.#write(session, frame(CANCEL, id, {}));
 			const done = () => options.signal?.removeEventListener("abort", onAbort);
-			session.pending.set(id, {
+			const pending: Pending = {
 				resolve: (value) => {
 					done();
 					resolve(value);
@@ -186,16 +214,25 @@ export class StreamConnection {
 					reject(error);
 				},
 				...(options.onEvent ? { onEvent: options.onEvent } : {}),
-			});
+				sent: false,
+			};
+			session.pending.set(id, pending);
 			options.signal?.addEventListener("abort", onAbort, { once: true });
 			options.onStart?.(id, session.id);
-			this.#write(session, frame(REQUEST, id, { ...json, op }, options.payload));
+			pending.sent = this.#write(session, frame(REQUEST, id, { ...json, op }, options.payload));
+			if (!pending.sent) {
+				session.pending.delete(id);
+				pending.reject(unsent());
+				return;
+			}
 			if (options.signal?.aborted) onAbort();
 		});
 	}
 
-	#write(session: Session, data: Uint8Array<ArrayBuffer>): void {
-		if (session.live) session.stream?.send(data);
+	#write(session: Session, data: Uint8Array<ArrayBuffer>): boolean {
+		if (!session.live || !session.stream) return false;
+		session.stream.send(data);
+		return true;
 	}
 
 	async #start(): Promise<{ info: RemoteInfo; session: Session }> {
@@ -203,6 +240,7 @@ export class StreamConnection {
 		const token = randomHex(16);
 		const session = new Session(++this.#sessions, token);
 		this.#session = session;
+		this.#setStatus({ kind: "connecting" });
 
 		let startTimer: ReturnType<typeof setTimeout> | undefined;
 		let rejectStart: (error: Error) => void = () => {};
@@ -242,6 +280,7 @@ export class StreamConnection {
 			const hello = check(Hello, json, "pi-env hello");
 			if (!hello.ok) throw lost(hello.problem);
 			const info: RemoteInfo = hello.value;
+			this.#setStatus({ kind: "connected", session: session.id });
 			return { info, session };
 		} catch (error) {
 			this.#teardown(session, error instanceof Error ? error : lost(String(error)));
@@ -262,7 +301,8 @@ export class StreamConnection {
 		session.stream?.close();
 		const pending = [...session.pending.values()];
 		session.pending.clear();
-		for (const request of pending) request.reject(error);
+		for (const request of pending) request.reject(request.sent && error instanceof RemoteError ? unknownOutcome(error) : request.sent ? error : unsent());
+		if (!this.#closed) this.#setStatus({ kind: "lost", reason: error.message, at: Date.now() });
 	}
 
 	#onData(session: Session, chunk: Uint8Array): void {
