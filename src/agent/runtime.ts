@@ -15,7 +15,7 @@ import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Settings } from "../settings.ts";
 import { log } from "../log.ts";
 import { orLogged, messageOf } from "../promise.ts";
-import { Assistant } from "./assistant.ts";
+import { createAssistant } from "./assistant.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
@@ -28,7 +28,7 @@ import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isEnabled, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState } from "./toolsets.ts";
+import { isEnabled, PHONE_ONLY, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
 import { type Workplace, Workplaces } from "./workplaces.ts";
 
@@ -152,7 +152,7 @@ export class AgentRuntime {
 		};
 		const placed = new Map<string, { folder: string; computer?: string }>();
 		const clouds = connectClouds(settings);
-		const workplaces = new Workplaces(settings, clouds.minted, platform.phoneFolder, (id) => placed.get(id));
+		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
 		const mcp: McpHub = new McpHub(platform, {
 			install: (extension) => registry.install(extension),
@@ -161,7 +161,8 @@ export class AgentRuntime {
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 		});
 		for (const extension of builtinExtensions({
-			assistant: Assistant,
+			onPhone: platform.phone !== undefined,
+			assistant: createAssistant(platform.phone !== undefined),
 			calendarAccess: parseCalendarAccess(settings.calendarAccess),
 			...(settings.githubToken ? { githubToken: async () => settings.githubToken || undefined } : {}),
 			clouds: clouds.services,
@@ -314,7 +315,8 @@ export class AgentRuntime {
 				),
 			),
 		);
-		await orLogged(this.#platform.removePhoneFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
+		const phone = this.#platform.phone;
+		if (phone) await orLogged(phone.removeFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
 		await orLogged(deleteAttachments({ conversationId: String(bot.id) }), "bot.remove_attachments_failed", undefined, { bot: String(bot.id) });
 		if (left.some((key) => key !== undefined)) return;
 		await this.#harness.commit(async (tx) => {
@@ -357,7 +359,7 @@ export class AgentRuntime {
 
 	phoneFolder(id: ConversationId): ExecutionEnv | undefined {
 		const folder = this.#placed.get(String(id))?.folder;
-		return folder ? this.#platform.phoneFolder(folder, this.workplaces.network) : undefined;
+		return folder ? this.#platform.phone?.folder(folder, this.workplaces.network) : undefined;
 	}
 
 	async resetSandbox(id: ConversationId): Promise<void> {
@@ -451,7 +453,8 @@ export class AgentRuntime {
 		const selection = await this.#botToolsets.selection(id);
 		const installed = this.#installed();
 		const notHere = NOT_HERE[this.workplaces.at(String(id))?.kind ?? "missing"];
-		return this.#allToolsets().map((toolset) => ({
+		const here = this.#platform.phone ? this.#allToolsets() : this.#allToolsets().filter((toolset) => !PHONE_ONLY.has(toolset.id));
+		return here.map((toolset) => ({
 			...toolset,
 			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),
 			enabled: isEnabled(selection, toolset),

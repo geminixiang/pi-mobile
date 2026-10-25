@@ -1,5 +1,5 @@
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
-import { CapacitorHttp } from "@capacitor/core";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { McpClient, type McpFetch } from "@earendil-works/pi-mcp";
 import type { Settings } from "../settings.ts";
@@ -9,12 +9,16 @@ import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
+export interface PhoneApp {
+	folder(folder: string, network: FolderNetwork): ExecutionEnv;
+	removeFolder(folder: string): Promise<void>;
+}
+
 export interface Platform {
+	phone: PhoneApp | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
 	mcpClient(): McpSession;
-	phoneFolder(folder: string, network: FolderNetwork): ExecutionEnv;
-	removePhoneFolder(folder: string): Promise<void>;
 	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
 
@@ -56,6 +60,7 @@ export const nativeFetch: McpFetch = async (input, init) => {
 
 export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): Platform {
 	return {
+		phone: Capacitor.isNativePlatform() ? { folder: (folder, network) => new PhoneEnv(folder, network), removeFolder: removePhoneFolder } : undefined,
 		plain: {
 			get: (key) => localStorage.getItem(key),
 			set: (key, value) => localStorage.setItem(key, value),
@@ -75,8 +80,6 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 			},
 		},
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),
-		phoneFolder: (folder, network) => new PhoneEnv(folder, network),
-		removePhoneFolder,
 		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
 	};
 }

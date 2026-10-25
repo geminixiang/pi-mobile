@@ -11,8 +11,8 @@ export const checks: Check[] = [
 		"unchanged computer resolution preserves the host used by preparation effects",
 		async () => {
 			const config = { ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" };
-			const workplaces = new Workplaces(config, {}, platform.phoneFolder, (id) => ({ folder: id }));
-			const replacement = new Workplaces({ ...config, hosts: JSON.stringify([{ ...host, address: "new.example" }]) }, {}, platform.phoneFolder, (id) => ({ folder: id }));
+			const workplaces = new Workplaces(config, {}, platform.phone, (id) => ({ folder: id }));
+			const replacement = new Workplaces({ ...config, hosts: JSON.stringify([{ ...host, address: "new.example" }]) }, {}, platform.phone, (id) => ({ folder: id }));
 			try {
 				const first = workplaces.at("first");
 				assert(first?.kind === "computer");
@@ -41,7 +41,7 @@ export const checks: Check[] = [
 				["inherits", { folder: "f2" }],
 				["phone", { folder: "f3", computer: "phone" }],
 			]);
-			const workplaces = new Workplaces({ ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" }, {}, platform.phoneFolder, (id) => bots.get(id));
+			const workplaces = new Workplaces({ ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" }, {}, platform.phone, (id) => bots.get(id));
 			try {
 				assert.deepEqual(workplaces.at("gone"), { kind: "missing", key: "a.example:container" });
 				const inherited = workplaces.at("inherits");

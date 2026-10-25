@@ -27,9 +27,11 @@ import { SpeechExtension } from "./tools/speech.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "./triggers.ts";
+import { PHONE_ONLY_EXTENSIONS } from "./toolsets.ts";
 import type { Workplace } from "./workplaces.ts";
 
 export interface CatalogDeps {
+	onPhone: boolean;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;
 	githubToken?: TokenSource;
@@ -95,5 +97,5 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
 	];
-	return extensions.map(withReach);
+	return extensions.filter((extension) => deps.onPhone || !PHONE_ONLY_EXTENSIONS.has(extension.name)).map(withReach);
 }

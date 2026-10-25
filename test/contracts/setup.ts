@@ -103,10 +103,12 @@ export const platform: Platform = {
 		remove: async () => undefined,
 	},
 	mcpClient: () => new FakeMcpClient(),
-	phoneFolder: (folder, network) => new PhoneEnv(folder, network),
-	removePhoneFolder: async (folder) => {
-		folders.removed.push(folder);
-		await folders.removeGate?.promise;
+	phone: {
+		folder: (folder, network) => new PhoneEnv(folder, network),
+		removeFolder: async (folder) => {
+			folders.removed.push(folder);
+			await folders.removeGate?.promise;
+		},
 	},
 	models: async () => {
 		const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });

@@ -24,6 +24,7 @@ const host: Host = { id: "fixture", address: "fixture", name: "fixture", os: "li
 const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { key: "fixture:container", name: "fixture", mode: "容器" }, host, sandbox, root: "fixture", env: unused };
 
 const extensions = builtinExtensions({
+	onPhone: true,
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
 	githubToken: async () => "token",

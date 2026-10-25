@@ -38,6 +38,34 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"] },
 ];
 
+export const PHONE_ONLY: ReadonlySet<string> = new Set([
+	"weather",
+	"places",
+	"device",
+	"apps",
+	"calendar",
+	"contacts",
+	"photos",
+	"calls",
+	"health",
+	"screen",
+	"control",
+	"phone_screen",
+	"notifications",
+	"database",
+	"speech",
+	"files",
+]);
+
+const elsewhere = new Set(TOOLSETS.filter((toolset) => !PHONE_ONLY.has(toolset.id)).flatMap((toolset) => toolset.extensions));
+
+export const PHONE_ONLY_EXTENSIONS: ReadonlySet<string> = new Set([
+	"triggers",
+	...TOOLSETS.filter((toolset) => PHONE_ONLY.has(toolset.id))
+		.flatMap((toolset) => toolset.extensions)
+		.filter((name) => !elsewhere.has(name)),
+]);
+
 export interface ToolsetState extends Toolset {
 	available: boolean;
 	enabled: boolean;

@@ -4,6 +4,7 @@ import { type Host, type HostMode, HostSandbox, parseHosts } from "./sandbox/hos
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
+import type { PhoneApp } from "./platform.ts";
 
 const PHONE = "phone";
 
@@ -31,20 +32,20 @@ export class Workplaces {
 	readonly #settings: Settings;
 	readonly #hosts: Host[];
 	readonly #minted: Record<string, MintedService>;
-	readonly #phoneFolder: (folder: string, network: FolderNetwork) => ExecutionEnv;
+	readonly #phone: PhoneApp | undefined;
 	readonly #placed: (id: string) => Placed | undefined;
 	readonly #open = new Map<string, Sandbox>();
 
-	constructor(settings: Settings, minted: Record<string, MintedService>, phoneFolder: (folder: string, network: FolderNetwork) => ExecutionEnv, placed: (id: string) => Placed | undefined) {
+	constructor(settings: Settings, minted: Record<string, MintedService>, phone: PhoneApp | undefined, placed: (id: string) => Placed | undefined) {
 		this.#settings = settings;
 		this.#hosts = parseHosts(settings.hosts);
 		this.#minted = minted;
-		this.#phoneFolder = phoneFolder;
+		this.#phone = phone;
 		this.#placed = placed;
 	}
 
 	list(): Computer[] {
-		const items: Computer[] = [{ key: PHONE, name: "手機", mode: "手機" }];
+		const items: Computer[] = this.#phone ? [{ key: PHONE, name: "手機", mode: "手機" }] : [];
 		for (const host of this.#hosts) {
 			items.push({ key: `${host.id}:direct`, name: host.name, mode: MODE_LABEL.direct });
 			if (host.engine) items.push({ key: `${host.id}:container`, name: host.name, mode: MODE_LABEL.container });
@@ -67,7 +68,8 @@ export class Workplaces {
 		const key = choice || (items.some((item) => item.key === this.#settings.computer) ? this.#settings.computer : PHONE);
 		const computer = items.find((item) => item.key === key);
 		if (!computer) return { kind: "missing", key };
-		if (key === PHONE) return { kind: "phone", folder, env: () => this.#phoneFolder(folder, this.network) };
+		const phone = this.#phone;
+		if (key === PHONE && phone) return { kind: "phone", folder, env: () => phone.folder(folder, this.network) };
 		const parsed = parseKey(key);
 		const host = parsed && this.#hosts.find((candidate) => candidate.id === parsed.id);
 		if (!parsed || !host) return { kind: "missing", key };

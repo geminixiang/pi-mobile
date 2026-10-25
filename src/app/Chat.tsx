@@ -17,8 +17,10 @@ import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
+import { native } from "./keepAlive.ts";
 
 export interface Capabilities {
+	phone: boolean;
 	sandbox: boolean;
 }
 
@@ -74,9 +76,13 @@ function shareActions(kind: SharedKind): Suggestion[] {
 function suggestions(capabilities: Capabilities): Suggestion[] {
 	return [
 		{ title: "比較後做成表格", prompt: "比較 iPhone 17 和 Pixel 11 現在的售價、相機和電池，整理成表格檔傳給我" },
-		{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" },
-		{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" },
-		{ title: "拍收據記帳", prompt: "幫我把這張收據記進帳本，之後問這個月花多少要算得出來", image: true },
+		...(capabilities.phone
+			? [
+					{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" },
+					{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" },
+					{ title: "拍收據記帳", prompt: "幫我把這張收據記進帳本，之後問這個月花多少要算得出來", image: true },
+				]
+			: []),
 		...(capabilities.sandbox ? [{ title: "畫一張圖表", prompt: "在電腦上用 Python 畫一張台灣六都人口的長條圖給我看" }] : []),
 	];
 }
@@ -281,7 +287,7 @@ export function Chat({
 							<br />
 							只屬於<em>你</em>。
 						</h2>
-						<p>對話、金鑰和紀錄都只存在這支手機上。</p>
+						<p>對話、金鑰和紀錄都只存在{native ? "這支手機上" : "這個瀏覽器裡"}。</p>
 						<ol className="suggestions">
 							{suggestions(capabilities).map((suggestion, index) => (
 								<li key={suggestion.title}>

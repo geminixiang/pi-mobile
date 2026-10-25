@@ -680,7 +680,7 @@ export function SettingsView({
 							<br />
 							只屬於<em>你</em>。
 						</h2>
-						<p>加入一個模型供應商就能開始。對話和金鑰都只存在這支手機上。</p>
+						<p>加入一個模型供應商就能開始。對話和金鑰都只存在{native ? "這支手機上" : "這個瀏覽器裡"}。</p>
 					</div>
 				)}
 				{status ? <div className="banner error">{status}</div> : null}

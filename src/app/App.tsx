@@ -23,7 +23,7 @@ import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
+import { inForeground, native, notifyAway, setWorking } from "./keepAlive.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { type Trigger, Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
@@ -435,7 +435,7 @@ export function App() {
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
 						prefs={prefs}
-						capabilities={{ sandbox: onSandbox }}
+						capabilities={{ phone: native, sandbox: onSandbox }}
 						initialDraft={pendingDraft}
 						initialFiles={pendingFiles}
 						shared={pendingShared}
