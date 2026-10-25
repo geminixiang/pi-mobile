@@ -7,6 +7,8 @@ import { Notifications } from "../notifications-plugin.ts";
 import { PhoneScreen } from "../phone-screen-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
+import { Apps, base64 } from "../agent/tools/apps.ts";
+import { recentLog } from "../log.ts";
 import { useBriefly } from "./briefly.ts";
 import { checkGitHub } from "../agent/checks.ts";
 import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
@@ -455,6 +457,12 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 
 type TextSetting = { [K in keyof Settings]: Settings[K] extends string ? K : never }[keyof Settings];
 
+async function shareDiagnostics(): Promise<void> {
+	const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+	const body = `${JSON.stringify({ at: new Date().toISOString(), level: "info", event: "diagnostics.shared", build: __BUILD__ })}\n${recentLog()}`;
+	await Apps.share({ title: "pi mobile 診斷記錄", fileBase64: base64(new TextEncoder().encode(body)), fileName: `pi-mobile-diagnostics-${stamp}.jsonl`, mimeType: "application/x-ndjson" });
+}
+
 export function SettingsView({
 	initial,
 	status,
@@ -692,7 +700,19 @@ export function SettingsView({
 				{status ? <div className="banner error">{status}</div> : null}
 				{problem ? <div className="banner error">{problem}</div> : null}
 				{current ? current.body() : onCancel ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
-				{current ? null : <p className="about">pi mobile · {__BUILD__}</p>}
+				{current ? null : (
+					<p className="about">
+						pi mobile · {__BUILD__}
+						{inApp ? (
+							<>
+								{" · "}
+								<button type="button" className="link" onClick={() => void shareDiagnostics().catch((error: unknown) => setProblem(messageOf(error)))}>
+									分享診斷記錄
+								</button>
+							</>
+						) : null}
+					</p>
+				)}
 			</form>
 		</div>
 	);
