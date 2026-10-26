@@ -187,7 +187,7 @@ async function readBody(ctx: Ctx, flags: Flags): Promise<string | undefined> {
 	const file = one(flags, "bodyFile");
 	if (file === undefined) return one(flags, "body");
 	if (file === "-") return ctx.stdin.toString();
-	return ctx.fs.readFile(file.startsWith("/") ? file : `${ctx.cwd}/${file}`);
+	return ctx.fs.readFile(ctx.fs.resolvePath(ctx.cwd, file));
 }
 
 async function list(api: Api, path: string, limit: number, keep: (item: unknown) => boolean): Promise<unknown[]> {
@@ -204,13 +204,20 @@ async function list(api: Api, path: string, limit: number, keep: (item: unknown)
 	return items.slice(0, limit);
 }
 
+async function searchIssues(api: Api, terms: string[], limit: number): Promise<unknown[]> {
+	const result = await api.json("GET", `/search/issues?per_page=${Math.min(100, limit)}&q=${encodeURIComponent(terms.filter(Boolean).join(" "))}`);
+	const matches = at(result, "items");
+	return (Array.isArray(matches) ? matches : []).slice(0, limit);
+}
+
 const LIST_FLAGS = { "--search": "search", "-S": "search", "--state": "state", "-s": "state", "--limit": "limit", "-L": "limit", "--author": "author", "-A": "author", "--label": "label", "-l": "label", "--assignee": "assignee", "-a": "assignee", "--base": "base", "-B": "base", "--head": "head", "-H": "head", "--json": "json", "--jq": "jq", "-q": "jq", "--repo": "repo", "-R": "repo" };
 const VIEW_FLAGS = { "--json": "json", "--jq": "jq", "-q": "jq", "--repo": "repo", "-R": "repo" };
 const WRITE_FLAGS = { "--title": "title", "-t": "title", "--body": "body", "-b": "body", "--body-file": "bodyFile", "-F": "bodyFile", "--base": "base", "-B": "base", "--head": "head", "-H": "head", "--label": "label", "-l": "label", "--assignee": "assignee", "-a": "assignee", "--repo": "repo", "-R": "repo" };
 
 async function itemNumber(api: Api, ctx: Ctx, repo: Repo, given: string | undefined): Promise<number> {
 	if (given && /^#?\d+$/.test(given)) return Number(given.replace("#", ""));
-	if (given && /\/(pull|issues)\/(\d+)/.test(given)) return Number(/\/(?:pull|issues)\/(\d+)/.exec(given)?.[1]);
+	const linked = /\/(?:pull|issues)\/(\d+)/.exec(given ?? "");
+	if (linked) return Number(linked[1]);
 	const branch = given ?? (await currentBranch(ctx));
 	const found = await api.json("GET", `/repos/${repo.owner}/${repo.name}/pulls?state=all&head=${encodeURIComponent(`${repo.owner}:${branch}`)}`);
 	const number = Array.isArray(found) ? at(found[0], "number") : undefined;
@@ -242,9 +249,7 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 			if (search !== undefined) {
 				const limit = Number(one(flags, "limit") ?? DEFAULT_LIMIT);
 				const terms = [`repo:${repo.owner}/${repo.name}`, kind === "pr" ? "is:pr" : "is:issue", state === "all" ? "" : state === "merged" ? "is:merged" : `is:${state}`, author ? `author:${author}` : "", search];
-				const result = await api.json("GET", `/search/issues?per_page=${Math.min(100, limit)}&q=${encodeURIComponent(terms.filter(Boolean).join(" "))}`);
-				const matches = at(result, "items");
-				const found = (Array.isArray(matches) ? matches : []).slice(0, limit);
+				const found = await searchIssues(api, terms, limit);
 				return present(ctx, flags, found, ITEM_FIELDS, () => found.map((item) => `${row(item, kind)}\n`).join(""));
 			}
 			const found = await list(api, `${base(repo)}/${plural}?${query}`, Number(one(flags, "limit") ?? DEFAULT_LIMIT), (item) =>
@@ -357,7 +362,7 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 	for (const pair of flags.values.get("field") ?? []) {
 		const key = pair.slice(0, pair.indexOf("="));
 		const raw = pair.slice(pair.indexOf("=") + 1);
-		fields[key] = raw.startsWith("@") ? await ctx.fs.readFile(raw.slice(1).startsWith("/") ? raw.slice(1) : `${ctx.cwd}/${raw.slice(1)}`) : typedField(raw);
+		fields[key] = raw.startsWith("@") ? await ctx.fs.readFile(ctx.fs.resolvePath(ctx.cwd, raw.slice(1))) : typedField(raw);
 	}
 	const graphql = endpoint === "graphql";
 	const input = one(flags, "input");
@@ -365,7 +370,7 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 	const method = (one(flags, "method") ?? (hasFields || graphql || input ? "POST" : "GET")).toUpperCase();
 	let path = graphql ? "/graphql" : endpoint;
 	let body: unknown;
-	if (input !== undefined) body = jsonOrText(input === "-" ? ctx.stdin.toString() : await ctx.fs.readFile(input.startsWith("/") ? input : `${ctx.cwd}/${input}`));
+	if (input !== undefined) body = jsonOrText(input === "-" ? ctx.stdin.toString() : await ctx.fs.readFile(ctx.fs.resolvePath(ctx.cwd, input)));
 	else if (graphql) body = { query: fields.query, variables: Object.fromEntries(Object.entries(fields).filter(([key]) => key !== "query")) };
 	else if (hasFields && method === "GET") path += `${path.includes("?") ? "&" : "?"}${new URLSearchParams(Object.entries(fields).map(([key, value]) => [key, text(value)]))}`;
 	else if (hasFields) body = fields;
@@ -382,8 +387,8 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 		next = flags.set.has("paginate") && method === "GET" ? nextPage(response.link) : undefined;
 	}
 	if (flags.set.has("silent")) return ok("");
-	const parsed = pages.length > 1 ? pages.map(jsonOrText) : [];
-	const merged = parsed.length > 1 && parsed.every(Array.isArray) ? JSON.stringify(parsed.flat()) : pages.join("\n");
+	const parsed = pages.map(jsonOrText);
+	const merged = pages.length > 1 && parsed.every(Array.isArray) ? JSON.stringify(parsed.flat()) : pages.join("\n");
 	const result = await filter(ctx, flags, merged);
 	return flags.set.has("include") ? { ...result, stdout: `HTTP ${status}\n\n${result.stdout}` } : result;
 }
@@ -449,10 +454,7 @@ async function searchCommand(args: string[], ctx: Ctx, client: Api): Promise<Exe
 		one(flags, "author") ? `author:${one(flags, "author")}` : "",
 	].filter(Boolean);
 	if (flags.positional.length === 0 && terms.length === 1) throw new GhError(`usage: gh search ${kind} QUERY [--repo OWNER/REPO] [--state open|closed] [--limit N]`);
-	const limit = Math.min(100, Number(one(flags, "limit") ?? DEFAULT_LIMIT));
-	const result = await client.json("GET", `/search/issues?per_page=${limit}&q=${encodeURIComponent(terms.join(" "))}`);
-	const matches = at(result, "items");
-	const found = (Array.isArray(matches) ? matches : []).slice(0, limit);
+	const found = await searchIssues(client, terms, Math.min(100, Number(one(flags, "limit") ?? DEFAULT_LIMIT)));
 	const repoOf = (item: unknown) => text(at(item, "repository_url")).replace(`${API}/repos/`, "");
 	return present(ctx, flags, found, [...ITEM_FIELDS, "repository"], () =>
 		found.map((item) => `${[repoOf(item), text(at(item, "number")), text(itemField(item, "state")), text(at(item, "title")), text(at(item, "updated_at"))].join("\t")}\n`).join(""),

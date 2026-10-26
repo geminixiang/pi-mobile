@@ -9,7 +9,7 @@ export interface FolderNetwork {
 const GITHUB_HOSTS = new Set(["github.com", "api.github.com", "uploads.github.com", "codeload.github.com"]);
 const GIT_HOST = "github.com";
 
-export function reachable(url: string): URL | undefined {
+function reachable(url: string): URL | undefined {
 	if (!URL.canParse(url)) return undefined;
 	const parsed = new URL(url);
 	if (parsed.protocol !== "https:") return undefined;

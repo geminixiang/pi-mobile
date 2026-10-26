@@ -1,6 +1,6 @@
 import { type Command, defineCommand, type IFileSystem } from "just-bash/browser";
 import { Type } from "typebox";
-import { Value } from "typebox/value";
+import { check } from "../parse.ts";
 import type { FolderFetch } from "./folder-fetch.ts";
 
 const WRITES_COMMITS = new Set(["commit", "merge", "rebase", "cherry-pick", "revert", "tag", "stash", "pull"]);
@@ -21,9 +21,10 @@ const Account = Type.Object({ login: Type.String(), id: Type.Number(), name: Typ
 async function githubIdentity(fetch: FolderFetch): Promise<{ name: string; email: string } | undefined> {
 	const response = await fetch("https://api.github.com/user", { headers: { Accept: "application/vnd.github+json" } });
 	if (!response.ok) return undefined;
-	const account: unknown = await response.json();
-	if (!Value.Check(Account, account)) return undefined;
-	return { name: account.name || account.login, email: `${account.id}+${account.login}@users.noreply.github.com` };
+	const account = check(Account, await response.json(), "GitHub /user");
+	if (!account.ok) return undefined;
+	const { name, login, id } = account.value;
+	return { name: name || login, email: `${id}+${login}@users.noreply.github.com` };
 }
 
 const NO_LINKS = new Set<PropertyKey>(["symlink", "readlink", "link"]);

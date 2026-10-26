@@ -135,7 +135,7 @@ function folderFs(bot: string, root = ""): IFileSystem {
 		async mv(from, to) {
 			await ask(bot, { op: "rename", from: rel(from), to: rel(to) });
 		},
-		resolvePath: (base, path) => normalizePath(path.startsWith("/") ? path : `${base}/${path}`),
+		resolvePath,
 		getAllPaths: () => [],
 		async realpath(path) {
 			await stat(path);
@@ -147,10 +147,16 @@ function folderFs(bot: string, root = ""): IFileSystem {
 		async utimes() {},
 		symlink: unsupported("symlink"),
 		link: unsupported("link"),
-		readlink: async (path) => {
-			throw new Error(`EINVAL: not a symbolic link, readlink '${path}'`);
-		},
+		readlink: notALink,
 	};
+}
+
+function resolvePath(base: string, path: string): string {
+	return normalizePath(path.startsWith("/") ? path : `${base}/${path}`);
+}
+
+async function notALink(path: string): Promise<string> {
+	throw new Error(`EINVAL: not a symbolic link, readlink '${path}'`);
 }
 
 function readOnly(path: string): never {
@@ -196,16 +202,14 @@ function deviceFs(): IFileSystem {
 		rm: async (path) => readOnly(path),
 		cp: async (_from, to) => readOnly(to),
 		mv: async (from) => readOnly(from),
-		resolvePath: (base, path) => normalizePath(path.startsWith("/") ? path : `${base}/${path}`),
+		resolvePath,
 		getAllPaths: () => [],
 		realpath: async (path) => normalizePath(path),
 		chmod: async (path) => readOnly(path),
 		utimes: async () => undefined,
 		symlink: async (_target, path) => readOnly(path),
 		link: async (_target, path) => readOnly(path),
-		readlink: async (path) => {
-			throw new Error(`EINVAL: not a symbolic link, readlink '${path}'`);
-		},
+		readlink: notALink,
 	};
 }
 
@@ -229,8 +233,9 @@ addEventListener("message", (event: MessageEvent<ToWorker>) => {
 		const waiter = pending.get(message.call);
 		pending.delete(message.call);
 		if (!waiter) return;
-		if (message.ok) waiter.resolve(message.value);
-		else waiter.reject(Object.assign(new Error(`${NODE_CODES[message.code] ?? "EIO"}: ${message.message}`), { code: NODE_CODES[message.code] ?? "EIO" }));
+		if (message.ok) return waiter.resolve(message.value);
+		const code = NODE_CODES[message.code] ?? "EIO";
+		waiter.reject(Object.assign(new Error(`${code}: ${message.message}`), { code }));
 		return;
 	}
 	if (message.type === "http-reply") {

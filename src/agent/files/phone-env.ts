@@ -218,11 +218,13 @@ export class PhoneEnv implements ExecutionEnv {
 	}
 
 	#ensureTemp(): Promise<void> {
-		this.#tempReady ??= BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true });
-		onFailure(this.#tempReady, () => {
-			this.#tempReady = undefined;
+		if (this.#tempReady) return this.#tempReady;
+		const making = BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true });
+		this.#tempReady = making;
+		onFailure(making, () => {
+			if (this.#tempReady === making) this.#tempReady = undefined;
 		});
-		return this.#tempReady;
+		return making;
 	}
 
 	#at(path: string) {
