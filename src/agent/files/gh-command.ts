@@ -259,8 +259,10 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 			const repo = await currentRepo(ctx, flags);
 			const number = await numberOf(repo, flags.positional[0]);
 			if (!number) throw new GhError("which issue? pass its number");
-			const item = await api.json("GET", `${base(repo)}/${plural}/${number}`);
-			const comments = flags.set.has("comments") ? await list(api, `${base(repo)}/issues/${number}/comments`, 100, () => true) : [];
+			const [item, comments] = await Promise.all([
+				api.json("GET", `${base(repo)}/${plural}/${number}`),
+				flags.set.has("comments") ? list(api, `${base(repo)}/issues/${number}/comments`, 100, () => true) : [],
+			]);
 			return present(ctx, flags, item, ITEM_FIELDS, () => detail(item, comments));
 		}
 		case "create": {
@@ -402,9 +404,12 @@ async function repoCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecR
 		const given = flags.positional[0];
 		const repo = given ? parseRepo(given) : await currentRepo(ctx, flags);
 		if (!repo) throw new GhError(`expected OWNER/REPO, got ${given}`);
-		const info = await client.json("GET", `/repos/${repo.owner}/${repo.name}`);
-		const fields = ["name", "nameWithOwner", "description", "url", "defaultBranchRef", "isPrivate", "stargazerCount", "updatedAt"];
 		const json = one(flags, "json");
+		const [info, readme] = await Promise.all([
+			client.json("GET", `/repos/${repo.owner}/${repo.name}`),
+			json === undefined ? client.raw("GET", `/repos/${repo.owner}/${repo.name}/readme`, undefined, "application/vnd.github.raw") : undefined,
+		]);
+		const fields = ["name", "nameWithOwner", "description", "url", "defaultBranchRef", "isPrivate", "stargazerCount", "updatedAt"];
 		if (json !== undefined) {
 			const values: Record<string, unknown> = {
 				name: at(info, "name"),
@@ -421,8 +426,7 @@ async function repoCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecR
 			if (wanted.length === 0 || unknown.length > 0) throw new GhError(`Available fields:\n  ${fields.join("\n  ")}`);
 			return filter(ctx, flags, JSON.stringify(Object.fromEntries(wanted.map((field) => [field, values[field]])), null, 2));
 		}
-		const readme = await client.raw("GET", `/repos/${repo.owner}/${repo.name}/readme`, undefined, "application/vnd.github.raw");
-		return ok(`name:\t${text(at(info, "full_name"))}\ndescription:\t${text(at(info, "description"))}\n--\n${readme.ok ? readme.text : ""}\n`);
+		return ok(`name:\t${text(at(info, "full_name"))}\ndescription:\t${text(at(info, "description"))}\n--\n${readme?.ok ? readme.text : ""}\n`);
 	}
 	throw new GhError(`unknown command "repo ${action}"; supported: clone, view. Use \`gh api\` for anything else.`);
 }

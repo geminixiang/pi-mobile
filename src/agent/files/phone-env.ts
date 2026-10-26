@@ -107,6 +107,16 @@ async function serveFs(bot: string, request: FsOp): Promise<FsValue> {
 	}
 }
 
+function fits(output: string, limit: { afterBytes: number; afterLines: number }): boolean {
+	if (output.length > limit.afterBytes) return false;
+	let lines = 1;
+	for (let at = output.indexOf("\n"); at >= 0; at = output.indexOf("\n", at + 1)) {
+		lines++;
+		if (lines > limit.afterLines) return false;
+	}
+	return output.length * 3 <= limit.afterBytes || new TextEncoder().encode(output).length <= limit.afterBytes;
+}
+
 type Finished = { type: "done"; stdout: string; stderr: string; exitCode: number } | { type: "failed"; message: string };
 
 class Shell {
@@ -408,9 +418,7 @@ export class PhoneEnv implements ExecutionEnv {
 	async #spill(output: string, options: ShellExecOptions | undefined, context: Context): Promise<string | undefined> {
 		const spill = options?.spill;
 		if (!spill) return undefined;
-		const bytes = new TextEncoder().encode(output).length;
-		const lines = output.split("\n").length;
-		if (bytes <= spill.afterBytes && lines <= spill.afterLines) return undefined;
+		if (fits(output, spill)) return undefined;
 		const file = await this.createTempFile({ prefix: "pi-output-", suffix: ".log" }, context);
 		if (!file.ok) return undefined;
 		const written = await this.writeFile(file.value, output, context);
