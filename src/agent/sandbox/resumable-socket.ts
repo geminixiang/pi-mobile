@@ -3,7 +3,7 @@ import { log } from "../../log.ts";
 import { decode } from "../parse.ts";
 
 export type RawMessage = ArrayBuffer | string;
-export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(): void };
+export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
 interface ResumableOptions {
@@ -20,6 +20,8 @@ interface ResumableOptions {
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 const RESUME_LIMIT_MS = 270_000;
 const SENT_LOG_BYTES = 4 * 1024 * 1024;
+// why: the computer ends a held session only on a normal closure (1000); a closure without a code, like the reattach after a quiet link, keeps it held.
+const NORMAL_CLOSURE = 1000;
 const Resume = Type.Object({ received: Type.Integer({ minimum: 0 }) });
 
 function size(data: Uint8Array | string): number {
@@ -69,7 +71,7 @@ export class ResumableSocket {
 		this.#closed = true;
 		clearTimeout(this.#timer);
 		clearInterval(this.#quiet);
-		this.#socket?.close();
+		this.#socket?.close(NORMAL_CLOSURE);
 		this.#socket = undefined;
 	}
 
@@ -142,6 +144,12 @@ export class ResumableSocket {
 			const socket = await this.#open(this.#options.attach(this.#received), true);
 			if (this.#closed) return socket.close();
 			this.#socket = socket;
+			this.#timer = setTimeout(() => {
+				if (!this.#down || this.#socket !== socket) return;
+				this.#socket = undefined;
+				socket.close();
+				this.#dropped();
+			}, this.#options.quietLimitMs);
 		} catch {
 			this.#dropped();
 		}

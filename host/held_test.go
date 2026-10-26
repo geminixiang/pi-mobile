@@ -238,3 +238,20 @@ func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
 	}
 	session.kill()
 }
+
+func TestAPhoneThatClosesOnPurposeEndsItsHeldSession(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	defer server.Close()
+	token := fmt.Sprintf("%032x", time.Now().UnixNano())
+	conn := startHeldSleep(t, server, token, "phone-a")
+	if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for takeSession("exec:"+token, digest("phone-a")) != nil {
+		if time.Now().After(deadline) {
+			t.Fatal("a normal closure left the session held")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}

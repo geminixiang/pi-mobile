@@ -140,6 +140,8 @@ func writeMessage(conn *websocket.Conn, ctx context.Context, m message) error {
 	if m.text {
 		kind = websocket.MessageText
 	}
+	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	defer cancel()
 	return conn.Write(ctx, kind, m.data)
 }
 
@@ -151,7 +153,7 @@ func (h *held) end(final *message, closing string) {
 	defer h.mu.Unlock()
 	h.ended = &closing
 	if h.conn != nil {
-		h.conn.Close(websocket.StatusNormalClosure, closing)
+		go h.conn.Close(websocket.StatusNormalClosure, closing)
 		h.conn = nil
 		h.finishLocked()
 		return
@@ -237,7 +239,7 @@ func (h *held) killLocked() {
 		return
 	}
 	if h.conn != nil {
-		h.conn.Close(websocket.StatusNormalClosure, "")
+		go h.conn.Close(websocket.StatusNormalClosure, "")
 		h.conn = nil
 	}
 	h.finishLocked()
@@ -254,7 +256,7 @@ func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (stri
 		return sessionBehind, false
 	}
 	if h.conn != nil {
-		h.conn.Close(websocket.StatusNormalClosure, sessionReplace)
+		go h.conn.Close(websocket.StatusNormalClosure, sessionReplace)
 	}
 	if h.grace != nil {
 		h.grace.Stop()
@@ -265,17 +267,17 @@ func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (stri
 	log.Printf("held session attached again; %d messages to resend", h.sentBase+len(h.sent)-have)
 	resume, _ := json.Marshal(map[string]int{"received": h.received})
 	if err := writeMessage(conn, ctx, message{text: true, data: resume}); err != nil {
-		h.conn = nil
+		h.detachLocked()
 		return "", true
 	}
 	for _, m := range h.sent[have-h.sentBase:] {
 		if err := writeMessage(conn, ctx, m); err != nil {
-			h.conn = nil
+			h.detachLocked()
 			return "", true
 		}
 	}
 	if h.ended != nil {
-		conn.Close(websocket.StatusNormalClosure, *h.ended)
+		go conn.Close(websocket.StatusNormalClosure, *h.ended)
 		h.conn = nil
 		h.finishLocked()
 	}
@@ -284,12 +286,18 @@ func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (stri
 
 func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 	go h.watch(conn, ctx)
+	var readErr error
 	for {
 		kind, data, err := conn.Read(ctx)
 		if err != nil {
+			readErr = err
 			break
 		}
 		h.mu.Lock()
+		if h.conn != conn {
+			h.mu.Unlock()
+			break
+		}
 		h.received++
 		h.mu.Unlock()
 		if kind == websocket.MessageText {
@@ -303,10 +311,16 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 		}
 	}
 	h.mu.Lock()
-	if h.conn == conn {
-		h.detachLocked()
+	defer h.mu.Unlock()
+	if h.conn != conn {
+		return
 	}
-	h.mu.Unlock()
+	// why: the phone sends a normal closure only when it means to end the session; a dropped network sends no close frame, and the phone's own reattach closes without a code.
+	if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
+		h.killLocked()
+		return
+	}
+	h.detachLocked()
 }
 
 type heldWriter struct {

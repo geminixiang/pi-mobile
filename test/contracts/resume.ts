@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 
-type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data: RawMessage): void; drop(reason?: string): void; closed: boolean };
+type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data: RawMessage): void; drop(reason?: string): void; closed: boolean; closeCode: number | undefined };
 
 function fakeOpener() {
 	const sockets: Fake[] = [];
@@ -12,9 +12,11 @@ function fakeOpener() {
 			url,
 			sent: [],
 			closed: false,
+			closeCode: undefined,
 			send: (data) => socket.sent.push(data),
-			close: () => {
+			close: (code) => {
 				socket.closed = true;
+				socket.closeCode = code;
 			},
 			deliver: (data) => onMessage(data),
 			drop: (reason) => onClose(reason),
@@ -26,6 +28,15 @@ function fakeOpener() {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function opened(opener: ReturnType<typeof fakeOpener>, index: number): Promise<Fake> {
+	for (let waited = 0; waited < 5000; waited += 20) {
+		const socket = opener.sockets[index];
+		if (socket) return socket;
+		await sleep(20);
+	}
+	throw new Error(`socket ${index} never opened`);
+}
 
 async function connect(opener: ReturnType<typeof fakeOpener>) {
 	const links: boolean[] = [];
@@ -118,12 +129,36 @@ export const checks: Check[] = [
 			assert.deepEqual(links, []);
 			await sleep(400);
 			assert(first.closed);
+			assert.equal(first.closeCode, undefined);
 			assert.deepEqual(links, [false]);
-			await sleep(1200);
-			const second = opener.sockets[1];
-			assert(second);
+			const second = await opened(opener, 1);
 			assert.equal(second.url.searchParams.get("received"), "2");
 			second.deliver(JSON.stringify({ received: 0 }));
+			assert.deepEqual(links, [false, true]);
+			socket.close();
+		},
+	],
+	[
+		"closing on purpose tells the computer to end the session",
+		async () => {
+			const opener = fakeOpener();
+			const { socket } = await connect(opener);
+			socket.close();
+			assert.equal(opener.sockets[0]?.closeCode, 1000);
+		},
+	],
+	[
+		"an attach the computer never answers is given up and tried again",
+		async () => {
+			const opener = fakeOpener();
+			const { socket, links } = await connect(opener);
+			opener.sockets[0]?.drop();
+			const silent = await opened(opener, 1);
+			await sleep(600);
+			assert(silent.closed);
+			assert.equal(silent.closeCode, undefined);
+			const next = await opened(opener, 2);
+			next.deliver(JSON.stringify({ received: 0 }));
 			assert.deepEqual(links, [false, true]);
 			socket.close();
 		},

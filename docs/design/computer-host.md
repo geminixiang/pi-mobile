@@ -48,9 +48,10 @@
 
 - **手機斷線時，pi-env 和它跑的指令留著等手機回來**（2026-10-26 起）。`/env` 和帶 `session=<token>` 的 `/exec` 是「保留的 session」：
   - 電腦端自己每 5 秒對 pi-env 的 stdin 送一個 ping frame，pi-env 的存活不再依賴手機的 ping 送得到（手機沒網路時不會送 FIN，電腦以為還連著，pi-env 卻會在 30 秒靜默後退出——第一版就是這樣死的）。
-  - 電腦端每 10 秒對手機的 WebSocket 送 ping，10 秒沒 pong 就算斷線，開始 5 分鐘的寬限；寬限過了才照舊 SIGTERM 整個 process group。
+  - 電腦端每 10 秒對手機的 WebSocket 送 ping，10 秒沒 pong 就算斷線，開始 5 分鐘的寬限；寬限過了才照舊 SIGTERM 整個 process group。送給手機的每則訊息最多等 10 秒，寫不出去就當斷線（2026-10-26 起；之前網路掉時寫入會卡住，連帶 ping 和給 pi-env 的 heartbeat 一起停，pi-env 30 秒後自己結束）。
+  - 手機**刻意**關掉連線時（runtime 重建、hello 不對、啟動逾時）送 normal closure（1000），電腦立刻結束 session 和它的 process group，不等 5 分鐘；網路掉了沒有 close frame，手機因為 20 秒沒訊息而重接時也不帶 code，這兩種照舊保留。
   - 送給手機的每則訊息都編號、留在一個 8 MiB 的環裡；手機帶 `attach=<token>&received=<已收到幾則>` 回來，電腦先回 `{"received":N}` 說自己收到幾則，再補送手機沒收到的；手機也補送電腦沒收到的。pi-env `Connection` 的請求 id 不變，所以斷線前送出的 `exec` 在接上後直接拿到結果；斷線期間手機替 daemon 送 ping，pi-env 不會因為 30 秒沒收到東西而放棄（見 [architecture.md](../architecture.md) § 電腦）。
-  - 手機端（`resumable-socket.ts`）以 1、2、4、8、15 秒退避重試 4.5 分鐘；電腦回 `no such session`（寬限過了或 pi-env 已退出）或 `too far behind to resume`（環滿了）就放棄，工具回「結果不明」。手機 30 秒沒收到 bytes 也走同一條重接的路，不再直接 teardown。
+  - 手機端（`resumable-socket.ts`）以 1、2、4、8、15 秒退避重試 4.5 分鐘，每次接上後 20 秒內沒收到 `{"received":N}` 就放棄這次、照退避再試；電腦回 `no such session`（寬限過了或 pi-env 已退出）或 `too far behind to resume`（環滿了）就放棄，工具回「結果不明」。手機 30 秒沒收到 bytes 也走同一條重接的路，不再直接 teardown。
   - 面板的電腦狀態在這段期間顯示「重新連線中」。
   - S24 實測：容器裡 240 秒的指令執行中，把手機的 Tailscale 強制停止 75 秒再啟動，電腦 19 秒後判定斷線，手機回來 1 秒內接上並補送 21 則訊息，24 行輸出一行不少地回到對話。
 - **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
