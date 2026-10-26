@@ -29,7 +29,7 @@ import type { LoadedModels } from "./available-models.ts";
 import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isEnabled, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, usable } from "./toolsets.ts";
+import { isEnabled, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
 import { type Placed, type Workplace, Workplaces } from "./workplaces.ts";
 
@@ -176,7 +176,7 @@ export class AgentRuntime {
 				return (await options.notify?.(title, text, conversationId, bot && avatarOf(bot))) ?? false;
 			},
 		};
-		const placed = new Map<string, { folder: string; computer?: string }>();
+		const placed = new Map<string, Placed>();
 		const clouds = connectClouds(settings, platform.rotated);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
@@ -191,7 +191,7 @@ export class AgentRuntime {
 			native: platform.native,
 			assistant: createAssistant(platform.inApp, platform.native.has("Phone")),
 			calendarAccess: settings.calendarAccess,
-			...(settings.githubToken ? { githubToken: async () => settings.githubToken || undefined } : {}),
+			...(settings.githubToken ? { githubToken: async () => settings.githubToken } : {}),
 			clouds: clouds.services,
 			web: webSearch,
 			triggers: triggerHost,
@@ -487,7 +487,7 @@ export class AgentRuntime {
 		}));
 	}
 
-	setToolset(id: ConversationId, toolset: ToolsetId | string, enabled: boolean): Promise<void> {
+	setToolset(id: ConversationId, toolset: string, enabled: boolean): Promise<void> {
 		return this.#botToolsets.set(id, toolset, enabled);
 	}
 

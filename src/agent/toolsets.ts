@@ -1,7 +1,6 @@
 import type { AgentState } from "@earendil-works/pi-durable";
 import type { NativePlugin } from "../native.ts";
 
-export type ToolsetId = "web" | "weather" | "places" | "device" | "apps" | "control" | "contacts" | "photos" | "calls" | "screen" | "health" | "calendar" | "notifications" | "database" | "speech" | "github" | "gcp" | "cloudflare" | "azure" | "computer" | "sandbox" | "files" | "phone_screen";
 
 type ToolsetKind = "builtin" | "service";
 

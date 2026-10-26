@@ -35,7 +35,7 @@ export function startModelList(settings: Settings): Promise<Record<string, strin
 	return Promise.all(lists).then(Object.fromEntries);
 }
 
-export type LoadedModels = { models: Models; infos: ModelInfo[]; lists: Record<string, string[]>; webSearch: WebConfig };
+export type LoadedModels = { models: Models; infos: ModelInfo[]; webSearch: WebConfig };
 
 export async function loadModels(settings: Settings, modelIds: Promise<Record<string, string[]>>, onReport?: (message: string) => void): Promise<LoadedModels> {
 	const compactAt = settings.compactAt;
@@ -78,5 +78,5 @@ export async function loadModels(settings: Settings, modelIds: Promise<Record<st
 		models.setProvider(withCompaction(provider, compactAt));
 		for (const model of provider.getModels()) infos.push(describe(model, name, compactAt));
 	});
-	return { models, infos, lists, webSearch: webSearchConfig(configs, settings.providerKeys, lists, infos) };
+	return { models, infos, webSearch: webSearchConfig(configs, settings.providerKeys, lists, infos) };
 }

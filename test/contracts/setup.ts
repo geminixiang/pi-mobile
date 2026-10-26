@@ -118,7 +118,7 @@ export const platform: Platform = {
 	models: async () => {
 		const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });
 		models.setProvider(faux.provider);
-		return { models, infos: [], lists: {}, webSearch: { baseUrl: "", apiKey: "", modelIds: [] } };
+		return { models, infos: [], webSearch: { baseUrl: "", apiKey: "", modelIds: [] } };
 	},
 };
 

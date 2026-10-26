@@ -3,7 +3,7 @@ import { AgentDoc, type AgentState, defineTool, type Harness } from "@earendil-w
 import { Type } from "typebox";
 import type { ConversationId } from "@earendil-works/pi-durable";
 import type { Grant } from "./mcp.ts";
-import { selectionOf, type Selection, type Toolset, type ToolsetId, withToolset } from "./toolsets.ts";
+import { selectionOf, type Selection, type Toolset, withToolset } from "./toolsets.ts";
 import { serially } from "../promise.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -47,7 +47,7 @@ export class BotToolsets {
 		return selectionOf(await this.#harness.snapshot(AgentDoc, id, context));
 	}
 
-	set(id: ConversationId, toolset: ToolsetId | string, enabled: boolean): Promise<void> {
+	set(id: ConversationId, toolset: string, enabled: boolean): Promise<void> {
 		return this.#write(async () => {
 			const target = this.#all().find((candidate) => candidate.id === toolset);
 			if (!target) throw new Error(`${toolset} is not available`);

@@ -5,7 +5,8 @@ import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
 import { Database } from "../database-plugin.ts";
 
-export type AttachmentKind = "pdf" | "docx" | "sheet" | "text";
+const KINDS = ["pdf", "docx", "sheet", "text"] as const;
+export type AttachmentKind = (typeof KINDS)[number];
 
 const EXTENSIONS: Record<string, AttachmentKind> = {
 	pdf: "pdf",
@@ -62,10 +63,6 @@ interface StoredAttachment {
 
 const files = idbStore("pi-attachments", "files", { keyPath: "id" });
 
-async function saveAttachment(attachment: StoredAttachment): Promise<void> {
-	await files.request("readwrite", (store) => store.put(attachment));
-}
-
 function isStored(value: unknown): value is StoredAttachment {
 	return typeof value === "object" && value !== null && typeof Reflect.get(value, "id") === "string" && Array.isArray(Reflect.get(value, "units"));
 }
@@ -102,8 +99,6 @@ function eachStored(mode: IDBTransactionMode, visit: (attachment: StoredAttachme
 		};
 	});
 }
-
-const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;
 
 export function fullText(attachment: Pick<StoredAttachment, "kind" | "units">): string {
 	if (attachment.kind !== "pdf") return attachment.units[0] ?? "";
@@ -179,8 +174,8 @@ export function parseAttachment(text: string): AttachmentCard | undefined {
 	const match = OPEN_TAG.exec(text);
 	if (!match) return undefined;
 	const attributes = Object.fromEntries([...match[1].matchAll(/(\w+)="([^"]*)"/g)].map(([, key, value]) => [key, unescape(value)]));
-	const kind = attributes.type;
-	if (!attributes.id || !attributes.name || (kind !== "pdf" && kind !== "docx" && kind !== "sheet" && kind !== "text")) return undefined;
+	const kind = KINDS.find((candidate) => candidate === attributes.type);
+	if (!attributes.id || !attributes.name || !kind) return undefined;
 	return { id: attributes.id, name: attributes.name, kind, size: Number(attributes.size) || 0, ...(attributes.pages ? { pages: Number(attributes.pages) } : {}) };
 }
 
@@ -197,7 +192,7 @@ export interface PreparedAttachment {
 export async function prepareAttachment(file: File, conversationId: string): Promise<PreparedAttachment> {
 	const kind = attachmentKind(file);
 	if (!kind) throw new Error(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
-	const base = { id: newAttachmentId(), conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
+	const base = { id: `att_${crypto.randomUUID().slice(0, 8)}`, conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
 	let stored: StoredAttachment;
 	let images: (ImageContent | TextContent)[] = [];
 	switch (kind) {
@@ -243,7 +238,7 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 			stored = { ...base, units: [(await file.text()).replace(/^\uFEFF/, "")] };
 			break;
 	}
-	await saveAttachment(stored);
+	await files.request("readwrite", (store) => store.put(stored));
 	const card: AttachmentCard = { id: stored.id, name: stored.name, kind, size: stored.size, ...(kind === "pdf" ? { pages: stored.units.length } : {}) };
 	return { card, content: [formatAttachment(stored), ...images], tables: (stored.tables ?? []).map((table) => table.name) };
 }
