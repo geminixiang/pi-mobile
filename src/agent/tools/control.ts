@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { type DndMode, Notifications } from "../../notifications-plugin.ts";
+import { type DndMode, Notifications, requireAccess } from "../../notifications-plugin.ts";
 import {
 	CONNECTIONS,
 	type ConnectionsState,
@@ -10,9 +10,8 @@ import {
 	STREAMS,
 } from "../../phone-state-plugin.ts";
 import { messageOf } from "../../promise.ts";
-import { defineAppTool, localTime, oneOf, parseNextTime, text } from "./common.ts";
-import { requireAccess } from "../../notifications-plugin.ts";
-const minutes = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, "0")}`;
+import { defineAppTool, localTime, oneOf, pad, parseNextTime, text } from "./common.ts";
+const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.floor((ms % 60_000) / 1000))}`;
 
 const media = defineAppTool({
 	name: "media",
@@ -32,7 +31,7 @@ const media = defineAppTool({
 				sessions
 					.map((item) => {
 						const track = [item.title, item.artist, item.album].filter(Boolean).join(" · ");
-						const time = item.durationMs ? ` (${minutes(item.positionMs ?? 0)} / ${minutes(item.durationMs)})` : "";
+						const time = item.durationMs ? ` (${minutesSeconds(item.positionMs ?? 0)} / ${minutesSeconds(item.durationMs)})` : "";
 						return `${item.app}: ${item.state}${track ? ` — ${track}` : ""}${time}`;
 					})
 					.join("\n"),

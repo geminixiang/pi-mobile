@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "./common.ts";
 import { parse } from "../parse.ts";
-import { currentPlace, type Point, resolvePlace } from "./device.ts";
+import { currentPlace, resolvePlace } from "./device.ts";
 
 const CONDITIONS: Record<number, string> = {
 	0: "晴",
@@ -97,7 +97,7 @@ const weather = defineAppTool({
 	structuredOutputSchema: Type.Object({ place: Type.String(), now: Hour, hours: Type.Array(Hour), days: Type.Array(Day) }),
 	replay: "safe",
 	execute: async (args, _api, context) => {
-		const point: Point = args.place ? await resolvePlace(args.place) : await currentPlace();
+		const point = args.place ? await resolvePlace(args.place) : await currentPlace();
 		const hours = Math.min(args.hours ?? 24, 384);
 		const days = Math.min(args.days ?? 7, 16);
 		const query = new URLSearchParams({

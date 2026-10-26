@@ -49,13 +49,16 @@ export const text = (value: string): ToolExecutionResult => ({ output: [{ type: 
 
 export const json = (value: unknown): ToolExecutionResult => text(JSON.stringify(value, null, 2));
 
-export const MAX_OUTPUT_CHARS = 40_000;
+const MAX_OUTPUT_CHARS = 40_000;
 
 export function truncated(value: string, hint = ""): string {
 	return value.length > MAX_OUTPUT_CHARS ? `${value.slice(0, MAX_OUTPUT_CHARS)}\n\n[truncated: ${value.length - MAX_OUTPUT_CHARS} more characters${hint}]` : value;
 }
 
 export const jsonOrNull = (value: unknown): JsonValue => (isJsonValue(value) ? value : null);
+
+export const HOUR = 3_600_000;
+export const DAY = 24 * HOUR;
 
 export const pad = (value: number) => String(value).padStart(2, "0");
 

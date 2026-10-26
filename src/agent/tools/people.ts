@@ -3,7 +3,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { codeNote } from "../codes.ts";
-import { defineAppTool, localTime, parseLocalBound, text } from "./common.ts";
+import { DAY, defineAppTool, localTime, parseLocalBound, startOfToday, text } from "./common.ts";
 import { metersBetween, resolvePlace } from "./device.ts";
 
 type Contact = {
@@ -35,11 +35,10 @@ const Photos = registerPlugin<{
 function daysUntil(birthday: string): number | undefined {
 	const match = /(\d{2})-(\d{2})$/.exec(birthday);
 	if (!match) return undefined;
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
+	const today = new Date(startOfToday());
 	const next = new Date(today.getFullYear(), Number(match[1]) - 1, Number(match[2]));
 	if (next < today) next.setFullYear(today.getFullYear() + 1);
-	return Math.round((next.getTime() - today.getTime()) / 86_400_000);
+	return Math.round((next.getTime() - today.getTime()) / DAY);
 }
 
 const contacts = defineAppTool({
@@ -73,14 +72,15 @@ const contacts = defineAppTool({
 			: found;
 		const structuredOutput = { items };
 		if (items.length === 0) return { ...text(args.query ? `No contact matches "${args.query}".` : "No contacts match."), structuredOutput };
-		const lines = items.slice(0, 50).map((person) =>
-			[
+		const lines = items.slice(0, 50).map((person) => {
+			const days = person.birthday ? daysUntil(person.birthday) : undefined;
+			return [
 				`${person.name}${person.starred ? " ★" : ""}${person.company ? `（${person.company}）` : ""}`,
 				...person.phones.map((phone) => `  ${phone.type}: ${phone.number}`),
 				...person.emails.map((email) => `  email: ${email}`),
-				...(person.birthday ? [`  birthday: ${person.birthday}${daysUntil(person.birthday) !== undefined ? ` (in ${daysUntil(person.birthday)} days)` : ""}`] : []),
-			].join("\n"),
-		);
+				...(person.birthday ? [`  birthday: ${person.birthday}${days !== undefined ? ` (in ${days} days)` : ""}`] : []),
+			].join("\n");
+		});
 		const more = items.length > 50 ? `\n[${items.length - 50} more; narrow the query.]` : "";
 		return { ...text(lines.join("\n") + more), structuredOutput };
 	},

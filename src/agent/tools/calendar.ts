@@ -2,7 +2,7 @@ import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
+import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
 
 export interface PhoneCalendar {
 	id: number;
@@ -47,8 +47,6 @@ interface CalendarPlugin {
 
 export const Calendar = registerPlugin<CalendarPlugin>("Calendar");
 
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 function utcDay(ms: number): number {
@@ -200,17 +198,13 @@ export function createCalendarExtension(access: CalendarAccess) {
 		execute: async () => {
 			const calendars = await writableCalendars(access);
 			if (calendars.length === 0) return text(NO_WRITABLE);
-			return text(
-				JSON.stringify(
-					calendars.map(({ id, name, account, accountType }) => ({
-						id,
-						name,
-						account: accountLabel({ account, accountType }),
-						...(id === access.defaultCalendar ? { default: true } : {}),
-					})),
-					null,
-					2,
-				),
+			return json(
+				calendars.map(({ id, name, account, accountType }) => ({
+					id,
+					name,
+					account: accountLabel({ account, accountType }),
+					...(id === access.defaultCalendar ? { default: true } : {}),
+				})),
 			);
 		},
 	});

@@ -1,7 +1,7 @@
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, duration, localTime, oneOf, parseDay, text } from "./common.ts";
+import { DAY, defineAppTool, duration, localTime, oneOf, parseDay, startOfToday, text } from "./common.ts";
 
 const CALL_KINDS = ["incoming", "outgoing", "missed", "rejected", "blocked", "voicemail", "other"] as const;
 
@@ -98,7 +98,6 @@ const readSms = defineAppTool({
 	},
 });
 
-const DAY = 86_400_000;
 
 const screenTime = defineAppTool({
 	name: "screen_time",
@@ -119,7 +118,7 @@ const screenTime = defineAppTool({
 			throw new Error("Usage access is off. Tell the user to turn it on in pi's 設定 › 手機 › 系統權限 › 螢幕使用時間.");
 		}
 		const span = args.days && args.days > 1;
-		const from = span ? parseDay("today", "day") - ((args.days ?? 1) - 1) * DAY : parseDay(args.day ?? "today", "day");
+		const from = span ? startOfToday() - ((args.days ?? 1) - 1) * DAY : parseDay(args.day ?? "today", "day");
 		const to = span ? Date.now() : from + DAY;
 		const { items, unlocks } = await Usage.apps({ from, to });
 		const total = items.reduce((sum, item) => sum + item.ms, 0);

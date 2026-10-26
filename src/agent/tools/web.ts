@@ -107,16 +107,28 @@ function root(baseUrl: string): string {
 const INSTRUCTIONS =
 	"Search the web for the query and answer it concisely with the facts found, in the query's language. List the source URLs you relied on.";
 
-async function searchResponses(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
+async function postSearch(config: WebConfig, path: string, model: string, headers: Record<string, string>, body: object, signal: AbortSignal): Promise<unknown> {
 	refuseCleartextSecret(config.baseUrl);
-	const response = await fetch(`${root(config.baseUrl)}/v1/responses`, {
+	const response = await fetch(`${root(config.baseUrl)}${path}`, {
 		method: "POST",
-		headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
-		body: JSON.stringify({ model, instructions: INSTRUCTIONS, input: query, tools: [{ type: "web_search" }] }),
+		headers: { ...headers, "Content-Type": "application/json" },
+		body: JSON.stringify({ model, ...body }),
 		signal,
 	});
 	if (!response.ok) throw new Error(`web search (${model}): HTTP ${response.status} ${(await response.text()).slice(0, 300)}`);
-	const body = parse(ResponsesAnswer, await response.json(), "web search 回應");
+	return response.json();
+}
+
+async function searchResponses(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
+	const answer = await postSearch(
+		config,
+		"/v1/responses",
+		model,
+		{ Authorization: `Bearer ${config.apiKey}` },
+		{ instructions: INSTRUCTIONS, input: query, tools: [{ type: "web_search" }] },
+		signal,
+	);
+	const body = parse(ResponsesAnswer, answer, "web search 回應");
 	const parts = (body.output ?? []).filter((item) => item.type === "message").flatMap((item) => item.content ?? []);
 	const text = parts.map((part) => part.text ?? "").join("\n").trim();
 	const sources = new Map<string, string>();
@@ -125,26 +137,20 @@ async function searchResponses(config: WebConfig, model: string, query: string, 
 }
 
 async function searchAnthropic(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
-	refuseCleartextSecret(config.baseUrl);
-	const response = await fetch(`${root(config.baseUrl)}/v1/messages`, {
-		method: "POST",
-		headers: {
-			"x-api-key": config.apiKey,
-			"anthropic-version": "2023-06-01",
-			"anthropic-dangerous-direct-browser-access": "true",
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model,
+	const answer = await postSearch(
+		config,
+		"/v1/messages",
+		model,
+		{ "x-api-key": config.apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+		{
 			max_tokens: 2000,
 			system: INSTRUCTIONS,
 			tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
 			messages: [{ role: "user", content: query }],
-		}),
+		},
 		signal,
-	});
-	if (!response.ok) throw new Error(`web search (${model}): HTTP ${response.status} ${(await response.text()).slice(0, 300)}`);
-	const body = parse(MessagesAnswer, await response.json(), "web search 回應");
+	);
+	const body = parse(MessagesAnswer, answer, "web search 回應");
 	const text = (body.content ?? []).flatMap((block) => (block.type === "text" ? [block.text ?? ""] : [])).join("").trim();
 	const sources = (body.content ?? [])
 		.filter((block) => block.type === "web_search_tool_result")
