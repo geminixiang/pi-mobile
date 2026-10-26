@@ -1,7 +1,8 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ConversationController } from "../agent/runtime.ts";
-import { TRIGGER_ENTRY } from "../agent/triggers.ts";
+import { Value } from "typebox/value";
+import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
 import { parseAttachment } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
@@ -233,8 +234,8 @@ export function Chat({
 					const typed = text(entry.model?.[0]?.content).replace(/\s+/g, " ").trim();
 					return [{ id: String(entry.id), text: typed || "（圖片）" }];
 				}
-				if (entry.kind === TRIGGER_ENTRY && typeof entry.data === "object" && entry.data && "name" in entry.data) {
-					return [{ id: String(entry.id), text: `自動化：${String(entry.data.name)}` }];
+				if (entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data)) {
+					return [{ id: String(entry.id), text: `自動化：${entry.data.name}` }];
 				}
 				return [];
 			}),

@@ -5,10 +5,9 @@ import { native } from "../native.ts";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, oneOf, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
+import { defineAppTool, localTime, monthDayTime, oneOf, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
-import { requireAccess } from "../notifications-plugin.ts";
-import { Notifications } from "../notifications-plugin.ts";
+import { Notifications, requireAccess } from "../notifications-plugin.ts";
 import { messageOf, serially } from "../promise.ts";
 import type { Judge } from "./judge.ts";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "./guards.ts";
@@ -134,7 +133,6 @@ interface TriggersPlugin {
 	requestBluetooth(): Promise<{ granted: boolean }>;
 	requestAccess(options: { to: "photos" | "activity" }): Promise<{ granted: boolean }>;
 	requestLocationAlways(): Promise<{ foreground: boolean; background: boolean }>;
-	simulateHeadphones(options: { device: string; delayMs?: number }): Promise<void>;
 	requestExactAlarms(): Promise<void>;
 	notify(options: { title: string; text: string; conversation?: string; avatar?: string }): Promise<void>;
 	addListener(event: "event", listener: () => void): Promise<{ remove: () => Promise<void> }>;
@@ -162,8 +160,8 @@ const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 
 export function describeTime(at: number): string {
-	const date = new Date(at);
-	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+	const [day, clock] = monthDayTime(at).split(" ");
+	return `${day}（${WEEKDAY_NAMES[(new Date(at).getDay() + 6) % 7]}）${clock}`;
 }
 
 function describeDays(list: readonly number[]): string {
@@ -305,9 +303,9 @@ async function needAccess(to: "photos" | "activity", cannot: string, allow: stri
 	if (!granted) throw new Error(`the user did not allow pi to ${cannot}. Ask them to allow ${allow} for pi if they want it.`);
 }
 
-export async function whenOf(args: CreateScheduleArgs): Promise<{ when: When; note: string }> {
+export async function whenOf(args: CreateScheduleArgs): Promise<When> {
 	const days = (args.days ?? []).map((day) => WEEKDAYS.indexOf(day) + 1);
-	if (args.on === "time") return { when: timeOf(args, days), note: "" };
+	if (args.on === "time") return timeOf(args, days);
 	const window = {
 		days,
 		...(args.from ? { from: hhmm(args.from, "from") } : {}),
@@ -317,51 +315,47 @@ export async function whenOf(args: CreateScheduleArgs): Promise<{ when: When; no
 	switch (args.on) {
 		case "headphones":
 			await needBluetooth("when headphones connect; wired headphones still work while pi runs");
-			return { when: { kind: "headphones", ...window }, note: "" };
+			return { kind: "headphones", ...window };
 		case "unlock":
-		case "battery_low": {
-			const { allowed } = await Notifications.status();
-			const note = allowed
-				? ""
-				: " It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
-			return { when: { kind: args.on, ...window }, note };
-		}
+		case "battery_low":
 		case "timezone":
-			return { when: { kind: "timezone", ...window }, note: "" };
+		case "charging":
+			return { kind: args.on, ...window };
 		case "photo":
 			await needAccess("photos", "see photos, so it cannot tell when a new one is saved", "相片");
-			return { when: { kind: "photo", ...(args.album ? { album: args.album } : {}), ...window }, note: "" };
+			return { kind: "photo", ...(args.album ? { album: args.album } : {}), ...window };
 		case "bluetooth_connect":
 		case "bluetooth_disconnect": {
 			if (!args.device) throw new Error(`${args.on} needs device`);
 			await needBluetooth("which device connected");
-			return { when: { kind: "bluetooth", on: args.on === "bluetooth_connect" ? "connect" : "disconnect", device: args.device, ...window }, note: "" };
+			return { kind: "bluetooth", on: args.on === "bluetooth_connect" ? "connect" : "disconnect", device: args.device, ...window };
 		}
 		case "activity_start":
 		case "activity_stop": {
 			if (!args.activity) throw new Error(`${args.on} needs activity`);
 			await needAccess("activity", "recognize activity, so it cannot tell when they start walking or driving", "體能活動");
-			return { when: { kind: "activity", on: args.on === "activity_start" ? "start" : "stop", activity: args.activity, ...window }, note: "" };
+			return { kind: "activity", on: args.on === "activity_start" ? "start" : "stop", activity: args.activity, ...window };
 		}
-		case "charging":
-			return { when: { kind: "charging", ...window }, note: "" };
 		case "notification":
 			await requireAccess();
-			return { when: { kind: "notification", ...(args.app ? { app: args.app } : {}), ...(args.contains ? { contains: args.contains } : {}), ...window }, note: "" };
+			return { kind: "notification", ...(args.app ? { app: args.app } : {}), ...(args.contains ? { contains: args.contains } : {}), ...window };
 		case "wifi":
 			if (args.wifi_name) await needLocationAlways("which Wi-Fi it is");
-			return { when: { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window }, note: "" };
+			return { kind: "wifi", ...(args.wifi_name ? { ssid: args.wifi_name } : {}), ...window };
 		case "arrive":
 		case "leave": {
 			if (!args.place) throw new Error("arrive and leave need place");
 			const point = await resolvePlace(args.place);
 			await needLocationAlways("where the phone is");
-			return {
-				when: { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m ?? 200, ...window },
-				note: "",
-			};
+			return { kind: "place", on: args.on, label: args.place, latitude: point.latitude, longitude: point.longitude, radius: args.radius_m ?? 200, ...window };
 		}
 	}
+}
+
+async function runningOnlyNote(when: When): Promise<string> {
+	if (when.kind !== "unlock" && when.kind !== "battery_low") return "";
+	if ((await Notifications.status()).allowed) return "";
+	return " It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
 }
 
 function timeOf(args: CreateScheduleArgs, days: number[]): When {
@@ -383,7 +377,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
 		parameters: CreateScheduleArgs,
 		execute: async (args, api, context) => {
-			const { when, note } = await whenOf(args);
+			const when = await whenOf(args);
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
 			const trigger: Trigger = {
@@ -403,7 +397,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			}, context);
 			host.changed();
 			const asked = `${trigger.guards?.length ? ` Checks: ${trigger.guards.join(", ")}.` : ""}${trigger.onlyIf ? ` Only if: ${trigger.onlyIf}` : ""}`;
-			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}.${asked} The user can pause or delete it in Settings.${note}`);
+			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}.${asked} The user can pause or delete it in Settings.${await runningOnlyNote(when)}`);
 		},
 	});
 
