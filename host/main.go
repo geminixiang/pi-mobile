@@ -230,7 +230,8 @@ func unpairHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "DELETE only", http.StatusMethodNotAllowed)
 		return
 	}
-	removed, err := unpair(stateDir(), r.URL.Query().Get("key"))
+	key := r.URL.Query().Get("key")
+	removed, err := unpair(stateDir(), key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -239,8 +240,15 @@ func unpairHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "that key was not paired", http.StatusNotFound)
 		return
 	}
-	log.Printf("unpaired a device")
+	log.Printf("unpaired a device; ended %d of its sessions", endSessionsOf(digest(key)))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func startFailure(err error) websocket.StatusCode {
+	if errors.Is(err, errSessionTaken) {
+		return websocket.StatusPolicyViolation
+	}
+	return websocket.StatusInternalError
 }
 
 func versionOnly(w http.ResponseWriter, r *http.Request) {
@@ -368,10 +376,10 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			heartbeat = piEnvPing
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		held, err := startHeld("exec:"+session, loginShell(ctx, command), cancel, heartbeat, true, conn, r.Context())
+		held, err := startHeld("exec:"+session, digest(r.URL.Query().Get("key")), loginShell(ctx, command), cancel, heartbeat, true, conn, r.Context())
 		if err != nil {
 			cancel()
-			conn.Close(websocket.StatusInternalError, "cannot start the command")
+			conn.Close(startFailure(err), "cannot start the command: "+err.Error())
 			return
 		}
 		held.serve(conn, r.Context())
@@ -525,10 +533,10 @@ func env(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(32 << 20)
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
-	session, err := startHeld("env:"+token, cmd, cancel, piEnvPing, false, conn, r.Context())
+	session, err := startHeld("env:"+token, digest(r.URL.Query().Get("key")), cmd, cancel, piEnvPing, false, conn, r.Context())
 	if err != nil {
 		cancel()
-		conn.Close(websocket.StatusInternalError, "cannot start pi-env")
+		conn.Close(startFailure(err), "cannot start pi-env: "+err.Error())
 		return
 	}
 	session.serve(conn, r.Context())

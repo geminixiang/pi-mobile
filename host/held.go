@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
@@ -20,6 +21,7 @@ const (
 	sessionGone    = "no such session"
 	sessionBehind  = "too far behind to resume"
 	sessionReplace = "replaced by a newer connection"
+	sessionTaken   = "session token in use"
 )
 
 var (
@@ -39,6 +41,7 @@ type message struct {
 
 // why: a phone that loses its network sends no FIN, so the computer only learns of the loss from a failed write or an unanswered ping; held sessions keep pi-env alive themselves (heartbeat) instead of relying on the phone's pings reaching it.
 type held struct {
+	owner     string
 	cmd       *exec.Cmd
 	stdin     io.WriteCloser
 	heartbeat []byte
@@ -78,10 +81,36 @@ func holdSession(id string, session *held) {
 	}
 }
 
-func takeSession(id string) *held {
+func takeSession(id, owner string) *held {
 	heldMu.Lock()
 	defer heldMu.Unlock()
-	return heldByID[id]
+	session := heldByID[id]
+	if session == nil || subtle.ConstantTimeCompare([]byte(session.owner), []byte(owner)) != 1 {
+		return nil
+	}
+	return session
+}
+
+func heldByOther(id, owner string) bool {
+	heldMu.Lock()
+	defer heldMu.Unlock()
+	session := heldByID[id]
+	return session != nil && subtle.ConstantTimeCompare([]byte(session.owner), []byte(owner)) != 1
+}
+
+func endSessionsOf(owner string) int {
+	heldMu.Lock()
+	var mine []*held
+	for _, session := range heldByID {
+		if subtle.ConstantTimeCompare([]byte(session.owner), []byte(owner)) == 1 {
+			mine = append(mine, session)
+		}
+	}
+	heldMu.Unlock()
+	for _, session := range mine {
+		session.kill()
+	}
+	return len(mine)
 }
 
 func (h *held) deliver(m message) {
@@ -304,12 +333,17 @@ func exitCode(err error, cmd *exec.Cmd) int {
 	return -1
 }
 
-func startHeld(id string, cmd *exec.Cmd, cancel context.CancelFunc, heartbeat []byte, tagged bool, conn *websocket.Conn, ctx context.Context) (*held, error) {
+var errSessionTaken = errors.New(sessionTaken)
+
+func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heartbeat []byte, tagged bool, conn *websocket.Conn, ctx context.Context) (*held, error) {
+	if heldByOther(id, owner) {
+		return nil, errSessionTaken
+	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
 	}
-	session := &held{cmd: cmd, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
+	session := &held{owner: owner, cmd: cmd, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
 	var stdout io.ReadCloser
 	if tagged {
 		cmd.Stdout = heldWriter{1, session}
@@ -366,7 +400,7 @@ func attachHeld(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	conn.SetReadLimit(32 << 20)
-	session := takeSession(id)
+	session := takeSession(id, digest(r.URL.Query().Get("key")))
 	if session == nil {
 		conn.Close(websocket.StatusPolicyViolation, sessionGone)
 		return

@@ -167,3 +167,74 @@ func TestAnAttachThatResendsWhatThePhoneLostAndLearnsWhatTheComputerLost(t *test
 func asCloseError(err error, target *websocket.CloseError) bool {
 	return errors.As(err, target)
 }
+
+func startHeldSleep(t *testing.T, server *httptest.Server, token, key string) *websocket.Conn {
+	t.Helper()
+	conn := dial(t, wsURL(server, "/exec?session="+token+"&key="+key+"&command="+url.QueryEscape("echo up; sleep 5")))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := conn.Read(ctx); err != nil {
+		t.Fatal(err)
+	}
+	return conn
+}
+
+func TestAHeldSessionAnswersOnlyTheKeyThatStartedIt(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	defer server.Close()
+	token := fmt.Sprintf("%032x", time.Now().UnixNano())
+	first := startHeldSleep(t, server, token, "phone-a")
+	_ = first.CloseNow()
+	time.Sleep(300 * time.Millisecond)
+	other := dial(t, wsURL(server, "/exec?attach="+token+"&received=0&key=phone-b"))
+	if _, _, reason := readAll(t, other, 3*time.Second); !strings.Contains(reason, sessionGone) {
+		t.Fatalf("another key attaching was answered %q", reason)
+	}
+	mine := dial(t, wsURL(server, "/exec?attach="+token+"&received=0&key=phone-a"))
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	kind, data, err := mine.Read(ctx)
+	if err != nil || kind != websocket.MessageText || string(data) != `{"received":0}` {
+		t.Fatalf("the starting key could not attach: %v %q", err, data)
+	}
+	takeSession("exec:"+token, digest("phone-a")).kill()
+}
+
+func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	defer server.Close()
+	token := fmt.Sprintf("%032x", time.Now().UnixNano())
+	first := startHeldSleep(t, server, token, "phone-a")
+	defer first.CloseNow()
+	other := dial(t, wsURL(server, "/exec?session="+token+"&key=phone-b&command="+url.QueryEscape("echo taken")))
+	if _, _, reason := readAll(t, other, 3*time.Second); !strings.Contains(reason, sessionTaken) {
+		t.Fatalf("starting a held token under another key was answered %q", reason)
+	}
+	session := takeSession("exec:"+token, digest("phone-a"))
+	if session == nil {
+		t.Fatal("the first key's session was replaced")
+	}
+	session.kill()
+}
+
+func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	defer server.Close()
+	kept := fmt.Sprintf("%032x", time.Now().UnixNano())
+	ended := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
+	keep := startHeldSleep(t, server, kept, "phone-a")
+	defer keep.CloseNow()
+	revoked := startHeldSleep(t, server, ended, "phone-b")
+	defer revoked.CloseNow()
+	if n := endSessionsOf(digest("phone-b")); n != 1 {
+		t.Fatalf("ended %d sessions of the revoked key", n)
+	}
+	if takeSession("exec:"+ended, digest("phone-b")) != nil {
+		t.Fatal("the revoked key's session is still held")
+	}
+	session := takeSession("exec:"+kept, digest("phone-a"))
+	if session == nil {
+		t.Fatal("another key's session ended with it")
+	}
+	session.kill()
+}

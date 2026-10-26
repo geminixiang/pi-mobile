@@ -31,7 +31,8 @@
     - `POST /pair?code=` 用掉配對碼，回一把 32 bytes 的金鑰；`~/.pi/mobile/paired.json` 只存金鑰的 SHA-256 和配對的裝置名稱。配對碼錯回 422，沒有等待中的配對碼回 410。
     - 金鑰放在 query（`?key=`），因為 WebView 的 WebSocket 不能帶標頭；電腦端的 log 只記路徑。
     - 手機把金鑰存在 Keystore（`host.<id>.key`），不放在 `settings.hosts`。
-    - 撤銷：手機「移除」這台電腦時會送 `DELETE /unpair`（帶自己的金鑰），電腦端只刪掉那一把；連不到或電腦端太舊（沒有這個端點）時手機照樣移除，並說明配對還留在電腦上。手動撤銷：刪掉 `~/.pi/mobile/paired.json` 裡那一行（或整個檔案），再重新配對。
+    - 保留的 session（見下面）綁定開它的那把金鑰（2026-10-26 起）：接回時金鑰不同就回 `no such session`，不透露它存在；另一把金鑰拿同一個 token 開新的 session 會被拒絕（`session token in use`），不會頂掉原本的。
+    - 撤銷：手機「移除」這台電腦時會送 `DELETE /unpair`（帶自己的金鑰），電腦端只刪掉那一把，並結束那把金鑰保留中的 session；連不到或電腦端太舊（沒有這個端點）時手機照樣移除，並說明配對還留在電腦上。手動撤銷：刪掉 `~/.pi/mobile/paired.json` 裡那一行（或整個檔案），再重新配對。
 - **端點**：
   - `GET /version`：只回版本，不用金鑰；`pi-mobile status` 和手機找 peers 時用它判斷有沒有裝。
   - `POST /pair?code=<6 位數>`：見上面。
