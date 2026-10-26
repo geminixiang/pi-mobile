@@ -27,6 +27,7 @@ import { connectClouds } from "./clouds.ts";
 import { extensionName, McpHub } from "./mcp.ts";
 import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
+import type { LoadedModels } from "./available-models.ts";
 import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
@@ -76,10 +77,24 @@ const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
 	missing: new Set(["files", "sandbox", "computer"]),
 };
 
+const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt"]);
+
+type Loaded = Pick<LoadedModels, "models" | "infos">;
+
+export type Applied = "in_place" | "needs_restart";
+
+function differ(before: Settings, after: Settings): (keyof Settings)[] {
+	return (Object.keys(before) as (keyof Settings)[]).filter((key) => {
+		const a = before[key];
+		const b = after[key];
+		return typeof a === "object" || typeof b === "object" ? JSON.stringify(a) !== JSON.stringify(b) : a !== b;
+	});
+}
+
 export class AgentRuntime {
-	readonly models: ModelInfo[];
+	readonly #loaded: Loaded;
 	readonly #harness: Harness;
-	readonly #settings: Settings;
+	#settings: Settings;
 	readonly workplaces: Workplaces;
 	readonly #placed: Map<string, { folder: string; computer?: string }>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
@@ -94,7 +109,7 @@ export class AgentRuntime {
 		harness: Harness,
 		settings: Settings,
 		platform: Platform,
-		models: ModelInfo[],
+		loaded: Loaded,
 		workplaces: Workplaces,
 		placed: Map<string, { folder: string; computer?: string }>,
 		installed: () => ReadonlySet<string>,
@@ -106,7 +121,7 @@ export class AgentRuntime {
 		this.mcp = mcp;
 		this.#harness = harness;
 		this.#settings = settings;
-		this.models = models;
+		this.#loaded = loaded;
 		this.workplaces = workplaces;
 		this.#placed = placed;
 		this.triggers = new TriggerRuns(
@@ -123,6 +138,30 @@ export class AgentRuntime {
 			const bot = items.find((candidate) => candidate.id === id);
 			if (bot) bot.updatedAt = at;
 		});
+	}
+
+	get settings(): Settings {
+		return this.#settings;
+	}
+
+	get models(): ModelInfo[] {
+		return this.#loaded.infos;
+	}
+
+	async apply(next: Settings): Promise<Applied> {
+		const changed = differ(this.#settings, next);
+		if (changed.some((key) => !IN_PLACE.has(key))) return "needs_restart";
+		if (changed.includes("compactAt")) {
+			const { models, infos } = await this.#platform.models(next);
+			this.#loaded.models = models;
+			this.#loaded.infos = infos;
+		}
+		this.#settings = next;
+		if (changed.some((key) => key === "hosts" || key === "hostKeys" || key === "computer")) {
+			this.workplaces.apply(next);
+			await this.#publishBots();
+		}
+		return "in_place";
 	}
 
 	async setComputer(id: ConversationId, key: string): Promise<void> {
@@ -143,6 +182,7 @@ export class AgentRuntime {
 		} = {},
 	): Promise<AgentRuntime> {
 		const { models, infos, webSearch } = await platform.models(settings, options.onReport);
+		const loaded: Loaded = { models, infos };
 		const registry = createRegistry();
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
@@ -161,7 +201,7 @@ export class AgentRuntime {
 			uninstall: (name) => registry.uninstall({ name }),
 			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
-			hostKey: (address) => pairedHosts(settings).find((host) => host.address === address)?.key ?? "",
+			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
 		});
 		for (const extension of builtinExtensions({
 			native: platform.native,
@@ -180,7 +220,7 @@ export class AgentRuntime {
 		const harness = await Harness.open(
 			storage,
 			{
-				models,
+				models: () => loaded.models,
 				registry,
 				settings: {
 					get extensions() {
@@ -202,7 +242,7 @@ export class AgentRuntime {
 			harness,
 			settings,
 			platform,
-			infos,
+			loaded,
 			workplaces,
 			placed,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),

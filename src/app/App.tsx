@@ -264,6 +264,7 @@ export function App() {
 		setSettings(next);
 		if (!isConfigured(next)) return;
 		setOverlay(undefined);
+		if (runtime && (await runtime.apply(next)) === "in_place") return;
 		controller?.dispose();
 		setController(undefined);
 		setView(undefined);
@@ -279,10 +280,12 @@ export function App() {
 			.then(async () => {
 				const next = await saveSettings(draft.settings);
 				setSettings(next);
+				const current = live.current.runtime;
+				if (current && (await current.apply(next)) === "in_place") return;
 				live.current.controller?.dispose();
 				setController(undefined);
 				setView(undefined);
-				await live.current.runtime?.close();
+				await current?.close();
 				await start(next);
 			})
 			.catch(fail);

@@ -28,9 +28,13 @@ function parseKey(key: string): { id: string; mode: HostMode } | undefined {
 	return id && (mode === "direct" || mode === "container") ? { id, mode } : undefined;
 }
 
+function sameHost(a: PairedHost, b: PairedHost): boolean {
+	return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export class Workplaces {
-	readonly #settings: Settings;
-	readonly #hosts: PairedHost[];
+	#settings: Settings;
+	#hosts: PairedHost[];
 	readonly #minted: Record<string, MintedService>;
 	readonly #phone: PhoneApp | undefined;
 	readonly #placed: (id: string) => Placed | undefined;
@@ -42,6 +46,19 @@ export class Workplaces {
 		this.#minted = minted;
 		this.#phone = phone;
 		this.#placed = placed;
+	}
+
+	apply(settings: Settings): void {
+		const previous = this.#hosts;
+		this.#settings = settings;
+		this.#hosts = pairedHosts(settings).map((host) => previous.find((known) => known.id === host.id && sameHost(known, host)) ?? host);
+		for (const [key, sandbox] of this.#open) {
+			const parsed = parseKey(key);
+			const kept = parsed && this.#hosts.find((host) => host.id === parsed.id);
+			if (kept && previous.includes(kept) && (parsed.mode === "direct" || kept.engine)) continue;
+			sandbox.close();
+			this.#open.delete(key);
+		}
 	}
 
 	list(): Computer[] {

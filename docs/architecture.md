@@ -72,7 +72,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 - `src/log.ts` 除了寫 console，還留最近 2000 行在記憶體（含時間、已遮蔽 token 樣式的字串），設定頁最下面「分享診斷記錄」把它存成 `.jsonl` 走分享表。正式版關閉 WebView 偵錯，這是正式版唯一拿得到 JS 端證據的路。主執行緒每 250 ms 心跳一次，前景時間隔超過 500 ms 記一筆 `ui.stall`；頁面在背景被 Chromium 凍結的那一段不算。
 
 **Runtime 的生命週期**
-- 每次改設定，`App.tsx` 會關掉整個 `AgentRuntime` 再開一個新的。`close()` 先關 harness（停下正在跑的工作），再關 MCP 和電腦連線；前一步失敗也照樣關後面的。
+- 改設定先問 `AgentRuntime.apply(next)`。runtime 邊跑邊讀的設定（預設模型、思考程度、壓縮門檻、電腦清單、配對金鑰、預設電腦）就地生效：沒變的電腦連線留著，進行中的回合不受影響；壓縮門檻換掉的是 harness 每次請求時讀的 `models`。其他設定（供應商與金鑰、雲端憑證、GitHub token、行事曆範圍）在開 harness 時就裝進了 extension，`apply` 回 `needs_restart`，`App.tsx` 才關掉整個 `AgentRuntime` 再開一個新的；這會停下正在跑的工作（2026-10-26 在 S24 重現：改壓縮門檻時容器裡的指令回 `Tool bash was interrupted`）。`close()` 先關 harness，再關 MCP 和電腦連線；前一步失敗也照樣關後面的。
 - MCP 的每條連線有一個 generation：重新連線、登出、關閉都會讓它加一，舊的連線不管在哪一步完成，都只關掉自己，不改狀態、不安裝工具。關閉後的連線不會再被 `refresh` 或登入的回呼打開。新增和移除服務排成一列；移除中的服務已經不在清單上，不能再開給 Bot。
 - 刪除 Bot 先在 `BotIndex` 標成刪除中（清單上不再出現，不再收輸入，排程也不會再送），再停下它的工作、清資料夾和附件，全部清完才把它從 `BotIndex` 拿掉並刪掉記憶。電腦連不上、容器資料夾沒刪掉，或刪到一半 app 被關掉，下次打開時接著做。pi-durable 不能刪除一條對話，所以對話紀錄留在 IndexedDB。
 - Code mode 的 QuickJS Worker 和手機資料夾的 bash Worker 跟著 app，不跟著 runtime，一個 app 各一個：它們不帶 runtime 的狀態，跟著 runtime 開關的話，每改一次設定就多留一個 Worker。
