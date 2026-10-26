@@ -409,17 +409,59 @@ func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heart
 	return session, nil
 }
 
+func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, bool) {
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	if err != nil {
+		return nil, false
+	}
+	conn.SetReadLimit(32 << 20)
+	return conn, true
+}
+
+func serveHeld(w http.ResponseWriter, r *http.Request, id string, cmd *exec.Cmd, cancel context.CancelFunc, heartbeat []byte, tagged bool, what string) {
+	conn, ok := accept(w, r)
+	if !ok {
+		cancel()
+		return
+	}
+	session, err := startHeld(id, digest(r.URL.Query().Get("key")), cmd, cancel, heartbeat, tagged, conn, r.Context())
+	if err != nil {
+		cancel()
+		status := websocket.StatusInternalError
+		if errors.Is(err, errSessionTaken) {
+			status = websocket.StatusPolicyViolation
+		}
+		conn.Close(status, "cannot start "+what+": "+err.Error())
+		return
+	}
+	session.serve(conn, r.Context())
+}
+
+func resumable(prefix string, start http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		attach := r.URL.Query().Get("attach")
+		if attach == "" {
+			start(w, r)
+			return
+		}
+		if !tokenPattern.MatchString(attach) {
+			http.Error(w, "bad token", http.StatusBadRequest)
+			return
+		}
+		attachHeld(w, r, prefix+attach)
+	}
+}
+
 func attachHeld(w http.ResponseWriter, r *http.Request, id string) {
 	have, err := strconv.Atoi(r.URL.Query().Get("received"))
 	if err != nil || have < 0 {
 		http.Error(w, "received count required", http.StatusBadRequest)
 		return
 	}
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
-	if err != nil {
+	conn, ok := accept(w, r)
+	if !ok {
 		return
 	}
-	conn.SetReadLimit(32 << 20)
 	session := takeSession(id, digest(r.URL.Query().Get("key")))
 	if session == nil {
 		conn.Close(websocket.StatusPolicyViolation, sessionGone)

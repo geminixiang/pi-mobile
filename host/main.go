@@ -135,8 +135,7 @@ func owner(ctx context.Context, remoteAddr string) (string, error) {
 }
 
 func daemonsDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".pi", "mobile", "daemons")
+	return filepath.Join(stateDir(), "daemons")
 }
 
 func daemons() []string {
@@ -171,7 +170,7 @@ func fromOwner(w http.ResponseWriter, r *http.Request) (string, bool) {
 	}
 	if origin := r.Header.Get("Origin"); origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST")
+		w.Header().Set("Access-Control-Allow-Methods", corsMethods)
 		w.Header().Set("Vary", "Origin")
 	}
 	if r.Method == http.MethodOptions {
@@ -180,6 +179,8 @@ func fromOwner(w http.ResponseWriter, r *http.Request) (string, bool) {
 	}
 	return device, true
 }
+
+const corsMethods = "GET, PUT, POST, DELETE"
 
 func guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -221,8 +222,7 @@ func pair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("paired with %s", device)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"key": key})
+	respond(w, map[string]string{"key": key})
 }
 
 func unpairHandler(w http.ResponseWriter, r *http.Request) {
@@ -244,19 +244,11 @@ func unpairHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func startFailure(err error) websocket.StatusCode {
-	if errors.Is(err, errSessionTaken) {
-		return websocket.StatusPolicyViolation
-	}
-	return websocket.StatusInternalError
-}
-
 func versionOnly(w http.ResponseWriter, r *http.Request) {
 	if _, ok := fromOwner(w, r); !ok {
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"version": version})
+	respond(w, map[string]string{"version": version})
 }
 
 func info(w http.ResponseWriter, r *http.Request) {
@@ -271,8 +263,7 @@ func info(w http.ResponseWriter, r *http.Request) {
 	if st.Self.HostName != "" {
 		name = st.Self.HostName
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	respond(w, map[string]any{
 		"version": version,
 		"os":      runtime.GOOS,
 		"arch":    map[string]string{"amd64": "x64", "arm64": "arm64"}[runtime.GOARCH],
@@ -348,14 +339,6 @@ func (t taggedWriter) Write(data []byte) (int, error) {
 }
 
 func runCommand(w http.ResponseWriter, r *http.Request) {
-	if attach := r.URL.Query().Get("attach"); attach != "" {
-		if !tokenPattern.MatchString(attach) {
-			http.Error(w, "bad token", http.StatusBadRequest)
-			return
-		}
-		attachHeld(w, r, "exec:"+attach)
-		return
-	}
 	command := r.URL.Query().Get("command")
 	if command == "" {
 		http.Error(w, "command required", http.StatusBadRequest)
@@ -366,30 +349,18 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "bad session token", http.StatusBadRequest)
 			return
 		}
-		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
-		if err != nil {
-			return
-		}
-		conn.SetReadLimit(32 << 20)
 		var heartbeat []byte
 		if r.URL.Query().Get("heartbeat") == "pi-env" {
 			heartbeat = piEnvPing
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		held, err := startHeld("exec:"+session, digest(r.URL.Query().Get("key")), loginShell(ctx, command), cancel, heartbeat, true, conn, r.Context())
-		if err != nil {
-			cancel()
-			conn.Close(startFailure(err), "cannot start the command: "+err.Error())
-			return
-		}
-		held.serve(conn, r.Context())
+		serveHeld(w, r, "exec:"+session, loginShell(ctx, command), cancel, heartbeat, true, "the command")
 		return
 	}
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
-	if err != nil {
+	conn, ok := accept(w, r)
+	if !ok {
 		return
 	}
-	conn.SetReadLimit(32 << 20)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmd := loginShell(ctx, command)
@@ -419,20 +390,9 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	err = cmd.Wait()
+	err := cmd.Wait()
 	_ = endGroup(cmd)
-	code := 0
-	if errors.Is(err, exec.ErrWaitDelay) {
-		code = cmd.ProcessState.ExitCode()
-	} else if err != nil {
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			code = exit.ExitCode()
-		} else {
-			code = -1
-		}
-	}
-	message, _ := json.Marshal(map[string]int{"exit": code})
+	message, _ := json.Marshal(map[string]int{"exit": exitCode(err, cmd)})
 	writes.Lock()
 	_ = conn.Write(ctx, websocket.MessageText, message)
 	writes.Unlock()
@@ -465,8 +425,12 @@ func peers(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, map[string]string{"name": peer.HostName, "dnsName": strings.TrimSuffix(peer.DNSName, "."), "os": os})
 	}
+	respond(w, out)
+}
+
+func respond(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(out)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func putDaemon(w http.ResponseWriter, r *http.Request) {
@@ -508,14 +472,6 @@ func putDaemon(w http.ResponseWriter, r *http.Request) {
 }
 
 func env(w http.ResponseWriter, r *http.Request) {
-	if attach := r.URL.Query().Get("attach"); attach != "" {
-		if !tokenPattern.MatchString(attach) {
-			http.Error(w, "bad token", http.StatusBadRequest)
-			return
-		}
-		attachHeld(w, r, "env:"+attach)
-		return
-	}
 	sha, token := r.URL.Query().Get("daemon"), r.URL.Query().Get("token")
 	if !shaPattern.MatchString(sha) || !tokenPattern.MatchString(token) {
 		http.Error(w, "daemon and token required", http.StatusBadRequest)
@@ -526,20 +482,8 @@ func env(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such daemon; PUT it first", http.StatusNotFound)
 		return
 	}
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
-	if err != nil {
-		return
-	}
-	conn.SetReadLimit(32 << 20)
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd := loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
-	session, err := startHeld("env:"+token, digest(r.URL.Query().Get("key")), cmd, cancel, piEnvPing, false, conn, r.Context())
-	if err != nil {
-		cancel()
-		conn.Close(startFailure(err), "cannot start pi-env: "+err.Error())
-		return
-	}
-	session.serve(conn, r.Context())
+	serveHeld(w, r, "env:"+token, loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token), cancel, piEnvPing, false, "pi-env")
 }
 
 type permission struct {
@@ -550,9 +494,9 @@ type permission struct {
 }
 
 var permissions = []permission{
-	{"desktop", "取用「桌面」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", func(home string) error { _, err := os.ReadDir(filepath.Join(home, "Desktop")); return err }},
-	{"documents", "取用「文件」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", func(home string) error { _, err := os.ReadDir(filepath.Join(home, "Documents")); return err }},
-	{"downloads", "取用「下載項目」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", func(home string) error { _, err := os.ReadDir(filepath.Join(home, "Downloads")); return err }},
+	{"desktop", "取用「桌面」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", readable("Desktop")},
+	{"documents", "取用「文件」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", readable("Documents")},
+	{"downloads", "取用「下載項目」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", readable("Downloads")},
 	{"automation", "控制「System Events」", "系統設定 › 隱私權與安全性 › 自動化", func(string) error {
 		return exec.Command("osascript", "-e", `tell application "System Events" to get name of first process`).Run()
 	}},
@@ -576,9 +520,15 @@ var permissions = []permission{
 	}},
 }
 
+func readable(folder string) func(home string) error {
+	return func(home string) error {
+		_, err := os.ReadDir(filepath.Join(home, folder))
+		return err
+	}
+}
+
 func permissionsFile() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".pi", "mobile", "permissions.json")
+	return filepath.Join(stateDir(), "permissions.json")
 }
 
 func askPermissions() {
@@ -731,8 +681,8 @@ func serve() {
 	mux.HandleFunc("/unpair", guard(unpairHandler))
 	mux.HandleFunc("/info", guard(info))
 	mux.HandleFunc("/daemon/", guard(putDaemon))
-	mux.HandleFunc("/env", guard(env))
-	mux.HandleFunc("/exec", guard(runCommand))
+	mux.HandleFunc("/env", guard(resumable("env:", env)))
+	mux.HandleFunc("/exec", guard(resumable("exec:", runCommand)))
 	mux.HandleFunc("/peers", guard(peers))
 	for {
 		ln := listen()

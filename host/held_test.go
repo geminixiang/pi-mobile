@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -55,7 +54,7 @@ func closeReasonOf(err error) string {
 }
 
 func TestAHeldCommandOutlivesTheConnectionAndReplaysItsOutput(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	command := "for i in 1 2 3 4 5 6; do echo tick $i; sleep 0.4; done"
@@ -85,7 +84,7 @@ func TestTheComputerKeepsAHeldPiEnvAliveItself(t *testing.T) {
 	previous := heartbeatEvery
 	heartbeatEvery = 100 * time.Millisecond
 	defer func() { heartbeatEvery = previous }()
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	token := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
 	command := "head -c 15 | od -An -tx1 -v | tr -d ' \\n'"
@@ -97,7 +96,7 @@ func TestTheComputerKeepsAHeldPiEnvAliveItself(t *testing.T) {
 }
 
 func TestAnUnknownAttachIsRefusedByName(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	conn := dial(t, wsURL(server, "/exec?attach="+fmt.Sprintf("%032x", 7)+"&received=0"))
 	_, _, reason := readAll(t, conn, 3*time.Second)
@@ -110,7 +109,7 @@ func TestAHeldCommandIsKilledAfterTheGrace(t *testing.T) {
 	previous := holdFor
 	holdFor = 400 * time.Millisecond
 	defer func() { holdFor = previous }()
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	marker := fmt.Sprintf("pi-mobile-held-%d", time.Now().UnixNano())
 	token := fmt.Sprintf("%032x", time.Now().UnixNano()+2)
@@ -130,7 +129,7 @@ func TestAHeldCommandIsKilledAfterTheGrace(t *testing.T) {
 }
 
 func TestAnAttachThatResendsWhatThePhoneLostAndLearnsWhatTheComputerLost(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	token := fmt.Sprintf("%032x", time.Now().UnixNano()+3)
 	first := dial(t, wsURL(server, "/exec?session="+token+"&command="+url.QueryEscape("cat")))
@@ -180,7 +179,7 @@ func startHeldSleep(t *testing.T, server *httptest.Server, token, key string) *w
 }
 
 func TestAHeldSessionAnswersOnlyTheKeyThatStartedIt(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	first := startHeldSleep(t, server, token, "phone-a")
@@ -201,7 +200,7 @@ func TestAHeldSessionAnswersOnlyTheKeyThatStartedIt(t *testing.T) {
 }
 
 func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	first := startHeldSleep(t, server, token, "phone-a")
@@ -218,7 +217,7 @@ func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
 }
 
 func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	kept := fmt.Sprintf("%032x", time.Now().UnixNano())
 	ended := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
@@ -240,7 +239,7 @@ func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
 }
 
 func TestAPhoneThatClosesOnPurposeEndsItsHeldSession(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(runCommand))
+	server := httptest.NewServer(resumable("exec:", runCommand))
 	defer server.Close()
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	conn := startHeldSleep(t, server, token, "phone-a")

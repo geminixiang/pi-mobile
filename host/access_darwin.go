@@ -78,10 +78,12 @@ func requestAccessibility(wait time.Duration) bool {
 	return false
 }
 
-func requestScreenCapture() bool {
+func requestScreenCapture() {
 	a, err := loadAccess()
 	if err != nil {
-		return false
+		return
 	}
-	return a.screenPreflight() || a.screenRequest()
+	if !a.screenPreflight() {
+		a.screenRequest()
+	}
 }

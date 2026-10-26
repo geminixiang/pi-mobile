@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"strings"
 	"testing"
@@ -60,5 +61,13 @@ func TestWaitReturnsWhenTheShellExits(t *testing.T) {
 	waitFor(func() bool { return alive(marker) == 0 })
 	if n := alive(marker); n > 0 {
 		t.Fatalf("%d left running", n)
+	}
+}
+
+func TestPreflightAllowsEveryMethodThePhoneSends(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete} {
+		if !strings.Contains(corsMethods, method) {
+			t.Fatalf("a WebView %s is refused at its preflight: %s", method, corsMethods)
+		}
 	}
 }
