@@ -3,6 +3,8 @@ import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, oneOf, parseClock, text } from "./common.ts";
+import { toBase64 } from "../../encoding.ts";
+import { mimeTypeOf } from "../../mime.ts";
 
 interface AppsPlugin {
 	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
@@ -119,21 +121,6 @@ const openLink = defineAppTool({
 
 const MAX_SHARE_BYTES = 15 * 1024 * 1024;
 
-export const MIME_TYPES: Record<string, string> = {
-	png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
-	pdf: "application/pdf", txt: "text/plain", md: "text/markdown", csv: "text/csv", json: "application/json",
-	html: "text/html", zip: "application/zip", mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", mp4: "video/mp4",
-	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-};
-
-export function base64(bytes: Uint8Array): string {
-	let binary = "";
-	for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	return btoa(binary);
-}
-
 const share = defineAppTool({
 	name: "share",
 	description:
@@ -154,8 +141,7 @@ const share = defineAppTool({
 			if (!read.ok) throw new Error(`cannot read ${args.path}: ${read.error.message}`);
 			if (read.value.byteLength > MAX_SHARE_BYTES) throw new Error(`file is larger than ${MAX_SHARE_BYTES / 1024 / 1024} MB`);
 			const fileName = absolute.value.split("/").pop() || "file";
-			const extension = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : undefined;
-			file = { fileBase64: base64(read.value), fileName, mimeType: (extension && MIME_TYPES[extension]) || "application/octet-stream" };
+			file = { fileBase64: toBase64(read.value), fileName, mimeType: mimeTypeOf(fileName) ?? "application/octet-stream" };
 		}
 		await launch(() => Apps.share({ text: args.text, title: args.title, ...file }));
 		return text("Opened the share sheet. The user picks where it goes.");

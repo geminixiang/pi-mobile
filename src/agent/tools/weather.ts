@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, text } from "./common.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, type Point, resolvePlace } from "./device.ts";
 
@@ -98,8 +98,8 @@ const weather = defineAppTool({
 	replay: "safe",
 	execute: async (args, _api, context) => {
 		const point: Point = args.place ? await resolvePlace(args.place) : await currentPlace();
-		const hours = Math.min(Math.max(args.hours ?? 24, 1), 384);
-		const days = Math.min(Math.max(args.days ?? 7, 1), 16);
+		const hours = Math.min(args.hours ?? 24, 384);
+		const days = Math.min(args.days ?? 7, 16);
 		const query = new URLSearchParams({
 			latitude: String(point.latitude),
 			longitude: String(point.longitude),
@@ -140,7 +140,7 @@ const weather = defineAppTool({
 			sunrise: clock(d.sunrise[i] ?? ""),
 			sunset: clock(d.sunset[i] ?? ""),
 		}));
-		const text = [
+		const summary = [
 			`${point.label} (${body.timezone})`,
 			`Now ${now.time}: ${now.condition} ${c.temperature_2m}°C, feels ${c.apparent_temperature}°C, humidity ${c.relative_humidity_2m}%, wind ${c.wind_speed_10m} km/h, rain ${c.precipitation} mm`,
 			"",
@@ -150,7 +150,7 @@ const weather = defineAppTool({
 			"Daily (date condition low–high rain-chance rainfall UV sunrise–sunset):",
 			...daily.map((day) => `${day.date} ${day.condition} ${day.low_c}–${day.high_c}°C ${day.rain_chance}% ${day.rain_mm}mm UV ${day.uv_index} ${day.sunrise}–${day.sunset}`),
 		].join("\n");
-		return { output: [{ type: "text", text }], structuredOutput: { place: point.label, now, hours: hourly, days: daily } };
+		return { ...text(summary), structuredOutput: { place: point.label, now, hours: hourly, days: daily } };
 	},
 });
 

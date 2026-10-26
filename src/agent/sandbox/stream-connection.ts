@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
 import { check, decode } from "../parse.ts";
 import { settled, onFailure } from "../../promise.ts";
+import { randomHex } from "../../encoding.ts";
 
 type Json = Record<string, unknown>;
 const FrameJson = Type.Record(Type.String(), Type.Unknown());
@@ -75,10 +76,6 @@ export type ConnectionStatus =
 	| { kind: "lost"; reason: string; at: number }
 	| { kind: "closed" };
 
-function randomHex(bytes: number): string {
-	return [...crypto.getRandomValues(new Uint8Array(bytes))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function indexOf(haystack: Uint8Array, needle: Uint8Array): number {
 	outer: for (let i = 0; i < haystack.length - needle.length + 1; i++) {
 		for (let j = 0; j < needle.length; j++) if (haystack[i + j] !== needle[j]) continue outer;
@@ -87,13 +84,13 @@ function indexOf(haystack: Uint8Array, needle: Uint8Array): number {
 	return -1;
 }
 
-export interface DaemonStream {
+interface DaemonStream {
 	send(data: Uint8Array<ArrayBuffer>): void;
 	close(): void;
 	retry?(): void;
 }
 
-export interface StreamHandlers {
+interface StreamHandlers {
 	onData(data: Uint8Array): void;
 	onClose(reason?: string): void;
 	onLink?(up: boolean): void;
@@ -101,7 +98,7 @@ export interface StreamHandlers {
 
 export type OpenDaemon = (token: string, handlers: StreamHandlers) => Promise<DaemonStream>;
 
-export interface StreamConnectionOptions {
+interface StreamConnectionOptions {
 	open: OpenDaemon;
 	onLog?: (text: string) => void;
 	onStatus?: (status: ConnectionStatus) => void;
@@ -119,7 +116,9 @@ class Session {
 	readonly token: string;
 	stream: DaemonStream | undefined;
 	readonly pending = new Map<number, Pending>();
-	buffer = new Uint8Array(0);
+	#bytes = new Uint8Array(0);
+	#start = 0;
+	#end = 0;
 	synced = false;
 	lastSeen = Date.now();
 	timer: ReturnType<typeof setInterval> | undefined;
@@ -131,11 +130,25 @@ class Session {
 		this.token = token;
 	}
 
+	get buffer(): Uint8Array {
+		return this.#bytes.subarray(this.#start, this.#end);
+	}
+
+	consume(count: number): void {
+		this.#start += count;
+	}
+
 	append(chunk: Uint8Array): void {
-		const next = new Uint8Array(this.buffer.length + chunk.length);
-		next.set(this.buffer);
-		next.set(chunk, this.buffer.length);
-		this.buffer = next;
+		const length = this.#end - this.#start;
+		if (this.#end + chunk.length > this.#bytes.length) {
+			const next = (length + chunk.length) * 2 <= this.#bytes.length ? this.#bytes : new Uint8Array((length + chunk.length) * 2);
+			next.set(this.#bytes.subarray(this.#start, this.#end));
+			this.#bytes = next;
+			this.#start = 0;
+			this.#end = length;
+		}
+		this.#bytes.set(chunk, this.#end);
+		this.#end += chunk.length;
 	}
 }
 
@@ -330,12 +343,12 @@ export class StreamConnection {
 			const marker = encoder.encode(`PI-ENV ${session.token}\n`);
 			const index = indexOf(session.buffer, marker);
 			if (index === -1) {
-				if (session.buffer.length > 1024 * 1024) session.buffer = session.buffer.slice(-marker.length);
+				if (session.buffer.length > 1024 * 1024) session.consume(session.buffer.length - marker.length);
 				return;
 			}
 			const noise = decoder.decode(session.buffer.subarray(0, index)).trim();
 			if (noise) this.#options.onLog?.(noise);
-			session.buffer = session.buffer.slice(index + marker.length);
+			session.consume(index + marker.length);
 			session.synced = true;
 		}
 		let offset = 0;
@@ -360,7 +373,7 @@ export class StreamConnection {
 			offset += 4 + length;
 			this.#dispatch(session, type, id, json, payload);
 		}
-		session.buffer = buffer.slice(offset);
+		session.consume(offset);
 	}
 
 	#dispatch(session: Session, type: number, id: number, json: Json, payload: Uint8Array): void {

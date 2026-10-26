@@ -1,13 +1,7 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { type ActiveNotification, Notifications, type RecordedNotification } from "../../notifications-plugin.ts";
+import { type ActiveNotification, Notifications, type RecordedNotification, requireAccess } from "../../notifications-plugin.ts";
 import { defineAppTool, localTime, text } from "./common.ts";
-
-export async function requireAccess(): Promise<void> {
-	if (!(await Notifications.status()).allowed) {
-		throw new Error("Notification access is off. Tell the user to turn it on in pi's 設定 › 手機 › 通知讀取; nothing can be done with notifications until then.");
-	}
-}
 
 function line(item: RecordedNotification): string {
 	const where = item.sender
@@ -61,8 +55,8 @@ const readNotifications = defineAppTool({
 			})),
 		};
 		const filters = [args.app && `app ${args.app}`, args.query && `containing ${args.query}`].filter(Boolean).join(", ");
-		const text = items.length === 0 ? `No notifications in the last ${hours} hours${filters ? ` (${filters})` : ""}.` : ordered.map(line).join("\n");
-		return { output: [{ type: "text", text }], structuredOutput };
+		const body = items.length === 0 ? `No notifications in the last ${hours} hours${filters ? ` (${filters})` : ""}.` : ordered.map(line).join("\n");
+		return { ...text(body), structuredOutput };
 	},
 });
 

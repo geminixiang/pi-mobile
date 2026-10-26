@@ -1,9 +1,9 @@
-import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse, jsonOrText } from "../parse.ts";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, jsonOrNull, oneOf, text as textResult, truncated } from "./common.ts";
+import { fromBase64 } from "../../encoding.ts";
 
 const DirectoryListing = Type.Array(Type.Object({ type: Type.String(), path: Type.String(), size: Type.Number() }));
 const FileContents = Type.Object({
@@ -14,21 +14,10 @@ const FileContents = Type.Object({
 });
 
 const API = "https://api.github.com";
-const MAX_OUTPUT_CHARS = 40_000;
-
-function toJson(value: unknown): JsonValue {
-	return isJsonValue(value) ? value : null;
-}
 
 export type TokenSource = () => Promise<string | undefined>;
 
-function text(value: string) {
-	const truncated =
-		value.length > MAX_OUTPUT_CHARS
-			? `${value.slice(0, MAX_OUTPUT_CHARS)}\n\n[truncated: ${value.length - MAX_OUTPUT_CHARS} more characters; narrow the request with per_page, a path, or a search query]`
-			: value;
-	return { output: [{ type: "text" as const, text: truncated }] };
-}
+const text = (value: string) => textResult(truncated(value, "; narrow the request with per_page, a path, or a search query"));
 
 async function github(token: string, method: string, path: string, body?: unknown, signal?: AbortSignal) {
 	const response = await fetch(`${API}${path}`, {
@@ -63,13 +52,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 		].join(" "),
 		structuredOutputSchema: Type.Object({ status: Type.Integer(), link: Type.Optional(Type.String()), body: Type.Unknown() }),
 		parameters: Type.Object({
-			method: Type.Union([
-				Type.Literal("GET"),
-				Type.Literal("POST"),
-				Type.Literal("PATCH"),
-				Type.Literal("PUT"),
-				Type.Literal("DELETE"),
-			]),
+			method: oneOf(["GET", "POST", "PATCH", "PUT", "DELETE"]),
 			path: Type.String({ description: "API path with query string, starting with /" }),
 			body: Type.Optional(Type.Unknown({ description: "JSON request body for POST, PATCH, and PUT" })),
 		}),
@@ -83,7 +66,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 			if (!result.ok) throw new Error(`${header}\n${body}`);
 			return {
 				...text(`${header}\n${body}`),
-				structuredOutput: { status: result.status, ...(result.link ? { link: result.link } : {}), body: toJson(result.body) },
+				structuredOutput: { status: result.status, ...(result.link ? { link: result.link } : {}), body: jsonOrNull(result.body) },
 			};
 		},
 	});
@@ -110,7 +93,7 @@ export function createGitHubExtension(getToken: TokenSource) {
 			if (file.encoding !== "base64" || file.content === undefined) {
 				return text(`File too large for the contents API (${file.size} bytes). Download URL: ${file.download_url}`);
 			}
-			const bytes = Uint8Array.from(atob(file.content.replace(/\n/g, "")), (char) => char.charCodeAt(0));
+			const bytes = fromBase64(file.content.replace(/\n/g, ""));
 			return text(new TextDecoder().decode(bytes));
 		},
 	});

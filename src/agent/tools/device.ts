@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
-import { defineAppTool, json } from "./common.ts";
+import { defineAppTool, json, oneOf } from "./common.ts";
 import { native } from "../../native.ts";
 import { PhoneState } from "../../phone-state-plugin.ts";
 
@@ -29,8 +29,7 @@ const deviceInfo = defineAppTool({
 			language: navigator.language,
 			screen: `${screen.width}x${screen.height} @${devicePixelRatio}x`,
 		};
-		const status = await Phone.getStatus();
-		const wifiName = native.has("PhoneState") ? (await PhoneState.connections()).wifi.name : undefined;
+		const [status, wifiName] = await Promise.all([Phone.getStatus(), native.has("PhoneState") ? PhoneState.connections().then((state) => state.wifi.name) : undefined]);
 		return json({ ...basics, ...status, ...(wifiName ? { wifiName } : {}) });
 	},
 });
@@ -58,6 +57,14 @@ const readSensors = defineAppTool({
 });
 
 export type Point = { latitude: number; longitude: number; label: string };
+
+export function metersBetween(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+	const rad = Math.PI / 180;
+	const dLat = (b.latitude - a.latitude) * rad;
+	const dLon = (b.longitude - a.longitude) * rad;
+	const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
+	return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
+}
 
 export async function resolvePlace(place: string): Promise<Point> {
 	const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(place);
@@ -101,7 +108,7 @@ const travelTime = defineAppTool({
 	parameters: Type.Object({
 		destination: Type.String({ description: "Address, place name, or lat,lng" }),
 		origin: Type.Optional(Type.String({ description: "Address, place name, or lat,lng; default the current location" })),
-		mode: Type.Union([Type.Literal("driving"), Type.Literal("walking"), Type.Literal("cycling")], { description: "How the user goes" }),
+		mode: oneOf(["driving", "walking", "cycling"], { description: "How the user goes" }),
 	}),
 	replay: "safe",
 	execute: async (args, _api, context) => {

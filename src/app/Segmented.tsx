@@ -29,3 +29,15 @@ export function Segmented<T extends string>({
 		</div>
 	);
 }
+
+export function Tabs<T extends string>({ options, value, onChange }: { options: readonly (readonly [T, string])[]; value: T; onChange: (value: T) => void }) {
+	return (
+		<div className="tabs" role="tablist">
+			{options.map(([option, label]) => (
+				<button type="button" role="tab" key={option} aria-selected={value === option} className={value === option ? "selected" : ""} onClick={() => onChange(option)}>
+					{label}
+				</button>
+			))}
+		</div>
+	);
+}

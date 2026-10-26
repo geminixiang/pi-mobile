@@ -1,5 +1,6 @@
 import { streamFetch } from "../../stream-fetch.ts";
 import type { HttpRequest, HttpResponse } from "./protocol.ts";
+import { headerRecord } from "../../http.ts";
 
 export interface FolderNetwork {
 	githubToken?: string;
@@ -28,11 +29,7 @@ export async function sendFromFolder(request: HttpRequest, network: FolderNetwor
 	const response = await streamFetch(url.href, {
 		method: request.method,
 		headers: withCredentials(url, request.headers, network.githubToken),
-		...(request.body && request.body.length > 0 ? { body: new Uint8Array(request.body) } : {}),
+		...(request.body && request.body.length > 0 ? { body: request.body } : {}),
 	});
-	const headers: Record<string, string> = {};
-	response.headers.forEach((value, key) => {
-		headers[key] = value;
-	});
-	return { status: response.status, headers, body: new Uint8Array(await response.arrayBuffer()) };
+	return { status: response.status, headers: headerRecord(response.headers), body: new Uint8Array(await response.arrayBuffer()) };
 }

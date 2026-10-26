@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
-import { Apps, base64, MIME_TYPES } from "../agent/tools/apps.ts";
-import { BackIcon, OpenOutsideIcon, ShareIcon } from "./icons.tsx";
+import { Apps } from "../agent/tools/apps.ts";
+import { mimeTypeOf } from "../mime.ts";
+import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./Message.tsx";
 import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
+import { toBase64 } from "../encoding.ts";
+import { BackButton } from "./BackButton.tsx";
+import { Tabs } from "./Segmented.tsx";
 
 const HTML_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:">`;
 
@@ -43,13 +47,13 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 	const markdown = /\.(md|markdown)$/i.test(name);
 	const html = isHtml(name) && htmlPreviewIsolated();
 	const previewable = markdown || html;
-	const mimeType = MIME_TYPES[name.split(".").at(-1)?.toLowerCase() ?? ""] ?? "application/octet-stream";
+	const mimeType = mimeTypeOf(name) ?? "application/octet-stream";
 	const share = () => {
 		if (!path) return;
 		setSharing(true);
 		void workspace
 			.bytes(path)
-			.then((bytes) => Apps.share({ title: name, fileBase64: base64(bytes), fileName: name, mimeType }))
+			.then((bytes) => Apps.share({ title: name, fileBase64: toBase64(bytes), fileName: name, mimeType }))
 			.catch((failure: unknown) => setError(messageOf(failure)))
 			.finally(() => setSharing(false));
 	};
@@ -78,9 +82,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 		<Layer open={Boolean(path)} kind="page" onClose={onClose} label={name}>
 			<div className="screen">
 				<header className="bar">
-					<button type="button" className="icon-button" onClick={onClose} aria-label="返回">
-						<BackIcon />
-					</button>
+					<BackButton onClick={onClose} />
 					<div className="bar-center static">
 						<span className="bar-title">{name}</span>
 						<span className="bar-model">{path}</span>
@@ -98,7 +100,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 								setOpening(true);
 								void workspace
 									.bytes(path)
-									.then((bytes) => Apps.openFile({ fileBase64: base64(bytes), fileName: name, mimeType }))
+									.then((bytes) => Apps.openFile({ fileBase64: toBase64(bytes), fileName: name, mimeType }))
 									.catch((failure: unknown) => {
 										const code = typeof failure === "object" && failure !== null ? Reflect.get(failure, "code") : undefined;
 										setError(code === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure));
@@ -116,18 +118,14 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 					) : null}
 				</header>
 				{previewable && content?.kind === "text" ? (
-					<div className="tabs" role="tablist">
-						{(
-							[
-								["preview", "預覽"],
-								["source", "原始碼"],
-							] as const
-						).map(([value, label]) => (
-							<button type="button" role="tab" key={value} aria-selected={mode === value} className={mode === value ? "selected" : ""} onClick={() => setMode(value)}>
-								{label}
-							</button>
-						))}
-					</div>
+					<Tabs
+						options={[
+							["preview", "預覽"],
+							["source", "原始碼"],
+						]}
+						value={mode}
+						onChange={setMode}
+					/>
 				) : null}
 				<div className="viewer">
 					{error ? <div className="banner error">{error}</div> : null}

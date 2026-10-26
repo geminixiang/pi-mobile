@@ -2,7 +2,7 @@ import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, text } from "./common.ts";
+import { defineAppTool, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
 
 export interface PhoneCalendar {
 	id: number;
@@ -162,9 +162,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 			if (args.include_shared && !access.shared)
 				throw new Error("Reading shared calendars is turned off in Settings → 行事曆. Tell the user; do not retry.");
 			const from = args.from ? parseLocalBound(args.from, "from", false) : Date.now();
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const to = args.to ? parseLocalBound(args.to, "to", true) : today.getTime() + 2 * DAY;
+			const to = args.to ? parseLocalBound(args.to, "to", true) : startOfToday() + 2 * DAY;
 			if (to <= from) throw new Error("to must be after from");
 			if (to - from > 366 * DAY) throw new Error("the range can be at most a year");
 			const { events } = await Calendar.listEvents({ from, to, includeShared: args.include_shared ?? false });

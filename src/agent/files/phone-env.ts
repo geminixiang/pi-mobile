@@ -17,27 +17,18 @@ import {
 	type TextLineReader,
 } from "@earendil-works/pi-durable/env";
 import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
-import type { FromWorker, FsOp, FsValue, ToWorker } from "./protocol.ts";
+import { type FromWorker, type FsOp, type FsValue, normalizePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { messageOf, onFailure } from "../../promise.ts";
+import { fromBase64, toBase64 } from "../../encoding.ts";
+import { shellQuote } from "../../shell.ts";
 
 const TEMP_DIR = "/tmp";
-const TEMP_FOLDER = ".tmp";
 const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const ABORT_GRACE_MS = 2000;
 const SCAN_CHUNK = 1024 * 1024;
 
 const FILE_CODES: Record<string, FileErrorCode> = { not_found: "not_found", is_directory: "is_directory", not_directory: "not_directory", invalid: "invalid", exists: "invalid" };
-
-function normalizePath(path: string): string {
-	const parts: string[] = [];
-	for (const part of path.split("/")) {
-		if (!part || part === ".") continue;
-		if (part === "..") parts.pop();
-		else parts.push(part);
-	}
-	return `/${parts.join("/")}`;
-}
 
 function relative(absolute: string): string {
 	const path = normalizePath(absolute);
@@ -46,23 +37,14 @@ function relative(absolute: string): string {
 }
 const nameOf = (absolute: string) => absolute.slice(absolute.lastIndexOf("/") + 1);
 
-export function fromBase64(base64: string): Uint8Array {
-	const binary = atob(base64);
-	const bytes = new Uint8Array(binary.length);
-	for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-	return bytes;
-}
-
-function toBase64(bytes: Uint8Array): string {
-	let binary = "";
-	for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
-	return btoa(binary);
+function codeOf(error: unknown): string | undefined {
+	const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
+	return typeof code === "string" ? code : undefined;
 }
 
 function fileError(error: unknown, path?: string): FileError {
-	const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
-	const message = messageOf(error);
-	return new FileError(typeof code === "string" ? (FILE_CODES[code] ?? "unknown") : "unknown", message, path);
+	const code = codeOf(error);
+	return new FileError(code ? (FILE_CODES[code] ?? "unknown") : "unknown", messageOf(error), path);
 }
 
 const aborted = (context: Context, path?: string) => (context.abortSignal?.aborted ? err<never, FileError>(new FileError("aborted", "Aborted", path)) : undefined);
@@ -81,6 +63,15 @@ const infoOf = (absolute: string, info: BotFileInfo): FileInfo => ({ name: nameO
 
 const withoutBom = (text: string) => (text.startsWith("\uFEFF") ? text.slice(1) : text);
 
+type At = { bot: string; path: string };
+
+const readText = async (at: At) => withoutBom((await BotFiles.read({ ...at, text: true })).text ?? "");
+
+const readBytes = async (at: At & { offset?: number; length?: number }) => fromBase64((await BotFiles.read(at)).data ?? "");
+
+const writeContent = (at: At, content: string | Uint8Array, append: boolean) =>
+	BotFiles.write({ ...at, append, ...(typeof content === "string" ? { text: content } : { data: toBase64(content) }) });
+
 async function serveFs(bot: string, request: FsOp): Promise<FsValue> {
 	switch (request.op) {
 		case "stat": {
@@ -98,11 +89,11 @@ async function serveFs(bot: string, request: FsOp): Promise<FsValue> {
 		case "list":
 			return (await BotFiles.list({ bot, path: request.path })).entries.map((entry) => ({ name: entry.name, kind: entry.kind }));
 		case "readText":
-			return withoutBom((await BotFiles.read({ bot, path: request.path, text: true })).text ?? "");
+			return readText({ bot, path: request.path });
 		case "readBytes":
-			return fromBase64((await BotFiles.read({ bot, path: request.path })).data ?? "");
+			return readBytes({ bot, path: request.path });
 		case "write":
-			await BotFiles.write({ bot, path: request.path, append: request.append, ...(typeof request.content === "string" ? { text: request.content } : { data: toBase64(request.content) }) });
+			await writeContent({ bot, path: request.path }, request.content, request.append);
 			return null;
 		case "mkdir":
 			await BotFiles.mkdir({ bot, path: request.path, recursive: request.recursive });
@@ -133,11 +124,7 @@ class Shell {
 				const reply = (data: ToWorker) => worker.postMessage(data);
 				serveFs(message.bot, message.request).then(
 					(value) => reply({ type: "fs-reply", call: message.call, ok: true, value }),
-					(error: unknown) => {
-						const failure = fileError(error);
-						const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
-						reply({ type: "fs-reply", call: message.call, ok: false, code: typeof code === "string" ? code : failure.code, message: failure.message });
-					},
+					(error: unknown) => reply({ type: "fs-reply", call: message.call, ok: false, code: codeOf(error) ?? "unknown", message: messageOf(error) }),
 				);
 				return;
 			}
@@ -200,7 +187,7 @@ class Shell {
 
 const shell = new Shell();
 
-const commandLine = (command: string | readonly string[]) => (typeof command === "string" ? command : command.map((word) => `'${word.replaceAll("'", `'\\''`)}'`).join(" "));
+const commandLine = (command: string | readonly string[]) => (typeof command === "string" ? command : command.map(shellQuote).join(" "));
 
 export class PhoneEnv implements ExecutionEnv {
 	readonly id: string;
@@ -241,7 +228,7 @@ export class PhoneEnv implements ExecutionEnv {
 	}
 
 	async readTextFile(path: string, context: Context): Promise<Result<string, FileError>> {
-		return attempt(context, path, async () => withoutBom((await BotFiles.read({ ...this.#at(path), text: true })).text ?? ""));
+		return attempt(context, path, () => readText(this.#at(path)));
 	}
 
 	async readTextLines(path: string, options: { maxLines?: number } | undefined, context: Context): Promise<Result<string[], FileError>> {
@@ -269,7 +256,7 @@ export class PhoneEnv implements ExecutionEnv {
 	}
 
 	async readBinaryFile(path: string, context: Context): Promise<Result<Uint8Array, FileError>> {
-		return attempt(context, path, async () => fromBase64((await BotFiles.read(this.#at(path))).data ?? ""));
+		return attempt(context, path, () => readBytes(this.#at(path)));
 	}
 
 	async openBinaryReader(path: string, _options: { noFollow?: boolean } | undefined, context: Context): Promise<Result<BinaryReader, FileError>> {
@@ -280,7 +267,7 @@ export class PhoneEnv implements ExecutionEnv {
 		if (opened.value.kind === "directory") return err(new FileError("is_directory", `Is a directory: ${absolute}`, absolute));
 		const info = infoOf(absolute, opened.value);
 		const read = (offset: number, length: number, readContext: Context) =>
-			attempt(readContext, absolute, async () => (length <= 0 ? new Uint8Array(0) : fromBase64((await BotFiles.read({ ...at, offset, length })).data ?? "")));
+			attempt(readContext, absolute, async () => (length <= 0 ? new Uint8Array(0) : readBytes({ ...at, offset, length })));
 		return ok({
 			info: async () => ok(info),
 			read,
@@ -301,11 +288,11 @@ export class PhoneEnv implements ExecutionEnv {
 	}
 
 	async writeFile(path: string, content: string | Uint8Array, context: Context): Promise<Result<void, FileError>> {
-		return attempt(context, path, () => BotFiles.write({ ...this.#at(path), ...(typeof content === "string" ? { text: content } : { data: toBase64(content) }) }));
+		return attempt(context, path, () => writeContent(this.#at(path), content, false));
 	}
 
 	async appendFile(path: string, content: string | Uint8Array, context: Context): Promise<Result<void, FileError>> {
-		return attempt(context, path, () => BotFiles.write({ ...this.#at(path), append: true, ...(typeof content === "string" ? { text: content } : { data: toBase64(content) }) }));
+		return attempt(context, path, () => writeContent(this.#at(path), content, true));
 	}
 
 	async truncateFile(path: string, size: number, context: Context): Promise<Result<void, FileError>> {
@@ -392,11 +379,9 @@ export class PhoneEnv implements ExecutionEnv {
 
 	async exec(command: string | readonly string[], options: ShellExecOptions | undefined, context: Context): Promise<Result<ShellExecResult, ExecutionError>> {
 		if (context.abortSignal?.aborted) return err(new ExecutionError("aborted", "Aborted"));
-		let timeoutMs: number | undefined;
-		if (options?.timeout !== undefined) {
-			if (!Number.isFinite(options.timeout) || options.timeout <= 0) return err(new ExecutionError("timeout", "Invalid timeout: must be a finite number of seconds"));
-			timeoutMs = Math.min(options.timeout * 1000, MAX_TIMEOUT_MS);
-		}
+		const timeout = options?.timeout;
+		if (timeout !== undefined && (!Number.isFinite(timeout) || timeout <= 0)) return err(new ExecutionError("timeout", "Invalid timeout: must be a finite number of seconds"));
+		const timeoutMs = timeout === undefined ? undefined : Math.min(timeout * 1000, MAX_TIMEOUT_MS);
 		const cwd = this.#path(options?.cwd ?? this.cwd);
 		const prepared = await Promise.all([this.#ensureTemp(), BotFiles.stat({ bot: this.#bot, path: relative(cwd) })]).then(
 			([, info]) => (info.kind === "directory" ? undefined : `Not a directory: ${cwd}`),

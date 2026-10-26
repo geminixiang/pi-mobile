@@ -2,7 +2,7 @@ import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, text } from "./common.ts";
 
 function keywords(sql: string): string {
 	return sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g, " ").toUpperCase();
@@ -56,7 +56,7 @@ const sql = defineAppTool({
 					}
 				: { changes: result.changes ?? 0, ...(result.lastInsertId !== undefined ? { last_insert_id: result.lastInsertId } : {}) },
 		);
-		return { output: [{ type: "text", text: results.map(format).join("\n\n") }], structuredOutput: { results: structured } };
+		return { ...text(results.map(format).join("\n\n")), structuredOutput: { results: structured } };
 	},
 });
 

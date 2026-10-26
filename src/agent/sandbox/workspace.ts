@@ -1,5 +1,10 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ExecutionEnv, FileInfo } from "@earendil-works/pi-durable/env";
+import { fromBase64 } from "../../encoding.ts";
+import { shellQuote } from "../../shell.ts";
+import { extensionOf, mimeTypeOf } from "../../mime.ts";
+
+const gitIn = (repo: string) => `git -C ${shellQuote(repo)} -c core.quotePath=false`;
 
 const context = BACKGROUND_CONTEXT;
 export const WORKSPACE = "/workspace";
@@ -7,14 +12,6 @@ const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_DIFF_CHARS = 1_500_000;
-const IMAGE_TYPES: Record<string, string> = {
-	png: "image/png",
-	jpg: "image/jpeg",
-	jpeg: "image/jpeg",
-	gif: "image/gif",
-	webp: "image/webp",
-	svg: "image/svg+xml",
-};
 
 export type FileEntry = FileInfo;
 
@@ -46,20 +43,12 @@ export interface RepoStatus {
 	commits: Commit[];
 }
 
-function quote(value: string): string {
-	return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
-function extension(path: string): string {
-	return /\.([^./]+)$/.exec(path)?.[1]?.toLowerCase() ?? "";
-}
-
 function looksBinary(bytes: Uint8Array): boolean {
 	const sample = bytes.subarray(0, 8000);
 	return sample.includes(0);
 }
 
-export const isHtml = (path: string): boolean => /^html?$/.test(extension(path));
+export const isHtml = (path: string): boolean => /^html?$/.test(extensionOf(path));
 
 export class Workspace {
 	readonly #env: ExecutionEnv;
@@ -86,15 +75,13 @@ export class Workspace {
 		const info = await this.#env.fileInfo(path, context);
 		if (!info.ok) throw info.error;
 		const size = info.value.size;
-		const type = IMAGE_TYPES[extension(path)];
-		if (type && size <= MAX_IMAGE_BYTES) {
-			const bytes = await this.#env.readBinaryFile(path, context);
-			if (!bytes.ok) throw bytes.error;
-			return { kind: "image", url: URL.createObjectURL(new Blob([bytes.value as Uint8Array<ArrayBuffer>], { type })), size };
+		const type = mimeTypeOf(path);
+		if (type?.startsWith("image/") && size <= MAX_IMAGE_BYTES) {
+			return { kind: "image", url: URL.createObjectURL(new Blob([(await this.bytes(path)) as Uint8Array<ArrayBuffer>], { type })), size };
 		}
 		const limit = isHtml(path) ? MAX_HTML_BYTES : MAX_TEXT_BYTES;
-		const head = await this.#exec(`head -c ${limit} ${quote(path)} | base64 | tr -d '\\n'`);
-		const bytes = Uint8Array.from(atob(head.stdout.trim()), (char) => char.charCodeAt(0));
+		const head = await this.#exec(`head -c ${limit} ${shellQuote(path)} | base64 | tr -d '\\n'`);
+		const bytes = fromBase64(head.trim());
 		if (looksBinary(bytes)) return { kind: "binary", size };
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > limit, size, limit };
 	}
@@ -107,16 +94,16 @@ export class Workspace {
 
 	async repos(): Promise<string[]> {
 		const found = await this.#exec(
-			`find ${quote(this.root)} -maxdepth 4 -name .git -not -path '*/node_modules/*' -prune -print 2>/dev/null | sort`,
+			`find ${shellQuote(this.root)} -maxdepth 4 -name .git -not -path '*/node_modules/*' -prune -print 2>/dev/null | sort`,
 		);
-		return found.stdout
+		return found
 			.split("\n")
 			.filter(Boolean)
 			.map((path) => path.replace(/\/\.git$/, ""));
 	}
 
 	async status(repo: string): Promise<RepoStatus> {
-		const git = `git -C ${quote(repo)} -c core.quotePath=false`;
+		const git = gitIn(repo);
 		const out = await this.#exec(
 			[
 				`${git} status --porcelain=v1 -b --untracked-files=all`,
@@ -126,7 +113,7 @@ export class Workspace {
 				`${git} log -n 15 --format='%h%x09%at%x09%an%x09%s' 2>/dev/null`,
 			].join("; "),
 		);
-		const [statusPart = "", rest = ""] = out.stdout.split("@@NUMSTAT\n");
+		const [statusPart = "", rest = ""] = out.split("@@NUMSTAT\n");
 		const [numstatPart = "", logPart = ""] = rest.split("@@LOG\n");
 		const lines = statusPart.split("\n").filter(Boolean);
 		const head = lines[0]?.startsWith("## ") ? (lines.shift() ?? "") : "";
@@ -159,35 +146,33 @@ export class Workspace {
 	}
 
 	async diff(repo: string, change: Change): Promise<string> {
-		const git = `git -C ${quote(repo)} -c core.quotePath=false`;
+		const git = gitIn(repo);
 		const command =
 			change.status === "??"
-				? `${git} diff --no-color --no-index -- /dev/null ${quote(change.path)}`
-				: `${git} diff HEAD --no-color --no-ext-diff -- ${quote(change.path)} 2>/dev/null || ${git} diff --cached --no-color -- ${quote(change.path)}`;
-		return (await this.#exec(command)).stdout;
+				? `${git} diff --no-color --no-index -- /dev/null ${shellQuote(change.path)}`
+				: `${git} diff HEAD --no-color --no-ext-diff -- ${shellQuote(change.path)} 2>/dev/null || ${git} diff --cached --no-color -- ${shellQuote(change.path)}`;
+		return this.#exec(command);
 	}
 
 	async show(repo: string, hash: string): Promise<string> {
-		const git = `git -C ${quote(repo)} -c core.quotePath=false`;
-		return (await this.#exec(`${git} show --no-color --no-ext-diff --format='%H%n%an <%ae>%n%ad%n%n%B' ${quote(hash)}`)).stdout;
+		const git = gitIn(repo);
+		return this.#exec(`${git} show --no-color --no-ext-diff --format='%H%n%an <%ae>%n%ad%n%n%B' ${shellQuote(hash)}`);
 	}
 
-	async #exec(command: string): Promise<{ code: number; stdout: string; stderr: string }> {
+	async #exec(command: string): Promise<string> {
 		let stdout = "";
-		let stderr = "";
 		const result = await this.#env.exec(
 			command,
 			{
 				cwd: this.root,
 				timeout: 30_000,
 				onOutput: (text, _context, info) => {
-					if (info.stream === "stderr") stderr += text;
-					else if (stdout.length < MAX_DIFF_CHARS) stdout += text;
+					if (info.stream !== "stderr" && stdout.length < MAX_DIFF_CHARS) stdout += text;
 				},
 			},
 			context,
 		);
 		if (!result.ok) throw result.error;
-		return { code: result.value.exitCode, stdout, stderr };
+		return stdout;
 	}
 }

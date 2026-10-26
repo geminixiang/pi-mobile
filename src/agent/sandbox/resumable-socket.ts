@@ -6,7 +6,7 @@ export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(): void };
 export type OpenRaw = (url: URL, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
-export interface ResumableOptions {
+interface ResumableOptions {
 	first: URL;
 	attach: (received: number) => URL;
 	open: OpenRaw;

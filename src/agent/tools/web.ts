@@ -4,14 +4,15 @@ import type { Context } from "@earendil-works/chord";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { prepareAttachment } from "../attachments.ts";
-import { fromBase64, PhoneEnv } from "../files/phone-env.ts";
+import { PhoneEnv } from "../files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, formatBytes, text as textResult, truncated } from "./common.ts";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { refuseCleartextSecret } from "../cleartext.ts";
+import { fromBase64 } from "../../encoding.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(
@@ -44,17 +45,20 @@ const MessagesAnswer = Type.Object({
 });
 const SearchResults = Type.Array(Type.Object({ url: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }));
 
-const MAX_FETCH_CHARS = 40_000;
 const RENDER_BELOW_CHARS = 300;
 
 const Page = registerPlugin<{ render(options: { url: string }): Promise<{ html: string; title: string; url: string; ms: number; settled: boolean }> }>("Page");
 
 const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+/g, "").length;
 
-const formatSize = (bytes: number) => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+const USER_AGENT = "Mozilla/5.0 (Linux; Android 16) pi-mobile";
+
+const getBytes = (url: string) => CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": USER_AGENT }, connectTimeout: 15_000, readTimeout: 60_000 });
+
+const contentTypeOf = (headers: Record<string, string>) => String(Object.entries(headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
 
 async function readPdf(url: string, conversationId: string): Promise<(TextContent | ImageContent)[]> {
-	const response = await CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile" }, connectTimeout: 15_000, readTimeout: 60_000 });
+	const response = await getBytes(url);
 	if (response.status >= 400 || typeof response.data !== "string") throw new Error(`HTTP ${response.status} ${response.url}`);
 	const name = decodeURIComponent(new URL(response.url || url).pathname.split("/").pop() || "page").replace(/\.pdf$/i, "") + ".pdf";
 	const bytes = fromBase64(response.data);
@@ -70,12 +74,12 @@ async function download(env: ExecutionEnv, url: string, path: string, context: C
 	}
 	const absolute = await env.absolutePath(path, context);
 	if (!absolute.ok) throw absolute.error;
-	const response = await CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile" }, connectTimeout: 15_000, readTimeout: 60_000 });
+	const response = await getBytes(url);
 	if (response.status >= 400) throw new Error(`HTTP ${response.status} ${response.url}`);
 	const bytes = typeof response.data === "string" ? fromBase64(response.data) : new Uint8Array(0);
 	const written = await env.writeFile(absolute.value, bytes, context);
 	if (!written.ok) throw written.error;
-	const contentType = String(Object.entries(response.headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
+	const contentType = contentTypeOf(response.headers);
 	return { path: absolute.value, size: bytes.length, contentType, url: response.url || url };
 }
 
@@ -176,11 +180,9 @@ export function createWebExtension(config: WebConfig) {
 		execute: async (args, _api, context) => {
 			const timeout = AbortSignal.timeout(120_000);
 			const signal = context.abortSignal ? AbortSignal.any([context.abortSignal, timeout]) : timeout;
-			let text: string;
-			if (responsesModel) text = await searchResponses(config, responsesModel, args.query, signal);
-			else if (anthropicModel) text = await searchAnthropic(config, anthropicModel, args.query, signal);
-			else throw new Error("The model service offers no model with hosted web search (GPT or Claude).");
-			return { output: [{ type: "text", text: text || "No results." }] };
+			if (responsesModel) return textResult((await searchResponses(config, responsesModel, args.query, signal)) || "No results.");
+			if (anthropicModel) return textResult((await searchAnthropic(config, anthropicModel, args.query, signal)) || "No results.");
+			throw new Error("The model service offers no model with hosted web search (GPT or Claude).");
 		},
 	});
 
@@ -202,16 +204,16 @@ export function createWebExtension(config: WebConfig) {
 			if (args.save_to) {
 				if (!api.env) throw new Error("this bot has no folder to save to");
 				const saved = await download(api.env, args.url, args.save_to, context);
-				return { output: [{ type: "text", text: `Saved ${formatSize(saved.size)}${saved.contentType ? ` (${saved.contentType})` : ""} from ${saved.url} to ${saved.path}.` }] };
+				return textResult(`Saved ${formatBytes(saved.size)}${saved.contentType ? ` (${saved.contentType})` : ""} from ${saved.url} to ${saved.path}.`);
 			}
 			const response = await CapacitorHttp.get({
 				url: args.url,
-				headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 16) pi-mobile", Accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.5" },
+				headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.5" },
 				responseType: "text",
 				connectTimeout: 15_000,
 				readTimeout: 30_000,
 			});
-			const type = String(Object.entries(response.headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
+			const type = contentTypeOf(response.headers);
 			if (response.status < 400 && type.includes("pdf")) return { output: await readPdf(response.url || args.url, String(api.conversationId)) };
 			const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2);
 			const html = type.includes("html");
@@ -229,9 +231,9 @@ export function createWebExtension(config: WebConfig) {
 					header = `Rendered ${page.value.url} (${(page.value.ms / 1000).toFixed(1)} s${page.value.settled ? "" : ", still changing at the deadline"})`;
 				}
 			}
-			const cut = text.length > MAX_FETCH_CHARS ? `${text.slice(0, MAX_FETCH_CHARS)}\n\n[truncated: ${text.length - MAX_FETCH_CHARS} more characters]` : text;
+			const cut = truncated(text);
 			if (response.status >= 400) throw new Error(`${header}\n${cut.slice(0, 2000)}`);
-			return { output: [{ type: "text", text: `${header}\n\n${cut}` }] };
+			return textResult(`${header}\n\n${cut}`);
 		},
 	});
 

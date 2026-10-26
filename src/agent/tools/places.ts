@@ -1,10 +1,10 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, localTime, text } from "./common.ts";
 import { Value } from "typebox/value";
 import { parse, parseJson } from "../parse.ts";
-import { currentPlace, type Point, resolvePlace } from "./device.ts";
+import { currentPlace, metersBetween, type Point, resolvePlace } from "./device.ts";
 import { orLogged } from "../../promise.ts";
 
 const HEADERS = { "User-Agent": "pi-mobile (+https://github.com/geminixiang/pi-mobile)", Accept: "application/json" };
@@ -57,14 +57,6 @@ const Place = Type.Object({
 	cuisine: Type.Optional(Type.String()),
 });
 
-function distance(a: Point, latitude: number, longitude: number): number {
-	const rad = Math.PI / 180;
-	const dLat = (latitude - a.latitude) * rad;
-	const dLon = (longitude - a.longitude) * rad;
-	const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(latitude * rad) * Math.sin(dLon / 2) ** 2;
-	return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
-}
-
 function direction(a: Point, latitude: number, longitude: number): string {
 	const y = (longitude - a.longitude) * Math.cos(a.latitude * (Math.PI / 180));
 	const x = latitude - a.latitude;
@@ -74,9 +66,8 @@ function direction(a: Point, latitude: number, longitude: number): string {
 
 function localNow(): string {
 	const now = new Date();
-	const pad = (value: number) => String(value).padStart(2, "0");
 	const day = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][now.getDay()];
-	return `${day} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+	return `${day} ${localTime(now.getTime()).slice(11)}`;
 }
 
 const findPlaces = defineAppTool({
@@ -98,7 +89,7 @@ const findPlaces = defineAppTool({
 	execute: async (args) => {
 		if (!args.category && !args.query) throw new Error("give a category (an OSM tag such as amenity:fuel) or a query (a name)");
 		const center = args.near ? await resolvePlace(args.near) : await currentPlace();
-		const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
+		const limit = Math.min(args.limit ?? 20, 50);
 		const query = new URLSearchParams({ lat: String(center.latitude), lon: String(center.longitude), limit: String(limit) });
 		const tag = args.category?.replace("=", ":");
 		for (const filter of tag === undefined ? [] : tag.includes(":") ? [tag] : [`amenity:${tag}`, `shop:${tag}`]) query.append("osm_tag", filter);
@@ -141,7 +132,7 @@ const findPlaces = defineAppTool({
 					name: p.name ?? "",
 					category: `${p.osm_key}:${p.osm_value}`,
 					address,
-					distance_m: Math.round(distance(center, latitude, longitude)),
+					distance_m: Math.round(metersBetween(center, { latitude, longitude })),
 					direction: direction(center, latitude, longitude),
 					latitude,
 					longitude,
@@ -170,11 +161,11 @@ const findPlaces = defineAppTool({
 				.filter(Boolean)
 				.join(" · "),
 		);
-		const text =
+		const body =
 			places.length > 0
 				? [`Near ${center.label}; now ${now}. Distances are straight-line.`, ...lines].join("\n")
 				: `Nothing found near ${center.label}${args.category ? ` for ${args.category}` : ""}${args.query ? ` named ${args.query}` : ""}. Try a wider radius or another tag.`;
-		return { output: [{ type: "text", text }], structuredOutput: { near: center.label, now, places } };
+		return { ...text(body), structuredOutput: { near: center.label, now, places } };
 	},
 });
 

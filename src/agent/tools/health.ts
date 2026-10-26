@@ -1,9 +1,10 @@
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, duration, localTime, text } from "./common.ts";
+import { defineAppTool, duration, localTime, oneOf, text } from "./common.ts";
 
-type Metric = "steps" | "heart_rate" | "sleep" | "exercise" | "weight";
+const METRICS = ["steps", "heart_rate", "sleep", "exercise", "weight"] as const;
+type Metric = (typeof METRICS)[number];
 type HealthRecord = {
 	source: string;
 	start?: number;
@@ -24,7 +25,7 @@ const health = defineAppTool({
 	description:
 		"The user's health data from Health Connect (Samsung Health and other apps sync there): steps or average heart rate per day, sleep sessions with stages, exercise sessions, weight. Use it for 「我這週睡得怎樣」「今天走幾步」.",
 	parameters: Type.Object({
-		metric: Type.Union([Type.Literal("steps"), Type.Literal("heart_rate"), Type.Literal("sleep"), Type.Literal("exercise"), Type.Literal("weight")], {
+		metric: oneOf(METRICS, {
 			description: "steps and heart_rate are per day; sleep and exercise are sessions; weight is measurements",
 		}),
 		days: Type.Optional(Type.Integer({ minimum: 1, maximum: 90, description: "The last this many days, today included (default 7)" })),

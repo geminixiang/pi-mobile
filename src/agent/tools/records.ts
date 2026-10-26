@@ -1,12 +1,14 @@
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, duration, localTime, parseDay, text } from "./common.ts";
+import { defineAppTool, duration, localTime, oneOf, parseDay, text } from "./common.ts";
+
+const CALL_KINDS = ["incoming", "outgoing", "missed", "rejected", "blocked", "voicemail", "other"] as const;
 
 type CallRecord = {
 	number: string;
 	name?: string;
-	type: "incoming" | "outgoing" | "missed" | "rejected" | "blocked" | "voicemail" | "other";
+	type: (typeof CALL_KINDS)[number];
 	time: number;
 	seconds: number;
 };
@@ -31,7 +33,7 @@ export const Usage = registerPlugin<{
 
 const CALL_TYPES: Record<CallRecord["type"], string> = { incoming: "接聽", outgoing: "撥出", missed: "未接", rejected: "拒接", blocked: "封鎖", voicemail: "語音信箱", other: "其他" };
 
-const CallType = Type.Union(["incoming", "outgoing", "missed", "rejected", "blocked", "voicemail", "other"].map((type) => Type.Literal(type)));
+const CallType = oneOf(CALL_KINDS);
 
 const callLog = defineAppTool({
 	name: "call_log",

@@ -20,7 +20,7 @@ const speak = defineAppTool({
 		try {
 			const result = await Voice.speak({ text: args.text, language: args.language ?? "zh-TW" });
 			if (result.spoken) return text("Spoken.");
-			return { output: [{ type: "text", text: `Not finished: ${result.reason ?? "stopped"}. Do not speak it again unless the user asks.` }], isError: true };
+			return { ...text(`Not finished: ${result.reason ?? "stopped"}. Do not speak it again unless the user asks.`), isError: true };
 		} finally {
 			context.abortSignal?.removeEventListener("abort", stop);
 		}

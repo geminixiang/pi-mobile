@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { codeNote } from "../codes.ts";
 import { defineAppTool, localTime, parseLocalBound, text } from "./common.ts";
-import { resolvePlace } from "./device.ts";
+import { metersBetween, resolvePlace } from "./device.ts";
 
 type Contact = {
 	name: string;
@@ -63,15 +63,14 @@ const contacts = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		let { items } = await Contacts.search({ ...(args.query ? { query: args.query } : {}) });
-		if (args.upcoming_birthdays) {
-			const within = 30;
-			items = items
-				.map((person) => ({ person, days: person.birthday ? daysUntil(person.birthday) : undefined }))
-				.filter((entry): entry is { person: Contact; days: number } => entry.days !== undefined && entry.days <= within)
-				.sort((a, b) => a.days - b.days)
-				.map((entry) => entry.person);
-		}
+		const { items: found } = await Contacts.search({ ...(args.query ? { query: args.query } : {}) });
+		const items = args.upcoming_birthdays
+			? found
+					.map((person) => ({ person, days: person.birthday ? daysUntil(person.birthday) : undefined }))
+					.filter((entry): entry is { person: Contact; days: number } => entry.days !== undefined && entry.days <= 30)
+					.sort((a, b) => a.days - b.days)
+					.map((entry) => entry.person)
+			: found;
 		const structuredOutput = { items };
 		if (items.length === 0) return { ...text(args.query ? `No contact matches "${args.query}".` : "No contacts match."), structuredOutput };
 		const lines = items.slice(0, 50).map((person) =>
@@ -86,14 +85,6 @@ const contacts = defineAppTool({
 		return { ...text(lines.join("\n") + more), structuredOutput };
 	},
 });
-
-function km(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
-	const rad = Math.PI / 180;
-	const dLat = (b.latitude - a.latitude) * rad;
-	const dLon = (b.longitude - a.longitude) * rad;
-	const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
-	return 12_742 * Math.asin(Math.sqrt(h));
-}
 
 const findPhotos = defineAppTool({
 	name: "find_photos",
@@ -131,7 +122,7 @@ const findPhotos = defineAppTool({
 			limit: center ? 2000 : limit,
 		});
 		const near = center
-			? items.filter((photo) => photo.latitude !== undefined && photo.longitude !== undefined && km(center, { latitude: photo.latitude, longitude: photo.longitude }) <= (args.radius_km ?? 3))
+			? items.filter((photo) => photo.latitude !== undefined && photo.longitude !== undefined && metersBetween(center, { latitude: photo.latitude, longitude: photo.longitude }) <= (args.radius_km ?? 3) * 1000)
 			: items;
 		const shown = near.slice(0, limit);
 		const structuredOutput = {
@@ -162,13 +153,12 @@ const viewPhotos = defineAppTool({
 	parameters: Type.Object({ ids: Type.Array(Type.String(), { minItems: 1, maxItems: MAX_VIEW, description: "Photo ids from find_photos" }) }),
 	execute: async (args) => {
 		const images: ImageContent[] = [];
-		for (const id of args.ids.slice(0, MAX_VIEW)) {
+		for (const id of args.ids) {
 			const { data } = await Photos.view({ id });
 			images.push({ type: "image", mimeType: "image/jpeg", data });
 		}
-		const ids = args.ids.slice(0, MAX_VIEW);
-		const codes = await codeNote(images, (index) => `photo ${ids[index]}`);
-		return { output: [{ type: "text", text: `Photos ${ids.join(", ")}:` }, ...images, ...(codes ? [codes] : [])] };
+		const codes = await codeNote(images, (index) => `photo ${args.ids[index]}`);
+		return { output: [{ type: "text", text: `Photos ${args.ids.join(", ")}:` }, ...images, ...(codes ? [codes] : [])] };
 	},
 });
 

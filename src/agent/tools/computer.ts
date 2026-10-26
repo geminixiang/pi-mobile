@@ -4,38 +4,29 @@ import { McpClient, toLlmContent } from "@earendil-works/pi-mcp";
 import { Type } from "typebox";
 import { HostStdioTransport, type PairedHost } from "../sandbox/host.ts";
 import type { Workplace } from "../workplaces.ts";
-import { defineAppTool } from "./common.ts";
-import { messageOf, onFailure } from "../../promise.ts";
+import { defineAppTool, oneOf } from "./common.ts";
+import { messageOf, sharedUntilFailure } from "../../promise.ts";
 
 const COMMAND = "pi-mobile mcp computer";
 
 const clients = new Map<string, Promise<McpClient>>();
 
 function client(host: PairedHost): Promise<McpClient> {
-	let entry = clients.get(host.address);
-	if (!entry) {
-		entry = (async () => {
-			const created = new McpClient({ name: "pi-mobile", version: "1.0.0" });
-			await created.connect(new HostStdioTransport(host, COMMAND));
-			created.onClose(() => clients.delete(host.address));
-			return created;
-		})();
-		onFailure(entry, () => clients.delete(host.address));
-		clients.set(host.address, entry);
-	}
-	return entry;
+	return sharedUntilFailure(clients, host.address, async () => {
+		const created = new McpClient({ name: "pi-mobile", version: "1.0.0" });
+		await created.connect(new HostStdioTransport(host, COMMAND));
+		created.onClose(() => clients.delete(host.address));
+		return created;
+	});
 }
 
 async function call(host: PairedHost | undefined, tool: "screenshot" | "act", args: Record<string, unknown>, signal: AbortSignal | undefined): Promise<ToolExecutionResult> {
 	if (!host) throw new Error("This bot works on the phone: the phone's own screen is read_phone_screen and use_phone_screen; a computer's screen needs a computer picked in the bot's panel.");
-	let server: McpClient;
-	try {
-		server = await client(host);
-	} catch (error) {
+	const server = await client(host).catch((error: unknown) => {
 		throw new Error(
 			`Screen control did not start on ${host.name}: ${messageOf(error)}. pi-mobile there may be older than screen control: tell the user to run the install command on ${host.name} again (Settings › 電腦).`,
 		);
-	}
+	});
 	const result = await server.callTool(tool, args, signal ? { signal } : {});
 	const output = toLlmContent(result);
 	const structured: JsonValue | undefined = isJsonValue(result.structuredContent) ? result.structuredContent : undefined;
@@ -65,12 +56,12 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		parameters: Type.Object({
 			steps: Type.Array(
 				Type.Object({
-					action: Type.Union(["click", "move", "drag", "scroll", "key", "type", "wait"].map((value) => Type.Literal(value))),
+					action: oneOf(["click", "move", "drag", "scroll", "key", "type", "wait"]),
 					x: Type.Optional(Type.Number()),
 					y: Type.Optional(Type.Number()),
 					to_x: Type.Optional(Type.Number()),
 					to_y: Type.Optional(Type.Number()),
-					button: Type.Optional(Type.Union([Type.Literal("left"), Type.Literal("right"), Type.Literal("middle")])),
+					button: Type.Optional(oneOf(["left", "right", "middle"])),
 					count: Type.Optional(Type.Integer()),
 					dx: Type.Optional(Type.Integer()),
 					dy: Type.Optional(Type.Integer()),

@@ -11,20 +11,21 @@ import {
 } from "../../phone-state-plugin.ts";
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, localTime, oneOf, parseNextTime, text } from "./common.ts";
-import { requireAccess } from "./notifications.ts";
+import { requireAccess } from "../../notifications-plugin.ts";
 const minutes = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, "0")}`;
 
 const media = defineAppTool({
 	name: "media",
 	description: "See what is playing in media apps (Spotify, YouTube Music, podcasts) or control it: play, pause, next, previous. Without app, the most recent player.",
 	parameters: Type.Object({
-		action: Type.Union([Type.Literal("status"), Type.Literal("play"), Type.Literal("pause"), Type.Literal("next"), Type.Literal("previous")], { description: "status reads what plays; the rest control it" }),
+		action: oneOf(["status", "play", "pause", "next", "previous"], { description: "status reads what plays; the rest control it" }),
 		app: Type.Optional(Type.String({ description: "Only this app, by name, such as Spotify" })),
 	}),
 	execute: async (args) => {
 		await requireAccess();
 		const { items } = await Notifications.media();
-		const sessions = args.app ? items.filter((item) => `${item.app} ${item.package}`.toLowerCase().includes(args.app?.toLowerCase() ?? "")) : items;
+		const app = args.app?.toLowerCase();
+		const sessions = app ? items.filter((item) => `${item.app} ${item.package}`.toLowerCase().includes(app)) : items;
 		if (args.action === "status") {
 			if (sessions.length === 0) return text("Nothing is playing or paused.");
 			return text(
@@ -51,7 +52,7 @@ const doNotDisturb = defineAppTool({
 	description:
 		"Read or set Do Not Disturb. priority lets the user's important people and apps through (their usual 勿擾), alarms only alarms, silent nothing. With until, it turns itself off then.",
 	parameters: Type.Object({
-		mode: Type.Union([Type.Literal("status"), Type.Literal("off"), Type.Literal("priority"), Type.Literal("alarms"), Type.Literal("silent")], { description: "status reads it; the rest set it" }),
+		mode: oneOf(["status", "off", "priority", "alarms", "silent"], { description: "status reads it; the rest set it" }),
 		until: Type.Optional(Type.String({ description: 'Local time to turn it off, such as "07:00" (the next one) or "2026-10-23 07:00"' })),
 	}),
 	execute: async (args) => {
@@ -71,12 +72,14 @@ const NOTIFICATION_ACCESS =
 const WRITE_SETTINGS =
 	"Changing the screen needs Android's 「修改系統設定」 permission for pi, which is off. Tell the user to allow it in pi's 設定 › 手機 › 系統權限 › 修改系統設定.";
 
-async function native<T>(work: () => Promise<T>, known: Record<string, string>): Promise<T> {
+const KNOWN: Record<string, string> = { dnd: NOTIFICATION_ACCESS, "write-settings": WRITE_SETTINGS };
+
+async function native<T>(work: () => Promise<T>): Promise<T> {
 	try {
 		return await work();
 	} catch (error) {
 		const message = messageOf(error);
-		throw new Error(known[message] ?? message);
+		throw new Error(KNOWN[message] ?? message);
 	}
 }
 
@@ -93,15 +96,14 @@ const sound = defineAppTool({
 		percent: Type.Optional(Type.Integer({ minimum: 0, maximum: 100, description: "volume: 0 to 100" })),
 	}),
 	execute: async (args) => {
-		const known = { dnd: NOTIFICATION_ACCESS };
-		if (args.action === "status") return text(describeSound(await native(() => PhoneState.sound(), known)));
+		if (args.action === "status") return text(describeSound(await native(() => PhoneState.sound())));
 		if (args.action === "volume") {
 			if (args.percent === undefined) throw new Error("volume needs percent");
 			const percent = args.percent;
-			return text(describeSound(await native(() => PhoneState.setVolume({ stream: args.stream ?? "ring", percent }), known)));
+			return text(describeSound(await native(() => PhoneState.setVolume({ stream: args.stream ?? "ring", percent }))));
 		}
 		const mode = args.action === "ring" ? "normal" : args.action;
-		return text(describeSound(await native(() => PhoneState.setRinger({ mode }), known)));
+		return text(describeSound(await native(() => PhoneState.setRinger({ mode }))));
 	},
 });
 
@@ -124,8 +126,7 @@ const display = defineAppTool({
 		seconds: Type.Optional(Type.Integer({ minimum: 15, maximum: 1800, description: "screen_timeout: seconds" })),
 	}),
 	execute: async (args) => {
-		const known = { "write-settings": WRITE_SETTINGS };
-		if (args.action === "status") return text(describeDisplay(await native(() => PhoneState.display(), known)));
+		if (args.action === "status") return text(describeDisplay(await native(() => PhoneState.display())));
 		const value = args.action === "brightness" ? args.percent : args.action === "screen_timeout" ? args.seconds : undefined;
 		if ((args.action === "brightness" || args.action === "screen_timeout") && value === undefined) {
 			throw new Error(`${args.action} needs ${args.action === "brightness" ? "percent" : "seconds"}`);
@@ -133,7 +134,7 @@ const display = defineAppTool({
 		if ((args.action === "auto_brightness" || args.action === "auto_rotate") && args.on === undefined) throw new Error(`${args.action} needs on`);
 		const what = args.action;
 		const on = args.on;
-		return text(describeDisplay(await native(() => PhoneState.setDisplay({ what, ...(value !== undefined ? { value } : {}), ...(on !== undefined ? { on } : {}) }), known)));
+		return text(describeDisplay(await native(() => PhoneState.setDisplay({ what, ...(value !== undefined ? { value } : {}), ...(on !== undefined ? { on } : {}) }))));
 	},
 });
 
@@ -142,7 +143,7 @@ const flashlight = defineAppTool({
 	description: "Read or switch the phone's flashlight (the camera's torch), such as to light the way or find something in the dark.",
 	parameters: Type.Object({ action: oneOf(["status", "on", "off"] as const, { description: "status reads it" }) }),
 	execute: async (args) => {
-		const result = await native(() => (args.action === "status" ? PhoneState.flashlight() : PhoneState.setFlashlight({ on: args.action === "on" })), {});
+		const result = await native(() => (args.action === "status" ? PhoneState.flashlight() : PhoneState.setFlashlight({ on: args.action === "on" })));
 		return text(`Flashlight: ${result.state}.`);
 	},
 });
@@ -161,7 +162,7 @@ const describeConnections = (state: ConnectionsState) =>
 	[
 		`Wi-Fi ${state.wifi.on ? "on" : "off"}${state.wifi.connected ? `, connected${state.wifi.name ? ` to ${state.wifi.name}` : ""}` : ""}`,
 		`Bluetooth ${state.bluetooth.on ? "on" : "off"}${state.bluetooth.connectedProfiles ? ` (connected: ${state.bluetooth.connectedProfiles})` : ""}`,
-		`mobile data ${state.mobileData.on === undefined ? "unknown" : state.mobileData.on === true ? "on" : state.mobileData.on === false ? "off" : "unknown"}`,
+		`mobile data ${state.mobileData.on === true ? "on" : state.mobileData.on === false ? "off" : "unknown"}`,
 		`airplane mode ${state.airplaneMode ? "on" : "off"}`,
 		`location ${state.location ? "on" : "off"}`,
 		`NFC ${state.nfc}`,
@@ -177,11 +178,11 @@ const connections = defineAppTool({
 		what: Type.Optional(oneOf(CONNECTIONS, { description: "on, off: which one" })),
 	}),
 	execute: async (args) => {
-		if (args.action === "status") return text(describeConnections(await native(() => PhoneState.connections(), {})));
+		if (args.action === "status") return text(describeConnections(await native(() => PhoneState.connections())));
 		const what = args.what;
 		if (!what) throw new Error(`${args.action} needs what`);
 		const on = args.action === "on";
-		const state = await native(() => PhoneState.setConnection({ what, on }), {});
+		const state = await native(() => PhoneState.setConnection({ what, on }));
 		const name = LABEL[what];
 		const outcome =
 			state.outcome === "already"

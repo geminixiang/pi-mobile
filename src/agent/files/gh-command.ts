@@ -1,6 +1,7 @@
 import { type Command, defineCommand, type ExecResult, type ResolvedCommandContext } from "just-bash/browser";
 import type { FolderFetch } from "./folder-fetch.ts";
 import { jsonOrText } from "../parse.ts";
+import { shellQuote } from "../../shell.ts";
 
 const API = "https://api.github.com";
 const DEFAULT_LIMIT = 30;
@@ -47,10 +48,6 @@ function at(value: unknown, key: string): unknown {
 }
 
 const text = (value: unknown) => (typeof value === "string" ? value : value === null || value === undefined ? "" : String(value));
-
-function shellQuote(word: string): string {
-	return `'${word.replaceAll("'", `'\\''`)}'`;
-}
 
 function parseRepo(spec: string): Repo | undefined {
 	const match = /(?:github\.com[/:])?([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(spec.trim());
@@ -223,6 +220,7 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 	const [action = "", ...rest] = args;
 	const base = (repo: Repo) => `/repos/${repo.owner}/${repo.name}`;
 	const plural = kind === "pr" ? "pulls" : "issues";
+	const numberOf = async (repo: Repo, given: string | undefined) => (kind === "pr" ? itemNumber(api, ctx, repo, given) : Number((given ?? "").replace("#", "")));
 	switch (action) {
 		case "list": {
 			const flags = parseFlags(rest, LIST_FLAGS, {});
@@ -257,7 +255,7 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 		case "view": {
 			const flags = parseFlags(rest, VIEW_FLAGS, { "--comments": "comments", "-c": "comments" });
 			const repo = await currentRepo(ctx, flags);
-			const number = kind === "pr" ? await itemNumber(api, ctx, repo, flags.positional[0]) : Number((flags.positional[0] ?? "").replace("#", ""));
+			const number = await numberOf(repo, flags.positional[0]);
 			if (!number) throw new GhError("which issue? pass its number");
 			const item = await api.json("GET", `${base(repo)}/${plural}/${number}`);
 			const comments = flags.set.has("comments") ? await list(api, `${base(repo)}/issues/${number}/comments`, 100, () => true) : [];
@@ -281,7 +279,7 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 		case "comment": {
 			const flags = parseFlags(rest, WRITE_FLAGS, {});
 			const repo = await currentRepo(ctx, flags);
-			const number = kind === "pr" ? await itemNumber(api, ctx, repo, flags.positional[0]) : Number((flags.positional[0] ?? "").replace("#", ""));
+			const number = await numberOf(repo, flags.positional[0]);
 			const body = await readBody(ctx, flags);
 			if (!number || !body) throw new GhError("usage: gh " + kind + " comment NUMBER --body TEXT");
 			const created = await api.json("POST", `${base(repo)}/issues/${number}/comments`, { body });
@@ -291,7 +289,7 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 		case "reopen": {
 			const flags = parseFlags(rest, VIEW_FLAGS, {});
 			const repo = await currentRepo(ctx, flags);
-			const number = kind === "pr" ? await itemNumber(api, ctx, repo, flags.positional[0]) : Number((flags.positional[0] ?? "").replace("#", ""));
+			const number = await numberOf(repo, flags.positional[0]);
 			if (!number) throw new GhError(`usage: gh ${kind} ${action} NUMBER`);
 			await api.json("PATCH", `${base(repo)}/${plural}/${number}`, { state: action === "close" ? "closed" : "open" });
 			return ok(`${action === "close" ? "Closed" : "Reopened"} ${kind === "pr" ? "pull request" : "issue"} #${number}\n`);
@@ -380,8 +378,8 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 		next = flags.set.has("paginate") && method === "GET" ? nextPage(response.link) : undefined;
 	}
 	if (flags.set.has("silent")) return ok("");
-	const parsed = pages.map(jsonOrText);
-	const merged = pages.length > 1 && parsed.every(Array.isArray) ? JSON.stringify(parsed.flat()) : pages.join("\n");
+	const parsed = pages.length > 1 ? pages.map(jsonOrText) : [];
+	const merged = parsed.length > 1 && parsed.every(Array.isArray) ? JSON.stringify(parsed.flat()) : pages.join("\n");
 	const result = await filter(ctx, flags, merged);
 	return flags.set.has("include") ? { ...result, stdout: `HTTP ${status}\n\n${result.stdout}` } : result;
 }

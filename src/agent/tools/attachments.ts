@@ -1,10 +1,10 @@
-import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import type { TextContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
-import { inboxFile, Scanner } from "../../scanner-plugin.ts";
+import { Scanner, scannedPdf } from "../../scanner-plugin.ts";
 import { codeNote } from "../codes.ts";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, text } from "./common.ts";
 
 const DEFAULT_LINES = 400;
 const MAX_TOKENS = 8_000;
@@ -50,21 +50,19 @@ const readAttachment = defineAppTool({
 	execute: async (args) => {
 		const attachment = await loadAttachment(args.id);
 		if (!attachment) throw new Error(`no attachment ${args.id} on this phone`);
-		const output: (TextContent | ImageContent)[] = [];
 		const isPdf = attachment.kind === "pdf";
 
 		if (args.query !== undefined) {
 			const needle = normalizeCjk(args.query).toLowerCase();
 			const matches: string[] = [];
-			attachment.units.forEach((unit, unitIndex) => {
-				unit.split("\n").forEach((line, lineIndex) => {
-					if (matches.length < MAX_MATCHES && normalizeCjk(line).toLowerCase().includes(needle)) {
-						matches.push(`${isPdf ? `page ${unitIndex + 1}` : `line ${lineIndex + 1}`}: ${line.trim()}`);
-					}
-				});
-			});
-			output.push({ type: "text", text: matches.length ? matches.join("\n") : `No lines contain "${args.query}".` });
-			return { output };
+			for (const [unitIndex, unit] of attachment.units.entries()) {
+				if (matches.length === MAX_MATCHES) break;
+				for (const [lineIndex, line] of unit.split("\n").entries()) {
+					if (matches.length === MAX_MATCHES) break;
+					if (normalizeCjk(line).toLowerCase().includes(needle)) matches.push(`${isPdf ? `page ${unitIndex + 1}` : `line ${lineIndex + 1}`}: ${line.trim()}`);
+				}
+			}
+			return text(matches.length ? matches.join("\n") : `No lines contain "${args.query}".`);
 		}
 
 		if (args.pages !== undefined) {
@@ -75,25 +73,21 @@ const readAttachment = defineAppTool({
 				if (!attachment.blob) throw new Error("the PDF itself is not stored; only its text");
 				const shown = pages.slice(0, MAX_IMAGES);
 				const { renderPages } = await import("../attachments-pdf.ts");
-				output.push({ type: "text", text: `Pages ${shown.join(", ")} of ${attachment.name}${pages.length > shown.length ? ` (${MAX_IMAGES} at a time)` : ""}:` });
 				const images = await renderPages(attachment.blob, shown);
-				output.push(...images);
 				const codes = await codeNote(images, (index) => `page ${shown[index]}`);
-				if (codes) output.push(codes);
-				return { output };
+				const header: TextContent = { type: "text", text: `Pages ${shown.join(", ")} of ${attachment.name}${pages.length > shown.length ? ` (${MAX_IMAGES} at a time)` : ""}:` };
+				return { output: [header, ...images, ...(codes ? [codes] : [])] };
 			}
-			const text = pages.map((page) => `--- page ${page} ---\n${attachment.units[page - 1]}`).join("\n\n");
-			const read = window(text.split("\n"), 1, Number.MAX_SAFE_INTEGER);
-			output.push({ type: "text", text: read.next ? `${read.text}\n[Cut at ${MAX_TOKENS} tokens; ask for fewer pages.]` : read.text });
-			return { output };
+			const body = pages.map((page) => `--- page ${page} ---\n${attachment.units[page - 1]}`).join("\n\n");
+			const read = window(body.split("\n"), 1, Number.MAX_SAFE_INTEGER);
+			return text(read.next ? `${read.text}\n[Cut at ${MAX_TOKENS} tokens; ask for fewer pages.]` : read.text);
 		}
 
 		const lines = fullText(attachment).split("\n");
 		const start = args.offset ?? 1;
 		if (start > lines.length) throw new Error(`the file has ${lines.length} lines`);
 		const read = window(lines, start, args.limit ?? DEFAULT_LINES);
-		output.push({ type: "text", text: read.next ? `${read.text}\n[${lines.length - read.next + 1} more lines; continue with offset=${read.next}.]` : read.text });
-		return { output };
+		return text(read.next ? `${read.text}\n[${lines.length - read.next + 1} more lines; continue with offset=${read.next}.]` : read.text);
 	},
 });
 
@@ -105,10 +99,9 @@ const scanDocument = defineAppTool({
 	execute: async (args, api) => {
 		const scan = await Scanner.scan({ pages: args.pages ?? 20 });
 		if (scan.cancelled) {
-			return { output: [{ type: "text", text: "The user closed the scanner; nothing was scanned. Reply with one short sentence that says so, such as 「好，沒有掃。」" }], isError: true };
+			return { ...text("The user closed the scanner; nothing was scanned. Reply with one short sentence that says so, such as 「好，沒有掃。」"), isError: true };
 		}
-		const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
-		const file = await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf");
+		const file = await scannedPdf(scan.pdf);
 		const prepared = await prepareAttachment(file, String(api.conversationId));
 		return { output: prepared.content };
 	},

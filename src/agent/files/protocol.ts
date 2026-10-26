@@ -1,3 +1,15 @@
+export const TEMP_FOLDER = ".tmp";
+
+export function normalizePath(path: string): string {
+	const parts: string[] = [];
+	for (const part of path.split("/")) {
+		if (!part || part === ".") continue;
+		if (part === "..") parts.pop();
+		else parts.push(part);
+	}
+	return `/${parts.join("/")}`;
+}
+
 export type FsOp =
 	| { op: "stat"; path: string }
 	| { op: "exists"; path: string }
@@ -13,8 +25,8 @@ export type FsOp =
 
 export type FsValue = boolean | { kind: "file" | "directory"; size: number; mtimeMs: number; executable: boolean } | { name: string; kind: "file" | "directory" }[] | string | Uint8Array | null;
 
-export type HttpRequest = { url: string; method: string; headers: Record<string, string>; body?: Uint8Array };
-export type HttpResponse = { status: number; headers: Record<string, string>; body: Uint8Array };
+export type HttpRequest = { url: string; method: string; headers: Record<string, string>; body?: Uint8Array<ArrayBuffer> };
+export type HttpResponse = { status: number; headers: Record<string, string>; body: Uint8Array<ArrayBuffer> };
 
 export type ToWorker =
 	| { type: "exec"; exec: number; bot: string; command: string; cwd: string; env: Record<string, string> }

@@ -152,11 +152,14 @@ export async function diffCheck(git: Git, args: string[], ctx: Parameters<Git["e
 		const result = await git.execute(["diff", "--no-color", "--unified=2147483647", ...(staged ? ["--cached"] : []), ...(paths.length ? ["--", ...paths] : [])], ctx);
 		if (result.exitCode !== 0) return result;
 		if (repo.workTree) {
+			const probed = new Set<string>();
 			for (const match of result.stdout.matchAll(/^\+\+\+ b\/(.*)$/gm)) {
 				const parts = (match[1] ?? "").replace(/\t$/, "").split("/");
 				parts.pop();
 				for (let depth = 0; depth <= parts.length; depth++) {
 					const directory = [repo.workTree, ...parts.slice(0, depth)].join("/");
+					if (probed.has(directory)) continue;
+					probed.add(directory);
 					if (await repo.fs.exists(`${directory}/.gitattributes`)) return failure("diff --check does not support .gitattributes for changed paths", 129);
 				}
 			}

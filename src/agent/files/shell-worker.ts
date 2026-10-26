@@ -1,10 +1,11 @@
 import "../../shims/buffer-global.ts";
 import { Bash, type CommandName, getCommandNames, type IFileSystem, InMemoryFs, MountableFs } from "just-bash/browser";
-import type { FromWorker, FsOp, FsValue, HttpRequest, HttpResponse, ToWorker } from "./protocol.ts";
+import { type FromWorker, type FsOp, type FsValue, type HttpRequest, type HttpResponse, normalizePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { folderFetch } from "./folder-fetch.ts";
 import { gitCommand } from "./git-command.ts";
 import { ghCommand } from "./gh-command.ts";
 import { messageOf } from "../../promise.ts";
+import { fromBase64, toBase64, toHex } from "../../encoding.ts";
 
 const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python", "html-to-markdown"]);
 const COMMANDS = getCommandNames().filter((name): name is CommandName => !UNAVAILABLE.has(name));
@@ -39,17 +40,6 @@ function ask(bot: string, request: FsOp): Promise<FsValue> {
 	});
 }
 
-function normalize(path: string): string {
-	const parts: string[] = [];
-	for (const part of path.split("/")) {
-		if (!part || part === ".") continue;
-		if (part === "..") parts.pop();
-		else parts.push(part);
-	}
-	return `/${parts.join("/")}`;
-}
-
-const TEMP_FOLDER = ".tmp";
 const DEVICE_READ_BYTES = 4 * 1024 * 1024;
 const RANDOM_CHUNK = 64 * 1024;
 const DATA_SCALE_LIMIT = 10_000_000;
@@ -70,18 +60,18 @@ function isStat(value: FsValue): value is { kind: "file" | "directory"; size: nu
 function textOf(content: string | Uint8Array, encoding: unknown): string | Uint8Array {
 	if (typeof content !== "string" || encoding === undefined || encoding === "utf8" || encoding === "utf-8") return content;
 	const name = typeof encoding === "string" ? encoding : typeof encoding === "object" && encoding !== null ? Reflect.get(encoding, "encoding") : undefined;
-	if (name === "base64") return Uint8Array.from(atob(content), (char) => char.charCodeAt(0));
+	if (name === "base64") return fromBase64(content);
 	if (name === "binary" || name === "latin1") return Uint8Array.from(content, (char) => char.charCodeAt(0) & 0xff);
 	return content;
 }
 
 function folderFs(bot: string, root = ""): IFileSystem {
-	const rel = (path: string) => [root, normalize(path).slice(1)].filter(Boolean).join("/");
+	const rel = (path: string) => [root, normalizePath(path).slice(1)].filter(Boolean).join("/");
 	const stat = async (path: string) => {
 		const value = await ask(bot, { op: "stat", path: rel(path) });
 		if (!isStat(value)) throw new Error(`EIO: bad stat, '${path}'`);
 		const mode = value.kind === "directory" || value.executable ? 0o755 : 0o644;
-		return { isFile: value.kind === "file", isDirectory: value.kind === "directory", isSymbolicLink: false, mode, size: value.size, mtime: new Date(value.mtimeMs), identity: `${root}${normalize(path)}` };
+		return { isFile: value.kind === "file", isDirectory: value.kind === "directory", isSymbolicLink: false, mode, size: value.size, mtime: new Date(value.mtimeMs), identity: `${root}${normalizePath(path)}` };
 	};
 	const entries = async (path: string) => {
 		const value = await ask(bot, { op: "list", path: rel(path) });
@@ -102,7 +92,7 @@ function folderFs(bot: string, root = ""): IFileSystem {
 		if (info.isFile) return write(to, await readBytes(from), false);
 		if (!recursive) throw new Error(`EISDIR: is a directory, cp '${from}'`);
 		await ask(bot, { op: "mkdir", path: rel(to), recursive: true });
-		for (const entry of await entries(from)) await copy(`${normalize(from)}/${entry.name}`, `${normalize(to)}/${entry.name}`, true);
+		for (const entry of await entries(from)) await copy(`${normalizePath(from)}/${entry.name}`, `${normalizePath(to)}/${entry.name}`, true);
 	};
 	const unsupported = (what: string) => async () => {
 		throw new Error(`ENOSYS: ${what} is not supported in this folder`);
@@ -116,8 +106,8 @@ function folderFs(bot: string, root = ""): IFileSystem {
 			}
 			const bytes = await readBytes(path);
 			const name = typeof options === "string" ? options : options?.encoding;
-			if (name === "base64") return btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
-			if (name === "hex") return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+			if (name === "base64") return toBase64(bytes);
+			if (name === "hex") return toHex(bytes);
 			return Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
 		},
 		readFileBuffer: readBytes,
@@ -145,11 +135,11 @@ function folderFs(bot: string, root = ""): IFileSystem {
 		async mv(from, to) {
 			await ask(bot, { op: "rename", from: rel(from), to: rel(to) });
 		},
-		resolvePath: (base, path) => normalize(path.startsWith("/") ? path : `${base}/${path}`),
+		resolvePath: (base, path) => normalizePath(path.startsWith("/") ? path : `${base}/${path}`),
 		getAllPaths: () => [],
 		async realpath(path) {
 			await stat(path);
-			return normalize(path);
+			return normalizePath(path);
 		},
 		async chmod(path, mode) {
 			await ask(bot, { op: "chmod", path: rel(path), mode });
@@ -181,14 +171,14 @@ function deviceFs(): IFileSystem {
 		"/random": randomBytes,
 	};
 	const device = (path: string) => {
-		const read = devices[normalize(path)];
-		if (!read) throw new Error(`ENOENT: no such device, '/dev${normalize(path)}'`);
+		const read = devices[normalizePath(path)];
+		if (!read) throw new Error(`ENOENT: no such device, '/dev${normalizePath(path)}'`);
 		return read;
 	};
 	const stat = async (path: string) => {
-		const isRoot = normalize(path) === "/";
+		const isRoot = normalizePath(path) === "/";
 		if (!isRoot) device(path);
-		return { isFile: !isRoot, isDirectory: isRoot, isSymbolicLink: false, mode: isRoot ? 0o755 : 0o666, size: 0, mtime: new Date(0), identity: `/dev${normalize(path)}` };
+		return { isFile: !isRoot, isDirectory: isRoot, isSymbolicLink: false, mode: isRoot ? 0o755 : 0o666, size: 0, mtime: new Date(0), identity: `/dev${normalizePath(path)}` };
 	};
 	const discard = async (path: string) => {
 		device(path);
@@ -198,7 +188,7 @@ function deviceFs(): IFileSystem {
 		readFileBuffer: async (path) => device(path)(),
 		writeFile: discard,
 		appendFile: discard,
-		exists: async (path) => normalize(path) === "/" || normalize(path) in devices,
+		exists: async (path) => normalizePath(path) === "/" || normalizePath(path) in devices,
 		stat,
 		lstat: stat,
 		mkdir: async (path) => readOnly(path),
@@ -206,9 +196,9 @@ function deviceFs(): IFileSystem {
 		rm: async (path) => readOnly(path),
 		cp: async (_from, to) => readOnly(to),
 		mv: async (from) => readOnly(from),
-		resolvePath: (base, path) => normalize(path.startsWith("/") ? path : `${base}/${path}`),
+		resolvePath: (base, path) => normalizePath(path.startsWith("/") ? path : `${base}/${path}`),
 		getAllPaths: () => [],
-		realpath: async (path) => normalize(path),
+		realpath: async (path) => normalizePath(path),
 		chmod: async (path) => readOnly(path),
 		utimes: async () => undefined,
 		symlink: async (_target, path) => readOnly(path),

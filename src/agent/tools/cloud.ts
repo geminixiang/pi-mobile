@@ -1,11 +1,9 @@
 import { Type } from "typebox";
-import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { CapacitorHttp } from "@capacitor/core";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, jsonOrNull, oneOf, text, truncated } from "./common.ts";
 import { jsonOrText } from "../parse.ts";
 
-const MAX_OUTPUT_CHARS = 40_000;
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 30_000 };
 
 export interface CloudService {
@@ -19,17 +17,7 @@ export interface CloudService {
 	usage: string;
 }
 
-type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-function toJson(value: unknown): JsonValue {
-	return isJsonValue(value) ? value : null;
-}
-
-function truncate(value: string): string {
-	return value.length > MAX_OUTPUT_CHARS
-		? `${value.slice(0, MAX_OUTPUT_CHARS)}\n\n[truncated: ${value.length - MAX_OUTPUT_CHARS} more characters; narrow the request with a filter, page size, or fields]`
-		: value;
-}
+const truncate = (value: string) => truncated(value, "; narrow the request with a filter, page size, or fields");
 
 function cloudTool(service: CloudService) {
 	return defineAppTool({
@@ -40,12 +28,11 @@ function cloudTool(service: CloudService) {
 		].join(" "),
 		structuredOutputSchema: Type.Object({ status: Type.Integer(), body: Type.Unknown() }),
 		parameters: Type.Object({
-			method: Type.Union([Type.Literal("GET"), Type.Literal("POST"), Type.Literal("PUT"), Type.Literal("PATCH"), Type.Literal("DELETE")]),
+			method: oneOf(["GET", "POST", "PUT", "PATCH", "DELETE"]),
 			url: Type.String({ description: service.base ? `Full https URL, or a path starting with / under ${service.base}` : "Full https URL" }),
 			body: Type.Optional(Type.Unknown({ description: "JSON request body" })),
 		}),
 		execute: async (args, _api, context) => {
-			const method: Method = args.method;
 			const url = new URL(args.url.startsWith("/") && service.base ? `${service.base}${args.url}` : args.url);
 			if (url.protocol !== "https:" || !service.hosts.some((host) => host.test(url.hostname))) {
 				throw new Error(`${service.tool} only calls ${service.label} hosts over https; ${url.hostname} is not one.`);
@@ -55,7 +42,7 @@ function cloudTool(service: CloudService) {
 			const token = await service.token(url.hostname);
 			const response = await CapacitorHttp.request({
 				url: url.toString(),
-				method,
+				method: args.method,
 				headers: {
 					Authorization: `Bearer ${token}`,
 					Accept: "application/json",
@@ -70,7 +57,7 @@ function cloudTool(service: CloudService) {
 			const parsed = raw ? jsonOrText(raw) : null;
 			const out = `HTTP ${response.status}\n${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`;
 			if (response.status < 200 || response.status >= 300) throw new Error(truncate(out));
-			return { output: [{ type: "text" as const, text: truncate(out) }], structuredOutput: { status: response.status, body: toJson(parsed) } };
+			return { ...text(truncate(out)), structuredOutput: { status: response.status, body: jsonOrNull(parsed) } };
 		},
 	});
 }

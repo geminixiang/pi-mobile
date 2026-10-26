@@ -4,12 +4,13 @@ import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { BotIndex } from "../bots.ts";
-import { type DaemonArch, type DaemonOs, shellQuote } from "./daemon.ts";
+import type { DaemonArch, DaemonOs } from "./daemon.ts";
 import type { ConnectionStatus, StreamConnection } from "./stream-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";
 import type { Workplace } from "../workplaces.ts";
-import { onFailure } from "../../promise.ts";
+import { sharedUntilFailure } from "../../promise.ts";
+import { shellQuote } from "../../shell.ts";
 
 export const SHARED_SANDBOX = "main";
 
@@ -60,20 +61,13 @@ export class SharedEnvs {
 
 	async env(folder: string): Promise<ExecutionEnv> {
 		const root = this.#root(folder);
-		let made = this.#made.get(folder);
-		if (!made) {
-			made = this.#run(`mkdir -p ${shellQuote(root)}`).then((code) => {
+		await sharedUntilFailure(this.#made, folder, () =>
+			this.#run(`mkdir -p ${shellQuote(root)}`).then((code) => {
 				if (code !== 0) throw new Error(`cannot create ${root}`);
-			});
-			onFailure(made, () => this.#made.delete(folder));
-			this.#made.set(folder, made);
-		}
-		await made;
-		let env = this.#envs.get(folder);
-		if (!env) {
-			env = this.#make(root);
-			this.#envs.set(folder, env);
-		}
+			}),
+		);
+		const env = this.#envs.get(folder) ?? this.#make(root);
+		this.#envs.set(folder, env);
 		return env;
 	}
 

@@ -47,10 +47,10 @@ function withoutLinks(fs: IFileSystem): IFileSystem {
 export function gitCommand(fetch: FolderFetch): Command {
 	return defineCommand("git", async (args, ctx) => {
 		const { createGit } = await import("just-git");
-		const identity = WRITES_COMMITS.has(subcommand(args) ?? "") ? await githubIdentity(fetch) : undefined;
+		const command = subcommand(args);
+		const identity = WRITES_COMMITS.has(command ?? "") ? await githubIdentity(fetch) : undefined;
 		const git = createGit({ network: { allowed: ["github.com"], fetch }, ...(identity ? { identity } : {}) });
 		const context = { ...ctx, fs: withoutLinks(ctx.fs) };
-		const command = subcommand(args);
 		const end = args.indexOf("--");
 		const checking = command === "diff" && args.slice(0, end < 0 ? args.length : end).includes("--check");
 		if (command === "cat-file" || checking) {
