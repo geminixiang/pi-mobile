@@ -2,7 +2,8 @@ import type { TextContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
-import { Scanner, scannedPdf } from "../../scanner-plugin.ts";
+import { scannedPdf } from "../../scanner-plugin.ts";
+import { Scanner } from "../../plugins/scanner.ts";
 import { codeNote } from "../codes.ts";
 import { defineAppTool, text } from "./common.ts";
 
@@ -35,6 +36,8 @@ function window(lines: string[], start: number, limit: number): { text: string; 
 
 const readAttachment = defineAppTool({
 	name: "read_attachment",
+	effect: "read",
+	reach: "loaded",
 	description: [
 		"Read a file the user attached, by the id in its <attachment> tag. Use it when the message shows only the start of the file, or to look at PDF pages as images.",
 		"With offset/limit: a window of lines, numbered. With pages (PDF): those pages' text, or with images=true those pages as pictures (charts, scans, layout; at most 4). With query: the matching lines and their pages.",
@@ -93,6 +96,8 @@ const readAttachment = defineAppTool({
 
 const scanDocument = defineAppTool({
 	name: "scan_document",
+	effect: "screen",
+	needs: [Scanner.scan],
 	description:
 		"Open the phone's document scanner for the user to photograph paper (a contract, a receipt, a letter): it finds the edges and flattens the pages. Returns the pages as an attachment with their text (OCR on the phone), like a PDF the user attached. Only when the user asks to scan something now.",
 	parameters: Type.Object({ pages: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "At most this many pages (default 20)" })) }),

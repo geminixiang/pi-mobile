@@ -16,15 +16,16 @@ import {
 	type ShellExecResult,
 	type TextLineReader,
 } from "@earendil-works/pi-durable/env";
-import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
+import { BotFiles, type BotFileInfo } from "../../plugins/bot-files.ts";
 import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
+import { HOUR } from "../tools/common.ts";
 
 const TEMP_DIR = "/tmp";
-const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+const MAX_TIMEOUT_MS = 2 * HOUR;
 const ABORT_GRACE_MS = 2000;
 const SCAN_CHUNK = 1024 * 1024;
 
@@ -201,7 +202,7 @@ export class PhoneEnv implements ExecutionEnv {
 	readonly #network: FolderNetwork;
 	readonly #ensureTemp = untilFailure(() => BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true }));
 
-	constructor(folder: string, network: FolderNetwork = {}) {
+	constructor(folder: string, network: FolderNetwork) {
 		this.#bot = folder;
 		this.#network = network;
 		this.id = `phone:${folder}`;

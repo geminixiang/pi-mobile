@@ -265,9 +265,8 @@ public class PhoneStatePlugin extends Plugin {
             }
         }
         if (wifiConnected && !wifiState.has("name")) {
-            WifiInfo info = wifi.getConnectionInfo();
-            String ssid = info == null ? null : info.getSSID();
-            if (ssid != null && !ssid.contains("unknown ssid")) wifiState.put("name", ssid.replaceAll("^\"|\"$", ""));
+            String name = TriggerEvents.wifiName(context);
+            if (name != null) wifiState.put("name", name);
             else wifiState.put("name", granted(Manifest.permission.ACCESS_FINE_LOCATION) ? "(hidden: location is off)" : "(hidden: needs location permission)");
         }
         wifiState.put("connected", wifiConnected);

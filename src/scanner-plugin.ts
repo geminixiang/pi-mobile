@@ -1,10 +1,6 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Capacitor } from "@capacitor/core";
 import { native } from "./native.ts";
-
-export const Scanner = registerPlugin<{
-	scan(options: { pages?: number }): Promise<{ cancelled: true } | { cancelled: false; pdf: string; pages: number }>;
-	ocr(options: { data: string }): Promise<{ text: string }>;
-}>("Scanner");
+import { Scanner } from "./plugins/scanner.ts";
 
 export async function inboxFile(path: string, name: string, type: string): Promise<File> {
 	const blob = await (await fetch(Capacitor.convertFileSrc(path))).blob();

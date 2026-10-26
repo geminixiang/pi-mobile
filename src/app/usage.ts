@@ -1,5 +1,7 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { usageOf } from "./docs.ts";
+import type { Usage as ModelUsage } from "@earendil-works/pi-ai";
+import { calculateContextTokens } from "@earendil-works/pi-ai/utils/estimate";
 
 export interface Usage {
 	input: number;
@@ -15,7 +17,7 @@ export function formatTokens(count: number): string {
 	return String(count);
 }
 
-function lastUsage(view: ConversationView | undefined): Usage | undefined {
+function lastUsage(view: ConversationView | undefined): ModelUsage | undefined {
 	for (let i = (view?.entries.length ?? 0) - 1; i >= 0; i--) {
 		const message = view?.entries[i]?.model?.[0];
 		if (message?.role === "assistant") return message.usage;
@@ -25,7 +27,7 @@ function lastUsage(view: ConversationView | undefined): Usage | undefined {
 
 export function contextTokens(view: ConversationView | undefined): number {
 	const usage = lastUsage(view);
-	return usage ? usage.input + usage.output + usage.cacheRead + usage.cacheWrite : 0;
+	return usage ? calculateContextTokens(usage) : 0;
 }
 
 export function totalUsage(view: ConversationView | undefined): Usage {

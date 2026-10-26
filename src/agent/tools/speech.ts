@@ -1,12 +1,14 @@
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { Voice } from "../../voice-plugin.ts";
+import { Voice } from "../../plugins/voice.ts";
 import { defineAppTool, text } from "./common.ts";
 
 const MAX_CHARS = 3000;
 
 const speak = defineAppTool({
 	name: "speak",
+	effect: "direct",
+	needs: [Voice.speak, Voice.stopSpeaking],
 	description:
 		"Read text aloud to the user through the phone, or the headphones when connected. Resolves when it was spoken. Use it when the user is listening rather than reading (a headphones schedule, or when they ask to hear it). Read the spoken-report skill first and follow it: a read-out written report is too dense to follow by ear.",
 	parameters: Type.Object({

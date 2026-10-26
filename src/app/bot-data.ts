@@ -17,10 +17,7 @@ export async function sweepBotData(current: () => Promise<readonly { id: string;
 	const keepIds = new Set(bots.map((bot) => bot.id));
 	const gone: string[] = [];
 	for (const folder of folders.filter((name) => !keepFolders.has(name))) {
-		await removePhoneFolder(folder).then(
-			() => gone.push(folder),
-			(error: unknown) => log.warn("bot_data.folder_failed", { folder, error: String(error) }),
-		);
+		if (await orLogged(removePhoneFolder(folder).then(() => true), "bot_data.folder_failed", false, { folder })) gone.push(folder);
 	}
 	for (const id of [...ids].filter((id) => !keepIds.has(id))) {
 		await orLogged(deleteAttachments({ conversationId: id }), "bot_data.attachments_failed", undefined, { id });

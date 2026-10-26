@@ -1,6 +1,7 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
+import { oneOf } from "../tools/common.ts";
 import {
 	type JsonRpcMessage,
 	type McpTransport,
@@ -24,8 +25,8 @@ import { ios } from "../../native.ts";
 const HOST_PORT = 4790;
 
 const System = {
-	os: Type.Union([Type.Literal("darwin"), Type.Literal("linux")]),
-	arch: Type.Union([Type.Literal("x64"), Type.Literal("arm64")]),
+	os: oneOf(["darwin", "linux"]),
+	arch: oneOf(["x64", "arm64"]),
 };
 
 const HostInfo = Type.Object({

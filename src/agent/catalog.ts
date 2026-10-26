@@ -29,12 +29,13 @@ import { TwStocksExtension } from "./tools/tw-stocks.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "./triggers.ts";
-import type { NativePlugin } from "../native.ts";
-import { TOOL_NEEDS, unusableExtensions } from "./toolsets.ts";
+import type { Native } from "../native.ts";
+import { unusableExtensions } from "./toolsets.ts";
+import { declarationOf } from "./tools/common.ts";
 import type { Workplace } from "./workplaces.ts";
 
 interface CatalogDeps {
-	native: ReadonlySet<NativePlugin>;
+	native: Native;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;
 	githubToken?: string;
@@ -46,28 +47,14 @@ interface CatalogDeps {
 	labelOf: (extension: string, conversationId: string) => string | undefined;
 }
 
-const MODEL_TOOLS = new Set(["codemode", "bash", "read", "write", "edit", "update_memory", "tool_search"]);
-const LOADED_TOOLS = new Set(["view_photos", "read_attachment", "read_screen", "use_screen", "read_phone_screen", "use_phone_screen"]);
+const toolSearch = (loaded: readonly string[]) =>
+	`Load ${loaded.join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
 
-const TOOL_SEARCH = `Load ${[...LOADED_TOOLS].join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
-
-function withReach(extension: Extension, native: ReadonlySet<NativePlugin>): Extension {
-	const usableTool = (name: string) => {
-		const needs = TOOL_NEEDS[name];
-		return !needs || native.has(needs);
-	};
-	return {
+function usableOn(native: Native) {
+	return (extension: Extension): Extension => ({
 		...extension,
-		tools: extension.tools?.filter((tool) => usableTool(tool.name)).map((tool) =>
-			tool.name === "tool_search"
-				? { ...tool, description: TOOL_SEARCH }
-				: MODEL_TOOLS.has(tool.name)
-					? tool
-					: LOADED_TOOLS.has(tool.name)
-						? { ...tool, deferred: true as const }
-						: { ...tool, callers: ["tools"] as const },
-		),
-	};
+		tools: extension.tools?.filter((tool) => (declarationOf(tool)?.needs ?? []).every((method) => native.implements(method))),
+	});
 }
 
 export function builtinExtensions(deps: CatalogDeps): Extension[] {
@@ -106,5 +93,13 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createOnDemandExtension(deps.labelOf),
 	];
 	const unusable = unusableExtensions(deps.native);
-	return extensions.filter((extension) => !unusable.has(extension.name)).map((extension) => withReach(extension, deps.native));
+	const usable = extensions
+		.filter((extension) => !unusable.has(extension.name))
+		.map(usableOn(deps.native))
+		.filter((extension) => extension.tools === undefined || extension.tools.length > 0);
+	const loaded = usable.flatMap((extension) => (extension.tools ?? []).filter((tool) => tool.deferred).map((tool) => tool.name));
+	return usable.map((extension) => ({
+		...extension,
+		tools: extension.tools?.map((tool) => (tool.name === "tool_search" ? { ...tool, description: toolSearch(loaded) } : tool)),
+	}));
 }

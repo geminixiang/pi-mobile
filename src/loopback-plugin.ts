@@ -1,12 +1,4 @@
-import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
-
-interface LoopbackPlugin {
-	start(options: { port: number; path: string }): Promise<{ port: number }>;
-	stop(): Promise<void>;
-	addListener(event: "redirect", listener: (data: { url: string }) => void): Promise<PluginListenerHandle>;
-}
-
-const Loopback = registerPlugin<LoopbackPlugin>("Loopback");
+import { Loopback } from "./plugins/loopback.ts";
 
 export async function listenForRedirect(at: { port: number; path: string }, onRedirect: (url: URL) => void): Promise<() => Promise<void>> {
 	await Loopback.start(at);

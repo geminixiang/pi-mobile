@@ -13,7 +13,8 @@ import {
 } from "../agent/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { Scanner, scannedPdf } from "../scanner-plugin.ts";
+import { scannedPdf } from "../scanner-plugin.ts";
+import { Scanner } from "../plugins/scanner.ts";
 import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { AttachmentChip } from "./Message.tsx";

@@ -49,14 +49,12 @@ export function mcpResult(result: CallToolResult, output = toLlmContent(result))
 export const extensionName = (server: McpServer) => `mcp-${server.id}`;
 export const isMcpExtension = (name: string) => name.startsWith("mcp-");
 
-const stateKey = (server: McpServer) => `mcp.${server.id}`;
-
 function isState(value: unknown): value is McpOAuthState {
 	return typeof value === "object" && value !== null && "serverUrl" in value && typeof value.serverUrl === "string";
 }
 
 function stateStore(server: McpServer, secrets: Platform["secrets"]) {
-	const key = stateKey(server);
+	const key = `mcp.${server.id}`;
 	const read = async (): Promise<McpOAuthState | undefined> => {
 		const stored = await secrets.get(key);
 		const value = stored === undefined ? undefined : decode(Type.Unknown(), stored);

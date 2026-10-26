@@ -1,6 +1,6 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { PhoneScreen, type PhoneScreenSnapshot } from "../../phone-screen-plugin.ts";
+import { PhoneScreen, type PhoneScreenSnapshot } from "../../plugins/phone-screen.ts";
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, oneOf } from "./common.ts";
 
@@ -39,6 +39,9 @@ async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecu
 
 const readPhoneScreen = defineAppTool({
 	name: "read_phone_screen",
+	effect: "read",
+	needs: [PhoneScreen.status, PhoneScreen.read],
+	reach: "loaded",
 	description:
 		"See the phone's own screen, whatever app is in front: the front app and its elements as text (role, label, center x,y in screen points). For what no other tool reaches, in any app.",
 	parameters: Type.Object({ screenshot: SCREENSHOT }),
@@ -48,6 +51,9 @@ const readPhoneScreen = defineAppTool({
 
 const usePhoneScreen = defineAppTool({
 	name: "use_phone_screen",
+	effect: "direct",
+	needs: [PhoneScreen.status, PhoneScreen.act],
+	reach: "loaded",
 	description:
 		"Use the phone as the user would, then see the result: runs the steps in order and returns the screen after them, as read_phone_screen does. " +
 		"Put the steps you can already tell in one call (open an app, tap its search field, type, enter). Tap an element at the x,y listed for it. " +

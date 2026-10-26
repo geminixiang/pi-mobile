@@ -19,7 +19,8 @@ import { createAssistant } from "./assistant.ts";
 import { pairedHosts } from "./sandbox/host.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
-import { avatarOf, type Bot, botFields, BotIndex, DEFAULT_BOT, MAX_BOTS, newFolder } from "./bots.ts";
+import { avatarOf, type Bot, botFields, BotIndex, DEFAULT_BOT, MAX_BOTS } from "./bots.ts";
+import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
 import { extensionName, isMcpExtension, McpHub } from "./mcp.ts";
@@ -286,7 +287,7 @@ export class AgentRuntime {
 		const { name, job } = botFields(fields);
 		const existing = await this.bots();
 		if (existing.length >= MAX_BOTS) throw new Error(`最多 ${MAX_BOTS} 個 Bot`);
-		const folder = newFolder();
+		const folder = uuidv7();
 		const conversation = await this.#harness.createConversation(
 			{
 				ownership: { kind: "ownerless" },

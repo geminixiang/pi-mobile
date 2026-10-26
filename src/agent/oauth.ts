@@ -1,7 +1,8 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { type Static, Type } from "typebox";
 import { check, type Checked, parse, parseJson, valueOrThrow } from "./parse.ts";
-import { orLogged, sleep } from "../promise.ts";
+import { sleep } from "@earendil-works/pi-ai/utils/sleep";
+import { orLogged } from "../promise.ts";
 import { randomBase64Url, toBase64Url } from "../encoding.ts";
 
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
@@ -71,17 +72,13 @@ function oauthProblem(body: TokenResponse, status: number, what: string): string
 	return `${what}：${body.error_description ?? body.error ?? `HTTP ${status}`}`;
 }
 
-export function refreshedTokens(response: HttpResponse, what: string): Tokens {
-	const checked = checkTokens(response, what);
-	if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
-	return checked.value;
-}
-
 export async function refreshRotating(
 	{ url, refreshToken, form, what }: { url: string; refreshToken: string; form: Record<string, string>; what: string },
 	onRotated: (refreshToken: string) => Promise<void>,
 ): Promise<AccessToken> {
-	const tokens = refreshedTokens(await postForm({ url, form: { grant_type: "refresh_token", refresh_token: refreshToken, ...form }, what }), what);
+	const checked = checkTokens(await postForm({ url, form: { grant_type: "refresh_token", refresh_token: refreshToken, ...form }, what }), what);
+	if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
+	const tokens = checked.value;
 	if (tokens.refresh && tokens.refresh !== refreshToken) await onRotated(tokens.refresh);
 	return tokens.access;
 }
@@ -150,8 +147,7 @@ export async function pollDeviceFlow({
 }): Promise<Tokens> {
 	let interval = signIn.intervalMs;
 	while (Date.now() < signIn.expiresAt) {
-		await sleep(interval);
-		if (signal.aborted) throw new Error("已取消");
+		await sleep(interval, signal);
 		const response = await orLogged(
 			postForm({ url, form: { ...form, grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: signIn.deviceCode }, what }),
 			"oauth.poll_unreachable",

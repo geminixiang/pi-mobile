@@ -1,5 +1,5 @@
 import { native } from "../native.ts";
-import { System } from "../system-plugin.ts";
+import { System } from "../plugins/system.ts";
 import { orLogged } from "../promise.ts";
 
 export function haptic(kind: "tick" | "press" | "confirm"): void {

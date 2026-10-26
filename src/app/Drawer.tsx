@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
 import { GearIcon, MoreIcon, PlusIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
-import type { Trigger, When } from "../agent/triggers.ts";
-import { symbolsOf } from "./triggerSymbol.ts";
+import type { Trigger } from "../agent/triggers.ts";
+import type { When } from "../plugins/triggers.ts";
+import { triggerSymbol } from "./triggerSymbol.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { SidePanel } from "./SidePanel.tsx";
@@ -32,7 +33,7 @@ const SYMBOL_NAMES: Record<TriggerSymbol, string> = {
 };
 
 function BotAutomations({ whens }: { whens: readonly When[] }) {
-	const symbols = symbolsOf(whens);
+	const symbols = [...new Set(whens.map((when) => triggerSymbol(when)))];
 	if (symbols.length === 0) return null;
 	const hidden = symbols.length - SHOWN_SYMBOLS;
 	return (

@@ -1,5 +1,4 @@
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
-import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { checkpointEvery64 } from "./doc-policy.ts";
 
 export type Bot = {
@@ -49,7 +48,6 @@ export const DEFAULT_BOT = { name: "pi", job: "", avatar: "helper" };
 export const MAX_BOTS = 12;
 export const MAX_JOB = 1500;
 
-export const newFolder = (): string => uuidv7();
 
 export function botFields({ name, job }: { name: string; job: string }): { name: string; job: string } {
 	if (!name.trim()) throw new Error("Bot 需要名字");

@@ -69,7 +69,7 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 										{entry.auth === "oauth" ? <span className="toolset-load">需要登入</span> : null}
 									</span>
 									{connected.has(entry.url) ? (
-										<span className="state on">已連接</span>
+										<span className="state">已連接</span>
 									) : (
 										<button type="button" className="btn" onClick={() => connect(entry)}>
 											連接

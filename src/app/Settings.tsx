@@ -1,15 +1,15 @@
 import { Row } from "./Row.tsx";
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
-import { KeepAlive } from "./keepAlive.ts";
+import { KeepAlive } from "../plugins/keep-alive.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
-import { Database, type TableInfo } from "../database-plugin.ts";
-import { Notifications } from "../notifications-plugin.ts";
-import { PhoneScreen } from "../phone-screen-plugin.ts";
-import { PhoneState } from "../phone-state-plugin.ts";
-import { System } from "../system-plugin.ts";
-import { Usage } from "../agent/tools/records.ts";
-import { Apps } from "../agent/tools/apps.ts";
+import { Database } from "../plugins/database.ts";
+import { Notifications } from "../plugins/notifications.ts";
+import { PhoneScreen } from "../plugins/phone-screen.ts";
+import { PhoneState } from "../plugins/phone-state.ts";
+import { System } from "../plugins/system.ts";
+import { Usage } from "../plugins/usage.ts";
+import { Apps } from "../plugins/apps.ts";
 import { recentLog } from "../log.ts";
 import { useBriefly } from "./briefly.ts";
 import { checkGitHub } from "../agent/checks.ts";
@@ -18,10 +18,12 @@ import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azu
 import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../agent/cloudflare.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
 import { type CalendarAccess, canWrite } from "../agent/calendar-access.ts";
-import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
+import { groupByAccount } from "../agent/tools/calendar.ts";
+import { Calendar, type PhoneCalendar } from "../plugins/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import { Triggers, type TriggerState } from "../agent/triggers.ts";
+import type { TriggerState } from "../agent/triggers.ts";
+import { Triggers } from "../plugins/triggers.ts";
 import { changedKeys, isConfigured, type Settings } from "../settings.ts";
 import { ChevronIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
@@ -36,17 +38,17 @@ import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { Segmented } from "./Segmented.tsx";
+import { useLoaded } from "./loaded.ts";
 import { messageOf } from "../promise.ts";
 import { toBase64 } from "../encoding.ts";
 
-function Group({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
+function Group({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="group">
 			<header className="strip">
 				<span className="strip-title">{title}</span>
 			</header>
 			<div className="group-body">{children}</div>
-			{hint ? <p className="hint">{hint}</p> : null}
 		</section>
 	);
 }
@@ -99,7 +101,7 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 
 	const accountRow = (group: { key: string; label: string; calendars: PhoneCalendar[] }) => {
 		const readable = !access.hidden.includes(group.key);
-		const canWrite = group.calendars.some((calendar) => calendar.writable);
+		const writable = group.calendars.some((calendar) => calendar.writable);
 		return (
 			<Row
 				key={group.key}
@@ -113,7 +115,7 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 					options={[
 						{ value: "off", label: "不用" },
 						{ value: "read", label: "只讀" },
-						{ value: "write", label: "讀寫", disabled: !canWrite },
+						{ value: "write", label: "讀寫", disabled: !writable },
 					]}
 					onChange={(use) => choose(group, use)}
 				/>
@@ -193,7 +195,6 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	}, [runtime]);
 	if (!native.has("Triggers")) return null;
 	const headphones = state.items.some((item) => item.enabled && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
-	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => setError(messageOf(failure)));
 
 	return (
 		<Group title="自動化">
@@ -220,7 +221,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 			) : null}
 			{headphones && bluetooth === false ? (
 				<Row label="偵測藍牙耳機">
-					<button type="button" className="btn" onClick={() => void act(Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted)))}>
+					<button type="button" className="btn" onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted), (failure: unknown) => setError(messageOf(failure)))}>
 						開啟
 					</button>
 				</Row>
@@ -272,7 +273,7 @@ function BackgroundGroup() {
 	const row = (label: string, on: boolean, fix: () => void) => (
 		<Row label={label}>
 			{on ? (
-				<span className="state on">已開啟</span>
+				<span className="state">已開啟</span>
 			) : (
 				<button type="button" className="btn" onClick={fix}>
 					開啟
@@ -336,12 +337,8 @@ function PhoneScreenGroup() {
 }
 
 function DatabaseGroup() {
-	const [tables, setTables] = useState<TableInfo[]>();
+	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables) : undefined, []).value;
 	const [exportError, setExportError] = useState<string>();
-	useEffect(() => {
-		if (!native.has("Database")) return;
-		void Database.schema().then((schema) => setTables(schema.tables));
-	}, []);
 	if (!tables) return null;
 	return (
 		<Group title="資料庫">
@@ -375,14 +372,11 @@ type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone"
 
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
 	const [triggers, setTriggers] = useState<number>();
-	const [tables, setTables] = useState<number>();
 	const [memory, setMemory] = useState<number>();
 	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text.trim().length)), [runtime]);
 	useEffect(() => runtime?.triggers.subscribe((state) => setTriggers(state.items.length)), [runtime]);
 	useMcp(runtime);
-	useEffect(() => {
-		if (native.has("Database")) void Database.schema().then((schema) => setTables(schema.tables.length));
-	}, []);
+	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables.length) : undefined, []).value;
 	const accounts = [
 		settings.githubToken && "GitHub",
 		settings.gcloudCredential && "Google Cloud",

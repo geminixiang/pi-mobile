@@ -3,7 +3,7 @@ import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
-import { type Check, deferred, faux, folders, settle } from "./setup.ts";
+import { type Check, faux, folders, settle } from "./setup.ts";
 
 async function busyNow(runtime: AgentRuntime, id: ConversationId): Promise<boolean> {
 	let busy = false;
@@ -25,7 +25,7 @@ export const checks: Check[] = [
 					fauxAssistantMessage("done"),
 				]);
 				assert.notEqual((await runtime.memory({ kind: "bot", id: gone })).text, "");
-				const hold = deferred();
+				const hold = Promise.withResolvers<void>();
 				faux.setResponses([
 					async (_context, options) => {
 						const aborted = new Promise<void>((resolve) => options?.signal?.addEventListener("abort", () => resolve()));
@@ -59,7 +59,7 @@ export const checks: Check[] = [
 			try {
 				const gone = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
 				const controller = await runtime.openConversation(gone);
-				const gate = deferred();
+				const gate = Promise.withResolvers<void>();
 				folders.removeGate = gate;
 				const removing = runtime.removeBot(gone);
 				await settle();
@@ -82,7 +82,7 @@ export const checks: Check[] = [
 			const gone = await first.runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
 			const folder = (await first.runtime.bots()).find((bot) => bot.id === gone)?.folder;
 			assert(folder);
-			const gate = deferred();
+			const gate = Promise.withResolvers<void>();
 			folders.removeGate = gate;
 			folders.removed.length = 0;
 			const cut = first.runtime.removeBot(gone).then(

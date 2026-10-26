@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { AgentRuntime } from "../../src/agent/runtime.ts";
-import type { NativePlugin } from "../../src/native.ts";
+import { NATIVE_PLUGINS, type NativePlugin } from "../../src/native.ts";
 import { turn } from "./fixtures.ts";
 import { type Check, platform, settings } from "./setup.ts";
 
-async function seen(inApp: boolean, native: readonly NativePlugin[]) {
+async function seen(inApp: boolean, native: readonly NativePlugin[], missing: readonly string[] = []) {
 	const runtime = await AgentRuntime.open(new MemoryStorage(), settings, {
 		...platform,
 		inApp,
-		native: new Set(native),
+		native: { has: (plugin) => native.includes(plugin), implements: ({ plugin, method }) => native.some((name) => name === plugin) && !missing.includes(`${plugin}.${method}`) },
 		phone: native.includes("BotFiles") ? platform.phone : undefined,
 	});
 	try {
@@ -55,10 +55,20 @@ export const checks: Check[] = [
 			assert.ok(!withCalendar.toolsets.includes("device"));
 			assert.equal(withCalendar.offers("device_info"), false);
 
-			const android = await seen(true, [...platform.native]);
+			const android = await seen(true, NATIVE_PLUGINS.filter((plugin) => platform.native.has(plugin)));
 			for (const tool of NATIVE_TOOLS) assert.ok(android.offers(tool), tool);
 			assert.equal(android.place, "phone");
 			assert.match(android.offered, /read it with device_info/);
+		},
+	],
+	[
+		"a tool is offered where every native method it calls is implemented, so a platform can implement a plugin method by method",
+		async () => {
+			const partial = await seen(true, NATIVE_PLUGINS.filter((plugin) => platform.native.has(plugin)), ["Records.sms", "Calendar.insertEvent"]);
+			assert.ok(partial.offers("call_log"));
+			assert.equal(partial.offers("read_sms"), false);
+			assert.ok(partial.offers("read_calendar_events"));
+			assert.equal(partial.offers("add_calendar_event"), false);
 		},
 	],
 ];

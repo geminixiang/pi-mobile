@@ -1,5 +1,5 @@
 import type { AgentState } from "@earendil-works/pi-durable";
-import type { NativePlugin } from "../native.ts";
+import type { Native, NativePlugin } from "../native.ts";
 
 type ToolsetKind = "builtin" | "service";
 
@@ -39,18 +39,15 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"], needs: "BotFiles" },
 ];
 
-export const usable = (toolset: Toolset, native: ReadonlySet<NativePlugin>): boolean => !toolset.needs || native.has(toolset.needs);
+export const usable = (toolset: Toolset, native: Native): boolean => !toolset.needs || native.has(toolset.needs);
 
-export const TOOL_NEEDS: Readonly<Record<string, NativePlugin>> = { scan_document: "Scanner" };
-
-export function unusableExtensions(native: ReadonlySet<NativePlugin>): ReadonlySet<string> {
+export function unusableExtensions(native: Native): ReadonlySet<string> {
 	const kept = new Set(TOOLSETS.filter((toolset) => usable(toolset, native)).flatMap((toolset) => toolset.extensions));
-	return new Set([
-		...(native.has("Triggers") ? [] : ["triggers"]),
-		...TOOLSETS.filter((toolset) => !usable(toolset, native))
+	return new Set(
+		TOOLSETS.filter((toolset) => !usable(toolset, native))
 			.flatMap((toolset) => toolset.extensions)
 			.filter((name) => !kept.has(name)),
-	]);
+	);
 }
 
 export interface ToolsetState extends Toolset {

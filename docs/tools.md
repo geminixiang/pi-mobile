@@ -9,13 +9,13 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 連接的服務（MCP）預設關閉，要在設定 › MCP 或 Bot 面板裡給特定的 Bot。
 - 程式模式、記憶、附件、skills、排程一律開啟，不列在面板上。
 
-**模型怎麼拿到工具**由每個工具決定（`src/agent/catalog.ts` 的 `withReach`），使用者不用管。從 2026-10-23 起以程式模式為主：
+**模型怎麼拿到工具**由每個工具在 `defineAppTool` 宣告（`reach`），使用者不用管。從 2026-10-23 起以程式模式為主：
 
 | 方式 | 哪些工具 | 每次請求帶什麼 |
 |---|---|---|
-| **直接提供** | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
-| **需要時載入** | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話 |
-| **只給腳本** | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
+| **直接提供**（`reach: "model"`） | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
+| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`、`read_phone_screen`、`use_phone_screen`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
+| **只給腳本**（預設） | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
 - 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
 - 代價：
@@ -33,6 +33,10 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 ### 定義
 
 - 一律用 `defineAppTool`（`src/agent/tools/common.ts`），不直接用 `defineTool`。它會先清理參數再驗證：選填參數是 `""`、`null`、`[]`，或 schema 不允許的 `0`，就當作沒給。模型常把沒用到的選填欄位填成這些值；以前每個工具各自處理，現在統一。小於下限的真實數值（半徑 50 公尺，下限 100）不會被吞掉，而是回報參數錯誤。
+- `defineAppTool` 除了工具本身，還要宣告三件事，檢查和快照都看它們，catalog 也照它們裝工具，不再有依名稱的名單：
+  - `effect`（必填）：`read` 唯讀、`screen` 打開畫面讓使用者完成、`direct` 直接改。有好幾種動作的工具寫最強的一種。工具清單的「改動」欄要寫出同一個字（唯讀、開畫面、直接），檢查會比對。
+  - `reach`：`script`（預設，只給腳本）、`loaded`（需要時載入）、`model`（直接提供）。
+  - `needs`：工具會呼叫的原生方法，寫 contract 上的方法本身（`[Records.calls]`），不是字串。這支手機沒實作其中任何一個方法時，這個工具不安裝；一個擴充的工具全部裝不了時，整個擴充也不裝。透過 `currentPlace` 這類 helper 間接呼叫的也要寫；「有就用、沒有也行」的呼叫不寫，改在呼叫前用 `native.implements(Page.render)` 判斷。
 - 新的內建擴充一定要加進 `catalog.ts`，不能直接在 runtime 裡安裝，否則檢查看不到它。
 - **擴充名稱不能改**：每個 Bot 的工具開關是用擴充名稱存的（`toolsets.ts`），改名會讓使用者的設定失效。
 - schema 一律用 `typebox` 的 `Type`，不用 pi-ai 轉出口的同一個 `Type`（檢查會擋）。
@@ -66,7 +70,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ### 錯誤
 
-- 要原生 plugin 的工具：在工具組寫 `needs`（`toolsets.ts`），沒有那個 plugin 的平台不會安裝，不用在工具裡檢查（[capabilities.md](design/capabilities.md)）。
+- 要原生 plugin 的工具：在工具寫 `needs`（上面〈定義〉），沒實作那些方法的平台不會安裝，不用在工具裡檢查（[capabilities.md](design/capabilities.md)）。工具組的 `needs`（`toolsets.ts`）只決定整組在這個平台有沒有意義、面板列不列出來，例如 `tw_stocks` 要的是 app 內的原生 HTTP。
 - 缺權限或設定：錯誤訊息要告訴使用者去哪裡開，路徑寫完整（「設定 › 手機 › 系統權限 › 螢幕使用時間」）。
 - 其他錯誤：說清楚哪裡錯、模型下一步能做什麼（「list_schedules shows them」）。
 
@@ -74,6 +78,16 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 - 工具直接做，不跳核准（2026-10-23 拿掉了核准機制）。
 - 只是打開一個畫面、讓使用者自己完成的（草稿、分享、地圖），輸出要說「使用者按了才會送出」。
+
+### 原生 plugin
+
+工具和 app 呼叫的原生功能（Android 的 Java plugin、iOS 的 Swift plugin）都在 `src/plugins/` 有一份 contract：每個方法的參數和回傳 schema，以及事件的 schema。它是兩個平台要照著實作的介面。
+
+- 一律用 `definePlugin`（`src/plugins/define.ts`）宣告，不直接用 `registerPlugin`（檢查會擋）。
+- 回傳的資料在呼叫時用 contract 驗證一次，不符就丟出「`X.y`格式不符」的錯誤；事件不符就記一筆 `plugin.event_mismatch` 並略過。這支手機沒實作的方法，呼叫時丟「`X.y` is not available on this device」。
+- 哪些方法有實作，看 Capacitor 的 `PluginHeaders`，細到方法（`native.implements(method)`）；整個 plugin 有沒有，用 `native.has(name)`。
+- `test/plugins-node.ts`（在 `npm run check` 裡）掃 Java 的 `@PluginMethod` 和 Swift 的 `pluginMethods`：contract 的每個方法 Android 都要有；兩個平台都不能有 contract 沒寫的方法；contract 和 iOS 已實作的方法記在 `test/plugins.snapshot.json`。改了 contract，或 iOS 多實作一個方法，都要 `--update`，並在「紀錄」寫一行。
+- 在 iOS 實作一個方法：照 contract 的 schema 回傳，跑 `npm run check` 更新快照；`needs` 只用到已實作方法的工具，就會在 iOS 出現。
 
 ## 工具清單
 
@@ -142,9 +156,9 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ## 新工具上線前
 
-0. **照介面規範寫**，用 `defineAppTool`，加進 `catalog.ts` 和上面的工具清單，再跑 `npm run check`；第一次會說是新工具，確認後用 `--update` 加進快照。
+0. **照介面規範寫**，用 `defineAppTool`（宣告 `effect`、`needs`，需要時寫 `reach`），加進 `catalog.ts` 和上面的工具清單，再跑 `npm run check`；第一次會說是新工具，確認後用 `--update` 加進快照。用到新的原生方法時，先照〈原生 plugin〉加進 contract，兩個平台各自實作。
 1. **量測前後**：在 S24 上跑 `test/tool-cost.sh <DevTools port> [mcp-<server> ...]`，加入新工具前後各跑一次，記下這組工具的字元數，以及短請求的提示大小變化。
-2. **決定載入方式**：照上面的原則，在 `toolsets.ts` 設好 `load`。
+2. **決定載入方式**：照上面的原則，在 `defineAppTool` 設好 `reach`。
 3. **用一般人的說法實測**：在 S24 上用暫時的 Bot 問 2–3 題，不提工具名稱，也不說「用 codemode」。記下有沒有用對工具、呼叫了幾次、花了幾秒、答案對不對。
    - 需要時載入的工具，要確認模型會自己用 `tool_search` 載入，或改用其他能完成工作的工具，而不是憑記憶回答。
    - 會寫入的工具，用測試資料確認寫對了，測完復原。
@@ -216,6 +230,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-27 | 工具介面：`defineAppTool` 宣告 `reach`、`effect`、`needs`，catalog 不再用名單決定直接提供或需要時載入，`TOOL_NEEDS` 和排程整組的特例拿掉；原生 plugin 改成 `src/plugins/` 的 contract（21 個、103 個方法），回傳在邊界驗證，Android 和 iOS 的實作由 `test/plugins-node.ts` 對照（iOS 目前實作 55 個方法）。拿掉兩個沒人呼叫的原生方法：`Calendar.listCalendars`、`Triggers.simulateHeadphones` | 不變：名稱、參數、`callers`、`deferred` 都沒變 | 介面快照多 `effect`、`needs` 兩欄（快照已更新），新增 `test/plugins.snapshot.json`。工具清單的「改動」和「結構化」兩欄改由檢查對照宣告，取代測試裡的名單 |
 | 2026-10-26 | `tw_stocks` 加 `valuation`、`revenue`、`market`，`stocks` 改成選填（只有 `market` 可以不給）；新技能 `stock-analysis`：台股慣例與公布時間、哪個問題用哪個工具、用腳本算均線和籌碼、回答不給買賣建議、自選股盤後摘要怎麼建排程 | `tw_stocks` 仍是 +15；全開 3,573 → 3,690、全關 2,158 → 2,275（兩邊都 +117，技能清單一行約 25，其餘未查明） | 介面改變（快照已更新）：`tw_stocks.data` 多三個值、`stocks` 改選填；`read_skill.name` 多 `stock-analysis`。S24，GPT 6.1 Sol，暫時的 Bot，五題都對：「台積電現在本益比多少，算貴嗎」46 秒，讀技能後查三週的本益比區間（27.65～29.96）和月營收，結論「有成長支撐但不便宜」並附情境試算；「環球晶最近的月營收」19 秒（9 月 51.3 億、月增 7.65%、年減 13.13%）；「上個交易日外資在大盤賣了多少」15 秒（上市 815.8 億、上櫃 60.0 億）；「分析聯發科最近的走勢和籌碼」75 秒，用腳本算 5／20／60 日均線、20 日均量、法人 5 日和 12 日合計（張）；「每天收盤後整理台積電、聯發科、環球晶」26 秒，記進 Bot 的記憶、建週一到五 21:30 的排程，手動執行一次時判斷今天光復節補假而只回休市。ETF 沒有本益比，原本會往前找 10 天，改成當天有公布就停並註明「ETFs have no P/E」 |
 | 2026-10-26 | 市集加兩個不用登入的股市服務：Shibui Finance（美股，DuckDB SQL：每日股價 1962 年起、季報年報、估值、SEC 申報、內部人交易，NYSE 和 Nasdaq，沒有指數和盤中）和台股開放資料（`twse-mcp.taux.io`，非官方：證交所 OpenAPI 和期交所資料、約 5 秒更新的上市櫃盤中報價、大盤、個股與 ETF 摘要）。美股不自己寫工具：SEC EDGAR 要在每個請求帶聯絡 email，Nasdaq 網站的 API 只回應假裝成瀏覽器的請求；`toolset-cost.sh` 原本只關掉對照的 Bot，量服務時兩邊都沒開，改成也打開量測的 Bot | 服務只給腳本：Shibui +194 tokens、台股開放資料 +592（說明 537 字元） | S24，GPT 6.1 Sol，暫時的 Bot 開兩個服務，五題都對：「Apple 最近一週股價」32 秒、5 次呼叫，第一次要讀 schema 和查詢範例（工具結果 7.4 萬字元、未快取輸入 2.6 萬 tokens）；同一段對話接著問「輝達最近四季的營收和淨利」19 秒、2 次；「Apple 最近三個月有內部人賣股嗎」36 秒、3 次，答出 6 位、全是 10b5-1 計畫；「台積電現在多少錢」20 秒用盤中報價；「今天台股大盤怎麼樣」22 秒，答出光復節補假休市。代價：美股每段新對話的第一題要多約 2 萬 tokens 讀 schema |
 | 2026-10-26 | 新工具組「台股」：`tw_stocks`，證交所和櫃買中心的盤後資料（每日股價、三大法人買賣超、融資融券），只給腳本；兩邊都不回 CORS，用原生 HTTP（`getJson` 從地點工具移到 `common.ts` 共用）。`test/tool-cost.sh` 沒有給 MCP 服務時會把空字串當服務而失敗，一併修好 | 全開 3,546 → 3,573 tokens（`.pi/skills/device-testing/scripts/toolset-cost.sh 9333 tw_stocks`：+15，codemode 段落一行） | S24，GPT 6.1 Sol，暫時的 Bot，三題都對：「台積電最近一個月走勢」25 秒、3 次呼叫（先 `describeTool`）；「外資這幾天對台積電跟環球晶是買還是賣」27 秒、2 次，一次查兩個市場；「環球晶的融資最近有增加嗎」20 秒、2 次。數字跟直接打證交所和櫃買中心的結果一致。一次最多 10 檔、24 個請求，避免被證交所擋；沒給日期時往前找最近有資料的交易日（10/23、10/26 休市，回到 10/22） |

@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { type DndMode, Notifications, requireAccess } from "../../notifications-plugin.ts";
+import { requireAccess } from "../../notifications-plugin.ts";
+import { type DndMode, Notifications } from "../../plugins/notifications.ts";
 import {
 	CONNECTIONS,
 	type ConnectionsState,
@@ -8,13 +9,15 @@ import {
 	PhoneState,
 	type SoundState,
 	STREAMS,
-} from "../../phone-state-plugin.ts";
+} from "../../plugins/phone-state.ts";
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, localTime, oneOf, pad, parseNextTime, text } from "./common.ts";
 const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.floor((ms % 60_000) / 1000))}`;
 
 const media = defineAppTool({
 	name: "media",
+	effect: "direct",
+	needs: [Notifications.status, Notifications.media, Notifications.mediaControl],
 	description: "See what is playing in media apps (Spotify, YouTube Music, podcasts) or control it: play, pause, next, previous. Without app, the most recent player.",
 	parameters: Type.Object({
 		action: oneOf(["status", "play", "pause", "next", "previous"], { description: "status reads what plays; the rest control it" }),
@@ -48,6 +51,8 @@ const MODES: Record<DndMode, string> = { off: "off", priority: "priority only", 
 
 const doNotDisturb = defineAppTool({
 	name: "do_not_disturb",
+	effect: "direct",
+	needs: [Notifications.status, Notifications.dnd, Notifications.setDnd],
 	description:
 		"Read or set Do Not Disturb. priority lets the user's important people and apps through (their usual 勿擾), alarms only alarms, silent nothing. With until, it turns itself off then.",
 	parameters: Type.Object({
@@ -87,6 +92,8 @@ const describeSound = (state: SoundState) =>
 
 const sound = defineAppTool({
 	name: "sound",
+	effect: "direct",
+	needs: [PhoneState.sound, PhoneState.setRinger, PhoneState.setVolume],
 	description:
 		"Read or change the phone's sound: the ringer (ring, vibrate, silent) and each volume as a percent (ring, media, alarm, notification, call). Raising the ring volume above 0 also switches the ringer to ring.",
 	parameters: Type.Object({
@@ -117,6 +124,8 @@ const describeDisplay = (state: DisplayState) =>
 
 const display = defineAppTool({
 	name: "display",
+	effect: "direct",
+	needs: [PhoneState.display, PhoneState.setDisplay],
 	description: "Read or change the screen: brightness, adaptive brightness, auto-rotate, and how long until it turns off.",
 	parameters: Type.Object({
 		action: oneOf(["status", "brightness", "auto_brightness", "auto_rotate", "screen_timeout"], { description: "status reads it; the rest change one setting" }),
@@ -139,6 +148,8 @@ const display = defineAppTool({
 
 const flashlight = defineAppTool({
 	name: "flashlight",
+	effect: "direct",
+	needs: [PhoneState.flashlight, PhoneState.setFlashlight],
 	description: "Read or switch the phone's flashlight (the camera's torch), such as to light the way or find something in the dark.",
 	parameters: Type.Object({ action: oneOf(["status", "on", "off"], { description: "status reads it" }) }),
 	execute: async (args) => {
@@ -170,6 +181,8 @@ const describeConnections = (state: ConnectionsState) =>
 
 const connections = defineAppTool({
 	name: "connections",
+	effect: "direct",
+	needs: [PhoneState.connections, PhoneState.setConnection],
 	description:
 		"Read or switch Wi-Fi (and the network it is on), Bluetooth, mobile data, airplane mode, location, NFC, and battery saver. Android lets apps only open these switches: with screen control on, pi taps it itself and checks; otherwise the switch is left on screen for the user.",
 	parameters: Type.Object({

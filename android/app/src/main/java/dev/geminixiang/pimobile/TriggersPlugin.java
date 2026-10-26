@@ -231,23 +231,6 @@ public class TriggersPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void simulateHeadphones(PluginCall call) {
-        if (!getBridge().getConfig().isWebContentsDebuggingEnabled()) {
-            call.reject("only in development builds");
-            return;
-        }
-        Intent intent = new Intent(getContext(), TriggerReceiver.class)
-            .setAction(TriggerStore.ACTION_TEST_HEADPHONES)
-            .putExtra(TriggerStore.EXTRA_DEVICE, call.getString("device", "測試耳機"));
-        PendingIntent pending = PendingIntent.getBroadcast(getContext(), 1, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        long at = System.currentTimeMillis() + Math.max(0, call.getInt("delayMs", 0));
-        AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
-        if (alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
-        else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
-        call.resolve();
-    }
-
-    @PluginMethod
     public void requestExactAlarms(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getContext().getPackageName()));
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

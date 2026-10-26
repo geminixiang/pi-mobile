@@ -5,6 +5,7 @@ import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { type Static, type TLiteral, type TLiteralValue, type TSchemaOptions, type TUnion, Type } from "typebox";
 import { Value } from "typebox/value";
 import { parseJson } from "../parse.ts";
+import type { PluginMethod } from "../../plugins/define.ts";
 
 type Literals<T extends readonly TLiteralValue[]> = { -readonly [K in keyof T]: T[K] extends TLiteralValue ? TLiteral<T[K]> : never };
 
@@ -32,11 +33,31 @@ function cleaned(parameters: TSchema, raw: unknown): unknown {
 	);
 }
 
-export function defineAppTool<TParameters extends TSchema, TDetails extends JsonValue = JsonValue>(
-	tool: ToolRegistration<TParameters, TDetails>,
-): ToolRegistration<TParameters, TDetails> {
-	return defineTool({
+export type Reach = "model" | "loaded" | "script";
+
+export type Effect = "read" | "screen" | "direct";
+
+export interface ToolDeclaration {
+	readonly reach: Reach;
+	readonly effect: Effect;
+	readonly needs: readonly PluginMethod[];
+}
+
+const REACH = { model: {}, loaded: { deferred: true }, script: { callers: ["tools"] } } as const;
+
+const declarations = new WeakMap<object, ToolDeclaration>();
+
+export const declarationOf = (tool: object): ToolDeclaration | undefined => declarations.get(tool);
+
+export function defineAppTool<TParameters extends TSchema, TDetails extends JsonValue = JsonValue>({
+	reach = "script",
+	effect,
+	needs = [],
+	...tool
+}: ToolRegistration<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[] }): ToolRegistration<TParameters, TDetails> {
+	const registration = defineTool({
 		...tool,
+		...REACH[reach],
 		prepareArguments: (raw): Static<TParameters> => {
 			const args = cleaned(tool.parameters, raw);
 			if (Value.Check(tool.parameters, args)) return args;
@@ -45,6 +66,8 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 			throw new Error(first ? `${first.instancePath || "arguments"} ${first.message}` : "invalid arguments");
 		},
 	});
+	declarations.set(registration, { reach, effect, needs });
+	return registration;
 }
 
 export const text = (value: string): ToolExecutionResult => ({ output: [{ type: "text", text: value }] });

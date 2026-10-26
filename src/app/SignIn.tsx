@@ -3,7 +3,7 @@ import { App } from "@capacitor/app";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
-import { System } from "../system-plugin.ts";
+import { System } from "../plugins/system.ts";
 import { messageOf, orLogged, sleep } from "../promise.ts";
 
 export function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {

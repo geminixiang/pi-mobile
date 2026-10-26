@@ -1,36 +1,12 @@
-import { registerPlugin } from "@capacitor/core";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { codeNote } from "../codes.ts";
 import { DAY, defineAppTool, localTime, parseLocalBound, startOfToday, text } from "./common.ts";
 import { metersBetween, resolvePlace } from "./device.ts";
+import { type Contact, Contacts } from "../../plugins/contacts.ts";
+import { Photos } from "../../plugins/photos.ts";
 
-type Contact = {
-	name: string;
-	starred?: boolean;
-	company?: string;
-	birthday?: string;
-	phones: { number: string; type: string }[];
-	emails: string[];
-};
-
-type Photo = {
-	id: string;
-	name: string;
-	time: number;
-	album: string;
-	width: number;
-	height: number;
-	latitude?: number;
-	longitude?: number;
-};
-
-const Contacts = registerPlugin<{ search(options: { query?: string }): Promise<{ items: Contact[] }> }>("Contacts");
-const Photos = registerPlugin<{
-	search(options: { from?: number; to?: number; album?: string; limit?: number }): Promise<{ items: Photo[] }>;
-	view(options: { id: string; edge?: number }): Promise<{ data: string; width: number; height: number }>;
-}>("Photos");
 
 function daysUntil(birthday: string): number | undefined {
 	const match = /(\d{2})-(\d{2})$/.exec(birthday);
@@ -43,6 +19,8 @@ function daysUntil(birthday: string): number | undefined {
 
 const contacts = defineAppTool({
 	name: "contacts",
+	effect: "read",
+	needs: [Contacts.search],
 	description:
 		"Find people in the user's contacts by name, number, email, or company: their numbers, emails, company, birthday. Use it before compose_sms or compose_email when the user names a person. With upcoming_birthdays, only those whose birthday is in the next 30 days, soonest first.",
 	parameters: Type.Object({
@@ -62,7 +40,7 @@ const contacts = defineAppTool({
 		),
 	}),
 	execute: async (args) => {
-		const { items: found } = await Contacts.search({ ...(args.query ? { query: args.query } : {}) });
+		const { items: found } = await Contacts.search({ query: args.query });
 		const items = args.upcoming_birthdays
 			? found
 					.map((person) => ({ person, days: person.birthday ? daysUntil(person.birthday) : undefined }))
@@ -88,6 +66,8 @@ const contacts = defineAppTool({
 
 const findPhotos = defineAppTool({
 	name: "find_photos",
+	effect: "read",
+	needs: [Photos.search],
 	description:
 		"List the user's photos by when they were taken, where (a place name or lat,lon), and album (Camera, Screenshots, a chat app's folder). Returns ids, times, places, and albums; look at them with view_photos. Use it for 「上週在台南拍的照片」「昨天拍的收據」.",
 	parameters: Type.Object({
@@ -118,7 +98,7 @@ const findPhotos = defineAppTool({
 		const { items } = await Photos.search({
 			...(args.from ? { from: parseLocalBound(args.from, "from", false) } : {}),
 			...(args.to ? { to: parseLocalBound(args.to, "to", true) } : {}),
-			...(args.album ? { album: args.album } : {}),
+			album: args.album,
 			limit: center ? 2000 : limit,
 		});
 		const near = center
@@ -149,6 +129,9 @@ const MAX_VIEW = 4;
 
 const viewPhotos = defineAppTool({
 	name: "view_photos",
+	effect: "read",
+	needs: [Photos.view],
+	reach: "loaded",
 	description: `Look at photos by the ids find_photos gave, at most ${MAX_VIEW} a call, scaled down. To show one to the user, describe it; they see it in their gallery.`,
 	parameters: Type.Object({ ids: Type.Array(Type.String(), { minItems: 1, maxItems: MAX_VIEW, description: "Photo ids from find_photos" }) }),
 	execute: async (args) => {

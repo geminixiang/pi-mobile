@@ -54,14 +54,19 @@ public class RecordsPlugin extends Plugin {
         int limit = call.getInt("limit", 50);
         String[] columns = { CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION };
         JSArray items = new JSArray();
+        Map<String, String> names = new HashMap<>();
         try (Cursor cursor = getContext().getContentResolver().query(
             CallLog.Calls.CONTENT_URI, columns, CallLog.Calls.DATE + " >= " + since, null, CallLog.Calls.DATE + " DESC"
         )) {
             while (cursor != null && cursor.moveToNext() && items.length() < limit) {
                 JSObject item = new JSObject();
-                item.put("number", cursor.getString(0));
+                String number = cursor.getString(0);
+                item.put("number", number);
                 String name = cursor.getString(1);
-                if (name == null || name.isEmpty()) name = contactName(cursor.getString(0));
+                if ((name == null || name.isEmpty()) && number != null) {
+                    if (!names.containsKey(number)) names.put(number, contactName(number));
+                    name = names.get(number);
+                }
                 if (name != null) item.put("name", name);
                 item.put("type", callType(cursor.getInt(2)));
                 item.put("time", cursor.getLong(3));

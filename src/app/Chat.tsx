@@ -17,18 +17,17 @@ import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
-import { inApp, type NativePlugin } from "../native.ts";
+import { inApp, type Native } from "../native.ts";
 
 interface Capabilities {
-	native: ReadonlySet<NativePlugin>;
+	native: Native;
 	sandbox: boolean;
 }
 
-function text(content: unknown): string {
+function text(content: string | readonly { type: string; text?: string }[] | undefined): string {
 	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content
-		.map((part: { type: string; text?: string }) => {
+	return (content ?? [])
+		.map((part) => {
 			if (part.type !== "text" || !part.text) return "";
 			if (isCodeNote(part.text)) return "";
 			const attachment = parseAttachment(part.text);

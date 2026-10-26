@@ -1,18 +1,7 @@
-import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 import { native } from "./native.ts";
 import { fromBase64, toBase64 } from "./encoding.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
-
-interface StreamFetchPlugin {
-	start(options: { url: string; method: string; headers: Record<string, string>; body?: string; bodyBase64?: string }): Promise<{ id: string }>;
-	abort(options: { id: string }): Promise<void>;
-	addListener(event: "head", listener: (data: { id: string; status: number; headers: Record<string, string> }) => void): Promise<PluginListenerHandle>;
-	addListener(event: "chunk", listener: (data: { id: string; data: string }) => void): Promise<PluginListenerHandle>;
-	addListener(event: "end", listener: (data: { id: string }) => void): Promise<PluginListenerHandle>;
-	addListener(event: "error", listener: (data: { id: string; message: string }) => void): Promise<PluginListenerHandle>;
-}
-
-const StreamFetch = registerPlugin<StreamFetchPlugin>("StreamFetch");
+import { StreamFetch } from "./plugins/stream-fetch.ts";
 
 type Pending = {
 	head: (response: Response) => void;
@@ -80,7 +69,7 @@ export async function streamFetch(input: RequestInfo | URL, init?: RequestInit):
 	else if (raw instanceof Uint8Array) body = { bodyBase64: toBase64(raw) };
 	else if (raw instanceof ArrayBuffer) body = { bodyBase64: toBase64(new Uint8Array(raw)) };
 	else if (raw != null) throw new TypeError("streamFetch: unsupported body");
-	if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+	init?.signal?.throwIfAborted();
 	await listen();
 	const { id } = await StreamFetch.start({ url, method, headers: headerRecord(input instanceof Request ? input.headers : undefined, init?.headers), ...body });
 	return new Promise<Response>((resolve, reject) => {

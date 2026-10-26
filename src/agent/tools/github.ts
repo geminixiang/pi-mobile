@@ -37,6 +37,7 @@ async function github(token: string, method: string, path: string, body?: unknow
 export function createGitHubExtension(token: string) {
 	const api = defineAppTool({
 		name: "github_api",
+		effect: "direct",
 		description: [
 			"Call the GitHub REST API as the user. `path` starts with /, e.g. /user, /repos/{owner}/{repo}/issues?state=open&per_page=20,",
 			"/search/issues?q=..., /repos/{owner}/{repo}/pulls/{n}/files. POST, PATCH, PUT, and DELETE change things as the user.",
@@ -64,6 +65,7 @@ export function createGitHubExtension(token: string) {
 
 	const readFile = defineAppTool({
 		name: "github_read_file",
+		effect: "read",
 		description: "Read a file from a GitHub repository as text, or list a directory.",
 		parameters: Type.Object({
 			owner: Type.String({ description: "The repository's owner, a user or organization" }),

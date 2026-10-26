@@ -7,7 +7,8 @@ import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
 import { TOOLSETS } from "../src/agent/toolsets.ts";
-import { NATIVE_PLUGINS } from "../src/native.ts";
+import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
+import { plain } from "./plain.ts";
 
 const SNAPSHOT = new URL("./tools.snapshot.json", import.meta.url);
 
@@ -27,7 +28,7 @@ const host: PairedHost = { id: "fixture", address: "fixture", name: "fixture", o
 const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { key: "fixture:container", name: "fixture", mode: "容器" }, host, sandbox, root: "fixture", env: unused };
 
 const extensions = builtinExtensions({
-	native: new Set(NATIVE_PLUGINS),
+	native: { has: () => true, implements: () => true },
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
 	githubToken: "token",
@@ -47,17 +48,8 @@ interface ToolInterface {
 	callers: readonly string[];
 	parameters: unknown;
 	structuredOutput: unknown;
-}
-
-function plain(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(plain);
-	if (typeof value !== "object" || value === null) return value;
-	return Object.fromEntries(
-		Object.entries(value)
-			.filter(([, inner]) => typeof inner !== "function")
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([key, inner]) => [key, plain(inner)]),
-	);
+	effect: Effect | null;
+	needs: string[];
 }
 
 const toolsetOf = (extension: string) => TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.id ?? "fixed";
@@ -71,6 +63,8 @@ function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 		callers: tool.callers ?? ["model", "tools"],
 		parameters: plain(tool.parameters),
 		structuredOutput: tool.structuredOutputSchema ? plain(tool.structuredOutputSchema) : null,
+		effect: declarationOf(tool)?.effect ?? null,
+		needs: (declarationOf(tool)?.needs ?? []).map(({ plugin, method }) => `${plugin}.${method}`),
 	};
 }
 
@@ -78,19 +72,23 @@ const tools = extensions.flatMap((extension) => (extension.tools ?? []).map((too
 
 const EXTERNAL = new Set(["coding-tools", "codemode", "tool-search"]);
 
-const RECORDS = new Set([
-	"weather", "find_places", "sql", "read_notifications", "contacts", "find_photos", "call_log", "read_sms", "screen_time",
-	"health", "read_calendar_events", "github_api", "gcp_api", "cloudflare_api", "azure_api",
-]);
-
 const docs = readFileSync(new URL("../docs/tools.md", import.meta.url), "utf8");
 const toolListSection = docs.slice(docs.indexOf("## 工具清單"), docs.indexOf("\n## ", docs.indexOf("## 工具清單")));
-const listedTools = new Set(
+const listed = new Map(
 	toolListSection
 		.split("\n")
-		.filter((line) => line.startsWith("| "))
-		.flatMap((line) => [...(line.split("|")[1] ?? "").matchAll(/`([^`]+)`/g)].map((match) => match[1])),
+		.filter((line) => line.startsWith("| `"))
+		.flatMap((line) => {
+			const [, names = "", , , change = "", structured = ""] = line.split("|");
+			return [...names.matchAll(/`([^`]+)`/g)].flatMap((match) => (match[1] ? [[match[1], { change, structured: structured.includes("✓") }] as const] : []));
+		}),
 );
+
+const CHANGE_WORDS: Record<Effect, { says: string; not: string[] }> = {
+	read: { says: "唯讀", not: ["直接", "開畫面"] },
+	screen: { says: "開畫面", not: ["直接"] },
+	direct: { says: "直接", not: [] },
+};
 
 type Rule = { rule: string; broken: (entry: (typeof tools)[number]) => string | undefined };
 const NAME = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
@@ -116,12 +114,20 @@ function properties(schema: unknown): [string, Record<string, unknown>][] {
 
 const rules: Rule[] = [
 	{
-		rule: "app tools are defined with defineAppTool (src/agent/tools/common.ts), which cleans empty optional arguments",
-		broken: ({ tool, iface }) => (EXTERNAL.has(iface.extension) || tool.prepareArguments ? undefined : `${iface.name} (${iface.extension})`),
+		rule: "app tools are defined with defineAppTool (src/agent/tools/common.ts), which cleans empty optional arguments and declares reach, effect and needs",
+		broken: ({ tool, iface }) => (declarationOf(tool) ? undefined : `${iface.name} (${iface.extension})`),
 	},
 	{
-		rule: "tools that return records have a structuredOutputSchema",
-		broken: ({ iface }) => (RECORDS.has(iface.name) && !iface.structuredOutput ? iface.name : undefined),
+		rule: "the 改動 column of docs/tools.md says the tool's declared effect",
+		broken: ({ iface }) => {
+			const words = iface.effect ? CHANGE_WORDS[iface.effect] : undefined;
+			const change = listed.get(iface.name)?.change ?? "";
+			return words && (!change.includes(words.says) || words.not.some((word) => change.includes(word))) ? `${iface.name} (${iface.effect})` : undefined;
+		},
+	},
+	{
+		rule: "a tool has a structuredOutputSchema exactly when docs/tools.md marks it 結構化",
+		broken: ({ iface }) => (Boolean(iface.structuredOutput) === (listed.get(iface.name)?.structured ?? false) ? undefined : iface.name),
 	},
 	{
 		rule: "structured output fields are snake_case",
@@ -129,7 +135,7 @@ const rules: Rule[] = [
 	},
 	{
 		rule: "every tool is in the tool list of docs/tools.md",
-		broken: ({ iface }) => (listedTools.has(iface.name) ? undefined : iface.name),
+		broken: ({ iface }) => (listed.has(iface.name) ? undefined : iface.name),
 	},
 	{ rule: "tool names are snake_case", broken: ({ iface }) => (NAME.test(iface.name) ? undefined : iface.name) },
 	{

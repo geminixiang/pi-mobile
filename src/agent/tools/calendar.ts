@@ -1,51 +1,9 @@
-import { registerPlugin } from "@capacitor/core";
+import { Calendar, type PhoneCalendar, type PhoneEvent } from "../../plugins/calendar.ts";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
 
-export interface PhoneCalendar {
-	id: number;
-	name: string;
-	account: string;
-	accountType: string;
-	owner: string;
-	own: boolean;
-	writable: boolean;
-	primary: boolean;
-}
-
-interface PhoneEvent {
-	title: string;
-	begin: number;
-	end: number;
-	allDay: boolean;
-	location?: string;
-	notes?: string;
-	calendar: string;
-	account: string;
-	accountType: string;
-	calendarId: number;
-	shared?: boolean;
-	owner?: string;
-}
-
-interface CalendarPlugin {
-	listAccounts(): Promise<{ calendars: PhoneCalendar[] }>;
-	listEvents(options: { from: number; to: number; includeShared: boolean }): Promise<{ events: PhoneEvent[] }>;
-	insertEvent(options: {
-		calendarId: number;
-		title: string;
-		begin: number;
-		end: number;
-		allDay: boolean;
-		location?: string;
-		description?: string;
-	}): Promise<{ id: number | string }>;
-	checkPermissions(): Promise<{ calendar: string }>;
-}
-
-export const Calendar = registerPlugin<CalendarPlugin>("Calendar");
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -133,6 +91,8 @@ const NO_WRITABLE =
 export function createCalendarExtension(access: CalendarAccess) {
 	const readEvents = defineAppTool({
 		name: "read_calendar_events",
+		effect: "read",
+		needs: [Calendar.listEvents],
 		description:
 			"The user's schedule: events on their own calendars (recurring events expanded, declined invitations left out) between two local times, from the accounts Settings allows. Default: from now to the end of tomorrow. Shared calendars they subscribe to, such as a team calendar or a colleague's, hold other people's events: include_shared adds them, marked shared with the owner, if Settings allows it.",
 		parameters: Type.Object({
@@ -191,6 +151,8 @@ export function createCalendarExtension(access: CalendarAccess) {
 
 	const listCalendars = defineAppTool({
 		name: "list_calendars",
+		effect: "read",
+		needs: [Calendar.listAccounts],
 		description:
 			"The calendars events can be added to: the user's own calendars in the accounts they enabled for writing in Settings, the default first. Call before add_calendar_event when the user names an account or there is no default.",
 		parameters: Type.Object({}),
@@ -211,6 +173,8 @@ export function createCalendarExtension(access: CalendarAccess) {
 
 	const addEvent = defineAppTool({
 		name: "add_calendar_event",
+		effect: "direct",
+		needs: [Calendar.listAccounts, Calendar.insertEvent],
 		description:
 			"Add an event to the user's calendar. Without calendar_id it goes to the default calendar set in Settings.",
 		parameters: Type.Object({

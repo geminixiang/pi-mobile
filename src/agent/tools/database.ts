@@ -1,7 +1,7 @@
 import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { Database, type SqlValue, type StatementResult } from "../../database-plugin.ts";
+import { Database, type SqlValue, type StatementResult } from "../../plugins/database.ts";
 import { defineAppTool, text } from "./common.ts";
 
 function keywords(sql: string): string {
@@ -21,6 +21,8 @@ function format(result: StatementResult, index: number): string {
 
 const sql = defineAppTool({
 	name: "sql",
+	effect: "direct",
+	needs: [Database.execute, Database.schema],
 	description: [
 		"Run SQLite statements on the user's own database on the phone, all in one transaction (all apply or none). Keep there what the user wants recorded and counted: expenses, logs, lists, collections.",
 		"Use ? placeholders with params rather than pasting values. Queries return their rows; aggregate in SQL (SUM, GROUP BY) or in codemode rather than reading whole tables.",

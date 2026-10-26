@@ -3,7 +3,7 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
 import type { Host } from "../../src/agent/sandbox/host.ts";
 import { agentState, idle, openRuntime } from "./fixtures.ts";
-import { type Check, deferred, faux, platform, settings } from "./setup.ts";
+import { type Check, faux, platform, settings } from "./setup.ts";
 
 const hostA: Host = { id: "a.example", address: "a.example", name: "A", os: "linux", arch: "arm64", user: "fixture", home: "/home/a", engine: "docker" };
 const hostB: Host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/b" };
@@ -20,8 +20,8 @@ export const checks: Check[] = [
 			try {
 				const [bot] = await runtime.bots();
 				assert(bot);
-				const modelAsked = deferred();
-				const release = deferred();
+				const modelAsked = Promise.withResolvers<void>();
+				const release = Promise.withResolvers<void>();
 				faux.setResponses([
 					async () => {
 						modelAsked.resolve();

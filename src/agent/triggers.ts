@@ -1,30 +1,19 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Value } from "typebox/value";
-import { registerPlugin } from "@capacitor/core";
 import { native } from "../native.ts";
 import type { Context } from "@earendil-works/chord";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, oneOf, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
+import { DAY, defineAppTool, localTime, oneOf, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
-import { Notifications, requireAccess } from "../notifications-plugin.ts";
+import { requireAccess } from "../notifications-plugin.ts";
+import { Notifications } from "../plugins/notifications.ts";
 import { messageOf, serially } from "../promise.ts";
 import type { Judge } from "./judge.ts";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "./guards.ts";
+import { ACTIVITIES, QueuedEvent, Triggers, type When } from "../plugins/triggers.ts";
 
-const Clock = Type.String({ pattern: "^\\d{2}:\\d{2}$" });
-const Days = Type.Array(Type.Integer({ minimum: 1, maximum: 7 }));
-
-const EventWindow = {
-	days: Days,
-	from: Type.Optional(Clock),
-	until: Type.Optional(Clock),
-	gapHours: Type.Integer({ minimum: 1, maximum: 24 }),
-};
-
-const ACTIVITIES = ["walking", "running", "cycling", "vehicle", "still"] as const;
-const Activity = oneOf(ACTIVITIES);
 const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
 	walking: ["開始走路", "停止走路"],
 	running: ["開始跑步", "停止跑步"],
@@ -32,31 +21,6 @@ const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
 	vehicle: ["上車", "下車"],
 	still: ["靜止下來", "開始移動"],
 };
-
-const When = Type.Union([
-	Type.Object({ kind: Type.Literal("daily"), time: Clock, days: Days }),
-	Type.Object({ kind: Type.Literal("once"), at: Type.Number() }),
-	Type.Object({ kind: Type.Literal("headphones"), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("charging"), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("wifi"), ssid: Type.Optional(Type.String()), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("notification"), app: Type.Optional(Type.String()), contains: Type.Optional(Type.String()), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("unlock"), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("battery_low"), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("timezone"), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("photo"), album: Type.Optional(Type.String()), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("bluetooth"), on: Type.Union([Type.Literal("connect"), Type.Literal("disconnect")]), device: Type.String(), ...EventWindow }),
-	Type.Object({ kind: Type.Literal("activity"), on: Type.Union([Type.Literal("start"), Type.Literal("stop")]), activity: Activity, ...EventWindow }),
-	Type.Object({
-		kind: Type.Literal("place"),
-		on: Type.Union([Type.Literal("arrive"), Type.Literal("leave")]),
-		label: Type.String(),
-		latitude: Type.Number(),
-		longitude: Type.Number(),
-		radius: Type.Number({ minimum: 100 }),
-		...EventWindow,
-	}),
-]);
-export type When = Static<typeof When>;
 
 type TriggerKind = "schedule" | "followup";
 
@@ -111,43 +75,6 @@ export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun 
 	return entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data) ? entry.data : undefined;
 }
 
-const QueuedEvent = Type.Union([
-	Type.Object({
-		id: Type.String(),
-		at: Type.Number(),
-		kind: Type.Literal("alarm"),
-		trigger: Type.String(),
-		live: Type.Boolean(),
-		device: Type.Optional(Type.String()),
-	}),
-	Type.Object({
-		id: Type.String(),
-		at: Type.Number(),
-		kind: Type.Literal("share"),
-		source: Type.Optional(Type.Literal("assist")),
-		text: Type.Optional(Type.String()),
-		subject: Type.Optional(Type.String()),
-		files: Type.Optional(Type.Array(Type.Object({ path: Type.String(), name: Type.String(), mimeType: Type.String() }))),
-	}),
-]);
-export type QueuedEvent = Static<typeof QueuedEvent>;
-
-interface TriggersPlugin {
-	sync(options: { schedules: { id: string; name: string; when: When; avatar?: string }[] }): Promise<{ next: Record<string, number> }>;
-	events(): Promise<{ events: unknown[] }>;
-	ack(options: { ids: string[] }): Promise<void>;
-	started(options: { trigger: string }): Promise<void>;
-	skipped(options: { trigger: string }): Promise<void>;
-	status(): Promise<{ exactAlarms: boolean; bluetooth: boolean }>;
-	requestBluetooth(): Promise<{ granted: boolean }>;
-	requestAccess(options: { to: "photos" | "activity" }): Promise<{ granted: boolean }>;
-	requestLocationAlways(): Promise<{ foreground: boolean; background: boolean }>;
-	requestExactAlarms(): Promise<void>;
-	notify(options: { title: string; text: string; conversation?: string; avatar?: string }): Promise<void>;
-	addListener(event: "event", listener: () => void): Promise<{ remove: () => Promise<void> }>;
-}
-
-export const Triggers = registerPlugin<TriggersPlugin>("Triggers");
 export const nativeTriggers = native.has("Triggers");
 
 export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
@@ -385,6 +312,8 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
+		effect: "direct",
+		needs: [Triggers.sync],
 		description:
 			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
 		parameters: CreateScheduleArgs,
@@ -408,6 +337,8 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const scheduleFollowup = defineAppTool({
 		name: "schedule_followup",
+		effect: "direct",
+		needs: [Triggers.sync],
 		description:
 			"Continue this conversation later by yourself, such as checking whether a deployment finished. After the delay, the note is sent back to you here as a new turn. Use it only when a later check is useful; tell the user you scheduled it.",
 		parameters: Type.Object({
@@ -427,6 +358,8 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const listSchedules = defineAppTool({
 		name: "list_schedules",
+		effect: "read",
+		needs: [Triggers.sync],
 		description: "Your schedules and pending follow-ups, with their ids.",
 		parameters: Type.Object({}),
 		execute: async (_args, api, context) => {
@@ -437,6 +370,8 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const deleteSchedule = defineAppTool({
 		name: "delete_schedule",
+		effect: "direct",
+		needs: [Triggers.sync],
 		description: "Delete a schedule or a pending follow-up by id.",
 		parameters: Type.Object({ id: Type.String({ description: "The id list_schedules shows" }) }),
 		execute: async (args, api, context) => {
@@ -455,6 +390,8 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const notify = defineAppTool({
 		name: "notify",
+		effect: "direct",
+		needs: [Triggers.notify],
 		description:
 			"Show the user a phone notification that opens this conversation. Use it at the end of a triggered run when the result deserves their attention; skip it when there is nothing new. Keep it to the gist; the full answer is in the conversation.",
 		parameters: Type.Object({
@@ -486,7 +423,7 @@ export interface TriggerState {
 	next: Record<string, number>;
 }
 
-const RUNS_KEPT_MS = 24 * 60 * 60 * 1000;
+const RUNS_KEPT_MS = DAY;
 
 const context = BACKGROUND_CONTEXT;
 

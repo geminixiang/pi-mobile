@@ -34,6 +34,8 @@ function editMemory(current: string, oldText: string | undefined, newText: strin
 export function createMemoryExtension(host: { changed: () => void }) {
 	const updateMemory = defineAppTool({
 		name: "update_memory",
+		effect: "direct",
+		reach: "model",
 		callers: ["model"],
 		description:
 			"Edit a MEMORY.md. scope global: facts about the user that every bot should know. scope bot: your own notes for your job. Without old_text, new_text is added as a new line. With old_text (copied exactly from the memory section), it is replaced by new_text; an empty new_text deletes it.",

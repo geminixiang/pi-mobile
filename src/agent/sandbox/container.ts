@@ -7,7 +7,7 @@ import { log } from "../../log.ts";
 import type { AccessToken } from "../oauth.ts";
 import { type Daemon, daemon, ENV_PATH } from "./daemon.ts";
 import { lost, type OpenDaemon } from "./phone-connection.ts";
-import { messageOf, orLogged, sleep, untilFailure } from "../../promise.ts";
+import { messageOf, orLogged, sleep, untilFailure, whilePending } from "../../promise.ts";
 import { decode } from "../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
@@ -119,7 +119,6 @@ export class ContainerHost {
 	readonly #client: CommandClient;
 	#prepared: string | undefined;
 	#active = 0;
-	#ensuring: Promise<string> | undefined;
 	#arch: "x64" | "arm64" | undefined;
 
 	constructor(engine: string, client: CommandClient) {
@@ -286,12 +285,7 @@ export class ContainerHost {
 		}
 	}
 
-	#ensure(): Promise<string> {
-		this.#ensuring ??= this.#ensureNow().finally(() => {
-			this.#ensuring = undefined;
-		});
-		return this.#ensuring;
-	}
+	readonly #ensure = whilePending(() => this.#ensureNow());
 
 	async #ensureNow(): Promise<string> {
 		const [state, id = ""] = (await this.#outputIfSucceeds(`inspect -f '{{.State.Running}} {{.Id}}' ${CONTAINER}`))?.split(" ") ?? [];

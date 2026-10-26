@@ -1,0 +1,4337 @@
+[
+	{
+		"name": "Apps",
+		"methods": {
+			"setAlarm": {
+				"args": {
+					"properties": {
+						"days": {
+							"items": {
+								"type": "integer"
+							},
+							"type": "array"
+						},
+						"hour": {
+							"type": "integer"
+						},
+						"label": {
+							"type": "string"
+						},
+						"minute": {
+							"type": "integer"
+						}
+					},
+					"required": [
+						"hour",
+						"minute"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"setTimer": {
+				"args": {
+					"properties": {
+						"label": {
+							"type": "string"
+						},
+						"seconds": {
+							"type": "integer"
+						}
+					},
+					"required": [
+						"seconds"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"composeEmail": {
+				"args": {
+					"properties": {
+						"body": {
+							"type": "string"
+						},
+						"subject": {
+							"type": "string"
+						},
+						"to": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"to",
+						"body"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"composeSms": {
+				"args": {
+					"properties": {
+						"body": {
+							"type": "string"
+						},
+						"to": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"to",
+						"body"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"open": {
+				"args": {
+					"properties": {
+						"uri": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"uri"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"share": {
+				"args": {
+					"properties": {
+						"fileBase64": {
+							"type": "string"
+						},
+						"fileName": {
+							"type": "string"
+						},
+						"mimeType": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"result": null
+			},
+			"openFile": {
+				"args": {
+					"properties": {
+						"fileBase64": {
+							"type": "string"
+						},
+						"fileName": {
+							"type": "string"
+						},
+						"mimeType": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"fileBase64",
+						"fileName",
+						"mimeType"
+					],
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": [
+			"setAlarm",
+			"setTimer",
+			"composeEmail",
+			"composeSms",
+			"open",
+			"share",
+			"openFile"
+		]
+	},
+	{
+		"name": "BotFiles",
+		"methods": {
+			"stat": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"executable": {
+							"type": "boolean"
+						},
+						"kind": {
+							"anyOf": [
+								{
+									"const": "file",
+									"type": "string"
+								},
+								{
+									"const": "directory",
+									"type": "string"
+								}
+							]
+						},
+						"mtimeMs": {
+							"type": "number"
+						},
+						"name": {
+							"type": "string"
+						},
+						"size": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"name",
+						"kind",
+						"size",
+						"mtimeMs",
+						"executable"
+					],
+					"type": "object"
+				}
+			},
+			"exists": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"exists": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"exists"
+					],
+					"type": "object"
+				}
+			},
+			"create": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"directory": {
+							"type": "boolean"
+						},
+						"path": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"chmod": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"mode": {
+							"type": "integer"
+						},
+						"path": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path",
+						"mode"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"list": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"entries": {
+							"items": {
+								"properties": {
+									"executable": {
+										"type": "boolean"
+									},
+									"kind": {
+										"anyOf": [
+											{
+												"const": "file",
+												"type": "string"
+											},
+											{
+												"const": "directory",
+												"type": "string"
+											}
+										]
+									},
+									"mtimeMs": {
+										"type": "number"
+									},
+									"name": {
+										"type": "string"
+									},
+									"size": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"name",
+									"kind",
+									"size",
+									"mtimeMs",
+									"executable"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"entries"
+					],
+					"type": "object"
+				}
+			},
+			"read": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"length": {
+							"type": "number"
+						},
+						"offset": {
+							"type": "number"
+						},
+						"path": {
+							"type": "string"
+						},
+						"text": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"data": {
+							"type": "string"
+						},
+						"size": {
+							"type": "number"
+						},
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"size"
+					],
+					"type": "object"
+				}
+			},
+			"write": {
+				"args": {
+					"properties": {
+						"append": {
+							"type": "boolean"
+						},
+						"bot": {
+							"type": "string"
+						},
+						"data": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"truncate": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						},
+						"size": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"bot",
+						"path",
+						"size"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"mkdir": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						},
+						"recursive": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"remove": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"force": {
+							"type": "boolean"
+						},
+						"path": {
+							"type": "string"
+						},
+						"recursive": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"bot",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"rename": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"from": {
+							"type": "string"
+						},
+						"to": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"from",
+						"to"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"removeBot": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"listBots": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"ids": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"ids"
+					],
+					"type": "object"
+				}
+			},
+			"download": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"path": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"path",
+						"url"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"contentType": {
+							"type": "string"
+						},
+						"size": {
+							"type": "number"
+						},
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"size",
+						"contentType",
+						"url"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": [
+			"stat",
+			"exists",
+			"create",
+			"chmod",
+			"list",
+			"read",
+			"write",
+			"truncate",
+			"mkdir",
+			"remove",
+			"rename",
+			"removeBot",
+			"listBots",
+			"download"
+		]
+	},
+	{
+		"name": "Calendar",
+		"methods": {
+			"listAccounts": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"calendars": {
+							"items": {
+								"properties": {
+									"account": {
+										"type": "string"
+									},
+									"accountType": {
+										"type": "string"
+									},
+									"id": {
+										"type": "number"
+									},
+									"name": {
+										"type": "string"
+									},
+									"own": {
+										"type": "boolean"
+									},
+									"owner": {
+										"type": "string"
+									},
+									"primary": {
+										"type": "boolean"
+									},
+									"writable": {
+										"type": "boolean"
+									}
+								},
+								"required": [
+									"id",
+									"name",
+									"account",
+									"accountType",
+									"owner",
+									"own",
+									"writable",
+									"primary"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"calendars"
+					],
+					"type": "object"
+				}
+			},
+			"listEvents": {
+				"args": {
+					"properties": {
+						"from": {
+							"type": "number"
+						},
+						"includeShared": {
+							"type": "boolean"
+						},
+						"to": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"from",
+						"to",
+						"includeShared"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"events": {
+							"items": {
+								"properties": {
+									"account": {
+										"type": "string"
+									},
+									"accountType": {
+										"type": "string"
+									},
+									"allDay": {
+										"type": "boolean"
+									},
+									"begin": {
+										"type": "number"
+									},
+									"calendar": {
+										"type": "string"
+									},
+									"calendarId": {
+										"type": "number"
+									},
+									"end": {
+										"type": "number"
+									},
+									"location": {
+										"type": "string"
+									},
+									"notes": {
+										"type": "string"
+									},
+									"owner": {
+										"type": "string"
+									},
+									"shared": {
+										"type": "boolean"
+									},
+									"title": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"title",
+									"begin",
+									"end",
+									"allDay",
+									"calendar",
+									"account",
+									"accountType",
+									"calendarId"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"events"
+					],
+					"type": "object"
+				}
+			},
+			"insertEvent": {
+				"args": {
+					"properties": {
+						"allDay": {
+							"type": "boolean"
+						},
+						"begin": {
+							"type": "number"
+						},
+						"calendarId": {
+							"type": "number"
+						},
+						"description": {
+							"type": "string"
+						},
+						"end": {
+							"type": "number"
+						},
+						"location": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"calendarId",
+						"title",
+						"begin",
+						"end",
+						"allDay"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"id": {
+							"anyOf": [
+								{
+									"type": "number"
+								},
+								{
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"id"
+					],
+					"type": "object"
+				}
+			},
+			"checkPermissions": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"calendar": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"calendar"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": [
+			"listAccounts",
+			"listEvents",
+			"insertEvent",
+			"checkPermissions"
+		]
+	},
+	{
+		"name": "Contacts",
+		"methods": {
+			"search": {
+				"args": {
+					"properties": {
+						"query": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"birthday": {
+										"type": "string"
+									},
+									"company": {
+										"type": "string"
+									},
+									"emails": {
+										"items": {
+											"type": "string"
+										},
+										"type": "array"
+									},
+									"name": {
+										"type": "string"
+									},
+									"phones": {
+										"items": {
+											"properties": {
+												"number": {
+													"type": "string"
+												},
+												"type": {
+													"type": "string"
+												}
+											},
+											"required": [
+												"number",
+												"type"
+											],
+											"type": "object"
+										},
+										"type": "array"
+									},
+									"starred": {
+										"type": "boolean"
+									}
+								},
+								"required": [
+									"name",
+									"phones",
+									"emails"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": [
+			"search"
+		]
+	},
+	{
+		"name": "Database",
+		"methods": {
+			"execute": {
+				"args": {
+					"properties": {
+						"statements": {
+							"items": {
+								"properties": {
+									"params": {
+										"items": {
+											"anyOf": [
+												{
+													"anyOf": [
+														{
+															"type": "string"
+														},
+														{
+															"type": "number"
+														},
+														{
+															"type": "null"
+														}
+													]
+												},
+												{
+													"type": "boolean"
+												}
+											]
+										},
+										"type": "array"
+									},
+									"sql": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"sql"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"statements"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"results": {
+							"items": {
+								"properties": {
+									"changes": {
+										"type": "number"
+									},
+									"columns": {
+										"items": {
+											"type": "string"
+										},
+										"type": "array"
+									},
+									"lastInsertId": {
+										"type": "number"
+									},
+									"rows": {
+										"items": {
+											"items": {
+												"anyOf": [
+													{
+														"type": "string"
+													},
+													{
+														"type": "number"
+													},
+													{
+														"type": "null"
+													}
+												]
+											},
+											"type": "array"
+										},
+										"type": "array"
+									}
+								},
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"results"
+					],
+					"type": "object"
+				}
+			},
+			"schema": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"tables": {
+							"items": {
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"rows": {
+										"type": "number"
+									},
+									"sql": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"name",
+									"sql",
+									"rows"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"tables"
+					],
+					"type": "object"
+				}
+			},
+			"export": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": [
+			"execute",
+			"schema",
+			"export"
+		]
+	},
+	{
+		"name": "Health",
+		"methods": {
+			"read": {
+				"args": {
+					"properties": {
+						"days": {
+							"type": "number"
+						},
+						"metric": {
+							"anyOf": [
+								{
+									"const": "steps",
+									"type": "string"
+								},
+								{
+									"const": "heart_rate",
+									"type": "string"
+								},
+								{
+									"const": "sleep",
+									"type": "string"
+								},
+								{
+									"const": "exercise",
+									"type": "string"
+								},
+								{
+									"const": "weight",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"metric",
+						"days"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"days": {
+							"items": {
+								"properties": {
+									"day": {
+										"type": "string"
+									},
+									"value": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"day",
+									"value"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						"records": {
+							"items": {
+								"properties": {
+									"end": {
+										"type": "number"
+									},
+									"kg": {
+										"type": "number"
+									},
+									"source": {
+										"type": "string"
+									},
+									"stageMinutes": {
+										"patternProperties": {
+											"^.*$": {
+												"type": "number"
+											}
+										},
+										"type": "object"
+									},
+									"start": {
+										"type": "number"
+									},
+									"time": {
+										"type": "number"
+									},
+									"title": {
+										"type": "string"
+									},
+									"type": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"source"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "KeepAlive",
+		"methods": {
+			"start": {
+				"args": {
+					"properties": {
+						"text": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"text"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"stop": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"notify": {
+				"args": {
+					"properties": {
+						"text": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"title",
+						"text"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"clearNotification": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"status": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"notifications": {
+							"type": "boolean"
+						},
+						"unrestrictedBattery": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"notifications"
+					],
+					"type": "object"
+				}
+			},
+			"requestNotifications": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"granted": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"granted"
+					],
+					"type": "object"
+				}
+			},
+			"requestUnrestrictedBattery": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": [
+			"start",
+			"stop",
+			"notify",
+			"clearNotification",
+			"status",
+			"requestNotifications",
+			"requestUnrestrictedBattery"
+		]
+	},
+	{
+		"name": "Loopback",
+		"methods": {
+			"start": {
+				"args": {
+					"properties": {
+						"path": {
+							"type": "string"
+						},
+						"port": {
+							"type": "integer"
+						}
+					},
+					"required": [
+						"port",
+						"path"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"port": {
+							"type": "integer"
+						}
+					},
+					"required": [
+						"port"
+					],
+					"type": "object"
+				}
+			},
+			"stop": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {
+			"redirect": {
+				"properties": {
+					"url": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"url"
+				],
+				"type": "object"
+			}
+		},
+		"ios": [
+			"start",
+			"stop"
+		]
+	},
+	{
+		"name": "Notifications",
+		"methods": {
+			"status": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"allowed": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"allowed"
+					],
+					"type": "object"
+				}
+			},
+			"openSettings": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"list": {
+				"args": {
+					"properties": {
+						"app": {
+							"type": "string"
+						},
+						"limit": {
+							"type": "integer"
+						},
+						"query": {
+							"type": "string"
+						},
+						"since": {
+							"type": "number"
+						}
+					},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"app": {
+										"type": "string"
+									},
+									"conversation": {
+										"type": "string"
+									},
+									"package": {
+										"type": "string"
+									},
+									"sender": {
+										"type": "string"
+									},
+									"text": {
+										"type": "string"
+									},
+									"time": {
+										"type": "number"
+									},
+									"title": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"package",
+									"app",
+									"title",
+									"text",
+									"time"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			},
+			"clear": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"active": {
+				"args": {
+					"properties": {
+						"app": {
+							"type": "string"
+						},
+						"conversation": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"app"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"app": {
+										"type": "string"
+									},
+									"canReply": {
+										"type": "boolean"
+									},
+									"clearable": {
+										"type": "boolean"
+									},
+									"key": {
+										"type": "string"
+									},
+									"text": {
+										"type": "string"
+									},
+									"time": {
+										"type": "number"
+									},
+									"title": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"key",
+									"app",
+									"title",
+									"text",
+									"time",
+									"canReply",
+									"clearable"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			},
+			"reply": {
+				"args": {
+					"properties": {
+						"key": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"key",
+						"text"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"dismiss": {
+				"args": {
+					"properties": {
+						"keys": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"keys"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"media": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"album": {
+										"type": "string"
+									},
+									"app": {
+										"type": "string"
+									},
+									"artist": {
+										"type": "string"
+									},
+									"durationMs": {
+										"type": "number"
+									},
+									"package": {
+										"type": "string"
+									},
+									"positionMs": {
+										"type": "number"
+									},
+									"state": {
+										"anyOf": [
+											{
+												"const": "playing",
+												"type": "string"
+											},
+											{
+												"const": "paused",
+												"type": "string"
+											},
+											{
+												"const": "buffering",
+												"type": "string"
+											},
+											{
+												"const": "stopped",
+												"type": "string"
+											},
+											{
+												"const": "none",
+												"type": "string"
+											},
+											{
+												"const": "other",
+												"type": "string"
+											}
+										]
+									},
+									"title": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"package",
+									"app",
+									"state"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			},
+			"mediaControl": {
+				"args": {
+					"properties": {
+						"action": {
+							"anyOf": [
+								{
+									"const": "play",
+									"type": "string"
+								},
+								{
+									"const": "pause",
+									"type": "string"
+								},
+								{
+									"const": "next",
+									"type": "string"
+								},
+								{
+									"const": "previous",
+									"type": "string"
+								},
+								{
+									"const": "stop",
+									"type": "string"
+								}
+							]
+						},
+						"package": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"action"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"package": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"package"
+					],
+					"type": "object"
+				}
+			},
+			"dnd": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"mode": {
+							"anyOf": [
+								{
+									"const": "off",
+									"type": "string"
+								},
+								{
+									"const": "priority",
+									"type": "string"
+								},
+								{
+									"const": "alarms",
+									"type": "string"
+								},
+								{
+									"const": "silent",
+									"type": "string"
+								},
+								{
+									"const": "unknown",
+									"type": "string"
+								}
+							]
+						},
+						"until": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"mode",
+						"until"
+					],
+					"type": "object"
+				}
+			},
+			"setDnd": {
+				"args": {
+					"properties": {
+						"mode": {
+							"anyOf": [
+								{
+									"const": "off",
+									"type": "string"
+								},
+								{
+									"const": "priority",
+									"type": "string"
+								},
+								{
+									"const": "alarms",
+									"type": "string"
+								},
+								{
+									"const": "silent",
+									"type": "string"
+								}
+							]
+						},
+						"until": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"mode"
+					],
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "Page",
+		"methods": {
+			"render": {
+				"args": {
+					"properties": {
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"url"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"html": {
+							"type": "string"
+						},
+						"ms": {
+							"type": "number"
+						},
+						"settled": {
+							"type": "boolean"
+						},
+						"title": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"html",
+						"title",
+						"url",
+						"ms",
+						"settled"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "Phone",
+		"methods": {
+			"getStatus": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {}
+					},
+					"type": "object"
+				}
+			},
+			"getLocation": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {}
+					},
+					"type": "object"
+				}
+			},
+			"readSensors": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {}
+					},
+					"type": "object"
+				}
+			},
+			"geocode": {
+				"args": {
+					"properties": {
+						"query": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"query"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"address": {
+							"type": "string"
+						},
+						"latitude": {
+							"type": "number"
+						},
+						"longitude": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"latitude",
+						"longitude"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": [
+			"getStatus",
+			"getLocation",
+			"readSensors",
+			"geocode"
+		]
+	},
+	{
+		"name": "PhoneScreen",
+		"methods": {
+			"status": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"allowed": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"allowed"
+					],
+					"type": "object"
+				}
+			},
+			"openSettings": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"openAppInfo": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"read": {
+				"args": {
+					"properties": {
+						"screenshot": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"screenshot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"app": {
+							"type": "string"
+						},
+						"done": {
+							"type": "number"
+						},
+						"elements": {
+							"type": "string"
+						},
+						"error": {
+							"type": "string"
+						},
+						"height": {
+							"type": "number"
+						},
+						"jpeg": {
+							"type": "string"
+						},
+						"keyboard": {
+							"type": "boolean"
+						},
+						"more": {
+							"type": "number"
+						},
+						"package": {
+							"type": "string"
+						},
+						"shotError": {
+							"type": "string"
+						},
+						"slow": {
+							"type": "boolean"
+						},
+						"width": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"width",
+						"height",
+						"keyboard",
+						"elements",
+						"more"
+					],
+					"type": "object"
+				}
+			},
+			"act": {
+				"args": {
+					"properties": {
+						"screenshot": {
+							"type": "boolean"
+						},
+						"steps": {
+							"items": {
+								"properties": {
+									"action": {
+										"anyOf": [
+											{
+												"const": "tap",
+												"type": "string"
+											},
+											{
+												"const": "long_press",
+												"type": "string"
+											},
+											{
+												"const": "swipe",
+												"type": "string"
+											},
+											{
+												"const": "scroll",
+												"type": "string"
+											},
+											{
+												"const": "type",
+												"type": "string"
+											},
+											{
+												"const": "clear",
+												"type": "string"
+											},
+											{
+												"const": "key",
+												"type": "string"
+											},
+											{
+												"const": "open",
+												"type": "string"
+											},
+											{
+												"const": "wait",
+												"type": "string"
+											}
+										]
+									},
+									"app": {
+										"type": "string"
+									},
+									"direction": {
+										"anyOf": [
+											{
+												"const": "up",
+												"type": "string"
+											},
+											{
+												"const": "down",
+												"type": "string"
+											},
+											{
+												"const": "left",
+												"type": "string"
+											},
+											{
+												"const": "right",
+												"type": "string"
+											}
+										]
+									},
+									"keys": {
+										"type": "string"
+									},
+									"ms": {
+										"type": "number"
+									},
+									"text": {
+										"type": "string"
+									},
+									"to_x": {
+										"type": "number"
+									},
+									"to_y": {
+										"type": "number"
+									},
+									"x": {
+										"type": "number"
+									},
+									"y": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"action"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"steps",
+						"screenshot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"app": {
+							"type": "string"
+						},
+						"done": {
+							"type": "number"
+						},
+						"elements": {
+							"type": "string"
+						},
+						"error": {
+							"type": "string"
+						},
+						"height": {
+							"type": "number"
+						},
+						"jpeg": {
+							"type": "string"
+						},
+						"keyboard": {
+							"type": "boolean"
+						},
+						"more": {
+							"type": "number"
+						},
+						"package": {
+							"type": "string"
+						},
+						"shotError": {
+							"type": "string"
+						},
+						"slow": {
+							"type": "boolean"
+						},
+						"width": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"width",
+						"height",
+						"keyboard",
+						"elements",
+						"more"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "PhoneState",
+		"methods": {
+			"sound": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"ringer": {
+							"anyOf": [
+								{
+									"const": "normal",
+									"type": "string"
+								},
+								{
+									"const": "vibrate",
+									"type": "string"
+								},
+								{
+									"const": "silent",
+									"type": "string"
+								}
+							]
+						},
+						"volumePercent": {
+							"properties": {
+								"alarm": {
+									"type": "number"
+								},
+								"call": {
+									"type": "number"
+								},
+								"media": {
+									"type": "number"
+								},
+								"notification": {
+									"type": "number"
+								},
+								"ring": {
+									"type": "number"
+								}
+							},
+							"required": [
+								"ring",
+								"media",
+								"alarm",
+								"notification",
+								"call"
+							],
+							"type": "object"
+						}
+					},
+					"required": [
+						"ringer",
+						"volumePercent"
+					],
+					"type": "object"
+				}
+			},
+			"setRinger": {
+				"args": {
+					"properties": {
+						"mode": {
+							"anyOf": [
+								{
+									"const": "normal",
+									"type": "string"
+								},
+								{
+									"const": "vibrate",
+									"type": "string"
+								},
+								{
+									"const": "silent",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"mode"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"ringer": {
+							"anyOf": [
+								{
+									"const": "normal",
+									"type": "string"
+								},
+								{
+									"const": "vibrate",
+									"type": "string"
+								},
+								{
+									"const": "silent",
+									"type": "string"
+								}
+							]
+						},
+						"volumePercent": {
+							"properties": {
+								"alarm": {
+									"type": "number"
+								},
+								"call": {
+									"type": "number"
+								},
+								"media": {
+									"type": "number"
+								},
+								"notification": {
+									"type": "number"
+								},
+								"ring": {
+									"type": "number"
+								}
+							},
+							"required": [
+								"ring",
+								"media",
+								"alarm",
+								"notification",
+								"call"
+							],
+							"type": "object"
+						}
+					},
+					"required": [
+						"ringer",
+						"volumePercent"
+					],
+					"type": "object"
+				}
+			},
+			"setVolume": {
+				"args": {
+					"properties": {
+						"percent": {
+							"type": "number"
+						},
+						"stream": {
+							"anyOf": [
+								{
+									"const": "ring",
+									"type": "string"
+								},
+								{
+									"const": "media",
+									"type": "string"
+								},
+								{
+									"const": "alarm",
+									"type": "string"
+								},
+								{
+									"const": "notification",
+									"type": "string"
+								},
+								{
+									"const": "call",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"stream",
+						"percent"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"ringer": {
+							"anyOf": [
+								{
+									"const": "normal",
+									"type": "string"
+								},
+								{
+									"const": "vibrate",
+									"type": "string"
+								},
+								{
+									"const": "silent",
+									"type": "string"
+								}
+							]
+						},
+						"volumePercent": {
+							"properties": {
+								"alarm": {
+									"type": "number"
+								},
+								"call": {
+									"type": "number"
+								},
+								"media": {
+									"type": "number"
+								},
+								"notification": {
+									"type": "number"
+								},
+								"ring": {
+									"type": "number"
+								}
+							},
+							"required": [
+								"ring",
+								"media",
+								"alarm",
+								"notification",
+								"call"
+							],
+							"type": "object"
+						}
+					},
+					"required": [
+						"ringer",
+						"volumePercent"
+					],
+					"type": "object"
+				}
+			},
+			"display": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"autoBrightness": {
+							"type": "boolean"
+						},
+						"autoRotate": {
+							"type": "boolean"
+						},
+						"brightnessPercent": {
+							"type": "number"
+						},
+						"canChange": {
+							"type": "boolean"
+						},
+						"screenTimeoutSeconds": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"canChange"
+					],
+					"type": "object"
+				}
+			},
+			"setDisplay": {
+				"args": {
+					"properties": {
+						"on": {
+							"type": "boolean"
+						},
+						"value": {
+							"type": "number"
+						},
+						"what": {
+							"anyOf": [
+								{
+									"const": "brightness",
+									"type": "string"
+								},
+								{
+									"const": "auto_brightness",
+									"type": "string"
+								},
+								{
+									"const": "auto_rotate",
+									"type": "string"
+								},
+								{
+									"const": "screen_timeout",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"what"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"autoBrightness": {
+							"type": "boolean"
+						},
+						"autoRotate": {
+							"type": "boolean"
+						},
+						"brightnessPercent": {
+							"type": "number"
+						},
+						"canChange": {
+							"type": "boolean"
+						},
+						"screenTimeoutSeconds": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"canChange"
+					],
+					"type": "object"
+				}
+			},
+			"openWriteSettings": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"flashlight": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"state": {
+							"anyOf": [
+								{
+									"const": "on",
+									"type": "string"
+								},
+								{
+									"const": "off",
+									"type": "string"
+								},
+								{
+									"const": "unavailable",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"state"
+					],
+					"type": "object"
+				}
+			},
+			"setFlashlight": {
+				"args": {
+					"properties": {
+						"on": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"on"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"state": {
+							"anyOf": [
+								{
+									"const": "on",
+									"type": "string"
+								},
+								{
+									"const": "off",
+									"type": "string"
+								},
+								{
+									"const": "unavailable",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"state"
+					],
+					"type": "object"
+				}
+			},
+			"connections": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"airplaneMode": {
+							"type": "boolean"
+						},
+						"batterySaver": {
+							"type": "boolean"
+						},
+						"bluetooth": {
+							"properties": {
+								"connectedProfiles": {
+									"type": "string"
+								},
+								"on": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"on"
+							],
+							"type": "object"
+						},
+						"location": {
+							"type": "boolean"
+						},
+						"mobileData": {
+							"properties": {
+								"on": {
+									"anyOf": [
+										{
+											"type": "boolean"
+										},
+										{
+											"const": "unknown",
+											"type": "string"
+										}
+									]
+								}
+							},
+							"type": "object"
+						},
+						"nfc": {
+							"anyOf": [
+								{
+									"const": "on",
+									"type": "string"
+								},
+								{
+									"const": "off",
+									"type": "string"
+								},
+								{
+									"const": "none",
+									"type": "string"
+								}
+							]
+						},
+						"outcome": {
+							"anyOf": [
+								{
+									"const": "already",
+									"type": "string"
+								},
+								{
+									"const": "changed",
+									"type": "string"
+								},
+								{
+									"const": "pressed",
+									"type": "string"
+								},
+								{
+									"const": "panel",
+									"type": "string"
+								}
+							]
+						},
+						"wifi": {
+							"properties": {
+								"connected": {
+									"type": "boolean"
+								},
+								"name": {
+									"type": "string"
+								},
+								"on": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"on",
+								"connected"
+							],
+							"type": "object"
+						}
+					},
+					"required": [
+						"wifi",
+						"bluetooth",
+						"mobileData",
+						"airplaneMode",
+						"location",
+						"nfc",
+						"batterySaver"
+					],
+					"type": "object"
+				}
+			},
+			"setConnection": {
+				"args": {
+					"properties": {
+						"on": {
+							"type": "boolean"
+						},
+						"what": {
+							"anyOf": [
+								{
+									"const": "wifi",
+									"type": "string"
+								},
+								{
+									"const": "bluetooth",
+									"type": "string"
+								},
+								{
+									"const": "mobile_data",
+									"type": "string"
+								},
+								{
+									"const": "airplane_mode",
+									"type": "string"
+								},
+								{
+									"const": "location",
+									"type": "string"
+								},
+								{
+									"const": "nfc",
+									"type": "string"
+								},
+								{
+									"const": "battery_saver",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"what",
+						"on"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"airplaneMode": {
+							"type": "boolean"
+						},
+						"batterySaver": {
+							"type": "boolean"
+						},
+						"bluetooth": {
+							"properties": {
+								"connectedProfiles": {
+									"type": "string"
+								},
+								"on": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"on"
+							],
+							"type": "object"
+						},
+						"location": {
+							"type": "boolean"
+						},
+						"mobileData": {
+							"properties": {
+								"on": {
+									"anyOf": [
+										{
+											"type": "boolean"
+										},
+										{
+											"const": "unknown",
+											"type": "string"
+										}
+									]
+								}
+							},
+							"type": "object"
+						},
+						"nfc": {
+							"anyOf": [
+								{
+									"const": "on",
+									"type": "string"
+								},
+								{
+									"const": "off",
+									"type": "string"
+								},
+								{
+									"const": "none",
+									"type": "string"
+								}
+							]
+						},
+						"outcome": {
+							"anyOf": [
+								{
+									"const": "already",
+									"type": "string"
+								},
+								{
+									"const": "changed",
+									"type": "string"
+								},
+								{
+									"const": "pressed",
+									"type": "string"
+								},
+								{
+									"const": "panel",
+									"type": "string"
+								}
+							]
+						},
+						"wifi": {
+							"properties": {
+								"connected": {
+									"type": "boolean"
+								},
+								"name": {
+									"type": "string"
+								},
+								"on": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"on",
+								"connected"
+							],
+							"type": "object"
+						}
+					},
+					"required": [
+						"wifi",
+						"bluetooth",
+						"mobileData",
+						"airplaneMode",
+						"location",
+						"nfc",
+						"batterySaver"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "Photos",
+		"methods": {
+			"search": {
+				"args": {
+					"properties": {
+						"album": {
+							"type": "string"
+						},
+						"from": {
+							"type": "number"
+						},
+						"limit": {
+							"type": "integer"
+						},
+						"to": {
+							"type": "number"
+						}
+					},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"album": {
+										"type": "string"
+									},
+									"height": {
+										"type": "number"
+									},
+									"id": {
+										"type": "string"
+									},
+									"latitude": {
+										"type": "number"
+									},
+									"longitude": {
+										"type": "number"
+									},
+									"name": {
+										"type": "string"
+									},
+									"time": {
+										"type": "number"
+									},
+									"width": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"id",
+									"name",
+									"time",
+									"album",
+									"width",
+									"height"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			},
+			"view": {
+				"args": {
+					"properties": {
+						"edge": {
+							"type": "integer"
+						},
+						"id": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"id"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"data": {
+							"type": "string"
+						},
+						"height": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"data",
+						"width",
+						"height"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": [
+			"search",
+			"view"
+		]
+	},
+	{
+		"name": "Records",
+		"methods": {
+			"calls": {
+				"args": {
+					"properties": {
+						"limit": {
+							"type": "integer"
+						},
+						"since": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"since"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"number": {
+										"type": "string"
+									},
+									"seconds": {
+										"type": "number"
+									},
+									"time": {
+										"type": "number"
+									},
+									"type": {
+										"anyOf": [
+											{
+												"const": "incoming",
+												"type": "string"
+											},
+											{
+												"const": "outgoing",
+												"type": "string"
+											},
+											{
+												"const": "missed",
+												"type": "string"
+											},
+											{
+												"const": "rejected",
+												"type": "string"
+											},
+											{
+												"const": "blocked",
+												"type": "string"
+											},
+											{
+												"const": "voicemail",
+												"type": "string"
+											},
+											{
+												"const": "other",
+												"type": "string"
+											}
+										]
+									}
+								},
+								"required": [
+									"number",
+									"type",
+									"time",
+									"seconds"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			},
+			"sms": {
+				"args": {
+					"properties": {
+						"limit": {
+							"type": "integer"
+						},
+						"query": {
+							"type": "string"
+						},
+						"since": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"since"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"address": {
+										"type": "string"
+									},
+									"name": {
+										"type": "string"
+									},
+									"read": {
+										"type": "boolean"
+									},
+									"sent": {
+										"type": "boolean"
+									},
+									"text": {
+										"type": "string"
+									},
+									"time": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"address",
+									"text",
+									"time",
+									"sent",
+									"read"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "Scanner",
+		"methods": {
+			"scan": {
+				"args": {
+					"properties": {
+						"pages": {
+							"type": "integer"
+						}
+					},
+					"type": "object"
+				},
+				"result": {
+					"anyOf": [
+						{
+							"properties": {
+								"cancelled": {
+									"const": true,
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"cancelled"
+							],
+							"type": "object"
+						},
+						{
+							"properties": {
+								"cancelled": {
+									"const": false,
+									"type": "boolean"
+								},
+								"pages": {
+									"type": "integer"
+								},
+								"pdf": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"cancelled",
+								"pdf",
+								"pages"
+							],
+							"type": "object"
+						}
+					]
+				}
+			},
+			"ocr": {
+				"args": {
+					"properties": {
+						"data": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"data"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"text"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "StreamFetch",
+		"methods": {
+			"start": {
+				"args": {
+					"properties": {
+						"body": {
+							"type": "string"
+						},
+						"bodyBase64": {
+							"type": "string"
+						},
+						"headers": {
+							"patternProperties": {
+								"^.*$": {
+									"type": "string"
+								}
+							},
+							"type": "object"
+						},
+						"method": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"url",
+						"method",
+						"headers"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"id": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"id"
+					],
+					"type": "object"
+				}
+			},
+			"abort": {
+				"args": {
+					"properties": {
+						"id": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"id"
+					],
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {
+			"head": {
+				"properties": {
+					"headers": {
+						"patternProperties": {
+							"^.*$": {
+								"type": "string"
+							}
+						},
+						"type": "object"
+					},
+					"id": {
+						"type": "string"
+					},
+					"status": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"id",
+					"status",
+					"headers"
+				],
+				"type": "object"
+			},
+			"chunk": {
+				"properties": {
+					"data": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"data"
+				],
+				"type": "object"
+			},
+			"end": {
+				"properties": {
+					"id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id"
+				],
+				"type": "object"
+			},
+			"error": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"message": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"message"
+				],
+				"type": "object"
+			}
+		},
+		"ios": [
+			"start",
+			"abort"
+		]
+	},
+	{
+		"name": "System",
+		"methods": {
+			"openExternal": {
+				"args": {
+					"properties": {
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"url"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"haptic": {
+				"args": {
+					"properties": {
+						"kind": {
+							"anyOf": [
+								{
+									"const": "tick",
+									"type": "string"
+								},
+								{
+									"const": "press",
+									"type": "string"
+								},
+								{
+									"const": "confirm",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"kind"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"clipboardText": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"text"
+					],
+					"type": "object"
+				}
+			},
+			"assistant": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"held": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"held"
+					],
+					"type": "object"
+				}
+			},
+			"openAssistantSettings": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": [
+			"openExternal",
+			"haptic",
+			"clipboardText"
+		]
+	},
+	{
+		"name": "Triggers",
+		"methods": {
+			"sync": {
+				"args": {
+					"properties": {
+						"schedules": {
+							"items": {
+								"properties": {
+									"avatar": {
+										"type": "string"
+									},
+									"id": {
+										"type": "string"
+									},
+									"name": {
+										"type": "string"
+									},
+									"when": {
+										"anyOf": [
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"kind": {
+														"const": "daily",
+														"type": "string"
+													},
+													"time": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"time",
+													"days"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"at": {
+														"type": "number"
+													},
+													"kind": {
+														"const": "once",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"at"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "headphones",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "charging",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "wifi",
+														"type": "string"
+													},
+													"ssid": {
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"app": {
+														"type": "string"
+													},
+													"contains": {
+														"type": "string"
+													},
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "notification",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "unlock",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "battery_low",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "timezone",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"album": {
+														"type": "string"
+													},
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "photo",
+														"type": "string"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"device": {
+														"type": "string"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "bluetooth",
+														"type": "string"
+													},
+													"on": {
+														"anyOf": [
+															{
+																"const": "connect",
+																"type": "string"
+															},
+															{
+																"const": "disconnect",
+																"type": "string"
+															}
+														]
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"on",
+													"device",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"activity": {
+														"anyOf": [
+															{
+																"const": "walking",
+																"type": "string"
+															},
+															{
+																"const": "running",
+																"type": "string"
+															},
+															{
+																"const": "cycling",
+																"type": "string"
+															},
+															{
+																"const": "vehicle",
+																"type": "string"
+															},
+															{
+																"const": "still",
+																"type": "string"
+															}
+														]
+													},
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "activity",
+														"type": "string"
+													},
+													"on": {
+														"anyOf": [
+															{
+																"const": "start",
+																"type": "string"
+															},
+															{
+																"const": "stop",
+																"type": "string"
+															}
+														]
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"on",
+													"activity",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											},
+											{
+												"properties": {
+													"days": {
+														"items": {
+															"maximum": 7,
+															"minimum": 1,
+															"type": "integer"
+														},
+														"type": "array"
+													},
+													"from": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													},
+													"gapHours": {
+														"maximum": 24,
+														"minimum": 1,
+														"type": "integer"
+													},
+													"kind": {
+														"const": "place",
+														"type": "string"
+													},
+													"label": {
+														"type": "string"
+													},
+													"latitude": {
+														"type": "number"
+													},
+													"longitude": {
+														"type": "number"
+													},
+													"on": {
+														"anyOf": [
+															{
+																"const": "arrive",
+																"type": "string"
+															},
+															{
+																"const": "leave",
+																"type": "string"
+															}
+														]
+													},
+													"radius": {
+														"minimum": 100,
+														"type": "number"
+													},
+													"until": {
+														"pattern": "^\\d{2}:\\d{2}$",
+														"type": "string"
+													}
+												},
+												"required": [
+													"kind",
+													"on",
+													"label",
+													"latitude",
+													"longitude",
+													"radius",
+													"days",
+													"gapHours"
+												],
+												"type": "object"
+											}
+										]
+									}
+								},
+								"required": [
+									"id",
+									"name",
+									"when"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"schedules"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"next": {
+							"patternProperties": {
+								"^.*$": {
+									"type": "number"
+								}
+							},
+							"type": "object"
+						}
+					},
+					"required": [
+						"next"
+					],
+					"type": "object"
+				}
+			},
+			"events": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"events": {
+							"items": {},
+							"type": "array"
+						}
+					},
+					"required": [
+						"events"
+					],
+					"type": "object"
+				}
+			},
+			"ack": {
+				"args": {
+					"properties": {
+						"ids": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"ids"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"started": {
+				"args": {
+					"properties": {
+						"trigger": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"trigger"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"skipped": {
+				"args": {
+					"properties": {
+						"trigger": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"trigger"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"status": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"bluetooth": {
+							"type": "boolean"
+						},
+						"exactAlarms": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"exactAlarms",
+						"bluetooth"
+					],
+					"type": "object"
+				}
+			},
+			"requestBluetooth": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"granted": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"granted"
+					],
+					"type": "object"
+				}
+			},
+			"requestAccess": {
+				"args": {
+					"properties": {
+						"to": {
+							"anyOf": [
+								{
+									"const": "photos",
+									"type": "string"
+								},
+								{
+									"const": "activity",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"required": [
+						"to"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"granted": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"granted"
+					],
+					"type": "object"
+				}
+			},
+			"requestLocationAlways": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"background": {
+							"type": "boolean"
+						},
+						"foreground": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"foreground",
+						"background"
+					],
+					"type": "object"
+				}
+			},
+			"requestExactAlarms": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"notify": {
+				"args": {
+					"properties": {
+						"avatar": {
+							"type": "string"
+						},
+						"conversation": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"title",
+						"text"
+					],
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {
+			"event": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"ios": []
+	},
+	{
+		"name": "Usage",
+		"methods": {
+			"status": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"allowed": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"allowed"
+					],
+					"type": "object"
+				}
+			},
+			"openSettings": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"apps": {
+				"args": {
+					"properties": {
+						"from": {
+							"type": "number"
+						},
+						"to": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"from"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"items": {
+							"items": {
+								"properties": {
+									"app": {
+										"type": "string"
+									},
+									"ms": {
+										"type": "number"
+									},
+									"package": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"package",
+									"app",
+									"ms"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						"unlocks": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"items",
+						"unlocks"
+					],
+					"type": "object"
+				}
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
+		"name": "Voice",
+		"methods": {
+			"available": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"available": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"available"
+					],
+					"type": "object"
+				}
+			},
+			"start": {
+				"args": {
+					"properties": {
+						"language": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"language"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"stop": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"cancel": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"speak": {
+				"args": {
+					"properties": {
+						"language": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"text",
+						"language"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"reason": {
+							"type": "string"
+						},
+						"spoken": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"spoken"
+					],
+					"type": "object"
+				}
+			},
+			"stopSpeaking": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {
+			"ready": {
+				"properties": {},
+				"type": "object"
+			},
+			"partial": {
+				"properties": {
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"text"
+				],
+				"type": "object"
+			},
+			"final": {
+				"properties": {
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"text"
+				],
+				"type": "object"
+			},
+			"level": {
+				"properties": {
+					"rms": {
+						"type": "number"
+					}
+				},
+				"required": [
+					"rms"
+				],
+				"type": "object"
+			},
+			"error": {
+				"properties": {
+					"code": {
+						"type": "number"
+					},
+					"message": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"code",
+					"message"
+				],
+				"type": "object"
+			},
+			"end": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"ios": [
+			"available",
+			"start",
+			"stop",
+			"cancel",
+			"speak",
+			"stopSpeaking"
+		]
+	}
+]

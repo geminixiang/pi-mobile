@@ -1,23 +1,18 @@
-import { registerPlugin } from "@capacitor/core";
+import { Phone } from "../../plugins/phone.ts";
+import { whilePending } from "../../promise.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { defineAppTool, json, oneOf } from "./common.ts";
 import { native } from "../../native.ts";
-import { PhoneState } from "../../phone-state-plugin.ts";
+import { PhoneState } from "../../plugins/phone-state.ts";
 
-interface PhonePlugin {
-	getStatus(): Promise<Record<string, unknown>>;
-	getLocation(): Promise<Record<string, unknown>>;
-	readSensors(): Promise<Record<string, unknown>>;
-	geocode(options: { query: string }): Promise<{ latitude: number; longitude: number; address?: string }>;
-}
-
-const Phone = registerPlugin<PhonePlugin>("Phone");
 
 const deviceInfo = defineAppTool({
 	name: "device_info",
+	effect: "read",
+	needs: [Phone.getStatus],
 	description:
 		"The phone's current state: local time and time zone, language, battery (percent, charging, temperature, power saving), network (Wi-Fi or cellular and the Wi-Fi's name, metered, VPN), ringer mode and Do Not Disturb, connected headphones, free storage, and model.",
 	parameters: Type.Object({}),
@@ -29,13 +24,15 @@ const deviceInfo = defineAppTool({
 			language: navigator.language,
 			screen: `${screen.width}x${screen.height} @${devicePixelRatio}x`,
 		};
-		const [status, wifiName] = await Promise.all([Phone.getStatus(), native.has("PhoneState") ? PhoneState.connections().then((state) => state.wifi.name) : undefined]);
+		const [status, wifiName] = await Promise.all([Phone.getStatus(), native.implements(PhoneState.connections) ? PhoneState.connections().then((state) => state.wifi.name) : undefined]);
 		return json({ ...basics, ...status, ...(wifiName ? { wifiName } : {}) });
 	},
 });
 
 const getLocation = defineAppTool({
 	name: "get_location",
+	effect: "read",
+	needs: [Phone.getLocation],
 	description:
 		"The phone's current location: latitude, longitude, accuracy, altitude, speed, and the street address. Use it for anything about where the user is or what is nearby, instead of asking them.",
 	parameters: Type.Object({}),
@@ -47,6 +44,8 @@ const getLocation = defineAppTool({
 
 const readSensors = defineAppTool({
 	name: "read_sensors",
+	effect: "read",
+	needs: [Phone.readSensors],
 	description:
 		"One reading of the phone's environmental sensors: barometric pressure with an altitude estimate (standard atmosphere, so off by tens of meters with the weather; compare readings for height gained), compass heading and which way the top of the phone faces, ambient light in lux, and proximity (near means something covers the screen, such as a pocket).",
 	parameters: Type.Object({}),
@@ -84,7 +83,7 @@ const FixAddress = Type.Object({
 	subLocality: Type.Optional(Type.String()),
 });
 
-export async function currentPlace(): Promise<Point> {
+export const currentPlace = whilePending(async (): Promise<Point> => {
 	const fix = await Phone.getLocation();
 	const latitude = number(fix.latitude);
 	const longitude = number(fix.longitude);
@@ -92,7 +91,7 @@ export async function currentPlace(): Promise<Point> {
 	const address = Value.Check(FixAddress, fix.address) ? fix.address : undefined;
 	const area = [address?.adminArea, address?.locality, address?.subLocality].filter(Boolean).join("");
 	return { latitude, longitude, label: area || "current location" };
-}
+});
 
 const OSRM_PROFILES = { driving: "routed-car", walking: "routed-foot", cycling: "routed-bike" } as const;
 
@@ -103,6 +102,8 @@ const OsrmResponse = Type.Object({
 
 const travelTime = defineAppTool({
 	name: "get_travel_time",
+	effect: "read",
+	needs: [Phone.getLocation, Phone.geocode],
 	description:
 		"Route distance and travel time between two places from OpenStreetMap routing (OSRM): driving, walking or cycling. Driving time assumes free-flowing traffic, so add margin at busy hours; there is no public transit. Origin defaults to the phone's current location.",
 	parameters: Type.Object({

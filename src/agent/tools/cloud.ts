@@ -22,6 +22,7 @@ const truncate = (value: string) => truncated(value, "; narrow the request with 
 function cloudTool(service: CloudService) {
 	return defineAppTool({
 		name: service.tool,
+		effect: "direct",
 		description: [
 			`Call the ${service.label} REST API as the user, from the phone (no sandbox needed). ${service.usage}`,
 			"Ask for small pages and only the fields you need.",
@@ -38,7 +39,7 @@ function cloudTool(service: CloudService) {
 				throw new Error(`${service.tool} only calls ${service.label} hosts over https; ${url.hostname} is not one.`);
 			}
 			const body: unknown = typeof args.body === "string" ? jsonOrText(args.body) : args.body;
-			if (context.abortSignal?.aborted) throw new Error("Aborted");
+			context.abortSignal?.throwIfAborted();
 			const token = await service.token(url.hostname);
 			const response = await CapacitorHttp.request({
 				url: url.toString(),

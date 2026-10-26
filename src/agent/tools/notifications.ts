@@ -1,6 +1,7 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { type ActiveNotification, Notifications, type RecordedNotification, requireAccess } from "../../notifications-plugin.ts";
+import { requireAccess } from "../../notifications-plugin.ts";
+import { type ActiveNotification, Notifications, type RecordedNotification } from "../../plugins/notifications.ts";
 import { defineAppTool, HOUR, localTime, text } from "./common.ts";
 
 function line(item: RecordedNotification): string {
@@ -12,6 +13,8 @@ function line(item: RecordedNotification): string {
 
 const readNotifications = defineAppTool({
 	name: "read_notifications",
+	effect: "read",
+	needs: [Notifications.status, Notifications.list],
 	description:
 		"Read the notifications other apps showed on the phone (chats such as LINE, Messenger, and Slack; email; deliveries; banks), kept for 30 days. Chats are per message with the sender. Use it for 「剛剛誰找我」「有沒有重要的訊息」「老闆說了什麼」. It sees only what a notification showed, not whole emails or chats. For a long window or many notifications, call it from codemode and pick what matters from its structured items there, instead of reading them all.",
 	parameters: Type.Object({
@@ -38,9 +41,9 @@ const readNotifications = defineAppTool({
 		const hours = args.hours ?? 24;
 		const { items } = await Notifications.list({
 			since: Date.now() - hours * HOUR,
-			...(args.app ? { app: args.app } : {}),
-			...(args.query ? { query: args.query } : {}),
-			...(args.limit ? { limit: args.limit } : {}),
+			app: args.app,
+			query: args.query,
+			limit: args.limit,
 		});
 		const ordered = [...items].reverse();
 		const structuredOutput = {
@@ -68,6 +71,8 @@ async function findActive(app: string, conversation: string | undefined, want: (
 
 const replyNotification = defineAppTool({
 	name: "reply_notification",
+	effect: "direct",
+	needs: [Notifications.status, Notifications.active, Notifications.reply],
 	description:
 		"Reply to a chat through its notification, as typing into the notification's reply box would (LINE, Messenger, WhatsApp, Telegram, Google Messages). Works only while that chat's notification is still in the shade; otherwise tell the user to reply in the app.",
 	parameters: Type.Object({
@@ -87,6 +92,8 @@ const replyNotification = defineAppTool({
 
 const dismissNotifications = defineAppTool({
 	name: "dismiss_notifications",
+	effect: "direct",
+	needs: [Notifications.status, Notifications.active, Notifications.dismiss],
 	description: "Clear notifications from the shade: those whose app, title, or text contains query, or all with query \"*\". They stay readable with read_notifications.",
 	parameters: Type.Object({
 		query: Type.String({ description: 'Part of the app name, title, or text, such as "LINE" or "外送"; "*" for all' }),

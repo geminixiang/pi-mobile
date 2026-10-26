@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { Phone } from "../../plugins/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "./common.ts";
 import { parse } from "../parse.ts";
@@ -87,6 +88,8 @@ const clock = (iso: string) => iso.slice(11, 16);
 
 const weather = defineAppTool({
 	name: "weather",
+	effect: "read",
+	needs: [Phone.getLocation, Phone.geocode],
 	description:
 		"Weather forecast for a place, or where the phone is when no place is given: current conditions, hourly for the hours ahead (temperature, chance of rain, rainfall), and daily for the days ahead (low, high, chance of rain, rainfall, UV, sunrise and sunset). Use it for any question about weather, rain, umbrellas, or what to wear, instead of searching the web.",
 	parameters: Type.Object({

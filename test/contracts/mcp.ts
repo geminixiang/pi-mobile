@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { extensionName } from "../../src/agent/mcp.ts";
 import { agentState, keepOpen, openRuntime } from "./fixtures.ts";
-import { type Check, deferred, mcp, openClients, platform, resetMcp, secrets, settle } from "./setup.ts";
+import { type Check, mcp, openClients, platform, resetMcp, secrets, settle } from "./setup.ts";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 
 const granted = (state: unknown, extension: string) => JSON.stringify(state ?? {}).includes(`"${extension}"`);
@@ -74,7 +74,7 @@ export const checks: Check[] = [
 			resetMcp();
 			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
-			const gate = deferred();
+			const gate = Promise.withResolvers<void>();
 			const server = await runtime.mcp.add("Slow", "https://slow.invalid/mcp");
 			await settle();
 			mcp.connectGate = gate;
@@ -94,7 +94,7 @@ export const checks: Check[] = [
 			platform.plain.remove("pi-mobile.mcp-servers");
 			const { runtime } = await openRuntime();
 			try {
-				const gate = deferred();
+				const gate = Promise.withResolvers<void>();
 				mcp.listGate = gate;
 				const server = await runtime.mcp.add("Listing", "https://list.invalid/mcp");
 				await settle();
@@ -136,7 +136,7 @@ export const checks: Check[] = [
 				assert(bot);
 				const server = await runtime.mcp.add("Work", "https://work.invalid/mcp");
 				await settle();
-				const gate = deferred();
+				const gate = Promise.withResolvers<void>();
 				secrets.removeGate = gate;
 				const removing = runtime.mcp.remove(server.id);
 				await settle();

@@ -1,19 +1,8 @@
 import { App } from "@capacitor/app";
-import { registerPlugin } from "@capacitor/core";
+import { KeepAlive } from "../plugins/keep-alive.ts";
 import { native } from "../native.ts";
 import { orLogged } from "../promise.ts";
 
-interface KeepAlivePlugin {
-	start(options: { text: string; title?: string }): Promise<void>;
-	stop(): Promise<void>;
-	notify(options: { title: string; text: string }): Promise<void>;
-	clearNotification(): Promise<void>;
-	status(): Promise<{ notifications: boolean; unrestrictedBattery?: boolean }>;
-	requestNotifications(): Promise<{ granted: boolean }>;
-	requestUnrestrictedBattery(): Promise<void>;
-}
-
-export const KeepAlive = registerPlugin<KeepAlivePlugin>("KeepAlive");
 const available = native.has("KeepAlive");
 
 let active = true;

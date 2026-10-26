@@ -1,4 +1,4 @@
-import type { When } from "../agent/triggers.ts";
+import type { When } from "../plugins/triggers.ts";
 import type { TriggerSymbol } from "./icons.tsx";
 
 const KINDS: Record<When["kind"], true> = {
@@ -49,8 +49,4 @@ export function triggerSymbol(when: Pick<When, "kind"> & { activity?: string }):
 		case "activity":
 			return when.activity === "vehicle" ? "car" : when.activity === "cycling" ? "bike" : when.activity === "still" ? "still" : "walk";
 	}
-}
-
-export function symbolsOf(whens: readonly When[]): TriggerSymbol[] {
-	return [...new Set(whens.map((when) => triggerSymbol(when)))];
 }

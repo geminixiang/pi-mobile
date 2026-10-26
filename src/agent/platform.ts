@@ -7,7 +7,7 @@ import { loadModels, type LoadedModels } from "./available-models.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { refuseCleartextSecret } from "./cleartext.ts";
-import { inApp, native, type NativePlugin } from "../native.ts";
+import { inApp, type Native, native } from "../native.ts";
 import { headerRecord, NULL_BODY_STATUS } from "../http.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
@@ -21,7 +21,7 @@ export type RotatedCredentials = { cloudflare(json: string): Promise<void>; azur
 
 export interface Platform {
 	inApp: boolean;
-	native: ReadonlySet<NativePlugin>;
+	native: Native;
 	phone: PhoneApp | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
@@ -45,7 +45,7 @@ export const nativeFetch: McpFetch = async (input, init) => {
 		throw new Error("unsupported request body");
 	}
 	if (headers.authorization) refuseCleartextSecret(String(input));
-	if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+	init?.signal?.throwIfAborted();
 	const response = await CapacitorHttp.request({
 		url: String(input),
 		method: init?.method ?? "GET",

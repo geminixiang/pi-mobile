@@ -17,7 +17,6 @@ public class TriggerReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         if (TriggerStore.ACTION_FIRE.equals(action)) fire(context, intent.getStringExtra(TriggerStore.EXTRA_ID), null);
-        else if (TriggerStore.ACTION_TEST_HEADPHONES.equals(action)) headphones(context, intent.getStringExtra(TriggerStore.EXTRA_DEVICE));
         else if (TriggerEvents.ACTION_PLACE.equals(action)) place(context, intent);
         else if (ActivityTrigger.ACTION.equals(action)) ActivityTrigger.receive(context, intent);
         else {

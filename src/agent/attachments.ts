@@ -3,7 +3,7 @@ import { codeNote, isCodeNote } from "./codes.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
-import { Database } from "../database-plugin.ts";
+import { Database } from "../plugins/database.ts";
 
 const KINDS = ["pdf", "docx", "sheet", "text"] as const;
 export type AttachmentKind = (typeof KINDS)[number];
@@ -51,8 +51,10 @@ const INLINE_PAGE_IMAGES = 4;
 
 export const normalizeCjk = (text: string) => text.replace(/[\u2E80-\u2FDF\uF900-\uFAFF]/g, (char) => char.normalize("NFKC"));
 
+export const quoteName = (name: string) => `"${name.replace(/"/g, '""')}"`;
+
 export function estimateTokens(text: string): number {
-	const cjk = text.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu)?.length ?? 0;
+	const cjk = text.length - text.replace(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu, "").length;
 	return Math.ceil(cjk + (text.length - cjk) / 4);
 }
 
@@ -211,7 +213,7 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 			const ocrPages: number[] = [];
 			const imageOnly: ImageContent[] = [];
 			const scans: { page: number; image: ImageContent }[] = [];
-			const rendered = await pdf.renderPages(file, blankPages);
+			const rendered = blankPages.length > 0 ? await pdf.renderPages(file, blankPages) : [];
 			for (const [index, page] of blankPages.entries()) {
 				const image = rendered[index];
 				if (!image) continue;
@@ -255,6 +257,6 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 export function discardAttachment(prepared: PreparedAttachment): void {
 	void deleteAttachments({ id: prepared.card.id });
 	if (prepared.tables.length > 0) {
-		void Database.execute({ statements: prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
+		void Database.execute({ statements: prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS ${quoteName(table)}` })) });
 	}
 }

@@ -4,14 +4,14 @@ import { DAY, defineAppTool, getJson, localDate, oneOf, parseDay, startOfToday, 
 import { parse } from "../parse.ts";
 import { sharedUntilFailure } from "../../promise.ts";
 
-type Market = "twse" | "tpex";
+const MARKET_IDS = ["twse", "tpex"] as const;
+type Market = (typeof MARKET_IDS)[number];
 type Daily = "institutional" | "margin" | "valuation";
 type Cell = string | number | undefined;
 export type Listing = { code: string; name: string; market: Market };
 
 const MAX_REQUESTS = 24;
 const LOOKBACK_DAYS = 10;
-const BOTH: readonly Market[] = ["twse", "tpex"];
 
 const Rows = Type.Array(Type.Array(Type.Union([Type.String(), Type.Number()])));
 const TwseReport = Type.Object({ stat: Type.String(), data: Type.Optional(Rows) });
@@ -96,7 +96,7 @@ const MARKETS = {
 } as const;
 
 const Nullable = Type.Union([Type.Number(), Type.Null()]);
-const Stock = { code: Type.String(), name: Type.String(), market: oneOf(["twse", "tpex"]), date: Type.String() };
+const Stock = { code: Type.String(), name: Type.String(), market: oneOf(MARKET_IDS), date: Type.String() };
 const Price = Type.Object({ ...Stock, open: Nullable, high: Nullable, low: Nullable, close: Nullable, change: Nullable, volume_shares: Type.Number(), value_twd: Type.Number(), trades: Type.Number() });
 const Flow = Type.Object({ ...Stock, foreign_net: Type.Number(), trust_net: Type.Number(), dealer_net: Type.Number(), total_net: Type.Number() });
 const Margin = Type.Object({ ...Stock, margin_balance: Type.Number(), margin_change: Type.Number(), short_balance: Type.Number(), short_change: Type.Number() });
@@ -104,7 +104,7 @@ const Valuation = Type.Object({ ...Stock, pe: Nullable, pb: Nullable, dividend_y
 const Revenue = Type.Object({
 	code: Type.String(),
 	name: Type.String(),
-	market: oneOf(["twse", "tpex"]),
+	market: oneOf(MARKET_IDS),
 	month: Type.String(),
 	revenue_twd: Type.Number(),
 	mom_pct: Nullable,
@@ -114,7 +114,7 @@ const Revenue = Type.Object({
 	note: Type.String(),
 });
 const MarketDay = Type.Object({
-	market: oneOf(["twse", "tpex"]),
+	market: oneOf(MARKET_IDS),
 	date: Type.String(),
 	index: Nullable,
 	change: Nullable,
@@ -264,12 +264,16 @@ export function findListing(listings: readonly Listing[], wanted: string): Listi
 	throw new Error(`no listed or OTC stock is called "${wanted}"; give its code`);
 }
 
+function todays<V>(cache: Map<string, Promise<V>>, scope: string, load: () => Promise<V>): Promise<V> {
+	const key = `${scope} ${localDate(Date.now())}`;
+	for (const cached of cache.keys()) if (cached.startsWith(`${scope} `) && cached !== key) cache.delete(cached);
+	return sharedUntilFailure(cache, key, load);
+}
+
 const directories = new Map<string, Promise<Listing[]>>();
 
 function listings(signal: AbortSignal | undefined): Promise<Listing[]> {
-	const today = localDate(Date.now());
-	for (const day of directories.keys()) if (day !== today) directories.delete(day);
-	return sharedUntilFailure(directories, today, async () => {
+	return todays(directories, "all", async () => {
 		const [twse, tpex] = await Promise.all([
 			getJson("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", "TWSE listings", signal),
 			getJson("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", "TPEx listings", signal),
@@ -342,9 +346,7 @@ async function daily<T>(
 const revenueLists = new Map<string, Promise<Map<string, Omit<Revenue, "name">>>>();
 
 function revenueList(market: Market, signal: AbortSignal | undefined): Promise<Map<string, Omit<Revenue, "name">>> {
-	const key = `${market} ${localDate(Date.now())}`;
-	for (const cached of revenueLists.keys()) if (cached.startsWith(market) && cached !== key) revenueLists.delete(cached);
-	return sharedUntilFailure(revenueLists, key, async () => revenuesFrom(market, await getJson(MARKETS[market].revenue, `${market} monthly revenue`, signal)));
+	return todays(revenueLists, market, async () => revenuesFrom(market, await getJson(MARKETS[market].revenue, `${market} monthly revenue`, signal)));
 }
 
 async function revenues(stocks: readonly Listing[], signal: AbortSignal | undefined): Promise<Revenue[]> {
@@ -358,9 +360,9 @@ async function revenues(stocks: readonly Listing[], signal: AbortSignal | undefi
 
 async function marketDays(days: readonly string[], latest: boolean, signal: AbortSignal | undefined): Promise<MarketDay[]> {
 	const spans = [...new Set(days.map((day) => day.slice(0, 7)))];
-	withinBudget(BOTH.length * (spans.length + (latest ? 1 : days.length)), "ask for a shorter range");
+	withinBudget(MARKET_IDS.length * (spans.length + (latest ? 1 : days.length)), "ask for a shorter range");
 	const indexes = await Promise.all(
-		BOTH.map(async (market) => {
+		MARKET_IDS.map(async (market) => {
 			const found = new Map<string, IndexDay>();
 			for (const month of spans) for (const [date, row] of indexFrom(market, await getJson(MARKETS[market].index.url(month), `${market} index`, signal))) found.set(date, row);
 			return found;
@@ -370,7 +372,7 @@ async function marketDays(days: readonly string[], latest: boolean, signal: Abor
 	const rows: MarketDay[] = [];
 	for (const date of latest ? trading.slice(0, 1) : trading) {
 		const perMarket = await Promise.all(
-			BOTH.map(async (market, at) => {
+			MARKET_IDS.map(async (market, at) => {
 				const index = indexes[at]?.get(date);
 				return index ? [{ ...index, ...totalsFrom(market, await getJson(MARKETS[market].totals.url(date), `${market} totals ${date}`, signal)) }] : [];
 			}),
@@ -387,6 +389,7 @@ const pct = (value: number | null) => (value === null ? "-" : `${value > 0 ? "+"
 
 const twStocks = defineAppTool({
 	name: "tw_stocks",
+	effect: "read",
 	description:
 		"Taiwan stock market after-hours data from TWSE and TPEx (listed 上市 and OTC 上櫃 stocks and ETFs), published after the close: daily prices, institutional investors' (三大法人) net buying, margin trading (融資融券), valuation (P/E, P/B, yield), monthly revenue (月營收), or the whole market (加權指數, 櫃買指數, turnover, 三大法人 totals). Use it instead of searching the web for Taiwan stock data.",
 	parameters: Type.Object({

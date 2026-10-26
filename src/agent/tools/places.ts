@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { Phone } from "../../plugins/phone.ts";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, getJson, localTime, text } from "./common.ts";
 import { Value } from "typebox/value";
@@ -62,6 +63,8 @@ function localNow(): string {
 
 const findPlaces = defineAppTool({
 	name: "find_places",
+	effect: "read",
+	needs: [Phone.getLocation, Phone.geocode],
 	description: [
 		"Find shops, restaurants, and services near a place or the phone, from OpenStreetMap, nearest first: name, branch, category, address, straight-line distance and direction, and when known opening hours (OSM syntax), phone, website, and cuisine.",
 		"By category: an OSM tag as key:value, such as amenity:fuel, amenity:cafe, amenity:restaurant, amenity:pharmacy, amenity:hospital, amenity:atm, amenity:parking, amenity:toilets, amenity:charging_station, shop:convenience, shop:supermarket, tourism:hotel. By name: query, such as 鼎泰豐 or 全聯.",

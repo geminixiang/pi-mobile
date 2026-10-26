@@ -1,6 +1,7 @@
 import { native } from "../native.ts";
 import readXlsxFile from "read-excel-file/universal";
-import { Database, type SqlValue } from "../database-plugin.ts";
+import { Database, type SqlValue } from "../plugins/database.ts";
+import { quoteName } from "./attachments.ts";
 
 type Cell = string | number | boolean | null;
 interface Sheet {
@@ -85,13 +86,12 @@ function typeOf(rows: Cell[][], index: number): string {
 	return "TEXT";
 }
 
-const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;
 const BATCH = 500;
 
 async function importSheet(table: string, columns: string[], rows: Cell[][]): Promise<void> {
-	const definition = columns.map((column, index) => `${quote(column)} ${typeOf(rows, index)}`).join(", ");
-	await Database.execute({ statements: [{ sql: `CREATE TABLE ${quote(table)} (${definition})` }] });
-	const insert = `INSERT INTO ${quote(table)} VALUES (${columns.map(() => "?").join(", ")})`;
+	const definition = columns.map((column, index) => `${quoteName(column)} ${typeOf(rows, index)}`).join(", ");
+	await Database.execute({ statements: [{ sql: `CREATE TABLE ${quoteName(table)} (${definition})` }] });
+	const insert = `INSERT INTO ${quoteName(table)} VALUES (${columns.map(() => "?").join(", ")})`;
 	for (let start = 0; start < rows.length; start += BATCH) {
 		await Database.execute({
 			statements: rows.slice(start, start + BATCH).map((row) => ({

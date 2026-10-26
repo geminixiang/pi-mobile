@@ -1,6 +1,6 @@
 import { native } from "../native.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Voice } from "../voice-plugin.ts";
+import { Voice } from "../plugins/voice.ts";
 import { messageOf } from "../promise.ts";
 
 type DictationState = "idle" | "starting" | "listening";

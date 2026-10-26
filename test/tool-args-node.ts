@@ -5,6 +5,7 @@ import { defineAppTool, parseLocalBound, parseLocalTime, parseNextTime } from ".
 
 const tool = defineAppTool({
 	name: "probe",
+	effect: "read",
 	description: "A tool to check argument cleaning with.",
 	parameters: Type.Object({
 		need: Type.String(),

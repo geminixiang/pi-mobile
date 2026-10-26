@@ -11,7 +11,11 @@
 			"properties": {},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Phone.getStatus"
+		]
 	},
 	{
 		"extension": "device",
@@ -25,7 +29,11 @@
 			"properties": {},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Phone.getLocation"
+		]
 	},
 	{
 		"extension": "device",
@@ -39,7 +47,11 @@
 			"properties": {},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Phone.readSensors"
+		]
 	},
 	{
 		"extension": "device",
@@ -83,7 +95,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Phone.getLocation",
+			"Phone.geocode"
+		]
 	},
 	{
 		"extension": "weather",
@@ -228,7 +245,12 @@
 				"days"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Phone.getLocation",
+			"Phone.geocode"
+		]
 	},
 	{
 		"extension": "places",
@@ -333,7 +355,12 @@
 				"places"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Phone.getLocation",
+			"Phone.geocode"
+		]
 	},
 	{
 		"extension": "tw_stocks",
@@ -869,7 +896,9 @@
 				"rows"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": []
 	},
 	{
 		"extension": "database",
@@ -964,7 +993,12 @@
 				"results"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "direct",
+		"needs": [
+			"Database.execute",
+			"Database.schema"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1026,7 +1060,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Apps.setAlarm"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1054,7 +1092,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Apps.setTimer"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1087,7 +1129,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Apps.composeEmail"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1113,7 +1159,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Apps.composeSms"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1160,7 +1210,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Apps.open"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1182,7 +1236,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Apps.open"
+		]
 	},
 	{
 		"extension": "phone_apps",
@@ -1209,7 +1267,11 @@
 			},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Apps.share"
+		]
 	},
 	{
 		"extension": "speech",
@@ -1235,7 +1297,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Voice.speak",
+			"Voice.stopSpeaking"
+		]
 	},
 	{
 		"extension": "notifications",
@@ -1312,7 +1379,12 @@
 				"items"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Notifications.status",
+			"Notifications.list"
+		]
 	},
 	{
 		"extension": "notifications",
@@ -1344,7 +1416,13 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Notifications.status",
+			"Notifications.active",
+			"Notifications.reply"
+		]
 	},
 	{
 		"extension": "notifications",
@@ -1366,7 +1444,13 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Notifications.status",
+			"Notifications.active",
+			"Notifications.dismiss"
+		]
 	},
 	{
 		"extension": "phone_screen",
@@ -1386,7 +1470,12 @@
 			},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"PhoneScreen.status",
+			"PhoneScreen.read"
+		]
 	},
 	{
 		"extension": "phone_screen",
@@ -1515,7 +1604,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"PhoneScreen.status",
+			"PhoneScreen.act"
+		]
 	},
 	{
 		"extension": "phone_control",
@@ -1562,7 +1656,13 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Notifications.status",
+			"Notifications.media",
+			"Notifications.mediaControl"
+		]
 	},
 	{
 		"extension": "phone_control",
@@ -1609,7 +1709,13 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Notifications.status",
+			"Notifications.dnd",
+			"Notifications.setDnd"
+		]
 	},
 	{
 		"extension": "phone_control",
@@ -1683,7 +1789,13 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"PhoneState.sound",
+			"PhoneState.setRinger",
+			"PhoneState.setVolume"
+		]
 	},
 	{
 		"extension": "phone_control",
@@ -1742,7 +1854,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"PhoneState.display",
+			"PhoneState.setDisplay"
+		]
 	},
 	{
 		"extension": "phone_control",
@@ -1777,7 +1894,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"PhoneState.flashlight",
+			"PhoneState.setFlashlight"
+		]
 	},
 	{
 		"extension": "phone_control",
@@ -1845,7 +1967,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"PhoneState.connections",
+			"PhoneState.setConnection"
+		]
 	},
 	{
 		"extension": "contacts",
@@ -1925,7 +2052,11 @@
 				"items"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Contacts.search"
+		]
 	},
 	{
 		"extension": "photos",
@@ -2015,7 +2146,11 @@
 				"items"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Photos.search"
+		]
 	},
 	{
 		"extension": "photos",
@@ -2043,7 +2178,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Photos.view"
+		]
 	},
 	{
 		"extension": "calls_sms",
@@ -2134,7 +2273,11 @@
 				"items"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Records.calls"
+		]
 	},
 	{
 		"extension": "calls_sms",
@@ -2202,7 +2345,11 @@
 				"items"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Records.sms"
+		]
 	},
 	{
 		"extension": "screen_time",
@@ -2274,7 +2421,12 @@
 				"apps"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Usage.status",
+			"Usage.apps"
+		]
 	},
 	{
 		"extension": "health",
@@ -2393,7 +2545,11 @@
 				}
 			},
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Health.read"
+		]
 	},
 	{
 		"extension": "skills",
@@ -2428,7 +2584,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
 	},
 	{
 		"extension": "attachments",
@@ -2473,7 +2631,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
 	},
 	{
 		"extension": "attachments",
@@ -2494,7 +2654,11 @@
 			},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Scanner.scan"
+		]
 	},
 	{
 		"extension": "calendar",
@@ -2575,7 +2739,11 @@
 				"events"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "read",
+		"needs": [
+			"Calendar.listEvents"
+		]
 	},
 	{
 		"extension": "calendar",
@@ -2589,7 +2757,11 @@
 			"properties": {},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Calendar.listAccounts"
+		]
 	},
 	{
 		"extension": "calendar",
@@ -2637,7 +2809,12 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Calendar.listAccounts",
+			"Calendar.insertEvent"
+		]
 	},
 	{
 		"extension": "codemode",
@@ -2659,7 +2836,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": null,
+		"needs": []
 	},
 	{
 		"extension": "github",
@@ -2724,7 +2903,9 @@
 				"body"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "github",
@@ -2760,7 +2941,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
 	},
 	{
 		"extension": "gcp",
@@ -2822,7 +3005,9 @@
 				"body"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "cloudflare",
@@ -2884,7 +3069,9 @@
 				"body"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "azure",
@@ -2946,7 +3133,9 @@
 				"body"
 			],
 			"type": "object"
-		}
+		},
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "web",
@@ -2968,7 +3157,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
 	},
 	{
 		"extension": "web",
@@ -2998,7 +3189,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "triggers",
@@ -3231,7 +3424,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Triggers.sync"
+		]
 	},
 	{
 		"extension": "triggers",
@@ -3265,7 +3462,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Triggers.sync"
+		]
 	},
 	{
 		"extension": "triggers",
@@ -3279,7 +3480,11 @@
 			"properties": {},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Triggers.sync"
+		]
 	},
 	{
 		"extension": "triggers",
@@ -3301,7 +3506,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Triggers.sync"
+		]
 	},
 	{
 		"extension": "triggers",
@@ -3328,7 +3537,11 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Triggers.notify"
+		]
 	},
 	{
 		"extension": "memory",
@@ -3368,7 +3581,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "computer",
@@ -3383,7 +3598,9 @@
 			"properties": {},
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
 	},
 	{
 		"extension": "computer",
@@ -3492,7 +3709,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": []
 	},
 	{
 		"extension": "coding-tools",
@@ -3523,7 +3742,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": null,
+		"needs": []
 	},
 	{
 		"extension": "coding-tools",
@@ -3551,7 +3772,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": null,
+		"needs": []
 	},
 	{
 		"extension": "coding-tools",
@@ -3596,7 +3819,9 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": null,
+		"needs": []
 	},
 	{
 		"extension": "coding-tools",
@@ -3647,7 +3872,9 @@
 				"exitCode"
 			],
 			"type": "object"
-		}
+		},
+		"effect": null,
+		"needs": []
 	},
 	{
 		"extension": "tool-search",
@@ -3673,6 +3900,8 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null
+		"structuredOutput": null,
+		"effect": null,
+		"needs": []
 	}
 ]

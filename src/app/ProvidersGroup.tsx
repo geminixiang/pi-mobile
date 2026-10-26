@@ -6,7 +6,7 @@ import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, provider
 import type { Settings } from "../settings.ts";
 import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { native } from "../native.ts";
-import { System } from "../system-plugin.ts";
+import { System } from "../plugins/system.ts";
 import { CheckButton } from "./CheckButton.tsx";
 import { ChevronIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";

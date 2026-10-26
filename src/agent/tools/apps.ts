@@ -1,22 +1,11 @@
 import { App } from "@capacitor/app";
-import { registerPlugin } from "@capacitor/core";
+import { Apps } from "../../plugins/apps.ts";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, oneOf, parseClock, text } from "./common.ts";
 import { toBase64 } from "../../encoding.ts";
 import { mimeTypeOf } from "../../mime.ts";
 
-interface AppsPlugin {
-	setAlarm(options: { hour: number; minute: number; label?: string; days?: number[] }): Promise<void>;
-	setTimer(options: { seconds: number; label?: string }): Promise<void>;
-	composeEmail(options: { to: string[]; subject?: string; body: string }): Promise<void>;
-	composeSms(options: { to: string; body: string }): Promise<void>;
-	open(options: { uri: string }): Promise<void>;
-	share(options: { text?: string; title?: string; fileBase64?: string; fileName?: string; mimeType?: string }): Promise<void>;
-	openFile(options: { fileBase64: string; fileName: string; mimeType: string }): Promise<void>;
-}
-
-export const Apps = registerPlugin<AppsPlugin>("Apps");
 
 async function launch(action: () => Promise<void>): Promise<void> {
 	if (!(await App.getState()).isActive)
@@ -28,6 +17,8 @@ const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 const setAlarm = defineAppTool({
 	name: "set_alarm",
+	effect: "direct",
+	needs: [Apps.setAlarm],
 	description: "Set an alarm in the phone's clock app, without opening it. Time is the phone's local time.",
 	parameters: Type.Object({
 		time: Type.String({ description: "24-hour local time, HH:MM" }),
@@ -44,6 +35,8 @@ const setAlarm = defineAppTool({
 
 const setTimer = defineAppTool({
 	name: "set_timer",
+	effect: "direct",
+	needs: [Apps.setTimer],
 	description: "Start a countdown timer in the phone's clock app, without opening it.",
 	parameters: Type.Object({
 		seconds: Type.Integer({ minimum: 1, maximum: 86_400, description: "How long, in seconds" }),
@@ -57,6 +50,8 @@ const setTimer = defineAppTool({
 
 const composeEmail = defineAppTool({
 	name: "compose_email",
+	effect: "screen",
+	needs: [Apps.composeEmail],
 	description: "Open the phone's email app on a draft. The user reviews it and sends it; nothing is sent by this tool.",
 	parameters: Type.Object({
 		to: Type.Optional(Type.Array(Type.String(), { description: "Email addresses" })),
@@ -71,6 +66,8 @@ const composeEmail = defineAppTool({
 
 const composeSms = defineAppTool({
 	name: "compose_sms",
+	effect: "screen",
+	needs: [Apps.composeSms],
 	description: "Open the phone's messaging app on a text message draft. The user sends it; nothing is sent by this tool.",
 	parameters: Type.Object({
 		to: Type.Optional(Type.String({ description: "Phone number" })),
@@ -86,6 +83,8 @@ const TRAVEL_MODES = ["driving", "walking", "transit", "bicycling"] as const;
 
 const openMaps = defineAppTool({
 	name: "open_maps",
+	effect: "screen",
+	needs: [Apps.open],
 	description: "Open directions to a place in Google Maps (or the phone's maps app). The user starts navigation there.",
 	parameters: Type.Object({
 		destination: Type.String({ description: "Address, place name, or lat,lng" }),
@@ -107,6 +106,8 @@ const BLOCKED_SCHEMES = new Set(["intent", "file", "content", "javascript", "dat
 
 const openLink = defineAppTool({
 	name: "open_link",
+	effect: "screen",
+	needs: [Apps.open],
 	description:
 		"Open a URL or an app deep link (for example https://…, geo:, tel: which opens the dialer without calling, market://, spotify:…) in the app that handles it.",
 	parameters: Type.Object({ url: Type.String({ description: "With its scheme, such as https:// or geo:" }) }),
@@ -123,6 +124,8 @@ const MAX_SHARE_BYTES = 15 * 1024 * 1024;
 
 const share = defineAppTool({
 	name: "share",
+	effect: "screen",
+	needs: [Apps.share],
 	description:
 		"Open the phone's share sheet with text and/or one file from your folder (on the phone, or in the sandbox when there is one), so the user can send it to another app (LINE, Drive, email…). The user picks the target.",
 	parameters: Type.Object({

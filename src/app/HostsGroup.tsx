@@ -1,17 +1,17 @@
 import { Row } from "./Row.tsx";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
-import { Apps } from "../agent/tools/apps.ts";
+import { Apps } from "../plugins/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
 import { ShareIcon } from "./icons.tsx";
 
 const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
-function Copyable({ text, children }: { text: string; children?: ReactNode }) {
+function Copyable({ text }: { text: string }) {
 	return (
 		<div className="copyable">
-			<pre className="console">{children ?? text}</pre>
+			<pre className="console">{text}</pre>
 			<div className="row-buttons">
 				<button
 					type="button"
@@ -29,7 +29,7 @@ function Copyable({ text, children }: { text: string; children?: ReactNode }) {
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
-export function usePrepare(host: PairedHost | undefined): [Preparing, (target?: PairedHost) => Promise<boolean>] {
+export function usePrepare(host: PairedHost | undefined): [Preparing, (target: PairedHost) => Promise<boolean>] {
 	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
 	const follow = async (done: Promise<void>) => {
 		try {
@@ -41,8 +41,7 @@ export function usePrepare(host: PairedHost | undefined): [Preparing, (target?: 
 			return false;
 		}
 	};
-	const prepare = (target: PairedHost | undefined = host) => {
-		if (!target) return Promise.resolve(false);
+	const prepare = (target: PairedHost) => {
 		setPreparing({ state: "running", detail: "" });
 		return follow(prepareContainers(target, (detail) => setPreparing({ state: "running", detail })));
 	};

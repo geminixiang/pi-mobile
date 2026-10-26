@@ -23,8 +23,6 @@ final class TriggerStore {
 
     static final String ACTION_FIRE = "dev.geminixiang.pimobile.TRIGGER_FIRE";
     static final String EXTRA_ID = "id";
-    static final String ACTION_TEST_HEADPHONES = "dev.geminixiang.pimobile.TEST_HEADPHONES";
-    static final String EXTRA_DEVICE = "device";
     private static final String TAG = "PiTriggers";
     private static final String PREFS = "pi-triggers";
     private static final String KEY_SCHEDULES = "schedules";

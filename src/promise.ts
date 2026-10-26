@@ -38,6 +38,14 @@ export function untilFailure<T>(start: () => Promise<T>): () => Promise<T> {
 	};
 }
 
+export function whilePending<T>(start: () => Promise<T>): () => Promise<T> {
+	let current: Promise<T> | undefined;
+	return () =>
+		(current ??= start().finally(() => {
+			current = undefined;
+		}));
+}
+
 export function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }

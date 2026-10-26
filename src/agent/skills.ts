@@ -1,5 +1,5 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool, text } from "./tools/common.ts";
+import { defineAppTool, oneOf, text } from "./tools/common.ts";
 import { Type } from "typebox";
 import htmlPage from "./skills/html-page.md?raw";
 import spokenReport from "./skills/spoken-report.md?raw";
@@ -31,8 +31,9 @@ const SKILLS: readonly Skill[] = [
 
 const readSkill = defineAppTool({
 	name: "read_skill",
+	effect: "read",
 	description: "Read a skill: instructions for a kind of task, listed in the system prompt. Read it before doing that task.",
-	parameters: Type.Object({ name: Type.Union(SKILLS.map((skill) => Type.Literal(skill.name)), { description: "A skill listed in the system prompt" }) }),
+	parameters: Type.Object({ name: oneOf(SKILLS.map((skill) => skill.name), { description: "A skill listed in the system prompt" }) }),
 	execute: async (args) => {
 		const skill = SKILLS.find((candidate) => candidate.name === args.name);
 		if (!skill) throw new Error(`no skill ${args.name}`);

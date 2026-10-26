@@ -73,13 +73,12 @@ export class BotToolsets {
 		const conversation = await this.#harness.conversation(id, context);
 		if (!conversation) return;
 		const state = await this.#harness.snapshot(AgentDoc, id, context);
-		const before = { selection: selectionOf(state), modelTools: state?.modelTools };
-		const after = change(before.selection, before.modelTools);
-		const extensionsChanged = JSON.stringify(after.selection) !== JSON.stringify(before.selection);
-		const toolsChanged = JSON.stringify(after.modelTools) !== JSON.stringify(before.modelTools);
+		const selection = selectionOf(state);
+		const { selection: next, modelTools } = change(selection, state?.modelTools);
+		const extensionsChanged = JSON.stringify(next) !== JSON.stringify(selection);
+		const toolsChanged = JSON.stringify(modelTools) !== JSON.stringify(state?.modelTools);
 		if (!extensionsChanged && !toolsChanged) return;
-		const { add, remove } = after.selection;
-		const modelTools = after.modelTools;
+		const { add, remove } = next;
 		await conversation.configure(
 			{
 				...(extensionsChanged ? { extensions: add.length + remove.length > 0 ? { add: named(add), remove: named(remove) } : null } : {}),

@@ -11,19 +11,28 @@ const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python",
 const COMMANDS = getCommandNames().filter((name): name is CommandName => !UNAVAILABLE.has(name));
 
 const post = (message: FromWorker) => postMessage(message);
-const pending = new Map<number, { resolve: (value: FsValue) => void; reject: (error: Error) => void }>();
+type Waiter<T> = { resolve: (value: T) => void; reject: (error: Error) => void };
+const pending = new Map<number, Waiter<FsValue>>();
 let nextCall = 0;
 const running = new Map<number, AbortController>();
-const httpPending = new Map<number, { resolve: (response: HttpResponse) => void; reject: (error: Error) => void }>();
+const httpPending = new Map<number, Waiter<HttpResponse>>();
 const NETWORK_COMMANDS = ["git", "gh"];
 
-function askHttp(exec: number, request: HttpRequest): Promise<HttpResponse> {
+function sendAndWait<T>(waiting: Map<number, Waiter<T>>, message: (call: number) => FromWorker): Promise<T> {
 	return new Promise((resolve, reject) => {
 		const call = ++nextCall;
-		httpPending.set(call, { resolve, reject });
-		post({ type: "http", call, exec, request });
+		waiting.set(call, { resolve, reject });
+		post(message(call));
 	});
 }
+
+function taken<T>(waiting: Map<number, Waiter<T>>, call: number): Waiter<T> | undefined {
+	const waiter = waiting.get(call);
+	waiting.delete(call);
+	return waiter;
+}
+
+const askHttp = (exec: number, request: HttpRequest) => sendAndWait(httpPending, (call) => ({ type: "http", call, exec, request }));
 
 function networkCommands(exec: number) {
 	const fetch = folderFetch((request) => askHttp(exec, request));
@@ -32,13 +41,7 @@ function networkCommands(exec: number) {
 
 const NODE_CODES: Record<string, string> = { not_found: "ENOENT", is_directory: "EISDIR", not_directory: "ENOTDIR", exists: "EEXIST", invalid: "EINVAL" };
 
-function ask(bot: string, request: FsOp): Promise<FsValue> {
-	return new Promise((resolve, reject) => {
-		const call = ++nextCall;
-		pending.set(call, { resolve, reject });
-		post({ type: "fs", call, bot, request });
-	});
-}
+const ask = (bot: string, request: FsOp) => sendAndWait(pending, (call) => ({ type: "fs", call, bot, request }));
 
 const DEVICE_READ_BYTES = 4 * 1024 * 1024;
 const RANDOM_CHUNK = 64 * 1024;
@@ -57,9 +60,15 @@ function isStat(value: FsValue): value is { kind: "file" | "directory"; size: nu
 	return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Uint8Array);
 }
 
-function textOf(content: string | Uint8Array, encoding: unknown): string | Uint8Array {
-	if (typeof content !== "string" || encoding === undefined || encoding === "utf8" || encoding === "utf-8") return content;
-	const name = typeof encoding === "string" ? encoding : typeof encoding === "object" && encoding !== null ? Reflect.get(encoding, "encoding") : undefined;
+function encodingOf(options: unknown): unknown {
+	return typeof options === "object" && options !== null ? Reflect.get(options, "encoding") : options;
+}
+
+const isUtf8 = (encoding: unknown) => encoding === undefined || encoding === "utf8" || encoding === "utf-8";
+
+function textOf(content: string | Uint8Array, options: unknown): string | Uint8Array {
+	const name = encodingOf(options);
+	if (typeof content !== "string" || isUtf8(name)) return content;
 	if (name === "base64") return fromBase64(content);
 	if (name === "binary" || name === "latin1") return Uint8Array.from(content, (char) => char.charCodeAt(0) & 0xff);
 	return content;
@@ -99,13 +108,13 @@ function folderFs(bot: string, root = ""): IFileSystem {
 	};
 	return {
 		async readFile(path, options) {
-			if (options === undefined || options === "utf8" || options === "utf-8" || (typeof options === "object" && (options.encoding === undefined || options.encoding === "utf8" || options.encoding === "utf-8"))) {
+			const name = encodingOf(options);
+			if (isUtf8(name)) {
 				const value = await ask(bot, { op: "readText", path: rel(path) });
 				if (typeof value !== "string") throw new Error(`EIO: bad read, '${path}'`);
 				return value;
 			}
 			const bytes = await readBytes(path);
-			const name = typeof options === "string" ? options : options?.encoding;
 			if (name === "base64") return toBase64(bytes);
 			if (name === "hex") return toHex(bytes);
 			return Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
@@ -226,8 +235,7 @@ function botFs(bot: string): IFileSystem {
 addEventListener("message", (event: MessageEvent<ToWorker>) => {
 	const message = event.data;
 	if (message.type === "fs-reply") {
-		const waiter = pending.get(message.call);
-		pending.delete(message.call);
+		const waiter = taken(pending, message.call);
 		if (!waiter) return;
 		if (message.ok) return waiter.resolve(message.value);
 		const code = NODE_CODES[message.code] ?? "EIO";
@@ -235,8 +243,7 @@ addEventListener("message", (event: MessageEvent<ToWorker>) => {
 		return;
 	}
 	if (message.type === "http-reply") {
-		const waiter = httpPending.get(message.call);
-		httpPending.delete(message.call);
+		const waiter = taken(httpPending, message.call);
 		if (!waiter) return;
 		if (message.ok) waiter.resolve(message.response);
 		else waiter.reject(new TypeError(message.message));

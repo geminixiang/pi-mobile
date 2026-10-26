@@ -6,7 +6,7 @@ import { serially } from "../promise.ts";
 
 export function memoryCredentials(
 	keys: Record<string, string>,
-	signIns: Record<string, string> = {},
+	signIns: Record<string, string>,
 	onSignIn: (providerId: string, json: string) => void = () => undefined,
 ): CredentialStore {
 	const store = new Map<string, Credential>(Object.entries(keys).filter(([, key]) => key).map(([id, key]) => [id, { type: "api_key", key }]));

@@ -14,7 +14,7 @@ export async function checkModels(baseUrl: string, apiKey: string): Promise<stri
 	return `${ids.length} 個模型`;
 }
 
-export async function checkProvider(id: string, apiKey: string, signIn = ""): Promise<string> {
+export async function checkProvider(id: string, apiKey: string, signIn: string): Promise<string> {
 	const provider = await builtinInfo(id)?.load();
 	if (!provider) throw new Error(`unknown provider ${id}`);
 	const models = createModels({ credentials: memoryCredentials({ [id]: apiKey }, signIn ? { [id]: signIn } : {}) });

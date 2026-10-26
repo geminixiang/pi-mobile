@@ -37,6 +37,8 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 	};
 	const readScreen = defineAppTool({
 		name: "read_screen",
+		effect: "read",
+		reach: "loaded",
 		description:
 			"See the screen of the computer you work on (its desktop, not a container): a screenshot of the main display, and as text its size, the front app, its focused window's title, and the pointer. Coordinates in use_screen are this screenshot's pixels. For what a command cannot reach.",
 		parameters: Type.Object({}),
@@ -45,6 +47,8 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 	});
 	const useScreen = defineAppTool({
 		name: "use_screen",
+		effect: "direct",
+		reach: "loaded",
 		description:
 			"Use the computer's mouse and keyboard, then see the result: runs the steps in order and returns the screenshot after them, as read_screen does. " +
 			"Put the steps you can already tell in one call (open an app with cmd+space, type its name, return; click a field, type, return); prefer keys to clicks. " +

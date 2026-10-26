@@ -3,7 +3,6 @@ import { inApp } from "../native.ts";
 import { useEffect, useRef } from "react";
 
 const stack: (() => void)[] = [];
-Object.assign(globalThis, { piLayers: stack });
 
 if (inApp) {
 	void App.addListener("backButton", () => {

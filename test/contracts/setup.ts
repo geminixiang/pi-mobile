@@ -1,5 +1,4 @@
 import { createModels, fauxProvider } from "@earendil-works/pi-ai";
-import { NATIVE_PLUGINS } from "../../src/native.ts";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
@@ -19,16 +18,6 @@ for (const level of ["info", "warn", "error"] as const) {
 	};
 }
 
-export function deferred<T = void>() {
-	let resolve: (value: T) => void = () => undefined;
-	let reject: (error: Error) => void = () => undefined;
-	const promise = new Promise<T>((done, fail) => {
-		resolve = done;
-		reject = fail;
-	});
-	return { promise, resolve, reject };
-}
-
 type Gate = { promise: Promise<void> } | undefined;
 
 class FakeMcpClient implements McpSession {
@@ -36,7 +25,7 @@ class FakeMcpClient implements McpSession {
 	readonly serverInfo = undefined;
 	readonly instructions = undefined;
 	readonly #closeListeners: (() => void)[] = [];
-	readonly #closing = deferred();
+	readonly #closing = Promise.withResolvers<void>();
 	constructor() {
 		mcp.clients.push(this);
 	}
@@ -92,7 +81,7 @@ const plain = new Map<string, string>();
 export const platform: Platform = {
 	inApp: true,
 	// why: the database section reads the real plugin, which Node does not have
-	native: new Set(NATIVE_PLUGINS.filter((plugin) => plugin !== "Database")),
+	native: { has: (plugin) => plugin !== "Database", implements: ({ plugin }) => plugin !== "Database" },
 	plain: {
 		get: (key) => plain.get(key) ?? null,
 		set: (key, value) => void plain.set(key, value),

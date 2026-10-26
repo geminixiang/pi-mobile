@@ -33,17 +33,6 @@ public class CalendarPlugin extends Plugin {
         return false;
     }
 
-    @PluginMethod
-    public void listCalendars(PluginCall call) {
-        if (ensurePermission(call, "listResult")) list(call);
-    }
-
-    @PermissionCallback
-    private void listResult(PluginCall call) {
-        if (getPermissionState("calendar") == PermissionState.GRANTED) list(call);
-        else call.reject("calendar permission denied", "permission");
-    }
-
     private static final class CalendarRow {
         long id;
         String name;
@@ -82,23 +71,6 @@ public class CalendarPlugin extends Plugin {
             }
         }
         return rows;
-    }
-
-    private void list(PluginCall call) {
-        JSArray calendars = new JSArray();
-        for (CalendarRow row : visibleCalendars()) {
-            if (!row.writable) continue;
-            JSObject calendar = new JSObject();
-            calendar.put("id", row.id);
-            calendar.put("name", row.name);
-            calendar.put("account", row.account);
-            calendar.put("accountType", row.accountType);
-            calendar.put("primary", row.primary);
-            calendars.put(calendar);
-        }
-        JSObject result = new JSObject();
-        result.put("calendars", calendars);
-        call.resolve(result);
     }
 
     @PluginMethod

@@ -1,4 +1,6 @@
 import { type Api, createProvider, type Model, type ModelThinkingLevel, type Provider, type ThinkingLevelMap } from "@earendil-works/pi-ai";
+import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
+import { DEFAULT_COMPACTION_POLICY } from "@earendil-works/pi-durable";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
@@ -9,10 +11,9 @@ import { ios } from "../native.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
-const COMPACTION_RESERVE = 16_384;
 
 function windowFor(own: number, compactAt: number): number {
-	return compactAt > 0 ? Math.min(own, compactAt + COMPACTION_RESERVE) : own;
+	return compactAt > 0 ? Math.min(own, compactAt + DEFAULT_COMPACTION_POLICY.reserveTokens) : own;
 }
 
 export interface ModelInfo {
@@ -47,10 +48,9 @@ export function withCompaction(provider: Provider, compactAt: number): Provider 
 	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().map(capped) });
 }
 
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const satisfies readonly ModelThinkingLevel[];
 
 export function isThinkingLevel(value: string): value is ModelThinkingLevel {
-	return THINKING_LEVELS.some((level) => level === value);
+	return MODEL_THINKING_LEVELS.some((level) => level === value);
 }
 
 const LEVELS: ThinkingLevelMap = {
@@ -111,10 +111,8 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 					throw new Error(`連不到 ${new URL(url).host}：Tailscale 要連著${tailscaleHint(ios)}`, { cause: error });
 				})
 			: request;
-	let response = await reach(fetch(url, { headers, signal }));
-	if (response.status === 401 || response.status === 403) {
-		response = await fetch(url, { headers: anthropicHeaders(apiKey), signal });
-	}
+	const first = await reach(fetch(url, { headers, signal }));
+	const response = first.status === 401 || first.status === 403 ? await fetch(url, { headers: anthropicHeaders(apiKey), signal }) : first;
 	if (!response.ok) throw new Error(`GET /v1/models: HTTP ${response.status}`);
 	const body = parse(ModelList, await response.json(), "GET /v1/models");
 	return [...new Set((body.data ?? []).map((model) => model.id))].sort();

@@ -1,27 +1,13 @@
-import { registerPlugin } from "@capacitor/core";
+import { Health, METRICS } from "../../plugins/health.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, duration, localTime, oneOf, text } from "./common.ts";
 
-const METRICS = ["steps", "heart_rate", "sleep", "exercise", "weight"] as const;
-type Metric = (typeof METRICS)[number];
-type HealthRecord = {
-	source: string;
-	start?: number;
-	end?: number;
-	time?: number;
-	stageMinutes?: Record<string, number>;
-	type?: number;
-	title?: string;
-	kg?: number;
-};
-
-const Health = registerPlugin<{
-	read(options: { metric: Metric; days: number }): Promise<{ days?: { day: string; value: number }[]; records?: HealthRecord[] }>;
-}>("Health");
 
 const health = defineAppTool({
 	name: "health",
+	effect: "read",
+	needs: [Health.read],
 	description:
 		"The user's health data from Health Connect (Samsung Health and other apps sync there): steps or average heart rate per day, sleep sessions with stages, exercise sessions, weight. Use it for 「我這週睡得怎樣」「今天走幾步」.",
 	parameters: Type.Object({

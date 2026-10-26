@@ -1,4 +1,5 @@
-import { CapacitorHttp, registerPlugin } from "@capacitor/core";
+import { CapacitorHttp } from "@capacitor/core";
+import { Page } from "../../plugins/page.ts";
 import { native } from "../../native.ts";
 import type { Context } from "@earendil-works/chord";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
@@ -48,7 +49,6 @@ const SearchResults = Type.Array(Type.Object({ url: Type.Optional(Type.String())
 
 const RENDER_BELOW_CHARS = 300;
 
-const Page = registerPlugin<{ render(options: { url: string }): Promise<{ html: string; title: string; url: string; ms: number; settled: boolean }> }>("Page");
 
 const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+/g, "").length;
 
@@ -171,6 +171,7 @@ export function createWebExtension(config: WebConfig) {
 
 	const search = defineAppTool({
 		name: "web_search",
+		effect: "read",
 		description:
 			"Search the web for current information (news, docs, releases, prices, facts after your training data). Returns a short answer with source URLs; follow up with web_fetch to read a page. A search takes 20-60 s: one search per bank, product, or source, asked for together.",
 		parameters: Type.Object({ query: Type.String({ description: "What to find, as a question or keywords" }) }),
@@ -185,6 +186,7 @@ export function createWebExtension(config: WebConfig) {
 
 	const fetchPage = defineAppTool({
 		name: "web_fetch",
+		effect: "direct",
 		description:
 			"Fetch a web page (http or https) and return its readable text with links, the raw body for JSON and plain text, or a PDF's text by page (read more with read_attachment). With save_to, download the file (PDF, image, spreadsheet…) into your folder instead.",
 		parameters: Type.Object({
@@ -214,20 +216,21 @@ export function createWebExtension(config: WebConfig) {
 			if (response.status < 400 && type.includes("pdf")) return { output: await readPdf(response.url || args.url, String(api.conversationId)) };
 			const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2);
 			const html = type.includes("html");
-			let text = html ? htmlToText(body) : body;
-			let header = `HTTP ${response.status} ${response.url}`;
-			if (html && response.status < 400 && native.has("Page") && (args.render || visibleLength(text) < RENDER_BELOW_CHARS)) {
-				const page = await Page.render({ url: response.url || args.url }).then(
-					(value) => ({ ok: true as const, value }),
-					(error: unknown) => ({ ok: false as const, message: messageOf(error) }),
-				);
-				if (!page.ok) {
-					header += `\n[rendering failed: ${page.message}; this is the page without its scripts]`;
-				} else {
-					text = htmlToText(page.value.html);
-					header = `Rendered ${page.value.url} (${(page.value.ms / 1000).toFixed(1)} s${page.value.settled ? "" : ", still changing at the deadline"})`;
-				}
-			}
+			const fetched = html ? htmlToText(body) : body;
+			const fetchedHeader = `HTTP ${response.status} ${response.url}`;
+			const render = html && response.status < 400 && native.implements(Page.render) && (args.render || visibleLength(fetched) < RENDER_BELOW_CHARS);
+			const page = render
+				? await Page.render({ url: response.url || args.url }).then(
+						(value) => ({ ok: true as const, value }),
+						(error: unknown) => ({ ok: false as const, message: messageOf(error) }),
+					)
+				: undefined;
+			const text = page?.ok ? htmlToText(page.value.html) : fetched;
+			const header = !page
+				? fetchedHeader
+				: page.ok
+					? `Rendered ${page.value.url} (${(page.value.ms / 1000).toFixed(1)} s${page.value.settled ? "" : ", still changing at the deadline"})`
+					: `${fetchedHeader}\n[rendering failed: ${page.message}; this is the page without its scripts]`;
 			const cut = truncated(text);
 			if (response.status >= 400) throw new Error(`${header}\n${cut.slice(0, 2000)}`);
 			return textResult(`${header}\n\n${cut}`);

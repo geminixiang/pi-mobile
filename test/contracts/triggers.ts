@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { loadModels } from "../../src/agent/available-models.ts";
-import { LIMITS, type QueuedEvent, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns, whenOf } from "../../src/agent/triggers.ts";
+import { LIMITS, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns, whenOf } from "../../src/agent/triggers.ts";
+import type { QueuedEvent } from "../../src/plugins/triggers.ts";
 import { deliverEvents } from "../../src/app/triggers.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";

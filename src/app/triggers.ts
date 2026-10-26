@@ -1,11 +1,13 @@
 import { App } from "@capacitor/app";
 import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
-import { nativeTriggers, type QueuedEvent, takeEvents, Triggers } from "../agent/triggers.ts";
+import { nativeTriggers, takeEvents } from "../agent/triggers.ts";
+import { type QueuedEvent, Triggers } from "../plugins/triggers.ts";
 import { log } from "../log.ts";
 import { releaseIfIdle } from "./keepAlive.ts";
-import { messageOf, orLogged } from "../promise.ts";
+import { messageOf, orLogged, serially } from "../promise.ts";
+import { DAY } from "../agent/tools/common.ts";
 
-const RETRY_FOR_MS = 24 * 60 * 60 * 1000;
+const RETRY_FOR_MS = DAY;
 
 export type SharedItem = Extract<QueuedEvent, { kind: "share" }>;
 
@@ -48,17 +50,18 @@ export function processTriggerEvents(
 		if (!event.live && conversation) handlers.onOpened(conversation);
 		setTimeout(releaseIfIdle, 30_000);
 	};
-	let pass = Promise.resolve();
-	const drain = () => {
-		pass = pass.then(async () => {
-			const handled = await deliverEvents(await takeEvents(), handle, async (event, error) => {
-				if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
-			});
-			if (handled.length > 0) await Triggers.ack({ ids: handled });
-		});
-		pass = pass.catch((error: unknown) => log.warn("trigger.drain_failed", { error: messageOf(error) }));
-		return pass;
-	};
+	const inTurn = serially();
+	const drain = () =>
+		orLogged(
+			inTurn(async () => {
+				const handled = await deliverEvents(await takeEvents(), handle, async (event, error) => {
+					if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
+				});
+				if (handled.length > 0) await Triggers.ack({ ids: handled });
+			}),
+			"trigger.drain_failed",
+			undefined,
+		);
 	void drain();
 	const event = Triggers.addListener("event", () => void drain());
 	const state = App.addListener("appStateChange", ({ isActive }) => {
