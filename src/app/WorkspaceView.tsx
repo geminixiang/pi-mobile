@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { Change, FileEntry, RepoStatus, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
-import { BackIcon, ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
+import { ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { joinPath, resolvePath } from "./openFile.ts";
 import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
+import { BackButton } from "./BackButton.tsx";
+import { Tabs } from "./Segmented.tsx";
 
 export type WorkspaceTab = "files" | "git";
 
@@ -223,7 +225,7 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 	);
 }
 
-export function WorkspaceView({
+export const WorkspaceView = memo(function WorkspaceView({
 	open,
 	load,
 	initial,
@@ -264,32 +266,17 @@ export function WorkspaceView({
 		};
 	}, [open, initial, load]);
 
-	const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
-
 	return (
 		<Layer open={open} kind="page" onClose={onClose} label="工作區">
 			<div className="screen">
 				<header className="bar">
-					<button type="button" className="icon-button" onClick={onClose} aria-label="返回">
-						<BackIcon />
-					</button>
+					<BackButton onClick={onClose} />
 					<h1 className="bar-heading">工作區</h1>
-					<button type="button" className="icon-button" onClick={refresh} aria-label="重新整理" disabled={!workspace}>
+					<button type="button" className="icon-button" onClick={() => setReloadKey((key) => key + 1)} aria-label="重新整理" disabled={!workspace}>
 						<RefreshIcon />
 					</button>
 				</header>
-				<div className="tabs" role="tablist">
-					{(
-						[
-							["files", "檔案"],
-							...(workspace?.git === false ? [] : [["git", "變更"] as const]),
-						] as const
-					).map(([value, label]) => (
-						<button type="button" role="tab" key={value} aria-selected={tab === value} className={tab === value ? "selected" : ""} onClick={() => setTab(value)}>
-							{label}
-						</button>
-					))}
-				</div>
+				<Tabs options={workspace?.git === false ? [["files", "檔案"]] : [["files", "檔案"], ["git", "變更"]]} value={tab} onChange={setTab} />
 				{error ? <div className="ws-pane"><div className="banner error">{error}</div></div> : null}
 				{workspace === undefined && !error ? <div className="ws-pane"><div className="ws-loading">連接電腦</div></div> : null}
 				{workspace === null ? (
@@ -306,4 +293,4 @@ export function WorkspaceView({
 			<DiffView target={diff} onClose={() => setDiff(undefined)} />
 		</Layer>
 	);
-}
+});

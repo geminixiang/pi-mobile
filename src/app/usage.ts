@@ -15,15 +15,17 @@ export function formatTokens(count: number): string {
 	return String(count);
 }
 
-export function contextTokens(view: ConversationView | undefined): number {
+function lastUsage(view: ConversationView | undefined): Usage | undefined {
 	for (let i = (view?.entries.length ?? 0) - 1; i >= 0; i--) {
 		const message = view?.entries[i]?.model?.[0];
-		if (message?.role === "assistant") {
-			const usage = message.usage;
-			return usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
-		}
+		if (message?.role === "assistant") return message.usage;
 	}
-	return 0;
+	return undefined;
+}
+
+export function contextTokens(view: ConversationView | undefined): number {
+	const usage = lastUsage(view);
+	return usage ? usage.input + usage.output + usage.cacheRead + usage.cacheWrite : 0;
 }
 
 export function totalUsage(view: ConversationView | undefined): Usage {
@@ -40,16 +42,8 @@ export function totalUsage(view: ConversationView | undefined): Usage {
 }
 
 export function latestCacheHitRate(view: ConversationView | undefined): number | undefined {
-	for (let i = (view?.entries.length ?? 0) - 1; i >= 0; i--) {
-		const message = view?.entries[i]?.model?.[0];
-		if (message?.role !== "assistant") continue;
-		const { input, cacheRead, cacheWrite } = message.usage;
-		const prompt = input + cacheRead + cacheWrite;
-		return prompt > 0 ? (cacheRead / prompt) * 100 : undefined;
-	}
-	return undefined;
-}
-
-export function hasCacheActivity(usage: Usage): boolean {
-	return usage.cacheRead > 0 || usage.cacheWrite > 0;
+	const usage = lastUsage(view);
+	if (!usage) return undefined;
+	const prompt = usage.input + usage.cacheRead + usage.cacheWrite;
+	return prompt > 0 ? (usage.cacheRead / prompt) * 100 : undefined;
 }

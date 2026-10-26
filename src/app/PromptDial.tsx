@@ -80,9 +80,9 @@ export function ScrollTab({
 			setDial((current) => {
 				if (!current) return current;
 				const shift = repeating === "older" ? current.shift + 1 : current.shift - 1;
-				if (shift < 0 || positionOf({ ...current, shift }, count, current.slots - 1) < 0) return current;
-				haptic("tick");
 				const older = positionOf({ ...current, shift }, count, current.slots - 1);
+				if (shift < 0 || older < 0) return current;
+				haptic("tick");
 				if (repeating === "older" && older === 0) return { ...current, shift, slot: current.slots - 1 };
 				if (repeating === "newer" && shift === 0) return { ...current, shift, slot: 0 };
 				return { ...current, shift };

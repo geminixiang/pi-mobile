@@ -14,7 +14,7 @@ export function saveDraftText(conversationId: string, text: string): void {
 	else localStorage.removeItem(textKey(conversationId));
 }
 
-export type DraftAttachments = { images: ImageContent[]; files: PreparedAttachment[] };
+type DraftAttachments = { images: ImageContent[]; files: PreparedAttachment[] };
 
 const store = idbStore("pi-drafts", "attachments");
 

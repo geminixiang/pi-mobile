@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ModelInfo } from "../agent/models.ts";
 import { CheckIcon, SearchIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -53,8 +53,8 @@ export function ModelSheet({
 	const [filter, setFilter] = useState("");
 	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 	const query = filter.toLowerCase();
-	const matches = models.filter((model) => `${model.id} ${model.name} ${model.providerName}`.toLowerCase().includes(query));
-	const providers = [...new Map(matches.map((model) => [model.provider, model.providerName])).entries()];
+	const matches = useMemo(() => models.filter((model) => `${model.id} ${model.name} ${model.providerName}`.toLowerCase().includes(query)), [models, query]);
+	const providers = useMemo(() => [...new Map(matches.map((model) => [model.provider, model.providerName])).entries()], [matches]);
 	const isCurrent = (model: ModelInfo) => model.provider === current.provider && model.id === current.id;
 
 	return (

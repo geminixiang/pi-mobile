@@ -13,12 +13,12 @@ import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-import { formatTokens, hasCacheActivity, type Usage } from "./usage.ts";
+import { formatTokens, type Usage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
 
-export interface PanelActions {
+interface PanelActions {
 	edit: () => void;
 	memory: () => void;
 	compact: () => Promise<boolean>;
@@ -193,7 +193,7 @@ export function BotPanel({
 	};
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
-	const lastAnswer = [...(view?.entries ?? [])].reverse().find((entry) => entry.kind === "pi.assistant");
+	const lastAnswer = view?.entries.findLast((entry) => entry.kind === "pi.assistant");
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
 
 	return (
@@ -287,28 +287,25 @@ export function BotPanel({
 						<details className="stats-more">
 							<summary>用量</summary>
 							<dl className="stats">
-							<div>
-								<dt>輸入</dt>
-								<dd>{formatTokens(usage.input)}</dd>
-							</div>
-							<div>
-								<dt>輸出</dt>
-								<dd>{formatTokens(usage.output)}</dd>
-							</div>
-							<div>
-								<dt>快取讀</dt>
-								<dd>{formatTokens(usage.cacheRead)}</dd>
-							</div>
-							<div>
-								<dt>快取寫</dt>
-								<dd>{formatTokens(usage.cacheWrite)}</dd>
-							</div>
-							{hasCacheActivity(usage) && cacheHitRate !== undefined ? (
-								<div title="最新一次回答的提示中，從快取讀取的比例">
-									<dt>快取命中</dt>
-									<dd>{cacheHitRate.toFixed(1)}%</dd>
-								</div>
-							) : null}
+								{(
+									[
+										["輸入", usage.input],
+										["輸出", usage.output],
+										["快取讀", usage.cacheRead],
+										["快取寫", usage.cacheWrite],
+									] as const
+								).map(([label, value]) => (
+									<div key={label}>
+										<dt>{label}</dt>
+										<dd>{formatTokens(value)}</dd>
+									</div>
+								))}
+								{(usage.cacheRead > 0 || usage.cacheWrite > 0) && cacheHitRate !== undefined ? (
+									<div title="最新一次回答的提示中，從快取讀取的比例">
+										<dt>快取命中</dt>
+										<dd>{cacheHitRate.toFixed(1)}%</dd>
+									</div>
+								) : null}
 							</dl>
 						</details>
 					</div>

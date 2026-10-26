@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
 import { System } from "../system-plugin.ts";
-import { messageOf, orLogged } from "../promise.ts";
+import { messageOf, orLogged, sleep } from "../promise.ts";
 
 export function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
 	const [signIn, setSignIn] = useState<GoogleSignIn>();
@@ -28,7 +28,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 	useEffect(() => {
 		if (!signIn) return;
 		const listener = App.addListener("resume", async () => {
-			await new Promise((resolve) => setTimeout(resolve, 400));
+			await sleep(400);
 			const { text } = await orLogged(System.clipboardText(), "sign_in.clipboard_unreadable", { text: "" });
 			if (looksLikeAuthCode(text)) {
 				setCode(text.trim());

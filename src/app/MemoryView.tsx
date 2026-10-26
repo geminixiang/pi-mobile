@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import { BackIcon } from "./icons.tsx";
 import { messageOf } from "../promise.ts";
+import { BackButton } from "./BackButton.tsx";
+import { monthDayTime } from "../agent/tools/common.ts";
 
 const BOT_PLACEHOLDER = `# 這份工作
 - 資料來源：
@@ -21,9 +22,7 @@ const PLACEHOLDER = `# 關於我
 
 function when(memory: Memory): string {
 	if (!memory.updatedAt) return "";
-	const date = new Date(memory.updatedAt);
-	const time = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-	return `${memory.updatedBy === "agent" ? "Bot" : "你"}在 ${time} 更新`;
+	return `${memory.updatedBy === "agent" ? "Bot" : "你"}在 ${monthDayTime(memory.updatedAt)} 更新`;
 }
 
 export function MemoryView({
@@ -73,9 +72,7 @@ export function MemoryView({
 	return (
 		<div className="screen memory">
 			<header className="bar">
-				<button type="button" className="icon-button" onClick={onClose} aria-label="返回">
-					<BackIcon />
-				</button>
+				<BackButton onClick={onClose} />
 				<h1 className="bar-heading">{scope.kind === "global" ? "全域記憶" : `${botName ?? "Bot"} 的記憶`}</h1>
 				<span className="bar-spacer" />
 			</header>

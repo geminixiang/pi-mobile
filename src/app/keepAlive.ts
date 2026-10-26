@@ -1,8 +1,7 @@
 import { App } from "@capacitor/app";
 import { registerPlugin } from "@capacitor/core";
 import { native } from "../native.ts";
-import { log } from "../log.ts";
-import { messageOf } from "../promise.ts";
+import { orLogged } from "../promise.ts";
 
 interface KeepAlivePlugin {
 	start(options: { text: string; title?: string }): Promise<void>;
@@ -30,15 +29,6 @@ export function inForeground(): boolean {
 }
 
 let running = false;
-let workingTitles: string[] = [];
-
-function startService(options: { text: string; title?: string }): void {
-	KeepAlive.start(options).catch((error: unknown) => log.warn("keep_alive.start_failed", { error: messageOf(error) }));
-}
-
-function showWorking(): void {
-	startService({ text: workingTitles.length === 1 ? (workingTitles[0] ?? "") : `${workingTitles.length} 個對話執行中` });
-}
 
 const ASKED_KEY = "pi-mobile.notificationsAsked";
 
@@ -50,12 +40,11 @@ export function setWorking(titles: string[]): void {
 		return;
 	}
 	running = true;
-	workingTitles = titles;
 	if (!localStorage.getItem(ASKED_KEY)) {
 		localStorage.setItem(ASKED_KEY, "1");
 		void KeepAlive.requestNotifications();
 	}
-	showWorking();
+	void orLogged(KeepAlive.start({ text: titles.length === 1 ? (titles[0] ?? "") : `${titles.length} 個對話執行中` }), "keep_alive.start_failed", undefined);
 }
 
 export function releaseIfIdle(): void {

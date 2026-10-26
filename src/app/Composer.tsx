@@ -1,12 +1,11 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { useEffect, useRef, useState } from "react";
-import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, deleteAttachments, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, discardAttachment, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
-import { inboxFile, Scanner } from "../scanner-plugin.ts";
+import { Scanner, scannedPdf } from "../scanner-plugin.ts";
 import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { Database } from "../database-plugin.ts";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
@@ -15,13 +14,6 @@ import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 
 const MAX_IMAGE_EDGE = 1600;
-
-function discardPrepared(prepared: PreparedAttachment): void {
-	void deleteAttachments({ id: prepared.card.id });
-	if (prepared.tables.length > 0) {
-		void Database.execute({ statements: prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
-	}
-}
 
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
@@ -141,13 +133,12 @@ export function Composer({
 		if (!hasInput || reading) return;
 		const trimmed = draft.trim();
 		const attached = files.flatMap((file) => (file.state === "ready" ? file.prepared.content : []));
-		const photos = images;
 		onDraftChange("");
 		setProblem(undefined);
 		setImages([]);
 		setFiles([]);
-		void codeNote(photos, (index) => `photo ${index + 1}`).then((codes) =>
-			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...photos, ...(codes ? [codes] : [])], whenBusy),
+		void codeNote(images, (index) => `photo ${index + 1}`).then((codes) =>
+			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images, ...(codes ? [codes] : [])], whenBusy),
 		);
 	};
 
@@ -162,8 +153,7 @@ export function Composer({
 			},
 		);
 		if (scan.cancelled) return;
-		const stamp = new Date().toLocaleString("sv-SE").slice(0, 16).replace(/[-: ]/g, "");
-		await attach([await inboxFile(scan.pdf, `掃描 ${stamp}.pdf`, "application/pdf")]);
+		await attach([await scannedPdf(scan.pdf)]);
 	};
 
 	const attach = async (picked: File[]) => {
@@ -180,7 +170,7 @@ export function Composer({
 			setFiles((current) => [...current, { key, state: "reading", name: file.name, kind, size: file.size }]);
 			prepareAttachment(file, conversationId).then(
 				(prepared) => {
-					if (removedWhileReading.current.delete(key)) discardPrepared(prepared);
+					if (removedWhileReading.current.delete(key)) discardAttachment(prepared);
 					else if (unmounted.current) void orLogged(addDraftFile(conversationId, prepared), "drafts.save_failed", undefined);
 					else setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
 				},
@@ -193,6 +183,11 @@ export function Composer({
 		const added = await Promise.all(photos.map(toImageContent));
 		setImages((current) => [...current, ...added]);
 		textArea.current?.focus();
+	};
+	const attachPicked = (event: ChangeEvent<HTMLInputElement>) => {
+		const picked = [...(event.target.files ?? [])];
+		event.target.value = "";
+		void attach(picked);
 	};
 
 	return (
@@ -221,7 +216,7 @@ export function Composer({
 								status={file.state === "reading" ? "讀取中…" : undefined}
 								onRemove={() => {
 									setFiles((current) => current.filter((item) => item.key !== file.key));
-									if (file.state === "ready") discardPrepared(file.prepared);
+									if (file.state === "ready") discardAttachment(file.prepared);
 									else removedWhileReading.current.add(file.key);
 								}}
 							/>
@@ -307,11 +302,7 @@ export function Composer({
 						accept="image/*"
 						capture="environment"
 						hidden
-						onChange={(event) => {
-							const picked = [...(event.target.files ?? [])];
-							event.target.value = "";
-							void attach(picked);
-						}}
+						onChange={attachPicked}
 					/>
 					<input
 						ref={fileInput}
@@ -319,11 +310,7 @@ export function Composer({
 						accept={`image/*,${ATTACHMENT_ACCEPT}`}
 						multiple
 						hidden
-						onChange={(event) => {
-							const picked = [...(event.target.files ?? [])];
-							event.target.value = "";
-							void attach(picked);
-						}}
+						onChange={attachPicked}
 					/>
 					<textarea
 						ref={textArea}

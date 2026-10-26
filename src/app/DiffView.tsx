@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { BackIcon } from "./icons.tsx";
+import { useEffect, useMemo, useState } from "react";
 import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
+import { BackButton } from "./BackButton.tsx";
 
 export interface DiffTarget {
 	repo: string;
@@ -122,15 +122,13 @@ export function DiffView({ target, onClose }: { target: DiffTarget | undefined; 
 		};
 	}, [target]);
 
-	const parsed = text === undefined ? undefined : parse(text);
+	const parsed = useMemo(() => (text === undefined ? undefined : parse(text)), [text]);
 	const commit = parsed && parsed.message.length > 1 ? parsed.message : undefined;
 	return (
 		<Layer open={Boolean(target)} kind="page" onClose={onClose} label="差異">
 			<div className="screen">
 				<header className="bar">
-					<button type="button" className="icon-button" onClick={onClose} aria-label="返回">
-						<BackIcon />
-					</button>
+					<BackButton onClick={onClose} />
 					<div className="bar-center static">
 						<span className="bar-title">{target?.title}</span>
 						{parsed ? (

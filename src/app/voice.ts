@@ -5,7 +5,7 @@ import { messageOf } from "../promise.ts";
 
 type DictationState = "idle" | "starting" | "listening";
 
-export interface Dictation {
+interface Dictation {
 	supported: boolean;
 	state: DictationState;
 	partial: string;

@@ -2,7 +2,7 @@ import { Drawer } from "@base-ui/react/drawer";
 import { type ReactNode, type TouchEvent, useRef } from "react";
 import { useBack } from "./layers.ts";
 
-export type Side = "left" | "right";
+type Side = "left" | "right";
 
 const LONG_PRESS_MS = 400;
 const TOUCH_SLOP = 10;

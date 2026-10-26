@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, probeHost, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
+import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
@@ -85,8 +85,19 @@ function CodeField({ value, onChange, onEnter }: { value: string; onChange: (cod
 	);
 }
 
-function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boolean; onPair: (code: string) => void; onRemove: () => void }) {
+function PairRow({ label, primary, busy, onPair }: { label: string; primary: boolean; busy: boolean; onPair: (code: string) => void }) {
 	const [code, setCode] = useState("");
+	return (
+		<div className="check-row pair-row">
+			<CodeField value={code} onChange={setCode} onEnter={() => onPair(code)} />
+			<button type="button" className={primary ? "btn primary" : "btn"} disabled={code.length !== 6 || busy} onClick={() => onPair(code)}>
+				{label}
+			</button>
+		</div>
+	);
+}
+
+function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boolean; onPair: (code: string) => void; onRemove: () => void }) {
 	return (
 		<div className="machine">
 			<div className="check-row">
@@ -100,20 +111,12 @@ function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boo
 					移除
 				</button>
 			</div>
-			{host.key ? null : (
-				<div className="check-row pair-row">
-					<CodeField value={code} onChange={setCode} onEnter={() => onPair(code)} />
-					<button type="button" className="btn primary" disabled={code.length !== 6 || busy} onClick={() => onPair(code)}>
-						配對
-					</button>
-				</div>
-			)}
+			{host.key ? null : <PairRow label="配對" primary busy={busy} onPair={onPair} />}
 		</div>
 	);
 }
 
 function PeerRow({ peer, busy, onAdd }: { peer: Peer; busy: boolean; onAdd: (code: string) => void }) {
-	const [code, setCode] = useState("");
 	return (
 		<div className="machine">
 			<div className="check-row">
@@ -122,12 +125,7 @@ function PeerRow({ peer, busy, onAdd }: { peer: Peer; busy: boolean; onAdd: (cod
 					<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"}</span>
 				</span>
 			</div>
-			<div className="check-row pair-row">
-				<CodeField value={code} onChange={setCode} onEnter={() => onAdd(code)} />
-				<button type="button" className="btn" disabled={code.length !== 6 || busy} onClick={() => onAdd(code)}>
-					加入
-				</button>
-			</div>
+			<PairRow label="加入" primary={false} busy={busy} onPair={onAdd} />
 		</div>
 	);
 }
@@ -135,9 +133,9 @@ function PeerRow({ peer, busy, onAdd }: { peer: Peer; busy: boolean; onAdd: (cod
 function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; computer: string; onChoose: (key: string) => void }) {
 	const [preparing, prepare] = usePrepare(undefined);
 	const choose = (key: string) => {
-		const [id, mode] = key.split(":");
-		const host = hosts.find((item) => item.id === id);
-		if (mode !== "container" || !host) return onChoose(key);
+		const chosen = parseComputerKey(key);
+		const host = hosts.find((item) => item.id === chosen?.hostId);
+		if (chosen?.mode !== "container" || !host) return onChoose(key);
 		void prepare(host).then((ready) => ready && onChoose(key));
 	};
 	return (
@@ -147,11 +145,11 @@ function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; c
 				<select className="field" value={computer} aria-label="預設" disabled={preparing.state === "running"} onChange={(event) => choose(event.target.value)}>
 					<option value="">手機</option>
 					{hosts.map((host) => [
-						<option key={`${host.id}:direct`} value={`${host.id}:direct`}>
+						<option key={computerKey(host.id, "direct")} value={computerKey(host.id, "direct")}>
 							{host.name} · 直接
 						</option>,
 						host.engine ? (
-							<option key={`${host.id}:container`} value={`${host.id}:container`}>
+							<option key={computerKey(host.id, "container")} value={computerKey(host.id, "container")}>
 								{host.name} · 容器
 							</option>
 						) : null,
@@ -203,7 +201,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 			const known = hosts.find((host) => host.address === (info.dnsName || name));
 			const host: PairedHost = { ...hostFrom(name, info, known), key };
 			const next = known ? hosts.map((item) => (item.id === known.id ? host : item)) : [...hosts, host];
-			onChange(next, computer || `${host.id}:direct`);
+			onChange(next, computer || computerKey(host.id, "direct"));
 			setAddress("");
 			setCode("");
 			setAdding({ state: "idle" });
@@ -256,7 +254,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 					onRemove={() => {
 						onChange(
 							hosts.filter((item) => item.id !== host.id),
-							computer.startsWith(`${host.id}:`) ? "" : computer,
+							parseComputerKey(computer)?.hostId === host.id ? "" : computer,
 						);
 						if (host.key) void unpairHost(host).catch((error: unknown) => setAdding({ state: "error", detail: `已從手機移除，但電腦上的配對還在：${messageOf(error)}` }));
 					}}

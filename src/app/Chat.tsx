@@ -19,7 +19,7 @@ import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
 import { inApp, type NativePlugin } from "../native.ts";
 
-export interface Capabilities {
+interface Capabilities {
 	native: ReadonlySet<NativePlugin>;
 	sandbox: boolean;
 }
@@ -44,6 +44,25 @@ interface Suggestion {
 }
 
 export type SharedKind = "image" | "file" | "text" | "screen";
+
+function SuggestionList({ items, onPick }: { items: readonly Suggestion[]; onPick: (item: Suggestion) => void }) {
+	return (
+		<ol className="suggestions">
+			{items.map((item, index) => (
+				<li key={item.title}>
+					<button type="button" onClick={() => onPick(item)}>
+						<span className="suggestion-index">{String(index + 1).padStart(2, "0")}</span>
+						<span className="suggestion-text">
+							<strong>{item.title}</strong>
+							<span>{item.prompt}</span>
+						</span>
+						<ArrowIcon />
+					</button>
+				</li>
+			))}
+		</ol>
+	);
+}
 
 function shareActions(kind: SharedKind): Suggestion[] {
 	if (kind === "screen") {
@@ -254,26 +273,13 @@ export function Chat({
 						<h2>
 							要 pi 怎麼<em>處理</em>？
 						</h2>
-						<ol className="suggestions">
-							{shareActions(shared).map((action, index) => (
-								<li key={action.title}>
-									<button
-										type="button"
-										onClick={() => {
-											setDraft((current) => (current.trim() ? `${action.prompt}\n\n${current.trim()}` : action.prompt));
-											setComposerFocus((key) => key + 1);
-										}}
-									>
-										<span className="suggestion-index">{String(index + 1).padStart(2, "0")}</span>
-										<span className="suggestion-text">
-											<strong>{action.title}</strong>
-											<span>{action.prompt}</span>
-										</span>
-										<ArrowIcon />
-									</button>
-								</li>
-							))}
-						</ol>
+						<SuggestionList
+							items={shareActions(shared)}
+							onPick={(action) => {
+								setDraft((current) => (current.trim() ? `${action.prompt}\n\n${current.trim()}` : action.prompt));
+								setComposerFocus((key) => key + 1);
+							}}
+						/>
 					</div>
 				) : empty ? (
 					<div className="empty">
@@ -284,27 +290,14 @@ export function Chat({
 							只屬於<em>你</em>。
 						</h2>
 						<p>對話、金鑰和紀錄都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
-						<ol className="suggestions">
-							{suggestions(capabilities).map((suggestion, index) => (
-								<li key={suggestion.title}>
-									<button
-										type="button"
-										onClick={() => {
-											setDraft(suggestion.prompt);
-											if (suggestion.image) setPickImage((key) => key + 1);
-											else setComposerFocus((key) => key + 1);
-										}}
-									>
-										<span className="suggestion-index">{String(index + 1).padStart(2, "0")}</span>
-										<span className="suggestion-text">
-											<strong>{suggestion.title}</strong>
-											<span>{suggestion.prompt}</span>
-										</span>
-										<ArrowIcon />
-									</button>
-								</li>
-							))}
-						</ol>
+						<SuggestionList
+							items={suggestions(capabilities)}
+							onPick={(suggestion) => {
+								setDraft(suggestion.prompt);
+								if (suggestion.image) setPickImage((key) => key + 1);
+								else setComposerFocus((key) => key + 1);
+							}}
+						/>
 					</div>
 				) : null}
 				{entries.map((entry) => (

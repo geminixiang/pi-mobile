@@ -1,12 +1,12 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
+import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
 import { openAppStorage } from "../storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
-import { Capacitor } from "@capacitor/core";
 import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
@@ -37,6 +37,9 @@ import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform } from "../agent/platform.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
+
+const botWithId = (items: readonly Bot[], id: string | null) => items.find((bot) => String(bot.id) === id);
+const lastBot = (items: readonly Bot[]) => botWithId(items, localStorage.getItem(LAST_BOT_KEY));
 const REOPEN_AFTER_MS = 10_000;
 const MAX_NOTICES = 3;
 
@@ -74,11 +77,11 @@ export function App() {
 	const close = useCallback(() => setOverlay(undefined), []);
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
 	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	const applyRef = useRef<() => Promise<void>>(undefined);
+	const applyRef = useRef<(draft: { settings: Settings; changed: boolean } | undefined) => Promise<void>>(undefined);
 	const onSettingsDraft = useCallback((next: Settings, changed: boolean) => {
 		settingsDraft.current = { settings: next, changed };
 		clearTimeout(applyTimer.current);
-		if (changed) applyTimer.current = setTimeout(() => void applyRef.current?.(), SETTINGS_APPLY_MS);
+		if (changed) applyTimer.current = setTimeout(() => void applyRef.current?.(settingsDraft.current), SETTINGS_APPLY_MS);
 	}, []);
 
 	const [notices, setNotices] = useState<readonly Notice[]>([]);
@@ -96,6 +99,14 @@ export function App() {
 			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
 		[],
 	);
+
+	const live = useRef({ settings, runtime, controller });
+	live.current = { settings, runtime, controller };
+	const dropConversation = useCallback(() => {
+		live.current.controller?.dispose();
+		setController(undefined);
+		setView(undefined);
+	}, []);
 
 	const start = useCallback(
 		async (next: Settings) => {
@@ -124,9 +135,7 @@ export function App() {
 						setOpenError(`資料出錯，請重開 pi：${messageOf(end.error)}`);
 						return;
 					}
-					live.current.controller?.dispose();
-					setController(undefined);
-					setView(undefined);
+					dropConversation();
 					await orLogged(opened.close(), "runtime.close_failed", undefined);
 					setRuntime(undefined);
 					await start(live.current.settings ?? next);
@@ -137,7 +146,7 @@ export function App() {
 				setOpenError(`開啟失敗：${messageOf(error)}`);
 			}
 		},
-		[notify],
+		[notify, dropConversation],
 	);
 
 	useEffect(() => {
@@ -186,20 +195,17 @@ export function App() {
 		let live = true;
 		void runtime.bots().then((items) => {
 			if (!live || items.some((bot) => bot.id === controller.id)) return;
-			controller.dispose();
-			setController(undefined);
-			setView(undefined);
+			dropConversation();
 		});
 		return () => {
 			live = false;
 		};
-	}, [runtime, controller, bots]);
+	}, [runtime, controller, bots, dropConversation]);
 
 	useEffect(() => {
 		if (!runtime || controller) return;
 		void runtime.bots().then((items) => {
-			const last = localStorage.getItem(LAST_BOT_KEY);
-			const target = items.find((bot) => String(bot.id) === last) ?? items[0];
+			const target = lastBot(items) ?? items[0];
 			if (target) void openConversation(target.id, undefined, undefined, undefined, true);
 		});
 	}, [runtime, controller, openConversation]);
@@ -209,12 +215,7 @@ export function App() {
 	useEffect(() => {
 		if (!runtime) return;
 		const onShare = async (item: SharedItem) => {
-			const files = await Promise.all(
-				(item.files ?? []).map(async (file) => {
-					const blob = await (await fetch(Capacitor.convertFileSrc(file.path))).blob();
-					return new File([blob], file.name, { type: file.mimeType || blob.type });
-				}),
-			);
+			const files = await Promise.all((item.files ?? []).map((file) => inboxFile(file.path, file.name, file.mimeType)));
 			const draft = [item.subject, item.text].filter((part) => part && part.trim()).join("\n");
 			if (!draft && files.length === 0) {
 				notify("沒有讀到分享的內容。");
@@ -222,14 +223,14 @@ export function App() {
 			}
 			const items = await runtime.bots();
 			const kind = item.source === "assist" ? "screen" : sharedKind(files);
-			const last = items.find((bot) => String(bot.id) === localStorage.getItem(LAST_BOT_KEY)) ?? (items.length === 1 ? items[0] : undefined);
+			const last = lastBot(items) ?? (items.length === 1 ? items[0] : undefined);
 			if (last && (kind === "screen" || items.length === 1)) await openRef.current(last.id, item.source === "assist" ? "" : draft, files, kind);
 			else setSharing({ draft, files });
 		};
 		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });
 		const stopLinks = listenForOpenLinks((conversation) => {
 			void runtime.bots().then((items) => {
-				const target = items.find((bot) => String(bot.id) === conversation);
+				const target = botWithId(items, conversation);
 				if (target) void openRef.current(target.id);
 			});
 		});
@@ -250,43 +251,45 @@ export function App() {
 	);
 
 	const applying = useRef<Promise<void>>(Promise.resolve());
-	const live = useRef({ settings, runtime, controller });
-	live.current = { settings, runtime, controller };
 
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
 	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
 
 	const splash = <Skeleton />;
+	const dialogView = (
+		<Dialog
+			request={dialog?.request}
+			onAnswer={(value) => {
+				dialog?.resolve(value);
+				setDialog(undefined);
+			}}
+		/>
+	);
 	if (!settings) return splash;
 
+	const applySettings = async (next: Settings, blank: boolean) => {
+		const current = live.current.runtime;
+		if (current && (await current.apply(next)) === "in_place") return;
+		dropConversation();
+		await current?.close();
+		if (blank) setRuntime(undefined);
+		await start(next);
+	};
 	const saveAndRestart = async (edited: Settings) => {
 		const next = await saveSettings(edited);
 		setSettings(next);
 		if (!isConfigured(next)) return;
 		setOverlay(undefined);
-		if (runtime && (await runtime.apply(next)) === "in_place") return;
-		controller?.dispose();
-		setController(undefined);
-		setView(undefined);
-		await runtime?.close();
-		setRuntime(undefined);
-		await start(next);
+		await applySettings(next, true);
 	};
-	applyRef.current = () => {
-		const draft = settingsDraft.current;
+	applyRef.current = (draft) => {
 		if (!draft?.changed || !isConfigured(draft.settings)) return Promise.resolve();
 		draft.changed = false;
 		applying.current = applying.current
 			.then(async () => {
 				const next = await saveSettings(draft.settings);
 				setSettings(next);
-				const current = live.current.runtime;
-				if (current && (await current.apply(next)) === "in_place") return;
-				live.current.controller?.dispose();
-				setController(undefined);
-				setView(undefined);
-				await current?.close();
-				await start(next);
+				await applySettings(next, false);
 			})
 			.catch(fail);
 		return applying.current;
@@ -302,11 +305,7 @@ export function App() {
 			});
 			return;
 		}
-		if (draft?.changed) {
-			settingsDraft.current = draft;
-			void applyRef.current?.();
-			settingsDraft.current = undefined;
-		}
+		if (draft?.changed) void applyRef.current?.(draft);
 		close();
 	}
 
@@ -315,13 +314,7 @@ export function App() {
 		return (
 			<div className="app">
 				<SettingsView initial={settings} status={openError} onSave={saveAndRestart} />
-				<Dialog
-					request={dialog?.request}
-					onAnswer={(value) => {
-						dialog?.resolve(value);
-						setDialog(undefined);
-					}}
-				/>
+				{dialogView}
 			</div>
 		);
 	}
@@ -525,11 +518,7 @@ export function App() {
 					try {
 						await runtime.removeBot(bot.id);
 						await orLogged(clearDraft(String(bot.id)), "drafts.clear_failed", undefined);
-						if (bot.id === controller?.id) {
-							controller.dispose();
-							setController(undefined);
-							setView(undefined);
-						}
+						if (bot.id === controller?.id) dropConversation();
 					} catch (error) {
 						fail(error);
 					}
@@ -570,13 +559,7 @@ export function App() {
 				<SettingsView initial={settings} runtime={runtime} onCancel={leaveSettings} onDraft={onSettingsDraft} onSave={saveAndRestart} />
 			</Layer>
 
-			<Dialog
-				request={dialog?.request}
-				onAnswer={(value) => {
-					dialog?.resolve(value);
-					setDialog(undefined);
-				}}
-			/>
+			{dialogView}
 
 		</div>
 	);

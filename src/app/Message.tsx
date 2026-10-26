@@ -16,17 +16,18 @@ import { OpenFileContext } from "./openFile.ts";
 import type { Static } from "typebox";
 import { Value } from "typebox/value";
 import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
+import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
-export type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
+type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
 
 export type CallState =
 	| { status: "pending" }
 	| { status: "running"; output?: string }
 	| { status: "done"; isError: boolean; output: string; images: ImageContent[] };
 
-export type CallStates = ReadonlyMap<string, CallState>;
+type CallStates = ReadonlyMap<string, CallState>;
 
 function blocks(content: string | readonly Block[] | undefined): readonly Block[] {
 	if (typeof content === "string") return [{ type: "text", text: content }];
@@ -54,14 +55,8 @@ export function finishedCalls(entries: readonly EntryRecord[]): Map<string, Call
 
 const KIND_LABEL: Record<AttachmentCard["kind"], string> = { pdf: "PDF", docx: "Word", sheet: "試算表", text: "文字" };
 
-function formatSize(bytes: number): string {
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 export function AttachmentChip({ card, status, onRemove }: { card: Pick<AttachmentCard, "name" | "kind" | "size" | "pages">; status?: string; onRemove?: () => void }) {
-	const detail = status ?? [KIND_LABEL[card.kind], card.pages ? `${card.pages} 頁` : "", formatSize(card.size)].filter(Boolean).join(" · ");
+	const detail = status ?? [KIND_LABEL[card.kind], card.pages ? `${card.pages} 頁` : "", formatBytes(card.size)].filter(Boolean).join(" · ");
 	const body = (
 		<>
 			<FileIcon size={18} />
@@ -176,34 +171,35 @@ function tone(state: CallState | undefined): Tone {
 	return state.isError ? "error" : "ok";
 }
 
-function toolName(name: string): string {
-	if (name === "bash") return "$";
-	if (name === "github_api") return "github";
-	if (name === "github_read_file") return "github read";
-	if (name === "device_info") return "device";
-	if (name === "codemode") return "script";
-	if (name === "web_search") return "search";
-	if (name === "web_fetch") return "fetch";
-	if (name === "get_location") return "location";
-	if (name === "read_sensors") return "sensors";
-	if (name === "get_travel_time") return "route";
-	if (name === "read_calendar_events") return "calendar";
-	if (name === "list_calendars") return "calendars";
-	if (name === "add_calendar_event") return "calendar add";
-	if (name === "create_schedule") return "schedule";
-	if (name === "list_schedules") return "schedules";
-	if (name === "delete_schedule") return "schedule delete";
-	if (name === "schedule_followup") return "follow-up";
-	if (name === "set_alarm") return "alarm";
-	if (name === "set_timer") return "timer";
-	if (name === "compose_email") return "email";
-	if (name === "compose_sms") return "sms";
-	if (name === "open_maps") return "maps";
-	if (name === "open_link") return "open";
-	if (name === "update_memory") return "memory";
-	if (name === "read_skill") return "skill";
-	return name;
-}
+const TOOL_NAMES = new Map<string, string>([
+	["bash", "$"],
+	["github_api", "github"],
+	["github_read_file", "github read"],
+	["device_info", "device"],
+	["codemode", "script"],
+	["web_search", "search"],
+	["web_fetch", "fetch"],
+	["get_location", "location"],
+	["read_sensors", "sensors"],
+	["get_travel_time", "route"],
+	["read_calendar_events", "calendar"],
+	["list_calendars", "calendars"],
+	["add_calendar_event", "calendar add"],
+	["create_schedule", "schedule"],
+	["list_schedules", "schedules"],
+	["delete_schedule", "schedule delete"],
+	["schedule_followup", "follow-up"],
+	["set_alarm", "alarm"],
+	["set_timer", "timer"],
+	["compose_email", "email"],
+	["compose_sms", "sms"],
+	["open_maps", "maps"],
+	["open_link", "open"],
+	["update_memory", "memory"],
+	["read_skill", "skill"],
+]);
+
+const toolName = (name: string) => TOOL_NAMES.get(name) ?? name;
 
 function useElapsed(running: boolean): number {
 	const [started] = useState(() => Date.now());
@@ -266,7 +262,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 				) : null}
 				{hidden > 0 ? (
 					<span className="step-more">
-						… {call.name === "bash" || call.name === "codemode" ? "前面" : "還有"} {hidden} 行，點一下展開
+						… {tail ? "前面" : "還有"} {hidden} 行，點一下展開
 					</span>
 				) : null}
 			</button>
@@ -404,12 +400,13 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 						if (attachment) return <AttachmentChip key={index} card={attachment} />;
 						if (isCodeNote(group.text)) return null;
 						if (!streaming && isBrokenText(group.text)) return null;
+						const caret = streaming && content[lastText] === group;
 						return (
 							<div
-								className={`markdown${content.indexOf(group) < lastCall ? " interim" : ""}${streaming && content[lastText] === group ? " caret" : ""}`}
+								className={`markdown${content.indexOf(group) < lastCall ? " interim" : ""}${caret ? " caret" : ""}`}
 								key={index}
 							>
-								{streaming && content[lastText] === group ? (
+								{caret ? (
 									<StreamingMarkdown text={group.text} />
 								) : (
 									<Markdown remarkPlugins={remarkPlugins} components={markdownComponents}>
@@ -462,8 +459,7 @@ function entrySymbol(data: Static<typeof TriggerEntryData>): TriggerSymbol {
 function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEntryData> }) {
 	const [open, setOpen] = useState(false);
 	const symbol = entrySymbol(data);
-	const time = data.at === undefined ? undefined : new Date(data.at);
-	const clock = time ? ` · ${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}` : "";
+	const clock = data.at === undefined ? "" : ` · ${monthDayTime(data.at)}`;
 	return (
 		<section className="trigger-entry" data-entry={id}>
 			<div className="trigger-head">

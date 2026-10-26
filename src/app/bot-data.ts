@@ -6,8 +6,12 @@ import { clearDraft, draftOwners } from "./drafts.ts";
 import { orLogged } from "../promise.ts";
 
 export async function sweepBotData(current: () => Promise<readonly { id: string; folder: string }[]>): Promise<string[]> {
-	const folders = native.has("BotFiles") ? await orLogged(phoneFolderOwners(), "bot_data.folders_unreadable", []) : [];
-	const ids = new Set([...(await orLogged(attachmentOwners(), "bot_data.attachments_unreadable", [])), ...(await orLogged(draftOwners(), "bot_data.drafts_unreadable", []))]);
+	const [folders, attachments, drafts] = await Promise.all([
+		native.has("BotFiles") ? orLogged(phoneFolderOwners(), "bot_data.folders_unreadable", []) : [],
+		orLogged(attachmentOwners(), "bot_data.attachments_unreadable", []),
+		orLogged(draftOwners(), "bot_data.drafts_unreadable", []),
+	]);
+	const ids = new Set([...attachments, ...drafts]);
 	const bots = await current();
 	const keepFolders = new Set(bots.map((bot) => bot.folder));
 	const keepIds = new Set(bots.map((bot) => bot.id));
