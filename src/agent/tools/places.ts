@@ -93,9 +93,9 @@ const findPlaces = defineAppTool({
 		const query = new URLSearchParams({ lat: String(center.latitude), lon: String(center.longitude), limit: String(limit) });
 		const tag = args.category?.replace("=", ":");
 		for (const filter of tag === undefined ? [] : tag.includes(":") ? [tag] : [`amenity:${tag}`, `shop:${tag}`]) query.append("osm_tag", filter);
-		if (args.query) query.set("q", args.query);
-		else query.set("radius", String(Math.min(Math.max(args.radius_km ?? 1, 0.1), 50)));
-		const url = `https://photon.komoot.io/${args.query ? "api/" : "reverse"}?${query}`;
+		const [path, key, value] = args.query ? ["api/", "q", args.query] : ["reverse", "radius", String(Math.min(Math.max(args.radius_km ?? 1, 0.1), 50))];
+		query.set(key, value);
+		const url = `https://photon.komoot.io/${path}?${query}`;
 		const found = parse(PhotonResults, await getJson(url, "place search"), "place search").features.filter((feature) => feature.properties.name);
 
 		const ids = found.map((feature) => `${feature.properties.osm_type}${feature.properties.osm_id}`);

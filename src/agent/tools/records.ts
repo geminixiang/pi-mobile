@@ -1,7 +1,7 @@
 import { registerPlugin } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { DAY, defineAppTool, duration, localTime, oneOf, parseDay, startOfToday, text } from "./common.ts";
+import { DAY, defineAppTool, HOUR, duration, localTime, oneOf, parseDay, startOfToday, text } from "./common.ts";
 
 const CALL_KINDS = ["incoming", "outgoing", "missed", "rejected", "blocked", "voicemail", "other"] as const;
 
@@ -55,7 +55,7 @@ const callLog = defineAppTool({
 	}),
 	execute: async (args) => {
 		const hours = args.hours ?? 48;
-		const { items } = await Records.calls({ since: Date.now() - hours * 3600_000, limit: 200 });
+		const { items } = await Records.calls({ since: Date.now() - hours * HOUR, limit: 200 });
 		const shown = args.missed_only ? items.filter((call) => call.type === "missed" || call.type === "rejected") : items;
 		const structuredOutput = { items: shown.map((call) => ({ ...call, time: localTime(call.time) })) };
 		if (shown.length === 0) return { ...text(`No ${args.missed_only ? "missed " : ""}calls in the last ${hours} hours.`), structuredOutput };
@@ -88,7 +88,7 @@ const readSms = defineAppTool({
 	}),
 	execute: async (args) => {
 		const hours = args.hours ?? 24;
-		const { items } = await Records.sms({ since: Date.now() - hours * 3600_000, limit: 100, ...(args.query ? { query: args.query } : {}) });
+		const { items } = await Records.sms({ since: Date.now() - hours * HOUR, limit: 100, ...(args.query ? { query: args.query } : {}) });
 		const structuredOutput = { items: items.map((sms) => ({ ...sms, time: localTime(sms.time) })) };
 		if (items.length === 0) return { ...text(`No text messages in the last ${hours} hours${args.query ? ` containing ${args.query}` : ""}.`), structuredOutput };
 		const lines = items.map(
@@ -97,7 +97,6 @@ const readSms = defineAppTool({
 		return { ...text(lines.join("\n")), structuredOutput };
 	},
 });
-
 
 const screenTime = defineAppTool({
 	name: "screen_time",

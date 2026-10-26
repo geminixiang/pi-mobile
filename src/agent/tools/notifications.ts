@@ -1,7 +1,7 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { type ActiveNotification, Notifications, type RecordedNotification, requireAccess } from "../../notifications-plugin.ts";
-import { defineAppTool, localTime, text } from "./common.ts";
+import { defineAppTool, HOUR, localTime, text } from "./common.ts";
 
 function line(item: RecordedNotification): string {
 	const where = item.sender
@@ -37,7 +37,7 @@ const readNotifications = defineAppTool({
 		await requireAccess();
 		const hours = args.hours ?? 24;
 		const { items } = await Notifications.list({
-			since: Date.now() - hours * 3600_000,
+			since: Date.now() - hours * HOUR,
 			...(args.app ? { app: args.app } : {}),
 			...(args.query ? { query: args.query } : {}),
 			...(args.limit ? { limit: args.limit } : {}),

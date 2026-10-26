@@ -103,13 +103,11 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 		const readable = !access.hidden.includes(group.key);
 		const canWrite = group.calendars.some((calendar) => calendar.writable);
 		return (
-			<div className="check-row" key={group.key}>
-				<span className="menu-text">
-					{group.label}
-					{group.calendars.some((calendar) => !group.label.startsWith(calendar.name)) ? (
-						<span className="menu-hint">{group.calendars.map((calendar) => calendar.name).join("、")}</span>
-					) : null}
-				</span>
+			<Row
+				key={group.key}
+				label={group.label}
+				hint={group.calendars.some((calendar) => !group.label.startsWith(calendar.name)) ? group.calendars.map((calendar) => calendar.name).join("、") : undefined}
+			>
 				<Segmented<Use>
 					label={`${group.label} 的權限`}
 					inline
@@ -121,7 +119,7 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 					]}
 					onChange={(use) => choose(group, use)}
 				/>
-			</div>
+			</Row>
 		);
 	};
 

@@ -7,7 +7,7 @@ import { prepareAttachment } from "../attachments.ts";
 import { PhoneEnv } from "../files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, formatBytes, text as textResult, truncated } from "./common.ts";
-import { Type } from "typebox";
+import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { messageOf } from "../../promise.ts";
@@ -107,7 +107,7 @@ function root(baseUrl: string): string {
 const INSTRUCTIONS =
 	"Search the web for the query and answer it concisely with the facts found, in the query's language. List the source URLs you relied on.";
 
-async function postSearch(config: WebConfig, path: string, model: string, headers: Record<string, string>, body: object, signal: AbortSignal): Promise<unknown> {
+async function postSearch<T extends TSchema>(answer: T, config: WebConfig, path: string, model: string, headers: Record<string, string>, body: object, signal: AbortSignal): Promise<Static<T>> {
 	refuseCleartextSecret(config.baseUrl);
 	const response = await fetch(`${root(config.baseUrl)}${path}`, {
 		method: "POST",
@@ -116,11 +116,12 @@ async function postSearch(config: WebConfig, path: string, model: string, header
 		signal,
 	});
 	if (!response.ok) throw new Error(`web search (${model}): HTTP ${response.status} ${(await response.text()).slice(0, 300)}`);
-	return response.json();
+	return parse(answer, await response.json(), "web search 回應");
 }
 
 async function searchResponses(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
-	const answer = await postSearch(
+	const body = await postSearch(
+		ResponsesAnswer,
 		config,
 		"/v1/responses",
 		model,
@@ -128,7 +129,6 @@ async function searchResponses(config: WebConfig, model: string, query: string, 
 		{ instructions: INSTRUCTIONS, input: query, tools: [{ type: "web_search" }] },
 		signal,
 	);
-	const body = parse(ResponsesAnswer, answer, "web search 回應");
 	const parts = (body.output ?? []).filter((item) => item.type === "message").flatMap((item) => item.content ?? []);
 	const text = parts.map((part) => part.text ?? "").join("\n").trim();
 	const sources = new Map<string, string>();
@@ -137,7 +137,8 @@ async function searchResponses(config: WebConfig, model: string, query: string, 
 }
 
 async function searchAnthropic(config: WebConfig, model: string, query: string, signal: AbortSignal): Promise<string> {
-	const answer = await postSearch(
+	const body = await postSearch(
+		MessagesAnswer,
 		config,
 		"/v1/messages",
 		model,
@@ -150,7 +151,6 @@ async function searchAnthropic(config: WebConfig, model: string, query: string, 
 		},
 		signal,
 	);
-	const body = parse(MessagesAnswer, answer, "web search 回應");
 	const text = (body.content ?? []).flatMap((block) => (block.type === "text" ? [block.text ?? ""] : [])).join("").trim();
 	const sources = (body.content ?? [])
 		.filter((block) => block.type === "web_search_tool_result")
