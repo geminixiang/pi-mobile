@@ -98,10 +98,10 @@ export const checks: Check[] = [
 				mcp.listGate = gate;
 				const server = await runtime.mcp.add("Listing", "https://list.invalid/mcp");
 				await settle();
-				await runtime.mcp.logout(server.id);
+				await runtime.mcp.remove(server.id);
 				gate.resolve();
 				await settle();
-				assert.equal(runtime.mcp.status(server.id)?.state, "idle");
+				assert.equal(runtime.mcp.status(server.id), undefined);
 				assert.equal(openClients(), 0);
 			} finally {
 				await runtime.close();

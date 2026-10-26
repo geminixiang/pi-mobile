@@ -6,4 +6,13 @@ interface LoopbackPlugin {
 	addListener(event: "redirect", listener: (data: { url: string }) => void): Promise<PluginListenerHandle>;
 }
 
-export const Loopback = registerPlugin<LoopbackPlugin>("Loopback");
+const Loopback = registerPlugin<LoopbackPlugin>("Loopback");
+
+export async function listenForRedirect(at: { port: number; path: string }, onRedirect: (url: URL) => void): Promise<() => Promise<void>> {
+	await Loopback.start(at);
+	const handle = await Loopback.addListener("redirect", ({ url }) => onRedirect(new URL(url)));
+	return async () => {
+		await handle.remove();
+		await Loopback.stop();
+	};
+}

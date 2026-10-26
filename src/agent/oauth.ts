@@ -56,7 +56,7 @@ export function checkTokens(response: HttpResponse, what: string): Checked<Token
 	const checked = check(TokenResponse, response.body, what);
 	if (!checked.ok) return checked;
 	const body = checked.value;
-	if (response.status !== 200 || !body.access_token) return { ok: false, problem: `${what}：${body.error_description ?? body.error ?? `HTTP ${response.status}`}` };
+	if (response.status !== 200 || !body.access_token) return { ok: false, problem: oauthProblem(body, response.status, what) };
 	return {
 		ok: true,
 		value: {
@@ -65,6 +65,10 @@ export function checkTokens(response: HttpResponse, what: string): Checked<Token
 			idToken: body.id_token,
 		},
 	};
+}
+
+function oauthProblem(body: TokenResponse, status: number, what: string): string {
+	return `${what}：${body.error_description ?? body.error ?? `HTTP ${status}`}`;
 }
 
 export function refreshedTokens(response: HttpResponse, what: string): Tokens {
@@ -110,8 +114,7 @@ export interface DeviceSignIn {
 export async function startDeviceFlow({ url, form, what }: { url: string; form: Record<string, string>; what: string }): Promise<DeviceSignIn> {
 	const response = await postForm({ url, form, what });
 	if (response.status !== 200) {
-		const error = parse(TokenResponse, response.body, what);
-		throw new Error(`${what}：${error.error_description ?? error.error ?? `HTTP ${response.status}`}`);
+		throw new Error(oauthProblem(parse(TokenResponse, response.body, what), response.status, what));
 	}
 	const body = parse(DeviceAuthorization, response.body, what);
 	return {

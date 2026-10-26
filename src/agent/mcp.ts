@@ -1,4 +1,3 @@
-import type { PluginListenerHandle } from "@capacitor/core";
 import { isJsonValue } from "@earendil-works/chord";
 import { defineExtension, defineTool, type Extension, section, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { type AuthProvider, type CallToolResult, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
@@ -13,7 +12,7 @@ import { type Static, Type } from "typebox";
 import { decode, decodeEach } from "./parse.ts";
 import { type McpSession, nativeFetch, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
-import { Loopback } from "../loopback-plugin.ts";
+import { listenForRedirect } from "../loopback-plugin.ts";
 import { messageOf, onFailure, orLogged, serially, settled } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;
@@ -84,12 +83,8 @@ function stateStore(server: McpServer, secrets: Platform["secrets"]) {
 	};
 }
 
-export type McpStatus =
-	| { state: "idle"; tools: number }
-	| { state: "connecting"; tools: number }
-	| { state: "ready"; tools: number; serverName?: string }
-	| { state: "login"; tools: number }
-	| { state: "error"; tools: number; message: string };
+type McpState = { state: "idle" } | { state: "connecting" } | { state: "ready"; serverName?: string } | { state: "login" } | { state: "error"; message: string };
+export type McpStatus = McpState & { tools: number };
 
 type Cached = { tools: Tool[]; instructions?: string };
 const cacheKey = (server: McpServer) => `pi-mobile.mcp:${server.id}:${server.url}`;
@@ -120,33 +115,23 @@ class Connection {
 	#disposed = false;
 	readonly #provider: McpOAuthProvider;
 	readonly #store: ReturnType<typeof stateStore>;
-	readonly #install: (extension: Extension) => void;
-	readonly #changed: () => void;
-	readonly #openUrl: (url: string) => Promise<void>;
-	readonly #hostKey: (address: string) => string;
+	readonly #hooks: ConnectionHooks;
 	#signingIn = false;
 	readonly #auth: AuthProvider;
-	#redirect: PluginListenerHandle | undefined;
+	#stopRedirect: (() => Promise<void>) | undefined;
 	readonly #platform: Platform;
 
-	constructor(
-		server: McpServer,
-		platform: Platform,
-		hooks: { install: (extension: Extension) => void; changed: () => void; openUrl: (url: string) => Promise<void>; hostKey: (address: string) => string },
-	) {
+	constructor(server: McpServer, platform: Platform, hooks: ConnectionHooks) {
 		this.server = server;
-		this.#hostKey = hooks.hostKey;
 		this.#platform = platform;
-		this.#install = hooks.install;
-		this.#changed = hooks.changed;
-		this.#openUrl = hooks.openUrl;
+		this.#hooks = hooks;
 		this.#store = stateStore(server, platform.secrets);
 		this.#provider = new McpOAuthProvider({
 			serverUrl: server.url,
 			redirectUrl: REDIRECT_URL,
 			clientMetadata: { client_name: "pi mobile", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" },
 			store: this.#store,
-			onRedirect: (url) => (this.#signingIn ? this.#openUrl(url.toString()) : undefined),
+			onRedirect: (url) => (this.#signingIn ? this.#hooks.openUrl(url.toString()) : undefined),
 		});
 		const adapted = adaptOAuthProvider(this.#provider);
 		this.#auth = {
@@ -158,12 +143,12 @@ class Connection {
 		};
 		const cached = loadCache(server, platform.plain);
 		this.status = { state: "idle", tools: cached?.tools.length ?? 0 };
-		this.#install(this.#extension(cached ?? { tools: [] }));
+		this.#hooks.install(this.#extension(cached ?? { tools: [] }));
 	}
 
-	#set(status: McpStatus): void {
-		this.status = status;
-		this.#changed();
+	#set(state: McpState, tools = this.status.tools): void {
+		this.status = { ...state, tools };
+		this.#hooks.changed();
 	}
 
 	client(): Promise<McpSession> {
@@ -179,11 +164,11 @@ class Connection {
 
 	async #connect(generation: number): Promise<McpSession> {
 		const current = () => generation === this.#generation && !this.#disposed;
-		this.#set({ state: "connecting", tools: this.status.tools });
+		this.#set({ state: "connecting" });
 		const client = this.#platform.mcpClient();
 		const onComputer = parseComputerMcp(this.server.url);
 		const transport = onComputer
-			? new HostStdioTransport({ address: onComputer.address, key: this.#hostKey(onComputer.address) }, onComputer.command)
+			? new HostStdioTransport({ address: onComputer.address, key: this.#hooks.hostKey(onComputer.address) }, onComputer.command)
 			: new StreamableHttpTransport({
 					url: this.server.url,
 					fetch: nativeFetch,
@@ -197,17 +182,17 @@ class Connection {
 			tools = await client.listTools();
 		} catch (error) {
 			if (this.#live === client) this.#live = undefined;
-			await orLogged(client.close(), "mcp.close_failed", undefined, { server: this.server.id });
+			await this.#closeQuietly(client);
 			if (!current()) throw new Superseded();
 			if (error instanceof McpOAuthAuthorizationRequiredError) {
-				this.#set({ state: "login", tools: this.status.tools });
+				this.#set({ state: "login" });
 				throw new Error(`${this.server.name} needs the user to sign in: settings › MCP › ${this.server.name} › 登入.`);
 			}
-			this.#set({ state: "error", tools: this.status.tools, message: messageOf(error) });
+			this.#set({ state: "error", message: messageOf(error) });
 			throw error;
 		}
 		if (!current()) {
-			await orLogged(client.close(), "mcp.close_failed", undefined, { server: this.server.id });
+			await this.#closeQuietly(client);
 			throw new Superseded();
 		}
 		client.onClose(() => {
@@ -217,8 +202,8 @@ class Connection {
 		});
 		const cached: Cached = { tools, ...(client.instructions ? { instructions: client.instructions } : {}) };
 		this.#platform.plain.set(cacheKey(this.server), JSON.stringify(cached));
-		this.#install(this.#extension(cached));
-		this.#set({ state: "ready", tools: tools.length, ...(client.serverInfo?.name ? { serverName: client.serverInfo.name } : {}) });
+		this.#hooks.install(this.#extension(cached));
+		this.#set({ state: "ready", ...(client.serverInfo?.name ? { serverName: client.serverInfo.name } : {}) }, tools.length);
 		return client;
 	}
 
@@ -227,17 +212,23 @@ class Connection {
 		this.#client = undefined;
 		const live = this.#live;
 		this.#live = undefined;
-		if (live) await orLogged(live.close(), "mcp.close_failed", undefined, { server: this.server.id });
+		if (live) await this.#closeQuietly(live);
+	}
+
+	#closeQuietly(client: McpSession): Promise<void> {
+		return orLogged(client.close(), "mcp.close_failed", undefined, { server: this.server.id });
 	}
 
 	async dispose(): Promise<void> {
 		this.#disposed = true;
-		if (this.#redirect) {
-			void this.#redirect.remove();
-			this.#redirect = undefined;
-			await orLogged(Loopback.stop(), "mcp.loopback_stop_failed", undefined, { server: this.server.id });
-		}
+		await this.#endRedirect();
 		await this.close();
+	}
+
+	#endRedirect(): Promise<void> {
+		const stop = this.#stopRedirect;
+		this.#stopRedirect = undefined;
+		return stop ? orLogged(stop(), "mcp.loopback_stop_failed", undefined, { server: this.server.id }) : Promise.resolve();
 	}
 
 	refresh(): void {
@@ -251,57 +242,46 @@ class Connection {
 		if (client && "redirect_uris" in client && Array.isArray(client.redirect_uris) && !client.redirect_uris.includes(REDIRECT_URL)) {
 			await this.#provider.invalidateCredentials("client");
 		}
-		void this.#redirect?.remove();
-		await Loopback.start({ port: REDIRECT_PORT, path: REDIRECT_PATH });
-		const listener = await Loopback.addListener("redirect", ({ url }) => {
-			void listener.remove();
-			if (this.#redirect === listener) this.#redirect = undefined;
-			this.complete(new URL(url)).catch((error: unknown) =>
-				this.#set({ state: "error", tools: this.status.tools, message: messageOf(error) }),
-			);
+		await this.#endRedirect();
+		this.#stopRedirect = await listenForRedirect({ port: REDIRECT_PORT, path: REDIRECT_PATH }, (url) => {
+			void this.#endRedirect();
+			this.#complete(url).catch((error: unknown) => this.#set({ state: "error", message: messageOf(error) }));
 		});
-		this.#redirect = listener;
-		const done = () => {
-			void listener.remove();
-			if (this.#redirect === listener) this.#redirect = undefined;
-			void Loopback.stop();
-		};
 		this.#signingIn = true;
 		try {
 			const result = await authorizeMcp(this.#provider, { serverUrl: this.server.url, fetch: nativeFetch });
 			if (result === "AUTHORIZED") {
-				done();
+				await this.#endRedirect();
 				this.refresh();
 			}
 		} catch (error) {
-			done();
+			await this.#endRedirect();
 			throw error;
 		} finally {
 			this.#signingIn = false;
 		}
 	}
 
-	async complete(url: URL): Promise<boolean> {
-		if (this.#disposed) return false;
+	async #complete(url: URL): Promise<void> {
+		if (this.#disposed) return;
 		const state = url.searchParams.get("state");
-		if (!state || state !== (await this.#provider.state())) return false;
+		if (!state || state !== (await this.#provider.state())) return;
 		const error = url.searchParams.get("error");
 		if (error) {
-			this.#set({ state: "error", tools: this.status.tools, message: `${error}${url.searchParams.get("error_description") ? `: ${url.searchParams.get("error_description")}` : ""}` });
-			return true;
+			this.#set({ state: "error", message: `${error}${url.searchParams.get("error_description") ? `: ${url.searchParams.get("error_description")}` : ""}` });
+			return;
 		}
 		const code = url.searchParams.get("code");
-		if (!code) return true;
+		if (!code) return;
 		const iss = url.searchParams.get("iss");
 		await authorizeMcp(this.#provider, { serverUrl: this.server.url, authorizationCode: code, ...(iss ? { iss } : {}), fetch: nativeFetch });
 		this.refresh();
-		return true;
 	}
 
 	async logout(): Promise<void> {
 		await this.#store.forget();
 		await this.close();
-		this.#set({ state: "idle", tools: this.status.tools });
+		this.#set({ state: "idle" });
 	}
 
 	#extension(cached: Cached): Extension {
@@ -347,6 +327,13 @@ class Connection {
 }
 
 export type Grant = { extension: string; toolPrefix: string };
+
+type ConnectionHooks = {
+	install: (extension: Extension) => void;
+	changed: () => void;
+	openUrl: (url: string) => Promise<void>;
+	hostKey: (address: string) => string;
+};
 
 type McpHooks = {
 	install: (extension: Extension) => void;
@@ -456,10 +443,6 @@ export class McpHub {
 		const connection = this.#connections.get(id);
 		if (!connection) return Promise.reject(new Error(`no MCP server ${id}`));
 		return connection.login();
-	}
-
-	logout(id: string): Promise<void> {
-		return this.#connections.get(id)?.logout() ?? Promise.resolve();
 	}
 
 	async close(): Promise<void> {

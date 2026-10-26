@@ -1,5 +1,4 @@
-import type { PluginListenerHandle } from "@capacitor/core";
-import { Loopback } from "../loopback-plugin.ts";
+import { listenForRedirect } from "../loopback-plugin.ts";
 import type { Api, ApiStreamOptions, Model, OAuthAuth, OAuthCredential, Provider, SimpleStreamOptions, TranscriptContext } from "@earendil-works/pi-ai";
 import { streamFetch } from "../stream-fetch.ts";
 import { Type } from "typebox";
@@ -59,17 +58,9 @@ async function requestToken(form: Record<string, string>, clientId: string): Pro
 export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>): Promise<OAuthCredential> {
 	const { verifier, challenge } = await pkce(32);
 	const state = random();
-	await Loopback.start({ port: PORT, path: PATH });
-	let listener: PluginListenerHandle | undefined;
-	const callback = new Promise<URL>((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error("沒有完成登入")), WAIT_MS);
-		void Loopback.addListener("redirect", ({ url }) => {
-			clearTimeout(timer);
-			resolve(new URL(url));
-		}).then((handle) => {
-			listener = handle;
-		});
-	});
+	const { promise: callback, resolve, reject } = Promise.withResolvers<URL>();
+	const stop = await listenForRedirect({ port: PORT, path: PATH }, resolve);
+	const timer = setTimeout(() => reject(new Error("沒有完成登入")), WAIT_MS);
 	try {
 		const authorize = new URL(AUTHORIZE_URL);
 		authorize.search = new URLSearchParams({
@@ -98,8 +89,8 @@ export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>)
 			clientId,
 		);
 	} finally {
-		void listener?.remove();
-		void Loopback.stop();
+		clearTimeout(timer);
+		await orLogged(stop(), "chatgpt.loopback_stop_failed", undefined);
 	}
 }
 

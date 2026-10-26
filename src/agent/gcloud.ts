@@ -66,23 +66,17 @@ async function serviceAccountAssertion(credential: Static<typeof ServiceAccount>
 }
 
 async function exchange(credential: Credential): Promise<AccessToken> {
-	const response =
+	const request: { url: string; form: Record<string, string> } =
 		credential.type === "authorized_user"
-			? await postForm({
+			? {
 					url: TOKEN_URL,
-					form: {
-						grant_type: "refresh_token",
-						refresh_token: credential.refresh_token,
-						client_id: credential.client_id,
-						client_secret: credential.client_secret,
-					},
-					what: "Google token",
-				})
-			: await postForm({
+					form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: credential.client_id, client_secret: credential.client_secret },
+				}
+			: {
 					url: credential.token_uri ?? TOKEN_URL,
 					form: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: await serviceAccountAssertion(credential) },
-					what: "Google token",
-				});
+				};
+	const response = await postForm({ ...request, what: "Google token" });
 	return valueOrThrow(checkTokens(response, "Google token")).access;
 }
 
