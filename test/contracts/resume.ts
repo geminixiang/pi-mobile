@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
+import { sleep } from "../../src/promise.ts";
 
 type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data: RawMessage): void; drop(reason?: string): void; closed: boolean; closeCode: number | undefined };
 
@@ -27,7 +28,6 @@ function fakeOpener() {
 	return { open, sockets };
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function opened(opener: ReturnType<typeof fakeOpener>, index: number): Promise<Fake> {
 	for (let waited = 0; waited < 5000; waited += 20) {

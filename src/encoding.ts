@@ -22,3 +22,7 @@ export function toHex(bytes: Uint8Array): string {
 export function randomHex(bytes: number): string {
 	return toHex(crypto.getRandomValues(new Uint8Array(bytes)));
 }
+
+export async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+	return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
+}

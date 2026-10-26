@@ -247,11 +247,8 @@ func TestAPhoneThatClosesOnPurposeEndsItsHeldSession(t *testing.T) {
 	if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(3 * time.Second)
-	for takeSession("exec:"+token, digest("phone-a")) != nil {
-		if time.Now().After(deadline) {
-			t.Fatal("a normal closure left the session held")
-		}
-		time.Sleep(50 * time.Millisecond)
+	waitFor(func() bool { return takeSession("exec:"+token, digest("phone-a")) == nil })
+	if takeSession("exec:"+token, digest("phone-a")) != nil {
+		t.Fatal("a normal closure left the session held")
 	}
 }

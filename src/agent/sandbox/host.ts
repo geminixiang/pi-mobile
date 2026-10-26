@@ -14,7 +14,7 @@ import { type CommandChannel, type CommandClient, type CommandHandlers, Containe
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SharedEnvs } from "./sandbox.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
-import { type RawMessage, ResumableSocket } from "./resumable-socket.ts";
+import { type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode, decodeEach } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
@@ -167,7 +167,7 @@ function holdSocket(
 	path: "/exec" | "/env",
 	first: Record<string, string>,
 	token: string,
-	handlers: Pick<Parameters<typeof ResumableSocket.connect>[0], "onMessage" | "onClose" | "onLink">,
+	handlers: Pick<ResumableOptions, "onMessage" | "onClose" | "onLink">,
 ): Promise<ResumableSocket> {
 	return ResumableSocket.connect({
 		quietLimitMs: DAEMON_QUIET_LIMIT_MS,

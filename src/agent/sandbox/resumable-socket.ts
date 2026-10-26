@@ -6,7 +6,7 @@ export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
-interface ResumableOptions {
+export interface ResumableOptions {
 	first: URL;
 	attach: (received: number) => URL;
 	open: OpenRaw;
@@ -76,7 +76,7 @@ export class ResumableSocket {
 	}
 
 	#checkQuiet(): void {
-		if (this.#closed || this.#down || Date.now() - this.#lastMessage <= this.#options.quietLimitMs) return;
+		if (this.#closed || !this.#socket || Date.now() - this.#lastMessage <= this.#options.quietLimitMs) return;
 		const socket = this.#socket;
 		this.#socket = undefined;
 		socket?.close();
@@ -142,14 +142,9 @@ export class ResumableSocket {
 		this.#attempt++;
 		try {
 			const socket = await this.#open(this.#options.attach(this.#received), true);
-			if (this.#closed) return socket.close();
+			if (this.#closed) return socket.close(NORMAL_CLOSURE);
 			this.#socket = socket;
-			this.#timer = setTimeout(() => {
-				if (!this.#down || this.#socket !== socket) return;
-				this.#socket = undefined;
-				socket.close();
-				this.#dropped();
-			}, this.#options.quietLimitMs);
+			this.#lastMessage = Date.now();
 		} catch {
 			this.#dropped();
 		}

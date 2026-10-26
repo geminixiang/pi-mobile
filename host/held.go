@@ -29,6 +29,7 @@ var (
 	heartbeatEvery = 5 * time.Second
 	pingEvery      = 10 * time.Second
 	pingTimeout    = 10 * time.Second
+	writeTimeout   = 10 * time.Second
 )
 
 // why: pi-env's wire format, type 6 (ping) with id 0 and the JSON object {}; it keeps the daemon from exiting after 30 s of silence while the phone is away.
@@ -140,7 +141,7 @@ func writeMessage(conn *websocket.Conn, ctx context.Context, m message) error {
 	if m.text {
 		kind = websocket.MessageText
 	}
-	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	ctx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
 	return conn.Write(ctx, kind, m.data)
 }
@@ -191,12 +192,6 @@ func (h *held) keepAlive() {
 	ticker := time.NewTicker(heartbeatEvery)
 	defer ticker.Stop()
 	for range ticker.C {
-		h.mu.Lock()
-		killed := h.killed
-		h.mu.Unlock()
-		if killed {
-			return
-		}
 		if _, err := h.stdin.Write(h.heartbeat); err != nil {
 			return
 		}
@@ -239,7 +234,7 @@ func (h *held) killLocked() {
 		return
 	}
 	if h.conn != nil {
-		go h.conn.Close(websocket.StatusNormalClosure, "")
+		go h.conn.Close(websocket.StatusNormalClosure, sessionGone)
 		h.conn = nil
 	}
 	h.finishLocked()
@@ -285,6 +280,12 @@ func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (stri
 }
 
 func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
+	h.mu.Lock()
+	current := h.conn == conn
+	h.mu.Unlock()
+	if !current {
+		return
+	}
 	go h.watch(conn, ctx)
 	var readErr error
 	for {
@@ -296,7 +297,7 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 		h.mu.Lock()
 		if h.conn != conn {
 			h.mu.Unlock()
-			break
+			return
 		}
 		h.received++
 		h.mu.Unlock()
@@ -317,6 +318,7 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 	}
 	// why: the phone sends a normal closure only when it means to end the session; a dropped network sends no close frame, and the phone's own reattach closes without a code.
 	if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
+		h.conn = nil
 		h.killLocked()
 		return
 	}

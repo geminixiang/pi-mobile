@@ -12,8 +12,6 @@ import type { Workplace } from "../workplaces.ts";
 import { sharedUntilFailure } from "../../promise.ts";
 import { shellQuote } from "../../shell.ts";
 
-export const SHARED_SANDBOX = "main";
-
 export interface Sandbox {
 	readonly direct: boolean;
 	readonly status: ConnectionStatus;
@@ -43,7 +41,7 @@ export class SharedEnvs {
 	}
 
 	#make(cwd: string): RemoteExecutionEnv {
-		return new RemoteExecutionEnv({ connection: this.#connection, id: `sandbox:${SHARED_SANDBOX}`, cwd });
+		return new RemoteExecutionEnv({ connection: this.#connection, id: "sandbox:main", cwd });
 	}
 
 	async #run(command: string): Promise<number> {

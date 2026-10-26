@@ -9,7 +9,7 @@ import { type Daemon, daemon, ENV_PATH } from "./daemon.ts";
 import { lost, type OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, onFailure, sleep } from "../../promise.ts";
 import { decode } from "../parse.ts";
-import { randomHex, toHex } from "../../encoding.ts";
+import { randomHex, sha256Hex } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
 
 const CONTAINER = "pim-main";
@@ -85,10 +85,6 @@ const MINTED_LABELS: Record<string, string> = { gcloud: "Google Cloud", cloudfla
 
 const EGRESS_FILES = { Dockerfile: egressDockerfile, "credentials.py": credentialsPy, "bridge.py": bridgePy };
 
-async function sha256(text: string): Promise<string> {
-	return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))));
-}
-
 function arch(value: string): "x64" | "arm64" | undefined {
 	const name = value.trim();
 	if (name === "x86_64" || name === "amd64") return "x64";
@@ -116,9 +112,9 @@ export class ContainerHost {
 	readonly #engine: string;
 	readonly #client: CommandClient;
 	#egress: Promise<string> | undefined;
-	readonly #prepared = new Set<string>();
+	#prepared: string | undefined;
 	#active = 0;
-	#ensuring: Promise<void> | undefined;
+	#ensuring: Promise<string> | undefined;
 	#arch: "x64" | "arm64" | undefined;
 
 	constructor(engine: string, client: CommandClient) {
@@ -145,8 +141,7 @@ export class ContainerHost {
 	async ensureImages(home: string, onProgress: (detail: string) => void): Promise<void> {
 		const engineArch = arch((await this.#outputIfSucceeds("info --format '{{.Architecture}}'")) ?? "") ?? arch((await this.#outputIfSucceeds("info --format '{{.Host.Arch}}'")) ?? "");
 		if (!engineArch) throw new Error(`讀不到 ${this.#engine} 的架構`);
-		const piEnv = daemon("linux", engineArch);
-		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, home, onProgress, piEnv);
+		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, home, onProgress, daemon("linux", engineArch));
 		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, home, onProgress);
 	}
 
@@ -157,7 +152,7 @@ export class ContainerHost {
 		onProgress: (detail: string) => void,
 		piEnv?: Daemon,
 	): Promise<void> {
-		const hash = await sha256(JSON.stringify(files) + (piEnv?.sha ?? ""));
+		const hash = await sha256Hex(new TextEncoder().encode(JSON.stringify(files) + (piEnv?.sha ?? "")));
 		const current = await this.#outputIfSucceeds(`image inspect -f '{{index .Config.Labels "dev.pi-mobile.hash"}}' ${name}`);
 		if (current === hash) return;
 		const dir = `${home}/.pi/mobile/build/${name.split("/")[1]}`;
@@ -234,7 +229,7 @@ export class ContainerHost {
 		let close: (() => void) | undefined;
 		const run = async (): Promise<void> => {
 			await this.#ensureEgress();
-				let send: (message: unknown) => void = () => {};
+			let send: (message: unknown) => void = () => {};
 			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
 			const ended = new Promise<void>((resolve) => {
 				void this.#client
@@ -296,34 +291,33 @@ export class ContainerHost {
 		}
 	}
 
-	#ensure(): Promise<void> {
+	#ensure(): Promise<string> {
 		this.#ensuring ??= this.#ensureNow().finally(() => {
 			this.#ensuring = undefined;
 		});
 		return this.#ensuring;
 	}
 
-	async #ensureNow(): Promise<void> {
-		const container = CONTAINER;
-		const state = await this.#outputIfSucceeds(`inspect -f '{{.State.Running}}' ${container}`);
-		if (state === "true") return;
+	async #ensureNow(): Promise<string> {
+		const [state, id = ""] = (await this.#outputIfSucceeds(`inspect -f '{{.State.Running}} {{.Id}}' ${CONTAINER}`))?.split(" ") ?? [];
+		if (state === "true") return id;
 		await this.#makeRoom();
 		if (state === "false") {
-			await this.#engineOutput(`start ${container}`);
-			return;
+			await this.#engineOutput(`start ${CONTAINER}`);
+			return id;
 		}
-		await this.#engineOutput(
+		return this.#engineOutput(
 			[
 				"run -d",
-				`--name ${container}`,
+				`--name ${CONTAINER}`,
 				`--label ${LABEL}`,
-				`--hostname ${container}`,
+				`--hostname ${CONTAINER}`,
 				`--cpus ${CPUS}`,
 				`--memory ${MEMORY}`,
 				`--pids-limit ${PIDS}`,
 				"--restart no",
 				`--network ${NETWORK}`,
-				`-v ${container}:/workspace`,
+				`-v ${CONTAINER}:/workspace`,
 				SANDBOX_IMAGE,
 			].join(" "),
 		);
@@ -344,35 +338,31 @@ export class ContainerHost {
 		await this.#engineOutput(`stop -t 2 ${idle.name}`);
 	}
 
-	async #prepare(ca: string, piEnv: Daemon): Promise<void> {
-		const container = CONTAINER;
-		const id = await this.#engineOutput(`inspect -f '{{.Id}}' ${container}`);
-		if (this.#prepared.has(id)) return;
+	async #prepare(id: string, ca: string, piEnv: Daemon): Promise<void> {
+		if (this.#prepared === id) return;
 		await this.#engineOutput(
-			`exec -i ${container} sh -c ${shellQuote(
+			`exec -i ${CONTAINER} sh -c ${shellQuote(
 				`cat > /tmp/pi-egress.crt && if ! cmp -s /tmp/pi-egress.crt ${CA_PATH}; then mv /tmp/pi-egress.crt ${CA_PATH} && update-ca-certificates >/dev/null 2>&1; else rm /tmp/pi-egress.crt; fi`,
 			)}`,
 			new TextEncoder().encode(ca),
 		);
-		const present = await this.#outputIfSucceeds(`exec ${container} sha256sum ${DAEMON}`);
+		const present = await this.#outputIfSucceeds(`exec ${CONTAINER} sha256sum ${DAEMON}`);
 		if (present?.split(" ")[0] !== piEnv.sha) {
 			await this.#engineOutput(
-				`exec -i ${container} sh -c ${shellQuote(`cat > ${DAEMON}.new && chmod 755 ${DAEMON}.new && mv ${DAEMON}.new ${DAEMON}`)}`,
+				`exec -i ${CONTAINER} sh -c ${shellQuote(`cat > ${DAEMON}.new && chmod 755 ${DAEMON}.new && mv ${DAEMON}.new ${DAEMON}`)}`,
 				await piEnv.bytes(),
 			);
 		}
-		this.#prepared.add(id);
+		this.#prepared = id;
 	}
 
 	opener(serviceEnv: () => Record<string, string>): OpenDaemon {
 		return async (token, handlers) => {
 			const ca = await this.#ensureEgress();
-			await this.#ensure();
-			const machineArch = this.#arch ?? arch(await this.#engineOutput(`exec ${CONTAINER} uname -m`));
-			if (!machineArch) throw lost("讀不到 sandbox 的架構");
-			this.#arch = machineArch;
-			const piEnv = daemon("linux", machineArch);
-			await this.#prepare(ca, piEnv);
+			const id = await this.#ensure();
+			this.#arch ??= arch(await this.#engineOutput(`exec ${CONTAINER} uname -m`));
+			if (!this.#arch) throw lost("讀不到 sandbox 的架構");
+			await this.#prepare(id, ca, daemon("linux", this.#arch));
 			const env = Object.entries({ ...SANDBOX_ENV, ...serviceEnv() })
 				.map(([key, value]) => `-e ${shellQuote(`${key}=${value}`)}`)
 				.join(" ");
