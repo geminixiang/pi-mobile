@@ -358,16 +358,28 @@
 						{
 							"const": "margin",
 							"type": "string"
+						},
+						{
+							"const": "valuation",
+							"type": "string"
+						},
+						{
+							"const": "revenue",
+							"type": "string"
+						},
+						{
+							"const": "market",
+							"type": "string"
 						}
 					],
-					"description": "prices: daily open, high, low, close, change and volume; institutional: foreign, investment trust and dealer net buying in shares; margin: margin and short balances in lots (張)"
+					"description": "prices: daily open, high, low, close, change and volume; institutional: foreign, investment trust and dealer net buying in shares; margin: margin and short balances in lots (張); valuation: P/E, P/B and dividend yield; revenue: the latest month's revenue with month-on-month, year-on-year and year-to-date growth; market: both indexes, turnover and institutional net buying in NT$, no stocks needed"
 				},
 				"from": {
-					"description": "First date YYYY-MM-DD; default 30 days ago for prices, else the latest trading day",
+					"description": "First date YYYY-MM-DD; default 30 days ago for prices, else the latest trading day; not used for revenue; institutional, margin, valuation and market cover about 10 trading days per call",
 					"type": "string"
 				},
 				"stocks": {
-					"description": "Stock codes or names: 2330, 台積電, 0050",
+					"description": "Stock codes or names: 2330, 台積電, 0050; required except for market",
 					"items": {
 						"type": "string"
 					},
@@ -381,8 +393,7 @@
 				}
 			},
 			"required": [
-				"data",
-				"stocks"
+				"data"
 			],
 			"type": "object"
 		},
@@ -589,6 +600,263 @@
 									"margin_change",
 									"short_balance",
 									"short_change"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						{
+							"items": {
+								"properties": {
+									"code": {
+										"type": "string"
+									},
+									"date": {
+										"type": "string"
+									},
+									"dividend_year": {
+										"type": "string"
+									},
+									"dividend_yield_pct": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"market": {
+										"anyOf": [
+											{
+												"const": "twse",
+												"type": "string"
+											},
+											{
+												"const": "tpex",
+												"type": "string"
+											}
+										]
+									},
+									"name": {
+										"type": "string"
+									},
+									"pb": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"pe": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"report_period": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"code",
+									"name",
+									"market",
+									"date",
+									"pe",
+									"pb",
+									"dividend_yield_pct",
+									"dividend_year",
+									"report_period"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						{
+							"items": {
+								"properties": {
+									"code": {
+										"type": "string"
+									},
+									"market": {
+										"anyOf": [
+											{
+												"const": "twse",
+												"type": "string"
+											},
+											{
+												"const": "tpex",
+												"type": "string"
+											}
+										]
+									},
+									"mom_pct": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"month": {
+										"type": "string"
+									},
+									"name": {
+										"type": "string"
+									},
+									"note": {
+										"type": "string"
+									},
+									"revenue_twd": {
+										"type": "number"
+									},
+									"year_to_date_twd": {
+										"type": "number"
+									},
+									"year_to_date_yoy_pct": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"yoy_pct": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									}
+								},
+								"required": [
+									"code",
+									"name",
+									"market",
+									"month",
+									"revenue_twd",
+									"mom_pct",
+									"yoy_pct",
+									"year_to_date_twd",
+									"year_to_date_yoy_pct",
+									"note"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						{
+							"items": {
+								"properties": {
+									"change": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"date": {
+										"type": "string"
+									},
+									"dealer_net_twd": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"foreign_net_twd": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"index": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"market": {
+										"anyOf": [
+											{
+												"const": "twse",
+												"type": "string"
+											},
+											{
+												"const": "tpex",
+												"type": "string"
+											}
+										]
+									},
+									"total_net_twd": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"trust_net_twd": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"value_twd": {
+										"type": "number"
+									},
+									"volume_shares": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"market",
+									"date",
+									"index",
+									"change",
+									"volume_shares",
+									"value_twd",
+									"foreign_net_twd",
+									"trust_net_twd",
+									"dealer_net_twd",
+									"total_net_twd"
 								],
 								"type": "object"
 							},
@@ -2145,6 +2413,10 @@
 						},
 						{
 							"const": "html-page",
+							"type": "string"
+						},
+						{
+							"const": "stock-analysis",
 							"type": "string"
 						}
 					],

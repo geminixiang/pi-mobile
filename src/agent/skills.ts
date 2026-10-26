@@ -3,6 +3,7 @@ import { defineAppTool, text } from "./tools/common.ts";
 import { Type } from "typebox";
 import htmlPage from "./skills/html-page.md?raw";
 import spokenReport from "./skills/spoken-report.md?raw";
+import stockAnalysis from "./skills/stock-analysis.md?raw";
 
 interface Skill {
 	name: string;
@@ -20,6 +21,11 @@ const SKILLS: readonly Skill[] = [
 		name: "html-page",
 		when: "before writing an .html file for the user: a report, a comparison, a chart, a small tool",
 		text: htmlPage,
+	},
+	{
+		name: "stock-analysis",
+		when: "before analysing stocks, ETFs or the market, or setting up a watchlist digest",
+		text: stockAnalysis,
 	},
 ];
 
