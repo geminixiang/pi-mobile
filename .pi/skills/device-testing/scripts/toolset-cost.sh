@@ -32,6 +32,7 @@ CDP_PORT=$PORT ./test/ui.sh "async () => {
 	const on = await rt.createBot({ name: '量測開', job: '', avatar: 'coder' });
 	const off = await rt.createBot({ name: '量測關', job: '', avatar: 'coder' });
 	try {
+		await rt.setToolset(on, '$TOOLSET', true);
 		await rt.setToolset(off, '$TOOLSET', false);
 		const withIt = await prompt('量測開');
 		const without = await prompt('量測關');

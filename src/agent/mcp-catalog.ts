@@ -29,6 +29,8 @@ export const CATALOG: readonly CatalogEntry[] = [
 	{ name: "DeepWiki", url: "https://mcp.deepwiki.com/mcp", category: "knowledge", auth: "none", description: "解說任何公開 GitHub repo 的架構與用法" },
 	{ name: "Exa", url: "https://mcp.exa.ai/mcp", category: "knowledge", auth: "none", description: "給 AI 用的網路搜尋，找文章、公司、論文" },
 	{ name: "Hugging Face", url: "https://huggingface.co/mcp", category: "knowledge", auth: "none", description: "搜尋模型、資料集、論文與 Spaces" },
+	{ name: "Shibui Finance", url: "https://mcp.shibui.finance/mcp", category: "knowledge", auth: "none", description: "美股每日股價、財報、估值、SEC 申報與內部人交易", tested: true },
+	{ name: "台股開放資料", url: "https://twse-mcp.taux.io/mcp", category: "knowledge", auth: "none", description: "台股盤中報價、個股與 ETF 摘要、大盤、期貨（非官方）", tested: true },
 	{ name: "Cloudflare 文件", url: "https://docs.mcp.cloudflare.com/mcp", category: "knowledge", auth: "none", description: "Cloudflare 官方文件搜尋", tested: true },
 	{ name: "Cloudflare", url: "https://bindings.mcp.cloudflare.com/mcp", category: "dev", auth: "oauth", description: "Workers、D1、KV、R2 與 Hyperdrive", tested: true },
 	{ name: "Cloudflare 監控", url: "https://observability.mcp.cloudflare.com/mcp", category: "dev", auth: "oauth", description: "Workers 的記錄與錯誤" },
