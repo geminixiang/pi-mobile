@@ -28,31 +28,15 @@ export function useMcp(runtime: AgentRuntime | undefined): void {
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 }
 
-function ServerBots({ runtime, server, onError }: { runtime: AgentRuntime; server: McpServer; onError: (message: string) => void }) {
-	const [bots, setBots] = useState<{ bot: Bot; enabled: boolean }[]>([]);
+type Grants = { bot: Bot; enabled: ReadonlySet<string> }[];
+
+function ServerBots({ server, grants, onGrant }: { server: McpServer; grants: Grants; onGrant: (bot: Bot, toolset: string, enabled: boolean) => void }) {
 	const toolset = extensionName(server);
-	const load = () =>
-		void runtime
-			.bots()
-			.then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: (await runtime.toolsets(bot.id)).some((item) => item.id === toolset && item.enabled) }))))
-			.then(setBots);
-	useEffect(load, [runtime, toolset]);
 	return (
 		<div className="bot-chips" role="group" aria-label={`可以用 ${server.name} 的 Bot`}>
-			{bots.map(({ bot, enabled }) => (
+			{grants.map(({ bot, enabled }) => (
 				<label key={String(bot.id)} className="chip">
-					<input
-						type="checkbox"
-						checked={enabled}
-						onChange={(event) => {
-							const next = event.target.checked;
-							setBots((current) => current.map((item) => (item.bot.id === bot.id ? { ...item, enabled: next } : item)));
-							runtime.setToolset(bot.id, toolset, next).catch((error: unknown) => {
-								onError(messageOf(error));
-								load();
-							});
-						}}
-					/>
+					<input type="checkbox" checked={enabled.has(toolset)} onChange={(event) => onGrant(bot, toolset, event.target.checked)} />
 					{bot.name}
 				</label>
 			))}
@@ -106,6 +90,24 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 	const servers = runtime?.mcp.servers ?? [];
 	const [draft, setDraft] = useState({ name: "", url: "" });
 	const [browsing, setBrowsing] = useState(false);
+	const [grants, setGrants] = useState<Grants>([]);
+	const loadGrants = () => {
+		if (!runtime) return;
+		void runtime
+			.bots()
+			.then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: new Set((await runtime.toolsets(bot.id)).filter((item) => item.enabled).map((item) => item.id)) }))))
+			.then(setGrants);
+	};
+	useEffect(loadGrants, [runtime]);
+	const grant = (bot: Bot, toolset: string, enabled: boolean) => {
+		setGrants((current) =>
+			current.map((item) => (item.bot.id === bot.id ? { bot, enabled: enabled ? new Set([...item.enabled, toolset]) : new Set([...item.enabled].filter((id) => id !== toolset)) } : item)),
+		);
+		runtime?.setToolset(bot.id, toolset, enabled).catch((error: unknown) => {
+			onError(messageOf(error));
+			loadGrants();
+		});
+	};
 	const validUrl = /^https:\/\/[^\s/]+/.test(draft.url.trim());
 
 	const add = () => {
@@ -157,7 +159,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 								</button>
 							</span>
 						</div>
-						{current && runtime ? <ServerBots runtime={runtime} server={server} onError={onError} /> : null}
+						{current && runtime ? <ServerBots server={server} grants={grants} onGrant={grant} /> : null}
 					</div>
 				);
 			})}
