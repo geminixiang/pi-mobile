@@ -5,7 +5,7 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../agent/triggers.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import type { Sandbox } from "../agent/sandbox/sandbox.ts";
-import type { ConnectionStatus } from "../agent/sandbox/stream-connection.ts";
+import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { BoxIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";

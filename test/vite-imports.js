@@ -1,10 +1,13 @@
 import { register } from "node:module";
 
+const childProcessShim = new URL("../src/shims/node-child-process.ts", import.meta.url).href;
+
 register(
 	"data:text/javascript," +
 		encodeURIComponent(`
 		import { readFile } from "node:fs/promises";
 		export async function resolve(specifier, context, next) {
+			if (specifier === "node:child_process" && context.parentURL?.includes("/@earendil-works/pi-env/")) return { url: ${JSON.stringify(childProcessShim)}, shortCircuit: true };
 			const match = /^(.*)\\?(raw|url)$/.exec(specifier);
 			if (!match) return next(specifier, context);
 			const resolved = await next(match[1], context);

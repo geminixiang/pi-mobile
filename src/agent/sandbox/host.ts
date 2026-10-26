@@ -13,7 +13,7 @@ import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, SharedEnvs } from "./sandbox.ts";
-import { type ConnectionStatus, lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
+import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
 import { type OpenRaw, type RawMessage, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode, decodeEach } from "../parse.ts";
@@ -185,6 +185,7 @@ function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => voi
 }
 
 const ExitMessage = Type.Object({ exit: Type.Number() });
+const DAEMON_QUIET_LIMIT_MS = 20_000;
 
 class HostCommands implements CommandClient {
 	readonly #host: Pick<PairedHost, "address" | "name" | "key">;
@@ -216,6 +217,7 @@ class HostCommands implements CommandClient {
 		};
 		if (session) {
 			const resumable = await ResumableSocket.connect({
+				quietLimitMs: DAEMON_QUIET_LIMIT_MS,
 				first: socketUrl(this.#host, "/exec", { command, session, heartbeat: "pi-env" }),
 				attach: (received) => socketUrl(this.#host, "/exec", { attach: session, received: String(received) }),
 				open: rawOpener(this.#host.name),
@@ -228,7 +230,6 @@ class HostCommands implements CommandClient {
 				write: (data) => resumable.send(data.slice()),
 				end: () => resumable.send("eof"),
 				close: () => resumable.close(),
-				retry: () => resumable.retry(),
 			};
 		}
 		const socket = await openSocket(socketUrl(this.#host, "/exec", { command }), this.#host.name, onMessage, () => exit(undefined)).catch(unreachable);
@@ -315,10 +316,10 @@ export class HostSandbox implements Sandbox {
 			const containers = new ContainerHost(host.engine, async () => commands);
 			this.#startBridge = () => containers.bridge(credentials);
 			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
-			const connection = new StreamConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog, onStatus });
+			const connection = new PhoneConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog, onStatus });
 			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => `${WORKSPACE}/${folder}`);
 		} else {
-			this.#envs = new SharedEnvs(new StreamConnection({ open: this.#direct(), onLog, onStatus }), host.home, () => host.home);
+			this.#envs = new SharedEnvs(new PhoneConnection({ open: this.#direct(), onLog, onStatus }), host.home, () => host.home);
 		}
 	}
 
@@ -340,6 +341,7 @@ export class HostSandbox implements Sandbox {
 			const sha = await this.#daemon();
 			const what = `${this.host.name}（${this.host.address}）`;
 			const socket = await ResumableSocket.connect({
+				quietLimitMs: DAEMON_QUIET_LIMIT_MS,
 				first: socketUrl(this.host, "/env", { daemon: sha, token }),
 				attach: (received) => socketUrl(this.host, "/env", { attach: token, received: String(received) }),
 				open: rawOpener(what),
@@ -348,9 +350,9 @@ export class HostSandbox implements Sandbox {
 					if (data instanceof ArrayBuffer) handlers.onData(new Uint8Array(data));
 				},
 				onClose: handlers.onClose,
-				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
+				onLink: handlers.onLink,
 			});
-			return { send: (data) => socket.send(data), close: () => socket.close(), retry: () => socket.retry() };
+			return { send: (data) => socket.send(data), close: () => socket.close() };
 		};
 	}
 

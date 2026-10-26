@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { RemoteError } from "@earendil-works/pi-env";
-import { type ConnectionStatus, StreamConnection } from "../../src/agent/sandbox/stream-connection.ts";
+import { type ConnectionStatus, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
 import type { Check } from "./setup.ts";
 
 const RESULT = 2;
@@ -19,7 +19,7 @@ function reply(id: number, json: Record<string, unknown>): Uint8Array<ArrayBuffe
 	return out;
 }
 
-type Daemon = { connection: StreamConnection; sent: string[]; drop: (reason: string) => void; link: (up: boolean) => void; answer: (id: number, json: Record<string, unknown>) => void; statuses: ConnectionStatus[] };
+type Daemon = { connection: PhoneConnection; sent: string[]; drop: (reason: string) => void; link: (up: boolean) => void; answer: (id: number, json: Record<string, unknown>) => void; statuses: ConnectionStatus[] };
 
 function daemonAnswering(hello: Record<string, unknown>): Daemon {
 	const sent: string[] = [];
@@ -27,7 +27,7 @@ function daemonAnswering(hello: Record<string, unknown>): Daemon {
 	let drop: (reason: string) => void = () => undefined;
 	let link: (up: boolean) => void = () => undefined;
 	let answer: (id: number, json: Record<string, unknown>) => void = () => undefined;
-	const connection = new StreamConnection({
+	const connection = new PhoneConnection({
 		open: async (token, handlers) => {
 			drop = (reason) => handlers.onClose(reason);
 			link = (up) => handlers.onLink?.(up);
@@ -47,6 +47,7 @@ function daemonAnswering(hello: Record<string, unknown>): Daemon {
 				close: () => undefined,
 			};
 		},
+		onLog: () => undefined,
 		onStatus: (status) => statuses.push(status),
 	});
 	return { connection, sent, drop: (reason) => drop(reason), link: (up) => link(up), answer: (id, json) => answer(id, json), statuses };
@@ -71,12 +72,35 @@ const fullHello = {
 
 export const checks: Check[] = [
 	[
-		"a daemon's hello is checked field by field before it is trusted",
+		"a daemon's hello is checked field by field before it is trusted, and a bad one ends the connection",
 		async () => {
 			const { home: _home, ...withoutHome } = fullHello;
-			const { connection } = daemonAnswering(withoutHome);
+			const { connection, statuses } = daemonAnswering(withoutHome);
 			try {
 				await assert.rejects(connection.info(), (error: unknown) => error instanceof RemoteError && error.fields.lost === true && /hello.*home/.test(error.message));
+				const last = statuses.at(-1);
+				assert(last?.kind === "lost" && /hello.*home/.test(last.reason), JSON.stringify(last));
+			} finally {
+				connection.close();
+			}
+		},
+	],
+	[
+		"a daemon that cannot be opened reports why, in its status and in the error",
+		async () => {
+			const statuses: ConnectionStatus[] = [];
+			const connection = new PhoneConnection({
+				open: async () => {
+					throw new Error("連不到 mac（mac.example）");
+				},
+				onLog: () => undefined,
+				onStatus: (status) => statuses.push(status),
+			});
+			try {
+				await assert.rejects(connection.info(), (error: unknown) => lostError(error) && error.message.includes("連不到 mac"));
+				const last = statuses.at(-1);
+				assert(last?.kind === "lost");
+				assert.equal(last.reason, "連不到 mac（mac.example）");
 			} finally {
 				connection.close();
 			}
@@ -117,18 +141,17 @@ export const checks: Check[] = [
 		async () => {
 			const { connection, drop, statuses } = daemonAnswering(fullHello);
 			try {
-				assert.deepEqual(connection.status, { kind: "idle" });
+				assert.equal(statuses.length, 0);
 				const session = await connection.session();
 				assert.deepEqual(statuses, [{ kind: "connecting" }, { kind: "connected", session }]);
 				drop("socket dropped");
 				const last = statuses.at(-1);
 				assert(last?.kind === "lost");
-				assert.equal(last.reason, "pi-env connection lost: socket dropped");
-				assert.equal(connection.status, last);
+				assert.equal(last.reason, "socket dropped");
 			} finally {
 				connection.close();
 			}
-			assert.deepEqual(connection.status, { kind: "closed" });
+			assert.deepEqual(statuses.at(-1), { kind: "closed" });
 		},
 	],
 	[
@@ -143,13 +166,13 @@ export const checks: Check[] = [
 				const down = statuses.at(-1);
 				assert(down?.kind === "reattaching" && down.session === session);
 				await new Promise((resolve) => setTimeout(resolve, 50));
-				assert.equal(connection.status.kind, "reattaching");
+				assert.equal(statuses.at(-1)?.kind, "reattaching");
 				link(true);
-				assert.deepEqual(connection.status, { kind: "connected", session });
+				assert.deepEqual(statuses.at(-1), { kind: "connected", session });
 				answer(id, { exitCode: 0 });
 				assert.deepEqual((await inFlight).json, { exitCode: 0 });
 				drop("pi-env exited");
-				assert.equal(connection.status.kind, "lost");
+				assert.equal(statuses.at(-1)?.kind, "lost");
 			} finally {
 				connection.close();
 			}

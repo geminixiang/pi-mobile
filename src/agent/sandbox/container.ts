@@ -6,8 +6,7 @@ import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
 import { log } from "../../log.ts";
 import type { AccessToken } from "../oauth.ts";
 import { daemon, ENV_PATH } from "./daemon.ts";
-import type { OpenDaemon } from "./stream-connection.ts";
-import { lost } from "./stream-connection.ts";
+import { lost, type OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, onFailure, sleep } from "../../promise.ts";
 import { decode } from "../parse.ts";
 import { randomHex, toHex } from "../../encoding.ts";
@@ -71,7 +70,6 @@ export interface CommandChannel {
 	write(data: Uint8Array): void;
 	end(): void;
 	close(): void;
-	retry?(): void;
 }
 
 export interface CommandClient {
@@ -400,11 +398,11 @@ export class ContainerHost {
 						release();
 						handlers.onClose(stderr.trim() || `daemon exited ${code ?? "?"}`);
 					},
-					...(handlers.onLink ? { onLink: handlers.onLink } : {}),
+					onLink: handlers.onLink,
 				},
 				token,
 			);
-			return { send: (data) => channel.write(data), close: () => channel.close(), ...(channel.retry ? { retry: channel.retry } : {}) };
+			return { send: (data) => channel.write(data), close: () => channel.close() };
 		};
 	}
 

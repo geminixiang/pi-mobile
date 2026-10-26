@@ -14,6 +14,7 @@ interface ResumableOptions {
 	onMessage: (data: RawMessage) => void;
 	onClose: (reason: string | undefined) => void;
 	onLink?: (up: boolean) => void;
+	quietLimitMs: number;
 }
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
@@ -37,9 +38,12 @@ export class ResumableSocket {
 	#downSince = 0;
 	#attempt = 0;
 	#timer: ReturnType<typeof setTimeout> | undefined;
+	#lastMessage = Date.now();
+	readonly #quiet: ReturnType<typeof setInterval>;
 
 	private constructor(options: ResumableOptions) {
 		this.#options = options;
+		this.#quiet = setInterval(() => this.#checkQuiet(), options.quietLimitMs / 4);
 	}
 
 	static async connect(options: ResumableOptions): Promise<ResumableSocket> {
@@ -64,12 +68,13 @@ export class ResumableSocket {
 		if (this.#closed) return;
 		this.#closed = true;
 		clearTimeout(this.#timer);
+		clearInterval(this.#quiet);
 		this.#socket?.close();
 		this.#socket = undefined;
 	}
 
-	retry(): void {
-		if (this.#closed || this.#down) return;
+	#checkQuiet(): void {
+		if (this.#closed || this.#down || Date.now() - this.#lastMessage <= this.#options.quietLimitMs) return;
 		const socket = this.#socket;
 		this.#socket = undefined;
 		socket?.close();
@@ -90,6 +95,7 @@ export class ResumableSocket {
 					return this.#resume(resume.received);
 				}
 				this.#received++;
+				this.#lastMessage = Date.now();
 				this.#options.onMessage(data);
 			},
 			(reason) => {
@@ -109,6 +115,7 @@ export class ResumableSocket {
 		if (this.#closed) return;
 		this.#closed = true;
 		clearTimeout(this.#timer);
+		clearInterval(this.#quiet);
 		this.#socket?.close();
 		this.#socket = undefined;
 		this.#options.onClose(reason);
@@ -150,6 +157,7 @@ export class ResumableSocket {
 		const missing = this.#sent.slice(received - this.#sentBase);
 		for (const data of missing) socket.send(data);
 		this.#down = false;
+		this.#lastMessage = Date.now();
 		log.info("host.resume", { what: this.#options.what, state: "attached", attempts: this.#attempt, resent: missing.length, received: this.#received });
 		this.#options.onLink?.(true);
 	}

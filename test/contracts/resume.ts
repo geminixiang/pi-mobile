@@ -32,6 +32,7 @@ async function connect(opener: ReturnType<typeof fakeOpener>) {
 	const received: RawMessage[] = [];
 	let closedWith: string | undefined | null = null;
 	const socket = await ResumableSocket.connect({
+		quietLimitMs: 400,
 		first: new URL("ws://computer/env?token=t"),
 		attach: (have) => new URL(`ws://computer/env?attach=t&received=${have}`),
 		open: opener.open,
@@ -103,20 +104,25 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"retry drops a socket that looks alive and attaches again",
+		"a socket that looks alive but stays quiet past the limit is dropped and attached again",
 		async () => {
 			const opener = fakeOpener();
 			const { socket, links } = await connect(opener);
 			const first = opener.sockets[0];
 			assert(first);
 			first.deliver("a");
-			socket.retry();
+			await sleep(200);
+			first.deliver("b");
+			await sleep(300);
+			assert(!first.closed);
+			assert.deepEqual(links, []);
+			await sleep(400);
 			assert(first.closed);
 			assert.deepEqual(links, [false]);
 			await sleep(1200);
 			const second = opener.sockets[1];
 			assert(second);
-			assert.equal(second.url.searchParams.get("received"), "1");
+			assert.equal(second.url.searchParams.get("received"), "2");
 			second.deliver(JSON.stringify({ received: 0 }));
 			assert.deepEqual(links, [false, true]);
 			socket.close();

@@ -1,11 +1,11 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
-import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
+import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { BotIndex } from "../bots.ts";
 import type { DaemonArch, DaemonOs } from "./daemon.ts";
-import type { ConnectionStatus, StreamConnection } from "./stream-connection.ts";
+import type { ConnectionStatus, PhoneConnection } from "./phone-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";
 import type { Workplace } from "../workplaces.ts";
@@ -30,14 +30,14 @@ const IMAGES =
 	"To show an image, save PNG or JPEG of at most 2000 px and 3 MB (`magick in.png -resize 1600x1600\\> out.png`) and `read` it.";
 
 export class SharedEnvs {
-	readonly #connection: StreamConnection;
+	readonly #connection: PhoneConnection;
 	readonly #base: string;
 	readonly #root: (folder: string) => string;
 	readonly #envs = new Map<string, RemoteExecutionEnv>();
 	readonly #made = new Map<string, Promise<void>>();
 	readonly #baseEnv: RemoteExecutionEnv;
 
-	constructor(connection: StreamConnection, base: string, root: (folder: string) => string) {
+	constructor(connection: PhoneConnection, base: string, root: (folder: string) => string) {
 		this.#connection = connection;
 		this.#base = base;
 		this.#root = root;
@@ -45,12 +45,7 @@ export class SharedEnvs {
 	}
 
 	#make(cwd: string): RemoteExecutionEnv {
-		return new RemoteExecutionEnv({ connection: this.#asConnection(), id: `sandbox:${SHARED_SANDBOX}`, cwd });
-	}
-
-	#asConnection(): Connection {
-		// why: pi-env's Connection is a class with private fields, so no reimplementation is assignable to it; StreamConnection has its whole public API (info, session, request, close, kill), which is all RemoteExecutionEnv calls.
-		return this.#connection as unknown as Connection;
+		return new RemoteExecutionEnv({ connection: this.#connection, id: `sandbox:${SHARED_SANDBOX}`, cwd });
 	}
 
 	async #run(command: string): Promise<number> {

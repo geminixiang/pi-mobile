@@ -49,7 +49,7 @@
 - **手機斷線時，pi-env 和它跑的指令留著等手機回來**（2026-10-26 起）。`/env` 和帶 `session=<token>` 的 `/exec` 是「保留的 session」：
   - 電腦端自己每 5 秒對 pi-env 的 stdin 送一個 ping frame，pi-env 的存活不再依賴手機的 ping 送得到（手機沒網路時不會送 FIN，電腦以為還連著，pi-env 卻會在 30 秒靜默後退出——第一版就是這樣死的）。
   - 電腦端每 10 秒對手機的 WebSocket 送 ping，10 秒沒 pong 就算斷線，開始 5 分鐘的寬限；寬限過了才照舊 SIGTERM 整個 process group。
-  - 送給手機的每則訊息都編號、留在一個 8 MiB 的環裡；手機帶 `attach=<token>&received=<已收到幾則>` 回來，電腦先回 `{"received":N}` 說自己收到幾則，再補送手機沒收到的；手機也補送電腦沒收到的。`StreamConnection` 的請求 id 不變，所以斷線前送出的 `exec` 在接上後直接拿到結果。
+  - 送給手機的每則訊息都編號、留在一個 8 MiB 的環裡；手機帶 `attach=<token>&received=<已收到幾則>` 回來，電腦先回 `{"received":N}` 說自己收到幾則，再補送手機沒收到的；手機也補送電腦沒收到的。pi-env `Connection` 的請求 id 不變，所以斷線前送出的 `exec` 在接上後直接拿到結果；斷線期間手機替 daemon 送 ping，pi-env 不會因為 30 秒沒收到東西而放棄（見 [architecture.md](../architecture.md) § 電腦）。
   - 手機端（`resumable-socket.ts`）以 1、2、4、8、15 秒退避重試 4.5 分鐘；電腦回 `no such session`（寬限過了或 pi-env 已退出）或 `too far behind to resume`（環滿了）就放棄，工具回「結果不明」。手機 30 秒沒收到 bytes 也走同一條重接的路，不再直接 teardown。
   - 面板的電腦狀態在這段期間顯示「重新連線中」。
   - S24 實測：容器裡 240 秒的指令執行中，把手機的 Tailscale 強制停止 75 秒再啟動，電腦 19 秒後判定斷線，手機回來 1 秒內接上並補送 21 則訊息，24 行輸出一行不少地回到對話。
@@ -66,9 +66,9 @@
   - 回 401（沒有金鑰或金鑰不對）：告訴使用者在那台電腦執行 `pi-mobile pair`。在這次改版之前加入的電腦沒有金鑰，列表上直接顯示配對碼欄位。
 - 加入後，第一台電腦成為預設（直接）。有容器引擎的電腦，在設定或 Bot 面板選「容器」都可以：第一次使用時會先建 image（`prepareContainers`，同一次 app 執行裡只做一次，設定、Bot 面板、Bot 本身共用同一個準備動作），建置時顯示進度。準備只由三件事啟動：使用者在設定或面板選了容器、Bot 第一次用到它、面板上的重試；打開面板或冷啟動只會顯示已經在進行的準備，不會自己開始（2026-10-26 之前面板一掛載就準備，冷啟動時手機還沒做任何事就先對電腦跑了 12 個 `/exec`）。egress 的 bridge 也一樣，在 Bot 第一次用到容器時才開。設定頁在選中的方式下面寫一句它代表什麼：「直接」用使用者的身分操作，「容器」的憑證留在手機上。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
 - `HostSandbox` 有兩種模式：
-  - **直接**：每次 app 執行時第一次連線，先 `/info`，沒有對應的 daemon 就 `PUT` 上去，再開 `/env` 的 WebSocket，接到 `StreamConnection` 上。工作目錄是家目錄，提示是 `directDescription`。刪 Bot 不會刪電腦上的任何檔案。
+  - **直接**：每次 app 執行時第一次連線，先 `/info`，沒有對應的 daemon 就 `PUT` 上去，再開 `/env` 的 WebSocket，接到 pi-env 的 `Connection`（`PhoneConnection`）上。工作目錄是家目錄，提示是 `directDescription`。刪 Bot 不會刪電腦上的任何檔案。
   - **容器**：`ContainerHost`（`container.ts`）透過 `/exec` 驅動容器引擎，跟以前透過 SSH 時一樣：所有 Bot 共用 `pim-main`，各自在 `/workspace/<Bot 資料夾>`；egress proxy 的 `bridge.py` 也跑在一條 `/exec` 上，向手機要 token。
-- Bot 面板的「電腦」區塊顯示這台電腦的連線狀態（連線中、已連線、幾點幾分連線中斷：原因），由 `StreamConnection` 的事件導出，不輪詢；它說的是上一條連線的事，不代表下一個指令一定成功或失敗。
+- Bot 面板的「電腦」區塊顯示這台電腦的連線狀態（連線中、已連線、幾點幾分連線中斷：原因），由 `PhoneConnection` 的傳輸層事件導出，不輪詢；它說的是上一條連線的事，不代表下一個指令一定成功或失敗。
 - 指令送到電腦之後連線才斷，工具回的錯誤會寫明「the request had been sent, so its outcome is unknown: check before retrying」；還沒送出就斷的寫「before the request was sent」。模型據此決定要不要重跑有副作用的指令（push、開 PR）。
 - `Workplaces` 裡的 key 是 `<電腦 id>:direct` 或 `<電腦 id>:container`；`settings.computer` 是沒有自己選的 Bot 用的預設，空的就是手機。
 

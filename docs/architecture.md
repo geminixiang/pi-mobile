@@ -28,7 +28,7 @@
 
 ### 電腦
 
-pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。`src/agent/sandbox/stream-connection.ts` 是它的移植版：同樣的 frame 格式和 session 語意，只是改成透過 WebSocket 傳輸。
+pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。手機直接用 pi-env 的 `Connection` 和 `RemoteExecutionEnv`（2026-10-26 起，取代原本的移植版 `StreamConnection`）：`node:child_process` 換成 `src/shims/node-child-process.ts`，它的 `spawn` 交給 `src/agent/sandbox/phone-connection.ts` 開 WebSocket，回傳一個像子行程的物件。那個物件只把完整的 frame 交給 pi-env；連線斷掉、電腦還保留著 daemon 時，它每 5 秒替 daemon 送一個 ping，pi-env 才不會在 30 秒沒收到東西時把連線拆掉。連線看似正常卻 20 秒沒有任何訊息時（daemon 每 5 秒會 ping），由 `ResumableSocket` 主動重接。`PhoneConnection`（`Connection` 的子類別）只多做兩件事：驗證 hello（不對就結束這條連線），以及在連線中斷的錯誤上寫明請求是「送出前就斷了」還是「已送出、結果不明」。pi-env 的 `Connection` 會對 `setInterval` 的回傳值呼叫 `unref()`，WebView 的計時器沒有這個方法，`vite-plugins/pi-env.ts` 在打包時拿掉那一行，`test/pi-env-patches.ts` 確認 pi-env 升級後那一行還在。
 
 **把電腦交給 pi**（設定 › 電腦）：
 - 電腦上執行一次 `host/install.sh`，裝好常駐的 `pi-mobile serve`（`host/main.go`）。
