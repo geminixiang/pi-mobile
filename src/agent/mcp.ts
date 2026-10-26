@@ -1,7 +1,7 @@
 import type { PluginListenerHandle } from "@capacitor/core";
-import { isJsonValue, type JsonValue } from "@earendil-works/chord";
-import { defineExtension, defineTool, type Extension, section } from "@earendil-works/pi-durable";
-import { type AuthProvider, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
+import { isJsonValue } from "@earendil-works/chord";
+import { defineExtension, defineTool, type Extension, section, type ToolExecutionResult } from "@earendil-works/pi-durable";
+import { type AuthProvider, type CallToolResult, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
 import {
 	adaptOAuthProvider,
 	authorizeMcp,
@@ -37,6 +37,14 @@ function serverId(name: string, url: string, taken: readonly string[]): string {
 	const base = ascii(name) || ascii(host) || "mcp";
 	if (!taken.includes(base)) return base;
 	for (let n = 2; ; n++) if (!taken.includes(`${base}${n}`)) return `${base}${n}`;
+}
+
+export function mcpResult(result: CallToolResult, output = toLlmContent(result)): ToolExecutionResult {
+	return {
+		output,
+		...(result.isError ? { isError: true } : {}),
+		...(isJsonValue(result.structuredContent) ? { structuredOutput: result.structuredContent } : {}),
+	};
 }
 
 export const extensionName = (server: McpServer) => `mcp-${server.id}`;
@@ -312,12 +320,7 @@ class Connection {
 					const result = await client.callTool(tool.name, args, context.abortSignal ? { signal: context.abortSignal } : {});
 					const content = toLlmContent(result);
 					if (content.length === 0) content.push({ type: "text", text: result.isError ? `${tool.name} failed` : "Done." });
-					const structured: JsonValue | undefined = isJsonValue(result.structuredContent) ? result.structuredContent : undefined;
-					return {
-						output: content,
-						...(result.isError ? { isError: true } : {}),
-						...(structured !== undefined ? { structuredOutput: structured } : {}),
-					};
+					return mcpResult(result, content);
 				},
 			});
 		});

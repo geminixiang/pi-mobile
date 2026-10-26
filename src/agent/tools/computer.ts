@@ -1,6 +1,6 @@
-import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
-import { McpClient, toLlmContent } from "@earendil-works/pi-mcp";
+import { McpClient } from "@earendil-works/pi-mcp";
+import { mcpResult } from "../mcp.ts";
 import { Type } from "typebox";
 import { HostStdioTransport, type PairedHost } from "../sandbox/host.ts";
 import type { Workplace } from "../workplaces.ts";
@@ -27,10 +27,7 @@ async function call(host: PairedHost | undefined, tool: "screenshot" | "act", ar
 			`Screen control did not start on ${host.name}: ${messageOf(error)}. pi-mobile there may be older than screen control: tell the user to run the install command on ${host.name} again (Settings › 電腦).`,
 		);
 	});
-	const result = await server.callTool(tool, args, signal ? { signal } : {});
-	const output = toLlmContent(result);
-	const structured: JsonValue | undefined = isJsonValue(result.structuredContent) ? result.structuredContent : undefined;
-	return { output, ...(result.isError ? { isError: true } : {}), ...(structured !== undefined ? { structuredOutput: structured } : {}) };
+	return mcpResult(await server.callTool(tool, args, signal ? { signal } : {}));
 }
 
 export function createComputerExtension(workplace: (conversationId: string) => Workplace | undefined) {

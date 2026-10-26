@@ -99,6 +99,22 @@ function arch(value: string): "x64" | "arm64" | undefined {
 	return undefined;
 }
 
+export function lineReader(onLine: (line: string) => void): (data: Uint8Array) => void {
+	const decoder = new TextDecoder();
+	let buffer = "";
+	return (data) => {
+		const from = buffer.length;
+		buffer += decoder.decode(data, { stream: true });
+		let newline = buffer.indexOf("\n", from);
+		while (newline >= 0) {
+			const line = buffer.slice(0, newline);
+			buffer = buffer.slice(newline + 1);
+			onLine(line);
+			newline = buffer.indexOf("\n");
+		}
+	};
+}
+
 export class ContainerHost {
 	readonly #engine: string;
 	readonly #client: () => Promise<CommandClient>;
@@ -221,22 +237,12 @@ export class ContainerHost {
 			await this.#ensureEgress();
 			await this.#engineOutput(`exec -i ${EGRESS} sh -c 'cat > ${BRIDGE_PATH}'`, new TextEncoder().encode(bridgePy));
 			const client = await this.#client();
-			let buffer = "";
 			let send: (message: unknown) => void = () => {};
 			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
 			const ended = new Promise<void>((resolve) => {
 				void client
 					.exec(`${ENV_PATH}; ${this.#engine} exec -i ${EGRESS} python3 ${BRIDGE_PATH}`, {
-						onStdout: (data) => {
-							buffer += new TextDecoder().decode(data);
-							let newline = buffer.indexOf("\n");
-							while (newline >= 0) {
-								const line = buffer.slice(0, newline);
-								buffer = buffer.slice(newline + 1);
-								void this.#onBridge(line, credentials, send);
-								newline = buffer.indexOf("\n");
-							}
-						},
+						onStdout: lineReader((line) => void this.#onBridge(line, credentials, send)),
 						onExit: (code) => {
 							if (code === 3) log.warn("sandbox.bridge_busy", { engine: this.#engine });
 							resolve();

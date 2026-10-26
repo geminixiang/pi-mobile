@@ -49,6 +49,8 @@ function at(value: unknown, key: string): unknown {
 
 const text = (value: unknown) => (typeof value === "string" ? value : value === null || value === undefined ? "" : String(value));
 
+const apiMessage = (body: string) => text(at(jsonOrText(body), "message"));
+
 function parseRepo(spec: string): Repo | undefined {
 	const match = /(?:github\.com[/:])?([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(spec.trim());
 	return match?.[1] && match[2] ? { owner: match[1], name: match[2] } : undefined;
@@ -92,7 +94,7 @@ class Api {
 
 	async json(method: string, path: string, body?: unknown): Promise<unknown> {
 		const response = await this.raw(method, path, body);
-		if (!response.ok) throw new GhError(`${text(at(jsonOrText(response.text), "message")) || response.text.slice(0, 200)} (HTTP ${response.status})`);
+		if (!response.ok) throw new GhError(`${apiMessage(response.text) || response.text.slice(0, 200)} (HTTP ${response.status})`);
 		return response.text ? jsonOrText(response.text) : null;
 	}
 }
@@ -193,7 +195,7 @@ async function list(api: Api, path: string, limit: number, keep: (item: unknown)
 	let next: string | undefined = `${path}${path.includes("?") ? "&" : "?"}per_page=${Math.min(100, Math.max(limit, 1))}`;
 	while (next && items.length < limit) {
 		const page = await api.raw("GET", next);
-		if (!page.ok) throw new GhError(`${text(at(jsonOrText(page.text), "message"))} (HTTP ${page.status})`);
+		if (!page.ok) throw new GhError(`${apiMessage(page.text)} (HTTP ${page.status})`);
 		const parsed = jsonOrText(page.text);
 		if (!Array.isArray(parsed)) break;
 		items.push(...parsed.filter(keep));
@@ -373,7 +375,7 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 	while (next) {
 		const response = await client.raw(method, next, body, accept, headers);
 		status = response.status;
-		if (!response.ok) return { stdout: response.text ? `${response.text}\n` : "", stderr: `gh: ${text(at(jsonOrText(response.text), "message")) || "request failed"} (HTTP ${response.status})\n`, exitCode: 1 };
+		if (!response.ok) return { stdout: response.text ? `${response.text}\n` : "", stderr: `gh: ${apiMessage(response.text) || "request failed"} (HTTP ${response.status})\n`, exitCode: 1 };
 		pages.push(response.text);
 		next = flags.set.has("paginate") && method === "GET" ? nextPage(response.link) : undefined;
 	}

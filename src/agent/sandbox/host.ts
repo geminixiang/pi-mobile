@@ -10,7 +10,7 @@ import {
 	parseJsonRpcMessage,
 } from "@earendil-works/pi-mcp";
 import { log } from "../../log.ts";
-import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials } from "./container.ts";
+import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, SharedEnvs } from "./sandbox.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
@@ -412,7 +412,6 @@ export class HostStdioTransport implements McpTransport {
 	readonly #reach: Reach;
 	readonly #command: string;
 	#channel: CommandChannel | undefined;
-	#buffer = "";
 	#closed = false;
 	readonly #message = new Set<McpTransportMessageListener>();
 	readonly #error = new Set<McpTransportErrorListener>();
@@ -425,26 +424,17 @@ export class HostStdioTransport implements McpTransport {
 
 	async start(): Promise<void> {
 		let stderr = "";
-		const decoder = new TextDecoder();
 		this.#channel = await new HostCommands({ ...this.#reach, name: this.#reach.address }).exec(this.#command, {
-			onStdout: (data) => {
-				const from = this.#buffer.length;
-				this.#buffer += decoder.decode(data, { stream: true });
-				let newline = this.#buffer.indexOf("\n", from);
-				while (newline >= 0) {
-					const line = this.#buffer.slice(0, newline).trim();
-					this.#buffer = this.#buffer.slice(newline + 1);
-					if (line) {
-						try {
-							const message = parseJsonRpcMessage(JSON.parse(line));
-							for (const listener of this.#message) listener(message);
-						} catch (error) {
-							for (const listener of this.#error) listener(error instanceof Error ? error : new Error(String(error)));
-						}
-					}
-					newline = this.#buffer.indexOf("\n");
+			onStdout: lineReader((raw) => {
+				const line = raw.trim();
+				if (!line) return;
+				try {
+					const message = parseJsonRpcMessage(JSON.parse(line));
+					for (const listener of this.#message) listener(message);
+				} catch (error) {
+					for (const listener of this.#error) listener(error instanceof Error ? error : new Error(String(error)));
 				}
-			},
+			}),
 			onStderr: (data) => {
 				const chunk = new TextDecoder().decode(data);
 				stderr = (stderr + chunk).slice(-2000);

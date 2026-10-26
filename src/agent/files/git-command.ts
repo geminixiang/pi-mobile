@@ -1,4 +1,6 @@
 import { type Command, defineCommand, type IFileSystem } from "just-bash/browser";
+import { Type } from "typebox";
+import { Value } from "typebox/value";
 import type { FolderFetch } from "./folder-fetch.ts";
 
 const WRITES_COMMITS = new Set(["commit", "merge", "rebase", "cherry-pick", "revert", "tag", "stash", "pull"]);
@@ -14,21 +16,13 @@ function subcommand(args: readonly string[]): string | undefined {
 	return undefined;
 }
 
-type Account = { login: string; id: number; name: string | null };
-
-function isAccount(value: unknown): value is Account {
-	if (typeof value !== "object" || value === null) return false;
-	const login = Reflect.get(value, "login");
-	const id = Reflect.get(value, "id");
-	const name = Reflect.get(value, "name");
-	return typeof login === "string" && typeof id === "number" && (typeof name === "string" || name === null);
-}
+const Account = Type.Object({ login: Type.String(), id: Type.Number(), name: Type.Union([Type.String(), Type.Null()]) });
 
 async function githubIdentity(fetch: FolderFetch): Promise<{ name: string; email: string } | undefined> {
 	const response = await fetch("https://api.github.com/user", { headers: { Accept: "application/vnd.github+json" } });
 	if (!response.ok) return undefined;
 	const account: unknown = await response.json();
-	if (!isAccount(account)) return undefined;
+	if (!Value.Check(Account, account)) return undefined;
 	return { name: account.name || account.login, email: `${account.id}+${account.login}@users.noreply.github.com` };
 }
 
