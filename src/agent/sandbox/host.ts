@@ -359,9 +359,9 @@ export class HostSandbox implements Sandbox {
 	#daemon(): Promise<string> {
 		this.#ready ??= (async () => {
 			const info = await probeHost(this.host);
-			const { bytes, sha } = await daemon(info.os, info.arch);
+			const { bytes, sha } = daemon(info.os, info.arch);
 			if (!info.daemons.includes(sha)) {
-				const response = await fetch(url(this.host, `/daemon/${sha}`), { method: "PUT", body: new Blob([bytes.slice()]) });
+				const response = await fetch(url(this.host, `/daemon/${sha}`), { method: "PUT", body: new Blob([await bytes()]) });
 				if (!response.ok) throw new Error(`上傳 pi-env 到 ${this.host.name} 失敗：HTTP ${response.status} ${(await response.text()).trim()}`);
 			}
 			return sha;

@@ -5,7 +5,7 @@ import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
 import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
 import { log } from "../../log.ts";
 import type { AccessToken } from "../oauth.ts";
-import { daemon, ENV_PATH } from "./daemon.ts";
+import { type Daemon, daemon, ENV_PATH } from "./daemon.ts";
 import { lost, type OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, onFailure, sleep } from "../../promise.ts";
 import { decode } from "../parse.ts";
@@ -143,7 +143,7 @@ export class ContainerHost {
 	async ensureImages(home: string, onProgress: (detail: string) => void): Promise<void> {
 		const engineArch = arch((await this.#outputIfSucceeds("info --format '{{.Architecture}}'")) ?? "") ?? arch((await this.#outputIfSucceeds("info --format '{{.Host.Arch}}'")) ?? "");
 		if (!engineArch) throw new Error(`讀不到 ${this.#engine} 的架構`);
-		const piEnv = await daemon("linux", engineArch);
+		const piEnv = daemon("linux", engineArch);
 		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, home, onProgress, piEnv);
 		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, home, onProgress);
 	}
@@ -153,7 +153,7 @@ export class ContainerHost {
 		files: Record<string, string>,
 		home: string,
 		onProgress: (detail: string) => void,
-		piEnv?: { sha: string; bytes: Uint8Array },
+		piEnv?: Daemon,
 	): Promise<void> {
 		const hash = await sha256(JSON.stringify(files) + (piEnv?.sha ?? ""));
 		const current = await this.#outputIfSucceeds(`image inspect -f '{{index .Config.Labels "dev.pi-mobile.hash"}}' ${name}`);
@@ -164,7 +164,7 @@ export class ContainerHost {
 		for (const [file, text] of Object.entries(files)) {
 			await client.run(`cat > ${shellQuote(`${dir}/${file}`)}`, new TextEncoder().encode(text));
 		}
-		if (piEnv) await client.run(`cat > ${shellQuote(`${dir}/pi-env`)} && chmod 755 ${shellQuote(`${dir}/pi-env`)}`, piEnv.bytes);
+		if (piEnv) await client.run(`cat > ${shellQuote(`${dir}/pi-env`)} && chmod 755 ${shellQuote(`${dir}/pi-env`)}`, await piEnv.bytes());
 		onProgress(`建置 ${name}`);
 		const built = await new Promise<{ code: number | undefined; tail: string }>((resolve, reject) => {
 			let tail = "";
@@ -344,7 +344,7 @@ export class ContainerHost {
 		await this.#engineOutput(`stop -t 2 ${idle.name}`);
 	}
 
-	async #prepare(name: string, ca: string, piEnv: { sha: string; bytes: Uint8Array }): Promise<void> {
+	async #prepare(name: string, ca: string, piEnv: Daemon): Promise<void> {
 		const container = PREFIX + name;
 		const id = await this.#engineOutput(`inspect -f '{{.Id}}' ${container}`);
 		if (this.#prepared.has(id)) return;
@@ -358,7 +358,7 @@ export class ContainerHost {
 		if (present?.split(" ")[0] !== piEnv.sha) {
 			await this.#engineOutput(
 				`exec -i ${container} sh -c ${shellQuote(`cat > ${DAEMON}.new && chmod 755 ${DAEMON}.new && mv ${DAEMON}.new ${DAEMON}`)}`,
-				piEnv.bytes,
+				await piEnv.bytes(),
 			);
 		}
 		this.#prepared.add(id);
@@ -371,7 +371,7 @@ export class ContainerHost {
 			const machineArch = this.#arch.get(name) ?? arch(await this.#engineOutput(`exec ${PREFIX + name} uname -m`));
 			if (!machineArch) throw lost("讀不到 sandbox 的架構");
 			this.#arch.set(name, machineArch);
-			const piEnv = await daemon("linux", machineArch);
+			const piEnv = daemon("linux", machineArch);
 			await this.#prepare(name, ca, piEnv);
 			const env = Object.entries({ ...SANDBOX_ENV, ...serviceEnv() })
 				.map(([key, value]) => `-e ${shellQuote(`${key}=${value}`)}`)
