@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import type { Change, FileEntry, RepoStatus, Workspace } from "../agent/sandbox/workspace.ts";
+import type { Change, RepoStatus, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
@@ -9,6 +9,7 @@ import { Layer } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
+import { useLoaded } from "./loaded.ts";
 
 export type WorkspaceTab = "files" | "git";
 
@@ -62,22 +63,8 @@ function FileBrowser({
 	reloadKey: number;
 }) {
 	const [stack, setStack] = useState<string[]>(() => levelsTo(workspace.root, start));
-	const [entries, setEntries] = useState<FileEntry[]>();
-	const [error, setError] = useState("");
 	const path = stack.at(-1) ?? workspace.root;
-
-	useEffect(() => {
-		let live = true;
-		setEntries(undefined);
-		setError("");
-		workspace.list(path).then(
-			(items) => live && setEntries(items),
-			(failure: unknown) => live && setError(messageOf(failure)),
-		);
-		return () => {
-			live = false;
-		};
-	}, [workspace, path, reloadKey]);
+	const { value: entries, error } = useLoaded(() => workspace.list(path), [workspace, path, reloadKey]);
 
 	const crumbs = path.split("/").filter(Boolean);
 	return (

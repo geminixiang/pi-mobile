@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Layer } from "./Sheet.tsx";
-import { messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";
+import { useLoaded } from "./loaded.ts";
 
 export interface DiffTarget {
 	repo: string;
@@ -105,22 +105,7 @@ function FileBlock({ file }: { file: FileDiff }) {
 }
 
 export function DiffView({ target, onClose }: { target: DiffTarget | undefined; onClose: () => void }) {
-	const [text, setText] = useState<string>();
-	const [error, setError] = useState("");
-
-	useEffect(() => {
-		if (!target) return;
-		let live = true;
-		setText(undefined);
-		setError("");
-		target.load().then(
-			(value) => live && setText(value),
-			(failure: unknown) => live && setError(messageOf(failure)),
-		);
-		return () => {
-			live = false;
-		};
-	}, [target]);
+	const { value: text, error } = useLoaded(target && (() => target.load()), [target]);
 
 	const parsed = useMemo(() => (text === undefined ? undefined : parse(text)), [text]);
 	const commit = parsed && parsed.message.length > 1 ? parsed.message : undefined;

@@ -114,7 +114,6 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 		runtime?.mcp.add(draft.name.trim() || host, url).catch((error: unknown) => onError(messageOf(error)));
 		setDraft({ name: "", url: "" });
 	};
-	const remove = (id: string) => void runtime?.mcp.remove(id).catch((error: unknown) => onError(messageOf(error)));
 	const run = (action: () => Promise<void> | void) => () => {
 		void Promise.resolve()
 			.then(action)
@@ -153,7 +152,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 										{current.state === "login" ? "登入" : "連線"}
 									</button>
 								) : null}
-								<button type="button" className="btn" onClick={() => remove(server.id)}>
+								<button type="button" className="btn" onClick={() => void runtime?.mcp.remove(server.id).catch((error: unknown) => onError(messageOf(error)))}>
 									移除
 								</button>
 							</span>
