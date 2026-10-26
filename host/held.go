@@ -82,11 +82,15 @@ func holdSession(id string, session *held) {
 	}
 }
 
+func (h *held) ownedBy(owner string) bool {
+	return subtle.ConstantTimeCompare([]byte(h.owner), []byte(owner)) == 1
+}
+
 func takeSession(id, owner string) *held {
 	heldMu.Lock()
 	defer heldMu.Unlock()
 	session := heldByID[id]
-	if session == nil || subtle.ConstantTimeCompare([]byte(session.owner), []byte(owner)) != 1 {
+	if session == nil || !session.ownedBy(owner) {
 		return nil
 	}
 	return session
@@ -96,14 +100,14 @@ func heldByOther(id, owner string) bool {
 	heldMu.Lock()
 	defer heldMu.Unlock()
 	session := heldByID[id]
-	return session != nil && subtle.ConstantTimeCompare([]byte(session.owner), []byte(owner)) != 1
+	return session != nil && !session.ownedBy(owner)
 }
 
 func endSessionsOf(owner string) int {
 	heldMu.Lock()
 	var mine []*held
 	for _, session := range heldByID {
-		if subtle.ConstantTimeCompare([]byte(session.owner), []byte(owner)) == 1 {
+		if session.ownedBy(owner) {
 			mine = append(mine, session)
 		}
 	}
