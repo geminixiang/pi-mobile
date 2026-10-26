@@ -29,6 +29,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BotFilesPlugin.class);
         registerPlugin(PagePlugin.class);
         registerPlugin(PhoneScreenPlugin.class);
+        registerPlugin(PhoneStatePlugin.class);
         super.onCreate(savedInstanceState);
         removeSshKey();
         removeOldCaptures();

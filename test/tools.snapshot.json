@@ -1076,6 +1076,242 @@
 		"structuredOutput": null
 	},
 	{
+		"extension": "phone_control",
+		"toolset": "control",
+		"name": "sound",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"action": {
+					"anyOf": [
+						{
+							"const": "status",
+							"type": "string"
+						},
+						{
+							"const": "ring",
+							"type": "string"
+						},
+						{
+							"const": "vibrate",
+							"type": "string"
+						},
+						{
+							"const": "silent",
+							"type": "string"
+						},
+						{
+							"const": "volume",
+							"type": "string"
+						}
+					],
+					"description": "status reads it; ring, vibrate, silent set the ringer; volume sets one volume"
+				},
+				"percent": {
+					"description": "volume: 0 to 100",
+					"maximum": 100,
+					"minimum": 0,
+					"type": "integer"
+				},
+				"stream": {
+					"anyOf": [
+						{
+							"const": "ring",
+							"type": "string"
+						},
+						{
+							"const": "media",
+							"type": "string"
+						},
+						{
+							"const": "alarm",
+							"type": "string"
+						},
+						{
+							"const": "notification",
+							"type": "string"
+						},
+						{
+							"const": "call",
+							"type": "string"
+						}
+					],
+					"description": "volume: which one; default ring"
+				}
+			},
+			"required": [
+				"action"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_control",
+		"toolset": "control",
+		"name": "display",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"action": {
+					"anyOf": [
+						{
+							"const": "status",
+							"type": "string"
+						},
+						{
+							"const": "brightness",
+							"type": "string"
+						},
+						{
+							"const": "auto_brightness",
+							"type": "string"
+						},
+						{
+							"const": "auto_rotate",
+							"type": "string"
+						},
+						{
+							"const": "screen_timeout",
+							"type": "string"
+						}
+					],
+					"description": "status reads it; the rest change one setting"
+				},
+				"on": {
+					"description": "auto_brightness, auto_rotate: on or off",
+					"type": "boolean"
+				},
+				"percent": {
+					"description": "brightness: 1 to 100; turns adaptive brightness off",
+					"maximum": 100,
+					"minimum": 1,
+					"type": "integer"
+				},
+				"seconds": {
+					"description": "screen_timeout: seconds",
+					"maximum": 1800,
+					"minimum": 15,
+					"type": "integer"
+				}
+			},
+			"required": [
+				"action"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_control",
+		"toolset": "control",
+		"name": "flashlight",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"action": {
+					"anyOf": [
+						{
+							"const": "status",
+							"type": "string"
+						},
+						{
+							"const": "on",
+							"type": "string"
+						},
+						{
+							"const": "off",
+							"type": "string"
+						}
+					],
+					"description": "status reads it"
+				}
+			},
+			"required": [
+				"action"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
+		"extension": "phone_control",
+		"toolset": "control",
+		"name": "connections",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"action": {
+					"anyOf": [
+						{
+							"const": "status",
+							"type": "string"
+						},
+						{
+							"const": "on",
+							"type": "string"
+						},
+						{
+							"const": "off",
+							"type": "string"
+						}
+					],
+					"description": "status reads them all; on and off switch one"
+				},
+				"what": {
+					"anyOf": [
+						{
+							"const": "wifi",
+							"type": "string"
+						},
+						{
+							"const": "bluetooth",
+							"type": "string"
+						},
+						{
+							"const": "mobile_data",
+							"type": "string"
+						},
+						{
+							"const": "airplane_mode",
+							"type": "string"
+						},
+						{
+							"const": "location",
+							"type": "string"
+						},
+						{
+							"const": "nfc",
+							"type": "string"
+						},
+						{
+							"const": "battery_saver",
+							"type": "string"
+						}
+					],
+					"description": "on, off: which one"
+				}
+			},
+			"required": [
+				"action"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null
+	},
+	{
 		"extension": "contacts",
 		"toolset": "contacts",
 		"name": "contacts",

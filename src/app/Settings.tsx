@@ -5,6 +5,7 @@ import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database, type TableInfo } from "../database-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
 import { PhoneScreen } from "../phone-screen-plugin.ts";
+import { PhoneState } from "../phone-state-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
 import { Apps, base64 } from "../agent/tools/apps.ts";
@@ -236,11 +237,13 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 }
 
 function SystemAccessGroup() {
-	const [state, setState] = useState<{ usage: boolean; assistant: boolean }>();
+	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
 	useEffect(() => {
 		if (!native.has("Usage")) return;
 		const refresh = () =>
-			void Promise.all([Usage.status(), System.assistant()]).then(([usage, assistant]) => setState({ usage: usage.allowed, assistant: assistant.held }));
+			void Promise.all([Usage.status(), System.assistant(), native.has("PhoneState") ? PhoneState.display() : undefined]).then(([usage, assistant, display]) =>
+				setState({ usage: usage.allowed, assistant: assistant.held, ...(display ? { settings: display.canChange } : {}) }),
+			);
 		refresh();
 		const listener = App.addListener("resume", refresh);
 		return () => void listener.then((handle) => handle.remove());
@@ -260,6 +263,9 @@ function SystemAccessGroup() {
 	return (
 		<Group title="系統權限">
 			{row("螢幕使用時間", state.usage ? undefined : "讓 Bot 看每個 app 用了多久", state.usage, () => Usage.openSettings())}
+			{state.settings === undefined
+				? null
+				: row("修改系統設定", state.settings ? undefined : "讓 Bot 調螢幕亮度、自動旋轉、螢幕關閉時間", state.settings, () => PhoneState.openWriteSettings())}
 			{row("數位助理", state.assistant ? "長按側邊鍵叫出 pi，帶著目前的畫面" : "設成數位助理，就能在任何畫面叫出 pi", state.assistant, () => System.openAssistantSettings())}
 		</Group>
 	);

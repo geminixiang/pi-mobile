@@ -4,6 +4,8 @@ import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { defineAppTool, json } from "./common.ts";
+import { native } from "../../native.ts";
+import { PhoneState } from "../../phone-state-plugin.ts";
 
 interface PhonePlugin {
 	getStatus(): Promise<Record<string, unknown>>;
@@ -17,7 +19,7 @@ const Phone = registerPlugin<PhonePlugin>("Phone");
 const deviceInfo = defineAppTool({
 	name: "device_info",
 	description:
-		"The phone's current state: local time and time zone, language, battery (percent, charging, temperature, power saving), network (Wi-Fi or cellular, metered, VPN), ringer mode and Do Not Disturb, connected headphones, free storage, and model.",
+		"The phone's current state: local time and time zone, language, battery (percent, charging, temperature, power saving), network (Wi-Fi or cellular and the Wi-Fi's name, metered, VPN), ringer mode and Do Not Disturb, connected headphones, free storage, and model.",
 	parameters: Type.Object({}),
 	replay: "safe",
 	execute: async () => {
@@ -27,7 +29,9 @@ const deviceInfo = defineAppTool({
 			language: navigator.language,
 			screen: `${screen.width}x${screen.height} @${devicePixelRatio}x`,
 		};
-		return json({ ...basics, ...(await Phone.getStatus()) });
+		const status = await Phone.getStatus();
+		const wifiName = native.has("PhoneState") ? (await PhoneState.connections()).wifi.name : undefined;
+		return json({ ...basics, ...status, ...(wifiName ? { wifiName } : {}) });
 	},
 });
 

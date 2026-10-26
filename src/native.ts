@@ -13,6 +13,7 @@ export const NATIVE_PLUGINS = [
 	"Page",
 	"Phone",
 	"PhoneScreen",
+	"PhoneState",
 	"Photos",
 	"Records",
 	"Scanner",
