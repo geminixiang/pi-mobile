@@ -1,7 +1,6 @@
 import type { AgentState } from "@earendil-works/pi-durable";
 import type { NativePlugin } from "../native.ts";
 
-
 type ToolsetKind = "builtin" | "service";
 
 export interface Toolset {
@@ -16,6 +15,7 @@ export interface Toolset {
 export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
 	{ kind: "builtin", id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"], needs: "Phone" },
+	{ kind: "builtin", id: "tw_stocks", label: "台股", hint: "盤後股價、三大法人、融資融券（證交所、櫃買中心）", extensions: ["tw_stocks"], needs: "Phone" },
 	{ kind: "builtin", id: "places", label: "地點", hint: "找附近的店家與服務，或依名稱找分店（OpenStreetMap）", extensions: ["places"], needs: "Phone" },
 	{ kind: "builtin", id: "device", label: "手機狀態", hint: "位置、感測器、裝置資訊、交通時間", extensions: ["device"], needs: "Phone" },
 	{ kind: "builtin", id: "apps", label: "手機 App", hint: "鬧鐘、計時器、信件與簡訊草稿、地圖、分享", extensions: ["phone_apps"], needs: "Apps" },

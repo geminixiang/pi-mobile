@@ -1,8 +1,10 @@
+import { CapacitorHttp } from "@capacitor/core";
 import type { TSchema } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { type Static, type TLiteral, type TLiteralValue, type TSchemaOptions, type TUnion, Type } from "typebox";
 import { Value } from "typebox/value";
+import { parseJson } from "../parse.ts";
 
 type Literals<T extends readonly TLiteralValue[]> = { -readonly [K in keyof T]: T[K] extends TLiteralValue ? TLiteral<T[K]> : never };
 
@@ -75,6 +77,16 @@ export function localTime(ms: number): string {
 export function monthDayTime(ms: number): string {
 	const date = new Date(ms);
 	return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const HEADERS = { "User-Agent": "pi-mobile (+https://github.com/geminixiang/pi-mobile)", Accept: "application/json" };
+const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
+
+export async function getJson(url: string, what: string, signal?: AbortSignal): Promise<unknown> {
+	signal?.throwIfAborted();
+	const response = await CapacitorHttp.get({ url, headers: HEADERS, ...TIMEOUTS });
+	if (response.status !== 200) throw new Error(`${what}: HTTP ${response.status}`);
+	return typeof response.data === "string" ? parseJson(response.data, what) : response.data;
 }
 
 export function formatBytes(bytes: number): string {

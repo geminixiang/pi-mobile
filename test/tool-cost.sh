@@ -3,7 +3,7 @@ set -e
 cd "$(dirname "$0")/.."
 PORT=$1
 shift
-SERVICES=$(printf '"%s",' "$@")
+SERVICES=$(for service in "$@"; do printf '"%s",' "$service"; done)
 CDP_PORT=$PORT ./test/ui.sh "async () => {
 	const rt = window.piRuntime;
 	await until(() => rt, 40000);

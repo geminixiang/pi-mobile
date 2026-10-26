@@ -24,6 +24,7 @@ import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
 import { SpeechExtension } from "./tools/speech.ts";
+import { TwStocksExtension } from "./tools/tw-stocks.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "./triggers.ts";
@@ -75,6 +76,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		DeviceExtension,
 		WeatherExtension,
 		PlacesExtension,
+		TwStocksExtension,
 		DatabaseExtension,
 		AppsExtension,
 		SpeechExtension,

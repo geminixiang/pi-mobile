@@ -1,20 +1,10 @@
-import { CapacitorHttp } from "@capacitor/core";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool, localTime, text } from "./common.ts";
+import { defineAppTool, getJson, localTime, text } from "./common.ts";
 import { Value } from "typebox/value";
-import { parse, parseJson } from "../parse.ts";
+import { parse } from "../parse.ts";
 import { currentPlace, metersBetween, type Point, resolvePlace } from "./device.ts";
 import { orLogged } from "../../promise.ts";
-
-const HEADERS = { "User-Agent": "pi-mobile (+https://github.com/geminixiang/pi-mobile)", Accept: "application/json" };
-const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
-
-async function getJson(url: string, what: string): Promise<unknown> {
-	const response = await CapacitorHttp.get({ url, headers: HEADERS, ...TIMEOUTS });
-	if (response.status !== 200) throw new Error(`${what}: HTTP ${response.status}`);
-	return typeof response.data === "string" ? parseJson(response.data, what) : response.data;
-}
 
 const PhotonResults = Type.Object({
 	features: Type.Array(

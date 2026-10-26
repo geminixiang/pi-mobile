@@ -336,6 +336,274 @@
 		}
 	},
 	{
+		"extension": "tw_stocks",
+		"toolset": "tw_stocks",
+		"name": "tw_stocks",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"data": {
+					"anyOf": [
+						{
+							"const": "prices",
+							"type": "string"
+						},
+						{
+							"const": "institutional",
+							"type": "string"
+						},
+						{
+							"const": "margin",
+							"type": "string"
+						}
+					],
+					"description": "prices: daily open, high, low, close, change and volume; institutional: foreign, investment trust and dealer net buying in shares; margin: margin and short balances in lots (張)"
+				},
+				"from": {
+					"description": "First date YYYY-MM-DD; default 30 days ago for prices, else the latest trading day",
+					"type": "string"
+				},
+				"stocks": {
+					"description": "Stock codes or names: 2330, 台積電, 0050",
+					"items": {
+						"type": "string"
+					},
+					"maxItems": 10,
+					"minItems": 1,
+					"type": "array"
+				},
+				"to": {
+					"description": "Last date YYYY-MM-DD; default today",
+					"type": "string"
+				}
+			},
+			"required": [
+				"data",
+				"stocks"
+			],
+			"type": "object"
+		},
+		"structuredOutput": {
+			"properties": {
+				"rows": {
+					"anyOf": [
+						{
+							"items": {
+								"properties": {
+									"change": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"close": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"code": {
+										"type": "string"
+									},
+									"date": {
+										"type": "string"
+									},
+									"high": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"low": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"market": {
+										"anyOf": [
+											{
+												"const": "twse",
+												"type": "string"
+											},
+											{
+												"const": "tpex",
+												"type": "string"
+											}
+										]
+									},
+									"name": {
+										"type": "string"
+									},
+									"open": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"trades": {
+										"type": "number"
+									},
+									"value_twd": {
+										"type": "number"
+									},
+									"volume_shares": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"code",
+									"name",
+									"market",
+									"date",
+									"open",
+									"high",
+									"low",
+									"close",
+									"change",
+									"volume_shares",
+									"value_twd",
+									"trades"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						{
+							"items": {
+								"properties": {
+									"code": {
+										"type": "string"
+									},
+									"date": {
+										"type": "string"
+									},
+									"dealer_net": {
+										"type": "number"
+									},
+									"foreign_net": {
+										"type": "number"
+									},
+									"market": {
+										"anyOf": [
+											{
+												"const": "twse",
+												"type": "string"
+											},
+											{
+												"const": "tpex",
+												"type": "string"
+											}
+										]
+									},
+									"name": {
+										"type": "string"
+									},
+									"total_net": {
+										"type": "number"
+									},
+									"trust_net": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"code",
+									"name",
+									"market",
+									"date",
+									"foreign_net",
+									"trust_net",
+									"dealer_net",
+									"total_net"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
+						{
+							"items": {
+								"properties": {
+									"code": {
+										"type": "string"
+									},
+									"date": {
+										"type": "string"
+									},
+									"margin_balance": {
+										"type": "number"
+									},
+									"margin_change": {
+										"type": "number"
+									},
+									"market": {
+										"anyOf": [
+											{
+												"const": "twse",
+												"type": "string"
+											},
+											{
+												"const": "tpex",
+												"type": "string"
+											}
+										]
+									},
+									"name": {
+										"type": "string"
+									},
+									"short_balance": {
+										"type": "number"
+									},
+									"short_change": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"code",
+									"name",
+									"market",
+									"date",
+									"margin_balance",
+									"margin_change",
+									"short_balance",
+									"short_change"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					]
+				}
+			},
+			"required": [
+				"rows"
+			],
+			"type": "object"
+		}
+	},
+	{
 		"extension": "database",
 		"toolset": "database",
 		"name": "sql",
