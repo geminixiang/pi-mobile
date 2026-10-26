@@ -3,7 +3,7 @@
 Android app (Capacitor + React) running a pi-durable agent on the phone. See docs/architecture.md for the layout of the code.
 
 - `npm run check` (tsc, Stylelint, no-comments, tool interface, contracts, just-bash patches) must pass before a commit.
-- Before changing CSS, animations, or overlays, read `.agents/skills/css/SKILL.md`. No `!important`.
+- Before changing CSS, animations, or overlays, read `.pi/skills/css/SKILL.md`. No `!important`.
 - UI copy is Traditional Chinese (zh-TW); model prompts are English.
 - Code carries no comments, in any language: a comment marks a design flaw or a hidden bug. Make names, types, and
   structure say it; a reason that still needs words goes in `docs/`. The one exception is a constraint the code cannot
