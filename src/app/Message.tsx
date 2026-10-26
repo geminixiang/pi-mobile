@@ -13,9 +13,7 @@ import { isCodeNote } from "../agent/codes.ts";
 import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
-import type { Static } from "typebox";
-import { Value } from "typebox/value";
-import { TRIGGER_ENTRY, TriggerEntryData } from "../agent/triggers.ts";
+import { triggerRun, type TriggerRun } from "../agent/triggers.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
@@ -446,7 +444,7 @@ export function StreamingAnswer({
 	);
 }
 
-function entrySymbol(data: Static<typeof TriggerEntryData>): TriggerSymbol {
+function entrySymbol(data: TriggerRun): TriggerSymbol {
 	if (data.on && isWhenKind(data.on)) return triggerSymbol({ kind: data.on, ...(data.activity ? { activity: data.activity } : {}) });
 	if (data.kind === "followup" || !data.device) return "clock";
 	if (data.device.startsWith("開始充電")) return "charging";
@@ -456,7 +454,7 @@ function entrySymbol(data: Static<typeof TriggerEntryData>): TriggerSymbol {
 	return "headphones";
 }
 
-function TriggerInput({ id, data }: { id: string; data: Static<typeof TriggerEntryData> }) {
+function TriggerInput({ id, data }: { id: string; data: TriggerRun }) {
 	const [open, setOpen] = useState(false);
 	const symbol = entrySymbol(data);
 	const clock = data.at === undefined ? "" : ` · ${monthDayTime(data.at)}`;
@@ -534,9 +532,8 @@ export const EntryView = memo(function EntryView({
 	};
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
-	if (entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data)) {
-		return <TriggerInput id={String(entry.id)} data={entry.data} />;
-	}
+	const run = triggerRun(entry);
+	if (run) return <TriggerInput id={String(entry.id)} data={run} />;
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {
 		return (

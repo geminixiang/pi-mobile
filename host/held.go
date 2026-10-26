@@ -418,13 +418,13 @@ func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, bool) {
 	return conn, true
 }
 
-func serveHeld(w http.ResponseWriter, r *http.Request, id string, cmd *exec.Cmd, cancel context.CancelFunc, heartbeat []byte, tagged bool, what string) {
+func serveHeld(w http.ResponseWriter, r *http.Request, id string, command func(context.Context) *exec.Cmd, heartbeat []byte, tagged bool, what string) {
 	conn, ok := accept(w, r)
 	if !ok {
-		cancel()
 		return
 	}
-	session, err := startHeld(id, digest(r.URL.Query().Get("key")), cmd, cancel, heartbeat, tagged, conn, r.Context())
+	ctx, cancel := context.WithCancel(context.Background())
+	session, err := startHeld(id, digest(r.URL.Query().Get("key")), command(ctx), cancel, heartbeat, tagged, conn, r.Context())
 	if err != nil {
 		cancel()
 		status := websocket.StatusInternalError

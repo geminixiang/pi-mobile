@@ -17,7 +17,7 @@ import {
 	type TextLineReader,
 } from "@earendil-works/pi-durable/env";
 import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
-import { type FromWorker, type FsOp, type FsValue, normalizePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
+import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { messageOf, onFailure } from "../../promise.ts";
 import { fromBase64, toBase64 } from "../../encoding.ts";
@@ -214,17 +214,16 @@ export class PhoneEnv implements ExecutionEnv {
 
 	#path(path: string): string {
 		if (path === "~" || path.startsWith("~/")) return normalizePath(path.slice(1));
-		return normalizePath(path.startsWith("/") ? path : `${this.cwd}/${path}`);
+		return resolvePath(this.cwd, path);
 	}
 
 	#ensureTemp(): Promise<void> {
 		if (this.#tempReady) return this.#tempReady;
-		const making = BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true });
-		this.#tempReady = making;
-		onFailure(making, () => {
-			if (this.#tempReady === making) this.#tempReady = undefined;
+		this.#tempReady = BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true });
+		onFailure(this.#tempReady, () => {
+			this.#tempReady = undefined;
 		});
-		return making;
+		return this.#tempReady;
 	}
 
 	#at(path: string) {

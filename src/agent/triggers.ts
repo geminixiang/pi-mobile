@@ -5,7 +5,7 @@ import { native } from "../native.ts";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, monthDayTime, oneOf, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
+import { defineAppTool, localTime, oneOf, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
 import { Notifications, requireAccess } from "../notifications-plugin.ts";
 import { messageOf, serially } from "../promise.ts";
@@ -89,6 +89,8 @@ const MAX_TRIGGERS = 20;
 const MAX_FOLLOWUPS = 5;
 
 export const TRIGGER_ENTRY = "trigger.run";
+const RUNNING_ONLY =
+	" It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
 export const TriggerEntryData = Type.Object({
 	trigger: Type.String(),
 	name: Type.String(),
@@ -101,6 +103,12 @@ export const TriggerEntryData = Type.Object({
 	activity: Type.Optional(Type.String()),
 	judged: Type.Optional(Type.Number()),
 });
+
+export type TriggerRun = Static<typeof TriggerEntryData>;
+
+export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun | undefined {
+	return entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data) ? entry.data : undefined;
+}
 
 const QueuedEvent = Type.Union([
 	Type.Object({
@@ -160,8 +168,8 @@ const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 
 export function describeTime(at: number): string {
-	const [day, clock] = monthDayTime(at).split(" ");
-	return `${day}（${WEEKDAY_NAMES[(new Date(at).getDay() + 6) % 7]}）${clock}`;
+	const date = new Date(at);
+	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function describeDays(list: readonly number[]): string {
@@ -352,12 +360,6 @@ export async function whenOf(args: CreateScheduleArgs): Promise<When> {
 	}
 }
 
-async function runningOnlyNote(when: When): Promise<string> {
-	if (when.kind !== "unlock" && when.kind !== "battery_low") return "";
-	if ((await Notifications.status()).allowed) return "";
-	return " It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
-}
-
 function timeOf(args: CreateScheduleArgs, days: number[]): When {
 	if (args.only_if || args.guards?.length) throw new Error("guards and only_if are for events; a time needs no checks");
 	if (args.at && !args.time) {
@@ -378,6 +380,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		parameters: CreateScheduleArgs,
 		execute: async (args, api, context) => {
 			const when = await whenOf(args);
+			const runningOnly = (when.kind === "unlock" || when.kind === "battery_low") && !(await Notifications.status()).allowed;
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
 			const trigger: Trigger = {
@@ -397,7 +400,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			}, context);
 			host.changed();
 			const asked = `${trigger.guards?.length ? ` Checks: ${trigger.guards.join(", ")}.` : ""}${trigger.onlyIf ? ` Only if: ${trigger.onlyIf}` : ""}`;
-			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}.${asked} The user can pause or delete it in Settings.${await runningOnlyNote(when)}`);
+			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}.${asked} The user can pause or delete it in Settings.${runningOnly ? RUNNING_ONLY : ""}`);
 		},
 	});
 

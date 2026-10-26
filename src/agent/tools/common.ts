@@ -57,7 +57,7 @@ export function truncated(value: string, hint = ""): string {
 
 export const jsonOrNull = (value: unknown): JsonValue => (isJsonValue(value) ? value : null);
 
-const pad = (value: number) => String(value).padStart(2, "0");
+export const pad = (value: number) => String(value).padStart(2, "0");
 
 export function localDate(ms: number): string {
 	const date = new Date(ms);

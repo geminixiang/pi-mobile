@@ -1,6 +1,6 @@
 import "../../shims/buffer-global.ts";
 import { Bash, type CommandName, getCommandNames, type IFileSystem, InMemoryFs, MountableFs } from "just-bash/browser";
-import { type FromWorker, type FsOp, type FsValue, type HttpRequest, type HttpResponse, normalizePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
+import { type FromWorker, type FsOp, type FsValue, type HttpRequest, type HttpResponse, normalizePath, resolvePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { folderFetch } from "./folder-fetch.ts";
 import { gitCommand } from "./git-command.ts";
 import { ghCommand } from "./gh-command.ts";
@@ -149,10 +149,6 @@ function folderFs(bot: string, root = ""): IFileSystem {
 		link: unsupported("link"),
 		readlink: notALink,
 	};
-}
-
-function resolvePath(base: string, path: string): string {
-	return normalizePath(path.startsWith("/") ? path : `${base}/${path}`);
 }
 
 async function notALink(path: string): Promise<string> {

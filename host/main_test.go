@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os/exec"
 	"strings"
 	"testing"
@@ -64,10 +65,13 @@ func TestWaitReturnsWhenTheShellExits(t *testing.T) {
 	}
 }
 
-func TestPreflightAllowsEveryMethodThePhoneSends(t *testing.T) {
-	for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete} {
-		if !strings.Contains(corsMethods, method) {
-			t.Fatalf("a WebView %s is refused at its preflight: %s", method, corsMethods)
-		}
+func TestPreflightAllowsTheMethodThePhoneAsksFor(t *testing.T) {
+	request := httptest.NewRequest(http.MethodOptions, "/unpair", nil)
+	request.Header.Set("Origin", "http://localhost")
+	request.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	response := httptest.NewRecorder()
+	allowOrigin(response, request)
+	if allowed := response.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(allowed, http.MethodDelete) {
+		t.Fatalf("a WebView DELETE is refused at its preflight: %q", allowed)
 	}
 }

@@ -387,8 +387,8 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 		next = flags.set.has("paginate") && method === "GET" ? nextPage(response.link) : undefined;
 	}
 	if (flags.set.has("silent")) return ok("");
-	const parsed = pages.map(jsonOrText);
-	const merged = pages.length > 1 && parsed.every(Array.isArray) ? JSON.stringify(parsed.flat()) : pages.join("\n");
+	const parsed = pages.length > 1 ? pages.map(jsonOrText) : [];
+	const merged = parsed.every(Array.isArray) && parsed.length > 0 ? JSON.stringify(parsed.flat()) : pages.join("\n");
 	const result = await filter(ctx, flags, merged);
 	return flags.set.has("include") ? { ...result, stdout: `HTTP ${status}\n\n${result.stdout}` } : result;
 }

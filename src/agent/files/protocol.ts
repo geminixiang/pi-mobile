@@ -10,6 +10,10 @@ export function normalizePath(path: string): string {
 	return `/${parts.join("/")}`;
 }
 
+export function resolvePath(base: string, path: string): string {
+	return normalizePath(path.startsWith("/") ? path : `${base}/${path}`);
+}
+
 export type FsOp =
 	| { op: "stat"; path: string }
 	| { op: "exists"; path: string }

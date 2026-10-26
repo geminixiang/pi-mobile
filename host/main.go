@@ -168,11 +168,7 @@ func fromOwner(w http.ResponseWriter, r *http.Request) (string, bool) {
 		log.Printf("refused %s: %v", r.RemoteAddr, err)
 		return "", false
 	}
-	if origin := r.Header.Get("Origin"); origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", corsMethods)
-		w.Header().Set("Vary", "Origin")
-	}
+	allowOrigin(w, r)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return "", false
@@ -180,7 +176,15 @@ func fromOwner(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return device, true
 }
 
-const corsMethods = "GET, PUT, POST, DELETE"
+func allowOrigin(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return
+	}
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
+	w.Header().Set("Vary", "Origin")
+}
 
 func guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -353,8 +357,7 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("heartbeat") == "pi-env" {
 			heartbeat = piEnvPing
 		}
-		ctx, cancel := context.WithCancel(context.Background())
-		serveHeld(w, r, "exec:"+session, loginShell(ctx, command), cancel, heartbeat, true, "the command")
+		serveHeld(w, r, "exec:"+session, func(ctx context.Context) *exec.Cmd { return loginShell(ctx, command) }, heartbeat, true, "the command")
 		return
 	}
 	conn, ok := accept(w, r)
@@ -482,8 +485,9 @@ func env(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such daemon; PUT it first", http.StatusNotFound)
 		return
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	serveHeld(w, r, "env:"+token, loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token), cancel, piEnvPing, false, "pi-env")
+	serveHeld(w, r, "env:"+token, func(ctx context.Context) *exec.Cmd {
+		return loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
+	}, piEnvPing, false, "pi-env")
 }
 
 type permission struct {
