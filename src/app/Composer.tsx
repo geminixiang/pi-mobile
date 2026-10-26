@@ -145,13 +145,10 @@ export function Composer({
 	const scanDocument = async () => {
 		setAttachMenu(false);
 		setProblem(undefined);
-		const scan = await Scanner.scan({}).then(
-			(result) => result,
-			(error: unknown): { cancelled: true } => {
-				setProblem(`掃描失敗：${messageOf(error)}`);
-				return { cancelled: true };
-			},
-		);
+		const scan = await Scanner.scan({}).catch((error: unknown): { cancelled: true } => {
+			setProblem(`掃描失敗：${messageOf(error)}`);
+			return { cancelled: true };
+		});
 		if (scan.cancelled) return;
 		await attach([await scannedPdf(scan.pdf)]);
 	};

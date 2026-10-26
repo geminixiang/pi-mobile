@@ -134,7 +134,7 @@ export function Chat({
 	notices: readonly Notice[];
 	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
-	onView?: (view: ConversationView) => void;
+	onView: (view: ConversationView) => void;
 }) {
 	const [view, setView] = useState<ConversationView>();
 	const conversationId = String(controller.id);
@@ -151,7 +151,7 @@ export function Chat({
 		() =>
 			controller.subscribe((next) => {
 				setView(next);
-				onView?.(next);
+				onView(next);
 			}),
 		[controller, onView],
 	);
@@ -194,7 +194,7 @@ export function Chat({
 
 	const live = liveOf(view);
 	const inbox = inboxOf(view);
-	const busy = Boolean(live?.run);
+	const busy = isBusy(view);
 	const partial = live?.generation?.message?.content;
 	const entries = view?.entries ?? [];
 

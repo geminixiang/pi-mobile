@@ -435,7 +435,7 @@ export function StreamingAnswer({
 	content: Block[];
 	prefs: Prefs;
 	calls: CallStates;
-	answerRef?: (element: HTMLElement | null) => void;
+	answerRef: (element: HTMLElement | null) => void;
 }) {
 	return (
 		<article className="answer streaming" ref={answerRef}>
