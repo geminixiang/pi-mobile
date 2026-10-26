@@ -177,7 +177,7 @@ export class AgentRuntime {
 			},
 		};
 		const placed = new Map<string, { folder: string; computer?: string }>();
-		const clouds = connectClouds(settings);
+		const clouds = connectClouds(settings, platform.rotated);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
 		const mcp: McpHub = new McpHub(platform, {

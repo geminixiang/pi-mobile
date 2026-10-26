@@ -106,6 +106,7 @@ export const platform: Platform = {
 			await secrets.removeGate?.promise;
 		},
 	},
+	rotated: { cloudflare: async () => undefined, azure: async () => undefined },
 	mcpClient: () => new FakeMcpClient(),
 	phone: {
 		folder: (folder, network) => new PhoneEnv(folder, network),

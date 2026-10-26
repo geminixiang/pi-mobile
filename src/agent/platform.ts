@@ -2,7 +2,7 @@ import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { CapacitorHttp } from "@capacitor/core";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { McpClient, type McpFetch } from "@earendil-works/pi-mcp";
-import type { Settings } from "../settings.ts";
+import { saveAzureCredential, saveCloudflareCredential, type Settings } from "../settings.ts";
 import { loadModels, type LoadedModels } from "./available-models.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
@@ -17,12 +17,15 @@ export interface PhoneApp {
 	removeFolder(folder: string): Promise<void>;
 }
 
+export type RotatedCredentials = { cloudflare(json: string): Promise<void>; azure(json: string): Promise<void> };
+
 export interface Platform {
 	inApp: boolean;
 	native: ReadonlySet<NativePlugin>;
 	phone: PhoneApp | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
+	rotated: RotatedCredentials;
 	mcpClient(): McpSession;
 	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
@@ -79,6 +82,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 				if ((await SecureStorage.keys()).includes(key)) await SecureStorage.remove(key);
 			},
 		},
+		rotated: { cloudflare: saveCloudflareCredential, azure: saveAzureCredential },
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),
 		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
 	};
