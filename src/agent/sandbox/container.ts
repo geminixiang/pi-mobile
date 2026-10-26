@@ -12,7 +12,7 @@ import { decode } from "../parse.ts";
 import { randomHex, toHex } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
 
-const PREFIX = "pim-";
+const CONTAINER = "pim-main";
 const LABEL = "pi-mobile=1";
 const NETWORK = "pi-mobile";
 const EGRESS = "pi-mobile-egress";
@@ -26,7 +26,6 @@ const CPUS = "2";
 const MEMORY = "2g";
 const PIDS = "512";
 const BRIDGE_PING_MS = 10_000;
-const BRIDGE_PATH = "/tmp/pi-mobile-bridge.py";
 
 const SANDBOX_ENV: Record<string, string> = {
 	HTTP_PROXY: PROXY,
@@ -115,29 +114,32 @@ export function lineReader(onLine: (line: string) => void): (data: Uint8Array) =
 
 export class ContainerHost {
 	readonly #engine: string;
-	readonly #client: () => Promise<CommandClient>;
+	readonly #client: CommandClient;
 	#egress: Promise<string> | undefined;
 	readonly #prepared = new Set<string>();
-	readonly #active = new Map<string, number>();
-	readonly #ensuring = new Map<string, Promise<void>>();
-	readonly #arch = new Map<string, "x64" | "arm64">();
+	#active = 0;
+	#ensuring: Promise<void> | undefined;
+	#arch: "x64" | "arm64" | undefined;
 
-	constructor(engine: string, client: () => Promise<CommandClient>) {
+	constructor(engine: string, client: CommandClient) {
 		this.#engine = engine;
 		this.#client = client;
 	}
 
 	async #engineOutput(args: string, input?: Uint8Array): Promise<string> {
-		const client = await this.#client();
-		const result = await client.run(`${ENV_PATH}; ${this.#engine} ${args}`, input);
+		const result = await this.#client.run(`${ENV_PATH}; ${this.#engine} ${args}`, input);
 		if (result.code !== 0) throw new Error(`${this.#engine} ${args.split(" ")[0]}: ${result.stderr.trim() || `exit ${result.code}`}`);
 		return result.stdout.trim();
 	}
 
 	async #outputIfSucceeds(args: string): Promise<string | undefined> {
-		const client = await this.#client();
-		const result = await client.run(`${ENV_PATH}; ${this.#engine} ${args}`);
+		const result = await this.#client.run(`${ENV_PATH}; ${this.#engine} ${args}`);
 		return result.code === 0 ? result.stdout.trim() : undefined;
+	}
+
+	async #stage(command: string, input?: Uint8Array): Promise<void> {
+		const result = await this.#client.run(command, input);
+		if (result.code !== 0) throw new Error(`準備建置檔案失敗（${command.split(" ")[0]}）：${result.stderr.trim() || `exit ${result.code}`}`);
 	}
 
 	async ensureImages(home: string, onProgress: (detail: string) => void): Promise<void> {
@@ -158,13 +160,12 @@ export class ContainerHost {
 		const hash = await sha256(JSON.stringify(files) + (piEnv?.sha ?? ""));
 		const current = await this.#outputIfSucceeds(`image inspect -f '{{index .Config.Labels "dev.pi-mobile.hash"}}' ${name}`);
 		if (current === hash) return;
-		const client = await this.#client();
 		const dir = `${home}/.pi/mobile/build/${name.split("/")[1]}`;
-		await client.run(`rm -rf ${shellQuote(dir)} && mkdir -p ${shellQuote(dir)}`);
+		await this.#stage(`rm -rf ${shellQuote(dir)} && mkdir -p ${shellQuote(dir)}`);
 		for (const [file, text] of Object.entries(files)) {
-			await client.run(`cat > ${shellQuote(`${dir}/${file}`)}`, new TextEncoder().encode(text));
+			await this.#stage(`cat > ${shellQuote(`${dir}/${file}`)}`, new TextEncoder().encode(text));
 		}
-		if (piEnv) await client.run(`cat > ${shellQuote(`${dir}/pi-env`)} && chmod 755 ${shellQuote(`${dir}/pi-env`)}`, await piEnv.bytes());
+		if (piEnv) await this.#stage(`cat > ${shellQuote(`${dir}/pi-env`)} && chmod 755 ${shellQuote(`${dir}/pi-env`)}`, await piEnv.bytes());
 		onProgress(`建置 ${name}`);
 		const built = await new Promise<{ code: number | undefined; tail: string }>((resolve, reject) => {
 			let tail = "";
@@ -173,7 +174,7 @@ export class ContainerHost {
 				const line = tail.trimEnd().split("\n").at(-1)?.trim();
 				if (line) onProgress(`${name}：${line.slice(0, 80)}`);
 			};
-			client
+			this.#client
 				.exec(`${ENV_PATH}; ${this.#engine} build -t ${name} --label dev.pi-mobile.hash=${hash} ${shellQuote(dir)} 2>&1`, {
 					onStdout: take,
 					onExit: (code) => resolve({ code, tail }),
@@ -184,7 +185,7 @@ export class ContainerHost {
 	}
 
 	async #home(): Promise<string> {
-		const result = await (await this.#client()).run("printf %s \"$HOME\"");
+		const result = await this.#client.run("printf %s \"$HOME\"");
 		if (result.code !== 0 || !result.stdout) throw new Error("讀不到主機的家目錄");
 		return result.stdout;
 	}
@@ -233,13 +234,11 @@ export class ContainerHost {
 		let close: (() => void) | undefined;
 		const run = async (): Promise<void> => {
 			await this.#ensureEgress();
-			await this.#engineOutput(`exec -i ${EGRESS} sh -c 'cat > ${BRIDGE_PATH}'`, new TextEncoder().encode(bridgePy));
-			const client = await this.#client();
-			let send: (message: unknown) => void = () => {};
+				let send: (message: unknown) => void = () => {};
 			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
 			const ended = new Promise<void>((resolve) => {
-				void client
-					.exec(`${ENV_PATH}; ${this.#engine} exec -i ${EGRESS} python3 ${BRIDGE_PATH}`, {
+				void this.#client
+					.exec(`${ENV_PATH}; ${this.#engine} exec -i ${EGRESS} python3 /egress/bridge.py`, {
 						onStdout: lineReader((line) => void this.#onBridge(line, credentials, send)),
 						onExit: (code) => {
 							if (code === 3) log.warn("sandbox.bridge_busy", { engine: this.#engine });
@@ -297,14 +296,15 @@ export class ContainerHost {
 		}
 	}
 
-	#ensure(name: string): Promise<void> {
-		const pending = this.#ensuring.get(name) ?? this.#ensureNow(name).finally(() => this.#ensuring.delete(name));
-		this.#ensuring.set(name, pending);
-		return pending;
+	#ensure(): Promise<void> {
+		this.#ensuring ??= this.#ensureNow().finally(() => {
+			this.#ensuring = undefined;
+		});
+		return this.#ensuring;
 	}
 
-	async #ensureNow(name: string): Promise<void> {
-		const container = PREFIX + name;
+	async #ensureNow(): Promise<void> {
+		const container = CONTAINER;
 		const state = await this.#outputIfSucceeds(`inspect -f '{{.State.Running}}' ${container}`);
 		if (state === "true") return;
 		await this.#makeRoom();
@@ -338,14 +338,14 @@ export class ContainerHost {
 			.split("\n")
 			.map((line) => line.trim().split(" "))
 			.map(([name = "", started = ""]) => ({ name: name.replace(/^\//, ""), started }))
-			.filter((candidate) => !this.#active.has(candidate.name.replace(PREFIX, "")))
+			.filter((candidate) => candidate.name !== CONTAINER || this.#active === 0)
 			.sort((a, b) => a.started.localeCompare(b.started))[0];
 		if (!idle) throw new Error(`${MAX_RUNNING} 個 sandbox 都在使用中`);
 		await this.#engineOutput(`stop -t 2 ${idle.name}`);
 	}
 
-	async #prepare(name: string, ca: string, piEnv: Daemon): Promise<void> {
-		const container = PREFIX + name;
+	async #prepare(ca: string, piEnv: Daemon): Promise<void> {
+		const container = CONTAINER;
 		const id = await this.#engineOutput(`inspect -f '{{.Id}}' ${container}`);
 		if (this.#prepared.has(id)) return;
 		await this.#engineOutput(
@@ -364,31 +364,28 @@ export class ContainerHost {
 		this.#prepared.add(id);
 	}
 
-	opener(name: string, serviceEnv: () => Record<string, string>): OpenDaemon {
+	opener(serviceEnv: () => Record<string, string>): OpenDaemon {
 		return async (token, handlers) => {
 			const ca = await this.#ensureEgress();
-			await this.#ensure(name);
-			const machineArch = this.#arch.get(name) ?? arch(await this.#engineOutput(`exec ${PREFIX + name} uname -m`));
+			await this.#ensure();
+			const machineArch = this.#arch ?? arch(await this.#engineOutput(`exec ${CONTAINER} uname -m`));
 			if (!machineArch) throw lost("讀不到 sandbox 的架構");
-			this.#arch.set(name, machineArch);
+			this.#arch = machineArch;
 			const piEnv = daemon("linux", machineArch);
-			await this.#prepare(name, ca, piEnv);
+			await this.#prepare(ca, piEnv);
 			const env = Object.entries({ ...SANDBOX_ENV, ...serviceEnv() })
 				.map(([key, value]) => `-e ${shellQuote(`${key}=${value}`)}`)
 				.join(" ");
-			const client = await this.#client();
-			this.#active.set(name, (this.#active.get(name) ?? 0) + 1);
+			this.#active++;
 			let released = false;
 			const release = () => {
 				if (released) return;
 				released = true;
-				const left = (this.#active.get(name) ?? 1) - 1;
-				if (left > 0) this.#active.set(name, left);
-				else this.#active.delete(name);
+				this.#active--;
 			};
 			let stderr = "";
-			const channel = await client.exec(
-				`${ENV_PATH}; exec ${this.#engine} exec -i -w /workspace ${env} ${PREFIX + name} ${DAEMON} serve --token ${token}`,
+			const channel = await this.#client.exec(
+				`${ENV_PATH}; exec ${this.#engine} exec -i -w /workspace ${env} ${CONTAINER} ${DAEMON} serve --token ${token}`,
 				{
 					onStdout: handlers.onData,
 					onStderr: (data) => {
@@ -404,14 +401,5 @@ export class ContainerHost {
 			);
 			return { send: (data) => channel.write(data), close: () => channel.close() };
 		};
-	}
-
-	async exists(name: string): Promise<boolean> {
-		return (await this.#outputIfSucceeds(`inspect -f '{{.Id}}' ${PREFIX + name}`)) !== undefined;
-	}
-
-	async remove(name: string): Promise<void> {
-		await this.#outputIfSucceeds(`rm -f ${PREFIX + name}`);
-		await this.#outputIfSucceeds(`volume rm ${PREFIX + name}`);
 	}
 }

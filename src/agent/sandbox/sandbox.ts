@@ -31,16 +31,14 @@ const IMAGES =
 
 export class SharedEnvs {
 	readonly #connection: PhoneConnection;
-	readonly #base: string;
-	readonly #root: (folder: string) => string;
+	readonly root: (folder: string) => string;
 	readonly #envs = new Map<string, RemoteExecutionEnv>();
 	readonly #made = new Map<string, Promise<void>>();
 	readonly #baseEnv: RemoteExecutionEnv;
 
 	constructor(connection: PhoneConnection, base: string, root: (folder: string) => string) {
 		this.#connection = connection;
-		this.#base = base;
-		this.#root = root;
+		this.root = root;
 		this.#baseEnv = this.#make(base);
 	}
 
@@ -49,13 +47,13 @@ export class SharedEnvs {
 	}
 
 	async #run(command: string): Promise<number> {
-		const result = await this.#baseEnv.exec(command, { cwd: this.#base, timeout: 60_000 }, BACKGROUND_CONTEXT);
+		const result = await this.#baseEnv.exec(command, { timeout: 60_000 }, BACKGROUND_CONTEXT);
 		if (!result.ok) throw result.error;
 		return result.value.exitCode;
 	}
 
 	async env(folder: string): Promise<ExecutionEnv> {
-		const root = this.#root(folder);
+		const root = this.root(folder);
 		await sharedUntilFailure(this.#made, folder, () =>
 			this.#run(`mkdir -p ${shellQuote(root)}`).then((code) => {
 				if (code !== 0) throw new Error(`cannot create ${root}`);
@@ -68,13 +66,13 @@ export class SharedEnvs {
 
 	async exists(folder: string): Promise<boolean> {
 		if (this.#envs.has(folder)) return true;
-		return (await this.#run(`test -d ${shellQuote(this.#root(folder))}`)) === 0;
+		return (await this.#run(`test -d ${shellQuote(this.root(folder))}`)) === 0;
 	}
 
 	async remove(folder: string): Promise<void> {
 		this.#envs.delete(folder);
 		this.#made.delete(folder);
-		if ((await this.#run(`rm -rf -- ${shellQuote(this.#root(folder))}`)) !== 0) throw new Error(`刪除 ${this.#root(folder)} 失敗`);
+		if ((await this.#run(`rm -rf -- ${shellQuote(this.root(folder))}`)) !== 0) throw new Error(`刪除 ${this.root(folder)} 失敗`);
 	}
 
 	close(): void {
@@ -96,14 +94,13 @@ export function containerDescription(folder: string): string {
 	].join(" ");
 }
 
-export function directDescription(name: string, user: string, system: { os: DaemonOs; arch: DaemonArch; home: string } | undefined, process: string): string {
-	const where = system ? `${name} (${system.os === "darwin" ? "macOS" : "Linux"} ${system.arch})` : name;
+export function directDescription(host: { name: string; user: string; os: DaemonOs; arch: DaemonArch; home: string }): string {
 	const desktop =
-		system?.os === "darwin"
-			? `Commands first: CLIs, \`open\`, and \`osascript\` (scriptable apps; System Events for settings, windows, menus, keys). If one fails with "Operation not permitted" or times out, macOS is asking on the computer: tell the user to allow ${process} there.`
+		host.os === "darwin"
+			? `Commands first: CLIs, \`open\`, and \`osascript\` (scriptable apps; System Events for settings, windows, menus, keys). If one fails with "Operation not permitted" or times out, macOS is asking on the computer: tell the user to allow pi-mobile there.`
 			: "Commands first; `xdg-open` opens files and URLs when a desktop session is running.";
 	return [
-		`You operate ${where}, the user's own computer, as ${user}: read, write, edit, and bash run there from ${system?.home ?? "~"}, with the user's files, apps, and sign-ins. Find things yourself (ls, find, mdfind) rather than asking.`,
+		`You operate ${host.name} (${host.os === "darwin" ? "macOS" : "Linux"} ${host.arch}), the user's own computer, as ${host.user}: read, write, edit, and bash run there from ${host.home}, with the user's files, apps, and sign-ins. Find things yourself (ls, find, mdfind) rather than asking.`,
 		desktop,
 		"The screen is the fallback for what no command reaches (a dialog, what a window shows): read_screen to look, use_screen to click and type; keys over clicks.",
 		"Websites: ego-browser if `command -v ego-browser` finds it (run `ego-browser skill` once and follow it), never by clicking a browser.",

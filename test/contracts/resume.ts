@@ -6,7 +6,7 @@ type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data:
 
 function fakeOpener() {
 	const sockets: Fake[] = [];
-	const open = async (url: URL, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void): Promise<RawSocket> => {
+	const open = async (url: URL, _what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void): Promise<RawSocket> => {
 		if (url.searchParams.get("fail") === "1") throw new Error("unreachable");
 		const socket: Fake = {
 			url,

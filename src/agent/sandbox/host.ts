@@ -12,9 +12,9 @@ import {
 import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
 import { daemon } from "./daemon.ts";
-import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, SharedEnvs } from "./sandbox.ts";
+import { containerDescription, directDescription, type Sandbox, SharedEnvs } from "./sandbox.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
-import { type OpenRaw, type RawMessage, ResumableSocket } from "./resumable-socket.ts";
+import { type RawMessage, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode, decodeEach } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
@@ -161,8 +161,22 @@ export async function listPeers(host: Reach): Promise<Peer[]> {
 	return Value.Check(Peers, peers) ? peers : [];
 }
 
-function rawOpener(what: string): OpenRaw {
-	return (url, onMessage, onClose) => openSocket(url, what, onMessage, onClose);
+function holdSocket(
+	reach: Reach,
+	what: string,
+	path: "/exec" | "/env",
+	first: Record<string, string>,
+	token: string,
+	handlers: Pick<Parameters<typeof ResumableSocket.connect>[0], "onMessage" | "onClose" | "onLink">,
+): Promise<ResumableSocket> {
+	return ResumableSocket.connect({
+		quietLimitMs: DAEMON_QUIET_LIMIT_MS,
+		first: socketUrl(reach, path, first),
+		attach: (received) => socketUrl(reach, path, { attach: token, received: String(received) }),
+		open: openSocket,
+		what,
+		...handlers,
+	});
 }
 
 function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void): Promise<WebSocket> {
@@ -216,12 +230,7 @@ class HostCommands implements CommandClient {
 			throw error;
 		};
 		if (session) {
-			const resumable = await ResumableSocket.connect({
-				quietLimitMs: DAEMON_QUIET_LIMIT_MS,
-				first: socketUrl(this.#host, "/exec", { command, session, heartbeat: "pi-env" }),
-				attach: (received) => socketUrl(this.#host, "/exec", { attach: session, received: String(received) }),
-				open: rawOpener(this.#host.name),
-				what: this.#host.name,
+			const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, heartbeat: "pi-env" }, session, {
 				onMessage,
 				onClose: () => exit(undefined),
 				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
@@ -264,35 +273,35 @@ class HostCommands implements CommandClient {
 	}
 }
 
-const preparing = new Map<string, { done: Promise<void>; listeners: Set<(detail: string) => void> }>();
+type Preparing = { done: Promise<void>; listeners: Set<(detail: string) => void> };
 
-export function watchPrepare(host: PairedHost, onProgress: (detail: string) => void): Promise<void> | undefined {
-	const entry = preparing.get(host.address);
-	if (!entry) return undefined;
+const preparing = new Map<string, Preparing>();
+
+function follow(entry: Preparing, onProgress: (detail: string) => void): Promise<void> {
 	entry.listeners.add(onProgress);
 	return entry.done.finally(() => entry.listeners.delete(onProgress));
 }
 
-export function prepareContainers(host: PairedHost, onProgress: (detail: string) => void = () => undefined): Promise<void> {
+export function watchPrepare(host: PairedHost, onProgress: (detail: string) => void): Promise<void> | undefined {
+	const entry = preparing.get(host.address);
+	return entry ? follow(entry, onProgress) : undefined;
+}
+
+export function prepareContainers(host: PairedHost, onProgress: (detail: string) => void): Promise<void> {
 	if (!host.engine) return Promise.reject(new Error(`${host.name} 沒有 docker、podman 或 nerdctl`));
-	let entry = preparing.get(host.address);
-	if (!entry) {
-		const listeners = new Set<(detail: string) => void>();
-		const commands = new HostCommands(host);
-		const done = new ContainerHost(host.engine, async () => commands).ensureImages(host.home, (detail) => {
-			for (const listener of listeners) listener(detail);
-		});
-		entry = { done, listeners };
-		preparing.set(host.address, entry);
-		onFailure(done, () => preparing.delete(host.address));
-	}
-	const { done, listeners } = entry;
-	listeners.add(onProgress);
-	return done.finally(() => listeners.delete(onProgress));
+	const known = preparing.get(host.address);
+	if (known) return follow(known, onProgress);
+	const listeners = new Set<(detail: string) => void>();
+	const done = new ContainerHost(host.engine, new HostCommands(host)).ensureImages(host.home, (detail) => {
+		for (const listener of listeners) listener(detail);
+	});
+	const entry = { done, listeners };
+	preparing.set(host.address, entry);
+	onFailure(done, () => preparing.delete(host.address));
+	return follow(entry, onProgress);
 }
 
 export class HostSandbox implements Sandbox {
-	readonly kind = "host";
 	readonly host: PairedHost;
 	readonly mode: HostMode;
 	readonly #envs: SharedEnvs;
@@ -312,11 +321,10 @@ export class HostSandbox implements Sandbox {
 			for (const listener of this.#listeners) listener(status);
 		};
 		if (mode === "container" && host.engine) {
-			const commands = new HostCommands(host);
-			const containers = new ContainerHost(host.engine, async () => commands);
+			const containers = new ContainerHost(host.engine, new HostCommands(host));
 			this.#startBridge = () => containers.bridge(credentials);
 			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
-			const connection = new PhoneConnection({ open: containers.opener(SHARED_SANDBOX, serviceEnv), onLog, onStatus });
+			const connection = new PhoneConnection({ open: containers.opener(serviceEnv), onLog, onStatus });
 			this.#envs = new SharedEnvs(connection, WORKSPACE, (folder) => `${WORKSPACE}/${folder}`);
 		} else {
 			this.#envs = new SharedEnvs(new PhoneConnection({ open: this.#direct(), onLog, onStatus }), host.home, () => host.home);
@@ -339,13 +347,7 @@ export class HostSandbox implements Sandbox {
 	#direct(): OpenDaemon {
 		return async (token, handlers) => {
 			const sha = await this.#daemon();
-			const what = `${this.host.name}（${this.host.address}）`;
-			const socket = await ResumableSocket.connect({
-				quietLimitMs: DAEMON_QUIET_LIMIT_MS,
-				first: socketUrl(this.host, "/env", { daemon: sha, token }),
-				attach: (received) => socketUrl(this.host, "/env", { attach: token, received: String(received) }),
-				open: rawOpener(what),
-				what,
+			const socket = await holdSocket(this.host, `${this.host.name}（${this.host.address}）`, "/env", { daemon: sha, token }, token, {
 				onMessage: (data) => {
 					if (data instanceof ArrayBuffer) handlers.onData(new Uint8Array(data));
 				},
@@ -373,7 +375,7 @@ export class HostSandbox implements Sandbox {
 	}
 
 	root(folder: string): string {
-		return this.direct ? this.host.home : `${WORKSPACE}/${folder}`;
+		return this.#envs.root(folder);
 	}
 
 	async env(folder: string): Promise<ExecutionEnv> {
@@ -392,7 +394,7 @@ export class HostSandbox implements Sandbox {
 	}
 
 	describe(folder: string): string {
-		return this.direct ? directDescription(this.host.name, this.host.user, this.host, "pi-mobile") : containerDescription(folder);
+		return this.direct ? directDescription(this.host) : containerDescription(folder);
 	}
 
 	close(): void {
