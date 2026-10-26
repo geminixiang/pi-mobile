@@ -410,6 +410,39 @@ public class PhoneStatePlugin extends Plugin {
         return false;
     }
 
+    private static boolean directly(String what) {
+        return ("wifi".equals(what) && Build.VERSION.SDK_INT < 29) || ("bluetooth".equals(what) && Build.VERSION.SDK_INT < 33);
+    }
+
+    @SuppressWarnings({ "deprecation", "MissingPermission" })
+    private boolean switchDirectly(String what, boolean on) {
+        Context context = getContext();
+        if ("wifi".equals(what) && Build.VERSION.SDK_INT < 29) {
+            return context.getApplicationContext().getSystemService(WifiManager.class).setWifiEnabled(on) && settle(what, on);
+        }
+        if ("bluetooth".equals(what) && Build.VERSION.SDK_INT < 33) {
+            if (Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) return false;
+            BluetoothManager manager = context.getSystemService(BluetoothManager.class);
+            BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
+            return adapter != null && (on ? adapter.enable() : adapter.disable()) && settle(what, on);
+        }
+        return false;
+    }
+
+    private boolean settle(String what, boolean on) {
+        for (int wait = 0; wait < 25; wait++) {
+            Boolean now = isOn(what);
+            if (now != null && now == on) return true;
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void returnTo(PhoneScreenService service, String previous) throws InterruptedException {
         for (int wait = 0; wait < 10; wait++) {
             Thread.sleep(150);
@@ -434,6 +467,16 @@ public class PhoneStatePlugin extends Plugin {
             JSObject result = connectionsState();
             result.put("outcome", "already");
             call.resolve(result);
+            return;
+        }
+        if (directly(what)) {
+            worker.execute(() -> {
+                boolean done = switchDirectly(what, want);
+                JSObject result = connectionsState();
+                Boolean now = isOn(what);
+                result.put("outcome", now != null && now == want ? "changed" : done ? "pressed" : "refused");
+                call.resolve(result);
+            });
             return;
         }
         PhoneScreenService service = PhoneScreenService.running;

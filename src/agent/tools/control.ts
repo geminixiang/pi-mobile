@@ -190,6 +190,8 @@ const connections = defineAppTool({
 					? `${name} is now ${args.action}.`
 					: state.outcome === "pressed"
 						? `Tapped the ${name} switch; Android does not tell apps whether it is ${args.action} now.`
+						: state.outcome === "refused"
+							? `Android refused to switch ${name} ${args.action}.`
 						: `Android lets apps only open the ${name} switch, so it is on the screen now; ${name} changes when the user taps it (screen control is off, so pi cannot).`;
 		return text(`${outcome}\n${describeConnections(state)}`);
 	},
