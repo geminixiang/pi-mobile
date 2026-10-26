@@ -9,13 +9,12 @@ import {
 	McpOAuthProvider,
 	type McpOAuthState,
 } from "@earendil-works/pi-mcp/oauth";
-import { Value } from "typebox/value";
-import { Type } from "typebox";
-import { decode } from "./parse.ts";
+import { type Static, Type } from "typebox";
+import { decode, decodeEach } from "./parse.ts";
 import { type McpSession, nativeFetch, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { Loopback } from "../loopback-plugin.ts";
-import { messageOf, orLogged, settled } from "../promise.ts";
+import { messageOf, onFailure, orLogged, serially, settled } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";
@@ -24,11 +23,7 @@ const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
 const SERVERS_KEY = "pi-mobile.mcp-servers";
 
 const McpServer = Type.Object({ id: Type.String(), name: Type.String(), url: Type.String() });
-export type McpServer = { id: string; name: string; url: string };
-
-function parseMcpServers(json: string): McpServer[] {
-	return (decode(Type.Array(Type.Unknown()), json) ?? []).filter((item): item is McpServer => Value.Check(McpServer, item));
-}
+export type McpServer = Static<typeof McpServer>;
 
 function serverId(name: string, url: string, taken: readonly string[]): string {
 	const ascii = (text: string) =>
@@ -53,15 +48,30 @@ function isState(value: unknown): value is McpOAuthState {
 }
 
 function stateStore(server: McpServer, secrets: Platform["secrets"]) {
+	const key = stateKey(server);
+	const read = async (): Promise<McpOAuthState | undefined> => {
+		const stored = await secrets.get(key);
+		const value = stored === undefined ? undefined : decode(Type.Unknown(), stored);
+		return isState(value) && value.serverUrl === server.url ? value : undefined;
+	};
+	let current: Promise<McpOAuthState | undefined> | undefined;
 	return {
-		load: async (): Promise<McpOAuthState | undefined> => {
-			if (!(await secrets.keys()).includes(stateKey(server))) return undefined;
-			const stored = await secrets.get(stateKey(server));
-			const value = stored === undefined ? undefined : decode(Type.Unknown(), stored);
-			return isState(value) && value.serverUrl === server.url ? value : undefined;
+		load: (): Promise<McpOAuthState | undefined> => {
+			if (current) return current;
+			const reading = read();
+			current = reading;
+			onFailure(reading, () => {
+				if (current === reading) current = undefined;
+			});
+			return reading;
 		},
 		save: async (state: McpOAuthState) => {
-			await secrets.set(stateKey(server), JSON.stringify(state));
+			await secrets.set(key, JSON.stringify(state));
+			current = Promise.resolve(state.serverUrl === server.url ? state : undefined);
+		},
+		forget: async () => {
+			await secrets.remove(key);
+			current = undefined;
 		},
 	};
 }
@@ -101,6 +111,7 @@ class Connection {
 	#generation = 0;
 	#disposed = false;
 	readonly #provider: McpOAuthProvider;
+	readonly #store: ReturnType<typeof stateStore>;
 	readonly #install: (extension: Extension) => void;
 	readonly #changed: () => void;
 	readonly #openUrl: (url: string) => Promise<void>;
@@ -121,11 +132,12 @@ class Connection {
 		this.#install = hooks.install;
 		this.#changed = hooks.changed;
 		this.#openUrl = hooks.openUrl;
+		this.#store = stateStore(server, platform.secrets);
 		this.#provider = new McpOAuthProvider({
 			serverUrl: server.url,
 			redirectUrl: REDIRECT_URL,
 			clientMetadata: { client_name: "pi mobile", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" },
-			store: stateStore(server, platform.secrets),
+			store: this.#store,
 			onRedirect: (url) => (this.#signingIn ? this.#openUrl(url.toString()) : undefined),
 		});
 		const adapted = adaptOAuthProvider(this.#provider);
@@ -279,8 +291,7 @@ class Connection {
 	}
 
 	async logout(): Promise<void> {
-		const secrets = this.#platform.secrets;
-		if ((await secrets.keys()).includes(stateKey(this.server))) await secrets.remove(stateKey(this.server));
+		await this.#store.forget();
 		await this.close();
 		this.#set({ state: "idle", tools: this.status.tools });
 	}
@@ -348,13 +359,13 @@ export class McpHub {
 	readonly #listeners = new Set<() => void>();
 	readonly #hooks: McpHooks;
 	readonly #platform: Platform;
-	#changes: Promise<void> = Promise.resolve();
+	readonly #changes = serially();
 	#closed = false;
 
 	constructor(platform: Platform, hooks: McpHooks) {
 		this.#platform = platform;
 		this.#hooks = hooks;
-		for (const server of parseMcpServers(platform.plain.get(SERVERS_KEY) ?? "")) this.#open(server);
+		for (const server of decodeEach(McpServer, platform.plain.get(SERVERS_KEY))) this.#open(server);
 	}
 
 	#open(server: McpServer): Connection {
@@ -372,12 +383,10 @@ export class McpHub {
 	}
 
 	#serialized<T>(change: () => Promise<T>): Promise<T> {
-		const result = this.#changes.then(() => {
+		return this.#changes(() => {
 			if (this.#closed) throw new Error("MCP services are closed");
 			return change();
 		});
-		this.#changes = settled(result);
-		return result;
 	}
 
 	#grant(server: McpServer): Grant {
@@ -452,7 +461,7 @@ export class McpHub {
 
 	async close(): Promise<void> {
 		this.#closed = true;
-		await this.#changes;
+		await this.#changes(async () => undefined);
 		await Promise.all([...this.#connections.values()].map((connection) => connection.dispose()));
 	}
 }

@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import type { ConversationId } from "@earendil-works/pi-durable";
 import type { Grant } from "./mcp.ts";
 import { selectionOf, type Selection, type Toolset, type ToolsetId, withToolset } from "./toolsets.ts";
-import { settled } from "../promise.ts";
+import { serially } from "../promise.ts";
 
 const context = BACKGROUND_CONTEXT;
 
@@ -35,7 +35,7 @@ export class BotToolsets {
 	readonly #harness: Harness;
 	readonly #bots: () => Promise<readonly { id: ConversationId }[]>;
 	readonly #all: () => Toolset[];
-	#writes: Promise<void> = Promise.resolve();
+	readonly #write = serially();
 
 	constructor(harness: Harness, bots: () => Promise<readonly { id: ConversationId }[]>, all: () => Toolset[]) {
 		this.#harness = harness;
@@ -64,12 +64,6 @@ export class BotToolsets {
 				}));
 			}
 		});
-	}
-
-	#write(write: () => Promise<void>): Promise<void> {
-		const change = this.#writes.then(write);
-		this.#writes = settled(change);
-		return change;
 	}
 
 	async #configure(

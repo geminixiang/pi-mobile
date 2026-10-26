@@ -1,4 +1,4 @@
-export interface IdbStore {
+interface IdbStore {
 	request<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T>;
 	transaction(mode: IDBTransactionMode, run: (store: IDBObjectStore) => void): Promise<void>;
 }

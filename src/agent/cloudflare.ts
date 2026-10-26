@@ -1,8 +1,7 @@
 import { type Static, Type } from "typebox";
-import { type AccessToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, startDeviceFlow, checkTokens } from "./oauth.ts";
+import { type AccessToken, cachedToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, refreshedTokens, startDeviceFlow } from "./oauth.ts";
 import { type Checked, check, checkJson, parse } from "./parse.ts";
-import { log } from "../log.ts";
-import { messageOf } from "../promise.ts";
+import { orLogged } from "../promise.ts";
 
 const AUTH_DOMAIN = "https://dash.cloudflare.com";
 const TOKEN_URL = `${AUTH_DOMAIN}/oauth2/token`;
@@ -47,7 +46,7 @@ const ApiTokenCredential = Type.Object({
 	account_id: Type.Optional(Type.String()),
 });
 const CloudflareCredential = Type.Union([OAuthCredential, ApiTokenCredential]);
-export type CloudflareCredential = Static<typeof CloudflareCredential>;
+type CloudflareCredential = Static<typeof CloudflareCredential>;
 
 const UserResponse = Type.Object({ result: Type.Optional(Type.Object({ email: Type.Optional(Type.String()) })) });
 const AccountsResponse = Type.Object({
@@ -89,13 +88,7 @@ export async function startCloudflareSignIn(): Promise<DeviceSignIn> {
 }
 
 async function accountDetail<T extends Parameters<typeof parse>[0]>(token: string, path: string, schema: T): Promise<Static<T> | undefined> {
-	const response = await getJson({ url: `https://api.cloudflare.com/client/v4${path}`, token, what: "Cloudflare API" }).then(
-		(ok) => ok,
-		(error: unknown) => {
-			log.warn("cloudflare.account_detail_unavailable", { path, error: messageOf(error) });
-			return undefined;
-		},
-	);
+	const response = await orLogged(getJson({ url: `https://api.cloudflare.com/client/v4${path}`, token, what: "Cloudflare API" }), "cloudflare.account_detail_unavailable", undefined, { path });
 	const checked = response && check(schema, response.body, "Cloudflare API");
 	return checked?.ok ? checked.value : undefined;
 }
@@ -117,8 +110,7 @@ export async function finishCloudflareSignIn(signIn: DeviceSignIn, signal: Abort
 export class CloudflareTokens {
 	#credential: CloudflareCredential;
 	readonly #onRotate: (json: string) => Promise<void>;
-	#cached: AccessToken | undefined;
-	#pending: Promise<AccessToken> | undefined;
+	readonly #oauth = cachedToken((credential: Static<typeof OAuthCredential>) => this.#refresh(credential));
 
 	constructor(credential: CloudflareCredential, onRotate: (json: string) => Promise<void>) {
 		this.#credential = credential;
@@ -132,11 +124,7 @@ export class CloudflareTokens {
 	get(): Promise<AccessToken> {
 		const credential = this.#credential;
 		if (credential.type === "cloudflare_api_token") return Promise.resolve({ token: credential.token, expiresAt: Date.now() + 24 * 3600_000 });
-		if (this.#cached && this.#cached.expiresAt - Date.now() > 5 * 60_000) return Promise.resolve(this.#cached);
-		this.#pending ??= this.#refresh(credential).finally(() => {
-			this.#pending = undefined;
-		});
-		return this.#pending;
+		return this.#oauth(credential);
 	}
 
 	async #refresh(credential: Static<typeof OAuthCredential>): Promise<AccessToken> {
@@ -145,14 +133,11 @@ export class CloudflareTokens {
 			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID },
 			what: "Cloudflare token",
 		});
-		const checked = checkTokens(response, "Cloudflare token");
-		if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
-		const tokens = checked.value;
+		const tokens = refreshedTokens(response, "Cloudflare token");
 		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
 			this.#credential = { ...credential, refresh_token: tokens.refresh };
 			await this.#onRotate(JSON.stringify(this.#credential));
 		}
-		this.#cached = tokens.access;
 		return tokens.access;
 	}
 }

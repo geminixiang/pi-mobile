@@ -16,7 +16,7 @@ import { containerDescription, directDescription, type Sandbox, SHARED_SANDBOX, 
 import { type ConnectionStatus, lost, type OpenDaemon, StreamConnection } from "./stream-connection.ts";
 import { type OpenRaw, type RawMessage, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
-import { decode } from "../parse.ts";
+import { decode, decodeEach } from "../parse.ts";
 import { onFailure } from "../../promise.ts";
 import { refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";
@@ -38,7 +38,7 @@ const HostInfo = Type.Object({
 	daemons: Type.Array(Type.String()),
 	engines: Type.Array(Type.String()),
 });
-export type HostInfo = Static<typeof HostInfo>;
+type HostInfo = Static<typeof HostInfo>;
 
 const Host = Type.Object({
 	id: Type.String(),
@@ -54,14 +54,22 @@ export type Host = Static<typeof Host>;
 export type PairedHost = Host & { key: string };
 type Reach = Pick<PairedHost, "address" | "key">;
 
-export function pairedHosts(settings: { hosts: string; hostKeys: Record<string, string> }): PairedHost[] {
-	return parseHosts(settings.hosts).map((host) => ({ ...host, key: settings.hostKeys[host.id] ?? "" }));
+export function pairedHosts(settings: { hosts: readonly Host[]; hostKeys: Record<string, string> }): PairedHost[] {
+	return settings.hosts.map((host) => ({ ...host, key: settings.hostKeys[host.id] ?? "" }));
 }
 
 export type HostMode = "direct" | "container";
 
-export function parseHosts(json: string): Host[] {
-	return (decode(Type.Array(Type.Unknown()), json) ?? []).filter((item): item is Host => Value.Check(Host, item));
+export const computerKey = (hostId: string, mode: HostMode) => `${hostId}:${mode}`;
+
+export function parseComputerKey(key: string): { hostId: string; mode: HostMode } | undefined {
+	const at = key.lastIndexOf(":");
+	const mode = key.slice(at + 1);
+	return at > 0 && (mode === "direct" || mode === "container") ? { hostId: key.slice(0, at), mode } : undefined;
+}
+
+export function parseHosts(json: string | undefined): Host[] {
+	return decodeEach(Host, json);
 }
 
 function base(address: string): string {
@@ -239,7 +247,10 @@ class HostCommands implements CommandClient {
 		return new Promise((resolve, reject) => {
 			const out: Uint8Array[] = [];
 			const err: Uint8Array[] = [];
-			const text = (parts: Uint8Array[]) => new TextDecoder().decode(new Uint8Array(parts.flatMap((part) => [...part])));
+			const text = (parts: Uint8Array[]) => {
+				const decoder = new TextDecoder();
+				return parts.map((part) => decoder.decode(part, { stream: true })).join("") + decoder.decode();
+			};
 			this.exec(command, {
 				onStdout: (data) => out.push(data.slice()),
 				onStderr: (data) => err.push(data.slice()),
@@ -414,10 +425,12 @@ export class HostStdioTransport implements McpTransport {
 
 	async start(): Promise<void> {
 		let stderr = "";
+		const decoder = new TextDecoder();
 		this.#channel = await new HostCommands({ ...this.#reach, name: this.#reach.address }).exec(this.#command, {
 			onStdout: (data) => {
-				this.#buffer += new TextDecoder().decode(data, { stream: true });
-				let newline = this.#buffer.indexOf("\n");
+				const from = this.#buffer.length;
+				this.#buffer += decoder.decode(data, { stream: true });
+				let newline = this.#buffer.indexOf("\n", from);
 				while (newline >= 0) {
 					const line = this.#buffer.slice(0, newline).trim();
 					this.#buffer = this.#buffer.slice(newline + 1);
@@ -433,8 +446,9 @@ export class HostStdioTransport implements McpTransport {
 				}
 			},
 			onStderr: (data) => {
-				stderr = (stderr + new TextDecoder().decode(data)).slice(-2000);
-				log.info("mcp.computer_stderr", { address: this.#reach.address, text: new TextDecoder().decode(data).slice(0, 500) });
+				const chunk = new TextDecoder().decode(data);
+				stderr = (stderr + chunk).slice(-2000);
+				log.info("mcp.computer_stderr", { address: this.#reach.address, text: chunk.slice(0, 500) });
 			},
 			onExit: (code) => {
 				if (!this.#closed && code !== 0) {

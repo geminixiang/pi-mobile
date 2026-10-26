@@ -3,10 +3,10 @@ import { Loopback } from "../loopback-plugin.ts";
 import type { Api, ApiStreamOptions, Model, OAuthAuth, OAuthCredential, Provider, SimpleStreamOptions, TranscriptContext } from "@earendil-works/pi-ai";
 import { streamFetch } from "../stream-fetch.ts";
 import { Type } from "typebox";
-import { base64url, postForm } from "./oauth.ts";
+import { pkce, postForm } from "./oauth.ts";
 import { decode, parse, readStored } from "./parse.ts";
-import { log } from "../log.ts";
-import { messageOf } from "../promise.ts";
+import { orLogged } from "../promise.ts";
+import { toBase64Url } from "../encoding.ts";
 
 const AUTHORIZE_URL = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL = "https://auth.openai.com/api/accounts/oauth/token";
@@ -31,21 +31,14 @@ const TokenResponse = Type.Object({
 });
 
 function deviceId(): string {
-	let id = localStorage.getItem(DEVICE_KEY);
-	if (!id) {
-		id = crypto.randomUUID();
-		localStorage.setItem(DEVICE_KEY, id);
-	}
+	const stored = localStorage.getItem(DEVICE_KEY);
+	if (stored) return stored;
+	const id = crypto.randomUUID();
+	localStorage.setItem(DEVICE_KEY, id);
 	return id;
 }
 
-const random = () => base64url(crypto.getRandomValues(new Uint8Array(32)));
-
-async function pkce(): Promise<{ verifier: string; challenge: string }> {
-	const verifier = random();
-	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
-	return { verifier, challenge: base64url(digest) };
-}
+const random = () => toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
 
 async function requestToken(form: Record<string, string>, clientId: string): Promise<OAuthCredential> {
 	const response = await postForm({ url: TOKEN_URL, form, what: "ChatGPT token" });
@@ -64,7 +57,7 @@ async function requestToken(form: Record<string, string>, clientId: string): Pro
 }
 
 export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>): Promise<OAuthCredential> {
-	const { verifier, challenge } = await pkce();
+	const { verifier, challenge } = await pkce(32);
 	const state = random();
 	await Loopback.start({ port: PORT, path: PATH });
 	let listener: PluginListenerHandle | undefined;
@@ -135,8 +128,9 @@ export function withChatGPTSignIn(provider: Provider): Provider {
 const AllowedModels = Type.Object({ models: Type.Array(Type.Object({ slug: Type.String() })) });
 
 export function withOnlyModels(provider: Provider, ids: readonly string[]): Provider {
+	const allowed = new Set(ids);
 	const wrapped: Provider = Object.create(provider);
-	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().filter((model) => ids.includes(model.id)) });
+	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().filter((model) => allowed.has(model.id)) });
 }
 
 const MODELS_KEY = "pi-mobile.chatgpt-models";
@@ -144,16 +138,10 @@ const MODELS_KEY = "pi-mobile.chatgpt-models";
 const MODEL_LIST_WAIT_MS = 5000;
 
 export async function chatgptModelsCached(credential: OAuthCredential): Promise<string[] | undefined> {
-	const fresh = await chatgptModels(credential, AbortSignal.timeout(MODEL_LIST_WAIT_MS)).then(
-		(ids) => ({ ids }),
-		(error: unknown) => ({ failed: messageOf(error) }),
-	);
-	if ("ids" in fresh) {
-		localStorage.setItem(MODELS_KEY, JSON.stringify(fresh.ids));
-		return fresh.ids;
-	}
-	log.warn("chatgpt.models_unavailable", { error: fresh.failed });
-	return readStored(Type.Array(Type.String()), MODELS_KEY);
+	const ids = await orLogged(chatgptModels(credential, AbortSignal.timeout(MODEL_LIST_WAIT_MS)), "chatgpt.models_unavailable", undefined);
+	if (!ids) return readStored(Type.Array(Type.String()), MODELS_KEY);
+	localStorage.setItem(MODELS_KEY, JSON.stringify(ids));
+	return ids;
 }
 
 export async function chatgptModels(credential: OAuthCredential, signal?: AbortSignal): Promise<string[]> {

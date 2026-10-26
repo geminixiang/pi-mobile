@@ -114,8 +114,9 @@ export async function extractSheet(file: File): Promise<{ text: string; tables: 
 		const columns = columnsOf(header);
 		texts.push(sheets.length > 1 ? `## ${sheet.name}\n${tsv(sheet.rows)}` : tsv(sheet.rows));
 		if (!native.has("Database")) continue;
-		let name = sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base;
-		for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base}_${n}`;
+		const stem = sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base;
+		let name = stem;
+		for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${stem}_${n}`;
 		taken.add(name.toLowerCase());
 		await importSheet(name, columns, rows);
 		tables.push({ name, sheet: sheet.name, rows: rows.length, columns });

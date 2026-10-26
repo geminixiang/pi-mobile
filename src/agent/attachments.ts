@@ -3,6 +3,7 @@ import { codeNote, isCodeNote } from "./codes.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
+import { Database } from "../database-plugin.ts";
 
 export type AttachmentKind = "pdf" | "docx" | "sheet" | "text";
 
@@ -45,7 +46,7 @@ export function estimateTokens(text: string): number {
 	return Math.ceil(cjk + (text.length - cjk) / 4);
 }
 
-export interface StoredAttachment {
+interface StoredAttachment {
 	id: string;
 	conversationId: string;
 	name: string;
@@ -79,29 +80,27 @@ export async function deleteAttachments(which: { id: string } | { conversationId
 		await files.request("readwrite", (store) => store.delete(which.id));
 		return;
 	}
-	await files.transaction("readwrite", (store) => {
-		const cursor = store.openCursor();
-		cursor.onsuccess = () => {
-			const current = cursor.result;
-			if (!current) return;
-			if (isStored(current.value) && current.value.conversationId === which.conversationId) current.delete();
-			current.continue();
-		};
+	await eachStored("readwrite", (attachment, cursor) => {
+		if (attachment.conversationId === which.conversationId) cursor.delete();
 	});
 }
 
 export async function attachmentOwners(): Promise<string[]> {
 	const owners = new Set<string>();
-	await files.transaction("readonly", (store) => {
-		const cursor = store.openCursor();
-		cursor.onsuccess = () => {
-			const current = cursor.result;
-			if (!current) return;
-			if (isStored(current.value)) owners.add(current.value.conversationId);
-			current.continue();
+	await eachStored("readonly", (attachment) => owners.add(attachment.conversationId));
+	return [...owners];
+}
+
+function eachStored(mode: IDBTransactionMode, visit: (attachment: StoredAttachment, cursor: IDBCursorWithValue) => void): Promise<void> {
+	return files.transaction(mode, (store) => {
+		const request = store.openCursor();
+		request.onsuccess = () => {
+			const cursor = request.result;
+			if (!cursor) return;
+			if (isStored(cursor.value)) visit(cursor.value, cursor);
+			cursor.continue();
 		};
 	});
-	return [...owners];
 }
 
 const newAttachmentId = () => `att_${crypto.randomUUID().slice(0, 8)}`;
@@ -114,7 +113,7 @@ export function fullText(attachment: Pick<StoredAttachment, "kind" | "units">): 
 const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 const unescape = (value: string) => value.replace(/&lt;/g, "<").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
 
-function head(text: string, tokens: number): { text: string; lines: number } {
+function head(text: string, tokens: number): { text: string; lines: number; total: number } {
 	const lines = text.split("\n");
 	let used = 0;
 	let count = 0;
@@ -123,7 +122,7 @@ function head(text: string, tokens: number): { text: string; lines: number } {
 		if (used > tokens && count > 0) break;
 		count++;
 	}
-	return { text: lines.slice(0, count).join("\n"), lines: count };
+	return { text: lines.slice(0, count).join("\n"), lines: count, total: lines.length };
 }
 
 function formatAttachment(attachment: StoredAttachment): TextContent {
@@ -154,7 +153,7 @@ function formatAttachment(attachment: StoredAttachment): TextContent {
 	let body = text;
 	if (tokens > INLINE_TOKENS) {
 		const preview = head(text, PREVIEW_TOKENS);
-		attributes.shown = `lines 1-${preview.lines} of ${text.split("\n").length}`;
+		attributes.shown = `lines 1-${preview.lines} of ${preview.total}`;
 		body = preview.text;
 		notes.push(
 			`Only the start is shown. Read on with read_attachment id="${attachment.id}" offset=${preview.lines + 1}${attachment.kind === "pdf" ? ", or pages=\"N-M\"" : ""}, or search it with query.`,
@@ -208,8 +207,9 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 			const ocrPages: number[] = [];
 			const imageOnly: ImageContent[] = [];
 			const scans: { page: number; image: ImageContent }[] = [];
-			for (const page of blankPages) {
-				const [image] = await pdf.renderPages(file, [page]);
+			const rendered = await pdf.renderPages(file, blankPages);
+			for (const [index, page] of blankPages.entries()) {
+				const image = rendered[index];
 				if (!image) continue;
 				scans.push({ page, image });
 				const read = await orLogged(ocr(image.data), "attachments.ocr_failed", "", { page: String(page) });
@@ -246,4 +246,11 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 	await saveAttachment(stored);
 	const card: AttachmentCard = { id: stored.id, name: stored.name, kind, size: stored.size, ...(kind === "pdf" ? { pages: stored.units.length } : {}) };
 	return { card, content: [formatAttachment(stored), ...images], tables: (stored.tables ?? []).map((table) => table.name) };
+}
+
+export function discardAttachment(prepared: PreparedAttachment): void {
+	void deleteAttachments({ id: prepared.card.id });
+	if (prepared.tables.length > 0) {
+		void Database.execute({ statements: prepared.tables.map((table) => ({ sql: `DROP TABLE IF EXISTS "${table.replace(/"/g, '""')}"` })) });
+	}
 }

@@ -2,7 +2,7 @@ import type { Api, Credential, CredentialStore, Model } from "@earendil-works/pi
 import { parseOAuthCredential } from "./chatgpt.ts";
 import type { Catalog } from "./models.ts";
 import { BUILTIN_PROVIDERS, type ProviderConfig } from "./providers.ts";
-import { settled } from "../promise.ts";
+import { serially } from "../promise.ts";
 
 export function memoryCredentials(
 	keys: Record<string, string>,
@@ -14,21 +14,18 @@ export function memoryCredentials(
 		const credential = parseOAuthCredential(json);
 		if (credential) store.set(id, credential);
 	}
-	let queue: Promise<unknown> = Promise.resolve();
+	const queued = serially();
 	return {
 		read: async (providerId) => store.get(providerId),
 		list: async () => [...store].map(([providerId, credential]) => ({ providerId, type: credential.type })),
-		modify: (providerId, fn) => {
-			const next = queue.then(async () => {
+		modify: (providerId, fn) =>
+			queued(async () => {
 				const value = await fn(store.get(providerId));
 				if (value) store.set(providerId, value);
 				else store.delete(providerId);
 				if (value?.type === "oauth") onSignIn(providerId, JSON.stringify(value));
 				return value;
-			});
-			queue = settled(next);
-			return next;
-		},
+			}),
 		delete: async (providerId) => {
 			store.delete(providerId);
 		},
@@ -43,6 +40,6 @@ export async function gatewayCatalog(configs: readonly ProviderConfig[]): Promis
 		BUILTIN_PROVIDERS.filter((info) => GATEWAY_CATALOGS.includes(info.id)).map((info) => info.load()),
 	);
 	const catalog = new Map<string, Model<Api>>();
-	for (const provider of providers) for (const model of provider?.getModels() ?? []) if (!catalog.has(model.id)) catalog.set(model.id, model);
+	for (const provider of providers) for (const model of provider.getModels()) if (!catalog.has(model.id)) catalog.set(model.id, model);
 	return catalog;
 }

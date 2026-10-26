@@ -31,7 +31,7 @@ import type { NativePlugin } from "../native.ts";
 import { TOOL_NEEDS, unusableExtensions } from "./toolsets.ts";
 import type { Workplace } from "./workplaces.ts";
 
-export interface CatalogDeps {
+interface CatalogDeps {
 	native: ReadonlySet<NativePlugin>;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;

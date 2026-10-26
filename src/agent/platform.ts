@@ -8,6 +8,7 @@ import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { refuseCleartextSecret } from "./cleartext.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
+import { headerRecord, NULL_BODY_STATUS } from "../http.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
@@ -28,16 +29,8 @@ export interface Platform {
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: 60_000 };
 
-function headersOf(init: RequestInit | undefined): Record<string, string> {
-	const headers: Record<string, string> = {};
-	new Headers(init?.headers).forEach((value, key) => {
-		headers[key] = value;
-	});
-	return headers;
-}
-
 export const nativeFetch: McpFetch = async (input, init) => {
-	const headers = headersOf(init);
+	const headers = headerRecord(init?.headers);
 	let data: unknown;
 	const body = init?.body;
 	if (typeof body === "string") {
@@ -59,8 +52,7 @@ export const nativeFetch: McpFetch = async (input, init) => {
 		...TIMEOUTS,
 	});
 	const text = typeof response.data === "string" ? response.data : response.data == null ? "" : JSON.stringify(response.data);
-	const nullBody = [101, 204, 205, 304].includes(response.status);
-	return new Response(nullBody ? null : text, { status: response.status, headers: response.headers });
+	return new Response(NULL_BODY_STATUS.has(response.status) ? null : text, { status: response.status, headers: response.headers });
 };
 
 export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): Platform {
@@ -76,6 +68,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 		secrets: {
 			keys: () => SecureStorage.keys(),
 			get: async (key) => {
+				if (!(await SecureStorage.keys()).includes(key)) return undefined;
 				const stored = await SecureStorage.get(key);
 				return typeof stored === "string" ? stored : undefined;
 			},
@@ -83,7 +76,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 				await SecureStorage.set(key, value);
 			},
 			remove: async (key) => {
-				await SecureStorage.remove(key);
+				if ((await SecureStorage.keys()).includes(key)) await SecureStorage.remove(key);
 			},
 		},
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),

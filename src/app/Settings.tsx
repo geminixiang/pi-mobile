@@ -8,7 +8,7 @@ import { PhoneScreen } from "../phone-screen-plugin.ts";
 import { PhoneState } from "../phone-state-plugin.ts";
 import { System } from "../system-plugin.ts";
 import { Usage } from "../agent/tools/records.ts";
-import { Apps, base64 } from "../agent/tools/apps.ts";
+import { Apps } from "../agent/tools/apps.ts";
 import { recentLog } from "../log.ts";
 import { useBriefly } from "./briefly.ts";
 import { checkGitHub } from "../agent/checks.ts";
@@ -16,25 +16,27 @@ import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
 import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../agent/cloudflare.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
-import { accountKey, type CalendarAccess, parseCalendarAccess } from "../agent/calendar-access.ts";
+import { accountKey, type CalendarAccess } from "../agent/calendar-access.ts";
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { Triggers, type TriggerState } from "../agent/triggers.ts";
-import { isConfigured, type Settings } from "../settings.ts";
-import { BackIcon, ChevronIcon } from "./icons.tsx";
+import { changedKeys, isConfigured, type Settings } from "../settings.ts";
+import { ChevronIcon } from "./icons.tsx";
+import { BackButton } from "./BackButton.tsx";
 import { useBack } from "./layers.ts";
-import { pairedHosts, parseHosts } from "../agent/sandbox/host.ts";
+import { pairedHosts, parseComputerKey } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
-import { parseProviders, providerName } from "../agent/providers.ts";
+import { providerName } from "../agent/providers.ts";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
-import { McpGroup } from "./McpGroup.tsx";
+import { McpGroup, useMcp } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { messageOf } from "../promise.ts";
+import { toBase64 } from "../encoding.ts";
 
 function Group({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
 	return (
@@ -48,10 +50,20 @@ function Group({ title, hint, children }: { title: string; hint?: ReactNode; chi
 	);
 }
 
-function CalendarGroup({ value, onChange }: { value: string; onChange: (json: string) => void }) {
+function SignedIn({ label, onRemove }: { label: string; onRemove: () => void }) {
+	return (
+		<div className="check-row">
+			<span className="menu-text">{label}</span>
+			<button type="button" className="btn" onClick={onRemove}>
+				移除
+			</button>
+		</div>
+	);
+}
+
+function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
 	const [calendars, setCalendars] = useState<PhoneCalendar[]>();
 	const [error, setError] = useState("");
-	const access = parseCalendarAccess(value);
 	const load = () =>
 		Calendar.listAccounts().then(
 			({ calendars }) => setCalendars(calendars),
@@ -65,9 +77,9 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 	}, []);
 	if (!native.has("Calendar")) return null;
 
-	const set = (next: CalendarAccess) => onChange(JSON.stringify(next));
 	const toggle = (list: string[], key: string, on: boolean) => (on ? [...new Set([...list, key])] : list.filter((item) => item !== key));
 	const groups = calendars ? groupByAccount(calendars) : [];
+	const hiddenGroups = groups.filter((group) => access.hidden.includes(group.key));
 	const sharedCount = calendars?.filter((calendar) => !calendar.own).length ?? 0;
 	const writableTargets = (calendars ?? []).filter(
 		(calendar) => calendar.writable && access.writable.includes(accountKey(calendar)) && !access.hidden.includes(accountKey(calendar)),
@@ -78,7 +90,7 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 		const ids = new Set(group.calendars.map((calendar) => calendar.id));
 		const holdsDefault = access.defaultCalendar !== undefined && ids.has(access.defaultCalendar);
 		const writeTarget = group.calendars.find((calendar) => calendar.writable && calendar.primary) ?? group.calendars.find((calendar) => calendar.writable);
-		set({
+		onChange({
 			...access,
 			hidden: toggle(access.hidden, group.key, use === "off"),
 			writable: toggle(access.writable, group.key, use === "write"),
@@ -125,10 +137,10 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 			) : (
 				<>
 					{groups.filter((group) => !access.hidden.includes(group.key)).map(accountRow)}
-					{groups.some((group) => access.hidden.includes(group.key)) ? (
+					{hiddenGroups.length > 0 ? (
 						<details className="manual more-rows">
-							<summary>其他 {groups.filter((group) => access.hidden.includes(group.key)).length} 個帳號</summary>
-							{groups.filter((group) => access.hidden.includes(group.key)).map(accountRow)}
+							<summary>其他 {hiddenGroups.length} 個帳號</summary>
+							{hiddenGroups.map(accountRow)}
 						</details>
 					) : null}
 					{sharedCount > 0 ? (
@@ -137,7 +149,7 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 								分享的行事曆
 								<span className="menu-hint">{sharedCount} 個，只能讀</span>
 							</span>
-							<input type="checkbox" className="switch" aria-label="讀取分享的行事曆" checked={access.shared} onChange={(event) => set({ ...access, shared: event.target.checked })} />
+							<input type="checkbox" className="switch" aria-label="讀取分享的行事曆" checked={access.shared} onChange={(event) => onChange({ ...access, shared: event.target.checked })} />
 						</div>
 					) : null}
 					{writableTargets.length > 0 ? (
@@ -147,7 +159,7 @@ function CalendarGroup({ value, onChange }: { value: string; onChange: (json: st
 								className="field"
 								value={access.defaultCalendar ?? ""}
 								onChange={(event) =>
-									set({ ...access, defaultCalendar: event.target.value ? Number(event.target.value) : undefined })
+									onChange({ ...access, defaultCalendar: event.target.value ? Number(event.target.value) : undefined })
 								}
 							>
 								<option value="">每次問我</option>
@@ -236,18 +248,22 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	);
 }
 
-function SystemAccessGroup() {
-	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
+function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): void {
 	useEffect(() => {
-		if (!native.has("Usage")) return;
-		const refresh = () =>
-			void Promise.all([Usage.status(), System.assistant(), native.has("PhoneState") ? PhoneState.display() : undefined]).then(([usage, assistant, display]) =>
-				setState({ usage: usage.allowed, assistant: assistant.held, ...(display ? { settings: display.canChange } : {}) }),
-			);
+		if (!native.has(plugin)) return;
 		refresh();
 		const listener = App.addListener("resume", refresh);
 		return () => void listener.then((handle) => handle.remove());
 	}, []);
+}
+
+function SystemAccessGroup() {
+	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
+	useRefreshOnResume("Usage", () =>
+		void Promise.all([Usage.status(), System.assistant(), native.has("PhoneState") ? PhoneState.display() : undefined]).then(([usage, assistant, display]) =>
+			setState({ usage: usage.allowed, assistant: assistant.held, ...(display ? { settings: display.canChange } : {}) }),
+		),
+	);
 	if (!state) return null;
 	const row = (label: string, hint: string | undefined, on: boolean, open: () => Promise<void>) => (
 		<div className="check-row">
@@ -273,13 +289,7 @@ function SystemAccessGroup() {
 
 function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery?: boolean }>();
-	useEffect(() => {
-		if (!native.has("KeepAlive")) return;
-		const refresh = () => void KeepAlive.status().then(setStatus);
-		refresh();
-		const listener = App.addListener("resume", refresh);
-		return () => void listener.then((handle) => handle.remove());
-	}, []);
+	useRefreshOnResume("KeepAlive", () => void KeepAlive.status().then(setStatus));
 	if (!status) return null;
 	const row = (label: string, on: boolean, fix: () => void) => (
 		<div className="check-row">
@@ -308,13 +318,7 @@ function BackgroundGroup() {
 function NotificationsGroup() {
 	const [allowed, setAllowed] = useState<boolean>();
 	const [cleared, showCleared] = useBriefly();
-	useEffect(() => {
-		if (!native.has("Notifications")) return;
-		const refresh = () => void Notifications.status().then((status) => setAllowed(status.allowed));
-		refresh();
-		const listener = App.addListener("resume", refresh);
-		return () => void listener.then((handle) => handle.remove());
-	}, []);
+	useRefreshOnResume("Notifications", () => void Notifications.status().then((status) => setAllowed(status.allowed)));
 	if (allowed === undefined) return null;
 	return (
 		<Group title="通知讀取">
@@ -343,13 +347,7 @@ function NotificationsGroup() {
 
 function PhoneScreenGroup() {
 	const [allowed, setAllowed] = useState<boolean>();
-	useEffect(() => {
-		if (!native.has("PhoneScreen")) return;
-		const refresh = () => void PhoneScreen.status().then((status) => setAllowed(status.allowed));
-		refresh();
-		const listener = App.addListener("resume", refresh);
-		return () => void listener.then((handle) => handle.remove());
-	}, []);
+	useRefreshOnResume("PhoneScreen", () => void PhoneScreen.status().then((status) => setAllowed(status.allowed)));
 	if (allowed === undefined) return null;
 	return (
 		<Group title="手機畫面">
@@ -422,11 +420,10 @@ type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone"
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
 	const [triggers, setTriggers] = useState<number>();
 	const [tables, setTables] = useState<number>();
-	const [, setVersion] = useState(0);
 	const [memory, setMemory] = useState<number>();
 	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text.trim().length)), [runtime]);
 	useEffect(() => runtime?.triggers.subscribe((state) => setTriggers(state.items.length)), [runtime]);
-	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
+	useMcp(runtime);
 	useEffect(() => {
 		if (native.has("Database")) void Database.schema().then((schema) => setTables(schema.tables.length));
 	}, []);
@@ -436,14 +433,15 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		settings.cloudflareCredential && "Cloudflare",
 		settings.azureCredential && "Azure",
 	].filter(Boolean);
-	const host = parseHosts(settings.hosts).find((candidate) => `${candidate.id}:direct` === settings.computer || `${candidate.id}:container` === settings.computer);
+	const chosen = parseComputerKey(settings.computer);
+	const host = settings.hosts.find((candidate) => candidate.id === chosen?.hostId);
 	const services = runtime?.mcp.servers.length ?? 0;
 	const rows: { page: Page; label: string; value: string | undefined }[] = [
-		{ page: "models", label: "模型", value: parseProviders(settings.providers).map(providerName).join("、") },
+		{ page: "models", label: "模型", value: settings.providers.map(providerName).join("、") },
 		...(runtime ? [{ page: "memory" as const, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
 		{ page: "accounts", label: "帳號", value: accounts.join("、") },
 		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
-		{ page: "machines", label: "電腦", value: host ? `${host.name}${settings.computer.endsWith(":container") ? " · 容器" : ""}` : undefined },
+		{ page: "machines", label: "電腦", value: host ? `${host.name}${chosen?.mode === "container" ? " · 容器" : ""}` : undefined },
 		...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, label: "手機", value: undefined }] : []),
 		...(native.has("Triggers") ? [{ page: "schedules" as const, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
 		...(native.has("Database") ? [{ page: "data" as const, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
@@ -466,7 +464,7 @@ type TextSetting = { [K in keyof Settings]: Settings[K] extends string ? K : nev
 async function shareDiagnostics(): Promise<void> {
 	const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 	const body = `${JSON.stringify({ at: new Date().toISOString(), level: "info", event: "diagnostics.shared", build: __BUILD__ })}\n${recentLog()}`;
-	await Apps.share({ title: "pi mobile 診斷記錄", fileBase64: base64(new TextEncoder().encode(body)), fileName: `pi-mobile-diagnostics-${stamp}.jsonl`, mimeType: "application/x-ndjson" });
+	await Apps.share({ title: "pi mobile 診斷記錄", fileBase64: toBase64(new TextEncoder().encode(body)), fileName: `pi-mobile-diagnostics-${stamp}.jsonl`, mimeType: "application/x-ndjson" });
 }
 
 export function SettingsView({
@@ -485,10 +483,7 @@ export function SettingsView({
 	onCancel?: () => void;
 }) {
 	const [settings, setSettings] = useState(initial);
-	const changed =
-		(Object.keys(initial) as (keyof Settings)[]).some((key) => key !== "providerKeys" && key !== "providerOAuth" && initial[key] !== settings[key]) ||
-		JSON.stringify(initial.providerKeys) !== JSON.stringify(settings.providerKeys) ||
-		JSON.stringify(initial.providerOAuth) !== JSON.stringify(settings.providerOAuth);
+	const changed = changedKeys(initial, settings).length > 0;
 	const field = (key: TextSetting) => ({
 		value: settings[key],
 		onChange: (event: { target: { value: string } }) => setSettings({ ...settings, [key]: event.target.value.trim() }),
@@ -542,14 +537,7 @@ export function SettingsView({
 					</Group>
 					<Group title="Google Cloud">
 						{settings.gcloudCredential ? (
-							<div className="check-row">
-								<span className="menu-text">
-									{describeGcloud(settings.gcloudCredential)}
-								</span>
-								<button type="button" className="btn" onClick={() => change({ gcloudCredential: "" })}>
-									移除
-								</button>
-							</div>
+							<SignedIn label={describeGcloud(settings.gcloudCredential)} onRemove={() => change({ gcloudCredential: "" })} />
 						) : (
 							<>
 								<GoogleSignInPanel onCredential={(json) => change({ gcloudCredential: json })} />
@@ -578,12 +566,7 @@ export function SettingsView({
 					</Group>
 					<Group title="Cloudflare">
 						{settings.cloudflareCredential ? (
-							<div className="check-row">
-								<span className="menu-text">{describeCloudflare(settings.cloudflareCredential)}</span>
-								<button type="button" className="btn" onClick={() => change({ cloudflareCredential: "" })}>
-									移除
-								</button>
-							</div>
+							<SignedIn label={describeCloudflare(settings.cloudflareCredential)} onRemove={() => change({ cloudflareCredential: "" })} />
 						) : (
 							<>
 								<DeviceSignInPanel provider="Cloudflare" start={startCloudflareSignIn} finish={finishCloudflareSignIn} onCredential={(json) => change({ cloudflareCredential: json })} />
@@ -606,12 +589,7 @@ export function SettingsView({
 					</Group>
 					<Group title="Azure">
 						{settings.azureCredential ? (
-							<div className="check-row">
-								<span className="menu-text">{describeAzure(settings.azureCredential)}</span>
-								<button type="button" className="btn" onClick={() => change({ azureCredential: "" })}>
-									移除
-								</button>
-							</div>
+							<SignedIn label={describeAzure(settings.azureCredential)} onRemove={() => change({ azureCredential: "" })} />
 						) : (
 							<DeviceSignInPanel provider="Microsoft" start={startAzureSignIn} finish={finishAzureSignIn} copyCode onCredential={(json) => change({ azureCredential: json })} />
 						)}
@@ -630,29 +608,27 @@ export function SettingsView({
 		machines: {
 			title: "電腦",
 			body: () => (
-				<>
-					<Group title="電腦">
-						<HostsGroup
-							hosts={pairedHosts(settings)}
-							computer={settings.computer}
-							onChange={(hosts, computer) =>
-								setSettings((current) => ({
-									...current,
-									hosts: JSON.stringify(hosts.map(({ key: _key, ...host }) => host)),
-									hostKeys: Object.fromEntries(hosts.map((host) => [host.id, host.key])),
-									computer,
-								}))
-							}
-						/>
-					</Group>
-				</>
+				<Group title="電腦">
+					<HostsGroup
+						hosts={pairedHosts(settings)}
+						computer={settings.computer}
+						onChange={(hosts, computer) =>
+							setSettings((current) => ({
+								...current,
+								hosts: hosts.map(({ key: _key, ...host }) => host),
+								hostKeys: Object.fromEntries(hosts.map((host) => [host.id, host.key])),
+								computer,
+							}))
+						}
+					/>
+				</Group>
 			),
 		},
 		phone: {
 			title: "手機",
 			body: () => (
 				<>
-					<CalendarGroup value={settings.calendarAccess} onChange={(json) => change({ calendarAccess: json })} />
+					<CalendarGroup access={settings.calendarAccess} onChange={(calendarAccess) => change({ calendarAccess })} />
 					<NotificationsGroup />
 					<PhoneScreenGroup />
 					<SystemAccessGroup />
@@ -671,17 +647,7 @@ export function SettingsView({
 	return (
 		<div className="screen">
 			<header className="bar">
-				{current ? (
-					<button type="button" className="icon-button" onClick={() => go(undefined)} aria-label="返回">
-						<BackIcon />
-					</button>
-				) : onCancel ? (
-					<button type="button" className="icon-button" onClick={onCancel} aria-label="返回">
-						<BackIcon />
-					</button>
-				) : (
-					<span className="bar-spacer" />
-				)}
+				{current ? <BackButton onClick={() => go(undefined)} /> : onCancel ? <BackButton onClick={onCancel} /> : <span className="bar-spacer" />}
 				<h1 className="bar-heading">{current?.title ?? "設定"}</h1>
 				{onCancel ? (
 					<span className="bar-spacer" />

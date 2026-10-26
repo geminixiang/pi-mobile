@@ -1,6 +1,6 @@
 import type { TSchema } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
-import type { JsonValue } from "@earendil-works/chord";
+import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import { type Static, type TLiteral, type TLiteralValue, type TSchemaOptions, type TUnion, Type } from "typebox";
 import { Value } from "typebox/value";
 
@@ -49,6 +49,14 @@ export const text = (value: string): ToolExecutionResult => ({ output: [{ type: 
 
 export const json = (value: unknown): ToolExecutionResult => text(JSON.stringify(value, null, 2));
 
+export const MAX_OUTPUT_CHARS = 40_000;
+
+export function truncated(value: string, hint = ""): string {
+	return value.length > MAX_OUTPUT_CHARS ? `${value.slice(0, MAX_OUTPUT_CHARS)}\n\n[truncated: ${value.length - MAX_OUTPUT_CHARS} more characters${hint}]` : value;
+}
+
+export const jsonOrNull = (value: unknown): JsonValue => (isJsonValue(value) ? value : null);
+
 const pad = (value: number) => String(value).padStart(2, "0");
 
 export function localDate(ms: number): string {
@@ -59,6 +67,17 @@ export function localDate(ms: number): string {
 export function localTime(ms: number): string {
 	const date = new Date(ms);
 	return `${localDate(ms)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function monthDayTime(ms: number): string {
+	const date = new Date(ms);
+	return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function formatBytes(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export function parseLocalTime(value: string, field: string): { ms: number; hasTime: boolean } {
@@ -94,11 +113,16 @@ export function parseNextTime(value: string, field: string): number {
 	return parseLocalTime(value, field).ms;
 }
 
+export function startOfToday(): number {
+	return new Date().setHours(0, 0, 0, 0);
+}
+
 export function parseDay(value: string, field: string): number {
-	const start = new Date();
-	start.setHours(0, 0, 0, 0);
-	if (value === "today") return start.getTime();
-	if (value === "yesterday") return start.setDate(start.getDate() - 1);
+	if (value === "today") return startOfToday();
+	if (value === "yesterday") {
+		const start = new Date(startOfToday());
+		return start.setDate(start.getDate() - 1);
+	}
 	return parseLocalTime(value, field).ms;
 }
 

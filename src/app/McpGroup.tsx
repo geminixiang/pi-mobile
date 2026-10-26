@@ -23,7 +23,7 @@ function statusText(status: McpStatus | undefined): string {
 	}
 }
 
-function useMcp(runtime: AgentRuntime | undefined): void {
+export function useMcp(runtime: AgentRuntime | undefined): void {
 	const [, setVersion] = useState(0);
 	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
 }
@@ -104,7 +104,6 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefined; onError: (message: string) => void }) {
 	useMcp(runtime);
 	const servers = runtime?.mcp.servers ?? [];
-	const status = (id: string) => runtime?.mcp.status(id);
 	const [draft, setDraft] = useState({ name: "", url: "" });
 	const [browsing, setBrowsing] = useState(false);
 	const validUrl = /^https:\/\/[^\s/]+/.test(draft.url.trim());
@@ -136,30 +135,30 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 				</>
 			) : null}
 			{servers.map((server) => {
-				const current = status(server.id);
+				const current = runtime?.mcp.status(server.id);
 				return (
 					<div className="mcp-server" key={server.id}>
-					<div className="check-row">
-						<span className="menu-text">
-							{server.name}
-							<span className="menu-hint mcp-url">
-								{server.url}
-								<br />
-								{statusText(current)}
+						<div className="check-row">
+							<span className="menu-text">
+								{server.name}
+								<span className="menu-hint mcp-url">
+									{server.url}
+									<br />
+									{statusText(current)}
+								</span>
 							</span>
-						</span>
-						<span className="row-actions">
-							{current && current.state !== "ready" && current.state !== "connecting" ? (
-								<button type="button" className="btn" onClick={run(() => (current.state === "login" ? runtime?.mcp.login(server.id) : runtime?.mcp.refresh(server.id)))}>
-									{current.state === "login" ? "登入" : "連線"}
+							<span className="row-actions">
+								{current && current.state !== "ready" && current.state !== "connecting" ? (
+									<button type="button" className="btn" onClick={run(() => (current.state === "login" ? runtime?.mcp.login(server.id) : runtime?.mcp.refresh(server.id)))}>
+										{current.state === "login" ? "登入" : "連線"}
+									</button>
+								) : null}
+								<button type="button" className="btn" onClick={() => remove(server.id)}>
+									移除
 								</button>
-							) : null}
-							<button type="button" className="btn" onClick={() => remove(server.id)}>
-								移除
-							</button>
-						</span>
-					</div>
-					{current && runtime ? <ServerBots runtime={runtime} server={server} onError={onError} /> : null}
+							</span>
+						</div>
+						{current && runtime ? <ServerBots runtime={runtime} server={server} onError={onError} /> : null}
 					</div>
 				);
 			})}

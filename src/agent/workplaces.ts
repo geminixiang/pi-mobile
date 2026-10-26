@@ -1,6 +1,6 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { MintedService } from "./sandbox/container.ts";
-import { type HostMode, HostSandbox, type PairedHost, pairedHosts } from "./sandbox/host.ts";
+import { computerKey, type HostMode, HostSandbox, type PairedHost, pairedHosts } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
@@ -8,7 +8,7 @@ import type { PhoneApp } from "./platform.ts";
 
 const PHONE = "phone";
 
-export interface Computer {
+interface Computer {
 	key: string;
 	name: string;
 	mode: string;
@@ -23,10 +23,7 @@ export type Placed = { folder: string; computer?: string };
 
 const MODE_LABEL: Record<HostMode, string> = { direct: "直接", container: "容器" };
 
-function parseKey(key: string): { id: string; mode: HostMode } | undefined {
-	const [id, mode] = key.split(":");
-	return id && (mode === "direct" || mode === "container") ? { id, mode } : undefined;
-}
+type Entry = { computer: Computer; host: PairedHost; mode: HostMode };
 
 function sameHost(a: PairedHost, b: PairedHost): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
@@ -52,22 +49,25 @@ export class Workplaces {
 		const previous = this.#hosts;
 		this.#settings = settings;
 		this.#hosts = pairedHosts(settings).map((host) => previous.find((known) => known.id === host.id && sameHost(known, host)) ?? host);
+		const entries = this.#entries();
 		for (const [key, sandbox] of this.#open) {
-			const parsed = parseKey(key);
-			const kept = parsed && this.#hosts.find((host) => host.id === parsed.id);
-			if (kept && previous.includes(kept) && (parsed.mode === "direct" || kept.engine)) continue;
+			const entry = entries.find((candidate) => candidate.computer.key === key);
+			if (entry && previous.includes(entry.host)) continue;
 			sandbox.close();
 			this.#open.delete(key);
 		}
 	}
 
+	#entries(): Entry[] {
+		return this.#hosts.flatMap((host) => {
+			const modes: HostMode[] = host.engine ? ["direct", "container"] : ["direct"];
+			return modes.map((mode) => ({ computer: { key: computerKey(host.id, mode), name: host.name, mode: MODE_LABEL[mode] }, host, mode }));
+		});
+	}
+
 	list(): Computer[] {
-		const items: Computer[] = this.#phone ? [{ key: PHONE, name: "手機", mode: "手機" }] : [];
-		for (const host of this.#hosts) {
-			items.push({ key: `${host.id}:direct`, name: host.name, mode: MODE_LABEL.direct });
-			if (host.engine) items.push({ key: `${host.id}:container`, name: host.name, mode: MODE_LABEL.container });
-		}
-		return items;
+		const computers = this.#entries().map((entry) => entry.computer);
+		return this.#phone ? [{ key: PHONE, name: "手機", mode: "手機" }, ...computers] : computers;
 	}
 
 	get any(): boolean {
@@ -77,21 +77,14 @@ export class Workplaces {
 	at(id: string): Workplace | undefined {
 		const placed = this.#placed(id);
 		if (!placed) return undefined;
-		return this.resolve(placed);
-	}
-
-	resolve({ folder, computer: choice }: Placed): Workplace {
-		const items = this.list();
-		const key = choice || (items.some((item) => item.key === this.#settings.computer) ? this.#settings.computer : PHONE);
-		const computer = items.find((item) => item.key === key);
-		if (!computer) return { kind: "missing", key };
+		const { folder, computer: choice } = placed;
+		const key = choice || (this.list().some((item) => item.key === this.#settings.computer) ? this.#settings.computer : PHONE);
 		const phone = this.#phone;
 		if (key === PHONE && phone) return { kind: "phone", folder, env: () => phone.folder(folder, this.network) };
-		const parsed = parseKey(key);
-		const host = parsed && this.#hosts.find((candidate) => candidate.id === parsed.id);
-		if (!parsed || !host) return { kind: "missing", key };
-		const sandbox = this.#sandbox(key, host, parsed.mode);
-		return { kind: "computer", folder, computer, host, sandbox, root: sandbox.root(folder), env: () => sandbox.env(folder) };
+		const entry = this.#entries().find((candidate) => candidate.computer.key === key);
+		if (!entry) return { kind: "missing", key };
+		const sandbox = this.#sandbox(entry);
+		return { kind: "computer", folder, computer: entry.computer, host: entry.host, sandbox, root: sandbox.root(folder), env: () => sandbox.env(folder) };
 	}
 
 	get network(): FolderNetwork {
@@ -103,18 +96,16 @@ export class Workplaces {
 	}
 
 	containers(): { key: string; sandbox: Sandbox }[] {
-		return this.list().flatMap((computer) => {
-			const parsed = parseKey(computer.key);
-			const host = parsed && this.#hosts.find((candidate) => candidate.id === parsed.id);
-			return parsed?.mode === "container" && host ? [{ key: computer.key, sandbox: this.#sandbox(computer.key, host, parsed.mode) }] : [];
-		});
+		return this.#entries()
+			.filter((entry) => entry.mode === "container")
+			.map((entry) => ({ key: entry.computer.key, sandbox: this.#sandbox(entry) }));
 	}
 
-	#sandbox(key: string, host: PairedHost, mode: HostMode): Sandbox {
-		const open = this.#open.get(key);
+	#sandbox({ computer, host, mode }: Entry): Sandbox {
+		const open = this.#open.get(computer.key);
 		if (open) return open;
 		const sandbox = new HostSandbox(host, mode, { githubToken: this.#settings.githubToken || undefined, minted: this.#minted });
-		this.#open.set(key, sandbox);
+		this.#open.set(computer.key, sandbox);
 		return sandbox;
 	}
 

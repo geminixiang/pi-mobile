@@ -1,4 +1,4 @@
-import type { Static, TSchema } from "typebox";
+import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; problem: string };
@@ -25,7 +25,7 @@ export function checkJson<T extends TSchema>(schema: T, text: string, what: stri
 	return check(schema, value, what);
 }
 
-function valueOrThrow<T>(checked: Checked<T>): T {
+export function valueOrThrow<T>(checked: Checked<T>): T {
 	if (!checked.ok) throw new Error(checked.problem);
 	return checked.value;
 }
@@ -53,6 +53,10 @@ export function decode<T extends TSchema>(schema: T, text: string | null | undef
 	if (!text) return undefined;
 	const checked = checkJson(schema, text, "");
 	return checked.ok ? checked.value : undefined;
+}
+
+export function decodeEach<T extends TSchema>(schema: T, text: string | null | undefined): Static<T>[] {
+	return (decode(Type.Array(Type.Unknown()), text) ?? []).filter((item): item is Static<T> => Value.Check(schema, item));
 }
 
 export function readStored<T extends TSchema>(schema: T, key: string): Static<T> | undefined {

@@ -1,5 +1,6 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { orLogged } from "../promise.ts";
+import { fromBase64 } from "../encoding.ts";
 
 const CODES_TAG = "image-codes";
 
@@ -24,7 +25,7 @@ function detector(): Detector | undefined {
 export const isCodeNote = (text: string) => text.startsWith(`<${CODES_TAG}>`);
 
 async function codesIn(image: ImageContent, find: Detector): Promise<DetectedCode[]> {
-	const bytes = Uint8Array.from(atob(image.data), (char) => char.charCodeAt(0));
+	const bytes = fromBase64(image.data);
 	const bitmap = await createImageBitmap(new Blob([bytes], { type: image.mimeType }));
 	try {
 		return await find.detect(bitmap);

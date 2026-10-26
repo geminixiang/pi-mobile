@@ -22,7 +22,7 @@ export async function checkProvider(id: string, apiKey: string, signIn = ""): Pr
 	const credential = signIn ? parseOAuthCredential(signIn) : undefined;
 	const allowed = credential ? await chatgptModels(credential) : undefined;
 	const candidates = provider.getModels().filter((candidate) => !allowed || allowed.includes(candidate.id));
-	const model = [...candidates].sort((a, b) => a.cost.input + a.cost.output - (b.cost.input + b.cost.output))[0];
+	const model = candidates.sort((a, b) => a.cost.input + a.cost.output - (b.cost.input + b.cost.output))[0];
 	if (!model) throw new Error("no models");
 	const reply = await models.complete(
 		model,

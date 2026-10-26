@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, postForm, startDeviceFlow, checkTokens } from "./oauth.ts";
+import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, postForm, startDeviceFlow, cachedToken, refreshedTokens } from "./oauth.ts";
 import { type Checked, checkJson, parse } from "./parse.ts";
 
 const LOGIN = "https://login.microsoftonline.com";
@@ -14,7 +14,7 @@ const AzureCredential = Type.Object({
 	subscription_id: Type.Optional(Type.String()),
 	subscription_name: Type.Optional(Type.String()),
 });
-export type AzureCredential = Static<typeof AzureCredential>;
+type AzureCredential = Static<typeof AzureCredential>;
 
 const SignInClaims = Type.Object({
 	tid: Type.Optional(Type.String()),
@@ -71,8 +71,7 @@ export async function finishAzureSignIn(signIn: DeviceSignIn, signal: AbortSigna
 export class AzureTokens {
 	#credential: AzureCredential;
 	readonly #onRotate: (json: string) => Promise<void>;
-	readonly #cache = new Map<string, AccessToken>();
-	readonly #pending = new Map<string, Promise<AccessToken>>();
+	readonly #tokens = new Map<string, () => Promise<AccessToken>>();
 
 	constructor(credential: AzureCredential, onRotate: (json: string) => Promise<void>) {
 		this.#credential = credential;
@@ -87,14 +86,9 @@ export class AzureTokens {
 	}
 
 	get(scope = ARM_SCOPE): Promise<AccessToken> {
-		const cached = this.#cache.get(scope);
-		if (cached && cached.expiresAt - Date.now() > 5 * 60_000) return Promise.resolve(cached);
-		let pending = this.#pending.get(scope);
-		if (!pending) {
-			pending = this.#refresh(scope).finally(() => this.#pending.delete(scope));
-			this.#pending.set(scope, pending);
-		}
-		return pending;
+		const token = this.#tokens.get(scope) ?? cachedToken(() => this.#refresh(scope));
+		this.#tokens.set(scope, token);
+		return token();
 	}
 
 	async #refresh(scope: string): Promise<AccessToken> {
@@ -104,14 +98,11 @@ export class AzureTokens {
 			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID, scope: `${scope} offline_access` },
 			what: "Azure token",
 		});
-		const checked = checkTokens(response, "Azure token");
-		if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
-		const tokens = checked.value;
+		const tokens = refreshedTokens(response, "Azure token");
 		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
 			this.#credential = { ...credential, refresh_token: tokens.refresh };
 			await this.#onRotate(JSON.stringify(this.#credential));
 		}
-		this.#cache.set(scope, tokens.access);
 		return tokens.access;
 	}
 }

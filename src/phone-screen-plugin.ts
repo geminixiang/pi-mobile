@@ -1,6 +1,6 @@
 import { registerPlugin } from "@capacitor/core";
 
-export type PhoneScreenStep = {
+type PhoneScreenStep = {
 	action: "tap" | "long_press" | "swipe" | "scroll" | "type" | "clear" | "key" | "open" | "wait";
 	x?: number;
 	y?: number;
@@ -28,7 +28,7 @@ export type PhoneScreenSnapshot = {
 	error?: string;
 };
 
-export interface PhoneScreenPlugin {
+interface PhoneScreenPlugin {
 	status(): Promise<{ allowed: boolean }>;
 	openSettings(): Promise<void>;
 	openAppInfo(): Promise<void>;

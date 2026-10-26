@@ -1,7 +1,7 @@
 import type { PluginListenerHandle } from "@capacitor/core";
 import { registerPlugin } from "@capacitor/core";
 
-export interface VoicePlugin {
+interface VoicePlugin {
 	available(): Promise<{ available: boolean }>;
 	start(options: { language: string }): Promise<void>;
 	stop(): Promise<void>;

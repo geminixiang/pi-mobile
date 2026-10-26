@@ -15,7 +15,7 @@ export function accountKey(calendar: { account: string; accountType: string }): 
 	return `${calendar.accountType}:${calendar.account}`;
 }
 
-export function parseCalendarAccess(json: string): CalendarAccess {
+export function parseCalendarAccess(json: string | undefined): CalendarAccess {
 	return decode(CalendarAccess, json) ?? DEFAULT_CALENDAR_ACCESS;
 }
 

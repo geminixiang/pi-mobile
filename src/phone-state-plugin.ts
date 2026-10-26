@@ -1,7 +1,7 @@
 import { registerPlugin } from "@capacitor/core";
 
 export const STREAMS = ["ring", "media", "alarm", "notification", "call"] as const;
-export type Stream = (typeof STREAMS)[number];
+type Stream = (typeof STREAMS)[number];
 export type Ringer = "normal" | "vibrate" | "silent";
 export type SoundState = { ringer: Ringer; volumePercent: Record<Stream, number> };
 
@@ -12,8 +12,8 @@ export type DisplayState = {
 	autoRotate?: boolean;
 	screenTimeoutSeconds?: number;
 };
-export const DISPLAY_SETTINGS = ["brightness", "auto_brightness", "auto_rotate", "screen_timeout"] as const;
-export type DisplaySetting = (typeof DISPLAY_SETTINGS)[number];
+const DISPLAY_SETTINGS = ["brightness", "auto_brightness", "auto_rotate", "screen_timeout"] as const;
+type DisplaySetting = (typeof DISPLAY_SETTINGS)[number];
 
 export const CONNECTIONS = ["wifi", "bluetooth", "mobile_data", "airplane_mode", "location", "nfc", "battery_saver"] as const;
 export type Connection = (typeof CONNECTIONS)[number];
@@ -28,7 +28,7 @@ export type ConnectionsState = {
 	outcome?: "already" | "changed" | "pressed" | "panel";
 };
 
-export interface PhoneStatePlugin {
+interface PhoneStatePlugin {
 	sound(): Promise<SoundState>;
 	setRinger(options: { mode: Ringer }): Promise<SoundState>;
 	setVolume(options: { stream: Stream; percent: number }): Promise<SoundState>;

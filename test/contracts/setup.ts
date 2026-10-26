@@ -4,6 +4,7 @@ import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
 import type { Settings } from "../../src/settings.ts";
+import { DEFAULT_CALENDAR_ACCESS } from "../../src/agent/calendar-access.ts";
 
 globalThis.fetch = async () => {
 	throw new Error("contracts run offline");
@@ -98,13 +99,12 @@ export const platform: Platform = {
 		remove: (key) => void plain.delete(key),
 	},
 	secrets: {
-		keys: async () => {
-			await secrets.removeGate?.promise;
-			return [];
-		},
+		keys: async () => [],
 		get: async () => undefined,
 		set: async () => undefined,
-		remove: async () => undefined,
+		remove: async () => {
+			await secrets.removeGate?.promise;
+		},
 	},
 	mcpClient: () => new FakeMcpClient(),
 	phone: {
@@ -122,7 +122,7 @@ export const platform: Platform = {
 };
 
 export const settings: Settings = {
-	providers: "[]",
+	providers: [],
 	providerKeys: {},
 	providerOAuth: {},
 	githubToken: "",
@@ -133,8 +133,8 @@ export const settings: Settings = {
 	defaultProvider: "faux",
 	defaultModelId: "model",
 	defaultThinking: "off",
-	calendarAccess: "",
-	hosts: "",
+	calendarAccess: DEFAULT_CALENDAR_ACCESS,
+	hosts: [],
 	hostKeys: {},
 	computer: "",
 	compactAt: 256_000,

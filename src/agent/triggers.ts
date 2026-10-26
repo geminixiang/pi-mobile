@@ -5,18 +5,21 @@ import { native } from "../native.ts";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, oneOf, parseClock, parseLocalTime, text } from "./tools/common.ts";
+import { defineAppTool, localTime, oneOf, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
 import { resolvePlace } from "./tools/device.ts";
-import { requireAccess } from "./tools/notifications.ts";
+import { requireAccess } from "../notifications-plugin.ts";
 import { Notifications } from "../notifications-plugin.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf, serially } from "../promise.ts";
 import type { Judge } from "./judge.ts";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "./guards.ts";
 
+const Clock = Type.String({ pattern: "^\\d{2}:\\d{2}$" });
+const Days = Type.Array(Type.Integer({ minimum: 1, maximum: 7 }));
+
 const EventWindow = {
-	days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })),
-	from: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
-	until: Type.Optional(Type.String({ pattern: "^\\d{2}:\\d{2}$" })),
+	days: Days,
+	from: Type.Optional(Clock),
+	until: Type.Optional(Clock),
 	gapHours: Type.Integer({ minimum: 1, maximum: 24 }),
 };
 
@@ -31,7 +34,7 @@ const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
 };
 
 const When = Type.Union([
-	Type.Object({ kind: Type.Literal("daily"), time: Type.String({ pattern: "^\\d{2}:\\d{2}$" }), days: Type.Array(Type.Integer({ minimum: 1, maximum: 7 })) }),
+	Type.Object({ kind: Type.Literal("daily"), time: Clock, days: Days }),
 	Type.Object({ kind: Type.Literal("once"), at: Type.Number() }),
 	Type.Object({ kind: Type.Literal("headphones"), ...EventWindow }),
 	Type.Object({ kind: Type.Literal("charging"), ...EventWindow }),
@@ -57,7 +60,7 @@ export type When = Static<typeof When>;
 
 type TriggerKind = "schedule" | "followup";
 
-export type Delivery = "live" | "later" | "manual";
+type Delivery = "live" | "later" | "manual";
 
 export type Trigger = {
 	id: string;
@@ -158,7 +161,7 @@ export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable:
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 
-function clock(at: number): string {
+export function describeTime(at: number): string {
 	const date = new Date(at);
 	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
@@ -172,7 +175,7 @@ function describeDays(list: readonly number[]): string {
 }
 
 export function describeWhen(when: When): string {
-	if (when.kind === "once") return clock(when.at);
+	if (when.kind === "once") return describeTime(when.at);
 	if (when.kind === "daily") return `${describeDays(when.days)} ${when.time}`;
 	const window = when.from || when.until ? ` ${when.from ?? "00:00"}–${when.until ?? "24:00"}` : "";
 	const days = describeDays(when.days);
@@ -212,10 +215,6 @@ function guardsFor(when: When, chosen: readonly GuardId[] | undefined): { guards
 	return guards.length > 0 ? { guards: [...new Set(guards)] } : {};
 }
 
-export function describeTime(at: number): string {
-	return clock(at);
-}
-
 const hhmm = (value: string, name: string) => parseClock(value, name).text;
 
 function summary(trigger: Trigger): string {
@@ -225,13 +224,7 @@ function summary(trigger: Trigger): string {
 	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}${asked}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
 }
 
-let asking: Promise<unknown> = Promise.resolve();
-
-function oneDialogAtATime<T>(request: () => Promise<T>): Promise<T> {
-	const turn = asking.then(request);
-	asking = Promise.allSettled([turn]);
-	return turn;
-}
+const oneDialogAtATime = serially();
 
 async function needLocationAlways(what: string): Promise<void> {
 	const { background } = await oneDialogAtATime(() => Triggers.requestLocationAlways());
@@ -509,12 +502,6 @@ export interface TriggerState {
 
 const RUNS_KEPT_MS = 24 * 60 * 60 * 1000;
 
-function startOfToday(): number {
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	return today.getTime();
-}
-
 const context = BACKGROUND_CONTEXT;
 
 export class TriggerRuns {
@@ -600,8 +587,7 @@ export class TriggerRuns {
 		const overLimit =
 			delivery !== "manual" &&
 			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
-		const known = new Set((await this.#bots()).map((bot) => bot.id));
-		const conversation = !overLimit && known.has(trigger.conversationId) ? await this.#harness.conversation(trigger.conversationId, context) : undefined;
+		const conversation = !overLimit && (await this.#bots()).some((bot) => bot.id === trigger.conversationId) ? await this.#harness.conversation(trigger.conversationId, context) : undefined;
 		const now = Date.now();
 		if (!conversation) {
 			await this.#record(id, { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" });

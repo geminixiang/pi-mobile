@@ -71,9 +71,10 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 			sections: [
 				section("codemode", (input) => {
 					const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
+					const callable = new Set(input.agent.callable.map((tool) => tool.name));
 					const lines = input.agent.extensions.flatMap((extension) => {
 						const name = label(extension.name, String(input.conversationId));
-						const tools = (extension.tools ?? []).filter((tool) => !offered.has(tool.name) && input.agent.callable.some((callable) => callable.name === tool.name));
+						const tools = (extension.tools ?? []).filter((tool) => !offered.has(tool.name) && callable.has(tool.name));
 						return name && tools.length > 0 ? [`- ${name}: ${tools.map(signatureOf).join("; ")}`] : [];
 					});
 					if (lines.length === 0) return undefined;

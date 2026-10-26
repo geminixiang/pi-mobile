@@ -1,8 +1,9 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
+import { localDate } from "./tools/common.ts";
 
 function today(): string {
 	const now = new Date();
-	const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+	const date = localDate(now.getTime());
 	const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
 	return `${weekday} ${date}, ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
 }

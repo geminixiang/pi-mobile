@@ -1,7 +1,8 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { type Static, Type } from "typebox";
-import { check, type Checked, parse, parseJson } from "./parse.ts";
-import { orLogged } from "../promise.ts";
+import { check, type Checked, parse, parseJson, valueOrThrow } from "./parse.ts";
+import { orLogged, sleep } from "../promise.ts";
+import { toBase64Url } from "../encoding.ts";
 
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
 
@@ -45,7 +46,7 @@ const TokenResponse = Type.Object({
 });
 type TokenResponse = Static<typeof TokenResponse>;
 
-export interface Tokens {
+interface Tokens {
 	access: AccessToken;
 	refresh: string | undefined;
 	idToken: string | undefined;
@@ -66,10 +67,27 @@ export function checkTokens(response: HttpResponse, what: string): Checked<Token
 	};
 }
 
-export function tokensFrom(response: HttpResponse, what: string): Tokens {
+export function refreshedTokens(response: HttpResponse, what: string): Tokens {
 	const checked = checkTokens(response, what);
-	if (!checked.ok) throw new Error(checked.problem);
+	if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
 	return checked.value;
+}
+
+export function cachedToken<A extends unknown[]>(mint: (...args: A) => Promise<AccessToken>): (...args: A) => Promise<AccessToken> {
+	let cached: AccessToken | undefined;
+	let pending: Promise<AccessToken> | undefined;
+	return (...args) => {
+		if (cached && cached.expiresAt - Date.now() > 5 * 60_000) return Promise.resolve(cached);
+		pending ??= mint(...args)
+			.then((token) => {
+				cached = token;
+				return token;
+			})
+			.finally(() => {
+				pending = undefined;
+			});
+		return pending;
+	};
 }
 
 const DeviceAuthorization = Type.Object({
@@ -120,7 +138,7 @@ export async function pollDeviceFlow({
 }): Promise<Tokens> {
 	let interval = signIn.intervalMs;
 	while (Date.now() < signIn.expiresAt) {
-		await new Promise((resolve) => setTimeout(resolve, interval));
+		await sleep(interval);
 		if (signal.aborted) throw new Error("已取消");
 		const response = await orLogged(
 			postForm({ url, form: { ...form, grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: signIn.deviceCode }, what }),
@@ -137,20 +155,18 @@ export async function pollDeviceFlow({
 			continue;
 		}
 		if (body.error === "access_denied") throw new Error(`你在${what}頁面拒絕了授權`);
-		return tokensFrom(response, what);
+		return valueOrThrow(checkTokens(response, what));
 	}
 	throw new Error("登入逾時，請再試一次");
+}
+
+export async function pkce(bytes: number): Promise<{ verifier: string; challenge: string }> {
+	const verifier = toBase64Url(crypto.getRandomValues(new Uint8Array(bytes)));
+	return { verifier, challenge: toBase64Url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))) };
 }
 
 export function jwtPayload(token: string): unknown {
 	const part = token.split(".")[1];
 	if (!part) return {};
 	return parseJson(atob(part.replace(/-/g, "+").replace(/_/g, "/")), "JWT");
-}
-
-export function base64url(bytes: Uint8Array | ArrayBuffer): string {
-	const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-	let binary = "";
-	for (const byte of view) binary += String.fromCharCode(byte);
-	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

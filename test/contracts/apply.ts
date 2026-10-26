@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
+import type { Host } from "../../src/agent/sandbox/host.ts";
 import { agentState, idle, openRuntime } from "./fixtures.ts";
 import { type Check, deferred, faux, platform, settings } from "./setup.ts";
 
-const hostA = { id: "a.example", address: "a.example", name: "A", os: "linux", arch: "arm64", user: "fixture", home: "/home/a", engine: "docker" };
-const hostB = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/b" };
+const hostA: Host = { id: "a.example", address: "a.example", name: "A", os: "linux", arch: "arm64", user: "fixture", home: "/home/a", engine: "docker" };
+const hostB: Host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/b" };
 
 function thinkingOf(state: unknown): unknown {
 	return state && typeof state === "object" && "thinkingLevel" in state ? state.thinkingLevel : undefined;
@@ -67,7 +68,7 @@ export const checks: Check[] = [
 	[
 		"applying new computers keeps the sandbox of a computer that did not change and drops the others",
 		async () => {
-			const both = { ...settings, hosts: JSON.stringify([hostA, hostB]), hostKeys: { "a.example": "ka", "b.example": "kb" }, computer: "a.example:container" };
+			const both = { ...settings, hosts: [hostA, hostB], hostKeys: { "a.example": "ka", "b.example": "kb" }, computer: "a.example:container" };
 			const placed = new Map([
 				["onA", { folder: "onA", computer: "a.example:container" }],
 				["onB", { folder: "onB", computer: "b.example:direct" }],
@@ -77,7 +78,7 @@ export const checks: Check[] = [
 				const a = workplaces.at("onA");
 				const b = workplaces.at("onB");
 				assert(a?.kind === "computer" && b?.kind === "computer");
-				workplaces.apply({ ...both, hosts: JSON.stringify([hostA]), hostKeys: { "a.example": "ka" } });
+				workplaces.apply({ ...both, hosts: [hostA], hostKeys: { "a.example": "ka" } });
 				const aAfter = workplaces.at("onA");
 				assert(aAfter?.kind === "computer");
 				assert.equal(aAfter.sandbox, a.sandbox);
@@ -87,7 +88,7 @@ export const checks: Check[] = [
 					workplaces.list().map((computer) => computer.key),
 					["phone", "a.example:direct", "a.example:container"],
 				);
-				workplaces.apply({ ...both, hosts: JSON.stringify([hostA]), hostKeys: { "a.example": "rotated" } });
+				workplaces.apply({ ...both, hosts: [hostA], hostKeys: { "a.example": "rotated" } });
 				const rotated = workplaces.at("onA");
 				assert(rotated?.kind === "computer");
 				assert.notEqual(rotated.sandbox, a.sandbox);

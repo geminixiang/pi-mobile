@@ -15,7 +15,7 @@ export interface TableInfo {
 	rows: number;
 }
 
-export interface DatabasePlugin {
+interface DatabasePlugin {
 	execute(options: { statements: { sql: string; params?: (SqlValue | boolean)[] }[] }): Promise<{ results: StatementResult[] }>;
 	schema(): Promise<{ tables: TableInfo[] }>;
 	export(): Promise<void>;

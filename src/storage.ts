@@ -1,7 +1,7 @@
 import type { Storage } from "@earendil-works/pi-durable";
 import { IndexedDbStorage } from "@earendil-works/pi-durable/storage/indexeddb";
 import { log } from "./log.ts";
-import { messageOf } from "./promise.ts";
+import { messageOf, sleep } from "./promise.ts";
 
 const DATABASE = "pi-mobile-bots";
 const SINGLE_OWNER_LOCK = "pi-mobile.storage";
@@ -17,7 +17,7 @@ async function isLockHeld(name: string): Promise<boolean> {
 
 async function waitForPreviousOwner(): Promise<void> {
 	const deadline = Date.now() + PREVIOUS_OWNER_GRACE_MS;
-	while ((await isLockHeld(SINGLE_OWNER_LOCK)) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS));
+	while ((await isLockHeld(SINGLE_OWNER_LOCK)) && Date.now() < deadline) await sleep(LOCK_POLL_MS);
 }
 
 async function acquireOwnerLockForPageLifetime(): Promise<void> {
@@ -50,7 +50,7 @@ async function retried(first: Promise<unknown>, call: () => unknown): Promise<un
 		} catch (error) {
 			if (!SUSPENDED.test(messageOf(error))) throw error;
 			log.warn("storage.retry_after_suspension", { error: messageOf(error), waitMs: wait });
-			await new Promise((resolve) => setTimeout(resolve, wait));
+			await sleep(wait);
 			attempt = Promise.resolve(call());
 		}
 	}

@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
+import type { Host } from "../../src/agent/sandbox/host.ts";
 import { openRuntime, toolResults, turn } from "./fixtures.ts";
 import { type Check, logged, platform, settings } from "./setup.ts";
 
-const host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture" };
+const host: Host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture" };
 
 export const checks: Check[] = [
 	[
 		"resolving a container placement reaches the computer only when the bot uses it",
 		async () => {
 			const unreachable = { ...host, id: "127.0.0.1", address: "127.0.0.1", engine: "docker" };
-			const config = { ...settings, hosts: JSON.stringify([unreachable]), computer: "127.0.0.1:container" };
+			const config = { ...settings, hosts: [unreachable], computer: "127.0.0.1:container" };
 			const workplaces = new Workplaces(config, {}, platform.phone, (id) => ({ folder: id }));
 			const before = logged.length;
 			try {
@@ -32,9 +33,9 @@ export const checks: Check[] = [
 	[
 		"unchanged computer resolution preserves the host used by preparation effects",
 		async () => {
-			const config = { ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" };
+			const config = { ...settings, hosts: [host], computer: "b.example:direct" };
 			const workplaces = new Workplaces(config, {}, platform.phone, (id) => ({ folder: id }));
-			const replacement = new Workplaces({ ...config, hosts: JSON.stringify([{ ...host, address: "new.example" }]) }, {}, platform.phone, (id) => ({ folder: id }));
+			const replacement = new Workplaces({ ...config, hosts: [{ ...host, address: "new.example" }] }, {}, platform.phone, (id) => ({ folder: id }));
 			try {
 				const first = workplaces.at("first");
 				assert(first?.kind === "computer");
@@ -63,7 +64,7 @@ export const checks: Check[] = [
 				["inherits", { folder: "f2" }],
 				["phone", { folder: "f3", computer: "phone" }],
 			]);
-			const workplaces = new Workplaces({ ...settings, hosts: JSON.stringify([host]), computer: "b.example:direct" }, {}, platform.phone, (id) => bots.get(id));
+			const workplaces = new Workplaces({ ...settings, hosts: [host], computer: "b.example:direct" }, {}, platform.phone, (id) => bots.get(id));
 			try {
 				assert.deepEqual(workplaces.at("gone"), { kind: "missing", key: "a.example:container" });
 				const inherited = workplaces.at("inherits");

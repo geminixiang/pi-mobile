@@ -7,6 +7,28 @@ export function settled(promise: Promise<unknown>): Promise<void> {
 	);
 }
 
+export function serially(): <T>(run: () => Promise<T>) => Promise<T> {
+	let tail: Promise<void> = Promise.resolve();
+	return (run) => {
+		const turn = tail.then(run);
+		tail = settled(turn);
+		return turn;
+	};
+}
+
+export function sharedUntilFailure<K, V>(cache: Map<K, Promise<V>>, key: K, start: () => Promise<V>): Promise<V> {
+	const cached = cache.get(key);
+	if (cached) return cached;
+	const started = start();
+	cache.set(key, started);
+	onFailure(started, () => cache.delete(key));
+	return started;
+}
+
+export function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function onFailure(promise: Promise<unknown>, run: (error: unknown) => void): void {
 	promise.then(undefined, run);
 }

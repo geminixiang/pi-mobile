@@ -7,9 +7,9 @@ export const MEMORY_LIMIT = 4000;
 
 export type Memory = { text: string; updatedAt: number; updatedBy: "user" | "agent" | "" };
 
-const empty = (): Memory => ({ text: "", updatedAt: 0, updatedBy: "" });
+export const emptyMemory = (): Memory => ({ text: "", updatedAt: 0, updatedBy: "" });
 
-export const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: empty, checkpointWhen: checkpointEvery64 });
+export const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: emptyMemory, checkpointWhen: checkpointEvery64 });
 
 export const BotMemoryDoc = defineDoc<Memory>({
 	kind: "app.bot.memory",
@@ -17,7 +17,7 @@ export const BotMemoryDoc = defineDoc<Memory>({
 	scope: "conversation",
 	history: "latest",
 	fork: "initial",
-	initial: empty,
+	initial: emptyMemory,
 	checkpointWhen: checkpointEvery64,
 });
 

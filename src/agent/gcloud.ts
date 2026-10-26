@@ -1,7 +1,8 @@
 import { Value } from "typebox/value";
 import { type Static, Type } from "typebox";
-import { type AccessToken, base64url, jwtPayload, postForm, tokensFrom } from "./oauth.ts";
-import { type Checked, checkJson, parse } from "./parse.ts";
+import { type AccessToken, cachedToken, checkTokens, jwtPayload, pkce, postForm } from "./oauth.ts";
+import { type Checked, checkJson, parse, valueOrThrow } from "./parse.ts";
+import { fromBase64, toBase64Url } from "../encoding.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -34,12 +35,6 @@ export function checkGcloudCredential(json: string): Checked<Credential> {
 	return Value.Check(Credential, value.value) ? { ok: true, value: value.value } : { ok: false, problem: EXPECTED_CREDENTIAL };
 }
 
-function parseCredential(json: string): Credential {
-	const checked = checkGcloudCredential(json);
-	if (!checked.ok) throw new Error(checked.problem);
-	return checked.value;
-}
-
 export function describeGcloud(json: string): string {
 	const checked = checkGcloudCredential(json);
 	return checked.ok ? describeCredential(checked.value) : checked.problem;
@@ -60,14 +55,14 @@ function describeCredential(credential: Credential): string {
 
 async function serviceAccountAssertion(credential: Static<typeof ServiceAccount>): Promise<string> {
 	const now = Math.floor(Date.now() / 1000);
-	const encode = (value: object) => base64url(new TextEncoder().encode(JSON.stringify(value)));
+	const encode = (value: object) => toBase64Url(new TextEncoder().encode(JSON.stringify(value)));
 	const header = encode({ alg: "RS256", typ: "JWT" });
 	const claims = encode({ iss: credential.client_email, scope: SCOPE, aud: credential.token_uri ?? TOKEN_URL, iat: now, exp: now + 3600 });
 	const pem = credential.private_key.replace(/-----[A-Z ]+-----/g, "").replace(/\s+/g, "");
-	const der = Uint8Array.from(atob(pem), (char) => char.charCodeAt(0));
+	const der = fromBase64(pem);
 	const key = await crypto.subtle.importKey("pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
 	const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${header}.${claims}`));
-	return `${header}.${claims}.${base64url(signature)}`;
+	return `${header}.${claims}.${toBase64Url(signature)}`;
 }
 
 async function exchange(credential: Credential): Promise<AccessToken> {
@@ -88,29 +83,15 @@ async function exchange(credential: Credential): Promise<AccessToken> {
 					form: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: await serviceAccountAssertion(credential) },
 					what: "Google token",
 				});
-	return tokensFrom(response, "Google token").access;
+	return valueOrThrow(checkTokens(response, "Google token")).access;
 }
 
 export class GcloudTokens {
 	readonly #credential: Credential;
-	#cached: AccessToken | undefined;
-	#pending: Promise<AccessToken> | undefined;
+	readonly get = cachedToken(() => exchange(this.#credential));
 
 	constructor(credential: Credential) {
 		this.#credential = credential;
-	}
-
-	get(): Promise<AccessToken> {
-		if (this.#cached && this.#cached.expiresAt - Date.now() > 5 * 60_000) return Promise.resolve(this.#cached);
-		this.#pending ??= exchange(this.#credential)
-			.then((token) => {
-				this.#cached = token;
-				return token;
-			})
-			.finally(() => {
-				this.#pending = undefined;
-			});
-		return this.#pending;
 	}
 
 	get project(): string | undefined {
@@ -119,7 +100,7 @@ export class GcloudTokens {
 }
 
 export async function checkGcloud(json: string): Promise<string> {
-	const credential = parseCredential(json);
+	const credential = valueOrThrow(checkGcloudCredential(json));
 	await exchange(credential);
 	return describeCredential(credential);
 }
@@ -135,15 +116,14 @@ export interface GoogleSignIn {
 }
 
 export async function startGoogleSignIn(): Promise<GoogleSignIn> {
-	const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)));
-	const challenge = base64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+	const { verifier, challenge } = await pkce(48);
 	const url = new URL("https://accounts.google.com/o/oauth2/auth");
 	url.search = new URLSearchParams({
 		response_type: "code",
 		client_id: ADC_CLIENT_ID,
 		redirect_uri: ADC_REDIRECT_URI,
 		scope: SIGN_IN_SCOPES.join(" "),
-		state: base64url(crypto.getRandomValues(new Uint8Array(16))),
+		state: toBase64Url(crypto.getRandomValues(new Uint8Array(16))),
 		prompt: "consent",
 		token_usage: "remote",
 		access_type: "offline",
@@ -172,7 +152,7 @@ export async function finishGoogleSignIn(signIn: GoogleSignIn, code: string): Pr
 		},
 		what: "Google 登入",
 	});
-	const tokens = tokensFrom(response, "Google 登入");
+	const tokens = valueOrThrow(checkTokens(response, "Google 登入"));
 	if (!tokens.refresh) throw new Error("Google 登入失敗：沒有拿到 refresh token");
 	const claims = tokens.idToken ? parse(IdClaims, jwtPayload(tokens.idToken), "Google ID token") : {};
 	return JSON.stringify({

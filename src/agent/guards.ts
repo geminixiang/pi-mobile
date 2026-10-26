@@ -3,7 +3,7 @@ import { LIKELY, type Question, type Verdict } from "./judge.ts";
 export const GUARD_IDS = ["instructions", "secrets", "ads", "attention"] as const;
 export type GuardId = (typeof GUARD_IDS)[number];
 
-export type Guard = Question & { label: string; short: string; skipWhenYes: boolean };
+type Guard = Question & { label: string; short: string; skipWhenYes: boolean };
 
 export const GUARDS: Record<GuardId, Guard> = {
 	instructions: {
@@ -43,7 +43,7 @@ export const GUARDS: Record<GuardId, Guard> = {
 
 export const DEFAULT_GUARDS: readonly GuardId[] = ["instructions", "secrets"];
 
-export const ONLY_IF = "only_if";
+const ONLY_IF = "only_if";
 
 export function screeningQuestions(guards: readonly GuardId[], onlyIf: string | undefined): Record<string, Question> {
 	const questions: Record<string, Question> = Object.fromEntries(guards.map((guard) => [guard, GUARDS[guard]]));
@@ -51,7 +51,7 @@ export function screeningQuestions(guards: readonly GuardId[], onlyIf: string | 
 	return questions;
 }
 
-export type Screening =
+type Screening =
 	| { pass: true; judged?: number; note: string; unjudged?: string }
 	| { pass: false; reason: string; probability?: number; unjudged?: string };
 

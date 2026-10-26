@@ -13,19 +13,17 @@ import {
 	type SubmissionId,
 } from "@earendil-works/pi-durable";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import { type Settings } from "../settings.ts";
-import { log } from "../log.ts";
+import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import { pairedHosts } from "./sandbox/host.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
-import { avatarOf, type Bot, BotIndex, DEFAULT_BOT, MAX_BOTS, MAX_JOB, newFolder } from "./bots.ts";
-import { parseCalendarAccess } from "./calendar-access.ts";
+import { avatarOf, type Bot, botFields, BotIndex, DEFAULT_BOT, MAX_BOTS, newFolder } from "./bots.ts";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
 import { extensionName, McpHub } from "./mcp.ts";
-import { BotMemoryDoc, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
+import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import type { LoadedModels } from "./available-models.ts";
 import { hostOf } from "./parse.ts";
@@ -33,7 +31,7 @@ import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { isEnabled, type Toolset, TOOLSETS, type ToolsetId, type ToolsetState, usable } from "./toolsets.ts";
 import { type TriggerHost, TriggerRuns } from "./triggers.ts";
-import { type Workplace, Workplaces } from "./workplaces.ts";
+import { type Placed, type Workplace, Workplaces } from "./workplaces.ts";
 
 const context = BACKGROUND_CONTEXT;
 
@@ -54,13 +52,9 @@ export interface ConversationController {
 	dispose(): void;
 }
 
-function contentText(content: unknown): string {
+function contentText(content: string | readonly { type: string; text?: string }[]): string {
 	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content
-		.filter((part): part is TextContent => part?.type === "text")
-		.map((part) => part.text)
-		.join("\n");
+	return content.flatMap((part) => (part.type === "text" && part.text !== undefined ? [part.text] : [])).join("\n");
 }
 
 function labelOf(extension: string, mcp: McpHub): string {
@@ -69,7 +63,7 @@ function labelOf(extension: string, mcp: McpHub): string {
 	return TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.label ?? extension;
 }
 
-export type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
+type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
 const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
 	phone: new Set(["sandbox", "computer"]),
@@ -81,22 +75,14 @@ const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "com
 
 type Loaded = Pick<LoadedModels, "models" | "infos">;
 
-export type Applied = "in_place" | "needs_restart";
-
-function differ(before: Settings, after: Settings): (keyof Settings)[] {
-	return (Object.keys(before) as (keyof Settings)[]).filter((key) => {
-		const a = before[key];
-		const b = after[key];
-		return typeof a === "object" || typeof b === "object" ? JSON.stringify(a) !== JSON.stringify(b) : a !== b;
-	});
-}
+type Applied = "in_place" | "needs_restart";
 
 export class AgentRuntime {
 	readonly #loaded: Loaded;
 	readonly #harness: Harness;
 	#settings: Settings;
 	readonly workplaces: Workplaces;
-	readonly #placed: Map<string, { folder: string; computer?: string }>;
+	readonly #placed: Map<string, Placed>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	#memoryListeners = new Set<() => void>();
 	readonly #installed: () => ReadonlySet<string>;
@@ -111,7 +97,7 @@ export class AgentRuntime {
 		platform: Platform,
 		loaded: Loaded,
 		workplaces: Workplaces,
-		placed: Map<string, { folder: string; computer?: string }>,
+		placed: Map<string, Placed>,
 		installed: () => ReadonlySet<string>,
 		mcp: McpHub,
 		judge: Judge,
@@ -134,9 +120,8 @@ export class AgentRuntime {
 	}
 
 	#touchBot(id: ConversationId, at: number): Promise<void> {
-		return this.#editBots((items) => {
-			const bot = items.find((candidate) => candidate.id === id);
-			if (bot) bot.updatedAt = at;
+		return this.#editBot(id, (bot) => {
+			bot.updatedAt = at;
 		});
 	}
 
@@ -149,7 +134,7 @@ export class AgentRuntime {
 	}
 
 	async apply(next: Settings): Promise<Applied> {
-		const changed = differ(this.#settings, next);
+		const changed = changedKeys(this.#settings, next);
 		if (changed.some((key) => !IN_PLACE.has(key))) return "needs_restart";
 		if (changed.includes("compactAt")) {
 			const { models, infos } = await this.#platform.models(next);
@@ -164,10 +149,9 @@ export class AgentRuntime {
 		return "in_place";
 	}
 
-	async setComputer(id: ConversationId, key: string): Promise<void> {
-		await this.#editBots((items) => {
-			const bot = items.find((candidate) => candidate.id === id);
-			if (bot) bot.computer = key;
+	setComputer(id: ConversationId, key: string): Promise<void> {
+		return this.#editBot(id, (bot) => {
+			bot.computer = key;
 		});
 	}
 
@@ -206,7 +190,7 @@ export class AgentRuntime {
 		for (const extension of builtinExtensions({
 			native: platform.native,
 			assistant: createAssistant(platform.inApp, platform.native.has("Phone")),
-			calendarAccess: parseCalendarAccess(settings.calendarAccess),
+			calendarAccess: settings.calendarAccess,
 			...(settings.githubToken ? { githubToken: async () => settings.githubToken || undefined } : {}),
 			clouds: clouds.services,
 			web: webSearch,
@@ -296,10 +280,15 @@ export class AgentRuntime {
 		await this.#publishBots();
 	}
 
-	async createBot({ name, job, avatar }: { name: string; job: string; avatar: string }): Promise<ConversationId> {
-		const trimmed = name.trim();
-		if (!trimmed) throw new Error("Bot 需要名字");
-		if (job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
+	#editBot(id: ConversationId, edit: (bot: Bot) => void): Promise<void> {
+		return this.#editBots((items) => {
+			const bot = items.find((candidate) => candidate.id === id);
+			if (bot) edit(bot);
+		});
+	}
+
+	async createBot({ avatar, ...fields }: { name: string; job: string; avatar: string }): Promise<ConversationId> {
+		const { name, job } = botFields(fields);
 		const existing = await this.bots();
 		if (existing.length >= MAX_BOTS) throw new Error(`最多 ${MAX_BOTS} 個 Bot`);
 		const folder = newFolder();
@@ -309,7 +298,7 @@ export class AgentRuntime {
 				agent: this.#defaultAgent(),
 				init: async (tx, id) => {
 					const now = Date.now();
-					(await tx.doc(BotIndex)).items.push({ id, name: trimmed, job: job.trim(), folder, avatar, createdAt: now, updatedAt: now });
+					(await tx.doc(BotIndex)).items.push({ id, name, job, folder, avatar, createdAt: now, updatedAt: now });
 				},
 			},
 			context,
@@ -319,14 +308,10 @@ export class AgentRuntime {
 	}
 
 	async updateBot(id: ConversationId, change: { name: string; job: string; avatar: string }): Promise<void> {
-		const name = change.name.trim();
-		if (!name) throw new Error("Bot 需要名字");
-		if (change.job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);
-		await this.#editBots((items) => {
-			const bot = items.find((candidate) => candidate.id === id);
-			if (!bot) return;
+		const { name, job } = botFields(change);
+		await this.#editBot(id, (bot) => {
 			bot.name = name;
-			bot.job = change.job.trim();
+			bot.job = job;
 			bot.avatar = change.avatar;
 		});
 		await orLogged(this.triggers.sync(), "triggers.sync_failed", undefined);
@@ -337,9 +322,8 @@ export class AgentRuntime {
 		const bot = bots.find((candidate) => candidate.id === id);
 		if (!bot) return;
 		if (bots.length === 1) throw new Error("至少要留一個 Bot");
-		await this.#editBots((items) => {
-			const item = items.find((candidate) => candidate.id === id);
-			if (item) item.removing = { at: Date.now() };
+		await this.#editBot(id, (item) => {
+			item.removing = { at: Date.now() };
 		});
 		await this.triggers.removeBot(id);
 		await this.#finishRemoval(bot);
@@ -349,12 +333,11 @@ export class AgentRuntime {
 		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
 		const left = await Promise.all(
 			this.workplaces.containers().map(({ key, sandbox }) =>
-				sandbox.remove(bot.folder).then(
-					() => undefined,
-					(error: unknown) => {
-						log.warn("bot.remove_container_folder_failed", { bot: bot.folder, computer: key, error: messageOf(error) });
-						return key;
-					},
+				orLogged(
+					sandbox.remove(bot.folder).then(() => undefined),
+					"bot.remove_container_folder_failed",
+					key,
+					{ bot: bot.folder, computer: key },
 				),
 			),
 		);
@@ -384,7 +367,7 @@ export class AgentRuntime {
 			const emit = (graph: { tasks: Readonly<Record<string, { conversationId: ConversationId; background: boolean }>> }) =>
 				listener(new Set(Object.values(graph.tasks).flatMap((task) => (task.background ? [] : [task.conversationId]))));
 			emit(state.value);
-			const unsubscribe = state.subscribe((graph) => emit(graph));
+			const unsubscribe = state.subscribe(emit);
 			dispose = () => {
 				unsubscribe();
 				state.dispose();
@@ -510,7 +493,7 @@ export class AgentRuntime {
 
 	async memory(scope: MemoryScope): Promise<Memory> {
 		const memory = scope.kind === "global" ? await this.#harness.snapshot(MemoryDoc, context) : await this.#harness.snapshot(BotMemoryDoc, scope.id, context);
-		return { ...(memory ?? { text: "", updatedAt: 0, updatedBy: "" }) };
+		return { ...(memory ?? emptyMemory()) };
 	}
 
 	subscribeMemory(scope: MemoryScope, listener: (memory: Memory) => void): () => void {

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { checkModels, checkProvider } from "../agent/checks.ts";
 import type { ModelInfo } from "../agent/models.ts";
-import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, parseProviders, providerName } from "../agent/providers.ts";
+import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, providerName } from "../agent/providers.ts";
 import type { Settings } from "../settings.ts";
 import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { native } from "../native.ts";
@@ -109,75 +109,53 @@ function ProviderRow({
 				<span className="index-value">{summary}</span>
 				<ChevronIcon open={open} />
 			</button>
-			{open ? <ProviderFields config={config} info={info} apiKey={apiKey} signIn={signIn} onConfig={onConfig} onKey={onKey} onSignIn={onSignIn} onRemove={onRemove} /> : null}
+			{open ? (
+				<>
+					{config.kind === "custom" ? (
+						<>
+							<label>
+								<span>網址</span>
+								<input
+									value={config.baseUrl}
+									onChange={(event) => onConfig({ ...config, baseUrl: event.target.value.trim() })}
+									placeholder="https://mac.xxxx.ts.net:8318"
+									autoCapitalize="off"
+									autoComplete="off"
+									inputMode="url"
+								/>
+							</label>
+							<label>
+								<span>名稱</span>
+								<input value={config.name} onChange={(event) => onConfig({ ...config, name: event.target.value })} placeholder="選填" autoComplete="off" />
+							</label>
+						</>
+					) : null}
+					{signIn ? null : (
+						<label>
+							<span>API key{config.kind === "custom" ? "（選填）" : ""}</span>
+							<input value={apiKey} onChange={(event) => onKey(event.target.value.trim())} type="password" autoComplete="off" />
+						</label>
+					)}
+					{info && !signIn ? (
+						<button type="button" className="link" onClick={() => void System.openExternal({ url: info.keyUrl })}>
+							取得 {info.name} 的 API key
+						</button>
+					) : null}
+					{info?.chatgpt && native.has("Loopback") ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
+					<CheckButton
+						disabled={config.kind === "custom" ? !config.baseUrl : !apiKey && !signIn}
+						run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}
+					>
+						<button type="button" className="btn" onClick={onRemove}>
+							移除
+						</button>
+					</CheckButton>
+				</>
+			) : null}
 		</div>
 	);
 }
 
-
-function ProviderFields({
-	config,
-	info,
-	apiKey,
-	signIn,
-	onConfig,
-	onKey,
-	onSignIn,
-	onRemove,
-}: {
-	config: ProviderConfig;
-	info: ReturnType<typeof builtinInfo>;
-	apiKey: string;
-	signIn: string;
-	onConfig: (config: ProviderConfig) => void;
-	onKey: (key: string) => void;
-	onSignIn: (json: string) => void;
-	onRemove: () => void;
-}) {
-	return (
-		<>
-			{config.kind === "custom" ? (
-				<>
-					<label>
-						<span>網址</span>
-						<input
-							value={config.baseUrl}
-							onChange={(event) => onConfig({ ...config, baseUrl: event.target.value.trim() })}
-							placeholder="https://mac.xxxx.ts.net:8318"
-							autoCapitalize="off"
-							autoComplete="off"
-							inputMode="url"
-						/>
-					</label>
-					<label>
-						<span>名稱</span>
-						<input value={config.name} onChange={(event) => onConfig({ ...config, name: event.target.value })} placeholder="選填" autoComplete="off" />
-					</label>
-				</>
-			) : null}
-			{signIn ? null : (
-				<label>
-					<span>API key{config.kind === "custom" ? "（選填）" : ""}</span>
-					<input value={apiKey} onChange={(event) => onKey(event.target.value.trim())} type="password" autoComplete="off" />
-				</label>
-			)}
-			{info && !signIn ? (
-				<button type="button" className="link" onClick={() => void System.openExternal({ url: info.keyUrl })}>
-					取得 {info.name} 的 API key
-				</button>
-			) : null}
-			{info?.chatgpt && native.has("Loopback") ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
-			<CheckButton
-				disabled={config.kind === "custom" ? !config.baseUrl : !apiKey && !signIn}
-				run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}
-			>
-				<button type="button" className="btn" onClick={onRemove}>
-					移除
-				</button>
-			</CheckButton>
-		</>
-	);
-}
 
 export function ProvidersGroup({
 	settings,
@@ -189,16 +167,17 @@ export function ProvidersGroup({
 	onChange: (change: Partial<ProviderSettings>) => void;
 }) {
 	const [adding, setAdding] = useState(false);
-	const providers = parseProviders(settings.providers);
-	const save = (next: ProviderConfig[]) => {
-		const change: Partial<ProviderSettings> = { providers: JSON.stringify(next) };
-		if (!next.some((config) => config.id === settings.defaultProvider)) change.defaultProvider = next[0]?.id ?? "";
-		onChange(change);
-	};
-	const groups = providers
-		.map((config) => ({ config, models: models.filter((model) => model.provider === config.id) }))
-		.filter((group) => group.models.length > 0);
-	const choices = new Map(groups.flatMap(({ models: list }) => list.map((model) => [`${model.provider}\n${model.id}`, model])));
+	const providers = settings.providers;
+	const withProviders = (next: ProviderConfig[]): Partial<ProviderSettings> => ({
+		providers: next,
+		...(next.some((config) => config.id === settings.defaultProvider) ? {} : { defaultProvider: next[0]?.id ?? "" }),
+	});
+	const save = (next: ProviderConfig[]) => onChange(withProviders(next));
+	const groups = useMemo(
+		() => providers.map((config) => ({ config, models: models.filter((model) => model.provider === config.id) })).filter((group) => group.models.length > 0),
+		[providers, models],
+	);
+	const choices = useMemo(() => new Map(groups.flatMap(({ models: list }) => list.map((model) => [`${model.provider}\n${model.id}`, model]))), [groups]);
 	const current = `${settings.defaultProvider}\n${settings.defaultModelId}`;
 
 	return (
@@ -215,8 +194,7 @@ export function ProvidersGroup({
 					onRemove={() => {
 						const { [config.id]: _key, ...keys } = settings.providerKeys;
 						const { [config.id]: _signIn, ...signIns } = settings.providerOAuth;
-						onChange({ providerKeys: keys, providerOAuth: signIns });
-						save(providers.filter((_, i) => i !== index));
+						onChange({ providerKeys: keys, providerOAuth: signIns, ...withProviders(providers.filter((_, i) => i !== index)) });
 					}}
 				/>
 			))}

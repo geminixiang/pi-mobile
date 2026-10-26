@@ -13,10 +13,10 @@ function scrubbed(fields: Fields): Fields {
 }
 
 function write(level: Level, event: string, fields: Fields): void {
-	const line = JSON.stringify({ event, ...scrubbed(fields) });
-	console[level](line);
-	recent.push(JSON.stringify({ at: new Date().toISOString(), level, ...JSON.parse(line) }));
-	if (recent.length > RECENT_LIMIT) recent.splice(0, recent.length - RECENT_LIMIT);
+	const entry = { event, ...scrubbed(fields) };
+	console[level](JSON.stringify(entry));
+	recent.push(JSON.stringify({ at: new Date().toISOString(), level, ...entry }));
+	if (recent.length > RECENT_LIMIT) recent.shift();
 }
 
 export const log = {

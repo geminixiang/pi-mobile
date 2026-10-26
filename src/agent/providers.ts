@@ -1,10 +1,9 @@
 import type { Provider } from "@earendil-works/pi-ai";
 import { withChatGPTSignIn } from "./chatgpt.ts";
-import { Type } from "typebox";
-import { Value } from "typebox/value";
-import { decode } from "./parse.ts";
+import { type Static, Type } from "typebox";
+import { decodeEach } from "./parse.ts";
 
-export interface BuiltinProviderInfo {
+interface BuiltinProviderInfo {
 	id: string;
 	name: string;
 	keyUrl: string;
@@ -39,10 +38,10 @@ const ProviderConfig = Type.Union([
 	Type.Object({ kind: Type.Literal("builtin"), id: Type.String() }),
 	Type.Object({ kind: Type.Literal("custom"), id: Type.String(), name: Type.String(), baseUrl: Type.String() }),
 ]);
-export type ProviderConfig = { kind: "builtin"; id: string } | { kind: "custom"; id: string; name: string; baseUrl: string };
+export type ProviderConfig = Static<typeof ProviderConfig>;
 
-export function parseProviders(json: string): ProviderConfig[] {
-	return (decode(Type.Array(Type.Unknown()), json) ?? []).filter((item): item is ProviderConfig => Value.Check(ProviderConfig, item));
+export function parseProviders(json: string | undefined): ProviderConfig[] {
+	return decodeEach(ProviderConfig, json);
 }
 
 export function builtinInfo(id: string): BuiltinProviderInfo | undefined {
