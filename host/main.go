@@ -544,8 +544,7 @@ func askPermissions() {
 		answers := map[string]bool{}
 		for _, p := range permissions {
 			answers[p.key] = p.check(home) == nil
-			data, _ := json.Marshal(answers)
-			if err := os.WriteFile(permissionsFile(), data, 0o600); err != nil {
+			if err := writeJSON(permissionsFile(), answers); err != nil {
 				log.Printf("permissions: %v", err)
 			}
 		}
@@ -553,12 +552,8 @@ func askPermissions() {
 }
 
 func readPermissions() map[string]bool {
-	data, err := os.ReadFile(permissionsFile())
-	if err != nil {
-		return nil
-	}
 	answers := map[string]bool{}
-	if json.Unmarshal(data, &answers) != nil {
+	if readJSON(permissionsFile(), &answers) != nil {
 		return nil
 	}
 	return answers

@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { pkce, postForm } from "./oauth.ts";
 import { decode, parse, readStored } from "./parse.ts";
 import { orLogged } from "../promise.ts";
-import { toBase64Url } from "../encoding.ts";
+import { randomBase64Url } from "../encoding.ts";
 
 const AUTHORIZE_URL = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL = "https://auth.openai.com/api/accounts/oauth/token";
@@ -37,8 +37,6 @@ function deviceId(): string {
 	return id;
 }
 
-const random = () => toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
-
 async function requestToken(form: Record<string, string>, clientId: string): Promise<OAuthCredential> {
 	const response = await postForm({ url: TOKEN_URL, form, what: "ChatGPT token" });
 	if (response.status !== 200) throw new Error(`ChatGPT token: HTTP ${response.status} ${JSON.stringify(response.body).slice(0, 200)}`);
@@ -57,7 +55,7 @@ async function requestToken(form: Record<string, string>, clientId: string): Pro
 
 export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>): Promise<OAuthCredential> {
 	const { verifier, challenge } = await pkce(32);
-	const state = random();
+	const state = randomBase64Url(32);
 	const { promise: callback, resolve, reject } = Promise.withResolvers<URL>();
 	const stop = await listenForRedirect({ port: PORT, path: PATH }, resolve);
 	const timer = setTimeout(() => reject(new Error("沒有完成登入")), WAIT_MS);
@@ -74,7 +72,7 @@ export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>)
 			state,
 			code_challenge: challenge,
 			code_challenge_method: "S256",
-			nonce: random(),
+			nonce: randomBase64Url(32),
 		}).toString();
 		await openUrl(authorize.toString());
 		const url = await callback;

@@ -1,6 +1,6 @@
 import { createJudge, type Judge } from "./judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
 import {
 	type Conversation,
 	type ConversationId,
@@ -22,7 +22,7 @@ import { BotToolsets } from "./bot-toolsets.ts";
 import { avatarOf, type Bot, botFields, BotIndex, DEFAULT_BOT, MAX_BOTS, newFolder } from "./bots.ts";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { extensionName, McpHub } from "./mcp.ts";
+import { extensionName, isMcpExtension, McpHub } from "./mcp.ts";
 import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import type { LoadedModels } from "./available-models.ts";
@@ -50,11 +50,6 @@ export interface ConversationController {
 	setModel(provider: string, modelId: string): Promise<void>;
 	setThinking(level: string): Promise<void>;
 	dispose(): void;
-}
-
-function contentText(content: string | readonly { type: string; text?: string }[]): string {
-	if (typeof content === "string") return content;
-	return content.flatMap((part) => (part.type === "text" && part.text !== undefined ? [part.text] : [])).join("\n");
 }
 
 function labelOf(extension: string, mcp: McpHub): string {
@@ -191,7 +186,7 @@ export class AgentRuntime {
 			native: platform.native,
 			assistant: createAssistant(platform.inApp, platform.native.has("Phone")),
 			calendarAccess: settings.calendarAccess,
-			...(settings.githubToken ? { githubToken: async () => settings.githubToken } : {}),
+			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
 			clouds: clouds.services,
 			web: webSearch,
 			triggers: triggerHost,
@@ -211,7 +206,7 @@ export class AgentRuntime {
 						return registry
 							.snapshot()
 							.installed()
-							.filter((extension) => !extension.name.startsWith("mcp-"));
+							.filter((extension) => !isMcpExtension(extension.name));
 					},
 				},
 				onReport: (error) => options.onReport?.(messageOf(error)),
@@ -521,10 +516,6 @@ export class AgentRuntime {
 
 	get closed(): Promise<SessionEnd> {
 		return this.#harness.closed;
-	}
-
-	inspect(): Promise<unknown> {
-		return this.#harness.inspect(context);
 	}
 
 	async close(): Promise<void> {

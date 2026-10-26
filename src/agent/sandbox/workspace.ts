@@ -1,6 +1,5 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import type { ExecutionEnv, FileInfo } from "@earendil-works/pi-durable/env";
-import { fromBase64 } from "../../encoding.ts";
+import { type ExecutionEnv, type FileInfo, getOrThrow } from "@earendil-works/pi-durable/env";
 import { shellQuote } from "../../shell.ts";
 import { extensionOf, mimeTypeOf } from "../../mime.ts";
 
@@ -12,8 +11,6 @@ const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_DIFF_CHARS = 1_500_000;
-
-export type FileEntry = FileInfo;
 
 export type FileContent =
 	| { kind: "text"; text: string; truncated: boolean; size: number; limit: number }
@@ -61,10 +58,8 @@ export class Workspace {
 		this.git = options.git;
 	}
 
-	async list(path: string): Promise<FileEntry[]> {
-		const result = await this.#env.listDir(path, context);
-		if (!result.ok) throw result.error;
-		return result.value.sort((a, b) => {
+	async list(path: string): Promise<FileInfo[]> {
+		return getOrThrow(await this.#env.listDir(path, context)).sort((a, b) => {
 			const dirA = a.kind === "directory" ? 0 : 1;
 			const dirB = b.kind === "directory" ? 0 : 1;
 			return dirA - dirB || a.name.localeCompare(b.name);
@@ -72,24 +67,20 @@ export class Workspace {
 	}
 
 	async read(path: string): Promise<FileContent> {
-		const info = await this.#env.fileInfo(path, context);
-		if (!info.ok) throw info.error;
-		const size = info.value.size;
+		const { size } = getOrThrow(await this.#env.fileInfo(path, context));
 		const type = mimeTypeOf(path);
 		if (type?.startsWith("image/") && size <= MAX_IMAGE_BYTES) {
 			return { kind: "image", url: URL.createObjectURL(new Blob([(await this.bytes(path)) as Uint8Array<ArrayBuffer>], { type })), size };
 		}
 		const limit = isHtml(path) ? MAX_HTML_BYTES : MAX_TEXT_BYTES;
-		const head = await this.#exec(`head -c ${limit} ${shellQuote(path)} | base64 | tr -d '\\n'`);
-		const bytes = fromBase64(head.trim());
+		const reader = getOrThrow(await this.#env.openBinaryReader(path, undefined, context));
+		const bytes = getOrThrow(await reader.read(0, limit, context).finally(() => reader.close(context)));
 		if (looksBinary(bytes)) return { kind: "binary", size };
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > limit, size, limit };
 	}
 
 	async bytes(path: string): Promise<Uint8Array> {
-		const result = await this.#env.readBinaryFile(path, context);
-		if (!result.ok) throw result.error;
-		return result.value;
+		return getOrThrow(await this.#env.readBinaryFile(path, context));
 	}
 
 	async repos(): Promise<string[]> {

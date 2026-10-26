@@ -2,7 +2,7 @@ import { Row } from "./Row.tsx";
 import { useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
-import { CATALOG, CATEGORIES, type CatalogCategory, type CatalogEntry } from "../agent/mcp-catalog.ts";
+import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { Sheet } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
@@ -54,13 +54,12 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 			.then((server) => (entry.auth === "oauth" ? runtime.mcp.login(server.id) : undefined))
 			.catch((error: unknown) => onError(messageOf(error)));
 	};
-	const categories = Object.keys(CATEGORIES).filter((key): key is CatalogCategory => key in CATEGORIES);
 	return (
 		<Sheet open={open} title="連接服務" onClose={onClose}>
 			<div className="catalog">
-				{categories.map((category) => (
+				{Object.entries(CATEGORIES).map(([category, title]) => (
 					<section key={category}>
-						<h3 className="strip-label">{CATEGORIES[category]}</h3>
+						<h3 className="strip-label">{title}</h3>
 						<div className="menu">
 							{CATALOG.filter((entry) => entry.category === category).map((entry) => (
 								<div className="check-row" key={entry.url}>

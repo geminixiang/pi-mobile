@@ -94,8 +94,11 @@ public class NotificationsListener extends NotificationListenerService {
     }
 
     String appLabel(String packageName) {
+        return appLabel(getPackageManager(), packageName);
+    }
+
+    static String appLabel(PackageManager manager, String packageName) {
         try {
-            PackageManager manager = getPackageManager();
             ApplicationInfo info = manager.getApplicationInfo(packageName, 0);
             return manager.getApplicationLabel(info).toString();
         } catch (PackageManager.NameNotFoundException e) {

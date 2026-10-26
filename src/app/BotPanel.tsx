@@ -14,7 +14,7 @@ import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-import { formatTokens, type Usage } from "./usage.ts";
+import { formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
@@ -25,7 +25,6 @@ interface PanelActions {
 	compact: () => Promise<boolean>;
 	reset: () => void;
 	emptyFolder?: () => Promise<boolean>;
-	copy: (text: string) => Promise<void>;
 }
 
 function Item({ icon, label, hint, danger, disabled, onClick }: { icon: ReactNode; label: string; hint?: string; danger?: boolean; disabled?: boolean; onClick: () => void }) {
@@ -129,8 +128,6 @@ export function BotPanel({
 	bot,
 	runtime,
 	view,
-	usage,
-	cacheHitRate,
 	context,
 	compactAt,
 	prefs,
@@ -142,8 +139,6 @@ export function BotPanel({
 	bot: Bot | undefined;
 	runtime: AgentRuntime;
 	view: ConversationView | undefined;
-	usage: Usage;
-	cacheHitRate: number | undefined;
 	context: { used: number; window: number };
 	compactAt: number;
 	prefs: Prefs;
@@ -196,6 +191,8 @@ export function BotPanel({
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
 	const lastAnswer = view?.entries.findLast((entry) => entry.kind === "pi.assistant");
 	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
+	const usage = totalUsage(view);
+	const cacheHitRate = latestCacheHitRate(view);
 
 	return (
 		<SidePanel side="right" open={open} onClose={onClose} label={`${bot.name} 的資訊`}>
@@ -325,7 +322,7 @@ export function BotPanel({
 							icon={<CopyIcon size={18} />}
 							label={copied ?? "複製最後的回答"}
 							disabled={!lastAnswer}
-							onClick={() => lastAnswer && void actions.copy(entryText(lastAnswer)).then(() => showCopied("已複製"), failIn("上下文"))}
+							onClick={() => lastAnswer && void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => showCopied("已複製"), failIn("上下文"))}
 						/>
 					</div>
 				</Section>

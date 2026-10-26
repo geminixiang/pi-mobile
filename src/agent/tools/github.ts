@@ -15,8 +15,6 @@ const FileContents = Type.Object({
 
 const API = "https://api.github.com";
 
-export type TokenSource = () => Promise<string | undefined>;
-
 const text = (value: string) => textResult(truncated(value, "; narrow the request with per_page, a path, or a search query"));
 
 async function github(token: string, method: string, path: string, body?: unknown, signal?: AbortSignal) {
@@ -36,13 +34,7 @@ async function github(token: string, method: string, path: string, body?: unknow
 	return { status: response.status, ok: response.ok, link: response.headers.get("link") ?? undefined, body: parsed };
 }
 
-export function createGitHubExtension(getToken: TokenSource) {
-	async function requireToken(): Promise<string> {
-		const token = await getToken();
-		if (!token) throw new Error("GitHub is not connected. Ask the user to add a GitHub token in Settings.");
-		return token;
-	}
-
+export function createGitHubExtension(token: string) {
 	const api = defineAppTool({
 		name: "github_api",
 		description: [
@@ -58,7 +50,6 @@ export function createGitHubExtension(getToken: TokenSource) {
 		}),
 		execute: async (args, _api, context) => {
 			if (!args.path.startsWith("/")) throw new Error("path must start with /");
-			const token = await requireToken();
 			const requestBody: unknown = typeof args.body === "string" ? jsonOrText(args.body) : args.body;
 			const result = await github(token, args.method, args.path, requestBody, context.abortSignal);
 			const header = `HTTP ${result.status}${result.link ? `\nLink: ${result.link}` : ""}`;
@@ -81,7 +72,6 @@ export function createGitHubExtension(getToken: TokenSource) {
 			ref: Type.Optional(Type.String({ description: "Branch, tag, or commit; default branch if omitted" })),
 		}),
 		execute: async (args, _api, context) => {
-			const token = await requireToken();
 			const path = args.path.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
 			const query = args.ref ? `?ref=${encodeURIComponent(args.ref)}` : "";
 			const result = await github(token, "GET", `/repos/${args.owner}/${args.repo}/contents/${path}${query}`, undefined, context.abortSignal);

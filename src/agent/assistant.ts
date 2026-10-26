@@ -1,5 +1,5 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { localDate } from "./tools/common.ts";
+import { localDate, pad } from "./tools/common.ts";
 
 function today(): string {
 	const now = new Date();
@@ -11,7 +11,7 @@ function today(): string {
 function utcOffset(): string {
 	const minutes = -new Date().getTimezoneOffset();
 	const sign = minutes < 0 ? "-" : "+";
-	return `${sign}${String(Math.floor(Math.abs(minutes) / 60)).padStart(2, "0")}:${String(Math.abs(minutes) % 60).padStart(2, "0")}`;
+	return `${sign}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
 }
 
 export function createAssistant(inApp: boolean, deviceClock: boolean) {

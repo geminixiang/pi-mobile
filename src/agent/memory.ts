@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
-import { defineAppTool, text } from "./tools/common.ts";
+import { defineAppTool, oneOf, text } from "./tools/common.ts";
 
 export const MEMORY_LIMIT = 4000;
 
@@ -38,7 +38,7 @@ export function createMemoryExtension(host: { changed: () => void }) {
 		description:
 			"Edit a MEMORY.md. scope global: facts about the user that every bot should know. scope bot: your own notes for your job. Without old_text, new_text is added as a new line. With old_text (copied exactly from the memory section), it is replaced by new_text; an empty new_text deletes it.",
 		parameters: Type.Object({
-			scope: Type.Union([Type.Literal("global"), Type.Literal("bot")], { description: "global: every bot reads it; bot: only you" }),
+			scope: oneOf(["global", "bot"], { description: "global: every bot reads it; bot: only you" }),
 			old_text: Type.Optional(Type.String({ description: "Exact text to replace; omit to append" })),
 			new_text: Type.String({ description: "Markdown, usually one short line such as 「- 家：板橋府中站附近」" }),
 		}),

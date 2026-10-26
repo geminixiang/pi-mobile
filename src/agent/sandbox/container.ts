@@ -1,4 +1,4 @@
-import { Type } from "typebox";
+import { type Static, Type } from "typebox";
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
 import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
@@ -7,7 +7,7 @@ import { log } from "../../log.ts";
 import type { AccessToken } from "../oauth.ts";
 import { type Daemon, daemon, ENV_PATH } from "./daemon.ts";
 import { lost, type OpenDaemon } from "./phone-connection.ts";
-import { messageOf, orLogged, onFailure, sleep } from "../../promise.ts";
+import { messageOf, orLogged, sleep, untilFailure } from "../../promise.ts";
 import { decode } from "../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
@@ -77,11 +77,17 @@ export interface CommandClient {
 }
 
 export interface Credentials {
-	githubToken: string | undefined;
+	githubToken?: string;
 	minted: Record<string, MintedService>;
 }
 
 const MINTED_LABELS: Record<string, string> = { gcloud: "Google Cloud", cloudflare: "Cloudflare", azure: "Azure" };
+
+const AuthorizeRequest = Type.Object({
+	type: Type.Literal("authorize"),
+	id: Type.Number(),
+	body: Type.Object({ service: Type.Optional(Type.String()), scope: Type.Optional(Type.String()) }),
+});
 
 const EGRESS_FILES = { Dockerfile: egressDockerfile, "credentials.py": credentialsPy, "bridge.py": bridgePy };
 
@@ -111,7 +117,6 @@ export function lineReader(onLine: (line: string) => void): (data: Uint8Array) =
 export class ContainerHost {
 	readonly #engine: string;
 	readonly #client: CommandClient;
-	#egress: Promise<string> | undefined;
 	#prepared: string | undefined;
 	#active = 0;
 	#ensuring: Promise<string> | undefined;
@@ -185,44 +190,38 @@ export class ContainerHost {
 		return result.stdout;
 	}
 
-	#ensureEgress(): Promise<string> {
-		this.#egress ??= (async () => {
-			if (!(await this.#outputIfSucceeds(`image inspect -f '{{.Id}}' ${SANDBOX_IMAGE}`))) {
-				throw lost("容器還沒準備好：打開設定 › 電腦，等它準備完成");
-			}
-			await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, await this.#home(), (detail) => log.info("egress.build", { detail }));
-			const image = await this.#engineOutput(`image inspect -f '{{.Id}}' ${EGRESS_IMAGE}`);
-			if (!(await this.#outputIfSucceeds(`network inspect ${NETWORK} --format '{{.Name}}'`))) await this.#engineOutput(`network create ${NETWORK}`);
-			const current = (await this.#outputIfSucceeds(`inspect -f '{{.Image}} {{.State.Running}}' ${EGRESS}`)) ?? "";
-			const [imageId, running] = current.split(" ");
-			if (imageId !== image || running !== "true") {
-				if (current) await this.#engineOutput(`rm -f ${EGRESS}`);
-				const secret = randomHex(24);
-				await this.#engineOutput(
-					[
-						"run -d",
-						`--name ${EGRESS}`,
-						`--network ${NETWORK}`,
-						"--restart unless-stopped",
-						`-v ${EGRESS}-ca:/home/mitmproxy/.mitmproxy`,
-						"-e BRIDGE_URL=http://127.0.0.1:9001",
-						`-e EGRESS_SECRET=${secret}`,
-						EGRESS_IMAGE,
-					].join(" "),
-				);
-			}
-			for (let attempt = 0; attempt < 40; attempt++) {
-				const cert = await this.#outputIfSucceeds(`exec ${EGRESS} cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem`);
-				if (cert?.includes("BEGIN CERTIFICATE")) return `${cert}\n`;
-				await sleep(250);
-			}
-			throw new Error("egress proxy 沒有產生 CA 憑證");
-		})();
-		onFailure(this.#egress, () => {
-			this.#egress = undefined;
-		});
-		return this.#egress;
-	}
+	readonly #ensureEgress = untilFailure(async () => {
+		if (!(await this.#outputIfSucceeds(`image inspect -f '{{.Id}}' ${SANDBOX_IMAGE}`))) {
+			throw lost("容器還沒準備好：打開設定 › 電腦，等它準備完成");
+		}
+		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, await this.#home(), (detail) => log.info("egress.build", { detail }));
+		const image = await this.#engineOutput(`image inspect -f '{{.Id}}' ${EGRESS_IMAGE}`);
+		if (!(await this.#outputIfSucceeds(`network inspect ${NETWORK} --format '{{.Name}}'`))) await this.#engineOutput(`network create ${NETWORK}`);
+		const current = (await this.#outputIfSucceeds(`inspect -f '{{.Image}} {{.State.Running}}' ${EGRESS}`)) ?? "";
+		const [imageId, running] = current.split(" ");
+		if (imageId !== image || running !== "true") {
+			if (current) await this.#engineOutput(`rm -f ${EGRESS}`);
+			const secret = randomHex(24);
+			await this.#engineOutput(
+				[
+					"run -d",
+					`--name ${EGRESS}`,
+					`--network ${NETWORK}`,
+					"--restart unless-stopped",
+					`-v ${EGRESS}-ca:/home/mitmproxy/.mitmproxy`,
+					"-e BRIDGE_URL=http://127.0.0.1:9001",
+					`-e EGRESS_SECRET=${secret}`,
+					EGRESS_IMAGE,
+				].join(" "),
+			);
+		}
+		for (let attempt = 0; attempt < 40; attempt++) {
+			const cert = await this.#outputIfSucceeds(`exec ${EGRESS} cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem`);
+			if (cert?.includes("BEGIN CERTIFICATE")) return `${cert}\n`;
+			await sleep(250);
+		}
+		throw new Error("egress proxy 沒有產生 CA 憑證");
+	});
 
 	bridge(credentials: Credentials): () => void {
 		let stopped = false;
@@ -267,19 +266,15 @@ export class ContainerHost {
 	}
 
 	async #onBridge(line: string, credentials: Credentials, send: (message: unknown) => void): Promise<void> {
-		const message = decode(Type.Unknown(), line);
-		if (typeof message !== "object" || message === null || !("type" in message) || message.type !== "authorize") return;
-		if (!("id" in message) || typeof message.id !== "number" || !("body" in message)) return;
+		const message = decode(AuthorizeRequest, line);
+		if (!message) return;
 		const result = await this.#authorize(message.body, credentials).catch((error: unknown) => ({
 			reason: messageOf(error),
 		}));
 		send({ type: "result", id: message.id, result });
 	}
 
-	async #authorize(body: unknown, credentials: Credentials): Promise<{ token?: string; reason?: string }> {
-		const field = (key: string): unknown => (typeof body === "object" && body !== null && key in body ? Reflect.get(body, key) : undefined);
-		const service = String(field("service") ?? "github");
-		const scope = String(field("scope") ?? "");
+	async #authorize({ service = "github", scope }: Static<typeof AuthorizeRequest>["body"], credentials: Credentials): Promise<{ token?: string; reason?: string }> {
 		if (service === "github") return credentials.githubToken ? { token: credentials.githubToken } : { reason: "手機沒有設定 GitHub token" };
 		const label = MINTED_LABELS[service] ?? service;
 		const source = credentials.minted[service];

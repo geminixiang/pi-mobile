@@ -65,15 +65,16 @@ const isEmpty = (row: Cell[]) => row.every((cell) => cell === null || cell === "
 
 const sqlName = (text: string) => text.trim().replace(/[^\p{L}\p{N}_]+/gu, "_").replace(/^_+|_+$/g, "") || "column";
 
+function claim(taken: Set<string>, base: string): string {
+	let name = base;
+	for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
+	taken.add(name.toLowerCase());
+	return name;
+}
+
 function columnsOf(header: Cell[]): string[] {
 	const taken = new Set<string>();
-	return header.map((cell, index) => {
-		const base = cell === null || cell === "" ? `column_${index + 1}` : sqlName(String(cell));
-		let name = base;
-		for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
-		taken.add(name.toLowerCase());
-		return name;
-	});
+	return header.map((cell, index) => claim(taken, cell === null || cell === "" ? `column_${index + 1}` : sqlName(String(cell))));
 }
 
 function typeOf(rows: Cell[][], index: number): string {
@@ -114,10 +115,7 @@ export async function extractSheet(file: File): Promise<{ text: string; tables: 
 		const columns = columnsOf(header);
 		texts.push(sheets.length > 1 ? `## ${sheet.name}\n${tsv(sheet.rows)}` : tsv(sheet.rows));
 		if (!native.has("Database")) continue;
-		const stem = sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base;
-		let name = stem;
-		for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${stem}_${n}`;
-		taken.add(name.toLowerCase());
+		const name = claim(taken, sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base);
 		await importSheet(name, columns, rows);
 		tables.push({ name, sheet: sheet.name, rows: rows.length, columns });
 	}

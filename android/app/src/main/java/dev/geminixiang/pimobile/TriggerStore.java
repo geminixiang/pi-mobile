@@ -156,10 +156,6 @@ final class TriggerStore {
         context.getSystemService(AlarmManager.class).cancel(fireIntent(context, id));
     }
 
-    static java.util.List<String> headphonesSchedules(Context context) {
-        return eventSchedules(context, "headphones", item -> true);
-    }
-
     static synchronized java.util.List<String> eventSchedules(Context context, String kind, java.util.function.Predicate<JSONObject> match) {
         java.util.List<String> due = new java.util.ArrayList<>();
         JSONArray all = schedules(context);

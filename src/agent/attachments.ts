@@ -28,6 +28,15 @@ const EXTENSIONS: Record<string, AttachmentKind> = {
 
 export const ATTACHMENT_ACCEPT = [...Object.keys(EXTENSIONS).map((ext) => `.${ext}`), "application/pdf", "text/*"].join(",");
 
+export const MAX_IMAGE_EDGE = 1600;
+
+export function jpegOf(canvas: HTMLCanvasElement): ImageContent {
+	const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+	return { type: "image", mimeType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+}
+
+export const unsupportedFile = (name: string) => `不支援這種檔案：${name}（可以傳 PDF、Word、Excel、CSV 和純文字）`;
+
 export function attachmentKind(file: { name: string; type: string }): AttachmentKind | undefined {
 	const ext = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
 	if (ext && EXTENSIONS[ext]) return EXTENSIONS[ext];
@@ -191,7 +200,7 @@ export interface PreparedAttachment {
 
 export async function prepareAttachment(file: File, conversationId: string): Promise<PreparedAttachment> {
 	const kind = attachmentKind(file);
-	if (!kind) throw new Error(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
+	if (!kind) throw new Error(unsupportedFile(file.name));
 	const base = { id: `att_${crypto.randomUUID().slice(0, 8)}`, conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
 	let stored: StoredAttachment;
 	let images: (ImageContent | TextContent)[] = [];

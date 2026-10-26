@@ -1,6 +1,16 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
-import { ATTACHMENT_ACCEPT, type AttachmentKind, attachmentKind, discardAttachment, type PreparedAttachment, prepareAttachment } from "../agent/attachments.ts";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+	ATTACHMENT_ACCEPT,
+	type AttachmentKind,
+	attachmentKind,
+	discardAttachment,
+	jpegOf,
+	MAX_IMAGE_EDGE,
+	type PreparedAttachment,
+	prepareAttachment,
+	unsupportedFile,
+} from "../agent/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
 import { Scanner, scannedPdf } from "../scanner-plugin.ts";
@@ -13,8 +23,6 @@ import { addDraftFile, loadDraftAttachments, receiveDraftFiles, saveDraftAttachm
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 
-const MAX_IMAGE_EDGE = 1600;
-
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
 	const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
@@ -23,8 +31,7 @@ async function toImageContent(file: File): Promise<ImageContent> {
 	canvas.height = Math.round(bitmap.height * scale);
 	canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 	bitmap.close();
-	const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-	return { type: "image", mimeType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+	return jpegOf(canvas);
 }
 
 type PendingFile =
@@ -71,6 +78,7 @@ export function Composer({
 	onJump: (id: string | undefined) => void;
 }) {
 	const [images, setImages] = useState<ImageContent[]>([]);
+	const thumbnails = useMemo(() => images.map((image) => `data:${image.mimeType};base64,${image.data}`), [images]);
 	const [files, setFiles] = useState<PendingFile[]>([]);
 	const [problem, setProblem] = useState<string>();
 	const [attachMenu, setAttachMenu] = useState(false);
@@ -160,7 +168,7 @@ export function Composer({
 			if (file.type.startsWith("image/")) continue;
 			const kind = attachmentKind(file);
 			if (!kind) {
-				setProblem(`不支援這種檔案：${file.name}（可以傳 PDF、Word、Excel、CSV 和純文字）`);
+				setProblem(unsupportedFile(file.name));
 				continue;
 			}
 			const key = crypto.randomUUID();
@@ -222,7 +230,7 @@ export function Composer({
 				) : null}
 				{images.length > 0 ? (
 					<div className="pending-images">
-						{images.map((image, index) => (
+						{thumbnails.map((thumbnail, index) => (
 							<button
 								type="button"
 								key={index}
@@ -230,7 +238,7 @@ export function Composer({
 								onClick={() => setImages(images.filter((_, other) => other !== index))}
 								aria-label="移除圖片"
 							>
-								<img src={`data:${image.mimeType};base64,${image.data}`} alt="" />
+								<img src={thumbnail} alt="" />
 								<span className="thumb-remove">
 									<CloseIcon size={12} />
 								</span>

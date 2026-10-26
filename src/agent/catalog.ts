@@ -6,7 +6,8 @@ import { createPhoneCodemode } from "./codemode.ts";
 import { createMemoryExtension } from "./memory.ts";
 import { createFilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
-import { createSandboxExtension, SandboxTools } from "./sandbox/sandbox.ts";
+import { createSandboxExtension } from "./sandbox/sandbox.ts";
+import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { SkillsExtension } from "./skills.ts";
 import { AppsExtension } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
@@ -15,7 +16,7 @@ import { type CloudService, createCloudExtensions } from "./tools/cloud.ts";
 import { ControlExtension } from "./tools/control.ts";
 import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "./tools/device.ts";
-import { createGitHubExtension, type TokenSource } from "./tools/github.ts";
+import { createGitHubExtension } from "./tools/github.ts";
 import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
@@ -36,7 +37,7 @@ interface CatalogDeps {
 	native: ReadonlySet<NativePlugin>;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;
-	githubToken?: TokenSource;
+	githubToken?: string;
 	clouds: readonly CloudService[];
 	web: WebConfig;
 	triggers: TriggerHost;
@@ -91,7 +92,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		SkillsExtension,
 		AttachmentsExtension,
 		createCalendarExtension(deps.calendarAccess),
-		...createPhoneCodemode(deps.labelOf),
+		createPhoneCodemode(deps.labelOf),
 		...(deps.githubToken ? [createGitHubExtension(deps.githubToken)] : []),
 		...createCloudExtensions(deps.clouds),
 		createWebExtension(deps.web),
@@ -100,7 +101,7 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createSandboxExtension(deps.workplace),
 		createFilesExtension(deps.workplace),
 		createComputerExtension(deps.workplace),
-		SandboxTools,
+		CodingTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),
 	];

@@ -6,7 +6,6 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
@@ -398,7 +397,7 @@ public class PhoneScreenPlugin extends Plugin {
         if (active != null && active.getPackageName() != null) {
             String pkg = active.getPackageName().toString();
             result.put("package", pkg);
-            result.put("app", labelOf(service, pkg));
+            result.put("app", NotificationsListener.appLabel(service.getPackageManager(), pkg));
         }
         boolean keyboard = false;
         long deadline = System.currentTimeMillis() + ELEMENTS_MS;
@@ -444,15 +443,6 @@ public class PhoneScreenPlugin extends Plugin {
                 return "divider";
             default:
                 return "app";
-        }
-    }
-
-    private String labelOf(PhoneScreenService service, String pkg) {
-        try {
-            ApplicationInfo info = service.getPackageManager().getApplicationInfo(pkg, 0);
-            return String.valueOf(service.getPackageManager().getApplicationLabel(info));
-        } catch (PackageManager.NameNotFoundException e) {
-            return pkg;
         }
     }
 

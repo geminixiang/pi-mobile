@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
-import { Apps } from "../agent/tools/apps.ts";
-import { mimeTypeOf } from "../mime.ts";
+import { type AppFile, appFile, Apps } from "../agent/tools/apps.ts";
 import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./Message.tsx";
 import { Layer } from "./Sheet.tsx";
-import { messageOf } from "../promise.ts";
-import { toBase64 } from "../encoding.ts";
+import { codeOf, messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 
@@ -47,15 +45,14 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 	const markdown = /\.(md|markdown)$/i.test(name);
 	const html = isHtml(name) && htmlPreviewIsolated();
 	const previewable = markdown || html;
-	const mimeType = mimeTypeOf(name) ?? "application/octet-stream";
-	const share = () => {
+	const handOff = (setBusy: (busy: boolean) => void, send: (file: AppFile) => Promise<void>, explain: (failure: unknown) => string = messageOf) => {
 		if (!path) return;
-		setSharing(true);
+		setBusy(true);
 		void workspace
 			.bytes(path)
-			.then((bytes) => Apps.share({ title: name, fileBase64: toBase64(bytes), fileName: name, mimeType }))
-			.catch((failure: unknown) => setError(messageOf(failure)))
-			.finally(() => setSharing(false));
+			.then((bytes) => send(appFile(name, bytes)))
+			.catch((failure: unknown) => setError(explain(failure)))
+			.finally(() => setBusy(false));
 	};
 
 	useEffect(() => {
@@ -95,24 +92,15 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 							className="icon-button"
 							aria-label="用其他 app 開啟"
 							disabled={opening}
-							onClick={() => {
-								if (!path) return;
-								setOpening(true);
-								void workspace
-									.bytes(path)
-									.then((bytes) => Apps.openFile({ fileBase64: toBase64(bytes), fileName: name, mimeType }))
-									.catch((failure: unknown) => {
-										const code = typeof failure === "object" && failure !== null ? Reflect.get(failure, "code") : undefined;
-										setError(code === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure));
-									})
-									.finally(() => setOpening(false));
-							}}
+							onClick={() =>
+								handOff(setOpening, (file) => Apps.openFile(file), (failure) => (codeOf(failure) === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure)))
+							}
 						>
 							<OpenOutsideIcon />
 						</button>
 					) : null}
 					{content ? (
-						<button type="button" className="icon-button" aria-label="分享" disabled={sharing} onClick={share}>
+						<button type="button" className="icon-button" aria-label="分享" disabled={sharing} onClick={() => handOff(setSharing, (file) => Apps.share({ title: name, ...file }))}>
 							<ShareIcon />
 						</button>
 					) : null}

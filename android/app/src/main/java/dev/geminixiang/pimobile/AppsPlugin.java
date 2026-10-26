@@ -94,23 +94,27 @@ public class AppsPlugin extends Plugin {
         launch(call, new Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addCategory(Intent.CATEGORY_BROWSABLE));
     }
 
+    private Uri stage(PluginCall call, String base64) throws IOException {
+        File dir = new File(getContext().getCacheDir(), "share");
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
+        File[] old = dir.listFiles();
+        if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
+        File file = new File(dir, new File(call.getString("fileName", "file")).getName());
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(Base64.decode(base64, Base64.DEFAULT));
+        }
+        return FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+    }
+
     @PluginMethod
     public void openFile(PluginCall call) {
-        String name = new File(call.getString("fileName", "file")).getName();
-        File dir = new File(getContext().getCacheDir(), "share");
-        File file = new File(dir, name);
+        Uri uri;
         try {
-            if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
-            File[] old = dir.listFiles();
-            if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
-            try (FileOutputStream out = new FileOutputStream(file)) {
-                out.write(Base64.decode(call.getString("fileBase64", ""), Base64.DEFAULT));
-            }
+            uri = stage(call, call.getString("fileBase64", ""));
         } catch (IOException e) {
             call.reject("could not stage the file: " + e.getMessage());
             return;
         }
-        Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
         Intent view = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, call.getString("mimeType", "application/octet-stream")).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         launch(call, view);
     }
@@ -122,21 +126,13 @@ public class AppsPlugin extends Plugin {
         if (text != null) send.putExtra(Intent.EXTRA_TEXT, text);
         String data = call.getString("fileBase64");
         if (data != null) {
-            String name = new File(call.getString("fileName", "file")).getName();
-            File dir = new File(getContext().getCacheDir(), "share");
-            File file = new File(dir, name);
+            Uri uri;
             try {
-                if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
-                File[] old = dir.listFiles();
-                if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
-                try (FileOutputStream out = new FileOutputStream(file)) {
-                    out.write(Base64.decode(data, Base64.DEFAULT));
-                }
+                uri = stage(call, data);
             } catch (IOException e) {
                 call.reject("could not stage the file: " + e.getMessage());
                 return;
             }
-            Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
             send.putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             send.setType(call.getString("mimeType", "application/octet-stream"));
         } else {

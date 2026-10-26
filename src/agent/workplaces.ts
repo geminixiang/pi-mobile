@@ -104,7 +104,7 @@ export class Workplaces {
 	#sandbox({ computer, host, mode }: Entry): Sandbox {
 		const open = this.#open.get(computer.key);
 		if (open) return open;
-		const sandbox = new HostSandbox(host, mode, { githubToken: this.#settings.githubToken || undefined, minted: this.#minted });
+		const sandbox = new HostSandbox(host, mode, { ...this.network, minted: this.#minted });
 		this.#open.set(computer.key, sandbox);
 		return sandbox;
 	}

@@ -6,7 +6,6 @@ import android.app.assist.AssistStructure;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
@@ -49,7 +48,7 @@ public class AssistSession extends VoiceInteractionSession {
         AssistStructure structure = state.getAssistStructure();
         if (structure != null) {
             ComponentName activity = structure.getActivityComponent();
-            if (activity != null) appName = label(activity.getPackageName());
+            if (activity != null) appName = NotificationsListener.appLabel(getContext().getPackageManager(), activity.getPackageName());
             Set<String> lines = new LinkedHashSet<>();
             for (int i = 0; i < structure.getWindowNodeCount(); i++) collect(structure.getWindowNodeAt(i).getRootViewNode(), lines);
             screenText = String.join("\n", lines);
@@ -73,15 +72,6 @@ public class AssistSession extends VoiceInteractionSession {
             lines.add(node.getContentDescription().toString().trim());
         }
         for (int i = 0; i < node.getChildCount(); i++) collect(node.getChildAt(i), lines);
-    }
-
-    private String label(String packageName) {
-        try {
-            PackageManager manager = getContext().getPackageManager();
-            return manager.getApplicationLabel(manager.getApplicationInfo(packageName, 0)).toString();
-        } catch (PackageManager.NameNotFoundException e) {
-            return packageName;
-        }
     }
 
     private void send() {

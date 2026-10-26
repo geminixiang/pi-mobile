@@ -28,7 +28,7 @@ const sessionIdle = 2 * time.Minute
 type screen interface {
 	apps() map[int]string
 	quit(pids []int)
-	capture() (image.Image, float64, float64, error)
+	capture() (image.Image, float64, error)
 	state() (app, window string, x, y float64)
 	click(x, y float64, button string, count int) error
 	move(x, y float64) error
@@ -113,7 +113,7 @@ func (c *computer) end() {
 }
 
 func (c *computer) shot() ([]any, error) {
-	img, width, _, err := c.screen.capture()
+	img, width, err := c.screen.capture()
 	if err != nil {
 		return nil, err
 	}

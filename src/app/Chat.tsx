@@ -115,6 +115,7 @@ export function Chat({
 	controller,
 	prefs,
 	capabilities,
+	view,
 	initialDraft,
 	initialFiles,
 	shared,
@@ -122,11 +123,11 @@ export function Chat({
 	notices,
 	onDismissNotices,
 	onError,
-	onView,
 }: {
 	controller: ConversationController;
 	prefs: Prefs;
 	capabilities: Capabilities;
+	view: ConversationView | undefined;
 	initialDraft?: string;
 	initialFiles?: readonly File[];
 	shared?: SharedKind;
@@ -134,9 +135,7 @@ export function Chat({
 	notices: readonly Notice[];
 	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
-	onView: (view: ConversationView) => void;
 }) {
-	const [view, setView] = useState<ConversationView>();
 	const conversationId = String(controller.id);
 	const [draft, setDraft] = useState(() => [loadDraftText(conversationId), initialDraft].filter(Boolean).join("\n\n"));
 	useEffect(() => saveDraftText(conversationId, draft), [conversationId, draft]);
@@ -146,15 +145,6 @@ export function Chat({
 	const [pickImage, setPickImage] = useState(0);
 	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
-
-	useEffect(
-		() =>
-			controller.subscribe((next) => {
-				setView(next);
-				onView(next);
-			}),
-		[controller, onView],
-	);
 
 	useEffect(() => {
 		if (focusKey || initialDraft) setComposerFocus((key) => key + 1);

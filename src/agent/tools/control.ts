@@ -90,7 +90,7 @@ const sound = defineAppTool({
 	description:
 		"Read or change the phone's sound: the ringer (ring, vibrate, silent) and each volume as a percent (ring, media, alarm, notification, call). Raising the ring volume above 0 also switches the ringer to ring.",
 	parameters: Type.Object({
-		action: oneOf(["status", "ring", "vibrate", "silent", "volume"] as const, { description: "status reads it; ring, vibrate, silent set the ringer; volume sets one volume" }),
+		action: oneOf(["status", "ring", "vibrate", "silent", "volume"], { description: "status reads it; ring, vibrate, silent set the ringer; volume sets one volume" }),
 		stream: Type.Optional(oneOf(STREAMS, { description: "volume: which one; default ring" })),
 		percent: Type.Optional(Type.Integer({ minimum: 0, maximum: 100, description: "volume: 0 to 100" })),
 	}),
@@ -119,7 +119,7 @@ const display = defineAppTool({
 	name: "display",
 	description: "Read or change the screen: brightness, adaptive brightness, auto-rotate, and how long until it turns off.",
 	parameters: Type.Object({
-		action: oneOf(["status", "brightness", "auto_brightness", "auto_rotate", "screen_timeout"] as const, { description: "status reads it; the rest change one setting" }),
+		action: oneOf(["status", "brightness", "auto_brightness", "auto_rotate", "screen_timeout"], { description: "status reads it; the rest change one setting" }),
 		percent: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "brightness: 1 to 100; turns adaptive brightness off" })),
 		on: Type.Optional(Type.Boolean({ description: "auto_brightness, auto_rotate: on or off" })),
 		seconds: Type.Optional(Type.Integer({ minimum: 15, maximum: 1800, description: "screen_timeout: seconds" })),
@@ -140,7 +140,7 @@ const display = defineAppTool({
 const flashlight = defineAppTool({
 	name: "flashlight",
 	description: "Read or switch the phone's flashlight (the camera's torch), such as to light the way or find something in the dark.",
-	parameters: Type.Object({ action: oneOf(["status", "on", "off"] as const, { description: "status reads it" }) }),
+	parameters: Type.Object({ action: oneOf(["status", "on", "off"], { description: "status reads it" }) }),
 	execute: async (args) => {
 		const result = await native(() => (args.action === "status" ? PhoneState.flashlight() : PhoneState.setFlashlight({ on: args.action === "on" })));
 		return text(`Flashlight: ${result.state}.`);
@@ -173,7 +173,7 @@ const connections = defineAppTool({
 	description:
 		"Read or switch Wi-Fi (and the network it is on), Bluetooth, mobile data, airplane mode, location, NFC, and battery saver. Android lets apps only open these switches: with screen control on, pi taps it itself and checks; otherwise the switch is left on screen for the user.",
 	parameters: Type.Object({
-		action: oneOf(["status", "on", "off"] as const, { description: "status reads them all; on and off switch one" }),
+		action: oneOf(["status", "on", "off"], { description: "status reads them all; on and off switch one" }),
 		what: Type.Optional(oneOf(CONNECTIONS, { description: "on, off: which one" })),
 	}),
 	execute: async (args) => {

@@ -69,8 +69,12 @@ const baseName = (id: string) => id.slice(id.lastIndexOf("/") + 1);
 const isClaude = (id: string) => /^claude(?:-|$)/.test(baseName(id));
 const isCodexResponses = (id: string) => /^gpt-5\.6(?:-|$)|^gpt-6(?:\.\d+)?(?:-|$)/.test(baseName(id));
 
-function rootUrl(baseUrl: string): string {
+export function rootUrl(baseUrl: string): string {
 	return baseUrl.replace(/\/+$/u, "").replace(/\/v1$/u, "");
+}
+
+export function anthropicHeaders(apiKey: string): Record<string, string> {
+	return { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
 }
 
 export type Catalog = ReadonlyMap<string, Model<Api>>;
@@ -109,10 +113,7 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 			: request;
 	let response = await reach(fetch(url, { headers, signal }));
 	if (response.status === 401 || response.status === 403) {
-		response = await fetch(url, {
-			headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-			signal,
-		});
+		response = await fetch(url, { headers: anthropicHeaders(apiKey), signal });
 	}
 	if (!response.ok) throw new Error(`GET /v1/models: HTTP ${response.status}`);
 	const body = parse(ModelList, await response.json(), "GET /v1/models");

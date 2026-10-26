@@ -64,27 +64,25 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 		interruptBudget: INTERRUPT_BUDGET,
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
-	return [
-		defineExtension({
-			name: "codemode",
-			tools: [createCodemodeTool({ sandbox, models: false })],
-			sections: [
-				section("codemode", (input) => {
-					const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
-					const callable = new Set(input.agent.callable.map((tool) => tool.name));
-					const lines = input.agent.extensions.flatMap((extension) => {
-						const name = label(extension.name, String(input.conversationId));
-						const tools = (extension.tools ?? []).filter((tool) => !offered.has(tool.name) && callable.has(tool.name));
-						return name && tools.length > 0 ? [`- ${name}: ${tools.map(signatureOf).join("; ")}`] : [];
-					});
-					if (lines.length === 0) return undefined;
-					return [
-						"These tools are called only from codemode scripts, as `await tools.<name>({ ...args })`, by exactly these names: put every call a task needs in one script (Promise.all for independent ones), shape the results there, and return only what the answer needs. When a tool's arguments or result are not obvious from its name, `return describeTool(name)` first. Look up rather than guess or ask: the phone's place and time, weather, travel times (no transit: estimate and say so).",
-						...lines,
-						"Scripts run on the phone in QuickJS, not on a computer; Date.now() only advances between tool calls. Heavy computation goes to bash.",
-					].join("\n");
-				}),
-			],
-		}),
-	];
+	return defineExtension({
+		name: "codemode",
+		tools: [createCodemodeTool({ sandbox, models: false })],
+		sections: [
+			section("codemode", (input) => {
+				const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
+				const callable = new Set(input.agent.callable.map((tool) => tool.name));
+				const lines = input.agent.extensions.flatMap((extension) => {
+					const name = label(extension.name, String(input.conversationId));
+					const tools = (extension.tools ?? []).filter((tool) => !offered.has(tool.name) && callable.has(tool.name));
+					return name && tools.length > 0 ? [`- ${name}: ${tools.map(signatureOf).join("; ")}`] : [];
+				});
+				if (lines.length === 0) return undefined;
+				return [
+					"These tools are called only from codemode scripts, as `await tools.<name>({ ...args })`, by exactly these names: put every call a task needs in one script (Promise.all for independent ones), shape the results there, and return only what the answer needs. When a tool's arguments or result are not obvious from its name, `return describeTool(name)` first. Look up rather than guess or ask: the phone's place and time, weather, travel times (no transit: estimate and say so).",
+					...lines,
+					"Scripts run on the phone in QuickJS, not on a computer; Date.now() only advances between tool calls. Heavy computation goes to bash.",
+				].join("\n");
+			}),
+		],
+	});
 }

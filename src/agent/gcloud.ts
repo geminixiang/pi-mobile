@@ -2,7 +2,7 @@ import { Value } from "typebox/value";
 import { type Static, Type } from "typebox";
 import { type AccessToken, cachedToken, checkTokens, jwtPayload, pkce, postForm } from "./oauth.ts";
 import { type Checked, checkJson, parse, valueOrThrow } from "./parse.ts";
-import { fromBase64, toBase64Url } from "../encoding.ts";
+import { fromBase64, randomBase64Url, toBase64Url } from "../encoding.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -46,10 +46,6 @@ function describeCredential(credential: Credential): string {
 			return `${credential.client_email}${credential.project_id ? ` · ${credential.project_id}` : ""}`;
 		case "authorized_user":
 			return `${credential.account ?? "使用者憑證"}${credential.quota_project_id ? ` · ${credential.quota_project_id}` : ""}`;
-		default: {
-			const _exhaustive: never = credential;
-			return _exhaustive;
-		}
 	}
 }
 
@@ -117,7 +113,7 @@ export async function startGoogleSignIn(): Promise<GoogleSignIn> {
 		client_id: ADC_CLIENT_ID,
 		redirect_uri: ADC_REDIRECT_URI,
 		scope: SIGN_IN_SCOPES.join(" "),
-		state: toBase64Url(crypto.getRandomValues(new Uint8Array(16))),
+		state: randomBase64Url(16),
 		prompt: "consent",
 		token_usage: "remote",
 		access_type: "offline",

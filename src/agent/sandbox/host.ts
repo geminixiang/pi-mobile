@@ -17,7 +17,7 @@ import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from ".
 import { type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode, decodeEach } from "../parse.ts";
-import { onFailure } from "../../promise.ts";
+import { onFailure, untilFailure } from "../../promise.ts";
 import { refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";
 
@@ -307,7 +307,6 @@ export class HostSandbox implements Sandbox {
 	readonly #envs: SharedEnvs;
 	readonly #startBridge: (() => () => void) | undefined;
 	#stopBridge: (() => void) | undefined;
-	#ready: Promise<string> | undefined;
 	#status: ConnectionStatus = { kind: "idle" };
 	readonly #listeners = new Set<(status: ConnectionStatus) => void>();
 
@@ -358,21 +357,15 @@ export class HostSandbox implements Sandbox {
 		};
 	}
 
-	#daemon(): Promise<string> {
-		this.#ready ??= (async () => {
-			const info = await probeHost(this.host);
-			const { bytes, sha } = daemon(info.os, info.arch);
-			if (!info.daemons.includes(sha)) {
-				const response = await fetch(url(this.host, `/daemon/${sha}`), { method: "PUT", body: new Blob([await bytes()]) });
-				if (!response.ok) throw new Error(`上傳 pi-env 到 ${this.host.name} 失敗：HTTP ${response.status} ${(await response.text()).trim()}`);
-			}
-			return sha;
-		})();
-		onFailure(this.#ready, () => {
-			this.#ready = undefined;
-		});
-		return this.#ready;
-	}
+	readonly #daemon = untilFailure(async () => {
+		const info = await probeHost(this.host);
+		const { bytes, sha } = daemon(info.os, info.arch);
+		if (!info.daemons.includes(sha)) {
+			const response = await fetch(url(this.host, `/daemon/${sha}`), { method: "PUT", body: new Blob([await bytes()]) });
+			if (!response.ok) throw new Error(`上傳 pi-env 到 ${this.host.name} 失敗：HTTP ${response.status} ${(await response.text()).trim()}`);
+		}
+		return sha;
+	});
 
 	root(folder: string): string {
 		return this.#envs.root(folder);

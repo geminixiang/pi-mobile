@@ -132,7 +132,7 @@ const share = defineAppTool({
 	}),
 	execute: async (args, api, context) => {
 		if (!args.text && !args.path) throw new Error("give text, path, or both");
-		let file: { fileBase64: string; fileName: string; mimeType: string } | undefined;
+		let file: AppFile | undefined;
 		if (args.path) {
 			if (!api.env) throw new Error("this bot has no folder");
 			const absolute = await api.env.absolutePath(args.path, context);
@@ -140,13 +140,18 @@ const share = defineAppTool({
 			const read = await api.env.readBinaryFile(absolute.value, context);
 			if (!read.ok) throw new Error(`cannot read ${args.path}: ${read.error.message}`);
 			if (read.value.byteLength > MAX_SHARE_BYTES) throw new Error(`file is larger than ${MAX_SHARE_BYTES / 1024 / 1024} MB`);
-			const fileName = absolute.value.split("/").pop() || "file";
-			file = { fileBase64: toBase64(read.value), fileName, mimeType: mimeTypeOf(fileName) ?? "application/octet-stream" };
+			file = appFile(absolute.value.split("/").pop() || "file", read.value);
 		}
 		await launch(() => Apps.share({ text: args.text, title: args.title, ...file }));
 		return text("Opened the share sheet. The user picks where it goes.");
 	},
 });
+
+export type AppFile = { fileBase64: string; fileName: string; mimeType: string };
+
+export function appFile(fileName: string, bytes: Uint8Array): AppFile {
+	return { fileBase64: toBase64(bytes), fileName, mimeType: mimeTypeOf(fileName) ?? "application/octet-stream" };
+}
 
 export const AppsExtension = defineExtension({
 	name: "phone_apps",

@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { type AccessToken, cachedToken, type DeviceSignIn, getJson, pollDeviceFlow, postForm, refreshedTokens, startDeviceFlow } from "./oauth.ts";
+import { type AccessToken, cachedToken, type DeviceSignIn, getJson, pollDeviceFlow, refreshRotating, startDeviceFlow } from "./oauth.ts";
 import { type Checked, check, checkJson, parse } from "./parse.ts";
 import { orLogged } from "../promise.ts";
 
@@ -66,10 +66,6 @@ export function describeCloudflare(json: string): string {
 			return `API token${credential.account_id ? ` · ${credential.account_id.slice(0, 8)}…` : ""}`;
 		case "cloudflare_oauth":
 			return [credential.email ?? "OAuth 登入", credential.account_name].filter(Boolean).join(" · ");
-		default: {
-			const _exhaustive: never = credential;
-			return _exhaustive;
-		}
 	}
 }
 
@@ -127,17 +123,10 @@ export class CloudflareTokens {
 		return this.#oauth(credential);
 	}
 
-	async #refresh(credential: Static<typeof OAuthCredential>): Promise<AccessToken> {
-		const response = await postForm({
-			url: TOKEN_URL,
-			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID },
-			what: "Cloudflare token",
-		});
-		const tokens = refreshedTokens(response, "Cloudflare token");
-		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
-			this.#credential = { ...credential, refresh_token: tokens.refresh };
+	#refresh(credential: Static<typeof OAuthCredential>): Promise<AccessToken> {
+		return refreshRotating({ url: TOKEN_URL, refreshToken: credential.refresh_token, form: { client_id: CLIENT_ID }, what: "Cloudflare token" }, async (refresh_token) => {
+			this.#credential = { ...credential, refresh_token };
 			await this.#onRotate(JSON.stringify(this.#credential));
-		}
-		return tokens.access;
+		});
 	}
 }

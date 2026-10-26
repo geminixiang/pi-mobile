@@ -3,7 +3,7 @@ import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
 import type { Host } from "../../src/agent/sandbox/host.ts";
 import { openRuntime, toolResults, turn } from "./fixtures.ts";
-import { type Check, logged, platform, settings } from "./setup.ts";
+import { type Check, logged, platform, settings, settle } from "./setup.ts";
 
 const host: Host = { id: "b.example", address: "b.example", name: "B", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture" };
 
@@ -18,7 +18,7 @@ export const checks: Check[] = [
 			try {
 				const place = workplaces.at("bot");
 				assert(place?.kind === "computer" && !place.sandbox.direct);
-				await new Promise((resolve) => setTimeout(resolve, 300));
+				await settle(300);
 				assert.deepEqual(place.sandbox.status, { kind: "idle" });
 				assert.deepEqual(
 					logged.slice(before).map((entry) => entry.event),

@@ -19,7 +19,7 @@ import {
 import { BotFiles, type BotFileInfo } from "../../bot-files-plugin.ts";
 import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
-import { messageOf, onFailure } from "../../promise.ts";
+import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
 
@@ -36,11 +36,6 @@ function relative(absolute: string): string {
 	return inTemp ? `${TEMP_FOLDER}${path.slice(TEMP_DIR.length)}` : path.slice(1);
 }
 const nameOf = (absolute: string) => absolute.slice(absolute.lastIndexOf("/") + 1);
-
-function codeOf(error: unknown): string | undefined {
-	const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
-	return typeof code === "string" ? code : undefined;
-}
 
 function fileError(error: unknown, path?: string): FileError {
 	const code = codeOf(error);
@@ -204,7 +199,7 @@ export class PhoneEnv implements ExecutionEnv {
 	cwd = "/";
 	readonly #bot: string;
 	readonly #network: FolderNetwork;
-	#tempReady: Promise<void> | undefined;
+	readonly #ensureTemp = untilFailure(() => BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true }));
 
 	constructor(folder: string, network: FolderNetwork = {}) {
 		this.#bot = folder;
@@ -215,15 +210,6 @@ export class PhoneEnv implements ExecutionEnv {
 	#path(path: string): string {
 		if (path === "~" || path.startsWith("~/")) return normalizePath(path.slice(1));
 		return resolvePath(this.cwd, path);
-	}
-
-	#ensureTemp(): Promise<void> {
-		if (this.#tempReady) return this.#tempReady;
-		this.#tempReady = BotFiles.mkdir({ bot: this.#bot, path: TEMP_FOLDER, recursive: true });
-		onFailure(this.#tempReady, () => {
-			this.#tempReady = undefined;
-		});
-		return this.#tempReady;
 	}
 
 	#at(path: string) {

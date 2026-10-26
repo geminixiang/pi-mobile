@@ -103,6 +103,17 @@ function nextPage(link: string): string | undefined {
 	return /<([^>]+)>;\s*rel="next"/.exec(link)?.[1];
 }
 
+const REPO_FIELDS: Record<string, (info: unknown) => unknown> = {
+	name: (info) => at(info, "name"),
+	nameWithOwner: (info) => at(info, "full_name"),
+	description: (info) => at(info, "description"),
+	url: (info) => at(info, "html_url"),
+	defaultBranchRef: (info) => ({ name: at(info, "default_branch") }),
+	isPrivate: (info) => at(info, "private"),
+	stargazerCount: (info) => at(info, "stargazers_count"),
+	updatedAt: (info) => at(info, "updated_at"),
+};
+
 const ITEM_FIELDS = ["number", "title", "state", "url", "body", "author", "createdAt", "updatedAt", "closedAt", "labels", "assignees", "headRefName", "baseRefName", "isDraft", "mergedAt"];
 
 function itemField(item: unknown, field: string): unknown {
@@ -143,7 +154,7 @@ function itemField(item: unknown, field: string): unknown {
 	return undefined;
 }
 
-async function present(ctx: Ctx, flags: Flags, value: unknown, fields: readonly string[], plain: () => string): Promise<ExecResult> {
+async function present(ctx: Ctx, flags: Flags, value: unknown, fields: readonly string[], plain: () => string, read: (item: unknown, field: string) => unknown = itemField): Promise<ExecResult> {
 	const asked = one(flags, "json");
 	if (asked === undefined) {
 		if (flags.values.has("jq")) throw new GhError("--jq needs --json FIELDS");
@@ -152,7 +163,7 @@ async function present(ctx: Ctx, flags: Flags, value: unknown, fields: readonly 
 	const wanted = asked.split(",").map((field) => field.trim()).filter(Boolean);
 	const unknown = wanted.filter((field) => !fields.includes(field));
 	if (wanted.length === 0 || unknown.length > 0) throw new GhError(`${unknown.length > 0 ? `Unknown JSON field: ${unknown.join(", ")}\n` : ""}Available fields:\n  ${fields.join("\n  ")}`);
-	const pick = (item: unknown) => Object.fromEntries(wanted.map((field) => [field, itemField(item, field)]));
+	const pick = (item: unknown) => Object.fromEntries(wanted.map((field) => [field, read(item, field)]));
 	const json = JSON.stringify(Array.isArray(value) ? value.map(pick) : pick(value), null, 2);
 	return filter(ctx, flags, json);
 }
@@ -246,13 +257,13 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 			if (kind === "pr" && headRef) query.set("head", headRef.includes(":") ? headRef : `${repo.owner}:${headRef}`);
 			const author = one(flags, "author");
 			const search = one(flags, "search");
+			const limit = Number(one(flags, "limit") ?? DEFAULT_LIMIT);
 			if (search !== undefined) {
-				const limit = Number(one(flags, "limit") ?? DEFAULT_LIMIT);
 				const terms = [`repo:${repo.owner}/${repo.name}`, kind === "pr" ? "is:pr" : "is:issue", state === "all" ? "" : state === "merged" ? "is:merged" : `is:${state}`, author ? `author:${author}` : "", search];
 				const found = await searchIssues(api, terms, limit);
 				return present(ctx, flags, found, ITEM_FIELDS, () => found.map((item) => `${row(item, kind)}\n`).join(""));
 			}
-			const found = await list(api, `${base(repo)}/${plural}?${query}`, Number(one(flags, "limit") ?? DEFAULT_LIMIT), (item) =>
+			const found = await list(api, `${base(repo)}/${plural}?${query}`, limit, (item) =>
 				(kind === "pr" || at(item, "pull_request") === undefined) &&
 				(state !== "merged" || Boolean(at(item, "merged_at"))) &&
 				(!author || at(at(item, "user"), "login") === author),
@@ -328,13 +339,10 @@ async function pullOnly(action: string, rest: string[], ctx: Ctx, api: Api): Pro
 			const result = await ctx.exec?.(`git fetch origin ${shellQuote(`pull/${number}/head:${branch}`)} && git checkout ${shellQuote(branch)}`, { cwd: ctx.cwd });
 			return result ?? failed("git is not available");
 		}
-		case "merge": {
-			const method = flags.set.has("squash") ? "squash" : flags.set.has("rebase") ? "rebase" : "merge";
-			const merged = await api.json("PUT", `${path}/merge`, { merge_method: method });
-			return ok(`${text(at(merged, "message")) || "Merged"} #${number}\n`);
-		}
 	}
-	throw new GhError(`unknown command "pr ${action}"; supported: list, view, create, diff, checkout, comment, merge, close, reopen. Use \`gh api\` for anything else.`);
+	const method = flags.set.has("squash") ? "squash" : flags.set.has("rebase") ? "rebase" : "merge";
+	const merged = await api.json("PUT", `${path}/merge`, { merge_method: method });
+	return ok(`${text(at(merged, "message")) || "Merged"} #${number}\n`);
 }
 
 function typedField(raw: string): unknown {
@@ -409,29 +417,18 @@ async function repoCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecR
 		const given = flags.positional[0];
 		const repo = given ? parseRepo(given) : await currentRepo(ctx, flags);
 		if (!repo) throw new GhError(`expected OWNER/REPO, got ${given}`);
-		const json = one(flags, "json");
 		const [info, readme] = await Promise.all([
 			client.json("GET", `/repos/${repo.owner}/${repo.name}`),
-			json === undefined ? client.raw("GET", `/repos/${repo.owner}/${repo.name}/readme`, undefined, "application/vnd.github.raw") : undefined,
+			one(flags, "json") === undefined ? client.raw("GET", `/repos/${repo.owner}/${repo.name}/readme`, undefined, "application/vnd.github.raw") : undefined,
 		]);
-		const fields = ["name", "nameWithOwner", "description", "url", "defaultBranchRef", "isPrivate", "stargazerCount", "updatedAt"];
-		if (json !== undefined) {
-			const values: Record<string, unknown> = {
-				name: at(info, "name"),
-				nameWithOwner: at(info, "full_name"),
-				description: at(info, "description"),
-				url: at(info, "html_url"),
-				defaultBranchRef: { name: at(info, "default_branch") },
-				isPrivate: at(info, "private"),
-				stargazerCount: at(info, "stargazers_count"),
-				updatedAt: at(info, "updated_at"),
-			};
-			const wanted = json.split(",").map((field) => field.trim()).filter(Boolean);
-			const unknown = wanted.filter((field) => !fields.includes(field));
-			if (wanted.length === 0 || unknown.length > 0) throw new GhError(`Available fields:\n  ${fields.join("\n  ")}`);
-			return filter(ctx, flags, JSON.stringify(Object.fromEntries(wanted.map((field) => [field, values[field]])), null, 2));
-		}
-		return ok(`name:\t${text(at(info, "full_name"))}\ndescription:\t${text(at(info, "description"))}\n--\n${readme?.ok ? readme.text : ""}\n`);
+		return present(
+			ctx,
+			flags,
+			info,
+			Object.keys(REPO_FIELDS),
+			() => `name:\t${text(at(info, "full_name"))}\ndescription:\t${text(at(info, "description"))}\n--\n${readme?.ok ? readme.text : ""}\n`,
+			(item, field) => REPO_FIELDS[field]?.(item),
+		);
 	}
 	throw new GhError(`unknown command "repo ${action}"; supported: clone, view. Use \`gh api\` for anything else.`);
 }

@@ -9,7 +9,7 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
-import { type Ask, Dialog, type DialogRequest } from "./Dialog.tsx";
+import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
@@ -28,7 +28,7 @@ import { native } from "../native.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./triggers.ts";
 import { type Trigger, Triggers } from "../agent/triggers.ts";
 import { System } from "../system-plugin.ts";
-import { contextTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
+import { contextTokens } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
@@ -57,11 +57,9 @@ export function App() {
 	const [bots, setBots] = useState<Bot[]>([]);
 	const [controller, setController] = useState<ConversationController>();
 	const [view, setView] = useState<ConversationView>();
-	const [pendingDraft, setPendingDraft] = useState<string>();
-	const [pendingFiles, setPendingFiles] = useState<readonly File[]>();
-	const [pendingShared, setPendingShared] = useState<SharedKind>();
+	const [pending, setPending] = useState<{ draft?: string; files?: readonly File[]; shared?: SharedKind }>({});
 	const [overlay, setOverlay] = useState<Overlay>();
-	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (value: string | boolean | undefined) => void }>();
+	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (sure: boolean) => void }>();
 	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
@@ -94,11 +92,7 @@ export function App() {
 	const dismissNotices = useCallback((ids: readonly number[]) => setNotices((current) => current.filter((notice) => !ids.includes(notice.id))), []);
 	const fail = useCallback((error: unknown) => notify(messageOf(error)), [notify]);
 
-	const ask = useCallback(
-		((request: DialogRequest) =>
-			new Promise<string | boolean | undefined>((resolve) => setDialog({ request, resolve }))) as Ask,
-		[],
-	);
+	const ask = useCallback((request: DialogRequest) => new Promise<boolean>((resolve) => setDialog({ request, resolve })), []);
 
 	const live = useRef({ settings, runtime, controller });
 	live.current = { settings, runtime, controller };
@@ -180,9 +174,7 @@ export function App() {
 			const next = await runtime.openConversation(id);
 			localStorage.setItem(LAST_BOT_KEY, String(id));
 			setChatKey((key) => key + 1);
-			setPendingDraft(draft);
-			setPendingFiles(files);
-			setPendingShared(shared);
+			setPending({ draft, files, shared });
 			setView(undefined);
 			setController(next);
 		},
@@ -240,6 +232,8 @@ export function App() {
 		};
 	}, [runtime, notify]);
 
+	useEffect(() => controller?.subscribe(setView), [controller]);
+
 	useEffect(() => {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
 	}, [runtime, controller]);
@@ -259,8 +253,8 @@ export function App() {
 	const dialogView = (
 		<Dialog
 			request={dialog?.request}
-			onAnswer={(value) => {
-				dialog?.resolve(value);
+			onAnswer={(sure) => {
+				dialog?.resolve(sure);
 				setDialog(undefined);
 			}}
 		/>
@@ -331,6 +325,10 @@ export function App() {
 	const used = contextTokens(view);
 	const contextWindow = model?.contextWindow ?? 0;
 	const busy = isBusy(view);
+	const openMemory = (bot: Bot) => {
+		setMemoryBot(bot);
+		setOverlay("botMemory");
+	};
 
 	return (
 		<div
@@ -397,8 +395,6 @@ export function App() {
 						bot={current}
 						runtime={runtime}
 						view={view}
-						usage={totalUsage(view)}
-						cacheHitRate={latestCacheHitRate(view)}
 						context={{ used, window: contextWindow }}
 						compactAt={settings.compactAt}
 						prefs={prefs}
@@ -409,11 +405,8 @@ export function App() {
 								if (current) setBotEdit({ kind: "edit", bot: current });
 							},
 							memory: () => {
-								if (!current) return;
-								setMemoryBot(current);
-								setOverlay("botMemory");
+								if (current) openMemory(current);
 							},
-							copy: (text) => navigator.clipboard.writeText(text),
 							compact: () => (controller ? controller.compact() : Promise.resolve(false)),
 							reset: async () => {
 								if (!controller) return;
@@ -426,7 +419,6 @@ export function App() {
 							},
 							emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
 								? async () => {
-										if (!controller) return false;
 										const sure = await ask({
 											title: "清空資料夾",
 											body: `${current?.name ?? "這個 Bot"} 在容器裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
@@ -449,11 +441,11 @@ export function App() {
 						controller={controller}
 						prefs={prefs}
 						capabilities={{ native, sandbox: onSandbox }}
-						initialDraft={pendingDraft}
-						initialFiles={pendingFiles}
-						shared={pendingShared}
+						view={view}
+						initialDraft={pending.draft}
+						initialFiles={pending.files}
+						shared={pending.shared}
 						focusKey={focusKey}
-						onView={setView}
 						notices={notices}
 						onDismissNotices={dismissNotices}
 						onError={notify}
@@ -503,8 +495,7 @@ export function App() {
 				}}
 				onMemory={(bot) => {
 					setBotEdit(undefined);
-					setMemoryBot(bot);
-					setOverlay("botMemory");
+					openMemory(bot);
 				}}
 				onDelete={async (bot) => {
 					setBotEdit(undefined);

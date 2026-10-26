@@ -55,7 +55,6 @@ type macScreen struct {
 	axTrusted        func() bool
 	mainDisplay      func() uint32
 	displayWide      func(uint32) uintptr
-	displayHigh      func(uint32) uintptr
 	eventCreate      func(uintptr) uintptr
 	eventLocation    func(uintptr) cgPoint
 	mouseEvent       func(uintptr, uint32, cgPoint, uint32) uintptr
@@ -80,7 +79,7 @@ func newScreen() (screen, error) {
 	s := &macScreen{}
 	for name, fn := range map[string]any{
 		"AXIsProcessTrusted": &s.axTrusted, "CGMainDisplayID": &s.mainDisplay, "CGDisplayPixelsWide": &s.displayWide,
-		"CGDisplayPixelsHigh": &s.displayHigh, "CGEventCreate": &s.eventCreate, "CGEventGetLocation": &s.eventLocation,
+		"CGEventCreate": &s.eventCreate, "CGEventGetLocation": &s.eventLocation,
 		"CGEventCreateMouseEvent": &s.mouseEvent, "CGEventCreateKeyboardEvent": &s.keyboardEvent,
 		"CGEventCreateScrollWheelEvent2": &s.scrollEvent, "CGEventSetFlags": &s.setFlags,
 		"CGEventSetIntegerValueField": &s.setIntegerField, "CGEventKeyboardSetUnicodeString": &s.setUnicodeString,
@@ -95,28 +94,27 @@ func newScreen() (screen, error) {
 
 var errNoAccessibility = errors.New("macOS has not given pi-mobile Accessibility, so the mouse and keyboard do nothing: tell the user to turn on pi-mobile in System Settings › Privacy & Security › Accessibility on the computer")
 
-func (s *macScreen) capture() (image.Image, float64, float64, error) {
+func (s *macScreen) capture() (image.Image, float64, error) {
 	file, err := os.CreateTemp("", "pi-mobile-shot-*.jpg")
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 	path := file.Name()
 	file.Close()
 	defer os.Remove(path)
 	if out, err := exec.Command("/usr/sbin/screencapture", "-x", "-m", "-t", "jpg", path).CombinedOutput(); err != nil {
-		return nil, 0, 0, fmt.Errorf("screencapture: %v %s", err, strings.TrimSpace(string(out)))
+		return nil, 0, fmt.Errorf("screencapture: %v %s", err, strings.TrimSpace(string(out)))
 	}
 	file, err = os.Open(path)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 	defer file.Close()
 	img, err := jpeg.Decode(file)
 	if err != nil {
-		return nil, 0, 0, errors.New("no screenshot: macOS has not given pi-mobile Screen Recording; tell the user to turn on pi-mobile in System Settings › Privacy & Security › Screen & System Audio Recording on the computer")
+		return nil, 0, errors.New("no screenshot: macOS has not given pi-mobile Screen Recording; tell the user to turn on pi-mobile in System Settings › Privacy & Security › Screen & System Audio Recording on the computer")
 	}
-	display := s.mainDisplay()
-	return img, float64(s.displayWide(display)), float64(s.displayHigh(display)), nil
+	return img, float64(s.displayWide(s.mainDisplay())), nil
 }
 
 func (s *macScreen) attribute(element uintptr, name string) uintptr {

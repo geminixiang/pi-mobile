@@ -1,6 +1,5 @@
-import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
+import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { BotIndex } from "../bots.ts";
@@ -10,7 +9,6 @@ import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";
 import type { Workplace } from "../workplaces.ts";
 import { sharedUntilFailure } from "../../promise.ts";
-import { shellQuote } from "../../shell.ts";
 
 export interface Sandbox {
 	readonly direct: boolean;
@@ -44,19 +42,9 @@ export class SharedEnvs {
 		return new RemoteExecutionEnv({ connection: this.#connection, id: "sandbox:main", cwd });
 	}
 
-	async #run(command: string): Promise<number> {
-		const result = await this.#baseEnv.exec(command, { timeout: 60_000 }, BACKGROUND_CONTEXT);
-		if (!result.ok) throw result.error;
-		return result.value.exitCode;
-	}
-
 	async env(folder: string): Promise<ExecutionEnv> {
 		const root = this.root(folder);
-		await sharedUntilFailure(this.#made, folder, () =>
-			this.#run(`mkdir -p ${shellQuote(root)}`).then((code) => {
-				if (code !== 0) throw new Error(`cannot create ${root}`);
-			}),
-		);
+		await sharedUntilFailure(this.#made, folder, async () => getOrThrow(await this.#baseEnv.createDir(root, { recursive: true }, BACKGROUND_CONTEXT)));
 		const env = this.#envs.get(folder) ?? this.#make(root);
 		this.#envs.set(folder, env);
 		return env;
@@ -64,13 +52,13 @@ export class SharedEnvs {
 
 	async exists(folder: string): Promise<boolean> {
 		if (this.#envs.has(folder)) return true;
-		return (await this.#run(`test -d ${shellQuote(this.root(folder))}`)) === 0;
+		return getOrThrow(await this.#baseEnv.exists(this.root(folder), BACKGROUND_CONTEXT));
 	}
 
 	async remove(folder: string): Promise<void> {
 		this.#envs.delete(folder);
 		this.#made.delete(folder);
-		if ((await this.#run(`rm -rf -- ${shellQuote(this.root(folder))}`)) !== 0) throw new Error(`刪除 ${this.root(folder)} 失敗`);
+		getOrThrow(await this.#baseEnv.remove(this.root(folder), { recursive: true, force: true }, BACKGROUND_CONTEXT));
 	}
 
 	close(): void {
@@ -124,5 +112,3 @@ export function createSandboxExtension(workplace: (conversationId: string) => Wo
 		],
 	});
 }
-
-export const SandboxTools = createCodingTools();

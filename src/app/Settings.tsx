@@ -17,7 +17,7 @@ import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
 import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../agent/cloudflare.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
-import { accountKey, type CalendarAccess } from "../agent/calendar-access.ts";
+import { type CalendarAccess, canWrite } from "../agent/calendar-access.ts";
 import { Calendar, groupByAccount, type PhoneCalendar } from "../agent/tools/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
@@ -81,9 +81,7 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 	const groups = calendars ? groupByAccount(calendars) : [];
 	const hiddenGroups = groups.filter((group) => access.hidden.includes(group.key));
 	const sharedCount = calendars?.filter((calendar) => !calendar.own).length ?? 0;
-	const writableTargets = (calendars ?? []).filter(
-		(calendar) => calendar.writable && access.writable.includes(accountKey(calendar)) && !access.hidden.includes(accountKey(calendar)),
-	);
+	const writableTargets = (calendars ?? []).filter((calendar) => calendar.writable && canWrite(access, calendar));
 
 	type Use = "off" | "read" | "write";
 	const choose = (group: { key: string; calendars: PhoneCalendar[] }, use: Use) => {

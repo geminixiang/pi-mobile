@@ -1,7 +1,7 @@
 import { CapacitorHttp, registerPlugin } from "@capacitor/core";
 import { native } from "../../native.ts";
 import type { Context } from "@earendil-works/chord";
-import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
+import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { prepareAttachment } from "../attachments.ts";
 import { PhoneEnv } from "../files/phone-env.ts";
@@ -12,6 +12,7 @@ import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { refuseCleartextSecret } from "../cleartext.ts";
+import { anthropicHeaders, rootUrl } from "../models.ts";
 import { fromBase64 } from "../../encoding.ts";
 
 const ResponsesAnswer = Type.Object({
@@ -67,20 +68,14 @@ async function readPdf(url: string, conversationId: string): Promise<(TextConten
 }
 
 async function download(env: ExecutionEnv, url: string, path: string, context: Context): Promise<{ path: string; size: number; contentType: string; url: string }> {
-	if (env instanceof PhoneEnv) {
-		const saved = await env.download(url, path, context);
-		if (!saved.ok) throw saved.error;
-		return saved.value;
-	}
-	const absolute = await env.absolutePath(path, context);
-	if (!absolute.ok) throw absolute.error;
+	if (env instanceof PhoneEnv) return getOrThrow(await env.download(url, path, context));
+	const absolute = getOrThrow(await env.absolutePath(path, context));
 	const response = await getBytes(url);
 	if (response.status >= 400) throw new Error(`HTTP ${response.status} ${response.url}`);
 	const bytes = typeof response.data === "string" ? fromBase64(response.data) : new Uint8Array(0);
-	const written = await env.writeFile(absolute.value, bytes, context);
-	if (!written.ok) throw written.error;
+	getOrThrow(await env.writeFile(absolute, bytes, context));
 	const contentType = contentTypeOf(response.headers);
-	return { path: absolute.value, size: bytes.length, contentType, url: response.url || url };
+	return { path: absolute, size: bytes.length, contentType, url: response.url || url };
 }
 
 export interface WebConfig {
@@ -100,16 +95,12 @@ function pick(ids: readonly string[], patterns: RegExp[]): string | undefined {
 	return undefined;
 }
 
-function root(baseUrl: string): string {
-	return baseUrl.replace(/\/+$/u, "").replace(/\/v1$/u, "");
-}
-
 const INSTRUCTIONS =
 	"Search the web for the query and answer it concisely with the facts found, in the query's language. List the source URLs you relied on.";
 
 async function postSearch<T extends TSchema>(answer: T, config: WebConfig, path: string, model: string, headers: Record<string, string>, body: object, signal: AbortSignal): Promise<Static<T>> {
 	refuseCleartextSecret(config.baseUrl);
-	const response = await fetch(`${root(config.baseUrl)}${path}`, {
+	const response = await fetch(`${rootUrl(config.baseUrl)}${path}`, {
 		method: "POST",
 		headers: { ...headers, "Content-Type": "application/json" },
 		body: JSON.stringify({ model, ...body }),
@@ -142,7 +133,7 @@ async function searchAnthropic(config: WebConfig, model: string, query: string, 
 		config,
 		"/v1/messages",
 		model,
-		{ "x-api-key": config.apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+		anthropicHeaders(config.apiKey),
 		{
 			max_tokens: 2000,
 			system: INSTRUCTIONS,

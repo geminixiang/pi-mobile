@@ -56,7 +56,6 @@ async function triggerFixture(
 	const touched: number[] = [];
 	const asked: string[][] = [];
 	const judge: Judge = {
-		available: async () => options.verdict !== undefined,
 		ask: async (questions) => {
 			asked.push(Object.keys(questions));
 			return options.verdict ?? { kind: "unavailable" };

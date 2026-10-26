@@ -2,12 +2,11 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
-import { normalizeCjk } from "./attachments.ts";
+import { jpegOf, MAX_IMAGE_EDGE, normalizeCjk } from "./attachments.ts";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
 const BLANK_PAGE_CHARS = 20;
-const MAX_IMAGE_EDGE = 1600;
 
 async function openPdf(data: ArrayBuffer): Promise<PDFDocumentProxy> {
 	return getDocument({
@@ -59,8 +58,7 @@ export async function renderPages(file: Blob, pages: readonly number[]): Promise
 			canvas.width = Math.round(viewport.width);
 			canvas.height = Math.round(viewport.height);
 			await page.render({ canvas, viewport, background: "#ffffff" }).promise;
-			const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-			images.push({ type: "image", mimeType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) });
+			images.push(jpegOf(canvas));
 			page.cleanup();
 		}
 		return images;

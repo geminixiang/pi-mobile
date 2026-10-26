@@ -8,7 +8,6 @@ export type Verdict =
 	| { kind: "failed"; reason: string };
 
 export interface Judge {
-	available(): Promise<boolean>;
 	ask(questions: Record<string, Question>, state: JsonObject): Promise<Verdict>;
 }
 
@@ -28,7 +27,6 @@ export function createJudge(models: Models): Judge {
 		return PREFERRED.map(([provider, id]) => available.find((item) => item.provider === provider && item.id === id)).find((item) => item !== undefined);
 	};
 	return {
-		available: async () => (await pick()) !== undefined,
 		async ask(questions, state) {
 			const model = await pick();
 			if (!model) return { kind: "unavailable" };

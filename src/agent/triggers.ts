@@ -2,7 +2,8 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Value } from "typebox/value";
 import { registerPlugin } from "@capacitor/core";
 import { native } from "../native.ts";
-import { type ConversationId, defineDoc, defineExtension, type Harness, section } from "@earendil-works/pi-durable";
+import type { Context } from "@earendil-works/chord";
+import { type ConversationId, defineDoc, defineExtension, type Harness, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, oneOf, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
@@ -91,7 +92,7 @@ const MAX_FOLLOWUPS = 5;
 export const TRIGGER_ENTRY = "trigger.run";
 const RUNNING_ONLY =
 	" It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
-export const TriggerEntryData = Type.Object({
+const TriggerEntryData = Type.Object({
 	trigger: Type.String(),
 	name: Type.String(),
 	prompt: Type.String(),
@@ -249,23 +250,23 @@ export interface TriggerHost {
 const CreateScheduleArgs = Type.Object({
 	name: Type.String({ description: "Short name shown to the user, such as 早晨簡報" }),
 	prompt: Type.String({ description: "What to do when it fires, written as an instruction to yourself" }),
-	on: Type.Union(
+	on: oneOf(
 		[
-			Type.Literal("time"),
-			Type.Literal("headphones"),
-			Type.Literal("charging"),
-			Type.Literal("wifi"),
-			Type.Literal("arrive"),
-			Type.Literal("leave"),
-			Type.Literal("notification"),
-			Type.Literal("unlock"),
-			Type.Literal("battery_low"),
-			Type.Literal("timezone"),
-			Type.Literal("photo"),
-			Type.Literal("bluetooth_connect"),
-			Type.Literal("bluetooth_disconnect"),
-			Type.Literal("activity_start"),
-			Type.Literal("activity_stop"),
+			"time",
+			"headphones",
+			"charging",
+			"wifi",
+			"arrive",
+			"leave",
+			"notification",
+			"unlock",
+			"battery_low",
+			"timezone",
+			"photo",
+			"bluetooth_connect",
+			"bluetooth_disconnect",
+			"activity_start",
+			"activity_stop",
 		],
 		{
 			description:
@@ -373,6 +374,15 @@ function timeOf(args: CreateScheduleArgs, days: number[]): When {
 }
 
 export function createTriggerExtension(host: TriggerHost) {
+	const add = async (api: ToolExecutionApi, context: Context, fields: Omit<Trigger, "id" | "conversationId" | "enabled" | "createdAt">): Promise<Trigger> => {
+		const trigger: Trigger = { id: crypto.randomUUID().slice(0, 8), ...fields, conversationId: api.conversationId, enabled: true, createdAt: Date.now() };
+		await api.commit(async (tx) => {
+			(await tx.doc(TriggerDoc)).items.push(trigger);
+		}, context);
+		host.changed();
+		return trigger;
+	};
+
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
 		description:
@@ -383,22 +393,14 @@ export function createTriggerExtension(host: TriggerHost) {
 			const runningOnly = (when.kind === "unlock" || when.kind === "battery_low") && !(await Notifications.status()).allowed;
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
-			const trigger: Trigger = {
-				id: crypto.randomUUID().slice(0, 8),
+			const trigger = await add(api, context, {
 				name: args.name,
 				prompt: args.prompt,
 				when,
 				...(args.only_if ? { onlyIf: args.only_if } : {}),
 				...guardsFor(when, args.guards),
 				kind: "schedule",
-				conversationId: api.conversationId,
-				enabled: true,
-				createdAt: Date.now(),
-			};
-			await api.commit(async (tx) => {
-				(await tx.doc(TriggerDoc)).items.push(trigger);
-			}, context);
-			host.changed();
+			});
 			const asked = `${trigger.guards?.length ? ` Checks: ${trigger.guards.join(", ")}.` : ""}${trigger.onlyIf ? ` Only if: ${trigger.onlyIf}` : ""}`;
 			return text(`Scheduled ${trigger.id}: ${trigger.name}, ${describeWhen(when)}.${asked} The user can pause or delete it in Settings.${runningOnly ? RUNNING_ONLY : ""}`);
 		},
@@ -418,20 +420,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			const pending = existing?.items.filter((item) => item.kind === "followup").length ?? 0;
 			if (pending >= MAX_FOLLOWUPS) throw new Error(`there are already ${MAX_FOLLOWUPS} pending follow-ups`);
 			const at = Date.now() + args.minutes * 60_000;
-			const trigger: Trigger = {
-				id: crypto.randomUUID().slice(0, 8),
-				name: args.label,
-				prompt: args.note,
-				when: { kind: "once", at },
-				kind: "followup",
-				conversationId: api.conversationId,
-				enabled: true,
-				createdAt: Date.now(),
-			};
-			await api.commit(async (tx) => {
-				(await tx.doc(TriggerDoc)).items.push(trigger);
-			}, context);
-			host.changed();
+			const trigger = await add(api, context, { name: args.label, prompt: args.note, when: { kind: "once", at }, kind: "followup" });
 			return text(`Follow-up ${trigger.id} at ${localTime(at)}.`);
 		},
 	});

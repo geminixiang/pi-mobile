@@ -47,6 +47,7 @@ export function mcpResult(result: CallToolResult, output = toLlmContent(result))
 }
 
 export const extensionName = (server: McpServer) => `mcp-${server.id}`;
+export const isMcpExtension = (name: string) => name.startsWith("mcp-");
 
 const stateKey = (server: McpServer) => `mcp.${server.id}`;
 
@@ -328,13 +329,6 @@ class Connection {
 
 export type Grant = { extension: string; toolPrefix: string };
 
-type ConnectionHooks = {
-	install: (extension: Extension) => void;
-	changed: () => void;
-	openUrl: (url: string) => Promise<void>;
-	hostKey: (address: string) => string;
-};
-
 type McpHooks = {
 	install: (extension: Extension) => void;
 	uninstall: (name: string) => void;
@@ -342,6 +336,8 @@ type McpHooks = {
 	openUrl: (url: string) => Promise<void>;
 	hostKey: (address: string) => string;
 };
+
+type ConnectionHooks = Pick<McpHooks, "install" | "openUrl" | "hostKey"> & { changed: () => void };
 
 export class McpHub {
 	readonly #connections = new Map<string, Connection>();

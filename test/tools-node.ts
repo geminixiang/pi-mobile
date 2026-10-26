@@ -30,7 +30,7 @@ const extensions = builtinExtensions({
 	native: new Set(NATIVE_PLUGINS),
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
-	githubToken: async () => "token",
+	githubToken: "token",
 	clouds: [googleService(async () => "", undefined), cloudflareService(async () => "", undefined), azureService(async () => "", undefined)],
 	web: { baseUrl: "", apiKey: "", modelIds: [] },
 	triggers: { changed: () => undefined, notify: async () => false },

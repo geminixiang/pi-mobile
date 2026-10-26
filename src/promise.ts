@@ -25,6 +25,19 @@ export function sharedUntilFailure<K, V>(cache: Map<K, Promise<V>>, key: K, star
 	return started;
 }
 
+export function untilFailure<T>(start: () => Promise<T>): () => Promise<T> {
+	let current: Promise<T> | undefined;
+	return () => {
+		if (current) return current;
+		const started = start();
+		current = started;
+		onFailure(started, () => {
+			current = undefined;
+		});
+		return started;
+	};
+}
+
 export function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -35,6 +48,11 @@ export function onFailure(promise: Promise<unknown>, run: (error: unknown) => vo
 
 export function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+export function codeOf(error: unknown): string | undefined {
+	const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
+	return typeof code === "string" ? code : undefined;
 }
 
 export function orLogged<T, F>(promise: Promise<T>, event: string, fallback: F, fields: Record<string, string> = {}): Promise<T | F> {

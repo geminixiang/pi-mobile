@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, postForm, startDeviceFlow, cachedToken, refreshedTokens } from "./oauth.ts";
+import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, refreshRotating, startDeviceFlow, cachedToken } from "./oauth.ts";
 import { type Checked, checkJson, parse } from "./parse.ts";
 
 const LOGIN = "https://login.microsoftonline.com";
@@ -91,18 +91,19 @@ export class AzureTokens {
 		return token();
 	}
 
-	async #refresh(scope: string): Promise<AccessToken> {
+	#refresh(scope: string): Promise<AccessToken> {
 		const credential = this.#credential;
-		const response = await postForm({
-			url: `${LOGIN}/${credential.tenant_id}/oauth2/v2.0/token`,
-			form: { grant_type: "refresh_token", refresh_token: credential.refresh_token, client_id: CLIENT_ID, scope: `${scope} offline_access` },
-			what: "Azure token",
-		});
-		const tokens = refreshedTokens(response, "Azure token");
-		if (tokens.refresh && tokens.refresh !== credential.refresh_token) {
-			this.#credential = { ...credential, refresh_token: tokens.refresh };
-			await this.#onRotate(JSON.stringify(this.#credential));
-		}
-		return tokens.access;
+		return refreshRotating(
+			{
+				url: `${LOGIN}/${credential.tenant_id}/oauth2/v2.0/token`,
+				refreshToken: credential.refresh_token,
+				form: { client_id: CLIENT_ID, scope: `${scope} offline_access` },
+				what: "Azure token",
+			},
+			async (refresh_token) => {
+				this.#credential = { ...credential, refresh_token };
+				await this.#onRotate(JSON.stringify(this.#credential));
+			},
+		);
 	}
 }

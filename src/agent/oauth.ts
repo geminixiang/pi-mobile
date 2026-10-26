@@ -2,7 +2,7 @@ import { CapacitorHttp } from "@capacitor/core";
 import { type Static, Type } from "typebox";
 import { check, type Checked, parse, parseJson, valueOrThrow } from "./parse.ts";
 import { orLogged, sleep } from "../promise.ts";
-import { toBase64Url } from "../encoding.ts";
+import { randomBase64Url, toBase64Url } from "../encoding.ts";
 
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
 
@@ -75,6 +75,15 @@ export function refreshedTokens(response: HttpResponse, what: string): Tokens {
 	const checked = checkTokens(response, what);
 	if (!checked.ok) throw new Error(`${checked.problem}（可能需要在設定重新登入）`);
 	return checked.value;
+}
+
+export async function refreshRotating(
+	{ url, refreshToken, form, what }: { url: string; refreshToken: string; form: Record<string, string>; what: string },
+	onRotated: (refreshToken: string) => Promise<void>,
+): Promise<AccessToken> {
+	const tokens = refreshedTokens(await postForm({ url, form: { grant_type: "refresh_token", refresh_token: refreshToken, ...form }, what }), what);
+	if (tokens.refresh && tokens.refresh !== refreshToken) await onRotated(tokens.refresh);
+	return tokens.access;
 }
 
 export function cachedToken<A extends unknown[]>(mint: (...args: A) => Promise<AccessToken>): (...args: A) => Promise<AccessToken> {
@@ -164,7 +173,7 @@ export async function pollDeviceFlow({
 }
 
 export async function pkce(bytes: number): Promise<{ verifier: string; challenge: string }> {
-	const verifier = toBase64Url(crypto.getRandomValues(new Uint8Array(bytes)));
+	const verifier = randomBase64Url(bytes);
 	return { verifier, challenge: toBase64Url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))) };
 }
 

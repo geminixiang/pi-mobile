@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import type { Change, RepoStatus, Workspace } from "../agent/sandbox/workspace.ts";
+import type { Change, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
@@ -10,14 +10,9 @@ import { messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
+import { formatBytes } from "../agent/tools/common.ts";
 
 export type WorkspaceTab = "files" | "git";
-
-function formatSize(bytes: number): string {
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 const relative = new Intl.RelativeTimeFormat("zh-TW", { numeric: "auto" });
 function ago(time: number): string {
@@ -105,7 +100,7 @@ function FileBrowser({
 								{entry.name}
 								{entry.kind === "directory" ? "/" : ""}
 							</span>
-							<span className="file-meta">{entry.kind === "directory" ? "" : formatSize(entry.size)}</span>
+							<span className="file-meta">{entry.kind === "directory" ? "" : formatBytes(entry.size)}</span>
 						</button>
 					</li>
 				))}
@@ -132,23 +127,10 @@ function repoName(root: string, path: string): string {
 }
 
 function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDiff: (target: DiffTarget) => void; reloadKey: number }) {
-	const [repos, setRepos] = useState<RepoStatus[]>();
-	const [error, setError] = useState("");
-
-	useEffect(() => {
-		let live = true;
-		setError("");
-		workspace
-			.repos()
-			.then((paths) => Promise.all(paths.map((path) => workspace.status(path))))
-			.then(
-				(items) => live && setRepos(items),
-				(failure: unknown) => live && setError(messageOf(failure)),
-			);
-		return () => {
-			live = false;
-		};
-	}, [workspace, reloadKey]);
+	const { value: repos, error } = useLoaded(
+		() => workspace.repos().then((paths) => Promise.all(paths.map((path) => workspace.status(path)))),
+		[workspace, reloadKey],
+	);
 
 	if (error) return <div className="ws-pane"><div className="banner error">{error}</div></div>;
 	if (!repos) return <div className="ws-pane"><div className="ws-loading">讀取中</div></div>;

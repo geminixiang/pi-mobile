@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { RemoteError } from "@earendil-works/pi-env";
 import { type ConnectionStatus, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
-import type { Check } from "./setup.ts";
+import { type Check, settle } from "./setup.ts";
 
 const RESULT = 2;
 const encoder = new TextEncoder();
@@ -165,7 +165,7 @@ export const checks: Check[] = [
 				link(false);
 				const down = statuses.at(-1);
 				assert(down?.kind === "reattaching" && down.session === session);
-				await new Promise((resolve) => setTimeout(resolve, 50));
+				await settle(50);
 				assert.equal(statuses.at(-1)?.kind, "reattaching");
 				link(true);
 				assert.deepEqual(statuses.at(-1), { kind: "connected", session });

@@ -7,9 +7,11 @@ import { symbolsOf } from "./triggerSymbol.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { SidePanel } from "./SidePanel.tsx";
+import { DAY, startOfToday } from "../agent/tools/common.ts";
 
-const DAY = 24 * 60 * 60 * 1000;
 const SHOWN_SYMBOLS = 3;
+const CLOCK = new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+const MONTH_DAY = new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric" });
 
 const SYMBOL_NAMES: Record<TriggerSymbol, string> = {
 	clock: "時間",
@@ -43,12 +45,10 @@ function BotAutomations({ whens }: { whens: readonly When[] }) {
 	);
 }
 
-function time(updatedAt: number, now: Date): string {
-	const date = new Date(updatedAt);
-	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-	if (updatedAt >= startOfToday) return date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
-	if (updatedAt >= startOfToday - DAY) return "昨天";
-	return date.toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
+function time(updatedAt: number, today: number): string {
+	if (updatedAt >= today) return CLOCK.format(updatedAt);
+	if (updatedAt >= today - DAY) return "昨天";
+	return MONTH_DAY.format(updatedAt);
 }
 
 export function Drawer({
@@ -78,7 +78,7 @@ export function Drawer({
 	onSettings: () => void;
 	onClose: () => void;
 }) {
-	const now = new Date();
+	const today = startOfToday();
 	return (
 		<SidePanel side="left" open={open} onClose={onClose} label="Bot 列表">
 			<div className="drawer">
@@ -108,7 +108,7 @@ export function Drawer({
 									</span>
 									<span className="bot-job">{bot.job.split("\n")[0] || "一般助理"}</span>
 								</span>
-								<span className="drawer-time">{time(bot.updatedAt, now)}</span>
+								<span className="drawer-time">{time(bot.updatedAt, today)}</span>
 							</button>
 							<button type="button" className="icon-button small" aria-label={`${bot.name} 的設定`} onClick={() => onEdit(bot)}>
 								<MoreIcon />

@@ -43,7 +43,6 @@ type message struct {
 // why: a phone that loses its network sends no FIN, so the computer only learns of the loss from a failed write or an unanswered ping; held sessions keep pi-env alive themselves (heartbeat) instead of relying on the phone's pings reaching it.
 type held struct {
 	owner     string
-	cmd       *exec.Cmd
 	stdin     io.WriteCloser
 	heartbeat []byte
 	cancel    context.CancelFunc
@@ -363,7 +362,7 @@ func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heart
 	if err != nil {
 		return nil, err
 	}
-	session := &held{owner: owner, cmd: cmd, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
+	session := &held{owner: owner, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
 	var stdout io.ReadCloser
 	if tagged {
 		cmd.Stdout = heldWriter{1, session}

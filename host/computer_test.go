@@ -28,12 +28,12 @@ type failingScreen struct {
 
 func (s *failingScreen) apps() map[int]string { return nil }
 func (s *failingScreen) quit([]int)           {}
-func (s *failingScreen) capture() (image.Image, float64, float64, error) {
+func (s *failingScreen) capture() (image.Image, float64, error) {
 	s.calls = append(s.calls, "capture")
 	if s.captureError != nil {
-		return nil, 0, 0, s.captureError
+		return nil, 0, s.captureError
 	}
-	return image.NewRGBA(image.Rect(0, 0, 20, 10)), 20, 10, nil
+	return image.NewRGBA(image.Rect(0, 0, 20, 10)), 20, nil
 }
 func (s *failingScreen) state() (string, string, float64, float64) { return "fixture", "test", 0, 0 }
 func (s *failingScreen) click(float64, float64, string, int) error {
