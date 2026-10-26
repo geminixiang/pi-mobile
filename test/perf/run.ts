@@ -27,8 +27,13 @@ if (unknown.length > 0) throw new Error(`Unknown scenes: ${unknown.join(", ")}; 
 
 const adbPath = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const adb = (...command: string[]) => execFileSync(adbPath, ["-s", serial, "shell", ...command], { encoding: "utf8" });
-const swipe = (x1: number, y1: number, x2: number, y2: number, ms: number) => adb("input", "swipe", String(x1), String(y1), String(x2), String(y2), String(ms));
-const tap = (x: number, y: number) => adb("input", "tap", String(x), String(y));
+const PI = "dev.geminixiang.pimobile/";
+const input = (...args: string[]) => {
+	const out = adb(`if dumpsys activity activities | grep topResumedActivity | grep -q ${PI}; then input ${args.join(" ")}; else echo NOT_PI; fi`);
+	if (out.includes("NOT_PI")) throw new Error(`pi is not in front; stopped before input ${args.join(" ")}`);
+};
+const swipe = (x1: number, y1: number, x2: number, y2: number, ms: number) => input("swipe", String(x1), String(y1), String(x2), String(y2), String(ms));
+const tap = (x: number, y: number) => input("tap", String(x), String(y));
 
 type Reply = { result?: { value?: unknown }; exceptionDetails?: { exception?: { description?: string } } };
 
@@ -221,7 +226,7 @@ async function act(page: Page, scene: Scene) {
 				await flings("newer", 2, 1200);
 			});
 		case "typing":
-			for (const key of "abcdefghijklmnopqrstuvwxyzabcd") adb("input", "text", key);
+			for (const key of "abcdefghijklmnopqrstuvwxyzabcd") input("text", key);
 			await sleep(500);
 			return;
 		case "panel":
