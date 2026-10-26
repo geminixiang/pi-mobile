@@ -1,6 +1,5 @@
 package dev.geminixiang.pimobile;
 
-import android.os.Build;
 import android.content.pm.PackageManager;
 import android.Manifest;
 import android.bluetooth.BluetoothClass;
@@ -21,19 +20,15 @@ public class HeadphonesReceiver extends BroadcastReceiver {
         if (ACTION_A2DP.equals(intent.getAction())) bluetooth(context, intent);
     }
 
-    @SuppressWarnings("deprecation")
     private static BluetoothDevice device(Intent intent) {
-        return android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
-            ? intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class)
-            : intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        return intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class);
     }
 
     private static void bluetooth(Context context, Intent intent) {
         int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
         if (state != BluetoothProfile.STATE_CONNECTED && state != BluetoothProfile.STATE_DISCONNECTED) return;
         BluetoothDevice device = device(intent);
-        boolean mayReadDevice = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
-            || context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        boolean mayReadDevice = context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
         String named = device != null && mayReadDevice ? device.getName() : null;
         if (named != null) TriggerReceiver.bluetooth(context, named, state == BluetoothProfile.STATE_CONNECTED);
         if (state == BluetoothProfile.STATE_DISCONNECTED) {

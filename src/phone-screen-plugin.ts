@@ -29,7 +29,7 @@ export type PhoneScreenSnapshot = {
 };
 
 export interface PhoneScreenPlugin {
-	status(): Promise<{ allowed: boolean; screenshots: boolean }>;
+	status(): Promise<{ allowed: boolean }>;
 	openSettings(): Promise<void>;
 	openAppInfo(): Promise<void>;
 	read(options: { screenshot: boolean }): Promise<PhoneScreenSnapshot>;

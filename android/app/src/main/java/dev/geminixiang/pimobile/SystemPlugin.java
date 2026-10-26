@@ -30,7 +30,7 @@ public class SystemPlugin extends Plugin {
     @PluginMethod
     public void haptic(PluginCall call) {
         String kind = call.getString("kind", "tick");
-        int tick = android.os.Build.VERSION.SDK_INT >= 34 ? HapticFeedbackConstants.SEGMENT_TICK : HapticFeedbackConstants.CLOCK_TICK;
+        int tick = HapticFeedbackConstants.SEGMENT_TICK;
         int constant = "press".equals(kind)
             ? HapticFeedbackConstants.LONG_PRESS
             : "confirm".equals(kind) ? HapticFeedbackConstants.CONFIRM : tick;

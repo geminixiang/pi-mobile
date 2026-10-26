@@ -10,7 +10,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.os.Build;
 import android.provider.MediaStore;
 import android.util.Log;
 import java.util.ArrayList;
@@ -70,7 +69,7 @@ final class PhotoTrigger {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         long since = prefs.getLong(KEY_SINCE, System.currentTimeMillis() / 1000);
         String[] columns = { MediaStore.Images.Media._ID, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.DATE_ADDED };
-        String where = MediaStore.Images.Media.DATE_ADDED + " > ?" + (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ? " AND " + MediaStore.Images.Media.IS_PENDING + " = 0" : "");
+        String where = MediaStore.Images.Media.DATE_ADDED + " > ? AND " + MediaStore.Images.Media.IS_PENDING + " = 0";
         List<Photo> photos = new ArrayList<>();
         long newest = since;
         try (Cursor cursor = context.getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, columns, where, new String[] { String.valueOf(since) }, MediaStore.Images.Media.DATE_ADDED + " DESC")) {

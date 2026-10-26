@@ -6,7 +6,6 @@ import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.webkit.WebView;
@@ -111,8 +110,7 @@ public class KeepAlivePlugin extends Plugin {
     }
 
     private boolean notificationsAllowed() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
-            || getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+        return getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
     }
 
     private static JSObject granted(boolean value) {

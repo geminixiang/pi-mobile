@@ -11,7 +11,6 @@ import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
@@ -39,16 +38,11 @@ public class NotificationsPlugin extends Plugin {
 
     @PluginMethod
     public void openSettings(PluginCall call) {
-        Intent intent;
-        if (Build.VERSION.SDK_INT >= 30) {
-            intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
-            intent.putExtra(
-                Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
-                new ComponentName(getContext(), NotificationsListener.class).flattenToString()
-            );
-        } else {
-            intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        }
+        Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
+        intent.putExtra(
+            Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+            new ComponentName(getContext(), NotificationsListener.class).flattenToString()
+        );
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             getContext().startActivity(intent);
@@ -301,7 +295,7 @@ public class NotificationsPlugin extends Plugin {
         long until = call.getLong("until", 0L);
         alarms.cancel(end);
         if (filter != NotificationListenerService.INTERRUPTION_FILTER_ALL && until > System.currentTimeMillis()) {
-            if (Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
+            if (alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
             else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
         } else {
             until = 0;

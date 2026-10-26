@@ -14,7 +14,6 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.hardware.HardwareBuffer;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Base64;
@@ -67,19 +66,16 @@ public class PhoneScreenPlugin extends Plugin {
     public void status(PluginCall call) {
         JSObject result = new JSObject();
         result.put("allowed", PhoneScreenService.running != null);
-        result.put("screenshots", Build.VERSION.SDK_INT >= 30);
         call.resolve(result);
     }
 
     @PluginMethod
     public void openSettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (Build.VERSION.SDK_INT >= 33) {
-            Intent detail = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
-                .putExtra(Intent.EXTRA_COMPONENT_NAME, new ComponentName(getContext(), PhoneScreenService.class).flattenToString())
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            if (detail.resolveActivity(getContext().getPackageManager()) != null) intent = detail;
-        }
+        Intent detail = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+            .putExtra(Intent.EXTRA_COMPONENT_NAME, new ComponentName(getContext(), PhoneScreenService.class).flattenToString())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (detail.resolveActivity(getContext().getPackageManager()) != null) intent = detail;
         getContext().startActivity(intent);
         call.resolve();
     }
@@ -269,7 +265,7 @@ public class PhoneScreenPlugin extends Plugin {
         if (field == null) throw new StepFailure("no text field has focus: tap one first");
         if (field.isEditable()) {
             CharSequence current = field.getText();
-            boolean hint = Build.VERSION.SDK_INT >= 26 && field.isShowingHintText();
+            boolean hint = field.isShowingHintText();
             String before = replace || hint || current == null ? "" : current.toString();
             Bundle arguments = new Bundle();
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, before + text);
@@ -312,7 +308,6 @@ public class PhoneScreenPlugin extends Plugin {
                 global(service, AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS);
                 break;
             case "enter":
-                if (Build.VERSION.SDK_INT < 30) throw new StepFailure("enter needs Android 11");
                 AccessibilityNodeInfo field = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
                 if (field == null) throw new StepFailure("no text field has focus");
                 if (!field.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId())) {
@@ -472,10 +467,8 @@ public class PhoneScreenPlugin extends Plugin {
         if (text != null && text.toString().trim().length() > 0) return clip(text.toString());
         CharSequence description = node.getContentDescription();
         if (description != null && description.toString().trim().length() > 0) return clip(description.toString());
-        if (Build.VERSION.SDK_INT >= 26) {
-            CharSequence hint = node.getHintText();
-            if (hint != null && hint.toString().trim().length() > 0) return clip(hint.toString());
-        }
+        CharSequence hint = node.getHintText();
+        if (hint != null && hint.toString().trim().length() > 0) return clip(hint.toString());
         return "";
     }
 
@@ -531,10 +524,6 @@ public class PhoneScreenPlugin extends Plugin {
     }
 
     private String screenshot(PhoneScreenService service, float scale, JSObject result) throws InterruptedException {
-        if (Build.VERSION.SDK_INT < 30) {
-            result.put("shotError", "screenshots need Android 11");
-            return null;
-        }
         for (int attempt = 0; attempt < 4; attempt++) {
             CountDownLatch done = new CountDownLatch(1);
             Bitmap[] shot = { null };

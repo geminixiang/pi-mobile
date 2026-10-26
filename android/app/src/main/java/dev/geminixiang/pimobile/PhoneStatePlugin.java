@@ -19,7 +19,6 @@ import android.net.Uri;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.nfc.NfcAdapter;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
@@ -260,7 +259,7 @@ public class PhoneStatePlugin extends Plugin {
             NetworkCapabilities caps = connectivity.getNetworkCapabilities(network);
             if (caps == null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) continue;
             wifiConnected = true;
-            if (Build.VERSION.SDK_INT >= 31 && caps.getTransportInfo() instanceof WifiInfo) {
+            if (caps.getTransportInfo() instanceof WifiInfo) {
                 String ssid = ((WifiInfo) caps.getTransportInfo()).getSSID();
                 if (ssid != null && !ssid.contains("unknown ssid")) wifiState.put("name", ssid.replaceAll("^\"|\"$", ""));
             }
@@ -289,7 +288,7 @@ public class PhoneStatePlugin extends Plugin {
 
         TelephonyManager phone = context.getSystemService(TelephonyManager.class);
         JSObject mobile = new JSObject();
-        if (phone != null && Build.VERSION.SDK_INT >= 26) {
+        if (phone != null) {
             try {
                 mobile.put("on", phone.isDataEnabled());
             } catch (SecurityException e) {
@@ -299,7 +298,7 @@ public class PhoneStatePlugin extends Plugin {
         result.put("mobileData", mobile);
         result.put("airplaneMode", Settings.Global.getInt(context.getContentResolver(), Settings.Global.AIRPLANE_MODE_ON, 0) == 1);
         LocationManager location = context.getSystemService(LocationManager.class);
-        result.put("location", Build.VERSION.SDK_INT >= 28 && location.isLocationEnabled());
+        result.put("location", location.isLocationEnabled());
         NfcAdapter nfc = NfcAdapter.getDefaultAdapter(context);
         result.put("nfc", nfc == null ? "none" : nfc.isEnabled() ? "on" : "off");
         result.put("batterySaver", context.getSystemService(PowerManager.class).isPowerSaveMode());
@@ -339,19 +338,18 @@ public class PhoneStatePlugin extends Plugin {
     }
 
     private Intent panel(String what) {
-        boolean panels = Build.VERSION.SDK_INT >= 29;
         switch (what) {
             case "wifi":
-                return new Intent(panels ? Settings.Panel.ACTION_WIFI : Settings.ACTION_WIFI_SETTINGS);
+                return new Intent(Settings.Panel.ACTION_WIFI);
             case "bluetooth":
                 return new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
             case "mobile_data":
             case "airplane_mode":
-                return new Intent(panels ? Settings.Panel.ACTION_INTERNET_CONNECTIVITY : Settings.ACTION_WIRELESS_SETTINGS);
+                return new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY);
             case "location":
                 return new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
             case "nfc":
-                return new Intent(panels ? Settings.Panel.ACTION_NFC : Settings.ACTION_NFC_SETTINGS);
+                return new Intent(Settings.Panel.ACTION_NFC);
             case "battery_saver":
                 return new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS);
             default:
@@ -410,39 +408,6 @@ public class PhoneStatePlugin extends Plugin {
         return false;
     }
 
-    private static boolean directly(String what) {
-        return ("wifi".equals(what) && Build.VERSION.SDK_INT < 29) || ("bluetooth".equals(what) && Build.VERSION.SDK_INT < 33);
-    }
-
-    @SuppressWarnings({ "deprecation", "MissingPermission" })
-    private boolean switchDirectly(String what, boolean on) {
-        Context context = getContext();
-        if ("wifi".equals(what) && Build.VERSION.SDK_INT < 29) {
-            return context.getApplicationContext().getSystemService(WifiManager.class).setWifiEnabled(on) && settle(what, on);
-        }
-        if ("bluetooth".equals(what) && Build.VERSION.SDK_INT < 33) {
-            if (Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) return false;
-            BluetoothManager manager = context.getSystemService(BluetoothManager.class);
-            BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
-            return adapter != null && (on ? adapter.enable() : adapter.disable()) && settle(what, on);
-        }
-        return false;
-    }
-
-    private boolean settle(String what, boolean on) {
-        for (int wait = 0; wait < 25; wait++) {
-            Boolean now = isOn(what);
-            if (now != null && now == on) return true;
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
-        }
-        return true;
-    }
-
     private void returnTo(PhoneScreenService service, String previous) throws InterruptedException {
         for (int wait = 0; wait < 10; wait++) {
             Thread.sleep(150);
@@ -467,16 +432,6 @@ public class PhoneStatePlugin extends Plugin {
             JSObject result = connectionsState();
             result.put("outcome", "already");
             call.resolve(result);
-            return;
-        }
-        if (directly(what)) {
-            worker.execute(() -> {
-                boolean done = switchDirectly(what, want);
-                JSObject result = connectionsState();
-                Boolean now = isOn(what);
-                result.put("outcome", now != null && now == want ? "changed" : done ? "pressed" : "refused");
-                call.resolve(result);
-            });
             return;
         }
         PhoneScreenService service = PhoneScreenService.running;

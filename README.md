@@ -25,7 +25,7 @@
 
 ## 開始使用
 
-1. **安裝**：從[最新的 release](../../releases/latest) 下載 `pi-mobile-<版本>.apk` 安裝。需要 Android 7.0 以上的 arm64 手機。
+1. **安裝**：從[最新的 release](../../releases/latest) 下載 `pi-mobile-<版本>.apk` 安裝。需要 Android 16 以上的 arm64 手機。
 2. **加入模型供應商**：第一次打開時，選一家供應商填上 API key，或填自訂端點的網址。到這一步就能聊天。
    - 自訂端點在自己的電腦上（例如 CLIProxyAPI）時，在那台電腦用 Tailscale Serve 給它一個 https 網址，手機填 `https://<電腦>.<tailnet>.ts.net:8318`：
      ```sh

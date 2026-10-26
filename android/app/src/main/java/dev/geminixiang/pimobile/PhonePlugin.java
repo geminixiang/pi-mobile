@@ -14,7 +14,6 @@ import android.hardware.SensorManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
@@ -23,7 +22,6 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.os.BatteryManager;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Environment;
 import android.os.Handler;
@@ -85,7 +83,7 @@ public class PhonePlugin extends Plugin {
     @SuppressWarnings("MissingPermission")
     private void locate(PluginCall call) {
         LocationManager manager = getContext().getSystemService(LocationManager.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && !manager.isLocationEnabled()) {
+        if (!manager.isLocationEnabled()) {
             call.reject("location is turned off on the phone", "disabled");
             return;
         }
@@ -96,46 +94,23 @@ public class PhonePlugin extends Plugin {
         }
         AtomicBoolean done = new AtomicBoolean(false);
         CancellationSignal cancel = new CancellationSignal();
-        LocationListener[] legacy = new LocationListener[1];
         Runnable timeout = () -> {
             if (!done.compareAndSet(false, true)) return;
             cancel.cancel();
-            if (legacy[0] != null) manager.removeUpdates(legacy[0]);
             Location last = lastKnown(manager);
             if (last != null) resolve(call, last, true);
             else call.reject("no location fix within " + FIX_TIMEOUT_MS / 1000 + " seconds", "timeout");
         };
         main.postDelayed(timeout, FIX_TIMEOUT_MS);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            java.util.List<String> order = new java.util.ArrayList<>();
-            order.add(provider);
-            for (String other : new String[] { LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER }) {
-                if (!order.contains(other) && manager.isProviderEnabled(other)
-                    && (!other.equals(LocationManager.GPS_PROVIDER) || granted(Manifest.permission.ACCESS_FINE_LOCATION))) {
-                    order.add(other);
-                }
+        java.util.List<String> order = new java.util.ArrayList<>();
+        order.add(provider);
+        for (String other : new String[] { LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER }) {
+            if (!order.contains(other) && manager.isProviderEnabled(other)
+                && (!other.equals(LocationManager.GPS_PROVIDER) || granted(Manifest.permission.ACCESS_FINE_LOCATION))) {
+                order.add(other);
             }
-            currentFrom(manager, order, 0, cancel, done, timeout, call);
-        } else {
-            legacy[0] = new LocationListener() {
-                @Override
-                public void onLocationChanged(Location location) {
-                    if (!done.compareAndSet(false, true)) return;
-                    main.removeCallbacks(timeout);
-                    resolve(call, location, false);
-                }
-
-                @Override
-                public void onStatusChanged(String p, int status, Bundle extras) {}
-
-                @Override
-                public void onProviderEnabled(String p) {}
-
-                @Override
-                public void onProviderDisabled(String p) {}
-            };
-            manager.requestSingleUpdate(provider, legacy[0], Looper.getMainLooper());
         }
+        currentFrom(manager, order, 0, cancel, done, timeout, call);
     }
 
     @SuppressWarnings("MissingPermission")
@@ -156,7 +131,7 @@ public class PhonePlugin extends Plugin {
     }
 
     private String pickProvider(LocationManager manager) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && manager.hasProvider(LocationManager.FUSED_PROVIDER)) {
+        if (manager.hasProvider(LocationManager.FUSED_PROVIDER)) {
             return LocationManager.FUSED_PROVIDER;
         }
         if (granted(Manifest.permission.ACCESS_FINE_LOCATION) && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {

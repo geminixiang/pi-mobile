@@ -25,7 +25,7 @@ export type ConnectionsState = {
 	location: boolean;
 	nfc: "on" | "off" | "none";
 	batterySaver: boolean;
-	outcome?: "already" | "changed" | "pressed" | "refused" | "panel";
+	outcome?: "already" | "changed" | "pressed" | "panel";
 };
 
 export interface PhoneStatePlugin {

@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 import com.google.android.gms.location.ActivityRecognition;
@@ -52,8 +51,7 @@ final class ActivityTrigger {
     private ActivityTrigger() {}
 
     private static boolean allowed(Context context) {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-            || context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
+        return context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private static PendingIntent intent(Context context) {

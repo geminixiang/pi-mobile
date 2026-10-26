@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.BatteryManager;
-import android.os.Build;
 
 final class WhileRunningTriggers {
 
@@ -21,8 +20,7 @@ final class WhileRunningTriggers {
         filter.addAction(Intent.ACTION_BATTERY_LOW);
         filter.addAction(AudioManager.ACTION_HEADSET_PLUG);
         Context app = context.getApplicationContext();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) app.registerReceiver(RECEIVER, filter, Context.RECEIVER_EXPORTED);
-        else app.registerReceiver(RECEIVER, filter);
+        app.registerReceiver(RECEIVER, filter, Context.RECEIVER_EXPORTED);
         listening = true;
     }
 

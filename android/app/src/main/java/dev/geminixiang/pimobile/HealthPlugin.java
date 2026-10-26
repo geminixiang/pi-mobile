@@ -14,7 +14,6 @@ import android.health.connect.datatypes.HeartRateRecord;
 import android.health.connect.datatypes.SleepSessionRecord;
 import android.health.connect.datatypes.StepsRecord;
 import android.health.connect.datatypes.WeightRecord;
-import android.os.Build;
 import android.os.OutcomeReceiver;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -50,7 +49,7 @@ import java.util.concurrent.Executor;
 public class HealthPlugin extends Plugin {
 
     private HealthConnectManager manager() {
-        return Build.VERSION.SDK_INT >= 34 ? getContext().getSystemService(HealthConnectManager.class) : null;
+        return getContext().getSystemService(HealthConnectManager.class);
     }
 
     private Executor executor() {

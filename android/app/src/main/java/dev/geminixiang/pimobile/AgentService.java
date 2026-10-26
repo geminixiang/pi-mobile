@@ -11,7 +11,6 @@ import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
-import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import java.io.IOException;
@@ -76,11 +75,7 @@ public class AgentService extends Service {
         createChannels(this);
         String title = intent != null && intent.hasExtra(EXTRA_TITLE) ? intent.getStringExtra(EXTRA_TITLE) : "pi 工作中";
         Notification notification = build(title, text);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         if (wakeLock == null) {
             PowerManager power = getSystemService(PowerManager.class);
             wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "pimobile:agent");

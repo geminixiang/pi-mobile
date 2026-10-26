@@ -9,7 +9,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.util.Log;
@@ -143,13 +142,13 @@ public class TriggersPlugin extends Plugin {
     public void status(PluginCall call) {
         AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
         JSObject result = new JSObject();
-        result.put("exactAlarms", Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms());
+        result.put("exactAlarms", alarms.canScheduleExactAlarms());
         result.put("bluetooth", bluetoothGranted());
         call.resolve(result);
     }
 
     private boolean bluetoothGranted() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || getPermissionState("bluetooth") == PermissionState.GRANTED;
+        return getPermissionState("bluetooth") == PermissionState.GRANTED;
     }
 
     @PluginMethod
@@ -202,7 +201,6 @@ public class TriggersPlugin extends Plugin {
     }
 
     private boolean granted(String alias) {
-        if ("activity".equals(alias) && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true;
         return getPermissionState(alias) == PermissionState.GRANTED;
     }
 
@@ -244,7 +242,7 @@ public class TriggersPlugin extends Plugin {
         PendingIntent pending = PendingIntent.getBroadcast(getContext(), 1, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         long at = System.currentTimeMillis() + Math.max(0, call.getInt("delayMs", 0));
         AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
+        if (alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
         else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
         call.resolve();
     }
@@ -314,18 +312,13 @@ public class TriggersPlugin extends Plugin {
         }).start();
     }
 
-    @SuppressWarnings("deprecation")
     private static List<Uri> sharedStreams(Intent intent) {
         List<Uri> streams = new ArrayList<>();
         if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
-            ArrayList<Uri> many = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                ? intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class)
-                : intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            ArrayList<Uri> many = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class);
             if (many != null) streams.addAll(many);
         } else {
-            Uri one = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                ? intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class)
-                : intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            Uri one = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
             if (one != null) streams.add(one);
         }
         return streams;

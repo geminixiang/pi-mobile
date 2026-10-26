@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Build;
 import android.util.Log;
 import java.io.File;
 import java.time.DayOfWeek;
@@ -103,7 +102,7 @@ final class TriggerStore {
         }
         AlarmManager alarms = context.getSystemService(AlarmManager.class);
         PendingIntent fire = fireIntent(context, id);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
+        if (alarms.canScheduleExactAlarms()) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, fire);
         } else {
             alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, fire);
