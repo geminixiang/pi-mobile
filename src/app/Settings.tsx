@@ -1,3 +1,4 @@
+import { Row } from "./Row.tsx";
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
 import { KeepAlive } from "./keepAlive.ts";
@@ -52,12 +53,11 @@ function Group({ title, hint, children }: { title: string; hint?: ReactNode; chi
 
 function SignedIn({ label, onRemove }: { label: string; onRemove: () => void }) {
 	return (
-		<div className="check-row">
-			<span className="menu-text">{label}</span>
+		<Row label={label}>
 			<button type="button" className="btn" onClick={onRemove}>
 				移除
 			</button>
-		</div>
+		</Row>
 	);
 }
 
@@ -144,13 +144,9 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 						</details>
 					) : null}
 					{sharedCount > 0 ? (
-						<div className="check-row">
-							<span className="menu-text">
-								分享的行事曆
-								<span className="menu-hint">{sharedCount} 個，只能讀</span>
-							</span>
+						<Row label="分享的行事曆" hint={`${sharedCount} 個，只能讀`}>
 							<input type="checkbox" className="switch" aria-label="讀取分享的行事曆" checked={access.shared} onChange={(event) => onChange({ ...access, shared: event.target.checked })} />
-						</div>
+						</Row>
 					) : null}
 					{writableTargets.length > 0 ? (
 						<label>
@@ -206,12 +202,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	return (
 		<Group title="自動化">
 			{state.items.length === 0 ? (
-				<div className="check-row">
-					<span className="menu-text">
-						還沒有自動化
-						<span className="menu-hint">跟 Bot 說就會建立</span>
-					</span>
-				</div>
+				<Row label="還沒有自動化" hint="跟 Bot 說就會建立" />
 			) : (
 				state.items.map((trigger) => (
 					<TriggerRow
@@ -225,23 +216,18 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 				))
 			)}
 			{exact === false ? (
-				<div className="check-row">
-					<span className="menu-text">
-						準時執行
-						<span className="menu-hint">沒開會晚幾分鐘</span>
-					</span>
+				<Row label="準時執行" hint="沒開會晚幾分鐘">
 					<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
 						開啟
 					</button>
-				</div>
+				</Row>
 			) : null}
 			{headphones && bluetooth === false ? (
-				<div className="check-row">
-					<span className="menu-text">偵測藍牙耳機</span>
+				<Row label="偵測藍牙耳機">
 					<button type="button" className="btn" onClick={() => void act(Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted)))}>
 						開啟
 					</button>
-				</div>
+				</Row>
 			) : null}
 			{error ? <div className="check"><span className="check-error">{error}</span></div> : null}
 		</Group>
@@ -266,15 +252,11 @@ function SystemAccessGroup() {
 	);
 	if (!state) return null;
 	const row = (label: string, hint: string | undefined, on: boolean, open: () => Promise<void>) => (
-		<div className="check-row">
-			<span className="menu-text">
-				{label}
-				{hint ? <span className="menu-hint">{hint}</span> : null}
-			</span>
+		<Row label={label} hint={hint}>
 			<button type="button" className="btn" onClick={() => void open()}>
 				{on ? "管理" : "開啟"}
 			</button>
-		</div>
+		</Row>
 	);
 	return (
 		<Group title="系統權限">
@@ -292,8 +274,7 @@ function BackgroundGroup() {
 	useRefreshOnResume("KeepAlive", () => void KeepAlive.status().then(setStatus));
 	if (!status) return null;
 	const row = (label: string, on: boolean, fix: () => void) => (
-		<div className="check-row">
-			<span className="menu-text">{label}</span>
+		<Row label={label}>
 			{on ? (
 				<span className="state on">已開啟</span>
 			) : (
@@ -301,7 +282,7 @@ function BackgroundGroup() {
 					開啟
 				</button>
 			)}
-		</div>
+		</Row>
 	);
 	return (
 		<Group title="背景執行">
@@ -322,24 +303,17 @@ function NotificationsGroup() {
 	if (allowed === undefined) return null;
 	return (
 		<Group title="通知讀取">
-			<div className="check-row">
-				<span className="menu-text">
-					通知存取權
-					{allowed ? <span className="menu-hint">保留 30 天</span> : null}
-				</span>
+			<Row label="通知存取權" hint={allowed ? "保留 30 天" : undefined}>
 				<button type="button" className="btn" onClick={() => void Notifications.openSettings()}>
 					{allowed ? "管理" : "開啟"}
 				</button>
-			</div>
+			</Row>
 			{allowed ? (
-				<div className="check-row">
-					<span className="menu-text">
-						清除記錄
-					</span>
+				<Row label="清除記錄">
 					<button type="button" className="btn" disabled={Boolean(cleared)} onClick={() => void Notifications.clear().then(() => showCleared("已清除"))}>
 						{cleared ?? "清除"}
 					</button>
-				</div>
+				</Row>
 			) : null}
 		</Group>
 	);
@@ -351,11 +325,7 @@ function PhoneScreenGroup() {
 	if (allowed === undefined) return null;
 	return (
 		<Group title="手機畫面">
-			<div className="check-row">
-				<span className="menu-text">
-					無障礙服務
-					{allowed ? null : <span className="menu-hint">開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定</span>}
-				</span>
+			<Row label="無障礙服務" hint={allowed ? undefined : "開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定"}>
 				{allowed ? null : (
 					<button type="button" className="btn" onClick={() => void PhoneScreen.openAppInfo()}>
 						App 資訊
@@ -364,7 +334,7 @@ function PhoneScreenGroup() {
 				<button type="button" className="btn" onClick={() => void PhoneScreen.openSettings()}>
 					{allowed ? "管理" : "開啟"}
 				</button>
-			</div>
+			</Row>
 		</Group>
 	);
 }
@@ -380,23 +350,13 @@ function DatabaseGroup() {
 	return (
 		<Group title="資料庫">
 			{tables.length === 0 ? (
-				<div className="check-row">
-					<span className="menu-text">
-						還沒有資料表
-					</span>
-				</div>
+				<Row label="還沒有資料表" />
 			) : (
 				tables.map((table) => (
-					<div className="check-row" key={table.name}>
-						<span className="menu-text">
-							<code>{table.name}</code>
-							<span className="menu-hint">{table.rows} 筆</span>
-						</span>
-					</div>
+					<Row key={table.name} label={<code>{table.name}</code>} hint={`${table.rows} 筆`} />
 				))
 			)}
-			<div className="check-row">
-				<span className="menu-text">匯出</span>
+			<Row label="匯出">
 				<button
 					type="button"
 					className="btn"
@@ -407,7 +367,7 @@ function DatabaseGroup() {
 				>
 					匯出
 				</button>
-			</div>
+			</Row>
 			{exportError ? <div className="note error">{exportError}</div> : null}
 		</Group>
 	);

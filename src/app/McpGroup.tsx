@@ -1,3 +1,4 @@
+import { Row } from "./Row.tsx";
 import { useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
@@ -91,6 +92,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 	const [draft, setDraft] = useState({ name: "", url: "" });
 	const [browsing, setBrowsing] = useState(false);
 	const [grants, setGrants] = useState<Grants>([]);
+	const fail = (error: unknown) => onError(messageOf(error));
 	const loadGrants = () => {
 		if (!runtime) return;
 		void runtime
@@ -104,7 +106,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 			current.map((item) => (item.bot.id === bot.id ? { bot, enabled: enabled ? new Set([...item.enabled, toolset]) : new Set([...item.enabled].filter((id) => id !== toolset)) } : item)),
 		);
 		runtime?.setToolset(bot.id, toolset, enabled).catch((error: unknown) => {
-			onError(messageOf(error));
+			fail(error);
 			loadGrants();
 		});
 	};
@@ -113,25 +115,19 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 	const add = () => {
 		const url = draft.url.trim();
 		const host = URL.canParse(url) ? new URL(url).hostname : url;
-		runtime?.mcp.add(draft.name.trim() || host, url).catch((error: unknown) => onError(messageOf(error)));
+		runtime?.mcp.add(draft.name.trim() || host, url).catch(fail);
 		setDraft({ name: "", url: "" });
-	};
-	const run = (action: () => Promise<void> | void) => () => {
-		void Promise.resolve()
-			.then(action)
-			.catch((error: unknown) => onError(messageOf(error)));
 	};
 
 	return (
 		<>
 			{runtime ? (
 				<>
-					<div className="check-row">
-						<span className="menu-text">瀏覽服務</span>
+					<Row label="瀏覽服務">
 						<button type="button" className="btn" onClick={() => setBrowsing(true)}>
 							瀏覽
 						</button>
-					</div>
+					</Row>
 					<Catalog open={browsing} runtime={runtime} onClose={() => setBrowsing(false)} onError={onError} />
 				</>
 			) : null}
@@ -150,11 +146,11 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 							</span>
 							<span className="row-actions">
 								{current && current.state !== "ready" && current.state !== "connecting" ? (
-									<button type="button" className="btn" onClick={run(() => (current.state === "login" ? runtime?.mcp.login(server.id) : runtime?.mcp.refresh(server.id)))}>
+									<button type="button" className="btn" onClick={() => (current.state === "login" ? void runtime?.mcp.login(server.id).catch(fail) : runtime?.mcp.refresh(server.id))}>
 										{current.state === "login" ? "登入" : "連線"}
 									</button>
 								) : null}
-								<button type="button" className="btn" onClick={() => void runtime?.mcp.remove(server.id).catch((error: unknown) => onError(messageOf(error)))}>
+								<button type="button" className="btn" onClick={() => void runtime?.mcp.remove(server.id).catch(fail)}>
 									移除
 								</button>
 							</span>

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { Row } from "./Row.tsx";
+import { useState } from "react";
 import { checkModels, checkProvider } from "../agent/checks.ts";
 import type { ModelInfo } from "../agent/models.ts";
 import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, providerName } from "../agent/providers.ts";
@@ -18,14 +19,11 @@ function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: 
 	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "error"; message: string }>({ kind: "idle" });
 	if (signIn) {
 		return (
-			<div className="check-row">
-				<span className="menu-text">
-					已用 ChatGPT 登入
-				</span>
+			<Row label="已用 ChatGPT 登入">
 				<button type="button" className="btn" onClick={() => onSignIn("")}>
 					登出
 				</button>
-			</div>
+			</Row>
 		);
 	}
 	return (
@@ -143,7 +141,7 @@ function ProviderRow({
 					) : null}
 					{info?.chatgpt && native.has("Loopback") ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
 					<CheckButton
-						disabled={config.kind === "custom" ? !config.baseUrl : !apiKey && !signIn}
+						disabled={!complete}
 						run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}
 					>
 						<button type="button" className="btn" onClick={onRemove}>
@@ -173,11 +171,8 @@ export function ProvidersGroup({
 		...(next.some((config) => config.id === settings.defaultProvider) ? {} : { defaultProvider: next[0]?.id ?? "" }),
 	});
 	const save = (next: ProviderConfig[]) => onChange(withProviders(next));
-	const groups = useMemo(
-		() => providers.map((config) => ({ config, models: models.filter((model) => model.provider === config.id) })).filter((group) => group.models.length > 0),
-		[providers, models],
-	);
-	const choices = useMemo(() => new Map(groups.flatMap(({ models: list }) => list.map((model) => [`${model.provider}\n${model.id}`, model]))), [groups]);
+	const groups = providers.map((config) => ({ config, models: models.filter((model) => model.provider === config.id) })).filter((group) => group.models.length > 0);
+	const choices = new Map(groups.flatMap(({ models: list }) => list.map((model) => [`${model.provider}\n${model.id}`, model])));
 	const current = `${settings.defaultProvider}\n${settings.defaultModelId}`;
 
 	return (

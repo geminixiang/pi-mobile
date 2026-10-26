@@ -1,3 +1,4 @@
+import { Row } from "./Row.tsx";
 import { App } from "@capacitor/app";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
@@ -40,10 +41,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 
 	if (!signIn) {
 		return (
-			<div className="check-row">
-				<span className="menu-text">
-					用 Google 帳號登入
-				</span>
+			<Row label="用 Google 帳號登入">
 				<button
 					type="button"
 					className="btn primary"
@@ -56,7 +54,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 				>
 					登入
 				</button>
-			</div>
+			</Row>
 		);
 	}
 	return (
@@ -114,12 +112,11 @@ export function DeviceSignInPanel({
 	if (!signIn) {
 		return (
 			<>
-				<div className="check-row">
-					<span className="menu-text">用 {provider} 帳號登入</span>
+				<Row label={`用 ${provider} 帳號登入`}>
 					<button type="button" className="btn primary" onClick={() => void begin()}>
 						登入
 					</button>
-				</div>
+				</Row>
 				{error ? <div className="check-row check-error">{error}</div> : null}
 			</>
 		);

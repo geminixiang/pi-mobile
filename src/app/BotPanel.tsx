@@ -1,3 +1,4 @@
+import { Row } from "./Row.tsx";
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
@@ -214,9 +215,7 @@ export function BotPanel({
 					<Section title="自動化" problem={problem}>
 						<div className="menu">
 							{mine.length === 0 ? (
-								<div className="check-row">
-									<span className="menu-text">還沒有自動化</span>
-								</div>
+								<Row label="還沒有自動化" />
 							) : (
 								mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
 							)}
@@ -248,9 +247,7 @@ export function BotPanel({
 				<Section title="連接的服務">
 					<div className="menu toggles">
 						{services.length === 0 ? (
-							<div className="check-row">
-								<span className="menu-text">還沒有連接服務</span>
-							</div>
+							<Row label="還沒有連接服務" />
 						) : (
 							services.map((toolset) => <ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />)
 						)}

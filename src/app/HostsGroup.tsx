@@ -1,3 +1,4 @@
+import { Row } from "./Row.tsx";
 import { type ReactNode, useEffect, useState } from "react";
 import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../agent/tools/apps.ts";
@@ -97,20 +98,16 @@ function PairRow({ label, primary, busy, onPair }: { label: string; primary: boo
 	);
 }
 
+const osName = (os: string) => (os === "darwin" ? "macOS" : "Linux");
+
 function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boolean; onPair: (code: string) => void; onRemove: () => void }) {
 	return (
 		<div className="machine">
-			<div className="check-row">
-				<span className="menu-text">
-					{host.name}
-					<span className="menu-hint">
-						{host.os === "darwin" ? "macOS" : "Linux"} · {host.user}
-					</span>
-				</span>
+			<Row label={host.name} hint={`${osName(host.os)} · ${host.user}`}>
 				<button type="button" className="btn" onClick={onRemove}>
 					移除
 				</button>
-			</div>
+			</Row>
 			{host.key ? null : <PairRow label="配對" primary busy={busy} onPair={onPair} />}
 		</div>
 	);
@@ -119,12 +116,7 @@ function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boo
 function PeerRow({ peer, busy, onAdd }: { peer: Peer; busy: boolean; onAdd: (code: string) => void }) {
 	return (
 		<div className="machine">
-			<div className="check-row">
-				<span className="menu-text">
-					{peer.name}
-					<span className="menu-hint">{peer.os === "darwin" ? "macOS" : "Linux"}</span>
-				</span>
-			</div>
+			<Row label={peer.name} hint={osName(peer.os)} />
 			<PairRow label="加入" primary={false} busy={busy} onPair={onAdd} />
 		</div>
 	);
