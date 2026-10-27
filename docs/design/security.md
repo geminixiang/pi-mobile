@@ -32,6 +32,55 @@ Tailscale 證明的是哪台裝置，不是哪個 app。實測 S24 上的 adb sh
 
 App 允許 cleartext，因為 tailnet 裡的閘道常是 http。但自訂端點填成區網或公網的 http 位址時，金鑰會在當下的 Wi-Fi 上明文送出。`refuseCleartextSecret`（`src/agent/cleartext.ts`）只讓金鑰走 https，或 http 到 loopback、`*.ts.net`、`100.64.0.0/10`、`fd7a:115c:a1e0::/48`。檢查點：自訂供應商的認證、它的模型清單、網路搜尋、帶 Authorization 的 MCP 請求。沒有金鑰的區網服務（例如 Ollama）照常可用。
 
+## 2026-10-27 檢查電腦連線（還沒修）
+
+前提照 [computer-host.md](computer-host.md) § 網路與資安：加密和裝置身分交給 Tailscale。這次看的是 Tailscale 擋不到的地方。
+
+### 1. 手機不確認電腦位址在 tailnet 裡（中）
+
+- **現況**：新增電腦時，使用者打的名稱直接拿去組 `http://<名稱>:4790`（`base()`，`src/agent/sandbox/host.ts`），只在 iOS 上擋 IP。`refuseCleartextSecret` 只用在模型供應商和 MCP，沒用在電腦。
+- **會怎樣**：填成區網 IP、`mac.local` 或公網名稱時，配對碼、配對金鑰、之後每個指令和輸出都在當下的 Wi-Fi 上明文傳送。而且手機不驗證電腦的身分，只要回應 `/pair` 的就被當成那台電腦：在同一個 Wi-Fi 上冒名的機器會拿到 Bot 的指令、上傳的 pi-env，容器模式下還會拿到 egress 要的短效 token。
+- **可能性**：要使用者自己填錯名稱，加上同一個網路上有人等著。不常見，但填 IP 是很自然的錯誤。
+- **修法**：電腦位址套用跟供應商一樣的規則：只接受 `*.ts.net`、`100.64.0.0/10`、`fd7a:115c:a1e0::/48`，或不含點的 MagicDNS 短名稱；`/info` 回來的 `dnsName` 也要通過同一個檢查才存起來。改動大約十行，測試確認 `pairHost("192.168.1.5", …)` 在送出請求前就失敗。
+
+### 2. 電腦上的任何程式都能配對，借用 pi-mobile 的 macOS 權限（中）
+
+- **現況**：來源檢查只比對 Tailscale 使用者。從電腦自己連到自己的 Tailscale 位址時，`whois` 回的就是這台電腦，使用者相同，所以會通過（在這台 Mac 上實測：`curl http://100.120.142.97:4790/version` 回 200）。而 `pi-mobile pair` 誰都能執行。
+- **會怎樣**：電腦上以你身分執行的任何程式（被污染的 npm 套件、VS Code 擴充、瀏覽器下載的工具），可以自己執行 `pi-mobile pair`、用配對碼換到金鑰，再透過 `/exec` 執行指令。這些指令是 pi-mobile 的子程序，所以會用到你在安裝時給 pi-mobile 的權限：桌面、文件、下載項目、控制 System Events、輔助使用、錄製螢幕。macOS 原本會對這些程式另外詢問這些權限，現在可以繞過。
+- **可能性**：要電腦上已經有惡意程式。但 TCC 正是為了這種情況而設的，而 pi-mobile 剛好拿了最敏感的幾項。
+- **修法**：手機永遠不會是這台電腦本身，所以除了 `/version`（`pi-mobile status` 要用），來源 IP 是這台電腦自己的 Tailscale 位址時一律拒絕。大約五行，`host/main_test.go` 加一個測試。
+- **修了之後還剩**：`install.sh` 把簽章用的 keychain 密碼存在 `~/.pi/mobile/signing/password`（0600）。同一個使用者的程式讀得到，可以用同一個身分簽自己的程式，也會拿到這些權限。要擋就得在簽完後丟掉私鑰，代價是每次更新都要重新允許六項權限。建議先接受，寫進 `docs/security.md`。
+
+### 3. 手機遺失時，電腦端沒有撤銷的指令（低）
+
+- **現況**：配對金鑰不會過期。手機上的金鑰沒有綁「解鎖才能用」（背景排程要用），所以拿到一支沒鎖的手機，就能叫 Bot 操作電腦。要在電腦上撤銷，只能手動編輯 `~/.pi/mobile/paired.json`。
+- **已經有的**：到 Tailscale 後台移除那支手機，`whois` 就會失敗，這是最快的方法（`docs/security.md` 有寫）。
+- **修法**：加 `pi-mobile devices`（列出 `paired.json` 的裝置名稱和配對時間）和 `pi-mobile unpair <名稱|all>`（同時結束那把金鑰保留中的 session）。大約四十行加測試。
+
+### 4. 電腦端的 log 和資料夾別人讀得到（低）
+
+- `~/.pi/mobile` 由 `install.sh` 的 `mkdir -p` 建立，是 0755；`pi-mobile.log` 是 0644，裡面有裝置名稱、路徑，以及 pi-env 的 stderr。`paired.json`、`pairing.json`、`daemons/` 本身是 0600／0700，沒有外洩金鑰（實測 log 裡沒有 `key=` 或 `token=`）。
+- 只影響多人共用的 Linux，而且多數發行版的家目錄本來就是 0700 或 0750。修法是在 `install.sh` 用 `umask 077`，並 `chmod 700 "$DIR"`。
+
+### Tailscale 近期的漏洞（查到 2026-10-27）
+
+| 來源 | 內容 | 對 pi-mobile |
+|---|---|---|
+| [Tailscale SSH 調查](https://tailscale.com/ssh-investigation-update)（10-26，還沒出修補版）、[Tailworm 報告](https://tailworm.com/) | 對 v1.104.2 的評估：已授權的 Tailscale SSH 使用者可經 unix socket 轉送以 root 讀寫 socket（High）、`tailscale serve --tcp` 指到 localapi socket、serve 的 h2 競態等。暫時的緩解是在 `tailscaled` 的服務環境設 `TS_SSH_DISABLE_FORWARDING=1` | pi-mobile 不用 Tailscale SSH，也不用 `tailscale serve`。但使用者自己開了 `tailscale set --ssh` 的電腦會受影響，修補版出來要更新 |
+| [TS-2026-013](https://tailscale.com/security-bulletins)（10-21） | eMudhra 的八張 TLS 中繼憑證私鑰外洩；v1.104.2 起不信任它們 | 不影響：電腦連線走 WireGuard，不靠 Web PKI。手機和電腦的 Tailscale 仍應更新到 1.104.2 以上（這台 Mac 已是 1.104.2） |
+| TS-2026-012（10-13） | libtailscale 的 `tailscale_getremoteaddr` 在負載下會回錯的來源位址 | 不影響：pi-mobile 用系統的 `tailscaled`，不內嵌 libtailscale。但它說明了「依來源位址判斷身分」本身會出錯，這也是配對金鑰要留著的理由 |
+| TS-2026-007、TS-2026-011（7 月、8 月） | Services 和 4via6 的封包過濾漏洞，讓 tailnet 上的人連到只聽 loopback 的服務 | 不影響：`pi-mobile serve` 不聽 loopback。這兩個說明 loopback 不能當成安全邊界 |
+| TS-2026-004～006、009、010（6～7 月） | Tailscale SSH 的提權與 env 外洩，修在 1.98.9 | 不用 Tailscale SSH，不影響 |
+
+### 看過、不用改的
+
+- **指令注入**：`loginShell` 用位置參數傳 daemon 路徑和 token，token 先比對 `^[0-9a-f]{16,128}$`；容器指令裡的路徑都經過 `shellQuote`。
+- **瀏覽器網頁**：帶 `Origin` 的請求只接受 app 的 WebView；`websocket.Accept` 的 `InsecureSkipVerify` 只關掉函式庫自己的 Origin 檢查，`fromOwner` 已經先檢查過。手機上其他 Capacitor app 的 Origin 一樣是 `http://localhost`，所以真正擋住它們的是配對金鑰。
+- **配對碼**：6 位數，15 分鐘，錯 5 次作廢，比對用常數時間；手機上其他 app 最多只能讓配對碼提早作廢。
+- **金鑰在網址裡**：WebView 的 WebSocket 不能帶標頭；電腦端的 log 只記路徑，手機端的 log 沒有記網址。
+- **保留的 session**：綁定開它的那把金鑰；別的金鑰接不回、也頂不掉。
+- **`/exec` 等於以你的身分執行任何指令**：這是設計本身；能用它的只有配對過的手機，而 Bot 會照讀進來的內容做事這點，`docs/security.md` 已經寫了。
+
 ## 網頁版（設計，還沒做）
 
 瀏覽器裡沒有「頁面拿得到、注入的腳本拿不到」的地方：從瀏覽器直接呼叫模型時，送出的那一刻金鑰一定在頁面記憶體裡。所以分兩半：
