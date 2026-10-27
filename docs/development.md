@@ -4,8 +4,8 @@
 
 需要：
 - Node 24
-- JDK 21：Capacitor 8 / AGP 8.13 要求，腳本預設用 Homebrew 的 `openjdk@21`。
-- Android SDK（platform 36、build-tools 36），裝在 `~/Library/Android/sdk`。
+- JDK 21：Capacitor 8 要求，腳本預設用 Homebrew 的 `openjdk@21`。
+- Android SDK（platform 37、build-tools 36），裝在 `~/Library/Android/sdk`。
 - 開了 USB 或無線偵錯的 Android 手機。
 
 ```sh
