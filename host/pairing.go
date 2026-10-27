@@ -113,12 +113,20 @@ func redeem(dir, code, device string, now time.Time) (string, error) {
 	return key, writeJSON(filepath.Join(dir, "paired.json"), devices)
 }
 
+func pairedDevices(dir string) ([]paired, error) {
+	var devices []paired
+	if err := readJSON(filepath.Join(dir, "paired.json"), &devices); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return devices, nil
+}
+
 func pairedWith(dir, key string) bool {
 	if key == "" {
 		return false
 	}
-	var devices []paired
-	if readJSON(filepath.Join(dir, "paired.json"), &devices) != nil {
+	devices, err := pairedDevices(dir)
+	if err != nil {
 		return false
 	}
 	hash := []byte(digest(key))
@@ -129,26 +137,27 @@ func pairedWith(dir, key string) bool {
 	return found == 1
 }
 
-func unpair(dir, key string) (bool, error) {
+func forget(dir string, gone func(paired) bool) (int, error) {
 	pairingMu.Lock()
 	defer pairingMu.Unlock()
-	path := filepath.Join(dir, "paired.json")
-	var devices []paired
-	if err := readJSON(path, &devices); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
+	devices, err := pairedDevices(dir)
+	if err != nil {
+		return 0, err
 	}
-	hash := digest(key)
-	kept := devices[:0]
+	kept := []paired{}
 	for _, device := range devices {
-		if subtle.ConstantTimeCompare([]byte(hash), []byte(device.Hash)) != 1 {
+		if !gone(device) {
 			kept = append(kept, device)
 		}
 	}
 	if len(kept) == len(devices) {
-		return false, nil
+		return 0, nil
 	}
-	return true, writeJSON(path, kept)
+	return len(devices) - len(kept), writeJSON(filepath.Join(dir, "paired.json"), kept)
+}
+
+func unpair(dir, key string) (bool, error) {
+	hash := []byte(digest(key))
+	n, err := forget(dir, func(device paired) bool { return subtle.ConstantTimeCompare(hash, []byte(device.Hash)) == 1 })
+	return n > 0, err
 }

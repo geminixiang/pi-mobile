@@ -15,7 +15,9 @@
 - 「直接」的指令以你的帳號在電腦上執行，沒有 egress proxy，用的是電腦自己的登入。
 - 「手機畫面」用 Android 的無障礙服務，Bot 能看到並操作手機上任何 app（開 app、點、滑、打字）。預設關閉，要你自己在 Android 的無障礙設定打開；開了之後，有開這個工具組的 Bot 在回答時才會用，畫面內容（密碼欄除外）會送給模型。不想讓某個 Bot 用，就在 Bot 面板關掉「手機畫面」。
 - 手機資料夾的 bash 有 `git` 和 `gh`，可以連 GitHub（只有 GitHub）。GitHub token 在 app 送出請求時才加上，不會出現在 bash 的環境變數、檔案或 git 設定裡；push、開 PR、留言一樣不會先問你。
-- 電腦上的 pi-mobile 只聽電腦的 Tailscale 位址（不聽區域網路），每個請求都用 `tailscale whois` 確認是你同一個 Tailscale 帳號的裝置，tagged 裝置和瀏覽器網頁（`Origin`）一律拒絕。除了 `/version` 和 `/pair`，還要帶配對過的金鑰。所以登入你的 Tailscale 帳號、又配對過的手機，都能操作這台電腦：手機遺失時，到 Tailscale 後台移除它。
+- 電腦上的 pi-mobile 只聽電腦的 Tailscale 位址（不聽區域網路），每個請求都用 `tailscale whois` 確認是你同一個 Tailscale 帳號的另一台裝置；這台電腦自己、tagged 裝置和瀏覽器網頁（`Origin`）一律拒絕。除了 `/version` 和 `/pair`，還要帶配對過的金鑰。所以登入你的 Tailscale 帳號、又配對過的手機，都能操作這台電腦。手機遺失時，在電腦上執行 `pi-mobile devices` 和 `pi-mobile unpair <名稱>`（它開著的指令 5 秒內結束），或到 Tailscale 後台移除它。
+- 手機只把配對碼、金鑰和指令送到 tailnet 裡的位址（`*.ts.net`、Tailscale IP、MagicDNS 短名稱），填成區網 IP 或 `mac.local` 會直接拒絕。
+- 以你的身分在電腦上執行的惡意程式，讀得到 `~/.pi/mobile/signing` 裡的簽章金鑰，能用 pi-mobile 的身分簽自己的程式，拿到你給 pi-mobile 的 macOS 權限（桌面、文件、輔助使用、錄製螢幕）。要擋就得每次更新都重新允許這些權限，所以不擋；這跟給終端機「完整磁碟取用權限」的風險一樣。
 - 能登入電腦那個帳號的人，可以讀到 egress 的 CA 私鑰，以及正在使用的短效 token。
 - 發布版關閉 WebView 遠端除錯。開發版（`build-android.sh`）是開著的：能用 adb 連上手機的人可以操作 app。
 - Agent 拿得到你給它的權限：GitHub 建議用只開必要 repo 的 fine-grained token；雲端帳號建議用權限小的專案或訂閱。

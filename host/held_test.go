@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -215,25 +216,69 @@ func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
 	session.kill()
 }
 
-func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
+func TestRemovingAPairingEndsEverythingItHasOpen(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now()
+	code, _ := newCode(dir, now)
+	lost, _ := redeem(dir, code, "lost.tailnet.ts.net.", now)
+	code, _ = newCode(dir, now)
+	kept, _ := redeem(dir, code, "kept.tailnet.ts.net.", now)
 	server := execServer(t)
-	kept := fmt.Sprintf("%032x", time.Now().UnixNano())
-	ended := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
-	keep := startHeldSleep(t, server, kept, "phone-a")
-	defer keep.CloseNow()
-	revoked := startHeldSleep(t, server, ended, "phone-b")
-	defer revoked.CloseNow()
-	if n := endSessionsOf(digest("phone-b")); n != 1 {
-		t.Fatalf("ended %d sessions of the revoked key", n)
+	lostHeld := fmt.Sprintf("%032x", time.Now().UnixNano())
+	keptHeld := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
+	lostConn := startHeldSleep(t, server, lostHeld, lost)
+	defer lostConn.CloseNow()
+	defer startHeldSleep(t, server, keptHeld, kept).CloseNow()
+	plain := dial(t, wsURL(server, "/exec?key="+lost+"&command="+url.QueryEscape("echo up; sleep 5")))
+	defer plain.CloseNow()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := plain.Read(ctx); err != nil {
+		t.Fatal(err)
 	}
-	if takeSession("exec:"+ended, digest("phone-b")) != nil {
-		t.Fatal("the revoked key's session is still held")
+	if _, err := forget(dir, func(device paired) bool { return device.Device == "lost.tailnet.ts.net." }); err != nil {
+		t.Fatal(err)
 	}
-	session := takeSession("exec:"+kept, digest("phone-a"))
+	if n, err := endUnpaired(dir); err != nil || n != 2 {
+		t.Fatalf("ended %d of the removed pairing's 2 connections: %v", n, err)
+	}
+	started := time.Now()
+	if _, _, reason := readAll(t, plain, 4*time.Second); !strings.Contains(reason, unpaired) {
+		t.Fatalf("the removed pairing's plain command was closed with %q", reason)
+	}
+	if waited := time.Since(started); waited > 2*time.Second {
+		t.Fatalf("the removed pairing's plain command ran on for %v", waited)
+	}
+	if _, _, reason := readAll(t, lostConn, 3*time.Second); !strings.Contains(reason, unpaired) {
+		t.Fatalf("the removed pairing's held session was closed with %q", reason)
+	}
+	if takeSession("exec:"+lostHeld, digest(lost)) != nil {
+		t.Fatal("the removed pairing's held session is still there")
+	}
+	session := takeSession("exec:"+keptHeld, digest(kept))
 	if session == nil {
-		t.Fatal("another key's session ended with it")
+		t.Fatal("another pairing's session ended with it")
 	}
 	session.kill()
+}
+
+func TestEndingAHeldSessionClosesItsStdinBeforeKillingIt(t *testing.T) {
+	server := execServer(t)
+	token := fmt.Sprintf("%032x", time.Now().UnixNano())
+	seen := t.TempDir() + "/stdin-ended"
+	command := fmt.Sprintf(`trap "" TERM; echo up; cat >/dev/null; echo yes > %s`, seen)
+	conn := dial(t, wsURL(server, "/exec?session="+token+"&key=phone-a&command="+url.QueryEscape(command)))
+	defer conn.CloseNow()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := conn.Read(ctx); err != nil {
+		t.Fatal(err)
+	}
+	takeSession("exec:"+token, digest("phone-a")).kill()
+	waitFor(func() bool { _, err := os.Stat(seen); return err == nil })
+	if _, err := os.Stat(seen); err != nil {
+		t.Fatal("the command was killed without seeing its stdin end, so pi-env could not end the commands it started")
+	}
 }
 
 func TestAPhoneThatClosesOnPurposeEndsItsHeldSession(t *testing.T) {

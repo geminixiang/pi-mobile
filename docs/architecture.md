@@ -32,7 +32,7 @@ pi-env 的 `Connection` 只會用 `spawn` 啟動子行程，WebView 做不到。
 
 **把電腦交給 pi**（設定 › 電腦）：
 - 電腦上執行一次 `host/install.sh`，裝好常駐的 `pi-mobile serve`（`host/main.go`）。
-- 它只聽這台電腦的 Tailscale 位址，用 `tailscale whois` 確認來的是同一個 Tailscale 使用者的裝置，不用 SSH、金鑰或密碼。
+- 它只聽這台電腦的 Tailscale 位址，用 `tailscale whois` 確認來的是同一個 Tailscale 使用者的另一台裝置，再比對配對時發的金鑰；不用 SSH。見 [design/computer-host.md](design/computer-host.md)。
 - 手機只要輸入電腦名稱。第一次連線時，手機把對應平台的 pi-env 上傳過去。
 
 每個 Bot 在面板裡選一台電腦，以及它在那裡的工作方式：

@@ -22,9 +22,11 @@ const (
 	sessionBehind  = "too far behind to resume"
 	sessionReplace = "replaced by a newer connection"
 	sessionTaken   = "session token in use"
+	unpaired       = "this phone is no longer paired with this computer"
 	pingEvery      = 10 * time.Second
 	pingTimeout    = 10 * time.Second
 	writeTimeout   = 10 * time.Second
+	stdinGrace     = 2 * time.Second
 )
 
 var (
@@ -66,10 +68,12 @@ var (
 )
 
 func holdSession(id string, session *held) {
+	untrack := track(session.owner, func() { session.killBecause(unpaired) })
 	heldMu.Lock()
 	previous := heldByID[id]
 	heldByID[id] = session
 	session.onEnd = func() {
+		untrack()
 		heldMu.Lock()
 		if heldByID[id] == session {
 			delete(heldByID, id)
@@ -101,21 +105,6 @@ func heldByOther(id, owner string) bool {
 	defer heldMu.Unlock()
 	session := heldByID[id]
 	return session != nil && !session.ownedBy(owner)
-}
-
-func endSessionsOf(owner string) int {
-	heldMu.Lock()
-	var mine []*held
-	for _, session := range heldByID {
-		if session.ownedBy(owner) {
-			mine = append(mine, session)
-		}
-	}
-	heldMu.Unlock()
-	for _, session := range mine {
-		session.kill()
-	}
-	return len(mine)
 }
 
 func (h *held) deliver(m message) {
@@ -228,21 +217,31 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 }
 
 func (h *held) kill() {
+	h.killBecause(sessionGone)
+}
+
+func (h *held) killBecause(reason string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.killLocked()
+	h.killLockedBecause(reason)
 }
 
 func (h *held) killLocked() {
+	h.killLockedBecause(sessionGone)
+}
+
+func (h *held) killLockedBecause(reason string) {
 	if h.killed {
 		return
 	}
 	if h.conn != nil {
-		go h.conn.Close(websocket.StatusNormalClosure, sessionGone)
+		go h.conn.Close(websocket.StatusNormalClosure, reason)
 		h.conn = nil
 	}
 	h.finishLocked()
-	h.cancel()
+	// why: pi-env runs each command in its own session, so ending pi-env's group leaves them orphaned; it ends them itself when its stdin ends.
+	_ = h.stdin.Close()
+	time.AfterFunc(stdinGrace, h.cancel)
 }
 
 func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (string, bool) {

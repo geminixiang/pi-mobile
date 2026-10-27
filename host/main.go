@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -104,21 +105,23 @@ func selfNow(ctx context.Context) (status, error) {
 	return st, nil
 }
 
+type whois struct {
+	Node struct {
+		Name string   `json:"Name"`
+		Tags []string `json:"Tags"`
+	} `json:"Node"`
+	UserProfile struct {
+		ID        int64  `json:"ID"`
+		LoginName string `json:"LoginName"`
+	} `json:"UserProfile"`
+}
+
 func owner(ctx context.Context, remoteAddr string) (string, error) {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		return "", err
 	}
-	var who struct {
-		Node struct {
-			Name string   `json:"Name"`
-			Tags []string `json:"Tags"`
-		} `json:"Node"`
-		UserProfile struct {
-			ID        int64  `json:"ID"`
-			LoginName string `json:"LoginName"`
-		} `json:"UserProfile"`
-	}
+	var who whois
 	if err := tailscaleJSON(ctx, &who, "whois", "--json", host); err != nil {
 		return "", err
 	}
@@ -126,13 +129,20 @@ func owner(ctx context.Context, remoteAddr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return who.Node.Name, anotherDeviceOfTheUser(host, who, st)
+}
+
+func anotherDeviceOfTheUser(host string, who whois, st status) error {
+	if slices.Contains(st.Self.TailscaleIPs, host) {
+		return errors.New("the request comes from this computer itself")
+	}
 	if len(who.Node.Tags) > 0 {
-		return "", fmt.Errorf("%s is a tagged device", who.Node.Name)
+		return fmt.Errorf("%s is a tagged device", who.Node.Name)
 	}
 	if who.UserProfile.ID == 0 || who.UserProfile.ID != st.Self.UserID {
-		return "", fmt.Errorf("%s belongs to %s, not to this computer's user", who.Node.Name, who.UserProfile.LoginName)
+		return fmt.Errorf("%s belongs to %s, not to this computer's user", who.Node.Name, who.UserProfile.LoginName)
 	}
-	return who.Node.Name, nil
+	return nil
 }
 
 func daemonsDir() string {
@@ -245,13 +255,14 @@ func unpairHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "that key was not paired", http.StatusNotFound)
 		return
 	}
-	log.Printf("unpaired a device; ended %d of its sessions", endSessionsOf(digest(key)))
+	gone := digest(key)
+	log.Printf("unpaired a device; ended %d of its connections", endConnections(func(pairing string) bool { return pairing == gone }))
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func versionOnly(w http.ResponseWriter, r *http.Request) {
-	if _, ok := fromOwner(w, r); !ok {
-		return
+	if allowedOrigins[r.Header.Get("Origin")] {
+		allowOrigin(w, r)
 	}
 	respond(w, map[string]string{"version": version})
 }
@@ -367,7 +378,14 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := loginShell(ctx, command)
+	run, stop := context.WithCancel(ctx)
+	defer stop()
+	var revoked atomic.Bool
+	defer track(digest(r.URL.Query().Get("key")), func() {
+		revoked.Store(true)
+		stop()
+	})()
+	cmd := loginShell(run, command)
 	stdin, _ := cmd.StdinPipe()
 	var writes sync.Mutex
 	cmd.Stdout = taggedWriter{1, conn, ctx, &writes}
@@ -396,6 +414,10 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 	}()
 	err := cmd.Wait()
 	_ = endGroup(cmd)
+	if revoked.Load() {
+		conn.Close(websocket.StatusPolicyViolation, unpaired)
+		return
+	}
 	message, _ := json.Marshal(map[string]int{"exit": exitCode(err, cmd)})
 	writes.Lock()
 	_ = conn.Write(ctx, websocket.MessageText, message)
@@ -565,6 +587,10 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Pairing code: %s (for %d minutes)\n", code, int(codeLifetime.Minutes()))
+	case "devices":
+		os.Exit(printDevices())
+	case "unpair":
+		os.Exit(unpairCommand(os.Args[2:]))
 	case "mcp":
 		if len(os.Args) < 3 || os.Args[2] != "computer" {
 			fmt.Fprintln(os.Stderr, "usage: pi-mobile mcp computer")
@@ -572,11 +598,52 @@ func main() {
 		}
 		os.Exit(serveComputerMCP())
 	default:
-		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile pair      a one-time code that lets a phone in\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
+		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile pair      a one-time code that lets a phone in\n  pi-mobile devices   the phones paired with this computer\n  pi-mobile unpair <device>|--all   stop letting a phone in, and end what it has open\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
 		if command != "" && command != "help" && command != "--help" && command != "-h" {
 			os.Exit(2)
 		}
 	}
+}
+
+func shortName(device string) string {
+	return strings.Split(strings.TrimSuffix(device, "."), ".")[0]
+}
+
+func printDevices() int {
+	devices, err := pairedDevices(stateDir())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "pi-mobile devices: %v\n", err)
+		return 1
+	}
+	if len(devices) == 0 {
+		fmt.Println("No phone is paired. Run pi-mobile pair to let one in.")
+		return 0
+	}
+	for _, device := range devices {
+		fmt.Printf("%s\t%s\tpaired %s\n", shortName(device.Device), strings.TrimSuffix(device.Device, "."), device.At.Local().Format("2006-01-02 15:04"))
+	}
+	return 0
+}
+
+func unpairCommand(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: pi-mobile unpair <device>|--all   (names from pi-mobile devices)")
+		return 2
+	}
+	name := args[0]
+	n, err := forget(stateDir(), func(device paired) bool {
+		return name == "--all" || name == shortName(device.Device) || name == strings.TrimSuffix(device.Device, ".")
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "pi-mobile unpair: %v\n", err)
+		return 1
+	}
+	if n == 0 {
+		fmt.Fprintf(os.Stderr, "pi-mobile unpair: no paired device is called %s; see pi-mobile devices\n", name)
+		return 1
+	}
+	fmt.Printf("Unpaired %d. What it has open on this computer ends within 5 seconds.\n", n)
+	return 0
 }
 
 func printStatus() int {
@@ -632,6 +699,10 @@ func printStatus() int {
 }
 
 func serve() {
+	if err := os.Chmod(stateDir(), 0o700); err != nil {
+		log.Printf("state folder: %v", err)
+	}
+	go watchPairings(stateDir())
 	if _, err := os.Stat(permissionsFile()); err == nil {
 		if err := os.Remove(permissionsFile()); err != nil {
 			log.Printf("permissions: %v", err)

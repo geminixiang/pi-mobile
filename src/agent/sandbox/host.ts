@@ -19,7 +19,7 @@ import { type RawMessage, type ResumableOptions, ResumableSocket } from "./resum
 import { WORKSPACE } from "./workspace.ts";
 import { decode, decodeEach, oneOf } from "../parse.ts";
 import { onFailure, untilFailure } from "../../promise.ts";
-import { refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
+import { onTailnet, refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";
 
 const HOST_PORT = 4790;
@@ -75,6 +75,7 @@ export function parseHosts(json: string | undefined): Host[] {
 
 function base(address: string): string {
 	const root = `http://${address.includes(":") ? `[${address}]` : address}:${HOST_PORT}`;
+	if (!onTailnet(root)) throw new Error(`${address} 不在 Tailscale 裡：填電腦在 Tailscale 裡的名稱，例如 mac 或 mac.xxxx.ts.net`);
 	refuseIpOnIos(root, ios);
 	return root;
 }
@@ -99,7 +100,7 @@ async function reached(address: string, request: Promise<Response>): Promise<Res
 			throw new Error(`連不到 ${address}：電腦要開著、連上 Tailscale，並裝好 pi-mobile${tailscaleHint(ios)}`);
 		},
 	);
-	if (response.status === 401) throw new Error(`${address} 還沒跟這支手機配對：在那台電腦執行 pi-mobile pair，把配對碼輸入手機`);
+	if (response.status === 401) throw new Error(`${address} 沒有跟這支手機配對：在那台電腦執行 pi-mobile pair，把配對碼輸入設定 › 電腦`);
 	if (response.status === 403) throw new Error(`${address} 拒絕了這支手機：手機和電腦要登入同一個 Tailscale 帳號`);
 	return response;
 }
@@ -123,6 +124,11 @@ export async function unpairHost(host: Reach): Promise<void> {
 	if (response.status === 404 && body.includes("not paired")) return;
 	if (response.status === 404 || response.status === 405) throw new Error(`${host.address} 上的 pi-mobile 太舊，不會撤銷配對：更新它之後執行 pi-mobile pair 重新配對，或刪掉 ~/.pi/mobile/paired.json`);
 	throw new Error(`${host.address} 回應 HTTP ${response.status}：${body}`);
+}
+
+export async function stillPaired(reach: Reach, signal: AbortSignal): Promise<boolean> {
+	const response = await fetch(url(reach, "/info"), { signal }).catch(() => undefined);
+	return response?.status !== 401;
 }
 
 export async function hasPiMobile(address: string, signal: AbortSignal): Promise<boolean> {
@@ -177,7 +183,13 @@ function holdSocket(
 		open: openSocket,
 		what,
 		...handlers,
-	});
+	}).catch((error: unknown) => explained(reach, error));
+}
+
+// why: a WebView WebSocket that fails its handshake reports no HTTP status, so a refused key looks like a lost network until /info says which.
+async function explained(reach: Reach, error: unknown): Promise<never> {
+	await probeHost(reach, AbortSignal.timeout(5000));
+	throw error;
 }
 
 function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void): Promise<WebSocket> {
@@ -226,23 +238,19 @@ class HostCommands implements CommandClient {
 			if (bytes[0] === 1) handlers.onStdout(bytes.subarray(1));
 			else if (bytes[0] === 2) handlers.onStderr?.(bytes.subarray(1));
 		};
-		const unreachable = async (error: unknown) => {
-			await probeHost(this.#host, AbortSignal.timeout(5000));
-			throw error;
-		};
 		if (session) {
 			const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, heartbeat: "pi-env" }, session, {
 				onMessage,
 				onClose: () => exit(undefined),
 				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
-			}).catch(unreachable);
+			});
 			return {
 				write: (data) => resumable.send(data.slice()),
 				end: () => resumable.send("eof"),
 				close: () => resumable.close(),
 			};
 		}
-		const socket = await openSocket(socketUrl(this.#host, "/exec", { command }), this.#host.name, onMessage, () => exit(undefined)).catch(unreachable);
+		const socket = await openSocket(socketUrl(this.#host, "/exec", { command }), this.#host.name, onMessage, () => exit(undefined)).catch((error: unknown) => explained(this.#host, error));
 		return {
 			write: (data) => {
 				if (socket.readyState === WebSocket.OPEN) socket.send(data.slice());

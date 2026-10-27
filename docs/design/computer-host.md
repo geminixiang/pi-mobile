@@ -22,9 +22,14 @@
 ## `pi-mobile serve`（`host/main.go`）
 
 - **只聽這台電腦的 Tailscale IPv4 位址**，port 4790，不聽 localhost 和區域網路。Tailscale 還沒連上時每 5 秒重試；位址消失就重新綁定。
-- **每個請求都要確認來源**：
-  - 用 `tailscale whois --json <來源 IP>` 查出對方裝置，跟 `tailscale status` 裡這台電腦的使用者比對，必須是同一個使用者。
-  - tagged 裝置（沒有使用者身分）一律拒絕。
+- **誰能進來，分三層**，每層各管一件事（2026-10-27 整理）：
+  1. **網路（Tailscale）**：連得到、加密、對方是哪台裝置。
+  2. **來源（`anotherDeviceOfTheUser`）**：除了 `/version`，每個請求都要來自**這台電腦以外**、同一個 Tailscale 使用者的裝置。
+     - 用 `tailscale whois --json <來源 IP>` 查出對方，跟 `tailscale status` 裡這台電腦的使用者比對。
+     - tagged 裝置（沒有使用者身分）一律拒絕。
+     - 來自這台電腦自己的 Tailscale 位址一律拒絕。手機永遠不會是這台電腦；擋的是電腦上的其他程式：它們能自己執行 `pi-mobile pair` 換到金鑰，再借 `/exec` 用到 pi-mobile 拿到的 macOS 權限（桌面、文件、輔助使用、錄製螢幕），也擋多人共用的 Linux 上的其他帳號。
+  3. **配對（金鑰）**：除了 `/version` 和 `/pair`，還要帶配對過的金鑰，見下面。
+  - `/version` 只回版本，誰連得到都回答：`pi-mobile status` 從這台電腦自己問它。
   - 帶了 `Origin` 標頭的請求，只接受 pi app 的 WebView（`http://localhost`），避免使用者自己裝置上的瀏覽器網頁來呼叫它。
   - **還要配對過的金鑰**（2026-10-25 起）。Tailscale 證明的是「哪台裝置」，不是「哪個 app」：手機上任何有網路權限的 app 都經由同一個 VPN 連得到這個 port。實測 S24 上的 adb shell（uid 2000，不是 pi）拿 `/info` 得到 200，`/exec` 用同一道檢查。所以除了 `/version` 和 `/pair`，每個請求都要帶 `key`，而且必須是這台電腦配對時發出去的：
     - `pi-mobile pair` 產生一組 6 位數配對碼，15 分鐘內有效，錯 5 次作廢；`~/.pi/mobile/pairing.json` 只存它的 SHA-256。
@@ -32,9 +37,13 @@
     - 金鑰放在 query（`?key=`），因為 WebView 的 WebSocket 不能帶標頭；電腦端的 log 只記路徑。
     - 手機把金鑰存在 Keystore（`host.<id>.key`），不放在 `settings.hosts`。
     - 保留的 session（見下面）綁定開它的那把金鑰（2026-10-26 起）：接回時金鑰不同就回 `no such session`，不透露它存在；另一把金鑰拿同一個 token 開新的 session 會被拒絕（`session token in use`），不會頂掉原本的。
-    - 撤銷：手機「移除」這台電腦時會送 `DELETE /unpair`（帶自己的金鑰），電腦端只刪掉那一把，並結束那把金鑰保留中的 session；連不到或電腦端太舊（沒有這個端點）時手機照樣移除，並說明配對還留在電腦上。手動撤銷：刪掉 `~/.pi/mobile/paired.json` 裡那一行（或整個檔案），再重新配對。
+    - **每條連線都屬於一個配對**（`host/connections.go`）：保留的 session 和一般的 `/exec` 都登記在開它的金鑰底下。配對一被刪掉，它開著的連線全部結束，指令的程序群組也一起結束。
+    - 撤銷有兩條路，結果一樣：
+      - 手機「移除」這台電腦時送 `DELETE /unpair`（帶自己的金鑰），電腦端刪掉那一把，立刻結束它的連線。連不到或電腦端太舊時手機照樣移除，並說明配對還留在電腦上。
+      - 在電腦上：`pi-mobile devices` 列出配對過的裝置，`pi-mobile unpair <名稱>`（或 `--all`）刪掉。`pi-mobile serve` 每 5 秒比對一次 `paired.json`，不在上面的金鑰開著的連線就結束。手機遺失時用這條，或到 Tailscale 後台移除那支手機。
+- **`~/.pi/mobile` 是 0700**：`pi-mobile serve` 啟動時設定。裡面的 log 有裝置名稱、路徑和 pi-env 的錯誤輸出，多人共用的 Linux 上別的帳號不該讀到。
 - **端點**：
-  - `GET /version`：只回版本，不用金鑰；`pi-mobile status` 和手機找 peers 時用它判斷有沒有裝。
+  - `GET /version`：只回版本，不檢查來源也不用金鑰；`pi-mobile status` 和手機找 peers 時用它判斷有沒有裝。
   - `POST /pair?code=<6 位數>`：見上面。
   - `GET /info`：回傳 os、arch、帳號、家目錄、電腦名稱、MagicDNS 名稱，以及已經有的 daemon。
   - `PUT /daemon/<sha256>`：存入一個 pi-env daemon。內容的 SHA-256 必須跟網址裡的一致，存在 `~/.pi/mobile/daemons/`。
@@ -55,16 +64,20 @@
   - 面板的電腦狀態在這段期間顯示「重新連線中」。
   - S24 實測：容器裡 240 秒的指令執行中，把手機的 Tailscale 強制停止 75 秒再啟動，電腦 19 秒後判定斷線，手機回來 1 秒內接上並補送 21 則訊息，24 行輸出一行不少地回到對話。
 - **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
+  - 保留的 session 結束時（寬限過了、手機刻意關閉、配對被刪），先關掉它的 stdin，2 秒後才結束程序群組（2026-10-27 起）。pi-env 把每個指令放在自己的 session 裡，不在 pi-env 的群組中；直接結束 pi-env 的群組，它跑的指令會變成孤兒留著（S24 實測：撤銷後 `sleep 49` 的父程序變成 launchd，一直在跑）。pi-env 看到 stdin 結束就會自己結束它啟動的指令（本機實測 8 ms）。改了之後 S24 上撤銷配對，指令 1～3 秒內結束，Bot 收到「the request had been sent, so its outcome is unknown」，沒有重試。
 
 ## 手機（`src/agent/sandbox/host.ts`）
 
 - `settings.hosts`：電腦清單（JSON），每台記著 id、名稱、MagicDNS 名稱、os、arch、帳號、家目錄、容器引擎。id 就是它的 MagicDNS 名稱，所以移除後再加入，Bot 原本的選擇還在。
 - 設定 › 電腦：
   - **第一台**：輸入名稱和配對碼，按「加入」：先 `pairHost` 換到金鑰，再 `probeHost`（`GET /info`）。只輸入短名稱也行，因為 Tailscale 的 DNS 會補上 tailnet 網域。
+  - **只連 tailnet 裡的位址**（2026-10-27 起）：所有對電腦的請求都經過 `base()`，它只接受 `*.ts.net`、`100.64.0.0/10`、`fd7a:115c:a1e0::/48` 和不含點的 MagicDNS 短名稱（跟供應商金鑰用同一個規則，`src/agent/cleartext.ts`）。別的位址（區網 IP、`mac.local`）在送出前就拒絕：配對碼、金鑰和指令都是明文，加密和「對方就是那台電腦」都靠 tailnet。
   - **之後**：手機向已加入的電腦要 `/peers`，再逐台問 `/version`。有裝的列成一行，輸入那台的配對碼按「加入」；沒回應的列出名稱，下面附安裝指令。輸入名稱的欄位收進「手動輸入」。實測列出 8 台、逐台確認，共 2.9 秒。
   - 連不到：顯示安裝指令。
   - 回 403：告訴使用者手機和電腦要登入同一個 Tailscale 帳號。
   - 回 401（沒有金鑰或金鑰不對）：告訴使用者在那台電腦執行 `pi-mobile pair`。在這次改版之前加入的電腦沒有金鑰，列表上直接顯示配對碼欄位。
+  - 打開設定 › 電腦時，每台有金鑰的電腦問一次 `/info`；回 401（例如在電腦上執行過 `pi-mobile unpair`）就在那台下面顯示配對碼欄位，輸入新的配對碼就換上新金鑰（`stillPaired`）。
+  - WebView 的 WebSocket 握手失敗時看不到 HTTP 狀態，所以 `/exec`、`/env` 連不上時一律再問一次 `/info`（`explained`），配對被刪的話錯誤會說「沒有跟這支手機配對」，而不是「連不到」。
 - 加入後，第一台電腦成為預設（直接）。有容器引擎的電腦，在設定或 Bot 面板選「容器」都可以：第一次使用時會先建 image（`prepareContainers`，同一次 app 執行裡只做一次，設定、Bot 面板、Bot 本身共用同一個準備動作），建置時顯示進度。準備只由三件事啟動：使用者在設定或面板選了容器、Bot 第一次用到它、面板上的重試；打開面板或冷啟動只會顯示已經在進行的準備，不會自己開始（2026-10-26 之前面板一掛載就準備，冷啟動時手機還沒做任何事就先對電腦跑了 12 個 `/exec`）。egress 的 bridge 也一樣，在 Bot 第一次用到容器時才開。設定頁在選中的方式下面寫一句它代表什麼：「直接」用使用者的身分操作，「容器」的憑證留在手機上。安裝指令可以複製，也可以分享到電腦上（聊天、郵件）。
 - `HostSandbox` 有兩種模式：
   - **直接**：每次 app 執行時第一次連線，先 `/info`，沒有對應的 daemon 就 `PUT` 上去，再開 `/env` 的 WebSocket，接到 pi-env 的 `Connection`（`PhoneConnection`）上。工作目錄是家目錄，提示是 `directDescription`。刪 Bot 不會刪電腦上的任何檔案。

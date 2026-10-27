@@ -1,6 +1,6 @@
 import { Row } from "./Row.tsx";
 import { useEffect, useState } from "react";
-import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
+import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, stillPaired, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../plugins/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
@@ -99,7 +99,21 @@ function PairRow({ label, primary, busy, onPair }: { label: string; primary: boo
 
 const osName = (os: string) => (os === "darwin" ? "macOS" : "Linux");
 
+function useUnpaired(host: PairedHost): boolean {
+	const [unpaired, setUnpaired] = useState(false);
+	useEffect(() => {
+		if (!host.key) return undefined;
+		let current = true;
+		void orLogged(stillPaired(host, AbortSignal.timeout(5000)), "hosts.pairing_unknown", undefined, { host: host.address }).then((paired) => current && setUnpaired(paired === false));
+		return () => {
+			current = false;
+		};
+	}, [host.address, host.key]);
+	return unpaired;
+}
+
 function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boolean; onPair: (code: string) => void; onRemove: () => void }) {
+	const unpaired = useUnpaired(host);
 	return (
 		<div className="machine">
 			<Row label={host.name} hint={`${osName(host.os)} · ${host.user}`}>
@@ -107,7 +121,7 @@ function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boo
 					移除
 				</button>
 			</Row>
-			{host.key ? null : <PairRow label="配對" primary busy={busy} onPair={onPair} />}
+			{host.key && !unpaired ? null : <PairRow label="配對" primary busy={busy} onPair={onPair} />}
 		</div>
 	);
 }

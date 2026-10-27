@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { refuseIpOnIos } from "../../src/agent/cleartext.ts";
 import { fetchModelIds } from "../../src/agent/models.ts";
+import { pairHost } from "../../src/agent/sandbox/host.ts";
 import { type Check } from "./setup.ts";
 
 const refused = /不透過明文 HTTP/;
@@ -17,6 +18,17 @@ export const checks: Check[] = [
 				await assert.rejects(fetchModelIds(url, "secret"), (error) => !refused.test(String(error)), url);
 			}
 			await assert.rejects(fetchModelIds("http://192.168.1.20:11434", ""), offline, "a keyless server on the LAN is still reachable");
+		},
+	],
+	[
+		"the pairing code, the key and every command go only to a computer in the tailnet",
+		async () => {
+			for (const address of ["192.168.1.20", "mac.local", "example.com", "localhost", "127.0.0.1", "100.128.0.1", "mac.ts.net.example.com"]) {
+				await assert.rejects(pairHost(address, "123456"), /不在 Tailscale 裡/, address);
+			}
+			for (const address of ["mac", "mac.tailnet.ts.net", "100.64.0.1", "fd7a:115c:a1e0::1"]) {
+				await assert.rejects(pairHost(address, "123456"), /連不到/, address);
+			}
 		},
 	],
 	[
