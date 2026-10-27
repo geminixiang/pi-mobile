@@ -1,4 +1,4 @@
-FROM mitmproxy/mitmproxy:12.2.3
+FROM mitmproxy/mitmproxy:12.3.1
 
 COPY credentials.py /egress/credentials.py
 COPY bridge.py /egress/bridge.py

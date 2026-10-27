@@ -1,4 +1,4 @@
-FROM node:24-trixie-slim
+FROM node:24.22.1-trixie-slim
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
@@ -24,13 +24,13 @@ RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg -o /etc/apt
 	&& rm -rf /var/lib/apt/lists/* \
 	&& mkdir -p /etc/pi-egress && echo injected-by-pi-egress > /etc/pi-egress/gcloud-token
 
-COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /uvx /usr/local/bin/
 RUN corepack enable pnpm && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version > /dev/null
 
 RUN UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --python 3.13 azure-cli==2.91.0 \
 	&& uv cache clean
 
-RUN npm install --global --no-fund --no-audit cf@1.0.0-beta.18 wrangler@4.151.2 && npm cache clean --force
+RUN npm install --global --no-fund --no-audit cf@1.0.0-beta.23 wrangler@4.153.0 && npm cache clean --force
 ENV UV_LINK_MODE=copy PIP_BREAK_SYSTEM_PACKAGES=1
 
 COPY pi-env /usr/local/bin/pi-env
