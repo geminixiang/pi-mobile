@@ -50,8 +50,8 @@ public class UsagePlugin extends Plugin {
                 call.reject("usage access is off");
                 return;
             }
-            long from = call.getLong("from", 0L);
-            long to = Math.min(call.getLong("to", System.currentTimeMillis()), System.currentTimeMillis());
+            long from = call.getData().optLong("from", 0L);
+            long to = Math.min(call.getData().optLong("to", System.currentTimeMillis()), System.currentTimeMillis());
             UsageEvents events = getContext().getSystemService(UsageStatsManager.class).queryEvents(from, to);
             Map<String, Long> started = new HashMap<>();
             Map<String, Long> total = new HashMap<>();

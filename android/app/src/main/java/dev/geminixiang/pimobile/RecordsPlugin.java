@@ -51,7 +51,7 @@ public class RecordsPlugin extends Plugin {
 
     private void readCalls(PluginCall call) {
         Background.run(call, () -> {
-            long since = call.getLong("since", 0L);
+            long since = call.getData().optLong("since", 0L);
             int limit = call.getInt("limit", 50);
             String[] columns = { CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION };
             JSArray items = new JSArray();
@@ -114,7 +114,7 @@ public class RecordsPlugin extends Plugin {
 
     private void readSms(PluginCall call) {
         Background.run(call, () -> {
-            long since = call.getLong("since", 0L);
+            long since = call.getData().optLong("since", 0L);
             int limit = call.getInt("limit", 50);
             String query = call.getString("query", "");
             String where = Telephony.Sms.DATE + " >= " + since + (query.isEmpty() ? "" : " AND (" + Telephony.Sms.BODY + " LIKE ? OR " + Telephony.Sms.ADDRESS + " LIKE ?)");

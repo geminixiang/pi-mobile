@@ -50,7 +50,7 @@ public class NotificationsPlugin extends Plugin {
     @PluginMethod
     public void list(PluginCall call) {
         Background.run(call, () -> {
-            long since = call.getLong("since", System.currentTimeMillis() - 24 * 3600_000L);
+            long since = call.getData().optLong("since", System.currentTimeMillis() - 24 * 3600_000L);
             int limit = Math.max(0, call.getInt("limit", 0));
             List<NotificationStore.Row> rows = NotificationStore.get(getContext()).list(since, call.getString("app"), call.getString("query"), limit);
             JSArray items = new JSArray();
@@ -293,7 +293,7 @@ public class NotificationsPlugin extends Plugin {
             new Intent(getContext(), DndReceiver.class).setAction(ACTION_DND_END),
             PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
-        long until = call.getLong("until", 0L);
+        long until = call.getData().optLong("until", 0L);
         alarms.cancel(end);
         if (filter != NotificationListenerService.INTERRUPTION_FILTER_ALL && until > System.currentTimeMillis()) {
             if (alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);

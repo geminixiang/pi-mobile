@@ -66,8 +66,8 @@ public class PhotosPlugin extends Plugin {
     }
 
     private void list(PluginCall call) {
-        long from = call.getLong("from", 0L);
-        long to = call.getLong("to", Long.MAX_VALUE);
+        long from = call.getData().optLong("from", 0L);
+        long to = call.getData().optLong("to", Long.MAX_VALUE);
         int limit = call.getInt("limit", 200);
         String album = call.getString("album");
         ContentResolver resolver = getContext().getContentResolver();

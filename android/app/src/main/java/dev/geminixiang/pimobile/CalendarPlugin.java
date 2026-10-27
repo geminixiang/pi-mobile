@@ -89,9 +89,10 @@ public class CalendarPlugin extends Plugin {
             boolean includeShared = Boolean.TRUE.equals(call.getBoolean("includeShared", false));
             java.util.Map<Long, CalendarRow> calendars = new java.util.HashMap<>();
             for (CalendarRow row : visibleCalendars()) if (row.own || includeShared) calendars.put(row.id, row);
-            Long from = call.getLong("from");
-            Long to = call.getLong("to");
-            if (from == null || to == null || to <= from) {
+            JSObject args = call.getData();
+            long from = args.optLong("from");
+            long to = args.optLong("to");
+            if (!args.has("from") || !args.has("to") || to <= from) {
                 call.reject("from and to are required, with to after from");
                 return;
             }
@@ -110,7 +111,8 @@ public class CalendarPlugin extends Plugin {
                 CalendarContract.Instances.CALENDAR_ID,
                 CalendarContract.Instances.SELF_ATTENDEE_STATUS,
             };
-            String selection = CalendarContract.Instances.VISIBLE + " = 1 AND " + CalendarContract.Instances.STATUS + " != " + CalendarContract.Events.STATUS_CANCELED;
+            String status = CalendarContract.Instances.STATUS;
+            String selection = CalendarContract.Instances.VISIBLE + " = 1 AND (" + status + " IS NULL OR " + status + " != " + CalendarContract.Events.STATUS_CANCELED + ")";
             JSArray events = new JSArray();
             try (Cursor cursor = getContext().getContentResolver().query(range.build(), projection, selection, null, CalendarContract.Instances.BEGIN + " ASC")) {
                 while (cursor != null && cursor.moveToNext()) {
@@ -191,13 +193,14 @@ public class CalendarPlugin extends Plugin {
 
     private void insert(PluginCall call) {
         Background.run(call, () -> {
-            Long calendarId = call.getLong("calendarId");
-            Long begin = call.getLong("begin");
-            Long end = call.getLong("end");
-            if (calendarId == null || begin == null || end == null) {
+            JSObject args = call.getData();
+            if (!args.has("calendarId") || !args.has("begin") || !args.has("end")) {
                 call.reject("calendarId, begin and end are required");
                 return;
             }
+            long calendarId = args.optLong("calendarId");
+            long begin = args.optLong("begin");
+            long end = args.optLong("end");
             boolean allowed = false;
             for (CalendarRow row : visibleCalendars()) if (row.id == calendarId && row.writable) allowed = true;
             if (!allowed) {

@@ -38,6 +38,12 @@ for (const [name, methods] of contracts) {
 	for (const method of methods) if (!implemented?.has(method) && !INHERITED_ON_ANDROID.has(method)) failures.push(`${name}.${method} is in its contract but not implemented on Android`);
 }
 
+for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java"))) {
+	if (/\bcall\.getLong\(/.test(readFileSync(new URL(file, ANDROID), "utf8"))) {
+		failures.push(`${file} reads a number with call.getLong, which returns its default for any number that fits in an int; use call.getData().optLong`);
+	}
+}
+
 const registering = sourcesMatching(/\bregisterPlugin\b/, ["plugins/define.ts"]);
 if (registering.length) failures.push(`native plugins are declared with definePlugin in src/plugins/, not registerPlugin: ${registering.join(", ")}`);
 
