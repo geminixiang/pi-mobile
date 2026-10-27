@@ -90,9 +90,11 @@ public class SystemPlugin extends Plugin {
             download(url, apk, sha256);
             requireSameApp(context, apk);
             Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apk);
-            context.startActivity(new Intent(Intent.ACTION_VIEW)
+            Intent install = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, "application/vnd.android.package-archive")
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK));
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            String installer = context.getPackageManager().queryIntentActivities(install, PackageManager.MATCH_SYSTEM_ONLY).get(0).activityInfo.packageName;
+            context.startActivity(install.setPackage(installer));
             call.resolve();
         });
     }
