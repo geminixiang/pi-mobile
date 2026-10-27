@@ -7,10 +7,10 @@
 <p align="center">AI agent 直接跑在你的 Android 手機上：<br>用你自己的模型 key，資料留在手機，程式碼在你自己的電腦上執行。</p>
 
 <p align="center">
-<img src="docs/screenshots/home.png" width="200" alt="首頁">
-<img src="docs/screenshots/chat.png" width="200" alt="對話：在 sandbox 畫圖">
-<img src="docs/screenshots/changes.png" width="200" alt="工作區：git 變更">
-<img src="docs/screenshots/diff.png" width="200" alt="工作區：diff">
+<img src="docs/screenshots/bots.png" width="200" alt="Bot 列表：每個 Bot 有自己的工作和自動化">
+<img src="docs/screenshots/stock.png" width="200" alt="台股：分析台積電的走勢和籌碼">
+<img src="docs/screenshots/automations.png" width="200" alt="自動化：定時、戴上耳機、收到通知、上車、拍了照片">
+<img src="docs/screenshots/phone.png" width="200" alt="手機控制：睡前調暗螢幕、開勿擾、設鬧鐘，早上再關掉並查天氣">
 </p>
 
 - **幾個長期的 Bot**：每個 Bot 有自己的名字、工作說明、記憶、自動化，和一條一直延續的對話，太長時自動壓縮。
