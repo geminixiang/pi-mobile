@@ -24,7 +24,7 @@ public class ContactsPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         guard status == .notDetermined else {
-            call.reject("contacts permission denied: the user can allow it in Settings › pi mobile › Contacts", "permission")
+            call.reject("contacts permission denied: the user can allow it in Settings › Pi › Contacts", "permission")
             return
         }
         DispatchQueue.main.async {

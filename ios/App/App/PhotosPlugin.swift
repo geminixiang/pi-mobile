@@ -18,7 +18,7 @@ public class PhotosPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         guard PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined else {
-            call.reject("photos permission denied: the user can allow it in Settings › pi mobile › Photos", "permission")
+            call.reject("photos permission denied: the user can allow it in Settings › Pi › Photos", "permission")
             return
         }
         DispatchQueue.main.async {

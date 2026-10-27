@@ -34,7 +34,7 @@ public class AppsPlugin: CAPPlugin, CAPBridgedPlugin, MFMailComposeViewControlle
             do {
                 let state = try await AlarmManager.shared.requestAuthorization()
                 guard state == .authorized else {
-                    call.reject("alarms are not allowed: the user can allow them in Settings › pi mobile › Alarms & Timers", "permission")
+                    call.reject("alarms are not allowed: the user can allow them in Settings › Pi › Alarms & Timers", "permission")
                     return
                 }
                 let stop = AlarmButton(text: "停止", textColor: .white, systemImageName: "stop.circle")

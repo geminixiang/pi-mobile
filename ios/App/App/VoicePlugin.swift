@@ -29,7 +29,7 @@ public class VoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDelega
         let language = call.getString("language") ?? "zh-TW"
         AVAudioApplication.requestRecordPermission { granted in
             guard granted else {
-                call.reject("需要麥克風權限才能語音輸入：設定 › pi mobile › 麥克風", "permission")
+                call.reject("需要麥克風權限才能語音輸入：設定 › Pi › 麥克風", "permission")
                 return
             }
             Task { @MainActor in

@@ -4,7 +4,7 @@ const isDevelopmentBuild = process.env.PI_MOBILE_DEBUG === "1";
 
 const config: CapacitorConfig = {
 	appId: "dev.geminixiang.pimobile",
-	appName: "pi mobile",
+	appName: "Pi",
 	webDir: "dist",
 	server: {
 		androidScheme: "http",

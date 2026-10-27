@@ -67,7 +67,7 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }
         default:
-            call.reject("calendar permission denied: the user can allow full access in Settings › pi mobile › Calendars", "permission")
+            call.reject("calendar permission denied: the user can allow full access in Settings › Pi › Calendars", "permission")
         }
     }
 

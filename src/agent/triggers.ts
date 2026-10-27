@@ -164,7 +164,7 @@ async function needLocationAlways(what: string): Promise<void> {
 	const { background } = await oneDialogAtATime(() => Triggers.requestLocationAlways());
 	if (!background) {
 		throw new Error(
-			`pi needs location "allow all the time" to know ${what} while it is not open, and the user has not allowed it. Tell them: 設定 › 應用程式 › pi mobile › 權限 › 位置資訊 › 一律允許, then ask again.`,
+			`pi needs location "allow all the time" to know ${what} while it is not open, and the user has not allowed it. Tell them: 設定 › 應用程式 › Pi › 權限 › 位置資訊 › 一律允許, then ask again.`,
 		);
 	}
 }

@@ -72,7 +72,7 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
         do {
             for try await update in CLLocationUpdate.liveUpdates() {
                 if update.authorizationDenied || update.authorizationDeniedGlobally || update.authorizationRestricted {
-                    return .failure(LocationFailure(message: "location permission denied: the user can allow it in Settings › pi mobile › Location", code: "permission"))
+                    return .failure(LocationFailure(message: "location permission denied: the user can allow it in Settings › Pi › Location", code: "permission"))
                 }
                 if let location = update.location { return .success(location) }
             }

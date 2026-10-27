@@ -129,7 +129,7 @@
         <service
             android:name=".NotificationsListener"
             android:exported="true"
-            android:label="pi mobile"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
@@ -139,7 +139,7 @@
         <service
             android:name=".PhoneScreenService"
             android:exported="true"
-            android:label="pi mobile"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
