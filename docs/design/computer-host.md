@@ -98,6 +98,14 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 - 打開之後，macOS 還會另外問一次「pi-mobile 正在要求略過系統私密視窗選擇器並直接取用你的畫面和音訊」，要再按一次「允許」。這是 macOS Sequoia 之後所有直接截取螢幕的程式都會遇到的確認，**每個月會再問一次**（[TechSmith 的說明](https://support.techsmith.com/hc/en-us/articles/30302332343693)），一般 app 無法略過。`pi-mobile serve` 每次啟動（通常是登入時）都會截圖檢查，所以到期後的詢問多半在使用者剛登入、人在電腦前時出現。允許後重新啟動 serve，不會再問。
 - 控制其他 app（Finder、Safari、音樂）是每個 app 各問一次，沒辦法事先問完；安裝時只問最常用的 System Events。
 
+## 網路與資安：跟 Rex 一樣交給 Tailscale
+
+2026-10-27 決定：連線、加密和來源身分都交給 Tailscale，跟 Rex 現在的選擇一樣（[research/rex-server.md](../research/rex-server.md)）。pi-mobile 不自己做 TLS，也不支援其他網路，加密靠 Tailscale 底下的 WireGuard。比 Rex 多一層的只有配對金鑰，原因見上面的「還要配對過的金鑰」。
+
+- 自架 Headscale 的人用的也是 Tailscale client，`tailscale whois` 和 `status` 照樣能用，不必另外處理。
+- 不考慮直接用 WireGuard：Tailscale 多做的交換金鑰、跨 NAT、`whois`、MagicDNS 正是 pi-mobile 依賴的部分，換成 WireGuard 等於叫使用者自己做這些事。
+- 什麼時候重新考慮：有人實際需要非 Tailscale 的網路（區域網路直連、其他 VPN），或 Rex 推出自己的驗證機制時。到時第一步是 TLS 加配對時交出的憑證指紋，讓安全不依賴網路層；`whois` 和 `/peers` 改成有 Tailscale 時才用。
+
 ## 還沒做
 
 - 第一次使用時能看到的錯誤，在 S24 上都試過：
