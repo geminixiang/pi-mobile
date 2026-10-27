@@ -248,3 +248,20 @@ func TestAPhoneThatClosesOnPurposeEndsItsHeldSession(t *testing.T) {
 		t.Fatal("a normal closure left the session held")
 	}
 }
+
+func TestStartingAHeldTokenAgainReplacesTheSessionHoldingIt(t *testing.T) {
+	server := execServer(t)
+	token := fmt.Sprintf("%032x", time.Now().UnixNano())
+	first := startHeldSleep(t, server, token, "phone-a")
+	defer first.CloseNow()
+	second := startHeldSleep(t, server, token, "phone-a")
+	defer second.CloseNow()
+	if _, _, reason := readAll(t, first, 3*time.Second); !strings.Contains(reason, sessionGone) {
+		t.Fatalf("the replaced session's phone was answered %q", reason)
+	}
+	session := takeSession("exec:"+token, digest("phone-a"))
+	if session == nil {
+		t.Fatal("the new session is not held")
+	}
+	session.kill()
+}

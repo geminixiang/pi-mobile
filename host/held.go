@@ -67,10 +67,7 @@ var (
 
 func holdSession(id string, session *held) {
 	heldMu.Lock()
-	defer heldMu.Unlock()
-	if previous := heldByID[id]; previous != nil {
-		previous.kill()
-	}
+	previous := heldByID[id]
 	heldByID[id] = session
 	session.onEnd = func() {
 		heldMu.Lock()
@@ -78,6 +75,10 @@ func holdSession(id string, session *held) {
 			delete(heldByID, id)
 		}
 		heldMu.Unlock()
+	}
+	heldMu.Unlock()
+	if previous != nil {
+		previous.kill()
 	}
 }
 
