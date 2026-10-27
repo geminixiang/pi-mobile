@@ -3,7 +3,7 @@
 ## 從原始碼建置 app
 
 需要：
-- Node 24
+- Node 26
 - JDK 21：Capacitor 8 要求，腳本預設用 Homebrew 的 `openjdk@21`。
 - Android SDK（platform 37、build-tools 36），裝在 `~/Library/Android/sdk`。
 - 開了 USB 或無線偵錯的 Android 手機。
@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/ins
 
 - **直接**：Bot 以你的帳號、從家目錄操作這台電腦。
 - **容器**：電腦上有 docker、podman 或 nerdctl 時才會出現。第一次按下時會在電腦上建好兩個 image：
-  - `pi-mobile/sandbox`：Debian 13、Node 24（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、cf、wrangler、az、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
+  - `pi-mobile/sandbox`：Debian 13、Node 26（npm、pnpm）、Python 3.13 + uv、git、gh、gcloud、cf、wrangler、az、build-essential、sqlite3、ImageMagick、ffmpeg、pandoc、poppler-utils、Noto CJK 字型。
   - `pi-mobile/egress`：mitmproxy 加上 `credentials.py`。
 
   所有 Bot 共用 `pim-main` 這個容器。憑證只留在手機上。
