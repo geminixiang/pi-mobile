@@ -4,7 +4,8 @@ import { mcpResult } from "../mcp.ts";
 import { Type } from "typebox";
 import { HostStdioTransport, type PairedHost } from "../sandbox/host.ts";
 import type { Workplace } from "../workplaces.ts";
-import { defineAppTool, oneOf } from "./common.ts";
+import { defineAppTool } from "./common.ts";
+import { oneOf } from "../parse.ts";
 import { messageOf, sharedUntilFailure } from "../../promise.ts";
 
 const COMMAND = "pi-mobile mcp computer";

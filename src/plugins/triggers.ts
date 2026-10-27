@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { Granted, definePlugin } from "./define.ts";
+import { oneOf } from "../agent/parse.ts";
 
 const Clock = Type.String({ pattern: "^\\d{2}:\\d{2}$" });
 const Days = Type.Array(Type.Integer({ minimum: 1, maximum: 7 }));
@@ -59,8 +59,6 @@ export const QueuedEvent = Type.Union([
 	}),
 ]);
 export type QueuedEvent = Static<typeof QueuedEvent>;
-
-const Granted = Type.Object({ granted: Type.Boolean() });
 
 export const Triggers = definePlugin(
 	"Triggers",

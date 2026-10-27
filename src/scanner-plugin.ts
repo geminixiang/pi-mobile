@@ -13,6 +13,6 @@ export function scannedPdf(path: string): Promise<File> {
 }
 
 export async function ocr(data: string): Promise<string> {
-	if (!native.has("Scanner")) return "";
+	if (!native.implements(Scanner.ocr)) return "";
 	return (await Scanner.ocr({ data })).text.trim();
 }

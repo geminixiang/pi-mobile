@@ -6,7 +6,7 @@ import { NATIVE_PLUGINS, type NativePlugin } from "../../src/native.ts";
 import { turn } from "./fixtures.ts";
 import { type Check, platform, settings } from "./setup.ts";
 
-async function seen(inApp: boolean, native: readonly NativePlugin[], missing: readonly string[] = []) {
+async function seen(inApp: boolean, native: readonly NativePlugin[], missing: readonly string[] = [], off: readonly string[] = []) {
 	const runtime = await AgentRuntime.open(new MemoryStorage(), settings, {
 		...platform,
 		inApp,
@@ -15,6 +15,7 @@ async function seen(inApp: boolean, native: readonly NativePlugin[], missing: re
 	});
 	try {
 		const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+		for (const toolset of off) await runtime.setToolset(bot, toolset, false);
 		let offered = "";
 		await turn(runtime, bot, [
 			(context: TranscriptContext) => {
@@ -69,6 +70,20 @@ export const checks: Check[] = [
 			assert.equal(partial.offers("read_sms"), false);
 			assert.ok(partial.offers("read_calendar_events"));
 			assert.equal(partial.offers("add_calendar_event"), false);
+
+			const withoutNotifications = await seen(true, NATIVE_PLUGINS.filter((plugin) => platform.native.has(plugin) && plugin !== "Notifications"));
+			assert.ok(withoutNotifications.toolsets.includes("control"));
+			assert.ok(withoutNotifications.offers("sound"));
+			assert.equal(withoutNotifications.offers("media"), false);
+			assert.ok(!withoutNotifications.toolsets.includes("notifications"));
+		},
+	],
+	[
+		"a bot without device_info is told to read the time in codemode, even on a phone that has it",
+		async () => {
+			const withoutDevice = await seen(true, NATIVE_PLUGINS.filter((plugin) => platform.native.has(plugin)), [], ["device"]);
+			assert.equal(withoutDevice.offers("device_info"), false);
+			assert.match(withoutDevice.offered, /new Date\(\) in codemode/);
 		},
 	],
 ];

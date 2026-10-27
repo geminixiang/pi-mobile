@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { Allowed, definePlugin } from "./define.ts";
+import { oneOf } from "../agent/parse.ts";
 
 const Step = Type.Object({
 	action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"]),
@@ -14,7 +14,6 @@ const Step = Type.Object({
 	keys: Type.Optional(Type.String()),
 	app: Type.Optional(Type.String()),
 });
-export type PhoneScreenStep = Static<typeof Step>;
 
 const Snapshot = Type.Object({
 	width: Type.Number(),
@@ -33,7 +32,7 @@ const Snapshot = Type.Object({
 export type PhoneScreenSnapshot = Static<typeof Snapshot>;
 
 export const PhoneScreen = definePlugin("PhoneScreen", {
-	status: { args: Type.Object({}), result: Type.Object({ allowed: Type.Boolean() }) },
+	status: { args: Type.Object({}), result: Allowed },
 	openSettings: { args: Type.Object({}) },
 	openAppInfo: { args: Type.Object({}) },
 	read: { args: Type.Object({ screenshot: Type.Boolean() }), result: Snapshot },

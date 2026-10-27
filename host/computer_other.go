@@ -14,3 +14,5 @@ func newScreen() (screen, error) {
 func requestAccessibility(time.Duration) bool { return false }
 
 func requestScreenCapture() {}
+
+var permissions []permission

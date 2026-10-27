@@ -119,15 +119,20 @@ export function fullText(attachment: Pick<StoredAttachment, "kind" | "units">): 
 const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 const unescape = (value: string) => value.replace(/&lt;/g, "<").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
 
-function head(text: string, tokens: number): { text: string; lines: number; total: number } {
-	const lines = text.split("\n");
+export function fittingLines(lines: readonly string[], from: number, budget: number, limit = Number.POSITIVE_INFINITY): number {
 	let used = 0;
 	let count = 0;
-	for (const line of lines) {
-		used += estimateTokens(line) + 1;
-		if (used > tokens && count > 0) break;
+	while (from + count < lines.length && count < limit) {
+		used += estimateTokens(lines[from + count] ?? "") + 1;
+		if (used > budget && count > 0) break;
 		count++;
 	}
+	return count;
+}
+
+function head(text: string, tokens: number): { text: string; lines: number; total: number } {
+	const lines = text.split("\n");
+	const count = fittingLines(lines, 0, tokens);
 	return { text: lines.slice(0, count).join("\n"), lines: count, total: lines.length };
 }
 

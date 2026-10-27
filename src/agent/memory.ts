@@ -1,7 +1,8 @@
 import { Type } from "typebox";
 import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
-import { defineAppTool, oneOf, text } from "./tools/common.ts";
+import { defineAppTool, text } from "./tools/common.ts";
+import { oneOf } from "./parse.ts";
 
 export const MEMORY_LIMIT = 4000;
 

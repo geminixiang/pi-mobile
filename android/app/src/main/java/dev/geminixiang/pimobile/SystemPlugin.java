@@ -2,6 +2,7 @@ package dev.geminixiang.pimobile;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.view.HapticFeedbackConstants;
@@ -58,13 +59,15 @@ public class SystemPlugin extends Plugin {
 
     @PluginMethod
     public void openAssistantSettings(PluginCall call) {
-        android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            getContext().startActivity(intent);
-        } catch (RuntimeException e) {
-            getContext().startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
+        openSettings(getContext(), new Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS), android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
         call.resolve();
+    }
+
+    static void openSettings(Context context, Intent preferred, String fallbackAction) {
+        try {
+            context.startActivity(preferred.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            context.startActivity(new Intent(fallbackAction).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
     }
 }

@@ -1,4 +1,6 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
+import { text as bodyText } from "node:stream/consumers";
+import { setTimeout as sleep } from "node:timers/promises";
 
 const PERF_MODEL = "perf-fixture";
 const PORT = Number(process.env.PERF_PORT ?? "8399");
@@ -53,8 +55,6 @@ function chunk(content: string | undefined, finish?: string): string {
 	return `data: ${JSON.stringify({ id: "perf", object: "chat.completion.chunk", created: 0, model: PERF_MODEL, choices: [{ index: 0, delta, finish_reason: finish ?? null }] })}\n\n`;
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 async function stream(response: ServerResponse, text: string, paced: boolean): Promise<void> {
 	response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", "access-control-allow-origin": "*" });
 	response.write(chunk(""));
@@ -72,15 +72,6 @@ async function stream(response: ServerResponse, text: string, paced: boolean): P
 	response.end();
 }
 
-function readBody(request: IncomingMessage): Promise<string> {
-	return new Promise((resolve, reject) => {
-		let data = "";
-		request.on("data", (part) => (data += part));
-		request.on("end", () => resolve(data));
-		request.on("error", reject);
-	});
-}
-
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET, POST, OPTIONS" };
 
 createServer(async (request, response) => {
@@ -93,7 +84,7 @@ createServer(async (request, response) => {
 		return;
 	}
 	if (request.method === "POST" && request.url?.endsWith("/chat/completions")) {
-		const text = lastUserText(JSON.parse(await readBody(request)));
+		const text = lastUserText(JSON.parse(await bodyText(request)));
 		const build = /^build (\d+)/.exec(text);
 		const streamed = /^stream (\d+)/.exec(text);
 		const seed = Number((build ?? streamed)?.[1] ?? "0");

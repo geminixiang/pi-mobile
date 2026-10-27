@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { MemoryStorage, type Storage } from "@earendil-works/pi-durable";
-import { AgentRuntime, type ConversationId } from "../../src/agent/runtime.ts";
+import type { ConversationId } from "../../src/agent/runtime.ts";
 import { surviveSuspension } from "../../src/storage.ts";
-import { context, keepOpen, openRuntime, turn } from "./fixtures.ts";
-import { type Check, platform, settings } from "./setup.ts";
+import { entriesOf, keepOpen, openRuntime, turn } from "./fixtures.ts";
+import type { Check } from "./setup.ts";
 
 const SUSPENDED = "Attempt to get a record from database without an in-progress transaction";
 
@@ -28,12 +28,9 @@ async function withBot(): Promise<{ memory: MemoryStorage; bot: ConversationId }
 	return { memory, bot };
 }
 
-async function answers(memory: MemoryStorage, bot: ConversationId): Promise<number> {
-	const page = await memory.scanEntries({ conversationId: bot }, 50, undefined, context);
-	return page.items.filter((entry) => entry.kind === "pi.assistant").length;
-}
+const answers = (memory: MemoryStorage, bot: ConversationId) => entriesOf(memory, bot, "pi.assistant");
 
-const open = (storage: Storage) => AgentRuntime.open(storage, settings, platform, { onReport: () => undefined });
+const open = async (storage: Storage) => (await openRuntime(storage)).runtime;
 
 export const checks: Check[] = [
 	[

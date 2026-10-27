@@ -6,10 +6,10 @@ import type { QueuedEvent } from "../../src/plugins/triggers.ts";
 import { deliverEvents } from "../../src/app/triggers.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
+import { DAY, localDate } from "../../src/agent/tools/common.ts";
 import { context, entriesOf } from "./fixtures.ts";
 import { type Check, logged, settings } from "./setup.ts";
 
-const DAY = 24 * 60 * 60 * 1000;
 
 async function triggerFixture(
 	when: Trigger["when"],
@@ -91,8 +91,7 @@ export const checks: Check[] = [
 		async () => {
 			const base = { name: "t", prompt: "p" };
 			assert.deepEqual(await whenOf({ ...base, on: "time", time: "08:00", days: ["mon", "fri"] }), { kind: "daily", time: "08:00", days: [1, 5] });
-			const tomorrow = new Date(Date.now() + DAY);
-			const at = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")} 09:30`;
+			const at = `${localDate(Date.now() + DAY)} 09:30`;
 			const once = await whenOf({ ...base, on: "time", at });
 			assert.equal(once.kind, "once");
 			assert.deepEqual(await whenOf({ ...base, on: "charging", from: "22:00", at_most_every_hours: 2 }), { kind: "charging", days: [], from: "22:00", gapHours: 2 });

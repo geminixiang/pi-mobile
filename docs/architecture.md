@@ -131,7 +131,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 24 內建的 `fetch` 預設不�
 | `src/agent/platform.ts` | `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。App 給 Capacitor 的實作，`test/contracts/` 給記憶體的 |
 | `src/agent/parse.ts` | 邊界驗證（typebox） |
 | `src/storage.ts`、`src/idb.ts`、`src/settings.ts` | pi-durable 的 IndexedDB 儲存、其他 IndexedDB 資料、設定（密鑰在 Keystore） |
-| `src/*-plugin.ts` | 原生 plugin 的 TypeScript 介面，各自對應 `android/.../<名稱>Plugin.java` |
+| `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.java` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |

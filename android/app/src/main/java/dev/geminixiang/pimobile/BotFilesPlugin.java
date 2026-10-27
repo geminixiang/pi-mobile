@@ -28,29 +28,26 @@ public class BotFilesPlugin extends Plugin {
     private static final Pattern BOT = Pattern.compile("[A-Za-z0-9_-]{1,64}");
     private final ExecutorService work = Executors.newFixedThreadPool(4);
 
-    private static final class Failure extends Exception {
-        final String code;
+    private static final class Failure extends Exception implements Background.Coded {
+        private final String code;
 
         Failure(String code, String message) {
             super(message);
             this.code = code;
         }
+
+        @Override
+        public String code() {
+            return code;
+        }
     }
 
-    private interface Job {
-        void run() throws Exception;
-    }
-
-    private void run(PluginCall call, Job job) {
-        work.execute(() -> {
-            try {
-                job.run();
-            } catch (Failure failure) {
-                call.reject(failure.getMessage(), failure.code);
-            } catch (Exception error) {
-                call.reject(String.valueOf(error.getMessage()), "io");
-            }
-        });
+    private static void replace(File temp, File file) throws IOException {
+        try {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private File bots() {
@@ -95,7 +92,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void stat(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (!file.exists()) {
                 if (file.equals(botRoot(call))) {
@@ -116,7 +113,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void exists(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             JSObject result = new JSObject();
             result.put("exists", file.exists() || file.equals(botRoot(call)));
@@ -126,7 +123,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void list(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File dir = resolve(call, "path");
             JSArray entries = new JSArray();
             if (!dir.exists() && dir.equals(botRoot(call))) {
@@ -147,7 +144,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void read(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (!file.exists()) throw notFound(call.getString("path"));
             if (file.isDirectory()) throw new Failure("is_directory", "Is a directory: " + call.getString("path"));
@@ -171,7 +168,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void write(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (file.equals(botRoot(call)) || file.isDirectory()) throw new Failure("is_directory", "Is a directory: " + call.getString("path"));
             File parent = file.getParentFile();
@@ -191,11 +188,7 @@ public class BotFilesPlugin extends Plugin {
                     output.write(bytes);
                     output.getFD().sync();
                 }
-                try {
-                    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-                } catch (AtomicMoveNotSupportedException unsupported) {
-                    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                }
+                replace(temp, file);
             }
             call.resolve();
         });
@@ -203,7 +196,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void truncate(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (!file.exists()) throw notFound(call.getString("path"));
             if (file.isDirectory()) throw new Failure("is_directory", "Is a directory: " + call.getString("path"));
@@ -216,7 +209,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void create(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             File parent = file.getParentFile();
             if (parent == null || !parent.isDirectory()) throw notFound(call.getString("path"));
@@ -229,7 +222,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void chmod(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (!file.exists()) throw notFound(call.getString("path"));
             boolean executable = (call.getInt("mode", 0) & 0111) != 0;
@@ -240,7 +233,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void mkdir(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File dir = resolve(call, "path");
             if (dir.isDirectory()) {
                 if (!call.getBoolean("recursive", false) && !dir.equals(botRoot(call))) throw new Failure("exists", "Already exists: " + call.getString("path"));
@@ -260,7 +253,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void remove(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (!file.exists()) {
                 if (call.getBoolean("force", false)) {
@@ -281,7 +274,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void rename(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File from = resolve(call, "from");
             File to = resolve(call, "to");
             if (!from.exists()) throw notFound(call.getString("from"));
@@ -294,7 +287,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void download(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File file = resolve(call, "path");
             if (file.equals(botRoot(call)) || file.isDirectory()) throw new Failure("is_directory", "Is a directory: " + call.getString("path"));
             URL url = new URL(call.getString("url", ""));
@@ -323,13 +316,9 @@ public class BotFilesPlugin extends Plugin {
             File parent = file.getParentFile();
             if (parent != null && !parent.isDirectory() && !parent.mkdirs() && !parent.isDirectory()) throw new IOException("cannot create " + parent.getName());
             File temp = File.createTempFile(".pi-write-", "", parent);
-            long size = 0;
+            final long size;
             try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
-                byte[] buffer = new byte[64 * 1024];
-                for (int n; (n = input.read(buffer)) > 0; ) {
-                    output.write(buffer, 0, n);
-                    size += n;
-                }
+                size = input.transferTo(output);
                 output.getFD().sync();
             } catch (IOException failure) {
                 if (!temp.delete()) temp.deleteOnExit();
@@ -337,11 +326,7 @@ public class BotFilesPlugin extends Plugin {
             } finally {
                 connection.disconnect();
             }
-            try {
-                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException unsupported) {
-                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
+            replace(temp, file);
             JSObject out = new JSObject();
             out.put("size", size);
             out.put("contentType", connection.getContentType() == null ? "" : connection.getContentType());
@@ -352,7 +337,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void listBots(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             JSArray ids = new JSArray();
             File[] folders = bots().listFiles();
             if (folders != null) for (File folder : folders) if (folder.isDirectory() && BOT.matcher(folder.getName()).matches()) ids.put(folder.getName());
@@ -364,7 +349,7 @@ public class BotFilesPlugin extends Plugin {
 
     @PluginMethod
     public void removeBot(PluginCall call) {
-        run(call, () -> {
+        Background.run(work, call, () -> {
             File root = botRoot(call);
             if (root.exists()) deleteTree(root);
             call.resolve();

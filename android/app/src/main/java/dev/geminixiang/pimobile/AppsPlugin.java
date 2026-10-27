@@ -1,6 +1,7 @@
 package dev.geminixiang.pimobile;
 
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.AlarmClock;
@@ -94,16 +95,24 @@ public class AppsPlugin extends Plugin {
         launch(call, new Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addCategory(Intent.CATEGORY_BROWSABLE));
     }
 
-    private Uri stage(PluginCall call, String base64) throws IOException {
-        File dir = new File(getContext().getCacheDir(), "share");
+    static File emptyShareFolder(Context context) throws IOException {
+        File dir = new File(context.getCacheDir(), "share");
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
         File[] old = dir.listFiles();
         if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
-        File file = new File(dir, new File(call.getString("fileName", "file")).getName());
+        return dir;
+    }
+
+    static Uri shared(Context context, File file) {
+        return FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+    }
+
+    private Uri stage(PluginCall call, String base64) throws IOException {
+        File file = new File(emptyShareFolder(getContext()), new File(call.getString("fileName", "file")).getName());
         try (FileOutputStream out = new FileOutputStream(file)) {
             out.write(Base64.decode(base64, Base64.DEFAULT));
         }
-        return FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+        return shared(getContext(), file);
     }
 
     @PluginMethod

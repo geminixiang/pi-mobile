@@ -106,10 +106,8 @@ func (c *computer) end() {
 	}
 	c.screen.quit(pids)
 	c.before, c.opened = nil, nil
-	if c.idle != nil {
-		c.idle.Stop()
-		c.idle = nil
-	}
+	c.idle.Stop()
+	c.idle = nil
 }
 
 func (c *computer) shot() ([]any, error) {
@@ -336,7 +334,7 @@ func serveComputerMCP() int {
 
 func keyChord(keys string) (mods []string, key string, err error) {
 	parts := strings.Split(strings.ToLower(strings.TrimSpace(keys)), "+")
-	if len(parts) == 0 || parts[len(parts)-1] == "" {
+	if parts[len(parts)-1] == "" {
 		return nil, "", fmt.Errorf("no key in %q", keys)
 	}
 	return parts[:len(parts)-1], parts[len(parts)-1], nil

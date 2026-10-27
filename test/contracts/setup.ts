@@ -1,4 +1,5 @@
 import { createModels, fauxProvider } from "@earendil-works/pi-ai";
+import { sleep } from "../../src/promise.ts";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
@@ -130,6 +131,6 @@ export const settings: Settings = {
 	compactAt: 256_000,
 };
 
-export const settle = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
+export const settle = (ms = 20) => sleep(ms);
 
 export type Check = [string, () => Promise<void>];

@@ -18,12 +18,11 @@ export function formatTokens(count: number): string {
 }
 
 function lastUsage(view: ConversationView | undefined): ModelUsage | undefined {
-	for (let i = (view?.entries.length ?? 0) - 1; i >= 0; i--) {
-		const message = view?.entries[i]?.model?.[0];
-		if (message?.role === "assistant") return message.usage;
-	}
-	return undefined;
+	const message = view?.entries.findLast((entry) => entry.model?.[0]?.role === "assistant")?.model?.[0];
+	return message?.role === "assistant" ? message.usage : undefined;
 }
+
+export const contextPercent = (used: number, window: number): number => (window ? Math.min(100, (used / window) * 100) : 0);
 
 export function contextTokens(view: ConversationView | undefined): number {
 	const usage = lastUsage(view);

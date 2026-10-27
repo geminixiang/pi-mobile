@@ -1,5 +1,14 @@
-import { type Static, type TSchema, Type } from "typebox";
+import { type Static, type TLiteral, type TLiteralValue, type TSchema, type TSchemaOptions, type TUnion, Type } from "typebox";
 import { Value } from "typebox/value";
+import { Compile, type Validator } from "typebox/compile";
+
+type Literals<T extends readonly TLiteralValue[]> = { -readonly [K in keyof T]: T[K] extends TLiteralValue ? TLiteral<T[K]> : never };
+
+export function oneOf<const T extends readonly TLiteralValue[]>(values: T, options?: TSchemaOptions): TUnion<Literals<T>> {
+	// why: typebox's Static of a Union is never unless the members are a tuple type, and Array.map returns an array type, so the schemas built from a const list need their tuple type restored.
+	const literals = values.map((value) => Type.Literal(value)) as unknown as [...Literals<T>];
+	return Type.Union<Literals<T>>(literals, options);
+}
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; problem: string };
 
@@ -30,7 +39,12 @@ export function valueOrThrow<T>(checked: Checked<T>): T {
 	return checked.value;
 }
 
+const validators = new WeakMap<TSchema, Validator>();
+
 export function parse<T extends TSchema>(schema: T, value: unknown, what: string): Static<T> {
+	const validator = (validators.get(schema) ?? Compile(schema)) as Validator<{}, T>;
+	validators.set(schema, validator);
+	if (validator.Check(value)) return value;
 	return valueOrThrow(check(schema, value, what));
 }
 

@@ -132,9 +132,6 @@ func pairedWith(dir, key string) bool {
 func unpair(dir, key string) (bool, error) {
 	pairingMu.Lock()
 	defer pairingMu.Unlock()
-	if key == "" {
-		return false, nil
-	}
 	path := filepath.Join(dir, "paired.json")
 	var devices []paired
 	if err := readJSON(path, &devices); err != nil {

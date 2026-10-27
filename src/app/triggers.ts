@@ -1,6 +1,7 @@
 import { App } from "@capacitor/app";
 import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
-import { nativeTriggers, takeEvents } from "../agent/triggers.ts";
+import { takeEvents } from "../agent/triggers.ts";
+import { native } from "../native.ts";
 import { type QueuedEvent, Triggers } from "../plugins/triggers.ts";
 import { log } from "../log.ts";
 import { releaseIfIdle } from "./keepAlive.ts";
@@ -41,7 +42,7 @@ export function processTriggerEvents(
 		onOpened: (conversation: ConversationId) => void;
 	},
 ): () => void {
-	if (!nativeTriggers) return () => undefined;
+	if (!native.implements(Triggers.events)) return () => undefined;
 	const handle = async (event: QueuedEvent) => {
 		if (event.kind !== "alarm") return handlers.onShare(event);
 		const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
@@ -74,7 +75,7 @@ export function processTriggerEvents(
 }
 
 export function listenForOpenLinks(onOpen: (conversation: string) => void): () => void {
-	if (!nativeTriggers) return () => undefined;
+	if (!native.has("Triggers")) return () => undefined;
 	const handle = (link: string | undefined) => {
 		if (!link?.startsWith("pimobile://open")) return;
 		const conversation = new URL(link).searchParams.get("conversation");

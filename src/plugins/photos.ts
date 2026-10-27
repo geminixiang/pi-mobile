@@ -1,4 +1,4 @@
-import { type Static, Type } from "typebox";
+import { Type } from "typebox";
 import { definePlugin } from "./define.ts";
 
 const Photo = Type.Object({
@@ -11,7 +11,6 @@ const Photo = Type.Object({
 	latitude: Type.Optional(Type.Number()),
 	longitude: Type.Optional(Type.Number()),
 });
-export type Photo = Static<typeof Photo>;
 
 export const Photos = definePlugin("Photos", {
 	search: {

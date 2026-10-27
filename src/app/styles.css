@@ -13,7 +13,6 @@
 	--faint: #8b847d;
 	--accent: #4b607c;
 	--accent-soft: rgb(75 96 124 / 0.1);
-	--on-accent: #f4f2f0;
 	--ok: #4f8a5e;
 	--ok-bg: rgb(79 138 94 / 0.09);
 	--error: #b5543a;
@@ -77,7 +76,6 @@
 		--faint: #6c737d;
 		--accent: #6a9fcc;
 		--accent-soft: rgb(106 159 204 / 0.12);
-		--on-accent: #10151d;
 		--ok: #5db87a;
 		--ok-bg: rgb(93 184 122 / 0.07);
 		--error: #e8704f;

@@ -106,7 +106,7 @@ const tsv = (rows: Cell[][]) => rows.map((row) => row.map((cell) => (cell === nu
 
 export async function extractSheet(file: File): Promise<{ text: string; tables: { name: string; sheet: string; rows: number; columns: string[] }[] }> {
 	const sheets = (await readSheets(file)).map((sheet) => ({ ...sheet, rows: sheet.rows.filter((row) => !isEmpty(row)) })).filter((sheet) => sheet.rows.length > 0);
-	const taken = new Set(native.has("Database") ? (await Database.schema()).tables.map((table) => table.name.toLowerCase()) : []);
+	const taken = new Set(native.implements(Database.schema) ? (await Database.schema()).tables.map((table) => table.name.toLowerCase()) : []);
 	const base = sqlName(file.name.replace(/\.[^.]+$/, ""));
 	const tables: { name: string; sheet: string; rows: number; columns: string[] }[] = [];
 	const texts: string[] = [];
@@ -114,7 +114,7 @@ export async function extractSheet(file: File): Promise<{ text: string; tables: 
 		const [header, ...rows] = sheet.rows;
 		const columns = columnsOf(header);
 		texts.push(sheets.length > 1 ? `## ${sheet.name}\n${tsv(sheet.rows)}` : tsv(sheet.rows));
-		if (!native.has("Database")) continue;
+		if (!native.implements(Database.execute)) continue;
 		const name = claim(taken, sheets.length > 1 ? `${base}_${sqlName(sheet.name)}` : base);
 		await importSheet(name, columns, rows);
 		tables.push({ name, sheet: sheet.name, rows: rows.length, columns });

@@ -2,6 +2,7 @@ import { native } from "./native.ts";
 import { fromBase64, toBase64 } from "./encoding.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 import { StreamFetch } from "./plugins/stream-fetch.ts";
+import { untilFailure } from "./promise.ts";
 
 type Pending = {
 	head: (response: Response) => void;
@@ -12,10 +13,8 @@ type Pending = {
 };
 
 const pending = new Map<string, Pending>();
-let listening: Promise<void> | undefined;
-
-function listen(): Promise<void> {
-	listening ??= Promise.all([
+const listen = untilFailure(() =>
+	Promise.all([
 		StreamFetch.addListener("head", ({ id, status, headers }) => {
 			const request = pending.get(id);
 			if (!request) return;
@@ -53,9 +52,8 @@ function listen(): Promise<void> {
 			if (request.controller) request.controller.error(error);
 			else request.fail(error);
 		}),
-	]).then(() => undefined);
-	return listening;
-}
+	]).then(() => undefined),
+);
 
 export async function streamFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
 	if (!native.has("StreamFetch")) return fetch(input, init);

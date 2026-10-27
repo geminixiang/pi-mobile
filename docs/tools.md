@@ -36,7 +36,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - `defineAppTool` 除了工具本身，還要宣告三件事，檢查和快照都看它們，catalog 也照它們裝工具，不再有依名稱的名單：
   - `effect`（必填）：`read` 唯讀、`screen` 打開畫面讓使用者完成、`direct` 直接改。有好幾種動作的工具寫最強的一種。工具清單的「改動」欄要寫出同一個字（唯讀、開畫面、直接），檢查會比對。
   - `reach`：`script`（預設，只給腳本）、`loaded`（需要時載入）、`model`（直接提供）。
-  - `needs`：工具會呼叫的原生方法，寫 contract 上的方法本身（`[Records.calls]`），不是字串。這支手機沒實作其中任何一個方法時，這個工具不安裝；一個擴充的工具全部裝不了時，整個擴充也不裝。透過 `currentPlace` 這類 helper 間接呼叫的也要寫；「有就用、沒有也行」的呼叫不寫，改在呼叫前用 `native.implements(Page.render)` 判斷。
+  - `needs`：少了它這個工具就沒有意義的原生方法，寫 contract 上的方法本身（`[Records.calls]`），不是字串。透過 `currentPlace` 這類 helper 才呼叫、但工具的主要用途就靠它的，也要寫（`weather` 寫 `Phone.getLocation`）。這支手機沒實作其中任何一個方法時，這個工具不安裝；一個擴充的工具全部裝不了時，整個擴充也不裝，面板也不列它的工具組。只在某些參數下才用到的方法不寫：沒實作時呼叫它會丟出「`X.y` is not available on this device」。「有就用、沒有也行」的呼叫，在呼叫前用 `native.implements(Page.render)` 判斷。
 - 新的內建擴充一定要加進 `catalog.ts`，不能直接在 runtime 裡安裝，否則檢查看不到它。
 - **擴充名稱不能改**：每個 Bot 的工具開關是用擴充名稱存的（`toolsets.ts`），改名會讓使用者的設定失效。
 - schema 一律用 `typebox` 的 `Type`，不用 pi-ai 轉出口的同一個 `Type`（檢查會擋）。
@@ -70,7 +70,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ### 錯誤
 
-- 要原生 plugin 的工具：在工具寫 `needs`（上面〈定義〉），沒實作那些方法的平台不會安裝，不用在工具裡檢查（[capabilities.md](design/capabilities.md)）。工具組的 `needs`（`toolsets.ts`）只決定整組在這個平台有沒有意義、面板列不列出來，例如 `tw_stocks` 要的是 app 內的原生 HTTP。
+- 要原生 plugin 的工具：在工具寫 `needs`（上面〈定義〉），沒實作那些方法的平台不會安裝，不用在工具裡檢查（[capabilities.md](design/capabilities.md)）。工具組要不要出現在面板，由它的工具推導；工具組的 `needs`（`toolsets.ts`）只留給沒有工具能承載的條件：`files` 要 `BotFiles`（那個擴充沒有工具），`tw_stocks` 要 app 內的原生 HTTP。
 - 缺權限或設定：錯誤訊息要告訴使用者去哪裡開，路徑寫完整（「設定 › 手機 › 系統權限 › 螢幕使用時間」）。
 - 其他錯誤：說清楚哪裡錯、模型下一步能做什麼（「list_schedules shows them」）。
 

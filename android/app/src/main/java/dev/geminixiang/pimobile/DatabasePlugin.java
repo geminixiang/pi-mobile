@@ -36,7 +36,7 @@ public class DatabasePlugin extends Plugin {
     @PluginMethod
     public void execute(PluginCall call) {
         JSArray statements = call.getArray("statements");
-        new Thread(() -> {
+        Background.run(call, () -> {
             SQLiteDatabase database = db();
             JSArray results = new JSArray();
             int index = 0;
@@ -58,7 +58,7 @@ public class DatabasePlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("results", results);
             call.resolve(result);
-        }).start();
+        });
     }
 
     private static JSObject run(SQLiteDatabase database, String sql, JSONArray params) throws JSONException {
@@ -128,7 +128,7 @@ public class DatabasePlugin extends Plugin {
 
     @PluginMethod
     public void schema(PluginCall call) {
-        new Thread(() -> {
+        Background.run(call, () -> {
             SQLiteDatabase database = db();
             JSArray tables = new JSArray();
             try (
@@ -152,21 +152,17 @@ public class DatabasePlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("tables", tables);
             call.resolve(result);
-        }).start();
+        });
     }
 
     @PluginMethod
     public void export(PluginCall call) {
-        new Thread(() -> {
+        Background.run(call, () -> {
             try {
                 SQLiteDatabase database = db();
-                File dir = new File(getContext().getCacheDir(), "share");
-                if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("cannot create " + dir);
-                File[] old = dir.listFiles();
-                if (old != null) for (File f : old) if (!f.delete()) f.deleteOnExit();
-                File copy = new File(dir, NAME);
+                File copy = new File(AppsPlugin.emptyShareFolder(getContext()), NAME);
                 database.execSQL("VACUUM INTO ?", new Object[] { copy.getAbsolutePath() });
-                Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", copy);
+                Uri uri = AppsPlugin.shared(getContext(), copy);
                 Intent send = new Intent(Intent.ACTION_SEND)
                     .setType("application/vnd.sqlite3")
                     .putExtra(Intent.EXTRA_STREAM, uri)
@@ -176,6 +172,6 @@ public class DatabasePlugin extends Plugin {
             } catch (Exception e) {
                 call.reject(e.getMessage());
             }
-        }).start();
+        });
     }
 }

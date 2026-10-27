@@ -1,5 +1,6 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool, oneOf, text } from "./tools/common.ts";
+import { defineAppTool, text } from "./tools/common.ts";
+import { oneOf } from "./parse.ts";
 import { Type } from "typebox";
 import htmlPage from "./skills/html-page.md?raw";
 import spokenReport from "./skills/spoken-report.md?raw";

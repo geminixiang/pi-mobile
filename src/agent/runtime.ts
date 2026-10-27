@@ -82,6 +82,7 @@ export class AgentRuntime {
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	#memoryListeners = new Set<() => void>();
 	readonly #installed: () => ReadonlySet<string>;
+	readonly #unsupported: ReadonlySet<string>;
 	readonly mcp: McpHub;
 	readonly triggers: TriggerRuns;
 	readonly #botToolsets: BotToolsets;
@@ -95,10 +96,12 @@ export class AgentRuntime {
 		workplaces: Workplaces,
 		placed: Map<string, Placed>,
 		installed: () => ReadonlySet<string>,
+		unsupported: ReadonlySet<string>,
 		mcp: McpHub,
 		judge: Judge,
 	) {
 		this.#installed = installed;
+		this.#unsupported = unsupported;
 		this.#platform = platform;
 		this.mcp = mcp;
 		this.#harness = harness;
@@ -183,9 +186,9 @@ export class AgentRuntime {
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
 		});
-		for (const extension of builtinExtensions({
+		const catalog = builtinExtensions({
 			native: platform.native,
-			assistant: createAssistant(platform.inApp, platform.native.has("Phone")),
+			assistant: createAssistant(platform.inApp),
 			calendarAccess: settings.calendarAccess,
 			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
 			clouds: clouds.services,
@@ -194,9 +197,8 @@ export class AgentRuntime {
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
 			labelOf: (name, id) => (name === "computer" && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
-		})) {
-			registry.install(extension);
-		}
+		});
+		for (const extension of catalog.extensions) registry.install(extension);
 		const harness = await Harness.open(
 			storage,
 			{
@@ -226,6 +228,7 @@ export class AgentRuntime {
 			workplaces,
 			placed,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
+			catalog.unsupported,
 			mcp,
 			createJudge(models),
 		);
@@ -475,7 +478,9 @@ export class AgentRuntime {
 		const selection = await this.#botToolsets.selection(id);
 		const installed = this.#installed();
 		const notHere = NOT_HERE[this.workplaces.at(String(id))?.kind ?? "missing"];
-		const here = this.#allToolsets().filter((toolset) => usable(toolset, this.#platform.native));
+		const here = this.#allToolsets().filter(
+			(toolset) => usable(toolset, this.#platform.native) && !toolset.extensions.every((name) => this.#unsupported.has(name)),
+		);
 		return here.map((toolset) => ({
 			...toolset,
 			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),

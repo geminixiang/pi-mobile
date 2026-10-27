@@ -5,7 +5,6 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -97,7 +96,7 @@ public class TriggersPlugin extends Plugin {
             Log.w(TAG, "could not start the foreground service", error);
         }
         getActivity().runOnUiThread(() -> KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true));
-        notifyListeners("event", new JSObject(), true);
+        announce();
     }
 
     @PluginMethod
@@ -143,12 +142,8 @@ public class TriggersPlugin extends Plugin {
         AlarmManager alarms = getContext().getSystemService(AlarmManager.class);
         JSObject result = new JSObject();
         result.put("exactAlarms", alarms.canScheduleExactAlarms());
-        result.put("bluetooth", bluetoothGranted());
+        result.put("bluetooth", granted("bluetooth"));
         call.resolve(result);
-    }
-
-    private boolean bluetoothGranted() {
-        return getPermissionState("bluetooth") == PermissionState.GRANTED;
     }
 
     @PluginMethod
@@ -161,20 +156,20 @@ public class TriggersPlugin extends Plugin {
             call.reject("pi cannot ask for location while it is in the background. Ask the user to open pi.");
             return;
         }
-        if (getPermissionState("location") != com.getcapacitor.PermissionState.GRANTED) requestPermissionForAlias("location", call, "foregroundResult");
+        if (!granted("location")) requestPermissionForAlias("location", call, "foregroundResult");
         else requestPermissionForAlias("background", call, "locationResult");
     }
 
     @PermissionCallback
     private void foregroundResult(PluginCall call) {
-        if (getPermissionState("location") == com.getcapacitor.PermissionState.GRANTED) requestPermissionForAlias("background", call, "locationResult");
+        if (granted("location")) requestPermissionForAlias("background", call, "locationResult");
         else locationResult(call);
     }
 
     @PermissionCallback
     private void locationResult(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("foreground", getPermissionState("location") == com.getcapacitor.PermissionState.GRANTED);
+        result.put("foreground", granted("location"));
         result.put("background", TriggerEvents.backgroundLocation(getContext()));
         call.resolve(result);
         TriggerStore.armAll(getContext());
@@ -182,7 +177,7 @@ public class TriggersPlugin extends Plugin {
 
     @PluginMethod
     public void requestBluetooth(PluginCall call) {
-        if (bluetoothGranted()) {
+        if (granted("bluetooth")) {
             bluetoothResult(call);
             return;
         }
@@ -196,7 +191,7 @@ public class TriggersPlugin extends Plugin {
     @PermissionCallback
     private void bluetoothResult(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("granted", bluetoothGranted());
+        result.put("granted", granted("bluetooth"));
         call.resolve(result);
     }
 
@@ -291,7 +286,7 @@ public class TriggersPlugin extends Plugin {
             }
             if (files.length() > 0) event.put("files", files);
             TriggerStore.enqueue(getContext(), event);
-            notifyListeners("event", new JSObject(), true);
+            announce();
         }).start();
     }
 

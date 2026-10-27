@@ -14,7 +14,7 @@ import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
-import { formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
+import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
@@ -190,7 +190,7 @@ export function BotPanel({
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
 	const lastAnswer = view?.entries.findLast((entry) => entry.kind === "pi.assistant");
-	const percent = context.window ? Math.min(100, (context.used / context.window) * 100) : 0;
+	const percent = contextPercent(context.used, context.window);
 	const usage = totalUsage(view);
 	const cacheHitRate = latestCacheHitRate(view);
 

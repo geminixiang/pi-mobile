@@ -5,7 +5,8 @@ import type { Context } from "@earendil-works/chord";
 import { type ConversationId, defineDoc, defineExtension, type Harness, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { type Static, Type } from "typebox";
-import { DAY, defineAppTool, localTime, oneOf, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
+import { DAY, defineAppTool, localTime, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
+import { oneOf } from "./parse.ts";
 import { resolvePlace } from "./tools/device.ts";
 import { requireAccess } from "../notifications-plugin.ts";
 import { Notifications } from "../plugins/notifications.ts";
@@ -75,7 +76,6 @@ export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun 
 	return entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data) ? entry.data : undefined;
 }
 
-export const nativeTriggers = native.has("Triggers");
 
 export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
 	const { events } = await Triggers.events();
@@ -464,7 +464,7 @@ export class TriggerRuns {
 		const schedules = items
 			.filter((item) => item.enabled && !item.fired)
 			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
-		const next = nativeTriggers ? (await Triggers.sync({ schedules })).next : {};
+		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
 		this.#state = { items: [...items], next };
 		for (const listener of this.#listeners) listener(this.#state);
 	}
@@ -527,7 +527,7 @@ export class TriggerRuns {
 		if (screening && !screening.pass) {
 			const skipped = { reason: screening.reason, ...(screening.probability !== undefined ? { probability: screening.probability } : {}) };
 			await this.#record(id, { at: now, delivery, skipped, ...(screening.unjudged ? { unjudged: screening.unjudged } : {}) });
-			if (nativeTriggers) await Triggers.skipped({ trigger: id });
+			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger: id });
 			return undefined;
 		}
 		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};

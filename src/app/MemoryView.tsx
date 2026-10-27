@@ -20,11 +20,6 @@ const PLACEHOLDER = `# 關於我
 - 回答簡短一點
 - 不吃牛肉`;
 
-function when(memory: Memory): string {
-	if (!memory.updatedAt) return "";
-	return `${memory.updatedBy === "agent" ? "Bot" : "你"}在 ${monthDayTime(memory.updatedAt)} 更新`;
-}
-
 export function MemoryView({
 	runtime,
 	scope,
@@ -96,7 +91,7 @@ export function MemoryView({
 					{saved?.updatedAt ? (
 						<>
 							<br />
-							{when(saved)}
+							{saved.updatedBy === "agent" ? "Bot" : "你"}在 {monthDayTime(saved.updatedAt)} 更新
 						</>
 					) : null}
 				</p>

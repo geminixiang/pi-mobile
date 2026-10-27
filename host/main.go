@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -497,48 +498,11 @@ type permission struct {
 	check func(home string) error
 }
 
-var permissions = []permission{
-	{"desktop", "取用「桌面」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", readable("Desktop")},
-	{"documents", "取用「文件」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", readable("Documents")},
-	{"downloads", "取用「下載項目」", "系統設定 › 隱私權與安全性 › 檔案與檔案夾", readable("Downloads")},
-	{"automation", "控制「System Events」", "系統設定 › 隱私權與安全性 › 自動化", func(string) error {
-		return exec.Command("osascript", "-e", `tell application "System Events" to get name of first process`).Run()
-	}},
-	{"accessibility", "輔助使用", "系統設定 › 隱私權與安全性 › 輔助使用", func(string) error {
-		if !requestAccessibility(3 * time.Minute) {
-			return errors.New("not granted")
-		}
-		return nil
-	}},
-	{"screen", "錄製螢幕", "系統設定 › 隱私權與安全性 › 螢幕與系統錄音", func(string) error {
-		requestScreenCapture()
-		file := filepath.Join(os.TempDir(), "pi-mobile-screen-check.png")
-		defer os.Remove(file)
-		if err := exec.Command("screencapture", "-x", file).Run(); err != nil {
-			return err
-		}
-		if info, err := os.Stat(file); err != nil || info.Size() == 0 {
-			return errors.New("no image")
-		}
-		return nil
-	}},
-}
-
-func readable(folder string) func(home string) error {
-	return func(home string) error {
-		_, err := os.ReadDir(filepath.Join(home, folder))
-		return err
-	}
-}
-
 func permissionsFile() string {
 	return filepath.Join(stateDir(), "permissions.json")
 }
 
 func askPermissions() {
-	if runtime.GOOS != "darwin" {
-		return
-	}
 	home, _ := os.UserHomeDir()
 	go func() {
 		answers := map[string]bool{}
@@ -559,24 +523,26 @@ func readPermissions() map[string]bool {
 	return answers
 }
 
+func ipv4s(st status) []string {
+	return slices.DeleteFunc(slices.Clone(st.Self.TailscaleIPs), func(ip string) bool { return strings.Contains(ip, ":") })
+}
+
 func listen() net.Listener {
-	for {
+	for ; ; time.Sleep(5 * time.Second) {
 		st, err := self(context.Background())
-		if err == nil {
-			for _, ip := range st.Self.TailscaleIPs {
-				if !strings.Contains(ip, ":") {
-					if ln, err := net.Listen("tcp", net.JoinHostPort(ip, port)); err == nil {
-						log.Printf("pi-mobile %s listening on %s (%s)", version, ln.Addr(), strings.TrimSuffix(st.Self.DNSName, "."))
-						return ln
-					} else {
-						log.Printf("listen %s: %v", ip, err)
-					}
-				}
-			}
-		} else {
+		if err != nil {
 			log.Printf("waiting for Tailscale: %v", err)
+			continue
 		}
-		time.Sleep(5 * time.Second)
+		for _, ip := range ipv4s(st) {
+			ln, err := net.Listen("tcp", net.JoinHostPort(ip, port))
+			if err != nil {
+				log.Printf("listen %s: %v", ip, err)
+				continue
+			}
+			log.Printf("pi-mobile %s listening on %s (%s)", version, ln.Addr(), strings.TrimSuffix(st.Self.DNSName, "."))
+			return ln
+		}
 	}
 }
 
@@ -619,52 +585,50 @@ func printStatus() int {
 		fmt.Printf("Tailscale: %v\n", err)
 		return 1
 	}
-	name := strings.TrimSuffix(st.Self.DNSName, ".")
-	for _, ip := range st.Self.TailscaleIPs {
-		if strings.Contains(ip, ":") {
-			continue
-		}
-		client := http.Client{Timeout: 5 * time.Second}
-		response, err := client.Get("http://" + net.JoinHostPort(ip, port) + "/version")
-		for wait := 0; err != nil && errors.Is(err, syscall.ECONNREFUSED) && wait < 15; wait++ {
-			time.Sleep(time.Second)
-			response, err = client.Get("http://" + net.JoinHostPort(ip, port) + "/version")
-		}
-		if err != nil {
-			fmt.Printf("pi-mobile %s: not answering on %s:%s (%v)\n", version, ip, port, err)
-			return 1
-		}
-		defer response.Body.Close()
-		var info struct {
-			Version string `json:"version"`
-		}
-		if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&info) != nil {
-			fmt.Printf("pi-mobile: %s:%s answered HTTP %d\n", ip, port, response.StatusCode)
-			return 1
-		}
-		found := "none"
-		if names := engines(context.Background()); len(names) > 0 {
-			found = strings.Join(names, ", ")
-		}
-		fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, strings.Split(name, ".")[0], found)
-		if runtime.GOOS == "darwin" {
-			answers := readPermissions()
-			for _, p := range permissions {
-				granted, asked := answers[p.key]
-				switch {
-				case !asked:
-					fmt.Printf("Permission %s: waiting\n", p.key)
-				case granted:
-					fmt.Printf("Permission %s: granted\n", p.key)
-				default:
-					fmt.Printf("Permission %s: denied (%s: %s)\n", p.key, p.label, p.fix)
-				}
-			}
-		}
-		return 0
+	addresses := ipv4s(st)
+	if len(addresses) == 0 {
+		fmt.Println("Tailscale has no IPv4 address here")
+		return 1
 	}
-	fmt.Println("Tailscale has no IPv4 address here")
-	return 1
+	ip := addresses[0]
+	url := "http://" + net.JoinHostPort(ip, port) + "/version"
+	client := http.Client{Timeout: 5 * time.Second}
+	response, err := client.Get(url)
+	for wait := 0; err != nil && errors.Is(err, syscall.ECONNREFUSED) && wait < 15; wait++ {
+		time.Sleep(time.Second)
+		response, err = client.Get(url)
+	}
+	if err != nil {
+		fmt.Printf("pi-mobile %s: not answering on %s:%s (%v)\n", version, ip, port, err)
+		return 1
+	}
+	defer response.Body.Close()
+	var info struct {
+		Version string `json:"version"`
+	}
+	if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&info) != nil {
+		fmt.Printf("pi-mobile: %s:%s answered HTTP %d\n", ip, port, response.StatusCode)
+		return 1
+	}
+	found := "none"
+	if names := engines(context.Background()); len(names) > 0 {
+		found = strings.Join(names, ", ")
+	}
+	name := strings.Split(strings.TrimSuffix(st.Self.DNSName, "."), ".")[0]
+	fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, name, found)
+	answers := readPermissions()
+	for _, p := range permissions {
+		granted, asked := answers[p.key]
+		switch {
+		case !asked:
+			fmt.Printf("Permission %s: waiting\n", p.key)
+		case granted:
+			fmt.Printf("Permission %s: granted\n", p.key)
+		default:
+			fmt.Printf("Permission %s: denied (%s: %s)\n", p.key, p.label, p.fix)
+		}
+	}
+	return 0
 }
 
 func serve() {

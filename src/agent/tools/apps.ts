@@ -2,10 +2,10 @@ import { App } from "@capacitor/app";
 import { Apps } from "../../plugins/apps.ts";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { defineAppTool, oneOf, parseClock, text } from "./common.ts";
+import { defineAppTool, parseClock, text } from "./common.ts";
+import { oneOf } from "../parse.ts";
 import { toBase64 } from "../../encoding.ts";
 import { mimeTypeOf } from "../../mime.ts";
-
 
 async function launch(action: () => Promise<void>): Promise<void> {
 	if (!(await App.getState()).isActive)

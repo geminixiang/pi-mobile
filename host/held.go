@@ -22,14 +22,14 @@ const (
 	sessionBehind  = "too far behind to resume"
 	sessionReplace = "replaced by a newer connection"
 	sessionTaken   = "session token in use"
+	pingEvery      = 10 * time.Second
+	pingTimeout    = 10 * time.Second
+	writeTimeout   = 10 * time.Second
 )
 
 var (
 	holdFor        = 5 * time.Minute
 	heartbeatEvery = 5 * time.Second
-	pingEvery      = 10 * time.Second
-	pingTimeout    = 10 * time.Second
-	writeTimeout   = 10 * time.Second
 )
 
 // why: pi-env's wire format, type 6 (ping) with id 0 and the JSON object {}; it keeps the daemon from exiting after 30 s of silence while the phone is away.

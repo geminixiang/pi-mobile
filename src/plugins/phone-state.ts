@@ -1,10 +1,9 @@
 import { type Static, Type } from "typebox";
 import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { oneOf } from "../agent/parse.ts";
 
 export const STREAMS = ["ring", "media", "alarm", "notification", "call"] as const;
-export const RINGERS = ["normal", "vibrate", "silent"] as const;
-export type Ringer = (typeof RINGERS)[number];
+const RINGERS = ["normal", "vibrate", "silent"] as const;
 
 const SoundState = Type.Object({
 	ringer: oneOf(RINGERS),
@@ -20,6 +19,8 @@ const DisplayState = Type.Object({
 	screenTimeoutSeconds: Type.Optional(Type.Number()),
 });
 export type DisplayState = Static<typeof DisplayState>;
+
+export const DISPLAY_SETTINGS = ["brightness", "auto_brightness", "auto_rotate", "screen_timeout"] as const;
 
 export const CONNECTIONS = ["wifi", "bluetooth", "mobile_data", "airplane_mode", "location", "nfc", "battery_saver"] as const;
 export type Connection = (typeof CONNECTIONS)[number];
@@ -44,7 +45,7 @@ export const PhoneState = definePlugin("PhoneState", {
 	setVolume: { args: Type.Object({ stream: oneOf(STREAMS), percent: Type.Number() }), result: SoundState },
 	display: { args: Type.Object({}), result: DisplayState },
 	setDisplay: {
-		args: Type.Object({ what: oneOf(["brightness", "auto_brightness", "auto_rotate", "screen_timeout"]), value: Type.Optional(Type.Number()), on: Type.Optional(Type.Boolean()) }),
+		args: Type.Object({ what: oneOf(DISPLAY_SETTINGS), value: Type.Optional(Type.Number()), on: Type.Optional(Type.Boolean()) }),
 		result: DisplayState,
 	},
 	openWriteSettings: { args: Type.Object({}) },

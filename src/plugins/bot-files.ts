@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { oneOf } from "../agent/parse.ts";
 
 const BotFileInfo = Type.Object({
 	name: Type.String(),

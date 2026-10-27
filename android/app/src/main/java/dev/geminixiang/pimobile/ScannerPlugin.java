@@ -70,9 +70,7 @@ public class ScannerPlugin extends Plugin {
         File target = new File(emptyScansFolder(), UUID.randomUUID() + suffix);
         try (InputStream in = getContext().getContentResolver().openInputStream(uri); OutputStream out = new FileOutputStream(target)) {
             if (in == null) throw new IOException("no data at " + uri);
-            byte[] buffer = new byte[64 * 1024];
-            int read;
-            while ((read = in.read(buffer)) > 0) out.write(buffer, 0, read);
+            in.transferTo(out);
         }
         return target;
     }

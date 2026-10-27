@@ -1,7 +1,7 @@
 import type { TextContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { estimateTokens, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
+import { fittingLines, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
 import { scannedPdf } from "../../scanner-plugin.ts";
 import { Scanner } from "../../plugins/scanner.ts";
 import { codeNote } from "../codes.ts";
@@ -23,15 +23,9 @@ function pageList(spec: string, count: number): number[] {
 }
 
 function window(lines: string[], start: number, limit: number): { text: string; next?: number } {
-	const out: string[] = [];
-	let tokens = 0;
-	let index = start - 1;
-	for (; index < lines.length && out.length < limit; index++) {
-		tokens += estimateTokens(lines[index]) + 1;
-		if (tokens > MAX_TOKENS && out.length > 0) break;
-		out.push(`${index + 1}\t${lines[index]}`);
-	}
-	return { text: out.join("\n"), ...(index < lines.length ? { next: index + 1 } : {}) };
+	const count = fittingLines(lines, start - 1, MAX_TOKENS, limit);
+	const text = lines.slice(start - 1, start - 1 + count).map((line, at) => `${start + at}\t${line}`).join("\n");
+	return { text, ...(start - 1 + count < lines.length ? { next: start + count } : {}) };
 }
 
 const readAttachment = defineAppTool({

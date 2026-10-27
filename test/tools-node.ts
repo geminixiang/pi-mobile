@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
@@ -8,7 +8,7 @@ import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
 import { TOOLSETS } from "../src/agent/toolsets.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
-import { plain } from "./plain.ts";
+import { exitOnFailures, plain, snapshotFailures, sourcesMatching, updating } from "./snapshot.ts";
 
 const SNAPSHOT = new URL("./tools.snapshot.json", import.meta.url);
 
@@ -27,7 +27,7 @@ const sandbox: Sandbox = {
 const host: PairedHost = { id: "fixture", address: "fixture", name: "fixture", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture", key: "fixture" };
 const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { key: "fixture:container", name: "fixture", mode: "容器" }, host, sandbox, root: "fixture", env: unused };
 
-const extensions = builtinExtensions({
+const { extensions } = builtinExtensions({
 	native: { has: () => true, implements: () => true },
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
@@ -188,34 +188,10 @@ for (const { rule, broken } of rules) {
 		.filter((value): value is string => Boolean(value));
 	if (offenders.length) failures.push(`${rule}: ${offenders.join("; ")}`);
 }
-const sources = readdirSync(new URL("../src", import.meta.url), { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
-const reexported = sources.filter((file) => /import \{[^}]*\bType\b[^}]*\} from "@earendil-works\/pi-ai"/.test(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8")));
+const reexported = sourcesMatching(/import \{[^}]*\bType\b[^}]*\} from "@earendil-works\/pi-ai"/);
 if (reexported.length) failures.push(`schemas use Type from "typebox", not from @earendil-works/pi-ai: ${reexported.join(", ")}`);
 
 const current = tools.map(({ iface }) => iface);
-const update = process.argv.includes("--update");
-if (update) {
-	writeFileSync(SNAPSHOT, `${JSON.stringify(current, null, "\t")}\n`);
-	console.log(`tools.snapshot.json: ${current.length} tools`);
-} else {
-	let saved: ToolInterface[] = [];
-	try {
-		saved = JSON.parse(readFileSync(SNAPSHOT, "utf8"));
-	} catch {
-		failures.push("no test/tools.snapshot.json; run with --update to create it");
-	}
-	const byName = new Map(saved.map((tool) => [tool.name, tool]));
-	for (const tool of current) {
-		const before = byName.get(tool.name);
-		if (!before) failures.push(`new tool ${tool.name}: add it to the snapshot (--update) and to docs/tools.md`);
-		else if (JSON.stringify(before) !== JSON.stringify(tool)) failures.push(`${tool.name} changed its interface; if intended, --update and note it in docs/tools.md`);
-		byName.delete(tool.name);
-	}
-	for (const name of byName.keys()) failures.push(`tool ${name} is gone; if intended, --update and note it in docs/tools.md`);
-}
-
-if (failures.length) {
-	console.error(failures.map((failure) => `✖ ${failure}`).join("\n"));
-	process.exit(1);
-}
-console.log(`tools: ${current.length} tools in ${new Set(current.map((tool) => tool.extension)).size} extensions follow the interface${update ? "" : " and match the snapshot"}`);
+failures.push(...snapshotFailures(SNAPSHOT, current, "tool", "its interface"));
+exitOnFailures(failures);
+console.log(`tools: ${current.length} tools in ${new Set(current.map((tool) => tool.extension)).size} extensions follow the interface${updating ? " (snapshot updated)" : " and match the snapshot"}`);

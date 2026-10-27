@@ -17,12 +17,7 @@ import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
-import { inApp, type Native } from "../native.ts";
-
-interface Capabilities {
-	native: Native;
-	sandbox: boolean;
-}
+import { inApp, native } from "../native.ts";
 
 function text(content: string | readonly { type: string; text?: string }[] | undefined): string {
 	if (typeof content === "string") return content;
@@ -91,13 +86,13 @@ function shareActions(kind: SharedKind): Suggestion[] {
 			];
 }
 
-function suggestions(capabilities: Capabilities): Suggestion[] {
+function suggestions(sandbox: boolean): Suggestion[] {
 	return [
 		{ title: "比較後做成表格", prompt: "比較 iPhone 17 和 Pixel 11 現在的售價、相機和電池，整理成表格檔傳給我" },
-		...(capabilities.native.has("Triggers") && capabilities.native.has("Phone") ? [{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" }] : []),
-		...(capabilities.native.has("Calendar") ? [{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" }] : []),
-		...(capabilities.native.has("Database") ? [{ title: "拍收據記帳", prompt: "幫我把這張收據記進帳本，之後問這個月花多少要算得出來", image: true }] : []),
-		...(capabilities.sandbox ? [{ title: "畫一張圖表", prompt: "在電腦上用 Python 畫一張台灣六都人口的長條圖給我看" }] : []),
+		...(native.has("Triggers") && native.has("Phone") ? [{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" }] : []),
+		...(native.has("Calendar") ? [{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" }] : []),
+		...(native.has("Database") ? [{ title: "拍收據記帳", prompt: "幫我把這張收據記進帳本，之後問這個月花多少要算得出來", image: true }] : []),
+		...(sandbox ? [{ title: "畫一張圖表", prompt: "在電腦上用 Python 畫一張台灣六都人口的長條圖給我看" }] : []),
 	];
 }
 
@@ -113,7 +108,7 @@ export function isBusy(view: ConversationView | undefined): boolean {
 export function Chat({
 	controller,
 	prefs,
-	capabilities,
+	sandbox,
 	view,
 	initialDraft,
 	initialFiles,
@@ -125,7 +120,7 @@ export function Chat({
 }: {
 	controller: ConversationController;
 	prefs: Prefs;
-	capabilities: Capabilities;
+	sandbox: boolean;
 	view: ConversationView | undefined;
 	initialDraft?: string;
 	initialFiles?: readonly File[];
@@ -281,7 +276,7 @@ export function Chat({
 						</h2>
 						<p>對話、金鑰和紀錄都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
 						<SuggestionList
-							items={suggestions(capabilities)}
+							items={suggestions(sandbox)}
 							onPick={(suggestion) => {
 								setDraft(suggestion.prompt);
 								if (suggestion.image) setPickImage((key) => key + 1);

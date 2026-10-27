@@ -4,13 +4,13 @@
 
 ## 第一層：plugin（已做）
 
-App 啟動時，`src/native.ts` 用 `Capacitor.isPluginAvailable` 逐一檢查 pi 自己的原生 plugin，結果是 `Platform.native`。工具組在 `toolsets.ts` 寫它要的 plugin（`needs`），工具組以外的單一工具寫在 `TOOL_NEEDS`（`scan_document` 要 `Scanner`），排程整組要 `Triggers`。少了 plugin 的工具不安裝，面板也不列；設定頁的分頁、首頁的建議、附加選單同樣看這個結果。
+App 啟動時讀 Capacitor 的 `PluginHeaders`，知道每個原生 plugin 實作了哪些方法（`src/plugins/define.ts`），結果是 `Platform.native`：`has(plugin)` 看 plugin 在不在，`implements(method)` 看方法有沒有實作。每個工具在 `defineAppTool` 寫它要的方法（`needs`），少了方法的工具不安裝，工具全都裝不了的工具組面板也不列；設定頁的分頁、首頁的建議、附加選單看 `has`。介面規範見 [tools.md](../tools.md)〈原生 plugin〉。
 
 - Android：20 個都有，跟以前一樣。
 - 瀏覽器：一個都沒有，等於以前的「只在手機上」清單。
-- iOS：寫好一個 plugin，對應的工具就出現，不用改其他地方。
+- iOS：實作一個 plugin 的部分方法，只用到那些方法的工具就出現，不用改其他地方（`test/plugins-node.ts` 記下 iOS 實作了哪些方法）。
 
-所以 `requireNative()` 拿掉了：工具只在有 plugin 時才裝，呼叫時不用再檢查。新工具用到新的原生 plugin 時，把名字加進 `NATIVE_PLUGINS`，在它的工具組寫 `needs`。
+所以 `requireNative()` 拿掉了：工具只在方法有實作時才裝，呼叫時不用再檢查。新的原生 plugin 在 `src/plugins/` 用 `definePlugin` 寫 contract，加進 `src/plugins/index.ts` 的 `PLUGINS`。
 
 ## 問題
 

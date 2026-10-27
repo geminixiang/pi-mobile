@@ -1,6 +1,6 @@
-import { type Static, Type } from "typebox";
+import { Type } from "typebox";
 import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { oneOf } from "../agent/parse.ts";
 
 export const METRICS = ["steps", "heart_rate", "sleep", "exercise", "weight"] as const;
 
@@ -14,7 +14,6 @@ const HealthRecord = Type.Object({
 	title: Type.Optional(Type.String()),
 	kg: Type.Optional(Type.Number()),
 });
-export type HealthRecord = Static<typeof HealthRecord>;
 
 export const Health = definePlugin("Health", {
 	read: {

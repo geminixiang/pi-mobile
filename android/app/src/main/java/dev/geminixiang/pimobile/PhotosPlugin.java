@@ -99,7 +99,7 @@ public class PhotosPlugin extends Plugin {
                 ids.add(id);
             }
         }
-        new Thread(() -> {
+        Background.run(call, () -> {
             Map<Long, double[]> places = places(resolver, ids);
             JSArray items = new JSArray();
             for (int i = 0; i < rows.size(); i++) {
@@ -113,7 +113,7 @@ public class PhotosPlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("items", items);
             call.resolve(result);
-        }).start();
+        });
     }
 
     private Map<Long, double[]> places(ContentResolver resolver, List<Long> ids) {

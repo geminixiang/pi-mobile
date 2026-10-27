@@ -13,6 +13,12 @@ import (
 	"github.com/coder/websocket"
 )
 
+func execServer(t *testing.T) *httptest.Server {
+	server := httptest.NewServer(resumable("exec:", runCommand))
+	t.Cleanup(server.Close)
+	return server
+}
+
 func wsURL(server *httptest.Server, path string) string {
 	return "ws" + strings.TrimPrefix(server.URL, "http") + path
 }
@@ -54,8 +60,7 @@ func closeReasonOf(err error) string {
 }
 
 func TestAHeldCommandOutlivesTheConnectionAndReplaysItsOutput(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	command := "for i in 1 2 3 4 5 6; do echo tick $i; sleep 0.4; done"
 	first := dial(t, wsURL(server, "/exec?session="+token+"&command="+url.QueryEscape(command)))
@@ -84,8 +89,7 @@ func TestTheComputerKeepsAHeldPiEnvAliveItself(t *testing.T) {
 	previous := heartbeatEvery
 	heartbeatEvery = 100 * time.Millisecond
 	defer func() { heartbeatEvery = previous }()
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	token := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
 	command := "head -c 15 | od -An -tx1 -v | tr -d ' \\n'"
 	first := dial(t, wsURL(server, "/exec?session="+token+"&heartbeat=pi-env&command="+url.QueryEscape(command)))
@@ -96,8 +100,7 @@ func TestTheComputerKeepsAHeldPiEnvAliveItself(t *testing.T) {
 }
 
 func TestAnUnknownAttachIsRefusedByName(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	conn := dial(t, wsURL(server, "/exec?attach="+fmt.Sprintf("%032x", 7)+"&received=0"))
 	_, _, reason := readAll(t, conn, 3*time.Second)
 	if !strings.Contains(reason, sessionGone) {
@@ -109,8 +112,7 @@ func TestAHeldCommandIsKilledAfterTheGrace(t *testing.T) {
 	previous := holdFor
 	holdFor = 400 * time.Millisecond
 	defer func() { holdFor = previous }()
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	marker := fmt.Sprintf("pi-mobile-held-%d", time.Now().UnixNano())
 	token := fmt.Sprintf("%032x", time.Now().UnixNano()+2)
 	command := fmt.Sprintf("(exec -a %s sleep 300)", marker)
@@ -129,8 +131,7 @@ func TestAHeldCommandIsKilledAfterTheGrace(t *testing.T) {
 }
 
 func TestAnAttachThatResendsWhatThePhoneLostAndLearnsWhatTheComputerLost(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	token := fmt.Sprintf("%032x", time.Now().UnixNano()+3)
 	first := dial(t, wsURL(server, "/exec?session="+token+"&command="+url.QueryEscape("cat")))
 	for _, line := range []string{"one\n", "two\n"} {
@@ -179,8 +180,7 @@ func startHeldSleep(t *testing.T, server *httptest.Server, token, key string) *w
 }
 
 func TestAHeldSessionAnswersOnlyTheKeyThatStartedIt(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	first := startHeldSleep(t, server, token, "phone-a")
 	_ = first.CloseNow()
@@ -200,8 +200,7 @@ func TestAHeldSessionAnswersOnlyTheKeyThatStartedIt(t *testing.T) {
 }
 
 func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	first := startHeldSleep(t, server, token, "phone-a")
 	defer first.CloseNow()
@@ -217,8 +216,7 @@ func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
 }
 
 func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	kept := fmt.Sprintf("%032x", time.Now().UnixNano())
 	ended := fmt.Sprintf("%032x", time.Now().UnixNano()+1)
 	keep := startHeldSleep(t, server, kept, "phone-a")
@@ -239,8 +237,7 @@ func TestUnpairingEndsTheSessionsOfThatKey(t *testing.T) {
 }
 
 func TestAPhoneThatClosesOnPurposeEndsItsHeldSession(t *testing.T) {
-	server := httptest.NewServer(resumable("exec:", runCommand))
-	defer server.Close()
+	server := execServer(t)
 	token := fmt.Sprintf("%032x", time.Now().UnixNano())
 	conn := startHeldSleep(t, server, token, "phone-a")
 	if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {

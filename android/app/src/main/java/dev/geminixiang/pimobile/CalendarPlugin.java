@@ -85,61 +85,64 @@ public class CalendarPlugin extends Plugin {
     }
 
     private void events(PluginCall call) {
-        boolean includeShared = Boolean.TRUE.equals(call.getBoolean("includeShared", false));
-        java.util.Map<Long, CalendarRow> calendars = new java.util.HashMap<>();
-        for (CalendarRow row : visibleCalendars()) if (row.own || includeShared) calendars.put(row.id, row);
-        Long from = call.getLong("from");
-        Long to = call.getLong("to");
-        if (from == null || to == null || to <= from) {
-            call.reject("from and to are required, with to after from");
-            return;
-        }
-        Uri.Builder range = CalendarContract.Instances.CONTENT_URI.buildUpon();
-        android.content.ContentUris.appendId(range, from);
-        android.content.ContentUris.appendId(range, to);
-        String[] projection = {
-            CalendarContract.Instances.TITLE,
-            CalendarContract.Instances.BEGIN,
-            CalendarContract.Instances.END,
-            CalendarContract.Instances.ALL_DAY,
-            CalendarContract.Instances.EVENT_LOCATION,
-            CalendarContract.Instances.DESCRIPTION,
-            CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
-            CalendarContract.Instances.OWNER_ACCOUNT,
-            CalendarContract.Instances.CALENDAR_ID,
-            CalendarContract.Instances.SELF_ATTENDEE_STATUS,
-        };
-        String selection = CalendarContract.Instances.VISIBLE + " = 1 AND " + CalendarContract.Instances.STATUS + " != " + CalendarContract.Events.STATUS_CANCELED;
-        JSArray events = new JSArray();
-        try (Cursor cursor = getContext().getContentResolver().query(range.build(), projection, selection, null, CalendarContract.Instances.BEGIN + " ASC")) {
-            while (cursor != null && cursor.moveToNext()) {
-                if (!cursor.isNull(9) && cursor.getInt(9) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) continue;
-                CalendarRow calendar = calendars.get(cursor.getLong(8));
-                if (calendar == null) continue;
-                JSObject event = new JSObject();
-                event.put("title", cursor.getString(0));
-                event.put("begin", cursor.getLong(1));
-                event.put("end", cursor.getLong(2));
-                event.put("allDay", cursor.getInt(3) == 1);
-                if (!cursor.isNull(4) && !cursor.getString(4).isEmpty()) event.put("location", cursor.getString(4));
-                if (!cursor.isNull(5) && !cursor.getString(5).isEmpty()) {
-                    String notes = cursor.getString(5);
-                    event.put("notes", notes.length() > 400 ? notes.substring(0, 400) + "…" : notes);
-                }
-                event.put("calendar", calendar.name);
-                event.put("account", calendar.account);
-                event.put("accountType", calendar.accountType);
-                event.put("calendarId", calendar.id);
-                if (!calendar.own) {
-                    event.put("shared", true);
-                    event.put("owner", calendar.owner);
-                }
-                events.put(event);
+        Background.run(call, () -> {
+            boolean includeShared = Boolean.TRUE.equals(call.getBoolean("includeShared", false));
+            java.util.Map<Long, CalendarRow> calendars = new java.util.HashMap<>();
+            for (CalendarRow row : visibleCalendars()) if (row.own || includeShared) calendars.put(row.id, row);
+            Long from = call.getLong("from");
+            Long to = call.getLong("to");
+            if (from == null || to == null || to <= from) {
+                call.reject("from and to are required, with to after from");
+                return;
             }
-        }
-        JSObject result = new JSObject();
-        result.put("events", events);
-        call.resolve(result);
+            Uri.Builder range = CalendarContract.Instances.CONTENT_URI.buildUpon();
+            android.content.ContentUris.appendId(range, from);
+            android.content.ContentUris.appendId(range, to);
+            String[] projection = {
+                CalendarContract.Instances.TITLE,
+                CalendarContract.Instances.BEGIN,
+                CalendarContract.Instances.END,
+                CalendarContract.Instances.ALL_DAY,
+                CalendarContract.Instances.EVENT_LOCATION,
+                CalendarContract.Instances.DESCRIPTION,
+                CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Instances.OWNER_ACCOUNT,
+                CalendarContract.Instances.CALENDAR_ID,
+                CalendarContract.Instances.SELF_ATTENDEE_STATUS,
+            };
+            String selection = CalendarContract.Instances.VISIBLE + " = 1 AND " + CalendarContract.Instances.STATUS + " != " + CalendarContract.Events.STATUS_CANCELED;
+            JSArray events = new JSArray();
+            try (Cursor cursor = getContext().getContentResolver().query(range.build(), projection, selection, null, CalendarContract.Instances.BEGIN + " ASC")) {
+                while (cursor != null && cursor.moveToNext()) {
+                    if (!cursor.isNull(9) && cursor.getInt(9) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) continue;
+                    CalendarRow calendar = calendars.get(cursor.getLong(8));
+                    if (calendar == null) continue;
+                    JSObject event = new JSObject();
+                    event.put("title", cursor.getString(0));
+                    event.put("begin", cursor.getLong(1));
+                    event.put("end", cursor.getLong(2));
+                    event.put("allDay", cursor.getInt(3) == 1);
+                    if (!cursor.isNull(4) && !cursor.getString(4).isEmpty()) event.put("location", cursor.getString(4));
+                    if (!cursor.isNull(5) && !cursor.getString(5).isEmpty()) {
+                        String notes = cursor.getString(5);
+                        event.put("notes", notes.length() > 400 ? notes.substring(0, 400) + "…" : notes);
+                    }
+                    event.put("calendar", calendar.name);
+                    event.put("account", calendar.account);
+                    event.put("accountType", calendar.accountType);
+                    event.put("calendarId", calendar.id);
+                    if (!calendar.own) {
+                        event.put("shared", true);
+                        event.put("owner", calendar.owner);
+                    }
+                    events.put(event);
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("events", events);
+            call.resolve(result);
+    
+        });
     }
 
     @PluginMethod
@@ -154,22 +157,25 @@ public class CalendarPlugin extends Plugin {
     }
 
     private void accounts(PluginCall call) {
-        JSArray calendars = new JSArray();
-        for (CalendarRow row : visibleCalendars()) {
-            JSObject calendar = new JSObject();
-            calendar.put("id", row.id);
-            calendar.put("name", row.name);
-            calendar.put("account", row.account);
-            calendar.put("accountType", row.accountType);
-            calendar.put("owner", row.owner);
-            calendar.put("own", row.own);
-            calendar.put("writable", row.writable);
-            calendar.put("primary", row.primary);
-            calendars.put(calendar);
-        }
-        JSObject result = new JSObject();
-        result.put("calendars", calendars);
-        call.resolve(result);
+        Background.run(call, () -> {
+            JSArray calendars = new JSArray();
+            for (CalendarRow row : visibleCalendars()) {
+                JSObject calendar = new JSObject();
+                calendar.put("id", row.id);
+                calendar.put("name", row.name);
+                calendar.put("account", row.account);
+                calendar.put("accountType", row.accountType);
+                calendar.put("owner", row.owner);
+                calendar.put("own", row.own);
+                calendar.put("writable", row.writable);
+                calendar.put("primary", row.primary);
+                calendars.put(calendar);
+            }
+            JSObject result = new JSObject();
+            result.put("calendars", calendars);
+            call.resolve(result);
+    
+        });
     }
 
     @PluginMethod
@@ -184,38 +190,41 @@ public class CalendarPlugin extends Plugin {
     }
 
     private void insert(PluginCall call) {
-        Long calendarId = call.getLong("calendarId");
-        Long begin = call.getLong("begin");
-        Long end = call.getLong("end");
-        if (calendarId == null || begin == null || end == null) {
-            call.reject("calendarId, begin and end are required");
-            return;
-        }
-        boolean allowed = false;
-        for (CalendarRow row : visibleCalendars()) if (row.id == calendarId && row.writable) allowed = true;
-        if (!allowed) {
-            call.reject("calendar " + calendarId + " is not one of the user's own writable calendars", "not_allowed");
-            return;
-        }
-        boolean allDay = Boolean.TRUE.equals(call.getBoolean("allDay", false));
-        ContentValues values = new ContentValues();
-        values.put(CalendarContract.Events.CALENDAR_ID, calendarId);
-        values.put(CalendarContract.Events.TITLE, call.getString("title", ""));
-        values.put(CalendarContract.Events.DTSTART, begin);
-        values.put(CalendarContract.Events.DTEND, end);
-        values.put(CalendarContract.Events.ALL_DAY, allDay ? 1 : 0);
-        values.put(CalendarContract.Events.EVENT_TIMEZONE, allDay ? "UTC" : TimeZone.getDefault().getID());
-        String location = call.getString("location");
-        if (location != null) values.put(CalendarContract.Events.EVENT_LOCATION, location);
-        String description = call.getString("description");
-        if (description != null) values.put(CalendarContract.Events.DESCRIPTION, description);
-        Uri uri = getContext().getContentResolver().insert(CalendarContract.Events.CONTENT_URI, values);
-        if (uri == null) {
-            call.reject("the calendar provider did not create the event");
-            return;
-        }
-        JSObject result = new JSObject();
-        result.put("id", Long.parseLong(uri.getLastPathSegment()));
-        call.resolve(result);
+        Background.run(call, () -> {
+            Long calendarId = call.getLong("calendarId");
+            Long begin = call.getLong("begin");
+            Long end = call.getLong("end");
+            if (calendarId == null || begin == null || end == null) {
+                call.reject("calendarId, begin and end are required");
+                return;
+            }
+            boolean allowed = false;
+            for (CalendarRow row : visibleCalendars()) if (row.id == calendarId && row.writable) allowed = true;
+            if (!allowed) {
+                call.reject("calendar " + calendarId + " is not one of the user's own writable calendars", "not_allowed");
+                return;
+            }
+            boolean allDay = Boolean.TRUE.equals(call.getBoolean("allDay", false));
+            ContentValues values = new ContentValues();
+            values.put(CalendarContract.Events.CALENDAR_ID, calendarId);
+            values.put(CalendarContract.Events.TITLE, call.getString("title", ""));
+            values.put(CalendarContract.Events.DTSTART, begin);
+            values.put(CalendarContract.Events.DTEND, end);
+            values.put(CalendarContract.Events.ALL_DAY, allDay ? 1 : 0);
+            values.put(CalendarContract.Events.EVENT_TIMEZONE, allDay ? "UTC" : TimeZone.getDefault().getID());
+            String location = call.getString("location");
+            if (location != null) values.put(CalendarContract.Events.EVENT_LOCATION, location);
+            String description = call.getString("description");
+            if (description != null) values.put(CalendarContract.Events.DESCRIPTION, description);
+            Uri uri = getContext().getContentResolver().insert(CalendarContract.Events.CONTENT_URI, values);
+            if (uri == null) {
+                call.reject("the calendar provider did not create the event");
+                return;
+            }
+            JSObject result = new JSObject();
+            result.put("id", Long.parseLong(uri.getLastPathSegment()));
+            call.resolve(result);
+    
+        });
     }
 }

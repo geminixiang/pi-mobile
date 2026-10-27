@@ -50,33 +50,36 @@ public class RecordsPlugin extends Plugin {
     }
 
     private void readCalls(PluginCall call) {
-        long since = call.getLong("since", 0L);
-        int limit = call.getInt("limit", 50);
-        String[] columns = { CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION };
-        JSArray items = new JSArray();
-        Map<String, String> names = new HashMap<>();
-        try (Cursor cursor = getContext().getContentResolver().query(
-            CallLog.Calls.CONTENT_URI, columns, CallLog.Calls.DATE + " >= " + since, null, CallLog.Calls.DATE + " DESC"
-        )) {
-            while (cursor != null && cursor.moveToNext() && items.length() < limit) {
-                JSObject item = new JSObject();
-                String number = cursor.getString(0);
-                item.put("number", number);
-                String name = cursor.getString(1);
-                if ((name == null || name.isEmpty()) && number != null) {
-                    if (!names.containsKey(number)) names.put(number, contactName(number));
-                    name = names.get(number);
+        Background.run(call, () -> {
+            long since = call.getLong("since", 0L);
+            int limit = call.getInt("limit", 50);
+            String[] columns = { CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION };
+            JSArray items = new JSArray();
+            Map<String, String> names = new HashMap<>();
+            try (Cursor cursor = getContext().getContentResolver().query(
+                CallLog.Calls.CONTENT_URI, columns, CallLog.Calls.DATE + " >= " + since, null, CallLog.Calls.DATE + " DESC"
+            )) {
+                while (cursor != null && cursor.moveToNext() && items.length() < limit) {
+                    JSObject item = new JSObject();
+                    String number = cursor.getString(0);
+                    item.put("number", number);
+                    String name = cursor.getString(1);
+                    if ((name == null || name.isEmpty()) && number != null) {
+                        if (!names.containsKey(number)) names.put(number, contactName(number));
+                        name = names.get(number);
+                    }
+                    if (name != null) item.put("name", name);
+                    item.put("type", callType(cursor.getInt(2)));
+                    item.put("time", cursor.getLong(3));
+                    item.put("seconds", cursor.getLong(4));
+                    items.put(item);
                 }
-                if (name != null) item.put("name", name);
-                item.put("type", callType(cursor.getInt(2)));
-                item.put("time", cursor.getLong(3));
-                item.put("seconds", cursor.getLong(4));
-                items.put(item);
             }
-        }
-        JSObject result = new JSObject();
-        result.put("items", items);
-        call.resolve(result);
+            JSObject result = new JSObject();
+            result.put("items", items);
+            call.resolve(result);
+    
+        });
     }
 
     private static String callType(int type) {
@@ -110,32 +113,35 @@ public class RecordsPlugin extends Plugin {
     }
 
     private void readSms(PluginCall call) {
-        long since = call.getLong("since", 0L);
-        int limit = call.getInt("limit", 50);
-        String query = call.getString("query", "");
-        String where = Telephony.Sms.DATE + " >= " + since + (query.isEmpty() ? "" : " AND (" + Telephony.Sms.BODY + " LIKE ? OR " + Telephony.Sms.ADDRESS + " LIKE ?)");
-        String[] args = query.isEmpty() ? null : new String[] { "%" + query + "%", "%" + query + "%" };
-        String[] columns = { Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE, Telephony.Sms.READ };
-        Map<String, String> names = new HashMap<>();
-        JSArray items = new JSArray();
-        try (Cursor cursor = getContext().getContentResolver().query(Telephony.Sms.CONTENT_URI, columns, where, args, Telephony.Sms.DATE + " DESC")) {
-            while (cursor != null && cursor.moveToNext() && items.length() < limit) {
-                String address = cursor.getString(0);
-                JSObject item = new JSObject();
-                item.put("address", address);
-                if (address != null && !names.containsKey(address)) names.put(address, contactName(address));
-                String name = address != null ? names.get(address) : null;
-                if (name != null) item.put("name", name);
-                item.put("text", cursor.getString(1));
-                item.put("time", cursor.getLong(2));
-                item.put("sent", cursor.getInt(3) == Telephony.Sms.MESSAGE_TYPE_SENT);
-                item.put("read", cursor.getInt(4) == 1);
-                items.put(item);
+        Background.run(call, () -> {
+            long since = call.getLong("since", 0L);
+            int limit = call.getInt("limit", 50);
+            String query = call.getString("query", "");
+            String where = Telephony.Sms.DATE + " >= " + since + (query.isEmpty() ? "" : " AND (" + Telephony.Sms.BODY + " LIKE ? OR " + Telephony.Sms.ADDRESS + " LIKE ?)");
+            String[] args = query.isEmpty() ? null : new String[] { "%" + query + "%", "%" + query + "%" };
+            String[] columns = { Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE, Telephony.Sms.READ };
+            Map<String, String> names = new HashMap<>();
+            JSArray items = new JSArray();
+            try (Cursor cursor = getContext().getContentResolver().query(Telephony.Sms.CONTENT_URI, columns, where, args, Telephony.Sms.DATE + " DESC")) {
+                while (cursor != null && cursor.moveToNext() && items.length() < limit) {
+                    String address = cursor.getString(0);
+                    JSObject item = new JSObject();
+                    item.put("address", address);
+                    if (address != null && !names.containsKey(address)) names.put(address, contactName(address));
+                    String name = address != null ? names.get(address) : null;
+                    if (name != null) item.put("name", name);
+                    item.put("text", cursor.getString(1));
+                    item.put("time", cursor.getLong(2));
+                    item.put("sent", cursor.getInt(3) == Telephony.Sms.MESSAGE_TYPE_SENT);
+                    item.put("read", cursor.getInt(4) == 1);
+                    items.put(item);
+                }
             }
-        }
-        JSObject result = new JSObject();
-        result.put("items", items);
-        call.resolve(result);
+            JSObject result = new JSObject();
+            result.put("items", items);
+            call.resolve(result);
+    
+        });
     }
 
     private String contactName(String number) {

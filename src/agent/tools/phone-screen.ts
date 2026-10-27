@@ -2,7 +2,8 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { Type } from "typebox";
 import { PhoneScreen, type PhoneScreenSnapshot } from "../../plugins/phone-screen.ts";
 import { messageOf } from "../../promise.ts";
-import { defineAppTool, oneOf } from "./common.ts";
+import { defineAppTool } from "./common.ts";
+import { oneOf } from "../parse.ts";
 
 const ACTIONS = ["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"] as const;
 const DIRECTIONS = ["down", "up", "left", "right"] as const;

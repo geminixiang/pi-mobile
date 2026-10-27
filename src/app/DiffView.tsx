@@ -4,7 +4,6 @@ import { BackButton } from "./BackButton.tsx";
 import { useLoaded } from "./loaded.ts";
 
 export interface DiffTarget {
-	repo: string;
 	title: string;
 	load: () => Promise<string>;
 }

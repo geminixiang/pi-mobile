@@ -482,6 +482,8 @@ public class PhoneStatePlugin extends Plugin {
                 if (!"panel".equals(outcome) && previous != null) returnTo(service, previous);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } catch (RuntimeException unreadable) {
+                outcome = "panel";
             }
             JSObject result = connectionsState();
             result.put("outcome", outcome);

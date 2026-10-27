@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { oneOf } from "../agent/parse.ts";
 
 export const System = definePlugin("System", {
 	openExternal: { args: Type.Object({ url: Type.String() }) },

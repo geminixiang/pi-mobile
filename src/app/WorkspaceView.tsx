@@ -154,7 +154,7 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 							<li key={change.path}>
 								<button
 									type="button"
-									onClick={() => onDiff({ repo: repo.path, title: change.path, load: () => workspace.diff(repo.path, change) })}
+									onClick={() => onDiff({ title: change.path, load: () => workspace.diff(repo.path, change) })}
 								>
 									<span className={`change-status ${statusTone(change)}`}>{statusLetter(change)}</span>
 									<span className="file-name">{change.path}</span>
@@ -174,7 +174,7 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 							<li key={commit.hash}>
 								<button
 									type="button"
-									onClick={() => onDiff({ repo: repo.path, title: `${commit.hash} ${commit.subject}`, load: () => workspace.show(repo.path, commit.hash) })}
+									onClick={() => onDiff({ title: `${commit.hash} ${commit.subject}`, load: () => workspace.show(repo.path, commit.hash) })}
 								>
 									<span className="commit-hash">{commit.hash}</span>
 									<span className="commit-text">

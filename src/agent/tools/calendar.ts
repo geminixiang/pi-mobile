@@ -1,7 +1,7 @@
 import { Calendar, type PhoneCalendar, type PhoneEvent } from "../../plugins/calendar.ts";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
-import { accountKey, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
+import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
 
 
@@ -40,13 +40,6 @@ function describeTimes(times: { begin: number; end: number }, allDay: boolean): 
 	return sameDay
 		? `${date(times.begin)} ${time(times.begin)}–${time(times.end)}`
 		: `${date(times.begin)} ${time(times.begin)} – ${date(times.end)} ${time(times.end)}`;
-}
-
-function accountLabel(calendar: { account: string; accountType: string }): string {
-	if (calendar.accountType === "com.google") return calendar.account;
-	if (calendar.accountType === "LOCAL") return "這支手機";
-	if (calendar.accountType === "com.osp.app.signin") return `${calendar.account}（Samsung 帳號）`;
-	return `${calendar.account}（${calendar.accountType}）`;
 }
 
 type FormattedEvent = {
@@ -220,17 +213,4 @@ export function createCalendarExtension(access: CalendarAccess) {
 			section("calendar", () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account."),
 		],
 	});
-}
-
-export function groupByAccount(calendars: PhoneCalendar[]): { key: string; label: string; calendars: PhoneCalendar[] }[] {
-	const groups = new Map<string, { key: string; label: string; calendars: PhoneCalendar[] }>();
-	for (const calendar of calendars) {
-		if (!calendar.own) continue;
-		const key = accountKey(calendar);
-		const label = calendar.accountType === "LOCAL" ? `${calendar.name}（只在這支手機上）` : accountLabel(calendar);
-		const group = groups.get(key) ?? { key, label, calendars: [] };
-		group.calendars.push(calendar);
-		groups.set(key, group);
-	}
-	return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
 }

@@ -50,14 +50,8 @@ interface CatalogDeps {
 const toolSearch = (loaded: readonly string[]) =>
 	`Load ${loaded.join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
 
-function usableOn(native: Native) {
-	return (extension: Extension): Extension => ({
-		...extension,
-		tools: extension.tools?.filter((tool) => (declarationOf(tool)?.needs ?? []).every((method) => native.implements(method))),
-	});
-}
 
-export function builtinExtensions(deps: CatalogDeps): Extension[] {
+export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; unsupported: ReadonlySet<string> } {
 	const extensions: Extension[] = [
 		deps.assistant,
 		BotExtension,
@@ -93,13 +87,19 @@ export function builtinExtensions(deps: CatalogDeps): Extension[] {
 		createOnDemandExtension(deps.labelOf),
 	];
 	const unusable = unusableExtensions(deps.native);
-	const usable = extensions
+	const filtered = extensions
 		.filter((extension) => !unusable.has(extension.name))
-		.map(usableOn(deps.native))
-		.filter((extension) => extension.tools === undefined || extension.tools.length > 0);
+		.map((extension) => ({
+			...extension,
+			tools: extension.tools?.filter((tool) => (declarationOf(tool)?.needs ?? []).every((method) => deps.native.implements(method))),
+		}));
+	const usable = filtered.filter((extension) => extension.tools === undefined || extension.tools.length > 0);
 	const loaded = usable.flatMap((extension) => (extension.tools ?? []).filter((tool) => tool.deferred).map((tool) => tool.name));
-	return usable.map((extension) => ({
-		...extension,
-		tools: extension.tools?.map((tool) => (tool.name === "tool_search" ? { ...tool, description: toolSearch(loaded) } : tool)),
-	}));
+	return {
+		extensions: usable.map((extension) => ({
+			...extension,
+			tools: extension.tools?.map((tool) => (tool.name === "tool_search" ? { ...tool, description: toolSearch(loaded) } : tool)),
+		})),
+		unsupported: new Set(filtered.filter((extension) => extension.tools?.length === 0).map((extension) => extension.name)),
+	};
 }

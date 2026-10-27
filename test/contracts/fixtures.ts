@@ -1,6 +1,6 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import type { FauxResponseStep } from "@earendil-works/pi-ai";
-import { MemoryStorage } from "@earendil-works/pi-durable";
+import { contentText, type FauxResponseStep } from "@earendil-works/pi-ai";
+import { MemoryStorage, type Storage } from "@earendil-works/pi-durable";
 import { AgentRuntime, type ConversationId } from "../../src/agent/runtime.ts";
 import { faux, platform, settings } from "./setup.ts";
 
@@ -16,7 +16,7 @@ export function keepOpen(memory: MemoryStorage): MemoryStorage {
 	});
 }
 
-export async function openRuntime(storage: MemoryStorage = new MemoryStorage(), overrides: Partial<typeof settings> = {}) {
+export async function openRuntime<S extends Storage = MemoryStorage>(storage: S | MemoryStorage = new MemoryStorage(), overrides: Partial<typeof settings> = {}) {
 	const reports: string[] = [];
 	const runtime = await AgentRuntime.open(storage, { ...settings, ...overrides }, platform, { onReport: (message) => reports.push(message) });
 	return { runtime, reports, storage };
@@ -65,7 +65,7 @@ export async function toolResults(storage: MemoryStorage, id: ConversationId) {
 		entry.kind === "pi.tool-result"
 			? (entry.model ?? []).flatMap((message) =>
 					message.role === "toolResult"
-						? [{ name: message.toolName, isError: message.isError, text: message.content.map((part) => (part.type === "text" ? part.text : "")).join("") }]
+						? [{ name: message.toolName, isError: message.isError, text: contentText(message.content, "") }]
 						: [],
 				)
 			: [],

@@ -17,8 +17,7 @@ import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
 import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
 import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../agent/cloudflare.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
-import { type CalendarAccess, canWrite } from "../agent/calendar-access.ts";
-import { groupByAccount } from "../agent/tools/calendar.ts";
+import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar-access.ts";
 import { Calendar, type PhoneCalendar } from "../plugins/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
@@ -243,7 +242,7 @@ function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): void {
 function SystemAccessGroup() {
 	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
 	useRefreshOnResume("Usage", () =>
-		void Promise.all([Usage.status(), System.assistant(), native.has("PhoneState") ? PhoneState.display() : undefined]).then(([usage, assistant, display]) =>
+		void Promise.all([Usage.status(), System.assistant(), native.implements(PhoneState.display) ? PhoneState.display() : undefined]).then(([usage, assistant, display]) =>
 			setState({ usage: usage.allowed, assistant: assistant.held, ...(display ? { settings: display.canChange } : {}) }),
 		),
 	);

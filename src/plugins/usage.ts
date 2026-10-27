@@ -1,8 +1,8 @@
 import { Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { Allowed, definePlugin } from "./define.ts";
 
 export const Usage = definePlugin("Usage", {
-	status: { args: Type.Object({}), result: Type.Object({ allowed: Type.Boolean() }) },
+	status: { args: Type.Object({}), result: Allowed },
 	openSettings: { args: Type.Object({}) },
 	apps: {
 		args: Type.Object({ from: Type.Number(), to: Type.Optional(Type.Number()) }),

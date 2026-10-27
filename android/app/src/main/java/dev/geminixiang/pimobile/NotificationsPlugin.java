@@ -43,35 +43,33 @@ public class NotificationsPlugin extends Plugin {
             Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
             new ComponentName(getContext(), NotificationsListener.class).flattenToString()
         );
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            getContext().startActivity(intent);
-        } catch (RuntimeException e) {
-            getContext().startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
+        SystemPlugin.openSettings(getContext(), intent, Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
         call.resolve();
     }
 
     @PluginMethod
     public void list(PluginCall call) {
-        long since = call.getLong("since", System.currentTimeMillis() - 24 * 3600_000L);
-        int limit = Math.max(0, call.getInt("limit", 0));
-        List<NotificationStore.Row> rows = NotificationStore.get(getContext()).list(since, call.getString("app"), call.getString("query"), limit);
-        JSArray items = new JSArray();
-        for (NotificationStore.Row row : rows) {
-            JSObject item = new JSObject();
-            item.put("package", row.packageName);
-            item.put("app", row.app);
-            if (row.conversation != null) item.put("conversation", row.conversation);
-            if (row.sender != null && !row.sender.isEmpty()) item.put("sender", row.sender);
-            item.put("title", row.title);
-            item.put("text", row.text);
-            item.put("time", row.time);
-            items.put(item);
-        }
-        JSObject result = new JSObject();
-        result.put("items", items);
-        call.resolve(result);
+        Background.run(call, () -> {
+            long since = call.getLong("since", System.currentTimeMillis() - 24 * 3600_000L);
+            int limit = Math.max(0, call.getInt("limit", 0));
+            List<NotificationStore.Row> rows = NotificationStore.get(getContext()).list(since, call.getString("app"), call.getString("query"), limit);
+            JSArray items = new JSArray();
+            for (NotificationStore.Row row : rows) {
+                JSObject item = new JSObject();
+                item.put("package", row.packageName);
+                item.put("app", row.app);
+                if (row.conversation != null) item.put("conversation", row.conversation);
+                if (row.sender != null && !row.sender.isEmpty()) item.put("sender", row.sender);
+                item.put("title", row.title);
+                item.put("text", row.text);
+                item.put("time", row.time);
+                items.put(item);
+            }
+            JSObject result = new JSObject();
+            result.put("items", items);
+            call.resolve(result);
+    
+        });
     }
 
     @PluginMethod
@@ -111,29 +109,32 @@ public class NotificationsPlugin extends Plugin {
 
     @PluginMethod
     public void active(PluginCall call) {
-        NotificationsListener listener = listener(call);
-        if (listener == null) return;
-        JSArray items = new JSArray();
-        StatusBarNotification[] active = listener.getActiveNotifications();
-        List<StatusBarNotification> sorted = new ArrayList<>(active == null ? List.of() : List.of(active));
-        sorted.sort((a, b) -> Long.compare(b.getPostTime(), a.getPostTime()));
-        for (StatusBarNotification sbn : sorted) {
-            if (sbn.getPackageName().equals(getContext().getPackageName())) continue;
-            if (!matches(listener, sbn, call.getString("app", ""), call.getString("conversation"))) continue;
-            Bundle extras = sbn.getNotification().extras;
-            JSObject item = new JSObject();
-            item.put("key", sbn.getKey());
-            item.put("app", listener.appLabel(sbn.getPackageName()));
-            item.put("title", String.valueOf(extras.getCharSequence(Notification.EXTRA_TITLE, "")));
-            item.put("text", String.valueOf(extras.getCharSequence(Notification.EXTRA_TEXT, "")));
-            item.put("time", sbn.getPostTime());
-            item.put("canReply", replyAction(sbn) != null);
-            item.put("clearable", sbn.isClearable());
-            items.put(item);
-        }
-        JSObject result = new JSObject();
-        result.put("items", items);
-        call.resolve(result);
+        Background.run(call, () -> {
+            NotificationsListener listener = listener(call);
+            if (listener == null) return;
+            JSArray items = new JSArray();
+            StatusBarNotification[] active = listener.getActiveNotifications();
+            List<StatusBarNotification> sorted = new ArrayList<>(active == null ? List.of() : List.of(active));
+            sorted.sort((a, b) -> Long.compare(b.getPostTime(), a.getPostTime()));
+            for (StatusBarNotification sbn : sorted) {
+                if (sbn.getPackageName().equals(getContext().getPackageName())) continue;
+                if (!matches(listener, sbn, call.getString("app", ""), call.getString("conversation"))) continue;
+                Bundle extras = sbn.getNotification().extras;
+                JSObject item = new JSObject();
+                item.put("key", sbn.getKey());
+                item.put("app", listener.appLabel(sbn.getPackageName()));
+                item.put("title", String.valueOf(extras.getCharSequence(Notification.EXTRA_TITLE, "")));
+                item.put("text", String.valueOf(extras.getCharSequence(Notification.EXTRA_TEXT, "")));
+                item.put("time", sbn.getPostTime());
+                item.put("canReply", replyAction(sbn) != null);
+                item.put("clearable", sbn.isClearable());
+                items.put(item);
+            }
+            JSObject result = new JSObject();
+            result.put("items", items);
+            call.resolve(result);
+    
+        });
     }
 
     @PluginMethod

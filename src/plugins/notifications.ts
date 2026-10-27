@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/tools/common.ts";
+import { Allowed, definePlugin } from "./define.ts";
+import { oneOf } from "../agent/parse.ts";
 
 const RecordedNotification = Type.Object({
 	package: Type.String(),
@@ -39,7 +39,7 @@ export const DND_MODES = ["off", "priority", "alarms", "silent"] as const;
 export type DndMode = (typeof DND_MODES)[number];
 
 export const Notifications = definePlugin("Notifications", {
-	status: { args: Type.Object({}), result: Type.Object({ allowed: Type.Boolean() }) },
+	status: { args: Type.Object({}), result: Allowed },
 	openSettings: { args: Type.Object({}) },
 	list: {
 		args: Type.Object({ since: Type.Optional(Type.Number()), app: Type.Optional(Type.String()), query: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer()) }),

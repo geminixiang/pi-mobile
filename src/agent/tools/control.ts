@@ -1,17 +1,20 @@
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { requireAccess } from "../../notifications-plugin.ts";
-import { type DndMode, Notifications } from "../../plugins/notifications.ts";
+import { DND_MODES, type DndMode, Notifications } from "../../plugins/notifications.ts";
 import {
+	type Connection,
 	CONNECTIONS,
 	type ConnectionsState,
+	DISPLAY_SETTINGS,
 	type DisplayState,
 	PhoneState,
 	type SoundState,
 	STREAMS,
 } from "../../plugins/phone-state.ts";
 import { messageOf } from "../../promise.ts";
-import { defineAppTool, localTime, oneOf, pad, parseNextTime, text } from "./common.ts";
+import { defineAppTool, localTime, pad, parseNextTime, text } from "./common.ts";
+import { oneOf } from "../parse.ts";
 const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.floor((ms % 60_000) / 1000))}`;
 
 const media = defineAppTool({
@@ -56,7 +59,7 @@ const doNotDisturb = defineAppTool({
 	description:
 		"Read or set Do Not Disturb. priority lets the user's important people and apps through (their usual 勿擾), alarms only alarms, silent nothing. With until, it turns itself off then.",
 	parameters: Type.Object({
-		mode: oneOf(["status", "off", "priority", "alarms", "silent"], { description: "status reads it; the rest set it" }),
+		mode: oneOf(["status", ...DND_MODES], { description: "status reads it; the rest set it" }),
 		until: Type.Optional(Type.String({ description: 'Local time to turn it off, such as "07:00" (the next one) or "2026-10-23 07:00"' })),
 	}),
 	execute: async (args) => {
@@ -128,7 +131,7 @@ const display = defineAppTool({
 	needs: [PhoneState.display, PhoneState.setDisplay],
 	description: "Read or change the screen: brightness, adaptive brightness, auto-rotate, and how long until it turns off.",
 	parameters: Type.Object({
-		action: oneOf(["status", "brightness", "auto_brightness", "auto_rotate", "screen_timeout"], { description: "status reads it; the rest change one setting" }),
+		action: oneOf(["status", ...DISPLAY_SETTINGS], { description: "status reads it; the rest change one setting" }),
 		percent: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "brightness: 1 to 100; turns adaptive brightness off" })),
 		on: Type.Optional(Type.Boolean({ description: "auto_brightness, auto_rotate: on or off" })),
 		seconds: Type.Optional(Type.Integer({ minimum: 15, maximum: 1800, description: "screen_timeout: seconds" })),
@@ -158,7 +161,7 @@ const flashlight = defineAppTool({
 	},
 });
 
-const LABEL: Record<(typeof CONNECTIONS)[number], string> = {
+const LABEL: Record<Connection, string> = {
 	wifi: "Wi-Fi",
 	bluetooth: "Bluetooth",
 	mobile_data: "mobile data",

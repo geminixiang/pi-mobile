@@ -2,18 +2,10 @@ import { CapacitorHttp } from "@capacitor/core";
 import type { TSchema } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
-import { type Static, type TLiteral, type TLiteralValue, type TSchemaOptions, type TUnion, Type } from "typebox";
+import type { Static } from "typebox";
 import { Value } from "typebox/value";
 import { parseJson } from "../parse.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
-
-type Literals<T extends readonly TLiteralValue[]> = { -readonly [K in keyof T]: T[K] extends TLiteralValue ? TLiteral<T[K]> : never };
-
-export function oneOf<const T extends readonly TLiteralValue[]>(values: T, options?: TSchemaOptions): TUnion<Literals<T>> {
-	// why: typebox's Static of a Union is never unless the members are a tuple type, and Array.map returns an array type, so the schemas built from a const list need their tuple type restored.
-	const literals = values.map((value) => Type.Literal(value)) as unknown as [...Literals<T>];
-	return Type.Union<Literals<T>>(literals, options);
-}
 
 function unset(value: unknown, schema: unknown): boolean {
 	if (value === "" || value === null || (Array.isArray(value) && value.length === 0)) return true;
@@ -33,12 +25,11 @@ function cleaned(parameters: TSchema, raw: unknown): unknown {
 	);
 }
 
-export type Reach = "model" | "loaded" | "script";
+type Reach = "model" | "loaded" | "script";
 
 export type Effect = "read" | "screen" | "direct";
 
-export interface ToolDeclaration {
-	readonly reach: Reach;
+interface ToolDeclaration {
 	readonly effect: Effect;
 	readonly needs: readonly PluginMethod[];
 }
@@ -66,7 +57,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 			throw new Error(first ? `${first.instancePath || "arguments"} ${first.message}` : "invalid arguments");
 		},
 	});
-	declarations.set(registration, { reach, effect, needs });
+	declarations.set(registration, { effect, needs });
 	return registration;
 }
 

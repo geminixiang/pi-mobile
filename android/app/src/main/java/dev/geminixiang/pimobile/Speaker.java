@@ -61,10 +61,7 @@ final class Speaker {
             synchronized (Speaker.this) {
                 ready = status == TextToSpeech.SUCCESS;
                 if (ready) {
-                    engine.setAudioAttributes(new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build());
+                    engine.setAudioAttributes(focus.getAudioAttributes());
                     engine.setOnUtteranceProgressListener(new Progress());
                 }
                 List<Runnable> actions = new ArrayList<>(waiting);

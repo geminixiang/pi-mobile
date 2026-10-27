@@ -29,7 +29,7 @@ import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "./tri
 import type { Trigger } from "../agent/triggers.ts";
 import { Triggers } from "../plugins/triggers.ts";
 import { System } from "../plugins/system.ts";
-import { contextTokens } from "./usage.ts";
+import { contextPercent, contextTokens } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
@@ -116,7 +116,7 @@ export function App() {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
 					notify: async (title, text, conversationId, avatar) => {
-						if (inForeground() || !native.has("Triggers")) return false;
+						if (inForeground() || !native.implements(Triggers.notify)) return false;
 						await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
 						return true;
 					},
@@ -360,7 +360,7 @@ export function App() {
 					<MoreIcon />
 				</button>
 				<div className="meter" aria-hidden="true">
-					<i style={{ width: `${contextWindow ? Math.min(100, (used / contextWindow) * 100) : 0}%` }} />
+					<i style={{ width: `${contextPercent(used, contextWindow)}%` }} />
 				</div>
 			</header>
 
@@ -441,7 +441,7 @@ export function App() {
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
 						prefs={prefs}
-						capabilities={{ native, sandbox: onSandbox }}
+						sandbox={onSandbox}
 						view={view}
 						initialDraft={pending.draft}
 						initialFiles={pending.files}
