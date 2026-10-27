@@ -191,6 +191,41 @@ export const MicIcon = ({ size = 22 }: { size?: number }) => (
 	</Icon>
 );
 
+export const ModelIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4M22 4h-4" />
+		<circle cx="4" cy="20" r="2" />
+	</Icon>
+);
+export const KeyIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
+		<circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+	</Icon>
+);
+export const PlugIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M12 22v-5M15 8V2M9 8V2M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z" />
+	</Icon>
+);
+export const PhoneIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<rect width="14" height="20" x="5" y="2" rx="2" />
+		<path d="M12 18h.01" />
+	</Icon>
+);
+export const AutomationIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M15.914 4a1.5 1.5 0 0 0-2.474-1.561l-9 9A1.5 1.5 0 0 0 5.5 14h4.002a.5.5 0 0 1 .471.666L8.086 20a1.5 1.5 0 0 0 2.475 1.56l9-9A1.5 1.5 0 0 0 18.5 10h-3.997a.5.5 0 0 1-.472-.667z" />
+	</Icon>
+);
+export const DatabaseIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<ellipse cx="12" cy="5" rx="9" ry="3" />
+		<path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0" />
+	</Icon>
+);
+
 function Mark({ d, size }: { d: string; size: number }) {
 	return (
 		<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

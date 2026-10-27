@@ -24,7 +24,7 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../agent/triggers.ts";
 import { Triggers } from "../plugins/triggers.ts";
 import { changedKeys, isConfigured, type Settings } from "../settings.ts";
-import { ChevronIcon } from "./icons.tsx";
+import { AutomationIcon, ChevronIcon, DatabaseIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { useBack } from "./layers.ts";
 import { pairedHosts, parseComputerKey } from "../agent/sandbox/host.ts";
@@ -386,20 +386,21 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	const chosen = parseComputerKey(settings.computer);
 	const host = settings.hosts.find((candidate) => candidate.id === chosen?.hostId);
 	const services = runtime?.mcp.servers.length ?? 0;
-	const rows: { page: Page; label: string; value: string | undefined }[] = [
-		{ page: "models", label: "模型", value: settings.providers.map(providerName).join("、") },
-		...(runtime ? [{ page: "memory" as const, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
-		{ page: "accounts", label: "帳號", value: accounts.join("、") },
-		{ page: "services", label: "連接的服務", value: services ? `${services} 個` : "" },
-		{ page: "machines", label: "電腦", value: host ? `${host.name}${chosen?.mode === "container" ? " · 容器" : ""}` : undefined },
-		...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, label: "手機", value: undefined }] : []),
-		...(native.has("Triggers") ? [{ page: "schedules" as const, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
-		...(native.has("Database") ? [{ page: "data" as const, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
+	const rows: { page: Page; icon: ReactNode; label: string; value: string | undefined }[] = [
+		{ page: "models", icon: <ModelIcon />, label: "模型", value: settings.providers.map(providerName).join("、") },
+		...(runtime ? [{ page: "memory" as const, icon: <MemoryIcon size={18} />, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
+		{ page: "accounts", icon: <KeyIcon />, label: "帳號", value: accounts.join("、") },
+		{ page: "services", icon: <PlugIcon />, label: "連接的服務", value: services ? `${services} 個` : "" },
+		{ page: "machines", icon: <TerminalIcon size={18} />, label: "電腦", value: host ? `${host.name}${chosen?.mode === "container" ? " · 容器" : ""}` : undefined },
+		...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, icon: <PhoneIcon />, label: "手機", value: undefined }] : []),
+		...(native.has("Triggers") ? [{ page: "schedules" as const, icon: <AutomationIcon />, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
+		...(native.has("Database") ? [{ page: "data" as const, icon: <DatabaseIcon />, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
 	];
 	return (
 		<nav className="menu settings-index">
 			{rows.map((row) => (
 				<button type="button" key={row.page} onClick={() => onOpen(row.page)}>
+					{row.icon}
 					<span className="menu-text">{row.label}</span>
 					{row.value === undefined ? null : <span className="index-value">{row.value || "未設定"}</span>}
 					<ChevronIcon />
