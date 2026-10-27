@@ -3316,6 +3316,24 @@
 					"type": "object"
 				},
 				"result": null
+			},
+			"installUpdate": {
+				"args": {
+					"properties": {
+						"sha256": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"url",
+						"sha256"
+					],
+					"type": "object"
+				},
+				"result": null
 			}
 		},
 		"events": {},

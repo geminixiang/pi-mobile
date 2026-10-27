@@ -24,6 +24,8 @@ npm ci --ignore-scripts
 
 它用 `~/.config/pi-mobile/release.env` 指定的私鑰簽章（金鑰不在 repo 裡），**關閉遠端除錯**，並從 `package.json` 帶入版本號。不同金鑰簽的 APK 不能互相覆蓋安裝，要先移除舊的（手機上的對話會一起刪掉）。
 
+App 內的更新（設定頁最下面的「更新到 <版本>」）讀 GitHub 上最新的 release：tag 比裝著的版本新（`-dev` 不算），而且有 `pi-mobile-<版本>.apk` 和 GitHub 給的 SHA-256 時才出現。按下去由原生端下載到 app 的快取、核對 SHA-256、確認是同一個套件、同一把金鑰簽的，再交給 Android 的安裝畫面；第一次 Android 會要你允許 pi mobile 安裝應用程式，允許後 Android 16 不會自己接著安裝，要回到 pi mobile 再按一次（模擬器實測 0.8.99 → 0.9.0，資料保留）。所以 release 的 APK 檔名不要改；用 debug keystore 建的開發版會被擋下（「用不同的金鑰簽章」），要先移除。
+
 第一次打開時填：
 - **模型供應商**：pi-ai 內建的供應商填 API key，或自訂端點（OpenAI 或 Anthropic 相容）填網址和 key。
 - **電腦**（選填）：把 tailnet 裡的一台電腦交給 pi，見下一節。

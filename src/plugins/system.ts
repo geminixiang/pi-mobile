@@ -8,4 +8,5 @@ export const System = definePlugin("System", {
 	clipboardText: { args: Type.Object({}), result: Type.Object({ text: Type.String() }) },
 	assistant: { args: Type.Object({}), result: Type.Object({ held: Type.Boolean() }) },
 	openAssistantSettings: { args: Type.Object({}) },
+	installUpdate: { args: Type.Object({ url: Type.String(), sha256: Type.String() }) },
 });

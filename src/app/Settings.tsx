@@ -38,7 +38,8 @@ import { PiMark } from "./PiMark.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf, orLogged } from "../promise.ts";
+import { checkForUpdate, installUpdate } from "./update.ts";
 import { toBase64 } from "../encoding.ts";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -416,6 +417,28 @@ async function shareDiagnostics(): Promise<void> {
 	await Apps.share({ title: "pi mobile 診斷記錄", fileBase64: toBase64(new TextEncoder().encode(body)), fileName: `pi-mobile-diagnostics-${stamp}.jsonl`, mimeType: "application/x-ndjson" });
 }
 
+function UpdateLink() {
+	const { value: update } = useLoaded(native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
+	const [busy, setBusy] = useState(false);
+	const [problem, setProblem] = useState("");
+	if (!update) return null;
+	const install = () => {
+		setBusy(true);
+		setProblem("");
+		void installUpdate(update)
+			.catch((error: unknown) => setProblem(messageOf(error)))
+			.finally(() => setBusy(false));
+	};
+	return (
+		<>
+			{" · "}
+			<button type="button" className="link" disabled={busy} onClick={install}>
+				{busy ? `下載 ${update.version} 中…` : problem || `更新到 ${update.version}`}
+			</button>
+		</>
+	);
+}
+
 export function SettingsView({
 	initial,
 	status,
@@ -626,6 +649,7 @@ export function SettingsView({
 						pi mobile · {__BUILD__}
 						{inApp ? (
 							<>
+								<UpdateLink />
 								{" · "}
 								<button type="button" className="link" onClick={() => void shareDiagnostics().catch((error: unknown) => setProblem(messageOf(error)))}>
 									分享診斷記錄
