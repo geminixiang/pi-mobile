@@ -7,8 +7,6 @@ import { oneOf } from "../parse.ts";
 
 const CALL_TYPES: Record<CallRecord["type"], string> = { incoming: "接聽", outgoing: "撥出", missed: "未接", rejected: "拒接", blocked: "封鎖", voicemail: "語音信箱", other: "其他" };
 
-const CallType = oneOf(CALL_KINDS);
-
 const callLog = defineAppTool({
 	name: "call_log",
 	effect: "read",
@@ -22,7 +20,7 @@ const callLog = defineAppTool({
 		items: Type.Array(
 			Type.Object({
 				time: Type.String({ description: "Local time, YYYY-MM-DD HH:MM" }),
-				type: CallType,
+				type: oneOf(CALL_KINDS),
 				number: Type.String(),
 				name: Type.Optional(Type.String({ description: "From the contacts" })),
 				seconds: Type.Number(),

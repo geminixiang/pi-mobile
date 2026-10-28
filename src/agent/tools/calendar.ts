@@ -4,7 +4,6 @@ import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
 
-
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 const startOf = (event: PhoneEvent) => (event.allDay ? utcDate(event.begin) : localTime(event.begin));
@@ -44,23 +43,7 @@ function describeTimes(times: { begin: number; end: number }, allDay: boolean): 
 		: `${date(times.begin)} ${time(times.begin)} – ${date(times.end)} ${time(times.end)}`;
 }
 
-type FormattedEvent = {
-	id: string;
-	title: string;
-	allDay?: true;
-	date?: string;
-	lastDate?: string;
-	start?: string;
-	end?: string;
-	location?: string;
-	notes?: string;
-	calendar: string;
-	account: string;
-	shared?: true;
-	owner?: string;
-};
-
-function formatEvent(event: PhoneEvent): FormattedEvent {
+function formatEvent(event: PhoneEvent) {
 	return {
 		id: event.id,
 		title: event.title,

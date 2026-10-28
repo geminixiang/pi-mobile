@@ -7,7 +7,6 @@ import { metersBetween, resolvePlace } from "./device.ts";
 import { type Contact, Contacts } from "../../plugins/contacts.ts";
 import { Photos } from "../../plugins/photos.ts";
 
-
 function daysUntil(birthday: string): number | undefined {
 	const match = /(\d{2})-(\d{2})$/.exec(birthday);
 	if (!match) return undefined;

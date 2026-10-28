@@ -345,12 +345,8 @@ async function daily<T>(
 
 const revenueLists = new Map<string, Promise<Map<string, Omit<Revenue, "name">>>>();
 
-function revenueList(market: Market, signal: AbortSignal | undefined): Promise<Map<string, Omit<Revenue, "name">>> {
-	return todays(revenueLists, market, async () => revenuesFrom(market, await getJson(MARKETS[market].revenue, `${market} monthly revenue`, signal)));
-}
-
 async function revenues(stocks: readonly Listing[], signal: AbortSignal | undefined): Promise<Revenue[]> {
-	const tables = await Promise.all(marketsOf(stocks).map((market) => revenueList(market, signal)));
+	const tables = await Promise.all(marketsOf(stocks).map((market) => todays(revenueLists, market, async () => revenuesFrom(market, await getJson(MARKETS[market].revenue, `${market} monthly revenue`, signal)))));
 	const found = new Map(tables.flatMap((table) => [...table]));
 	return stocks.flatMap((stock) => {
 		const row = found.get(stock.code);

@@ -5,8 +5,6 @@ import { messageOf } from "../../promise.ts";
 import { defineAppTool } from "./common.ts";
 import { oneOf } from "../parse.ts";
 
-const ACTIONS = ["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"] as const;
-const DIRECTIONS = ["down", "up", "left", "right"] as const;
 const SCREENSHOT = Type.Optional(
 	Type.Boolean({ description: "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false" }),
 );
@@ -64,12 +62,12 @@ const usePhoneScreen = defineAppTool({
 	parameters: Type.Object({
 		steps: Type.Array(
 			Type.Object({
-				action: oneOf(ACTIONS),
+				action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"] as const),
 				x: Type.Optional(Type.Number({ description: "Points from the left" })),
 				y: Type.Optional(Type.Number({ description: "Points from the top" })),
 				to_x: Type.Optional(Type.Number({ description: "swipe: where it ends" })),
 				to_y: Type.Optional(Type.Number({ description: "swipe: where it ends" })),
-				direction: Type.Optional(oneOf(DIRECTIONS, { description: "scroll: which way the content moves into view; default down" })),
+				direction: Type.Optional(oneOf(["down", "up", "left", "right"] as const, { description: "scroll: which way the content moves into view; default down" })),
 				ms: Type.Optional(Type.Integer({ minimum: 1, description: "swipe: duration, default 300; wait: how long" })),
 				text: Type.Optional(Type.String({ description: "type: the text" })),
 				keys: Type.Optional(Type.String({ description: "key: back, home, recents, notifications, quick_settings, or enter" })),

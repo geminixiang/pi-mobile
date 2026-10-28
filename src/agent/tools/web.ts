@@ -49,7 +49,6 @@ const SearchResults = Type.Array(Type.Object({ url: Type.Optional(Type.String())
 
 const RENDER_BELOW_CHARS = 300;
 
-
 const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+/g, "").length;
 
 const USER_AGENT = "Mozilla/5.0 (Linux; Android 16) pi-mobile";
@@ -74,8 +73,7 @@ async function download(env: ExecutionEnv, url: string, path: string, context: C
 	if (response.status >= 400) throw new Error(`HTTP ${response.status} ${response.url}`);
 	const bytes = typeof response.data === "string" ? fromBase64(response.data) : new Uint8Array(0);
 	getOrThrow(await env.writeFile(absolute, bytes, context));
-	const contentType = contentTypeOf(response.headers);
-	return { path: absolute, size: bytes.length, contentType, url: response.url || url };
+	return { path: absolute, size: bytes.length, contentType: contentTypeOf(response.headers), url: response.url || url };
 }
 
 export interface WebConfig {

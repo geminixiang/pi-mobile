@@ -36,9 +36,7 @@ const getLocation = defineAppTool({
 		"The phone's current location: latitude, longitude, accuracy, altitude, speed, and the street address. Use it for anything about where the user is or what is nearby, instead of asking them.",
 	parameters: Type.Object({}),
 	replay: "safe",
-	execute: async () => {
-		return json(await Phone.getLocation());
-	},
+	execute: async () => json(await Phone.getLocation()),
 });
 
 const readSensors = defineAppTool({
@@ -49,9 +47,7 @@ const readSensors = defineAppTool({
 		"One reading of the phone's environmental sensors: barometric pressure with an altitude estimate (standard atmosphere, so off by tens of meters with the weather; compare readings for height gained), compass heading and which way the top of the phone faces, ambient light in lux, and proximity (near means something covers the screen, such as a pocket).",
 	parameters: Type.Object({}),
 	replay: "safe",
-	execute: async () => {
-		return json(await Phone.readSensors());
-	},
+	execute: async () => json(await Phone.readSensors()),
 });
 
 export type Point = { latitude: number; longitude: number; label: string };
@@ -119,14 +115,12 @@ const travelTime = defineAppTool({
 		const body = parse(OsrmResponse, await response.json(), "routing response");
 		const route = body.routes?.[0];
 		if (body.code !== "Ok" || !route) throw new Error(`no route found (${body.code})`);
-		const seconds = route.duration;
-		const meters = route.distance;
 		return json({
 			mode: args.mode,
 			from: from.label,
 			to: to.label,
-			distanceKm: Math.round(meters / 100) / 10,
-			minutes: Math.round(seconds / 60),
+			distanceKm: Math.round(route.distance / 100) / 10,
+			minutes: Math.round(route.duration / 60),
 			...(args.mode === "driving" ? { note: "free-flow estimate without traffic" } : {}),
 		});
 	},
