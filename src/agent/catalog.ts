@@ -50,7 +50,6 @@ interface CatalogDeps {
 const toolSearch = (loaded: readonly string[]) =>
 	`Load ${loaded.join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
 
-
 export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; unsupported: ReadonlySet<string> } {
 	const extensions: Extension[] = [
 		deps.assistant,

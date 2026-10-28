@@ -25,10 +25,6 @@ const MODE_LABEL: Record<HostMode, string> = { direct: "直接", container: "容
 
 type Entry = { computer: Computer; host: PairedHost; mode: HostMode };
 
-function sameHost(a: PairedHost, b: PairedHost): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
-}
-
 export class Workplaces {
 	#settings: Settings;
 	#hosts: PairedHost[];
@@ -48,7 +44,7 @@ export class Workplaces {
 	apply(settings: Settings): void {
 		const previous = this.#hosts;
 		this.#settings = settings;
-		this.#hosts = pairedHosts(settings).map((host) => previous.find((known) => known.id === host.id && sameHost(known, host)) ?? host);
+		this.#hosts = pairedHosts(settings).map((host) => previous.find((known) => JSON.stringify(known) === JSON.stringify(host)) ?? host);
 		const entries = this.#entries();
 		for (const [key, sandbox] of this.#open) {
 			const entry = entries.find((candidate) => candidate.computer.key === key);

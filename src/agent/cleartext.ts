@@ -13,8 +13,6 @@ function inTailnet(host: string): boolean {
 
 const loopback = (host: string) => host === "localhost" || host === "::1" || octetsOf(host)?.[0] === 127;
 
-const tailnetOrLoopback = (hostname: string) => inTailnet(bare(hostname)) || loopback(bare(hostname));
-
 export function onTailnet(url: string): boolean {
 	if (!URL.canParse(url)) return false;
 	const host = bare(new URL(url).hostname);
@@ -26,7 +24,8 @@ export const tailscaleHint = (ios: boolean) => (ios ? "；在 Tailscale app 開�
 export function refuseCleartextSecret(url: string): void {
 	if (!URL.canParse(url)) return;
 	const parsed = new URL(url);
-	if (parsed.protocol !== "http:" || tailnetOrLoopback(parsed.hostname)) return;
+	const host = bare(parsed.hostname);
+	if (parsed.protocol !== "http:" || inTailnet(host) || loopback(host)) return;
 	throw new Error(`不透過明文 HTTP 把金鑰送到 ${parsed.host}：改用 https，或這台機器的 Tailscale 名稱（*.ts.net）`);
 }
 
@@ -35,7 +34,7 @@ const IP_ADDRESS = /^\d{1,3}(\.\d{1,3}){3}$|:/;
 export function refuseIpOnIos(url: string, ios: boolean): void {
 	if (!ios || !URL.canParse(url)) return;
 	const parsed = new URL(url);
-	const host = parsed.hostname.replace(/^\[|\]$/g, "");
+	const host = bare(parsed.hostname);
 	if (!["http:", "ws:"].includes(parsed.protocol) || !IP_ADDRESS.test(host) || host === "127.0.0.1" || host === "::1") return;
 	throw new Error(`iPhone 和 iPad 不能用明文 HTTP 連 IP 位址（${parsed.host}）：改填這台機器的 Tailscale 名稱，例如 mac.xxxx.ts.net`);
 }

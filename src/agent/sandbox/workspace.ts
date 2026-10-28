@@ -31,18 +31,13 @@ interface Commit {
 	time: number;
 }
 
-export interface RepoStatus {
+interface RepoStatus {
 	path: string;
 	branch: string;
 	ahead: number;
 	behind: number;
 	changes: Change[];
 	commits: Commit[];
-}
-
-function looksBinary(bytes: Uint8Array): boolean {
-	const sample = bytes.subarray(0, 8000);
-	return sample.includes(0);
 }
 
 export const isHtml = (path: string): boolean => /^html?$/.test(extensionOf(path));
@@ -75,7 +70,7 @@ export class Workspace {
 		const limit = isHtml(path) ? MAX_HTML_BYTES : MAX_TEXT_BYTES;
 		const reader = getOrThrow(await this.#env.openBinaryReader(path, undefined, context));
 		const bytes = getOrThrow(await reader.read(0, limit, context).finally(() => reader.close(context)));
-		if (looksBinary(bytes)) return { kind: "binary", size };
+		if (bytes.subarray(0, 8000).includes(0)) return { kind: "binary", size };
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > limit, size, limit };
 	}
 

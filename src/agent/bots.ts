@@ -48,7 +48,6 @@ export const DEFAULT_BOT = { name: "pi", job: "", avatar: "helper" };
 export const MAX_BOTS = 12;
 export const MAX_JOB = 1500;
 
-
 export function botFields({ name, job }: { name: string; job: string }): { name: string; job: string } {
 	if (!name.trim()) throw new Error("Bot 需要名字");
 	if (job.length > MAX_JOB) throw new Error(`工作說明最多 ${MAX_JOB} 字`);

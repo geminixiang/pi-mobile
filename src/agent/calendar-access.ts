@@ -12,7 +12,7 @@ export type CalendarAccess = Static<typeof CalendarAccess>;
 
 export const DEFAULT_CALENDAR_ACCESS: CalendarAccess = { hidden: [], writable: [], shared: false };
 
-export function accountKey(calendar: { account: string; accountType: string }): string {
+function accountKey(calendar: { account: string; accountType: string }): string {
 	return `${calendar.accountType}:${calendar.account}`;
 }
 

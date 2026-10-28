@@ -22,7 +22,7 @@ const REDIRECT_URL = `http://127.0.0.1:${REDIRECT_PORT}${REDIRECT_PATH}`;
 const SERVERS_KEY = "pi-mobile.mcp-servers";
 
 const McpServer = Type.Object({ id: Type.String(), name: Type.String(), url: Type.String() });
-export type McpServer = Static<typeof McpServer>;
+type McpServer = Static<typeof McpServer>;
 
 function serverId(name: string, url: string, taken: readonly string[]): string {
 	const ascii = (text: string) =>

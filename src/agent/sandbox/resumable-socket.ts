@@ -4,7 +4,7 @@ import { decode } from "../parse.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
-export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
+type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
 export interface ResumableOptions {
 	first: URL;
@@ -79,7 +79,7 @@ export class ResumableSocket {
 		if (this.#closed || !this.#socket || Date.now() - this.#lastMessage <= this.#options.quietLimitMs) return;
 		const socket = this.#socket;
 		this.#socket = undefined;
-		socket?.close();
+		socket.close();
 		this.#dropped();
 	}
 

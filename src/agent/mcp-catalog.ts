@@ -1,4 +1,4 @@
-export type CatalogCategory = "work" | "dev" | "knowledge" | "business" | "automation";
+type CatalogCategory = "work" | "dev" | "knowledge" | "business" | "automation";
 
 export const CATEGORIES: Record<CatalogCategory, string> = {
 	work: "工作與筆記",

@@ -53,7 +53,7 @@ export const normalizeCjk = (text: string) => text.replace(/[\u2E80-\u2FDF\uF900
 
 export const quoteName = (name: string) => `"${name.replace(/"/g, '""')}"`;
 
-export function estimateTokens(text: string): number {
+function estimateTokens(text: string): number {
 	const cjk = text.length - text.replace(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu, "").length;
 	return Math.ceil(cjk + (text.length - cjk) / 4);
 }

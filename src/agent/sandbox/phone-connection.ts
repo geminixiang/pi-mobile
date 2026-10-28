@@ -15,12 +15,12 @@ export type ConnectionStatus =
 	| { kind: "lost"; reason: string; at: number }
 	| { kind: "closed" };
 
-export interface DaemonStream {
+interface DaemonStream {
 	send(data: Uint8Array<ArrayBuffer>): void;
 	close(): void;
 }
 
-export interface StreamHandlers {
+interface StreamHandlers {
 	onData(data: Uint8Array): void;
 	onClose(reason?: string): void;
 	onLink(up: boolean): void;

@@ -43,11 +43,8 @@ function fileError(error: unknown, path?: string): FileError {
 	return new FileError(code ? (FILE_CODES[code] ?? "unknown") : "unknown", messageOf(error), path);
 }
 
-const aborted = (context: Context, path?: string) => (context.abortSignal?.aborted ? err<never, FileError>(new FileError("aborted", "Aborted", path)) : undefined);
-
 async function attempt<T>(context: Context, path: string | undefined, run: () => Promise<T>): Promise<Result<T, FileError>> {
-	const stop = aborted(context, path);
-	if (stop) return stop;
+	if (context.abortSignal?.aborted) return err(new FileError("aborted", "Aborted", path));
 	try {
 		return ok(await run());
 	} catch (error) {
@@ -405,8 +402,7 @@ export class PhoneEnv implements ExecutionEnv {
 
 	async #spill(output: string, options: ShellExecOptions | undefined, context: Context): Promise<string | undefined> {
 		const spill = options?.spill;
-		if (!spill) return undefined;
-		if (fits(output, spill)) return undefined;
+		if (!spill || fits(output, spill)) return undefined;
 		const file = await this.createTempFile({ prefix: "pi-output-", suffix: ".log" }, context);
 		if (!file.ok) return undefined;
 		const written = await this.writeFile(file.value, output, context);

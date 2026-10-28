@@ -76,7 +76,6 @@ export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun 
 	return entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data) ? entry.data : undefined;
 }
 
-
 export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
 	const { events } = await Triggers.events();
 	const parsed: QueuedEvent[] = [];
@@ -528,14 +527,14 @@ export class TriggerRuns {
 			heard && (guards.length > 0 || trigger.onlyIf)
 				? screen(guards, trigger.onlyIf, await this.#judge.ask(screeningQuestions(guards, trigger.onlyIf), { automation: trigger.name, purpose: trigger.prompt, event: heard }))
 				: undefined;
+		const unjudged: { unjudged?: string } = screening?.unjudged ? { unjudged: screening.unjudged } : {};
 		if (screening && !screening.pass) {
 			const skipped = { reason: screening.reason, ...(screening.probability !== undefined ? { probability: screening.probability } : {}) };
-			await this.#record(id, { at: now, delivery, skipped, ...(screening.unjudged ? { unjudged: screening.unjudged } : {}) });
+			await this.#record(id, { at: now, delivery, skipped, ...unjudged });
 			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger: id });
 			return undefined;
 		}
 		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};
-		const unjudged: { unjudged?: string } = screening?.unjudged ? { unjudged: screening.unjudged } : {};
 		const judgement = screening ? `, ${screening.note}` : "";
 		const label =
 			trigger.kind === "followup"

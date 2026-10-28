@@ -48,7 +48,6 @@ export function withCompaction(provider: Provider, compactAt: number): Provider 
 	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().map(capped) });
 }
 
-
 export function isThinkingLevel(value: string): value is ModelThinkingLevel {
 	return MODEL_THINKING_LEVELS.some((level) => level === value);
 }

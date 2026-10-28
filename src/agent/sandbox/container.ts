@@ -356,12 +356,6 @@ export class ContainerHost {
 				.map(([key, value]) => `-e ${shellQuote(`${key}=${value}`)}`)
 				.join(" ");
 			this.#active++;
-			let released = false;
-			const release = () => {
-				if (released) return;
-				released = true;
-				this.#active--;
-			};
 			let stderr = "";
 			const channel = await this.#client.exec(
 				`${ENV_PATH}; exec ${this.#engine} exec -i -w /workspace ${env} ${CONTAINER} ${DAEMON} serve --token ${token}`,
@@ -371,7 +365,7 @@ export class ContainerHost {
 						stderr = (stderr + new TextDecoder().decode(data)).slice(-2000);
 					},
 					onExit: (code) => {
-						release();
+						this.#active--;
 						handlers.onClose(stderr.trim() || `daemon exited ${code ?? "?"}`);
 					},
 					onLink: handlers.onLink,

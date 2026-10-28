@@ -258,16 +258,14 @@ async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): 
 			const author = one(flags, "author");
 			const search = one(flags, "search");
 			const limit = Number(one(flags, "limit") ?? DEFAULT_LIMIT);
-			if (search !== undefined) {
-				const terms = [`repo:${repo.owner}/${repo.name}`, kind === "pr" ? "is:pr" : "is:issue", state === "all" ? "" : state === "merged" ? "is:merged" : `is:${state}`, author ? `author:${author}` : "", search];
-				const found = await searchIssues(api, terms, limit);
-				return present(ctx, flags, found, ITEM_FIELDS, () => found.map((item) => `${row(item, kind)}\n`).join(""));
-			}
-			const found = await list(api, `${base(repo)}/${plural}?${query}`, limit, (item) =>
-				(kind === "pr" || at(item, "pull_request") === undefined) &&
-				(state !== "merged" || Boolean(at(item, "merged_at"))) &&
-				(!author || at(at(item, "user"), "login") === author),
-			);
+			const found =
+				search !== undefined
+					? await searchIssues(api, [`repo:${repo.owner}/${repo.name}`, kind === "pr" ? "is:pr" : "is:issue", state === "all" ? "" : state === "merged" ? "is:merged" : `is:${state}`, author ? `author:${author}` : "", search], limit)
+					: await list(api, `${base(repo)}/${plural}?${query}`, limit, (item) =>
+							(kind === "pr" || at(item, "pull_request") === undefined) &&
+							(state !== "merged" || Boolean(at(item, "merged_at"))) &&
+							(!author || at(at(item, "user"), "login") === author),
+						);
 			return present(ctx, flags, found, ITEM_FIELDS, () => found.map((item) => `${row(item, kind)}\n`).join(""));
 		}
 		case "view": {

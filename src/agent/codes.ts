@@ -34,7 +34,7 @@ async function codesIn(image: ImageContent, find: Detector): Promise<DetectedCod
 	}
 }
 
-export async function codeNote(images: readonly ImageContent[], label: (index: number) => string = (index) => `image ${index + 1}`): Promise<TextContent | undefined> {
+export async function codeNote(images: readonly ImageContent[], label: (index: number) => string): Promise<TextContent | undefined> {
 	const find = detector();
 	if (!find || images.length === 0) return undefined;
 	const lines: string[] = [];
