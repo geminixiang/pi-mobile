@@ -89,8 +89,14 @@ compositor without repainting the element or laying out the page. Everything els
 - No inline styles except custom properties that carry state; everything else is a class.
 - pi.dev's design language: evening blue (or moonstone paper), a faint drafting grid (4px minor, 20px major, a + at
   every major crossing, fading toward the bottom), square edges, hairline panels with monospace header strips, serif
-  prose. Color comes only from the pi mark (coral, blue, yellow) and one accent blue; tool, message, and thinking
-  colors are pi's theme (`light.json`, `dark.json`). No rounded cards, shadows, or gradients beyond the page grid.
+  prose. Color comes only from the pi mark (coral, blue, yellow) and one accent blue; tool, message, thinking, and
+  code block colors follow pi's theme rules: a code block is a full-width band like a tool row, on `toolPendingBg`,
+  with `mdCodeBlock` text. The dark values are pi's `dark.json`. The light values are what pi's `system` theme
+  (`generateSystemThemeColors` in pi-coding-agent's `system-theme.ts`) computes for this app's own colors as the
+  terminal's: `--bg` as background, `--text` as foreground, and a palette of `--error` (red), `--ok` (green),
+  `--yellow`, `--accent` (blue), `--custom-label` (magenta), `--blue` (cyan), and `--faint` (bright black). pi's
+  `light.json` is made for a white terminal and looks cold on the paper `--bg`. Recompute rather than pick a value by
+  hand; the thinking colors stay pi's. No rounded cards, shadows, or gradients beyond the page grid.
 
 ## 6. Layout and copy
 
