@@ -241,11 +241,6 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const expandable = lines.length > 0 || Boolean(script);
 	return (
 		<div className={`step ${status}${open ? " open" : ""}`} data-tool={call.name}>
-			{openFile && status !== "running" && openable[0] ? (
-				<button type="button" className="step-open" onClick={() => openFile(openable[0])} aria-label={`開啟 ${openable[0].split("/").at(-1) ?? "檔案"}`}>
-					<FileIcon size={14} />
-				</button>
-			) : null}
 			<button type="button" className="step-body" onClick={() => setOpen(!open)} aria-expanded={open} disabled={!expandable}>
 				<span className="step-head">
 					<span className="step-name">{toolName(call.name)}</span>
@@ -264,6 +259,11 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					</span>
 				) : null}
 			</button>
+			{openFile && status !== "running" && openable[0] ? (
+				<button type="button" className="step-open" onClick={() => openFile(openable[0])} aria-label={`開啟 ${openable[0].split("/").at(-1) ?? "檔案"}`}>
+					<FileIcon size={14} />
+				</button>
+			) : null}
 			{images.map((image, index) => (
 				<button type="button" className="step-image" key={index} onClick={() => filePath && openFile?.(filePath)}>
 					<img src={`data:${image.mimeType};base64,${image.data}`} alt={filePath ?? ""} />

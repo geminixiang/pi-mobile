@@ -226,7 +226,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	padding: var(--top) var(--space) calc(var(--composer-h, 92px) + 28px); scroll-padding: var(--top) 0 var(--composer-h, 92px);
 }
 .chat > .skeleton-transcript { padding-top: calc(env(safe-area-inset-top) + var(--bar-h) + 22px); }
-.transcript > :nth-last-child(n + 6) { content-visibility: auto; contain-intrinsic-size: auto 320px; }
+:where(:root:not([data-platform="ios"])) .transcript > :nth-last-child(n + 6) { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 
 .prompt { cursor: pointer; margin: 0 calc(-1 * var(--space)); }
 .bubble {
@@ -321,7 +321,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .chevron { transition: transform 160ms var(--ease); flex-shrink: 0; color: var(--faint); }
 
 .steps { display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); }
-.step { position: relative; background: var(--tool-pending); }
+.step { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--tool-pending); }
 .step.ok { background: var(--tool-success); }
 .step.error { background: var(--tool-error); }
 .step-body {
@@ -655,7 +655,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .commit-text .file-name { font-family: var(--sans); font-size: 14px; }
 .commit-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
 
-.step-open { position: absolute; top: 4px; right: calc(var(--space) - 12px); width: 40px; height: 40px; display: grid; place-items: center; color: var(--muted); z-index: 1; }
+.step-body, .step-open { grid-area: 1 / 1; }
+.step-open { justify-self: end; align-self: start; width: 40px; height: 40px; margin: 4px calc(var(--space) - 12px) 0 0; display: grid; place-items: center; color: var(--muted); }
 .step:has(.step-open) .step-head { padding-right: 32px; }
 .step-open:active { background: var(--accent-soft); }
 
