@@ -167,8 +167,7 @@ public class HealthPlugin extends Plugin {
     private static JSObject describe(Context context, android.health.connect.datatypes.Record record) {
         JSObject item = new JSObject();
         item.put("source", record.getMetadata().getDataOrigin().getPackageName());
-        if (record instanceof SleepSessionRecord) {
-            SleepSessionRecord sleep = (SleepSessionRecord) record;
+        if (record instanceof SleepSessionRecord sleep) {
             item.put("start", sleep.getStartTime().toEpochMilli());
             item.put("end", sleep.getEndTime().toEpochMilli());
             JSObject stages = new JSObject();
@@ -178,14 +177,12 @@ public class HealthPlugin extends Plugin {
                 stages.put(name, stages.optLong(name, 0) + minutes);
             }
             if (stages.length() > 0) item.put("stageMinutes", stages);
-        } else if (record instanceof ExerciseSessionRecord) {
-            ExerciseSessionRecord exercise = (ExerciseSessionRecord) record;
+        } else if (record instanceof ExerciseSessionRecord exercise) {
             item.put("start", exercise.getStartTime().toEpochMilli());
             item.put("end", exercise.getEndTime().toEpochMilli());
             item.put("type", exercise.getExerciseType());
             if (exercise.getTitle() != null) item.put("title", exercise.getTitle().toString());
-        } else if (record instanceof WeightRecord) {
-            WeightRecord weight = (WeightRecord) record;
+        } else if (record instanceof WeightRecord weight) {
             item.put("time", weight.getTime().toEpochMilli());
             item.put("kg", weight.getWeight().getInGrams() / 1000);
         }

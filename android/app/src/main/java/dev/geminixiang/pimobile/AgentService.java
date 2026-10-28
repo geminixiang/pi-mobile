@@ -15,6 +15,7 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 public class AgentService extends Service {
 
@@ -33,13 +34,11 @@ public class AgentService extends Service {
         NotificationChannel working = new NotificationChannel(CHANNEL_WORKING, "pi 工作中", NotificationManager.IMPORTANCE_LOW);
         working.setDescription("agent 在背景執行時顯示");
         working.setShowBadge(false);
-        manager.createNotificationChannel(working);
         NotificationChannel done = new NotificationChannel(CHANNEL_DONE, "pi 完成", NotificationManager.IMPORTANCE_DEFAULT);
         done.setDescription("app 不在前景時，agent 完成");
-        manager.createNotificationChannel(done);
         NotificationChannel proactive = new NotificationChannel(CHANNEL_PROACTIVE, "pi 主動通知", NotificationManager.IMPORTANCE_DEFAULT);
         proactive.setDescription("自動化執行的結果");
-        manager.createNotificationChannel(proactive);
+        manager.createNotificationChannels(List.of(working, done, proactive));
     }
 
     static Icon avatar(Context context, String id) {

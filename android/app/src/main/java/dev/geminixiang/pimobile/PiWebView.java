@@ -22,8 +22,7 @@ public class PiWebView extends CapacitorWebView {
     }
 
     static void keepRunning(WebView view, boolean on) {
-        if (!(view instanceof PiWebView)) return;
-        PiWebView web = (PiWebView) view;
+        if (!(view instanceof PiWebView web)) return;
         if (web.keepRunning == on) return;
         web.keepRunning = on;
         web.dispatchVisibility();
