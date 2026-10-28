@@ -742,8 +742,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); font-size: var(--fs-small); color: var(--muted); }
 .chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }
-.guard-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.guard-chips > .chip { min-height: 24px; padding: 0 7px; font-family: var(--mono); font-size: var(--fs-meta); }
+.guard-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .check-row + .check-row { border-top: 1px solid var(--line); }
 .check-row + .pair-row { border-top: none; padding-top: 0; }
 .check-row .menu-text { font-size: var(--fs-body); overflow-wrap: anywhere; }
@@ -761,8 +760,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .check-row > .code-field { flex: 1; height: 38px; }
 .trigger-symbol { display: flex; align-self: flex-start; margin-top: 1px; color: var(--muted); }
 .trigger-row.paused > .trigger-symbol, .trigger-row.paused > .menu-text { opacity: 0.5; }
-.trigger-actions { display: flex; gap: 16px; margin-top: 4px; }
-.trigger-actions button { font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); padding: 4px 0; }
+.trigger-row > .switch { align-self: flex-start; }
+.trigger-summary { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; }
+.trigger-actions { display: flex; gap: 24px; margin-top: 4px; }
+.trigger-actions button { min-height: 40px; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }
 .trigger-actions button.danger { color: var(--error); }
 .menu-hint.error { color: var(--error); }
 .markdown.interim { font-family: var(--sans, inherit); font-size: var(--fs-small); line-height: 1.5; color: var(--faint); }

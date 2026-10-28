@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { describeTime, describeWhen, type Trigger } from "../agent/triggers.ts";
@@ -48,37 +49,43 @@ export function TriggerRow({
 	runtime: AgentRuntime;
 	onError: (message: string) => void;
 }) {
+	const [open, setOpen] = useState(false);
 	const act = (action: Promise<unknown>) => action.catch((failure: unknown) => onError(messageOf(failure)));
 	const last = trigger.last;
+	const screened = trigger.when.kind !== "daily" && trigger.when.kind !== "once";
+	const guards = trigger.guards ?? [];
 	return (
 		<div className={`check-row trigger-row${trigger.enabled ? "" : " paused"}`}>
 			<span className="trigger-symbol">
 				<TriggerIcon symbol={triggerSymbol(trigger.when)} />
 			</span>
 			<span className="menu-text">
-				{trigger.kind === "followup" ? `稍後再看：${trigger.name}` : trigger.name}
-				<span className="menu-hint">
-					{bot ? `${bot === "deleted" ? "已刪除的 Bot" : bot.name} · ` : ""}
-					{describeWhen(trigger.when)}
-					{trigger.enabled && next ? ` · 下次 ${describeTime(next)}` : ""}
-				</span>
-				{trigger.onlyIf ? <span className="menu-hint">只在：{trigger.onlyIf}</span> : null}
-				{trigger.when.kind !== "daily" && trigger.when.kind !== "once" ? (
-					<GuardChips trigger={trigger} onChange={(guards) => void act(runtime.triggers.setGuards(trigger.id, guards))} />
-				) : null}
-				{last ? (
-					<span className={`menu-hint${last.error ? " error" : ""}`}>
-						上次 {describeTime(last.at)} {lastRun(last)}
+				<button type="button" className="trigger-summary" aria-expanded={open} onClick={() => setOpen(!open)}>
+					{trigger.kind === "followup" ? `稍後再看：${trigger.name}` : trigger.name}
+					<span className="menu-hint">
+						{bot ? `${bot === "deleted" ? "已刪除的 Bot" : bot.name} · ` : ""}
+						{describeWhen(trigger.when)}
+						{trigger.enabled && next ? ` · 下次 ${describeTime(next)}` : ""}
+					</span>
+					{trigger.onlyIf ? <span className="menu-hint">只在：{trigger.onlyIf}</span> : null}
+					{screened && !open && guards.length > 0 ? <span className="menu-hint">{guards.map((guard) => GUARDS[guard].short).join("、")}</span> : null}
+					{last ? (
+						<span className={`menu-hint${last.error ? " error" : ""}`}>
+							上次 {describeTime(last.at)} {lastRun(last)}
+						</span>
+					) : null}
+				</button>
+				{open && screened ? <GuardChips trigger={trigger} onChange={(chosen) => void act(runtime.triggers.setGuards(trigger.id, chosen))} /> : null}
+				{open ? (
+					<span className="trigger-actions">
+						<button type="button" onClick={() => void act(runtime.triggers.run(trigger.id, "manual"))}>
+							立即執行
+						</button>
+						<button type="button" className="danger" onClick={() => void act(runtime.triggers.delete(trigger.id))}>
+							刪除
+						</button>
 					</span>
 				) : null}
-				<span className="trigger-actions">
-					<button type="button" onClick={() => void act(runtime.triggers.run(trigger.id, "manual"))}>
-						立即執行
-					</button>
-					<button type="button" className="danger" onClick={() => void act(runtime.triggers.delete(trigger.id))}>
-						刪除
-					</button>
-				</span>
 			</span>
 			<input
 				type="checkbox"
