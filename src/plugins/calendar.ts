@@ -14,6 +14,7 @@ const PhoneCalendar = Type.Object({
 export type PhoneCalendar = Static<typeof PhoneCalendar>;
 
 const PhoneEvent = Type.Object({
+	id: Type.String(),
 	title: Type.String(),
 	begin: Type.Number(),
 	end: Type.Number(),
@@ -44,5 +45,6 @@ export const Calendar = definePlugin("Calendar", {
 		}),
 		result: Type.Object({ id: Type.Union([Type.Number(), Type.String()]) }),
 	},
+	deleteEvent: { args: Type.Object({ id: Type.String(), begin: Type.Number(), all: Type.Boolean() }), result: Type.Object({ repeating: Type.Boolean() }) },
 	checkPermissions: { args: Type.Object({}), result: Type.Object({ calendar: Type.String() }) },
 });

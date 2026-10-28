@@ -132,6 +132,7 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
                 let begin = event.isAllDay ? self.utcMidnight(ofLocal: start) : start
                 let end = event.isAllDay ? self.utcMidnight(ofLocal: finish).addingTimeInterval(day) : finish
                 var out: [String: Any] = [
+                    "id": event.eventIdentifier ?? "",
                     "title": event.title ?? "",
                     "begin": self.millis(begin),
                     "end": self.millis(end),

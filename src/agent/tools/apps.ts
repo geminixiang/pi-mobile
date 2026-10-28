@@ -33,6 +33,19 @@ const setAlarm = defineAppTool({
 	},
 });
 
+const openAlarms = defineAppTool({
+	name: "open_alarms",
+	effect: "screen",
+	needs: [Apps.openAlarms],
+	description:
+		"Open the clock app's alarm list. No app can turn off or delete alarms there for the user, so they do it on that screen; if tool_search lists use_phone_screen, you can do it there yourself.",
+	parameters: Type.Object({}),
+	execute: async () => {
+		await launch(() => Apps.openAlarms());
+		return text("Opened the alarm list. An alarm changes only when it is turned off or deleted on that screen.");
+	},
+});
+
 const setTimer = defineAppTool({
 	name: "set_timer",
 	effect: "direct",
@@ -158,7 +171,7 @@ export function appFile(fileName: string, bytes: Uint8Array): AppFile {
 
 export const AppsExtension = defineExtension({
 	name: "phone_apps",
-	tools: [setAlarm, setTimer, composeEmail, composeSms, openMaps, openLink, share],
+	tools: [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
 		section("phone_apps", () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send."),
 	],

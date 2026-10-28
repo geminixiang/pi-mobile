@@ -7,6 +7,8 @@ import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, 
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
+const startOf = (event: PhoneEvent) => (event.allDay ? utcDate(event.begin) : localTime(event.begin));
+
 function utcDay(ms: number): number {
 	const date = new Date(ms);
 	return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
@@ -43,6 +45,7 @@ function describeTimes(times: { begin: number; end: number }, allDay: boolean): 
 }
 
 type FormattedEvent = {
+	id: string;
 	title: string;
 	allDay?: true;
 	date?: string;
@@ -59,6 +62,7 @@ type FormattedEvent = {
 
 function formatEvent(event: PhoneEvent): FormattedEvent {
 	return {
+		id: event.id,
 		title: event.title,
 		...(event.allDay
 			? { allDay: true as const, date: utcDate(event.begin), ...(event.end - event.begin > DAY ? { lastDate: utcDate(event.end - DAY) } : {}) }
@@ -96,6 +100,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		structuredOutputSchema: Type.Object({
 			events: Type.Array(
 				Type.Object({
+					id: Type.String({ description: "Pass to delete_calendar_event with start" }),
 					title: Type.String(),
 					all_day: Type.Boolean(),
 					start: Type.String({ description: "Local time YYYY-MM-DD HH:MM, or the date of an all-day event" }),
@@ -127,9 +132,10 @@ export function createCalendarExtension(access: CalendarAccess) {
 			const hidden = access.hidden.length > 0 ? "\n(Accounts the user hid in Settings are left out on purpose. Do not mention it, unless the user asks about an event that could be in one of them.)" : "";
 			const structuredOutput = {
 				events: allowed.map((event) => ({
+					id: event.id,
 					title: event.title,
 					all_day: event.allDay,
-					start: event.allDay ? utcDate(event.begin) : localTime(event.begin),
+					start: startOf(event),
 					end: event.allDay ? utcDate(event.end - DAY) : localTime(event.end),
 					...(event.location ? { location: event.location } : {}),
 					...(event.notes ? { notes: event.notes } : {}),
@@ -206,9 +212,38 @@ export function createCalendarExtension(access: CalendarAccess) {
 		},
 	});
 
+	const deleteEvent = defineAppTool({
+		name: "delete_calendar_event",
+		effect: "direct",
+		needs: [Calendar.listEvents, Calendar.listAccounts, Calendar.deleteEvent],
+		description:
+			"Delete an event from the user's calendar. Of a repeating event only the occurrence at start goes, unless the user asks to delete the whole series.",
+		parameters: Type.Object({
+			id: Type.String({ description: "The event's id from read_calendar_events, or from add_calendar_event" }),
+			start: Type.String({ description: "The occurrence's start as read_calendar_events gives it: local time YYYY-MM-DD HH:MM, or the date of an all-day event" }),
+			all_occurrences: Type.Optional(Type.Boolean({ description: "Delete every occurrence of a repeating event; only when the user asks for the whole series" })),
+		}),
+		execute: async (args) => {
+			const at = parseLocalTime(args.start, "start");
+			const wanted = at.hasTime ? localTime(at.ms) : localDate(at.ms);
+			const { events } = await Calendar.listEvents({ from: at.ms - DAY, to: at.ms + DAY, includeShared: false });
+			const event = events.find((candidate) => candidate.id === args.id && startOf(candidate) === wanted);
+			if (!event) throw new Error(`No event ${args.id} starts at ${args.start}; read_calendar_events gives each event's id and start.`);
+			const calendars = await writableCalendars(access);
+			if (!calendars.some((calendar) => calendar.id === event.calendarId))
+				throw new Error(`"${event.calendar}" (${event.account}) is not enabled for writing in Settings → 行事曆. Tell the user; do not retry.`);
+			const all = args.all_occurrences ?? false;
+			const { repeating } = await Calendar.deleteEvent({ id: event.id, begin: event.begin, all });
+			const when = describeTimes(event, event.allDay);
+			if (!repeating) return text(`Deleted "${event.title}" (${when}) from "${event.calendar}".`);
+			if (all) return text(`Deleted "${event.title}" from "${event.calendar}", every occurrence.`);
+			return text(`Deleted the ${when} occurrence of "${event.title}"; its other occurrences stay.`);
+		},
+	});
+
 	return defineExtension({
 		name: "calendar",
-		tools: [readEvents, listCalendars, addEvent],
+		tools: [readEvents, listCalendars, addEvent, deleteEvent],
 		sections: [
 			section("calendar", () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account."),
 		],

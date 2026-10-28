@@ -104,6 +104,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `find_places` | 地點 | 附近的店家，或用名字找分店 | 唯讀 | ✓ |
 | `sql` | 資料庫 | 手機上的 SQLite | 直接 | ✓ |
 | `set_alarm` | 手機 App | 設鬧鐘 | 直接 | |
+| `open_alarms` | 手機 App | 打開時鐘的鬧鐘清單，讓使用者關掉或刪除鬧鐘（app 不能改時鐘裡的鬧鐘）；手機畫面開著時，模型可以在那個畫面用 `use_phone_screen` 自己刪 | 開畫面 | |
 | `set_timer` | 手機 App | 設計時器 | 直接 | |
 | `compose_email` | 手機 App | 信件草稿 | 開畫面 | |
 | `compose_sms` | 手機 App | 簡訊草稿 | 開畫面 | |
@@ -130,6 +131,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `read_calendar_events` | 日曆 | 讀行程 | 唯讀 | ✓ |
 | `list_calendars` | 日曆 | 可以加活動的日曆 | 唯讀 | |
 | `add_calendar_event` | 日曆 | 加活動 | 直接 | |
+| `delete_calendar_event` | 日曆 | 刪活動；重複的活動預設只刪那一次，使用者要求才刪整個系列 | 直接 | |
 | `codemode` | 程式模式 | 用腳本一次呼叫多個工具 | 依呼叫的工具 | |
 | `web_search` | 網路 | 搜尋 | 唯讀 | |
 | `web_fetch` | 網路 | 讀網頁；內容要跑 JS 才出現時，在看不見的 WebView 裡渲染（`render`，或文字少於 300 字時自動）；`save_to` 把檔案下載進 Bot 的資料夾 | 唯讀；`save_to` 直接寫進自己的資料夾 | |
@@ -230,6 +232,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-28 | 新工具 `delete_calendar_event`（日曆）和 `open_alarms`（手機 App），都只給腳本；`read_calendar_events` 的輸出多 `id`（介面改變，快照已更新）。原生 contract 加 `Calendar.deleteEvent`、`Apps.openAlarms`，只有 Android 實作；iOS 的 `listEvents` 也回傳 `id`。鬧鐘刪不了：三星時鐘的鬧鐘資料要 signature 權限，`ACTION_DISMISS_ALARM` 在三星只會打開鬧鐘清單，所以 `open_alarms` 打開清單讓使用者自己刪。重複的活動預設只刪那一次（`CONTENT_EXCEPTION_URI` 加一個取消的例外），使用者要求才刪整個系列 | 全開 3,748 → 3,777 tokens（`test/tool-cost.sh`；全關 2,351 → 2,363） | S24，GPT-6.1 Sol，暫時的 Bot（手機畫面關著）：「把明天早上 5:20 的鬧鐘刪掉」23 秒、3 次呼叫，打開鬧鐘清單並教使用者長按刪除，中間多一次 `tool_search`（載入電腦畫面工具但沒用）；「2027 年 1 月 8 號那個牙醫的行程幫我刪掉」19 秒、2 次，先讀再刪；「3 月 9 號那次的週會不用開了，幫我從行事曆拿掉」17 秒、2 次，只取消那一次。直接呼叫：單一活動、start 對不上的錯誤、重複活動的一次和整個系列、單獨改過的那一次（例外）和從它刪整個系列都對，測試資料都在個人的 Google 日曆，測完刪掉。限制：還沒同步到 Google 的重複活動，取消其中一次後，系統的行程表會連其他次一起不見，同步後才恢復；已同步的沒有這個問題。只在這支手機的日曆不會同步，可能一直不見（沒測） |
 | 2026-10-27 | 原生 contract 加 `System.installUpdate`（App 內更新：下載 GitHub release 的 APK、核對 SHA-256 和簽章，再交給 Android 安裝），只有 Android 實作 | 不變：不是工具，模型看不到 | `test/plugins.snapshot.json` 多一個方法（`--update`），共 104 個方法 |
 | 2026-10-27 | 工具介面：`defineAppTool` 宣告 `reach`、`effect`、`needs`，catalog 不再用名單決定直接提供或需要時載入，`TOOL_NEEDS` 和排程整組的特例拿掉；原生 plugin 改成 `src/plugins/` 的 contract（21 個、103 個方法），回傳在邊界驗證，Android 和 iOS 的實作由 `test/plugins-node.ts` 對照（iOS 目前實作 55 個方法）。拿掉兩個沒人呼叫的原生方法：`Calendar.listCalendars`、`Triggers.simulateHeadphones` | 不變：名稱、參數、`callers`、`deferred` 都沒變 | 介面快照多 `effect`、`needs` 兩欄（快照已更新），新增 `test/plugins.snapshot.json`。工具清單的「改動」和「結構化」兩欄改由檢查對照宣告，取代測試裡的名單 |
 | 2026-10-26 | `tw_stocks` 加 `valuation`、`revenue`、`market`，`stocks` 改成選填（只有 `market` 可以不給）；新技能 `stock-analysis`：台股慣例與公布時間、哪個問題用哪個工具、用腳本算均線和籌碼、回答不給買賣建議、自選股盤後摘要怎麼建排程 | `tw_stocks` 仍是 +15；全開 3,573 → 3,690、全關 2,158 → 2,275（兩邊都 +117，技能清單一行約 25，其餘未查明） | 介面改變（快照已更新）：`tw_stocks.data` 多三個值、`stocks` 改選填；`read_skill.name` 多 `stock-analysis`。S24，GPT 6.1 Sol，暫時的 Bot，五題都對：「台積電現在本益比多少，算貴嗎」46 秒，讀技能後查三週的本益比區間（27.65～29.96）和月營收，結論「有成長支撐但不便宜」並附情境試算；「環球晶最近的月營收」19 秒（9 月 51.3 億、月增 7.65%、年減 13.13%）；「上個交易日外資在大盤賣了多少」15 秒（上市 815.8 億、上櫃 60.0 億）；「分析聯發科最近的走勢和籌碼」75 秒，用腳本算 5／20／60 日均線、20 日均量、法人 5 日和 12 日合計（張）；「每天收盤後整理台積電、聯發科、環球晶」26 秒，記進 Bot 的記憶、建週一到五 21:30 的排程，手動執行一次時判斷今天光復節補假而只回休市。ETF 沒有本益比，原本會往前找 10 天，改成當天有公布就停並註明「ETFs have no P/E」 |

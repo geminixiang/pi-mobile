@@ -110,6 +110,7 @@ public class CalendarPlugin extends Plugin {
                 CalendarContract.Instances.OWNER_ACCOUNT,
                 CalendarContract.Instances.CALENDAR_ID,
                 CalendarContract.Instances.SELF_ATTENDEE_STATUS,
+                CalendarContract.Instances.EVENT_ID,
             };
             String status = CalendarContract.Instances.STATUS;
             String selection = CalendarContract.Instances.VISIBLE + " = 1 AND (" + status + " IS NULL OR " + status + " != " + CalendarContract.Events.STATUS_CANCELED + ")";
@@ -120,6 +121,7 @@ public class CalendarPlugin extends Plugin {
                     CalendarRow calendar = calendars.get(cursor.getLong(8));
                     if (calendar == null) continue;
                     JSObject event = new JSObject();
+                    event.put("id", String.valueOf(cursor.getLong(10)));
                     event.put("title", cursor.getString(0));
                     event.put("begin", cursor.getLong(1));
                     event.put("end", cursor.getLong(2));
@@ -228,6 +230,68 @@ public class CalendarPlugin extends Plugin {
             result.put("id", Long.parseLong(uri.getLastPathSegment()));
             call.resolve(result);
     
+        });
+    }
+
+    @PluginMethod
+    public void deleteEvent(PluginCall call) {
+        if (ensurePermission(call, "deleteResult")) delete(call);
+    }
+
+    @PermissionCallback
+    private void deleteResult(PluginCall call) {
+        if (getPermissionState("calendar") == PermissionState.GRANTED) delete(call);
+        else call.reject("calendar permission denied", "permission");
+    }
+
+    private void delete(PluginCall call) {
+        Background.run(call, () -> {
+            JSObject args = call.getData();
+            String id = args.optString("id");
+            if (!id.matches("\\d+") || !args.has("begin")) {
+                call.reject("a numeric event id and begin are required");
+                return;
+            }
+            long eventId = Long.parseLong(id);
+            long begin = args.optLong("begin");
+            boolean all = args.optBoolean("all");
+            ContentResolver resolver = getContext().getContentResolver();
+            String[] projection = { CalendarContract.Events.CALENDAR_ID, CalendarContract.Events.RRULE, CalendarContract.Events.RDATE, CalendarContract.Events.ORIGINAL_ID };
+            Uri event = android.content.ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId);
+            long calendarId;
+            boolean recurring;
+            String series;
+            try (Cursor cursor = resolver.query(event, projection, CalendarContract.Events.DELETED + " = 0", null, null)) {
+                if (cursor == null || !cursor.moveToFirst()) {
+                    call.reject("there is no event " + id, "not_found");
+                    return;
+                }
+                calendarId = cursor.getLong(0);
+                recurring = !cursor.isNull(1) || !cursor.isNull(2);
+                series = cursor.getString(3);
+            }
+            boolean allowed = false;
+            for (CalendarRow row : visibleCalendars()) if (row.id == calendarId && row.writable) allowed = true;
+            if (!allowed) {
+                call.reject("event " + id + " is not on one of the user's own writable calendars", "not_allowed");
+                return;
+            }
+            ContentValues canceled = new ContentValues();
+            canceled.put(CalendarContract.Events.STATUS, CalendarContract.Events.STATUS_CANCELED);
+            boolean done;
+            if (series != null && all) done = resolver.delete(android.content.ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, Long.parseLong(series)), null, null) > 0;
+            else if (series != null) done = resolver.update(event, canceled, null, null) > 0;
+            else if (recurring && !all) {
+                canceled.put(CalendarContract.Events.ORIGINAL_INSTANCE_TIME, begin);
+                done = resolver.insert(Uri.withAppendedPath(CalendarContract.Events.CONTENT_EXCEPTION_URI, id), canceled) != null;
+            } else done = resolver.delete(event, null, null) > 0;
+            if (!done) {
+                call.reject("the calendar provider did not delete event " + id);
+                return;
+            }
+            JSObject result = new JSObject();
+            result.put("repeating", recurring || series != null);
+            call.resolve(result);
         });
     }
 }

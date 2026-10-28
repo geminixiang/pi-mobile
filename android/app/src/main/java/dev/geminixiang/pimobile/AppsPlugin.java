@@ -55,6 +55,11 @@ public class AppsPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openAlarms(PluginCall call) {
+        launch(call, new Intent(AlarmClock.ACTION_SHOW_ALARMS));
+    }
+
+    @PluginMethod
     public void setTimer(PluginCall call) {
         Intent intent = new Intent(AlarmClock.ACTION_SET_TIMER)
             .putExtra(AlarmClock.EXTRA_LENGTH, call.getInt("seconds", 60))

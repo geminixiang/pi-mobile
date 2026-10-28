@@ -29,6 +29,13 @@
 				},
 				"result": null
 			},
+			"openAlarms": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
 			"setTimer": {
 				"args": {
 					"properties": {
@@ -707,6 +714,9 @@
 									"end": {
 										"type": "number"
 									},
+									"id": {
+										"type": "string"
+									},
 									"location": {
 										"type": "string"
 									},
@@ -724,6 +734,7 @@
 									}
 								},
 								"required": [
+									"id",
 									"title",
 									"begin",
 									"end",
@@ -793,6 +804,38 @@
 					},
 					"required": [
 						"id"
+					],
+					"type": "object"
+				}
+			},
+			"deleteEvent": {
+				"args": {
+					"properties": {
+						"all": {
+							"type": "boolean"
+						},
+						"begin": {
+							"type": "number"
+						},
+						"id": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"id",
+						"begin",
+						"all"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"repeating": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"repeating"
 					],
 					"type": "object"
 				}

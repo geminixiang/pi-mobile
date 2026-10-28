@@ -9,6 +9,7 @@ const SharedFile = {
 
 export const Apps = definePlugin("Apps", {
 	setAlarm: { args: Type.Object({ hour: Type.Integer(), minute: Type.Integer(), label: Type.Optional(Type.String()), days: Type.Optional(Type.Array(Type.Integer())) }) },
+	openAlarms: { args: Type.Object({}) },
 	setTimer: { args: Type.Object({ seconds: Type.Integer(), label: Type.Optional(Type.String()) }) },
 	composeEmail: { args: Type.Object({ to: Type.Array(Type.String()), subject: Type.Optional(Type.String()), body: Type.String() }) },
 	composeSms: { args: Type.Object({ to: Type.String(), body: Type.String() }) },

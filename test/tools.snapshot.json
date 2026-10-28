@@ -1069,6 +1069,24 @@
 	{
 		"extension": "phone_apps",
 		"toolset": "apps",
+		"name": "open_alarms",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "screen",
+		"needs": [
+			"Apps.openAlarms"
+		]
+	},
+	{
+		"extension": "phone_apps",
+		"toolset": "apps",
 		"name": "set_timer",
 		"deferred": false,
 		"callers": [
@@ -2703,6 +2721,10 @@
 								"description": "Local time YYYY-MM-DD HH:MM, or the last date of an all-day event",
 								"type": "string"
 							},
+							"id": {
+								"description": "Pass to delete_calendar_event with start",
+								"type": "string"
+							},
 							"location": {
 								"type": "string"
 							},
@@ -2722,6 +2744,7 @@
 							}
 						},
 						"required": [
+							"id",
 							"title",
 							"all_day",
 							"start",
@@ -2814,6 +2837,43 @@
 		"needs": [
 			"Calendar.listAccounts",
 			"Calendar.insertEvent"
+		]
+	},
+	{
+		"extension": "calendar",
+		"toolset": "calendar",
+		"name": "delete_calendar_event",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"all_occurrences": {
+					"description": "Delete every occurrence of a repeating event; only when the user asks for the whole series",
+					"type": "boolean"
+				},
+				"id": {
+					"description": "The event's id from read_calendar_events, or from add_calendar_event",
+					"type": "string"
+				},
+				"start": {
+					"description": "The occurrence's start as read_calendar_events gives it: local time YYYY-MM-DD HH:MM, or the date of an all-day event",
+					"type": "string"
+				}
+			},
+			"required": [
+				"id",
+				"start"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Calendar.listEvents",
+			"Calendar.listAccounts",
+			"Calendar.deleteEvent"
 		]
 	},
 	{
