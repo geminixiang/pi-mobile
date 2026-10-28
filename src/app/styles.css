@@ -545,7 +545,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .context-bar i {
 	display: block; height: 100%; background-color: var(--accent);
-	-webkit-mask-image: linear-gradient(90deg, #000 9px, transparent 9px); -webkit-mask-size: 10px 10px;
 	mask-image: linear-gradient(90deg, #000 9px, transparent 9px); mask-size: 10px 10px;
 	transition: width 400ms var(--ease);
 }

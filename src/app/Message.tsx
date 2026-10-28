@@ -1,4 +1,4 @@
-import type { ImageContent, Message as ModelMessage, TextContent, ThinkingContent, ToolCall } from "@earendil-works/pi-ai";
+import { contentText, type ImageContent, type Message as ModelMessage, type TextContent, type ThinkingContent, type ToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { type ComponentProps, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
@@ -41,10 +41,7 @@ export function finishedCalls(entries: readonly EntryRecord[]): Map<string, Call
 	for (const entry of entries) {
 		const result = message(entry);
 		if (result?.role !== "toolResult") continue;
-		const output = result.content
-			.filter((block) => block.type === "text")
-			.map((block) => block.text)
-			.join("\n");
+		const output = contentText(result.content);
 		const images = result.content.filter((block) => block.type === "image");
 		calls.set(result.toolCallId, { status: "done", isError: result.isError, output, images });
 	}
@@ -75,10 +72,7 @@ export function AttachmentChip({ card, status, onRemove }: { card: Pick<Attachme
 }
 
 export function entryText(entry: EntryRecord): string {
-	return withoutAttachments(blocks(message(entry)?.content))
-		.filter((block) => block.type === "text")
-		.map((block) => block.text)
-		.join("\n");
+	return contentText(withoutAttachments(blocks(message(entry)?.content)));
 }
 
 const ON_LABEL: Record<string, string> = { headphones: "戴上耳機時", charging: "開始充電時", wifi: "連上 Wi‑Fi 時", arrive: "到達時", leave: "離開時" };

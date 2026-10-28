@@ -1,3 +1,4 @@
+import { utf8ByteLength } from "@earendil-works/chord/output";
 import type { Context } from "@earendil-works/chord";
 import {
 	type BinaryReader,
@@ -107,7 +108,7 @@ function fits(output: string, limit: { afterBytes: number; afterLines: number })
 		lines++;
 		if (lines > limit.afterLines) return false;
 	}
-	return output.length * 3 <= limit.afterBytes || new TextEncoder().encode(output).length <= limit.afterBytes;
+	return utf8ByteLength(output) <= limit.afterBytes;
 }
 
 type Finished = { type: "done"; stdout: string; stderr: string; exitCode: number } | { type: "failed"; message: string };

@@ -1,5 +1,5 @@
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
@@ -203,8 +203,7 @@ export function App() {
 		});
 	}, [runtime, controller, openConversation]);
 
-	const openRef = useRef(openConversation);
-	openRef.current = openConversation;
+	const openLatest = useEffectEvent(openConversation);
 	useEffect(() => {
 		if (!runtime) return;
 		const onShare = async (item: SharedItem) => {
@@ -217,14 +216,14 @@ export function App() {
 			const items = await runtime.bots();
 			const kind = item.source === "assist" ? "screen" : sharedKind(files);
 			const last = lastBot(items) ?? (items.length === 1 ? items[0] : undefined);
-			if (last && (kind === "screen" || items.length === 1)) await openRef.current(last.id, item.source === "assist" ? "" : draft, files, kind);
+			if (last && (kind === "screen" || items.length === 1)) await openLatest(last.id, item.source === "assist" ? "" : draft, files, kind);
 			else setSharing({ draft, files });
 		};
-		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openRef.current(id) });
+		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openLatest(id) });
 		const stopLinks = listenForOpenLinks((conversation) => {
 			void runtime.bots().then((items) => {
 				const target = botWithId(items, conversation);
-				if (target) void openRef.current(target.id);
+				if (target) void openLatest(target.id);
 			});
 		});
 		return () => {

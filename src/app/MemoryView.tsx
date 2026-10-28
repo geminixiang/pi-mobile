@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
@@ -49,20 +49,15 @@ export function MemoryView({
 	const text = draft ?? "";
 	const changed = saved !== undefined && text.trim() !== saved.text;
 	const over = text.trim().length > MEMORY_LIMIT;
-	const leaving = useRef({ text, changed, over });
-	leaving.current = { text, changed, over };
-	useEffect(
-		() => () => {
-			const { text: last, changed: dirty, over: tooLong } = leaving.current;
-			if (!dirty) return;
-			if (tooLong) {
-				onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
-				return;
-			}
-			runtime.saveMemory(scope, last).catch((error: unknown) => onError(messageOf(error)));
-		},
-		[],
-	);
+	const saveOnLeave = useEffectEvent(() => {
+		if (!changed) return;
+		if (over) {
+			onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
+			return;
+		}
+		runtime.saveMemory(scope, text).catch((error: unknown) => onError(messageOf(error)));
+	});
+	useEffect(() => () => saveOnLeave(), []);
 
 	return (
 		<div className="screen memory">

@@ -58,7 +58,7 @@ async function readSheets(file: File): Promise<Sheet[]> {
 		const sheets = await readXlsxFile(file);
 		return sheets.map((sheet) => ({ name: sheet.sheet, rows: sheet.data.map((row) => row.map(cellOf)) }));
 	}
-	const text = (await file.text()).replace(/^\uFEFF/, "");
+	const text = await file.text();
 	return [{ name: "Sheet1", rows: parseDelimited(text, /\.tsv$/i.test(file.name) ? "\t" : ",") }];
 }
 

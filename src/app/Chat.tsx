@@ -1,5 +1,5 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ConversationController } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY, triggerRun } from "../agent/triggers.ts";
 import { parseAttachment } from "../agent/attachments.ts";
@@ -162,19 +162,14 @@ export function Chat({
 		observer.observe(transcript);
 		return () => observer.disconnect();
 	}, []);
-	const streamObserver = useRef<ResizeObserver>(undefined);
-	const followStream = useMemo(
-		() => (element: HTMLElement | null) => {
-			streamObserver.current?.disconnect();
-			if (!element) return;
-			streamObserver.current = new ResizeObserver(() => {
-				const box = scroller.current;
-				if (box && stickToBottom.current) box.scrollTop = box.scrollHeight;
-			});
-			streamObserver.current.observe(element);
-		},
-		[],
-	);
+	const followStream = useCallback((element: HTMLElement) => {
+		const observer = new ResizeObserver(() => {
+			const box = scroller.current;
+			if (box && stickToBottom.current) box.scrollTop = box.scrollHeight;
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
 
 	const live = liveOf(view);
 	const inbox = inboxOf(view);

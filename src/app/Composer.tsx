@@ -88,11 +88,8 @@ export function Composer({
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const reading = files.some((file) => file.state === "reading");
 	const hasInput = draft.trim() !== "" || images.length > 0 || files.length > 0;
-	const latestDraft = useRef(draft);
-	latestDraft.current = draft;
 	const dictation = useDictation((text) => {
-		const current = latestDraft.current;
-		onDraftChange(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`);
+		onDraftChange(draft && !/\s$/.test(draft) ? `${draft} ${text}` : `${draft}${text}`);
 		textArea.current?.focus();
 	}, setProblem);
 	const listening = dictation.state !== "idle";

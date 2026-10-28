@@ -251,7 +251,7 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 			break;
 		}
 		case "text":
-			stored = { ...base, units: [(await file.text()).replace(/^\uFEFF/, "")] };
+			stored = { ...base, units: [await file.text()] };
 			break;
 	}
 	await files.request("readwrite", (store) => store.put(stored));

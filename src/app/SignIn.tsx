@@ -1,6 +1,6 @@
 import { Row } from "./Row.tsx";
 import { App } from "@capacitor/app";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
 import { System } from "../plugins/system.ts";
@@ -23,8 +23,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 			setState({ kind: "failed", error: messageOf(error) });
 		}
 	};
-	const finishRef = useRef(finish);
-	finishRef.current = finish;
+	const finishPasted = useEffectEvent(finish);
 
 	useEffect(() => {
 		if (!signIn) return;
@@ -33,7 +32,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 			const { text } = await orLogged(System.clipboardText(), "sign_in.clipboard_unreadable", { text: "" });
 			if (looksLikeAuthCode(text)) {
 				setCode(text.trim());
-				void finishRef.current(text);
+				void finishPasted(text);
 			}
 		});
 		return () => void listener.then((handle) => handle.remove());
