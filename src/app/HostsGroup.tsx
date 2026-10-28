@@ -8,25 +8,6 @@ import { ShareIcon } from "./icons.tsx";
 
 const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
-function Copyable({ text }: { text: string }) {
-	return (
-		<div className="copyable">
-			<pre className="console">{text}</pre>
-			<div className="row-buttons">
-				<button
-					type="button"
-					className="icon-button small"
-					aria-label="分享"
-					onClick={() => void orLogged(Apps.share({ text, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}
-				>
-					<ShareIcon size={16} />
-				</button>
-				<CopyButton text={text} />
-			</div>
-		</div>
-	);
-}
-
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
 export function usePrepare(host: PairedHost | undefined): [Preparing, (target: PairedHost) => Promise<boolean>] {
@@ -122,15 +103,6 @@ function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boo
 				</button>
 			</Row>
 			{host.key && !unpaired ? null : <PairRow label="配對" primary busy={busy} onPair={onPair} />}
-		</div>
-	);
-}
-
-function PeerRow({ peer, busy, onAdd }: { peer: Peer; busy: boolean; onAdd: (code: string) => void }) {
-	return (
-		<div className="machine">
-			<Row label={peer.name} hint={osName(peer.os)} />
-			<PairRow label="加入" primary={false} busy={busy} onPair={onAdd} />
 		</div>
 	);
 }
@@ -267,14 +239,30 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 			))}
 			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}
 			{ready.map(({ peer }) => (
-				<PeerRow key={peer.dnsName} peer={peer} busy={adding.state === "checking"} onAdd={(pairingCode) => add(peer.dnsName, pairingCode)} />
+				<div className="machine" key={peer.dnsName}>
+					<Row label={peer.name} hint={osName(peer.os)} />
+					<PairRow label="加入" primary={false} busy={adding.state === "checking"} onPair={(pairingCode) => add(peer.dnsName, pairingCode)} />
+				</div>
 			))}
 			{hosts.length === 0 ? manual : null}
 			{adding.state === "error" ? <span className="check-error machine-error">{adding.detail}</span> : null}
 			{missing.length > 0 || hosts.length === 0 ? (
 				<div className="pair-steps">
 					<p>{missing.length > 0 ? `還沒裝 pi-mobile：${missing.map((item) => item.peer.name).join("、")}。` : null}在電腦的終端機執行：</p>
-					<Copyable text={INSTALL_HOST} />
+					<div className="copyable">
+						<pre className="console">{INSTALL_HOST}</pre>
+						<div className="row-buttons">
+							<button
+								type="button"
+								className="icon-button small"
+								aria-label="分享"
+								onClick={() => void orLogged(Apps.share({ text: INSTALL_HOST, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}
+							>
+								<ShareIcon size={16} />
+							</button>
+							<CopyButton text={INSTALL_HOST} />
+						</div>
+					</div>
 				</div>
 			) : null}
 			{hosts.length > 0 ? (

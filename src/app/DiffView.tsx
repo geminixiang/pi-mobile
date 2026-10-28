@@ -69,7 +69,7 @@ function parse(text: string): { message: string[]; files: FileDiff[] } {
 	return { message: message.join("\n").trim().split("\n"), files };
 }
 
-const SIGN = { add: "+", del: "−", ctx: " ", hunk: "", note: "" };
+const SIGN = { add: "+", del: "−", ctx: " ", note: "" };
 
 function FileBlock({ file }: { file: FileDiff }) {
 	return (

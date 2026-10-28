@@ -1,7 +1,6 @@
-import { Row } from "./Row.tsx";
 import { useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
-import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
+import { extensionName, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { Sheet } from "./Sheet.tsx";
@@ -30,20 +29,6 @@ export function useMcp(runtime: AgentRuntime | undefined): void {
 }
 
 type Grants = { bot: Bot; enabled: ReadonlySet<string> }[];
-
-function ServerBots({ server, grants, onGrant }: { server: McpServer; grants: Grants; onGrant: (bot: Bot, toolset: string, enabled: boolean) => void }) {
-	const toolset = extensionName(server);
-	return (
-		<div className="bot-chips" role="group" aria-label={`可以用 ${server.name} 的 Bot`}>
-			{grants.map(({ bot, enabled }) => (
-				<label key={String(bot.id)} className="chip">
-					<input type="checkbox" checked={enabled.has(toolset)} onChange={(event) => onGrant(bot, toolset, event.target.checked)} />
-					{bot.name}
-				</label>
-			))}
-		</div>
-	);
-}
 
 function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
 	const connected = new Set(runtime.mcp.servers.map((server) => server.url));
@@ -85,15 +70,14 @@ function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: 
 	);
 }
 
-export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefined; onError: (message: string) => void }) {
+export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError: (message: string) => void }) {
 	useMcp(runtime);
-	const servers = runtime?.mcp.servers ?? [];
+	const servers = runtime.mcp.servers;
 	const [draft, setDraft] = useState({ name: "", url: "" });
 	const [browsing, setBrowsing] = useState(false);
 	const [grants, setGrants] = useState<Grants>([]);
 	const fail = (error: unknown) => onError(messageOf(error));
 	const loadGrants = () => {
-		if (!runtime) return;
 		void runtime
 			.bots()
 			.then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: new Set((await runtime.toolsets(bot.id)).filter((item) => item.enabled).map((item) => item.id)) }))))
@@ -104,34 +88,26 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 		setGrants((current) =>
 			current.map((item) => (item.bot.id === bot.id ? { bot, enabled: enabled ? new Set([...item.enabled, toolset]) : new Set([...item.enabled].filter((id) => id !== toolset)) } : item)),
 		);
-		runtime?.setToolset(bot.id, toolset, enabled).catch((error: unknown) => {
+		runtime.setToolset(bot.id, toolset, enabled).catch((error: unknown) => {
 			fail(error);
 			loadGrants();
 		});
 	};
-	const validUrl = /^https:\/\/[^\s/]+/.test(draft.url.trim());
-
 	const add = () => {
 		const url = draft.url.trim();
 		const host = URL.canParse(url) ? new URL(url).hostname : url;
-		runtime?.mcp.add(draft.name.trim() || host, url).catch(fail);
+		runtime.mcp.add(draft.name.trim() || host, url).catch(fail);
 		setDraft({ name: "", url: "" });
 	};
 
 	return (
 		<>
-			{runtime ? (
-				<>
-					<Row label="瀏覽服務">
-						<button type="button" className="btn" onClick={() => setBrowsing(true)}>
-							瀏覽
-						</button>
-					</Row>
-					<Catalog open={browsing} runtime={runtime} onClose={() => setBrowsing(false)} onError={onError} />
-				</>
-			) : null}
+			<button type="button" className="btn" onClick={() => setBrowsing(true)}>
+				瀏覽服務
+			</button>
+			<Catalog open={browsing} runtime={runtime} onClose={() => setBrowsing(false)} onError={onError} />
 			{servers.map((server) => {
-				const current = runtime?.mcp.status(server.id);
+				const current = runtime.mcp.status(server.id);
 				return (
 					<div className="mcp-server" key={server.id}>
 						<div className="check-row">
@@ -145,16 +121,25 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 							</span>
 							<span className="row-actions">
 								{current && current.state !== "ready" && current.state !== "connecting" ? (
-									<button type="button" className="btn" onClick={() => (current.state === "login" ? void runtime?.mcp.login(server.id).catch(fail) : runtime?.mcp.refresh(server.id))}>
+									<button type="button" className="btn" onClick={() => (current.state === "login" ? void runtime.mcp.login(server.id).catch(fail) : runtime.mcp.refresh(server.id))}>
 										{current.state === "login" ? "登入" : "連線"}
 									</button>
 								) : null}
-								<button type="button" className="btn" onClick={() => void runtime?.mcp.remove(server.id).catch(fail)}>
+								<button type="button" className="btn" onClick={() => void runtime.mcp.remove(server.id).catch(fail)}>
 									移除
 								</button>
 							</span>
 						</div>
-						{current && runtime ? <ServerBots server={server} grants={grants} onGrant={grant} /> : null}
+						{current ? (
+							<div className="bot-chips" role="group" aria-label={`可以用 ${server.name} 的 Bot`}>
+								{grants.map(({ bot, enabled }) => (
+									<label key={String(bot.id)} className="chip">
+										<input type="checkbox" checked={enabled.has(extensionName(server))} onChange={(event) => grant(bot, extensionName(server), event.target.checked)} />
+										{bot.name}
+									</label>
+								))}
+							</div>
+						) : null}
 					</div>
 				);
 			})}
@@ -173,7 +158,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime | undefin
 				<span>名稱</span>
 				<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="選填" autoComplete="off" />
 			</label>
-			<button type="button" className="btn" disabled={!validUrl || !runtime} onClick={add}>
+			<button type="button" className="btn" disabled={!/^https:\/\/[^\s/]+/.test(draft.url.trim())} onClick={add}>
 				新增
 			</button>
 		</>

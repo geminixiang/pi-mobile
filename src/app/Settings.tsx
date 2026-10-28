@@ -572,11 +572,12 @@ export function SettingsView({
 		},
 		services: {
 			title: "連接的服務",
-			body: () => (
-				<Group title="MCP">
-					<McpGroup runtime={runtime} onError={setProblem} />
-				</Group>
-			),
+			body: () =>
+				runtime ? (
+					<Group title="MCP">
+						<McpGroup runtime={runtime} onError={setProblem} />
+					</Group>
+				) : null,
 		},
 		machines: {
 			title: "電腦",

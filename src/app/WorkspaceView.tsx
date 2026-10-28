@@ -6,7 +6,6 @@ import { ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { joinPath, resolvePath } from "./openFile.ts";
 import { Layer } from "./Sheet.tsx";
-import { messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
@@ -109,7 +108,7 @@ function FileBrowser({
 	);
 }
 
-const STATUS_LABEL: Record<string, string> = { "??": "U", A: "A", M: "M", D: "D", R: "R", C: "C", T: "T", U: "!" };
+const STATUS_LABEL: Record<string, string> = { "??": "U", U: "!" };
 
 function statusLetter(change: Change): string {
 	const code = change.status === "??" ? "??" : (change.status.trim()[0] ?? "M");
@@ -205,8 +204,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 	initial: { tab: WorkspaceTab; file?: string };
 	onClose: () => void;
 }) {
-	const [workspace, setWorkspace] = useState<Workspace | null>();
-	const [error, setError] = useState("");
+	const { value: workspace, error } = useLoaded(open ? async () => (await load()) ?? null : undefined, [open, initial, load]);
 	const [tab, setTab] = useState<WorkspaceTab>(initial.tab);
 	const [file, setFile] = useState<string>();
 	const [diff, setDiff] = useState<DiffTarget>();
@@ -214,26 +212,10 @@ export const WorkspaceView = memo(function WorkspaceView({
 
 	useEffect(() => {
 		if (!open) return;
-		let current = true;
 		setTab(initial.tab);
-		setFile(undefined);
+		setFile(initial.file);
 		setDiff(undefined);
-		setError("");
-		setWorkspace(undefined);
-		load().then(
-			(value) => {
-				if (!current) return;
-				setWorkspace(value ?? null);
-				if (value && initial.file) setFile(resolvePath(value.root, initial.file));
-			},
-			(failure: unknown) => {
-				if (current) setError(messageOf(failure));
-			},
-		);
-		return () => {
-			current = false;
-		};
-	}, [open, initial, load]);
+	}, [open, initial]);
 
 	return (
 		<Layer open={open} kind="page" onClose={onClose} label="工作區">
@@ -258,7 +240,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 				) : null}
 				{workspace && tab === "git" ? <GitPanel workspace={workspace} onDiff={setDiff} reloadKey={reloadKey} /> : null}
 			</div>
-			{workspace ? <FileViewer workspace={workspace} path={file} onClose={() => setFile(undefined)} /> : null}
+			{workspace ? <FileViewer workspace={workspace} path={file && resolvePath(workspace.root, file)} onClose={() => setFile(undefined)} /> : null}
 			<DiffView target={diff} onClose={() => setDiff(undefined)} />
 		</Layer>
 	);

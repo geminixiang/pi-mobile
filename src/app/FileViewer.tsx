@@ -21,18 +21,15 @@ function withCsp(html: string): string {
 
 const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
 
-function HtmlPreview({ html }: { html: string }) {
-	return <iframe className="viewer-html" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={withCsp(html)} title="預覽" />;
-}
-
 function CodeLines({ text }: { text: string }) {
-	const lines = text.replace(/\n$/, "").split("\n");
+	const trimmed = text.replace(/\n$/, "");
+	const lines = trimmed.split("\n");
 	return (
 		<div className="code-view">
 			<pre className="code-gutter" aria-hidden="true">
 				{lines.map((_, index) => index + 1).join("\n")}
 			</pre>
-			<pre className="code-text">{text.replace(/\n$/, "")}</pre>
+			<pre className="code-text">{trimmed}</pre>
 		</div>
 	);
 }
@@ -132,7 +129,7 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 						</div>
 					) : null}
 					{content?.kind === "text" && html && mode === "preview" ? (
-						content.truncated ? <div className="ws-empty">超過 {formatBytes(content.limit)}，無法預覽</div> : <HtmlPreview html={content.text} />
+						content.truncated ? <div className="ws-empty">超過 {formatBytes(content.limit)}，無法預覽</div> : <iframe className="viewer-html" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={withCsp(content.text)} title="預覽" />
 					) : null}
 					{content?.kind === "text" && !(previewable && mode === "preview") ? <CodeLines text={content.text} /> : null}
 					{content?.kind === "text" && content.truncated && !(html && mode === "preview") ? <div className="note">只顯示前 {formatBytes(content.limit)}</div> : null}

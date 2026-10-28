@@ -14,7 +14,7 @@ const Release = Type.Object({
 });
 export type Release = Static<typeof Release>;
 
-export type Update = { version: string; url: string; sha256: string };
+type Update = { version: string; url: string; sha256: string };
 
 const REFUSED: Record<string, string> = {
 	checksum: "下載的檔案跟 GitHub 上的不一樣，沒有安裝",

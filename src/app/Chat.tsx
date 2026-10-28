@@ -8,7 +8,7 @@ import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
-import { type CallState, EntryView, entryText, finishedCalls, isEmptyAnswer, StreamingAnswer } from "./Message.tsx";
+import { type CallState, Content, EntryView, entryText, finishedCalls, isEmptyAnswer } from "./Message.tsx";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import { TranscriptSkeleton } from "./Skeleton.tsx";
@@ -311,7 +311,11 @@ export function Chat({
 						</button>
 					</div>
 				) : null}
-				{partial ? <StreamingAnswer content={partial} prefs={prefs} calls={calls} answerRef={followStream} /> : null}
+				{partial ? (
+					<article className="answer" ref={followStream}>
+						<Content content={partial} prefs={prefs} calls={calls} streaming />
+					</article>
+				) : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
 				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}

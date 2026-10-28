@@ -52,6 +52,10 @@ export function ModelSheet({
 }) {
 	const [filter, setFilter] = useState("");
 	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+	const query = filter.toLowerCase();
+	const matches = useMemo(() => models.filter((model) => `${model.id} ${model.name} ${model.providerName}`.toLowerCase().includes(query)), [models, query]);
+	const providers = useMemo(() => [...new Map(matches.map((model) => [model.provider, model.providerName])).entries()], [matches]);
+	const isCurrent = (model: ModelInfo) => model.provider === current.provider && model.id === current.id;
 
 	return (
 		<Sheet open={open} onClose={onClose} title="模型">
@@ -66,33 +70,6 @@ export function ModelSheet({
 				<SearchIcon />
 				<input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="搜尋模型或供應商" autoCapitalize="off" />
 			</label>
-			<ModelList models={models} filter={filter} current={current} expanded={expanded} onExpand={setExpanded} onPick={(model) => onChange({ model })} />
-		</Sheet>
-	);
-}
-
-function ModelList({
-	models,
-	filter,
-	current,
-	expanded,
-	onExpand,
-	onPick,
-}: {
-	models: ModelInfo[];
-	filter: string;
-	current: { provider: string; id: string };
-	expanded: ReadonlySet<string>;
-	onExpand: (expanded: ReadonlySet<string>) => void;
-	onPick: (model: { provider: string; id: string }) => void;
-}) {
-	const query = filter.toLowerCase();
-	const matches = useMemo(() => models.filter((model) => `${model.id} ${model.name} ${model.providerName}`.toLowerCase().includes(query)), [models, query]);
-	const providers = useMemo(() => [...new Map(matches.map((model) => [model.provider, model.providerName])).entries()], [matches]);
-	const isCurrent = (model: ModelInfo) => model.provider === current.provider && model.id === current.id;
-
-	return (
-		<>
 			{providers.map(([provider, name]) => {
 				const list = matches.filter((model) => model.provider === provider);
 				const preferred = list.filter((model) => model.known || isCurrent(model));
@@ -108,7 +85,7 @@ function ModelList({
 									type="button"
 									key={model.id}
 									className={isCurrent(model) ? "selected" : ""}
-									onClick={() => onPick({ provider: model.provider, id: model.id })}
+									onClick={() => onChange({ model: { provider: model.provider, id: model.id } })}
 								>
 									<span className={`swatch ${family(model.id)}`} />
 									<span className="menu-text">
@@ -119,7 +96,7 @@ function ModelList({
 								</button>
 							))}
 							{all ? null : (
-								<button type="button" className="more" onClick={() => onExpand(new Set([...expanded, provider]))}>
+								<button type="button" className="more" onClick={() => setExpanded(new Set([...expanded, provider]))}>
 									顯示全部 {list.length} 個模型
 								</button>
 							)}
@@ -127,6 +104,7 @@ function ModelList({
 					</section>
 				);
 			})}
-		</>
+		</Sheet>
 	);
 }
+

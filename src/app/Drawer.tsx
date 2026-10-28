@@ -93,7 +93,7 @@ export function Drawer({
 					{bots.map((bot) => (
 						<div
 							key={String(bot.id)}
-							className={`drawer-item bot-item${bot.id === currentId ? " current" : ""}`}
+							className={`drawer-item${bot.id === currentId ? " current" : ""}`}
 							onContextMenu={(event) => {
 								event.preventDefault();
 								onEdit(bot);

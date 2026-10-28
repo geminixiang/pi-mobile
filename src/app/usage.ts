@@ -3,12 +3,7 @@ import { usageOf } from "./docs.ts";
 import type { Usage as ModelUsage } from "@earendil-works/pi-ai";
 import { calculateContextTokens } from "@earendil-works/pi-ai/utils/estimate";
 
-export interface Usage {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-}
+type Usage = Pick<ModelUsage, "input" | "output" | "cacheRead" | "cacheWrite">;
 
 export function formatTokens(count: number): string {
 	const short = (value: number) => value.toFixed(1).replace(/\.0$/, "");

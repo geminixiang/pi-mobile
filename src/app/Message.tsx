@@ -162,12 +162,6 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 const harnessTag = /<\/?harness>\n?/g;
 
 type Call = Extract<Block, { type: "toolCall" }>;
-type Tone = "running" | "error" | "ok";
-
-function tone(state: CallState | undefined): Tone {
-	if (state?.status !== "done") return "running";
-	return state.isError ? "error" : "ok";
-}
 
 const TOOL_NAMES = new Map<string, string>([
 	["bash", "$"],
@@ -228,7 +222,7 @@ function htmlPathsIn(output: string | undefined): string[] {
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
-	const status = tone(state);
+	const status = state?.status !== "done" ? "running" : state.isError ? "error" : "ok";
 	const images = state?.status === "done" ? state.images : [];
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
@@ -255,7 +249,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 				) : null}
 				{hidden > 0 ? (
 					<span className="step-more">
-						… {tail ? "前面" : "還有"} {hidden} 行，點一下展開
+						… {tail ? "前面" : "還有"} {hidden} 行
 					</span>
 				) : null}
 			</button>
@@ -273,21 +267,11 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	);
 }
 
-function Steps({ group, calls, prefs }: { group: Call[]; calls: CallStates; prefs: Prefs }) {
-	return (
-		<div className="steps">
-			{group.map((call) => (
-				<StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
-			))}
-		</div>
-	);
-}
-
 function Thinking({ text, streaming }: { text: string; streaming?: boolean }) {
 	const [open, setOpen] = useState(false);
 	const preview = text.trim().split("\n")[0] ?? "";
 	return (
-		<div className={`thinking${open ? " open" : ""}`}>
+		<div className="thinking">
 			<button type="button" onClick={() => setOpen(!open)} aria-expanded={open}>
 				<span className="thinking-label">{streaming ? "思考中" : "思考"}</span>
 				{!open ? <span className="thinking-preview">{preview}</span> : null}
@@ -362,20 +346,16 @@ export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
 
 const BROKEN_TEXT = /^\s*(<thinking_mode>[^<]*<\/thinking_mode>\s*|<invoke name=[\s\S]*|<function_calls>[\s\S]*)$/;
 
-function isBrokenText(text: string): boolean {
-	return BROKEN_TEXT.test(text);
-}
-
 export function isEmptyAnswer(entry: EntryRecord): boolean {
 	const model = message(entry);
 	if (entry.kind !== "pi.assistant" || model?.role !== "assistant") return false;
 	if (model.stopReason === "error" || model.stopReason === "aborted") return false;
 	return !blocks(model.content).some(
-		(block) => block.type === "toolCall" || (block.type === "text" && block.text.trim() && !isBrokenText(block.text)),
+		(block) => block.type === "toolCall" || (block.type === "text" && block.text.trim() && !BROKEN_TEXT.test(block.text)),
 	);
 }
 
-function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
+export function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
 	const groups: (Block | Call[])[] = [];
 	for (const block of content) {
 		const last = groups.at(-1);
@@ -390,14 +370,20 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 		<>
 			{groups.map((group, index) => {
 				if (Array.isArray(group)) {
-					return <Steps key={index} group={group} calls={calls} prefs={prefs} />;
+					return (
+						<div className="steps" key={index}>
+							{group.map((call) => (
+								<StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
+							))}
+						</div>
+					);
 				}
 				switch (group.type) {
 					case "text": {
 						const attachment = parseAttachment(group.text);
 						if (attachment) return <AttachmentChip key={index} card={attachment} />;
 						if (isCodeNote(group.text)) return null;
-						if (!streaming && isBrokenText(group.text)) return null;
+						if (!streaming && BROKEN_TEXT.test(group.text)) return null;
 						const caret = streaming && content[lastText] === group;
 						return (
 							<div
@@ -426,23 +412,6 @@ function Content({ content, prefs, calls, streaming }: { content: readonly Block
 	);
 }
 
-export function StreamingAnswer({
-	content,
-	prefs,
-	calls,
-	answerRef,
-}: {
-	content: Block[];
-	prefs: Prefs;
-	calls: CallStates;
-	answerRef: (element: HTMLElement | null) => void;
-}) {
-	return (
-		<article className="answer streaming" ref={answerRef}>
-			<Content content={content} prefs={prefs} calls={calls} streaming />
-		</article>
-	);
-}
 
 function entrySymbol(data: TriggerRun): TriggerSymbol {
 	if (data.on && isWhenKind(data.on)) return triggerSymbol({ kind: data.on, ...(data.activity ? { activity: data.activity } : {}) });
@@ -524,12 +493,6 @@ export const EntryView = memo(function EntryView({
 	onActions,
 }: EntryViewProps) {
 	const model = message(entry);
-	const longPress = {
-		onContextMenu: (event: { preventDefault: () => void }) => {
-			event.preventDefault();
-			onActions(entry);
-		},
-	};
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
 	const run = triggerRun(entry);
@@ -537,7 +500,11 @@ export const EntryView = memo(function EntryView({
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {
 		return (
-			<section className="prompt" data-entry={String(entry.id)} {...longPress} onClick={() => onActions(entry)}>
+			<section className="prompt" data-entry={String(entry.id)} onContextMenu={(event) => {
+					event.preventDefault();
+					onActions(entry);
+				}}
+				onClick={() => onActions(entry)}>
 				<div className="bubble">
 					<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
 				</div>

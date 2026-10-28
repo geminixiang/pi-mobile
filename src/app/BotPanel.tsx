@@ -295,7 +295,7 @@ export function BotPanel({
 									</div>
 								))}
 								{(usage.cacheRead > 0 || usage.cacheWrite > 0) && cacheHitRate !== undefined ? (
-									<div title="最新一次回答的提示中，從快取讀取的比例">
+									<div>
 										<dt>快取命中</dt>
 										<dd>{cacheHitRate.toFixed(1)}%</dd>
 									</div>

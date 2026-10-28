@@ -47,7 +47,7 @@ function sector(dial: DialState, from: number, to: number, inner: number, outer:
 	return `M ${a.x} ${a.y} A ${outer} ${outer} 0 0 1 ${b.x} ${b.y} L ${c.x} ${c.y} A ${inner} ${inner} 0 0 0 ${d.x} ${d.y} Z`;
 }
 
-function pointAt(dial: DialState, degrees: number, radius = dial.radius): { x: number; y: number } {
+function pointAt(dial: DialState, degrees: number, radius: number): { x: number; y: number } {
 	const radians = (degrees * Math.PI) / 180;
 	return { x: dial.px + radius * Math.cos(radians), y: dial.py - radius * Math.sin(radians) };
 }
@@ -153,9 +153,6 @@ export function ScrollTab({
 
 	const position = dial ? positionOf(dial, count) : count;
 	const current = prompts[position];
-	const cell = dial?.step ?? STEP;
-	const slotAngle = (slot: number) => (dial ? dial.start - (slot + OFFSET) * cell : 0);
-	const beyond = dial ? positionOf(dial, count, dial.slots - 1) : 0;
 	return (
 		<>
 			<button
@@ -189,7 +186,7 @@ export function ScrollTab({
 								? current.text.length > PREVIEW_CHARS
 									? `${current.text.slice(0, PREVIEW_CHARS)}…`
 									: current.text
-								: "往上滑選擇較早的訊息，放開就捲過去"}
+								: null}
 						</span>
 					</div>
 					<svg className="dial-ring" width="100%" height="100%" aria-hidden="true">
@@ -199,6 +196,9 @@ export function ScrollTab({
 							</clipPath>
 						</defs>
 						{(() => {
+							const cell = dial.step;
+							const slotAngle = (slot: number) => dial.start - (slot + OFFSET) * cell;
+							const beyond = positionOf(dial, count, dial.slots - 1);
 							const inner = dial.radius - TRACK;
 							const outer = dial.radius + TRACK;
 							const cellPath = (slot: number, from = inner, to = outer) =>
@@ -228,11 +228,10 @@ export function ScrollTab({
 										const shows = positionOf(dial, count, slot);
 										const label =
 											slot === dial.slots ? `+${beyond}` : slot === -1 ? `+${dial.shift}` : shows === count ? "新" : `${shows + 1}`;
-										const kind = slot === dial.slots || slot === -1 ? "dial-more" : "dial-number";
 										return (
 											<text
 												key={slot}
-												className={`${kind}${slot === dial.slot ? " selected" : ""}`}
+												className={`dial-number${slot === dial.slot ? " selected" : ""}`}
 												{...pointAt(dial, slotAngle(slot), dial.radius + TRACK / 2)}
 											>
 												{label}
