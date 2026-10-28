@@ -1,5 +1,7 @@
 # 側欄展開邊界
 
+2026-10-28 起被取代：側欄不再用 Base UI Drawer，改成自己的手勢（`src/app/SidePanel.tsx`、`sideGesture.ts`），位置夾在 0 到 1 之間，所以不需要這個 patch；`vite-plugins/side-drawer-bounds.ts` 和 `test/side-panel-patches.ts` 已移除。原因與量測見 [../iphone.md](../iphone.md)。`test/side-panels.mjs` 仍是側欄的真實觸控測試。下面是當時的紀錄。
+
 ## 症狀與重現
 
 S24 的左右側欄完全展開後，再往展開方向拉，仍會越過邊界。`test/side-panels.mjs` 透過 WebView CDP 發送真實 touch 事件，在手指尚未放開時量測 popup 的位置與寬度。

@@ -151,6 +151,7 @@
 ### 先量，量完再決定要不要投入
 
 1. **背景**：用 `BGContinuedProcessingTask` 開始一輪對話，切出 app，量 WKWebView 裡的 agent 會不會繼續跑、能跑多久。如果 WebKit 的 process 會被暫停，iOS 上一輪對話就只能在前景跑完。
+   - 2026-10-28 iPhone 12 Pro（iOS 27.0.1）上量到相反的結果：背景接續工作在跑、App 沒被暫停，但 WebKit 在 pi 離開畫面後約 1 秒就暫停網頁內容，回前景才接著跑。細節見 [research/iphone.md](../research/iphone.md)。
 2. **審核**：code mode 執行模型寫的程式、skills 從外面下載，對照審核規則 2.5.2 和 4.7，先確認上得了 App Store 或 TestFlight。上不了的話，iOS 只剩 ad hoc（最多 100 台）。
 
 ### 地基：用 Swift 寫 Capacitor plugin

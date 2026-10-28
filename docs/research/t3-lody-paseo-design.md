@@ -211,6 +211,7 @@
 來源：Paseo mobile panels [P-panels]。
 現況：Base UI Drawer 加建置時 patch，實測 0 px 過拉 [PI-drawer]。
 條件：下次需要改手勢或升級 Base UI 讓 patch 失效時。屆時用「一個正規化位置 + revision 所有權」重寫，而不是再加 patch。
+2026-10-28 已完成：側欄改用自己的手勢，位置是一個 0 到 1 的數字，一直由程式擁有：拖動時跟著手指，放手後用 `requestAnimationFrame` 帶到 0 或 1；新的拖動或開關先停掉正在跑的，從當下的位置接手。見 [iphone.md](iphone.md)。
 
 **C4. 配對 scope。**
 來源：T3 scope、Paseo 語意權限 [T-auth][P-perm]。
