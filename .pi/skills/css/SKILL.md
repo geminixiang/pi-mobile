@@ -105,6 +105,15 @@ compositor without repainting the element or laying out the page. Everything els
 
 - Colors, lines, spacing, and motion curves come from the custom properties at the top of `styles.css` (`--bg`,
   `--line`, `--accent`, `--ease`, ...). No new raw colors.
+- Type sizes are roles, not values: `--fs-meta` (11, mono labels, times, counts), `--fs-code` (12.5, code and tool
+  output), `--fs-small` (13, hints, chips, buttons), `--fs-body` (14, secondary text, tables), `--fs-ui` (15, rows,
+  titles, the user's prompt), `--fs-prose` (16.5, answers and the composer), `--fs-heading`, `--fs-title`,
+  `--fs-display`. Pick the role; a new size is a new role and needs a reason. Two sizes half a pixel apart read as a
+  mistake, not a hierarchy.
+- No `letter-spacing` on text that can be Chinese: tracking spreads CJK glyphs apart. Only Latin-only labels (a
+  code block's language, the pairing code) keep it.
+- Structural spacing steps by 4 (8, 12, 16, 20, 24), so content edges land on the drafting grid; `--space` (20) is
+  the page inset and sits on a major grid line. 2, 6, and 10 are for optical spacing inside a component only.
 - `opacity` on a parent fades its children. To dim a backdrop behind a panel, make the backdrop a sibling of the
   panel, or change only its background color.
 - No inline styles except custom properties that carry state; everything else is a class.
