@@ -36,14 +36,24 @@ function send(method, params) {
 	});
 }
 async function evaluate(expression) {
-	const reply = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-	if (reply.exceptionDetails) throw new Error(JSON.stringify(reply.exceptionDetails));
+	const started = await send("Runtime.evaluate", { expression: `(async () => (${expression}))()` });
+	const reply = started.exceptionDetails ? started : await send("Runtime.awaitPromise", { promiseObjectId: started.result.objectId, returnByValue: true });
+	if (reply.exceptionDetails || reply.wasThrown) throw new Error(JSON.stringify(reply.exceptionDetails ?? reply.result));
 	return reply.result.value;
 }
+const webkit = await evaluate("!/Chrome/.test(navigator.userAgent)");
 let touching = false;
 async function touch(type, x, y) {
 	const ending = type === "touchEnd" || type === "touchCancel";
-	await send("Input.dispatchTouchEvent", { type, touchPoints: ending ? [] : [{ x, y, id: 1 }] });
+	if (webkit) await evaluate(`(() => {
+		const name = ${JSON.stringify(type.toLowerCase())};
+		if (name === "touchstart") window.__sideTouchTarget = document.elementFromPoint(${x ?? 0}, ${y ?? 0});
+		const target = window.__sideTouchTarget;
+		const point = new Touch({ identifier: 1, target, clientX: ${x ?? 0}, clientY: ${y ?? 0}, pageX: ${x ?? 0}, pageY: ${y ?? 0}, screenX: ${x ?? 0}, screenY: ${y ?? 0} });
+		const touches = name === "touchend" || name === "touchcancel" ? [] : [point];
+		target.dispatchEvent(new TouchEvent(name, { bubbles: true, cancelable: true, composed: true, touches, targetTouches: touches, changedTouches: [point] }));
+	})()`);
+	else await send("Input.dispatchTouchEvent", { type, touchPoints: ending ? [] : [{ x, y, id: 1 }] });
 	touching = !ending;
 }
 async function drag(x1, x2, y) {
@@ -59,8 +69,8 @@ async function move(x1, x2, y) {
 async function snapshot(side) {
 	return evaluate(`(() => {
 		const element = document.querySelector('.side-${side}');
-		const rect = element.getBoundingClientRect();
-		return { x: rect.x, width: rect.width, open: element.hasAttribute('data-open'), movement: element.style.getPropertyValue('--drawer-swipe-movement-x'), inlineTransform: element.style.transform, transform: getComputedStyle(element).transform };
+		const card = document.querySelector('.app');
+		return { x: card.getBoundingClientRect().x, width: element.getBoundingClientRect().width, open: element.parentElement.hasAttribute('data-open'), transform: getComputedStyle(card).transform };
 	})()`);
 }
 const failures = [];
@@ -73,7 +83,7 @@ try {
 		assert.equal(await evaluate("window.piController?.id"), bot.id, "The selected bot changed during the test");
 		const label = side === "left" ? "Bot 列表" : "Bot 資訊";
 		await evaluate(`(() => {
-			if ([...document.querySelectorAll('.side-popup')].some(e => e.hasAttribute('data-open'))) throw new Error('Close existing side panels before running');
+			if (document.querySelector('.side-viewport[data-open]')) throw new Error('Close existing side panels before running');
 			const button = document.querySelector('button[aria-label="${label}"]');
 			if (!button) throw new Error('Missing ${label} button');
 			button.click();
@@ -117,9 +127,32 @@ try {
 		await touch("touchEnd");
 		await sleep(350);
 		assert(!(await snapshot(side)).open, `${side} must close after reversing`);
+		const pageWidth = await evaluate("innerWidth");
+		if (pageWidth !== width) failures.push(`the page widened to ${pageWidth}px after the ${side} panel pushed the card aside`);
 	}
+	const button = await evaluate(`(async () => {
+		const candidates = [...document.querySelectorAll('.transcript .step-body'), ...document.querySelectorAll('.transcript button')].filter((b) => { const r = b.getClientRects()[0]; return r && r.width > 12; });
+		for (const target of candidates) {
+			target.scrollIntoView({ block: 'center' });
+			await new Promise((resolve) => setTimeout(resolve, 400));
+			const r = target.getClientRects()[0];
+			const x = target.classList.contains('step-body') ? 40 : r.left + r.width / 2;
+			const y = r.top + r.height / 2;
+			if (document.elementFromPoint(x, y)?.closest('button') === target) return { x, y, side: x < innerWidth / 2 ? 'left' : 'right', label: target.getAttribute('aria-label') ?? target.className };
+		}
+		return null;
+	})()`);
+	assert(button, "The conversation needs a button, such as a code block's copy button");
+	await drag(button.x, button.side === "left" ? Math.min(width - 16, button.x + width * 0.6) : Math.max(16, button.x - width * 0.6), button.y);
+	await touch("touchEnd");
+	await sleep(350);
+	const fromButton = await snapshot(button.side);
+	console.log(JSON.stringify({ fromButton, button }));
+	if (!fromButton.open) failures.push(`a swipe starting on ${button.label} did not open the ${button.side} panel`);
+	await evaluate("document.querySelector('.side-shield')?.click()");
+	await sleep(350);
 	assert.equal(failures.length, 0, failures.join("; "));
-	console.log("PASS: both panels stop at fully open and still swipe closed.");
+	console.log("PASS: both panels stop at fully open, still swipe closed, and open from a swipe that starts on a button.");
 } finally {
 	try {
 		if (touching) await touch("touchCancel");

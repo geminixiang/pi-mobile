@@ -246,6 +246,7 @@ export function App() {
 	);
 
 	const applying = useRef<Promise<void>>(Promise.resolve());
+	const card = useRef<HTMLDivElement>(null);
 
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
 	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
@@ -333,6 +334,7 @@ export function App() {
 
 	return (
 		<div
+			ref={card}
 			data-thinking={thinking || "off"}
 			className="app"
 		>
@@ -365,6 +367,7 @@ export function App() {
 			</header>
 
 			<SideSwipe
+				card={card}
 				open={side}
 				disabled={sideBlocked}
 				onChange={(next) => setOverlay(next === "left" ? "drawer" : next === "right" ? "panel" : undefined)}

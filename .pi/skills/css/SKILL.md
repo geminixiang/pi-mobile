@@ -40,17 +40,38 @@ An element's position, opacity, or size comes from one source. The side panels o
 opening and closing and a CSS variable for dragging, overridden with `!important` and timed against each other with
 timers and effects; a frame where the timing slipped showed the panel fully open before the drag.
 
-The side panels now use Base UI's Drawer (`src/app/SidePanel.tsx`), which follows the same pattern, and it is the
-one to copy:
+The side panels (`src/app/SidePanel.tsx`, gesture math in `sideGesture.ts`) are the one to copy. Like X's menu, a
+panel does not slide over the app: the whole app (`.app`, the card) slides aside and the panel is already there
+underneath.
 
-- Position comes from one variable Base UI sets on the element (`--drawer-swipe-movement-x`, 0 when settled).
-- The settled position is plain CSS; a `transition` moves between them, turned off while `[data-swiping]`.
-- Entry and exit use `[data-starting-style]` and `[data-ending-style]` (or CSS `@starting-style` for elements Base UI
-  does not manage), not keyframes and not a "mount, then flip a class next frame" trick.
-- Base UI decides when to unmount, after the transition.
+- Position is one number per side, `--side-left` and `--side-right` from 0 (closed) to 1 (open) on the card, and
+  `--side-reveal` on the panel, all registered with `@property` as not inherited, so a frame restyles those two
+  elements and nothing inside them.
+- Code owns the position the whole time: the finger while dragging, and a `requestAnimationFrame` settle of
+  `SETTLE_MS` on release. A new drag or a new settle stops the running one and starts from where it is. CSS
+  transitions and Web Animations were both tried and both left the iPhone showing the card halfway while the DOM
+  said open or closed: WebKit's compositor kept a stale transform after an animation was taken over.
+- A drag counts from where the finger went down, so the card follows the finger exactly, and stops at the edges.
+- `[data-side-shown]` on the card (rounded corners, shadow) and `[data-open]` on the panel's viewport are on from
+  the first frame of a drag or an open until a close has settled. Corners kept on all the time showed above the
+  keyboard. The shield that takes taps and drags over the card is rendered only while React has the panel open, so it
+  is gone as soon as a close starts and the conversation takes a tap or a scroll right after.
+- The panels stay mounted under the card, `inert` when closed. Their content keeps `--side-inset` from the outer
+  edge, so it is on screen from the reveal's first frame.
+- Nothing on the card is painted by the card itself. The drafting grid is `.app::before`: as the card's own
+  background, Chrome re-rasterized it on every frame the card moved (366 tiles over 31 frames on the emulator; 4
+  with the pseudo-element). Check a change here with a trace that counts `Paint` and `RasterTask` per frame.
+- `.root` clips its overflow. Without it the card pushed aside widened the page, and Android WebView grew the layout
+  viewport to 767 px and kept it after the close, moving every fixed element and every touch a test computed from
+  `innerHeight`.
+- Measured on the iPhone 12 Pro in a 5,000-node conversation: no frame over 50 ms opening or closing, and a drag
+  under 24 ms a frame (before the grid moved off the card).
 
-For a new overlay, sheet, or gesture, look for the Base UI part first (`@base-ui/react`, already a dependency) before
-writing gesture or presence code.
+Base UI's Drawer moved them before. Its swipe area ignores swipes that start on a button, link, or field, and it set
+`pointer-events: none` on the wrapped content while open, which restyled the whole conversation: 11 ms at full speed,
+50 to 70 ms per open or close on an idle iPhone. Base UI still runs the dialogs and the bottom sheet
+(`src/app/Sheet.tsx`); before adopting another part of it for something the user drags, check what it does to the
+content around it.
 
 Before adding an animation to something that already moves, find what moves it and use that.
 
@@ -96,7 +117,7 @@ compositor without repainting the element or laying out the page. Everything els
   terminal's: `--bg` as background, `--text` as foreground, and a palette of `--error` (red), `--ok` (green),
   `--yellow`, `--accent` (blue), `--custom-label` (magenta), `--blue` (cyan), and `--faint` (bright black). pi's
   `light.json` is made for a white terminal and looks cold on the paper `--bg`. Recompute rather than pick a value by
-  hand; the thinking colors stay pi's. No rounded cards, shadows, or gradients beyond the page grid.
+  hand; the thinking colors stay pi's. No rounded cards, shadows, or gradients beyond the page grid, with one exception: while a side panel pushes it aside, the app itself is a card with `--card-radius` corners and a soft `--card-shadow` (X's look; an edge line read as a frame).
 
 ## 6. Layout and copy
 

@@ -6,7 +6,6 @@ import { gzipSync } from "node:zlib";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { justBashPatches } from "./vite-plugins/just-bash.ts";
-import { sideDrawerBounds } from "./vite-plugins/side-drawer-bounds.ts";
 import { piEnvInWebView } from "./vite-plugins/pi-env.ts";
 
 const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, import.meta.url));
@@ -54,7 +53,7 @@ function pdfjsAssets(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [react(), piEnvDaemons(), piEnvInWebView(), pdfjsAssets(), justBashPatches(), sideDrawerBounds()],
+	plugins: [react(), piEnvDaemons(), piEnvInWebView(), pdfjsAssets(), justBashPatches()],
 	define: {
 		__PI_ENV_DAEMONS__: JSON.stringify(
 			Object.fromEntries(DAEMONS.map((name) => [name, createHash("sha256").update(readFileSync(daemonFile(name))).digest("hex")])),
