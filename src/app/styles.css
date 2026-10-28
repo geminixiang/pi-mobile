@@ -583,7 +583,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .side-viewport[data-open] { visibility: visible; }
 .side-popup { position: absolute; top: 0; bottom: 0; width: var(--side-width); outline: none; will-change: transform; }
 .side-left { left: 0; transform-origin: left center; transform: translateX(calc((var(--side-reveal) - 1) * 12%)) scale(calc(0.96 + var(--side-reveal) * 0.04)); }
-.side-right { right: 0; transform-origin: right center; transform: translateX(calc((1 - var(--side-reveal)) * 12%)) scale(calc(0.96 + var(--side-reveal) * 0.04)); }
+.side-right { right: 0; transform-origin: right center; transform: scale(calc(0.96 + var(--side-reveal) * 0.04)); }
 .chat, .drawer, .panel { touch-action: pan-y; }
 
 .drawer {
@@ -825,7 +825,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 .panel {
 	height: 100%; overflow: hidden auto; display: flex; flex-direction: column; gap: 20px;
-	padding: calc(env(safe-area-inset-top) + 16px) var(--side-inset) calc(env(safe-area-inset-bottom) + 20px) 16px;
+	padding: calc(env(safe-area-inset-top) + 16px) 28px calc(env(safe-area-inset-bottom) + 20px);
 }
 .panel-bot { display: flex; align-items: flex-start; gap: 16px; padding: 4px 2px; text-align: left; }
 .panel-bot .bot-avatar { align-self: flex-start; }

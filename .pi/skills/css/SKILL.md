@@ -58,8 +58,10 @@ underneath.
   the first frame of a drag or an open until a close has settled. Corners kept on all the time showed above the
   keyboard. The shield that takes taps and drags over the card is rendered only while React has the panel open, so it
   is gone as soon as a close starts and the conversation takes a tap or a scroll right after.
-- The panels stay mounted under the card, `inert` when closed. Their content keeps `--side-inset` from the outer
-  edge, so it is on screen from the reveal's first frame.
+- The panels stay mounted under the card, `inert` when closed. The left panel slides in from 12% outside, so its
+  content keeps `--side-inset` from the screen edge and is on screen from the reveal's first frame. The right panel
+  only scales from its outer edge and keeps even padding: its text is left-aligned like the left panel's, so an outer
+  inset pushed it toward the card, and with the slide its switches at the outer edge started off screen.
 - Nothing on the card is painted by the card itself. The drafting grid is `.app::before`: as the card's own
   background, Chrome re-rasterized it on every frame the card moved (366 tiles over 31 frames on the emulator; 4
   with the pseudo-element). Check a change here with a trace that counts `Paint` and `RasterTask` per frame.
