@@ -28,6 +28,7 @@ if (unknown.length > 0) throw new Error(`Unknown scenes: ${unknown.join(", ")}; 
 const adbPath = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const adb = (...command: string[]) => execFileSync(adbPath, ["-s", serial, "shell", ...command], { encoding: "utf8" });
 const PI = "dev.geminixiang.pimobile/";
+const TYPING_GAP_MS = 120;
 const input = (...args: string[]) => {
 	const out = adb(`if dumpsys activity activities | grep topResumedActivity | grep -q ${PI}; then input ${args.join(" ")}; else echo NOT_PI; fi`);
 	if (out.includes("NOT_PI")) throw new Error(`pi is not in front; stopped before input ${args.join(" ")}`);
@@ -80,14 +81,18 @@ class Page {
 	}
 
 	async eval<T>(body: string): Promise<T> {
-		if (this.#closed) throw this.#closed;
-		const id = ++this.#next;
 		const expression = `(async () => { ${PAGE_HELPERS} ${body} })()`;
-		const reply = new Promise<Reply>((resolve, reject) => this.#pending.set(id, { resolve, reject }));
-		this.#socket.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression, awaitPromise: true, returnByValue: true } }));
-		const { result, exceptionDetails } = await reply;
+		const { result, exceptionDetails } = await this.command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
 		if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? JSON.stringify(exceptionDetails));
 		return result?.value as T;
+	}
+
+	command(method: string, params: object): Promise<Reply> {
+		if (this.#closed) throw this.#closed;
+		const id = ++this.#next;
+		const reply = new Promise<Reply>((resolve, reject) => this.#pending.set(id, { resolve, reject }));
+		this.#socket.send(JSON.stringify({ id, method, params }));
+		return reply;
 	}
 
 	close() {
@@ -226,7 +231,11 @@ async function act(page: Page, scene: Scene) {
 				await flings("newer", 2, 1200);
 			});
 		case "typing":
-			for (const key of "abcdefghijklmnopqrstuvwxyzabcd") input("text", key);
+			for (const key of "abcdefghijklmnopqrstuvwxyzabcd") {
+				await page.command("Input.dispatchKeyEvent", { type: "keyDown", key, text: key });
+				await page.command("Input.dispatchKeyEvent", { type: "keyUp", key });
+				await sleep(TYPING_GAP_MS);
+			}
 			await sleep(500);
 			return;
 		case "panel":

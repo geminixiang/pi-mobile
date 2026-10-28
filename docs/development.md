@@ -83,7 +83,7 @@ node test/perf/run.ts --serial <serial> --label after --compare test/perf/out/be
 node test/perf/fixture.ts teardown <serial>                 # 移除 Bot、provider 和它的 key
 ```
 
-- 場景：`scroll`（往上 3 次、往下 3 次 fling）、`stream`（停在底部串流約 10,000 字、42 秒，每 150 ms 一批）、`streamscroll`（串流中來回捲）、`typing`（輸入框打 30 個字）、`panel`（側欄開關 3 次）。`--scenes` 可以只跑其中幾個。
+- 場景：`scroll`（往上 3 次、往下 3 次 fling）、`stream`（停在底部串流約 10,000 字、42 秒，每 150 ms 一批）、`streamscroll`（串流中來回捲）、`typing`（輸入框打 30 個字，每 120 ms 一個，用 DevTools 的按鍵事件直接送進 WebView：`adb input text` 會先進手機的輸入法，中文輸入法下量到的是組字，不是 app）、`panel`（側欄開關 3 次）。`--scenes` 可以只跑其中幾個。
 - 一幀的預算是 8.33 ms，超過 1.5 個 vsync（12.5 ms）就算掉幀。`gfx*` 來自 `dumpsys gfxinfo`，是畫面實際送出的幀，包含 compositor 和 GPU；`raf*`、`loaf*`、`input*` 是頁面的主執行緒（rAF 間隔、Long Animation Frames、Event Timing），用來找原因。
 - 頁面不在 120 Hz、開著的不是測試 Bot 時，`run.ts` 拒絕量。每一次量之前，熱狀態要是 0、AP 不超過 50°C，不然就等（`PERF_MAX_THERMAL_STATUS`、`PERF_MAX_AP`）。充電時手機比較熱，量要比較的數字前先拔掉。
 - `typing` 時沒有動畫，Samsung 會把更新率降到 60 Hz，所以只看 `inputP95`。
