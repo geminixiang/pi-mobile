@@ -51,7 +51,9 @@ underneath.
   `SETTLE_MS` on release. A new drag or a new settle stops the running one and starts from where it is. CSS
   transitions and Web Animations were both tried and both left the iPhone showing the card halfway while the DOM
   said open or closed: WebKit's compositor kept a stale transform after an animation was taken over.
-- A drag counts from where the finger went down, so the card follows the finger exactly, and stops at the edges.
+- A drag counts from where it was recognized as sideways, not from where the finger went down: counting from
+  touch-down made the card jump by the slop on its first frame (15 to 25 px at the iPhone's 60 Hz). Ionic and
+  Telegram re-anchor the same way. It stops at the edges.
 - `[data-side-shown]` on the card (rounded corners, shadow) and `[data-open]` on the panel's viewport are on from
   the first frame of a drag or an open until a close has settled. Corners kept on all the time showed above the
   keyboard. The shield that takes taps and drags over the card is rendered only while React has the panel open, so it

@@ -110,7 +110,7 @@ try {
 		const opening = await snapshot(side);
 		console.log(JSON.stringify({ side, opening }));
 		assert(opening.open, `${side} must swipe open`);
-		if (Math.abs(opening.x - before.x) > 0.5) failures.push(`${side} overshot while opening: ${opening.x - before.x}px`);
+		if (Math.abs(opening.x) - Math.abs(before.x) > 0.5) failures.push(`${side} overshot while opening: ${opening.x - before.x}px`);
 		await touch("touchEnd");
 		await sleep(350);
 		const closingStart = side === "left" ? before.width - 24 : width - before.width + 24;
@@ -130,6 +130,18 @@ try {
 		const pageWidth = await evaluate("innerWidth");
 		if (pageWidth !== width) failures.push(`the page widened to ${pageWidth}px after the ${side} panel pushed the card aside`);
 	}
+	await touch("touchStart", 60, y);
+	await touch("touchMove", 90, y);
+	await sleep(50);
+	const held = await snapshot("left");
+	await touch("touchMove", 150, y);
+	await sleep(50);
+	const followed = await snapshot("left");
+	await touch("touchCancel");
+	await sleep(350);
+	console.log(JSON.stringify({ held: held.x, followed: followed.x }));
+	if (Math.abs(held.x) > 0.5) failures.push(`the card jumped ${held.x}px on the move that started the drag`);
+	if (Math.abs(followed.x - 60) > 0.5) failures.push(`the card moved ${followed.x}px for 60px of drag after it started`);
 	const button = await evaluate(`(async () => {
 		const candidates = [...document.querySelectorAll('.transcript .step-body'), ...document.querySelectorAll('.transcript button')].filter((b) => { const r = b.getClientRects()[0]; return r && r.width > 12; });
 		for (const target of candidates) {

@@ -70,7 +70,7 @@ type TouchHandlers = {
 	onTouchEnd: (event: TouchEvent) => void;
 	onTouchCancel: (event: TouchEvent) => void;
 };
-type Drag = { motion: PanelMotion; from: number; width: number; samples: { x: number; t: number }[] };
+type Drag = { motion: PanelMotion; from: number; fromX: number; width: number; samples: { x: number; t: number }[] };
 type Gesture = { x: number; y: number; at: number; selecting: boolean; ignored: boolean; drag?: Drag };
 type SideState = { open: Side | undefined; disabled: boolean; onChange: (open: Side | undefined) => void };
 
@@ -119,8 +119,8 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 		onTouchMove: (event) => {
 			const touch = event.touches[0];
 			if (!gesture || !touch || gesture.ignored) return;
-			const dx = touch.clientX - gesture.x;
 			if (!gesture.drag) {
+				const dx = touch.clientX - gesture.x;
 				const intent = intentOf({ dx, dy: touch.clientY - gesture.y, elapsedMs: event.timeStamp - gesture.at, selecting: gesture.selecting });
 				if (intent === "undecided") return;
 				const motion = intent === "swipe" && !ownsSidewaysDrag(event.target, dx) ? panelFor(dx) : undefined;
@@ -128,11 +128,11 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 					gesture.ignored = true;
 					return;
 				}
-				gesture.drag = { motion, from: motion.position(), width: motion.width(), samples: [] };
+				gesture.drag = { motion, from: motion.position(), fromX: touch.clientX, width: motion.width(), samples: [] };
 			}
 			const { drag } = gesture;
 			drag.samples = [...drag.samples.slice(-7), { x: touch.clientX, t: event.timeStamp }];
-			drag.motion.drag(positionAfter(drag.motion.side, drag.from, dx, drag.width));
+			drag.motion.drag(positionAfter(drag.motion.side, drag.from, touch.clientX - drag.fromX, drag.width));
 		},
 		onTouchEnd: (event) => release(false, event.timeStamp),
 		onTouchCancel: (event) => release(true, event.timeStamp),
