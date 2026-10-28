@@ -117,7 +117,11 @@ export function describeWhen(when: When): string {
 	return `${days === "每天" ? "" : days}${window} ${describeEvent(when)}（${limit}）`.trim();
 }
 
-function describeEvent(when: Exclude<When, { kind: "once" | "daily" }>): string {
+type EventWhen = Exclude<When, { kind: "once" | "daily" }>;
+
+export const isEvent = (when: When): when is EventWhen => when.kind !== "once" && when.kind !== "daily";
+
+function describeEvent(when: EventWhen): string {
 	switch (when.kind) {
 		case "headphones":
 			return "戴上耳機時";
@@ -517,7 +521,7 @@ export class TriggerRuns {
 			return undefined;
 		}
 		const conversationId = trigger.conversationId;
-		const event = trigger.when.kind !== "daily" && trigger.when.kind !== "once" && delivery !== "manual";
+		const event = isEvent(trigger.when) && delivery !== "manual";
 		const heard = event ? (delivered.device ?? trigger.when.kind) : undefined;
 		const guards = trigger.guards ?? [];
 		const screening =
