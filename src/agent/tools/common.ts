@@ -9,7 +9,9 @@ import type { PluginMethod } from "../../plugins/define.ts";
 
 function unset(value: unknown, schema: unknown): boolean {
 	if (value === "" || value === null || (Array.isArray(value) && value.length === 0)) return true;
-	if (value !== 0 || typeof schema !== "object" || schema === null) return false;
+	if (typeof schema !== "object" || schema === null) return false;
+	if (typeof value === "boolean") return Reflect.get(schema, "type") === "string";
+	if (value !== 0) return false;
 	const minimum = Reflect.get(schema, "minimum");
 	const exclusive = Reflect.get(schema, "exclusiveMinimum");
 	return (typeof minimum === "number" && minimum > 0) || (typeof exclusive === "number" && exclusive >= 0);
@@ -20,9 +22,17 @@ function cleaned(parameters: TSchema, raw: unknown): unknown {
 	const properties: unknown = Reflect.get(parameters, "properties");
 	const required: unknown = Reflect.get(parameters, "required");
 	const needed = new Set(Array.isArray(required) ? required : []);
+	const schemaOf = (key: string): unknown => (typeof properties === "object" && properties !== null ? Reflect.get(properties, key) : undefined);
 	return Object.fromEntries(
-		Object.entries(raw).filter(([key, value]) => needed.has(key) || !unset(value, typeof properties === "object" && properties !== null ? Reflect.get(properties, key) : undefined)),
+		Object.entries(raw)
+			.filter(([key, value]) => needed.has(key) || !unset(value, schemaOf(key)))
+			.map(([key, value]) => [key, listed(value, schemaOf(key))]),
 	);
+}
+
+function listed(value: unknown, schema: unknown): unknown {
+	const array = typeof schema === "object" && schema !== null && Reflect.get(schema, "type") === "array";
+	return array && (typeof value === "string" || typeof value === "number") ? [value] : value;
 }
 
 type Reach = "model" | "loaded" | "script";

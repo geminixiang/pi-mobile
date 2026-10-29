@@ -5,7 +5,7 @@ export const SHOWN_AS_FILE =
 	"To give the user something to look at or send on (a report, a comparison, a chart, a small tool), write a self-contained .html file after reading the html-page skill. The app shows it and can share it.";
 
 const FOLDER = [
-	"read, write, edit, and bash work in your own folder on this phone; / is its root and nothing outside it exists. It is private and kept across conversations: put there what the user will want as a file, or what is too long for the conversation; short facts go in memory. A file the user names is probably already there: ls before saying it is missing, and work on it with bash rather than reading it whole.",
+	"read, write, edit, and bash work in your own folder on this phone; / is its root and nothing outside it exists, and bash starts there, so todo.md and /todo.md are the same file. It is private and kept across conversations: put there what the user will want as a file, or what is too long for the conversation; short facts go in memory. A file the user names is probably already there: ls before saying it is missing, and work on it with bash rather than reading it whole.",
 	SHOWN_AS_FILE,
 	"bash runs built-in commands only (cat, ls, find, grep, sed, awk, jq, sort, uniq, wc, head, tail, cut, tr, diff, cp, mv, rm, mkdir, date, xargs, gzip…); no python or other programs: compute with awk or jq. git and gh reach GitHub as the user (gh has api, pr, issue, repo, search, auth status; clone with --depth 1); nothing else reaches the network.",
 ].join(" ");

@@ -34,6 +34,8 @@ deepStrictEqual(prepare({ need: "a", query: null, days: [] }), { need: "a" });
 deepStrictEqual(prepare({ need: "a", offset: 0 }), { need: "a", offset: 0 });
 throws(() => prepare({ need: "a", radius_m: 50 }), /radius_m/);
 deepStrictEqual(prepare({ need: "a", query: "x", limit: 3 }), { need: "a", query: "x", limit: 3 });
+deepStrictEqual(prepare({ need: "a", days: "Mon" }), { need: "a", days: ["Mon"] });
+deepStrictEqual(prepare({ need: "a", query: true, images: true }), { need: "a", images: true });
 
 deepStrictEqual(parseLocalTime("2026-10-22 07:05", "at"), { ms: new Date(2026, 9, 22, 7, 5).getTime(), hasTime: true });
 deepStrictEqual(parseLocalTime("2026-10-22T07:05", "at").ms, new Date(2026, 9, 22, 7, 5).getTime());
