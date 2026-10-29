@@ -396,14 +396,14 @@ export function createTriggerExtension(host: TriggerHost) {
 		effect: "direct",
 		needs: [Triggers.notify],
 		description:
-			"Show the user a phone notification that opens this conversation. Use it at the end of a triggered run when the result deserves their attention; skip it when there is nothing new. Keep it to the gist; the full answer is in the conversation.",
+			"Show the user a phone notification that opens this conversation. Use it at the end of a triggered run when the result deserves their attention or the schedule asks for it; otherwise skip it when there is nothing new. Keep it to the gist; the full answer is in the conversation.",
 		parameters: Type.Object({
 			title: Type.String({ description: "Short, such as 早晨簡報" }),
 			text: Type.String({ description: "One to three short lines" }),
 		}),
 		execute: async (args, api) => {
 			const shown = await host.notify(args.title, args.text, api.conversationId);
-			return text(shown ? "Notified." : "Delivered: the user has pi open and reads your answer.");
+			return text(shown ? "Notified." : "Delivered: the user has this conversation open and reads your answer.");
 		},
 	});
 
@@ -413,7 +413,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		sections: [
 			section("triggers", () =>
 				[
-					`A message starting "[trigger]" came from a schedule; the user is not watching: do the work, answer briefly without mentioning the schedule, and notify the gist when it is worth it.`,
+					`A message starting "[trigger]" came from a schedule; the user is not watching: do the work, answer briefly without mentioning the schedule, and notify the gist when it is worth it or the schedule asks for it.`,
 					"Headphones connected: the user is listening, not reading: read the spoken-report skill and report with speak. Other events (charging, Wi-Fi, a place) say what happened.",
 				].join("\n"),
 			),

@@ -116,7 +116,7 @@ export function App() {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
 					notify: async (title, text, conversationId, avatar) => {
-						if (inForeground() || !native.implements(Triggers.notify)) return false;
+						if ((inForeground() && live.current.controller?.id === conversationId) || !native.implements(Triggers.notify)) return false;
 						await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
 						return true;
 					},

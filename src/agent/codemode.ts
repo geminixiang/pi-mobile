@@ -59,6 +59,7 @@ export function signatureOf(tool: { name: string; parameters: unknown }): string
 
 const STATEMENT = /^(?:return|throw|if|for|while|do|switch|try|function|async\s+function|class|import|export|break|continue|else|case|default|const|let|var)\b/;
 const DECLARED = /^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/;
+const CONTINUATION = /^[)\]}.?:,+\-*/%&|]/;
 
 function compiles(code: string): boolean {
 	try {
@@ -76,11 +77,12 @@ export function returnLast(code: string): string {
 	const meaningful = (line: string) => line.trim() !== "" && !line.trim().startsWith("//");
 	const indent = (line: string) => line.length - line.trimStart().length;
 	const top = Math.min(...lines.filter(meaningful).map(indent));
-	const index = lines.findLastIndex((line) => meaningful(line) && indent(line) === top && !/^[)\]}.?]/.test(line.trim()));
+	const index = lines.findLastIndex((line) => meaningful(line) && indent(line) === top && !CONTINUATION.test(line.trim()));
 	const head = lines[index]?.trimStart();
 	if (head === undefined) return code;
 	const declared = DECLARED.exec(head)?.[1];
-	if (!declared && STATEMENT.test(head)) return code;
+	const followed = head.replace(/;\s*$/, "").includes(";") || lines.slice(index + 1).some((line) => meaningful(line) && !CONTINUATION.test(line.trim()));
+	if (!declared && (STATEMENT.test(head) || followed)) return code;
 	const rewritten = declared ? `${code}\nreturn ${declared}` : lines.map((line, at) => (at === index ? line.replace(head, `return ${head}`) : line)).join("\n");
 	return compiles(code) && compiles(rewritten) ? rewritten : code;
 }

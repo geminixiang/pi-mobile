@@ -11,6 +11,8 @@ assert.equal(returnLast(spread), `${spread}\nreturn results`);
 assert.equal(returnLast(" await tools.a()\n .then((x) => x.id)"), " return await tools.a()\n .then((x) => x.id)");
 for (const kept of ["return await tools.a()", "if (x) {\n  y()\n}", "await tools.a(", "// @options: {\"timeout_ms\": 1000}\nreturn 1", "for (const x of xs) text(x)"]) assert.equal(returnLast(kept), kept);
 assert.equal(returnLast("// @options: {\"timeout_ms\": 1000}\nawait tools.a()"), "// @options: {\"timeout_ms\": 1000}\nreturn await tools.a()");
+assert.equal(returnLast("await tools.a();"), "return await tools.a();");
+for (const later of ["text(x);return await tools.notify({ title: \"t\" });", "text(x); await tools.notify({ title: \"t\" })", "text(x)\n  await tools.notify({ title: \"t\" })"]) assert.equal(returnLast(later), later);
 
 const header = { type: "text" as const, text: "Script completed\nWall time 0.1 seconds\nOutput:\n" };
 const silent = withSilenceHint({ output: [header] });
