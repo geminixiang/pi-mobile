@@ -17,7 +17,7 @@
 | 備份 | `allowBackup="false"` |
 | 偵錯 | release 關閉 WebView 遠端偵錯（`scripts/release-android.sh` 檢查）；release 不可偵錯，`run-as` 進不去 |
 | 模型看不到金鑰 | 供應商金鑰只在請求 header；雲端工具只連固定主機、token 在工具內加上；`gh auth status` 不印 token；容器裡只有佔位值，真的憑證由 egress proxy 向手機要（`docs/architecture.md`） |
-| 頁面注入 | Markdown 不執行 HTML；HTML 檔放在無來源的 sandbox iframe，且只在 bridge 有限定來源時才預覽；Mermaid 會轉義標籤（實測 `<img onerror>`、`<script>`、`javascript:`） |
+| 頁面注入 | Markdown 不執行 HTML；HTML 檔放在無來源的 sandbox iframe，且只在 bridge 有限定來源時才預覽；Mermaid 圖（pele）會轉義標籤（實測 `<img onerror>`、`<script>`），並關掉連結和圖片：`click` 的連結在 WebView 裡會把整個 app 導走 |
 | 偽造系統廣播 | `HeadphonesReceiver` 雖然對外開放，藍牙連線廣播是受保護的，其他 app 送不出來（實測 `SecurityException`） |
 | OAuth 回呼 | MCP 和 ChatGPT 登入都用 32 bytes 隨機 `state` 加 PKCE S256，回呼時核對 `state`；本機回呼 server 只綁 `127.0.0.1` |
 | App 內更新 | 只從 `api.github.com/repos/geminixiang/pi-mobile/releases/latest` 拿版本，APK 經 https 下載到 app 的快取；SHA-256 要等於 GitHub 給的 `digest`，套件名稱和簽章憑證要跟裝著的一樣，才交給 Android 的安裝畫面，安裝前使用者還要按一次確認。SHA-256 和 APK 來自同一個 release，只擋傳輸錯誤；擋冒名的是簽章：Android 本來就不讓不同金鑰的 APK 覆蓋安裝，這裡先檢查，讓錯誤說得清楚 |

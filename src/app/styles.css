@@ -321,7 +321,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown > .code { margin-inline: calc(-1 * var(--space)); }
 .markdown > .code > .code-head { padding: 0 calc(var(--space) - 9px) 0 var(--space); }
 .markdown > .code pre { padding-inline: var(--space); }
-.diagram { overflow-x: auto; background: var(--panel); }
+.diagram {
+	--pele-bg: var(--panel); --pele-fg: var(--text); --pele-muted: var(--muted); --pele-line: var(--muted);
+	--pele-surface: var(--bg); --pele-surface-alt: var(--bg-deep); --pele-border: var(--line-strong); --pele-accent: var(--accent);
+	--pele-font-mono: var(--mono); --pele-radius: 0;
+	--pele-series-1: var(--accent); --pele-series-2: var(--coral); --pele-series-3: var(--blue); --pele-series-4: var(--yellow);
+	overflow-x: auto; background: var(--panel);
+}
 .diagram > svg { display: block; max-width: none; margin: 0 auto; }
 .diagram.fit > svg { width: 100%; height: auto; }
 .diagram-loading { height: 160px; background: var(--panel); }

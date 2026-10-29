@@ -96,6 +96,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - 串流中只解析正在寫的段落（以程式碼區塊外的空行切開），已完成的段落 memo；每幀全文解析會掉 3% 的幀。文字一陣一陣到（約 150 ms 一批），`useSmoothText` 每幀補一點，在一批的間隔內追上。串流的字不做淡入：每個字一個 `<span>` 加 opacity 動畫，在 120 Hz 下串流時有 61% 的幀超時，拿掉後 9%。
 - 頂欄、輸入框、佇列和「最新」按鈕都是實色，不用 `backdrop-filter`：底下的文字每動一幀，模糊就要在 GPU 上重算一次。串流中來回捲，超時的幀 19% → 12%。
 - Mermaid 圖：inline SVG、SVG `<img>`、畫一次的 PNG 都只掉 0–2 幀（每次約 260 幀），跟藏起來一樣，所以用最簡單的 inline。
+- Mermaid 用 pele 畫（beautiful-mermaid 的 chunk 是它的兩倍）：它照容器寬度排版（`maxWidth`），橫的流程圖改成直的、圖表縮到螢幕寬，字不會變小，所以要掛上去量到寬度才畫。它跟 Mermaid 一樣嚴格，中文標籤沒加引號的 xychart 會畫不出來，系統提示要模型加引號。
 
 **外部服務**
 - pi-durable 在請求超過 contextWindow 減掉保留量（預設 16k）時壓縮。把使用者的門檻加上保留量回報成 window，就會在門檻壓縮，而不是接近模型上限才壓。
