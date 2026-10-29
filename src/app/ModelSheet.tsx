@@ -79,7 +79,7 @@ export function ModelSheet({
 				return (
 					<section key={provider} className="model-group">
 						<div className="strip-label">{name}</div>
-						<div className="menu model-list">
+						<div className="menu model-list choice-list">
 							{visible.map((model) => (
 								<button
 									type="button"

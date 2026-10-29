@@ -130,7 +130,7 @@ compositor without repainting the element or laying out the page. Everything els
   terminal's: `--bg` as background, `--text` as foreground, and a palette of `--error` (red), `--ok` (green),
   `--yellow`, `--accent` (blue), `--custom-label` (magenta), `--blue` (cyan), and `--faint` (bright black). pi's
   `light.json` is made for a white terminal and looks cold on the paper `--bg`. Recompute rather than pick a value by
-  hand; the thinking colors stay pi's. No rounded cards, shadows, or gradients beyond the page grid, with one exception: while a side panel pushes it aside, the app itself is a card with `--card-radius` corners and a soft `--card-shadow` (X's look; an edge line read as a frame).
+  hand; the thinking colors stay pi's. No rounded cards, shadows, or gradients beyond the page grid, with two exceptions that float over the page: while a side panel pushes it aside, the app itself is a card with `--card-radius` corners and a soft `--card-shadow` (X's look; an edge line read as a frame), and a bottom sheet rises on the same `--card-shadow` with a grabber instead of an edge line. Lists in the side panel and in sheets are plain `--panel` blocks with no frame and no lines between rows: the boxed rows read as a spreadsheet.
 
 ## 6. Layout and copy
 

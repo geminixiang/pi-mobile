@@ -452,6 +452,7 @@ export function App() {
 						notices={notices}
 						onDismissNotices={dismissNotices}
 						onError={notify}
+						contextShare={contextWindow > 0 ? used / contextWindow : 0}
 					/>
 					</OpenFileContext.Provider>
 				) : (

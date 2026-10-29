@@ -8,7 +8,7 @@ import type { PhoneApp } from "./platform.ts";
 
 const PHONE = "phone";
 
-interface Computer {
+export interface Computer {
 	key: string;
 	name: string;
 	mode: string;

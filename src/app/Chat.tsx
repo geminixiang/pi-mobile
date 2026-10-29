@@ -19,6 +19,8 @@ import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
 import { inApp, native } from "../native.ts";
 
+const CONTEXT_NEARLY_FULL = 0.8;
+
 function text(content: string | readonly { type: string; text?: string }[] | undefined): string {
 	if (typeof content === "string") return content;
 	return (content ?? [])
@@ -117,6 +119,7 @@ export function Chat({
 	notices,
 	onDismissNotices,
 	onError,
+	contextShare,
 }: {
 	controller: ConversationController;
 	prefs: Prefs;
@@ -129,6 +132,7 @@ export function Chat({
 	notices: readonly Notice[];
 	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
+	contextShare: number;
 }) {
 	const conversationId = String(controller.id);
 	const [draft, setDraft] = useState(() => [loadDraftText(conversationId), initialDraft].filter(Boolean).join("\n\n"));
@@ -314,6 +318,11 @@ export function Chat({
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
 				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}
+				{contextShare >= CONTEXT_NEARLY_FULL && !busy && !live?.compactions?.length ? (
+					<button type="button" className="note context-full" onClick={() => void controller.compact().catch(fail)}>
+						上下文 {Math.round(contextShare * 100)}% · <b>壓縮</b>
+					</button>
+				) : null}
 				{notices.map((notice) => (
 					<button type="button" key={notice.id} className="note error notice" onClick={() => onDismissNotices([notice.id])}>
 						{notice.text}

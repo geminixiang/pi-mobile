@@ -4,14 +4,16 @@ import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../agent/triggers.ts";
+import type { Computer } from "../agent/workplaces.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import type { Sandbox } from "../agent/sandbox/sandbox.ts";
 import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
-import { BoxIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
+import { BoxIcon, CheckIcon, ChevronIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
+import { Sheet } from "./Sheet.tsx";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
@@ -35,6 +37,16 @@ function Item({ icon, label, hint, danger, disabled, onClick }: { icon: ReactNod
 				{label}
 				{hint ? <span className="menu-hint">{hint}</span> : null}
 			</span>
+		</button>
+	);
+}
+
+function OpenRow({ label, value, onClick }: { label: string; value?: string; onClick: () => void }) {
+	return (
+		<button type="button" onClick={onClick}>
+			<span className="menu-text">{label}</span>
+			{value ? <span className="index-value">{value}</span> : null}
+			<ChevronIcon />
 		</button>
 	);
 }
@@ -80,11 +92,18 @@ function HostStatus({ sandbox }: { sandbox: Sandbox }) {
 	return <span className={shown.error ? "menu-hint error" : "menu-hint"}>{shown.text}</span>;
 }
 
+function nameOf(computer: Computer | undefined): string {
+	if (!computer) return "";
+	return computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`;
+}
+
 function ComputerPicker({ runtime, bot, reload, problem, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; problem?: Problem; onError: (message: string) => void }) {
 	const place = runtime.workplaces.at(String(bot.id));
 	const key = place?.kind === "computer" ? place.computer.key : place?.kind === "missing" ? place.key : "phone";
 	const container = place?.kind === "computer" && !place.sandbox.direct ? place.host : undefined;
 	const [preparing, prepare] = usePrepare(container);
+	const [picking, setPicking] = useState(false);
+	const computers = runtime.workplaces.list();
 	const choose = async (next: string) => {
 		await runtime.setComputer(bot.id, next);
 		reload(bot.id);
@@ -93,20 +112,29 @@ function ComputerPicker({ runtime, bot, reload, problem, onError }: { runtime: A
 	};
 	return (
 		<Section title="電腦" problem={problem}>
-			<select className="field" value={key} aria-label="電腦" onChange={(event) => void choose(event.target.value).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`))}>
-				{place?.kind === "missing" ? (
-					<option value={key} disabled>
-						已移除的電腦
-					</option>
-				) : null}
-				{runtime.workplaces.list().map((computer) => (
-					<option key={computer.key} value={computer.key}>
-						{computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`}
-					</option>
-				))}
-			</select>
+			<div className="menu">
+				<OpenRow label={place?.kind === "missing" ? "已移除的電腦" : nameOf(computers.find((computer) => computer.key === key))} onClick={() => setPicking(true)} />
+			</div>
 			{place?.kind === "computer" ? <HostStatus sandbox={place.sandbox} /> : null}
 			<PrepareStatus preparing={preparing} />
+			<Sheet open={picking} title="電腦" onClose={() => setPicking(false)}>
+				<div className="menu choice-list">
+					{computers.map((computer) => (
+						<button
+							type="button"
+							key={computer.key}
+							className={computer.key === key ? "selected" : ""}
+							onClick={() => {
+								setPicking(false);
+								void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
+							}}
+						>
+							<span className="menu-text">{nameOf(computer)}</span>
+							{computer.key === key ? <CheckIcon size={16} /> : null}
+						</button>
+					))}
+				</div>
+			</Sheet>
 		</Section>
 	);
 }
@@ -151,6 +179,7 @@ export function BotPanel({
 	const [compacted, showCompacted] = useBriefly();
 	const [copied, showCopied] = useBriefly();
 	const [emptied, showEmptied] = useBriefly();
+	const [toolSheet, setToolSheet] = useState<"builtin" | "service">();
 	useEffect(() => {
 		if (!open) setProblem(undefined);
 	}, [open]);
@@ -174,6 +203,8 @@ export function BotPanel({
 	}, [runtime, botId, open]);
 	if (!bot) return null;
 	const services = toolsets.filter((toolset) => toolset.kind === "service");
+	const builtins = toolsets.filter((toolset) => toolset.kind === "builtin");
+	const enabledOf = (list: ToolsetState[]) => `${list.filter((toolset) => toolset.available && toolset.enabled).length} / ${list.length}`;
 
 	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
@@ -207,64 +238,6 @@ export function BotPanel({
 						<span className="panel-bot-job">{bot.job || "一般助理"}</span>
 					</span>
 				</button>
-
-				{native.has("Triggers") ? (
-					<Section title="自動化" problem={problem}>
-						<div className="menu">
-							{mine.length === 0 ? (
-								<Row label="還沒有自動化" />
-							) : (
-								mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
-							)}
-						</div>
-					</Section>
-				) : null}
-
-				<Section title="記憶">
-					<div className="menu">
-						<button type="button" className="panel-memory" onClick={run(actions.memory)}>
-							<MemoryIcon />
-							<span className="menu-text">
-								{memoryLines.length > 0 ? memoryLines.map((line, index) => <span key={`${index}-${line}`} className="panel-memory-line">{line}</span>) : "還沒有記下什麼"}
-							</span>
-						</button>
-					</div>
-				</Section>
-
-				<Section title="工具" problem={problem}>
-					<div className="menu toggles">
-						{toolsets
-							.filter((toolset) => toolset.kind === "builtin")
-							.map((toolset) => (
-								<ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />
-							))}
-					</div>
-				</Section>
-
-				<Section title="連接的服務">
-					<div className="menu toggles">
-						{services.length === 0 ? (
-							<Row label="還沒有連接服務" />
-						) : (
-							services.map((toolset) => <ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />)
-						)}
-					</div>
-				</Section>
-
-				{runtime.workplaces.offers(String(bot.id)) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} problem={problem} onError={(text) => setProblem({ section: "電腦", text })} /> : null}
-				{actions.emptyFolder ? (
-					<Section title="資料夾" problem={problem}>
-						<div className="menu">
-							<Item
-								icon={<BoxIcon size={18} />}
-								label="清空資料夾"
-								hint={emptied}
-								danger
-								onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("資料夾"))}
-							/>
-						</div>
-					</Section>
-				) : null}
 
 				<Section title="上下文" problem={problem}>
 					<div className="context-card">
@@ -326,6 +299,61 @@ export function BotPanel({
 						/>
 					</div>
 				</Section>
+
+				{native.has("Triggers") ? (
+					<Section title="自動化" problem={problem}>
+						<div className="menu">
+							{mine.length === 0 ? (
+								<Row label="還沒有自動化" />
+							) : (
+								mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
+							)}
+						</div>
+					</Section>
+				) : null}
+
+				<Section title="記憶">
+					<div className="menu">
+						<button type="button" className="panel-memory" onClick={run(actions.memory)}>
+							<MemoryIcon />
+							<span className="menu-text">
+								{memoryLines.length > 0 ? memoryLines.map((line, index) => <span key={`${index}-${line}`} className="panel-memory-line">{line}</span>) : "還沒有記下什麼"}
+							</span>
+						</button>
+					</div>
+				</Section>
+
+				<Section title="工具" problem={problem}>
+					<div className="menu">
+						<OpenRow label="內建工具" value={enabledOf(builtins)} onClick={() => setToolSheet("builtin")} />
+						<OpenRow label="連接的服務" value={enabledOf(services)} onClick={() => setToolSheet("service")} />
+					</div>
+				</Section>
+				<Sheet open={toolSheet !== undefined} title={toolSheet === "service" ? "連接的服務" : "內建工具"} onClose={() => setToolSheet(undefined)}>
+					<div className="menu toggles">
+						{toolSheet === "service" && services.length === 0 ? (
+							<Row label="還沒有連接服務" />
+						) : (
+							(toolSheet === "service" ? services : builtins).map((toolset) => <ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />)
+						)}
+					</div>
+				</Sheet>
+
+				{runtime.workplaces.offers(String(bot.id)) ? <ComputerPicker runtime={runtime} bot={bot} reload={reload} problem={problem} onError={(text) => setProblem({ section: "電腦", text })} /> : null}
+				{actions.emptyFolder ? (
+					<Section title="資料夾" problem={problem}>
+						<div className="menu">
+							<Item
+								icon={<BoxIcon size={18} />}
+								label="清空資料夾"
+								hint={emptied}
+								danger
+								onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("資料夾"))}
+							/>
+						</div>
+					</Section>
+				) : null}
+
 
 				<Section title="顯示">
 					<div className="menu toggles">
