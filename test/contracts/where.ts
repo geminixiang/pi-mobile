@@ -59,7 +59,7 @@ export const checks: Check[] = [
 			const android = await seen(true, NATIVE_PLUGINS.filter((plugin) => platform.native.has(plugin)));
 			for (const tool of NATIVE_TOOLS) assert.ok(android.offers(tool), tool);
 			assert.equal(android.place, "phone");
-			assert.match(android.offered, /read it with device_info/);
+			assert.match(android.offered, /starts each user message with when it was sent/);
 		},
 	],
 	[

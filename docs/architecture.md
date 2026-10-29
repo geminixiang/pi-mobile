@@ -99,6 +99,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - Mermaid 用 pele 畫（beautiful-mermaid 的 chunk 是它的兩倍）：它照容器寬度排版（`maxWidth`），橫的流程圖改成直的、圖表縮到螢幕寬，字不會變小，所以要掛上去量到寬度才畫。它跟 Mermaid 一樣嚴格，中文標籤沒加引號的 xychart 會畫不出來，系統提示要模型加引號。
 
 **外部服務**
+- 現在時間不放系統提示：pi-durable 每次請求都重算區段，變了就把整段再送一次，放分鐘會每一輪重送 preamble。`assistant.ts` 的 `beforeRequest` 在送出前，給每一則使用者訊息加上它自己的送出時間（只在這次請求，對話紀錄不變）；時間取自訊息的 timestamp，舊訊息每次都一樣，快取照常命中。模型不用再先呼叫 `device_info` 讀時間。
 - pi-durable 在請求超過 contextWindow 減掉保留量（預設 16k）時壓縮。把使用者的門檻加上保留量回報成 window，就會在門檻壓縮，而不是接近模型上限才壓。
 - Cloudflare 每次 refresh 都換新的 refresh token、作廢舊的，Microsoft 有時也會；新的要在下一次 refresh 之前寫回 Keystore。
 - Google 的 installed-app client secret 是公開的（寫在每一份 Cloud SDK 裡），不是秘密。
