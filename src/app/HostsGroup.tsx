@@ -178,7 +178,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 			const known = hosts.find((host) => host.address === (info.dnsName || name));
 			const host: PairedHost = { ...hostFrom(name, info, known), key };
 			const next = known ? hosts.map((item) => (item.id === known.id ? host : item)) : [...hosts, host];
-			onChange(next, computer || computerKey(host.id, "direct"));
+			onChange(next, computer);
 			setAddress("");
 			setCode("");
 			setAdding({ state: "idle" });
