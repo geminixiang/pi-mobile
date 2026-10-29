@@ -40,7 +40,7 @@ const script = `async () => {
 }`;
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const release = keepPiInFront();
-const out = (await promisify(execFile)("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 26 })).stdout;
+const out = (await promisify(execFile)("./test/device/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 26 })).stdout;
 release();
 const result = JSON.parse(out);
 if (!result.turn) { console.log(out.slice(0, 2000)); process.exit(1); }

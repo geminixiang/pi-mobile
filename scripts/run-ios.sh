@@ -18,4 +18,4 @@ if ! pgrep -q ios_webkit_debug_proxy; then
 	SOCKET=$(lsof -aUc launchd_sim 2> /dev/null | awk '/webinspectord_sim/ { print $NF; exit }')
 	ios_webkit_debug_proxy -s "unix:$SOCKET" > /dev/null 2>&1 &
 fi
-echo "pi mobile on $DEVICE; WEBKIT=1 ./test/ui.sh '<async fn>' drives it"
+echo "pi mobile on $DEVICE; WEBKIT=1 ./test/device/ui.sh '<async fn>' drives it"

@@ -8,7 +8,7 @@ const ANSWERS = 30;
 const [command, serial] = process.argv.slice(2);
 if ((command !== "setup" && command !== "teardown") || !serial) throw new Error("Usage: node test/perf/fixture.ts setup|teardown <adb serial>");
 
-const ui = (body: string) => execFileSync("./test/ui.sh", [`async () => { ${body} }`], { encoding: "utf8", env: process.env });
+const ui = (body: string) => execFileSync("./test/device/ui.sh", [`async () => { ${body} }`], { encoding: "utf8", env: process.env });
 const reloadAndWait = () => {
 	ui(`setTimeout(() => location.reload(), 50); return true;`);
 	execFileSync("sleep", ["6"]);

@@ -4,7 +4,7 @@ cd "$(dirname "$0")/../../../.."
 PORT=$1
 TOOLSET=$2
 [ -n "$PORT" ] && [ -n "$TOOLSET" ] || { echo "usage: toolset-cost.sh <port> <toolset id>" >&2; exit 1; }
-CDP_PORT=$PORT ./test/ui.sh "async () => {
+CDP_PORT=$PORT ./test/device/ui.sh "async () => {
 	const rt = window.piRuntime;
 	await until(() => rt, 40000);
 	const open = async (name) => {

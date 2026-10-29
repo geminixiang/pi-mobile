@@ -21,4 +21,4 @@ const script = `async () => {
 	if (!r.elements) return r;
 	return { ms: Date.now() - t, done: r.done, error: r.error, app: r.app, keyboard: r.keyboard, slow: r.slow, shot: r.jpeg ? Math.round(r.jpeg.length * 0.75 / 1024) + " KB" : r.shotError, elements: r.elements.slice(0, ${Number(width)}) };
 }`;
-process.stdout.write(execFileSync("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 24 }).toString() + "\n");
+process.stdout.write(execFileSync("./test/device/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 24 }).toString() + "\n");

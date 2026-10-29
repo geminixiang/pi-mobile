@@ -68,7 +68,7 @@ cd host && go build -o /tmp/pi-mobile-darwin-arm64 . && PI_MOBILE_URL=file:///tm
 npm run check                                   # 型別檢查
 
 # 手機上的 UI（先跑 run-android.sh 轉發 DevTools）
-CDP_PORT=9333 ./test/ui.sh 'async () => { return (await window.piRuntime.bots()).map((bot) => bot.name); }'
+CDP_PORT=9333 ./test/device/ui.sh 'async () => { return (await window.piRuntime.bots()).map((bot) => bot.name); }'
 ```
 
 ### 效能量測（120 Hz）

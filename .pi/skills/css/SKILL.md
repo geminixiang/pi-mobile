@@ -159,4 +159,4 @@ npm run check                # tsc and stylelint
 npx stylelint "src/**/*.css" --fix
 ```
 
-A visual change is checked on a device (`./test/ui.sh`, screenshots), not only by the linter.
+A visual change is checked on a device (`./test/device/ui.sh`, screenshots), not only by the linter.

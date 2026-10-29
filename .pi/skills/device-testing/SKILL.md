@@ -26,7 +26,7 @@ from `CDP_PORT` (default 9333).
   which is not debuggable: `run-as` fails. On the emulator, `adb root` reads app data
   (`/data/data/dev.geminixiang.pimobile`); `adb unroot` after.
 - **iOS simulator**: `./scripts/run-ios.sh ["iPhone 18 Pro"]` builds, installs, opens, and starts
-  `ios_webkit_debug_proxy` (Homebrew); then `WEBKIT=1 ./test/ui.sh '<async fn>'` drives it like the Android WebView.
+  `ios_webkit_debug_proxy` (Homebrew); then `WEBKIT=1 ./test/device/ui.sh '<async fn>'` drives it like the Android WebView.
   It uses Xcode through `DEVELOPER_DIR`, so `xcode-select` stays on the Command Line Tools. The simulator shares this
   computer's network: the gateway is `http://localhost:8317`. Screenshot with `xcrun simctl io booted screenshot`.
 - **iPad** (iPad Air 5, iPadOS 26.7) and **iPhone** (iPhone 12 Pro, iOS 27.0.1, with Display Zoom: the page is 320
@@ -45,7 +45,7 @@ from `CDP_PORT` (default 9333).
   `xcrun devicectl device install app --device <UDID> ios/App/build/device/Build/Products/Debug-iphoneos/App.app` /
   `process launch` there. To drive it from this Mac, run the CDP bridge on the MacBook Air and forward its port:
   `ssh $MBA 'nohup ~/.local/bin/uvx pymobiledevice3 webinspector cdp --native --port 9223 &'`, then
-  `ssh -f -N -L 9223:localhost:9223 $MBA`; `CDP_PORT=9223 ./test/ui.sh` and `ask.js` work as on Android. The bridge
+  `ssh -f -N -L 9223:localhost:9223 $MBA`; `CDP_PORT=9223 ./test/device/ui.sh` and `ask.js` work as on Android. The bridge
   exits at once with `Web Inspector is disabled` until 設定 › App › Safari › 進階 › 網頁檢閱器 is on.
   `--native` reaches the device through CoreDevice over USB or the local network alike; forwarding usbmuxd works only
   while it is on USB. Unplugged, the iPhone was not found on the MacBook Air's Wi‑Fi: keep it on the cable. Keep the
@@ -69,7 +69,7 @@ from `CDP_PORT` (default 9333).
 | `resume-trace.js <port> <serial> <seconds away> [out]` | Leave pi (HOME, or `AWAY_APP=<package>`) and come back, tracing; `resume-analyze.js <out> [ms]` lists the long tasks. |
 | `toolset-cost.sh <port> <toolset id>` | Prompt tokens one toolset adds to a short request. Every toolset at once: `test/device/tool-cost.sh`. |
 | `phone-screen.js read\|act '<steps>'\|status\|on <serial>` | The phone-screen plugin without a model: what `read_phone_screen` sees (time, app, elements, screenshot size), or run `use_phone_screen` steps such as `'[{action:"open",app:"時鐘"}]'`. `on` turns the accessibility service on over adb. Needs `CDP_PORT`. See docs/research/phone-screen.md. |
-| `phone-folder-check.js` | The bot folder on the phone and its bash, end to end: `CDP_PORT=<port> ./test/ui.sh "$(cat <it>)"`. |
+| `phone-folder-check.js` | The bot folder on the phone and its bash, end to end: `CDP_PORT=<port> ./test/device/ui.sh "$(cat <it>)"`. |
 | `storage-durability.sh <emulator> <port> [apk]` | Whether OPFS and IndexedDB survive a force stop, cache trims, an update, and a nearly full disk. Emulator only. |
 
 ## In the page

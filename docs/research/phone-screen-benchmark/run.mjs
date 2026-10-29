@@ -8,7 +8,7 @@ const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const out = fileURLToPath(new URL("./runs/", import.meta.url));
 mkdirSync(out, { recursive: true });
 const adb = (...args) => execFileSync(`${process.env.HOME}/Library/Android/sdk/platform-tools/adb`, ["-s", serial, ...args]).toString();
-const ui = (fn) => JSON.parse(execFileSync("./test/ui.sh", [fn], { cwd: repo, env: process.env, maxBuffer: 1 << 26 }).toString());
+const ui = (fn) => JSON.parse(execFileSync("./test/device/ui.sh", [fn], { cwd: repo, env: process.env, maxBuffer: 1 << 26 }).toString());
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const TASKS = [

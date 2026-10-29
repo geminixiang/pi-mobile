@@ -24,5 +24,5 @@ const script = `async () => {
 	return { seconds: Math.round((performance.now() - t0) / 1000), steps, answer: [...document.querySelectorAll('.answer')].at(-1)?.innerText.slice(0, 500) };
 }`;
 const release = keepPiInFront();
-process.stdout.write((await promisify(execFile)("./test/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 24 })).stdout + "\n");
+process.stdout.write((await promisify(execFile)("./test/device/ui.sh", [script], { cwd: repo, env: process.env, maxBuffer: 1 << 24 })).stdout + "\n");
 release();

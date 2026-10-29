@@ -9,7 +9,7 @@ case "$SERIAL" in emulator-*) ;; *) echo "emulator only: $SERIAL" >&2; exit 1 ;;
 ADB="$HOME/Library/Android/sdk/platform-tools/adb -s $SERIAL"
 APP=dev.geminixiang.pimobile
 FORWARD="$(dirname "$0")/forward.sh"
-page() { CDP_PORT=$PORT ./test/ui.sh "$1"; }
+page() { CDP_PORT=$PORT ./test/device/ui.sh "$1"; }
 reopen() {
 	$ADB shell am start -n $APP/.MainActivity > /dev/null 2>&1
 	sleep 6
