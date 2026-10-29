@@ -85,7 +85,8 @@ const findPlaces = defineAppTool({
 		const limit = Math.min(args.limit ?? 20, 50);
 		const query = new URLSearchParams({ lat: String(center.latitude), lon: String(center.longitude), limit: String(limit) });
 		const tag = args.category?.replace("=", ":");
-		for (const filter of tag === undefined ? [] : tag.includes(":") ? [tag] : [`amenity:${tag}`, `shop:${tag}`]) query.append("osm_tag", filter);
+		const tags = tag === undefined ? [] : tag.includes(":") ? [tag] : [`amenity:${tag}`, `shop:${tag}`];
+		for (const filter of tags) query.append("osm_tag", filter);
 		const [path, key, value] = args.query ? ["api/", "q", args.query] : ["reverse", "radius", String(Math.min(Math.max(args.radius_km ?? 1, 0.1), 50))];
 		query.set(key, value);
 		const url = `https://photon.komoot.io/${path}?${query}`;
@@ -104,6 +105,10 @@ const findPlaces = defineAppTool({
 			}
 		}
 
+		if (found.length === 0)
+			throw new Error(
+				`Nothing near ${center.label}${tags.length > 0 ? ` tagged ${tags.join(" or ")}` : ""}${args.query ? ` named ${args.query}` : ""}. A category is an OSM tag (a café is amenity:cafe, not coffee): try another tag, a wider radius_km, or a query by name.`,
+			);
 		const places = found
 			.map((feature) => {
 				const p = feature.properties;
@@ -149,11 +154,7 @@ const findPlaces = defineAppTool({
 				.filter(Boolean)
 				.join(" · "),
 		);
-		const body =
-			places.length > 0
-				? [`Near ${center.label}; now ${now}. Distances are straight-line.`, ...lines].join("\n")
-				: `Nothing found near ${center.label}${args.category ? ` for ${args.category}` : ""}${args.query ? ` named ${args.query}` : ""}. Try a wider radius or another tag.`;
-		return { ...text(body), structuredOutput: { near: center.label, now, places } };
+		return { ...text([`Near ${center.label}; now ${now}. Distances are straight-line.`, ...lines].join("\n")), structuredOutput: { near: center.label, now, places } };
 	},
 });
 

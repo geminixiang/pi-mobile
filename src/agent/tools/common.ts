@@ -83,6 +83,8 @@ export function localDate(ms: number): string {
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+export const weekdayOf = (date: string) => new Date(`${date.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+
 export function localTime(ms: number): string {
 	const date = new Date(ms);
 	return `${localDate(ms)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;

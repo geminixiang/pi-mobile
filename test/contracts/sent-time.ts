@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { contentText, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
-import { localTime } from "../../src/agent/tools/common.ts";
+import { localTime, weekdayOf } from "../../src/agent/tools/common.ts";
 import { openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
 
@@ -38,6 +38,12 @@ export const checks: Check[] = [
 			} finally {
 				await runtime.close();
 			}
+		},
+	],
+	[
+		"a date the tools list carries its weekday, so the model does not count days from the send time",
+		async () => {
+			assert.deepEqual(["2026-10-29", "2026-11-01", "2026-11-04 09:00", "2027-01-01"].map(weekdayOf), ["Thu", "Sun", "Wed", "Fri"]);
 		},
 	],
 ];

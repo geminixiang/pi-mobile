@@ -1,5 +1,6 @@
-import { deepStrictEqual, throws } from "node:assert/strict";
+import { deepStrictEqual, match, throws } from "node:assert/strict";
 import { Type } from "typebox";
+import { Value } from "typebox/value";
 import { signatureOf } from "../src/agent/codemode.ts";
 import { validateToolArguments } from "@earendil-works/pi-ai/utils/validation";
 import { oneOf } from "../src/agent/parse.ts";
@@ -25,6 +26,8 @@ const prepare = (args: unknown) => tool.prepareArguments?.(args);
 
 const picker = { name: "picker", description: "", parameters: Type.Object({ data: oneOf(["prices", "margin"]) }) };
 throws(() => validateToolArguments(picker, { type: "toolCall", id: "1", name: "picker", arguments: { data: "price" } }), /must be one of "prices", "margin"/);
+match([...Value.Errors(picker.parameters, "prices")][0]?.message ?? "", /one object of named arguments/);
+match([...Value.Errors(Type.Object({ stocks: Type.Array(Type.String()) }), { stocks: "2330" })][0]?.message ?? "", /an array, even for one value/);
 
 deepStrictEqual(prepare({ need: "", query: "", limit: 0, radius_km: 0, images: false }), { need: "", images: false });
 deepStrictEqual(prepare({ need: "a", query: null, days: [] }), { need: "a" });

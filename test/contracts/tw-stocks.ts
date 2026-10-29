@@ -137,7 +137,7 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"a stock is found by code or name on either market, and an unclear name asks for the code",
+		"a stock is found by code, Yahoo symbol, or name on either market, and an unclear name asks for the code",
 		async () => {
 			const listings = listingsFrom(
 				[
@@ -148,6 +148,8 @@ export const checks: Check[] = [
 				[{ SecuritiesCompanyCode: "6488", CompanyName: "環球晶" }],
 			);
 			assert.deepEqual(findListing(listings, "2330"), tsmc);
+			assert.deepEqual(findListing(listings, "2330.TW"), tsmc);
+			assert.deepEqual(findListing(listings, "6488.two"), gwc);
 			assert.deepEqual(findListing(listings, "環球晶"), gwc);
 			assert.equal(findListing(listings, "高股息").code, "0056");
 			assert.throws(() => findListing(listings, "元大"), /several stocks: 0050 元大台灣50, 0056 元大高股息/);

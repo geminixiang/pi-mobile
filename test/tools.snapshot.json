@@ -152,10 +152,14 @@
 							},
 							"uv_index": {
 								"type": "number"
+							},
+							"weekday": {
+								"type": "string"
 							}
 						},
 						"required": [
 							"date",
+							"weekday",
 							"condition",
 							"low_c",
 							"high_c",
@@ -480,6 +484,9 @@
 									},
 									"volume_shares": {
 										"type": "number"
+									},
+									"weekday": {
+										"type": "string"
 									}
 								},
 								"required": [
@@ -494,7 +501,8 @@
 									"change",
 									"volume_shares",
 									"value_twd",
-									"trades"
+									"trades",
+									"weekday"
 								],
 								"type": "object"
 							},
@@ -530,6 +538,9 @@
 									},
 									"trust_net": {
 										"type": "number"
+									},
+									"weekday": {
+										"type": "string"
 									}
 								},
 								"required": [
@@ -540,7 +551,8 @@
 									"foreign_net",
 									"trust_net",
 									"dealer_net",
-									"total_net"
+									"total_net",
+									"weekday"
 								],
 								"type": "object"
 							},
@@ -576,6 +588,9 @@
 									},
 									"short_change": {
 										"type": "number"
+									},
+									"weekday": {
+										"type": "string"
 									}
 								},
 								"required": [
@@ -586,7 +601,8 @@
 									"margin_balance",
 									"margin_change",
 									"short_balance",
-									"short_change"
+									"short_change",
+									"weekday"
 								],
 								"type": "object"
 							},
@@ -646,6 +662,9 @@
 									},
 									"report_period": {
 										"type": "string"
+									},
+									"weekday": {
+										"type": "string"
 									}
 								},
 								"required": [
@@ -657,7 +676,8 @@
 									"pb",
 									"dividend_yield_pct",
 									"dividend_year",
-									"report_period"
+									"report_period",
+									"weekday"
 								],
 								"type": "object"
 							},
@@ -816,6 +836,9 @@
 									},
 									"volume_shares": {
 										"type": "number"
+									},
+									"weekday": {
+										"type": "string"
 									}
 								},
 								"required": [
@@ -828,7 +851,8 @@
 									"foreign_net_twd",
 									"trust_net_twd",
 									"dealer_net_twd",
-									"total_net_twd"
+									"total_net_twd",
+									"weekday"
 								],
 								"type": "object"
 							},
@@ -2470,6 +2494,10 @@
 							},
 							"title": {
 								"type": "string"
+							},
+							"weekday": {
+								"description": "Of start: Mon to Sun",
+								"type": "string"
 							}
 						},
 						"required": [
@@ -2477,6 +2505,7 @@
 							"title",
 							"all_day",
 							"start",
+							"weekday",
 							"end",
 							"calendar",
 							"account",

@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { Phone } from "../../plugins/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, text } from "./common.ts";
+import { defineAppTool, text, weekdayOf } from "./common.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, resolvePlace } from "./device.ts";
 
@@ -73,6 +73,7 @@ const Forecast = Type.Object({
 const Hour = Type.Object({ time: Type.String(), condition: Type.String(), temperature_c: Type.Number(), rain_chance: Type.Number(), rain_mm: Type.Number() });
 const Day = Type.Object({
 	date: Type.String(),
+	weekday: Type.String(),
 	condition: Type.String(),
 	low_c: Type.Number(),
 	high_c: Type.Number(),
@@ -134,6 +135,7 @@ const weather = defineAppTool({
 		const d = body.daily;
 		const daily = d.time.map((date, i) => ({
 			date,
+			weekday: weekdayOf(date),
 			condition: condition(at(d.weather_code, i)),
 			low_c: at(d.temperature_2m_min, i),
 			high_c: at(d.temperature_2m_max, i),
@@ -150,8 +152,8 @@ const weather = defineAppTool({
 			"Hourly (time condition temp rain-chance rainfall):",
 			...hourly.map((h) => `${h.time} ${h.condition} ${h.temperature_c}°C ${h.rain_chance}% ${h.rain_mm}mm`),
 			"",
-			"Daily (date condition low–high rain-chance rainfall UV sunrise–sunset):",
-			...daily.map((day) => `${day.date} ${day.condition} ${day.low_c}–${day.high_c}°C ${day.rain_chance}% ${day.rain_mm}mm UV ${day.uv_index} ${day.sunrise}–${day.sunset}`),
+			"Daily (date weekday condition low–high rain-chance rainfall UV sunrise–sunset):",
+			...daily.map((day) => `${day.date} ${day.weekday} ${day.condition} ${day.low_c}–${day.high_c}°C ${day.rain_chance}% ${day.rain_mm}mm UV ${day.uv_index} ${day.sunrise}–${day.sunset}`),
 		].join("\n");
 		return { ...text(summary), structuredOutput: { place: point.label, now, hours: hourly, days: daily } };
 	},

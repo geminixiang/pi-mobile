@@ -2,7 +2,7 @@ import { Calendar, type PhoneCalendar, type PhoneEvent } from "../../plugins/cal
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text } from "./common.ts";
+import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text, weekdayOf } from "./common.ts";
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -47,6 +47,7 @@ function formatEvent(event: PhoneEvent) {
 	return {
 		id: event.id,
 		title: event.title,
+		weekday: weekdayOf(startOf(event)),
 		...(event.allDay
 			? { allDay: true as const, date: utcDate(event.begin), ...(event.end - event.begin > DAY ? { lastDate: utcDate(event.end - DAY) } : {}) }
 			: { start: localTime(event.begin), end: localTime(event.end) }),
@@ -87,6 +88,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 					title: Type.String(),
 					all_day: Type.Boolean(),
 					start: Type.String({ description: "Local time YYYY-MM-DD HH:MM, or the date of an all-day event" }),
+					weekday: Type.String({ description: "Of start: Mon to Sun" }),
 					end: Type.String({ description: "Local time YYYY-MM-DD HH:MM, or the last date of an all-day event" }),
 					location: Type.Optional(Type.String()),
 					notes: Type.Optional(Type.String()),
@@ -119,6 +121,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 					title: event.title,
 					all_day: event.allDay,
 					start: startOf(event),
+					weekday: weekdayOf(startOf(event)),
 					end: event.allDay ? utcDate(event.end - DAY) : localTime(event.end),
 					...(event.location ? { location: event.location } : {}),
 					...(event.notes ? { notes: event.notes } : {}),

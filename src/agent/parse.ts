@@ -4,7 +4,12 @@ import { Value } from "typebox/value";
 import { Compile, type Validator } from "typebox/compile";
 
 const english = Locale.Get();
-Locale.Set((error) => (error.keyword === "enum" ? `must be one of ${error.params.allowedValues.map((value) => JSON.stringify(value)).join(", ")}` : english(error)));
+Locale.Set((error) => {
+	if (error.keyword === "enum") return `must be one of ${error.params.allowedValues.map((value) => JSON.stringify(value)).join(", ")}`;
+	if (error.keyword === "type" && error.instancePath === "" && error.params.type === "object") return "must be one object of named arguments, as in tools.weather({ place: \"台北\" }), not positional values";
+	if (error.keyword === "type" && error.params.type === "array") return "must be an array, even for one value: [\"2330\"]";
+	return english(error);
+});
 
 export function oneOf<const T extends readonly string[]>(values: T, options?: TSchemaOptions): TEnum<T[number][]> {
 	return Type.Enum<T[number][]>([...values], { type: "string", ...options });

@@ -1,6 +1,6 @@
-import { type Static, Type } from "typebox";
+import { type Static, type TObject, type TProperties, Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { DAY, defineAppTool, getJson, localDate, parseDay, startOfToday, text } from "./common.ts";
+import { DAY, defineAppTool, getJson, localDate, parseDay, startOfToday, text, weekdayOf } from "./common.ts";
 import { oneOf, parse } from "../parse.ts";
 import { sharedUntilFailure } from "../../promise.ts";
 
@@ -125,6 +125,9 @@ const MarketDay = Type.Object({
 	dealer_net_twd: Nullable,
 	total_net_twd: Nullable,
 });
+const dated = <T extends TProperties>(row: TObject<T>) => Type.Object({ ...row.properties, weekday: Type.String() });
+type Dated<T> = T & { weekday: string };
+const withWeekday = <T extends { date: string }>(rows: readonly T[]): Dated<T>[] => rows.map((row) => ({ ...row, weekday: weekdayOf(row.date) }));
 type Price = Static<typeof Price>;
 type Flow = Static<typeof Flow>;
 type Margin = Static<typeof Margin>;
@@ -254,7 +257,7 @@ export function totalsFrom(market: Market, body: unknown): Pick<MarketDay, "fore
 }
 
 export function findListing(listings: readonly Listing[], wanted: string): Listing {
-	const query = wanted.trim();
+	const query = wanted.trim().replace(/\.TWO?$/i, "");
 	const exact = listings.find((listing) => listing.code === query.toUpperCase() || listing.name === query);
 	if (exact) return exact;
 	const close = listings.filter((listing) => listing.name.includes(query));
@@ -397,7 +400,7 @@ const twStocks = defineAppTool({
 		from: Type.Optional(Type.String({ description: "First date YYYY-MM-DD; default 30 days ago for prices, else the latest trading day; not used for revenue; institutional, margin, valuation and market cover about 10 trading days per call" })),
 		to: Type.Optional(Type.String({ description: "Last date YYYY-MM-DD; default today" })),
 	}),
-	structuredOutputSchema: Type.Object({ rows: Type.Union([Type.Array(Price), Type.Array(Flow), Type.Array(Margin), Type.Array(Valuation), Type.Array(Revenue), Type.Array(MarketDay)]) }),
+	structuredOutputSchema: Type.Object({ rows: Type.Union([Type.Array(dated(Price)), Type.Array(dated(Flow)), Type.Array(dated(Margin)), Type.Array(dated(Valuation)), Type.Array(Revenue), Type.Array(dated(MarketDay))]) }),
 	replay: "safe",
 	execute: async (args, _api, context) => {
 		const signal = context.abortSignal;
@@ -410,26 +413,26 @@ const twStocks = defineAppTool({
 			const rows = await marketDays(days, latest, signal);
 			const lines = rows.map(
 				(row) =>
-					`${row.date} ${MARKETS[row.market].label} ${row.index ?? "-"} ${row.change === null ? "-" : signed(row.change)} ${(row.value_twd / 1e8).toFixed(1)} ${hundredMillions(row.foreign_net_twd)} ${hundredMillions(row.trust_net_twd)} ${hundredMillions(row.dealer_net_twd)} ${hundredMillions(row.total_net_twd)}`,
+					`${row.date} ${weekdayOf(row.date)} ${MARKETS[row.market].label} ${row.index ?? "-"} ${row.change === null ? "-" : signed(row.change)} ${(row.value_twd / 1e8).toFixed(1)} ${hundredMillions(row.foreign_net_twd)} ${hundredMillions(row.trust_net_twd)} ${hundredMillions(row.dealer_net_twd)} ${hundredMillions(row.total_net_twd)}`,
 			);
 			return {
-				...text(rows.length === 0 ? `no trading days ${unpublished}` : ["date market index change turnover foreign trust dealer total (NT$ 100 million, 億; - = not published yet)", ...lines].join("\n")),
-				structuredOutput: { rows },
+				...text(rows.length === 0 ? `no trading days ${unpublished}` : ["date weekday market index change turnover foreign trust dealer total (NT$ 100 million, 億; - = not published yet)", ...lines].join("\n")),
+				structuredOutput: { rows: withWeekday(rows) },
 			};
 		}
 		if (!args.stocks) throw new Error(`stocks is required for ${args.data}`);
 		const directory = await listings(signal);
 		const stocks = args.stocks.map((wanted) => findListing(directory, wanted));
 		const header = stocks.map((stock) => `${stock.code} ${stock.name}（${MARKETS[stock.market].label}）`).join("、");
-		const reply = (rows: Price[] | Flow[] | Margin[] | Valuation[] | Revenue[], lines: string[], empty: string) => {
+		const reply = (rows: Dated<Price>[] | Dated<Flow>[] | Dated<Margin>[] | Dated<Valuation>[] | Revenue[], lines: string[], empty: string) => {
 			const absent = stocks.filter((stock) => !rows.some((row) => row.code === stock.code)).map((stock) => `${stock.code} ${stock.name}`);
 			const note = rows.length > 0 && absent.length > 0 ? [`no ${args.data} data for ${absent.join(", ")}${args.data === "valuation" ? " (ETFs have no P/E)" : ""}`] : [];
 			return { ...text(rows.length === 0 ? `${header}: ${empty}` : [header, ...lines, ...note].join("\n")), structuredOutput: { rows } };
 		};
 		if (args.data === "prices") {
 			const rows = await prices(stocks, from ?? to - 30 * DAY, to, signal);
-			const lines = rows.map((row) => `${row.date} ${row.code} ${row.name} ${row.open ?? "-"} ${row.high ?? "-"} ${row.low ?? "-"} ${row.close ?? "-"} ${row.change === null ? "-" : signed(row.change)} ${lots(row.volume_shares)}`);
-			return reply(rows, ["date code name open high low close change volume(lots)", ...lines], "no trading days in that range.");
+			const lines = rows.map((row) => `${row.date} ${weekdayOf(row.date)} ${row.code} ${row.name} ${row.open ?? "-"} ${row.high ?? "-"} ${row.low ?? "-"} ${row.close ?? "-"} ${row.change === null ? "-" : signed(row.change)} ${lots(row.volume_shares)}`);
+			return reply(withWeekday(rows), ["date weekday code name open high low close change volume(lots)", ...lines], "no trading days in that range.");
 		}
 		if (args.data === "revenue") {
 			const rows = await revenues(stocks, signal);
@@ -439,17 +442,17 @@ const twStocks = defineAppTool({
 		const empty = `no ${args.data} data ${unpublished}`;
 		if (args.data === "institutional") {
 			const rows = await daily<Flow>("institutional", flowsFrom, stocks, days, latest, signal);
-			const lines = rows.map((row) => `${row.date} ${row.code} ${row.name} ${signed(row.foreign_net)} ${signed(row.trust_net)} ${signed(row.dealer_net)} ${signed(row.total_net)}`);
-			return reply(rows, ["date code name foreign trust dealer total (net shares)", ...lines], empty);
+			const lines = rows.map((row) => `${row.date} ${weekdayOf(row.date)} ${row.code} ${row.name} ${signed(row.foreign_net)} ${signed(row.trust_net)} ${signed(row.dealer_net)} ${signed(row.total_net)}`);
+			return reply(withWeekday(rows), ["date weekday code name foreign trust dealer total (net shares)", ...lines], empty);
 		}
 		if (args.data === "valuation") {
 			const rows = await daily<Valuation>("valuation", valuationsFrom, stocks, days, latest, signal);
-			const lines = rows.map((row) => `${row.date} ${row.code} ${row.name} ${row.pe ?? "-"} ${row.pb ?? "-"} ${row.dividend_yield_pct ?? "-"}% ${row.dividend_year} ${row.report_period}`);
-			return reply(rows, ["date code name P/E P/B yield dividend-year report (P/E - = loss or no earnings)", ...lines], empty);
+			const lines = rows.map((row) => `${row.date} ${weekdayOf(row.date)} ${row.code} ${row.name} ${row.pe ?? "-"} ${row.pb ?? "-"} ${row.dividend_yield_pct ?? "-"}% ${row.dividend_year} ${row.report_period}`);
+			return reply(withWeekday(rows), ["date weekday code name P/E P/B yield dividend-year report (P/E - = loss or no earnings)", ...lines], empty);
 		}
 		const rows = await daily<Margin>("margin", marginsFrom, stocks, days, latest, signal);
-		const lines = rows.map((row) => `${row.date} ${row.code} ${row.name} ${row.margin_balance.toLocaleString("en-US")} (${signed(row.margin_change)}) ${row.short_balance.toLocaleString("en-US")} (${signed(row.short_change)})`);
-		return reply(rows, ["date code name margin-balance (change) short-balance (change) (lots)", ...lines], empty);
+		const lines = rows.map((row) => `${row.date} ${weekdayOf(row.date)} ${row.code} ${row.name} ${row.margin_balance.toLocaleString("en-US")} (${signed(row.margin_change)}) ${row.short_balance.toLocaleString("en-US")} (${signed(row.short_change)})`);
+		return reply(withWeekday(rows), ["date weekday code name margin-balance (change) short-balance (change) (lots)", ...lines], empty);
 	},
 });
 
