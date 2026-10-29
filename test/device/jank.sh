@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 ADB="${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}"
 SERIAL=$1
 PORT=$2

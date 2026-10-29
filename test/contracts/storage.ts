@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { MemoryStorage, type Storage } from "@earendil-works/pi-durable";
 import type { ConversationId } from "../../src/agent/runtime.ts";
-import { surviveSuspension } from "../../src/storage.ts";
+import { surviveSuspension } from "../../src/app/storage.ts";
 import { entriesOf, keepOpen, openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
 

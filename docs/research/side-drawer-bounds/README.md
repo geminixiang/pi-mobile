@@ -1,10 +1,10 @@
 # 側欄展開邊界
 
-2026-10-28 起被取代：側欄不再用 Base UI Drawer，改成自己的手勢（`src/app/SidePanel.tsx`、`sideGesture.ts`），位置夾在 0 到 1 之間，所以不需要這個 patch；`vite-plugins/side-drawer-bounds.ts` 和 `test/side-panel-patches.ts` 已移除。原因與量測見 [../iphone.md](../iphone.md)。`test/side-panels.mjs` 仍是側欄的真實觸控測試。下面是當時的紀錄。
+2026-10-28 起被取代：側欄不再用 Base UI Drawer，改成自己的手勢（`src/app/SidePanel.tsx`、`sideGesture.ts`），位置夾在 0 到 1 之間，所以不需要這個 patch；`vite-plugins/side-drawer-bounds.ts` 和 `test/side-panel-patches.ts` 已移除。原因與量測見 [../iphone.md](../iphone.md)。`test/device/side-panels.mjs` 仍是側欄的真實觸控測試。下面是當時的紀錄。
 
 ## 症狀與重現
 
-S24 的左右側欄完全展開後，再往展開方向拉，仍會越過邊界。`test/side-panels.mjs` 透過 WebView CDP 發送真實 touch 事件，在手指尚未放開時量測 popup 的位置與寬度。
+S24 的左右側欄完全展開後，再往展開方向拉，仍會越過邊界。`test/device/side-panels.mjs` 透過 WebView CDP 發送真實 touch 事件，在手指尚未放開時量測 popup 的位置與寬度。
 
 修前：左側 x 從 0 → 14.708 px；右側 x 從 50.401 → 35.693 px。寬度沒有變，問題是整個側欄位移，不是被改寬。兩側都能穩定重現。
 
@@ -58,7 +58,7 @@ S24、120 Hz、暫時的空白測試 Bot，panel 場景各暖機一次、測五�
 先在裝置開啟名稱以 `test`、`tmp` 或「測試」開頭的 Bot，收起所有側欄，再轉發 DevTools：
 
 ```sh
-CDP_PORT=9333 node test/side-panels.mjs
+CDP_PORT=9333 node test/device/side-panels.mjs
 node test/side-panel-patches.ts
 npm run check
 ```

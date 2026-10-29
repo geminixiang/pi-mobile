@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 PORT=$1
 shift
 SERVICES=$(for service in "$@"; do printf '"%s",' "$service"; done)

@@ -4,6 +4,7 @@ import { check, type Checked, parse, parseJson, valueOrThrow } from "./parse.ts"
 import { sleep } from "@earendil-works/pi-ai/utils/sleep";
 import { orLogged } from "../promise.ts";
 import { randomBase64Url, toBase64Url } from "../encoding.ts";
+import { Loopback } from "../plugins/loopback.ts";
 
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
 
@@ -177,4 +178,13 @@ export function jwtPayload(token: string): unknown {
 	const part = token.split(".")[1];
 	if (!part) return {};
 	return parseJson(atob(part.replace(/-/g, "+").replace(/_/g, "/")), "JWT");
+}
+
+export async function listenForRedirect(at: { port: number; path: string }, onRedirect: (url: URL) => void): Promise<() => Promise<void>> {
+	await Loopback.start(at);
+	const handle = await Loopback.addListener("redirect", ({ url }) => onRedirect(new URL(url)));
+	return async () => {
+		await handle.remove();
+		await Loopback.stop();
+	};
 }

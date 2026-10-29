@@ -1,6 +1,6 @@
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { requireAccess } from "../../notifications-plugin.ts";
+import { requireAccess } from "../notification-access.ts";
 import { type ActiveNotification, Notifications, type RecordedNotification } from "../../plugins/notifications.ts";
 import { defineAppTool, HOUR, localTime, text } from "./common.ts";
 

@@ -90,7 +90,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - 鬧鐘觸發後的短暫豁免期內才能啟動前景服務，所以 `TriggerReceiver` 一收到就先啟動服務。
 - 返回鍵用 `@capacitor/app` 的 backButton 事件，不用瀏覽器 history：Chromium 會跳過頁面自己推的 history。
 
-**效能（S24，`test/jank.sh`；2026-10 起用 `test/perf/run.ts`，見 development.md）**
+**效能（S24，`test/device/jank.sh`；2026-10 起用 `test/perf/run.ts`，見 development.md）**
 - 對話的每一則訊息都 memo：Chat 每個按鍵、每個串流 token 都會重繪，全部重算 Markdown 時打字每鍵要 30–40 ms。
 - `EntryView` 的 memo 只比對這則訊息自己的工具呼叫狀態，不比對整個 `calls`：送出和回答完成時對話紀錄會變，`calls` 每次都是新的 Map，原本會讓每一則訊息重新解析 Markdown，一次約 230 ms。
 - 串流中只解析正在寫的段落（以程式碼區塊外的空行切開），已完成的段落 memo；每幀全文解析會掉 3% 的幀。文字一陣一陣到（約 150 ms 一批），`useSmoothText` 每幀補一點，在一批的間隔內追上。串流的字不做淡入：每個字一個 `<span>` 加 opacity 動畫，在 120 Hz 下串流時有 61% 的幀超時，拿掉後 9%。
@@ -132,7 +132,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/agent/workplaces.ts`、`src/agent/sandbox/` | `Workplaces.at(bot)` 回答一個 Bot 在哪裡工作（手機、電腦直接或容器、已移除的電腦），帶著它的執行環境；pi-env 的 frame 協定、檔案與 git |
 | `src/agent/platform.ts` | `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。App 給 Capacitor 的實作，`test/contracts/` 給記憶體的 |
 | `src/agent/parse.ts` | 邊界驗證（typebox） |
-| `src/storage.ts`、`src/idb.ts`、`src/settings.ts` | pi-durable 的 IndexedDB 儲存、其他 IndexedDB 資料、設定（密鑰在 Keystore） |
+| `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
 | `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.java` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI |
@@ -140,4 +140,4 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、`mcp computer`，與安裝腳本 |
 | `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
-| `test/` | 手機上的 UI 測試（CDP）、工具介面的檢查；`contracts/` 用假的模型和記憶體的 `Platform` 開一個真的 `AgentRuntime`，驗生命週期的約定 |
+| `test/` | 工具和 plugin 介面的檢查、單元測試；`contracts/` 用假的模型和記憶體的 `Platform` 開一個真的 `AgentRuntime`，驗生命週期的約定；`device/` 在手機上操作和量測 app（`ui.sh` 經 CDP 或 WebKit 執行頁面函式、`tool-cost.sh`、`jank.sh`）；`perf/` 是 S24 的效能量測 |

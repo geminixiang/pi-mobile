@@ -5,7 +5,7 @@ import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, parseClock, text } from "./common.ts";
 import { oneOf } from "../parse.ts";
 import { toBase64 } from "../../encoding.ts";
-import { mimeTypeOf } from "../../mime.ts";
+import { mimeTypeOf } from "../mime.ts";
 
 async function launch(action: () => Promise<void>): Promise<void> {
 	if (!(await App.getState()).isActive)

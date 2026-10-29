@@ -22,7 +22,7 @@ import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, T
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, toBase64 } from "../../encoding.ts";
-import { shellQuote } from "../../shell.ts";
+import { shellQuote } from "../shell.ts";
 import { HOUR } from "../tools/common.ts";
 
 const TEMP_DIR = "/tmp";

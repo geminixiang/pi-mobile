@@ -12,7 +12,7 @@ import { type Static, Type } from "typebox";
 import { decode, decodeEach } from "./parse.ts";
 import { type McpSession, nativeFetch, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
-import { listenForRedirect } from "../loopback-plugin.ts";
+import { listenForRedirect } from "./oauth.ts";
 import { messageOf, onFailure, orLogged, serially, settled } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;

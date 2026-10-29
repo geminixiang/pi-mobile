@@ -90,6 +90,6 @@ Finish with task.finish({ keep: [] }) unless the user wants the page left open.
 
 其他要做的：
 
-- 在 `docs/tools.md` 量這段提示的成本，加上第一次跑 `ego-browser skill` 的那 6k tokens（`test/tool-cost.sh`），再決定要不要改成 pi mobile 自己附一份精簡版。精簡版比較省，但指南是跟著 ego lite 版本走的（SKILL.md 要模型每次 upgrade 後重讀），自己附的版本可能跟裝著的對不上。
+- 在 `docs/tools.md` 量這段提示的成本，加上第一次跑 `ego-browser skill` 的那 6k tokens（`test/device/tool-cost.sh`），再決定要不要改成 pi mobile 自己附一份精簡版。精簡版比較省，但指南是跟著 ego lite 版本走的（SKILL.md 要模型每次 upgrade 後重讀），自己附的版本可能跟裝著的對不上。
 - `/info` 可以回報有沒有 `ego-browser`、版本多少，手機就能在 Bot 面板顯示，提示也可以直接寫有沒有，不必讓模型自己 `command -v`。
 - space 和 Page 標籤留在 ego lite 裡，不在對話裡。對話壓縮後，印過的 `spaceId` 可能不見了，但只要名稱是固定的，`taskSpace(name)` 還是能接回同一個 space（第 125 行）。

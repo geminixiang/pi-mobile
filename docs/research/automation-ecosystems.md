@@ -85,7 +85,7 @@ pi 已能接有 OAuth 的 MCP，所以這是**加資料、照「新工具上線�
 - **Activepieces**：自架網址，同 Home Assistant；雲端版是固定網址。
 - **Zapier**：已在市集；說明加上「每次成功呼叫扣 2 個 task」。
 
-驗證：各自在 S24 上登入、`test/tool-cost.sh` 量工具定義、用一般說法問兩三題（例如「客廳燈關掉」「我的 IFTTT 有哪些 Applet」）。
+驗證：各自在 S24 上登入、`test/device/tool-cost.sh` 量工具定義、用一般說法問兩三題（例如「客廳燈關掉」「我的 IFTTT 有哪些 Applet」）。
 
 ### B1. 一個收外部事件的入口
 

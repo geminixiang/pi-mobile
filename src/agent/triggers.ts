@@ -8,7 +8,7 @@ import { type Static, Type } from "typebox";
 import { DAY, defineAppTool, localTime, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
 import { oneOf } from "./parse.ts";
 import { resolvePlace } from "./tools/device.ts";
-import { requireAccess } from "../notifications-plugin.ts";
+import { requireAccess } from "./notification-access.ts";
 import { Notifications } from "../plugins/notifications.ts";
 import { messageOf, serially } from "../promise.ts";
 import type { Judge } from "./judge.ts";

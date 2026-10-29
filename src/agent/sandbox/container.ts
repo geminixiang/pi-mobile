@@ -10,7 +10,7 @@ import { lost, type OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, sleep, untilFailure, whilePending } from "../../promise.ts";
 import { decode } from "../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
-import { shellQuote } from "../../shell.ts";
+import { shellQuote } from "../shell.ts";
 
 const CONTAINER = "pim-main";
 const LABEL = "pi-mobile=1";

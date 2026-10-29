@@ -36,7 +36,7 @@ Effect 呼叫 `prepare()`；它立即用新的物件更新 preparing state，引
 | 空白測試 Bot 的 renderer CPU | 110%、108%、116% | 0%、0%、1%、1%、1% |
 | DevTools 操作 | 後續 Runtime.evaluate／Page.addScript 逾時 | 正常完成 |
 | 手機／直接／容器切換 | 容器會持續重繪 | 三輪、共九次切換通過 |
-| 側欄 | 原先關閉後仍可能卡住 | `test/side-panels.mjs` 真實觸控回歸通過 |
+| 側欄 | 原先關閉後仍可能卡住 | `test/device/side-panels.mjs` 真實觸控回歸通過 |
 | 輸入框 | 原對話文字無法正常輸入 | 空白 Bot 與原長對話均可輸入、還原草稿 |
 | 原長對話冷啟動 | 曾重現輸入卡住及高 CPU | 保留容器選擇，100 次解析穩定，CPU 0%、1%、0% |
 

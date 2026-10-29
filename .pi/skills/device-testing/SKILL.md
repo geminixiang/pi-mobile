@@ -6,8 +6,8 @@ description: Test and measure pi-mobile on an Android phone or the emulator over
 # Device testing
 
 The app runs in a WebView; everything here drives it over the Chrome DevTools Protocol (CDP) through a forwarded
-port. Scripts are in `scripts/` next to this file; paths below are from the repo root. `test/ui.sh` (with
-`test/ui.js`: `sleep`, `click(label)`, `type(text)`, `until(fn)`, `busy()`) runs one page function, and reads the port
+port. Scripts are in `scripts/` next to this file; paths below are from the repo root. `test/device/ui.sh` (with
+`test/device/ui.js`: `sleep`, `click(label)`, `type(text)`, `until(fn)`, `busy()`) runs one page function, and reads the port
 from `CDP_PORT` (default 9333).
 
 ## Devices
@@ -67,7 +67,7 @@ from `CDP_PORT` (default 9333).
 | `inject.js <port> [--gesture] <file.js>…` | Evaluate files in the page; for probes with a bundled library, or APIs that need a user gesture. |
 | `startup-trace.js <port> [--log]` | Reload and time the start: when the transcript showed, and each native plugin call before it. |
 | `resume-trace.js <port> <serial> <seconds away> [out]` | Leave pi (HOME, or `AWAY_APP=<package>`) and come back, tracing; `resume-analyze.js <out> [ms]` lists the long tasks. |
-| `toolset-cost.sh <port> <toolset id>` | Prompt tokens one toolset adds to a short request. Every toolset at once: `test/tool-cost.sh`. |
+| `toolset-cost.sh <port> <toolset id>` | Prompt tokens one toolset adds to a short request. Every toolset at once: `test/device/tool-cost.sh`. |
 | `phone-screen.js read\|act '<steps>'\|status\|on <serial>` | The phone-screen plugin without a model: what `read_phone_screen` sees (time, app, elements, screenshot size), or run `use_phone_screen` steps such as `'[{action:"open",app:"時鐘"}]'`. `on` turns the accessibility service on over adb. Needs `CDP_PORT`. See docs/research/phone-screen.md. |
 | `phone-folder-check.js` | The bot folder on the phone and its bash, end to end: `CDP_PORT=<port> ./test/ui.sh "$(cat <it>)"`. |
 | `storage-durability.sh <emulator> <port> [apk]` | Whether OPFS and IndexedDB survive a force stop, cache trims, an update, and a nearly full disk. Emulator only. |

@@ -1,5 +1,5 @@
 import type { HttpRequest, HttpResponse } from "./protocol.ts";
-import { headerRecord, NULL_BODY_STATUS } from "../../http.ts";
+import { headerRecord, NULL_BODY_STATUS } from "../http.ts";
 
 type AskHttp = (request: HttpRequest) => Promise<HttpResponse>;
 export type FolderFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;

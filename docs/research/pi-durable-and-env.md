@@ -69,7 +69,7 @@
 ## pi-ai
 
 - **中止**：`signal` 中止串流後，結果的 `stopReason` 是 `aborted`，已經收到的部分內容和 usage 都還在，可以放回對話繼續（README § Aborting Requests、§ Continuing After Abort）。
-- **自訂 provider 和 fetch**：我們包了 `streamFetch`（`src/stream-fetch.ts`），讓 ChatGPT 訂閱登入的串流走原生 HTTP（`src/agent/chatgpt.ts:148–149`）；MCP 的 HTTP 也用原生 fetch（`nativeFetch`），因為 WebView 的 fetch 會被 CORS 擋。
+- **自訂 provider 和 fetch**：我們包了 `streamFetch`（`src/agent/stream-fetch.ts`），讓 ChatGPT 訂閱登入的串流走原生 HTTP（`src/agent/chatgpt.ts:148–149`）；MCP 的 HTTP 也用原生 fetch（`nativeFetch`），因為 WebView 的 fetch 會被 CORS 擋。
 - pi-ai 支援 image generation、classification 等功能（README 目錄），我們目前沒有用。
 
 ## 我們有沒有逆著用

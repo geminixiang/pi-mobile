@@ -1,7 +1,7 @@
 import { type Command, defineCommand, type ExecResult, type ResolvedCommandContext } from "just-bash/browser";
 import type { FolderFetch } from "./folder-fetch.ts";
 import { jsonOrText } from "../parse.ts";
-import { shellQuote } from "../../shell.ts";
+import { shellQuote } from "../shell.ts";
 
 const API = "https://api.github.com";
 const DEFAULT_LIMIT = 30;

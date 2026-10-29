@@ -4,7 +4,7 @@ import type { Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
-import { openAppStorage } from "../storage.ts";
+import { openAppStorage } from "./storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
