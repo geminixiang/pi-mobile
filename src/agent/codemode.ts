@@ -57,6 +57,34 @@ export function signatureOf(tool: { name: string; parameters: unknown }): string
 	return `${tool.name}(${names.map((name) => (needed.has(name) ? name : `${name}?`)).join(", ")})`;
 }
 
+const STATEMENT = /^(?:return|throw|if|for|while|do|switch|try|function|async\s+function|class|import|export|break|continue|else|case|default|const|let|var)\b/;
+const DECLARED = /^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/;
+
+function compiles(code: string): boolean {
+	try {
+		// why: building the function compiles the script the way the sandbox wraps it, without running it, so a rewrite that breaks the syntax is caught here.
+		new Function(`return (async (tools, console) => {${code}\n})`);
+		return true;
+	} catch (error) {
+		if (error instanceof SyntaxError) return false;
+		throw error;
+	}
+}
+
+export function returnLast(code: string): string {
+	const lines = code.split("\n");
+	const meaningful = (line: string) => line.trim() !== "" && !line.trim().startsWith("//");
+	const indent = (line: string) => line.length - line.trimStart().length;
+	const top = Math.min(...lines.filter(meaningful).map(indent));
+	const index = lines.findLastIndex((line) => meaningful(line) && indent(line) === top && !/^[)\]}.?]/.test(line.trim()));
+	const head = lines[index]?.trimStart();
+	if (head === undefined) return code;
+	const declared = DECLARED.exec(head)?.[1];
+	if (!declared && STATEMENT.test(head)) return code;
+	const rewritten = declared ? `${code}\nreturn ${declared}` : lines.map((line, at) => (at === index ? line.replace(head, `return ${head}`) : line)).join("\n");
+	return compiles(code) && compiles(rewritten) ? rewritten : code;
+}
+
 export function withSilenceHint(result: ToolExecutionResult): ToolExecutionResult {
 	const [header, ...shown] = result.output ?? [];
 	if (result.isError || shown.length > 0 || header?.type !== "text") return result;
@@ -74,7 +102,7 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 	const codemode = createCodemodeTool({ sandbox, models: false });
 	return defineExtension({
 		name: "codemode",
-		tools: [{ ...codemode, execute: async (...call: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute(...call)) }],
+		tools: [{ ...codemode, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) }],
 		sections: [
 			section("codemode", (input) => {
 				const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
