@@ -45,9 +45,13 @@ function lastUserText(body: unknown): string {
 	const messages = (body as { messages?: { role: string; content: unknown }[] }).messages ?? [];
 	const last = [...messages].reverse().find((message) => message.role === "user");
 	if (!last) return "";
-	if (typeof last.content === "string") return last.content;
-	if (Array.isArray(last.content)) return last.content.map((part: { text?: string }) => part.text ?? "").join("");
+	if (typeof last.content === "string") return withoutSentTime(last.content);
+	if (Array.isArray(last.content)) return withoutSentTime(last.content.map((part: { text?: string }) => part.text ?? "").join(""));
 	return "";
+}
+
+function withoutSentTime(text: string): string {
+	return text.replace(/^\[[^\]]*\]\s*/, "");
 }
 
 function chunk(content: string | undefined, finish?: string): string {
