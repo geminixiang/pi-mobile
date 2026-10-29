@@ -1,9 +1,10 @@
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension, section, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
 import type { FromWorker, ToWorker } from "./codemode-worker.ts";
 
 const MEMORY_LIMIT_BYTES = 128 * 1024 * 1024;
+const NOTHING_SHOWN = "Nothing came back: only what the script returns, text()s, or console.log()s reaches you. End it with `return <value>`.";
 const INTERRUPT_BUDGET = 1_000_000;
 
 class WorkerRemote implements CodemodeRemote {
@@ -56,6 +57,12 @@ export function signatureOf(tool: { name: string; parameters: unknown }): string
 	return `${tool.name}(${names.map((name) => (needed.has(name) ? name : `${name}?`)).join(", ")})`;
 }
 
+export function withSilenceHint(result: ToolExecutionResult): ToolExecutionResult {
+	const [header, ...shown] = result.output ?? [];
+	if (result.isError || shown.length > 0 || header?.type !== "text") return result;
+	return { ...result, output: [header, { type: "text", text: NOTHING_SHOWN }] };
+}
+
 const remote = new WorkerRemote();
 
 export function createPhoneCodemode(label: (extension: string, conversationId: string) => string | undefined) {
@@ -64,9 +71,10 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 		interruptBudget: INTERRUPT_BUDGET,
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
+	const codemode = createCodemodeTool({ sandbox, models: false });
 	return defineExtension({
 		name: "codemode",
-		tools: [createCodemodeTool({ sandbox, models: false })],
+		tools: [{ ...codemode, execute: async (...call: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute(...call)) }],
 		sections: [
 			section("codemode", (input) => {
 				const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));

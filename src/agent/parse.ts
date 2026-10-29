@@ -1,13 +1,13 @@
-import { type Static, type TLiteral, type TLiteralValue, type TSchema, type TSchemaOptions, type TUnion, Type } from "typebox";
+import { type Static, type TEnum, type TSchema, type TSchemaOptions, Type } from "typebox";
+import { Locale } from "typebox/system";
 import { Value } from "typebox/value";
 import { Compile, type Validator } from "typebox/compile";
 
-type Literals<T extends readonly TLiteralValue[]> = { -readonly [K in keyof T]: T[K] extends TLiteralValue ? TLiteral<T[K]> : never };
+const english = Locale.Get();
+Locale.Set((error) => (error.keyword === "enum" ? `must be one of ${error.params.allowedValues.map((value) => JSON.stringify(value)).join(", ")}` : english(error)));
 
-export function oneOf<const T extends readonly TLiteralValue[]>(values: T, options?: TSchemaOptions): TUnion<Literals<T>> {
-	// why: typebox's Static of a Union is never unless the members are a tuple type, and Array.map returns an array type, so the schemas built from a const list need their tuple type restored.
-	const literals = values.map((value) => Type.Literal(value)) as unknown as [...Literals<T>];
-	return Type.Union<Literals<T>>(literals, options);
+export function oneOf<const T extends readonly string[]>(values: T, options?: TSchemaOptions): TEnum<T[number][]> {
+	return Type.Enum<T[number][]>([...values], { type: "string", ...options });
 }
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; problem: string };

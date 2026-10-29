@@ -68,21 +68,13 @@
 					"type": "string"
 				},
 				"mode": {
-					"anyOf": [
-						{
-							"const": "driving",
-							"type": "string"
-						},
-						{
-							"const": "walking",
-							"type": "string"
-						},
-						{
-							"const": "cycling",
-							"type": "string"
-						}
+					"description": "How the user goes",
+					"enum": [
+						"driving",
+						"walking",
+						"cycling"
 					],
-					"description": "How the user goes"
+					"type": "string"
 				},
 				"origin": {
 					"description": "Address, place name, or lat,lng; default the current location",
@@ -373,33 +365,16 @@
 		"parameters": {
 			"properties": {
 				"data": {
-					"anyOf": [
-						{
-							"const": "prices",
-							"type": "string"
-						},
-						{
-							"const": "institutional",
-							"type": "string"
-						},
-						{
-							"const": "margin",
-							"type": "string"
-						},
-						{
-							"const": "valuation",
-							"type": "string"
-						},
-						{
-							"const": "revenue",
-							"type": "string"
-						},
-						{
-							"const": "market",
-							"type": "string"
-						}
+					"description": "prices: daily open, high, low, close, change and volume; institutional: foreign, investment trust and dealer net buying in shares; margin: margin and short balances in lots (張); valuation: P/E, P/B and dividend yield; revenue: the latest month's revenue with month-on-month, year-on-year and year-to-date growth; market: both indexes, turnover and institutional net buying in NT$, no stocks needed",
+					"enum": [
+						"prices",
+						"institutional",
+						"margin",
+						"valuation",
+						"revenue",
+						"market"
 					],
-					"description": "prices: daily open, high, low, close, change and volume; institutional: foreign, investment trust and dealer net buying in shares; margin: margin and short balances in lots (張); valuation: P/E, P/B and dividend yield; revenue: the latest month's revenue with month-on-month, year-on-year and year-to-date growth; market: both indexes, turnover and institutional net buying in NT$, no stocks needed"
+					"type": "string"
 				},
 				"from": {
 					"description": "First date YYYY-MM-DD; default 30 days ago for prices, else the latest trading day; not used for revenue; institutional, margin, valuation and market cover about 10 trading days per call",
@@ -478,16 +453,11 @@
 										]
 									},
 									"market": {
-										"anyOf": [
-											{
-												"const": "twse",
-												"type": "string"
-											},
-											{
-												"const": "tpex",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"twse",
+											"tpex"
+										],
+										"type": "string"
 									},
 									"name": {
 										"type": "string"
@@ -546,16 +516,11 @@
 										"type": "number"
 									},
 									"market": {
-										"anyOf": [
-											{
-												"const": "twse",
-												"type": "string"
-											},
-											{
-												"const": "tpex",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"twse",
+											"tpex"
+										],
+										"type": "string"
 									},
 									"name": {
 										"type": "string"
@@ -597,16 +562,11 @@
 										"type": "number"
 									},
 									"market": {
-										"anyOf": [
-											{
-												"const": "twse",
-												"type": "string"
-											},
-											{
-												"const": "tpex",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"twse",
+											"tpex"
+										],
+										"type": "string"
 									},
 									"name": {
 										"type": "string"
@@ -655,16 +615,11 @@
 										]
 									},
 									"market": {
-										"anyOf": [
-											{
-												"const": "twse",
-												"type": "string"
-											},
-											{
-												"const": "tpex",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"twse",
+											"tpex"
+										],
+										"type": "string"
 									},
 									"name": {
 										"type": "string"
@@ -715,16 +670,11 @@
 										"type": "string"
 									},
 									"market": {
-										"anyOf": [
-											{
-												"const": "twse",
-												"type": "string"
-											},
-											{
-												"const": "tpex",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"twse",
+											"tpex"
+										],
+										"type": "string"
 									},
 									"mom_pct": {
 										"anyOf": [
@@ -835,16 +785,11 @@
 										]
 									},
 									"market": {
-										"anyOf": [
-											{
-												"const": "twse",
-												"type": "string"
-											},
-											{
-												"const": "tpex",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"twse",
+											"tpex"
+										],
+										"type": "string"
 									},
 									"total_net_twd": {
 										"anyOf": [
@@ -1017,36 +962,16 @@
 				"repeat": {
 					"description": "Weekdays to repeat on; omit for once",
 					"items": {
-						"anyOf": [
-							{
-								"const": "sun",
-								"type": "string"
-							},
-							{
-								"const": "mon",
-								"type": "string"
-							},
-							{
-								"const": "tue",
-								"type": "string"
-							},
-							{
-								"const": "wed",
-								"type": "string"
-							},
-							{
-								"const": "thu",
-								"type": "string"
-							},
-							{
-								"const": "fri",
-								"type": "string"
-							},
-							{
-								"const": "sat",
-								"type": "string"
-							}
-						]
+						"enum": [
+							"sun",
+							"mon",
+							"tue",
+							"wed",
+							"thu",
+							"fri",
+							"sat"
+						],
+						"type": "string"
 					},
 					"type": "array"
 				},
@@ -1198,25 +1123,14 @@
 					"type": "string"
 				},
 				"mode": {
-					"anyOf": [
-						{
-							"const": "driving",
-							"type": "string"
-						},
-						{
-							"const": "walking",
-							"type": "string"
-						},
-						{
-							"const": "transit",
-							"type": "string"
-						},
-						{
-							"const": "bicycling",
-							"type": "string"
-						}
+					"description": "How the user goes; default the maps app's",
+					"enum": [
+						"driving",
+						"walking",
+						"transit",
+						"bicycling"
 					],
-					"description": "How the user goes; default the maps app's"
+					"type": "string"
 				},
 				"origin": {
 					"description": "Default: current location",
@@ -1514,69 +1428,32 @@
 					"items": {
 						"properties": {
 							"action": {
-								"anyOf": [
-									{
-										"const": "tap",
-										"type": "string"
-									},
-									{
-										"const": "long_press",
-										"type": "string"
-									},
-									{
-										"const": "swipe",
-										"type": "string"
-									},
-									{
-										"const": "scroll",
-										"type": "string"
-									},
-									{
-										"const": "type",
-										"type": "string"
-									},
-									{
-										"const": "clear",
-										"type": "string"
-									},
-									{
-										"const": "key",
-										"type": "string"
-									},
-									{
-										"const": "open",
-										"type": "string"
-									},
-									{
-										"const": "wait",
-										"type": "string"
-									}
-								]
+								"enum": [
+									"tap",
+									"long_press",
+									"swipe",
+									"scroll",
+									"type",
+									"clear",
+									"key",
+									"open",
+									"wait"
+								],
+								"type": "string"
 							},
 							"app": {
 								"description": "open: app name as on the home screen, or its package",
 								"type": "string"
 							},
 							"direction": {
-								"anyOf": [
-									{
-										"const": "down",
-										"type": "string"
-									},
-									{
-										"const": "up",
-										"type": "string"
-									},
-									{
-										"const": "left",
-										"type": "string"
-									},
-									{
-										"const": "right",
-										"type": "string"
-									}
+								"description": "scroll: which way the content moves into view; default down",
+								"enum": [
+									"down",
+									"up",
+									"left",
+									"right"
 								],
-								"description": "scroll: which way the content moves into view; default down"
+								"type": "string"
 							},
 							"keys": {
 								"description": "key: back, home, recents, notifications, quick_settings, or enter",
@@ -1640,29 +1517,15 @@
 		"parameters": {
 			"properties": {
 				"action": {
-					"anyOf": [
-						{
-							"const": "status",
-							"type": "string"
-						},
-						{
-							"const": "play",
-							"type": "string"
-						},
-						{
-							"const": "pause",
-							"type": "string"
-						},
-						{
-							"const": "next",
-							"type": "string"
-						},
-						{
-							"const": "previous",
-							"type": "string"
-						}
+					"description": "status reads what plays; the rest control it",
+					"enum": [
+						"status",
+						"play",
+						"pause",
+						"next",
+						"previous"
 					],
-					"description": "status reads what plays; the rest control it"
+					"type": "string"
 				},
 				"app": {
 					"description": "Only this app, by name, such as Spotify",
@@ -1693,29 +1556,15 @@
 		"parameters": {
 			"properties": {
 				"mode": {
-					"anyOf": [
-						{
-							"const": "status",
-							"type": "string"
-						},
-						{
-							"const": "off",
-							"type": "string"
-						},
-						{
-							"const": "priority",
-							"type": "string"
-						},
-						{
-							"const": "alarms",
-							"type": "string"
-						},
-						{
-							"const": "silent",
-							"type": "string"
-						}
+					"description": "status reads it; the rest set it",
+					"enum": [
+						"status",
+						"off",
+						"priority",
+						"alarms",
+						"silent"
 					],
-					"description": "status reads it; the rest set it"
+					"type": "string"
 				},
 				"until": {
 					"description": "Local time to turn it off, such as \"07:00\" (the next one) or \"2026-10-23 07:00\"",
@@ -1746,29 +1595,15 @@
 		"parameters": {
 			"properties": {
 				"action": {
-					"anyOf": [
-						{
-							"const": "status",
-							"type": "string"
-						},
-						{
-							"const": "ring",
-							"type": "string"
-						},
-						{
-							"const": "vibrate",
-							"type": "string"
-						},
-						{
-							"const": "silent",
-							"type": "string"
-						},
-						{
-							"const": "volume",
-							"type": "string"
-						}
+					"description": "status reads it; ring, vibrate, silent set the ringer; volume sets one volume",
+					"enum": [
+						"status",
+						"ring",
+						"vibrate",
+						"silent",
+						"volume"
 					],
-					"description": "status reads it; ring, vibrate, silent set the ringer; volume sets one volume"
+					"type": "string"
 				},
 				"percent": {
 					"description": "volume: 0 to 100",
@@ -1777,29 +1612,15 @@
 					"type": "integer"
 				},
 				"stream": {
-					"anyOf": [
-						{
-							"const": "ring",
-							"type": "string"
-						},
-						{
-							"const": "media",
-							"type": "string"
-						},
-						{
-							"const": "alarm",
-							"type": "string"
-						},
-						{
-							"const": "notification",
-							"type": "string"
-						},
-						{
-							"const": "call",
-							"type": "string"
-						}
+					"description": "volume: which one; default ring",
+					"enum": [
+						"ring",
+						"media",
+						"alarm",
+						"notification",
+						"call"
 					],
-					"description": "volume: which one; default ring"
+					"type": "string"
 				}
 			},
 			"required": [
@@ -1826,29 +1647,15 @@
 		"parameters": {
 			"properties": {
 				"action": {
-					"anyOf": [
-						{
-							"const": "status",
-							"type": "string"
-						},
-						{
-							"const": "brightness",
-							"type": "string"
-						},
-						{
-							"const": "auto_brightness",
-							"type": "string"
-						},
-						{
-							"const": "auto_rotate",
-							"type": "string"
-						},
-						{
-							"const": "screen_timeout",
-							"type": "string"
-						}
+					"description": "status reads it; the rest change one setting",
+					"enum": [
+						"status",
+						"brightness",
+						"auto_brightness",
+						"auto_rotate",
+						"screen_timeout"
 					],
-					"description": "status reads it; the rest change one setting"
+					"type": "string"
 				},
 				"on": {
 					"description": "auto_brightness, auto_rotate: on or off",
@@ -1890,21 +1697,13 @@
 		"parameters": {
 			"properties": {
 				"action": {
-					"anyOf": [
-						{
-							"const": "status",
-							"type": "string"
-						},
-						{
-							"const": "on",
-							"type": "string"
-						},
-						{
-							"const": "off",
-							"type": "string"
-						}
+					"description": "status reads it",
+					"enum": [
+						"status",
+						"on",
+						"off"
 					],
-					"description": "status reads it"
+					"type": "string"
 				}
 			},
 			"required": [
@@ -1930,54 +1729,26 @@
 		"parameters": {
 			"properties": {
 				"action": {
-					"anyOf": [
-						{
-							"const": "status",
-							"type": "string"
-						},
-						{
-							"const": "on",
-							"type": "string"
-						},
-						{
-							"const": "off",
-							"type": "string"
-						}
+					"description": "status reads them all; on and off switch one",
+					"enum": [
+						"status",
+						"on",
+						"off"
 					],
-					"description": "status reads them all; on and off switch one"
+					"type": "string"
 				},
 				"what": {
-					"anyOf": [
-						{
-							"const": "wifi",
-							"type": "string"
-						},
-						{
-							"const": "bluetooth",
-							"type": "string"
-						},
-						{
-							"const": "mobile_data",
-							"type": "string"
-						},
-						{
-							"const": "airplane_mode",
-							"type": "string"
-						},
-						{
-							"const": "location",
-							"type": "string"
-						},
-						{
-							"const": "nfc",
-							"type": "string"
-						},
-						{
-							"const": "battery_saver",
-							"type": "string"
-						}
+					"description": "on, off: which one",
+					"enum": [
+						"wifi",
+						"bluetooth",
+						"mobile_data",
+						"airplane_mode",
+						"location",
+						"nfc",
+						"battery_saver"
 					],
-					"description": "on, off: which one"
+					"type": "string"
 				}
 			},
 			"required": [
@@ -2244,36 +2015,16 @@
 								"type": "string"
 							},
 							"type": {
-								"anyOf": [
-									{
-										"const": "incoming",
-										"type": "string"
-									},
-									{
-										"const": "outgoing",
-										"type": "string"
-									},
-									{
-										"const": "missed",
-										"type": "string"
-									},
-									{
-										"const": "rejected",
-										"type": "string"
-									},
-									{
-										"const": "blocked",
-										"type": "string"
-									},
-									{
-										"const": "voicemail",
-										"type": "string"
-									},
-									{
-										"const": "other",
-										"type": "string"
-									}
-								]
+								"enum": [
+									"incoming",
+									"outgoing",
+									"missed",
+									"rejected",
+									"blocked",
+									"voicemail",
+									"other"
+								],
+								"type": "string"
 							}
 						},
 						"required": [
@@ -2463,29 +2214,15 @@
 					"type": "integer"
 				},
 				"metric": {
-					"anyOf": [
-						{
-							"const": "steps",
-							"type": "string"
-						},
-						{
-							"const": "heart_rate",
-							"type": "string"
-						},
-						{
-							"const": "sleep",
-							"type": "string"
-						},
-						{
-							"const": "exercise",
-							"type": "string"
-						},
-						{
-							"const": "weight",
-							"type": "string"
-						}
+					"description": "steps and heart_rate are per day; sleep and exercise are sessions; weight is measurements",
+					"enum": [
+						"steps",
+						"heart_rate",
+						"sleep",
+						"exercise",
+						"weight"
 					],
-					"description": "steps and heart_rate are per day; sleep and exercise are sessions; weight is measurements"
+					"type": "string"
 				}
 			},
 			"required": [
@@ -2580,21 +2317,13 @@
 		"parameters": {
 			"properties": {
 				"name": {
-					"anyOf": [
-						{
-							"const": "spoken-report",
-							"type": "string"
-						},
-						{
-							"const": "html-page",
-							"type": "string"
-						},
-						{
-							"const": "stock-analysis",
-							"type": "string"
-						}
+					"description": "A skill listed in the system prompt",
+					"enum": [
+						"spoken-report",
+						"html-page",
+						"stock-analysis"
 					],
-					"description": "A skill listed in the system prompt"
+					"type": "string"
 				}
 			},
 			"required": [
@@ -2914,28 +2643,14 @@
 					"description": "JSON request body for POST, PATCH, and PUT"
 				},
 				"method": {
-					"anyOf": [
-						{
-							"const": "GET",
-							"type": "string"
-						},
-						{
-							"const": "POST",
-							"type": "string"
-						},
-						{
-							"const": "PATCH",
-							"type": "string"
-						},
-						{
-							"const": "PUT",
-							"type": "string"
-						},
-						{
-							"const": "DELETE",
-							"type": "string"
-						}
-					]
+					"enum": [
+						"GET",
+						"POST",
+						"PATCH",
+						"PUT",
+						"DELETE"
+					],
+					"type": "string"
 				},
 				"path": {
 					"description": "API path with query string, starting with /",
@@ -3019,28 +2734,14 @@
 					"description": "JSON request body"
 				},
 				"method": {
-					"anyOf": [
-						{
-							"const": "GET",
-							"type": "string"
-						},
-						{
-							"const": "POST",
-							"type": "string"
-						},
-						{
-							"const": "PUT",
-							"type": "string"
-						},
-						{
-							"const": "PATCH",
-							"type": "string"
-						},
-						{
-							"const": "DELETE",
-							"type": "string"
-						}
-					]
+					"enum": [
+						"GET",
+						"POST",
+						"PUT",
+						"PATCH",
+						"DELETE"
+					],
+					"type": "string"
 				},
 				"url": {
 					"description": "Full https URL",
@@ -3083,28 +2784,14 @@
 					"description": "JSON request body"
 				},
 				"method": {
-					"anyOf": [
-						{
-							"const": "GET",
-							"type": "string"
-						},
-						{
-							"const": "POST",
-							"type": "string"
-						},
-						{
-							"const": "PUT",
-							"type": "string"
-						},
-						{
-							"const": "PATCH",
-							"type": "string"
-						},
-						{
-							"const": "DELETE",
-							"type": "string"
-						}
-					]
+					"enum": [
+						"GET",
+						"POST",
+						"PUT",
+						"PATCH",
+						"DELETE"
+					],
+					"type": "string"
 				},
 				"url": {
 					"description": "Full https URL, or a path starting with / under https://api.cloudflare.com/client/v4",
@@ -3147,28 +2834,14 @@
 					"description": "JSON request body"
 				},
 				"method": {
-					"anyOf": [
-						{
-							"const": "GET",
-							"type": "string"
-						},
-						{
-							"const": "POST",
-							"type": "string"
-						},
-						{
-							"const": "PUT",
-							"type": "string"
-						},
-						{
-							"const": "PATCH",
-							"type": "string"
-						},
-						{
-							"const": "DELETE",
-							"type": "string"
-						}
-					]
+					"enum": [
+						"GET",
+						"POST",
+						"PUT",
+						"PATCH",
+						"DELETE"
+					],
+					"type": "string"
 				},
 				"url": {
 					"description": "Full https URL",
@@ -3264,29 +2937,15 @@
 		"parameters": {
 			"properties": {
 				"activity": {
-					"anyOf": [
-						{
-							"const": "walking",
-							"type": "string"
-						},
-						{
-							"const": "running",
-							"type": "string"
-						},
-						{
-							"const": "cycling",
-							"type": "string"
-						},
-						{
-							"const": "vehicle",
-							"type": "string"
-						},
-						{
-							"const": "still",
-							"type": "string"
-						}
+					"description": "With on activity_start or activity_stop",
+					"enum": [
+						"walking",
+						"running",
+						"cycling",
+						"vehicle",
+						"still"
 					],
-					"description": "With on activity_start or activity_stop"
+					"type": "string"
 				},
 				"album": {
 					"description": "With on photo: only photos in this album, such as Camera or Screenshots",
@@ -3313,36 +2972,16 @@
 				"days": {
 					"description": "Recurring: weekdays; omit for every day",
 					"items": {
-						"anyOf": [
-							{
-								"const": "mon",
-								"type": "string"
-							},
-							{
-								"const": "tue",
-								"type": "string"
-							},
-							{
-								"const": "wed",
-								"type": "string"
-							},
-							{
-								"const": "thu",
-								"type": "string"
-							},
-							{
-								"const": "fri",
-								"type": "string"
-							},
-							{
-								"const": "sat",
-								"type": "string"
-							},
-							{
-								"const": "sun",
-								"type": "string"
-							}
-						]
+						"enum": [
+							"mon",
+							"tue",
+							"wed",
+							"thu",
+							"fri",
+							"sat",
+							"sun"
+						],
+						"type": "string"
 					},
 					"type": "array"
 				},
@@ -3357,24 +2996,13 @@
 				"guards": {
 					"description": "With an event: built-in checks a small classifier makes before you are woken; the run is skipped when one fails. instructions: the text tries to instruct an AI (prompt injection); secrets: it holds a one-time code, password or key; ads: advertising or bulk marketing; attention: skip unless the user needs to act or reply. Default for notification: instructions and secrets; [] for none. Prefer these to only_if",
 					"items": {
-						"anyOf": [
-							{
-								"const": "instructions",
-								"type": "string"
-							},
-							{
-								"const": "secrets",
-								"type": "string"
-							},
-							{
-								"const": "ads",
-								"type": "string"
-							},
-							{
-								"const": "attention",
-								"type": "string"
-							}
-						]
+						"enum": [
+							"instructions",
+							"secrets",
+							"ads",
+							"attention"
+						],
+						"type": "string"
 					},
 					"type": "array"
 				},
@@ -3383,69 +3011,25 @@
 					"type": "string"
 				},
 				"on": {
-					"anyOf": [
-						{
-							"const": "time",
-							"type": "string"
-						},
-						{
-							"const": "headphones",
-							"type": "string"
-						},
-						{
-							"const": "charging",
-							"type": "string"
-						},
-						{
-							"const": "wifi",
-							"type": "string"
-						},
-						{
-							"const": "arrive",
-							"type": "string"
-						},
-						{
-							"const": "leave",
-							"type": "string"
-						},
-						{
-							"const": "notification",
-							"type": "string"
-						},
-						{
-							"const": "unlock",
-							"type": "string"
-						},
-						{
-							"const": "battery_low",
-							"type": "string"
-						},
-						{
-							"const": "timezone",
-							"type": "string"
-						},
-						{
-							"const": "photo",
-							"type": "string"
-						},
-						{
-							"const": "bluetooth_connect",
-							"type": "string"
-						},
-						{
-							"const": "bluetooth_disconnect",
-							"type": "string"
-						},
-						{
-							"const": "activity_start",
-							"type": "string"
-						},
-						{
-							"const": "activity_stop",
-							"type": "string"
-						}
+					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too",
+					"enum": [
+						"time",
+						"headphones",
+						"charging",
+						"wifi",
+						"arrive",
+						"leave",
+						"notification",
+						"unlock",
+						"battery_low",
+						"timezone",
+						"photo",
+						"bluetooth_connect",
+						"bluetooth_disconnect",
+						"activity_start",
+						"activity_stop"
 					],
-					"description": "time: at time (recurring) or at (once). Or an event: headphones connect, the phone starts charging, a Wi-Fi connects, the phone arrives at or leaves place, another app posts a notification (its app, sender and text come with the run), the user unlocks the phone, the battery runs low, the time zone changes (travel), a new photo or screenshot is saved (its album and ids come with the run), a Bluetooth device such as a car connects or disconnects, an activity starts or stops (walking, running, cycling, in a vehicle, still); days, from, until apply too"
+					"type": "string"
 				},
 				"only_if": {
 					"description": "With an event: a yes/no question about it that a small classifier answers before you are woken; the run happens only when the answer is likely yes. For what app and contains cannot tell, such as \"Does this message need a reply?\" or \"Is it about money?\"",
@@ -3622,17 +3206,12 @@
 					"type": "string"
 				},
 				"scope": {
-					"anyOf": [
-						{
-							"const": "global",
-							"type": "string"
-						},
-						{
-							"const": "bot",
-							"type": "string"
-						}
+					"description": "global: every bot reads it; bot: only you",
+					"enum": [
+						"global",
+						"bot"
 					],
-					"description": "global: every bot reads it; bot: only you"
+					"type": "string"
 				}
 			},
 			"required": [
@@ -3677,52 +3256,24 @@
 					"items": {
 						"properties": {
 							"action": {
-								"anyOf": [
-									{
-										"const": "click",
-										"type": "string"
-									},
-									{
-										"const": "move",
-										"type": "string"
-									},
-									{
-										"const": "drag",
-										"type": "string"
-									},
-									{
-										"const": "scroll",
-										"type": "string"
-									},
-									{
-										"const": "key",
-										"type": "string"
-									},
-									{
-										"const": "type",
-										"type": "string"
-									},
-									{
-										"const": "wait",
-										"type": "string"
-									}
-								]
+								"enum": [
+									"click",
+									"move",
+									"drag",
+									"scroll",
+									"key",
+									"type",
+									"wait"
+								],
+								"type": "string"
 							},
 							"button": {
-								"anyOf": [
-									{
-										"const": "left",
-										"type": "string"
-									},
-									{
-										"const": "right",
-										"type": "string"
-									},
-									{
-										"const": "middle",
-										"type": "string"
-									}
-								]
+								"enum": [
+									"left",
+									"right",
+									"middle"
+								],
+								"type": "string"
 							},
 							"count": {
 								"type": "integer"

@@ -154,7 +154,7 @@ const rules: Rule[] = [
 		rule: "every parameter has a description, or is an enum of self-explanatory literals",
 		broken: ({ iface }) =>
 			properties(iface.parameters)
-				.filter(([, schema]) => typeof schema.description !== "string" && !Array.isArray(schema.anyOf) && schema.const === undefined && schema.type !== "object" && schema.type !== "array")
+				.filter(([, schema]) => typeof schema.description !== "string" && !Array.isArray(schema.anyOf) && !Array.isArray(schema.enum) && schema.const === undefined && schema.type !== "object" && schema.type !== "array")
 				.map(([key]) => `${iface.name}.${key}`)
 				.join(", ") || undefined,
 	},

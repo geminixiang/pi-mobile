@@ -191,16 +191,11 @@
 							"type": "boolean"
 						},
 						"kind": {
-							"anyOf": [
-								{
-									"const": "file",
-									"type": "string"
-								},
-								{
-									"const": "directory",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"file",
+								"directory"
+							],
+							"type": "string"
 						},
 						"mtimeMs": {
 							"type": "number"
@@ -318,16 +313,11 @@
 										"type": "boolean"
 									},
 									"kind": {
-										"anyOf": [
-											{
-												"const": "file",
-												"type": "string"
-											},
-											{
-												"const": "directory",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"file",
+											"directory"
+										],
+										"type": "string"
 									},
 									"mtimeMs": {
 										"type": "number"
@@ -1101,28 +1091,14 @@
 							"type": "number"
 						},
 						"metric": {
-							"anyOf": [
-								{
-									"const": "steps",
-									"type": "string"
-								},
-								{
-									"const": "heart_rate",
-									"type": "string"
-								},
-								{
-									"const": "sleep",
-									"type": "string"
-								},
-								{
-									"const": "exercise",
-									"type": "string"
-								},
-								{
-									"const": "weight",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"steps",
+								"heart_rate",
+								"sleep",
+								"exercise",
+								"weight"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -1587,32 +1563,15 @@
 										"type": "number"
 									},
 									"state": {
-										"anyOf": [
-											{
-												"const": "playing",
-												"type": "string"
-											},
-											{
-												"const": "paused",
-												"type": "string"
-											},
-											{
-												"const": "buffering",
-												"type": "string"
-											},
-											{
-												"const": "stopped",
-												"type": "string"
-											},
-											{
-												"const": "none",
-												"type": "string"
-											},
-											{
-												"const": "other",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"playing",
+											"paused",
+											"buffering",
+											"stopped",
+											"none",
+											"other"
+										],
+										"type": "string"
 									},
 									"title": {
 										"type": "string"
@@ -1638,28 +1597,14 @@
 				"args": {
 					"properties": {
 						"action": {
-							"anyOf": [
-								{
-									"const": "play",
-									"type": "string"
-								},
-								{
-									"const": "pause",
-									"type": "string"
-								},
-								{
-									"const": "next",
-									"type": "string"
-								},
-								{
-									"const": "previous",
-									"type": "string"
-								},
-								{
-									"const": "stop",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"play",
+								"pause",
+								"next",
+								"previous",
+								"stop"
+							],
+							"type": "string"
 						},
 						"package": {
 							"type": "string"
@@ -1690,28 +1635,14 @@
 				"result": {
 					"properties": {
 						"mode": {
-							"anyOf": [
-								{
-									"const": "off",
-									"type": "string"
-								},
-								{
-									"const": "priority",
-									"type": "string"
-								},
-								{
-									"const": "alarms",
-									"type": "string"
-								},
-								{
-									"const": "silent",
-									"type": "string"
-								},
-								{
-									"const": "unknown",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"off",
+								"priority",
+								"alarms",
+								"silent",
+								"unknown"
+							],
+							"type": "string"
 						},
 						"until": {
 							"type": "number"
@@ -1728,24 +1659,13 @@
 				"args": {
 					"properties": {
 						"mode": {
-							"anyOf": [
-								{
-									"const": "off",
-									"type": "string"
-								},
-								{
-									"const": "priority",
-									"type": "string"
-								},
-								{
-									"const": "alarms",
-									"type": "string"
-								},
-								{
-									"const": "silent",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"off",
+								"priority",
+								"alarms",
+								"silent"
+							],
+							"type": "string"
 						},
 						"until": {
 							"type": "number"
@@ -1993,67 +1913,30 @@
 							"items": {
 								"properties": {
 									"action": {
-										"anyOf": [
-											{
-												"const": "tap",
-												"type": "string"
-											},
-											{
-												"const": "long_press",
-												"type": "string"
-											},
-											{
-												"const": "swipe",
-												"type": "string"
-											},
-											{
-												"const": "scroll",
-												"type": "string"
-											},
-											{
-												"const": "type",
-												"type": "string"
-											},
-											{
-												"const": "clear",
-												"type": "string"
-											},
-											{
-												"const": "key",
-												"type": "string"
-											},
-											{
-												"const": "open",
-												"type": "string"
-											},
-											{
-												"const": "wait",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"tap",
+											"long_press",
+											"swipe",
+											"scroll",
+											"type",
+											"clear",
+											"key",
+											"open",
+											"wait"
+										],
+										"type": "string"
 									},
 									"app": {
 										"type": "string"
 									},
 									"direction": {
-										"anyOf": [
-											{
-												"const": "up",
-												"type": "string"
-											},
-											{
-												"const": "down",
-												"type": "string"
-											},
-											{
-												"const": "left",
-												"type": "string"
-											},
-											{
-												"const": "right",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"up",
+											"down",
+											"left",
+											"right"
+										],
+										"type": "string"
 									},
 									"keys": {
 										"type": "string"
@@ -2155,20 +2038,12 @@
 				"result": {
 					"properties": {
 						"ringer": {
-							"anyOf": [
-								{
-									"const": "normal",
-									"type": "string"
-								},
-								{
-									"const": "vibrate",
-									"type": "string"
-								},
-								{
-									"const": "silent",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"normal",
+								"vibrate",
+								"silent"
+							],
+							"type": "string"
 						},
 						"volumePercent": {
 							"properties": {
@@ -2209,20 +2084,12 @@
 				"args": {
 					"properties": {
 						"mode": {
-							"anyOf": [
-								{
-									"const": "normal",
-									"type": "string"
-								},
-								{
-									"const": "vibrate",
-									"type": "string"
-								},
-								{
-									"const": "silent",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"normal",
+								"vibrate",
+								"silent"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -2233,20 +2100,12 @@
 				"result": {
 					"properties": {
 						"ringer": {
-							"anyOf": [
-								{
-									"const": "normal",
-									"type": "string"
-								},
-								{
-									"const": "vibrate",
-									"type": "string"
-								},
-								{
-									"const": "silent",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"normal",
+								"vibrate",
+								"silent"
+							],
+							"type": "string"
 						},
 						"volumePercent": {
 							"properties": {
@@ -2290,28 +2149,14 @@
 							"type": "number"
 						},
 						"stream": {
-							"anyOf": [
-								{
-									"const": "ring",
-									"type": "string"
-								},
-								{
-									"const": "media",
-									"type": "string"
-								},
-								{
-									"const": "alarm",
-									"type": "string"
-								},
-								{
-									"const": "notification",
-									"type": "string"
-								},
-								{
-									"const": "call",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"ring",
+								"media",
+								"alarm",
+								"notification",
+								"call"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -2323,20 +2168,12 @@
 				"result": {
 					"properties": {
 						"ringer": {
-							"anyOf": [
-								{
-									"const": "normal",
-									"type": "string"
-								},
-								{
-									"const": "vibrate",
-									"type": "string"
-								},
-								{
-									"const": "silent",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"normal",
+								"vibrate",
+								"silent"
+							],
+							"type": "string"
 						},
 						"volumePercent": {
 							"properties": {
@@ -2412,24 +2249,13 @@
 							"type": "number"
 						},
 						"what": {
-							"anyOf": [
-								{
-									"const": "brightness",
-									"type": "string"
-								},
-								{
-									"const": "auto_brightness",
-									"type": "string"
-								},
-								{
-									"const": "auto_rotate",
-									"type": "string"
-								},
-								{
-									"const": "screen_timeout",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"brightness",
+								"auto_brightness",
+								"auto_rotate",
+								"screen_timeout"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -2476,20 +2302,12 @@
 				"result": {
 					"properties": {
 						"state": {
-							"anyOf": [
-								{
-									"const": "on",
-									"type": "string"
-								},
-								{
-									"const": "off",
-									"type": "string"
-								},
-								{
-									"const": "unavailable",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"on",
+								"off",
+								"unavailable"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -2513,20 +2331,12 @@
 				"result": {
 					"properties": {
 						"state": {
-							"anyOf": [
-								{
-									"const": "on",
-									"type": "string"
-								},
-								{
-									"const": "off",
-									"type": "string"
-								},
-								{
-									"const": "unavailable",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"on",
+								"off",
+								"unavailable"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -2582,40 +2392,21 @@
 							"type": "object"
 						},
 						"nfc": {
-							"anyOf": [
-								{
-									"const": "on",
-									"type": "string"
-								},
-								{
-									"const": "off",
-									"type": "string"
-								},
-								{
-									"const": "none",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"on",
+								"off",
+								"none"
+							],
+							"type": "string"
 						},
 						"outcome": {
-							"anyOf": [
-								{
-									"const": "already",
-									"type": "string"
-								},
-								{
-									"const": "changed",
-									"type": "string"
-								},
-								{
-									"const": "pressed",
-									"type": "string"
-								},
-								{
-									"const": "panel",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"already",
+								"changed",
+								"pressed",
+								"panel"
+							],
+							"type": "string"
 						},
 						"wifi": {
 							"properties": {
@@ -2655,36 +2446,16 @@
 							"type": "boolean"
 						},
 						"what": {
-							"anyOf": [
-								{
-									"const": "wifi",
-									"type": "string"
-								},
-								{
-									"const": "bluetooth",
-									"type": "string"
-								},
-								{
-									"const": "mobile_data",
-									"type": "string"
-								},
-								{
-									"const": "airplane_mode",
-									"type": "string"
-								},
-								{
-									"const": "location",
-									"type": "string"
-								},
-								{
-									"const": "nfc",
-									"type": "string"
-								},
-								{
-									"const": "battery_saver",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"wifi",
+								"bluetooth",
+								"mobile_data",
+								"airplane_mode",
+								"location",
+								"nfc",
+								"battery_saver"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -2735,40 +2506,21 @@
 							"type": "object"
 						},
 						"nfc": {
-							"anyOf": [
-								{
-									"const": "on",
-									"type": "string"
-								},
-								{
-									"const": "off",
-									"type": "string"
-								},
-								{
-									"const": "none",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"on",
+								"off",
+								"none"
+							],
+							"type": "string"
 						},
 						"outcome": {
-							"anyOf": [
-								{
-									"const": "already",
-									"type": "string"
-								},
-								{
-									"const": "changed",
-									"type": "string"
-								},
-								{
-									"const": "pressed",
-									"type": "string"
-								},
-								{
-									"const": "panel",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"already",
+								"changed",
+								"pressed",
+								"panel"
+							],
+							"type": "string"
 						},
 						"wifi": {
 							"properties": {
@@ -2953,36 +2705,16 @@
 										"type": "number"
 									},
 									"type": {
-										"anyOf": [
-											{
-												"const": "incoming",
-												"type": "string"
-											},
-											{
-												"const": "outgoing",
-												"type": "string"
-											},
-											{
-												"const": "missed",
-												"type": "string"
-											},
-											{
-												"const": "rejected",
-												"type": "string"
-											},
-											{
-												"const": "blocked",
-												"type": "string"
-											},
-											{
-												"const": "voicemail",
-												"type": "string"
-											},
-											{
-												"const": "other",
-												"type": "string"
-											}
-										]
+										"enum": [
+											"incoming",
+											"outgoing",
+											"missed",
+											"rejected",
+											"blocked",
+											"voicemail",
+											"other"
+										],
+										"type": "string"
 									}
 								},
 								"required": [
@@ -3297,20 +3029,12 @@
 				"args": {
 					"properties": {
 						"kind": {
-							"anyOf": [
-								{
-									"const": "tick",
-									"type": "string"
-								},
-								{
-									"const": "press",
-									"type": "string"
-								},
-								{
-									"const": "confirm",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"tick",
+								"press",
+								"confirm"
+							],
+							"type": "string"
 						}
 					},
 					"required": [
@@ -3768,16 +3492,11 @@
 														"type": "string"
 													},
 													"on": {
-														"anyOf": [
-															{
-																"const": "connect",
-																"type": "string"
-															},
-															{
-																"const": "disconnect",
-																"type": "string"
-															}
-														]
+														"enum": [
+															"connect",
+															"disconnect"
+														],
+														"type": "string"
 													},
 													"until": {
 														"pattern": "^\\d{2}:\\d{2}$",
@@ -3796,28 +3515,14 @@
 											{
 												"properties": {
 													"activity": {
-														"anyOf": [
-															{
-																"const": "walking",
-																"type": "string"
-															},
-															{
-																"const": "running",
-																"type": "string"
-															},
-															{
-																"const": "cycling",
-																"type": "string"
-															},
-															{
-																"const": "vehicle",
-																"type": "string"
-															},
-															{
-																"const": "still",
-																"type": "string"
-															}
-														]
+														"enum": [
+															"walking",
+															"running",
+															"cycling",
+															"vehicle",
+															"still"
+														],
+														"type": "string"
 													},
 													"days": {
 														"items": {
@@ -3841,16 +3546,11 @@
 														"type": "string"
 													},
 													"on": {
-														"anyOf": [
-															{
-																"const": "start",
-																"type": "string"
-															},
-															{
-																"const": "stop",
-																"type": "string"
-															}
-														]
+														"enum": [
+															"start",
+															"stop"
+														],
+														"type": "string"
 													},
 													"until": {
 														"pattern": "^\\d{2}:\\d{2}$",
@@ -3899,16 +3599,11 @@
 														"type": "number"
 													},
 													"on": {
-														"anyOf": [
-															{
-																"const": "arrive",
-																"type": "string"
-															},
-															{
-																"const": "leave",
-																"type": "string"
-															}
-														]
+														"enum": [
+															"arrive",
+															"leave"
+														],
+														"type": "string"
 													},
 													"radius": {
 														"minimum": 100,
@@ -4071,16 +3766,11 @@
 				"args": {
 					"properties": {
 						"to": {
-							"anyOf": [
-								{
-									"const": "photos",
-									"type": "string"
-								},
-								{
-									"const": "activity",
-									"type": "string"
-								}
-							]
+							"enum": [
+								"photos",
+								"activity"
+							],
+							"type": "string"
 						}
 					},
 					"required": [

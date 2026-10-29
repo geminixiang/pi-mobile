@@ -7,7 +7,7 @@
 	"scripts": {
 		"dev": "vite --host 0.0.0.0",
 		"build": "npm run check && vite build",
-		"check": "tsc --noEmit && stylelint \"src/**/*.css\" && node test/no-comments.ts && npm run check:tools && npm run check:contracts && node test/bash/patches.ts && node --import ./test/vite-imports.js test/bash/git-inspection.ts && node test/side-gesture.ts && node test/prompt-dial.ts && node test/pi-env-patches.ts",
+		"check": "tsc --noEmit && stylelint \"src/**/*.css\" && node test/no-comments.ts && npm run check:tools && npm run check:contracts && node test/bash/patches.ts && node --import ./test/vite-imports.js test/bash/git-inspection.ts && node test/side-gesture.ts && node test/prompt-dial.ts && node --import ./test/vite-imports.js test/codemode-silence.ts && node test/pi-env-patches.ts",
 		"check:tools": "node --import ./test/vite-imports.js test/tool-args-node.ts && node --import ./test/vite-imports.js test/tools-node.ts && node --import ./test/vite-imports.js test/plugins-node.ts",
 		"check:contracts": "node --import ./test/vite-imports.js test/contracts/run.ts"
 	},
