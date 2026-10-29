@@ -781,9 +781,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .copyable .row-buttons { gap: 0; padding: 0; margin: -4px -10px 0 0; }
 .machine .check-progress { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); overflow-wrap: anywhere; }
 
-.bot-avatar { flex-shrink: 0; display: block; align-self: center; border: 1px solid var(--line); }
-.bar-title .bot-avatar { display: inline-block; vertical-align: -3px; margin-right: 7px; border: none; }
-.drawer-item.current .bot-avatar { border-color: var(--accent); }
+.bot-avatar { flex-shrink: 0; display: block; align-self: center; }
+.bar-title .bot-avatar { display: inline-block; vertical-align: -3px; margin-right: 7px; }
 .bot-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bot-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bot-automations { display: flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--faint); }
