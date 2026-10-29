@@ -125,7 +125,7 @@ const scripts = (entry) => (entry.scripts ?? []).map((s) => ({ ms: Math.round(s.
 return {
 	frames: perf.frames.slice(1),
 	loaf: perf.loaf.map((e) => ({ ms: Math.round(e.duration), blocking: Math.round(e.blockingDuration), styleLayout: Math.round(e.styleAndLayoutStart ? e.startTime + e.duration - e.styleAndLayoutStart : 0), scripts: scripts(e) })),
-	events: perf.events.map((e) => ({ name: e.name, ms: Math.round(e.duration), processing: Math.round(e.processingEnd - e.processingStart), delay: Math.round(e.processingStart - e.startTime) })),
+	events: perf.events.map((e) => ({ name: e.name, ms: Math.round(e.duration), processing: Math.round((e.processingEnd - e.processingStart) * 10) / 10, delay: Math.round(e.processingStart - e.startTime) })),
 	nodes: document.getElementsByTagName("*").length,
 };
 `;
@@ -290,7 +290,12 @@ async function measure(page: Page, scene: Scene) {
 			blockingMs: result.loaf.reduce((sum, entry) => sum + entry.blocking, 0),
 			worst: [...result.loaf].sort((a, b) => b.ms - a.ms).slice(0, 3),
 		},
-		input: { slow: result.events.length, p95: percentile(eventMs, 0.95), worst: [...result.events].sort((a, b) => b.ms - a.ms).slice(0, 3) },
+		input: {
+			slow: result.events.length,
+			p95: percentile(eventMs, 0.95),
+			processingP95: percentile(ascending(result.events.map((event) => event.processing)), 0.95),
+			worst: [...result.events].sort((a, b) => b.ms - a.ms).slice(0, 3),
+		},
 	};
 }
 
@@ -338,6 +343,7 @@ for (const scene of scenes) {
 			rafP99: median((s) => s.raf.p99),
 			loafBlockingMs: median((s) => s.loaf.blockingMs),
 			inputP95: median((s) => s.input.p95),
+			inputProcessingP95: median((s) => s.input.processingP95),
 		},
 		runs: samples,
 	};
