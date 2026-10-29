@@ -1,4 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { type DialState, repeatingOf } from "./dialState.ts";
 import { haptic } from "./haptics.ts";
 import { ArrowDownIcon } from "./icons.tsx";
 
@@ -22,18 +23,6 @@ const PIVOT_X = 200;
 const PIVOT_Y = 60;
 const OFFSET = 0.35;
 const TRACK = 30;
-
-interface DialState {
-	px: number;
-	py: number;
-	radius: number;
-	start: number;
-	step: number;
-	slots: number;
-	slot: number;
-	shift: number;
-	lineY: number;
-}
 
 function angleOf(x: number, y: number, px: number, py: number): number {
 	return (Math.atan2(py - y, x - px) * 180) / Math.PI;
@@ -72,7 +61,7 @@ export function ScrollTab({
 	const opened = useRef(false);
 	const count = prompts.length;
 
-	const repeating = dial?.slot === dial?.slots ? "older" : dial?.slot === -1 ? "newer" : undefined;
+	const repeating = repeatingOf(dial);
 	useEffect(() => {
 		if (!repeating) return;
 		let interval = REPEAT_SLOWEST_MS;
