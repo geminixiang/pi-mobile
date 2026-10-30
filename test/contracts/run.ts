@@ -1,7 +1,7 @@
 import type { Check } from "./setup.ts";
 
 await import("./setup.ts");
-const suites: { checks: Check[] }[] = [await import("./computers.ts"), await import("./mcp.ts"), await import("./stream.ts"), await import("./where.ts"), await import("./sent-time.ts"), await import("./cleartext.ts"), await import("./storage.ts"), await import("./triggers.ts"), await import("./bots.ts"), await import("./log.ts"), await import("./resume.ts"), await import("./apply.ts"), await import("./tw-stocks.ts"), await import("./update.ts")];
+const suites: { checks: Check[] }[] = [await import("./computers.ts"), await import("./mcp.ts"), await import("./stream.ts"), await import("./where.ts"), await import("./sent-time.ts"), await import("./cleartext.ts"), await import("./storage.ts"), await import("./triggers.ts"), await import("./bots.ts"), await import("./log.ts"), await import("./resume.ts"), await import("./apply.ts"), await import("./tw-stocks.ts"), await import("./update.ts"), await import("./files.ts")];
 const only = process.argv[2];
 const checks = suites.flatMap((suite) => suite.checks).filter(([name]) => !only || name.includes(only));
 const failures: string[] = [];

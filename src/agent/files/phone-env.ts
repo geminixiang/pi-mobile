@@ -59,9 +59,28 @@ const withoutBom = (text: string) => (text.startsWith("\uFEFF") ? text.slice(1) 
 
 type At = { bot: string; path: string };
 
-const readText = async (at: At) => withoutBom((await BotFiles.read({ ...at, text: true })).text ?? "");
+// why: the native read hands its range over as one base64 string; a whole 45 MB git pack ran Android's Java heap out of memory
+export const READ_CHUNK = 4 * 1024 * 1024;
 
-const readBytes = async (at: At & { offset?: number; length?: number }) => fromBase64((await BotFiles.read(at)).data ?? "");
+export async function readWhole(read: (offset: number, length: number) => Promise<{ size: number; bytes: Uint8Array }>): Promise<Uint8Array> {
+	const first = await read(0, READ_CHUNK);
+	if (first.size <= first.bytes.length) return first.bytes;
+	const whole = new Uint8Array(first.size);
+	whole.set(first.bytes);
+	for (let offset = first.bytes.length; offset < first.size; offset += READ_CHUNK) {
+		whole.set((await read(offset, Math.min(READ_CHUNK, first.size - offset))).bytes, offset);
+	}
+	return whole;
+}
+
+const readRange = async (at: At, offset: number, length: number) => {
+	const { size, data } = await BotFiles.read({ ...at, offset, length });
+	return { size, bytes: fromBase64(data ?? "") };
+};
+
+const readBytes = (at: At) => readWhole((offset, length) => readRange(at, offset, length));
+
+const readText = async (at: At) => withoutBom(new TextDecoder().decode(await readBytes(at)));
 
 const writeContent = (at: At, content: string | Uint8Array, append: boolean) =>
 	BotFiles.write({ ...at, append, ...(typeof content === "string" ? { text: content } : { data: toBase64(content) }) });
@@ -263,7 +282,7 @@ export class PhoneEnv implements ExecutionEnv {
 		if (opened.value.kind === "directory") return err(new FileError("is_directory", `Is a directory: ${absolute}`, absolute));
 		const info = infoOf(absolute, opened.value);
 		const read = (offset: number, length: number, readContext: Context) =>
-			attempt(readContext, absolute, async () => (length <= 0 ? new Uint8Array(0) : readBytes({ ...at, offset, length })));
+			attempt(readContext, absolute, async () => (length <= 0 ? new Uint8Array(0) : (await readRange(at, offset, length)).bytes));
 		return ok({
 			info: async () => ok(info),
 			read,
