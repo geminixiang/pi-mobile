@@ -174,7 +174,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 	useEffect(() => {
 		if (openKey === 0 || !bot) return;
 		dispatch({ type: "user_opened" });
-	}, [openKey, bot]);
+	}, [openKey]);
 
 	useEffect(() => {
 		if (!bot) return;
