@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { SHEET_START, type SheetEvent, sheetAfter, type SheetState } from "../src/app/browserSheetState.ts";
+import { SHEET_START, type SheetEvent, sheetAfter, type SheetState } from "../src/browser/sheetState.ts";
 
 const after = (...events: SheetEvent[]): SheetState => events.reduce(sheetAfter, SHEET_START);
 

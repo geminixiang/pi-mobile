@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 import { oneOf } from "../agent/parse.ts";
 
 export const BROWSER_ACTIONS = ["open", "tap", "tap_at", "type", "type_here", "clear", "select", "key", "scroll", "scroll_in", "back", "forward", "reload", "wait", "wait_for"] as const;

@@ -1,6 +1,6 @@
 import { Apps } from "./apps.ts";
 import { BotFiles } from "./bot-files.ts";
-import { Browser } from "./browser.ts";
+import { Browser } from "../browser/plugin.ts";
 import { Calendar } from "./calendar.ts";
 import { Contacts } from "./contacts.ts";
 import { Database } from "./database.ts";

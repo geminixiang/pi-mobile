@@ -8,7 +8,7 @@ import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { refuseCleartextSecret } from "./cleartext.ts";
 import { inApp, type Native, native } from "../native.ts";
-import { Browser } from "../plugins/browser.ts";
+import { Browser } from "../browser/plugin.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;

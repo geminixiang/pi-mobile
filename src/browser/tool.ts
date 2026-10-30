@@ -1,8 +1,8 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { Browser, BROWSER_ACTIONS, type BrowserSnapshot, type BrowserStep, MAX_TABS } from "../../plugins/browser.ts";
-import { defineAppTool, withScreenshot } from "./common.ts";
-import { oneOf } from "../parse.ts";
+import { Browser, BROWSER_ACTIONS, type BrowserSnapshot, type BrowserStep, MAX_TABS } from "./plugin.ts";
+import { defineAppTool, withScreenshot } from "../agent/tools/common.ts";
+import { oneOf } from "../agent/parse.ts";
 
 const HANDOVER_MS = 10 * 60_000;
 

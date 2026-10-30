@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { build, type Plugin } from "vite";
 
-const ENTRY = fileURLToPath(new URL("../src/agent/browser-page.ts", import.meta.url));
+const ENTRY = fileURLToPath(new URL("../src/browser/page.ts", import.meta.url));
 
 async function bundle(): Promise<string> {
 	const result = await build({

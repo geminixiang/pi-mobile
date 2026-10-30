@@ -1,13 +1,13 @@
 import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { type BrowserState, browserState } from "../agent/tools/browser.ts";
+import { type BrowserState, browserState } from "./tool.ts";
 import { native } from "../native.ts";
-import { Browser, type BrowserTabs, MAX_TABS } from "../plugins/browser.ts";
+import { Browser, type BrowserTabs, MAX_TABS } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
-import { SHEET_START, sheetAfter } from "./browserSheetState.ts";
-import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "./icons.tsx";
-import { useBack } from "./layers.ts";
-import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "./sideGesture.ts";
+import { SHEET_START, sheetAfter } from "./sheetState.ts";
+import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
+import { useBack } from "../app/layers.ts";
+import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../app/sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
