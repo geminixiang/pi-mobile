@@ -8,6 +8,7 @@ import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
+const HOME = "https://www.google.com/";
 const MAX_TABS = 4;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
@@ -22,7 +23,7 @@ function addressOf(typed: string): string {
 	const text = typed.trim();
 	if (/^https?:\/\//i.test(text)) return text;
 	if (!/\s/.test(text) && /\.[a-z]{2,}(\/|$)/i.test(text)) return `https://${text}`;
-	return `https://duckduckgo.com/?q=${encodeURIComponent(text)}`;
+	return `https://www.google.com/search?q=${encodeURIComponent(text)}`;
 }
 
 class SheetMotion {
@@ -210,6 +211,15 @@ export function BrowserSheet({
 	useEffect(() => {
 		if (!bot) return;
 		if (open) {
+			if (!auto.current) {
+				Browser.tabs({ bot })
+					.then((list) => {
+						const front = list.tabs.find((tab) => tab.id === list.active);
+						if (front && /^https?:/.test(front.url)) return;
+						return Browser.act({ bot, steps: [{ action: "open", url: HOME }], screenshot: false }).then(() => undefined);
+					})
+					.catch((error: unknown) => setProblem(messageOf(error)));
+			}
 			void Browser.peek({ bot })
 				.then((peeked) => {
 					if (peeked.jpeg) setShot(peeked.jpeg);
@@ -247,7 +257,9 @@ export function BrowserSheet({
 	};
 	const openTab = () => {
 		if (!bot) return;
-		Browser.newTab({ bot }).catch((error: unknown) => setProblem(messageOf(error)));
+		Browser.newTab({ bot })
+			.then(({ tab }) => Browser.act({ bot, tab, steps: [{ action: "open", url: HOME }], screenshot: false }))
+			.catch((error: unknown) => setProblem(messageOf(error)));
 	};
 	const collapse = () => {
 		auto.current = false;
