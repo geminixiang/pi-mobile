@@ -1,10 +1,10 @@
 import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { type BrowserState, browserState } from "./tool.ts";
 import { native } from "../native.ts";
-import { Browser, type BrowserTabs, MAX_TABS } from "./plugin.ts";
+import { Browser, MAX_TABS } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
-import { SHEET_START, sheetAfter } from "./sheetState.ts";
+import { pageKey, SHEET_START, sheetAfter } from "./sheetState.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
 import { useBack } from "../app/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../app/sideGesture.ts";
@@ -13,17 +13,23 @@ const COLLAPSE_AFTER_MS = 1500;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
 
-type Page = { url: string; title: string; loading: boolean; canGoBack: boolean; canGoForward: boolean };
 type Drag = { from: number; fromY: number; height: number; samples: Sample[] };
 
-const isWeb = (url: string) => /^https?:/.test(url);
+const SPACE = /\s/;
+const DOMAIN_END = /\.[a-z]{2,}(\/|$)/i;
 
-const siteOf = (url: string) => (isWeb(url) ? new URL(url).host.replace(/^www\./, "") : "");
+const isWeb = (url: string) => url.startsWith("http:") || url.startsWith("https:");
+
+function siteOf(url: string): string {
+	if (!isWeb(url)) return "";
+	const host = new URL(url).host;
+	return host.startsWith("www.") ? host.slice("www.".length) : host;
+}
 
 function addressOf(typed: string, engine: SearchEngine): string {
 	const text = typed.trim();
-	if (/^https?:\/\//i.test(text)) return text;
-	if (!/\s/.test(text) && /\.[a-z]{2,}(\/|$)/i.test(text)) return `https://${text}`;
+	if (isWeb(text.toLowerCase())) return text;
+	if (!SPACE.test(text) && DOMAIN_END.test(text)) return `https://${text}`;
 	return SEARCH_ENGINES[engine].search + encodeURIComponent(text);
 }
 
@@ -97,8 +103,6 @@ export const BrowserSheet = memo(function BrowserSheet({
 	engine: SearchEngine;
 }) {
 	const [state, setState] = useState<BrowserState>({ active: new Set(), handovers: [] });
-	const [pages, setPages] = useState<Readonly<Record<string, Page>>>({});
-	const [tabLists, setTabLists] = useState<Readonly<Record<string, BrowserTabs>>>({});
 	const [sheet, dispatch] = useReducer(sheetAfter, SHEET_START);
 	const frame = useRef<HTMLDivElement>(null);
 	const motion = useRef<SheetMotion>(undefined);
@@ -110,8 +114,8 @@ export const BrowserSheet = memo(function BrowserSheet({
 	useEffect(() => {
 		if (!native.has("Browser")) return;
 		const listening = [
-			Browser.addListener("page", (page) => setPages((current) => ({ ...current, [`${page.bot}/${page.tab}`]: page }))),
-			Browser.addListener("tabs", (list) => setTabLists((current) => ({ ...current, [list.bot]: list }))),
+			Browser.addListener("page", (page) => dispatch({ type: "page", page })),
+			Browser.addListener("tabs", (list) => dispatch({ type: "tabs", list })),
 		];
 		return () => {
 			for (const handle of listening) void handle.then((listener) => listener.remove());
@@ -121,8 +125,8 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const active = bot !== undefined && state.active.has(bot);
 	const handover = state.handovers.find((item) => item.bot === bot);
 	const reason = handover?.reason;
-	const tabList = bot ? tabLists[bot] : undefined;
-	const page = bot && tabList?.active ? pages[`${bot}/${tabList.active}`] : undefined;
+	const tabList = bot ? sheet.tabs[bot] : undefined;
+	const page = bot && tabList?.active ? sheet.pages[pageKey(bot, tabList.active)] : undefined;
 	const expanded = sheet.mode !== "closed";
 	const open = expanded && !hidden && bot !== undefined;
 	latest.current = { bot, open, expanded, canGoBack: page?.canGoBack ?? false };
@@ -156,7 +160,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 		dispatch({ type: "bot_changed" });
 		if (!bot || !native.has("Browser")) return;
 		Browser.tabs({ bot })
-			.then((list) => setTabLists((current) => ({ ...current, [list.bot]: list })))
+			.then((list) => dispatch({ type: "tabs", list }))
 			.catch(report);
 	}, [bot]);
 	const closesItself = sheet.mode === "auto";
@@ -335,7 +339,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 					{(tabList?.tabs ?? []).map((tab) => (
 						<div key={tab.id} className="browser-tab" data-active={tab.id === tabList?.active || undefined}>
 							<button type="button" className="browser-tab-name" onClick={() => Browser.selectTab({ bot, tab: tab.id }).catch(report)}>
-								{siteOf(pages[`${bot}/${tab.id}`]?.url ?? tab.url) || tab.title || "新分頁"}
+								{siteOf(sheet.pages[pageKey(bot, tab.id)]?.url ?? tab.url) || tab.title || "新分頁"}
 							</button>
 							<button type="button" className="browser-tab-close" aria-label="關閉分頁" onClick={() => Browser.closeTab({ bot, tab: tab.id }).catch(report)}>
 								<CloseIcon size={14} />

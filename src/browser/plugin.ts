@@ -44,6 +44,9 @@ const Tab = { tab: Type.Optional(Type.String()) };
 const TabList = Type.Object({ bot: Type.String(), tabs: TabItems, active: Type.Optional(Type.String()) });
 export type BrowserTabs = Static<typeof TabList>;
 
+const Page = Type.Object({ ...Bot, tab: Type.String(), url: Type.String(), title: Type.String(), loading: Type.Boolean(), canGoBack: Type.Boolean(), canGoForward: Type.Boolean() });
+export type BrowserPage = Static<typeof Page>;
+
 export const Browser = definePlugin(
 	"Browser",
 	{
@@ -60,7 +63,7 @@ export const Browser = definePlugin(
 		forget: { args: Type.Object(Bot) },
 	},
 	{
-		page: Type.Object({ ...Bot, tab: Type.String(), url: Type.String(), title: Type.String(), loading: Type.Boolean(), canGoBack: Type.Boolean(), canGoForward: Type.Boolean() }),
+		page: Page,
 		tabs: TabList,
 	},
 );
