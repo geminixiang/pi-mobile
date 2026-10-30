@@ -127,13 +127,15 @@ export async function unpairHost(host: Reach): Promise<void> {
 }
 
 export async function stillPaired(reach: Reach, signal: AbortSignal): Promise<boolean> {
-	const response = await fetch(url(reach, "/info"), { signal }).catch(() => undefined);
-	return response?.status !== 401;
+	const response = await fetch(url(reach, "/info"), { signal });
+	return response.status !== 401;
 }
 
 export async function hasPiMobile(address: string, signal: AbortSignal): Promise<boolean> {
-	const response = await fetch(`${base(address)}/version`, { signal }).catch(() => undefined);
-	return response?.ok ?? false;
+	return fetch(`${base(address)}/version`, { signal }).then(
+		(response) => response.ok,
+		() => false,
+	);
 }
 
 export async function probeHost(reach: Reach, signal?: AbortSignal): Promise<HostInfo> {

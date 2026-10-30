@@ -2,7 +2,7 @@
 
 Android app (Capacitor + React) running a pi-durable agent on the phone. See docs/architecture.md for the layout of the code.
 
-- `npm run check` (tsc, Stylelint, no-comments, tool interface, contracts, just-bash patches) must pass before a commit.
+- `npm run check` (tsc, Stylelint, no-comments, code rules, tool interface, contracts, just-bash patches) must pass before a commit.
 - Before changing CSS, animations, or overlays, read `.pi/skills/css/SKILL.md`. No `!important`.
 - UI copy is Traditional Chinese (zh-TW); model prompts are English.
 - Code carries no comments, in any language: a comment marks a design flaw or a hidden bug. Make names, types, and
@@ -12,8 +12,16 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Look before you leap (LBYL): check the precondition (it exists, is permitted, is available, parses) before acting.
   A failure no check can foresee (network, native I/O) surfaces to the user or becomes a named outcome; never
   swallow it with `catch(() => undefined)`.
-- Validate an unknown value once, at the boundary that owns it (`src/agent/parse.ts`), and pass typed values inward; do not re-check what a type or schema already guarantees. No `any`; `as` only for `as const` and a narrowing TypeScript cannot express otherwise, never in place of validation; `as unknown as` only where a library's nominal type forces it, in one named function with its `why:`.
+- Validate an unknown value once, at the boundary that owns it (`src/agent/parse.ts`), and pass typed values inward; do not re-check what a type or schema already guarantees. No `any`; `as` only for `as const` and a narrowing TypeScript cannot express otherwise, never in place of validation; `as unknown as` only where a library's nominal type forces it, in one named function with its `why:`. `test/code-rules.ts` fails on `any`, `!`, `<T>` casts, `.catch(() => undefined)` and any `as` (other than `as const`) without a `// why:` line right above it.
 - Split code by responsibility, not by size. Do not extract a helper used once; inline a value used once. A function reads as its happy path, with early returns instead of `else` and `const` instead of reassignment; supporting details go in named helpers below it only when they name a real concept.
+- Write it inline first and compress later: code that repeats becomes shared on its third occurrence, not its second.
+- Functional by default: pure functions and data pipelines (`filter`, `map`), side effects at the edges. Mutation inside a function (`push`, `Map.set`, a `for` loop) is fine when the function is pure from outside. A class only for something with a lifetime (a connection, a WebView).
+- Errors are values: an outcome the caller should handle (not found, denied, unreachable) is a returned union such as `{ ok: false; reason: "denied" }`, not a `throw`. Throw only for a broken invariant, or where a library's contract expects it (a pi tool's `execute`, pi-env's `ExecutionEnv`).
+- Make illegal states unrepresentable: a discriminated union (`{ state: "open"; socket } | { state: "closed"; reason }`), not booleans plus optional fields that must agree. React state with more than one moving part goes through `useReducer` over such a union, with pure transitions.
+- Names are complete but not wordy: one precise word (`save`, not `saveFileToDiskAndNotify`), with types and placement carrying the rest.
+- Code is grouped by feature: one folder holds a feature's UI, logic, plugin wrapper and tool (`src/browser/`). New features start that way; an existing feature moves into its folder when it is refactored.
+- Android code is Kotlin from here on: new native files are Kotlin, and a Java file becomes Kotlin when it is refactored.
+- Models to read like: the pi packages (`@earendil-works/*`), the Go standard library, and type-driven Elm/Rust code.
 - Store a value once: what can be computed from state, props, or a store is computed where it is used, not kept in its own `useState`, ref, or field (keep the selected id, derive the selected item from the list).
 - Before adding code for a speculative race, edge case, or security concern, state the concrete failure, how likely it is, and what the code costs, and get the user's buy-in; over-design is itself a mistake.
 - Tests run the real implementation through the `Platform` seam: no mocks, no logic copied into the test. The only globals a test touches are `fetch` (made to throw: tests run offline) and `console` (captured to read log lines). A fix comes with a test that fails on the old code.

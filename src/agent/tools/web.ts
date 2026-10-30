@@ -62,7 +62,7 @@ async function readPdf(url: string, conversationId: string): Promise<(TextConten
 	if (response.status >= 400 || typeof response.data !== "string") throw new Error(`HTTP ${response.status} ${response.url}`);
 	const name = decodeURIComponent(new URL(response.url || url).pathname.split("/").pop() || "page").replace(/\.pdf$/i, "") + ".pdf";
 	const bytes = fromBase64(response.data);
-	const prepared = await prepareAttachment(new File([bytes as Uint8Array<ArrayBuffer>], name, { type: "application/pdf" }), conversationId);
+	const prepared = await prepareAttachment(new File([bytes], name, { type: "application/pdf" }), conversationId);
 	return [{ type: "text", text: `PDF ${response.url || url}` }, ...prepared.content];
 }
 

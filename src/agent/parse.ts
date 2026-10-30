@@ -47,6 +47,7 @@ export function valueOrThrow<T>(checked: Checked<T>): T {
 const validators = new WeakMap<TSchema, Validator>();
 
 export function parse<T extends TSchema>(schema: T, value: unknown, what: string): Static<T> {
+	// why: each schema maps to its own compiled validator, a pairing one WeakMap value type cannot carry.
 	const validator = (validators.get(schema) ?? Compile(schema)) as Validator<{}, T>;
 	validators.set(schema, validator);
 	if (validator.Check(value)) return value;

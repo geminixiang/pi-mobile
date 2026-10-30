@@ -193,12 +193,14 @@ async function saveSecret(key: string, value: string): Promise<void> {
 	secretsRotatedSinceLoad.delete(key);
 }
 
-export function changedKeys(before: Settings, after: Settings): (keyof Settings)[] {
-	return (Object.keys(before) as (keyof Settings)[]).filter((key) => {
+export function changedKeys<T extends object>(before: T, after: T): (keyof T)[] {
+	const changed: (keyof T)[] = [];
+	for (const key in before) {
 		const a = before[key];
 		const b = after[key];
-		return typeof a === "object" || typeof b === "object" ? JSON.stringify(a) !== JSON.stringify(b) : a !== b;
-	});
+		if (typeof a === "object" || typeof b === "object" ? JSON.stringify(a) !== JSON.stringify(b) : a !== b) changed.push(key);
+	}
+	return changed;
 }
 
 export function usableProviders(settings: Pick<Settings, "providers" | "providerKeys" | "providerOAuth">): ProviderConfig[] {

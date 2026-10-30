@@ -1,6 +1,6 @@
 import { contentText, type ImageContent, type Message as ModelMessage, type TextContent, type ThinkingContent, type ToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { type ComponentProps, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
+import { type ComponentProps, isValidElement, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
@@ -280,7 +280,7 @@ const Mermaid = lazy(() => import("./Mermaid.tsx"));
 
 function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: boolean }) {
 	const [showSource, setShowSource] = useState(false);
-	const code = (children as { props?: { className?: string; children?: unknown } } | undefined)?.props;
+	const code = isValidElement<{ className?: string; children?: unknown }>(children) ? children.props : undefined;
 	const language = /language-(\S+)/.exec(code?.className ?? "")?.[1] ?? "";
 	const source = String(code?.children ?? "").replace(/\n$/, "");
 	const pre = <pre>{children}</pre>;

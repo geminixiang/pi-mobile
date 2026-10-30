@@ -17,6 +17,7 @@ function doc<T extends JsonObject>(
 	view: ConversationView | undefined,
 	token: ConversationDocToken<T> | RewindableConversationDocToken<T>,
 ): T | undefined {
+	// why: pi-durable keys a view's docs by kind as JsonObject; the token's kind fixes the shape, which its types do not link.
 	return view?.docs[token.definition.kind] as T | undefined;
 }
 

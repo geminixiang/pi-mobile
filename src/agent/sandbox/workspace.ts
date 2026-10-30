@@ -65,7 +65,7 @@ export class Workspace {
 		const { size } = getOrThrow(await this.#env.fileInfo(path, context));
 		const type = mimeTypeOf(path);
 		if (type?.startsWith("image/") && size <= MAX_IMAGE_BYTES) {
-			return { kind: "image", url: URL.createObjectURL(new Blob([(await this.bytes(path)) as Uint8Array<ArrayBuffer>], { type })), size };
+			return { kind: "image", url: URL.createObjectURL(new Blob([new Uint8Array(await this.bytes(path))], { type })), size };
 		}
 		const limit = isHtml(path) ? MAX_HTML_BYTES : MAX_TEXT_BYTES;
 		const reader = getOrThrow(await this.#env.openBinaryReader(path, undefined, context));
