@@ -47,6 +47,8 @@ Google 從 2021 年起擋 WebView 裡的帳號登入（「這個瀏覽器或應�
 
 要元素的動作和不要元素的動作分開命名，每個欄位都是必填：`tap {index}`／`tap_at {x, y}`、`type {index, text}`／`type_here {text}`、`scroll_in {index, direction}`／`scroll {direction}`。模型常把沒用到的欄位都填上預設值，`index: 0` 是合法的元素編號（page-controller 從 0 數），只靠「有沒有這個欄位」分辨動作的話，「在游標處打字」會先點到 [0]。步驟裡的空字串、低於最小值的數字和頂層參數一樣先清掉（`ms: 0` 不算數）。
 
+page-controller 的方法是非同步的，`evaluateJavascript` 等不到 Promise，所以結果由網頁經 `addWebMessageListener` 開的 `piAnswer` 送回原生（一則訊息是「key、換行、JSON」），不輪詢。
+
 page-controller 的編號指向它上次讀頁面時的元素。頁面重畫後，舊編號的元素已不在文件裡（`isConnected` 為 false）或沒有大小，`center` 會直接說「重新讀頁面」，不去點左上角。
 
 ## 架構

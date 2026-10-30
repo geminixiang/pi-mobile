@@ -1,15 +1,12 @@
 package dev.geminixiang.pimobile;
 
-import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -33,8 +30,7 @@ public class PagePlugin extends Plugin {
     @PluginMethod
     public void render(PluginCall call) {
         String url = call.getString("url", "");
-        String scheme = Uri.parse(url).getScheme();
-        if (!"http".equals(scheme) && !"https".equals(scheme)) {
+        if (!WebPages.isWeb(Uri.parse(url))) {
             call.reject("url must be http or https");
             return;
         }
@@ -57,27 +53,11 @@ public class PagePlugin extends Plugin {
             this.url = url;
         }
 
-        @SuppressLint("SetJavaScriptEnabled")
         void start() {
-            view = new WebView(getContext());
-            WebSettings settings = view.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(true);
-            settings.setAllowFileAccess(false);
-            settings.setAllowContentAccess(false);
-            settings.setSupportMultipleWindows(false);
-            settings.setJavaScriptCanOpenWindowsAutomatically(false);
-            settings.setMediaPlaybackRequiresUserGesture(true);
-            settings.setUserAgentString(settings.getUserAgentString().replace("; wv", ""));
+            view = WebPages.create(getContext());
             view.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY));
             view.layout(0, 0, WIDTH, HEIGHT);
-            view.setWebViewClient(new WebViewClient() {
-                @Override
-                public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
-                    String next = request.getUrl().getScheme();
-                    return !"http".equals(next) && !"https".equals(next);
-                }
-
+            view.setWebViewClient(new WebPages.WebOnly() {
                 @Override
                 public void onPageStarted(WebView webView, String pageUrl, Bitmap favicon) {
                     loaded = false;

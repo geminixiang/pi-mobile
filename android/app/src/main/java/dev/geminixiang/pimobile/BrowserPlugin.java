@@ -20,10 +20,7 @@ import android.view.ViewOutlineProvider;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import androidx.webkit.Profile;
 import androidx.webkit.ProfileStore;
@@ -76,6 +73,8 @@ public class BrowserPlugin extends Plugin {
     private static final String PAGE_SCRIPT = "public/page-controller.js";
     private static final long ASYNC_MS = 15_000;
     private static final long ANSWER_SECONDS = 10;
+    private static final String ANSWER_CHANNEL = "piAnswer";
+    private static final String ASYNC = "(() => { if (typeof window.__piPage !== 'object') return 'missing'; const answer = (result) => %s.postMessage(%s + '\\n' + JSON.stringify(result)); Promise.resolve().then(() => %s).then((value) => answer({ ok: value ?? {} }), (failure) => answer({ error: String((failure && failure.message) || failure) })); return 'started'; })()";
 
     private static final String INSERT = "((t) => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('insertText', false, t); return 'ok'; })(%s)";
     private static final String CLEAR = "(() => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('selectAll'); document.execCommand('delete'); return 'ok'; })()";
@@ -85,6 +84,7 @@ public class BrowserPlugin extends Plugin {
     private final ExecutorService work = Executors.newCachedThreadPool();
     private final Map<String, Tabs> bots = new ConcurrentHashMap<>();
     private final AtomicLong asyncKeys = new AtomicLong();
+    private final Map<String, CompletableFuture<String>> answers = new ConcurrentHashMap<>();
     private volatile String pageScript;
 
     private final class Tabs {
@@ -435,29 +435,21 @@ public class BrowserPlugin extends Plugin {
         main.removeCallbacks(session.expire);
     }
 
-    @SuppressLint({ "SetJavaScriptEnabled", "ClickableViewAccessibility" })
+    @SuppressLint("ClickableViewAccessibility")
     private Session create(Tabs tabs) {
         String bot = tabs.bot;
         ProfileStore.getInstance().getOrCreateProfile(profileOf(bot));
-        WebView view = new WebView(getContext());
+        WebView view = WebPages.create(getContext());
         WebViewCompat.setProfile(view, profileOf(bot));
         Session session = new Session(tabs, String.valueOf(tabs.next++), view);
-        WebSettings settings = view.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
-        settings.setSupportMultipleWindows(false);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setMediaPlaybackRequiresUserGesture(true);
-        settings.setUserAgentString(settings.getUserAgentString().replace("; wv", ""));
-        view.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
-                String scheme = request.getUrl().getScheme();
-                return !"http".equals(scheme) && !"https".equals(scheme);
-            }
-
+        WebViewCompat.addWebMessageListener(view, ANSWER_CHANNEL, Set.of("*"), (webView, message, origin, mainFrame, reply) -> {
+            String data = message.getData();
+            int cut = data == null ? -1 : data.indexOf('\n');
+            if (cut < 0) return;
+            CompletableFuture<String> waiting = answers.remove(data.substring(0, cut));
+            if (waiting != null) waiting.complete(data.substring(cut + 1));
+        });
+        view.setWebViewClient(new WebPages.WebOnly() {
             @Override
             public void onPageStarted(WebView webView, String url, Bitmap favicon) {
                 session.loading = true;
@@ -543,8 +535,7 @@ public class BrowserPlugin extends Plugin {
         switch (action) {
             case "open" -> {
                 String url = step.optString("url");
-                String scheme = Uri.parse(url).getScheme();
-                if (!"http".equals(scheme) && !"https".equals(scheme)) throw new Failure("invalid", "url must be http or https");
+                if (!WebPages.isWeb(Uri.parse(url))) throw new Failure("invalid", "url must be http or https");
                 navigate(session, () -> session.view.loadUrl(url));
             }
             case "reload" -> navigate(session, session.view::reload);
@@ -707,20 +698,23 @@ public class BrowserPlugin extends Plugin {
     }
 
     private JSONObject evalPage(Session session, String expression) throws Exception {
-        if (!"\"object\"".equals(eval(session, "typeof window.__piPage"))) eval(session, script() + ";0");
         String key = "r" + asyncKeys.incrementAndGet();
-        eval(session, "(() => { const box = window.__piAsync || (window.__piAsync = {}); Promise.resolve().then(() => " + expression + ").then((value) => { box." + key + " = { ok: value ?? {} }; }, (failure) => { box." + key + " = { error: String((failure && failure.message) || failure) }; }); return 0; })()");
-        long end = SystemClock.uptimeMillis() + ASYNC_MS;
-        while (SystemClock.uptimeMillis() < end) {
-            String raw = eval(session, "(() => { const box = window.__piAsync || {}; const value = box." + key + "; delete box." + key + "; return value ?? null; })()");
-            if (!"null".equals(raw)) {
-                JSONObject result = new JSONObject(raw);
-                if (result.has("error")) throw new Failure("page", result.getString("error"));
-                return result.getJSONObject("ok");
+        CompletableFuture<String> answer = new CompletableFuture<>();
+        answers.put(key, answer);
+        String start = String.format(ASYNC, ANSWER_CHANNEL, JSONObject.quote(key), expression);
+        try {
+            if ("\"missing\"".equals(eval(session, start))) {
+                eval(session, script() + ";0");
+                if ("\"missing\"".equals(eval(session, start))) throw new Failure("page", "the page script did not load on this page");
             }
-            Thread.sleep(50);
+            JSONObject result = new JSONObject(answer.get(ASYNC_MS, TimeUnit.MILLISECONDS));
+            if (result.has("error")) throw new Failure("page", result.getString("error"));
+            return result.getJSONObject("ok");
+        } catch (TimeoutException timeout) {
+            throw new Failure("timeout", "the page did not answer in " + ASYNC_MS / 1000 + " s");
+        } finally {
+            answers.remove(key);
         }
-        throw new Failure("timeout", "the page did not answer in " + ASYNC_MS / 1000 + " s");
     }
 
     private String script() throws Exception {
