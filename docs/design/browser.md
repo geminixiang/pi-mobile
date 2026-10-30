@@ -31,6 +31,12 @@
 
 Google 從 2021 年起擋 WebView 裡的帳號登入（「這個瀏覽器或應用程式可能不安全」）。在 Bot 的瀏覽器裡（User-Agent 去掉 `; wv`），使用者自己登入 accounts.google.com 成功，進到 myaccount.google.com，沒有被擋。還沒測：第三方網站的「用 Google 登入」，它常開一個新視窗再透過 `window.opener` 回傳，初版把新視窗開在同一頁，這條路可能會壞（`onCreateWindow` 還沒做）。
 
+## 登入的捷徑（2026-10-30，S24）
+
+- **passkey 不行**：開了 `WebSettingsCompat.setWebAuthenticationSupport(…FOR_BROWSER)` 之後，網頁一要 passkey，pi 就閃退：`SecurityException: … does not have android.permission.CREDENTIAL_MANAGER_SET_ORIGIN`。這個權限只給系統認可的瀏覽器，所以設定撤掉了。
+- **Chrome 的登入搬不過來**：Chrome 的 profile 在它自己的私有資料夾，pi 讀不到；Google 的登入 cookie 也綁在裝置金鑰上，複製了也會失效。
+- **密碼自動填入**：Android 的自動填入服務（Google 密碼管理工具、Samsung Pass）照常可以填進 Bot 瀏覽器的登入欄位，這是登入的主要捷徑。
+
 ## 架構
 
 ### 原生：`BrowserPlugin`（Android 先做）
