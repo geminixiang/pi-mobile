@@ -52,17 +52,16 @@ public class PhoneScreenPlugin extends Plugin {
     private static final int MAX_LABEL = 60;
     private static final long QUIET_MS = 350;
     private static final long FIRST_CHANGE_MS = 1000;
-    private static final int TREE_TRIES = 4;
-    private static final long TREE_RETRY_MS = 400;
+    private static final long TREE_RETRY_MS = 200;
     private static final long READ_BACK_MS = 1500;
     private static final long SETTLE_CAP_MS = 2500;
     private static final long ELEMENTS_MS = 2500;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private String lastSeen;
     private final ExecutorService screenshots = Executors.newSingleThreadExecutor();
     private float lastTapX = -1;
     private float lastTapY = -1;
+    private String lastSeen;
 
     static class StepFailure extends Exception {
         StepFailure(String message) {
@@ -436,22 +435,14 @@ public class PhoneScreenPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("width", SHOT_WIDTH);
         result.put("height", Math.round(screen.heightPixels * scale));
-        AccessibilityNodeInfo active = service.getRootInActiveWindow();
-        for (int wait = 0; active == null && wait < 15; wait++) {
-            Thread.sleep(100);
-            active = service.getRootInActiveWindow();
-        }
-        if (active != null && active.getPackageName() != null) {
-            String pkg = active.getPackageName().toString();
-            result.put("package", pkg);
-            result.put("app", NotificationsListener.appLabel(service.getPackageManager(), pkg));
-        }
-        boolean keyboard = false;
         long deadline = System.currentTimeMillis() + ELEMENTS_MS;
+        AccessibilityNodeInfo active = null;
+        boolean keyboard = false;
         List<String> lines = new ArrayList<>();
         List<AccessibilityNodeInfo> nodes = new ArrayList<>();
-        for (int attempt = 0; attempt < TREE_TRIES && lines.isEmpty() && System.currentTimeMillis() < deadline; attempt++) {
+        for (int attempt = 0; lines.isEmpty() && System.currentTimeMillis() < deadline; attempt++) {
             if (attempt > 0) Thread.sleep(TREE_RETRY_MS);
+            active = service.getRootInActiveWindow();
             List<AccessibilityWindowInfo> windows = service.getWindows();
             for (AccessibilityWindowInfo window : windows) {
                 if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
@@ -474,6 +465,11 @@ public class PhoneScreenPlugin extends Plugin {
                 if (lines.size() >= MAX_ELEMENTS || System.currentTimeMillis() > deadline) break;
             }
             if (windows.isEmpty() && active != null) walk(active, scale, false, lines, nodes, deadline);
+        }
+        if (active != null && active.getPackageName() != null) {
+            String pkg = active.getPackageName().toString();
+            result.put("package", pkg);
+            result.put("app", NotificationsListener.appLabel(service.getPackageManager(), pkg));
         }
         withOwners(lines, nodes, deadline);
         if (System.currentTimeMillis() > deadline) result.put("slow", true);
@@ -517,14 +513,13 @@ public class PhoneScreenPlugin extends Plugin {
         return "";
     }
 
-    private static void texts(AccessibilityNodeInfo node, StringBuilder into, long deadline) {
-        if (into.length() > MAX_LABEL || System.currentTimeMillis() > deadline) return;
-        for (int i = 0; i < node.getChildCount(); i++) {
+    private static void texts(AccessibilityNodeInfo node, AccessibilityNodeInfo skipped, StringBuilder into, long deadline) {
+        for (int i = 0; i < node.getChildCount() && into.length() <= MAX_LABEL && System.currentTimeMillis() <= deadline; i++) {
             AccessibilityNodeInfo child = node.getChild(i);
-            if (child == null || !child.isVisibleToUser()) continue;
+            if (child == null || !child.isVisibleToUser() || child.equals(skipped)) continue;
             String label = ownLabel(child);
             if (!label.isEmpty()) into.append(into.length() > 0 ? " · " : "").append(label);
-            texts(child, into, deadline);
+            texts(child, null, into, deadline);
         }
     }
 
@@ -565,11 +560,12 @@ public class PhoneScreenPlugin extends Plugin {
     }
 
     private static void withOwners(List<String> lines, List<AccessibilityNodeInfo> nodes, long deadline) {
+        List<String> shapes = lines.stream().map(PhoneScreenPlugin::shapeOf).toList();
         Map<String, Integer> seen = new HashMap<>();
-        for (String line : lines) seen.merge(shapeOf(line), 1, Integer::sum);
+        for (String shape : shapes) seen.merge(shape, 1, Integer::sum);
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            String shape = shapeOf(line);
+            String shape = shapes.get(i);
             AccessibilityNodeInfo node = nodes.get(i);
             if (node == null || !actionable(node) || seen.get(shape) < 2) continue;
             String owner = ownerOf(node, deadline);
@@ -586,14 +582,8 @@ public class PhoneScreenPlugin extends Plugin {
         StringBuilder around = new StringBuilder();
         AccessibilityNodeInfo from = node;
         for (AccessibilityNodeInfo parent = node.getParent(); parent != null; from = parent, parent = parent.getParent()) {
-            for (int i = 0; i < parent.getChildCount(); i++) {
-                AccessibilityNodeInfo sibling = parent.getChild(i);
-                if (sibling == null || sibling.equals(from) || !sibling.isVisibleToUser()) continue;
-                String label = ownLabel(sibling);
-                if (!label.isEmpty()) around.append(around.length() > 0 ? " · " : "").append(label);
-                texts(sibling, around, deadline);
-            }
-            if (around.length() > MAX_LABEL) return "";
+            texts(parent, from, around, deadline);
+            if (around.length() > MAX_LABEL || System.currentTimeMillis() > deadline) return "";
             List<String> words = Arrays.stream(around.toString().split(" · ")).filter((part) -> part.codePoints().anyMatch(Character::isLetterOrDigit)).toList();
             if (!words.isEmpty()) return String.join(" · ", words);
         }
@@ -608,7 +598,7 @@ public class PhoneScreenPlugin extends Plugin {
         String own = ownLabel(node);
         if (!own.isEmpty()) return own;
         StringBuilder inner = new StringBuilder();
-        texts(node, inner, deadline);
+        texts(node, null, inner, deadline);
         return clip(inner.toString());
     }
 
@@ -617,10 +607,11 @@ public class PhoneScreenPlugin extends Plugin {
         int px = Math.round(x);
         int py = Math.round(y);
         AccessibilityNodeInfo hit = null;
+        Rect area = new Rect();
         for (AccessibilityWindowInfo window : service.getWindows()) {
-            AccessibilityNodeInfo root = window.getRoot();
-            if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD || root == null || !contains(root, px, py)) continue;
-            hit = smallestAt(root, px, py, null, deadline);
+            window.getBoundsInScreen(area);
+            if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD || !area.contains(px, py)) continue;
+            hit = smallestAt(window.getRoot(), px, py, null, deadline);
             break;
         }
         String point = "at " + Math.round(x * scale) + "," + Math.round(y * scale);

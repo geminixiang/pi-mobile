@@ -616,7 +616,7 @@ public class BrowserPlugin extends Plugin {
             case "tap" -> {
                 String target = tapElement(session, step);
                 settle(session);
-                return "tapped [" + step.getInt("index") + "] " + target;
+                return "tapped " + target;
             }
             case "tap_at" -> {
                 if (!step.has("x") || !step.has("y")) throw new Failure("invalid", "tap_at needs x and y");
@@ -629,7 +629,7 @@ public class BrowserPlugin extends Plugin {
                 String target = tapElement(session, step);
                 Thread.sleep(SETTLE_MS);
                 insert(session, step.getString("text"));
-                return "typed into [" + step.getInt("index") + "] " + target;
+                return "typed into " + target;
             }
             case "type_here" -> {
                 if (!step.has("text")) throw new Failure("invalid", "type_here needs text");
@@ -772,7 +772,7 @@ public class BrowserPlugin extends Plugin {
         if (!step.has("index")) throw new Failure("invalid", step.optString("action") + " needs index");
         JSONObject center = evalPage(session, "window.__piPage.center(" + step.getInt("index") + ")");
         tap(session, (float) center.getDouble("x"), (float) center.getDouble("y"));
-        return center.optString("what");
+        return "[" + step.getInt("index") + "] " + center.optString("what");
     }
 
     private JSONObject evalPage(Session session, String expression) throws Exception {
