@@ -173,6 +173,31 @@ public class BrowserPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void go(PluginCall call) {
+        Background.run(work, call, () -> {
+            Session session = session(call);
+            String action = call.getString("action", "");
+            String url = call.getString("url", "");
+            if ("open".equals(action) && !WebPages.isWeb(Uri.parse(url))) throw new Failure("invalid", "url must be http or https");
+            onMain(() -> {
+                switch (action) {
+                    case "back" -> {
+                        if (session.view.canGoBack()) session.view.goBack();
+                    }
+                    case "forward" -> {
+                        if (session.view.canGoForward()) session.view.goForward();
+                    }
+                    case "reload" -> session.view.reload();
+                    case "open" -> session.view.loadUrl(url);
+                    default -> throw new Failure("invalid", "action is back, forward, reload, or open");
+                }
+                return null;
+            });
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
     public void show(PluginCall call) {
         Background.run(work, call, () -> {
             Session session = session(call);
@@ -512,6 +537,11 @@ public class BrowserPlugin extends Plugin {
             @Override
             public void onPageStarted(WebView webView, String url, Bitmap favicon) {
                 session.loading = true;
+                announce(session);
+            }
+
+            @Override
+            public void doUpdateVisitedHistory(WebView webView, String url, boolean reload) {
                 announce(session);
             }
 

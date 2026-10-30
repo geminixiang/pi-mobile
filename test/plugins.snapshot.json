@@ -826,6 +826,36 @@
 					"type": "object"
 				}
 			},
+			"go": {
+				"args": {
+					"properties": {
+						"action": {
+							"enum": [
+								"back",
+								"forward",
+								"reload",
+								"open"
+							],
+							"type": "string"
+						},
+						"bot": {
+							"type": "string"
+						},
+						"tab": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"action"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
 			"newTab": {
 				"args": {
 					"properties": {

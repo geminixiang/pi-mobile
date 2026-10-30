@@ -133,7 +133,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 				if (peeked.jpeg) dispatch({ type: "shot", jpeg: peeked.jpeg });
 			})
 			.catch(report);
-	const openHome = (target: string, tab?: string) => Browser.act({ bot: target, ...(tab ? { tab } : {}), steps: [{ action: "open", url: SEARCH_ENGINES[engine].home }], screenshot: false });
+	const openHome = (target: string, tab?: string) => Browser.go({ bot: target, ...(tab ? { tab } : {}), action: "open", url: SEARCH_ENGINES[engine].home });
 
 	const showLive = () => {
 		const element = frame.current;
@@ -184,7 +184,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 					.then((list) => {
 						const front = list.tabs.find((tab) => tab.id === list.active);
 						if (front && isWeb(front.url)) return;
-						return openHome(bot).then(() => undefined);
+						return openHome(bot);
 					})
 					.catch(report);
 			}
@@ -208,7 +208,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 
 	const navigate = (target: string, action: "back" | "forward" | "reload") => {
 		dispatch({ type: "retried" });
-		Browser.act({ bot: target, steps: [{ action }], screenshot: false }).catch(report);
+		Browser.go({ bot: target, action }).catch(report);
 	};
 	const settleTo = (next: boolean) => {
 		if (next === latest.current.expanded) motion.current?.settle(next);
@@ -309,7 +309,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 					url={page?.url ?? ""}
 					onGo={(typed) => {
 						dispatch({ type: "retried" });
-						Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed, engine) }], screenshot: false }).catch(report);
+						Browser.go({ bot, action: "open", url: addressOf(typed, engine) }).catch(report);
 					}}
 				/>
 				<button type="button" className="browser-nav" aria-label="上一頁" disabled={!page?.canGoBack} onClick={() => navigate(bot, "back")}>

@@ -45,6 +45,7 @@ export const Browser = definePlugin(
 	{
 		read: { args: Type.Object({ ...Bot, ...Tab, screenshot: Type.Boolean() }), result: Snapshot },
 		act: { args: Type.Object({ ...Bot, ...Tab, steps: Type.Array(Step), screenshot: Type.Boolean() }), result: Snapshot },
+		go: { args: Type.Object({ ...Bot, ...Tab, action: oneOf(["back", "forward", "reload", "open"]), url: Type.Optional(Type.String()) }) },
 		newTab: { args: Type.Object(Bot), result: Type.Object({ tab: Type.String() }) },
 		selectTab: { args: Type.Object({ ...Bot, tab: Type.String() }) },
 		closeTab: { args: Type.Object({ ...Bot, tab: Type.String() }) },
