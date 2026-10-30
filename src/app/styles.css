@@ -126,7 +126,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body, .root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+html, body, .root { margin: 0; height: 100%; background: var(--bg); color: var(--text); user-select: none; -webkit-user-select: none; }
+:where(.markdown, .bubble, pre, code, input, textarea) { user-select: text; -webkit-user-select: text; }
 .root { overflow: clip; }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: none; padding: 0; text-align: inherit; }
