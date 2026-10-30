@@ -35,7 +35,10 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import dev.geminixiang.pimobile.Background.Failure;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -43,11 +46,13 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
-import org.json.JSONArray;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import org.json.JSONObject;
 
 @CapacitorPlugin(name = "Browser")
@@ -64,52 +69,23 @@ public class BrowserPlugin extends Plugin {
     private static final long WAIT_FOR_MAX_MS = 20_000;
     private static final long WAIT_MAX_MS = 10_000;
     private static final int MAX_TABS = 4;
-    private static final String PENDING_PREFS = "browser";
-    private static final String PENDING_KEY = "forgotten";
+    private static final String FORGOTTEN_PREFS = "browser";
+    private static final String FORGOTTEN_KEY = "forgotten";
 
-    private static final String FACTS = "JSON.stringify({ url: location.href, title: document.title, width: innerWidth, height: innerHeight, scrollY: Math.round(scrollY), scrollHeight: document.documentElement.scrollHeight, ready: document.readyState, text: (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 4000) })";
+    private static final String FACTS = "({ ready: document.readyState, text: (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 4000) })";
     private static final String PAGE_SCRIPT = "public/page-controller.js";
     private static final long ASYNC_MS = 15_000;
+    private static final long ANSWER_SECONDS = 10;
 
     private static final String INSERT = "((t) => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('insertText', false, t); return 'ok'; })(%s)";
     private static final String CLEAR = "(() => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('selectAll'); document.execCommand('delete'); return 'ok'; })()";
-    private static final String SCROLL = """
-        (() => {
-          const by = [%s];
-          const before = scrollY + scrollX;
-          scrollBy(by[0], by[1]);
-          if (scrollY + scrollX !== before) return 'page';
-          for (let el = document.elementFromPoint(innerWidth / 2, innerHeight / 2); el; el = el.parentElement) {
-            const st = getComputedStyle(el);
-            const can = (el.scrollHeight > el.clientHeight && /auto|scroll/.test(st.overflowY)) || (el.scrollWidth > el.clientWidth && /auto|scroll/.test(st.overflowX));
-            if (!can) continue;
-            el.scrollBy(by[0], by[1]);
-            return 'inner';
-          }
-          return 'none';
-        })()
-        """;
     private static final String HAS_TEXT = "(document.body ? document.body.innerText : '').includes(%s)";
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService work = Executors.newCachedThreadPool();
     private final Map<String, Tabs> bots = new ConcurrentHashMap<>();
-    private final java.util.concurrent.atomic.AtomicLong pending = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong asyncKeys = new AtomicLong();
     private volatile String pageScript;
-
-    private static final class Failure extends Exception implements Background.Coded {
-        private final String code;
-
-        Failure(String code, String message) {
-            super(message);
-            this.code = code;
-        }
-
-        @Override
-        public String code() {
-            return code;
-        }
-    }
 
     private final class Tabs {
         final String bot;
@@ -129,7 +105,6 @@ public class BrowserPlugin extends Plugin {
 
     private final class Session {
         final Tabs owner;
-        final String bot;
         final String tab;
         final WebView view;
         volatile boolean loading;
@@ -140,7 +115,6 @@ public class BrowserPlugin extends Plugin {
 
         Session(Tabs owner, String tab, WebView view) {
             this.owner = owner;
-            this.bot = owner.bot;
             this.tab = tab;
             this.view = view;
             this.expire = () -> {
@@ -158,7 +132,7 @@ public class BrowserPlugin extends Plugin {
     public void read(PluginCall call) {
         Background.run(work, call, () -> {
             Session session = session(call);
-            call.resolve(snapshot(session, call.getBoolean("screenshot", false), null, null));
+            call.resolve(snapshot(session, call.getBoolean("screenshot", false), null));
         });
     }
 
@@ -174,11 +148,11 @@ public class BrowserPlugin extends Plugin {
                     waitForUser(session);
                     run(session, step);
                 } catch (Failure failure) {
-                    call.resolve(snapshot(session, screenshot, i, "step " + (i + 1) + " (" + step.optString("action") + "): " + failure.getMessage()));
+                    call.resolve(snapshot(session, screenshot, "step " + (i + 1) + " (" + step.optString("action") + "): " + failure.getMessage()));
                     return;
                 }
             }
-            call.resolve(snapshot(session, screenshot, steps.length(), null));
+            call.resolve(snapshot(session, screenshot, null));
         });
     }
 
@@ -216,12 +190,7 @@ public class BrowserPlugin extends Plugin {
             Tabs tabs = bots.get(call.getString("bot", ""));
             if (tabs != null) onMain(() -> {
                 tabs.shown = false;
-                for (Session session : tabs.open.values()) {
-                    if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
-                    layOut(session);
-                    main.removeCallbacks(session.expire);
-                    main.postDelayed(session.expire, IDLE_MS);
-                }
+                for (Session session : tabs.open.values()) park(session);
                 return null;
             });
             call.resolve();
@@ -246,11 +215,7 @@ public class BrowserPlugin extends Plugin {
             Tabs tabs = bots.remove(bot);
             onMain(() -> {
                 if (tabs != null) {
-                    for (Session session : tabs.open.values()) {
-                        main.removeCallbacks(session.expire);
-                        if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
-                        session.view.destroy();
-                    }
+                    for (Session session : tabs.open.values()) destroy(session);
                     tabs.open.clear();
                 }
                 return null;
@@ -274,7 +239,7 @@ public class BrowserPlugin extends Plugin {
                 }
             });
             // why: Chromium keeps a profile loaded for the rest of the process once a WebView used it, so it is deleted at the next start
-            if (!deleted) pending().edit().putStringSet(PENDING_KEY, with(pending().getStringSet(PENDING_KEY, Set.of()), profileOf(bot))).apply();
+            if (!deleted) forgottenProfiles().edit().putStringSet(FORGOTTEN_KEY, with(forgottenProfiles().getStringSet(FORGOTTEN_KEY, Set.of()), profileOf(bot))).apply();
             call.resolve();
         });
     }
@@ -283,7 +248,7 @@ public class BrowserPlugin extends Plugin {
     public void load() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return;
         Set<String> left = new HashSet<>();
-        for (String name : pending().getStringSet(PENDING_KEY, Set.of())) {
+        for (String name : forgottenProfiles().getStringSet(FORGOTTEN_KEY, Set.of())) {
             ProfileStore store = ProfileStore.getInstance();
             if (store.getProfile(name) == null) continue;
             try {
@@ -292,11 +257,11 @@ public class BrowserPlugin extends Plugin {
                 left.add(name);
             }
         }
-        pending().edit().putStringSet(PENDING_KEY, left).apply();
+        forgottenProfiles().edit().putStringSet(FORGOTTEN_KEY, left).apply();
     }
 
-    private SharedPreferences pending() {
-        return getContext().getSharedPreferences(PENDING_PREFS, Context.MODE_PRIVATE);
+    private SharedPreferences forgottenProfiles() {
+        return getContext().getSharedPreferences(FORGOTTEN_PREFS, Context.MODE_PRIVATE);
     }
 
     private static Set<String> with(Set<String> names, String name) {
@@ -311,13 +276,17 @@ public class BrowserPlugin extends Plugin {
         for (Tabs tabs : bots.values()) for (Session session : tabs.open.values()) flush(session);
     }
 
-    private Session session(PluginCall call) throws Exception {
+    private Tabs tabsOf(PluginCall call) throws Failure {
         String bot = call.getString("bot", "");
         if (bot.isEmpty()) throw new Failure("invalid", "bot is required");
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
             throw new Failure("unsupported", "this phone's WebView cannot keep a separate browser per Bot; update Android System WebView");
         }
-        Tabs tabs = bots.computeIfAbsent(bot, Tabs::new);
+        return bots.computeIfAbsent(bot, Tabs::new);
+    }
+
+    private Session session(PluginCall call) throws Exception {
+        Tabs tabs = tabsOf(call);
         String tab = call.getString("tab", null);
         return onMain(() -> {
             String wanted = tab != null ? tab : tabs.active;
@@ -325,7 +294,7 @@ public class BrowserPlugin extends Plugin {
             if (existing == null && tab != null) throw new Failure("no_tab", "tab " + tab + " is not open; open tabs: " + String.join(", ", tabs.open.keySet()));
             Session session = existing != null ? existing : create(tabs);
             main.removeCallbacks(session.expire);
-            if (!(tabs.shown && session.tab.equals(tabs.active))) main.postDelayed(session.expire, IDLE_MS);
+            main.postDelayed(session.expire, IDLE_MS);
             return session;
         });
     }
@@ -333,9 +302,7 @@ public class BrowserPlugin extends Plugin {
     @PluginMethod
     public void newTab(PluginCall call) {
         Background.run(work, call, () -> {
-            String bot = call.getString("bot", "");
-            if (bot.isEmpty()) throw new Failure("invalid", "bot is required");
-            Tabs tabs = bots.computeIfAbsent(bot, Tabs::new);
+            Tabs tabs = tabsOf(call);
             Session session = onMain(() -> {
                 if (tabs.open.size() >= MAX_TABS) throw new Failure("too_many", "a Bot keeps at most " + MAX_TABS + " tabs; close one first");
                 Session created = create(tabs);
@@ -379,8 +346,9 @@ public class BrowserPlugin extends Plugin {
     @PluginMethod
     public void tabs(PluginCall call) {
         Background.run(work, call, () -> {
-            Tabs tabs = bots.get(call.getString("bot", ""));
-            call.resolve(onMain(() -> listing(tabs, call.getString("bot", ""))));
+            String bot = call.getString("bot", "");
+            Tabs tabs = bots.get(bot);
+            call.resolve(onMain(() -> listing(tabs, bot)));
         });
     }
 
@@ -407,17 +375,9 @@ public class BrowserPlugin extends Plugin {
     }
 
     private void select(Tabs tabs, String tab) {
-        Session previous = tabs.active == null ? null : tabs.open.get(tabs.active);
         tabs.active = tab;
         Session next = tabs.open.get(tab);
-        if (tabs.shown && next != null) {
-            if (previous != null && previous != next && previous.view.getParent() instanceof ViewGroup parent) {
-                parent.removeView(previous.view);
-                layOut(previous);
-                main.postDelayed(previous.expire, IDLE_MS);
-            }
-            attach(next, false);
-        }
+        if (tabs.shown && next != null) attach(next, false);
         announceTabs(tabs);
         if (next != null) announce(next);
     }
@@ -425,17 +385,28 @@ public class BrowserPlugin extends Plugin {
     private void close(Tabs tabs, String tab) {
         Session session = tabs.open.remove(tab);
         if (session == null) return;
+        destroy(session);
+        if (!tab.equals(tabs.active)) {
+            announceTabs(tabs);
+            return;
+        }
+        tabs.active = null;
+        String last = tabs.open.keySet().stream().reduce((first, second) -> second).orElse(null);
+        if (last == null) announceTabs(tabs);
+        else select(tabs, last);
+    }
+
+    private void park(Session session) {
+        if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
+        layOut(session);
+        main.removeCallbacks(session.expire);
+        main.postDelayed(session.expire, IDLE_MS);
+    }
+
+    private void destroy(Session session) {
         main.removeCallbacks(session.expire);
         if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
         session.view.destroy();
-        if (tab.equals(tabs.active)) {
-            String last = null;
-            for (String id : tabs.open.keySet()) last = id;
-            tabs.active = null;
-            if (last != null) select(tabs, last);
-        }
-        if (tabs.open.isEmpty()) tabs.active = null;
-        announceTabs(tabs);
     }
 
     private void attach(Session session, boolean fade) {
@@ -451,11 +422,10 @@ public class BrowserPlugin extends Plugin {
         });
         session.view.setClipToOutline(true);
         for (Session other : tabs.open.values()) {
-            if (other != session && other.view.getParent() instanceof ViewGroup parent) parent.removeView(other.view);
+            if (other != session && other.view.getParent() != null) park(other);
         }
-        boolean fresh = session.view.getParent() != root;
-        if (session.view.getParent() instanceof ViewGroup parent && fresh) parent.removeView(session.view);
-        if (fresh) {
+        if (session.view.getParent() != root) {
+            if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
             session.view.setAlpha(fade ? 0f : 1f);
             root.addView(session.view, tabs.placed);
             if (fade) session.view.animate().alpha(1f).setDuration(140).start();
@@ -542,9 +512,8 @@ public class BrowserPlugin extends Plugin {
 
     private void announce(Session session) {
         JSObject page = new JSObject();
-        page.put("bot", session.bot);
+        page.put("bot", session.owner.bot);
         page.put("tab", session.tab);
-        page.put("active", session.tab.equals(session.owner.active));
         page.put("url", orEmpty(session.view.getUrl()));
         page.put("title", orEmpty(session.view.getTitle()));
         page.put("loading", session.loading);
@@ -564,7 +533,7 @@ public class BrowserPlugin extends Plugin {
 
     private void flush(Session session) {
         main.post(() -> {
-            Profile profile = ProfileStore.getInstance().getProfile(profileOf(session.bot));
+            Profile profile = ProfileStore.getInstance().getProfile(profileOf(session.owner.bot));
             if (profile != null) profile.getCookieManager().flush();
         });
     }
@@ -576,26 +545,28 @@ public class BrowserPlugin extends Plugin {
                 String url = step.optString("url");
                 String scheme = Uri.parse(url).getScheme();
                 if (!"http".equals(scheme) && !"https".equals(scheme)) throw new Failure("invalid", "url must be http or https");
-                session.loading = true;
-                onMain(() -> {
-                    session.view.loadUrl(url);
-                    return null;
-                });
+                navigate(session, () -> session.view.loadUrl(url));
+            }
+            case "reload" -> navigate(session, session.view::reload);
+            case "tap" -> {
+                tapElement(session, step);
                 settle(session);
             }
-            case "tap" -> {
-                tapTarget(session, step);
+            case "tap_at" -> {
+                if (!step.has("x") || !step.has("y")) throw new Failure("invalid", "tap_at needs x and y");
+                float scale = (float) Double.parseDouble(eval(session, "devicePixelRatio"));
+                tap(session, (float) step.getDouble("x") * scale, (float) step.getDouble("y") * scale);
                 settle(session);
             }
             case "type" -> {
                 if (!step.has("text")) throw new Failure("invalid", "type needs text");
-                if (step.has("index")) {
-                    tapTarget(session, step);
-                    Thread.sleep(SETTLE_MS);
-                }
-                if (!"\"ok\"".equals(eval(session, String.format(INSERT, JSONObject.quote(step.getString("text")))))) {
-                    throw new Failure("no_focus", "no field has focus: tap the field first");
-                }
+                tapElement(session, step);
+                Thread.sleep(SETTLE_MS);
+                insert(session, step.getString("text"));
+            }
+            case "type_here" -> {
+                if (!step.has("text")) throw new Failure("invalid", "type_here needs text");
+                insert(session, step.getString("text"));
             }
             case "clear" -> {
                 if (!"\"ok\"".equals(eval(session, CLEAR))) throw new Failure("no_focus", "no field has focus: tap the field first");
@@ -613,57 +584,43 @@ public class BrowserPlugin extends Plugin {
             }
             case "select" -> {
                 if (!step.has("index") || !step.has("option")) throw new Failure("invalid", "select needs index and option");
-                JSONObject result = new JSONObject(evalIndexed(session, "window.__piPage.select(" + step.getInt("index") + ", " + JSONObject.quote(step.getString("option")) + ")"));
-                if (!result.optBoolean("success")) throw new Failure("select", result.optString("message"));
+                evalPage(session, "window.__piPage.select(" + step.getInt("index") + ", " + JSONObject.quote(step.getString("option")) + ")");
                 Thread.sleep(SETTLE_MS);
             }
-            case "scroll" -> {
-                String direction = step.optString("direction", "down");
-                if ("down".equals(direction) || "up".equals(direction)) {
-                    String index = step.has("index") ? ", " + step.getInt("index") : "";
-                    evalPage(session, "window.__piPage.scroll(" + "down".equals(direction) + index + ")");
-                    Thread.sleep(SETTLE_MS);
-                    return;
-                }
-                String by = switch (direction) {
-                    case "up" -> "0, -innerHeight * 0.8";
-                    case "left" -> "-innerWidth * 0.8, 0";
-                    case "right" -> "innerWidth * 0.8, 0";
-                    default -> "0, innerHeight * 0.8";
-                };
-                eval(session, String.format(SCROLL, by));
+            case "scroll", "scroll_in" -> {
+                if ("scroll_in".equals(action) && !step.has("index")) throw new Failure("invalid", "scroll_in needs index");
+                String inside = "scroll_in".equals(action) ? ", " + step.getInt("index") : "";
+                evalPage(session, "window.__piPage.scroll(" + JSONObject.quote(step.optString("direction", "down")) + inside + ")");
                 Thread.sleep(SETTLE_MS);
             }
-            case "back" -> {
+            case "back", "forward" -> {
+                boolean back = "back".equals(action);
                 boolean went = onMain(() -> {
-                    if (!session.view.canGoBack()) return false;
-                    session.view.goBack();
+                    if (!(back ? session.view.canGoBack() : session.view.canGoForward())) return false;
+                    if (back) session.view.goBack();
+                    else session.view.goForward();
                     return true;
                 });
-                if (!went) throw new Failure("invalid", "there is no page to go back to");
-                settle(session);
-            }
-            case "forward" -> {
-                boolean went = onMain(() -> {
-                    if (!session.view.canGoForward()) return false;
-                    session.view.goForward();
-                    return true;
-                });
-                if (!went) throw new Failure("invalid", "there is no page to go forward to");
-                settle(session);
-            }
-            case "reload" -> {
-                session.loading = true;
-                onMain(() -> {
-                    session.view.reload();
-                    return null;
-                });
+                if (!went) throw new Failure("invalid", "there is no page to go " + action + " to");
                 settle(session);
             }
             case "wait" -> Thread.sleep(Math.min(Math.max(step.optLong("ms", 1000), 0), WAIT_MAX_MS));
             case "wait_for" -> waitFor(session, step);
             default -> throw new Failure("invalid", "unknown action " + action);
         }
+    }
+
+    private void navigate(Session session, Runnable go) throws Exception {
+        session.loading = true;
+        onMain(() -> {
+            go.run();
+            return null;
+        });
+        settle(session);
+    }
+
+    private void insert(Session session, String text) throws Exception {
+        if (!"\"ok\"".equals(eval(session, String.format(INSERT, JSONObject.quote(text))))) throw new Failure("no_focus", "no field has focus: tap the field first");
     }
 
     private void waitFor(Session session, JSONObject step) throws Exception {
@@ -690,9 +647,13 @@ public class BrowserPlugin extends Plugin {
 
     private void settle(Session session) throws Exception {
         Thread.sleep(SETTLE_MS);
+        awaitLoad(session);
+        Thread.sleep(SETTLE_MS);
+    }
+
+    private static void awaitLoad(Session session) throws InterruptedException {
         long end = SystemClock.uptimeMillis() + LOAD_MS;
         while (session.loading && SystemClock.uptimeMillis() < end) Thread.sleep(200);
-        Thread.sleep(SETTLE_MS);
     }
 
     private void tap(Session session, float x, float y) throws Exception {
@@ -722,63 +683,40 @@ public class BrowserPlugin extends Plugin {
         });
     }
 
-    private JSObject snapshot(Session session, boolean screenshot, Integer done, String error) throws Exception {
-        long end = SystemClock.uptimeMillis() + LOAD_MS;
-        while (session.loading && SystemClock.uptimeMillis() < end) Thread.sleep(200);
-        JSONObject page = new JSONObject(new JSONArray("[" + eval(session, FACTS) + "]").getString(0));
-        JSONObject state = new JSONObject(evalPage(session, "window.__piPage.state()"));
+    private JSObject snapshot(Session session, boolean screenshot, String error) throws Exception {
+        awaitLoad(session);
+        JSONObject page = new JSONObject(eval(session, FACTS));
+        JSONObject state = evalPage(session, "window.__piPage.state()");
         JSObject out = new JSObject();
         out.put("tab", session.tab);
-        out.put("url", page.optString("url"));
-        out.put("title", page.optString("title"));
-        out.put("width", page.optInt("width"));
-        out.put("height", page.optInt("height"));
-        out.put("scrollY", page.optInt("scrollY"));
-        out.put("scrollHeight", page.optInt("scrollHeight"));
         out.put("loading", session.loading || !"complete".equals(page.optString("ready")));
         out.put("elements", state.optString("header") + "\n" + state.optString("content") + "\n" + state.optString("footer"));
-        out.put("more", 0);
+        out.put("tabs", onMain(() -> listing(session.owner, session.owner.bot)).getJSONArray("tabs"));
         String dialog = session.dialog;
         session.dialog = null;
         out.put("text", dialog == null ? page.optString("text") : "[The page showed a dialog: " + dialog + "]\n" + page.optString("text"));
         if (screenshot) out.put("jpeg", capture(session));
-        if (done != null) out.put("done", done);
         if (error != null) out.put("error", error);
-        flush(session);
         return out;
     }
 
-    private void tapTarget(Session session, JSONObject step) throws Exception {
-        float scale = (float) Double.parseDouble(eval(session, "devicePixelRatio"));
-        if (step.has("index")) {
-            JSONObject center = new JSONObject(evalIndexed(session, "window.__piPage.center(" + step.getInt("index") + ")"));
-            tap(session, (float) center.getDouble("x") * scale, (float) center.getDouble("y") * scale);
-            return;
-        }
-        if (!step.has("x") || !step.has("y")) throw new Failure("invalid", "tap needs index, or x and y");
-        tap(session, (float) step.getDouble("x") * scale, (float) step.getDouble("y") * scale);
+    private void tapElement(Session session, JSONObject step) throws Exception {
+        if (!step.has("index")) throw new Failure("invalid", step.optString("action") + " needs index");
+        JSONObject center = evalPage(session, "window.__piPage.center(" + step.getInt("index") + ")");
+        tap(session, (float) center.getDouble("x"), (float) center.getDouble("y"));
     }
 
-    private String evalIndexed(Session session, String expression) throws Exception {
-        try {
-            return evalPage(session, expression);
-        } catch (Failure failure) {
-            if (!"page".equals(failure.code())) throw failure;
-            throw new Failure("stale", failure.getMessage() + "; read the page again, since its [n] indexes change when the page does");
-        }
-    }
-
-    private String evalPage(Session session, String expression) throws Exception {
+    private JSONObject evalPage(Session session, String expression) throws Exception {
         if (!"\"object\"".equals(eval(session, "typeof window.__piPage"))) eval(session, script() + ";0");
-        String key = "r" + pending.incrementAndGet();
-        eval(session, "(() => { const box = window.__piAsync || (window.__piAsync = {}); Promise.resolve().then(() => " + expression + ").then((value) => { box." + key + " = { ok: JSON.stringify(value === undefined ? null : value) }; }, (failure) => { box." + key + " = { error: String((failure && failure.message) || failure) }; }); return 0; })()");
+        String key = "r" + asyncKeys.incrementAndGet();
+        eval(session, "(() => { const box = window.__piAsync || (window.__piAsync = {}); Promise.resolve().then(() => " + expression + ").then((value) => { box." + key + " = { ok: value ?? {} }; }, (failure) => { box." + key + " = { error: String((failure && failure.message) || failure) }; }); return 0; })()");
         long end = SystemClock.uptimeMillis() + ASYNC_MS;
         while (SystemClock.uptimeMillis() < end) {
-            String raw = new JSONArray("[" + eval(session, "(() => { const box = window.__piAsync || {}; const value = box." + key + "; delete box." + key + "; return value ? JSON.stringify(value) : ''; })()") + "]").getString(0);
-            if (!raw.isEmpty()) {
+            String raw = eval(session, "(() => { const box = window.__piAsync || {}; const value = box." + key + "; delete box." + key + "; return value ?? null; })()");
+            if (!"null".equals(raw)) {
                 JSONObject result = new JSONObject(raw);
                 if (result.has("error")) throw new Failure("page", result.getString("error"));
-                return result.getString("ok");
+                return result.getJSONObject("ok");
             }
             Thread.sleep(50);
         }
@@ -787,33 +725,34 @@ public class BrowserPlugin extends Plugin {
 
     private String script() throws Exception {
         if (pageScript == null) {
-            try (java.io.InputStream input = getContext().getAssets().open(PAGE_SCRIPT)) {
-                pageScript = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            try (InputStream input = getContext().getAssets().open(PAGE_SCRIPT)) {
+                pageScript = new String(input.readAllBytes(), StandardCharsets.UTF_8);
             }
         }
         return pageScript;
     }
 
     private String capture(Session session) throws Exception {
-        return onMain(() -> {
-            Bitmap bitmap = Bitmap.createBitmap(Math.max(1, session.owner.width / 2), Math.max(1, session.owner.height / 2), Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(bitmap);
+        Bitmap bitmap = onMain(() -> {
+            Bitmap drawn = Bitmap.createBitmap(Math.max(1, session.owner.width / 2), Math.max(1, session.owner.height / 2), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(drawn);
             canvas.scale(0.5f, 0.5f);
             session.view.draw(canvas);
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, bytes);
-            bitmap.recycle();
-            return Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
+            return drawn;
         });
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, bytes);
+        bitmap.recycle();
+        return Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
     }
 
     private String eval(Session session, String script) throws Exception {
         CompletableFuture<String> result = new CompletableFuture<>();
         main.post(() -> session.view.evaluateJavascript(script, result::complete));
         try {
-            return result.get(10, TimeUnit.SECONDS);
-        } catch (java.util.concurrent.TimeoutException timeout) {
-            throw new Failure("timeout", "the page did not answer in 10 s");
+            return result.get(ANSWER_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException timeout) {
+            throw new Failure("timeout", "the page did not answer in " + ANSWER_SECONDS + " s");
         }
     }
 
@@ -822,8 +761,8 @@ public class BrowserPlugin extends Plugin {
         FutureTask<T> future = new FutureTask<>(task);
         main.post(future);
         try {
-            return future.get(10, TimeUnit.SECONDS);
-        } catch (java.util.concurrent.ExecutionException failed) {
+            return future.get(ANSWER_SECONDS, TimeUnit.SECONDS);
+        } catch (ExecutionException failed) {
             if (failed.getCause() instanceof Exception cause) throw cause;
             throw failed;
         }

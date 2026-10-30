@@ -234,6 +234,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-30 | `use_browser` 的步驟按要不要元素拆開：`tap {index}`／`tap_at {x, y}`、`type {index, text}`／`type_here {text}`、`scroll {direction}`／`scroll_in {index, direction}`，`ms` 最小 1。模型會把沒用到的欄位填成預設值，`index: 0` 又是合法編號，原本「在游標處打字」或捲整頁會先點到、捲到 [0]。步驟裡的空值和頂層參數一樣清掉。`read_page` 的結果不再重複 page-controller 已經給的網址、標題那行；分頁清單和頁面一起從原生回來，少一次呼叫 | 說明多約 80 字元，需要時載入 | 快照已更新；`test/tool-args-node.ts` 驗證步驟裡的空值會清掉 |
 | 2026-10-30 | 瀏覽器讀頁面改用 `@page-agent/page-controller`（MIT，browser-use 的元素擷取延續下來的版本）：`read_page` 回傳頁面上下還有多少、畫面內可操作元素的 `[n]` 編號和周圍文字；`use_browser` 的 `tap`、`type` 多 `index`，新增 `select {index, option}`，`scroll` 可帶 `index` 捲某個區塊。點擊和打字仍由原生送出（觸控是 `isTrusted`），page-controller 只負責找元素、回報中心座標、選選單、捲動；它自己的點擊和輸入是 JS 模擬（`isTrusted: false`），不用。自寫的讀頁面腳本拿掉 | 兩個工具說明多約 450 字元，需要時載入；每頁注入 59 KB 腳本 | S24 比較（6 個網站）：元素數和自寫腳本相近（YouTube、DuckDuckGo 多了按鈕裡的圖示）；下拉選單、GitHub 登入頁中英文輸入、點 DuckDuckGo 結果都成功 |
 | 2026-10-30 | 瀏覽器分頁：每個 Bot 最多 4 個分頁，共用那個 Bot 的 profile（登入）。`read_page`、`use_browser` 多 `tab`（分頁 id；`use_browser` 填 `"new"` 開新分頁），`use_browser` 多 `close_tab` 步驟；結果第一行列出所有分頁。說明裡請模型在同一輪對不同分頁各呼叫一次 `use_browser`，讓頁面同時載入。原生加 `newTab`、`selectTab`、`closeTab`、`tabs` 和 `tabs` 事件 | 兩個工具的說明多約 330 字元，需要時載入 | 快照已更新。畫面上網址列旁的數字打開分頁列，可切換、關閉、開新分頁 |
 | 2026-10-30 | `use_browser` 多兩個步驟：`forward`（下一頁）、`reload`（重新整理），和瀏覽器畫面上新加的 ‹ › ⟳ 按鈕走同一條路；原生的 `page` 事件多回報能不能上一頁、下一頁 | `use_browser` 的說明多約 20 字元，需要時載入 | 快照已更新。Android 的返回手勢在瀏覽器打開時先回上一頁，回到第一頁才收起 |

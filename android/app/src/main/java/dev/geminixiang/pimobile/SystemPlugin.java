@@ -14,6 +14,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import dev.geminixiang.pimobile.Background.Failure;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -106,37 +107,23 @@ public class SystemPlugin extends Plugin {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         try {
             int status = connection.getResponseCode();
-            if (status != HttpURLConnection.HTTP_OK) throw new UpdateFailure("download", "HTTP " + status);
+            if (status != HttpURLConnection.HTTP_OK) throw new Failure("download", "HTTP " + status);
             try (InputStream input = new DigestInputStream(connection.getInputStream(), digest); FileOutputStream output = new FileOutputStream(apk)) {
                 input.transferTo(output);
             }
         } finally {
             connection.disconnect();
         }
-        if (!HexFormat.of().formatHex(digest.digest()).equals(sha256)) throw new UpdateFailure("checksum", "the download does not match its SHA-256");
+        if (!HexFormat.of().formatHex(digest.digest()).equals(sha256)) throw new Failure("checksum", "the download does not match its SHA-256");
     }
 
     private static void requireSameApp(Context context, File apk) throws Exception {
         PackageManager packages = context.getPackageManager();
         PackageInfo archive = packages.getPackageArchiveInfo(apk.getPath(), PackageManager.GET_SIGNING_CERTIFICATES);
-        if (archive == null || !context.getPackageName().equals(archive.packageName)) throw new UpdateFailure("not_this_app", "the download is not pi mobile");
+        if (archive == null || !context.getPackageName().equals(archive.packageName)) throw new Failure("not_this_app", "the download is not pi mobile");
         PackageInfo installed = packages.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
         if (archive.signingInfo == null || !Arrays.equals(archive.signingInfo.getApkContentsSigners(), installed.signingInfo.getApkContentsSigners())) {
-            throw new UpdateFailure("other_key", "the download is signed with another key");
-        }
-    }
-
-    private static final class UpdateFailure extends Exception implements Background.Coded {
-        private final String code;
-
-        UpdateFailure(String code, String message) {
-            super(message);
-            this.code = code;
-        }
-
-        @Override
-        public String code() {
-            return code;
+            throw new Failure("other_key", "the download is signed with another key");
         }
     }
 

@@ -10,8 +10,17 @@ final class Background {
         void run() throws Exception;
     }
 
-    interface Coded {
-        String code();
+    static final class Failure extends Exception {
+        private final String code;
+
+        Failure(String code, String message) {
+            super(message);
+            this.code = code;
+        }
+
+        String code() {
+            return code;
+        }
     }
 
     private static final ExecutorService SHARED = Executors.newCachedThreadPool();
@@ -27,7 +36,7 @@ final class Background {
             try {
                 job.run();
             } catch (Exception error) {
-                call.reject(String.valueOf(error.getMessage()), error instanceof Coded coded ? coded.code() : "io");
+                call.reject(String.valueOf(error.getMessage()), error instanceof Failure failure ? failure.code() : "io");
             }
         });
     }

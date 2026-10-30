@@ -8,6 +8,7 @@ import type { FolderNetwork } from "./files/folder-network.ts";
 import { PhoneEnv, removePhoneFolder } from "./files/phone-env.ts";
 import { refuseCleartextSecret } from "./cleartext.ts";
 import { inApp, type Native, native } from "../native.ts";
+import { Browser } from "../plugins/browser.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
@@ -17,12 +18,17 @@ export interface PhoneApp {
 	removeFolder(folder: string): Promise<void>;
 }
 
+export interface BotBrowser {
+	forget(bot: string): Promise<void>;
+}
+
 export type RotatedCredentials = { cloudflare(json: string): Promise<void>; azure(json: string): Promise<void> };
 
 export interface Platform {
 	inApp: boolean;
 	native: Native;
 	phone: PhoneApp | undefined;
+	browser: BotBrowser | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
 	rotated: RotatedCredentials;
@@ -63,6 +69,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 		inApp,
 		native,
 		phone: native.has("BotFiles") ? { folder: (folder, network) => new PhoneEnv(folder, network), removeFolder: removePhoneFolder } : undefined,
+		browser: native.implements(Browser.forget) ? { forget: (bot) => Browser.forget({ bot }) } : undefined,
 		plain: {
 			get: (key) => localStorage.getItem(key),
 			set: (key, value) => localStorage.setItem(key, value),

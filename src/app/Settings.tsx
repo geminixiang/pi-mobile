@@ -23,7 +23,7 @@ import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../agent/triggers.ts";
 import { Triggers } from "../plugins/triggers.ts";
-import { changedKeys, isConfigured, type SearchEngine, type Settings } from "../settings.ts";
+import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
 import { AutomationIcon, ChevronIcon, DatabaseIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { useBack } from "./layers.ts";
@@ -368,8 +368,6 @@ function DatabaseGroup() {
 
 const PHONE_PAGE: readonly NativePlugin[] = ["Calendar", "Notifications", "PhoneScreen", "Usage", "KeepAlive"];
 
-const ENGINE_NAMES: Record<SearchEngine, string> = { duckduckgo: "DuckDuckGo", google: "Google" };
-
 type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "browser" | "schedules" | "data";
 
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
@@ -395,7 +393,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		{ page: "services", icon: <PlugIcon />, label: "連接的服務", value: services ? `${services} 個` : "" },
 		{ page: "machines", icon: <TerminalIcon size={18} />, label: "電腦", value: host ? `${host.name}${chosen?.mode === "container" ? " · 容器" : ""}` : undefined },
 		...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, icon: <PhoneIcon />, label: "手機", value: undefined }] : []),
-		...(native.has("Browser") ? [{ page: "browser" as const, icon: <GlobeIcon size={18} />, label: "瀏覽器", value: ENGINE_NAMES[settings.searchEngine] }] : []),
+		...(native.has("Browser") ? [{ page: "browser" as const, icon: <GlobeIcon size={18} />, label: "瀏覽器", value: SEARCH_ENGINES[settings.searchEngine].name }] : []),
 		...(native.has("Triggers") ? [{ page: "schedules" as const, icon: <AutomationIcon />, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
 		...(native.has("Database") ? [{ page: "data" as const, icon: <DatabaseIcon />, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
 	];
@@ -623,8 +621,8 @@ export function SettingsView({
 						label="搜尋引擎"
 						value={settings.searchEngine}
 						options={[
-							{ value: "duckduckgo", label: ENGINE_NAMES.duckduckgo },
-							{ value: "google", label: ENGINE_NAMES.google },
+							{ value: "duckduckgo", label: SEARCH_ENGINES.duckduckgo.name },
+							{ value: "google", label: SEARCH_ENGINES.google.name },
 						]}
 						onChange={(searchEngine) => change({ searchEngine })}
 					/>

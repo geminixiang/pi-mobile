@@ -52,6 +52,18 @@ deepStrictEqual(prepareStatements({ statements: ["SELECT 1", { sql: "SELECT ?", 
 });
 deepStrictEqual(prepareStatements({ statements: "SELECT 1" }), { statements: [{ sql: "SELECT 1" }] });
 throws(() => prepareStatements({ statements: [7] }), /statements\/0/);
+deepStrictEqual(prepareStatements({ statements: [{ sql: "SELECT 1", params: [] }] }), { statements: [{ sql: "SELECT 1" }] });
+
+const steps = defineAppTool({
+	name: "steps",
+	effect: "read",
+	description: "A tool whose list items carry optional fields a model may fill with blanks.",
+	parameters: Type.Object({
+		steps: Type.Array(Type.Object({ action: Type.String(), text: Type.Optional(Type.String()), ms: Type.Optional(Type.Integer({ minimum: 1 })) })),
+	}),
+	execute: async () => ({ output: [] }),
+});
+deepStrictEqual(steps.prepareArguments?.({ steps: [{ action: "wait", text: "", ms: 0 }] }), { steps: [{ action: "wait" }] });
 
 deepStrictEqual(parseLocalTime("2026-10-22 07:05", "at"), { ms: new Date(2026, 9, 22, 7, 5).getTime(), hasTime: true });
 deepStrictEqual(parseLocalTime("2026-10-22T07:05", "at").ms, new Date(2026, 9, 22, 7, 5).getTime());

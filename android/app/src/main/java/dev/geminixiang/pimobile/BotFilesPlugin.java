@@ -7,13 +7,14 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import dev.geminixiang.pimobile.Background.Failure;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -27,20 +28,6 @@ public class BotFilesPlugin extends Plugin {
 
     private static final Pattern BOT = Pattern.compile("[A-Za-z0-9_-]{1,64}");
     private final ExecutorService work = Executors.newFixedThreadPool(4);
-
-    private static final class Failure extends Exception implements Background.Coded {
-        private final String code;
-
-        Failure(String code, String message) {
-            super(message);
-            this.code = code;
-        }
-
-        @Override
-        public String code() {
-            return code;
-        }
-    }
 
     private static void replace(File temp, File file) throws IOException {
         try {

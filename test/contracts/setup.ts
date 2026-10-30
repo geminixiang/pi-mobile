@@ -75,6 +75,8 @@ export const secrets: { removeGate: Gate } = { removeGate: undefined };
 
 export const folders: { removeGate: Gate; removed: string[] } = { removeGate: undefined, removed: [] };
 
+export const browsers: { forgotten: string[] } = { forgotten: [] };
+
 export const faux = fauxProvider({ provider: "faux", models: [{ id: "model" }] });
 
 const plain = new Map<string, string>();
@@ -103,6 +105,11 @@ export const platform: Platform = {
 		removeFolder: async (folder) => {
 			folders.removed.push(folder);
 			await folders.removeGate?.promise;
+		},
+	},
+	browser: {
+		forget: async (bot) => {
+			browsers.forgotten.push(bot);
 		},
 	},
 	models: async () => {

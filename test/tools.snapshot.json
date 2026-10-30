@@ -1580,11 +1580,14 @@
 								"enum": [
 									"open",
 									"tap",
+									"tap_at",
 									"type",
+									"type_here",
 									"clear",
 									"select",
 									"key",
 									"scroll",
+									"scroll_in",
 									"back",
 									"forward",
 									"reload",
@@ -1596,7 +1599,7 @@
 								"type": "string"
 							},
 							"direction": {
-								"description": "scroll: which way the content moves into view; default down",
+								"description": "scroll, scroll_in: which way the content moves into view; default down",
 								"enum": [
 									"down",
 									"up",
@@ -1610,7 +1613,7 @@
 								"type": "boolean"
 							},
 							"index": {
-								"description": "tap, type, select, scroll: the element's [n] from read_page",
+								"description": "tap, type, select, scroll_in: the element's [n] from read_page",
 								"minimum": 0,
 								"type": "integer"
 							},
@@ -1620,7 +1623,7 @@
 							},
 							"ms": {
 								"description": "wait: how long; wait_for: the longest to wait, default 8000",
-								"minimum": 0,
+								"minimum": 1,
 								"type": "integer"
 							},
 							"option": {
@@ -1628,7 +1631,7 @@
 								"type": "string"
 							},
 							"text": {
-								"description": "type: the text; wait_for: text to wait for; hand_over: why the user is needed",
+								"description": "type, type_here: the text; wait_for: text to wait for; hand_over: why the user is needed",
 								"type": "string"
 							},
 							"url": {
@@ -1636,11 +1639,11 @@
 								"type": "string"
 							},
 							"x": {
-								"description": "CSS px from the left of the viewport",
+								"description": "tap_at: CSS px from the left of the viewport",
 								"type": "number"
 							},
 							"y": {
-								"description": "CSS px from the top of the viewport",
+								"description": "tap_at: CSS px from the top of the viewport",
 								"type": "number"
 							}
 						},

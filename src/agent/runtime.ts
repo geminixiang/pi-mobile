@@ -342,6 +342,8 @@ export class AgentRuntime {
 		);
 		const phone = this.#platform.phone;
 		if (phone) await orLogged(phone.removeFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
+		const browser = this.#platform.browser;
+		if (browser) await orLogged(browser.forget(String(bot.id)), "bot.remove_browser_failed", undefined, { bot: String(bot.id) });
 		await orLogged(deleteAttachments({ conversationId: String(bot.id) }), "bot.remove_attachments_failed", undefined, { bot: String(bot.id) });
 		if (left.some((key) => key !== undefined)) return;
 		await this.#harness.commit(async (tx) => {

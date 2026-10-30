@@ -3,7 +3,7 @@ import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
-import { type Check, faux, folders, settle } from "./setup.ts";
+import { browsers, type Check, faux, folders, settle } from "./setup.ts";
 
 async function busyNow(runtime: AgentRuntime, id: ConversationId): Promise<boolean> {
 	let busy = false;
@@ -98,6 +98,7 @@ export const checks: Check[] = [
 			try {
 				await settle(100);
 				assert.deepEqual(folders.removed, [folder, folder]);
+				assert(browsers.forgotten.includes(String(gone)));
 				assert.equal((await second.runtime.bots()).some((bot) => bot.id === gone), false);
 				const third = (await second.runtime.bots()).length;
 				assert.equal(third, 1);

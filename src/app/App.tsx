@@ -13,8 +13,6 @@ import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GlobeIcon, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { BrowserSheet } from "./BrowserSheet.tsx";
-import { browserState } from "../agent/tools/browser.ts";
-import { Browser } from "../plugins/browser.ts";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
@@ -523,8 +521,6 @@ export function App() {
 					if (!sure) return;
 					try {
 						await runtime.removeBot(bot.id);
-						if (native.implements(Browser.forget)) await Browser.forget({ bot: String(bot.id) });
-						browserState.forget(String(bot.id));
 						await orLogged(clearDraft(String(bot.id)), "drafts.clear_failed", undefined);
 						if (bot.id === controller?.id) dropConversation();
 					} catch (error) {

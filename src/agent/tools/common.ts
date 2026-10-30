@@ -34,12 +34,18 @@ function listed(value: unknown, schema: unknown): unknown {
 	if (typeof schema !== "object" || schema === null || Reflect.get(schema, "type") !== "array") return value;
 	const items = Array.isArray(value) ? value : typeof value === "string" || typeof value === "number" ? [value] : undefined;
 	if (!items) return value;
-	const field = soleTextField(Reflect.get(schema, "items"));
-	return field ? items.map((item) => (typeof item === "string" ? { [field]: item } : item)) : items;
+	const itemSchema: unknown = Reflect.get(schema, "items");
+	const field = soleTextField(itemSchema);
+	const wrapped = field ? items.map((item) => (typeof item === "string" ? { [field]: item } : item)) : items;
+	return isObjectSchema(itemSchema) ? wrapped.map((item) => cleaned(itemSchema, item)) : wrapped;
+}
+
+function isObjectSchema(schema: unknown): schema is TSchema {
+	return typeof schema === "object" && schema !== null && Reflect.get(schema, "type") === "object";
 }
 
 function soleTextField(schema: unknown): string | undefined {
-	if (typeof schema !== "object" || schema === null || Reflect.get(schema, "type") !== "object") return undefined;
+	if (!isObjectSchema(schema)) return undefined;
 	const required: unknown = Reflect.get(schema, "required");
 	const properties: unknown = Reflect.get(schema, "properties");
 	if (!Array.isArray(required) || required.length !== 1 || typeof properties !== "object" || properties === null) return undefined;
@@ -88,6 +94,11 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 export const text = (value: string): ToolExecutionResult => ({ output: [{ type: "text", text: value }] });
 
 export const json = (value: unknown): ToolExecutionResult => text(JSON.stringify(value, null, 2));
+
+export const withScreenshot = (facts: string, jpeg: string | undefined, failed: boolean): ToolExecutionResult => ({
+	output: [{ type: "text", text: facts }, ...(jpeg ? [{ type: "image" as const, mimeType: "image/jpeg", data: jpeg }] : [])],
+	...(failed ? { isError: true } : {}),
+});
 
 const MAX_OUTPUT_CHARS = 40_000;
 

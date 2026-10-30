@@ -18,7 +18,12 @@ const SECRET_CLOUDFLARE = "cloudflare.credential";
 const SECRET_AZURE = "azure.credential";
 const hostKey = (id: string) => `host.${id}.key`;
 
-export type SearchEngine = "duckduckgo" | "google";
+export const SEARCH_ENGINES = {
+	duckduckgo: { name: "DuckDuckGo", home: "https://duckduckgo.com/", search: "https://duckduckgo.com/?q=" },
+	google: { name: "Google", home: "https://www.google.com/", search: "https://www.google.com/search?q=" },
+} as const;
+
+export type SearchEngine = keyof typeof SEARCH_ENGINES;
 
 export interface Settings {
 	providers: ProviderConfig[];

@@ -2,7 +2,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { Type } from "typebox";
 import { PhoneScreen, type PhoneScreenSnapshot } from "../../plugins/phone-screen.ts";
 import { messageOf } from "../../promise.ts";
-import { defineAppTool } from "./common.ts";
+import { defineAppTool, withScreenshot } from "./common.ts";
 import { oneOf } from "../parse.ts";
 
 const SCREENSHOT = Type.Optional(
@@ -21,10 +21,7 @@ function present(snapshot: PhoneScreenSnapshot): ToolExecutionResult {
 		snapshot.more > 0 ? `…${snapshot.more} more not listed; scroll, or ask for a screenshot.` : undefined,
 		snapshot.slow ? "The app answered slowly, so the list stops early; a screenshot shows the rest." : undefined,
 	].filter((line) => line !== undefined);
-	return {
-		output: [{ type: "text", text: facts.join("\n") }, ...(snapshot.jpeg ? [{ type: "image" as const, mimeType: "image/jpeg", data: snapshot.jpeg }] : [])],
-		...(snapshot.error ? { isError: true } : {}),
-	};
+	return withScreenshot(facts.join("\n"), snapshot.jpeg, snapshot.error !== undefined);
 }
 
 async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecutionResult> {

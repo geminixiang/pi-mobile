@@ -1,34 +1,30 @@
-import { type RefObject, type TouchEvent, useEffect, useRef, useState } from "react";
-import { type BrowserState, browserState, markUsed } from "../agent/tools/browser.ts";
+import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type BrowserState, browserState } from "../agent/tools/browser.ts";
 import { native } from "../native.ts";
-import { Browser, type BrowserTabs } from "../plugins/browser.ts";
+import { Browser, type BrowserTabs, MAX_TABS } from "../plugins/browser.ts";
 import { messageOf } from "../promise.ts";
-import type { SearchEngine } from "../settings.ts";
+import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
-const MAX_TABS = 4;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
 const SLOP = 10;
 
 type Page = { url: string; title: string; loading: boolean; canGoBack: boolean; canGoForward: boolean };
-type Drag = { from: number; fromY: number; samples: { x: number; t: number }[] };
+type Drag = { from: number; fromY: number; height: number; samples: { x: number; t: number }[] };
 
-const hostOf = (url: string) => (/^https?:/.test(url) ? new URL(url).host.replace(/^www\./, "") : "");
+const isWeb = (url: string) => /^https?:/.test(url);
 
-const ENGINES: Record<SearchEngine, { home: string; search: (query: string) => string }> = {
-	duckduckgo: { home: "https://duckduckgo.com/", search: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}` },
-	google: { home: "https://www.google.com/", search: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}` },
-};
+const siteOf = (url: string) => (isWeb(url) ? new URL(url).host.replace(/^www\./, "") : "");
 
 function addressOf(typed: string, engine: SearchEngine): string {
 	const text = typed.trim();
 	if (/^https?:\/\//i.test(text)) return text;
 	if (!/\s/.test(text) && /\.[a-z]{2,}(\/|$)/i.test(text)) return `https://${text}`;
-	return ENGINES[engine].search(text);
+	return SEARCH_ENGINES[engine].search + encodeURIComponent(text);
 }
 
 class SheetMotion {
@@ -46,6 +42,15 @@ class SheetMotion {
 
 	height(): number {
 		return this.sheet.offsetHeight;
+	}
+
+	begin(fromY: number): Drag {
+		return { from: this.#position, fromY, height: this.height(), samples: [] };
+	}
+
+	follow(drag: Drag, y: number, at: number): void {
+		drag.samples = [...drag.samples.slice(-7), { x: y, t: at }];
+		this.drag(Math.min(1, Math.max(0, drag.from + (y - drag.fromY) / drag.height)));
 	}
 
 	drag(position: number): void {
@@ -90,7 +95,7 @@ function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) 
 	return (
 		<input
 			className="browser-address"
-			value={draft ?? hostOf(url)}
+			value={draft ?? siteOf(url)}
 			placeholder="網址或關鍵字"
 			enterKeyHint="go"
 			inputMode="url"
@@ -109,7 +114,7 @@ function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) 
 	);
 }
 
-export function BrowserSheet({
+export const BrowserSheet = memo(function BrowserSheet({
 	bot,
 	hidden,
 	working,
@@ -124,20 +129,19 @@ export function BrowserSheet({
 	pullFrom: RefObject<HTMLElement | null>;
 	engine: SearchEngine;
 }) {
-	const [state, setState] = useState<BrowserState>({ used: new Set(), active: new Set(), handovers: [] });
+	const [state, setState] = useState<BrowserState>({ active: new Set(), handovers: [] });
 	const [pages, setPages] = useState<Readonly<Record<string, Page>>>({});
 	const [tabLists, setTabLists] = useState<Readonly<Record<string, BrowserTabs>>>({});
 	const [strip, setStrip] = useState(false);
 	const [expanded, setExpanded] = useState(false);
 	const [shot, setShot] = useState<string>();
 	const [problem, setProblem] = useState("");
-	const sheet = useRef<HTMLDivElement>(null);
 	const frame = useRef<HTMLDivElement>(null);
 	const motion = useRef<SheetMotion>(undefined);
 	const auto = useRef(false);
 	const live = useRef(false);
 	const placing = useRef(0);
-	const latest = useRef({ bot, open: false });
+	const latest = useRef({ bot, open: false, expanded: false, canGoBack: false });
 
 	useEffect(() => browserState.subscribe(setState), []);
 	useEffect(() => {
@@ -157,7 +161,15 @@ export function BrowserSheet({
 	const tabList = bot ? tabLists[bot] : undefined;
 	const page = bot && tabList?.active ? pages[`${bot}/${tabList.active}`] : undefined;
 	const open = expanded && !hidden && bot !== undefined;
-	latest.current = { bot, open };
+	latest.current = { bot, open, expanded, canGoBack: page?.canGoBack ?? false };
+	const report = (error: unknown) => setProblem(messageOf(error));
+	const refreshShot = (target: string) =>
+		Browser.peek({ bot: target })
+			.then((peeked) => {
+				if (peeked.jpeg) setShot(peeked.jpeg);
+			})
+			.catch(report);
+	const openHome = (target: string, tab?: string) => Browser.act({ bot: target, ...(tab ? { tab } : {}), steps: [{ action: "open", url: SEARCH_ENGINES[engine].home }], screenshot: false });
 
 	const showLive = () => {
 		const element = frame.current;
@@ -165,20 +177,15 @@ export function BrowserSheet({
 		if (!element || !target || !latest.current.open) return;
 		const box = element.getBoundingClientRect();
 		live.current = true;
-		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: CARD_RADIUS }).catch((error: unknown) => setProblem(messageOf(error)));
+		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: CARD_RADIUS }).catch(report);
 	};
 
 	const hideLive = async (target: string) => {
 		const ticket = ++placing.current;
-		const peeked = await Browser.peek({ bot: target }).catch((error: unknown) => {
-			setProblem(messageOf(error));
-			return { jpeg: undefined };
-		});
-		if (ticket !== placing.current) return;
-		if (peeked.jpeg) setShot(peeked.jpeg);
-		if (!live.current) return;
+		await refreshShot(target);
+		if (ticket !== placing.current || !live.current) return;
 		live.current = false;
-		await Browser.hide({ bot: target }).catch((error: unknown) => setProblem(messageOf(error)));
+		await Browser.hide({ bot: target }).catch(report);
 	};
 
 	useEffect(() => {
@@ -190,7 +197,7 @@ export function BrowserSheet({
 		if (!bot || !native.has("Browser")) return;
 		Browser.tabs({ bot })
 			.then((list) => setTabLists((current) => ({ ...current, [list.bot]: list })))
-			.catch((error: unknown) => setProblem(messageOf(error)));
+			.catch(report);
 	}, [bot]);
 	useEffect(() => {
 		if (active) {
@@ -211,7 +218,6 @@ export function BrowserSheet({
 	useEffect(() => {
 		if (openKey === 0 || !bot) return;
 		auto.current = false;
-		markUsed(bot);
 		setExpanded(true);
 	}, [openKey, bot]);
 
@@ -222,16 +228,12 @@ export function BrowserSheet({
 				Browser.tabs({ bot })
 					.then((list) => {
 						const front = list.tabs.find((tab) => tab.id === list.active);
-						if (front && /^https?:/.test(front.url)) return;
-						return Browser.act({ bot, steps: [{ action: "open", url: ENGINES[engine].home }], screenshot: false }).then(() => undefined);
+						if (front && isWeb(front.url)) return;
+						return openHome(bot).then(() => undefined);
 					})
-					.catch((error: unknown) => setProblem(messageOf(error)));
+					.catch(report);
 			}
-			void Browser.peek({ bot })
-				.then((peeked) => {
-					if (peeked.jpeg) setShot(peeked.jpeg);
-				})
-				.catch((error: unknown) => setProblem(messageOf(error)));
+			void refreshShot(bot);
 			motion.current?.settle(true);
 			return;
 		}
@@ -249,44 +251,26 @@ export function BrowserSheet({
 		return () => resized.disconnect();
 	}, [open]);
 
-	const navigate = (action: "back" | "forward" | "reload") => {
-		if (!bot) return;
+	const navigate = (target: string, action: "back" | "forward" | "reload") => {
 		setProblem("");
-		Browser.act({ bot, steps: [{ action }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
-	};
-	const switchTab = (tab: string) => {
-		if (!bot) return;
-		Browser.selectTab({ bot, tab }).catch((error: unknown) => setProblem(messageOf(error)));
-	};
-	const closeTab = (tab: string) => {
-		if (!bot) return;
-		Browser.closeTab({ bot, tab }).catch((error: unknown) => setProblem(messageOf(error)));
-	};
-	const openTab = () => {
-		if (!bot) return;
-		Browser.newTab({ bot })
-			.then(({ tab }) => Browser.act({ bot, tab, steps: [{ action: "open", url: ENGINES[engine].home }], screenshot: false }))
-			.catch((error: unknown) => setProblem(messageOf(error)));
+		Browser.act({ bot: target, steps: [{ action }], screenshot: false }).catch(report);
 	};
 	const collapse = () => {
 		auto.current = false;
 		setExpanded(false);
 	};
-	const pageRef = useRef(page);
-	pageRef.current = page;
 	useBack(open, () => {
-		if (bot && pageRef.current?.canGoBack) navigate("back");
+		const { bot: target, canGoBack } = latest.current;
+		if (target && canGoBack) navigate(target, "back");
 		else collapse();
 	});
 
 	const settleTo = (next: boolean) => {
 		auto.current = false;
-		if (next === expanded) motion.current?.settle(next);
+		if (next === latest.current.expanded) motion.current?.settle(next);
 		else setExpanded(next);
 	};
 
-	const settleRef = useRef(settleTo);
-	settleRef.current = settleTo;
 	useEffect(() => {
 		if (!bot || !native.has("Browser")) return;
 		let start: { x: number; y: number } | undefined;
@@ -309,20 +293,14 @@ export function BrowserSheet({
 					start = undefined;
 					return;
 				}
-				markUsed(bot);
-				void Browser.peek({ bot })
-					.then((peeked) => {
-						if (peeked.jpeg) setShot(peeked.jpeg);
-					})
-					.catch((error: unknown) => setProblem(messageOf(error)));
-				drag = { from: 0, fromY: touch.clientY, samples: [] };
+				void refreshShot(bot);
+				drag = current.begin(touch.clientY);
 			}
-			drag.samples = [...drag.samples.slice(-7), { x: touch.clientY, t: event.timeStamp }];
-			current.drag(Math.min(1, Math.max(0, (touch.clientY - drag.fromY) / current.height())));
+			current.follow(drag, touch.clientY, event.timeStamp);
 		};
 		const onEnd = (event: globalThis.TouchEvent) => {
 			const current = motion.current;
-			if (drag && current) settleRef.current(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
+			if (drag && current) settleTo(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
 			start = undefined;
 			drag = undefined;
 		};
@@ -338,68 +316,59 @@ export function BrowserSheet({
 		};
 	}, [bot, pullFrom]);
 
-	const pushing = useRef<Drag & { started: boolean; startY: number }>(undefined);
+	const pushing = useRef<{ startY: number; drag?: Drag }>(undefined);
 	const pushHandlers = {
 		onTouchStart: (event: TouchEvent) => {
 			const touch = event.touches[0];
-			const current = motion.current;
-			if (!touch || !current) return;
-			pushing.current = { from: current.position(), fromY: touch.clientY, startY: touch.clientY, samples: [], started: false };
+			pushing.current = touch ? { startY: touch.clientY } : undefined;
 		},
 		onTouchMove: (event: TouchEvent) => {
 			const touch = event.touches[0];
 			const push = pushing.current;
 			const current = motion.current;
 			if (!touch || !push || !current || !bot) return;
-			if (!push.started) {
+			if (!push.drag) {
 				if (Math.abs(touch.clientY - push.startY) <= SLOP) return;
-				push.started = true;
-				push.fromY = touch.clientY;
+				push.drag = current.begin(touch.clientY);
 				void hideLive(bot);
 			}
-			push.samples = [...push.samples.slice(-7), { x: touch.clientY, t: event.timeStamp }];
-			current.drag(Math.min(1, Math.max(0, push.from + (touch.clientY - push.fromY) / current.height())));
+			current.follow(push.drag, touch.clientY, event.timeStamp);
 		},
 		onTouchEnd: (event: TouchEvent) => {
-			const push = pushing.current;
+			const drag = pushing.current?.drag;
 			const current = motion.current;
 			pushing.current = undefined;
-			if (!push?.started || !current) return;
-			const next = settlesOpen(current.position(), velocityOf(push.samples, event.timeStamp));
-			if (next) motion.current?.settle(true);
-			else settleTo(false);
+			if (drag && current) settleTo(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
 		},
 	};
 
+	const attachSheet = useCallback((element: HTMLDivElement | null) => {
+		if (!element || motion.current?.sheet === element) return;
+		motion.current = new SheetMotion(element, (settledOpen) => {
+			if (settledOpen) showLive();
+		});
+		if (latest.current.open) motion.current.settle(true);
+	}, []);
+
 	if (!bot || !native.has("Browser")) return null;
-	const go = (typed: string) => {
-		setProblem("");
-		Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed, engine) }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
-	};
-	const dot = <span className="browser-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />;
 	return (
-		<div
-			ref={(element) => {
-				sheet.current = element;
-				if (!element || motion.current?.sheet === element) return;
-				motion.current = new SheetMotion(element, (settledOpen) => {
-					if (settledOpen) showLive();
-				});
-				if (latest.current.open) motion.current.settle(true);
-			}}
-			className="browser-sheet"
-			inert={!open}
-		>
+		<div ref={attachSheet} className="browser-sheet" inert={!open}>
 			<div className="browser-sheet-bar" {...pushHandlers}>
-				{dot}
-				<Address url={page?.url ?? ""} onGo={go} />
-				<button type="button" className="browser-nav" aria-label="上一頁" disabled={!page?.canGoBack} onClick={() => navigate("back")}>
+				<span className="browser-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />
+				<Address
+					url={page?.url ?? ""}
+					onGo={(typed) => {
+						setProblem("");
+						Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed, engine) }], screenshot: false }).catch(report);
+					}}
+				/>
+				<button type="button" className="browser-nav" aria-label="上一頁" disabled={!page?.canGoBack} onClick={() => navigate(bot, "back")}>
 					<BackIcon />
 				</button>
-				<button type="button" className="browser-nav browser-forward" aria-label="下一頁" disabled={!page?.canGoForward} onClick={() => navigate("forward")}>
+				<button type="button" className="browser-nav browser-forward" aria-label="下一頁" disabled={!page?.canGoForward} onClick={() => navigate(bot, "forward")}>
 					<BackIcon />
 				</button>
-				<button type="button" className="browser-nav" aria-label="重新整理" disabled={!page?.url || page.url.startsWith("about:")} onClick={() => navigate("reload")}>
+				<button type="button" className="browser-nav" aria-label="重新整理" disabled={!page?.url || page.url.startsWith("about:")} onClick={() => navigate(bot, "reload")}>
 					<RefreshIcon />
 				</button>
 				<button type="button" className="browser-nav browser-count" aria-label="分頁" aria-expanded={strip} onClick={() => setStrip((shown) => !shown)}>
@@ -415,16 +384,16 @@ export function BrowserSheet({
 				<div className="browser-tabs">
 					{(tabList?.tabs ?? []).map((tab) => (
 						<div key={tab.id} className="browser-tab" data-active={tab.id === tabList?.active || undefined}>
-							<button type="button" className="browser-tab-name" onClick={() => switchTab(tab.id)}>
-								{hostOf(pages[`${bot}/${tab.id}`]?.url ?? tab.url) || tab.title || "新分頁"}
+							<button type="button" className="browser-tab-name" onClick={() => Browser.selectTab({ bot, tab: tab.id }).catch(report)}>
+								{siteOf(pages[`${bot}/${tab.id}`]?.url ?? tab.url) || tab.title || "新分頁"}
 							</button>
-							<button type="button" className="browser-tab-close" aria-label="關閉分頁" onClick={() => closeTab(tab.id)}>
+							<button type="button" className="browser-tab-close" aria-label="關閉分頁" onClick={() => Browser.closeTab({ bot, tab: tab.id }).catch(report)}>
 								<CloseIcon size={14} />
 							</button>
 						</div>
 					))}
 					{(tabList?.tabs.length ?? 0) < MAX_TABS ? (
-						<button type="button" className="browser-tab-new" aria-label="新分頁" onClick={openTab}>
+						<button type="button" className="browser-tab-new" aria-label="新分頁" onClick={() => Browser.newTab({ bot }).then(({ tab }) => openHome(bot, tab)).catch(report)}>
 							<PlusIcon size={16} />
 						</button>
 					) : null}
@@ -437,4 +406,4 @@ export function BrowserSheet({
 			<button type="button" className="browser-grip" aria-label="收起瀏覽器" onClick={collapse} {...pushHandlers} />
 		</div>
 	);
-}
+});

@@ -623,17 +623,11 @@
 				},
 				"result": {
 					"properties": {
-						"done": {
-							"type": "number"
-						},
 						"elements": {
 							"type": "string"
 						},
 						"error": {
 							"type": "string"
-						},
-						"height": {
-							"type": "number"
 						},
 						"jpeg": {
 							"type": "string"
@@ -641,42 +635,40 @@
 						"loading": {
 							"type": "boolean"
 						},
-						"more": {
-							"type": "number"
-						},
-						"scrollHeight": {
-							"type": "number"
-						},
-						"scrollY": {
-							"type": "number"
-						},
 						"tab": {
 							"type": "string"
 						},
+						"tabs": {
+							"items": {
+								"properties": {
+									"id": {
+										"type": "string"
+									},
+									"title": {
+										"type": "string"
+									},
+									"url": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"id",
+									"url",
+									"title"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
 						"text": {
 							"type": "string"
-						},
-						"title": {
-							"type": "string"
-						},
-						"url": {
-							"type": "string"
-						},
-						"width": {
-							"type": "number"
 						}
 					},
 					"required": [
 						"tab",
-						"url",
-						"title",
-						"width",
-						"height",
-						"scrollY",
-						"scrollHeight",
 						"loading",
 						"elements",
-						"more",
+						"tabs",
 						"text"
 					],
 					"type": "object"
@@ -698,11 +690,14 @@
 										"enum": [
 											"open",
 											"tap",
+											"tap_at",
 											"type",
+											"type_here",
 											"clear",
 											"select",
 											"key",
 											"scroll",
+											"scroll_in",
 											"back",
 											"forward",
 											"reload",
@@ -768,17 +763,11 @@
 				},
 				"result": {
 					"properties": {
-						"done": {
-							"type": "number"
-						},
 						"elements": {
 							"type": "string"
 						},
 						"error": {
 							"type": "string"
-						},
-						"height": {
-							"type": "number"
 						},
 						"jpeg": {
 							"type": "string"
@@ -786,42 +775,40 @@
 						"loading": {
 							"type": "boolean"
 						},
-						"more": {
-							"type": "number"
-						},
-						"scrollHeight": {
-							"type": "number"
-						},
-						"scrollY": {
-							"type": "number"
-						},
 						"tab": {
 							"type": "string"
 						},
+						"tabs": {
+							"items": {
+								"properties": {
+									"id": {
+										"type": "string"
+									},
+									"title": {
+										"type": "string"
+									},
+									"url": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"id",
+									"url",
+									"title"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						},
 						"text": {
 							"type": "string"
-						},
-						"title": {
-							"type": "string"
-						},
-						"url": {
-							"type": "string"
-						},
-						"width": {
-							"type": "number"
 						}
 					},
 					"required": [
 						"tab",
-						"url",
-						"title",
-						"width",
-						"height",
-						"scrollY",
-						"scrollHeight",
 						"loading",
 						"elements",
-						"more",
+						"tabs",
 						"text"
 					],
 					"type": "object"
@@ -1024,9 +1011,6 @@
 		"events": {
 			"page": {
 				"properties": {
-					"active": {
-						"type": "boolean"
-					},
 					"bot": {
 						"type": "string"
 					},
@@ -1052,7 +1036,6 @@
 				"required": [
 					"bot",
 					"tab",
-					"active",
 					"url",
 					"title",
 					"loading",
