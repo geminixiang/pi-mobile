@@ -21,7 +21,11 @@ async function settled<T extends { success: boolean; message: string }>(result: 
 
 Object.assign(window, {
 	__piPage: {
-		state: () => controller.getBrowserState(),
+		state: async () => {
+			const state = await controller.getBrowserState();
+			await controller.cleanUpHighlights();
+			return state;
+		},
 		center: async (index: number) => {
 			const element = elementAt(index);
 			await scrollIntoViewIfNeeded(element);
