@@ -1,9 +1,10 @@
-import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useRef, useState } from "react";
+import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { type BrowserState, browserState } from "../agent/tools/browser.ts";
 import { native } from "../native.ts";
 import { Browser, type BrowserTabs, MAX_TABS } from "../plugins/browser.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
+import { SHEET_START, sheetAfter } from "./browserSheetState.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "./sideGesture.ts";
@@ -98,13 +99,9 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const [state, setState] = useState<BrowserState>({ active: new Set(), handovers: [] });
 	const [pages, setPages] = useState<Readonly<Record<string, Page>>>({});
 	const [tabLists, setTabLists] = useState<Readonly<Record<string, BrowserTabs>>>({});
-	const [strip, setStrip] = useState(false);
-	const [expanded, setExpanded] = useState(false);
-	const [shot, setShot] = useState<string>();
-	const [problem, setProblem] = useState("");
+	const [sheet, dispatch] = useReducer(sheetAfter, SHEET_START);
 	const frame = useRef<HTMLDivElement>(null);
 	const motion = useRef<SheetMotion>(undefined);
-	const auto = useRef(false);
 	const live = useRef(false);
 	const placing = useRef(0);
 	const latest = useRef({ bot, open: false, expanded: false, canGoBack: false });
@@ -126,13 +123,14 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const reason = handover?.reason;
 	const tabList = bot ? tabLists[bot] : undefined;
 	const page = bot && tabList?.active ? pages[`${bot}/${tabList.active}`] : undefined;
+	const expanded = sheet.mode !== "closed";
 	const open = expanded && !hidden && bot !== undefined;
 	latest.current = { bot, open, expanded, canGoBack: page?.canGoBack ?? false };
-	const report = (error: unknown) => setProblem(messageOf(error));
+	const report = (error: unknown) => dispatch({ type: "failed", message: messageOf(error) });
 	const refreshShot = (target: string) =>
 		Browser.peek({ bot: target })
 			.then((peeked) => {
-				if (peeked.jpeg) setShot(peeked.jpeg);
+				if (peeked.jpeg) dispatch({ type: "shot", jpeg: peeked.jpeg });
 			})
 			.catch(report);
 	const openHome = (target: string, tab?: string) => Browser.act({ bot: target, ...(tab ? { tab } : {}), steps: [{ action: "open", url: SEARCH_ENGINES[engine].home }], screenshot: false });
@@ -155,42 +153,33 @@ export const BrowserSheet = memo(function BrowserSheet({
 	};
 
 	useEffect(() => {
-		setExpanded(false);
-		setProblem("");
-		setShot(undefined);
-		setStrip(false);
-		auto.current = false;
+		dispatch({ type: "bot_changed" });
 		if (!bot || !native.has("Browser")) return;
 		Browser.tabs({ bot })
 			.then((list) => setTabLists((current) => ({ ...current, [list.bot]: list })))
 			.catch(report);
 	}, [bot]);
+	const closesItself = sheet.mode === "auto";
 	useEffect(() => {
-		if (active) {
-			auto.current = true;
-			setExpanded(true);
-			return;
-		}
-		if (!auto.current || reason !== undefined || working) return;
-		const timer = setTimeout(() => {
-			auto.current = false;
-			setExpanded(false);
-		}, COLLAPSE_AFTER_MS);
+		if (active) dispatch({ type: "agent_started" });
+	}, [active]);
+	useEffect(() => {
+		if (active || !closesItself || reason !== undefined || working) return;
+		const timer = setTimeout(() => dispatch({ type: "agent_finished" }), COLLAPSE_AFTER_MS);
 		return () => clearTimeout(timer);
-	}, [active, reason, working]);
+	}, [active, reason, working, closesItself]);
 	useEffect(() => {
-		if (reason !== undefined) setExpanded(true);
+		if (reason !== undefined) dispatch({ type: "handover" });
 	}, [reason]);
 	useEffect(() => {
 		if (openKey === 0 || !bot) return;
-		auto.current = false;
-		setExpanded(true);
+		dispatch({ type: "user_opened" });
 	}, [openKey, bot]);
 
 	useEffect(() => {
 		if (!bot) return;
 		if (open) {
-			if (!auto.current) {
+			if (!closesItself) {
 				Browser.tabs({ bot })
 					.then((list) => {
 						const front = list.tabs.find((tab) => tab.id === list.active);
@@ -218,24 +207,18 @@ export const BrowserSheet = memo(function BrowserSheet({
 	}, [open]);
 
 	const navigate = (target: string, action: "back" | "forward" | "reload") => {
-		setProblem("");
+		dispatch({ type: "retried" });
 		Browser.act({ bot: target, steps: [{ action }], screenshot: false }).catch(report);
 	};
-	const collapse = () => {
-		auto.current = false;
-		setExpanded(false);
+	const settleTo = (next: boolean) => {
+		if (next === latest.current.expanded) motion.current?.settle(next);
+		dispatch({ type: "settled", open: next });
 	};
 	useBack(open, () => {
 		const { bot: target, canGoBack } = latest.current;
 		if (target && canGoBack) navigate(target, "back");
-		else collapse();
+		else settleTo(false);
 	});
-
-	const settleTo = (next: boolean) => {
-		auto.current = false;
-		if (next === latest.current.expanded) motion.current?.settle(next);
-		else setExpanded(next);
-	};
 
 	useEffect(() => {
 		if (!bot || !native.has("Browser")) return;
@@ -325,7 +308,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 				<Address
 					url={page?.url ?? ""}
 					onGo={(typed) => {
-						setProblem("");
+						dispatch({ type: "retried" });
 						Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed, engine) }], screenshot: false }).catch(report);
 					}}
 				/>
@@ -338,7 +321,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 				<button type="button" className="browser-nav" aria-label="重新整理" disabled={!page?.url || page.url.startsWith("about:")} onClick={() => navigate(bot, "reload")}>
 					<RefreshIcon />
 				</button>
-				<button type="button" className="browser-nav browser-count" aria-label="分頁" aria-expanded={strip} onClick={() => setStrip((shown) => !shown)}>
+				<button type="button" className="browser-nav browser-count" aria-label="分頁" aria-expanded={sheet.strip} onClick={() => dispatch({ type: "strip_toggled" })}>
 					{tabList?.tabs.length ?? 0}
 				</button>
 				{handover ? (
@@ -347,7 +330,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 					</button>
 				) : null}
 			</div>
-			{strip ? (
+			{sheet.strip ? (
 				<div className="browser-tabs">
 					{(tabList?.tabs ?? []).map((tab) => (
 						<div key={tab.id} className="browser-tab" data-active={tab.id === tabList?.active || undefined}>
@@ -366,11 +349,11 @@ export const BrowserSheet = memo(function BrowserSheet({
 					) : null}
 				</div>
 			) : null}
-			{reason || problem ? <div className="browser-note">{problem || reason}</div> : null}
+			{reason || sheet.problem ? <div className="browser-note">{sheet.problem || reason}</div> : null}
 			<div ref={frame} className="browser-frame">
-				{shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}
+				{sheet.shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${sheet.shot}`} alt="" /> : null}
 			</div>
-			<button type="button" className="browser-grip" aria-label="收起瀏覽器" onClick={collapse} {...pushHandlers} />
+			<button type="button" className="browser-grip" aria-label="收起瀏覽器" onClick={() => settleTo(false)} {...pushHandlers} />
 		</div>
 	);
 });
