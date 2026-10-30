@@ -1544,6 +1544,10 @@
 				"screenshot": {
 					"description": "Also a screenshot, for what the element list cannot tell: pictures, charts, layout; default false",
 					"type": "boolean"
+				},
+				"tab": {
+					"description": "Which tab, by the id in the Tabs line; default the one in front. use_browser takes \"new\" to open another tab",
+					"type": "string"
 				}
 			},
 			"type": "object"
@@ -1585,6 +1589,7 @@
 									"reload",
 									"wait",
 									"wait_for",
+									"close_tab",
 									"hand_over"
 								],
 								"type": "string"
@@ -1636,6 +1641,10 @@
 					},
 					"minItems": 1,
 					"type": "array"
+				},
+				"tab": {
+					"description": "Which tab, by the id in the Tabs line; default the one in front. use_browser takes \"new\" to open another tab",
+					"type": "string"
 				}
 			},
 			"required": [

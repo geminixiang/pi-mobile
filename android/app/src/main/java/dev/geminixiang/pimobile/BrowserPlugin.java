@@ -37,6 +37,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayOutputStream;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -62,6 +63,7 @@ public class BrowserPlugin extends Plugin {
     private static final long WAIT_FOR_MS = 8_000;
     private static final long WAIT_FOR_MAX_MS = 20_000;
     private static final long WAIT_MAX_MS = 10_000;
+    private static final int MAX_TABS = 4;
     private static final String PENDING_PREFS = "browser";
     private static final String PENDING_KEY = "forgotten";
 
@@ -116,7 +118,7 @@ public class BrowserPlugin extends Plugin {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService work = Executors.newCachedThreadPool();
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final Map<String, Tabs> bots = new ConcurrentHashMap<>();
 
     private static final class Failure extends Exception implements Background.Coded {
         private final String code;
@@ -132,25 +134,41 @@ public class BrowserPlugin extends Plugin {
         }
     }
 
-    private final class Session {
+    private final class Tabs {
         final String bot;
+        final Map<String, Session> open = new LinkedHashMap<>();
+        String active;
+        int next = 1;
+        boolean shown;
+        FrameLayout.LayoutParams placed;
+        float radius;
+        int width = DEFAULT_WIDTH;
+        int height = DEFAULT_HEIGHT;
+
+        Tabs(String bot) {
+            this.bot = bot;
+        }
+    }
+
+    private final class Session {
+        final Tabs owner;
+        final String bot;
+        final String tab;
         final WebView view;
         volatile boolean loading;
         volatile long lastUserTouch;
         volatile boolean injecting;
         volatile String dialog;
-        int width = DEFAULT_WIDTH;
-        int height = DEFAULT_HEIGHT;
-        boolean shown;
         final Runnable expire;
 
-        Session(String bot, WebView view) {
-            this.bot = bot;
+        Session(Tabs owner, String tab, WebView view) {
+            this.owner = owner;
+            this.bot = owner.bot;
+            this.tab = tab;
             this.view = view;
             this.expire = () -> {
-                if (shown) return;
-                sessions.remove(bot);
-                view.destroy();
+                if (owner.shown && tab.equals(owner.active)) return;
+                close(owner, tab);
             };
         }
     }
@@ -191,6 +209,7 @@ public class BrowserPlugin extends Plugin {
     public void show(PluginCall call) {
         Background.run(work, call, () -> {
             Session session = session(call);
+            Tabs tabs = session.owner;
             float density = getContext().getResources().getDisplayMetrics().density;
             onMain(() -> {
                 View bridge = getBridge().getWebView();
@@ -199,31 +218,15 @@ public class BrowserPlugin extends Plugin {
                 int[] to = new int[2];
                 bridge.getLocationInWindow(from);
                 root.getLocationInWindow(to);
-                session.width = Math.max(1, Math.round(call.getFloat("width", 0f) * density));
-                session.height = Math.max(1, Math.round(call.getFloat("height", 0f) * density));
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(session.width, session.height);
+                tabs.width = Math.max(1, Math.round(call.getFloat("width", 0f) * density));
+                tabs.height = Math.max(1, Math.round(call.getFloat("height", 0f) * density));
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(tabs.width, tabs.height);
                 params.leftMargin = from[0] - to[0] + Math.round(call.getFloat("x", 0f) * density);
                 params.topMargin = from[1] - to[1] + Math.round(call.getFloat("y", 0f) * density);
-                float radius = call.getFloat("radius", 0f) * density;
-                session.view.setOutlineProvider(new ViewOutlineProvider() {
-                    @Override
-                    public void getOutline(View outlined, Outline outline) {
-                        // why: the round rect starts one radius above the view, so only the bottom corners are rounded, where the sheet's own corners are
-                        outline.setRoundRect(0, Math.round(-radius), outlined.getWidth(), outlined.getHeight(), radius);
-                    }
-                });
-                session.view.setClipToOutline(true);
-                boolean fresh = session.view.getParent() != root;
-                if (session.view.getParent() instanceof ViewGroup parent && fresh) parent.removeView(session.view);
-                if (fresh) {
-                    session.view.setAlpha(0f);
-                    root.addView(session.view, params);
-                    session.view.animate().alpha(1f).setDuration(140).start();
-                } else {
-                    session.view.setLayoutParams(params);
-                }
-                session.shown = true;
-                main.removeCallbacks(session.expire);
+                tabs.placed = params;
+                tabs.radius = call.getFloat("radius", 0f) * density;
+                tabs.shown = true;
+                attach(session, true);
                 return null;
             });
             call.resolve();
@@ -233,12 +236,15 @@ public class BrowserPlugin extends Plugin {
     @PluginMethod
     public void hide(PluginCall call) {
         Background.run(work, call, () -> {
-            Session session = sessions.get(call.getString("bot", ""));
-            if (session != null) onMain(() -> {
-                if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
-                session.shown = false;
-                layOut(session);
-                main.postDelayed(session.expire, IDLE_MS);
+            Tabs tabs = bots.get(call.getString("bot", ""));
+            if (tabs != null) onMain(() -> {
+                tabs.shown = false;
+                for (Session session : tabs.open.values()) {
+                    if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
+                    layOut(session);
+                    main.removeCallbacks(session.expire);
+                    main.postDelayed(session.expire, IDLE_MS);
+                }
                 return null;
             });
             call.resolve();
@@ -248,7 +254,8 @@ public class BrowserPlugin extends Plugin {
     @PluginMethod
     public void peek(PluginCall call) {
         Background.run(work, call, () -> {
-            Session session = sessions.get(call.getString("bot", ""));
+            Tabs tabs = bots.get(call.getString("bot", ""));
+            Session session = tabs == null || tabs.active == null ? null : tabs.open.get(tabs.active);
             JSObject out = new JSObject();
             if (session != null) out.put("jpeg", capture(session));
             call.resolve(out);
@@ -259,12 +266,15 @@ public class BrowserPlugin extends Plugin {
     public void forget(PluginCall call) {
         Background.run(work, call, () -> {
             String bot = call.getString("bot", "");
-            Session session = sessions.remove(bot);
+            Tabs tabs = bots.remove(bot);
             onMain(() -> {
-                if (session != null) {
-                    main.removeCallbacks(session.expire);
-                    if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
-                    session.view.destroy();
+                if (tabs != null) {
+                    for (Session session : tabs.open.values()) {
+                        main.removeCallbacks(session.expire);
+                        if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
+                        session.view.destroy();
+                    }
+                    tabs.open.clear();
                 }
                 return null;
             });
@@ -321,7 +331,7 @@ public class BrowserPlugin extends Plugin {
     @Override
     protected void handleOnPause() {
         super.handleOnPause();
-        for (Session session : sessions.values()) flush(session);
+        for (Tabs tabs : bots.values()) for (Session session : tabs.open.values()) flush(session);
     }
 
     private Session session(PluginCall call) throws Exception {
@@ -330,24 +340,161 @@ public class BrowserPlugin extends Plugin {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
             throw new Failure("unsupported", "this phone's WebView cannot keep a separate browser per Bot; update Android System WebView");
         }
-        Session existing = sessions.get(bot);
-        if (existing != null) {
+        Tabs tabs = bots.computeIfAbsent(bot, Tabs::new);
+        String tab = call.getString("tab", null);
+        return onMain(() -> {
+            String wanted = tab != null ? tab : tabs.active;
+            Session existing = wanted == null ? null : tabs.open.get(wanted);
+            if (existing == null && tab != null) throw new Failure("no_tab", "tab " + tab + " is not open; open tabs: " + String.join(", ", tabs.open.keySet()));
+            Session session = existing != null ? existing : create(tabs);
+            main.removeCallbacks(session.expire);
+            if (!(tabs.shown && session.tab.equals(tabs.active))) main.postDelayed(session.expire, IDLE_MS);
+            return session;
+        });
+    }
+
+    @PluginMethod
+    public void newTab(PluginCall call) {
+        Background.run(work, call, () -> {
+            String bot = call.getString("bot", "");
+            if (bot.isEmpty()) throw new Failure("invalid", "bot is required");
+            Tabs tabs = bots.computeIfAbsent(bot, Tabs::new);
+            Session session = onMain(() -> {
+                if (tabs.open.size() >= MAX_TABS) throw new Failure("too_many", "a Bot keeps at most " + MAX_TABS + " tabs; close one first");
+                Session created = create(tabs);
+                select(tabs, created.tab);
+                return created;
+            });
+            JSObject out = new JSObject();
+            out.put("tab", session.tab);
+            call.resolve(out);
+        });
+    }
+
+    @PluginMethod
+    public void selectTab(PluginCall call) {
+        Background.run(work, call, () -> {
+            Tabs tabs = bots.get(call.getString("bot", ""));
+            String tab = call.getString("tab", "");
             onMain(() -> {
-                main.removeCallbacks(existing.expire);
-                if (!existing.shown) main.postDelayed(existing.expire, IDLE_MS);
+                if (tabs == null || !tabs.open.containsKey(tab)) throw new Failure("no_tab", "tab " + tab + " is not open");
+                select(tabs, tab);
                 return null;
             });
-            return existing;
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void closeTab(PluginCall call) {
+        Background.run(work, call, () -> {
+            Tabs tabs = bots.get(call.getString("bot", ""));
+            String tab = call.getString("tab", "");
+            onMain(() -> {
+                if (tabs == null || !tabs.open.containsKey(tab)) throw new Failure("no_tab", "tab " + tab + " is not open");
+                close(tabs, tab);
+                return null;
+            });
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void tabs(PluginCall call) {
+        Background.run(work, call, () -> {
+            Tabs tabs = bots.get(call.getString("bot", ""));
+            call.resolve(onMain(() -> listing(tabs, call.getString("bot", ""))));
+        });
+    }
+
+    private JSObject listing(Tabs tabs, String bot) {
+        JSObject out = new JSObject();
+        JSArray list = new JSArray();
+        if (tabs != null) {
+            for (Session session : tabs.open.values()) {
+                JSObject item = new JSObject();
+                item.put("id", session.tab);
+                item.put("url", String.valueOf(session.view.getUrl()));
+                item.put("title", String.valueOf(session.view.getTitle()));
+                list.put(item);
+            }
+            if (tabs.active != null) out.put("active", tabs.active);
         }
-        return onMain(() -> create(bot));
+        out.put("bot", bot);
+        out.put("tabs", list);
+        return out;
+    }
+
+    private void announceTabs(Tabs tabs) {
+        notifyListeners("tabs", listing(tabs, tabs.bot));
+    }
+
+    private void select(Tabs tabs, String tab) {
+        Session previous = tabs.active == null ? null : tabs.open.get(tabs.active);
+        tabs.active = tab;
+        Session next = tabs.open.get(tab);
+        if (tabs.shown && next != null) {
+            if (previous != null && previous != next && previous.view.getParent() instanceof ViewGroup parent) {
+                parent.removeView(previous.view);
+                layOut(previous);
+                main.postDelayed(previous.expire, IDLE_MS);
+            }
+            attach(next, false);
+        }
+        announceTabs(tabs);
+        if (next != null) announce(next);
+    }
+
+    private void close(Tabs tabs, String tab) {
+        Session session = tabs.open.remove(tab);
+        if (session == null) return;
+        main.removeCallbacks(session.expire);
+        if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
+        session.view.destroy();
+        if (tab.equals(tabs.active)) {
+            String last = null;
+            for (String id : tabs.open.keySet()) last = id;
+            tabs.active = null;
+            if (last != null) select(tabs, last);
+        }
+        if (tabs.open.isEmpty()) tabs.active = null;
+        announceTabs(tabs);
+    }
+
+    private void attach(Session session, boolean fade) {
+        Tabs tabs = session.owner;
+        ViewGroup root = getActivity().findViewById(android.R.id.content);
+        float radius = tabs.radius;
+        session.view.setOutlineProvider(new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View outlined, Outline outline) {
+                // why: the round rect starts one radius above the view, so only the bottom corners are rounded, where the sheet's own corners are
+                outline.setRoundRect(0, Math.round(-radius), outlined.getWidth(), outlined.getHeight(), radius);
+            }
+        });
+        session.view.setClipToOutline(true);
+        for (Session other : tabs.open.values()) {
+            if (other != session && other.view.getParent() instanceof ViewGroup parent) parent.removeView(other.view);
+        }
+        boolean fresh = session.view.getParent() != root;
+        if (session.view.getParent() instanceof ViewGroup parent && fresh) parent.removeView(session.view);
+        if (fresh) {
+            session.view.setAlpha(fade ? 0f : 1f);
+            root.addView(session.view, tabs.placed);
+            if (fade) session.view.animate().alpha(1f).setDuration(140).start();
+        } else {
+            session.view.setLayoutParams(tabs.placed);
+        }
+        main.removeCallbacks(session.expire);
     }
 
     @SuppressLint({ "SetJavaScriptEnabled", "ClickableViewAccessibility" })
-    private Session create(String bot) {
+    private Session create(Tabs tabs) {
+        String bot = tabs.bot;
         ProfileStore.getInstance().getOrCreateProfile(profileOf(bot));
         WebView view = new WebView(getContext());
         WebViewCompat.setProfile(view, profileOf(bot));
-        Session session = new Session(bot, view);
+        Session session = new Session(tabs, String.valueOf(tabs.next++), view);
         WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -409,14 +556,18 @@ public class BrowserPlugin extends Plugin {
             return false;
         });
         layOut(session);
-        sessions.put(bot, session);
+        tabs.open.put(session.tab, session);
+        if (tabs.active == null) tabs.active = session.tab;
         main.postDelayed(session.expire, IDLE_MS);
+        announceTabs(tabs);
         return session;
     }
 
     private void announce(Session session) {
         JSObject page = new JSObject();
         page.put("bot", session.bot);
+        page.put("tab", session.tab);
+        page.put("active", session.tab.equals(session.owner.active));
         page.put("url", String.valueOf(session.view.getUrl()));
         page.put("title", String.valueOf(session.view.getTitle()));
         page.put("loading", session.loading);
@@ -426,8 +577,8 @@ public class BrowserPlugin extends Plugin {
     }
 
     private void layOut(Session session) {
-        session.view.measure(View.MeasureSpec.makeMeasureSpec(session.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(session.height, View.MeasureSpec.EXACTLY));
-        session.view.layout(0, 0, session.width, session.height);
+        session.view.measure(View.MeasureSpec.makeMeasureSpec(session.owner.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(session.owner.height, View.MeasureSpec.EXACTLY));
+        session.view.layout(0, 0, session.owner.width, session.owner.height);
     }
 
     private void flush(Session session) {
@@ -581,6 +732,7 @@ public class BrowserPlugin extends Plugin {
         while (session.loading && SystemClock.uptimeMillis() < end) Thread.sleep(200);
         JSONObject page = new JSONObject(new JSONArray("[" + eval(session, READ) + "]").getString(0));
         JSObject out = new JSObject();
+        out.put("tab", session.tab);
         out.put("url", page.optString("url"));
         out.put("title", page.optString("title"));
         out.put("width", page.optInt("width"));
@@ -602,7 +754,7 @@ public class BrowserPlugin extends Plugin {
 
     private String capture(Session session) throws Exception {
         return onMain(() -> {
-            Bitmap bitmap = Bitmap.createBitmap(Math.max(1, session.width / 2), Math.max(1, session.height / 2), Bitmap.Config.ARGB_8888);
+            Bitmap bitmap = Bitmap.createBitmap(Math.max(1, session.owner.width / 2), Math.max(1, session.owner.height / 2), Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             canvas.scale(0.5f, 0.5f);
             session.view.draw(canvas);
@@ -627,6 +779,11 @@ public class BrowserPlugin extends Plugin {
         if (Looper.myLooper() == Looper.getMainLooper()) return task.call();
         FutureTask<T> future = new FutureTask<>(task);
         main.post(future);
-        return future.get(10, TimeUnit.SECONDS);
+        try {
+            return future.get(10, TimeUnit.SECONDS);
+        } catch (java.util.concurrent.ExecutionException failed) {
+            if (failed.getCause() instanceof Exception cause) throw cause;
+            throw failed;
+        }
     }
 }

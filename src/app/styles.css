@@ -641,6 +641,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .browser-nav:disabled { color: var(--faint); opacity: 0.5; }
 .browser-nav > svg { width: 20px; height: 20px; }
 .browser-forward > svg { transform: scaleX(-1); }
+.browser-count { width: 26px; height: 22px; margin: 0 4px; border: 1.5px solid var(--text); font-family: var(--mono); font-size: var(--fs-meta); line-height: 1; }
+.browser-tabs { display: flex; gap: 8px; padding: 0 var(--space) 8px; overflow-x: auto; flex-shrink: 0; }
+.browser-tab { display: flex; align-items: center; min-width: 0; max-width: 40%; border: 1px solid var(--line); background: var(--panel); }
+.browser-tab[data-active] { border-color: var(--accent); color: var(--accent); }
+.browser-tab-name { min-width: 0; padding: 6px 4px 6px 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--mono); font-size: var(--fs-meta); }
+.browser-tab-close { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; color: var(--muted); }
+.browser-tab-new { display: grid; place-items: center; width: 32px; height: 30px; flex-shrink: 0; border: 1px dashed var(--line-strong); color: var(--muted); }
 .browser-note { padding: 8px var(--space); font-size: var(--fs-small); line-height: 1.5; color: var(--text); background: var(--accent-soft); }
 .browser-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); border-top: 1px solid var(--line); border-radius: 0 0 var(--card-radius) var(--card-radius); }
 .browser-shot { position: absolute; top: 0; left: 0; display: block; width: 100%; height: auto; }

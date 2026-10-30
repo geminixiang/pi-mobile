@@ -1,13 +1,14 @@
 import { type RefObject, type TouchEvent, useEffect, useRef, useState } from "react";
 import { type BrowserState, browserState, markUsed } from "../agent/tools/browser.ts";
 import { native } from "../native.ts";
-import { Browser } from "../plugins/browser.ts";
+import { Browser, type BrowserTabs } from "../plugins/browser.ts";
 import { messageOf } from "../promise.ts";
-import { BackIcon, RefreshIcon } from "./icons.tsx";
+import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
+const MAX_TABS = 4;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
 const SLOP = 10;
@@ -117,6 +118,8 @@ export function BrowserSheet({
 }) {
 	const [state, setState] = useState<BrowserState>({ used: new Set(), active: new Set(), handovers: [] });
 	const [pages, setPages] = useState<Readonly<Record<string, Page>>>({});
+	const [tabLists, setTabLists] = useState<Readonly<Record<string, BrowserTabs>>>({});
+	const [strip, setStrip] = useState(false);
 	const [expanded, setExpanded] = useState(false);
 	const [shot, setShot] = useState<string>();
 	const [problem, setProblem] = useState("");
@@ -131,14 +134,20 @@ export function BrowserSheet({
 	useEffect(() => browserState.subscribe(setState), []);
 	useEffect(() => {
 		if (!native.has("Browser")) return;
-		const listening = Browser.addListener("page", (page) => setPages((current) => ({ ...current, [page.bot]: page })));
-		return () => void listening.then((handle) => handle.remove());
+		const listening = [
+			Browser.addListener("page", (page) => setPages((current) => ({ ...current, [`${page.bot}/${page.tab}`]: page }))),
+			Browser.addListener("tabs", (list) => setTabLists((current) => ({ ...current, [list.bot]: list }))),
+		];
+		return () => {
+			for (const handle of listening) void handle.then((listener) => listener.remove());
+		};
 	}, []);
 
 	const active = bot !== undefined && state.active.has(bot);
 	const handover = state.handovers.find((item) => item.bot === bot);
 	const reason = handover?.reason;
-	const page = bot ? pages[bot] : undefined;
+	const tabList = bot ? tabLists[bot] : undefined;
+	const page = bot && tabList?.active ? pages[`${bot}/${tabList.active}`] : undefined;
 	const open = expanded && !hidden && bot !== undefined;
 	latest.current = { bot, open };
 
@@ -168,7 +177,12 @@ export function BrowserSheet({
 		setExpanded(false);
 		setProblem("");
 		setShot(undefined);
+		setStrip(false);
 		auto.current = false;
+		if (!bot || !native.has("Browser")) return;
+		Browser.tabs({ bot })
+			.then((list) => setTabLists((current) => ({ ...current, [list.bot]: list })))
+			.catch((error: unknown) => setProblem(messageOf(error)));
 	}, [bot]);
 	useEffect(() => {
 		if (active) {
@@ -222,6 +236,18 @@ export function BrowserSheet({
 		if (!bot) return;
 		setProblem("");
 		Browser.act({ bot, steps: [{ action }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
+	};
+	const switchTab = (tab: string) => {
+		if (!bot) return;
+		Browser.selectTab({ bot, tab }).catch((error: unknown) => setProblem(messageOf(error)));
+	};
+	const closeTab = (tab: string) => {
+		if (!bot) return;
+		Browser.closeTab({ bot, tab }).catch((error: unknown) => setProblem(messageOf(error)));
+	};
+	const openTab = () => {
+		if (!bot) return;
+		Browser.newTab({ bot }).catch((error: unknown) => setProblem(messageOf(error)));
 	};
 	const collapse = () => {
 		auto.current = false;
@@ -357,12 +383,34 @@ export function BrowserSheet({
 				<button type="button" className="browser-nav" aria-label="重新整理" disabled={!page?.url || page.url.startsWith("about:")} onClick={() => navigate("reload")}>
 					<RefreshIcon />
 				</button>
+				<button type="button" className="browser-nav browser-count" aria-label="分頁" aria-expanded={strip} onClick={() => setStrip((shown) => !shown)}>
+					{tabList?.tabs.length ?? 0}
+				</button>
 				{handover ? (
 					<button type="button" className="btn primary" onClick={() => browserState.handBack(bot)}>
 						交還
 					</button>
 				) : null}
 			</div>
+			{strip ? (
+				<div className="browser-tabs">
+					{(tabList?.tabs ?? []).map((tab) => (
+						<div key={tab.id} className="browser-tab" data-active={tab.id === tabList?.active || undefined}>
+							<button type="button" className="browser-tab-name" onClick={() => switchTab(tab.id)}>
+								{hostOf(pages[`${bot}/${tab.id}`]?.url ?? tab.url) || tab.title || "新分頁"}
+							</button>
+							<button type="button" className="browser-tab-close" aria-label="關閉分頁" onClick={() => closeTab(tab.id)}>
+								<CloseIcon size={14} />
+							</button>
+						</div>
+					))}
+					{(tabList?.tabs.length ?? 0) < MAX_TABS ? (
+						<button type="button" className="browser-tab-new" aria-label="新分頁" onClick={openTab}>
+							<PlusIcon size={16} />
+						</button>
+					) : null}
+				</div>
+			) : null}
 			{reason || problem ? <div className="browser-note">{problem || reason}</div> : null}
 			<div ref={frame} className="browser-frame">
 				{shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}

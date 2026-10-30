@@ -610,6 +610,9 @@
 						},
 						"screenshot": {
 							"type": "boolean"
+						},
+						"tab": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -647,6 +650,9 @@
 						"scrollY": {
 							"type": "number"
 						},
+						"tab": {
+							"type": "string"
+						},
 						"text": {
 							"type": "string"
 						},
@@ -661,6 +667,7 @@
 						}
 					},
 					"required": [
+						"tab",
 						"url",
 						"title",
 						"width",
@@ -740,6 +747,9 @@
 								"type": "object"
 							},
 							"type": "array"
+						},
+						"tab": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -778,6 +788,9 @@
 						"scrollY": {
 							"type": "number"
 						},
+						"tab": {
+							"type": "string"
+						},
 						"text": {
 							"type": "string"
 						},
@@ -792,6 +805,7 @@
 						}
 					},
 					"required": [
+						"tab",
 						"url",
 						"title",
 						"width",
@@ -802,6 +816,116 @@
 						"elements",
 						"more",
 						"text"
+					],
+					"type": "object"
+				}
+			},
+			"newTab": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"tab": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"tab"
+					],
+					"type": "object"
+				}
+			},
+			"selectTab": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"tab": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"tab"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"closeTab": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"tab": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot",
+						"tab"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"tabs": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"active": {
+							"type": "string"
+						},
+						"bot": {
+							"type": "string"
+						},
+						"tabs": {
+							"items": {
+								"properties": {
+									"id": {
+										"type": "string"
+									},
+									"title": {
+										"type": "string"
+									},
+									"url": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"id",
+									"url",
+									"title"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"bot",
+						"tabs"
 					],
 					"type": "object"
 				}
@@ -893,6 +1017,9 @@
 		"events": {
 			"page": {
 				"properties": {
+					"active": {
+						"type": "boolean"
+					},
 					"bot": {
 						"type": "string"
 					},
@@ -905,6 +1032,9 @@
 					"loading": {
 						"type": "boolean"
 					},
+					"tab": {
+						"type": "string"
+					},
 					"title": {
 						"type": "string"
 					},
@@ -914,11 +1044,50 @@
 				},
 				"required": [
 					"bot",
+					"tab",
+					"active",
 					"url",
 					"title",
 					"loading",
 					"canGoBack",
 					"canGoForward"
+				],
+				"type": "object"
+			},
+			"tabs": {
+				"properties": {
+					"active": {
+						"type": "string"
+					},
+					"bot": {
+						"type": "string"
+					},
+					"tabs": {
+						"items": {
+							"properties": {
+								"id": {
+									"type": "string"
+								},
+								"title": {
+									"type": "string"
+								},
+								"url": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"url",
+								"title"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"bot",
+					"tabs"
 				],
 				"type": "object"
 			}
