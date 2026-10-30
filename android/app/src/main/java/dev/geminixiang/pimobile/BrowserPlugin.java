@@ -50,6 +50,8 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 @CapacitorPlugin(name = "Browser")
@@ -65,9 +67,10 @@ public class BrowserPlugin extends Plugin {
     private static final long WAIT_FOR_MS = 8_000;
     private static final long WAIT_FOR_MAX_MS = 20_000;
     private static final long WAIT_MAX_MS = 10_000;
-    private static final int MAX_TABS = 4;
-    private static final String FORGOTTEN_PREFS = "browser";
+    private static final int MAX_TABS = 8;
+    private static final String PREFS = "browser";
     private static final String FORGOTTEN_KEY = "forgotten";
+    private static final String TABS_KEY = "tabs:";
 
     private static final String FACTS = "({ ready: document.readyState, text: (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 4000) })";
     private static final String PAGE_SCRIPT = "public/page-controller.js";
@@ -119,7 +122,9 @@ public class BrowserPlugin extends Plugin {
             this.view = view;
             this.expire = () -> {
                 if (owner.shown && tab.equals(owner.active)) return;
+                String saved = prefs().getString(TABS_KEY + owner.bot, null);
                 close(owner, tab);
+                if (owner.open.isEmpty() && saved != null) prefs().edit().putString(TABS_KEY + owner.bot, saved).apply();
             };
         }
     }
@@ -213,6 +218,7 @@ public class BrowserPlugin extends Plugin {
         Background.run(work, call, () -> {
             String bot = call.getString("bot", "");
             Tabs tabs = bots.remove(bot);
+            prefs().edit().remove(TABS_KEY + bot).apply();
             onMain(() -> {
                 if (tabs != null) {
                     for (Session session : tabs.open.values()) destroy(session);
@@ -239,7 +245,7 @@ public class BrowserPlugin extends Plugin {
                 }
             });
             // why: Chromium keeps a profile loaded for the rest of the process once a WebView used it, so it is deleted at the next start
-            if (!deleted) forgottenProfiles().edit().putStringSet(FORGOTTEN_KEY, with(forgottenProfiles().getStringSet(FORGOTTEN_KEY, Set.of()), profileOf(bot))).apply();
+            if (!deleted) prefs().edit().putStringSet(FORGOTTEN_KEY, with(prefs().getStringSet(FORGOTTEN_KEY, Set.of()), profileOf(bot))).apply();
             call.resolve();
         });
     }
@@ -248,7 +254,7 @@ public class BrowserPlugin extends Plugin {
     public void load() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return;
         Set<String> left = new HashSet<>();
-        for (String name : forgottenProfiles().getStringSet(FORGOTTEN_KEY, Set.of())) {
+        for (String name : prefs().getStringSet(FORGOTTEN_KEY, Set.of())) {
             ProfileStore store = ProfileStore.getInstance();
             if (store.getProfile(name) == null) continue;
             try {
@@ -257,11 +263,11 @@ public class BrowserPlugin extends Plugin {
                 left.add(name);
             }
         }
-        forgottenProfiles().edit().putStringSet(FORGOTTEN_KEY, left).apply();
+        prefs().edit().putStringSet(FORGOTTEN_KEY, left).apply();
     }
 
-    private SharedPreferences forgottenProfiles() {
-        return getContext().getSharedPreferences(FORGOTTEN_PREFS, Context.MODE_PRIVATE);
+    private SharedPreferences prefs() {
+        return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     private static Set<String> with(Set<String> names, String name) {
@@ -289,10 +295,11 @@ public class BrowserPlugin extends Plugin {
         Tabs tabs = tabsOf(call);
         String tab = call.getString("tab", null);
         return onMain(() -> {
+            restore(tabs);
             String wanted = tab != null ? tab : tabs.active;
             Session existing = wanted == null ? null : tabs.open.get(wanted);
             if (existing == null && tab != null) throw new Failure("no_tab", "tab " + tab + " is not open; open tabs: " + String.join(", ", tabs.open.keySet()));
-            Session session = existing != null ? existing : create(tabs);
+            Session session = existing != null ? existing : create(tabs, String.valueOf(tabs.next++));
             main.removeCallbacks(session.expire);
             main.postDelayed(session.expire, IDLE_MS);
             return session;
@@ -304,8 +311,9 @@ public class BrowserPlugin extends Plugin {
         Background.run(work, call, () -> {
             Tabs tabs = tabsOf(call);
             Session session = onMain(() -> {
+                restore(tabs);
                 if (tabs.open.size() >= MAX_TABS) throw new Failure("too_many", "a Bot keeps at most " + MAX_TABS + " tabs; close one first");
-                Session created = create(tabs);
+                Session created = create(tabs, String.valueOf(tabs.next++));
                 select(tabs, created.tab);
                 return created;
             });
@@ -318,10 +326,11 @@ public class BrowserPlugin extends Plugin {
     @PluginMethod
     public void selectTab(PluginCall call) {
         Background.run(work, call, () -> {
-            Tabs tabs = bots.get(call.getString("bot", ""));
+            Tabs tabs = tabsOf(call);
             String tab = call.getString("tab", "");
             onMain(() -> {
-                if (tabs == null || !tabs.open.containsKey(tab)) throw new Failure("no_tab", "tab " + tab + " is not open");
+                restore(tabs);
+                if (!tabs.open.containsKey(tab)) throw new Failure("no_tab", "tab " + tab + " is not open");
                 select(tabs, tab);
                 return null;
             });
@@ -332,10 +341,11 @@ public class BrowserPlugin extends Plugin {
     @PluginMethod
     public void closeTab(PluginCall call) {
         Background.run(work, call, () -> {
-            Tabs tabs = bots.get(call.getString("bot", ""));
+            Tabs tabs = tabsOf(call);
             String tab = call.getString("tab", "");
             onMain(() -> {
-                if (tabs == null || !tabs.open.containsKey(tab)) throw new Failure("no_tab", "tab " + tab + " is not open");
+                restore(tabs);
+                if (!tabs.open.containsKey(tab)) throw new Failure("no_tab", "tab " + tab + " is not open");
                 close(tabs, tab);
                 return null;
             });
@@ -348,8 +358,25 @@ public class BrowserPlugin extends Plugin {
         Background.run(work, call, () -> {
             String bot = call.getString("bot", "");
             Tabs tabs = bots.get(bot);
-            call.resolve(onMain(() -> listing(tabs, bot)));
+            JSONArray saved = new JSONArray(prefs().getString(TABS_KEY + bot, "[]"));
+            call.resolve(onMain(() -> tabs == null || tabs.open.isEmpty() ? savedListing(bot, saved) : listing(tabs, bot)));
         });
+    }
+
+    private static JSObject savedListing(String bot, JSONArray urls) {
+        JSObject out = new JSObject();
+        JSArray list = new JSArray();
+        for (int i = 0; i < urls.length(); i++) {
+            JSObject item = new JSObject();
+            item.put("id", String.valueOf(i + 1));
+            item.put("url", urls.optString(i));
+            item.put("title", "");
+            list.put(item);
+        }
+        if (urls.length() > 0) out.put("active", "1");
+        out.put("bot", bot);
+        out.put("tabs", list);
+        return out;
     }
 
     private JSObject listing(Tabs tabs, String bot) {
@@ -371,7 +398,28 @@ public class BrowserPlugin extends Plugin {
     }
 
     private void announceTabs(Tabs tabs) {
+        remember(tabs);
         notifyListeners("tabs", listing(tabs, tabs.bot));
+    }
+
+    private void remember(Tabs tabs) {
+        JSONArray urls = new JSONArray();
+        for (Session session : tabs.open.values()) urls.put(orEmpty(session.view.getUrl()));
+        prefs().edit().putString(TABS_KEY + tabs.bot, urls.toString()).apply();
+    }
+
+    private void restore(Tabs tabs) throws JSONException {
+        if (!tabs.open.isEmpty()) return;
+        JSONArray urls = new JSONArray(prefs().getString(TABS_KEY + tabs.bot, "[]"));
+        tabs.next = 1;
+        for (int i = 0; i < urls.length(); i++) {
+            Session session = create(tabs, String.valueOf(tabs.next++));
+            String url = urls.getString(i);
+            if (!WebPages.isWeb(Uri.parse(url))) continue;
+            session.loading = true;
+            session.view.loadUrl(url);
+        }
+        prefs().edit().putString(TABS_KEY + tabs.bot, urls.toString()).apply();
     }
 
     private void select(Tabs tabs, String tab) {
@@ -436,12 +484,12 @@ public class BrowserPlugin extends Plugin {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private Session create(Tabs tabs) {
+    private Session create(Tabs tabs, String id) {
         String bot = tabs.bot;
         ProfileStore.getInstance().getOrCreateProfile(profileOf(bot));
         WebView view = WebPages.create(getContext());
         WebViewCompat.setProfile(view, profileOf(bot));
-        Session session = new Session(tabs, String.valueOf(tabs.next++), view);
+        Session session = new Session(tabs, id, view);
         WebViewCompat.addWebMessageListener(view, ANSWER_CHANNEL, Set.of("*"), (webView, message, origin, mainFrame, reply) -> {
             String data = message.getData();
             int cut = data == null ? -1 : data.indexOf('\n');
@@ -512,6 +560,7 @@ public class BrowserPlugin extends Plugin {
         page.put("canGoBack", session.view.canGoBack());
         page.put("canGoForward", session.view.canGoForward());
         notifyListeners("page", page);
+        if (!session.loading) remember(session.owner);
     }
 
     private static String orEmpty(String text) {

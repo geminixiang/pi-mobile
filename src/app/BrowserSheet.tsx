@@ -64,7 +64,11 @@ function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) 
 			autoCapitalize="off"
 			autoCorrect="off"
 			spellCheck={false}
-			onFocus={() => setDraft(url.startsWith("about:") ? "" : url)}
+			onFocus={(event) => {
+				const input = event.currentTarget;
+				setDraft(url.startsWith("about:") ? "" : url);
+				requestAnimationFrame(() => input.select());
+			}}
 			onBlur={() => setDraft(undefined)}
 			onChange={(event) => setDraft(event.target.value)}
 			onKeyDown={(event) => {

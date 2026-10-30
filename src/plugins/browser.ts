@@ -4,7 +4,7 @@ import { oneOf } from "../agent/parse.ts";
 
 export const BROWSER_ACTIONS = ["open", "tap", "tap_at", "type", "type_here", "clear", "select", "key", "scroll", "scroll_in", "back", "forward", "reload", "wait", "wait_for"] as const;
 
-export const MAX_TABS = 4;
+export const MAX_TABS = 8;
 
 const Step = Type.Object({
 	action: oneOf(BROWSER_ACTIONS),
