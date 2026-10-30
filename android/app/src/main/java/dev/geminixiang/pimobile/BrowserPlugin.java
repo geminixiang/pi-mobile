@@ -22,6 +22,10 @@ import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsAnimationCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.Profile;
 import androidx.webkit.ProfileStore;
 import androidx.webkit.WebViewCompat;
@@ -38,6 +42,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -113,6 +118,7 @@ public class BrowserPlugin extends Plugin {
         volatile boolean loading;
         volatile long lastUserTouch;
         volatile boolean injecting;
+        boolean agentTouched;
         volatile String dialog;
         final Runnable expire;
 
@@ -539,8 +545,22 @@ public class BrowserPlugin extends Plugin {
             }
         });
         view.setOnTouchListener((touched, event) -> {
+            session.agentTouched = session.injecting;
             if (!session.injecting) session.lastUserTouch = SystemClock.uptimeMillis();
             return false;
+        });
+        ViewCompat.setWindowInsetsAnimationCallback(view, new WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+            @Override
+            public void onPrepare(WindowInsetsAnimationCompat animation) {
+                WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(view);
+                boolean opening = insets != null && !insets.isVisible(WindowInsetsCompat.Type.ime()) && (animation.getTypeMask() & WindowInsetsCompat.Type.ime()) != 0;
+                if (opening && session.agentTouched && view.hasFocus()) WindowCompat.getInsetsController(getActivity().getWindow(), view).hide(WindowInsetsCompat.Type.ime());
+            }
+
+            @Override
+            public WindowInsetsCompat onProgress(WindowInsetsCompat insets, List<WindowInsetsAnimationCompat> running) {
+                return insets;
+            }
         });
         layOut(session);
         tabs.open.put(session.tab, session);

@@ -45,6 +45,8 @@ Google 從 2021 年起擋 WebView 裡的帳號登入（「這個瀏覽器或應�
 
 點擊和打字不用它的：它的事件是 JS 造的（`isTrusted: false`），網站分得出來，瀏覽器也不准用來開新視窗、播聲音、讀剪貼簿。所以 `tap {index}` 是它把元素捲進畫面、回報中心，原生再送真的觸控；`type {index}` 是原生點進欄位再輸入。
 
+真的觸控點到欄位，Chromium 會叫出螢幕鍵盤，瀏覽器面板開著時會被鍵盤擠扁。讓 `onCheckIsTextEditor` 回 false、`onCreateInputConnection` 回 null 都擋不住，所以原生在鍵盤開始出現時（`WindowInsetsAnimationCompat` 的 `onPrepare`）收回它，條件是最後一次碰到這個 WebView 的是 agent、而且焦點還在 WebView 上：使用者點對話框或自己點網頁欄位時鍵盤照常出現。模擬器上鍵盤從要求顯示到收回約 100 ms，鍵盤視窗只露出約 8 ms。
+
 要元素的動作和不要元素的動作分開命名，每個欄位都是必填：`tap {index}`／`tap_at {x, y}`、`type {index, text}`／`type_here {text}`、`scroll_in {index, direction}`／`scroll {direction}`。模型常把沒用到的欄位都填上預設值，`index: 0` 是合法的元素編號（page-controller 從 0 數），只靠「有沒有這個欄位」分辨動作的話，「在游標處打字」會先點到 [0]。步驟裡的空字串、低於最小值的數字和頂層參數一樣先清掉（`ms: 0` 不算數）。
 
 分頁：每個 Bot 最多 8 個，共用那個 Bot 的 profile。分頁和它們的網址只活在 app 的記憶體裡，profile 只留 cookie 和網站資料，`WebView.saveState` 也要另外存、而且滑掉 app 時 Android 不保留，所以原生在瀏覽器的設定檔（`browser`）裡替每個 Bot 存一份網址清單，順序就是分頁的順序。app 重開、或分頁全部閒置關掉後，下次用到這個 Bot 的瀏覽器時照清單重開，第一個在前景；上一頁的紀錄不保留。
