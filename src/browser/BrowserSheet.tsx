@@ -4,7 +4,7 @@ import { native } from "../native.ts";
 import { Browser, MAX_TABS } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
-import { pageKey, SHEET_START, sheetAfter } from "./sheetState.ts";
+import { pageKey, sameInputs, SHEET_START, type SheetInputs, sheetAfter } from "./sheetState.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
 import { useBack } from "../app/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../app/sideGesture.ts";
@@ -125,6 +125,8 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const active = bot !== undefined && state.active.has(bot);
 	const handover = state.handovers.find((item) => item.bot === bot);
 	const reason = handover?.reason;
+	const inputs: SheetInputs = { bot, active, handover: reason, openKey };
+	if (!sameInputs(sheet.inputs, inputs)) dispatch({ type: "inputs", inputs });
 	const tabList = bot ? sheet.tabs[bot] : undefined;
 	const page = bot && tabList?.active ? sheet.pages[pageKey(bot, tabList.active)] : undefined;
 	const expanded = sheet.mode !== "closed";
@@ -157,7 +159,6 @@ export const BrowserSheet = memo(function BrowserSheet({
 	};
 
 	useEffect(() => {
-		dispatch({ type: "bot_changed" });
 		if (!bot || !native.has("Browser")) return;
 		Browser.tabs({ bot })
 			.then((list) => dispatch({ type: "tabs", list }))
@@ -165,20 +166,10 @@ export const BrowserSheet = memo(function BrowserSheet({
 	}, [bot]);
 	const closesItself = sheet.mode === "auto";
 	useEffect(() => {
-		if (active) dispatch({ type: "agent_started" });
-	}, [active]);
-	useEffect(() => {
 		if (active || !closesItself || reason !== undefined || working) return;
 		const timer = setTimeout(() => dispatch({ type: "agent_finished" }), COLLAPSE_AFTER_MS);
 		return () => clearTimeout(timer);
 	}, [active, reason, working, closesItself]);
-	useEffect(() => {
-		if (reason !== undefined) dispatch({ type: "handover" });
-	}, [reason]);
-	useEffect(() => {
-		if (openKey === 0 || !bot) return;
-		dispatch({ type: "user_opened" });
-	}, [openKey]);
 
 	useEffect(() => {
 		if (!bot) return;

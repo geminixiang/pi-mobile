@@ -16,7 +16,6 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import dev.geminixiang.pimobile.Background.Failure
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
@@ -51,12 +50,16 @@ class BrowserPlugin : Plugin() {
     private val prefs: SharedPreferences get() = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @PluginMethod
-    fun read(call: PluginCall) = Background.run(work, call) { call.resolve(snapshot(tabOf(call), call.data.optBoolean("screenshot"), null)) }
+    fun read(call: PluginCall) =
+        work.reply(call) {
+            val tab = tabOf(call).valueOr { return@reply it }
+            snapshot(tab, call.data.optBoolean("screenshot"), null)
+        }
 
     @PluginMethod
     fun act(call: PluginCall) =
-        Background.run(work, call) {
-            val tab = tabOf(call)
+        work.reply(call) {
+            val tab = tabOf(call).valueOr { return@reply it }
             val steps = call.data.getJSONArray("steps")
             val did = mutableListOf<String>()
             var stopped: String? = null
@@ -71,33 +74,33 @@ class BrowserPlugin : Plugin() {
                     }
                 }
             }
-            val result = snapshot(tab, call.data.optBoolean("screenshot"), stopped)
+            val result = snapshot(tab, call.data.optBoolean("screenshot"), stopped).valueOr { return@reply it }
             if (did.isNotEmpty()) result.put("did", JSONArray(did))
-            call.resolve(result)
+            Outcome.Ok(result)
         }
 
     @PluginMethod
     fun go(call: PluginCall) =
-        Background.run(work, call) {
-            val tab = tabOf(call)
+        work.reply(call) {
+            val tab = tabOf(call).valueOr { return@reply it }
             val url = call.data.optString("url")
             when (call.data.optString("action")) {
                 "open" -> {
-                    if (!WebPages.isWeb(Uri.parse(url))) throw Failure("invalid", "url must be http or https")
+                    if (!WebPages.isWeb(Uri.parse(url))) return@reply Outcome.Stopped("url must be http or https")
                     onMain { tab.view.loadUrl(url) }
                 }
                 "back" -> onMain { if (tab.view.canGoBack()) tab.view.goBack() }
                 "forward" -> onMain { if (tab.view.canGoForward()) tab.view.goForward() }
                 "reload" -> onMain { tab.view.reload() }
-                else -> throw Failure("invalid", "action is back, forward, reload, or open")
+                else -> return@reply Outcome.Stopped("action is back, forward, reload, or open")
             }
-            call.resolve()
+            DONE
         }
 
     @PluginMethod
     fun show(call: PluginCall) =
-        Background.run(work, call) {
-            val tab = tabOf(call)
+        work.reply(call) {
+            val tab = tabOf(call).valueOr { return@reply it }
             val tabs = tab.owner
             val density = context.resources.displayMetrics.density
             val dp = { name: String -> (call.data.getDouble(name) * density).roundToInt() }
@@ -116,12 +119,12 @@ class BrowserPlugin : Plugin() {
                 tabs.shownAt = placement
                 attach(tab, placement, fade = true)
             }
-            call.resolve()
+            DONE
         }
 
     @PluginMethod
     fun hide(call: PluginCall) =
-        Background.run(work, call) {
+        work.reply(call) {
             val tabs = bots[call.data.optString("bot")]
             if (tabs != null) {
                 onMain {
@@ -129,20 +132,20 @@ class BrowserPlugin : Plugin() {
                     tabs.open.values.forEach(::park)
                 }
             }
-            call.resolve()
+            DONE
         }
 
     @PluginMethod
     fun peek(call: PluginCall) =
-        Background.run(work, call) {
+        work.reply(call) {
             val tabs = bots[call.data.optString("bot")]
             val tab = tabs?.active?.let { tabs.open[it] }
-            call.resolve(JSObject().apply { if (tab != null) put("jpeg", tab.capture()) })
+            Outcome.Ok(JSObject().apply { if (tab != null) put("jpeg", tab.capture()) })
         }
 
     @PluginMethod
     fun forget(call: PluginCall) =
-        Background.run(work, call) {
+        work.reply(call) {
             val bot = call.data.optString("bot")
             val tabs = bots.remove(bot)
             prefs.edit().remove(TABS_KEY + bot).apply()
@@ -150,7 +153,7 @@ class BrowserPlugin : Plugin() {
                 tabs?.open?.values?.forEach(::destroy)
                 tabs?.open?.clear()
             }
-            if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return@run call.resolve()
+            if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return@reply DONE
             val deleted =
                 onMain {
                     val profile = ProfileStore.getInstance().getProfile(profileOf(bot))
@@ -161,55 +164,55 @@ class BrowserPlugin : Plugin() {
                 }
             // why: Chromium keeps a profile loaded for the rest of the process once a WebView used it, so it is deleted at the next start
             if (!deleted) prefs.edit().putStringSet(FORGOTTEN_KEY, prefs.getStringSet(FORGOTTEN_KEY, emptySet()).orEmpty() + profileOf(bot)).apply()
-            call.resolve()
+            DONE
         }
 
     @PluginMethod
     fun newTab(call: PluginCall) =
-        Background.run(work, call) {
-            val tabs = botTabs(call)
-            val tab =
-                onMain {
-                    restore(tabs)
-                    if (tabs.open.size >= MAX_TABS) throw Failure("too_many", "a Bot keeps at most $MAX_TABS tabs; close one first")
-                    create(tabs).also { select(tabs, it.id) }
-                }
-            call.resolve(JSObject().put("tab", tab.id))
+        work.reply(call) {
+            val tabs = botTabs(call).valueOr { return@reply it }
+            onMain {
+                restore(tabs)
+                if (tabs.open.size >= MAX_TABS) return@onMain Outcome.Stopped("a Bot keeps at most $MAX_TABS tabs; close one first")
+                val tab = create(tabs)
+                select(tabs, tab.id)
+                Outcome.Ok(JSObject().put("tab", tab.id))
+            }
         }
 
     @PluginMethod
     fun selectTab(call: PluginCall) =
-        Background.run(work, call) {
-            val tabs = botTabs(call)
+        work.reply(call) {
+            val tabs = botTabs(call).valueOr { return@reply it }
             val id = call.data.optString("tab")
             onMain {
                 restore(tabs)
-                if (id !in tabs.open) throw Failure("no_tab", "tab $id is not open")
+                if (id !in tabs.open) return@onMain Outcome.Stopped("tab $id is not open")
                 select(tabs, id)
+                DONE
             }
-            call.resolve()
         }
 
     @PluginMethod
     fun closeTab(call: PluginCall) =
-        Background.run(work, call) {
-            val tabs = botTabs(call)
+        work.reply(call) {
+            val tabs = botTabs(call).valueOr { return@reply it }
             val id = call.data.optString("tab")
             onMain {
                 restore(tabs)
-                if (id !in tabs.open) throw Failure("no_tab", "tab $id is not open")
+                if (id !in tabs.open) return@onMain Outcome.Stopped("tab $id is not open")
                 close(tabs, id)
+                DONE
             }
-            call.resolve()
         }
 
     @PluginMethod
     fun tabs(call: PluginCall) =
-        Background.run(work, call) {
+        work.reply(call) {
             val bot = call.data.optString("bot")
             val tabs = bots[bot]
             val saved = JSONArray(prefs.getString(TABS_KEY + bot, "[]"))
-            call.resolve(onMain { if (tabs == null || tabs.open.isEmpty()) savedListing(bot, saved) else listing(tabs) })
+            Outcome.Ok(onMain { if (tabs == null || tabs.open.isEmpty()) savedListing(bot, saved) else listing(tabs) })
         }
 
     override fun load() {
@@ -234,26 +237,26 @@ class BrowserPlugin : Plugin() {
         }
     }
 
-    private fun botTabs(call: PluginCall): BotTabs {
+    private fun botTabs(call: PluginCall): Outcome<BotTabs> {
         val bot = call.data.optString("bot")
-        if (bot.isEmpty()) throw Failure("invalid", "bot is required")
+        if (bot.isEmpty()) return Outcome.Stopped("bot is required")
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-            throw Failure("unsupported", "this phone's WebView cannot keep a separate browser per Bot; update Android System WebView")
+            return Outcome.Stopped("this phone's WebView cannot keep a separate browser per Bot; update Android System WebView")
         }
-        return bots.computeIfAbsent(bot, ::BotTabs)
+        return Outcome.Ok(bots.computeIfAbsent(bot, ::BotTabs))
     }
 
-    private fun tabOf(call: PluginCall): BrowserTab {
-        val tabs = botTabs(call)
+    private fun tabOf(call: PluginCall): Outcome<BrowserTab> {
+        val tabs = botTabs(call).valueOr { return it }
         val wanted: String? = call.getString("tab")
         return onMain {
             restore(tabs)
             val existing = (wanted ?: tabs.active)?.let { tabs.open[it] }
-            if (existing == null && wanted != null) throw Failure("no_tab", "tab $wanted is not open; open tabs: ${tabs.open.keys.joinToString(", ")}")
+            if (existing == null && wanted != null) return@onMain Outcome.Stopped("tab $wanted is not open; open tabs: ${tabs.open.keys.joinToString(", ")}")
             val tab = existing ?: create(tabs)
             mainHandler.removeCallbacks(tab.expire)
             mainHandler.postDelayed(tab.expire, IDLE_MS)
-            tab
+            Outcome.Ok(tab)
         }
     }
 
@@ -377,20 +380,22 @@ class BrowserPlugin : Plugin() {
         if (fade) tab.view.animate().alpha(1f).setDuration(FADE_MS).start()
     }
 
-    private fun snapshot(tab: BrowserTab, screenshot: Boolean, error: String?): JSObject {
+    private fun snapshot(tab: BrowserTab, screenshot: Boolean, error: String?): Outcome<JSObject> {
         tab.awaitLoad()
-        val facts = JSONObject(tab.eval(FACTS).valueOr { throw Failure("timeout", it.reason) })
-        val state = tab.callPage("window.__piPage.state()").valueOr { throw Failure("page", it.reason) }
+        val facts = JSONObject(tab.eval(FACTS).valueOr { return it })
+        val state = tab.callPage("window.__piPage.state()").valueOr { return it }
         val dialog = tab.takeDialog()
         val text = facts.optString("text")
-        return JSObject().apply {
-            put("tab", tab.id)
-            put("loading", tab.loading || facts.optString("ready") != "complete")
-            put("elements", "${state.optString("header")}\n${state.optString("content")}\n${state.optString("footer")}")
-            put("tabs", onMain { listing(tab.owner) }.getJSONArray("tabs"))
-            put("text", if (dialog == null) text else "[The page showed a dialog: $dialog]\n$text")
-            if (screenshot) put("jpeg", tab.capture())
-            if (error != null) put("error", error)
-        }
+        val page =
+            JSObject().apply {
+                put("tab", tab.id)
+                put("loading", tab.loading || facts.optString("ready") != "complete")
+                put("elements", "${state.optString("header")}\n${state.optString("content")}\n${state.optString("footer")}")
+                put("tabs", onMain { listing(tab.owner) }.getJSONArray("tabs"))
+                put("text", if (dialog == null) text else "[The page showed a dialog: $dialog]\n$text")
+                if (screenshot) put("jpeg", tab.capture())
+                if (error != null) put("error", error)
+            }
+        return Outcome.Ok(page)
     }
 }

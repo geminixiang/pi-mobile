@@ -67,18 +67,6 @@ internal fun View.detach() {
 
 internal fun profileOf(bot: String) = "bot-$bot"
 
-internal sealed interface Outcome<out T> {
-    data class Ok<T>(val value: T) : Outcome<T>
-
-    data class Stopped(val reason: String) : Outcome<Nothing>
-}
-
-internal inline fun <T> Outcome<T>.valueOr(stop: (Outcome.Stopped) -> Nothing): T =
-    when (this) {
-        is Outcome.Ok -> value
-        is Outcome.Stopped -> stop(this)
-    }
-
 private object PageScript {
     @Volatile private var text: String? = null
 
