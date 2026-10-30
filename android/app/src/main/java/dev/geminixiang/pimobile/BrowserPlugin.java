@@ -245,6 +245,16 @@ public class BrowserPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void peek(PluginCall call) {
+        Background.run(work, call, () -> {
+            Session session = sessions.get(call.getString("bot", ""));
+            JSObject out = new JSObject();
+            if (session != null) out.put("jpeg", capture(session));
+            call.resolve(out);
+        });
+    }
+
+    @PluginMethod
     public void forget(PluginCall call) {
         Background.run(work, call, () -> {
             String bot = call.getString("bot", "");

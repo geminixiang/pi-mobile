@@ -852,6 +852,27 @@
 				},
 				"result": null
 			},
+			"peek": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"jpeg": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
 			"forget": {
 				"args": {
 					"properties": {

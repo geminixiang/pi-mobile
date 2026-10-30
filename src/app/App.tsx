@@ -12,7 +12,7 @@ import { BotPanel } from "./BotPanel.tsx";
 import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GlobeIcon, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
-import { BrowserIsland } from "./BrowserIsland.tsx";
+import { BrowserSheet } from "./BrowserSheet.tsx";
 import { browserState } from "../agent/tools/browser.ts";
 import { Browser } from "../plugins/browser.ts";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
@@ -71,7 +71,7 @@ export function App() {
 	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
 	const [chatKey, setChatKey] = useState(0);
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
-	const [islandOpen, setIslandOpen] = useState(0);
+	const [browserOpen, setBrowserOpen] = useState(0);
 	const currentBot = controller ? String(controller.id) : undefined;
 	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
 		setWorkspaceStart(start);
@@ -251,6 +251,7 @@ export function App() {
 
 	const applying = useRef<Promise<void>>(Promise.resolve());
 	const card = useRef<HTMLDivElement>(null);
+	const header = useRef<HTMLElement>(null);
 
 	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
 	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
@@ -342,7 +343,7 @@ export function App() {
 			data-thinking={thinking || "off"}
 			className="app"
 		>
-			<header className="bar">
+			<header ref={header} className="bar">
 				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
 					<PiMark size={18} live={busy} />
 				</button>
@@ -358,7 +359,7 @@ export function App() {
 					</span>
 				</button>
 				{currentBot && native.has("Browser") ? (
-					<button type="button" className="icon-button" aria-label="瀏覽器" onClick={() => setIslandOpen((count) => count + 1)}>
+					<button type="button" className="icon-button" aria-label="瀏覽器" onClick={() => setBrowserOpen((count) => count + 1)}>
 						<GlobeIcon />
 					</button>
 				) : null}
@@ -556,7 +557,7 @@ export function App() {
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 
-			<BrowserIsland bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={islandOpen} />
+			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} />
 
 			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={close} label="Bot 的記憶">
 				{memoryBot ? (
