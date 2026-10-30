@@ -208,7 +208,8 @@ public class BrowserPlugin extends Plugin {
                 session.view.setOutlineProvider(new ViewOutlineProvider() {
                     @Override
                     public void getOutline(View outlined, Outline outline) {
-                        outline.setRoundRect(0, 0, outlined.getWidth(), outlined.getHeight(), radius);
+                        // why: the round rect starts one radius above the view, so only the bottom corners are rounded, where the sheet's own corners are
+                        outline.setRoundRect(0, Math.round(-radius), outlined.getWidth(), outlined.getHeight(), radius);
                     }
                 });
                 session.view.setClipToOutline(true);

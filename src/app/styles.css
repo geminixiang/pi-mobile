@@ -634,10 +634,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .browser-address::placeholder { color: var(--faint); }
 .browser-note { padding: 8px var(--space); font-size: var(--fs-small); line-height: 1.5; color: var(--text); background: var(--accent-soft); }
-.browser-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); border-top: 1px solid var(--line); }
+.browser-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); border-top: 1px solid var(--line); border-radius: 0 0 var(--card-radius) var(--card-radius); }
 .browser-shot { position: absolute; top: 0; left: 0; display: block; width: 100%; height: auto; }
-.browser-grip { display: grid; place-items: center; height: 36px; flex-shrink: 0; width: 100%; touch-action: none; }
-.browser-grip::before { content: ""; width: 36px; height: 4px; background: var(--line-strong); }
 .group { border: 1px solid var(--line); background: var(--panel); }
 .group-body > label, .provider > label, .manual > label, .machine-add > label, .bot-form > label { display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 0; }
 .group-body > label > span, .provider > label > span, .manual > label > span, .machine-add > label > span, .bot-form > label > span { font-family: var(--mono); font-size: var(--fs-meta); text-transform: uppercase; color: var(--muted); }

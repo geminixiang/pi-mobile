@@ -7,6 +7,8 @@ import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
+// why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
+const CARD_RADIUS = 36;
 const SLOP = 10;
 
 type Page = { url: string; title: string; loading: boolean };
@@ -145,7 +147,7 @@ export function BrowserSheet({
 		if (!element || !target || !latest.current.open) return;
 		const box = element.getBoundingClientRect();
 		live.current = true;
-		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: 0 }).catch((error: unknown) => setProblem(messageOf(error)));
+		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: CARD_RADIUS }).catch((error: unknown) => setProblem(messageOf(error)));
 	};
 
 	const hideLive = async (target: string) => {
@@ -345,7 +347,6 @@ export function BrowserSheet({
 			<div ref={frame} className="browser-frame">
 				{shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}
 			</div>
-			<button type="button" className="browser-grip" aria-label="收起瀏覽器" onClick={collapse} {...pushHandlers} />
 		</div>
 	);
 }
