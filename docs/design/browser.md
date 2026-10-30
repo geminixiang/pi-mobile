@@ -27,6 +27,10 @@
 | app 被殺掉後登入還在不在 | localStorage 在，**cookie 不在**：cookie 是非同步寫回磁碟，`force-stop` 時還沒寫。所以每次載入頁面、每個動作之後、app 退到背景時，都要呼叫那個 profile 的 `CookieManager.flush()`。 |
 | 疊一個 WebView 在 pi 上面順不順 | 粗量（接著電，`input swipe` 加 gfxinfo，不是 `run.ts`）：只捲對話 453 幀、掉 2.2%；下方疊著網頁時捲對話 457 幀、掉 1.3%；捲網頁本身 746 幀、掉 0.7%。沒有變差。UI 做出來後照規則用 `run.ts` 量。 |
 
+## Google 登入（2026-10-30，S24）
+
+Google 從 2021 年起擋 WebView 裡的帳號登入（「這個瀏覽器或應用程式可能不安全」）。在 Bot 的瀏覽器裡（User-Agent 去掉 `; wv`），使用者自己登入 accounts.google.com 成功，進到 myaccount.google.com，沒有被擋。還沒測：第三方網站的「用 Google 登入」，它常開一個新視窗再透過 `window.opener` 回傳，初版把新視窗開在同一頁，這條路可能會壞（`onCreateWindow` 還沒做）。
+
 ## 架構
 
 ### 原生：`BrowserPlugin`（Android 先做）
