@@ -6,15 +6,14 @@ import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
-import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
+import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
-const SLOP = 10;
 
 type Page = { url: string; title: string; loading: boolean; canGoBack: boolean; canGoForward: boolean };
-type Drag = { from: number; fromY: number; height: number; samples: { x: number; t: number }[] };
+type Drag = { from: number; fromY: number; height: number; samples: Sample[] };
 
 const isWeb = (url: string) => /^https?:/.test(url);
 
@@ -27,65 +26,28 @@ function addressOf(typed: string, engine: SearchEngine): string {
 	return SEARCH_ENGINES[engine].search + encodeURIComponent(text);
 }
 
-class SheetMotion {
-	#position = 0;
-	#frame = 0;
-
+class SheetMotion extends Motion {
 	constructor(
 		readonly sheet: HTMLElement,
-		private readonly settled: (open: boolean) => void,
-	) {}
-
-	position(): number {
-		return this.#position;
-	}
-
-	height(): number {
-		return this.sheet.offsetHeight;
+		settled: (open: boolean) => void,
+	) {
+		super(settled);
 	}
 
 	begin(fromY: number): Drag {
-		return { from: this.#position, fromY, height: this.height(), samples: [] };
+		return { from: this.position(), fromY, height: this.sheet.offsetHeight, samples: [] };
 	}
 
 	follow(drag: Drag, y: number, at: number): void {
-		drag.samples = [...drag.samples.slice(-7), { x: y, t: at }];
+		drag.samples = sampled(drag.samples, y, at);
 		this.drag(Math.min(1, Math.max(0, drag.from + (y - drag.fromY) / drag.height)));
 	}
 
-	drag(position: number): void {
-		this.#stop();
-		this.sheet.toggleAttribute("data-shown", true);
-		this.#place(position);
+	protected reveal(shown: boolean): void {
+		this.sheet.toggleAttribute("data-shown", shown);
 	}
 
-	settle(open: boolean): void {
-		this.#stop();
-		if (open) this.sheet.toggleAttribute("data-shown", true);
-		const from = this.#position;
-		const target = open ? 1 : 0;
-		const started = performance.now();
-		const step = (now: number) => {
-			const progress = from === target ? 1 : (now - started) / SETTLE_MS;
-			this.#place(from + (target - from) * settleCurve(progress));
-			if (progress < 1) {
-				this.#frame = requestAnimationFrame(step);
-				return;
-			}
-			this.#frame = 0;
-			if (!open) this.sheet.toggleAttribute("data-shown", false);
-			this.settled(open);
-		};
-		step(started);
-	}
-
-	#stop(): void {
-		cancelAnimationFrame(this.#frame);
-		this.#frame = 0;
-	}
-
-	#place(position: number): void {
-		this.#position = position;
+	protected render(position: number): void {
 		this.sheet.style.setProperty("--sheet-reveal", String(position));
 	}
 }
@@ -273,13 +235,13 @@ export const BrowserSheet = memo(function BrowserSheet({
 
 	useEffect(() => {
 		if (!bot || !native.has("Browser")) return;
-		let start: { x: number; y: number } | undefined;
+		let start: { x: number; y: number; at: number } | undefined;
 		let drag: Drag | undefined;
 		const onStart = (event: globalThis.TouchEvent) => {
 			const touch = event.touches[0];
 			const header = pullFrom.current;
 			const fromHeader = event.target instanceof Node && header !== null && header.contains(event.target);
-			start = touch && fromHeader && !latest.current.open ? { x: touch.clientX, y: touch.clientY } : undefined;
+			start = touch && fromHeader && !latest.current.open ? { x: touch.clientX, y: touch.clientY, at: event.timeStamp } : undefined;
 			drag = undefined;
 		};
 		const onMove = (event: globalThis.TouchEvent) => {
@@ -288,8 +250,9 @@ export const BrowserSheet = memo(function BrowserSheet({
 			if (!start || !touch || !current) return;
 			const dy = touch.clientY - start.y;
 			if (!drag) {
-				if (Math.hypot(touch.clientX - start.x, dy) <= SLOP) return;
-				if (dy <= 0 || Math.abs(dy) < 2 * Math.abs(touch.clientX - start.x)) {
+				const intent = intentOf({ dx: dy, dy: touch.clientX - start.x, elapsedMs: event.timeStamp - start.at, selecting: false });
+				if (intent === "undecided") return;
+				if (intent === "ignore" || dy <= 0) {
 					start = undefined;
 					return;
 				}
@@ -328,7 +291,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 			const current = motion.current;
 			if (!touch || !push || !current || !bot) return;
 			if (!push.drag) {
-				if (Math.abs(touch.clientY - push.startY) <= SLOP) return;
+				if (Math.abs(touch.clientY - push.startY) <= TOUCH_SLOP) return;
 				push.drag = current.begin(touch.clientY);
 				void hideLive(bot);
 			}

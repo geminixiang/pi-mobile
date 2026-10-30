@@ -1,64 +1,28 @@
 import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useBack } from "./layers.ts";
-import { intentOf, positionAfter, SETTLE_MS, type Side, settleCurve, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
 
-class PanelMotion {
-	#position = 0;
-	#frame = 0;
-
+class PanelMotion extends Motion {
 	constructor(
 		readonly side: Side,
 		private readonly viewport: HTMLElement,
 		private readonly popup: HTMLElement,
 		private readonly card: RefObject<HTMLElement | null>,
-	) {}
+	) {
+		super();
+	}
 
 	width(): number {
 		return this.popup.offsetWidth;
 	}
 
-	position(): number {
-		return this.#position;
-	}
-
-	drag(position: number): void {
-		this.#stop();
-		this.#reveal(true);
-		this.#place(position);
-	}
-
-	settle(open: boolean): void {
-		this.#stop();
-		if (open) this.#reveal(true);
-		const from = this.#position;
-		const target = open ? 1 : 0;
-		const started = performance.now();
-		const step = (now: number) => {
-			const progress = from === target ? 1 : (now - started) / SETTLE_MS;
-			this.#place(from + (target - from) * settleCurve(progress));
-			if (progress < 1) {
-				this.#frame = requestAnimationFrame(step);
-				return;
-			}
-			this.#frame = 0;
-			if (!open) this.#reveal(false);
-		};
-		step(started);
-	}
-
-	#stop(): void {
-		cancelAnimationFrame(this.#frame);
-		this.#frame = 0;
-	}
-
-	#reveal(shown: boolean): void {
+	protected reveal(shown: boolean): void {
 		this.card.current?.toggleAttribute("data-side-shown", shown);
 		this.viewport.toggleAttribute("data-open", shown);
 	}
 
-	#place(position: number): void {
-		this.#position = position;
+	protected render(position: number): void {
 		this.card.current?.style.setProperty(this.side === "left" ? "--side-left" : "--side-right", String(position));
 		this.popup.style.setProperty("--side-reveal", String(position));
 	}
@@ -70,7 +34,7 @@ type TouchHandlers = {
 	onTouchEnd: (event: TouchEvent) => void;
 	onTouchCancel: (event: TouchEvent) => void;
 };
-type Drag = { motion: PanelMotion; from: number; fromX: number; width: number; samples: { x: number; t: number }[] };
+type Drag = { motion: PanelMotion; from: number; fromX: number; width: number; samples: Sample[] };
 type Gesture = { x: number; y: number; at: number; selecting: boolean; ignored: boolean; drag?: Drag };
 type SideState = { open: Side | undefined; disabled: boolean; onChange: (open: Side | undefined) => void };
 
@@ -131,7 +95,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 				gesture.drag = { motion, from: motion.position(), fromX: touch.clientX, width: motion.width(), samples: [] };
 			}
 			const { drag } = gesture;
-			drag.samples = [...drag.samples.slice(-7), { x: touch.clientX, t: event.timeStamp }];
+			drag.samples = sampled(drag.samples, touch.clientX, event.timeStamp);
 			drag.motion.drag(positionAfter(drag.motion.side, drag.from, touch.clientX - drag.fromX, drag.width));
 		},
 		onTouchEnd: (event) => release(false, event.timeStamp),
