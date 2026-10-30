@@ -18,6 +18,8 @@ const SECRET_CLOUDFLARE = "cloudflare.credential";
 const SECRET_AZURE = "azure.credential";
 const hostKey = (id: string) => `host.${id}.key`;
 
+export type SearchEngine = "duckduckgo" | "google";
+
 export interface Settings {
 	providers: ProviderConfig[];
 	providerKeys: Record<string, string>;
@@ -35,6 +37,7 @@ export interface Settings {
 	hostKeys: Record<string, string>;
 	computer: string;
 	compactAt: number;
+	searchEngine: SearchEngine;
 }
 
 const PlainSettings = Type.Object({
@@ -47,6 +50,7 @@ const PlainSettings = Type.Object({
 	hosts: Type.Optional(Type.String()),
 	computer: Type.Optional(Type.String()),
 	compactAt: Type.Optional(Type.Number()),
+	searchEngine: Type.Optional(Type.String()),
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
@@ -130,6 +134,7 @@ export async function loadSettings(): Promise<Settings> {
 		hostKeys: Object.fromEntries(hostKeys.filter(([, key]) => key)),
 		computer: plain.computer ?? "",
 		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT_TOKENS,
+		searchEngine: plain.searchEngine === "google" ? "google" : "duckduckgo",
 	};
 }
 
@@ -153,6 +158,7 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 		hosts: JSON.stringify(hosts),
 		computer: settings.computer,
 		compactAt: settings.compactAt,
+		searchEngine: settings.searchEngine,
 	};
 	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
 	for (const provider of providers) {

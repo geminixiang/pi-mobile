@@ -129,6 +129,7 @@ export const settings: Settings = {
 	hostKeys: {},
 	computer: "",
 	compactAt: 256_000,
+	searchEngine: "duckduckgo",
 };
 
 export const settle = (ms = 20) => sleep(ms);

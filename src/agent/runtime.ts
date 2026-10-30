@@ -67,7 +67,7 @@ const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
 	missing: new Set(["files", "sandbox", "computer"]),
 };
 
-const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt"]);
+const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt", "searchEngine"]);
 
 type Loaded = Pick<LoadedModels, "models" | "infos">;
 

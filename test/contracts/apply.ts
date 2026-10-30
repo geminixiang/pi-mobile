@@ -51,6 +51,18 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"switching the browser's search engine applies without a restart",
+		async () => {
+			const { runtime } = await openRuntime();
+			try {
+				assert.equal(await runtime.apply({ ...runtime.settings, searchEngine: "google" }), "in_place");
+				assert.equal(runtime.settings.searchEngine, "google");
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
 		"a change the harness was opened with asks for a restart and changes nothing",
 		async () => {
 			const { runtime } = await openRuntime();

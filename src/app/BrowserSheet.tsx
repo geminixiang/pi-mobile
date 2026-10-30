@@ -3,12 +3,12 @@ import { type BrowserState, browserState, markUsed } from "../agent/tools/browse
 import { native } from "../native.ts";
 import { Browser, type BrowserTabs } from "../plugins/browser.ts";
 import { messageOf } from "../promise.ts";
+import type { SearchEngine } from "../settings.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
-const HOME = "https://www.google.com/";
 const MAX_TABS = 4;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
@@ -19,11 +19,16 @@ type Drag = { from: number; fromY: number; samples: { x: number; t: number }[] }
 
 const hostOf = (url: string) => (/^https?:/.test(url) ? new URL(url).host.replace(/^www\./, "") : "");
 
-function addressOf(typed: string): string {
+const ENGINES: Record<SearchEngine, { home: string; search: (query: string) => string }> = {
+	duckduckgo: { home: "https://duckduckgo.com/", search: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}` },
+	google: { home: "https://www.google.com/", search: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}` },
+};
+
+function addressOf(typed: string, engine: SearchEngine): string {
 	const text = typed.trim();
 	if (/^https?:\/\//i.test(text)) return text;
 	if (!/\s/.test(text) && /\.[a-z]{2,}(\/|$)/i.test(text)) return `https://${text}`;
-	return `https://www.google.com/search?q=${encodeURIComponent(text)}`;
+	return ENGINES[engine].search(text);
 }
 
 class SheetMotion {
@@ -110,12 +115,14 @@ export function BrowserSheet({
 	working,
 	openKey,
 	pullFrom,
+	engine,
 }: {
 	bot: string | undefined;
 	hidden: boolean;
 	working: boolean;
 	openKey: number;
 	pullFrom: RefObject<HTMLElement | null>;
+	engine: SearchEngine;
 }) {
 	const [state, setState] = useState<BrowserState>({ used: new Set(), active: new Set(), handovers: [] });
 	const [pages, setPages] = useState<Readonly<Record<string, Page>>>({});
@@ -216,7 +223,7 @@ export function BrowserSheet({
 					.then((list) => {
 						const front = list.tabs.find((tab) => tab.id === list.active);
 						if (front && /^https?:/.test(front.url)) return;
-						return Browser.act({ bot, steps: [{ action: "open", url: HOME }], screenshot: false }).then(() => undefined);
+						return Browser.act({ bot, steps: [{ action: "open", url: ENGINES[engine].home }], screenshot: false }).then(() => undefined);
 					})
 					.catch((error: unknown) => setProblem(messageOf(error)));
 			}
@@ -258,7 +265,7 @@ export function BrowserSheet({
 	const openTab = () => {
 		if (!bot) return;
 		Browser.newTab({ bot })
-			.then(({ tab }) => Browser.act({ bot, tab, steps: [{ action: "open", url: HOME }], screenshot: false }))
+			.then(({ tab }) => Browser.act({ bot, tab, steps: [{ action: "open", url: ENGINES[engine].home }], screenshot: false }))
 			.catch((error: unknown) => setProblem(messageOf(error)));
 	};
 	const collapse = () => {
@@ -367,7 +374,7 @@ export function BrowserSheet({
 	if (!bot || !native.has("Browser")) return null;
 	const go = (typed: string) => {
 		setProblem("");
-		Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed) }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
+		Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed, engine) }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
 	};
 	const dot = <span className="browser-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />;
 	return (

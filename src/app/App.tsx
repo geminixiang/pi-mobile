@@ -557,7 +557,7 @@ export function App() {
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 
-			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} />
+			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
 
 			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={close} label="Bot 的記憶">
 				{memoryBot ? (
