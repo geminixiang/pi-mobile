@@ -28,6 +28,7 @@ const Snapshot = Type.Object({
 	slow: Type.Optional(Type.Boolean()),
 	done: Type.Optional(Type.Number()),
 	did: Type.Optional(Type.Array(Type.String())),
+	unchanged: Type.Optional(Type.Boolean()),
 	error: Type.Optional(Type.String()),
 });
 export type PhoneScreenSnapshot = Static<typeof Snapshot>;

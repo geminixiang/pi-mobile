@@ -14,6 +14,7 @@ import android.graphics.Rect;
 import android.hardware.HardwareBuffer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.DisplayMetrics;
@@ -50,10 +51,15 @@ public class PhoneScreenPlugin extends Plugin {
     private static final int MAX_ELEMENTS = 160;
     private static final int MAX_LABEL = 60;
     private static final long QUIET_MS = 350;
+    private static final long FIRST_CHANGE_MS = 1000;
+    private static final int TREE_TRIES = 4;
+    private static final long TREE_RETRY_MS = 400;
+    private static final long READ_BACK_MS = 1500;
     private static final long SETTLE_CAP_MS = 2500;
     private static final long ELEMENTS_MS = 2500;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private String lastSeen;
     private final ExecutorService screenshots = Executors.newSingleThreadExecutor();
     private float lastTapX = -1;
     private float lastTapY = -1;
@@ -120,9 +126,11 @@ public class PhoneScreenPlugin extends Plugin {
             String failure = null;
             int done = 0;
             List<String> did = new ArrayList<>();
+            String before = lastSeen;
             try {
                 for (int i = 0; i < steps.length(); i++) {
                     JSONObject step = steps.getJSONObject(i);
+                    long since = SystemClock.uptimeMillis();
                     try {
                         run(service, step, did);
                     } catch (StepFailure e) {
@@ -130,10 +138,11 @@ public class PhoneScreenPlugin extends Plugin {
                         break;
                     }
                     done = i + 1;
-                    settle(service, i + 1 < steps.length() ? 1500 : SETTLE_CAP_MS);
+                    if (!"wait".equals(step.optString("action"))) settle(service, since, i + 1 < steps.length() ? 1500 : SETTLE_CAP_MS);
                 }
                 JSObject result = snapshot(service, call.getBoolean("screenshot", false));
                 result.put("done", done);
+                if (done > 0 && lastSeen.equals(before)) result.put("unchanged", true);
                 if (!did.isEmpty()) result.put("did", new JSONArray(did));
                 if (failure != null) result.put("error", failure);
                 call.resolve(result);
@@ -264,7 +273,7 @@ public class PhoneScreenPlugin extends Plugin {
         gesture(service, line(fromX, fromY, fromX + dx, fromY + dy), 350);
     }
 
-    private void type(PhoneScreenService service, String text, boolean replace) throws StepFailure {
+    private void type(PhoneScreenService service, String text, boolean replace) throws StepFailure, InterruptedException {
         AccessibilityNodeInfo focused = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
         AccessibilityNodeInfo field = focused != null && focused.isEditable() ? focused : editableAt(service.getRootInActiveWindow());
         if (field == null) field = focused;
@@ -275,13 +284,37 @@ public class PhoneScreenPlugin extends Plugin {
             String before = replace || hint || current == null ? "" : current.toString();
             Bundle arguments = new Bundle();
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, before + text);
-            if (field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) return;
+            if (field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+                readBack(field, text);
+                return;
+            }
         }
         if (replace) throw new StepFailure("this field cannot be emptied here: select its text and delete it");
         ClipboardManager clipboard = service.getSystemService(ClipboardManager.class);
         clipboard.setPrimaryClip(ClipData.newPlainText("pi", text));
-        if (field.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return;
+        if (field.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
+            readBack(field, text);
+            return;
+        }
         throw new StepFailure("this field takes no typed text, but the text is on the clipboard: long_press in the field and tap 貼上 (Paste)");
+    }
+
+    private void readBack(AccessibilityNodeInfo field, String typed) throws StepFailure, InterruptedException {
+        if (typed.isEmpty() || field.isPassword()) return;
+        long end = SystemClock.uptimeMillis() + READ_BACK_MS;
+        String shown = "";
+        while (SystemClock.uptimeMillis() < end) {
+            field.refresh();
+            CharSequence text = field.getText();
+            shown = text == null || field.isShowingHintText() ? "" : text.toString();
+            if (comparable(shown).contains(comparable(typed))) return;
+            Thread.sleep(100);
+        }
+        throw new StepFailure("the field shows \"" + clip(shown) + "\", not what was typed; read the screen and type again or into another field");
+    }
+
+    private static String comparable(String text) {
+        return text.replaceAll("[\\s\\-\u200b\u200c\u200d\ufeff]", "");
     }
 
     private AccessibilityNodeInfo editableAt(AccessibilityNodeInfo node) {
@@ -384,10 +417,10 @@ public class PhoneScreenPlugin extends Plugin {
         return root == null || root.getPackageName() == null ? "" : root.getPackageName().toString();
     }
 
-    private void settle(PhoneScreenService service, long cap) throws InterruptedException {
-        long start = System.currentTimeMillis();
-        Thread.sleep(150);
-        while (service.quietFor() < QUIET_MS && System.currentTimeMillis() - start < cap) Thread.sleep(50);
+    private void settle(PhoneScreenService service, long since, long cap) throws InterruptedException {
+        long start = SystemClock.uptimeMillis();
+        while (service.lastChangeAt() <= since && SystemClock.uptimeMillis() - start < FIRST_CHANGE_MS) Thread.sleep(50);
+        while (service.quietFor() < QUIET_MS && SystemClock.uptimeMillis() - start < cap) Thread.sleep(50);
     }
 
     private JSObject snapshot(PhoneScreenService service, boolean withScreenshot) throws InterruptedException {
@@ -410,33 +443,38 @@ public class PhoneScreenPlugin extends Plugin {
         long deadline = System.currentTimeMillis() + ELEMENTS_MS;
         List<String> lines = new ArrayList<>();
         List<AccessibilityNodeInfo> nodes = new ArrayList<>();
-        List<AccessibilityWindowInfo> windows = service.getWindows();
-        for (AccessibilityWindowInfo window : windows) {
-            if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
-                keyboard = true;
-                continue;
+        for (int attempt = 0; attempt < TREE_TRIES && lines.isEmpty(); attempt++) {
+            if (attempt > 0) Thread.sleep(TREE_RETRY_MS);
+            deadline = System.currentTimeMillis() + ELEMENTS_MS;
+            List<AccessibilityWindowInfo> windows = service.getWindows();
+            for (AccessibilityWindowInfo window : windows) {
+                if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
+                    keyboard = true;
+                    continue;
+                }
+                Rect area = new Rect();
+                window.getBoundsInScreen(area);
+                boolean sliver = area.height() < screen.heightPixels / 8 || area.width() < screen.widthPixels / 8;
+                if (window.getType() == AccessibilityWindowInfo.TYPE_SYSTEM && sliver) continue;
+                AccessibilityNodeInfo root = window.getRoot();
+                if (root == null) continue;
+                int before = lines.size();
+                walk(root, scale, false, lines, nodes, deadline);
+                if (lines.size() > before && windows.size() > 1) {
+                    CharSequence title = window.getTitle();
+                    lines.add(before, "# " + kindOf(window) + (title == null ? "" : " " + clip(title.toString())));
+                    nodes.add(before, null);
+                }
+                if (lines.size() >= MAX_ELEMENTS || System.currentTimeMillis() > deadline) break;
             }
-            Rect area = new Rect();
-            window.getBoundsInScreen(area);
-            boolean sliver = area.height() < screen.heightPixels / 8 || area.width() < screen.widthPixels / 8;
-            if (window.getType() == AccessibilityWindowInfo.TYPE_SYSTEM && sliver) continue;
-            AccessibilityNodeInfo root = window.getRoot();
-            if (root == null) continue;
-            int before = lines.size();
-            walk(root, scale, false, lines, nodes, deadline);
-            if (lines.size() > before && windows.size() > 1) {
-                CharSequence title = window.getTitle();
-                lines.add(before, "# " + kindOf(window) + (title == null ? "" : " " + clip(title.toString())));
-                nodes.add(before, null);
-            }
-            if (lines.size() >= MAX_ELEMENTS || System.currentTimeMillis() > deadline) break;
+            if (windows.isEmpty() && active != null) walk(active, scale, false, lines, nodes, deadline);
         }
-        if (windows.isEmpty() && active != null) walk(active, scale, false, lines, nodes, deadline);
         withOwners(lines, nodes, deadline);
         if (System.currentTimeMillis() > deadline) result.put("slow", true);
         result.put("keyboard", keyboard);
         result.put("elements", String.join("\n", lines.subList(0, Math.min(lines.size(), MAX_ELEMENTS))));
         result.put("more", Math.max(0, lines.size() - MAX_ELEMENTS));
+        lastSeen = result.optString("package") + "\n" + result.optString("elements");
         if (!withScreenshot) return result;
         String shot = screenshot(service, scale, result);
         if (shot != null) result.put("jpeg", shot);

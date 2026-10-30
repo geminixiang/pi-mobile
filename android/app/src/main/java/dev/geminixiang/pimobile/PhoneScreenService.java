@@ -35,6 +35,10 @@ public class PhoneScreenService extends AccessibilityService {
     @Override
     public void onInterrupt() {}
 
+    long lastChangeAt() {
+        return lastChange;
+    }
+
     long quietFor() {
         return SystemClock.uptimeMillis() - lastChange;
     }

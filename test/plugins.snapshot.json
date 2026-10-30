@@ -2394,6 +2394,9 @@
 						"slow": {
 							"type": "boolean"
 						},
+						"unchanged": {
+							"type": "boolean"
+						},
 						"width": {
 							"type": "number"
 						}
@@ -2518,6 +2521,9 @@
 							"type": "string"
 						},
 						"slow": {
+							"type": "boolean"
+						},
+						"unchanged": {
 							"type": "boolean"
 						},
 						"width": {
