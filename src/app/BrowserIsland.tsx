@@ -6,11 +6,9 @@ import { messageOf } from "../promise.ts";
 import { ChevronIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 
-// why: the panel grows over 300 ms (.island-panel); a native view placed during it lands where the panel is not yet
-const GROWN_MS = 320;
+// why: the panel drops in over 260 ms (.island-panel); a native view placed during it lands where the panel is not yet
+const DROPPED_MS = 280;
 const COLLAPSE_AFTER_MS = 1500;
-// why: --card-radius (36) minus the panel's 8 px padding, so the page's corners are concentric with the panel's
-const FRAME_RADIUS = 28;
 
 type Page = { url: string; title: string; loading: boolean };
 
@@ -33,9 +31,9 @@ function Frame({ bot, onProblem }: { bot: string; onProblem: (text: string) => v
 		if (!element) return;
 		const place = () => {
 			const box = element.getBoundingClientRect();
-			Browser.show({ bot, x: box.left, y: box.top, width: box.width, height: box.height, radius: FRAME_RADIUS }).catch((error: unknown) => onProblem(messageOf(error)));
+			Browser.show({ bot, x: box.left, y: box.top, width: box.width, height: box.height, radius: 0 }).catch((error: unknown) => onProblem(messageOf(error)));
 		};
-		const timer = setTimeout(place, GROWN_MS);
+		const timer = setTimeout(place, DROPPED_MS);
 		const resized = new ResizeObserver(() => setTimeout(place, 0));
 		resized.observe(element);
 		return () => {
@@ -134,7 +132,7 @@ export function BrowserIsland({ bot, hidden, working, openKey }: { bot: string |
 		<div className="island" data-expanded={expanded || undefined} hidden={!shown}>
 			<button
 				type="button"
-				className="island-pill"
+				className="island-strip"
 				aria-label="展開瀏覽器"
 				onClick={() => {
 					auto.current = false;
@@ -143,22 +141,21 @@ export function BrowserIsland({ bot, hidden, working, openKey }: { bot: string |
 			>
 				<span className="island-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />
 				<span className="island-host">{host || "瀏覽器"}</span>
+				<ChevronIcon open />
 			</button>
 			<div className="island-panel" inert={!expanded}>
 				<div className="island-bar">
 					<span className="island-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />
 					<Address url={page?.url ?? ""} onGo={go} />
 					{handover ? (
-						<button type="button" className="island-hand-back" onClick={() => browserState.handBack(bot)}>
+						<button type="button" className="btn primary" onClick={() => browserState.handBack(bot)}>
 							交還
 						</button>
 					) : null}
-					<button type="button" className="island-collapse" aria-label="收起瀏覽器" onClick={collapse}>
-						<ChevronIcon open />
-					</button>
 				</div>
 				{reason || problem ? <div className="island-note">{problem || reason}</div> : null}
 				{expanded && shown ? <Frame bot={bot} onProblem={setProblem} /> : <div className="island-frame" />}
+				<button type="button" className="island-grip" aria-label="收起瀏覽器" onClick={collapse} />
 			</div>
 		</div>
 	);
