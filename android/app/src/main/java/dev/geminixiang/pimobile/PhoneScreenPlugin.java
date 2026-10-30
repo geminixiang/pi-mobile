@@ -29,6 +29,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -37,6 +39,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -116,11 +119,12 @@ public class PhoneScreenPlugin extends Plugin {
         worker.execute(() -> {
             String failure = null;
             int done = 0;
+            List<String> did = new ArrayList<>();
             try {
                 for (int i = 0; i < steps.length(); i++) {
                     JSONObject step = steps.getJSONObject(i);
                     try {
-                        run(service, step);
+                        run(service, step, did);
                     } catch (StepFailure e) {
                         failure = "step " + (i + 1) + " (" + step.optString("action") + "): " + e.getMessage();
                         break;
@@ -130,6 +134,7 @@ public class PhoneScreenPlugin extends Plugin {
                 }
                 JSObject result = snapshot(service, call.getBoolean("screenshot", false));
                 result.put("done", done);
+                if (!did.isEmpty()) result.put("did", new JSONArray(did));
                 if (failure != null) result.put("error", failure);
                 call.resolve(result);
             } catch (JSONException | RuntimeException | InterruptedException e) {
@@ -149,16 +154,18 @@ public class PhoneScreenPlugin extends Plugin {
         return (float) SHOT_WIDTH / metrics(service).widthPixels;
     }
 
-    private void run(PhoneScreenService service, JSONObject step) throws StepFailure, InterruptedException {
+    private void run(PhoneScreenService service, JSONObject step, List<String> did) throws StepFailure, InterruptedException {
         float scale = scale(service);
         String action = step.optString("action");
         switch (action) {
             case "tap":
                 lastTapX = at(step, "x", scale);
                 lastTapY = at(step, "y", scale);
+                did.add("tapped " + describedAt(service, lastTapX, lastTapY));
                 gesture(service, line(at(step, "x", scale), at(step, "y", scale), at(step, "x", scale), at(step, "y", scale)), 60);
                 break;
             case "long_press":
+                did.add("long-pressed " + describedAt(service, at(step, "x", scale), at(step, "y", scale)));
                 gesture(service, line(at(step, "x", scale), at(step, "y", scale), at(step, "x", scale), at(step, "y", scale)), 700);
                 break;
             case "swipe":
@@ -402,6 +409,7 @@ public class PhoneScreenPlugin extends Plugin {
         boolean keyboard = false;
         long deadline = System.currentTimeMillis() + ELEMENTS_MS;
         List<String> lines = new ArrayList<>();
+        List<AccessibilityNodeInfo> nodes = new ArrayList<>();
         List<AccessibilityWindowInfo> windows = service.getWindows();
         for (AccessibilityWindowInfo window : windows) {
             if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
@@ -415,14 +423,16 @@ public class PhoneScreenPlugin extends Plugin {
             AccessibilityNodeInfo root = window.getRoot();
             if (root == null) continue;
             int before = lines.size();
-            walk(root, scale, false, lines, deadline);
+            walk(root, scale, false, lines, nodes, deadline);
             if (lines.size() > before && windows.size() > 1) {
                 CharSequence title = window.getTitle();
                 lines.add(before, "# " + kindOf(window) + (title == null ? "" : " " + clip(title.toString())));
+                nodes.add(before, null);
             }
             if (lines.size() >= MAX_ELEMENTS || System.currentTimeMillis() > deadline) break;
         }
-        if (windows.isEmpty() && active != null) walk(active, scale, false, lines, deadline);
+        if (windows.isEmpty() && active != null) walk(active, scale, false, lines, nodes, deadline);
+        withOwners(lines, nodes, deadline);
         if (System.currentTimeMillis() > deadline) result.put("slow", true);
         result.put("keyboard", keyboard);
         result.put("elements", String.join("\n", lines.subList(0, Math.min(lines.size(), MAX_ELEMENTS))));
@@ -473,7 +483,7 @@ public class PhoneScreenPlugin extends Plugin {
         }
     }
 
-    private void walk(AccessibilityNodeInfo node, float scale, boolean insideButton, List<String> lines, long deadline) {
+    private void walk(AccessibilityNodeInfo node, float scale, boolean insideButton, List<String> lines, List<AccessibilityNodeInfo> nodes, long deadline) {
         if (lines.size() >= MAX_ELEMENTS + 1 || System.currentTimeMillis() > deadline || !node.isVisibleToUser()) return;
         Rect bounds = new Rect();
         node.getBoundsInScreen(bounds);
@@ -505,12 +515,88 @@ public class PhoneScreenPlugin extends Plugin {
             if (node.isSelected()) line.append(" selected");
             if (!node.isEnabled()) line.append(" disabled");
             lines.add(line.toString());
+            nodes.add(node);
         }
         boolean inside = insideButton || (clickable && !editable);
         for (int i = 0; i < node.getChildCount(); i++) {
             AccessibilityNodeInfo child = node.getChild(i);
-            if (child != null) walk(child, scale, inside, lines, deadline);
+            if (child != null) walk(child, scale, inside, lines, nodes, deadline);
         }
+    }
+
+    private static void withOwners(List<String> lines, List<AccessibilityNodeInfo> nodes, long deadline) {
+        Map<String, Integer> seen = new HashMap<>();
+        for (String line : lines) seen.merge(shapeOf(line), 1, Integer::sum);
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            AccessibilityNodeInfo node = nodes.get(i);
+            if (node == null || !actionable(node) || seen.get(shapeOf(line)) < 2) continue;
+            String owner = ownerOf(node, deadline);
+            if (!owner.isEmpty()) lines.set(i, shapeOf(line) + " in \"" + owner.replace("\"", "'") + "\"" + line.substring(shapeOf(line).length()));
+        }
+    }
+
+    private static String shapeOf(String line) {
+        int at = line.indexOf(" at ");
+        return at < 0 ? line : line.substring(0, at);
+    }
+
+    private static String ownerOf(AccessibilityNodeInfo node, long deadline) {
+        String own = labelOf(node, deadline);
+        for (AccessibilityNodeInfo parent = node.getParent(); parent != null; parent = parent.getParent()) {
+            StringBuilder all = new StringBuilder();
+            texts(parent, all, deadline);
+            if (all.length() > MAX_LABEL) return "";
+            List<String> rest = new ArrayList<>(Arrays.asList(all.toString().split(" · ")));
+            rest.removeAll(Arrays.asList(own.split(" · ")));
+            rest.removeIf((part) -> part.codePoints().noneMatch(Character::isLetterOrDigit));
+            if (!rest.isEmpty()) return String.join(" · ", rest);
+        }
+        return "";
+    }
+
+    private static String labelOf(AccessibilityNodeInfo node, long deadline) {
+        String own = ownLabel(node);
+        if (!own.isEmpty()) return own;
+        StringBuilder inner = new StringBuilder();
+        texts(node, inner, deadline);
+        return clip(inner.toString());
+    }
+
+    private String describedAt(PhoneScreenService service, float x, float y) {
+        long deadline = System.currentTimeMillis() + ELEMENTS_MS;
+        AccessibilityNodeInfo hit = null;
+        for (AccessibilityWindowInfo window : service.getWindows()) {
+            if (window.getType() != AccessibilityWindowInfo.TYPE_INPUT_METHOD) hit = smallestAt(window.getRoot(), Math.round(x), Math.round(y), hit, deadline);
+        }
+        String point = "at " + Math.round(x * scale(service)) + "," + Math.round(y * scale(service));
+        if (hit == null) return point + ", where nothing takes a tap";
+        String label = labelOf(hit, deadline);
+        String owner = ownerOf(hit, deadline);
+        return "\"" + label + "\"" + (owner.isEmpty() ? "" : " in \"" + owner + "\"") + " " + point;
+    }
+
+    private static AccessibilityNodeInfo smallestAt(AccessibilityNodeInfo node, int x, int y, AccessibilityNodeInfo best, long deadline) {
+        if (node == null || !node.isVisibleToUser() || !contains(node, x, y) || System.currentTimeMillis() > deadline) return best;
+        AccessibilityNodeInfo smallest = actionable(node) && (best == null || areaOf(node) < areaOf(best)) ? node : best;
+        for (int i = 0; i < node.getChildCount(); i++) smallest = smallestAt(node.getChild(i), x, y, smallest, deadline);
+        return smallest;
+    }
+
+    private static long areaOf(AccessibilityNodeInfo node) {
+        Rect bounds = new Rect();
+        node.getBoundsInScreen(bounds);
+        return (long) bounds.width() * bounds.height();
+    }
+
+    private static boolean contains(AccessibilityNodeInfo node, int x, int y) {
+        Rect bounds = new Rect();
+        node.getBoundsInScreen(bounds);
+        return bounds.contains(x, y);
+    }
+
+    private static boolean actionable(AccessibilityNodeInfo node) {
+        return node.isClickable() || node.isLongClickable() || node.isEditable() || node.isCheckable();
     }
 
     private String screenshot(PhoneScreenService service, float scale, JSObject result) throws InterruptedException {

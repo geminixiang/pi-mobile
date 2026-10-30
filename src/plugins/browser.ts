@@ -31,6 +31,7 @@ const Snapshot = Type.Object({
 	text: Type.String(),
 	jpeg: Type.Optional(Type.String()),
 	error: Type.Optional(Type.String()),
+	did: Type.Optional(Type.Array(Type.String())),
 });
 export type BrowserSnapshot = Static<typeof Snapshot>;
 

@@ -13,6 +13,7 @@ const OFF =
 
 function present(snapshot: PhoneScreenSnapshot): ToolExecutionResult {
 	const facts = [
+		snapshot.did ? `What the steps acted on: ${snapshot.did.join("; ")}` : undefined,
 		snapshot.error ? `Stopped at ${snapshot.error}; the steps before it ran. The screen now:` : undefined,
 		`Front app: ${snapshot.app ?? "unknown"}${snapshot.package ? ` (${snapshot.package})` : ""}. Screen ${snapshot.width}×${snapshot.height} points${snapshot.jpeg ? ", the screenshot's pixels" : ""}.${snapshot.keyboard ? " The keyboard is up." : ""}`,
 		snapshot.shotError ? `No screenshot: ${snapshot.shotError}.` : undefined,

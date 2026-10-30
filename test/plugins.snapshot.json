@@ -623,6 +623,12 @@
 				},
 				"result": {
 					"properties": {
+						"did": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						},
 						"elements": {
 							"type": "string"
 						},
@@ -763,6 +769,12 @@
 				},
 				"result": {
 					"properties": {
+						"did": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						},
 						"elements": {
 							"type": "string"
 						},
@@ -2346,6 +2358,12 @@
 						"app": {
 							"type": "string"
 						},
+						"did": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						},
 						"done": {
 							"type": "number"
 						},
@@ -2465,6 +2483,12 @@
 					"properties": {
 						"app": {
 							"type": "string"
+						},
+						"did": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
 						},
 						"done": {
 							"type": "number"

@@ -40,6 +40,7 @@ import dev.geminixiang.pimobile.Background.Failure;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -143,7 +144,7 @@ public class BrowserPlugin extends Plugin {
     public void read(PluginCall call) {
         Background.run(work, call, () -> {
             Session session = session(call);
-            call.resolve(snapshot(session, call.getBoolean("screenshot", false), null));
+            call.resolve(snapshot(session, call.getBoolean("screenshot", false), null, List.of()));
         });
     }
 
@@ -153,17 +154,18 @@ public class BrowserPlugin extends Plugin {
             Session session = session(call);
             JSArray steps = call.getArray("steps", new JSArray());
             boolean screenshot = call.getBoolean("screenshot", false);
+            List<String> did = new ArrayList<>();
             for (int i = 0; i < steps.length(); i++) {
                 JSONObject step = steps.getJSONObject(i);
                 try {
                     waitForUser(session);
-                    run(session, step);
+                    run(session, step, did);
                 } catch (Failure failure) {
-                    call.resolve(snapshot(session, screenshot, "step " + (i + 1) + " (" + step.optString("action") + "): " + failure.getMessage()));
+                    call.resolve(snapshot(session, screenshot, "step " + (i + 1) + " (" + step.optString("action") + "): " + failure.getMessage(), did));
                     return;
                 }
             }
-            call.resolve(snapshot(session, screenshot, null));
+            call.resolve(snapshot(session, screenshot, null, did));
         });
     }
 
@@ -599,7 +601,7 @@ public class BrowserPlugin extends Plugin {
         });
     }
 
-    private void run(Session session, JSONObject step) throws Exception {
+    private void run(Session session, JSONObject step, List<String> did) throws Exception {
         String action = step.optString("action");
         switch (action) {
             case "open" -> {
@@ -609,7 +611,7 @@ public class BrowserPlugin extends Plugin {
             }
             case "reload" -> navigate(session, session.view::reload);
             case "tap" -> {
-                tapElement(session, step);
+                did.add("tapped [" + step.getInt("index") + "] " + tapElement(session, step));
                 settle(session);
             }
             case "tap_at" -> {
@@ -620,7 +622,7 @@ public class BrowserPlugin extends Plugin {
             }
             case "type" -> {
                 if (!step.has("text")) throw new Failure("invalid", "type needs text");
-                tapElement(session, step);
+                did.add("typed into [" + step.getInt("index") + "] " + tapElement(session, step));
                 Thread.sleep(SETTLE_MS);
                 insert(session, step.getString("text"));
             }
@@ -743,7 +745,7 @@ public class BrowserPlugin extends Plugin {
         });
     }
 
-    private JSObject snapshot(Session session, boolean screenshot, String error) throws Exception {
+    private JSObject snapshot(Session session, boolean screenshot, String error, List<String> did) throws Exception {
         awaitLoad(session);
         JSONObject page = new JSONObject(eval(session, FACTS));
         JSONObject state = evalPage(session, "window.__piPage.state()");
@@ -757,13 +759,15 @@ public class BrowserPlugin extends Plugin {
         out.put("text", dialog == null ? page.optString("text") : "[The page showed a dialog: " + dialog + "]\n" + page.optString("text"));
         if (screenshot) out.put("jpeg", capture(session));
         if (error != null) out.put("error", error);
+        if (!did.isEmpty()) out.put("did", new JSONArray(did));
         return out;
     }
 
-    private void tapElement(Session session, JSONObject step) throws Exception {
+    private String tapElement(Session session, JSONObject step) throws Exception {
         if (!step.has("index")) throw new Failure("invalid", step.optString("action") + " needs index");
         JSONObject center = evalPage(session, "window.__piPage.center(" + step.getInt("index") + ")");
         tap(session, (float) center.getDouble("x"), (float) center.getDouble("y"));
+        return center.optString("what");
     }
 
     private JSONObject evalPage(Session session, String expression) throws Exception {
