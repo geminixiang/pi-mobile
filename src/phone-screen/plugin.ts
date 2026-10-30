@@ -1,19 +1,21 @@
 import { type Static, Type } from "typebox";
-import { Allowed, definePlugin } from "./define.ts";
+import { Allowed, definePlugin } from "../plugins/define.ts";
 import { oneOf } from "../agent/parse.ts";
 
-const Step = Type.Object({
-	action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"]),
-	x: Type.Optional(Type.Number()),
-	y: Type.Optional(Type.Number()),
-	to_x: Type.Optional(Type.Number()),
-	to_y: Type.Optional(Type.Number()),
-	direction: Type.Optional(oneOf(["up", "down", "left", "right"])),
-	ms: Type.Optional(Type.Number()),
-	text: Type.Optional(Type.String()),
-	keys: Type.Optional(Type.String()),
-	app: Type.Optional(Type.String()),
-});
+export const KEYS = ["back", "home", "recents", "notifications", "quick_settings", "enter"] as const;
+export const DIRECTIONS = ["down", "up", "left", "right"] as const;
+
+const Step = Type.Union([
+	Type.Object({ action: oneOf(["tap", "long_press"]), x: Type.Number(), y: Type.Number() }),
+	Type.Object({ action: Type.Literal("swipe"), x: Type.Number(), y: Type.Number(), to_x: Type.Number(), to_y: Type.Number(), ms: Type.Number() }),
+	Type.Object({ action: Type.Literal("scroll"), direction: oneOf(DIRECTIONS), x: Type.Optional(Type.Number()), y: Type.Optional(Type.Number()) }),
+	Type.Object({ action: Type.Literal("type"), text: Type.String() }),
+	Type.Object({ action: Type.Literal("clear") }),
+	Type.Object({ action: Type.Literal("key"), key: oneOf(KEYS) }),
+	Type.Object({ action: Type.Literal("open"), app: Type.String() }),
+	Type.Object({ action: Type.Literal("wait"), ms: Type.Number() }),
+]);
+export type PhoneScreenStep = Static<typeof Step>;
 
 const Snapshot = Type.Object({
 	width: Type.Number(),

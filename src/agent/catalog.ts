@@ -20,7 +20,7 @@ import { createGitHubExtension } from "./tools/github.ts";
 import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
-import { PhoneScreenExtension } from "./tools/phone-screen.ts";
+import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { BrowserExtension } from "../browser/tool.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
 import { PlacesExtension } from "./tools/places.ts";

@@ -5,7 +5,7 @@ import { KeepAlive } from "../plugins/keep-alive.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
 import { Notifications } from "../plugins/notifications.ts";
-import { PhoneScreen } from "../plugins/phone-screen.ts";
+import { PhoneScreen } from "../phone-screen/plugin.ts";
 import { PhoneState } from "../plugins/phone-state.ts";
 import { System } from "../plugins/system.ts";
 import { Usage } from "../plugins/usage.ts";

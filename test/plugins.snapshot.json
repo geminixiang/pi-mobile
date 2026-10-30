@@ -2635,59 +2635,175 @@
 						},
 						"steps": {
 							"items": {
-								"properties": {
-									"action": {
-										"enum": [
-											"tap",
-											"long_press",
-											"swipe",
-											"scroll",
-											"type",
-											"clear",
-											"key",
-											"open",
-											"wait"
+								"anyOf": [
+									{
+										"properties": {
+											"action": {
+												"enum": [
+													"tap",
+													"long_press"
+												],
+												"type": "string"
+											},
+											"x": {
+												"type": "number"
+											},
+											"y": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"action",
+											"x",
+											"y"
 										],
-										"type": "string"
+										"type": "object"
 									},
-									"app": {
-										"type": "string"
-									},
-									"direction": {
-										"enum": [
-											"up",
-											"down",
-											"left",
-											"right"
+									{
+										"properties": {
+											"action": {
+												"const": "swipe",
+												"type": "string"
+											},
+											"ms": {
+												"type": "number"
+											},
+											"to_x": {
+												"type": "number"
+											},
+											"to_y": {
+												"type": "number"
+											},
+											"x": {
+												"type": "number"
+											},
+											"y": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"action",
+											"x",
+											"y",
+											"to_x",
+											"to_y",
+											"ms"
 										],
-										"type": "string"
+										"type": "object"
 									},
-									"keys": {
-										"type": "string"
+									{
+										"properties": {
+											"action": {
+												"const": "scroll",
+												"type": "string"
+											},
+											"direction": {
+												"enum": [
+													"down",
+													"up",
+													"left",
+													"right"
+												],
+												"type": "string"
+											},
+											"x": {
+												"type": "number"
+											},
+											"y": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"action",
+											"direction"
+										],
+										"type": "object"
 									},
-									"ms": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"const": "type",
+												"type": "string"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"text"
+										],
+										"type": "object"
 									},
-									"text": {
-										"type": "string"
+									{
+										"properties": {
+											"action": {
+												"const": "clear",
+												"type": "string"
+											}
+										},
+										"required": [
+											"action"
+										],
+										"type": "object"
 									},
-									"to_x": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"const": "key",
+												"type": "string"
+											},
+											"key": {
+												"enum": [
+													"back",
+													"home",
+													"recents",
+													"notifications",
+													"quick_settings",
+													"enter"
+												],
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"key"
+										],
+										"type": "object"
 									},
-									"to_y": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"const": "open",
+												"type": "string"
+											},
+											"app": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"app"
+										],
+										"type": "object"
 									},
-									"x": {
-										"type": "number"
-									},
-									"y": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"const": "wait",
+												"type": "string"
+											},
+											"ms": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"action",
+											"ms"
+										],
+										"type": "object"
 									}
-								},
-								"required": [
-									"action"
-								],
-								"type": "object"
+								]
 							},
 							"type": "array"
 						}

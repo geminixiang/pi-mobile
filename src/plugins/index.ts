@@ -10,7 +10,7 @@ import { Loopback } from "./loopback.ts";
 import { Notifications } from "./notifications.ts";
 import { Page } from "./page.ts";
 import { Phone } from "./phone.ts";
-import { PhoneScreen } from "./phone-screen.ts";
+import { PhoneScreen } from "../phone-screen/plugin.ts";
 import { PhoneState } from "./phone-state.ts";
 import { Photos } from "./photos.ts";
 import { Records } from "./records.ts";

@@ -1,9 +1,14 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
-import { Type } from "typebox";
-import { PhoneScreen, type PhoneScreenSnapshot } from "../../plugins/phone-screen.ts";
-import { messageOf } from "../../promise.ts";
-import { defineAppTool, withScreenshot } from "./common.ts";
-import { oneOf } from "../parse.ts";
+import { type Static, Type } from "typebox";
+import { DIRECTIONS, KEYS, PhoneScreen, type PhoneScreenSnapshot, type PhoneScreenStep } from "./plugin.ts";
+import { messageOf } from "../promise.ts";
+import { defineAppTool, withScreenshot } from "../agent/tools/common.ts";
+import { type Checked, oneOf } from "../agent/parse.ts";
+
+const SWIPE_MS = 300;
+const SWIPE_MAX_MS = 5000;
+const WAIT_MS = 500;
+const WAIT_MAX_MS = 10_000;
 
 const SCREENSHOT = Type.Optional(
 	Type.Boolean({ description: "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false" }),
@@ -24,6 +29,48 @@ function present(snapshot: PhoneScreenSnapshot): ToolExecutionResult {
 		snapshot.slow ? "The app answered slowly, so the list stops early; a screenshot shows the rest." : undefined,
 	].filter((line) => line !== undefined);
 	return withScreenshot(facts.join("\n"), snapshot.jpeg, snapshot.error !== undefined);
+}
+
+const ToolStep = Type.Object({
+	action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"] as const),
+	x: Type.Optional(Type.Number({ description: "Points from the left" })),
+	y: Type.Optional(Type.Number({ description: "Points from the top" })),
+	to_x: Type.Optional(Type.Number({ description: "swipe: where it ends" })),
+	to_y: Type.Optional(Type.Number({ description: "swipe: where it ends" })),
+	direction: Type.Optional(oneOf(DIRECTIONS, { description: "scroll: which way the content moves into view; default down" })),
+	ms: Type.Optional(Type.Integer({ minimum: 1, description: "swipe: duration, default 300; wait: how long" })),
+	text: Type.Optional(Type.String({ description: "type: the text" })),
+	keys: Type.Optional(Type.String({ description: "key: back, home, recents, notifications, quick_settings, or enter" })),
+	app: Type.Optional(Type.String({ description: "open: app name as on the home screen, or its package" })),
+});
+
+export function stepOf(step: Static<typeof ToolStep>): Checked<PhoneScreenStep> {
+	const ok = (value: PhoneScreenStep): Checked<PhoneScreenStep> => ({ ok: true, value });
+	const needs = (fields: string): Checked<PhoneScreenStep> => ({ ok: false, problem: `${step.action} needs ${fields}` });
+	const { x, y, to_x, to_y, text, app } = step;
+	switch (step.action) {
+		case "tap":
+		case "long_press":
+			return x === undefined || y === undefined ? needs("x and y") : ok({ action: step.action, x, y });
+		case "swipe":
+			return x === undefined || y === undefined || to_x === undefined || to_y === undefined
+				? needs("x, y, to_x and to_y")
+				: ok({ action: "swipe", x, y, to_x, to_y, ms: Math.min(step.ms ?? SWIPE_MS, SWIPE_MAX_MS) });
+		case "scroll":
+			return ok({ action: "scroll", direction: step.direction ?? "down", ...(x === undefined ? {} : { x }), ...(y === undefined ? {} : { y }) });
+		case "type":
+			return text === undefined ? needs("text") : ok({ action: "type", text });
+		case "clear":
+			return ok({ action: "clear" });
+		case "key": {
+			const key = KEYS.find((name) => name === step.keys);
+			return key === undefined ? { ok: false, problem: "keys is back, home, recents, notifications, quick_settings, or enter" } : ok({ action: "key", key });
+		}
+		case "open":
+			return app === undefined || app.trim() === "" ? needs("app") : ok({ action: "open", app });
+		case "wait":
+			return ok({ action: "wait", ms: Math.min(step.ms ?? WAIT_MS, WAIT_MAX_MS) });
+	}
 }
 
 async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecutionResult> {
@@ -59,24 +106,18 @@ const usePhoneScreen = defineAppTool({
 		"type {text, added to the focused field}; clear (empties the focused field); key {keys: back, home, recents, notifications, quick_settings, enter}; wait {ms}. " +
 		"Before you send, pay, delete, or post for the user, say what you are about to do, unless they asked for exactly that.",
 	parameters: Type.Object({
-		steps: Type.Array(
-			Type.Object({
-				action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait"] as const),
-				x: Type.Optional(Type.Number({ description: "Points from the left" })),
-				y: Type.Optional(Type.Number({ description: "Points from the top" })),
-				to_x: Type.Optional(Type.Number({ description: "swipe: where it ends" })),
-				to_y: Type.Optional(Type.Number({ description: "swipe: where it ends" })),
-				direction: Type.Optional(oneOf(["down", "up", "left", "right"] as const, { description: "scroll: which way the content moves into view; default down" })),
-				ms: Type.Optional(Type.Integer({ minimum: 1, description: "swipe: duration, default 300; wait: how long" })),
-				text: Type.Optional(Type.String({ description: "type: the text" })),
-				keys: Type.Optional(Type.String({ description: "key: back, home, recents, notifications, quick_settings, or enter" })),
-				app: Type.Optional(Type.String({ description: "open: app name as on the home screen, or its package" })),
-			}),
-			{ minItems: 1 },
-		),
+		steps: Type.Array(ToolStep, { minItems: 1 }),
 		screenshot: SCREENSHOT,
 	}),
-	execute: (args) => call(() => PhoneScreen.act({ steps: args.steps, screenshot: args.screenshot ?? false })),
+	execute: async (args) => {
+		const steps: PhoneScreenStep[] = [];
+		for (const [at, step] of args.steps.entries()) {
+			const checked = stepOf(step);
+			if (!checked.ok) throw new Error(`step ${at + 1} (${step.action}): ${checked.problem}`);
+			steps.push(checked.value);
+		}
+		return call(() => PhoneScreen.act({ steps, screenshot: args.screenshot ?? false }));
+	},
 });
 
 export const PhoneScreenExtension = defineExtension({ name: "phone_screen", tools: [readPhoneScreen, usePhoneScreen] });
