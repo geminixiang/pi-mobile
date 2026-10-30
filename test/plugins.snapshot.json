@@ -691,68 +691,254 @@
 						},
 						"steps": {
 							"items": {
-								"properties": {
-									"action": {
-										"enum": [
-											"open",
-											"tap",
-											"tap_at",
-											"type",
-											"type_here",
-											"clear",
-											"select",
-											"key",
-											"scroll",
-											"scroll_in",
-											"back",
-											"forward",
-											"reload",
-											"wait",
-											"wait_for"
+								"anyOf": [
+									{
+										"properties": {
+											"action": {
+												"const": "open",
+												"type": "string"
+											},
+											"url": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"url"
 										],
-										"type": "string"
+										"type": "object"
 									},
-									"direction": {
-										"enum": [
-											"up",
-											"down",
-											"left",
-											"right"
+									{
+										"properties": {
+											"action": {
+												"const": "tap",
+												"type": "string"
+											},
+											"index": {
+												"type": "integer"
+											}
+										},
+										"required": [
+											"action",
+											"index"
 										],
-										"type": "string"
+										"type": "object"
 									},
-									"gone": {
-										"type": "boolean"
+									{
+										"properties": {
+											"action": {
+												"const": "tap_at",
+												"type": "string"
+											},
+											"x": {
+												"type": "number"
+											},
+											"y": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"action",
+											"x",
+											"y"
+										],
+										"type": "object"
 									},
-									"index": {
-										"type": "integer"
+									{
+										"properties": {
+											"action": {
+												"const": "type",
+												"type": "string"
+											},
+											"index": {
+												"type": "integer"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"index",
+											"text"
+										],
+										"type": "object"
 									},
-									"keys": {
-										"type": "string"
+									{
+										"properties": {
+											"action": {
+												"const": "type_here",
+												"type": "string"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"text"
+										],
+										"type": "object"
 									},
-									"ms": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"const": "clear",
+												"type": "string"
+											}
+										},
+										"required": [
+											"action"
+										],
+										"type": "object"
 									},
-									"option": {
-										"type": "string"
+									{
+										"properties": {
+											"action": {
+												"const": "select",
+												"type": "string"
+											},
+											"index": {
+												"type": "integer"
+											},
+											"option": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"index",
+											"option"
+										],
+										"type": "object"
 									},
-									"text": {
-										"type": "string"
+									{
+										"properties": {
+											"action": {
+												"const": "key",
+												"type": "string"
+											},
+											"key": {
+												"enum": [
+													"enter",
+													"tab",
+													"escape",
+													"backspace"
+												],
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"key"
+										],
+										"type": "object"
 									},
-									"url": {
-										"type": "string"
+									{
+										"properties": {
+											"action": {
+												"const": "scroll",
+												"type": "string"
+											},
+											"direction": {
+												"enum": [
+													"down",
+													"up",
+													"left",
+													"right"
+												],
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"direction"
+										],
+										"type": "object"
 									},
-									"x": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"const": "scroll_in",
+												"type": "string"
+											},
+											"direction": {
+												"enum": [
+													"down",
+													"up",
+													"left",
+													"right"
+												],
+												"type": "string"
+											},
+											"index": {
+												"type": "integer"
+											}
+										},
+										"required": [
+											"action",
+											"index",
+											"direction"
+										],
+										"type": "object"
 									},
-									"y": {
-										"type": "number"
+									{
+										"properties": {
+											"action": {
+												"enum": [
+													"back",
+													"forward",
+													"reload"
+												],
+												"type": "string"
+											}
+										},
+										"required": [
+											"action"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "wait",
+												"type": "string"
+											},
+											"ms": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"action",
+											"ms"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "wait_for",
+												"type": "string"
+											},
+											"gone": {
+												"type": "boolean"
+											},
+											"ms": {
+												"type": "number"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"text",
+											"gone",
+											"ms"
+										],
+										"type": "object"
 									}
-								},
-								"required": [
-									"action"
-								],
-								"type": "object"
+								]
 							},
 							"type": "array"
 						},

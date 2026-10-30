@@ -2,23 +2,27 @@ import { type Static, Type } from "typebox";
 import { definePlugin } from "../plugins/define.ts";
 import { oneOf } from "../agent/parse.ts";
 
-export const BROWSER_ACTIONS = ["open", "tap", "tap_at", "type", "type_here", "clear", "select", "key", "scroll", "scroll_in", "back", "forward", "reload", "wait", "wait_for"] as const;
-
 export const MAX_TABS = 8;
+export const KEYS = ["enter", "tab", "escape", "backspace"] as const;
+export const DIRECTIONS = ["down", "up", "left", "right"] as const;
 
-const Step = Type.Object({
-	action: oneOf(BROWSER_ACTIONS),
-	url: Type.Optional(Type.String()),
-	index: Type.Optional(Type.Integer()),
-	option: Type.Optional(Type.String()),
-	x: Type.Optional(Type.Number()),
-	y: Type.Optional(Type.Number()),
-	text: Type.Optional(Type.String()),
-	gone: Type.Optional(Type.Boolean()),
-	keys: Type.Optional(Type.String()),
-	direction: Type.Optional(oneOf(["up", "down", "left", "right"])),
-	ms: Type.Optional(Type.Number()),
-});
+const Index = Type.Integer();
+const Direction = oneOf(DIRECTIONS);
+const Step = Type.Union([
+	Type.Object({ action: Type.Literal("open"), url: Type.String() }),
+	Type.Object({ action: Type.Literal("tap"), index: Index }),
+	Type.Object({ action: Type.Literal("tap_at"), x: Type.Number(), y: Type.Number() }),
+	Type.Object({ action: Type.Literal("type"), index: Index, text: Type.String() }),
+	Type.Object({ action: Type.Literal("type_here"), text: Type.String() }),
+	Type.Object({ action: Type.Literal("clear") }),
+	Type.Object({ action: Type.Literal("select"), index: Index, option: Type.String() }),
+	Type.Object({ action: Type.Literal("key"), key: oneOf(KEYS) }),
+	Type.Object({ action: Type.Literal("scroll"), direction: Direction }),
+	Type.Object({ action: Type.Literal("scroll_in"), index: Index, direction: Direction }),
+	Type.Object({ action: oneOf(["back", "forward", "reload"]) }),
+	Type.Object({ action: Type.Literal("wait"), ms: Type.Number() }),
+	Type.Object({ action: Type.Literal("wait_for"), text: Type.String(), gone: Type.Boolean(), ms: Type.Number() }),
+]);
 export type BrowserStep = Static<typeof Step>;
 
 const TabItems = Type.Array(Type.Object({ id: Type.String(), url: Type.String(), title: Type.String() }));

@@ -6,7 +6,7 @@ export type Comment = { start: number; end: number };
 
 const GENERATED = new Set(["android/capacitor.settings.gradle", "android/app/capacitor.build.gradle", "android/gradlew", "android/gradlew.bat"]);
 const SCRIPT_FILE = /\.(ts|tsx|js)$/;
-const C_LIKE_FILE = /\.(java|go|gradle|css)$/;
+const C_LIKE_FILE = /\.(java|kt|go|gradle|css)$/;
 const HASH_FILE = /(\.(sh|py|yml|yaml|pro|properties)|Dockerfile)$/;
 const MARKUP_FILE = /\.(html|xml)$/;
 const GO_DIRECTIVE = /^\/\/go:/;

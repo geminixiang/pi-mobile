@@ -8,9 +8,9 @@ const ANDROID = new URL("../android/app/src/main/java/dev/geminixiang/pimobile/"
 const IOS = new URL("../ios/App/App/", import.meta.url);
 const INHERITED_ON_ANDROID = new Set(["checkPermissions", "requestPermissions"]);
 
-function scan(directory: URL, extension: string, plugin: RegExp, methods: (source: string) => string[]): Map<string, Set<string>> {
+function scan(directory: URL, extensions: string[], plugin: RegExp, methods: (source: string) => string[]): Map<string, Set<string>> {
 	const found = new Map<string, Set<string>>();
-	for (const file of readdirSync(directory).filter((name) => name.endsWith(extension))) {
+	for (const file of readdirSync(directory).filter((name) => extensions.some((extension) => name.endsWith(extension)))) {
 		const source = readFileSync(new URL(file, directory), "utf8");
 		const name = plugin.exec(source)?.[1];
 		if (name) found.set(name, new Set(methods(source)));
@@ -18,10 +18,10 @@ function scan(directory: URL, extension: string, plugin: RegExp, methods: (sourc
 	return found;
 }
 
-const android = scan(ANDROID, ".java", /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
-	[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+public\s+void\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
+const android = scan(ANDROID, [".java", ".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
+	[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+(?:public\s+void|fun)\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
 );
-const ios = scan(IOS, ".swift", /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
+const ios = scan(IOS, [".swift"], /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
 
 const failures: string[] = [];
 const contracts = new Map<string, Set<string>>(PLUGINS.map((plugin) => [plugin.name, new Set(Object.keys(plugin.contract.methods))]));
@@ -38,7 +38,7 @@ for (const [name, methods] of contracts) {
 	for (const method of methods) if (!implemented?.has(method) && !INHERITED_ON_ANDROID.has(method)) failures.push(`${name}.${method} is in its contract but not implemented on Android`);
 }
 
-for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java"))) {
+for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java") || name.endsWith(".kt"))) {
 	if (/\bcall\.getLong\(/.test(readFileSync(new URL(file, ANDROID), "utf8"))) {
 		failures.push(`${file} reads a number with call.getLong, which returns its default for any number that fits in an int; use call.getData().optLong`);
 	}
