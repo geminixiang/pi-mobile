@@ -132,6 +132,12 @@ export const FolderIcon = ({ size = 20 }: { size?: number }) => (
 		<path d="M3.5 6.5a1 1 0 0 1 1-1h5l2 2.5h8a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z" />
 	</Icon>
 );
+export const GlobeIcon = ({ size = 20 }: { size?: number }) => (
+	<Icon size={size}>
+		<circle cx="12" cy="12" r="8.5" />
+		<path d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5s1.2-6.1 3.5-8.5z" />
+	</Icon>
+);
 export const ShareIcon = ({ size = 18 }: { size?: number }) => (
 	<Icon size={size}>
 		<circle cx="17.5" cy="5.5" r="2.5" />

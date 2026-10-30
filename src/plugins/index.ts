@@ -1,5 +1,6 @@
 import { Apps } from "./apps.ts";
 import { BotFiles } from "./bot-files.ts";
+import { Browser } from "./browser.ts";
 import { Calendar } from "./calendar.ts";
 import { Contacts } from "./contacts.ts";
 import { Database } from "./database.ts";
@@ -23,6 +24,7 @@ import { Voice } from "./voice.ts";
 export const PLUGINS = [
 	Apps,
 	BotFiles,
+	Browser,
 	Calendar,
 	Contacts,
 	Database,

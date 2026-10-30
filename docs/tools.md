@@ -14,7 +14,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 方式 | 哪些工具 | 每次請求帶什麼 |
 |---|---|---|
 | **直接提供**（`reach: "model"`） | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
-| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`、`read_phone_screen`、`use_phone_screen`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
+| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`、`read_phone_screen`、`use_phone_screen`、`read_page`、`use_browser`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
 | **只給腳本**（預設） | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
 - 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
@@ -142,6 +142,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `azure_api` | Azure | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
 | `read_phone_screen` | 手機畫面 | 手機自己的畫面：前景 app、畫面元件（角色、文字、中心座標），要的時候加截圖；無障礙服務 | 唯讀 | |
 | `use_phone_screen` | 手機畫面 | 一次多個步驟（開 app、點、長按、滑、捲動、打字、返回、主畫面），做完回傳畫面 | 直接 | |
+| `read_page` | 瀏覽器 | 這個 Bot 自己的瀏覽器開著的那一頁：網址、看得到的元件（角色、文字、中心座標）、頁面文字，要的時候加截圖 | 唯讀 | |
+| `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | |
 | `read_screen` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
 | `use_screen` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
 | `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
@@ -232,6 +234,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-30 | 新工具組「瀏覽器」：`read_page`、`use_browser`，需要時載入，只有 Android（原生 `Browser`：每個 Bot 一個不顯示的 WebView，用 WebView 的 profile 分開 cookie 和 localStorage）。點擊是對 WebView 送觸控事件，網頁收到的是 `isTrusted`；打字是點到欄位再 `execCommand('insertText')`。`hand_over` 讓使用者在全螢幕的瀏覽器頁接手，按「交還」或 10 分鐘後繼續。設計見 [design/browser.md](design/browser.md) | 2 個工具，快照約 390 + 1,460 字元，需要時載入，平常只多 `tool_search` 說明裡的兩個名稱；`tool-cost.sh` 還沒量 | 初版，給使用者在 S24 上試用；自然問句的量測在使用者回饋之後 |
 | 2026-10-30 | iPhone 也能讀步數：`Health.read` 在 iOS 用 `CMPedometer` 實作，`health` 在 iPhone 上出現（iOS 實作 57 個方法，`test/plugins.snapshot.json` 已 `--update`）。只有 `steps`，每天一筆，最多最近 7 天（`CMPedometer` 只留 7 天）；其他指標回 `unsupported`，說明在 iPhone 上只讀得到步數。「動作與健身」的權限說明加上步數 | 不變：工具介面沒變，iPhone 上多一個工具 | iPhone 12 Pro（iOS 27.0.1）。直接呼叫：3 天、30 天（回 7 天）、`sleep`（`unsupported`）都對。Qwen3.6：「今天走了幾步」3 次請求（先 `tool_search`）、「這週每天各走了幾步」2 次、「我這週睡得怎樣」2 次，照錯誤訊息說只讀得到步數；Sonnet 5.5 三題都是 2 次 |
 | 2026-10-30 | 參數清理：陣列的每一項是只有一個必填文字欄位的物件時，收到字串就包成那個物件（`sql` 的 `statements: ["SELECT 1"]` 變成 `[{ sql: "SELECT 1" }]`），單一字串也一樣；跟其他清理一樣，只在清理後通過驗證時採用 | 不變 | iPhone 12 Pro，Sonnet 5.5 記帳那題把 SQL 直接寫成字串，`/statements/0 must be object` 之後先 `describeTool` 再重寫，多 2 次請求。改後 Qwen3.6 同一題用字串寫，直接執行（3 次請求，其中一次是找不到工具的 `tool_search`）。兩個模型都把 `CREATE TABLE IF NOT EXISTS` 的 `changes: 0` 讀成「表本來就有」 |
 | 2026-10-30 | 參數清理（`defineAppTool` 的 `prepareArguments`）：陣列參數收到單一字串或數字時包成陣列（`stocks: "2330"`）；選填的字串參數收到 true／false 時當成沒填（`near: true` 就是用手機的位置）；兩者都只在清理後通過驗證時採用。Bot 資料夾的說明加一句「bash 從 / 開始，所以 todo.md 和 /todo.md 是同一個檔案」 | 資料夾說明多約 15 tokens | S24，`qwen3.6`，同樣 10 題，0.11.2 一次、改後兩次。「建立 todo.md 再用 bash 數行數」5 次請求（bash 猜 `/storage/emulated/0/todo.md`）→ 2、2 次；`stocks: "2330"` 改後直接接受，不再重試。`near: true` 在改後兩次都沒有再出現，由單元測試涵蓋。合計 90 秒、27 次請求 → 99 秒、26 次；第二次最後一題的請求卡住 279 秒（沒有工具呼叫，是模型伺服器那邊），前 9 題 85 → 90 秒、26 → 24 次。剩下的都是模型一次就照錯誤訊息改對的：`category: "coffee"`、`data: "price"`、`tools.weather(place: …)` 這種語法錯誤 |

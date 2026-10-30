@@ -1,6 +1,6 @@
 # 瀏覽器：agent 操作網頁，你看得到，也能接手
 
-狀態：設計，待確認（2026-10-30）。可行性在 S24 驗證過（下面「驗證」一節），程式還沒開始寫。
+狀態：Android 初版（2026-10-30），給使用者在 S24 試用；共用 profile、設定頁、iOS 還沒做。已定：新 Bot 預設用自己的 profile，瀏覽器畫面是全螢幕頁。中文輸入驗證過：點到欄位後 `execCommand('insertText')`，`input`、`textarea`、`contenteditable` 都打得進去，事件是 `isTrusted`，不需要 `InputConnection`。Chromium 在同一個行程裡用過的 profile 刪不掉，所以刪 Bot 時先清空它的 cookie 和網站儲存，profile 留到下次啟動再刪。app 重開後瀏覽器回到空白頁，登入還在。
 
 ## 目標
 

@@ -21,6 +21,7 @@ import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
 import { PhoneScreenExtension } from "./tools/phone-screen.ts";
+import { BrowserExtension } from "./tools/browser.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
@@ -63,6 +64,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		SpeechExtension,
 		NotificationsExtension,
 		PhoneScreenExtension,
+		BrowserExtension,
 		ControlExtension,
 		ContactsExtension,
 		PhotosExtension,

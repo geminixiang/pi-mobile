@@ -616,6 +616,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .welcome p { margin-bottom: 4px; }
 .banner { padding: 12px 16px; font-size: var(--fs-small); line-height: 1.5; }
 .banner.error { color: var(--error); background: var(--error-bg); border-left: 2px solid var(--error); }
+.browser-frame { flex: 1; min-height: 0; background: var(--panel); }
+.browser-reason { color: var(--text); background: var(--accent-soft); border-left: 2px solid var(--accent); }
+.browser-hand-back { margin-right: 8px; }
 .group { border: 1px solid var(--line); background: var(--panel); }
 .group-body > label, .provider > label, .manual > label, .machine-add > label, .bot-form > label { display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 0; }
 .group-body > label > span, .provider > label > span, .manual > label > span, .machine-add > label > span, .bot-form > label > span { font-family: var(--mono); font-size: var(--fs-meta); text-transform: uppercase; color: var(--muted); }

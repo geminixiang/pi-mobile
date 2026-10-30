@@ -1531,6 +1531,123 @@
 		]
 	},
 	{
+		"extension": "browser",
+		"toolset": "browser",
+		"name": "read_page",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"screenshot": {
+					"description": "Also a screenshot, for what the element list cannot tell: pictures, charts, layout; default false",
+					"type": "boolean"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"Browser.read"
+		]
+	},
+	{
+		"extension": "browser",
+		"toolset": "browser",
+		"name": "use_browser",
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"screenshot": {
+					"description": "Also a screenshot, for what the element list cannot tell: pictures, charts, layout; default false",
+					"type": "boolean"
+				},
+				"steps": {
+					"items": {
+						"properties": {
+							"action": {
+								"enum": [
+									"open",
+									"tap",
+									"type",
+									"clear",
+									"key",
+									"scroll",
+									"back",
+									"wait",
+									"wait_for",
+									"hand_over"
+								],
+								"type": "string"
+							},
+							"direction": {
+								"description": "scroll: which way the content moves into view; default down",
+								"enum": [
+									"down",
+									"up",
+									"left",
+									"right"
+								],
+								"type": "string"
+							},
+							"gone": {
+								"description": "wait_for: wait until the text is gone instead",
+								"type": "boolean"
+							},
+							"keys": {
+								"description": "key: enter, tab, escape, or backspace",
+								"type": "string"
+							},
+							"ms": {
+								"description": "wait: how long; wait_for: the longest to wait, default 8000",
+								"minimum": 0,
+								"type": "integer"
+							},
+							"text": {
+								"description": "type: the text; wait_for: text to wait for; hand_over: why the user is needed",
+								"type": "string"
+							},
+							"url": {
+								"description": "open: the http or https address",
+								"type": "string"
+							},
+							"x": {
+								"description": "CSS px from the left of the viewport",
+								"type": "number"
+							},
+							"y": {
+								"description": "CSS px from the top of the viewport",
+								"type": "number"
+							}
+						},
+						"required": [
+							"action"
+						],
+						"type": "object"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"required": [
+				"steps"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [
+			"Browser.act"
+		]
+	},
+	{
 		"extension": "phone_control",
 		"toolset": "control",
 		"name": "media",

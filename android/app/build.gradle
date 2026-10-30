@@ -54,6 +54,7 @@ dependencies {
     implementation "androidx.appcompat:appcompat:${rootProject.ext.androidxAppCompatVersion}"
     implementation "androidx.coordinatorlayout:coordinatorlayout:${rootProject.ext.androidxCoordinatorLayoutVersion}"
     implementation "androidx.core:core-splashscreen:${rootProject.ext.coreSplashScreenVersion}"
+    implementation "androidx.webkit:webkit:${rootProject.ext.androidxWebkitVersion}"
     implementation "com.google.android.gms:play-services-mlkit-document-scanner:16.0.0"
     implementation "com.google.android.gms:play-services-mlkit-text-recognition-chinese:16.0.2"
     implementation "com.google.android.gms:play-services-location:21.4.0"

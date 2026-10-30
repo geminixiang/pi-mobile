@@ -26,6 +26,7 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "health", label: "健康", hint: "步數、睡眠、心率、運動、體重（Health Connect）", extensions: ["health"] },
 	{ kind: "builtin", id: "screen", label: "螢幕使用時間", hint: "每個 app 用了多久、解鎖幾次（設定 › 手機）", extensions: ["screen_time"] },
 	{ kind: "builtin", id: "control", label: "手機控制", hint: "鈴聲與音量、螢幕亮度、手電筒、Wi‑Fi 與藍牙、音樂播放、勿擾", extensions: ["phone_control"] },
+	{ kind: "builtin", id: "browser", label: "瀏覽器", hint: "這個 Bot 自己的瀏覽器：開網頁、點、打字，要登入時交給你", extensions: ["browser"], needs: "Browser" },
 	{ kind: "builtin", id: "phone_screen", label: "手機畫面", hint: "看手機畫面，替你開 app、點、滑、打字（設定 › 手機）", extensions: ["phone_screen"] },
 	{ kind: "builtin", id: "notifications", label: "通知", hint: "讀、回覆、清除手機收到的通知：LINE、信件、外送…（設定 › 手機）", extensions: ["notifications"] },
 	{ kind: "builtin", id: "database", label: "資料庫", hint: "手機上的 SQLite：記帳、清單、紀錄，自己建表查詢（設定 › 資料庫）", extensions: ["database"] },

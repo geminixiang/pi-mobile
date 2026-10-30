@@ -11,7 +11,10 @@ import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
+import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GlobeIcon, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
+import { BrowserView } from "./BrowserView.tsx";
+import { browserState } from "../agent/tools/browser.ts";
+import { Browser } from "../plugins/browser.ts";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
@@ -47,7 +50,7 @@ const MAX_NOTICES = 3;
 const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
 
-type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
+type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | "browser" | undefined;
 
 const SETTINGS_APPLY_MS = 800;
 
@@ -68,6 +71,14 @@ export function App() {
 	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
 	const [chatKey, setChatKey] = useState(0);
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
+	const [browser, setBrowser] = useState<{ used: ReadonlySet<string>; handovers: readonly { bot: string; reason: string }[] }>({ used: new Set(), handovers: [] });
+	useEffect(() => browserState.subscribe(setBrowser), []);
+	const currentBot = controller ? String(controller.id) : undefined;
+	const handover = browser.handovers.find((item) => item.bot === currentBot);
+	const handoverReason = handover?.reason;
+	useEffect(() => {
+		if (handoverReason !== undefined) setOverlay("browser");
+	}, [handoverReason]);
 	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
 		setWorkspaceStart(start);
 		setOverlay("workspace");
@@ -352,6 +363,11 @@ export function App() {
 						<ChevronDownIcon />
 					</span>
 				</button>
+				{currentBot && (browser.used.has(currentBot) || handover) ? (
+					<button type="button" className="icon-button" aria-label="瀏覽器" onClick={() => setOverlay("browser")}>
+						<GlobeIcon />
+					</button>
+				) : null}
 				{hasFolder ? (
 					<button type="button" className="icon-button" aria-label="資料夾" onClick={() => openWorkspace({ tab: "files" })}>
 						<FolderIcon />
@@ -512,6 +528,8 @@ export function App() {
 					if (!sure) return;
 					try {
 						await runtime.removeBot(bot.id);
+						if (native.implements(Browser.forget)) await Browser.forget({ bot: String(bot.id) });
+						browserState.forget(String(bot.id));
 						await orLogged(clearDraft(String(bot.id)), "drafts.clear_failed", undefined);
 						if (bot.id === controller?.id) dropConversation();
 					} catch (error) {
@@ -543,6 +561,16 @@ export function App() {
 			</Sheet>
 
 			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
+
+			<BrowserView
+				open={overlay === "browser"}
+				bot={currentBot}
+				reason={handover?.reason}
+				onHandBack={() => {
+					if (currentBot) browserState.handBack(currentBot);
+				}}
+				onClose={close}
+			/>
 
 			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={close} label="Bot 的記憶">
 				{memoryBot ? (

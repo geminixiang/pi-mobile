@@ -28,6 +28,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(HealthPlugin.class);
         registerPlugin(BotFilesPlugin.class);
         registerPlugin(PagePlugin.class);
+        registerPlugin(BrowserPlugin.class);
         registerPlugin(PhoneScreenPlugin.class);
         registerPlugin(PhoneStatePlugin.class);
         super.onCreate(savedInstanceState);

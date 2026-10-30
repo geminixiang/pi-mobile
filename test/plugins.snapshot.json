@@ -600,6 +600,273 @@
 		]
 	},
 	{
+		"name": "Browser",
+		"methods": {
+			"read": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"screenshot": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"bot",
+						"screenshot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"done": {
+							"type": "number"
+						},
+						"elements": {
+							"type": "string"
+						},
+						"error": {
+							"type": "string"
+						},
+						"height": {
+							"type": "number"
+						},
+						"jpeg": {
+							"type": "string"
+						},
+						"loading": {
+							"type": "boolean"
+						},
+						"more": {
+							"type": "number"
+						},
+						"scrollHeight": {
+							"type": "number"
+						},
+						"scrollY": {
+							"type": "number"
+						},
+						"text": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						},
+						"width": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"url",
+						"title",
+						"width",
+						"height",
+						"scrollY",
+						"scrollHeight",
+						"loading",
+						"elements",
+						"more",
+						"text"
+					],
+					"type": "object"
+				}
+			},
+			"act": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"screenshot": {
+							"type": "boolean"
+						},
+						"steps": {
+							"items": {
+								"properties": {
+									"action": {
+										"enum": [
+											"open",
+											"tap",
+											"type",
+											"clear",
+											"key",
+											"scroll",
+											"back",
+											"wait",
+											"wait_for"
+										],
+										"type": "string"
+									},
+									"direction": {
+										"enum": [
+											"up",
+											"down",
+											"left",
+											"right"
+										],
+										"type": "string"
+									},
+									"gone": {
+										"type": "boolean"
+									},
+									"keys": {
+										"type": "string"
+									},
+									"ms": {
+										"type": "number"
+									},
+									"text": {
+										"type": "string"
+									},
+									"url": {
+										"type": "string"
+									},
+									"x": {
+										"type": "number"
+									},
+									"y": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"action"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"bot",
+						"steps",
+						"screenshot"
+					],
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"done": {
+							"type": "number"
+						},
+						"elements": {
+							"type": "string"
+						},
+						"error": {
+							"type": "string"
+						},
+						"height": {
+							"type": "number"
+						},
+						"jpeg": {
+							"type": "string"
+						},
+						"loading": {
+							"type": "boolean"
+						},
+						"more": {
+							"type": "number"
+						},
+						"scrollHeight": {
+							"type": "number"
+						},
+						"scrollY": {
+							"type": "number"
+						},
+						"text": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						},
+						"url": {
+							"type": "string"
+						},
+						"width": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"url",
+						"title",
+						"width",
+						"height",
+						"scrollY",
+						"scrollHeight",
+						"loading",
+						"elements",
+						"more",
+						"text"
+					],
+					"type": "object"
+				}
+			},
+			"show": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						},
+						"height": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"bot",
+						"x",
+						"y",
+						"width",
+						"height"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"hide": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"forget": {
+				"args": {
+					"properties": {
+						"bot": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"bot"
+					],
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
 		"name": "Calendar",
 		"methods": {
 			"listAccounts": {
