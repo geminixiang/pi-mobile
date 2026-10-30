@@ -696,6 +696,8 @@
 											"key",
 											"scroll",
 											"back",
+											"forward",
+											"reload",
 											"wait",
 											"wait_for"
 										],
@@ -894,6 +896,12 @@
 					"bot": {
 						"type": "string"
 					},
+					"canGoBack": {
+						"type": "boolean"
+					},
+					"canGoForward": {
+						"type": "boolean"
+					},
 					"loading": {
 						"type": "boolean"
 					},
@@ -908,7 +916,9 @@
 					"bot",
 					"url",
 					"title",
-					"loading"
+					"loading",
+					"canGoBack",
+					"canGoForward"
 				],
 				"type": "object"
 			}

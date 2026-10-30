@@ -627,7 +627,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .browser-sheet[data-shown] { visibility: visible; }
 .browser-grip { position: absolute; top: 100%; left: 50%; width: 96px; height: 24px; margin-left: -48px; display: grid; place-items: center; touch-action: none; }
 .browser-grip::before { content: ""; width: 36px; height: 4px; background: var(--line-strong); }
-.browser-sheet-bar { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 var(--space); flex-shrink: 0; touch-action: none; }
+.browser-sheet-bar { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 8px 0 var(--space); flex-shrink: 0; touch-action: none; }
 .browser-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--faint); }
 .browser-dot[data-active] { background: var(--ok); animation: browser-pulse 1.2s ease-in-out infinite; }
 .browser-dot[data-waiting] { background: var(--yellow); animation: browser-pulse 1.2s ease-in-out infinite; }
@@ -637,6 +637,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	color: var(--text); font-family: var(--mono); font-size: var(--fs-small);
 }
 .browser-address::placeholder { color: var(--faint); }
+.browser-nav { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; color: var(--text); }
+.browser-nav:disabled { color: var(--faint); opacity: 0.5; }
+.browser-nav > svg { width: 20px; height: 20px; }
+.browser-forward > svg { transform: scaleX(-1); }
 .browser-note { padding: 8px var(--space); font-size: var(--fs-small); line-height: 1.5; color: var(--text); background: var(--accent-soft); }
 .browser-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); border-top: 1px solid var(--line); border-radius: 0 0 var(--card-radius) var(--card-radius); }
 .browser-shot { position: absolute; top: 0; left: 0; display: block; width: 100%; height: auto; }

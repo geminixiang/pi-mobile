@@ -3,6 +3,7 @@ import { type BrowserState, browserState, markUsed } from "../agent/tools/browse
 import { native } from "../native.ts";
 import { Browser } from "../plugins/browser.ts";
 import { messageOf } from "../promise.ts";
+import { BackIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
@@ -11,7 +12,7 @@ const COLLAPSE_AFTER_MS = 1500;
 const CARD_RADIUS = 36;
 const SLOP = 10;
 
-type Page = { url: string; title: string; loading: boolean };
+type Page = { url: string; title: string; loading: boolean; canGoBack: boolean; canGoForward: boolean };
 type Drag = { from: number; fromY: number; samples: { x: number; t: number }[] };
 
 const hostOf = (url: string) => (/^https?:/.test(url) ? new URL(url).host.replace(/^www\./, "") : "");
@@ -217,11 +218,21 @@ export function BrowserSheet({
 		return () => resized.disconnect();
 	}, [open]);
 
+	const navigate = (action: "back" | "forward" | "reload") => {
+		if (!bot) return;
+		setProblem("");
+		Browser.act({ bot, steps: [{ action }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
+	};
 	const collapse = () => {
 		auto.current = false;
 		setExpanded(false);
 	};
-	useBack(open, collapse);
+	const pageRef = useRef(page);
+	pageRef.current = page;
+	useBack(open, () => {
+		if (bot && pageRef.current?.canGoBack) navigate("back");
+		else collapse();
+	});
 
 	const settleTo = (next: boolean) => {
 		auto.current = false;
@@ -337,6 +348,15 @@ export function BrowserSheet({
 			<div className="browser-sheet-bar" {...pushHandlers}>
 				{dot}
 				<Address url={page?.url ?? ""} onGo={go} />
+				<button type="button" className="browser-nav" aria-label="上一頁" disabled={!page?.canGoBack} onClick={() => navigate("back")}>
+					<BackIcon />
+				</button>
+				<button type="button" className="browser-nav browser-forward" aria-label="下一頁" disabled={!page?.canGoForward} onClick={() => navigate("forward")}>
+					<BackIcon />
+				</button>
+				<button type="button" className="browser-nav" aria-label="重新整理" disabled={!page?.url || page.url.startsWith("about:")} onClick={() => navigate("reload")}>
+					<RefreshIcon />
+				</button>
 				{handover ? (
 					<button type="button" className="btn primary" onClick={() => browserState.handBack(bot)}>
 						交還

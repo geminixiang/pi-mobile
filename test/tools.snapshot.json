@@ -1581,6 +1581,8 @@
 									"key",
 									"scroll",
 									"back",
+									"forward",
+									"reload",
 									"wait",
 									"wait_for",
 									"hand_over"

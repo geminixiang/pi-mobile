@@ -2,7 +2,7 @@ import { type Static, Type } from "typebox";
 import { definePlugin } from "./define.ts";
 import { oneOf } from "../agent/parse.ts";
 
-export const BROWSER_ACTIONS = ["open", "tap", "type", "clear", "key", "scroll", "back", "wait", "wait_for"] as const;
+export const BROWSER_ACTIONS = ["open", "tap", "type", "clear", "key", "scroll", "back", "forward", "reload", "wait", "wait_for"] as const;
 
 const Step = Type.Object({
 	action: oneOf(BROWSER_ACTIONS),
@@ -44,5 +44,5 @@ export const Browser = definePlugin("Browser", {
 	peek: { args: Type.Object(Bot), result: Type.Object({ jpeg: Type.Optional(Type.String()) }) },
 	forget: { args: Type.Object(Bot) },
 }, {
-	page: Type.Object({ ...Bot, url: Type.String(), title: Type.String(), loading: Type.Boolean() }),
+	page: Type.Object({ ...Bot, url: Type.String(), title: Type.String(), loading: Type.Boolean(), canGoBack: Type.Boolean(), canGoForward: Type.Boolean() }),
 });

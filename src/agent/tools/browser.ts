@@ -123,7 +123,7 @@ const useBrowser = defineAppTool({
 	description:
 		"Use this Bot's own browser, then see the page as read_page does. It keeps cookies and logins between calls, and the user can watch it and step in. " +
 		"Put the steps you can already tell in one call (open, tap the search field, type, enter, wait_for the results). Tap an element at the x,y listed for it; tap a field before you type. " +
-		"Steps: open {url}; tap {x, y}; type {text, added at the cursor}; clear (empties the focused field); key {keys: enter, tab, escape, backspace}; scroll {direction}; back; wait {ms}; " +
+		"Steps: open {url}; tap {x, y}; type {text, added at the cursor}; clear (empties the focused field); key {keys: enter, tab, escape, backspace}; scroll {direction}; back; forward; reload; wait {ms}; " +
 		"wait_for {text, gone: true to wait until it disappears, ms up to 20000}; hand_over {text: why, in the user's language} as the last step, when the user must do it themselves: log in, a captcha, a payment. " +
 		"Never type a password. Before you send, pay, delete, or post for the user, say what you are about to do, unless they asked for exactly that.",
 	parameters: Type.Object({

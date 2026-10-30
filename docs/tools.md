@@ -234,6 +234,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-30 | `use_browser` 多兩個步驟：`forward`（下一頁）、`reload`（重新整理），和瀏覽器畫面上新加的 ‹ › ⟳ 按鈕走同一條路；原生的 `page` 事件多回報能不能上一頁、下一頁 | `use_browser` 的說明多約 20 字元，需要時載入 | 快照已更新。Android 的返回手勢在瀏覽器打開時先回上一頁，回到第一頁才收起 |
 | 2026-10-30 | 新工具組「瀏覽器」：`read_page`、`use_browser`，需要時載入，只有 Android（原生 `Browser`：每個 Bot 一個不顯示的 WebView，用 WebView 的 profile 分開 cookie 和 localStorage）。點擊是對 WebView 送觸控事件，網頁收到的是 `isTrusted`；打字是點到欄位再 `execCommand('insertText')`。`hand_over` 讓使用者在全螢幕的瀏覽器頁接手，按「交還」或 10 分鐘後繼續。設計見 [design/browser.md](design/browser.md) | 2 個工具，快照約 390 + 1,460 字元，需要時載入，平常只多 `tool_search` 說明裡的兩個名稱；`tool-cost.sh` 還沒量 | 初版，給使用者在 S24 上試用；自然問句的量測在使用者回饋之後 |
 | 2026-10-30 | iPhone 也能讀步數：`Health.read` 在 iOS 用 `CMPedometer` 實作，`health` 在 iPhone 上出現（iOS 實作 57 個方法，`test/plugins.snapshot.json` 已 `--update`）。只有 `steps`，每天一筆，最多最近 7 天（`CMPedometer` 只留 7 天）；其他指標回 `unsupported`，說明在 iPhone 上只讀得到步數。「動作與健身」的權限說明加上步數 | 不變：工具介面沒變，iPhone 上多一個工具 | iPhone 12 Pro（iOS 27.0.1）。直接呼叫：3 天、30 天（回 7 天）、`sleep`（`unsupported`）都對。Qwen3.6：「今天走了幾步」3 次請求（先 `tool_search`）、「這週每天各走了幾步」2 次、「我這週睡得怎樣」2 次，照錯誤訊息說只讀得到步數；Sonnet 5.5 三題都是 2 次 |
 | 2026-10-30 | 參數清理：陣列的每一項是只有一個必填文字欄位的物件時，收到字串就包成那個物件（`sql` 的 `statements: ["SELECT 1"]` 變成 `[{ sql: "SELECT 1" }]`），單一字串也一樣；跟其他清理一樣，只在清理後通過驗證時採用 | 不變 | iPhone 12 Pro，Sonnet 5.5 記帳那題把 SQL 直接寫成字串，`/statements/0 must be object` 之後先 `describeTool` 再重寫，多 2 次請求。改後 Qwen3.6 同一題用字串寫，直接執行（3 次請求，其中一次是找不到工具的 `tool_search`）。兩個模型都把 `CREATE TABLE IF NOT EXISTS` 的 `changes: 0` 讀成「表本來就有」 |

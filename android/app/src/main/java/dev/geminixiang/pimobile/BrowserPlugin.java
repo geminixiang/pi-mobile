@@ -420,6 +420,8 @@ public class BrowserPlugin extends Plugin {
         page.put("url", String.valueOf(session.view.getUrl()));
         page.put("title", String.valueOf(session.view.getTitle()));
         page.put("loading", session.loading);
+        page.put("canGoBack", session.view.canGoBack());
+        page.put("canGoForward", session.view.canGoForward());
         notifyListeners("page", page);
     }
 
@@ -493,6 +495,23 @@ public class BrowserPlugin extends Plugin {
                     return true;
                 });
                 if (!went) throw new Failure("invalid", "there is no page to go back to");
+                settle(session);
+            }
+            case "forward" -> {
+                boolean went = onMain(() -> {
+                    if (!session.view.canGoForward()) return false;
+                    session.view.goForward();
+                    return true;
+                });
+                if (!went) throw new Failure("invalid", "there is no page to go forward to");
+                settle(session);
+            }
+            case "reload" -> {
+                session.loading = true;
+                onMain(() -> {
+                    session.view.reload();
+                    return null;
+                });
                 settle(session);
             }
             case "wait" -> Thread.sleep(Math.min(Math.max(step.optLong("ms", 1000), 0), WAIT_MAX_MS));
