@@ -1,6 +1,6 @@
 ---
 name: release
-description: Publish a pi-mobile release (version bump, notes, full perf on the S24, tag, GitHub workflow, putting the official APK back on the phone, TestFlight for the iPhone). Use when the user asks to release or 發版.
+description: Publish a pi-mobile release (version bump, notes, full perf on the S24 when the screen changed, tag, GitHub workflow, putting the official APK back on the phone, TestFlight for the iPhone). Use when the user asks to release or 發版.
 ---
 
 # Release
@@ -19,7 +19,11 @@ APK is not debuggable, so everything measured runs on a dev build of the same co
    `adb -s $S install -r <apk>`, then turn the accessibility service back on (an install turns it off):
    `node .pi/skills/device-testing/scripts/phone-screen.js on $S`, or the two `settings put secure` lines it runs; check
    `adb shell dumpsys accessibility` shows `Bound services:{Service[label=Pi`.
-4. **Perf**, every scene, 5 runs, against the previous release's file in `test/perf/out/`:
+4. **Perf**, only when something since the last measured release changed what the screen does: check
+   `git diff --stat v<last measured> HEAD -- src/app '*.css' android/app/src/main/java ios/App/App` and skip the
+   step when nothing there touches rendering (a native plugin's data work does not), saying so in the release commit's
+   body (`perf: skipped, nothing since v<last measured> changes the screen`). Otherwise every scene, 5 runs, against
+   the last measured release's file in `test/perf/out/`:
    ```sh
    node test/perf/server.ts &
    node test/perf/fixture.ts setup $S

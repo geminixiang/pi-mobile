@@ -84,7 +84,7 @@ node test/perf/fixture.ts teardown <serial>                 # 移除 Bot、provi
 ```
 
 - 場景：`scroll`（往上 3 次、往下 3 次 fling）、`stream`（停在底部串流約 10,000 字、42 秒，每 150 ms 一批）、`streamscroll`（串流中來回捲）、`typing`（輸入框打 30 個字，每 120 ms 一個，用 DevTools 的按鍵事件直接送進 WebView：`adb input text` 會先進手機的輸入法，中文輸入法下量到的是組字，不是 app）、`panel`（側欄開關 3 次）。`--scenes` 可以只跑其中幾個。
-- 量多少：平常的改動只跑它碰到的場景、量 3 次（`--scenes scroll,stream --runs 3`），例如對話裡的元件、樣式、圖表。每一幀都會跑的程式（串流渲染、捲動和手勢的處理、動畫、對話怎麼掛上每一則）和每次發版，才跑全部場景、各 5 次：零碎的改動各自在誤差內，累積起來的退化在發版前抓。
+- 量多少：平常的改動只跑它碰到的場景、量 3 次（`--scenes scroll,stream --runs 3`），例如對話裡的元件、樣式、圖表。每一幀都會跑的程式（串流渲染、捲動和手勢的處理、動畫、對話怎麼掛上每一則），以及從上次量過的那一版以來動過畫面的發版（`src/app/`、CSS、WebView 或原生畫面），才跑全部場景、各 5 次：零碎的改動各自在誤差內，累積起來的退化在發版前抓。整版都沒動到畫面的發版不量，在發版的 commit 寫明；下一次量的發版仍和上次量過的那一版比。
 - 一幀的預算是 8.33 ms，超過 1.5 個 vsync（12.5 ms）就算掉幀。`gfx*` 來自 `dumpsys gfxinfo`，是畫面實際送出的幀，包含 compositor 和 GPU；`raf*`、`loaf*`、`input*` 是頁面的主執行緒（rAF 間隔、Long Animation Frames、Event Timing），用來找原因。
 - 頁面不在 120 Hz、開著的不是測試 Bot 時，`run.ts` 拒絕量。每一次量之前，熱狀態要是 0、AP 不超過 50°C，不然就等（`PERF_MAX_THERMAL_STATUS`、`PERF_MAX_AP`）。充電時手機比較熱，量要比較的數字前先拔掉。
 - `typing` 時 Samsung 把更新率降到 60 Hz（真的用手指點輸入法也一樣），GPU 也因為每個字只畫一幀而降頻，所以 `gfx*`、`gpuP99`、`raf*` 量到的是降頻，不是 app。只看 `inputP95`（按鍵到畫面，Event Timing 取整到 8 ms，S24 上是兩個 vsync，約 32–40 ms，連整串對話都不畫也一樣）和 `inputProcessingP95`（事件處理，含 React 更新，約 6–8 ms，這段才是 app 能改的）。
