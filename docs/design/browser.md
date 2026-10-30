@@ -39,6 +39,12 @@ Google 從 2021 年起擋 WebView 裡的帳號登入（「這個瀏覽器或應�
 - **Chrome 的登入搬不過來**：Chrome 的 profile 在它自己的私有資料夾，pi 讀不到；Google 的登入 cookie 也綁在裝置金鑰上，複製了也會失效。
 - **密碼自動填入**：Android 的自動填入服務（Google 密碼管理工具、Samsung Pass）照常可以填進 Bot 瀏覽器的登入欄位，這是登入的主要捷徑。
 
+## 讀頁面交給 page-controller（2026-10-30）
+
+使用者不要在瀏覽器上自己造輪子，所以讀頁面和找元素交給 `@page-agent/page-controller`（阿里巴巴 page-agent 的頁面控制層，MIT，元素擷取來自 browser-use）。它在網頁裡執行、不用 CDP，給可操作元素編號、算可見度、處理 Shadow DOM 和同網域 iframe、選 `<select>`、捲內部區塊。建置時 `vite-plugins/page-controller.ts` 把 `src/agent/browser-page.ts`（包一層，只開 `state`、`center`、`select`、`scroll`）打成 `page-controller.js` 放進 app，原生在讀頁面或動作前注入。
+
+點擊和打字不用它的：它的事件是 JS 造的（`isTrusted: false`），網站分得出來，瀏覽器也不准用來開新視窗、播聲音、讀剪貼簿。所以 `tap {index}` 是它把元素捲進畫面、回報中心，原生再送真的觸控；`type {index}` 是原生點進欄位再輸入。
+
 ## 架構
 
 ### 原生：`BrowserPlugin`（Android 先做）

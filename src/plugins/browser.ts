@@ -2,11 +2,13 @@ import { type Static, Type } from "typebox";
 import { definePlugin } from "./define.ts";
 import { oneOf } from "../agent/parse.ts";
 
-export const BROWSER_ACTIONS = ["open", "tap", "type", "clear", "key", "scroll", "back", "forward", "reload", "wait", "wait_for"] as const;
+export const BROWSER_ACTIONS = ["open", "tap", "type", "clear", "select", "key", "scroll", "back", "forward", "reload", "wait", "wait_for"] as const;
 
 const Step = Type.Object({
 	action: oneOf(BROWSER_ACTIONS),
 	url: Type.Optional(Type.String()),
+	index: Type.Optional(Type.Integer()),
+	option: Type.Optional(Type.String()),
 	x: Type.Optional(Type.Number()),
 	y: Type.Optional(Type.Number()),
 	text: Type.Optional(Type.String()),

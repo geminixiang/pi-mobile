@@ -67,34 +67,9 @@ public class BrowserPlugin extends Plugin {
     private static final String PENDING_PREFS = "browser";
     private static final String PENDING_KEY = "forgotten";
 
-    private static final String READ = """
-        (() => {
-          const vw = innerWidth, vh = innerHeight;
-          const picks = 'a[href],button,input,textarea,select,summary,label,[role=button],[role=link],[role=checkbox],[role=radio],[role=tab],[role=menuitem],[role=option],[role=switch],[role=combobox],[role=textbox],[contenteditable=""],[contenteditable=true],[onclick]';
-          const clean = (s, n) => String(s || '').replace(/\\s+/g, ' ').trim().slice(0, n);
-          const lines = [];
-          let more = 0;
-          for (const el of document.querySelectorAll(picks)) {
-            const r = el.getBoundingClientRect();
-            if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
-            const st = getComputedStyle(el);
-            if (st.visibility === 'hidden' || st.display === 'none' || Number(st.opacity) === 0) continue;
-            const tag = el.tagName.toLowerCase();
-            const role = el.getAttribute('role') || (tag === 'a' ? 'link' : tag === 'input' ? 'input ' + (el.type || 'text') : tag);
-            const secret = tag === 'input' && el.type === 'password';
-            const label = clean(el.getAttribute('aria-label') || (tag === 'input' || tag === 'textarea' ? '' : el.innerText) || el.title || el.alt || el.name || el.placeholder, 80);
-            const value = (tag === 'input' || tag === 'textarea' || tag === 'select') && !secret && el.value ? ' value=' + JSON.stringify(clean(el.value, 60)) : '';
-            const hint = el.placeholder && el.placeholder !== label ? ' placeholder=' + JSON.stringify(clean(el.placeholder, 40)) : '';
-            const field = tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
-            if (!label && !value && !hint && !field) continue;
-            const state = (el.checked ? ' checked' : '') + (el.disabled ? ' disabled' : '') + (el === document.activeElement ? ' focused' : '');
-            if (lines.length >= 80) { more++; continue; }
-            lines.push('[' + role + '] ' + JSON.stringify(label) + value + hint + state + ' @' + Math.round(r.left + r.width / 2) + ',' + Math.round(r.top + r.height / 2));
-          }
-          const text = (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 6000);
-          return JSON.stringify({ url: location.href, title: document.title, width: vw, height: vh, scrollY: Math.round(scrollY), scrollHeight: document.documentElement.scrollHeight, elements: lines.join('\\n'), more, text, dpr: devicePixelRatio, ready: document.readyState });
-        })()
-        """;
+    private static final String FACTS = "JSON.stringify({ url: location.href, title: document.title, width: innerWidth, height: innerHeight, scrollY: Math.round(scrollY), scrollHeight: document.documentElement.scrollHeight, ready: document.readyState, text: (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 4000) })";
+    private static final String PAGE_SCRIPT = "public/page-controller.js";
+    private static final long ASYNC_MS = 15_000;
 
     private static final String INSERT = "((t) => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('insertText', false, t); return 'ok'; })(%s)";
     private static final String CLEAR = "(() => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('selectAll'); document.execCommand('delete'); return 'ok'; })()";
@@ -119,6 +94,8 @@ public class BrowserPlugin extends Plugin {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService work = Executors.newCachedThreadPool();
     private final Map<String, Tabs> bots = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicLong pending = new java.util.concurrent.atomic.AtomicLong();
+    private volatile String pageScript;
 
     private static final class Failure extends Exception implements Background.Coded {
         private final String code;
@@ -607,13 +584,15 @@ public class BrowserPlugin extends Plugin {
                 settle(session);
             }
             case "tap" -> {
-                if (!step.has("x") || !step.has("y")) throw new Failure("invalid", "tap needs x and y");
-                float scale = (float) Double.parseDouble(eval(session, "devicePixelRatio"));
-                tap(session, (float) step.getDouble("x") * scale, (float) step.getDouble("y") * scale);
+                tapTarget(session, step);
                 settle(session);
             }
             case "type" -> {
                 if (!step.has("text")) throw new Failure("invalid", "type needs text");
+                if (step.has("index")) {
+                    tapTarget(session, step);
+                    Thread.sleep(SETTLE_MS);
+                }
                 if (!"\"ok\"".equals(eval(session, String.format(INSERT, JSONObject.quote(step.getString("text")))))) {
                     throw new Failure("no_focus", "no field has focus: tap the field first");
                 }
@@ -632,8 +611,20 @@ public class BrowserPlugin extends Plugin {
                 key(session, code);
                 settle(session);
             }
+            case "select" -> {
+                if (!step.has("index") || !step.has("option")) throw new Failure("invalid", "select needs index and option");
+                JSONObject result = new JSONObject(evalIndexed(session, "window.__piPage.select(" + step.getInt("index") + ", " + JSONObject.quote(step.getString("option")) + ")"));
+                if (!result.optBoolean("success")) throw new Failure("select", result.optString("message"));
+                Thread.sleep(SETTLE_MS);
+            }
             case "scroll" -> {
                 String direction = step.optString("direction", "down");
+                if ("down".equals(direction) || "up".equals(direction)) {
+                    String index = step.has("index") ? ", " + step.getInt("index") : "";
+                    evalPage(session, "window.__piPage.scroll(" + "down".equals(direction) + index + ")");
+                    Thread.sleep(SETTLE_MS);
+                    return;
+                }
                 String by = switch (direction) {
                     case "up" -> "0, -innerHeight * 0.8";
                     case "left" -> "-innerWidth * 0.8, 0";
@@ -734,7 +725,8 @@ public class BrowserPlugin extends Plugin {
     private JSObject snapshot(Session session, boolean screenshot, Integer done, String error) throws Exception {
         long end = SystemClock.uptimeMillis() + LOAD_MS;
         while (session.loading && SystemClock.uptimeMillis() < end) Thread.sleep(200);
-        JSONObject page = new JSONObject(new JSONArray("[" + eval(session, READ) + "]").getString(0));
+        JSONObject page = new JSONObject(new JSONArray("[" + eval(session, FACTS) + "]").getString(0));
+        JSONObject state = new JSONObject(evalPage(session, "window.__piPage.state()"));
         JSObject out = new JSObject();
         out.put("tab", session.tab);
         out.put("url", page.optString("url"));
@@ -744,8 +736,8 @@ public class BrowserPlugin extends Plugin {
         out.put("scrollY", page.optInt("scrollY"));
         out.put("scrollHeight", page.optInt("scrollHeight"));
         out.put("loading", session.loading || !"complete".equals(page.optString("ready")));
-        out.put("elements", page.optString("elements"));
-        out.put("more", page.optInt("more"));
+        out.put("elements", state.optString("header") + "\n" + state.optString("content") + "\n" + state.optString("footer"));
+        out.put("more", 0);
         String dialog = session.dialog;
         session.dialog = null;
         out.put("text", dialog == null ? page.optString("text") : "[The page showed a dialog: " + dialog + "]\n" + page.optString("text"));
@@ -754,6 +746,52 @@ public class BrowserPlugin extends Plugin {
         if (error != null) out.put("error", error);
         flush(session);
         return out;
+    }
+
+    private void tapTarget(Session session, JSONObject step) throws Exception {
+        float scale = (float) Double.parseDouble(eval(session, "devicePixelRatio"));
+        if (step.has("index")) {
+            JSONObject center = new JSONObject(evalIndexed(session, "window.__piPage.center(" + step.getInt("index") + ")"));
+            tap(session, (float) center.getDouble("x") * scale, (float) center.getDouble("y") * scale);
+            return;
+        }
+        if (!step.has("x") || !step.has("y")) throw new Failure("invalid", "tap needs index, or x and y");
+        tap(session, (float) step.getDouble("x") * scale, (float) step.getDouble("y") * scale);
+    }
+
+    private String evalIndexed(Session session, String expression) throws Exception {
+        try {
+            return evalPage(session, expression);
+        } catch (Failure failure) {
+            if (!"page".equals(failure.code())) throw failure;
+            throw new Failure("stale", failure.getMessage() + "; read the page again, since its [n] indexes change when the page does");
+        }
+    }
+
+    private String evalPage(Session session, String expression) throws Exception {
+        if (!"\"object\"".equals(eval(session, "typeof window.__piPage"))) eval(session, script() + ";0");
+        String key = "r" + pending.incrementAndGet();
+        eval(session, "(() => { const box = window.__piAsync || (window.__piAsync = {}); Promise.resolve().then(() => " + expression + ").then((value) => { box." + key + " = { ok: JSON.stringify(value === undefined ? null : value) }; }, (failure) => { box." + key + " = { error: String((failure && failure.message) || failure) }; }); return 0; })()");
+        long end = SystemClock.uptimeMillis() + ASYNC_MS;
+        while (SystemClock.uptimeMillis() < end) {
+            String raw = new JSONArray("[" + eval(session, "(() => { const box = window.__piAsync || {}; const value = box." + key + "; delete box." + key + "; return value ? JSON.stringify(value) : ''; })()") + "]").getString(0);
+            if (!raw.isEmpty()) {
+                JSONObject result = new JSONObject(raw);
+                if (result.has("error")) throw new Failure("page", result.getString("error"));
+                return result.getString("ok");
+            }
+            Thread.sleep(50);
+        }
+        throw new Failure("timeout", "the page did not answer in " + ASYNC_MS / 1000 + " s");
+    }
+
+    private String script() throws Exception {
+        if (pageScript == null) {
+            try (java.io.InputStream input = getContext().getAssets().open(PAGE_SCRIPT)) {
+                pageScript = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+        return pageScript;
     }
 
     private String capture(Session session) throws Exception {

@@ -1582,6 +1582,7 @@
 									"tap",
 									"type",
 									"clear",
+									"select",
 									"key",
 									"scroll",
 									"back",
@@ -1608,6 +1609,11 @@
 								"description": "wait_for: wait until the text is gone instead",
 								"type": "boolean"
 							},
+							"index": {
+								"description": "tap, type, select, scroll: the element's [n] from read_page",
+								"minimum": 0,
+								"type": "integer"
+							},
 							"keys": {
 								"description": "key: enter, tab, escape, or backspace",
 								"type": "string"
@@ -1616,6 +1622,10 @@
 								"description": "wait: how long; wait_for: the longest to wait, default 8000",
 								"minimum": 0,
 								"type": "integer"
+							},
+							"option": {
+								"description": "select: the text of the option to choose",
+								"type": "string"
 							},
 							"text": {
 								"description": "type: the text; wait_for: text to wait for; hand_over: why the user is needed",

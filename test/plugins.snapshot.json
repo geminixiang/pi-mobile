@@ -700,6 +700,7 @@
 											"tap",
 											"type",
 											"clear",
+											"select",
 											"key",
 											"scroll",
 											"back",
@@ -722,11 +723,17 @@
 									"gone": {
 										"type": "boolean"
 									},
+									"index": {
+										"type": "integer"
+									},
 									"keys": {
 										"type": "string"
 									},
 									"ms": {
 										"type": "number"
+									},
+									"option": {
+										"type": "string"
 									},
 									"text": {
 										"type": "string"

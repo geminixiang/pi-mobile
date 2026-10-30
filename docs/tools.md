@@ -234,6 +234,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-30 | 瀏覽器讀頁面改用 `@page-agent/page-controller`（MIT，browser-use 的元素擷取延續下來的版本）：`read_page` 回傳頁面上下還有多少、畫面內可操作元素的 `[n]` 編號和周圍文字；`use_browser` 的 `tap`、`type` 多 `index`，新增 `select {index, option}`，`scroll` 可帶 `index` 捲某個區塊。點擊和打字仍由原生送出（觸控是 `isTrusted`），page-controller 只負責找元素、回報中心座標、選選單、捲動；它自己的點擊和輸入是 JS 模擬（`isTrusted: false`），不用。自寫的讀頁面腳本拿掉 | 兩個工具說明多約 450 字元，需要時載入；每頁注入 59 KB 腳本 | S24 比較（6 個網站）：元素數和自寫腳本相近（YouTube、DuckDuckGo 多了按鈕裡的圖示）；下拉選單、GitHub 登入頁中英文輸入、點 DuckDuckGo 結果都成功 |
 | 2026-10-30 | 瀏覽器分頁：每個 Bot 最多 4 個分頁，共用那個 Bot 的 profile（登入）。`read_page`、`use_browser` 多 `tab`（分頁 id；`use_browser` 填 `"new"` 開新分頁），`use_browser` 多 `close_tab` 步驟；結果第一行列出所有分頁。說明裡請模型在同一輪對不同分頁各呼叫一次 `use_browser`，讓頁面同時載入。原生加 `newTab`、`selectTab`、`closeTab`、`tabs` 和 `tabs` 事件 | 兩個工具的說明多約 330 字元，需要時載入 | 快照已更新。畫面上網址列旁的數字打開分頁列，可切換、關閉、開新分頁 |
 | 2026-10-30 | `use_browser` 多兩個步驟：`forward`（下一頁）、`reload`（重新整理），和瀏覽器畫面上新加的 ‹ › ⟳ 按鈕走同一條路；原生的 `page` 事件多回報能不能上一頁、下一頁 | `use_browser` 的說明多約 20 字元，需要時載入 | 快照已更新。Android 的返回手勢在瀏覽器打開時先回上一頁，回到第一頁才收起 |
 | 2026-10-30 | 新工具組「瀏覽器」：`read_page`、`use_browser`，需要時載入，只有 Android（原生 `Browser`：每個 Bot 一個不顯示的 WebView，用 WebView 的 profile 分開 cookie 和 localStorage）。點擊是對 WebView 送觸控事件，網頁收到的是 `isTrusted`；打字是點到欄位再 `execCommand('insertText')`。`hand_over` 讓使用者在全螢幕的瀏覽器頁接手，按「交還」或 10 分鐘後繼續。設計見 [design/browser.md](design/browser.md) | 2 個工具，快照約 390 + 1,460 字元，需要時載入，平常只多 `tool_search` 說明裡的兩個名稱；`tool-cost.sh` 還沒量 | 初版，給使用者在 S24 上試用；自然問句的量測在使用者回饋之後 |
