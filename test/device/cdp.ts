@@ -1,7 +1,7 @@
 export {};
 const port = process.env.CDP_PORT ?? "9333";
-const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
-const page = targets.find((target) => target.type === "page");
+const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; url: string; webSocketDebuggerUrl: string }[];
+const page = targets.find((target) => target.type === "page" && /^https?:\/\/localhost\//.test(target.url)) ?? targets.find((target) => target.type === "page");
 if (!page) throw new Error("No WebView page target");
 
 const socket = new WebSocket(page.webSocketDebuggerUrl);
