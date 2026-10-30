@@ -82,7 +82,7 @@ function waitForUser(bot: string, reason: string, signal: AbortSignal | undefine
 }
 
 function tabLine(tabs: BrowserTabs, current: string): string {
-	const named = tabs.tabs.map((tab) => `${tab.id} ${tab.title || tab.url}${tab.id === current ? " (this one)" : ""}`);
+	const named = tabs.tabs.map((tab) => `${tab.id} ${tab.title || tab.url || "blank"}${tab.id === current ? " (this one)" : ""}`);
 	return `Tabs (at most ${MAX_TABS}): ${named.join(" · ")}`;
 }
 

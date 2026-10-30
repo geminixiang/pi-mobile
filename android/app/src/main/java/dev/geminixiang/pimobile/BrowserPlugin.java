@@ -414,8 +414,8 @@ public class BrowserPlugin extends Plugin {
             for (Session session : tabs.open.values()) {
                 JSObject item = new JSObject();
                 item.put("id", session.tab);
-                item.put("url", String.valueOf(session.view.getUrl()));
-                item.put("title", String.valueOf(session.view.getTitle()));
+                item.put("url", orEmpty(session.view.getUrl()));
+                item.put("title", orEmpty(session.view.getTitle()));
                 list.put(item);
             }
             if (tabs.active != null) out.put("active", tabs.active);
@@ -568,12 +568,16 @@ public class BrowserPlugin extends Plugin {
         page.put("bot", session.bot);
         page.put("tab", session.tab);
         page.put("active", session.tab.equals(session.owner.active));
-        page.put("url", String.valueOf(session.view.getUrl()));
-        page.put("title", String.valueOf(session.view.getTitle()));
+        page.put("url", orEmpty(session.view.getUrl()));
+        page.put("title", orEmpty(session.view.getTitle()));
         page.put("loading", session.loading);
         page.put("canGoBack", session.view.canGoBack());
         page.put("canGoForward", session.view.canGoForward());
         notifyListeners("page", page);
+    }
+
+    private static String orEmpty(String text) {
+        return text == null ? "" : text;
     }
 
     private void layOut(Session session) {
