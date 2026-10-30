@@ -144,7 +144,7 @@ public class BrowserPlugin extends Plugin {
     public void read(PluginCall call) {
         Background.run(work, call, () -> {
             Session session = session(call);
-            call.resolve(snapshot(session, call.getBoolean("screenshot", false), null, List.of()));
+            call.resolve(snapshot(session, call.getBoolean("screenshot", false), null));
         });
     }
 
@@ -155,17 +155,20 @@ public class BrowserPlugin extends Plugin {
             JSArray steps = call.getArray("steps", new JSArray());
             boolean screenshot = call.getBoolean("screenshot", false);
             List<String> did = new ArrayList<>();
-            for (int i = 0; i < steps.length(); i++) {
+            String error = null;
+            for (int i = 0; i < steps.length() && error == null; i++) {
                 JSONObject step = steps.getJSONObject(i);
                 try {
                     waitForUser(session);
-                    run(session, step, did);
+                    String touched = run(session, step);
+                    if (touched != null) did.add(touched);
                 } catch (Failure failure) {
-                    call.resolve(snapshot(session, screenshot, "step " + (i + 1) + " (" + step.optString("action") + "): " + failure.getMessage(), did));
-                    return;
+                    error = "step " + (i + 1) + " (" + step.optString("action") + "): " + failure.getMessage();
                 }
             }
-            call.resolve(snapshot(session, screenshot, null, did));
+            JSObject result = snapshot(session, screenshot, error);
+            if (!did.isEmpty()) result.put("did", new JSONArray(did));
+            call.resolve(result);
         });
     }
 
@@ -601,7 +604,7 @@ public class BrowserPlugin extends Plugin {
         });
     }
 
-    private void run(Session session, JSONObject step, List<String> did) throws Exception {
+    private String run(Session session, JSONObject step) throws Exception {
         String action = step.optString("action");
         switch (action) {
             case "open" -> {
@@ -611,8 +614,9 @@ public class BrowserPlugin extends Plugin {
             }
             case "reload" -> navigate(session, session.view::reload);
             case "tap" -> {
-                did.add("tapped [" + step.getInt("index") + "] " + tapElement(session, step));
+                String target = tapElement(session, step);
                 settle(session);
+                return "tapped [" + step.getInt("index") + "] " + target;
             }
             case "tap_at" -> {
                 if (!step.has("x") || !step.has("y")) throw new Failure("invalid", "tap_at needs x and y");
@@ -622,9 +626,10 @@ public class BrowserPlugin extends Plugin {
             }
             case "type" -> {
                 if (!step.has("text")) throw new Failure("invalid", "type needs text");
-                did.add("typed into [" + step.getInt("index") + "] " + tapElement(session, step));
+                String target = tapElement(session, step);
                 Thread.sleep(SETTLE_MS);
                 insert(session, step.getString("text"));
+                return "typed into [" + step.getInt("index") + "] " + target;
             }
             case "type_here" -> {
                 if (!step.has("text")) throw new Failure("invalid", "type_here needs text");
@@ -670,6 +675,7 @@ public class BrowserPlugin extends Plugin {
             case "wait_for" -> waitFor(session, step);
             default -> throw new Failure("invalid", "unknown action " + action);
         }
+        return null;
     }
 
     private void navigate(Session session, Runnable go) throws Exception {
@@ -745,7 +751,7 @@ public class BrowserPlugin extends Plugin {
         });
     }
 
-    private JSObject snapshot(Session session, boolean screenshot, String error, List<String> did) throws Exception {
+    private JSObject snapshot(Session session, boolean screenshot, String error) throws Exception {
         awaitLoad(session);
         JSONObject page = new JSONObject(eval(session, FACTS));
         JSONObject state = evalPage(session, "window.__piPage.state()");
@@ -759,7 +765,6 @@ public class BrowserPlugin extends Plugin {
         out.put("text", dialog == null ? page.optString("text") : "[The page showed a dialog: " + dialog + "]\n" + page.optString("text"));
         if (screenshot) out.put("jpeg", capture(session));
         if (error != null) out.put("error", error);
-        if (!did.isEmpty()) out.put("did", new JSONArray(did));
         return out;
     }
 

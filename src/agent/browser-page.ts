@@ -4,7 +4,7 @@ const controller = new PageController({ enableMask: false });
 const SCROLL_PAGES = 0.8;
 const OWNER_CHARS = 60;
 const LABEL_CHARS = 40;
-const ELEMENT_LINE = /^(\t*\*?)\[(\d+)\](<.*)$/;
+const ELEMENT_LINE = /^\t*\*?\[(\d+)\](<.*)$/;
 
 type Direction = "up" | "down" | "left" | "right";
 
@@ -47,15 +47,15 @@ Object.assign(window, {
 
 function withOwners(content: string): string {
 	const lines = content.split("\n");
-	const shapes = lines.map((line) => ELEMENT_LINE.exec(line)?.[3]);
-	const repeated = new Set(shapes.filter((shape, at) => shape !== undefined && shapes.indexOf(shape) !== at));
+	const found = lines.map((line) => ELEMENT_LINE.exec(line));
+	const counts = new Map<string, number>();
+	for (const match of found) if (match) counts.set(match[2], (counts.get(match[2]) ?? 0) + 1);
 	return lines
 		.map((line, at) => {
-			const shape = shapes[at];
-			const index = ELEMENT_LINE.exec(line)?.[2];
-			if (shape === undefined || index === undefined || !repeated.has(shape)) return line;
-			const owner = ownerOf(elementAt(Number(index)));
-			return owner ? `${line} in "${owner}"` : line;
+			const match = found[at];
+			if (!match || (counts.get(match[2]) ?? 0) < 2) return line;
+			const owner = ownerOf(elementAt(Number(match[1])));
+			return owner ? `${line} in ${quoted(owner)}` : line;
 		})
 		.join("\n");
 }
@@ -64,7 +64,8 @@ function ownerOf(element: HTMLElement): string {
 	const own = element.innerText.trim();
 	for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
 		const rest = node.innerText.replace(own, "").replace(/\s+/g, " ").trim();
-		if (rest) return rest.length > OWNER_CHARS ? "" : rest;
+		if (!/[\p{L}\p{N}]/u.test(rest)) continue;
+		return rest.length > OWNER_CHARS ? "" : rest;
 	}
 	return "";
 }
@@ -72,5 +73,9 @@ function ownerOf(element: HTMLElement): string {
 function described(element: HTMLElement): string {
 	const label = (element.getAttribute("aria-label") || element.innerText || element.getAttribute("placeholder") || element.title).replace(/\s+/g, " ").trim().slice(0, LABEL_CHARS);
 	const owner = ownerOf(element);
-	return owner ? `${label} in "${owner}"` : label;
+	return owner ? `${label} in ${quoted(owner)}` : label;
+}
+
+function quoted(text: string): string {
+	return `"${text.replaceAll('"', "'")}"`;
 }
