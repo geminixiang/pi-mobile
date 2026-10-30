@@ -347,6 +347,7 @@ export function BrowserSheet({
 			<div ref={frame} className="browser-frame">
 				{shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}
 			</div>
+			<button type="button" className="browser-grip" aria-label="收起瀏覽器" onClick={collapse} {...pushHandlers} />
 		</div>
 	);
 }
