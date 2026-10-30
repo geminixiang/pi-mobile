@@ -31,8 +31,22 @@ function cleaned(parameters: TSchema, raw: unknown): unknown {
 }
 
 function listed(value: unknown, schema: unknown): unknown {
-	const array = typeof schema === "object" && schema !== null && Reflect.get(schema, "type") === "array";
-	return array && (typeof value === "string" || typeof value === "number") ? [value] : value;
+	if (typeof schema !== "object" || schema === null || Reflect.get(schema, "type") !== "array") return value;
+	const items = Array.isArray(value) ? value : typeof value === "string" || typeof value === "number" ? [value] : undefined;
+	if (!items) return value;
+	const field = soleTextField(Reflect.get(schema, "items"));
+	return field ? items.map((item) => (typeof item === "string" ? { [field]: item } : item)) : items;
+}
+
+function soleTextField(schema: unknown): string | undefined {
+	if (typeof schema !== "object" || schema === null || Reflect.get(schema, "type") !== "object") return undefined;
+	const required: unknown = Reflect.get(schema, "required");
+	const properties: unknown = Reflect.get(schema, "properties");
+	if (!Array.isArray(required) || required.length !== 1 || typeof properties !== "object" || properties === null) return undefined;
+	const [name]: unknown[] = required;
+	if (typeof name !== "string") return undefined;
+	const property: unknown = Reflect.get(properties, name);
+	return typeof property === "object" && property !== null && Reflect.get(property, "type") === "string" ? name : undefined;
 }
 
 type Reach = "model" | "loaded" | "script";

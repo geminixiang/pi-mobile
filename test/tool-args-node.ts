@@ -37,6 +37,22 @@ deepStrictEqual(prepare({ need: "a", query: "x", limit: 3 }), { need: "a", query
 deepStrictEqual(prepare({ need: "a", days: "Mon" }), { need: "a", days: ["Mon"] });
 deepStrictEqual(prepare({ need: "a", query: true, images: true }), { need: "a", images: true });
 
+const statements = defineAppTool({
+	name: "statements",
+	effect: "read",
+	description: "A tool whose list items are objects with one required text field.",
+	parameters: Type.Object({
+		statements: Type.Array(Type.Object({ sql: Type.String(), params: Type.Optional(Type.Array(Type.String())) }), { minItems: 1 }),
+	}),
+	execute: async () => ({ output: [] }),
+});
+const prepareStatements = (args: unknown) => statements.prepareArguments?.(args);
+deepStrictEqual(prepareStatements({ statements: ["SELECT 1", { sql: "SELECT ?", params: ["a"] }] }), {
+	statements: [{ sql: "SELECT 1" }, { sql: "SELECT ?", params: ["a"] }],
+});
+deepStrictEqual(prepareStatements({ statements: "SELECT 1" }), { statements: [{ sql: "SELECT 1" }] });
+throws(() => prepareStatements({ statements: [7] }), /statements\/0/);
+
 deepStrictEqual(parseLocalTime("2026-10-22 07:05", "at"), { ms: new Date(2026, 9, 22, 7, 5).getTime(), hasTime: true });
 deepStrictEqual(parseLocalTime("2026-10-22T07:05", "at").ms, new Date(2026, 9, 22, 7, 5).getTime());
 deepStrictEqual(parseLocalTime("2026-10-22", "from"), { ms: new Date(2026, 9, 22).getTime(), hasTime: false });
