@@ -2,7 +2,7 @@ import { App } from "@capacitor/app";
 import { type Static, Type } from "typebox";
 import { parse } from "../agent/parse.ts";
 import { System } from "../plugins/system.ts";
-import { codeOf, messageOf, untilFailure } from "../promise.ts";
+import { codeOf, messageOf } from "../promise.ts";
 
 const LATEST_RELEASE = "https://api.github.com/repos/geminixiang/pi-mobile/releases/latest";
 
@@ -14,7 +14,7 @@ const Release = Type.Object({
 });
 export type Release = Static<typeof Release>;
 
-type Update = { version: string; url: string; sha256: string };
+export type Update = { version: string; url: string; sha256: string };
 
 const REFUSED: Record<string, string> = {
 	checksum: "下載的檔案跟 GitHub 上的不一樣，沒有安裝",
@@ -22,12 +22,12 @@ const REFUSED: Record<string, string> = {
 	other_key: "新版和這支手機上的 pi mobile 用不同的金鑰簽章，要先移除再安裝",
 };
 
-export const checkForUpdate = untilFailure(async (): Promise<Update | undefined> => {
+export async function checkForUpdate(): Promise<Update | undefined> {
 	const installed = (await App.getInfo()).version;
 	const response = await fetch(LATEST_RELEASE, { headers: { Accept: "application/vnd.github+json" } });
 	if (!response.ok) throw new Error(`GitHub 回 HTTP ${response.status}`);
 	return updateFrom(parse(Release, await response.json(), "GitHub 的版本資訊"), installed);
-});
+}
 
 export function updateFrom(release: Release, installed: string): Update | undefined {
 	const version = release.tag_name.replace(/^v/, "");

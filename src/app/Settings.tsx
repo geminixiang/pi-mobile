@@ -39,7 +39,7 @@ import { TriggerRow } from "./TriggerRow.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
-import { checkForUpdate, installUpdate } from "./update.ts";
+import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import { toBase64 } from "../encoding.ts";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -419,8 +419,7 @@ async function shareDiagnostics(): Promise<void> {
 	await Apps.share({ title: "pi mobile 診斷記錄", fileBase64: toBase64(new TextEncoder().encode(body)), fileName: `pi-mobile-diagnostics-${stamp}.jsonl`, mimeType: "application/x-ndjson" });
 }
 
-function UpdateLink() {
-	const { value: update } = useLoaded(native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
+function UpdateLink({ update }: { update: Update | undefined }) {
 	const [busy, setBusy] = useState(false);
 	const [problem, setProblem] = useState("");
 	if (!update) return null;
@@ -457,6 +456,7 @@ export function SettingsView({
 	onCancel?: () => void;
 }) {
 	const [settings, setSettings] = useState(initial);
+	const { value: update } = useLoaded(inApp && native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
 	const changed = changedKeys(initial, settings).length > 0;
 	const field = (key: TextSetting) => ({
 		value: settings[key],
@@ -668,7 +668,7 @@ export function SettingsView({
 						pi mobile · {__BUILD__}
 						{inApp ? (
 							<>
-								<UpdateLink />
+								<UpdateLink update={update} />
 								{" · "}
 								<button type="button" className="link" onClick={() => void shareDiagnostics().catch((error: unknown) => setProblem(messageOf(error)))}>
 									分享診斷記錄
