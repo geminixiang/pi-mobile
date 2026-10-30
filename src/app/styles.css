@@ -619,15 +619,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 @property --sheet-reveal { syntax: "<number>"; inherits: false; initial-value: 0; }
 .browser-sheet {
 	position: fixed; top: 0; left: 0; right: 0; z-index: 30; height: 60vh; display: flex; flex-direction: column;
-	padding-top: env(safe-area-inset-top); background: var(--bg-deep);
-	transform: translateY(calc((var(--sheet-reveal) - 1) * 100% - (1 - var(--sheet-reveal)) * 48px)); will-change: transform; visibility: hidden;
+	padding-top: env(safe-area-inset-top); background: var(--bg); border-radius: 0 0 var(--card-radius) var(--card-radius); box-shadow: var(--card-shadow);
+	transform: translateY(calc((var(--sheet-reveal) - 1) * 105%)); will-change: transform; visibility: hidden;
 }
 .browser-sheet[data-shown] { visibility: visible; }
-.browser-lip {
-	position: absolute; top: calc(100% - var(--card-radius)); left: 0; right: 0; height: calc(var(--card-radius) + 1px); display: grid; place-items: center;
-	background: var(--bg); border-radius: var(--card-radius) var(--card-radius) 0 0; box-shadow: var(--card-shadow); clip-path: inset(-40px 0 0 0); touch-action: none;
-}
-.browser-lip::before { content: ""; width: 36px; height: 4px; background: var(--line-strong); }
 .browser-sheet-bar { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 var(--space); flex-shrink: 0; touch-action: none; }
 .browser-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--faint); }
 .browser-dot[data-active] { background: var(--ok); animation: browser-pulse 1.2s ease-in-out infinite; }
@@ -639,7 +634,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .browser-address::placeholder { color: var(--faint); }
 .browser-note { padding: 8px var(--space); font-size: var(--fs-small); line-height: 1.5; color: var(--text); background: var(--accent-soft); }
-.browser-frame { position: relative; flex: 1; min-height: 0; margin-bottom: var(--card-radius); overflow: hidden; background: var(--panel); border-top: 1px solid var(--line); }
+.browser-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); border-top: 1px solid var(--line); border-radius: 0 0 var(--card-radius) var(--card-radius); }
 .browser-shot { position: absolute; top: 0; left: 0; display: block; width: 100%; height: auto; }
 .group { border: 1px solid var(--line); background: var(--panel); }
 .group-body > label, .provider > label, .manual > label, .machine-add > label, .bot-form > label { display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 0; }

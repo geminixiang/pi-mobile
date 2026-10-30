@@ -1,5 +1,4 @@
 import { type RefObject, type TouchEvent, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { type BrowserState, browserState, markUsed } from "../agent/tools/browser.ts";
 import { native } from "../native.ts";
 import { Browser } from "../plugins/browser.ts";
@@ -8,6 +7,8 @@ import { useBack } from "./layers.ts";
 import { SETTLE_MS, settleCurve, settlesOpen, velocityOf } from "./sideGesture.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
+// why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
+const CARD_RADIUS = 36;
 const SLOP = 10;
 
 type Page = { url: string; title: string; loading: boolean };
@@ -41,13 +42,13 @@ class SheetMotion {
 
 	drag(position: number): void {
 		this.#stop();
-		this.#show(true);
+		this.sheet.toggleAttribute("data-shown", true);
 		this.#place(position);
 	}
 
 	settle(open: boolean): void {
 		this.#stop();
-		if (open) this.#show(true);
+		if (open) this.sheet.toggleAttribute("data-shown", true);
 		const from = this.#position;
 		const target = open ? 1 : 0;
 		const started = performance.now();
@@ -59,7 +60,7 @@ class SheetMotion {
 				return;
 			}
 			this.#frame = 0;
-			if (!open) this.#show(false);
+			if (!open) this.sheet.toggleAttribute("data-shown", false);
 			this.settled(open);
 		};
 		step(started);
@@ -68,10 +69,6 @@ class SheetMotion {
 	#stop(): void {
 		cancelAnimationFrame(this.#frame);
 		this.#frame = 0;
-	}
-
-	#show(shown: boolean): void {
-		this.sheet.toggleAttribute("data-shown", shown);
 	}
 
 	#place(position: number): void {
@@ -150,7 +147,7 @@ export function BrowserSheet({
 		if (!element || !target || !latest.current.open) return;
 		const box = element.getBoundingClientRect();
 		live.current = true;
-		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: 0 }).catch((error: unknown) => setProblem(messageOf(error)));
+		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: CARD_RADIUS }).catch((error: unknown) => setProblem(messageOf(error)));
 	};
 
 	const hideLive = async (target: string) => {
@@ -324,7 +321,7 @@ export function BrowserSheet({
 		Browser.act({ bot, steps: [{ action: "open", url: addressOf(typed) }], screenshot: false }).catch((error: unknown) => setProblem(messageOf(error)));
 	};
 	const dot = <span className="browser-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />;
-	return createPortal(
+	return (
 		<div
 			ref={(element) => {
 				sheet.current = element;
@@ -350,8 +347,6 @@ export function BrowserSheet({
 			<div ref={frame} className="browser-frame">
 				{shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}
 			</div>
-			<button type="button" className="browser-lip" aria-label="收起瀏覽器" onClick={collapse} {...pushHandlers} />
-		</div>,
-		document.body,
+		</div>
 	);
 }
