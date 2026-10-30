@@ -1,6 +1,6 @@
 ---
 name: release
-description: Publish a pi-mobile release (version bump, notes, full perf on the S24, tag, GitHub workflow, putting the official APK back on the phone). Use when the user asks to release or 發版.
+description: Publish a pi-mobile release (version bump, notes, full perf on the S24, tag, GitHub workflow, putting the official APK back on the phone, TestFlight for the iPhone). Use when the user asks to release or 發版.
 ---
 
 # Release
@@ -38,4 +38,13 @@ APK is not debuggable, so everything measured runs on a dev build of the same co
 6. **Phone back on the release**: `gh release download v<x.y.z> -p 'pi-mobile-*.apk'` into a scratch folder, compare
    its `shasum -a 256` with the digest GitHub shows (`gh release view v<x.y.z> --json assets`), install it with
    `-r`, turn accessibility on again, and check `dumpsys package dev.geminixiang.pimobile | grep versionName` has no
-   `-dev`.
+   `-dev`. Android phones update from the app itself: 設定's last line shows 更新到 <x.y.z> once the release is out.
+7. **iPhone through TestFlight**: iOS has no in-app update and nothing iOS goes on GitHub; the iPhone takes the
+   release from TestFlight. Upload from the Mac that holds the Apple signing identity (`security find-identity -v -p
+   codesigning`), on a checkout of the tagged commit there (`git fetch --tags && git checkout v<x.y.z> && npm ci`).
+   Codesign cannot reach a keychain locked in an SSH session (`errSecInternalComponent`): ask the user to unlock it
+   on that Mac (`security unlock-keychain ~/Library/Keychains/login.keychain-db`), then run the script in its GUI
+   session, e.g. `osascript -e 'tell application "Terminal" to do script "cd <repo> && TEAM=<team id>
+   ./scripts/testflight-ios.sh > testflight.log 2>&1"'`, and read the log for `uploaded pi mobile`. The build
+   number is the time, so a rerun of the same version uploads again. The build reaches the phone after App Store
+   Connect finishes processing it (minutes); the user updates it in the TestFlight app.
