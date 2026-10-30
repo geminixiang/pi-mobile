@@ -26,7 +26,7 @@ class SheetMotion {
 	#frame = 0;
 
 	constructor(
-		private readonly sheet: HTMLElement,
+		readonly sheet: HTMLElement,
 		private readonly settled: (open: boolean) => void,
 	) {}
 
@@ -230,13 +230,14 @@ export function BrowserSheet({
 	const settleRef = useRef(settleTo);
 	settleRef.current = settleTo;
 	useEffect(() => {
-		const header = pullFrom.current;
-		if (!header || !bot || !native.has("Browser")) return;
+		if (!bot || !native.has("Browser")) return;
 		let start: { x: number; y: number } | undefined;
 		let drag: Drag | undefined;
 		const onStart = (event: globalThis.TouchEvent) => {
 			const touch = event.touches[0];
-			start = touch && !latest.current.open ? { x: touch.clientX, y: touch.clientY } : undefined;
+			const header = pullFrom.current;
+			const fromHeader = event.target instanceof Node && header !== null && header.contains(event.target);
+			start = touch && fromHeader && !latest.current.open ? { x: touch.clientX, y: touch.clientY } : undefined;
 			drag = undefined;
 		};
 		const onMove = (event: globalThis.TouchEvent) => {
@@ -267,15 +268,15 @@ export function BrowserSheet({
 			start = undefined;
 			drag = undefined;
 		};
-		header.addEventListener("touchstart", onStart, { passive: true });
-		header.addEventListener("touchmove", onMove, { passive: true });
-		header.addEventListener("touchend", onEnd);
-		header.addEventListener("touchcancel", onEnd);
+		document.addEventListener("touchstart", onStart, { passive: true });
+		document.addEventListener("touchmove", onMove, { passive: true });
+		document.addEventListener("touchend", onEnd);
+		document.addEventListener("touchcancel", onEnd);
 		return () => {
-			header.removeEventListener("touchstart", onStart);
-			header.removeEventListener("touchmove", onMove);
-			header.removeEventListener("touchend", onEnd);
-			header.removeEventListener("touchcancel", onEnd);
+			document.removeEventListener("touchstart", onStart);
+			document.removeEventListener("touchmove", onMove);
+			document.removeEventListener("touchend", onEnd);
+			document.removeEventListener("touchcancel", onEnd);
 		};
 	}, [bot, pullFrom]);
 
@@ -322,7 +323,7 @@ export function BrowserSheet({
 		<div
 			ref={(element) => {
 				sheet.current = element;
-				if (!element || motion.current) return;
+				if (!element || motion.current?.sheet === element) return;
 				motion.current = new SheetMotion(element, (settledOpen) => {
 					if (settledOpen) showLive();
 				});
