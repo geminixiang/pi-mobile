@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Outline;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +16,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
@@ -94,6 +96,22 @@ public class BrowserPlugin extends Plugin {
 
     private static final String INSERT = "((t) => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('insertText', false, t); return 'ok'; })(%s)";
     private static final String CLEAR = "(() => { const e = document.activeElement; if (!e || e === document.body) return 'nofocus'; document.execCommand('selectAll'); document.execCommand('delete'); return 'ok'; })()";
+    private static final String SCROLL = """
+        (() => {
+          const by = [%s];
+          const before = scrollY + scrollX;
+          scrollBy(by[0], by[1]);
+          if (scrollY + scrollX !== before) return 'page';
+          for (let el = document.elementFromPoint(innerWidth / 2, innerHeight / 2); el; el = el.parentElement) {
+            const st = getComputedStyle(el);
+            const can = (el.scrollHeight > el.clientHeight && /auto|scroll/.test(st.overflowY)) || (el.scrollWidth > el.clientWidth && /auto|scroll/.test(st.overflowX));
+            if (!can) continue;
+            el.scrollBy(by[0], by[1]);
+            return 'inner';
+          }
+          return 'none';
+        })()
+        """;
     private static final String HAS_TEXT = "(document.body ? document.body.innerText : '').includes(%s)";
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -186,8 +204,23 @@ public class BrowserPlugin extends Plugin {
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(session.width, session.height);
                 params.leftMargin = from[0] - to[0] + Math.round(call.getFloat("x", 0f) * density);
                 params.topMargin = from[1] - to[1] + Math.round(call.getFloat("y", 0f) * density);
-                if (session.view.getParent() instanceof ViewGroup parent) parent.removeView(session.view);
-                root.addView(session.view, params);
+                float radius = call.getFloat("radius", 0f) * density;
+                session.view.setOutlineProvider(new ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(View outlined, Outline outline) {
+                        outline.setRoundRect(0, 0, outlined.getWidth(), outlined.getHeight(), radius);
+                    }
+                });
+                session.view.setClipToOutline(true);
+                boolean fresh = session.view.getParent() != root;
+                if (session.view.getParent() instanceof ViewGroup parent && fresh) parent.removeView(session.view);
+                if (fresh) {
+                    session.view.setAlpha(0f);
+                    root.addView(session.view, params);
+                    session.view.animate().alpha(1f).setDuration(140).start();
+                } else {
+                    session.view.setLayoutParams(params);
+                }
                 session.shown = true;
                 main.removeCallbacks(session.expire);
                 return null;
@@ -323,15 +356,22 @@ public class BrowserPlugin extends Plugin {
             @Override
             public void onPageStarted(WebView webView, String url, Bitmap favicon) {
                 session.loading = true;
+                announce(session);
             }
 
             @Override
             public void onPageFinished(WebView webView, String url) {
                 session.loading = false;
                 flush(session);
+                announce(session);
             }
         });
         view.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onReceivedTitle(WebView webView, String title) {
+                announce(session);
+            }
+
             @Override
             public boolean onJsAlert(WebView webView, String url, String message, JsResult result) {
                 session.dialog = "alert: " + message;
@@ -361,6 +401,15 @@ public class BrowserPlugin extends Plugin {
         sessions.put(bot, session);
         main.postDelayed(session.expire, IDLE_MS);
         return session;
+    }
+
+    private void announce(Session session) {
+        JSObject page = new JSObject();
+        page.put("bot", session.bot);
+        page.put("url", String.valueOf(session.view.getUrl()));
+        page.put("title", String.valueOf(session.view.getTitle()));
+        page.put("loading", session.loading);
+        notifyListeners("page", page);
     }
 
     private void layOut(Session session) {
@@ -423,7 +472,7 @@ public class BrowserPlugin extends Plugin {
                     case "right" -> "innerWidth * 0.8, 0";
                     default -> "0, innerHeight * 0.8";
                 };
-                eval(session, "scrollBy(" + by + "), 0");
+                eval(session, String.format(SCROLL, by));
                 Thread.sleep(SETTLE_MS);
             }
             case "back" -> {

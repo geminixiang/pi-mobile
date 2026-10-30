@@ -39,7 +39,9 @@ const Bot = { bot: Type.String() };
 export const Browser = definePlugin("Browser", {
 	read: { args: Type.Object({ ...Bot, screenshot: Type.Boolean() }), result: Snapshot },
 	act: { args: Type.Object({ ...Bot, steps: Type.Array(Step), screenshot: Type.Boolean() }), result: Snapshot },
-	show: { args: Type.Object({ ...Bot, x: Type.Number(), y: Type.Number(), width: Type.Number(), height: Type.Number() }) },
+	show: { args: Type.Object({ ...Bot, x: Type.Number(), y: Type.Number(), width: Type.Number(), height: Type.Number(), radius: Type.Number() }) },
 	hide: { args: Type.Object(Bot) },
 	forget: { args: Type.Object(Bot) },
+}, {
+	page: Type.Object({ ...Bot, url: Type.String(), title: Type.String(), loading: Type.Boolean() }),
 });

@@ -8,13 +8,14 @@ const HANDOVER_MS = 10 * 60_000;
 
 export type Handover = { bot: string; reason: string };
 
-type BrowserState = { used: ReadonlySet<string>; handovers: readonly Handover[] };
+export type BrowserState = { used: ReadonlySet<string>; active: ReadonlySet<string>; handovers: readonly Handover[] };
 
 const waiting = new Map<string, { reason: string; done: () => void }>();
 const used = new Set<string>();
+const active = new Map<string, number>();
 const listeners = new Set<(state: BrowserState) => void>();
 
-const stateNow = (): BrowserState => ({ used: new Set(used), handovers: [...waiting].map(([bot, { reason }]) => ({ bot, reason })) });
+const stateNow = (): BrowserState => ({ used: new Set(used), active: new Set(active.keys()), handovers: [...waiting].map(([bot, { reason }]) => ({ bot, reason })) });
 
 function publish(): void {
 	const state = stateNow();
@@ -37,10 +38,24 @@ export const browserState = {
 	},
 };
 
-function markUsed(bot: string): void {
+export function markUsed(bot: string): void {
 	if (used.has(bot)) return;
 	used.add(bot);
 	publish();
+}
+
+async function working<T>(bot: string, work: () => Promise<T>): Promise<T> {
+	used.add(bot);
+	active.set(bot, (active.get(bot) ?? 0) + 1);
+	publish();
+	try {
+		return await work();
+	} finally {
+		const left = (active.get(bot) ?? 1) - 1;
+		if (left > 0) active.set(bot, left);
+		else active.delete(bot);
+		publish();
+	}
 }
 
 function waitForUser(bot: string, reason: string, signal: AbortSignal | undefined): Promise<"returned" | "timeout"> {
@@ -96,8 +111,7 @@ const readPage = defineAppTool({
 	replay: "safe",
 	execute: async (args, api) => {
 		const bot = String(api.conversationId);
-		markUsed(bot);
-		return present(await Browser.read({ bot, screenshot: args.screenshot ?? false }));
+		return working(bot, async () => present(await Browser.read({ bot, screenshot: args.screenshot ?? false })));
 	},
 });
 
@@ -133,7 +147,7 @@ const useBrowser = defineAppTool({
 		const bot = String(api.conversationId);
 		const handover = args.steps.findIndex((step) => step.action === "hand_over");
 		if (handover >= 0 && handover !== args.steps.length - 1) throw new Error("hand_over must be the last step");
-		markUsed(bot);
+		return working(bot, async () => {
 		const screenshot = args.screenshot ?? false;
 		const steps = args.steps.filter((step): step is BrowserStep & { action: (typeof BROWSER_ACTIONS)[number] } => step.action !== "hand_over");
 		const before = steps.length > 0 ? await Browser.act({ bot, steps, screenshot: handover >= 0 ? false : screenshot }) : undefined;
@@ -141,6 +155,7 @@ const useBrowser = defineAppTool({
 		const outcome = await waitForUser(bot, args.steps[handover]?.text ?? "", context.abortSignal);
 		const note = outcome === "returned" ? "The user handed the browser back. The page now:" : "The user did not hand the browser back in 10 minutes. The page now:";
 		return present(await Browser.read({ bot, screenshot }), note);
+		});
 	},
 });
 

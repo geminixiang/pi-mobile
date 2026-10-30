@@ -813,6 +813,9 @@
 						"height": {
 							"type": "number"
 						},
+						"radius": {
+							"type": "number"
+						},
 						"width": {
 							"type": "number"
 						},
@@ -828,7 +831,8 @@
 						"x",
 						"y",
 						"width",
-						"height"
+						"height",
+						"radius"
 					],
 					"type": "object"
 				},
@@ -863,7 +867,31 @@
 				"result": null
 			}
 		},
-		"events": {},
+		"events": {
+			"page": {
+				"properties": {
+					"bot": {
+						"type": "string"
+					},
+					"loading": {
+						"type": "boolean"
+					},
+					"title": {
+						"type": "string"
+					},
+					"url": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"bot",
+					"url",
+					"title",
+					"loading"
+				],
+				"type": "object"
+			}
+		},
 		"ios": []
 	},
 	{
