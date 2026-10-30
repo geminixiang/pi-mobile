@@ -39,7 +39,7 @@ API 是用一個暫時的偵測 plugin 量的：它只編進這次的 debug buil
 - **Siri**：沒有 Siri entitlement 時，`INPreferences.siriAuthorizationStatus()` 會讓 App 直接被中止（SIGABRT），不是回一個狀態。要讓 Siri 叫得到 pi，應該走 App Intents。
 - **專注模式狀態**（`INFocusStatusCenter`）：要 entitlement，沒有呼叫。
 - **NFC**：`readingAvailable` 回 false。iPhone 12 Pro 有 NFC，但要先加 NFC 讀取的 entitlement。
-- **健康**：`HKHealthStore.isHealthDataAvailable()` 為真，但要加 HealthKit entitlement，再由使用者授權。
+- **健康**：`HKHealthStore.isHealthDataAvailable()` 為真，但要加 HealthKit entitlement，再由使用者授權。步數不用：`health` 的步數用 `CMPedometer`，只要「動作與健身」權限，但只留最近 7 天；心率、睡眠、運動、體重只在 HealthKit。
 - **限時通知**（time-sensitive）：回「不支援」，要 entitlement。
 - **Wi‑Fi 名稱**、**WeatherKit**、**螢幕使用時間**（Family Controls，要 Apple 核准）：都要另外申請。
 
@@ -52,7 +52,7 @@ API 是用一個暫時的偵測 plugin 量的：它只編進這次的 debug buil
 
 ## pi 的工具在 iPhone 上
 
-63 個工具裡，原生方法 iOS 都有實作的有 41 個。其餘 22 個 iOS 沒有：通知、手機畫面、媒體和聲音等控制、通話紀錄和簡訊、使用時間、健康、掃描文件、排程、`notify`、`open_alarms`。GitHub、GCP、Cloudflare、Azure 這幾組沒出現，因為 iPhone 上沒設帳號；電腦組也沒出現，因為沒選電腦。
+63 個工具裡，原生方法 iOS 都有實作的有 41 個。其餘 22 個 iOS 沒有：通知、手機畫面、媒體和聲音等控制、通話紀錄和簡訊、使用時間、健康（只有步數，見上面「健康」）、掃描文件、排程、`notify`、`open_alarms`。GitHub、GCP、Cloudflare、Azure 這幾組沒出現，因為 iPhone 上沒設帳號；電腦組也沒出現，因為沒選電腦。
 
 **正常的**：
 

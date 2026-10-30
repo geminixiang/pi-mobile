@@ -1173,7 +1173,9 @@
 			}
 		},
 		"events": {},
-		"ios": []
+		"ios": [
+			"read"
+		]
 	},
 	{
 		"name": "KeepAlive",

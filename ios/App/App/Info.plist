@@ -23,7 +23,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>讓 Bot 知道你在哪裡：天氣、附近的店、交通時間。</string>
 	<key>NSMotionUsageDescription</key>
-	<string>讓 Bot 讀氣壓和方位。</string>
+	<string>讓 Bot 讀氣壓、方位和步數。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

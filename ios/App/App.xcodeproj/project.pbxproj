@@ -15,6 +15,7 @@
 		0C5399802021DB984629859F /* VoicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D048B78140DDFAD0EAFC693 /* VoicePlugin.swift */; };
 		F4B240F4A185C128726C9B70 /* CalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60FE74B7C18902FEA69D8DD7 /* CalendarPlugin.swift */; };
 		8A03EA71BACB3F828640377F /* PhonePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524C023F65E57D63254CC12C /* PhonePlugin.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* HealthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F1E2D3C4B5A69788796A5B4 /* HealthPlugin.swift */; };
 		5E3C684FF3F3D4337D50A676 /* DatabasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */; };
 		2AE1328E613E8FC032EDA53E /* BotFilesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */; };
 		81C1DF172A5C0A9BBF038182 /* LoopbackPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */; };
@@ -42,6 +43,7 @@
 		4D048B78140DDFAD0EAFC693 /* VoicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePlugin.swift; sourceTree = "<group>"; };
 		60FE74B7C18902FEA69D8DD7 /* CalendarPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPlugin.swift; sourceTree = "<group>"; };
 		524C023F65E57D63254CC12C /* PhonePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlugin.swift; sourceTree = "<group>"; };
+		0F1E2D3C4B5A69788796A5B4 /* HealthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthPlugin.swift; sourceTree = "<group>"; };
 		5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabasePlugin.swift; sourceTree = "<group>"; };
 		A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotFilesPlugin.swift; sourceTree = "<group>"; };
 		ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopbackPlugin.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 				4D048B78140DDFAD0EAFC693 /* VoicePlugin.swift */,
 				60FE74B7C18902FEA69D8DD7 /* CalendarPlugin.swift */,
 				524C023F65E57D63254CC12C /* PhonePlugin.swift */,
+				0F1E2D3C4B5A69788796A5B4 /* HealthPlugin.swift */,
 				5C359CA744AEBEA0E6DE9B44 /* DatabasePlugin.swift */,
 				A06D62B15C03B32A3BF47294 /* BotFilesPlugin.swift */,
 				ACFFAF5CE5B101B0DAD0D76E /* LoopbackPlugin.swift */,
@@ -212,6 +215,7 @@
 				0C5399802021DB984629859F /* VoicePlugin.swift in Sources */,
 				F4B240F4A185C128726C9B70 /* CalendarPlugin.swift in Sources */,
 				8A03EA71BACB3F828640377F /* PhonePlugin.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* HealthPlugin.swift in Sources */,
 				5E3C684FF3F3D4337D50A676 /* DatabasePlugin.swift in Sources */,
 				2AE1328E613E8FC032EDA53E /* BotFilesPlugin.swift in Sources */,
 				81C1DF172A5C0A9BBF038182 /* LoopbackPlugin.swift in Sources */,
