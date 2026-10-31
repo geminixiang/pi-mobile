@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="app_bg">#161D27</color>
+    <color name="widget_text">#EBE7E4</color>
+    <color name="widget_muted">#9FA4AB</color>
     <bool name="app_light_bars">false</bool>
 </resources>

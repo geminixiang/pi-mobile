@@ -6,7 +6,8 @@ import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
 import { DAY, startOfToday } from "../agent/tools/common.ts";
 import { check, oneOf, valueOrThrow } from "../agent/parse.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf, orLogged } from "../promise.ts";
+import { entryText } from "../agent/entries.ts";
 import type { Judge } from "../agent/judge.ts";
 import { GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
 import { Triggers, When } from "./plugin.ts";
@@ -120,16 +121,16 @@ const context = BACKGROUND_CONTEXT;
 
 export class TriggerRuns {
 	readonly #harness: Harness;
-	readonly #bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>;
+	readonly #bots: () => Promise<readonly { id: ConversationId; name: string; avatar: string }[]>;
 	readonly #touchBot: (id: ConversationId, at: number) => Promise<void>;
 	readonly #judge: Judge;
 	readonly #listeners = new Set<(state: TriggerState) => void>();
 	#state: TriggerState = { items: [], next: {} };
-	readonly #started = new Set<ConversationId>();
+	readonly #started = new Map<ConversationId, string>();
 
 	constructor(
 		harness: Harness,
-		bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>,
+		bots: () => Promise<readonly { id: ConversationId; name: string; avatar: string }[]>,
 		touchBot: (id: ConversationId, at: number) => Promise<void>,
 		judge: Judge,
 	) {
@@ -261,7 +262,7 @@ export class TriggerRuns {
 			await this.#record(id, { at: now, delivery, outcome: "failed", error: `沒有送出，會再試：${messageOf(error)}` });
 			throw error;
 		}
-		this.#started.add(conversationId);
+		this.#started.set(conversationId, trigger.name);
 		await this.#touchBot(conversationId, now);
 		await this.#record(id, { at: now, delivery, outcome: "ran", ...confidence }, request);
 		return conversationId;
@@ -293,7 +294,31 @@ export class TriggerRuns {
 		await this.sync();
 	}
 
-	takeStarted(id: ConversationId): boolean {
-		return this.#started.delete(id);
+	finished(id: ConversationId): boolean {
+		const schedule = this.#started.get(id);
+		if (schedule === undefined) return false;
+		this.#started.delete(id);
+		if (native.implements(Triggers.report)) void orLogged(this.#report(id, schedule), "trigger.report_failed", undefined, { conversation: String(id) });
+		return true;
 	}
+
+	async #report(id: ConversationId, schedule: string): Promise<void> {
+		const conversation = await this.#harness.conversation(id, context);
+		const bot = (await this.#bots()).find((candidate) => candidate.id === id);
+		if (!conversation || !bot) return;
+		const view = await conversation.viewState(context);
+		const answer = view.value.entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
+		view.dispose();
+		const text = answer ? plain(entryText(answer)) : "跑完了，沒有留下文字";
+		await Triggers.report({ conversation: String(id), bot: bot.name, avatar: bot.avatar, schedule, text, at: Date.now() });
+	}
+}
+
+function plain(markdown: string): string {
+	return markdown
+		.split("\n")
+		.map((line) => line.replaceAll("**", "").replaceAll("`", "").trim())
+		.map((line) => (line.startsWith("#") ? line.slice(line.indexOf(" ") + 1) : line))
+		.filter(Boolean)
+		.join("\n");
 }

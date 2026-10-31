@@ -112,7 +112,7 @@ export class AgentRuntime {
 		this.#placed = placed;
 		this.triggers = new TriggerRuns(
 			harness,
-			async () => (await this.bots()).map((bot) => ({ id: bot.id, avatar: avatarOf(bot) })),
+			async () => (await this.bots()).map((bot) => ({ id: bot.id, name: bot.name, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
 			judge,
 		);

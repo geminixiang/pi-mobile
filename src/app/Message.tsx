@@ -1,4 +1,4 @@
-import { contentText, type ImageContent, type Message as ModelMessage, type TextContent, type ThinkingContent, type ToolCall } from "@earendil-works/pi-ai";
+import { contentText, type ImageContent } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { type ComponentProps, isValidElement, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
@@ -8,7 +8,8 @@ import remarkGfm from "remark-gfm";
 import { ChevronIcon, CloseIcon, FileIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { isWhenKind, triggerSymbol } from "../triggers/when.ts";
-import { type AttachmentCard, parseAttachment, withoutAttachments } from "../agent/attachments.ts";
+import { type AttachmentCard, parseAttachment } from "../agent/attachments.ts";
+import { type Block, blocks, message } from "../agent/entries.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
@@ -18,23 +19,12 @@ import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
-type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
-
 export type CallState =
 	| { status: "pending" }
 	| { status: "running"; output?: string }
 	| { status: "done"; isError: boolean; output: string; images: ImageContent[] };
 
 type CallStates = ReadonlyMap<string, CallState>;
-
-function blocks(content: string | readonly Block[] | undefined): readonly Block[] {
-	if (typeof content === "string") return [{ type: "text", text: content }];
-	return content ?? [];
-}
-
-function message(entry: EntryRecord): ModelMessage | undefined {
-	return entry.model?.[0];
-}
 
 export function finishedCalls(entries: readonly EntryRecord[]): Map<string, CallState> {
 	const calls = new Map<string, CallState>();
@@ -69,10 +59,6 @@ export function AttachmentChip({ card, status, onRemove }: { card: Pick<Attachme
 	) : (
 		<div className="file-chip">{body}</div>
 	);
-}
-
-export function entryText(entry: EntryRecord): string {
-	return contentText(withoutAttachments(blocks(message(entry)?.content)));
 }
 
 const ON_LABEL: Record<string, string> = { headphones: "戴上耳機時", charging: "開始充電時", wifi: "連上 Wi‑Fi 時", arrive: "到達時", leave: "離開時" };

@@ -164,7 +164,7 @@ export function App() {
 	useEffect(() => {
 		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
 		setWorking([...busyIds].map(title));
-		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.triggers.takeStarted(id));
+		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.triggers.finished(id));
 		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
 		previousBusy.current = busyIds;
 	}, [busyIds, bots, runtime]);

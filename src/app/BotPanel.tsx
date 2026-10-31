@@ -11,7 +11,7 @@ import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { BoxIcon, CheckIcon, ChevronIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
-import { entryText } from "./Message.tsx";
+import { entryText } from "../agent/entries.ts";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 import { SidePanel } from "./SidePanel.tsx";

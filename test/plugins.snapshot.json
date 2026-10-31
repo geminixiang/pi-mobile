@@ -4690,6 +4690,40 @@
 					"type": "object"
 				},
 				"result": null
+			},
+			"report": {
+				"args": {
+					"properties": {
+						"at": {
+							"type": "number"
+						},
+						"avatar": {
+							"type": "string"
+						},
+						"bot": {
+							"type": "string"
+						},
+						"conversation": {
+							"type": "string"
+						},
+						"schedule": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"conversation",
+						"bot",
+						"avatar",
+						"schedule",
+						"text",
+						"at"
+					],
+					"type": "object"
+				},
+				"result": null
 			}
 		},
 		"events": {

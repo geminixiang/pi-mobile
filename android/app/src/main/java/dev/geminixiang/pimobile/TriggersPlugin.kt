@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -160,22 +161,20 @@ class TriggersPlugin : Plugin() {
                 .setContentTitle(call.getString("title") ?: "pi")
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
-                .setContentIntent(openConversation(conversation))
+                .setContentIntent(openConversation(context, conversation))
                 .setAutoCancel(true)
                 .build()
         context.getSystemService(NotificationManager::class.java).notify(0x3000 + (conversation.hashCode() and 0xfff), notification)
         call.resolve()
     }
 
-    private fun granted(alias: String) = getPermissionState(alias) == PermissionState.GRANTED
-
-    private fun openConversation(conversation: String): PendingIntent {
-        if (conversation.isEmpty()) return AgentService.openApp(context)
-        val intent =
-            Intent(Intent.ACTION_VIEW, Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation)), context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return PendingIntent.getActivity(context, conversation.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    @PluginMethod
+    fun report(call: PluginCall) {
+        ReportsWidget.add(context, call.data)
+        call.resolve()
     }
+
+    private fun granted(alias: String) = getPermissionState(alias) == PermissionState.GRANTED
 
     private fun receiveShare(intent: Intent?) {
         if (intent == null || (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE)) return
@@ -237,6 +236,14 @@ class TriggersPlugin : Plugin() {
         @JvmStatic fun inFront(activity: Activity?) = activity is LifecycleOwner && activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
         internal fun waitingNotificationId(trigger: String) = 0x1000 + (trigger.hashCode() and 0xfff)
+
+        internal fun openConversation(context: Context, conversation: String): PendingIntent {
+            if (conversation.isEmpty()) return AgentService.openApp(context)
+            val intent =
+                Intent(Intent.ACTION_VIEW, Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation)), context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            return PendingIntent.getActivity(context, conversation.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        }
 
         private fun copyLimited(input: InputStream, output: OutputStream) {
             val buffer = ByteArray(64 * 1024)
