@@ -61,10 +61,10 @@
                 android:layout_height="48dp"
                 android:background="@drawable/reports_widget_next"
                 android:gravity="center"
-                android:minWidth="64dp"
-                android:paddingHorizontal="12dp"
+                android:minWidth="84dp"
+                android:paddingHorizontal="16dp"
                 android:textColor="@color/widget_text"
-                android:textSize="14sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <TextView
