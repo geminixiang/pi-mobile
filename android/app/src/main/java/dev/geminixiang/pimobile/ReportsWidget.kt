@@ -110,6 +110,8 @@ class ReportsWidget : AppWidgetProvider() {
             val scale = context.resources.configuration.fontScale
             val headlineLines = if (headline.length * HEADLINE_SP * scale > width - INSET_DP) 2 else 1
             val detailLines = ((height - CHROME_DP - headlineLines * HEADLINE_LINE_DP * scale) / (DETAIL_LINE_DP * scale)).toInt().coerceAtLeast(1)
+            views.setViewVisibility(R.id.reports_room, View.GONE)
+            views.setViewVisibility(R.id.report, View.VISIBLE)
             views.setTextViewText(R.id.report_bot, report.getString("bot"))
             views.setTextViewText(R.id.report_when, "${report.getString("schedule")} · $time")
             views.setTextViewText(R.id.report_headline, headline)
