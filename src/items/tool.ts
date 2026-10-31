@@ -92,7 +92,7 @@ export function createItemsExtension(triggers: TriggerHost) {
 			section(
 				"items",
 				() =>
-					"What the user will need to come back to (a due date, a reply they wait for, a price or place to watch) goes in note_item with next_at, not only in memory or a table: at next_at the phone wakes you here with it. Close it with state done once it is handled.",
+					"What the user will need to come back to (a due date, a reply they wait for, a price or place to watch) goes in note_item with next_at, not only in memory or a table: at next_at the phone wakes you here with it. A timer or alarm only rings; use them when the user asks for one, not to follow something up. Close it with state done once it is handled.",
 			),
 		],
 	});
