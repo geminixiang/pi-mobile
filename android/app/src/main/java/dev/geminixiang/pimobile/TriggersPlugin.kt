@@ -163,20 +163,26 @@ class TriggersPlugin : Plugin() {
     @PluginMethod
     fun notify(call: PluginCall) {
         val conversation = call.getString("conversation").orEmpty()
+        val title = call.getString("title") ?: "pi"
         val text = call.getString("text").orEmpty()
+        val bot = call.getString("bot")
+        val manager = context.getSystemService(NotificationManager::class.java)
         AgentService.createChannels(context)
+        if (!manager.areNotificationsEnabled() || manager.getNotificationChannel(AgentService.CHANNEL_PROACTIVE)?.importance == NotificationManager.IMPORTANCE_NONE) {
+            return call.resolve(JSObject().put("shown", false))
+        }
         val notification =
             Notification.Builder(context, AgentService.CHANNEL_PROACTIVE)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setLargeIcon(AgentService.avatar(context, call.getString("avatar")))
-                .setContentTitle(call.getString("title") ?: "pi")
-                .setContentText(text)
-                .setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentTitle(bot ?: title)
+                .setContentText(if (bot == null) text else title)
+                .setStyle(Notification.BigTextStyle().bigText(if (bot == null) text else "$title\n$text"))
                 .setContentIntent(openConversation(context, conversation))
                 .setAutoCancel(true)
                 .build()
-        context.getSystemService(NotificationManager::class.java).notify(0x3000 + (conversation.hashCode() and 0xfff), notification)
-        call.resolve()
+        manager.notify(proactiveNotificationId(conversation), notification)
+        call.resolve(JSObject().put("shown", true))
     }
 
     @PluginMethod
@@ -187,7 +193,9 @@ class TriggersPlugin : Plugin() {
 
     @PluginMethod
     fun seen(call: PluginCall) {
-        ReportsWidget.seen(context, call.getString("conversation").orEmpty())
+        val conversation = call.getString("conversation").orEmpty()
+        context.getSystemService(NotificationManager::class.java).cancel(proactiveNotificationId(conversation))
+        ReportsWidget.seen(context, conversation)
         call.resolve()
     }
 
@@ -253,6 +261,8 @@ class TriggersPlugin : Plugin() {
         @JvmStatic fun inFront(activity: Activity?) = activity is LifecycleOwner && activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
         internal fun waitingNotificationId(trigger: String) = 0x1000 + (trigger.hashCode() and 0xfff)
+
+        private fun proactiveNotificationId(conversation: String) = 0x3000 + (conversation.hashCode() and 0xfff)
 
         internal fun openConversation(context: Context, conversation: String): PendingIntent {
             if (conversation.isEmpty()) return AgentService.openApp(context)

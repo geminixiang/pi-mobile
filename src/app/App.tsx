@@ -119,10 +119,11 @@ export function App() {
 				const opened = await AgentRuntime.open(storage, next, capacitorPlatform(modelIds), {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
-					notify: async (title, text, conversationId, avatar) => {
-						if ((inForeground() && live.current.controller?.id === conversationId) || !native.implements(Triggers.notify)) return false;
-						await Triggers.notify({ title, text, conversation: String(conversationId), ...(avatar ? { avatar } : {}) });
-						return true;
+					notify: async (title, text, conversationId, bot) => {
+						if (inForeground() && live.current.controller?.id === conversationId) return "watching";
+						if (!native.implements(Triggers.notify)) return "off";
+						const { shown } = await Triggers.notify({ title, text, conversation: String(conversationId), ...(bot ? { bot: bot.name, avatar: bot.avatar } : {}) });
+						return shown ? "shown" : "off";
 					},
 				});
 				setRuntime(opened);

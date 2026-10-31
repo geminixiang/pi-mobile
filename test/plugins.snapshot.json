@@ -4684,6 +4684,9 @@
 						"avatar": {
 							"type": "string"
 						},
+						"bot": {
+							"type": "string"
+						},
 						"conversation": {
 							"type": "string"
 						},
@@ -4700,7 +4703,17 @@
 					],
 					"type": "object"
 				},
-				"result": null
+				"result": {
+					"properties": {
+						"shown": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"shown"
+					],
+					"type": "object"
+				}
 			},
 			"report": {
 				"args": {

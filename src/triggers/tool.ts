@@ -45,9 +45,11 @@ async function needLocationAlways(what: string): Promise<void> {
 	}
 }
 
+export type Notified = "shown" | "watching" | "off";
+
 export interface TriggerHost {
 	changed(): void;
-	notify(title: string, text: string, conversationId: ConversationId): Promise<boolean>;
+	notify(title: string, text: string, conversationId: ConversationId): Promise<Notified>;
 }
 
 const CreateScheduleArgs = Type.Object({
@@ -275,8 +277,10 @@ export function createTriggerExtension(host: TriggerHost) {
 			text: Type.String({ description: "One to three short lines" }),
 		}),
 		execute: async (args, api) => {
-			const shown = await host.notify(args.title, args.text, api.conversationId);
-			return text(shown ? "Notified." : "Delivered: the user has this conversation open and reads your answer.");
+			const notified = await host.notify(args.title, args.text, api.conversationId);
+			if (notified === "watching") return text("Delivered: the user has this conversation open and reads your answer.");
+			if (notified === "off") return text("Not shown: notifications from pi are turned off on this phone. Put the gist in your answer, and tell the user they can turn them on in the phone's settings.");
+			return text("Notified.");
 		},
 	});
 

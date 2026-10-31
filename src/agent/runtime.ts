@@ -32,7 +32,7 @@ import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { isEnabled, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
 import { TriggerRuns } from "../triggers/runs.ts";
-import type { TriggerHost } from "../triggers/tool.ts";
+import type { Notified, TriggerHost } from "../triggers/tool.ts";
 import { type Placed, type Workplace, Workplaces } from "./workplaces.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -161,7 +161,7 @@ export class AgentRuntime {
 		platform: Platform,
 		options: {
 			onReport?: (message: string) => void;
-			notify?: (title: string, text: string, conversationId: ConversationId, avatar: string | undefined) => Promise<boolean>;
+			notify?: (title: string, text: string, conversationId: ConversationId, bot: { name: string; avatar: string } | undefined) => Promise<Notified>;
 			openUrl?: (url: string) => Promise<void>;
 		} = {},
 	): Promise<AgentRuntime> {
@@ -173,7 +173,7 @@ export class AgentRuntime {
 			changed: () => void runtimeRef?.triggers.sync(),
 			notify: async (title, text, conversationId) => {
 				const bot = (await runtimeRef?.bots())?.find((candidate) => candidate.id === conversationId);
-				return (await options.notify?.(title, text, conversationId, bot && avatarOf(bot))) ?? false;
+				return (await options.notify?.(title, text, conversationId, bot && { name: bot.name, avatar: avatarOf(bot) })) ?? "off";
 			},
 		};
 		const placed = new Map<string, Placed>();

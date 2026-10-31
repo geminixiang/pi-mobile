@@ -77,7 +77,10 @@ export const Triggers = definePlugin(
 		requestLocationAlways: { args: Type.Object({}), result: Type.Object({ foreground: Type.Boolean(), background: Type.Boolean() }) },
 		requestExactAlarms: { args: Type.Object({}) },
 		requestOverlay: { args: Type.Object({}) },
-		notify: { args: Type.Object({ title: Type.String(), text: Type.String(), conversation: Type.Optional(Type.String()), avatar: Type.Optional(Type.String()) }) },
+		notify: {
+			args: Type.Object({ title: Type.String(), text: Type.String(), conversation: Type.Optional(Type.String()), bot: Type.Optional(Type.String()), avatar: Type.Optional(Type.String()) }),
+			result: Type.Object({ shown: Type.Boolean() }),
+		},
 		report: { args: Type.Object({ conversation: Type.String(), bot: Type.String(), avatar: Type.String(), schedule: Type.String(), headline: Type.String(), text: Type.String(), at: Type.Number() }) },
 		seen: { args: Type.Object({ conversation: Type.String() }) },
 	},

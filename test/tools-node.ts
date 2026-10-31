@@ -34,7 +34,7 @@ const { extensions } = builtinExtensions({
 	githubToken: "token",
 	clouds: [googleService(async () => "", undefined), cloudflareService(async () => "", undefined), azureService(async () => "", undefined)],
 	web: { baseUrl: "", apiKey: "", modelIds: [] },
-	triggers: { changed: () => undefined, notify: async () => false },
+	triggers: { changed: () => undefined, notify: async () => "shown" },
 	memory: { changed: () => undefined },
 	workplace: () => workplace,
 	labelOf: (name) => name,

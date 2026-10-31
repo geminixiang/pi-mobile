@@ -234,6 +234,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-31 | 外掛合約 `Triggers.notify` 多帶 `bot`、回傳 `{ shown }`：通知標題是 Bot 名字，Bot 寫的標題是第一行、內文展開才看到；手機關掉 pi 的通知時不再假裝發出，`notify` 回給 Bot「Not shown: notifications from pi are turned off…」，Bot 會在回答裡講（模擬器實測）。`seen` 也收掉那個 Bot 的主動通知。工具參數不變；沒有 contract 測試，因為 `notify` 只能從 codemode 呼叫，Node 裡沒有 Worker 跑不了 codemode | 不變 | `plugins.snapshot.json` 已更新 |
 | 2026-10-31 | 外掛合約 `Triggers.status` 多回 `overlay`，多一個 `requestOverlay`：有「顯示在其他應用程式上層」權限時，pi 被滑掉後排程照樣在背景跑（安靜重啟），設定 › 自動化在沒開時顯示開啟按鈕 | 不變 | `plugins.snapshot.json` 已更新 |
 | 2026-10-31 | 外掛合約 `Triggers.report` 多一個 `headline`：排程跑完的回答第一行是重點，其餘是細節，小工具一次放一則，重點用大字，點右上角換下一則。排程跑完的提示改成先寫一行 20 字內的重點 | 多一句 | `plugins.snapshot.json` 已更新 |
 | 2026-10-31 | 外掛合約 `Triggers` 多一個 `seen`：在 pi 裡打開一個 Bot（或回到 pi 時正開著它），它在「Bot 匯報」小工具上的匯報就拿掉。小工具改成一個 Bot 只留最新一則，上排頭像看得出有幾個 Bot 在等你，下面一次放一則。排程跑完的提示多一句：回答不要提有沒有發通知（測試時匯報結尾出現「已發通知。」） | 多幾個字 | `plugins.snapshot.json` 已更新 |
