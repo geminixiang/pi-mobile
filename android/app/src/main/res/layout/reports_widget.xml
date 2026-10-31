@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/reports_widget_background"
-    android:clipToOutline="true"
-    android:padding="16dp">
+    android:clipToOutline="true">
 
     <LinearLayout
         android:id="@+id/reports_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp">
 
         <LinearLayout
             android:id="@+id/reports_bots"
@@ -49,12 +49,11 @@
         </LinearLayout>
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/reports_empty"
+    <ImageView
+        android:id="@+id/reports_room"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="@string/reports_empty"
-        android:textColor="@color/widget_muted"
-        android:textSize="14sp" />
+        android:contentDescription="@string/reports_empty"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
 </FrameLayout>

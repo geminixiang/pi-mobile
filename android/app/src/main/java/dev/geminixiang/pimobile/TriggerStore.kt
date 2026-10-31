@@ -55,6 +55,7 @@ object TriggerStore {
         val kept = next.objects().map { it.getString("id") }.toSet()
         for (old in schedules(context)) if (old.id !in kept) cancelAlarm(context, old.id)
         prefs(context).edit().putString(KEY_SCHEDULES, next.toString()).apply()
+        ReportsWidget.refreshAll(context)
         return armAll(context)
     }
 

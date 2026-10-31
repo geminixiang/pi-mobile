@@ -66,7 +66,7 @@ class ReportsWidget : AppWidgetProvider() {
                 emptyList()
             }
 
-        private fun refreshAll(context: Context) {
+        internal fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             refresh(context, manager, manager.getAppWidgetIds(ComponentName(context, ReportsWidget::class.java)))
         }
@@ -75,19 +75,28 @@ class ReportsWidget : AppWidgetProvider() {
             val reports = latest(context)
             val selected = prefs(context).getString(KEY_SELECTED, null)
             val shown = reports.find { it.getString("conversation") == selected } ?: reports.firstOrNull()
-            val line = LINE_DP * context.resources.configuration.fontScale
             for (id in ids) {
-                val height = manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-                manager.updateAppWidget(id, views(context, reports, shown, ((height - CHROME_DP) / line).toInt().coerceAtLeast(2)))
+                val options = manager.getAppWidgetOptions(id)
+                val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+                val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+                manager.updateAppWidget(id, if (shown == null) room(context, width, height) else views(context, reports, shown, height))
             }
         }
 
-        private fun views(context: Context, reports: List<JSONObject>, shown: JSONObject?, lines: Int): RemoteViews {
+        private fun room(context: Context, width: Int, height: Int): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.reports_widget)
-            views.setViewVisibility(R.id.reports_empty, if (shown == null) View.VISIBLE else View.GONE)
-            views.setViewVisibility(R.id.reports_content, if (shown == null) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.reports_content, View.GONE)
+            views.setViewVisibility(R.id.reports_room, View.VISIBLE)
+            val residents = TriggerStore.schedules(context).mapNotNull { it.avatar }.distinct()
+            views.setImageViewBitmap(R.id.reports_room, BotRoom.draw(context, residents, width, height))
+            views.setOnClickPendingIntent(R.id.reports_room, AgentService.openApp(context))
+            return views
+        }
+
+        private fun views(context: Context, reports: List<JSONObject>, shown: JSONObject, height: Int): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.reports_widget)
+            val lines = ((height - CHROME_DP) / (LINE_DP * context.resources.configuration.fontScale)).toInt().coerceAtLeast(2)
             views.removeAllViews(R.id.reports_bots)
-            if (shown == null) return views
             for (report in reports) views.addView(R.id.reports_bots, bot(context, report, report === shown))
             val at = Instant.ofEpochMilli(shown.getLong("at")).atZone(ZoneId.systemDefault())
             val time = (if (at.toLocalDate() == LocalDate.now()) TODAY else EARLIER).format(at)
