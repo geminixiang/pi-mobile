@@ -5,6 +5,6 @@
     <string name="package_name">dev.geminixiang.pimobile</string>
     <string name="custom_url_scheme">dev.geminixiang.pimobile</string>
     <string name="phone_screen_description">讓 pi 的 Bot 看手機畫面，替你點、滑、打字、開 app。只有你在 Bot 面板開著「手機畫面」的 Bot 會用，而且只在它回答你的時候。畫面上的內容（包括密碼欄以外的文字）會送給你設定的模型。</string>
-    <string name="reports_empty">Bot 在背景跑完排程，會在這裡跟你匯報</string>
-    <string name="reports_widget_description">Bot 最新的三則匯報</string>
+    <string name="reports_empty">沒有新的匯報</string>
+    <string name="reports_widget_description">哪些 Bot 有新的匯報，一次看一則</string>
 </resources>

@@ -5,13 +5,49 @@
     android:layout_height="match_parent"
     android:background="@drawable/reports_widget_background"
     android:clipToOutline="true"
-    android:padding="14dp">
+    android:padding="16dp">
 
     <LinearLayout
-        android:id="@+id/reports"
+        android:id="@+id/reports_content"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical" />
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/reports_bots"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:orientation="horizontal" />
+
+        <LinearLayout
+            android:id="@+id/report"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/report_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/report_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:lineSpacingExtra="3dp"
+                android:maxLines="3"
+                android:textColor="@color/widget_text"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </LinearLayout>
 
     <TextView
         android:id="@+id/reports_empty"

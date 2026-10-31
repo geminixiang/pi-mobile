@@ -4724,6 +4724,20 @@
 					"type": "object"
 				},
 				"result": null
+			},
+			"seen": {
+				"args": {
+					"properties": {
+						"conversation": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"conversation"
+					],
+					"type": "object"
+				},
+				"result": null
 			}
 		},
 		"events": {

@@ -174,6 +174,12 @@ class TriggersPlugin : Plugin() {
         call.resolve()
     }
 
+    @PluginMethod
+    fun seen(call: PluginCall) {
+        ReportsWidget.seen(context, call.getString("conversation").orEmpty())
+        call.resolve()
+    }
+
     private fun granted(alias: String) = getPermissionState(alias) == PermissionState.GRANTED
 
     private fun receiveShare(intent: Intent?) {

@@ -1,3 +1,4 @@
+import { App as CapacitorApp } from "@capacitor/app";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
@@ -242,6 +243,13 @@ export function App() {
 	}, [runtime, controller]);
 
 	const controllerId = controller?.id;
+	useEffect(() => {
+		if (controllerId === undefined || !native.implements(Triggers.seen)) return;
+		const conversation = String(controllerId);
+		void Triggers.seen({ conversation });
+		const listener = CapacitorApp.addListener("resume", () => void Triggers.seen({ conversation }));
+		return () => void listener.then((handle) => handle.remove());
+	}, [controllerId]);
 	const loadWorkspace = useCallback(
 		() => (runtime && controllerId !== undefined ? runtime.workspace(controllerId) : Promise.resolve(undefined)),
 		[runtime, controllerId],

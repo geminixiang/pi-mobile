@@ -78,6 +78,7 @@ export const Triggers = definePlugin(
 		requestExactAlarms: { args: Type.Object({}) },
 		notify: { args: Type.Object({ title: Type.String(), text: Type.String(), conversation: Type.Optional(Type.String()), avatar: Type.Optional(Type.String()) }) },
 		report: { args: Type.Object({ conversation: Type.String(), bot: Type.String(), avatar: Type.String(), schedule: Type.String(), text: Type.String(), at: Type.Number() }) },
+		seen: { args: Type.Object({ conversation: Type.String() }) },
 	},
 	{ event: Type.Object({}) },
 );

@@ -286,7 +286,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		sections: [
 			section("triggers", () =>
 				[
-					`A message starting "[trigger]" came from a schedule; the user is not watching: do the work, answer briefly without mentioning the schedule, and notify the gist when it is worth it or the schedule asks for it.`,
+					`A message starting "[trigger]" came from a schedule; the user is not watching: do the work, answer briefly without mentioning the schedule or the notification, and notify the gist when it is worth it or the schedule asks for it.`,
 					"Headphones connected: the user is listening, not reading: read the spoken-report skill and report with speak. Other events (charging, Wi-Fi, a place) say what happened.",
 				].join("\n"),
 			),
