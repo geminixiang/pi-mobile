@@ -46,11 +46,15 @@
 
 所以建議：**工人跑在 Herdr 裡**，手機透過 `pi-mobile serve` 呼叫 `herdr` 的 CLI（第一階段走現有的 `/exec`），第二階段由 `pi-mobile serve` 訂閱 Herdr 的事件轉給手機。下面「hook」和「交辦」兩節的自製部分（`pi-mobile agent-hook`、`agents setup`、用 `rex` 貼文字）就不用做，留作不用 Herdr 時的退路。
 
-要先在電腦上實測才能定案的：
+2026-10-31 在 Mac mini 上用獨立的測試 session（`herdr --session pitest server`，無畫面）實測，沒裝 Herdr 的 Claude Code 整合，只靠它的畫面偵測，工人是 Claude Code 2.1.316（Haiku）：
 
-- 從 Herdr 外面（`pi-mobile serve` 開的 shell）能不能連到使用者那個 Herdr session 的 socket，還是要用 `--session` 指定。
-- `done` 和 `idle` 的差別看的是「使用者有沒有在 Herdr 的畫面上看過那個分頁」；使用者人在手機上時，要以 `pane_agent_status_changed` 從 `working` 變成 `idle`／`done` 當作做完，不看「看過沒」。
-- `unknown`（認不出狀態）出現的頻率，以及 Claude Code 裝了整合之後 `blocked` 準不準。
+- **從 Herdr 外面控制**：可以。一般 shell 用 `herdr --session <名稱> …` 就能操作，`pi-mobile serve` 的 `/exec` 是同樣的情況；事件訂閱直接連 session 的 unix socket（`events.subscribe`，pane 的事件要帶 `pane_id`）。
+- **做完會主動推送**：交辦後依序收到 `working`（送出當下）和 `idle`（6 秒後），`agent prompt --wait` 共 6.7 秒；回報用 `agent read --source recent-unwrapped` 讀得到（「0 files」），不必讀 transcript。無畫面的 server 裡分頁一直算「看過」，所以只會是 `idle`，不會是 `done`：做完的判斷用「從 `working` 變成 `idle` 或 `done`」。
+- **等同意的偵測**：新資料夾的「信任這個資料夾嗎」和預設權限模式下 `curl` 的「This command requires approval」都在約 3 秒內變成 `blocked`，事件也有推送；工人在 `blocked` 時 `agent prompt` 直接回 `agent_blocked`，沒有送出任何字。這次沒有出現 `unknown`。
+- **要注意的**：
+  - `agent wait` 不帶 `--until` 時，`blocked` 也算穩定狀態，會立刻回傳；`agent start` 遇到信任對話框回 `agent_not_ready`，名字照樣可以用來讀畫面和送按鍵。
+  - Herdr server 是從 Claude Code 裡啟動的話，工人會繼承 `CLAUDE_CODE_CHILD_SESSION`，不存 transcript。server 要由 launchd 或 `pi-mobile serve` 啟動，不能從某個 agent 裡開。
+  - 裝 Herdr 的 Claude Code 整合會改 `~/.claude/settings.json`，這次被 Claude Code 自己的權限規則擋下，沒有裝；只靠畫面偵測就夠用，整合要不要裝留給使用者決定。
 - 使用者現在的 Claude Code 跑在 Rex 裡；改用 Herdr 代表工人要搬到 Herdr 開。
 
 ## 怎麼知道工人的狀態：agent 的 hook，不讀畫面
