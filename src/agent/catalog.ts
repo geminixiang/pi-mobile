@@ -21,6 +21,7 @@ import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
 import { createComputerAgentsExtension } from "../computer-agents/tool.ts";
+import { createItemsExtension } from "../items/tool.ts";
 import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { BrowserExtension } from "../browser/tool.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
@@ -80,6 +81,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		...createCloudExtensions(deps.clouds),
 		createWebExtension(deps.web),
 		createTriggerExtension(deps.triggers),
+		createItemsExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
 		createSandboxExtension(deps.workplace),
 		createFilesExtension(deps.workplace),

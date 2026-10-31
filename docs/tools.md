@@ -160,6 +160,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `delete_schedule` | 固定開啟 | 刪排程 | 直接 | |
 | `notify` | 固定開啟 | 發通知 | 直接 | |
 | `update_memory` | 固定開啟 | 改 MEMORY.md | 直接（每次都是一個看得到的步驟） | |
+| `note_item` | 固定開啟 | 記下、更新、結案一筆所有 Bot 共用的事項（要做、在等、完成），`next_at` 到了叫醒負責的 Bot | 直接 | 見 [design/life-items.md](design/life-items.md) |
+| `list_items` | 固定開啟 | 列出還沒結案的事項，預設只有這個 Bot 的 | 唯讀 | |
 | `tool_search` | 固定開啟 | 載入需要時才載入的工具 | 唯讀 | |
 
 ## 新工具上線前
@@ -238,6 +240,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-31 | 新的固定開啟擴充「事項」（`src/items/`）：`note_item`、`list_items`，只給腳本。一份所有 Bot 共用、只存在手機上的清單（`app.items`），每筆是要做／在等（`waiting_on`）／完成，加上 `next_at`、負責的 Bot、`ref`。`next_at` 跟排程一起交給原生端的精確鬧鐘（id 是 `item:<id>`），到了叫醒負責的 Bot，帶著事項當下的內容和無人值守規則，叫醒前清掉 `next_at`，要再看由 Bot 重設；刪 Bot 時它的事項一起刪。設計見 [design/life-items.md](design/life-items.md) | 每個 Bot 多一段約 60 tokens 的提示 | S24，預設的 SOTA 模型，暫時的 Bot：「我在等房東回覆修冷氣的時間，兩分鐘後幫我追一下」20 秒記成在等（第一次 `state` 寫成 `open` 被擋），23:45:00 準時叫醒，Bot 發通知、擬好要傳給房東的訊息、把事項結案；「我在等網購的退款，兩分鐘後幫我追一下」一次寫對，23:49:00 準時叫醒。發現：兩次 `notify` 都回「使用者開著這段對話」而沒有跳通知，但當時 pi 在背景或手機已鎖定。`PiWebView.keepRunning` 讓 WebView 在背景也是 visible，所以不能用 `visibilityState` 判斷；要改成問原生端，手機解鎖後再查 |
 | 2026-10-31 | 為 Qwen3.6 修三處：參數清理把數字字串轉成數字（`option: "1"`、`limit: "3"`，只在轉完通過驗證時採用）；`read_agent` 讀到 idle、而那個 agent 的 `watch` 建立超過 5 秒時，取消那個 `watch`（Bot 自己看到做完了，不再叫醒它重複回報）；`tell_agent` 的回覆寫明現在就回使用者、不要等、不要用 `read_agent` 一直查、不要排 follow-up | 不變 | S24 → Mac mini，`custom`／`qwen3.6`，跟 SOTA 同樣的真事，四件都辦成但管理行為不穩：列出 agent 63 秒（SOTA 27）、多一次 `tool_search`、`read_agent` 漏參數；只看不動 10 秒一次就對；交辦給 coder：在腳本裡 sleep 乾等、自己多排 `schedule_followup`（錯兩次參數、排到一小時後）、被 `watch` 叫醒時重複回報還反問使用者；等批准：使用者只說「執行 date」，Qwen 在同一輪自己按了 Yes。修後：交辦 17 秒就回「交給 asktest 了」、沒有 follow-up，`watch` 叫醒時列出指令和選項、問使用者選哪個，使用者回「允許，就這一次」後選 1。但 Qwen 常常不交辦、自己做：關掉「電腦」後改用 GitHub API 讀、用「電腦畫面」開終端機打字寫檔；再關掉電腦畫面、GitHub、瀏覽器後，才用 `tell_agent` 交給 coder（仍在同一輪一直讀，但看到做完就取消了 `watch`，沒有重複回報）。結論：給 Qwen 當管理者的 Bot 只留「電腦上的 agent」，不給 bash、電腦畫面、GitHub、瀏覽器 |
 | 2026-10-31 | 新工具 `answer_agent`（電腦上的 agent，只給腳本）：替使用者回答 agent 在等的批准或問題。從畫面找出游標 `❯` 所在的選項列（有編號的批准對話框、沒編號的信任對話框都行），用上下鍵移到使用者選的那個再按 Enter；排程或「等它做完」叫醒的那一輪一律拒絕（`TriggerRuns.unattended`），「不要再問」「自動模式」這類選項要 `stop_asking`；答完再建一個 `watch`。`tell_agent` 和它共用 `watch` | 多一個只給腳本的工具和提示裡半句 | S24 → Mac mini，Rex 裡手動模式的 Claude Code（Haiku）：「asktest 卡在問什麼？我是要讓它用那個資料夾的，幫我回答」27 秒，Bot 讀畫面說明是信任資料夾，選「Yes, I trust this folder」（第一次把選項當文字傳，參數檢查擋下後改用編號）。「叫它用 shell 把現在時間寫進 now.txt」交辦後 1 分鐘內通知「指揮測試／asktest 等待執行許可」，Bot 列出它要跑的指令原文、建議只允許這次；回「允許，就這一次」10 秒內選了 1. Yes，`now.txt` 寫入 22:54:20。使用者自己的研究工作（researcher 等讀取 unifiedpush.org）沒有代按 |
 | 2026-10-31 | `list_agents` 每個 agent 多帶使用者叫它的名字（Herdr 的 agent 名稱、Rex 的 session 名稱，`rex ls --json`）；「等它做完」叫醒 Bot 時的提示多一句：使用者在等這件事，要通知 | 不變 | S24 → Mac mini，三件真的事，交辦各約 20–25 秒、Bot 都馬上回覆：（1）「coder 修小工具殘留刪掉的 Bot 的匯報」：第一次交錯人（列表沒有名字，交給了 Herdr 的 researcher），加上名字後交對；coder 2 分 25 秒在另一個 worktree 修好、加了舊碼會失敗的測試、`npm run check` 通過、沒 push，手機 1 分鐘內發現做完，Bot 自己讀了改前改後的測試紀錄才回報。（2）「researcher 研究自架推播」：手動模式下停在允許讀取 unifiedpush.org，手機約 1 分鐘內叫醒 Bot，回報「研究暫停，需允許讀取官網」並說要選哪個，沒有替使用者批准；但沒有發通知，所以加了上面那句。替工人按同意被 Claude Code 的權限規則擋下（要使用者自己決定），研究停在那裡。（3）「coder 列出可以清掉的 worktree 和分支，不要刪」：交辦後從最近使用的 App 滑掉 pi，鬧鐘觸發時安靜啟動，22:30:20 通知「指揮測試／Worktree 盤點完成」，清單和 `git branch --merged` 一致 |

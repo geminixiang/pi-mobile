@@ -172,7 +172,7 @@ const rules: Rule[] = [
 	},
 ];
 
-const FIXED = new Set(["bot", "skills", "attachments", "triggers", "memory", "tool-search", "on-demand", "assistant", "sandbox"]);
+const FIXED = new Set(["bot", "skills", "attachments", "triggers", "memory", "items", "tool-search", "on-demand", "assistant", "sandbox"]);
 
 const failures: string[] = [];
 const names = new Map<string, string>();

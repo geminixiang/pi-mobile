@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "../../src/agent/doc-policy.ts";
 import { loadModels } from "../../src/agent/available-models.ts";
+import { ItemDoc } from "../../src/items/items.ts";
 import { type AgentState, type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
 import { whenOf } from "../../src/triggers/tool.ts";
 import type { QueuedEvent } from "../../src/triggers/plugin.ts";
@@ -15,7 +16,7 @@ import { type Check, logged, settings } from "./setup.ts";
 
 async function triggerFixture(
 	when: Trigger["when"],
-	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState } = {},
+	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState; item?: { state: "todo" | "done"; nextAt?: number } } = {},
 ) {
 	const storage = new MemoryStorage();
 	const { models } = await loadModels(settings, Promise.resolve({}));
@@ -36,6 +37,10 @@ async function triggerFixture(
 			createdAt: Date.now(),
 		});
 		doc.runs = options.runs ?? [];
+		const item = options.item;
+		if (!item) return;
+		const base = { id: "i1", title: "回覆面試時間", bot: conversation.id, ...(item.nextAt !== undefined ? { nextAt: item.nextAt } : {}), createdAt: 0, updatedAt: 0 };
+		(await tx.doc(ItemDoc)).items = [item.state === "done" ? { ...base, state: "done", doneAt: Date.now() } : { ...base, state: "todo" }];
 	}, context);
 	let refuse = false;
 	const flaky = new Proxy(harness, {
@@ -71,6 +76,7 @@ async function triggerFixture(
 		asked,
 		conversation: conversation.id,
 		doc: async () => (await harness.snapshot(TriggerDoc, context)) ?? { items: [], runs: [] },
+		items: async () => (await harness.snapshot(ItemDoc, context))?.items ?? [],
 		delivered: () => entriesOf(storage, conversation.id, TRIGGER_ENTRY),
 		refuse: (value: boolean) => (refuse = value),
 		close: () => harness.close(context),
@@ -90,6 +96,44 @@ const confidenceOf = (last: LastRun | undefined) => (last?.outcome === "failed" 
 const alarm = (id: string, at = Date.now()): QueuedEvent => ({ id, at, kind: "alarm", trigger: "t1", live: true });
 
 export const checks: Check[] = [
+	[
+		"an item whose next time has come wakes its bot once and waits for a new next time",
+		async () => {
+			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item: { state: "todo", nextAt: Date.now() - 1000 } });
+			await withTrigger(fixture, async () => {
+				assert.equal(await fixture.runs.run("item:i1", "live", { event: "e1" }), fixture.conversation);
+				assert.equal(await fixture.delivered(), 1);
+				const [item] = await fixture.items();
+				assert.equal(item?.state, "todo");
+				assert.equal(item?.nextAt, undefined);
+				assert.equal(await fixture.runs.run("item:i1", "live", { event: "e2" }), undefined);
+				assert.equal(await fixture.delivered(), 1);
+			});
+		},
+	],
+	[
+		"an item that is done, not due yet, or gone wakes no one",
+		async () => {
+			for (const item of [{ state: "done", nextAt: Date.now() - 1000 }, { state: "todo", nextAt: Date.now() + 3_600_000 }] as const) {
+				const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item });
+				await withTrigger(fixture, async () => {
+					assert.equal(await fixture.runs.run("item:i1", "live"), undefined, item.state);
+					assert.equal(await fixture.runs.run("item:missing", "live"), undefined);
+					assert.equal(await fixture.delivered(), 0);
+				});
+			}
+		},
+	],
+	[
+		"removing a bot removes the items it owns",
+		async () => {
+			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item: { state: "todo" } });
+			await withTrigger(fixture, async () => {
+				await fixture.runs.removeBot(fixture.conversation);
+				assert.deepEqual(await fixture.items(), []);
+			});
+		},
+	],
 	[
 		"a watch whose agent is still working wakes no one and checks again a minute later",
 		async () => {

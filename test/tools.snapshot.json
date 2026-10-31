@@ -3358,6 +3358,77 @@
 		]
 	},
 	{
+		"extension": "items",
+		"toolset": "fixed",
+		"name": "note_item",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"id": {
+					"description": "The item's id from list_items, to update it",
+					"type": "string"
+				},
+				"next_at": {
+					"description": "When to look at it again: local YYYY-MM-DD HH:MM, or a date for 9:00 that day, or \"none\"",
+					"type": "string"
+				},
+				"ref": {
+					"description": "Where the details are: a link, or a record in a bot's own data",
+					"type": "string"
+				},
+				"state": {
+					"description": "todo: someone has to act; waiting: on a person or condition (give waiting_on); done: closed. Default todo",
+					"enum": [
+						"todo",
+						"waiting",
+						"done"
+					],
+					"type": "string"
+				},
+				"title": {
+					"description": "One sentence the user understands, in their language; needed for a new item",
+					"type": "string"
+				},
+				"waiting_on": {
+					"description": "Who or what it waits on, for state waiting",
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": []
+	},
+	{
+		"extension": "items",
+		"toolset": "fixed",
+		"name": "list_items",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"all": {
+					"description": "Every bot's items, not only this bot's",
+					"type": "boolean"
+				},
+				"done": {
+					"description": "Also the items closed in the last 30 days",
+					"type": "boolean"
+				}
+			},
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
+	},
+	{
 		"extension": "memory",
 		"toolset": "fixed",
 		"name": "update_memory",

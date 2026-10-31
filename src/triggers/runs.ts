@@ -12,6 +12,7 @@ import type { Judge } from "../agent/judge.ts";
 import { GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
 import { Triggers, When } from "./plugin.ts";
 import { isEvent } from "./when.ts";
+import { type Item, ITEM_TRIGGER, ItemDoc, itemTrigger } from "../items/items.ts";
 
 const DELIVERIES = ["live", "later", "manual"] as const;
 type Delivery = (typeof DELIVERIES)[number];
@@ -40,6 +41,7 @@ export type Trigger = {
 export type AgentState = "idle" | "working" | "needs_user" | "unknown" | "gone" | "unreachable";
 
 const MINUTE = 60_000;
+const UNATTENDED = "(Unattended: nobody will answer a question. Start the answer with one line of at most 20 characters that tells the point (what changed or needs the user, or that nothing did), then the details; where something is unclear, pick the likely choice and say the assumption; when a step needs the user, skip it and say what is needed.)";
 const WATCH_LIMIT = 12 * 60 * MINUTE;
 
 export function nextCheck(waited: number): number {
@@ -160,8 +162,12 @@ export class TriggerRuns {
 		this.#agentState = agentState;
 	}
 
-	removeBot(conversationId: ConversationId): Promise<void> {
-		return this.#edit((items) => items.filter((item) => item.conversationId !== conversationId));
+	async removeBot(conversationId: ConversationId): Promise<void> {
+		await this.#harness.commit(async (tx) => {
+			const doc = await tx.doc(ItemDoc);
+			doc.items = doc.items.filter((item) => item.bot !== conversationId);
+		}, context);
+		await this.#edit((items) => items.filter((item) => item.conversationId !== conversationId));
 	}
 
 	subscribe(listener: (state: TriggerState) => void): () => void {
@@ -173,9 +179,13 @@ export class TriggerRuns {
 	async sync(): Promise<void> {
 		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
 		const avatars = new Map((await this.#bots()).map((bot) => [bot.id, bot.avatar]));
-		const schedules = items
-			.filter((item) => item.state === "on")
-			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
+		const due = ((await this.#harness.snapshot(ItemDoc, context))?.items ?? []).flatMap((item) =>
+			item.state !== "done" && item.nextAt !== undefined ? [{ id: itemTrigger(item.id), name: item.title, when: { kind: "once" as const, at: item.nextAt }, avatar: avatars.get(item.bot) }] : [],
+		);
+		const schedules = [
+			...items.filter((item) => item.state === "on").map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) })),
+			...due,
+		];
 		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
 		this.#state = { items: [...items], next };
 		for (const listener of this.#listeners) listener(this.#state);
@@ -208,6 +218,7 @@ export class TriggerRuns {
 	}
 
 	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string } = {}): Promise<ConversationId | undefined> {
+		if (id.startsWith(ITEM_TRIGGER)) return this.#runItem(id.slice(ITEM_TRIGGER.length), delivery, delivered.event);
 		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
@@ -266,7 +277,7 @@ export class TriggerRuns {
 				{
 					type: "input",
 					...(request ? { requestId: request } : {}),
-					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}\n\n(Unattended: nobody will answer a question. Start the answer with one line of at most 20 characters that tells the point (what changed or needs the user, or that nothing did), then the details; where something is unclear, pick the likely choice and say the assumption; when a step needs the user, skip it and say what is needed.)` }],
+					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}\n\n${UNATTENDED}` }],
 					entry: {
 						kind: TRIGGER_ENTRY,
 						data: {
@@ -294,6 +305,43 @@ export class TriggerRuns {
 		await this.#touchBot(conversationId, now);
 		await this.#record(id, { at: now, delivery, outcome: "ran", ...confidence }, request);
 		return conversationId;
+	}
+
+	async #runItem(id: string, delivery: Delivery, event: string | undefined): Promise<ConversationId | undefined> {
+		const request = event ? `trigger:${event}` : undefined;
+		const runs = (await this.#harness.snapshot(TriggerDoc, context))?.runs ?? [];
+		if (request && runs.some((run) => run.request === request)) return undefined;
+		const item = (await this.#harness.snapshot(ItemDoc, context))?.items.find((candidate) => candidate.id === id);
+		const now = Date.now();
+		const due = item && item.state !== "done" && (delivery === "manual" || (item.nextAt !== undefined && item.nextAt <= now + MINUTE));
+		const overLimit = runs.filter((run) => run.at >= startOfToday()).length >= LIMITS.total;
+		const conversation = due && !overLimit && (await this.#bots()).some((bot) => bot.id === item.bot) ? await this.#harness.conversation(item.bot, context) : undefined;
+		if (!item || !conversation) {
+			await this.sync();
+			return undefined;
+		}
+		const details = [item.state === "waiting" ? `waiting on ${item.waitingOn}` : item.state, item.ref ? `details in ${item.ref}` : ""].filter(Boolean).join(", ");
+		await conversation.submit(
+			{
+				type: "input",
+				...(request ? { requestId: request } : {}),
+				content: [{ type: "text", text: `[trigger] item ${item.id} "${item.title}" (${details}) is due, ${new Date(now).toString()}\n\nHandle it: do what you can, notify the user when it needs them, then note_item it: done, or a new next_at.\n\n${UNATTENDED}` }],
+				entry: { kind: TRIGGER_ENTRY, data: { trigger: itemTrigger(item.id), name: item.title, prompt: item.title, kind: "item", delivery, at: now } },
+				whenBusy: "followUp",
+			},
+			context,
+		);
+		this.#started.set(item.bot, item.title);
+		await this.#touchBot(item.bot, now);
+		const kept = startOfToday() - RUNS_KEPT_MS;
+		await this.#harness.commit(async (tx) => {
+			const items = await tx.doc(ItemDoc);
+			items.items = items.items.map((candidate) => (candidate.id === id ? withoutNextAt(candidate) : candidate));
+			const triggers = await tx.doc(TriggerDoc);
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: itemTrigger(id), at: now, ...(request ? { request } : {}) }];
+		}, context);
+		await this.sync();
+		return item.bot;
 	}
 
 	gaveUp(id: string, reason: string): Promise<void> {
@@ -344,6 +392,10 @@ export class TriggerRuns {
 		const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
 		await Triggers.report({ conversation: String(id), bot: bot.name, avatar: bot.avatar, schedule, headline, text: detail.join("\n"), at: Date.now() });
 	}
+}
+
+function withoutNextAt({ nextAt: _passed, ...item }: Item): Item {
+	return item;
 }
 
 function plain(markdown: string): string {
