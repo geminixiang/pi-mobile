@@ -31,6 +31,28 @@
   - `gone`：程序不在了（關掉、電腦重開）。
 - 狀態**只來自工人自己的事件**（下面的 hook），不從畫面推斷，也不由手機記住「我剛交辦了所以應該在 working」。Lody 的做法相同：「正在工作」只能來自 presence；手機唯一能自己推斷的是「已送出、還沒開始」，而且有時間上限（[research/t3-lody-paseo-design.md](../research/t3-lody-paseo-design.md)）。
 
+## 工人那一層：用 Herdr，不自己做
+
+[Herdr](https://github.com/ogulcancelik/herdr)（Rust，AGPL-3.0，這台 Mac mini 上已裝 0.9.0）是給 coding agent 用的終端機多工器，正好是下面兩節原本打算自己做的部分。2026-10-31 只讀了它的 CLI 說明和 socket API 的 schema（`herdr api schema`），沒有在 Herdr 裡實際跑過工人。
+
+| | Herdr | Rex |
+|---|---|---|
+| 知道 pane 裡是哪個 agent | 會，支援 pi、claude、codex 等 20 多種 | 不會，只是終端機 |
+| 工人狀態 | `idle`、`working`、`blocked`（等同意或回答）、`done`、`unknown`；來源是它替各 agent 裝的整合（`herdr integration install claude`，Claude Code 是 hook）加上畫面偵測 | 要 agent 自己輸出 OSC 7501，Claude Code 不會 |
+| 交辦 | `agent prompt <工人> <文字> --wait`：用 bracketed paste 送出，工人在等同意時直接拒絕（`agent_blocked`），送出 5 秒沒開始就回 `agent_prompt_stalled` | `rex send` 打字，沒有語意 |
+| 主動通知 | socket API 的 `events.subscribe`，有 `pane_agent_status_changed` | `rex events` 只有 session 層級的事件 |
+| 開新工人 | `agent start <名字> --kind claude --pane <id>`，等它可以輸入才回 | 開一個 block 自己跑指令 |
+| 取得 | 開源 | 封閉 beta |
+
+所以建議：**工人跑在 Herdr 裡**，手機透過 `pi-mobile serve` 呼叫 `herdr` 的 CLI（第一階段走現有的 `/exec`），第二階段由 `pi-mobile serve` 訂閱 Herdr 的事件轉給手機。下面「hook」和「交辦」兩節的自製部分（`pi-mobile agent-hook`、`agents setup`、用 `rex` 貼文字）就不用做，留作不用 Herdr 時的退路。
+
+要先在電腦上實測才能定案的：
+
+- 從 Herdr 外面（`pi-mobile serve` 開的 shell）能不能連到使用者那個 Herdr session 的 socket，還是要用 `--session` 指定。
+- `done` 和 `idle` 的差別看的是「使用者有沒有在 Herdr 的畫面上看過那個分頁」；使用者人在手機上時，要以 `pane_agent_status_changed` 從 `working` 變成 `idle`／`done` 當作做完，不看「看過沒」。
+- `unknown`（認不出狀態）出現的頻率，以及 Claude Code 裝了整合之後 `blocked` 準不準。
+- 使用者現在的 Claude Code 跑在 Rex 裡；改用 Herdr 代表工人要搬到 Herdr 開。
+
 ## 怎麼知道工人的狀態：agent 的 hook，不讀畫面
 
 Claude Code 和 Codex 都有 hook：在特定時刻執行一個指令，從 stdin 收到一包 JSON（session id、`transcript_path`、`cwd`、事件名稱）。用到的事件：
@@ -91,6 +113,7 @@ Claude Code 和 Codex 都有 hook：在特定時刻執行一個指令，從 stdi
 
 ## 要使用者決定
 
+- 工人那一層用 Herdr（建議）還是繼續用 Rex 加自己寫的 hook；用 Herdr 的話，電腦上的 Claude Code 要改在 Herdr 裡開。
 - pi 沒開時要不要推播：只靠精確鬧鐘回頭看，還是加 UnifiedPush／ntfy。
 - 第一版只支援「在 Rex 裡的 Claude Code」夠不夠，還是一開始就要無介面的工人。
 - 從手機批准危險動作（第三階段）的範圍。
