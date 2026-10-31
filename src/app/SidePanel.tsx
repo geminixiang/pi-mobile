@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { haptic } from "./haptics.ts";
 import { useBack } from "./layers.ts";
 import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
 
@@ -71,6 +72,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 			drag.motion.settle(open);
 			return;
 		}
+		haptic(open ? "press" : "tick");
 		current().onChange(open ? side : undefined);
 	};
 
