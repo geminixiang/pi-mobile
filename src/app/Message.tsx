@@ -15,6 +15,7 @@ import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { isSource } from "./sources.ts";
+import { preview, stepsLabel } from "./steps.ts";
 import { triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
@@ -132,6 +133,7 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 	if (name === "web_search" && typeof args.query === "string") return args.query;
 	if (name === "web_fetch" && typeof args.url === "string") return typeof args.save_to === "string" && args.save_to ? `${args.url} → ${args.save_to}` : args.url;
 	if (name === "bash" && typeof args.command === "string") return args.command;
+	if (name === "use_browser" || name === "use_phone_screen") return stepsLabel(args.steps) ?? "";
 	if (name === "codemode" && typeof args.code === "string") {
 		return args.code.split("\n").find((line) => line.trim() && !line.trim().startsWith("//"))?.trim() ?? "";
 	}
@@ -185,12 +187,6 @@ function useElapsed(running: boolean): number {
 	return Math.floor((now - started) / 1000);
 }
 
-function preview(name: string, lines: string[]): { shown: string[]; hidden: number } {
-	if (name === "read") return { shown: [], hidden: 0 };
-	if (name === "bash" || name === "codemode") return { shown: lines.slice(-5), hidden: Math.max(0, lines.length - 5) };
-	return { shown: lines.slice(0, 10), hidden: Math.max(0, lines.length - 10) };
-}
-
 const HTML_PATH = /(?:^|[\s"'`(])((?:\/|\.\/)?[^\s"'`()<>]+\.html?)(?=$|[\s"'`),.:;，。])/gim;
 
 function htmlPathsIn(output: string | undefined): string[] {
@@ -210,7 +206,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
 	const openable = filePath ? [filePath] : call.name === "codemode" || call.name === "bash" ? htmlPathsIn(output) : [];
 	const lines = output ? output.split("\n") : [];
-	const { shown, hidden } = open || status === "error" ? { shown: lines, hidden: 0 } : preview(call.name, lines);
+	const { shown, hidden } = open ? { shown: lines, hidden: 0 } : preview(call.name, lines);
 	const script = call.name === "codemode" && typeof call.arguments.code === "string" ? call.arguments.code : undefined;
 	const tail = call.name === "bash" || call.name === "codemode";
 	const expandable = lines.length > 0 || Boolean(script);
@@ -226,7 +222,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 				</span>
 				{open && script ? <span className="step-script">{script}</span> : null}
 				{shown.length > 0 ? (
-					<span className={`step-output${open || status === "error" ? "" : tail ? " clamp-end" : " clamp"}`}>{shown.join("\n")}</span>
+					<span className={`step-output${open ? "" : tail ? " clamp-end" : " clamp"}`}>{shown.join("\n")}</span>
 				) : null}
 				{hidden > 0 ? (
 					<span className="step-more">

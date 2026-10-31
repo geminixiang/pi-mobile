@@ -37,7 +37,11 @@ Object.assign(window, {
 			return { x: (box.left + box.width / 2) * devicePixelRatio, y: (box.top + box.height / 2) * devicePixelRatio, what: described(element) };
 		},
 		select: (index: number, option: string) => settled(controller.selectOption(index, option)),
-		scroll: (direction: Direction, index?: number) => {
+		scroll: async (direction: Direction, index?: number) => {
+			if (index === undefined && Reflect.get(controller, "isIndexed") !== true) {
+				await controller.updateTree();
+				await controller.cleanUpHighlights();
+			}
 			const at = index === undefined ? {} : { index };
 			if (direction === "up" || direction === "down") return settled(controller.scroll({ down: direction === "down", numPages: SCROLL_PAGES, ...at }));
 			return settled(controller.scrollHorizontally({ right: direction === "right", pixels: Math.round(innerWidth * SCROLL_PAGES), ...at }));
