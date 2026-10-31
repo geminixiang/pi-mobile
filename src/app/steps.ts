@@ -3,7 +3,7 @@ const STOPPED = "Stopped at ";
 const WAITS = new Set(["wait", "wait_for"]);
 
 export function preview(name: string, lines: string[]): { shown: string[]; hidden: number } {
-	if (name === "read") return { shown: [], hidden: 0 };
+	if (name === "read" || name === "tool_search") return { shown: [], hidden: 0 };
 	if (SCREEN_TOOLS.has(name)) {
 		const stopped = lines.filter((line) => line.startsWith(STOPPED)).map((line) => line.slice(STOPPED.length).split("; the steps before it ran")[0] ?? "");
 		return { shown: stopped, hidden: 0 };
