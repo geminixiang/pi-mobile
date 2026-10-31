@@ -121,6 +121,8 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 
 ## 還沒做
 
+- 指揮電腦上的 agent（Claude Code、Codex）：設計見 [computer-agents.md](computer-agents.md)。
+
 - 第一次使用時能看到的錯誤，在 S24 上都試過：
   - 電腦上沒裝 pi-mobile，或名稱打錯：0.3 秒內顯示「連不到…：電腦要開著、連上 Tailscale，並裝好 pi-mobile」，下面附安裝指令。
   - 電腦上的 pi-mobile 停了：Bot 回覆連不到這台電腦，請使用者確認；電腦上的 pi-mobile 回來之後，同一段對話直接就能用。
