@@ -116,7 +116,6 @@ class TriggerReceiver : BroadcastReceiver() {
         private fun startQuietly(context: Context, name: String): Boolean {
             if (!Settings.canDrawOverlays(context)) return false
             try {
-                context.startForegroundService(Intent(context, AgentService::class.java).putExtra(AgentService.EXTRA_TEXT, name))
                 context.startActivity(
                     Intent(context, MainActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
@@ -125,6 +124,11 @@ class TriggerReceiver : BroadcastReceiver() {
             } catch (error: RuntimeException) {
                 Log.w(TRIGGERS_TAG, "could not start pi quietly", error)
                 return false
+            }
+            try {
+                context.startForegroundService(Intent(context, AgentService::class.java).putExtra(AgentService.EXTRA_TEXT, name))
+            } catch (error: RuntimeException) {
+                Log.w(TRIGGERS_TAG, "started pi quietly without its foreground service", error)
             }
             return true
         }
