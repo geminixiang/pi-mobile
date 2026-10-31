@@ -120,7 +120,7 @@ export function App() {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
 					notify: async (title, text, conversationId, bot) => {
-						if (inForeground() && live.current.controller?.id === conversationId) return "watching";
+						if (live.current.controller?.id === conversationId && (await inForeground())) return "watching";
 						if (!native.implements(Triggers.notify)) return "off";
 						const { shown } = await Triggers.notify({ title, text, conversation: String(conversationId), ...(bot ? { bot: bot.name, avatar: bot.avatar } : {}) });
 						return shown ? "shown" : "off";
@@ -169,7 +169,7 @@ export function App() {
 		for (const { report } of ended) if (report) stayAwakeFor(report);
 		setWorking([...busyIds].map(title));
 		const finished = ended.filter(({ report }) => !report).map(({ id }) => id);
-		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
+		if (finished.length > 0) void orLogged(notifyAway("pi 完成了", finished.map(title).join("、")), "keep_alive.notify_failed", undefined);
 		previousBusy.current = busyIds;
 	}, [busyIds, bots, runtime]);
 

@@ -325,7 +325,7 @@ export class TriggerRuns {
 			{
 				type: "input",
 				...(request ? { requestId: request } : {}),
-				content: [{ type: "text", text: `[trigger] item ${item.id} "${item.title}" (${details}) is due, ${new Date(now).toString()}\n\nHandle it: do what you can, notify the user when it needs them, then note_item it: done, or a new next_at.\n\n${UNATTENDED}` }],
+				content: [{ type: "text", text: `[trigger] item ${item.id} "${item.title}" (${details}) is due, ${new Date(now).toString()}\n\nHandle it: do what you can, and notify the user when it needs them. Close it with note_item state done only when the matter itself is settled, not because you reminded the user; otherwise leave it open, with a new next_at if it should come back.\n\n${UNATTENDED}` }],
 				entry: { kind: TRIGGER_ENTRY, data: { trigger: itemTrigger(item.id), name: item.title, prompt: item.title, kind: "item", delivery, at: now } },
 				whenBusy: "followUp",
 			},

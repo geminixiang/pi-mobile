@@ -5,16 +5,14 @@ import { orLogged } from "../promise.ts";
 
 const available = native.has("KeepAlive");
 
-let active = true;
 if (available) {
 	void App.addListener("appStateChange", ({ isActive }) => {
-		active = isActive;
 		if (isActive) void KeepAlive.clearNotification();
 	});
 }
 
-export function inForeground(): boolean {
-	return active;
+export async function inForeground(): Promise<boolean> {
+	return available ? (await App.getState()).isActive : document.visibilityState === "visible";
 }
 
 let running = false;
@@ -48,6 +46,6 @@ export function releaseIfIdle(): void {
 	if (available && !running) void KeepAlive.stop();
 }
 
-export function notifyAway(title: string, text: string): void {
-	if (available && !active) void KeepAlive.notify({ title, text });
+export async function notifyAway(title: string, text: string): Promise<void> {
+	if (available && !(await inForeground())) await KeepAlive.notify({ title, text });
 }
