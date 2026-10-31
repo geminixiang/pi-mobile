@@ -1,15 +1,24 @@
 const SCREEN_TOOLS = new Set(["read_page", "use_browser", "read_phone_screen", "use_phone_screen"]);
 const STOPPED = "Stopped at ";
 const WAITS = new Set(["wait", "wait_for"]);
+const FAILED_STEP = /^step (\d+) \(([^)]+)\): (.*)$/;
 
 export function preview(name: string, lines: string[]): { shown: string[]; hidden: number } {
 	if (name === "read" || name === "tool_search") return { shown: [], hidden: 0 };
 	if (SCREEN_TOOLS.has(name)) {
-		const stopped = lines.filter((line) => line.startsWith(STOPPED)).map((line) => line.slice(STOPPED.length).split("; the steps before it ran")[0] ?? "");
+		const stopped = lines.filter((line) => line.startsWith(STOPPED)).map((line) => line.slice(STOPPED.length).split("; the steps before it ran")[0] ?? "").map(failedStep);
 		return { shown: stopped, hidden: 0 };
 	}
 	if (name === "bash" || name === "codemode") return { shown: lines.slice(-5), hidden: Math.max(0, lines.length - 5) };
 	return { shown: lines.slice(0, 10), hidden: Math.max(0, lines.length - 10) };
+}
+
+function failedStep(stopped: string): string {
+	const match = FAILED_STEP.exec(stopped);
+	if (!match) return stopped;
+	const [, at, action, reason = ""] = match;
+	const cause = ["❌", `Failed to ${action}:`, `Failed to ${action}`, "Error:"].reduce((rest, prefix) => (rest.startsWith(prefix) ? rest.slice(prefix.length).trimStart() : rest), reason.trim());
+	return cause ? `第 ${at} 步 ${action} 失敗：${cause}` : `第 ${at} 步 ${action} 失敗`;
 }
 
 export function stepsLabel(steps: unknown): string | undefined {
