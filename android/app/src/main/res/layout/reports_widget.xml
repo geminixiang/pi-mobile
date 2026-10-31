@@ -6,48 +6,14 @@
     android:background="@drawable/reports_widget_background"
     android:clipToOutline="true">
 
-    <LinearLayout
-        android:id="@+id/reports_content"
+    <StackView
+        android:id="@+id/reports_stack"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp">
-
-        <LinearLayout
-            android:id="@+id/reports_bots"
-            android:layout_width="match_parent"
-            android:layout_height="32dp"
-            android:orientation="horizontal" />
-
-        <LinearLayout
-            android:id="@+id/report"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="10dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/report_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/widget_muted"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/report_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:ellipsize="end"
-                android:lineSpacingExtra="3dp"
-                android:maxLines="3"
-                android:textColor="@color/widget_text"
-                android:textSize="16sp" />
-        </LinearLayout>
-    </LinearLayout>
+        android:loopViews="true"
+        android:paddingHorizontal="2dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="44dp" />
 
     <ImageView
         android:id="@+id/reports_room"

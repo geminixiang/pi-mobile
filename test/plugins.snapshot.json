@@ -4706,6 +4706,9 @@
 						"conversation": {
 							"type": "string"
 						},
+						"headline": {
+							"type": "string"
+						},
 						"schedule": {
 							"type": "string"
 						},
@@ -4718,6 +4721,7 @@
 						"bot",
 						"avatar",
 						"schedule",
+						"headline",
 						"text",
 						"at"
 					],
