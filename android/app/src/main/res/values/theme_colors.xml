@@ -4,6 +4,6 @@
     <color name="app_bg">#EBE7E4</color>
     <color name="widget_text">#252F3D</color>
     <color name="widget_muted">#5C5752</color>
-    <color name="widget_card">#F8F6F4</color>
+    <color name="widget_chip">#14252F3D</color>
     <bool name="app_light_bars">true</bool>
 </resources>
