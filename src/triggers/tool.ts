@@ -1,7 +1,7 @@
 import type { Context } from "@earendil-works/chord";
 import { type ConversationId, defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
-import { defineAppTool, localTime, parseClock, parseLocalTime, text } from "../agent/tools/common.ts";
+import { defineAppTool, localTime, MINUTE, parseClock, parseLocalTime, text } from "../agent/tools/common.ts";
 import { oneOf } from "../agent/parse.ts";
 import { resolvePlace } from "../agent/tools/device.ts";
 import { requireAccess } from "../agent/notification-access.ts";
@@ -229,7 +229,7 @@ export function createTriggerExtension(host: TriggerHost) {
 			const existing = await api.snapshot(TriggerDoc, context);
 			const pending = existing?.items.filter((item) => item.kind === "followup").length ?? 0;
 			if (pending >= MAX_FOLLOWUPS) throw new Error(`there are already ${MAX_FOLLOWUPS} pending follow-ups`);
-			const at = Date.now() + args.minutes * 60_000;
+			const at = Date.now() + args.minutes * MINUTE;
 			const trigger = await add(api, context, { name: args.label, prompt: args.note, when: { kind: "once", at }, kind: "followup" });
 			return text(`Follow-up ${trigger.id} at ${localTime(at)}.`);
 		},

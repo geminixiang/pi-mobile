@@ -5,16 +5,20 @@ import { HostCommands, type PairedHost } from "../agent/sandbox/host.ts";
 import { type AgentState, type Trigger, TriggerDoc } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { native } from "../native.ts";
-import { log } from "../log.ts";
-import { messageOf } from "../promise.ts";
+import { orLogged } from "../promise.ts";
 import type { Workplace } from "../agent/workplaces.ts";
-import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
-import { choicesOf, keysCommand, LIST, type Place, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
+import { defineAppTool, MINUTE, text, truncated } from "../agent/tools/common.ts";
+import { choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 
 const READ_LINES = 60;
 const TASK_CHARS = 500;
-const FIRST_CHECK = 60_000;
+const FIRST_CHECK = MINUTE;
+const NOT_READY: Record<Exclude<Status, "idle">, string> = {
+	working: "is still working: tell it once it is idle.",
+	needs_user: "is waiting for the user to approve or answer something: tell the user, or read_agent to see what.",
+	unknown: "has not said it is ready (it may be starting or showing a dialog): read_agent to see its screen, and ask the user if it waits on them.",
+};
 const MAX_LINES = 400;
 const SCREEN_LINES = 40;
 const SETTLE_MS = 5_000;
@@ -27,10 +31,10 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		if (place?.kind !== "computer") throw new Error("This bot works on the phone: agents on a computer need a computer picked in the bot's panel.");
 		return { host: place.host, commands: new HostCommands(place.host) };
 	};
-	const placed = (id: string): Place => {
-		const place = placeOf(id);
-		if (!place) throw new Error(`${id} is not an agent id: take one from list_agents.`);
-		return place;
+	const reach = (agent: string, conversationId: ConversationId): { place: Place; commands: HostCommands } => {
+		const place = placeOf(agent);
+		if (!place) throw new Error(`${agent} is not an agent id: take one from list_agents.`);
+		return { place, commands: commandsOf(String(conversationId)).commands };
 	};
 	const watch = async (api: ToolExecutionApi, context: Context, agent: string, prompt: string): Promise<boolean> => {
 		if (!native.implements(Triggers.sync)) return false;
@@ -82,8 +86,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		}),
 		replay: "safe",
 		execute: async (args, api, context) => {
-			const place = placed(args.agent);
-			const { commands } = commandsOf(String(api.conversationId));
+			const { place, commands } = reach(args.agent, api.conversationId);
 			const read = reading(place, (await commands.run(readCommand(place, args.lines ?? READ_LINES))).stdout);
 			if (!read.ok) throw new Error(`Could not read ${args.agent}: ${read.problem}`);
 			const settled = Date.now() - SETTLE_MS;
@@ -108,13 +111,10 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			"Write the task so it stands alone (the goal, where, what to leave alone, how to report). The phone then checks on it by itself and wakes you here once it is idle again or needs the user, so do not wait or schedule a follow-up for it.",
 		parameters: Type.Object({ agent: AGENT, task: Type.String({ minLength: 1, description: "The task, sent as one message even when it has several lines" }) }),
 		execute: async (args, api, context) => {
-			const place = placed(args.agent);
-			const { commands } = commandsOf(String(api.conversationId));
+			const { place, commands } = reach(args.agent, api.conversationId);
 			const before = reading(place, (await commands.run(readCommand(place, 1))).stdout);
 			if (!before.ok) throw new Error(`Could not reach ${args.agent}: ${before.problem}`);
-			if (before.status === "working") throw new Error(`${args.agent} is still working${before.doing ? ` (${before.doing})` : ""}: tell it once it is idle.`);
-			if (before.status === "needs_user") throw new Error(`${args.agent} is waiting for the user to approve or answer something: tell the user, or read_agent to see what.`);
-			if (before.status === "unknown") throw new Error(`${args.agent} has not said it is ready (it may be starting or showing a dialog): read_agent to see its screen, and ask the user if it waits on them.`);
+			if (before.status !== "idle") throw new Error(`${args.agent}${before.doing ? ` (${before.doing})` : ""} ${NOT_READY[before.status]}`);
 			const sent = await commands.run(sendCommand(place, args.task));
 			const problem = sent.code === 0 ? sendProblem(place, sent.stdout) : sent.stdout.trim() || sent.stderr.trim() || `exit ${sent.code ?? "unknown"}`;
 			if (problem) throw new Error(`The task did not reach ${args.agent}: ${problem}`);
@@ -136,8 +136,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		}),
 		execute: async (args, api, context) => {
 			if (triggers.unattended(api.conversationId)) throw new Error("This turn started from a schedule, not from the user: tell the user what the agent asks, and answer only when they reply.");
-			const place = placed(args.agent);
-			const { commands } = commandsOf(String(api.conversationId));
+			const { place, commands } = reach(args.agent, api.conversationId);
 			const read = reading(place, (await commands.run(readCommand(place, SCREEN_LINES))).stdout);
 			if (!read.ok) throw new Error(`Could not reach ${args.agent}: ${read.problem}`);
 			const choices = read.status === "working" || read.status === "idle" ? undefined : choicesOf(read.screen);
@@ -174,13 +173,12 @@ function isWatch(item: Trigger, agent: string, conversationId: ConversationId): 
 export async function agentState(host: PairedHost, agent: string): Promise<AgentState> {
 	const place = placeOf(agent);
 	if (!place) return "gone";
-	const reached = await new HostCommands(host).run(readCommand(place, 1)).then(
-		(result) => ({ ok: true, read: reading(place, result.stdout) }) as const,
-		(error: unknown) => ({ ok: false, error: messageOf(error) }) as const,
+	const read = await orLogged(
+		new HostCommands(host).run(readCommand(place, 1)).then((result) => reading(place, result.stdout)),
+		"agents.unreachable",
+		undefined,
+		{ host: host.name, agent },
 	);
-	if (!reached.ok) {
-		log.warn("agents.unreachable", { host: host.name, agent, error: reached.error });
-		return "unreachable";
-	}
-	return reached.read.ok ? reached.read.status : "gone";
+	if (!read) return "unreachable";
+	return read.ok ? read.status : "gone";
 }

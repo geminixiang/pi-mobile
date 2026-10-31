@@ -25,8 +25,9 @@ function cleaned(parameters: TSchema, raw: unknown): unknown {
 	const schemaOf = (key: string): unknown => (typeof properties === "object" && properties !== null ? Reflect.get(properties, key) : undefined);
 	return Object.fromEntries(
 		Object.entries(raw)
-			.filter(([key, value]) => needed.has(key) || !unset(value, schemaOf(key)))
-			.map(([key, value]) => [key, numbered(listed(value, schemaOf(key)), schemaOf(key))]),
+			.map(([key, value]) => [key, value, schemaOf(key)] as const)
+			.filter(([key, value, schema]) => needed.has(key) || !unset(value, schema))
+			.map(([key, value, schema]) => [key, numbered(listed(value, schema), schema)]),
 	);
 }
 
@@ -114,7 +115,8 @@ export function truncated(value: string, hint = ""): string {
 
 export const jsonOrNull = (value: unknown): JsonValue => (isJsonValue(value) ? value : null);
 
-export const HOUR = 3_600_000;
+export const MINUTE = 60_000;
+export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 export const pad = (value: number) => String(value).padStart(2, "0");

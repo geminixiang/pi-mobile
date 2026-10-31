@@ -1,5 +1,4 @@
-import type { Context } from "@earendil-works/chord";
-import { defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
+import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { oneOf } from "../agent/parse.ts";
 import { defineAppTool, parseLocalTime, text } from "../agent/tools/common.ts";
@@ -19,14 +18,6 @@ function nextAtOf(value: string, now: number): number | undefined {
 }
 
 export function createItemsExtension(triggers: TriggerHost) {
-	const save = async (api: ToolExecutionApi, context: Context, edit: (items: Item[]) => Item[]): Promise<void> => {
-		await api.commit(async (tx) => {
-			const doc = await tx.doc(ItemDoc);
-			doc.items = pruned(edit(doc.items), Date.now());
-		}, context);
-		triggers.changed();
-	};
-
 	const noteItem = defineAppTool({
 		name: "note_item",
 		effect: "direct",
@@ -43,25 +34,30 @@ export function createItemsExtension(triggers: TriggerHost) {
 		}),
 		execute: async (args, api, context) => {
 			const now = Date.now();
-			const nextAt = args.next_at === undefined ? undefined : nextAtOf(args.next_at, now);
 			const existing = args.id === undefined ? undefined : (await api.snapshot(ItemDoc, context))?.items.find((item) => item.id === args.id);
 			if (args.id !== undefined && !existing) throw new Error(`No item ${args.id}: take an id from list_items, or leave id out for a new item.`);
 			const title = args.title ?? existing?.title;
 			if (!title) throw new Error("A new item needs a title.");
 			const state = args.state ?? existing?.state ?? "todo";
 			const waitingOn = args.waiting_on ?? (existing?.state === "waiting" ? existing.waitingOn : undefined);
-			if (state === "waiting" && !waitingOn) throw new Error("A waiting item needs waiting_on: who or what it waits on.");
+			const nextAt = args.next_at !== undefined ? nextAtOf(args.next_at, now) : state === "done" ? undefined : existing?.nextAt;
+			const ref = args.ref ?? existing?.ref;
 			const base = {
 				id: existing?.id ?? crypto.randomUUID().slice(0, 6),
 				title,
 				bot: existing?.bot ?? api.conversationId,
-				...(args.next_at !== undefined ? (nextAt !== undefined ? { nextAt } : {}) : existing?.nextAt !== undefined && state !== "done" ? { nextAt: existing.nextAt } : {}),
-				...((args.ref ?? existing?.ref) ? { ref: args.ref ?? existing?.ref } : {}),
+				...(nextAt !== undefined ? { nextAt } : {}),
+				...(ref ? { ref } : {}),
 				createdAt: existing?.createdAt ?? now,
 				updatedAt: now,
 			};
+			if (state === "waiting" && !waitingOn) throw new Error("A waiting item needs waiting_on: who or what it waits on.");
 			const item: Item = state === "waiting" && waitingOn ? { ...base, state, waitingOn } : state === "done" ? { ...base, state, doneAt: now } : { ...base, state: "todo" };
-			await save(api, context, (items) => [...items.filter((candidate) => candidate.id !== item.id), item]);
+			await api.commit(async (tx) => {
+				const doc = await tx.doc(ItemDoc);
+				doc.items = pruned([...doc.items.filter((candidate) => candidate.id !== item.id), item], now);
+			}, context);
+			triggers.changed();
 			const lone = item.state !== "done" && item.nextAt === undefined ? " Nothing will bring it back: give next_at unless the user will." : "";
 			return text(`Item ${described(item)}.${lone}`);
 		},

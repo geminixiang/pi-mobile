@@ -65,8 +65,7 @@ const RexStatus = Type.Object({ records: Type.Array(Type.Object({ state: Type.St
 const RexTitle = Type.Object({ title: Type.String() });
 const RexSessions = Type.Object({ sessions: Type.Array(Type.Object({ session_id: Type.String(), label: Type.String() })) });
 
-const HERDR_STATUS: Record<string, Status> = { idle: "idle", done: "idle", working: "working", blocked: "needs_user" };
-const REX_STATUS: Record<string, Status> = { idle: "idle", done: "idle", failed: "idle", working: "working", blocked: "needs_user" };
+const STATUS: Record<string, Status> = { idle: "idle", done: "idle", failed: "idle", working: "working", blocked: "needs_user" };
 
 export function workers(output: string): Worker[] {
 	const sections = output
@@ -93,7 +92,7 @@ function herdrWorkers(session: string, line: string): Worker[] {
 		id: `herdr:${session}:${agent.pane_id}`,
 		name: agent.name ?? "",
 		agent: agent.agent,
-		status: HERDR_STATUS[agent.agent_status] ?? "unknown",
+		status: STATUS[agent.agent_status] ?? "unknown",
 		cwd: agent.cwd,
 		title: agent.terminal_title_stripped ?? "",
 		doing: "",
@@ -114,7 +113,7 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 			id: `rex:${session.slice(-SHORT)}:${block.slice(-SHORT)}`,
 			name: label,
 			agent,
-			status: record ? (REX_STATUS[record.state] ?? "unknown") : "unknown",
+			status: record ? (STATUS[record.state] ?? "unknown") : "unknown",
 			cwd: foreground?.cwd ?? "",
 			title: title.ok ? title.value.title : "",
 			doing: record?.msg ?? "",
@@ -130,6 +129,8 @@ export function placeOf(id: string): Place | undefined {
 	return undefined;
 }
 
+const rexAt = (place: Extract<Place, { via: "rex" }>) => `-s ${shellQuote(place.session)} -b ${shellQuote(place.block)}`;
+
 const herdr = (session: string) => (session === "default" ? HERDR : `${HERDR} --session ${shellQuote(session)}`);
 
 export function readCommand(place: Place, lines: number): string {
@@ -137,13 +138,13 @@ export function readCommand(place: Place, lines: number): string {
 		const cli = herdr(place.session);
 		return `${FIND}; ${cli} agent get ${shellQuote(place.pane)} 2>&1; echo ${SCREEN}; ${cli} agent read ${shellQuote(place.pane)} --source recent-unwrapped --lines ${lines} 2>&1`;
 	}
-	const at = `-s ${shellQuote(place.session)} -b ${shellQuote(place.block)}`;
+	const at = rexAt(place);
 	return `${FIND}; ${REX} block call ${at} program_status 2>&1; echo ${SCREEN}; ${REX} block capture ${at} --trim 2>&1 | tail -n ${lines}`;
 }
 
 export function sendCommand(place: Place, text: string): string {
 	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent prompt ${shellQuote(place.pane)} ${shellQuote(text)} 2>&1`;
-	const at = `-s ${shellQuote(place.session)} -b ${shellQuote(place.block)}`;
+	const at = rexAt(place);
 	return `${FIND}; { printf '\\033[200~'; printf '%s' ${shellQuote(text)}; printf '\\033[201~'; } | ${REX} block send ${at} && sleep 0.3 && ${REX} block send-key ${at} enter`;
 }
 
@@ -156,14 +157,14 @@ export function reading(place: Place, output: string): Reading {
 	const screen = output.slice(at + SCREEN.length).trim();
 	if (place.via === "herdr") {
 		const got = checkJson(HerdrGet, head, "herdr agent get");
-		if (got.ok) return { ok: true, status: HERDR_STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen };
+		if (got.ok) return { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen };
 		const failed = checkJson(HerdrError, head, "herdr error");
 		return { ok: false, problem: failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : head };
 	}
 	const status = checkJson(RexStatus, head, "rex program_status");
 	if (!status.ok) return { ok: false, problem: head };
 	const record = status.value.records[0];
-	return { ok: true, status: record ? (REX_STATUS[record.state] ?? "unknown") : "unknown", doing: record?.msg ?? "", screen };
+	return { ok: true, status: record ? (STATUS[record.state] ?? "unknown") : "unknown", doing: record?.msg ?? "", screen };
 }
 
 export function sendProblem(place: Place, output: string): string | undefined {
@@ -203,5 +204,5 @@ export function choicesOf(screen: string): Choices | undefined {
 export function keysCommand(place: Place, keys: readonly string[]): string {
 	const words = keys.map(shellQuote).join(" ");
 	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent send-keys ${shellQuote(place.pane)} ${words} 2>&1`;
-	return `${FIND}; ${REX} block send-key -s ${shellQuote(place.session)} -b ${shellQuote(place.block)} ${words} 2>&1`;
+	return `${FIND}; ${REX} block send-key ${rexAt(place)} ${words} 2>&1`;
 }

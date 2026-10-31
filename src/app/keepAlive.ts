@@ -19,7 +19,7 @@ let running = false;
 let finishing: Promise<unknown> = Promise.resolve();
 
 export function stayAwakeFor(work: Promise<unknown>): void {
-	finishing = Promise.allSettled([finishing, work]);
+	finishing = Promise.allSettled([finishing, work]).then(() => undefined);
 }
 
 const ASKED_KEY = "pi-mobile.notificationsAsked";

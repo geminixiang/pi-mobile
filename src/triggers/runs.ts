@@ -1,10 +1,10 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Value } from "typebox/value";
-import { type ConversationId, defineDoc, type Harness } from "@earendil-works/pi-durable";
+import { type Conversation, type ConversationId, defineDoc, type Harness } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
-import { DAY, startOfToday } from "../agent/tools/common.ts";
+import { DAY, MINUTE, startOfToday } from "../agent/tools/common.ts";
 import { check, oneOf, valueOrThrow } from "../agent/parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { entryText } from "../agent/entries.ts";
@@ -13,6 +13,7 @@ import { GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/gu
 import { Triggers, When } from "./plugin.ts";
 import { isEvent } from "./when.ts";
 import { type Item, ITEM_TRIGGER, ItemDoc, itemTrigger } from "../items/items.ts";
+import type { Status } from "../computer-agents/workers.ts";
 
 const DELIVERIES = ["live", "later", "manual"] as const;
 type Delivery = (typeof DELIVERIES)[number];
@@ -38,13 +39,14 @@ export type Trigger = {
 	last?: LastRun;
 } & ({ kind: "schedule" | "followup" } | { kind: "watch"; agent: string });
 
-export type AgentState = "idle" | "working" | "needs_user" | "unknown" | "gone" | "unreachable";
+export type AgentState = Status | "gone" | "unreachable";
 
-const MINUTE = 60_000;
 const UNATTENDED = "(Unattended: nobody will answer a question. Start the answer with one line of at most 20 characters that tells the point (what changed or needs the user, or that nothing did), then the details; where something is unclear, pick the likely choice and say the assumption; when a step needs the user, skip it and say what is needed.)";
 const WATCH_LIMIT = 12 * 60 * MINUTE;
 
-export function nextCheck(waited: number): number {
+const STILL_WAITING: ReadonlySet<AgentState> = new Set(["working", "unknown", "unreachable"]);
+
+function nextCheck(waited: number): number {
 	if (waited < 5 * MINUTE) return MINUTE;
 	if (waited < 30 * MINUTE) return 3 * MINUTE;
 	return 10 * MINUTE;
@@ -177,9 +179,10 @@ export class TriggerRuns {
 	}
 
 	async sync(): Promise<void> {
-		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
-		const avatars = new Map((await this.#bots()).map((bot) => [bot.id, bot.avatar]));
-		const due = ((await this.#harness.snapshot(ItemDoc, context))?.items ?? []).flatMap((item) =>
+		const [triggers, bots, itemDoc] = await Promise.all([this.#harness.snapshot(TriggerDoc, context), this.#bots(), this.#harness.snapshot(ItemDoc, context)]);
+		const items = triggers?.items ?? [];
+		const avatars = new Map(bots.map((bot) => [bot.id, bot.avatar]));
+		const due = (itemDoc?.items ?? []).flatMap((item) =>
 			item.state !== "done" && item.nextAt !== undefined ? [{ id: itemTrigger(item.id), name: item.title, when: { kind: "once" as const, at: item.nextAt }, avatar: avatars.get(item.bot) }] : [],
 		);
 		const schedules = [
@@ -228,9 +231,10 @@ export class TriggerRuns {
 		}
 		if (!trigger || (delivery !== "manual" && trigger.state === "paused")) return undefined;
 		const agent = trigger.kind === "watch" ? await this.#agentState(trigger.conversationId, trigger.agent) : undefined;
-		const waited = Date.now() - trigger.createdAt;
-		if (agent !== undefined && (agent === "working" || agent === "unknown" || agent === "unreachable") && waited < WATCH_LIMIT && delivery !== "manual") {
-			await this.#edit((items) => items.map((item) => (item.id !== id ? item : { ...item, state: "on", when: { kind: "once", at: Date.now() + nextCheck(waited) } })));
+		const checkedAt = Date.now();
+		const waited = checkedAt - trigger.createdAt;
+		if (agent && STILL_WAITING.has(agent) && waited < WATCH_LIMIT && delivery !== "manual") {
+			await this.#edit((items) => items.map((item) => (item.id !== id ? item : { ...item, state: "on", when: { kind: "once", at: checkedAt + nextCheck(waited) } })));
 			return undefined;
 		}
 		if (trigger.when.kind === "once" && delivery !== "manual" && trigger.state === "on") await this.#markFired(id);
@@ -263,40 +267,22 @@ export class TriggerRuns {
 		}
 		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};
 		const judgement = screening ? `, ${screening.note}` : "";
-		const label =
-			trigger.kind === "watch"
-				? watched(trigger.agent, agent ?? "unknown", waited)
-				: trigger.kind === "followup"
-				? "follow-up you scheduled"
-				: heard
-					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}`
-					: `schedule "${trigger.name}"`;
+		const scheduled = heard ? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}` : `schedule "${trigger.name}"`;
+		const label = trigger.kind === "watch" ? watched(trigger.agent, agent ?? "unknown", waited) : trigger.kind === "followup" ? "follow-up you scheduled" : scheduled;
 		const activity: Record<string, string> = trigger.when.kind === "activity" ? { activity: trigger.when.activity } : {};
 		try {
-			await conversation.submit(
-				{
-					type: "input",
-					...(request ? { requestId: request } : {}),
-					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}\n\n${UNATTENDED}` }],
-					entry: {
-						kind: TRIGGER_ENTRY,
-						data: {
-							trigger: id,
-							name: trigger.name,
-							prompt: trigger.prompt,
-							kind: trigger.kind,
-							delivery,
-							at: now,
-							on: trigger.when.kind,
-							...activity,
-							...judged,
-							...(heard ? { device: heard } : {}),
-						},
-					},
-					whenBusy: "followUp",
-				},
-				context,
-			);
+			await wake(conversation, request, `${label}, ${new Date(now).toString()}`, trigger.prompt, {
+				trigger: id,
+				name: trigger.name,
+				prompt: trigger.prompt,
+				kind: trigger.kind,
+				delivery,
+				at: now,
+				on: trigger.when.kind,
+				...activity,
+				...judged,
+				...(heard ? { device: heard } : {}),
+			});
 		} catch (error) {
 			await this.#record(id, { at: now, delivery, outcome: "failed", error: `沒有送出，會再試：${messageOf(error)}` });
 			throw error;
@@ -321,15 +307,12 @@ export class TriggerRuns {
 			return undefined;
 		}
 		const details = [item.state === "waiting" ? `waiting on ${item.waitingOn}` : item.state, item.ref ? `details in ${item.ref}` : ""].filter(Boolean).join(", ");
-		await conversation.submit(
-			{
-				type: "input",
-				...(request ? { requestId: request } : {}),
-				content: [{ type: "text", text: `[trigger] item ${item.id} "${item.title}" (${details}) is due, ${new Date(now).toString()}\n\nHandle it: do what you can, and notify the user when it needs them. Close it with note_item state done only when the matter itself is settled, not because you reminded the user; otherwise leave it open, with a new next_at if it should come back.\n\n${UNATTENDED}` }],
-				entry: { kind: TRIGGER_ENTRY, data: { trigger: itemTrigger(item.id), name: item.title, prompt: item.title, kind: "item", delivery, at: now } },
-				whenBusy: "followUp",
-			},
-			context,
+		await wake(
+			conversation,
+			request,
+			`item ${item.id} "${item.title}" (${details}) is due, ${new Date(now).toString()}`,
+			"Handle it: do what you can, and notify the user when it needs them. Close it with note_item state done only when the matter itself is settled, not because you reminded the user; otherwise leave it open, with a new next_at if it should come back.",
+			{ trigger: itemTrigger(item.id), name: item.title, prompt: item.title, kind: "item", delivery, at: now },
 		);
 		this.#started.set(item.bot, item.title);
 		await this.#touchBot(item.bot, now);
@@ -392,6 +375,19 @@ export class TriggerRuns {
 		const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
 		await Triggers.report({ conversation: String(id), bot: bot.name, avatar: bot.avatar, schedule, headline, text: detail.join("\n"), at: Date.now() });
 	}
+}
+
+function wake(conversation: Conversation, request: string | undefined, label: string, prompt: string, data: TriggerRun): Promise<unknown> {
+	return conversation.submit(
+		{
+			type: "input",
+			...(request ? { requestId: request } : {}),
+			content: [{ type: "text", text: `[trigger] ${label}\n\n${prompt}\n\n${UNATTENDED}` }],
+			entry: { kind: TRIGGER_ENTRY, data },
+			whenBusy: "followUp",
+		},
+		context,
+	);
 }
 
 function withoutNextAt({ nextAt: _passed, ...item }: Item): Item {
