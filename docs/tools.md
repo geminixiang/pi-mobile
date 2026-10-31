@@ -146,6 +146,9 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | |
 | `read_screen` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
 | `use_screen` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
+| `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
+| `read_agent` | 電腦上的 agent（只在有電腦的 Bot） | 一個 agent 的狀態和終端機最後幾行 | 唯讀 | |
+| `tell_agent` | 電腦上的 agent（只在有電腦的 Bot） | 交辦任務給閒著的 agent，多行也當成一則送出 | 直接 | 工作中、等使用者、狀態不明時拒絕 |
 | `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |

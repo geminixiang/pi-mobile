@@ -63,9 +63,9 @@ function labelOf(extension: string, mcp: McpHub): string {
 type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
 const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
-	phone: new Set(["sandbox", "computer"]),
+	phone: new Set(["sandbox", "computer", "computer_agents"]),
 	computer: new Set(["files"]),
-	missing: new Set(["files", "sandbox", "computer"]),
+	missing: new Set(["files", "sandbox", "computer", "computer_agents"]),
 };
 
 const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt", "searchEngine"]);
@@ -197,7 +197,7 @@ export class AgentRuntime {
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
-			labelOf: (name, id) => (name === "computer" && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
+			labelOf: (name, id) => ((name === "computer" || name === "computer_agents") && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
 		const harness = await Harness.open(

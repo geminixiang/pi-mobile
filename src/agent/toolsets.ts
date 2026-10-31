@@ -36,6 +36,7 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API", extensions: ["cloudflare"] },
 	{ kind: "builtin", id: "azure", label: "Azure", hint: "從手機呼叫 API", extensions: ["azure"] },
 	{ kind: "builtin", id: "computer", label: "電腦畫面", hint: "看電腦的螢幕，用它的滑鼠和鍵盤", extensions: ["computer"] },
+	{ kind: "builtin", id: "computer_agents", label: "電腦上的 agent", hint: "交辦工作給電腦上 Herdr 或 Rex 裡的 Claude Code、Codex、pi", extensions: ["computer_agents"] },
 	{ kind: "builtin", id: "sandbox", label: "電腦", hint: "在電腦上跑指令、讀寫檔案", extensions: ["sandbox", "coding-tools"] },
 	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"], needs: "BotFiles" },
 ];

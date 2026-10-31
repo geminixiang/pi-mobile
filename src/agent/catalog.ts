@@ -20,6 +20,7 @@ import { createGitHubExtension } from "./tools/github.ts";
 import { HealthExtension } from "./tools/health.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
+import { createComputerAgentsExtension } from "../computer-agents/tool.ts";
 import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { BrowserExtension } from "../browser/tool.ts";
 import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
@@ -83,6 +84,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createSandboxExtension(deps.workplace),
 		createFilesExtension(deps.workplace),
 		createComputerExtension(deps.workplace),
+		createComputerAgentsExtension(deps.workplace),
 		CodingTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),

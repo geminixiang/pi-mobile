@@ -3495,6 +3495,82 @@
 		"needs": []
 	},
 	{
+		"extension": "computer_agents",
+		"toolset": "computer_agents",
+		"name": "list_agents",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {},
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
+	},
+	{
+		"extension": "computer_agents",
+		"toolset": "computer_agents",
+		"name": "read_agent",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"agent": {
+					"description": "The agent's id from list_agents, such as herdr:default:w1:p1 or rex:c834ae",
+					"type": "string"
+				},
+				"lines": {
+					"description": "How many of the last terminal lines; default 60",
+					"maximum": 400,
+					"minimum": 1,
+					"type": "integer"
+				}
+			},
+			"required": [
+				"agent"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
+	},
+	{
+		"extension": "computer_agents",
+		"toolset": "computer_agents",
+		"name": "tell_agent",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"agent": {
+					"description": "The agent's id from list_agents, such as herdr:default:w1:p1 or rex:c834ae",
+					"type": "string"
+				},
+				"task": {
+					"description": "The task, sent as one message even when it has several lines",
+					"minLength": 1,
+					"type": "string"
+				}
+			},
+			"required": [
+				"agent",
+				"task"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": []
+	},
+	{
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "read",
