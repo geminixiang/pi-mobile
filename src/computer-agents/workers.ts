@@ -6,6 +6,7 @@ export type Status = "idle" | "working" | "needs_user" | "unknown";
 
 export interface Worker {
 	id: string;
+	name: string;
 	agent: string;
 	status: Status;
 	cwd: string;
@@ -36,6 +37,7 @@ export const LIST = [
 	"  done",
 	"fi",
 	'if [ -x "$rex" ]; then',
+	`  echo "${SECTION}rex-sessions"; ${REX} ls --json 2>&1`,
 	`  for session in $(${REX} ls -q 2>/dev/null); do`,
 	`    for block in $(${REX} block ls -s "$session" -q 2>/dev/null); do`,
 	`      echo "${SECTION}rex $session $block"`,
@@ -52,6 +54,7 @@ const HerdrAgent = Type.Object({
 	agent_status: Type.String(),
 	cwd: Type.String(),
 	pane_id: Type.String(),
+	name: Type.Optional(Type.String()),
 	terminal_title_stripped: Type.Optional(Type.String()),
 });
 const HerdrList = Type.Object({ result: Type.Object({ agents: Type.Array(HerdrAgent) }) });
@@ -60,21 +63,27 @@ const HerdrError = Type.Object({ error: Type.Object({ code: Type.String(), messa
 const RexProcess = Type.Object({ foreground: Type.Union([Type.Null(), Type.Object({ argv0: Type.Optional(Type.String()), name: Type.String(), cwd: Type.Optional(Type.String()) })]) });
 const RexStatus = Type.Object({ records: Type.Array(Type.Object({ state: Type.String(), app: Type.String(), msg: Type.Optional(Type.String()) })) });
 const RexTitle = Type.Object({ title: Type.String() });
+const RexSessions = Type.Object({ sessions: Type.Array(Type.Object({ session_id: Type.String(), label: Type.String() })) });
 
 const HERDR_STATUS: Record<string, Status> = { idle: "idle", done: "idle", working: "working", blocked: "needs_user" };
 const REX_STATUS: Record<string, Status> = { idle: "idle", done: "idle", failed: "idle", working: "working", blocked: "needs_user" };
 
 export function workers(output: string): Worker[] {
-	return output
+	const sections = output
 		.split(`\n${SECTION}`)
 		.map((chunk) => (chunk.startsWith(SECTION) ? chunk.slice(SECTION.length) : chunk))
-		.flatMap((chunk) => {
+		.map((chunk) => {
 			const [head = "", ...lines] = chunk.split("\n");
-			const [via, name = "", block = ""] = head.split(" ");
-			if (via === "herdr") return herdrWorkers(name, lines[0] ?? "");
-			if (via === "rex") return rexWorker(name, block, lines);
-			return [];
+			const [via = "", name = "", block = ""] = head.split(" ");
+			return { via, name, block, lines };
 		});
+	const listed = checkJson(RexSessions, sections.find((section) => section.via === "rex-sessions")?.lines.join("\n") ?? "", "rex ls");
+	const labels = new Map(listed.ok ? listed.value.sessions.map((session) => [session.session_id, session.label]) : []);
+	return sections.flatMap(({ via, name, block, lines }) => {
+		if (via === "herdr") return herdrWorkers(name, lines[0] ?? "");
+		if (via === "rex") return rexWorker(name, labels.get(name) ?? "", block, lines);
+		return [];
+	});
 }
 
 function herdrWorkers(session: string, line: string): Worker[] {
@@ -82,6 +91,7 @@ function herdrWorkers(session: string, line: string): Worker[] {
 	if (!list.ok) return [];
 	return list.value.result.agents.map((agent) => ({
 		id: `herdr:${session}:${agent.pane_id}`,
+		name: agent.name ?? "",
 		agent: agent.agent,
 		status: HERDR_STATUS[agent.agent_status] ?? "unknown",
 		cwd: agent.cwd,
@@ -90,7 +100,7 @@ function herdrWorkers(session: string, line: string): Worker[] {
 	}));
 }
 
-function rexWorker(session: string, block: string, [processLine = "", statusLine = "", titleLine = ""]: string[]): Worker[] {
+function rexWorker(session: string, label: string, block: string, [processLine = "", statusLine = "", titleLine = ""]: string[]): Worker[] {
 	const process = checkJson(RexProcess, processLine, "rex process");
 	const status = checkJson(RexStatus, statusLine, "rex program_status");
 	const record = status.ok ? status.value.records[0] : undefined;
@@ -102,6 +112,7 @@ function rexWorker(session: string, block: string, [processLine = "", statusLine
 	return [
 		{
 			id: `rex:${session.slice(-SHORT)}:${block.slice(-SHORT)}`,
+			name: label,
 			agent,
 			status: record ? (REX_STATUS[record.state] ?? "unknown") : "unknown",
 			cwd: foreground?.cwd ?? "",

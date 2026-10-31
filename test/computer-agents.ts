@@ -12,6 +12,8 @@ const listing = [
 	JSON.stringify({ id: "cli:agent:list", error: { code: "server_not_running", message: "no herdr server is running" } }),
 	"@@herdr work",
 	JSON.stringify({ id: "cli:agent:list", result: { agents: [herdrAgent], type: "agent_list" } }),
+	"@@rex-sessions",
+	JSON.stringify({ sessions: [{ session_id: "session:01a1867f-f531-7105-9a60-a5cfc874b7b2", label: "coder" }] }, null, 2),
 	"@@rex session:01a1867f-f531-7105-9a60-a5cfc874b7b2 block:01a1867f-f531-718e-a0db-8ca1e7c834ae",
 	rexProcess("/Users/me/.local/bin/claude", "/Users/me/pi-mobile"),
 	JSON.stringify({ records: [{ state: "working", app: "claude-code", effective_app: "claude-code", msg: "Running the tests" }] }),
@@ -31,9 +33,9 @@ const listing = [
 ].join("\n");
 
 assert.deepEqual(workers(listing), [
-	{ id: "herdr:work:w1:p1", agent: "claude", status: "needs_user", cwd: "/Users/me/app", title: "Claude Code", doing: "" },
-	{ id: "rex:74b7b2:c834ae", agent: "claude-code", status: "working", cwd: "/Users/me/pi-mobile", title: "Fix the widget", doing: "Running the tests" },
-	{ id: "rex:74b7b2:d15dc0", agent: "pi", status: "unknown", cwd: "/Users/me/inbox", title: "π - inbox", doing: "" },
+	{ id: "herdr:work:w1:p1", name: "tester", agent: "claude", status: "needs_user", cwd: "/Users/me/app", title: "Claude Code", doing: "" },
+	{ id: "rex:74b7b2:c834ae", name: "coder", agent: "claude-code", status: "working", cwd: "/Users/me/pi-mobile", title: "Fix the widget", doing: "Running the tests" },
+	{ id: "rex:74b7b2:d15dc0", name: "coder", agent: "pi", status: "unknown", cwd: "/Users/me/inbox", title: "π - inbox", doing: "" },
 ]);
 assert.deepEqual(workers(""), []);
 
@@ -67,4 +69,4 @@ if (existsSync("/bin/zsh")) {
 	assert.deepEqual(workers(listed.stdout).map((worker) => worker.id), ["herdr:default:w1:p1"]);
 }
 
-console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, and the listing runs in zsh with no Herdr session");
+console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, and the listing runs in zsh with no Herdr session");

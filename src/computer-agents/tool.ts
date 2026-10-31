@@ -32,7 +32,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		name: "list_agents",
 		effect: "read",
 		description:
-			"List the coding agents (Claude Code, Codex, pi…) running on the computer you work on, in Herdr or Rex: each one's id, which agent, status (idle, working, needs_user: waiting for the user to approve or answer, unknown), folder, title, and what it is doing. " +
+			"List the coding agents (Claude Code, Codex, pi…) running on the computer you work on, in Herdr or Rex: each one's id, the name the user calls it by (its Herdr name or Rex session), which agent, status (idle, working, needs_user: waiting for the user to approve or answer, unknown), folder, title, and what it is doing. " +
 			"You lead these agents: hand them the work with tell_agent and check on it with read_agent, instead of doing their work yourself.",
 		parameters: Type.Object({}),
 		replay: "safe",
@@ -40,7 +40,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const { host, commands } = commandsOf(String(api.conversationId));
 			const found = workers((await commands.run(LIST)).stdout);
 			if (found.length === 0) return text(`No coding agent is running on ${host.name} in Herdr or Rex.`);
-			return text(found.map((worker) => [worker.id, worker.agent, worker.status, worker.cwd, worker.title, worker.doing].filter(Boolean).join(" · ")).join("\n"));
+			return text(found.map((worker) => [worker.id, worker.name && `named ${worker.name}`, worker.agent, worker.status, worker.cwd, worker.title, worker.doing].filter(Boolean).join(" · ")).join("\n"));
 		},
 	});
 
@@ -87,7 +87,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const watch: Trigger = {
 				id: crypto.randomUUID().slice(0, 8),
 				name: `等 ${args.agent} 做完`,
-				prompt: `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}. read_agent to see what it did, check that the task is really done (look at the result, not only its words), and report to the user; if it waits on the user, say what it needs.`,
+				prompt: `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}. read_agent to see what it did, check that the task is really done (look at the result, not only its words), and report to the user; if it waits on the user, say what it needs. The user handed this task over and is waiting to hear, so notify them with the gist.`,
 				when: { kind: "once", at: now + FIRST_CHECK },
 				kind: "watch",
 				agent: args.agent,
