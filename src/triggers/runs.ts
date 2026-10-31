@@ -12,7 +12,7 @@ import type { Judge } from "../agent/judge.ts";
 import { GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
 import { Triggers, When } from "./plugin.ts";
 import { isEvent } from "./when.ts";
-import { type Item, ITEM_TRIGGER, ItemDoc, itemTrigger } from "../items/items.ts";
+import { agenda, type Item, ITEM_TRIGGER, ItemDoc, itemTrigger } from "../items/items.ts";
 import type { Status } from "../computer-agents/workers.ts";
 
 const DELIVERIES = ["live", "later", "manual"] as const;
@@ -190,6 +190,7 @@ export class TriggerRuns {
 			...due,
 		];
 		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
+		if (native.implements(Triggers.agenda)) await Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) });
 		this.#state = { items: [...items], next };
 		for (const listener of this.#listeners) listener(this.#state);
 	}

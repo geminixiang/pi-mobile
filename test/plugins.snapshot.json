@@ -4753,6 +4753,53 @@
 				},
 				"result": null
 			},
+			"agenda": {
+				"args": {
+					"properties": {
+						"bots": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						},
+						"items": {
+							"items": {
+								"properties": {
+									"avatar": {
+										"type": "string"
+									},
+									"bot": {
+										"type": "string"
+									},
+									"conversation": {
+										"type": "string"
+									},
+									"due": {
+										"type": "number"
+									},
+									"title": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"conversation",
+									"bot",
+									"avatar",
+									"title"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"items",
+						"bots"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
 			"seen": {
 				"args": {
 					"properties": {

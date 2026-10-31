@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import java.time.Instant
@@ -21,6 +22,12 @@ import org.json.JSONObject
 private const val PREFS = "pi-reports"
 private const val KEY_LATEST = "latest"
 private const val KEY_SHOWN = "shown"
+private const val KEY_AGENDA = "agenda"
+private const val AGENDA_HEADER_DP = 58
+private const val AGENDA_ROW_DP = 52
+private const val FEW = 2
+private const val FEW_TITLE_SP = 20f
+private const val FEW_META_SP = 14f
 private const val KEPT = 6
 private const val ACTION_NEXT = "dev.geminixiang.pimobile.REPORTS_NEXT"
 private const val INSET_DP = 32
@@ -61,6 +68,15 @@ class ReportsWidget : AppWidgetProvider() {
             refreshAll(context)
         }
 
+        internal fun setAgenda(context: Context, items: JSONArray, bots: Set<String>) {
+            val stored = items.toString()
+            val reports = latest(context)
+            val kept = reports.filter { it.getString("conversation") in bots }
+            if (prefs(context).getString(KEY_AGENDA, "[]") == stored && kept.size == reports.size) return
+            prefs(context).edit().putString(KEY_AGENDA, stored).putString(KEY_LATEST, JSONArray(kept).toString()).apply()
+            refreshAll(context)
+        }
+
         internal fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             refresh(context, manager, manager.getAppWidgetIds(ComponentName(context, ReportsWidget::class.java)))
@@ -76,6 +92,14 @@ class ReportsWidget : AppWidgetProvider() {
                 emptyList()
             }
 
+        private fun agenda(context: Context): List<JSONObject> =
+            try {
+                JSONArray(prefs(context).getString(KEY_AGENDA, "[]")).objects()
+            } catch (error: JSONException) {
+                Log.w(TRIGGERS_TAG, "dropping an unreadable agenda", error)
+                emptyList()
+            }
+
         private fun shown(context: Context, reports: List<JSONObject>): JSONObject? {
             val conversation = prefs(context).getString(KEY_SHOWN, null)
             return reports.find { it.getString("conversation") == conversation } ?: reports.firstOrNull()
@@ -84,22 +108,68 @@ class ReportsWidget : AppWidgetProvider() {
         private fun refresh(context: Context, manager: AppWidgetManager, ids: IntArray) {
             val reports = latest(context)
             val shown = shown(context, reports)
+            val due = agenda(context)
             for (id in ids) {
                 val options = manager.getAppWidgetOptions(id)
                 val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
                 val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-                manager.updateAppWidget(id, if (shown == null) room(context, width, height) else report(context, shown, reports.indexOf(shown) + 1, reports.size, width, height))
+                val views =
+                    when {
+                        shown != null -> report(context, shown, reports.indexOf(shown) + 1, reports.size, width, height)
+                        due.isNotEmpty() -> agendaViews(context, due, height)
+                        else -> room(context, width, height)
+                    }
+                manager.updateAppWidget(id, views)
             }
         }
 
         private fun room(context: Context, width: Int, height: Int): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.reports_widget)
             views.setViewVisibility(R.id.report, View.GONE)
+            views.setViewVisibility(R.id.report_next, View.GONE)
+            views.setViewVisibility(R.id.agenda, View.GONE)
             views.setViewVisibility(R.id.reports_room, View.VISIBLE)
             val residents = TriggerStore.schedules(context).mapNotNull { it.avatar }.distinct()
             views.setImageViewBitmap(R.id.reports_room, BotRoom.draw(context, residents, width, height))
             views.setOnClickPendingIntent(R.id.reports_room, AgentService.openApp(context))
             return views
+        }
+
+        private fun agendaViews(context: Context, due: List<JSONObject>, height: Int): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.reports_widget)
+            views.setViewVisibility(R.id.report, View.GONE)
+            views.setViewVisibility(R.id.report_next, View.GONE)
+            views.setViewVisibility(R.id.reports_room, View.GONE)
+            views.setViewVisibility(R.id.agenda, View.VISIBLE)
+            views.setTextViewText(R.id.agenda_header, context.getString(R.string.agenda_header, due.size))
+            views.setOnClickPendingIntent(R.id.agenda, AgentService.openApp(context))
+            views.removeAllViews(R.id.agenda_rows)
+            val fits = ((height - AGENDA_HEADER_DP) / AGENDA_ROW_DP).coerceAtLeast(1)
+            val now = System.currentTimeMillis()
+            for (item in due.take(fits)) {
+                val row = RemoteViews(context.packageName, R.layout.reports_widget_agenda_row)
+                val title = item.getString("title")
+                val meta = "${item.getString("bot")} · ${whenDue(context, if (item.has("due")) item.getLong("due") else null, now)}"
+                row.setTextViewText(R.id.agenda_title, title)
+                row.setTextViewText(R.id.agenda_meta, meta)
+                if (due.size <= FEW) {
+                    row.setTextViewTextSize(R.id.agenda_title, TypedValue.COMPLEX_UNIT_SP, FEW_TITLE_SP)
+                    row.setTextViewTextSize(R.id.agenda_meta, TypedValue.COMPLEX_UNIT_SP, FEW_META_SP)
+                    row.setInt(R.id.agenda_title, "setMaxLines", FEW)
+                }
+                row.setContentDescription(R.id.agenda_row, "$title，$meta")
+                AgentService.avatar(context, item.getString("avatar"))?.let { row.setImageViewIcon(R.id.agenda_avatar, it) }
+                row.setOnClickPendingIntent(R.id.agenda_row, TriggersPlugin.openConversation(context, item.getString("conversation")))
+                views.addView(R.id.agenda_rows, row)
+            }
+            return views
+        }
+
+        private fun whenDue(context: Context, due: Long?, now: Long): String {
+            if (due == null) return context.getString(R.string.agenda_no_time)
+            val at = Instant.ofEpochMilli(due).atZone(ZoneId.systemDefault())
+            val time = (if (at.toLocalDate() == LocalDate.now()) TODAY else EARLIER).format(at)
+            return if (due < now) context.getString(R.string.agenda_overdue, time) else time
         }
 
         private fun report(context: Context, report: JSONObject, place: Int, count: Int, width: Int, height: Int): RemoteViews {
@@ -112,6 +182,7 @@ class ReportsWidget : AppWidgetProvider() {
             val headlineLines = if (headline.length * HEADLINE_SP * scale > width - INSET_DP - (if (count > 1) NEXT_DP else 0)) 2 else 1
             val detailLines = ((height - CHROME_DP - headlineLines * HEADLINE_LINE_DP * scale) / (DETAIL_LINE_DP * scale)).toInt().coerceAtLeast(1)
             views.setViewVisibility(R.id.reports_room, View.GONE)
+            views.setViewVisibility(R.id.agenda, View.GONE)
             views.setViewVisibility(R.id.report, View.VISIBLE)
             views.setTextViewText(R.id.report_bot, report.getString("bot"))
             views.setTextViewText(R.id.report_when, "${report.getString("schedule")} · $time")

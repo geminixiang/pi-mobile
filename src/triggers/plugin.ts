@@ -82,6 +82,12 @@ export const Triggers = definePlugin(
 			result: Type.Object({ shown: Type.Boolean() }),
 		},
 		report: { args: Type.Object({ conversation: Type.String(), bot: Type.String(), avatar: Type.String(), schedule: Type.String(), headline: Type.String(), text: Type.String(), at: Type.Number() }) },
+		agenda: {
+			args: Type.Object({
+				items: Type.Array(Type.Object({ conversation: Type.String(), bot: Type.String(), avatar: Type.String(), title: Type.String(), due: Type.Optional(Type.Number()) })),
+				bots: Type.Array(Type.String()),
+			}),
+		},
 		seen: { args: Type.Object({ conversation: Type.String() }) },
 	},
 	{ event: Type.Object({}) },

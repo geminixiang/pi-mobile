@@ -194,7 +194,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		effect: "direct",
 		needs: [Triggers.sync],
 		description:
-			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For a reminder that needs no work, set_alarm is enough.",
+			"Schedule a recurring or one-time run of yourself: at a time (on: time, with time or at), or on an event the phone notices (see on), the prompt is sent to you in this conversation as a new turn, even if the user is not using the phone, so you can compare with earlier runs. For something the user has to do or follow up by a time (a deadline, a reply to chase), note_item instead: it also shows on their home screen; for a reminder that needs no work, set_alarm.",
 		parameters: CreateScheduleArgs,
 		execute: async (args, api, context) => {
 			const when = await whenOf(args);

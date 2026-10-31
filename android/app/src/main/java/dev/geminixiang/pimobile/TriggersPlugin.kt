@@ -192,6 +192,13 @@ class TriggersPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun agenda(call: PluginCall) {
+        val bots = call.getArray("bots") ?: JSArray()
+        ReportsWidget.setAgenda(context, call.getArray("items") ?: JSArray(), (0 until bots.length()).map(bots::optString).toSet())
+        call.resolve()
+    }
+
+    @PluginMethod
     fun seen(call: PluginCall) {
         val conversation = call.getString("conversation").orEmpty()
         context.getSystemService(NotificationManager::class.java).cancel(proactiveNotificationId(conversation))
