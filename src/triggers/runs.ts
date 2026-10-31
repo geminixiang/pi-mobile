@@ -31,12 +31,29 @@ export type Trigger = {
 	when: When;
 	onlyIf?: string;
 	guards?: GuardId[];
-	kind: "schedule" | "followup";
 	conversationId: ConversationId;
 	state: "on" | "paused" | "fired";
 	createdAt: number;
 	last?: LastRun;
-};
+} & ({ kind: "schedule" | "followup" } | { kind: "watch"; agent: string });
+
+export type AgentState = "idle" | "working" | "needs_user" | "unknown" | "gone" | "unreachable";
+
+const MINUTE = 60_000;
+const WATCH_LIMIT = 12 * 60 * MINUTE;
+
+export function nextCheck(waited: number): number {
+	if (waited < 5 * MINUTE) return MINUTE;
+	if (waited < 30 * MINUTE) return 3 * MINUTE;
+	return 10 * MINUTE;
+}
+
+function watched(agent: string, state: AgentState, waited: number): string {
+	if (state === "idle") return `agent ${agent} is idle again`;
+	if (state === "needs_user") return `agent ${agent} is waiting for the user to approve or answer`;
+	if (state === "gone") return `agent ${agent} is gone (closed, or its terminal was)`;
+	return `agent ${agent} is still ${state === "unreachable" ? "unreachable" : "not done"} after ${Math.round(waited / MINUTE)} minutes, so the watch stops`;
+}
 
 const V1Trigger = Type.Object({
 	id: Type.String(),
@@ -124,6 +141,7 @@ export class TriggerRuns {
 	readonly #bots: () => Promise<readonly { id: ConversationId; name: string; avatar: string }[]>;
 	readonly #touchBot: (id: ConversationId, at: number) => Promise<void>;
 	readonly #judge: Judge;
+	readonly #agentState: (conversationId: ConversationId, agent: string) => Promise<AgentState>;
 	readonly #listeners = new Set<(state: TriggerState) => void>();
 	#state: TriggerState = { items: [], next: {} };
 	readonly #started = new Map<ConversationId, string>();
@@ -133,11 +151,13 @@ export class TriggerRuns {
 		bots: () => Promise<readonly { id: ConversationId; name: string; avatar: string }[]>,
 		touchBot: (id: ConversationId, at: number) => Promise<void>,
 		judge: Judge,
+		agentState: (conversationId: ConversationId, agent: string) => Promise<AgentState>,
 	) {
 		this.#harness = harness;
 		this.#bots = bots;
 		this.#touchBot = touchBot;
 		this.#judge = judge;
+		this.#agentState = agentState;
 	}
 
 	removeBot(conversationId: ConversationId): Promise<void> {
@@ -196,6 +216,12 @@ export class TriggerRuns {
 			return trigger?.conversationId;
 		}
 		if (!trigger || (delivery !== "manual" && trigger.state === "paused")) return undefined;
+		const agent = trigger.kind === "watch" ? await this.#agentState(trigger.conversationId, trigger.agent) : undefined;
+		const waited = Date.now() - trigger.createdAt;
+		if (agent !== undefined && (agent === "working" || agent === "unknown" || agent === "unreachable") && waited < WATCH_LIMIT && delivery !== "manual") {
+			await this.#edit((items) => items.map((item) => (item.id !== id ? item : { ...item, state: "on", when: { kind: "once", at: Date.now() + nextCheck(waited) } })));
+			return undefined;
+		}
 		if (trigger.when.kind === "once" && delivery !== "manual" && trigger.state === "on") await this.#markFired(id);
 		const today = startOfToday();
 		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
@@ -227,7 +253,9 @@ export class TriggerRuns {
 		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};
 		const judgement = screening ? `, ${screening.note}` : "";
 		const label =
-			trigger.kind === "followup"
+			trigger.kind === "watch"
+				? watched(trigger.agent, agent ?? "unknown", waited)
+				: trigger.kind === "followup"
 				? "follow-up you scheduled"
 				: heard
 					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}`

@@ -84,7 +84,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createSandboxExtension(deps.workplace),
 		createFilesExtension(deps.workplace),
 		createComputerExtension(deps.workplace),
-		createComputerAgentsExtension(deps.workplace),
+		createComputerAgentsExtension(deps.workplace, () => deps.triggers.changed()),
 		CodingTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),

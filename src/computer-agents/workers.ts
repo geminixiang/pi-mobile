@@ -30,7 +30,7 @@ export const LIST = [
 	FIND,
 	'if [ -x "$herdr" ]; then',
 	`  echo "${SECTION}herdr default"; ${HERDR} agent list 2>&1`,
-	'  for dir in "$HOME"/.config/herdr/sessions/*/; do',
+	'  find "$HOME/.config/herdr/sessions" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read -r dir; do',
 	'    [ -S "$dir/herdr.sock" ] || continue',
 	`    name=$(basename "$dir"); echo "${SECTION}herdr $name"; ${HERDR} --session "$name" agent list 2>&1`,
 	"  done",

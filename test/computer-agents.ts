@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { placeOf, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { LIST, placeOf, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
 
 const herdrAgent = { agent: "claude", agent_status: "blocked", cwd: "/Users/me/app", focused: true, name: "tester", pane_id: "w1:p1", terminal_title_stripped: "Claude Code", workspace_id: "w1" };
 const rexProcess = (argv0: string, cwd: string) => JSON.stringify({ last_exit: null, foreground: { pid: 1, name: argv0.split("/").at(-1), argv0, cwd } });
@@ -52,4 +56,15 @@ assert.equal(sendProblem(herdr, JSON.stringify({ result: { agent: herdrAgent } }
 assert.equal(sendProblem(herdr, JSON.stringify({ error: { code: "agent_blocked", message: "agent tester is blocked" } })), "agent_blocked: agent tester is blocked");
 assert.equal(sendProblem(rex, ""), undefined);
 
-console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block");
+
+if (existsSync("/bin/zsh")) {
+	const home = mkdtempSync(join(tmpdir(), "agents-"));
+	mkdirSync(join(home, ".local/bin"), { recursive: true });
+	writeFileSync(join(home, ".local/bin/herdr"), `#!/bin/sh\necho '${JSON.stringify({ result: { agents: [herdrAgent], type: "agent_list" } })}'\n`, { mode: 0o755 });
+	const listed = spawnSync("/bin/zsh", ["-lc", LIST], { env: { HOME: home, PATH: "/usr/bin:/bin" }, encoding: "utf8" });
+	rmSync(home, { recursive: true });
+	assert.equal(listed.status, 0, listed.stderr);
+	assert.deepEqual(workers(listed.stdout).map((worker) => worker.id), ["herdr:default:w1:p1"]);
+}
+
+console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, and the listing runs in zsh with no Herdr session");

@@ -17,6 +17,7 @@ import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import { pairedHosts } from "./sandbox/host.ts";
+import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { avatarOf, type Bot, botFields, BotIndex, DEFAULT_BOT, MAX_BOTS } from "./bots.ts";
@@ -115,6 +116,10 @@ export class AgentRuntime {
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, name: bot.name, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
 			judge,
+			async (id, agent) => {
+				const place = this.workplaces.at(String(id));
+				return place?.kind === "computer" ? agentState(place.host, agent) : "unreachable";
+			},
 		);
 		this.#botToolsets = new BotToolsets(harness, () => this.bots(), () => this.#allToolsets());
 	}

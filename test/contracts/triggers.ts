@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "../../src/agent/doc-policy.ts";
 import { loadModels } from "../../src/agent/available-models.ts";
-import { type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
+import { type AgentState, type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
 import { whenOf } from "../../src/triggers/tool.ts";
 import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents } from "../../src/triggers/events.ts";
@@ -15,7 +15,7 @@ import { type Check, logged, settings } from "./setup.ts";
 
 async function triggerFixture(
 	when: Trigger["when"],
-	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict } = {},
+	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState } = {},
 ) {
 	const storage = new MemoryStorage();
 	const { models } = await loadModels(settings, Promise.resolve({}));
@@ -30,7 +30,7 @@ async function triggerFixture(
 			when,
 			...(options.onlyIf ? { onlyIf: options.onlyIf } : {}),
 			...(options.guards ? { guards: options.guards } : {}),
-			kind: "schedule",
+			...(options.watching ? { kind: "watch", agent: "rex:a1b2c3:d4e5f6" } : { kind: "schedule" }),
 			conversationId: conversation.id,
 			state: options.enabled === false ? "paused" : "on",
 			createdAt: Date.now(),
@@ -64,7 +64,7 @@ async function triggerFixture(
 			return options.verdict ?? { kind: "unavailable" };
 		},
 	};
-	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, name: "helper", avatar: "helper" }], async (_id, at) => void touched.push(at), judge);
+	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, name: "helper", avatar: "helper" }], async (_id, at) => void touched.push(at), judge, async () => options.watching ?? "unknown");
 	return {
 		runs,
 		touched,
@@ -90,6 +90,35 @@ const confidenceOf = (last: LastRun | undefined) => (last?.outcome === "failed" 
 const alarm = (id: string, at = Date.now()): QueuedEvent => ({ id, at, kind: "alarm", trigger: "t1", live: true });
 
 export const checks: Check[] = [
+	[
+		"a watch whose agent is still working wakes no one and checks again a minute later",
+		async () => {
+			for (const watching of ["working", "unknown", "unreachable"] as const) {
+				const fixture = await triggerFixture({ kind: "once", at: Date.now() }, { watching });
+				await withTrigger(fixture, async () => {
+					const before = Date.now();
+					assert.equal(await fixture.runs.run("t1", "live"), undefined);
+					assert.equal(await fixture.delivered(), 0);
+					const [item] = (await fixture.doc()).items;
+					assert.equal(item?.state, "on");
+					assert.ok(item?.when.kind === "once" && item.when.at >= before + 55_000 && item.when.at <= Date.now() + 60_000, watching);
+				});
+			}
+		},
+	],
+	[
+		"a watch whose agent is idle again, needs the user, or is gone wakes its bot once and is done",
+		async () => {
+			for (const watching of ["idle", "needs_user", "gone"] as const) {
+				const fixture = await triggerFixture({ kind: "once", at: Date.now() }, { watching });
+				await withTrigger(fixture, async () => {
+					assert.ok(await fixture.runs.run("t1", "live"), watching);
+					assert.equal(await fixture.delivered(), 1);
+					assert.equal((await fixture.doc()).items.length, 0);
+				});
+			}
+		},
+	],
 	[
 		"create_schedule turns its arguments into a When, and refuses the mixes it names",
 		async () => {

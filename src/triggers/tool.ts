@@ -179,7 +179,7 @@ function timeOf(args: CreateScheduleArgs, days: number[]): When {
 }
 
 export function createTriggerExtension(host: TriggerHost) {
-	const add = async (api: ToolExecutionApi, context: Context, fields: Omit<Trigger, "id" | "conversationId" | "state" | "createdAt">): Promise<Trigger> => {
+	const add = async (api: ToolExecutionApi, context: Context, fields: Pick<Trigger, "name" | "prompt" | "when" | "onlyIf" | "guards"> & { kind: "schedule" | "followup" }): Promise<Trigger> => {
 		const trigger: Trigger = { id: crypto.randomUUID().slice(0, 8), ...fields, conversationId: api.conversationId, state: "on", createdAt: Date.now() };
 		await api.commit(async (tx) => {
 			(await tx.doc(TriggerDoc)).items.push(trigger);
