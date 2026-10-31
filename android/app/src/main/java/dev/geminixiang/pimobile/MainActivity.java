@@ -7,6 +7,8 @@ import java.io.File;
 
 public class MainActivity extends BridgeActivity {
 
+    static final String EXTRA_QUIET = "dev.geminixiang.pimobile.QUIET";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KeepAlivePlugin.class);
@@ -32,6 +34,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PhoneScreenPlugin.class);
         registerPlugin(PhoneStatePlugin.class);
         super.onCreate(savedInstanceState);
+        if (getIntent().getBooleanExtra(EXTRA_QUIET, false)) {
+            KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
+            moveTaskToBack(true);
+        }
         removeSshKey();
         removeOldCaptures();
     }

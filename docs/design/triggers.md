@@ -47,7 +47,9 @@ Android 的限制：
 | C | **安靜重啟**：有 `SYSTEM_ALERT_WINDOW` 時，由觸發從背景啟動 `MainActivity`。預期螢幕關著時在鎖屏後面啟動、不點亮螢幕；螢幕亮著時立刻退到背景（都需要實測） | 真正在背景跑完 | 要一個大權限；螢幕亮著時可能閃一下；需要實測 |
 | D | **無頭 WebView**：前景服務自己建一個 WebView 來跑 agent | 最乾淨 | Capacitor 的 bridge 綁在 Activity 上，等於要自己重寫一套 plugin bridge。不建議 |
 
-**建議**：A，加上 C（使用者自己選擇開啟），沒開 C 時退回 B。三者共用同一條路徑（見下面的「事件佇列」），差別只在「JS 什麼時候開始處理佇列」。
+**建議**：A，加上 C（使用者自己選擇開啟），沒開 C 時退回 B。
+
+**C 的實測**（2026-10-31，S24，螢幕亮著、在桌面）：pi 從最近使用的 app 滑掉後，排程觸發時 `TriggerReceiver` 先啟動前景服務、再從背景開 `MainActivity`（帶 `EXTRA_QUIET`），`MainActivity` 讓 WebView 照跑並立刻 `moveTaskToBack`。桌面一直在前面、沒有閃，Bot 在背景跑完、發通知、更新小工具；這次觸發算準時（`live`），不會切到那個 Bot。之後 pi 會再出現在最近使用的 app 裡。螢幕關著的情況還沒測。設定 › 自動化在有排程而權限沒開時顯示「滑掉 pi 也照跑」。三者共用同一條路徑（見下面的「事件佇列」），差別只在「JS 什麼時候開始處理佇列」。
 
 **先量測**（第 0 階段）：在 S24 上記錄一週 pi 程序被清掉的時間點，例如用原生端的鬧鐘每 15 分鐘記一次「程序還在嗎、WebView 還在嗎」。這可以知道 A 的實際涵蓋率，以及 C 值不值得做。
 
@@ -141,7 +143,7 @@ Android 的限制：
 - **藍牙**：`BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED` 是 Android 8 之後少數 manifest receiver 還收得到的廣播，所以 pi 不在執行也能觸發（`HeadphonesReceiver`，要 exported，因為廣播來自藍牙的程序；這個 action 只有系統能送）。Android 12 起要 `BLUETOOTH_CONNECT`。用 `BluetoothClass` 排除車用音響、喇叭。
 - **有線**：`ACTION_HEADSET_PLUG` 只送給執行中 app 動態註冊的 receiver，所以只在 pi 執行中時有用。
 - **條件**：星期幾、時段（可跨午夜）、最多每幾小時一次；24 小時代表「每天第一次」。間隔在原生端算，因為耳機常常一次連兩下，第二下不能在第一個 run 還在等 WebView 時又排一次。
-- **送達**：跟鬧鐘同一條路（`TriggerReceiver.fire`）：WebView 在就直接跑（凍結中的程序也會被廣播叫醒），不在就跳「點一下開始」。
+- **送達**：跟鬧鐘同一條路（`TriggerReceiver.fire`）：WebView 在就直接跑（凍結中的程序也會被廣播叫醒）；不在時，有「顯示在其他應用程式上層」權限就安靜重啟（方案 C），沒有就跳「點一下開始」。
 - **輸出**：`speak` 工具（Android `TextToSpeech`，`USAGE_ASSISTANT`，暫時壓低其他聲音）。觸發的訊息寫明「headphones connected」，系統提示要 agent 用 speak 口語匯報。耳機斷線時停止朗讀。
 
 ## 下一步：When → If → Do → Tell

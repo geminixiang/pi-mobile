@@ -97,7 +97,12 @@ class TriggersPlugin : Plugin() {
 
     @PluginMethod
     fun status(call: PluginCall) =
-        call.resolve(JSObject().put("exactAlarms", context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()).put("bluetooth", granted("bluetooth")))
+        call.resolve(
+            JSObject()
+                .put("exactAlarms", context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
+                .put("bluetooth", granted("bluetooth"))
+                .put("overlay", Settings.canDrawOverlays(context)),
+        )
 
     @PluginMethod
     fun requestLocationAlways(call: PluginCall) {
@@ -146,6 +151,12 @@ class TriggersPlugin : Plugin() {
     @PluginMethod
     fun requestExactAlarms(call: PluginCall) {
         context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun requestOverlay(call: PluginCall) {
+        context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         call.resolve()
     }
 

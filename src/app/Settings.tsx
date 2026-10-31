@@ -176,6 +176,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const [bots, setBots] = useState<Bot[]>([]);
 	const [exact, setExact] = useState<boolean>();
 	const [bluetooth, setBluetooth] = useState<boolean>();
+	const [overlay, setOverlay] = useState<boolean>();
 	const [error, setError] = useState("");
 	useEffect(() => runtime.triggers.subscribe(setState), [runtime]);
 	useEffect(() => runtime.subscribeBots(setBots), [runtime]);
@@ -185,6 +186,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 			void Triggers.status().then((status) => {
 				setExact(status.exactAlarms);
 				setBluetooth(status.bluetooth);
+				setOverlay(status.overlay);
 			});
 		refresh();
 		const listener = App.addListener("resume", () => {
@@ -215,6 +217,13 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 			{exact === false ? (
 				<Row label="準時執行" hint="沒開會晚幾分鐘">
 					<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
+						開啟
+					</button>
+				</Row>
+			) : null}
+			{state.items.length > 0 && overlay === false ? (
+				<Row label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑">
+					<button type="button" className="btn" onClick={() => void Triggers.requestOverlay()}>
 						開啟
 					</button>
 				</Row>

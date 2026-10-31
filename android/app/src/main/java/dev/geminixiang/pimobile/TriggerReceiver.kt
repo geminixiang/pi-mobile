@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.location.LocationManager
+import android.provider.Settings
 import android.util.Log
 import com.getcapacitor.JSObject
 import java.util.Locale
@@ -84,7 +85,8 @@ class TriggerReceiver : BroadcastReceiver() {
 
         private fun fire(context: Context, schedule: Schedule, detail: String?) {
             val live = TriggersPlugin.live()
-            val event = JSObject().put("kind", "alarm").put("trigger", schedule.id).put("live", live != null)
+            val quiet = live == null && startQuietly(context, schedule.name)
+            val event = JSObject().put("kind", "alarm").put("trigger", schedule.id).put("live", live != null || quiet)
             if (detail != null) event.put("device", detail)
             TriggerStore.enqueue(context, event)
             when (schedule.trigger) {
@@ -92,11 +94,12 @@ class TriggerReceiver : BroadcastReceiver() {
                 is When.Daily -> TriggerStore.arm(context, schedule)
                 is When.Event -> {}
             }
-            Log.i(TRIGGERS_TAG, "fired ${schedule.id}" + if (live != null) " (live)" else " (no WebView)")
+            Log.i(TRIGGERS_TAG, "fired ${schedule.id}" + if (live != null) " (live)" else if (quiet) " (started quietly)" else " (no WebView)")
             if (live != null) {
                 live.wake(schedule.name)
                 return
             }
+            if (quiet) return
             AgentService.createChannels(context)
             val notification =
                 Notification.Builder(context, AgentService.CHANNEL_PROACTIVE)
@@ -108,6 +111,22 @@ class TriggerReceiver : BroadcastReceiver() {
                     .setAutoCancel(true)
                     .build()
             context.getSystemService(NotificationManager::class.java).notify(TriggersPlugin.waitingNotificationId(schedule.id), notification)
+        }
+
+        private fun startQuietly(context: Context, name: String): Boolean {
+            if (!Settings.canDrawOverlays(context)) return false
+            try {
+                context.startForegroundService(Intent(context, AgentService::class.java).putExtra(AgentService.EXTRA_TEXT, name))
+                context.startActivity(
+                    Intent(context, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                        .putExtra(MainActivity.EXTRA_QUIET, true),
+                )
+            } catch (error: RuntimeException) {
+                Log.w(TRIGGERS_TAG, "could not start pi quietly", error)
+                return false
+            }
+            return true
         }
 
         private fun includes(value: String?, part: String) = value != null && value.lowercase(Locale.ROOT).contains(part.lowercase(Locale.ROOT))

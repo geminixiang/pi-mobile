@@ -4585,11 +4585,15 @@
 						},
 						"exactAlarms": {
 							"type": "boolean"
+						},
+						"overlay": {
+							"type": "boolean"
 						}
 					},
 					"required": [
 						"exactAlarms",
-						"bluetooth"
+						"bluetooth",
+						"overlay"
 					],
 					"type": "object"
 				}
@@ -4661,6 +4665,13 @@
 				}
 			},
 			"requestExactAlarms": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			},
+			"requestOverlay": {
 				"args": {
 					"properties": {},
 					"type": "object"
