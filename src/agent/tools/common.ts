@@ -26,8 +26,14 @@ function cleaned(parameters: TSchema, raw: unknown): unknown {
 	return Object.fromEntries(
 		Object.entries(raw)
 			.filter(([key, value]) => needed.has(key) || !unset(value, schemaOf(key)))
-			.map(([key, value]) => [key, listed(value, schemaOf(key))]),
+			.map(([key, value]) => [key, numbered(listed(value, schemaOf(key)), schemaOf(key))]),
 	);
+}
+
+function numbered(value: unknown, schema: unknown): unknown {
+	if (typeof value !== "string" || value.trim() === "" || typeof schema !== "object" || schema === null) return value;
+	const type: unknown = Reflect.get(schema, "type");
+	return (type === "integer" || type === "number") && Number.isFinite(Number(value)) ? Number(value) : value;
 }
 
 function listed(value: unknown, schema: unknown): unknown {

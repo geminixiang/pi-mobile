@@ -1,5 +1,5 @@
 import type { Context } from "@earendil-works/chord";
-import { defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
+import { type ConversationId, defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { HostCommands, type PairedHost } from "../agent/sandbox/host.ts";
 import { type AgentState, type Trigger, TriggerDoc } from "../triggers/runs.ts";
@@ -17,6 +17,7 @@ const TASK_CHARS = 500;
 const FIRST_CHECK = 60_000;
 const MAX_LINES = 400;
 const SCREEN_LINES = 40;
+const SETTLE_MS = 5_000;
 const STOPS_ASKING = ["don’t ask again", "don't ask again", "auto mode", "always"];
 const AGENT = Type.String({ description: "The agent's id from list_agents, such as herdr:default:w1:p1 or rex:c834ae" });
 
@@ -47,7 +48,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		};
 		await api.commit(async (tx) => {
 			const doc = await tx.doc(TriggerDoc);
-			doc.items = [...doc.items.filter((item) => !(item.kind === "watch" && item.agent === agent && item.conversationId === api.conversationId)), watching];
+			doc.items = [...doc.items.filter((item) => !isWatch(item, agent, api.conversationId)), watching];
 		}, context);
 		triggers.changed();
 		return true;
@@ -80,12 +81,22 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			lines: Type.Optional(Type.Integer({ minimum: 1, maximum: MAX_LINES, description: `How many of the last terminal lines; default ${READ_LINES}` })),
 		}),
 		replay: "safe",
-		execute: async (args, api) => {
+		execute: async (args, api, context) => {
 			const place = placed(args.agent);
 			const { commands } = commandsOf(String(api.conversationId));
 			const read = reading(place, (await commands.run(readCommand(place, args.lines ?? READ_LINES))).stdout);
 			if (!read.ok) throw new Error(`Could not read ${args.agent}: ${read.problem}`);
-			return text(truncated([`Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}`, "Terminal:", read.screen].join("\n")));
+			const settled = Date.now() - SETTLE_MS;
+			const seenDone = read.status === "idle" && (await api.snapshot(TriggerDoc, context))?.items.some((item) => isWatch(item, args.agent, api.conversationId) && item.createdAt < settled);
+			if (seenDone) {
+				await api.commit(async (tx) => {
+					const doc = await tx.doc(TriggerDoc);
+					doc.items = doc.items.filter((item) => !isWatch(item, args.agent, api.conversationId));
+				}, context);
+				triggers.changed();
+			}
+			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
+			return text(truncated([status, "Terminal:", read.screen].join("\n")));
 		},
 	});
 
@@ -108,7 +119,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const problem = sent.code === 0 ? sendProblem(place, sent.stdout) : sent.stdout.trim() || sent.stderr.trim() || `exit ${sent.code ?? "unknown"}`;
 			if (problem) throw new Error(`The task did not reach ${args.agent}: ${problem}`);
 			const watched = await watch(api, context, args.agent, `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}.`);
-			return text(watched ? `${args.agent} has the task. The phone will wake you here when it is idle again or needs the user.` : `${args.agent} has the task. Check on it with read_agent.`);
+			return text(watched ? `${args.agent} has the task. Answer the user now: the phone wakes you here when it is idle again or needs the user, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `${args.agent} has the task. Check on it with read_agent.`);
 		},
 	});
 
@@ -154,6 +165,10 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			),
 		],
 	});
+}
+
+function isWatch(item: Trigger, agent: string, conversationId: ConversationId): boolean {
+	return item.kind === "watch" && item.agent === agent && item.conversationId === conversationId;
 }
 
 export async function agentState(host: PairedHost, agent: string): Promise<AgentState> {

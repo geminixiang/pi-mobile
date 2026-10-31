@@ -36,6 +36,9 @@ throws(() => prepare({ need: "a", radius_m: 50 }), /radius_m/);
 deepStrictEqual(prepare({ need: "a", query: "x", limit: 3 }), { need: "a", query: "x", limit: 3 });
 deepStrictEqual(prepare({ need: "a", days: "Mon" }), { need: "a", days: ["Mon"] });
 deepStrictEqual(prepare({ need: "a", query: true, images: true }), { need: "a", images: true });
+deepStrictEqual(prepare({ need: "a", limit: "3", radius_km: " 1.5" }), { need: "a", limit: 3, radius_km: 1.5 });
+deepStrictEqual(prepare({ need: "1" }), { need: "1" });
+throws(() => prepare({ need: "a", limit: "three" }), /limit/);
 
 const statements = defineAppTool({
 	name: "statements",
