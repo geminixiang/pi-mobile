@@ -322,6 +322,10 @@ export class TriggerRuns {
 		await this.sync();
 	}
 
+	unattended(id: ConversationId): boolean {
+		return this.#started.has(id);
+	}
+
 	finished(id: ConversationId): Promise<void> | undefined {
 		const schedule = this.#started.get(id);
 		if (schedule === undefined) return undefined;

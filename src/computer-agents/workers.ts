@@ -171,3 +171,37 @@ export function sendProblem(place: Place, output: string): string | undefined {
 	const failed = checkJson(HerdrError, output.trim(), "herdr error");
 	return failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : undefined;
 }
+
+const CURSOR = "❯ ";
+const NUMBERED = /^\d+\.\s+/;
+
+export type Choices = { options: string[]; at: number };
+
+export function choicesOf(screen: string): Choices | undefined {
+	const lines = screen.split("\n");
+	const marker = lines.findLastIndex((line) => line.trimStart().startsWith(CURSOR) && line.trim().length > CURSOR.length);
+	if (marker < 0) return undefined;
+	const column = (lines[marker] ?? "").indexOf(CURSOR) + CURSOR.length;
+	const starts = (line: string) => line.length > column && line.slice(0, column).replace(CURSOR, "").trim() === "" && line[column] !== " ";
+	const deeper = (line: string) => line.slice(0, column + 1).trim() === "" && line.trim() !== "";
+	let first = marker;
+	while (first > 0 && (starts(lines[first - 1] ?? "") || deeper(lines[first - 1] ?? ""))) first--;
+	while (first < marker && !starts(lines[first] ?? "")) first++;
+	const options: string[] = [];
+	let at = 0;
+	for (let index = first; index < lines.length; index++) {
+		const line = lines[index] ?? "";
+		if (starts(line)) {
+			if (index === marker) at = options.length;
+			options.push(line.slice(column).trim().replace(NUMBERED, ""));
+		} else if (deeper(line) && options.length > 0) options[options.length - 1] += ` ${line.trim()}`;
+		else break;
+	}
+	return options.length > 1 ? { options, at } : undefined;
+}
+
+export function keysCommand(place: Place, keys: readonly string[]): string {
+	const words = keys.map(shellQuote).join(" ");
+	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent send-keys ${shellQuote(place.pane)} ${words} 2>&1`;
+	return `${FIND}; ${REX} block send-key -s ${shellQuote(place.session)} -b ${shellQuote(place.block)} ${words} 2>&1`;
+}

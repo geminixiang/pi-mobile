@@ -110,7 +110,7 @@ Claude Code 和 Codex 都有 hook：在特定時刻執行一個指令，從 stdi
 
 1. **看得到、交得出去**（2026-10-31 做了，兩邊都支援，見 [tools.md](../tools.md) 紀錄）：`pi-mobile agent-hook` 與 `agents setup`；手機工具透過現有的 `/exec` 讀事件檔、呼叫 `rex`。沒有推播，Bot 在使用者問的時候或用 `schedule_followup` 回頭看，但讀的是結構化狀態，不是畫面。
 2. **做完會叫人**（2026-10-31 先用精確鬧鐘做了：`tell_agent` 建 `watch` 排程，觸發時不叫模型先查狀態，見 [tools.md](../tools.md) 紀錄；事件串流還沒做）：`/agents/events` 串流；`Stop`、`needs_user` 喚醒 Bot，走排程的通知與小工具。
-3. **從手機批准**：權限請求在手機上回答。
+3. **從手機批准**（2026-10-31 做了 `answer_agent`，經由對話：使用者在手機上說，Bot 選；通知上的按鈕還沒做）：權限請求在手機上回答。
 4. **更多工人**：無介面的 Claude Code、Codex、多台電腦同時。
 
 每一階段都在 S24 上用真的任務跑過（像 2026-10-31 那幾件）才進下一階段。

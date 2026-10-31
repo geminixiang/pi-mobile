@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LIST, placeOf, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
+import { choicesOf, LIST, placeOf, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
 
 const herdrAgent = { agent: "claude", agent_status: "blocked", cwd: "/Users/me/app", focused: true, name: "tester", pane_id: "w1:p1", terminal_title_stripped: "Claude Code", workspace_id: "w1" };
 const rexProcess = (argv0: string, cwd: string) => JSON.stringify({ last_exit: null, foreground: { pid: 1, name: argv0.split("/").at(-1), argv0, cwd } });
@@ -69,4 +69,24 @@ if (existsSync("/bin/zsh")) {
 	assert.deepEqual(workers(listed.stdout).map((worker) => worker.id), ["herdr:default:w1:p1"]);
 }
 
-console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, and the listing runs in zsh with no Herdr session");
+
+const approval = [
+	" │ git worktree list && git worktree add -b fix-widget-delete /Users/me/pi-mobile-fix",
+	"╌╌╌╌╌╌╌╌╌╌╌╌",
+	" This command requires approval",
+	" Do you want to proceed?",
+	" ❯ 1. Yes",
+	"   2. Yes, and don’t ask again",
+	"      for: git worktree *",
+	"   3. Yes, and switch to auto mode · auto mode handles these prompts for you",
+	"   4. No",
+	" Esc to cancel · Tab to amend",
+].join("\n");
+assert.deepEqual(choicesOf(approval), { options: ["Yes", "Yes, and don’t ask again for: git worktree *", "Yes, and switch to auto mode · auto mode handles these prompts for you", "No"], at: 0 });
+const trust = [" Claude Code'll be able to read, edit, and execute files here.", "", " Security guide", "", " ❯ No, exit", "   Yes, I trust this folder", "", " Enter to confirm · Esc to cancel"].join("\n");
+assert.deepEqual(choicesOf(trust), { options: ["No, exit", "Yes, I trust this folder"], at: 0 });
+assert.deepEqual(choicesOf(" Do you want to proceed?\n   1. Yes\n ❯ 2. No"), { options: ["Yes", "No"], at: 1 });
+assert.equal(choicesOf("────────\n❯ \n────────\n  ⏵⏵ auto mode on"), undefined);
+assert.equal(choicesOf("⏺ 0 files.\n❯ commit 吧"), undefined);
+
+console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen");

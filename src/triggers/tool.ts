@@ -49,6 +49,7 @@ export type Notified = "shown" | "watching" | "off";
 
 export interface TriggerHost {
 	changed(): void;
+	unattended(conversationId: ConversationId): boolean;
 	notify(title: string, text: string, conversationId: ConversationId): Promise<Notified>;
 }
 

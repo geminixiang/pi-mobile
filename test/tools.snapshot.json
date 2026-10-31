@@ -3571,6 +3571,40 @@
 		"needs": []
 	},
 	{
+		"extension": "computer_agents",
+		"toolset": "computer_agents",
+		"name": "answer_agent",
+		"deferred": false,
+		"callers": [
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"agent": {
+					"description": "The agent's id from list_agents, such as herdr:default:w1:p1 or rex:c834ae",
+					"type": "string"
+				},
+				"option": {
+					"description": "Which option, counting from 1 in the order read_agent shows them",
+					"minimum": 1,
+					"type": "integer"
+				},
+				"stop_asking": {
+					"description": "true only when the user asked for an option that stops future questions (don't ask again, auto mode)",
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"agent",
+				"option"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": []
+	},
+	{
 		"extension": "coding-tools",
 		"toolset": "sandbox",
 		"name": "read",

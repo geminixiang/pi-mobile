@@ -107,6 +107,19 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a bot is unattended from the moment a schedule wakes it until that run finishes",
+		async () => {
+			const fixture = await triggerFixture({ kind: "once", at: Date.now() });
+			await withTrigger(fixture, async () => {
+				assert.equal(fixture.runs.unattended(fixture.conversation), false);
+				assert.equal(await fixture.runs.run("t1", "live"), fixture.conversation);
+				assert.equal(fixture.runs.unattended(fixture.conversation), true);
+				await fixture.runs.finished(fixture.conversation);
+				assert.equal(fixture.runs.unattended(fixture.conversation), false);
+			});
+		},
+	],
+	[
 		"a watch whose agent is idle again, needs the user, or is gone wakes its bot once and is done",
 		async () => {
 			for (const watching of ["idle", "needs_user", "gone"] as const) {

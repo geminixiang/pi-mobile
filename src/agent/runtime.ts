@@ -176,6 +176,7 @@ export class AgentRuntime {
 		let runtimeRef: AgentRuntime | undefined;
 		const triggerHost: TriggerHost = {
 			changed: () => void runtimeRef?.triggers.sync(),
+			unattended: (id) => runtimeRef?.triggers.unattended(id) ?? false,
 			notify: async (title, text, conversationId) => {
 				const bot = (await runtimeRef?.bots())?.find((candidate) => candidate.id === conversationId);
 				return (await options.notify?.(title, text, conversationId, bot && { name: bot.name, avatar: avatarOf(bot) })) ?? "off";
