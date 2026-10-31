@@ -18,14 +18,22 @@ export function inForeground(): boolean {
 }
 
 let running = false;
+let finishing: Promise<unknown> = Promise.resolve();
+
+export function stayAwakeFor(work: Promise<unknown>): void {
+	finishing = Promise.allSettled([finishing, work]);
+}
 
 const ASKED_KEY = "pi-mobile.notificationsAsked";
 
 export function setWorking(titles: string[]): void {
 	if (!available) return;
 	if (titles.length === 0) {
-		if (running) void KeepAlive.stop();
+		if (!running) return;
 		running = false;
+		void finishing.then(() => {
+			if (!running) void KeepAlive.stop();
+		});
 		return;
 	}
 	running = true;

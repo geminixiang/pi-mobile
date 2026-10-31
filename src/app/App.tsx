@@ -25,7 +25,7 @@ import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { inForeground, notifyAway, setWorking } from "./keepAlive.ts";
+import { inForeground, notifyAway, setWorking, stayAwakeFor } from "./keepAlive.ts";
 import { native } from "../native.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "../triggers/events.ts";
 import type { Trigger } from "../triggers/runs.ts";
@@ -164,8 +164,10 @@ export function App() {
 	useEffect(() => (runtime ? runtime.subscribeActivity(setBusyIds) : undefined), [runtime]);
 	useEffect(() => {
 		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
+		const ended = [...previousBusy.current].filter((id) => !busyIds.has(id)).map((id) => ({ id, report: runtime?.triggers.finished(id) }));
+		for (const { report } of ended) if (report) stayAwakeFor(report);
 		setWorking([...busyIds].map(title));
-		const finished = [...previousBusy.current].filter((id) => !busyIds.has(id) && !runtime?.triggers.finished(id));
+		const finished = ended.filter(({ report }) => !report).map(({ id }) => id);
 		if (finished.length > 0) notifyAway("pi 完成了", finished.map(title).join("、"));
 		previousBusy.current = busyIds;
 	}, [busyIds, bots, runtime]);

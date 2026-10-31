@@ -294,12 +294,12 @@ export class TriggerRuns {
 		await this.sync();
 	}
 
-	finished(id: ConversationId): boolean {
+	finished(id: ConversationId): Promise<void> | undefined {
 		const schedule = this.#started.get(id);
-		if (schedule === undefined) return false;
+		if (schedule === undefined) return undefined;
 		this.#started.delete(id);
-		if (native.implements(Triggers.report)) void orLogged(this.#report(id, schedule), "trigger.report_failed", undefined, { conversation: String(id) });
-		return true;
+		if (!native.implements(Triggers.report)) return Promise.resolve();
+		return orLogged(this.#report(id, schedule), "trigger.report_failed", undefined, { conversation: String(id) });
 	}
 
 	async #report(id: ConversationId, schedule: string): Promise<void> {

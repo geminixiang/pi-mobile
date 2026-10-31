@@ -203,7 +203,7 @@ export const checks: Check[] = [
 				const last = after.items[0]?.last;
 				assert.match(last?.outcome === "failed" ? last.error : "", /會再試/);
 				assert.equal(after.runs.length, 0);
-				assert.equal(fixture.runs.finished(fixture.conversation), false);
+				assert.equal(fixture.runs.finished(fixture.conversation), undefined);
 				assert.deepEqual(fixture.touched, []);
 				fixture.refuse(false);
 				assert.ok(await fixture.runs.run("t1", "later", { event: "e1" }));
@@ -219,11 +219,11 @@ export const checks: Check[] = [
 			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] });
 			await withTrigger(fixture, async () => {
 				await fixture.runs.run("t1", "live", { event: "e1" });
-				assert.equal(fixture.runs.finished(fixture.conversation), true);
+				assert.ok(fixture.runs.finished(fixture.conversation) instanceof Promise, "a finished run hands back its report, so pi stays awake until it is sent");
 				await fixture.runs.run("t1", "live", { event: "e1" });
 				assert.equal(await fixture.delivered(), 1);
 				assert.equal((await fixture.doc()).runs.length, 1);
-				assert.equal(fixture.runs.finished(fixture.conversation), false);
+				assert.equal(fixture.runs.finished(fixture.conversation), undefined);
 			});
 		},
 	],
