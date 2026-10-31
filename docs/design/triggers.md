@@ -49,7 +49,7 @@ Android 的限制：
 
 **建議**：A，加上 C（使用者自己選擇開啟），沒開 C 時退回 B。
 
-**C 的實測**（2026-10-31，S24，螢幕亮著、在桌面）：pi 從最近使用的 app 滑掉後，排程觸發時 `TriggerReceiver` 先啟動前景服務、再從背景開 `MainActivity`（帶 `EXTRA_QUIET`），`MainActivity` 讓 WebView 照跑並立刻 `moveTaskToBack`。桌面一直在前面、沒有閃，Bot 在背景跑完、發通知、更新小工具；這次觸發算準時（`live`），不會切到那個 Bot。之後 pi 會再出現在最近使用的 app 裡。螢幕關著的情況還沒測。設定 › 自動化在有排程而權限沒開時顯示「滑掉 pi 也照跑」。三者共用同一條路徑（見下面的「事件佇列」），差別只在「JS 什麼時候開始處理佇列」。
+**C 的實測**（2026-10-31，S24，螢幕亮著、在桌面）：pi 從最近使用的 app 滑掉後，排程觸發時 `TriggerReceiver` 先從背景開 `MainActivity`（帶 `EXTRA_QUIET`，靠 SAW 的背景啟動例外），再啟動前景服務（靠「能從背景開 Activity」的豁免；Android 15 起光有 SAW 不能啟動前景服務），`MainActivity` 讓 WebView 照跑並立刻 `moveTaskToBack`。桌面一直在前面、沒有閃，Bot 在背景跑完、發通知、更新小工具；這次觸發算準時（`live`），不會切到那個 Bot。之後 pi 會再出現在最近使用的 app 裡。模擬器重測一次（排程 17:45:08，17:45:06 觸發），一樣在背景跑完。螢幕關著的情況還沒測。平台機制的比較見 [research/background-triggers.md](../research/background-triggers.md)。精確鬧鐘改宣告 `USE_EXACT_ALARM`（安裝時就給），不用再請使用者打開「準時執行」；沒有它時 `setAndAllowWhileIdle` 可能晚到一小時內。設定 › 自動化在有排程而權限沒開時顯示「滑掉 pi 也照跑」。三者共用同一條路徑（見下面的「事件佇列」），差別只在「JS 什麼時候開始處理佇列」。
 
 **先量測**（第 0 階段）：在 S24 上記錄一週 pi 程序被清掉的時間點，例如用原生端的鬧鐘每 15 分鐘記一次「程序還在嗎、WebView 還在嗎」。這可以知道 A 的實際涵蓋率，以及 C 值不值得做。
 
