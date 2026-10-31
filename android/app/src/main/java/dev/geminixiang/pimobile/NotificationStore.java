@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.util.ArrayList;
 import java.util.List;
 
-final class NotificationStore extends SQLiteOpenHelper {
+public final class NotificationStore extends SQLiteOpenHelper {
 
     static final long KEEP_MS = 30L * 24 * 3600_000;
     private static NotificationStore instance;
@@ -34,7 +34,7 @@ final class NotificationStore extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
 
-    static final class Row {
+    public static final class Row {
         String packageName;
         String app;
         String conversation;
