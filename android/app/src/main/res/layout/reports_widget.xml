@@ -7,9 +7,15 @@
     android:clipToOutline="true">
 
     <LinearLayout
-        android:id="@+id/report"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+    <LinearLayout
+        android:id="@+id/report"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:padding="16dp">
 
@@ -55,16 +61,6 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/report_next"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:background="@drawable/reports_widget_next"
-                android:gravity="center"
-                android:minWidth="84dp"
-                android:paddingHorizontal="16dp"
-                android:textColor="@color/widget_text"
-                android:textSize="16sp" />
         </LinearLayout>
 
         <TextView
@@ -88,6 +84,31 @@
             android:maxLines="2"
             android:textColor="@color/widget_muted"
             android:textSize="14sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/report_next"
+        android:layout_width="56dp"
+        android:layout_height="match_parent"
+        android:background="@color/widget_chip"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:importantForAccessibility="no"
+            android:text="›"
+            android:textColor="@color/widget_text"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/report_place"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/widget_muted"
+            android:textSize="13sp" />
+    </LinearLayout>
     </LinearLayout>
 
     <ImageView

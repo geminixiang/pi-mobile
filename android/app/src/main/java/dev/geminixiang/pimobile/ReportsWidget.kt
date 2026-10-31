@@ -25,6 +25,7 @@ private const val KEPT = 6
 private const val ACTION_NEXT = "dev.geminixiang.pimobile.REPORTS_NEXT"
 private const val INSET_DP = 32
 private const val CHROME_DP = 98
+private const val NEXT_DP = 56
 private const val HEADLINE_SP = 19
 private const val HEADLINE_LINE_DP = 25
 private const val DETAIL_LINE_DP = 20
@@ -108,7 +109,7 @@ class ReportsWidget : AppWidgetProvider() {
             val headline = report.optString("headline").ifEmpty { report.getString("text") }
             val detail = if (report.optString("headline").isEmpty()) "" else report.getString("text")
             val scale = context.resources.configuration.fontScale
-            val headlineLines = if (headline.length * HEADLINE_SP * scale > width - INSET_DP) 2 else 1
+            val headlineLines = if (headline.length * HEADLINE_SP * scale > width - INSET_DP - (if (count > 1) NEXT_DP else 0)) 2 else 1
             val detailLines = ((height - CHROME_DP - headlineLines * HEADLINE_LINE_DP * scale) / (DETAIL_LINE_DP * scale)).toInt().coerceAtLeast(1)
             views.setViewVisibility(R.id.reports_room, View.GONE)
             views.setViewVisibility(R.id.report, View.VISIBLE)
@@ -120,7 +121,8 @@ class ReportsWidget : AppWidgetProvider() {
             views.setInt(R.id.report_text, "setMaxLines", detailLines)
             AgentService.avatar(context, report.getString("avatar"))?.let { views.setImageViewIcon(R.id.report_avatar, it) }
             views.setOnClickPendingIntent(R.id.report, TriggersPlugin.openConversation(context, report.getString("conversation")))
-            views.setTextViewText(R.id.report_next, "$place/$count ›")
+            views.setTextViewText(R.id.report_place, "$place/$count")
+            views.setContentDescription(R.id.report_next, "下一則，第 $place 則，共 $count 則")
             views.setViewVisibility(R.id.report_next, if (count == 1) View.GONE else View.VISIBLE)
             val next = Intent(context, ReportsWidget::class.java).setAction(ACTION_NEXT)
             views.setOnClickPendingIntent(R.id.report_next, PendingIntent.getBroadcast(context, 0, next, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
