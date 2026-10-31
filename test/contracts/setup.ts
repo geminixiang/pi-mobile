@@ -77,6 +77,8 @@ export const folders: { removeGate: Gate; removed: string[] } = { removeGate: un
 
 export const browsers: { forgotten: string[] } = { forgotten: [] };
 
+export const reports: { forgotten: string[] } = { forgotten: [] };
+
 export const faux = fauxProvider({ provider: "faux", models: [{ id: "model" }] });
 
 const plain = new Map<string, string>();
@@ -110,6 +112,11 @@ export const platform: Platform = {
 	browser: {
 		forget: async (bot) => {
 			browsers.forgotten.push(bot);
+		},
+	},
+	reports: {
+		forget: async (conversation) => {
+			reports.forgotten.push(conversation);
 		},
 	},
 	models: async () => {

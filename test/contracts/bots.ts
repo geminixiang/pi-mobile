@@ -3,7 +3,7 @@ import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
-import { browsers, type Check, faux, folders, settle } from "./setup.ts";
+import { browsers, type Check, faux, folders, reports, settle } from "./setup.ts";
 
 async function busyNow(runtime: AgentRuntime, id: ConversationId): Promise<boolean> {
 	let busy = false;
@@ -47,6 +47,20 @@ export const checks: Check[] = [
 				assert.equal(busyAfter, false);
 				assert.equal((await runtime.memory({ kind: "bot", id: gone })).text, "");
 				assert.equal((await runtime.bots()).some((bot) => bot.id === gone), false);
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
+		"removing a bot takes its report off the home screen widget",
+		async () => {
+			const { runtime } = await openRuntime();
+			try {
+				const gone = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+				reports.forgotten.length = 0;
+				await runtime.removeBot(gone);
+				assert.deepEqual(reports.forgotten, [String(gone)]);
 			} finally {
 				await runtime.close();
 			}
