@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
 import { GearIcon, MoreIcon, PlusIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
-import type { Trigger } from "../agent/triggers.ts";
-import type { When } from "../plugins/triggers.ts";
-import { triggerSymbol } from "./triggerSymbol.ts";
+import type { Trigger } from "../triggers/runs.ts";
+import type { When } from "../triggers/plugin.ts";
+import { triggerSymbol } from "../triggers/when.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { SidePanel } from "./SidePanel.tsx";
@@ -105,7 +105,7 @@ export function Drawer({
 									<span className="drawer-title">
 										{running.has(bot.id) ? <span className="drawer-running" aria-label="執行中" /> : null}
 										<span className="bot-name">{bot.name}</span>
-										<BotAutomations whens={automations.filter((item) => item.enabled && item.conversationId === bot.id).map((item) => item.when)} />
+										<BotAutomations whens={automations.filter((item) => item.state !== "paused" && item.conversationId === bot.id).map((item) => item.when)} />
 									</span>
 									<span className="bot-job">{bot.job.split("\n")[0] || "一般助理"}</span>
 								</span>

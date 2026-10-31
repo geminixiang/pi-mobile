@@ -1,10 +1,10 @@
 import { App } from "@capacitor/app";
+import { Value } from "typebox/value";
 import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
-import { takeEvents } from "../agent/triggers.ts";
 import { native } from "../native.ts";
-import { type QueuedEvent, Triggers } from "../plugins/triggers.ts";
+import { QueuedEvent, Triggers } from "./plugin.ts";
 import { log } from "../log.ts";
-import { releaseIfIdle } from "./keepAlive.ts";
+import { releaseIfIdle } from "../app/keepAlive.ts";
 import { messageOf, orLogged, serially } from "../promise.ts";
 import { DAY } from "../agent/tools/common.ts";
 
@@ -33,6 +33,21 @@ export async function deliverEvents(
 		}
 	}
 	return handled;
+}
+
+async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
+	const { events } = await Triggers.events();
+	const parsed: QueuedEvent[] = [];
+	const unreadable: string[] = [];
+	for (const event of events) {
+		if (Value.Check(QueuedEvent, event)) {
+			parsed.push(event);
+			continue;
+		}
+		const id = typeof event === "object" && event && "id" in event && typeof event.id === "string" ? event.id : undefined;
+		if (id) unreadable.push(id);
+	}
+	return { events: parsed, unreadable };
 }
 
 export function processTriggerEvents(

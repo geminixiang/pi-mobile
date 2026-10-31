@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { Granted, definePlugin } from "./define.ts";
+import { Granted, definePlugin } from "../plugins/define.ts";
 import { oneOf } from "../agent/parse.ts";
 
 const Clock = Type.String({ pattern: "^\\d{2}:\\d{2}$" });

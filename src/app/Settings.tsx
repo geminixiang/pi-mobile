@@ -21,8 +21,8 @@ import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar
 import { Calendar, type PhoneCalendar } from "../plugins/calendar.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import type { TriggerState } from "../agent/triggers.ts";
-import { Triggers } from "../plugins/triggers.ts";
+import type { TriggerState } from "../triggers/runs.ts";
+import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
 import { AutomationIcon, ChevronIcon, DatabaseIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
@@ -35,7 +35,7 @@ import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
-import { TriggerRow } from "./TriggerRow.tsx";
+import { TriggerRow } from "../triggers/TriggerRow.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
@@ -194,7 +194,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 		return () => void listener.then((handle) => handle.remove());
 	}, [runtime]);
 	if (!native.has("Triggers")) return null;
-	const headphones = state.items.some((item) => item.enabled && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
+	const headphones = state.items.some((item) => item.state !== "paused" && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 
 	return (
 		<Group title="自動化">

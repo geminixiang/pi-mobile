@@ -31,7 +31,8 @@ import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { isEnabled, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
-import { type TriggerHost, TriggerRuns } from "./triggers.ts";
+import { TriggerRuns } from "../triggers/runs.ts";
+import type { TriggerHost } from "../triggers/tool.ts";
 import { type Placed, type Workplace, Workplaces } from "./workplaces.ts";
 
 const context = BACKGROUND_CONTEXT;

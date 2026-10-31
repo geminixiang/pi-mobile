@@ -1,151 +1,24 @@
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { Value } from "typebox/value";
-import { native } from "../native.ts";
 import type { Context } from "@earendil-works/chord";
-import { type ConversationId, defineDoc, defineExtension, type Harness, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
-import { checkpointEvery64 } from "./doc-policy.ts";
+import { type ConversationId, defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
-import { DAY, defineAppTool, localTime, pad, parseClock, parseLocalTime, startOfToday, text } from "./tools/common.ts";
-import { oneOf } from "./parse.ts";
-import { resolvePlace } from "./tools/device.ts";
-import { requireAccess } from "./notification-access.ts";
+import { defineAppTool, localTime, parseClock, parseLocalTime, text } from "../agent/tools/common.ts";
+import { oneOf } from "../agent/parse.ts";
+import { resolvePlace } from "../agent/tools/device.ts";
+import { requireAccess } from "../agent/notification-access.ts";
 import { Notifications } from "../plugins/notifications.ts";
-import { messageOf, serially } from "../promise.ts";
-import type { Judge } from "./judge.ts";
-import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "./guards.ts";
-import { ACTIVITIES, QueuedEvent, Triggers, type When } from "../plugins/triggers.ts";
+import { serially } from "../promise.ts";
+import { DEFAULT_GUARDS, GUARD_IDS, type GuardId } from "../agent/guards.ts";
+import { ACTIVITIES, Triggers, type When } from "./plugin.ts";
+import { type Trigger, TriggerDoc } from "./runs.ts";
+import { describeWhen } from "./when.ts";
 
-const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
-	walking: ["開始走路", "停止走路"],
-	running: ["開始跑步", "停止跑步"],
-	cycling: ["開始騎車", "停止騎車"],
-	vehicle: ["上車", "下車"],
-	still: ["靜止下來", "開始移動"],
-};
-
-type TriggerKind = "schedule" | "followup";
-
-type Delivery = "live" | "later" | "manual";
-
-export type Trigger = {
-	id: string;
-	name: string;
-	prompt: string;
-	when: When;
-	onlyIf?: string;
-	guards?: GuardId[];
-	kind: TriggerKind;
-	conversationId: ConversationId;
-	enabled: boolean;
-	createdAt: number;
-	last?: { at: number; delivery: Delivery; error?: string; judged?: number; skipped?: { reason: string; probability?: number }; unjudged?: string };
-	fired?: boolean;
-};
-
-export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string; at: number; request?: string }[] }>({
-	kind: "app.triggers",
-	version: 1,
-	scope: "session",
-	initial: () => ({ items: [], runs: [] }),
-	checkpointWhen: checkpointEvery64,
-});
-
-export const LIMITS = { perTrigger: 10, total: 30 };
 const MAX_TRIGGERS = 20;
 const MAX_FOLLOWUPS = 5;
 
-export const TRIGGER_ENTRY = "trigger.run";
 const RUNNING_ONLY =
 	" It works only while pi is running: Android tells only a running app about this, and pi keeps running in the background once the user turns on 通知讀取 (設定 › 手機). Tell the user.";
-const TriggerEntryData = Type.Object({
-	trigger: Type.String(),
-	name: Type.String(),
-	prompt: Type.String(),
-	kind: Type.String(),
-	delivery: Type.String(),
-	at: Type.Optional(Type.Number()),
-	device: Type.Optional(Type.String()),
-	on: Type.Optional(Type.String()),
-	activity: Type.Optional(Type.String()),
-	judged: Type.Optional(Type.Number()),
-});
-
-export type TriggerRun = Static<typeof TriggerEntryData>;
-
-export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun | undefined {
-	return entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data) ? entry.data : undefined;
-}
-
-export async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string[] }> {
-	const { events } = await Triggers.events();
-	const parsed: QueuedEvent[] = [];
-	const unreadable: string[] = [];
-	for (const event of events) {
-		if (Value.Check(QueuedEvent, event)) {
-			parsed.push(event);
-			continue;
-		}
-		const id = typeof event === "object" && event && "id" in event && typeof event.id === "string" ? event.id : undefined;
-		if (id) unreadable.push(id);
-	}
-	return { events: parsed, unreadable };
-}
 
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
-
-export function describeTime(at: number): string {
-	const date = new Date(at);
-	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function describeDays(list: readonly number[]): string {
-	const days = [...list].sort();
-	if (days.length === 0 || days.length === 7) return "每天";
-	if (days.join() === "1,2,3,4,5") return "平日";
-	if (days.join() === "6,7") return "週末";
-	return `每週${days.map((day) => WEEKDAY_NAMES[day - 1]).join("、")}`;
-}
-
-export function describeWhen(when: When): string {
-	if (when.kind === "once") return describeTime(when.at);
-	if (when.kind === "daily") return `${describeDays(when.days)} ${when.time}`;
-	const window = when.from || when.until ? ` ${when.from ?? "00:00"}–${when.until ?? "24:00"}` : "";
-	const days = describeDays(when.days);
-	const limit = when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`;
-	return `${days === "每天" ? "" : days}${window} ${describeEvent(when)}（${limit}）`.trim();
-}
-
-type EventWhen = Exclude<When, { kind: "once" | "daily" }>;
-
-export const isEvent = (when: When): when is EventWhen => when.kind !== "once" && when.kind !== "daily";
-
-function describeEvent(when: EventWhen): string {
-	switch (when.kind) {
-		case "headphones":
-			return "戴上耳機時";
-		case "charging":
-			return "開始充電時";
-		case "wifi":
-			return `連上 ${when.ssid ? `Wi‑Fi「${when.ssid}」` : "Wi‑Fi"}時`;
-		case "notification":
-			return `收到${when.app ? ` ${when.app} ` : ""}${when.contains ? `含「${when.contains}」的` : ""}通知時`;
-		case "place":
-			return `${when.on === "arrive" ? "到達" : "離開"}${when.label}時`;
-		case "unlock":
-			return "解鎖手機時";
-		case "battery_low":
-			return "電量低時";
-		case "timezone":
-			return "換時區時";
-		case "photo":
-			return `拍了新照片${when.album ? `（${when.album}）` : ""}時`;
-		case "bluetooth":
-			return `${when.on === "connect" ? "連上" : "斷開"}藍牙「${when.device}」時`;
-		case "activity":
-			return `${ACTIVITY_NAMES[when.activity][when.on === "start" ? 0 : 1]}時`;
-	}
-}
 
 function guardsFor(when: When, chosen: readonly GuardId[] | undefined): { guards?: GuardId[] } {
 	const guards = chosen ?? (when.kind === "notification" ? DEFAULT_GUARDS : []);
@@ -158,7 +31,7 @@ function summary(trigger: Trigger): string {
 	const kind = trigger.kind === "followup" ? "follow-up" : "schedule";
 	const at = trigger.when.kind === "once" ? `, at ${localTime(trigger.when.at)}` : "";
 	const asked = `${trigger.guards?.length ? `, checks: ${trigger.guards.join(" ")}` : ""}${trigger.onlyIf ? `, only if: ${trigger.onlyIf}` : ""}`;
-	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}${asked}, ${kind}${trigger.enabled ? "" : ", paused"}): ${trigger.prompt}`;
+	return `- ${trigger.id}: ${trigger.name} (${describeWhen(trigger.when)}${at}${asked}, ${kind}${trigger.state === "paused" ? ", paused" : ""}): ${trigger.prompt}`;
 }
 
 const oneDialogAtATime = serially();
@@ -304,8 +177,8 @@ function timeOf(args: CreateScheduleArgs, days: number[]): When {
 }
 
 export function createTriggerExtension(host: TriggerHost) {
-	const add = async (api: ToolExecutionApi, context: Context, fields: Omit<Trigger, "id" | "conversationId" | "enabled" | "createdAt">): Promise<Trigger> => {
-		const trigger: Trigger = { id: crypto.randomUUID().slice(0, 8), ...fields, conversationId: api.conversationId, enabled: true, createdAt: Date.now() };
+	const add = async (api: ToolExecutionApi, context: Context, fields: Omit<Trigger, "id" | "conversationId" | "state" | "createdAt">): Promise<Trigger> => {
+		const trigger: Trigger = { id: crypto.randomUUID().slice(0, 8), ...fields, conversationId: api.conversationId, state: "on", createdAt: Date.now() };
 		await api.commit(async (tx) => {
 			(await tx.doc(TriggerDoc)).items.push(trigger);
 		}, context);
@@ -419,192 +292,4 @@ export function createTriggerExtension(host: TriggerHost) {
 			),
 		],
 	});
-}
-
-export interface TriggerState {
-	items: Trigger[];
-	next: Record<string, number>;
-}
-
-const RUNS_KEPT_MS = DAY;
-
-const context = BACKGROUND_CONTEXT;
-
-export class TriggerRuns {
-	readonly #harness: Harness;
-	readonly #bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>;
-	readonly #touchBot: (id: ConversationId, at: number) => Promise<void>;
-	readonly #judge: Judge;
-	readonly #listeners = new Set<(state: TriggerState) => void>();
-	#state: TriggerState = { items: [], next: {} };
-	readonly #started = new Set<ConversationId>();
-
-	constructor(
-		harness: Harness,
-		bots: () => Promise<readonly { id: ConversationId; avatar: string }[]>,
-		touchBot: (id: ConversationId, at: number) => Promise<void>,
-		judge: Judge,
-	) {
-		this.#harness = harness;
-		this.#bots = bots;
-		this.#touchBot = touchBot;
-		this.#judge = judge;
-	}
-
-	removeBot(conversationId: ConversationId): Promise<void> {
-		return this.#edit((items) => items.filter((item) => item.conversationId !== conversationId));
-	}
-
-	subscribe(listener: (state: TriggerState) => void): () => void {
-		this.#listeners.add(listener);
-		listener(this.#state);
-		return () => this.#listeners.delete(listener);
-	}
-
-	async sync(): Promise<void> {
-		const items = (await this.#harness.snapshot(TriggerDoc, context))?.items ?? [];
-		const avatars = new Map((await this.#bots()).map((bot) => [bot.id, bot.avatar]));
-		const schedules = items
-			.filter((item) => item.enabled && !item.fired)
-			.map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) }));
-		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
-		this.#state = { items: [...items], next };
-		for (const listener of this.#listeners) listener(this.#state);
-	}
-
-	async #edit(edit: (items: Trigger[]) => Trigger[]): Promise<void> {
-		await this.#harness.commit(async (tx) => {
-			const doc = await tx.doc(TriggerDoc);
-			doc.items = edit(doc.items);
-		}, context);
-		await this.sync();
-	}
-
-	setEnabled(id: string, enabled: boolean): Promise<void> {
-		return this.#edit((items) => items.map((item) => (item.id === id ? { ...item, enabled } : item)));
-	}
-
-	setGuards(id: string, guards: readonly GuardId[]): Promise<void> {
-		return this.#edit((items) =>
-			items.map((item) => {
-				if (item.id !== id) return item;
-				const { guards: _old, ...rest } = item;
-				return guards.length > 0 ? { ...rest, guards: [...guards] } : rest;
-			}),
-		);
-	}
-
-	delete(id: string): Promise<void> {
-		return this.#edit((items) => items.filter((item) => item.id !== id));
-	}
-
-	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string } = {}): Promise<ConversationId | undefined> {
-		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
-		const doc = await this.#harness.snapshot(TriggerDoc, context);
-		const trigger = doc?.items.find((item) => item.id === id);
-		if (request && doc?.runs.some((run) => run.request === request)) {
-			await this.sync();
-			return trigger?.conversationId;
-		}
-		if (!trigger || (delivery !== "manual" && !trigger.enabled)) return undefined;
-		if (trigger.when.kind === "once" && delivery !== "manual" && !trigger.fired) await this.#markFired(id);
-		const today = startOfToday();
-		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
-		const overLimit =
-			delivery !== "manual" &&
-			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
-		const conversation = !overLimit && (await this.#bots()).some((bot) => bot.id === trigger.conversationId) ? await this.#harness.conversation(trigger.conversationId, context) : undefined;
-		const now = Date.now();
-		if (!conversation) {
-			await this.#record(id, { at: now, delivery, error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" });
-			return undefined;
-		}
-		const conversationId = trigger.conversationId;
-		const event = isEvent(trigger.when) && delivery !== "manual";
-		const heard = event ? (delivered.device ?? trigger.when.kind) : undefined;
-		const guards = trigger.guards ?? [];
-		const screening =
-			heard && (guards.length > 0 || trigger.onlyIf)
-				? screen(guards, trigger.onlyIf, await this.#judge.ask(screeningQuestions(guards, trigger.onlyIf), { automation: trigger.name, purpose: trigger.prompt, event: heard }))
-				: undefined;
-		const unjudged: { unjudged?: string } = screening?.unjudged ? { unjudged: screening.unjudged } : {};
-		if (screening && !screening.pass) {
-			const skipped = { reason: screening.reason, ...(screening.probability !== undefined ? { probability: screening.probability } : {}) };
-			await this.#record(id, { at: now, delivery, skipped, ...unjudged });
-			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger: id });
-			return undefined;
-		}
-		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};
-		const judgement = screening ? `, ${screening.note}` : "";
-		const label =
-			trigger.kind === "followup"
-				? "follow-up you scheduled"
-				: heard
-					? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}`
-					: `schedule "${trigger.name}"`;
-		const activity: Record<string, string> = trigger.when.kind === "activity" ? { activity: trigger.when.activity } : {};
-		try {
-			await conversation.submit(
-				{
-					type: "input",
-					...(request ? { requestId: request } : {}),
-					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
-					entry: {
-						kind: TRIGGER_ENTRY,
-						data: {
-							trigger: id,
-							name: trigger.name,
-							prompt: trigger.prompt,
-							kind: trigger.kind,
-							delivery,
-							at: now,
-							on: trigger.when.kind,
-							...activity,
-							...judged,
-							...(heard ? { device: heard } : {}),
-						},
-					},
-					whenBusy: "followUp",
-				},
-				context,
-			);
-		} catch (error) {
-			await this.#record(id, { at: now, delivery, error: `沒有送出，會再試：${messageOf(error)}` });
-			throw error;
-		}
-		this.#started.add(conversationId);
-		await this.#touchBot(conversationId, now);
-		await this.#record(id, { at: now, delivery, ...judged, ...unjudged }, request);
-		return conversationId;
-	}
-
-	gaveUp(id: string, reason: string): Promise<void> {
-		return this.#record(id, { at: Date.now(), delivery: "later", error: `一天內都沒有送出，這次跳過：${reason}` });
-	}
-
-	async #markFired(id: string): Promise<void> {
-		await this.#harness.commit(async (tx) => {
-			const item = (await tx.doc(TriggerDoc)).items.find((candidate) => candidate.id === id);
-			if (item) item.fired = true;
-		}, context);
-	}
-
-	async #record(id: string, last: NonNullable<Trigger["last"]>, request?: string): Promise<void> {
-		const kept = startOfToday() - RUNS_KEPT_MS;
-		await this.#harness.commit(async (tx) => {
-			const triggers = await tx.doc(TriggerDoc);
-			const item = triggers.items.find((candidate) => candidate.id === id);
-			if (!item) return;
-			item.last = last;
-			if (last.error !== undefined || last.skipped) return;
-			if (request && triggers.runs.some((run) => run.request === request)) return;
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: id, at: last.at, ...(request ? { request } : {}) }];
-			if (item.when.kind === "once" && last.delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
-		}, context);
-		await this.sync();
-	}
-
-	takeStarted(id: ConversationId): boolean {
-		return this.#started.delete(id);
-	}
 }

@@ -3,7 +3,7 @@ import type { ConversationId, ConversationView } from "@earendil-works/pi-durabl
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import type { TriggerState } from "../agent/triggers.ts";
+import type { TriggerState } from "../triggers/runs.ts";
 import type { Computer } from "../agent/workplaces.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import type { Sandbox } from "../agent/sandbox/sandbox.ts";
@@ -15,7 +15,7 @@ import { entryText } from "./Message.tsx";
 import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 import { SidePanel } from "./SidePanel.tsx";
-import { TriggerRow } from "./TriggerRow.tsx";
+import { TriggerRow } from "../triggers/TriggerRow.tsx";
 import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";

@@ -7,13 +7,13 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { ChevronIcon, CloseIcon, FileIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
-import { isWhenKind, triggerSymbol } from "./triggerSymbol.ts";
+import { isWhenKind, triggerSymbol } from "../triggers/when.ts";
 import { type AttachmentCard, parseAttachment, withoutAttachments } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
-import { triggerRun, type TriggerRun } from "../agent/triggers.ts";
+import { triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };

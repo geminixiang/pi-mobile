@@ -123,7 +123,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/agent/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
 | `src/agent/tools/` | 內建工具，一個領域一個檔案；`common.ts` 是共用的 `defineAppTool` |
 | `src/agent/codemode.ts`、`on-demand.ts`、`toolsets.ts` | Code mode（QuickJS Web Worker）、需要時才載入的工具、Bot 可選的工具組 |
-| `src/agent/bots.ts`、`memory.ts`、`triggers.ts`、`skills.ts` | Bot 的資料與系統提示、MEMORY.md、排程（定義、工具，和 `TriggerRuns`：同步到原生鬧鐘、觸發時的次數上限）、技能 |
+| `src/agent/bots.ts`、`memory.ts`、`skills.ts` | Bot 的資料與系統提示、MEMORY.md、技能 |
 | `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
 | `src/agent/mcp.ts`、`mcp-catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
 | `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |
@@ -134,6 +134,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/agent/parse.ts` | 邊界驗證（typebox） |
 | `src/browser/` | Bot 的瀏覽器：外掛合約、注入網頁的 `page.ts`、`read_page` 和 `use_browser` 工具、瀏覽器面板。程式碼依功能分資料夾，其他功能整理時也會搬成這樣 |
 | `src/phone-screen/` | 手機畫面：外掛合約、`read_phone_screen` 和 `use_phone_screen` 工具。設定頁的開關還在 `Settings.tsx`，跟其他設定區塊放在一起 |
+| `src/triggers/` | 排程：外掛合約（`plugin.ts`）、排程存檔與 `TriggerRuns`（`runs.ts`：同步到原生鬧鐘、觸發時的檢查和次數上限）、`create_schedule` 等工具（`tool.ts`）、原生事件佇列（`events.ts`）、排程的文字和圖示（`when.ts`）、設定頁的一列（`TriggerRow.tsx`） |
 | `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
 | `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.java` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |

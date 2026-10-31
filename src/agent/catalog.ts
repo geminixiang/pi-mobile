@@ -29,7 +29,7 @@ import { SpeechExtension } from "./tools/speech.ts";
 import { TwStocksExtension } from "./tools/tw-stocks.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
-import { createTriggerExtension, type TriggerHost } from "./triggers.ts";
+import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
 import type { Native } from "../native.ts";
 import { unusableExtensions } from "./toolsets.ts";
 import { declarationOf } from "./tools/common.ts";

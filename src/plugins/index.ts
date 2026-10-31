@@ -17,7 +17,7 @@ import { Records } from "./records.ts";
 import { Scanner } from "./scanner.ts";
 import { StreamFetch } from "./stream-fetch.ts";
 import { System } from "./system.ts";
-import { Triggers } from "./triggers.ts";
+import { Triggers } from "../triggers/plugin.ts";
 import { Usage } from "./usage.ts";
 import { Voice } from "./voice.ts";
 
