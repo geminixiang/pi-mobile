@@ -38,7 +38,7 @@
 | | Herdr | Rex |
 |---|---|---|
 | 知道 pane 裡是哪個 agent | 會，支援 pi、claude、codex 等 20 多種 | 不會，只是終端機 |
-| 工人狀態 | `idle`、`working`、`blocked`（等同意或回答）、`done`、`unknown`；來源是它替各 agent 裝的整合（`herdr integration install claude`，Claude Code 是 hook）加上畫面偵測 | 要 agent 自己輸出 OSC 7501，Claude Code 不會 |
+| 工人狀態 | `idle`、`working`、`blocked`（等同意或回答）、`done`、`unknown`；來源是它替各 agent 裝的整合（`herdr integration install claude`，Claude Code 是 hook）加上畫面偵測 | block 的 `program_status`：Claude Code 和 pi 自己回報 working、idle 和正在做什麼（2026-10-31 實測；原本以為 Claude Code 不會）；剛啟動時的信任對話框回報不出來 |
 | 交辦 | `agent prompt <工人> <文字> --wait`：用 bracketed paste 送出，工人在等同意時直接拒絕（`agent_blocked`），送出 5 秒沒開始就回 `agent_prompt_stalled` | `rex send` 打字，沒有語意 |
 | 主動通知 | socket API 的 `events.subscribe`，有 `pane_agent_status_changed` | `rex events` 只有 session 層級的事件 |
 | 開新工人 | `agent start <名字> --kind claude --pane <id>`，等它可以輸入才回 | 開一個 block 自己跑指令 |
@@ -108,7 +108,7 @@ Claude Code 和 Codex 都有 hook：在特定時刻執行一個指令，從 stdi
 
 ## 分階段
 
-1. **看得到、交得出去**：`pi-mobile agent-hook` 與 `agents setup`；手機工具透過現有的 `/exec` 讀事件檔、呼叫 `rex`。沒有推播，Bot 在使用者問的時候或用 `schedule_followup` 回頭看，但讀的是結構化狀態，不是畫面。
+1. **看得到、交得出去**（2026-10-31 做了，兩邊都支援，見 [tools.md](../tools.md) 紀錄）：`pi-mobile agent-hook` 與 `agents setup`；手機工具透過現有的 `/exec` 讀事件檔、呼叫 `rex`。沒有推播，Bot 在使用者問的時候或用 `schedule_followup` 回頭看，但讀的是結構化狀態，不是畫面。
 2. **做完會叫人**：`/agents/events` 串流；`Stop`、`needs_user` 喚醒 Bot，走排程的通知與小工具。
 3. **從手機批准**：權限請求在手機上回答。
 4. **更多工人**：無介面的 Claude Code、Codex、多台電腦同時。
