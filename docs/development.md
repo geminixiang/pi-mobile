@@ -71,6 +71,8 @@ npm run check                                   # 型別檢查
 CDP_PORT=9333 ./test/device/ui.sh 'async () => { return (await window.piRuntime.bots()).map((bot) => bot.name); }'
 ```
 
+改到打開系統設定的外掛方法（`open…Settings`、`openAppInfo`）時，跑 `./test/device/settings-shortcuts.sh <serial> <DevTools port>`：每個都呼叫一次，pi 的程序換了就算失敗。系統只給系統 app 的頁面（例如 `ACCESSIBILITY_DETAILS_SETTINGS`，要 `OPEN_ACCESSIBILITY_DETAILS_SETTINGS`）`resolveActivity` 照樣找得到，開下去才丟 `SecurityException`，讓 pi 整個崩掉。
+
 ### 效能量測（120 Hz）
 
 只在 S24 上量；模擬器的 vsync、GPU、CPU 都不是手機的，數字只能拿來驗證腳本。

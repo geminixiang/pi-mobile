@@ -1,7 +1,6 @@
 package dev.geminixiang.pimobile
 
 import android.accessibilityservice.AccessibilityService
-import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -49,10 +48,7 @@ class PhoneScreenPlugin : Plugin() {
 
     @PluginMethod
     fun openSettings(call: PluginCall) {
-        val component = ComponentName(context, PhoneScreenService::class.java).flattenToString()
-        val detail = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").putExtra(Intent.EXTRA_COMPONENT_NAME, component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val list = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(if (detail.resolveActivity(context.packageManager) != null) detail else list)
+        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         call.resolve()
     }
 
