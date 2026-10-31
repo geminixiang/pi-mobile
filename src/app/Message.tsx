@@ -14,6 +14,7 @@ import { isCodeNote } from "../agent/codes.ts";
 import type { Prefs } from "./prefs.ts";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
+import { isSource } from "./sources.ts";
 import { triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
@@ -308,6 +309,7 @@ function Link({ href, children, ...props }: ComponentProps<"a">) {
 	return (
 		<a
 			{...props}
+			className={href && typeof children === "string" && isSource(href, children) ? "source" : undefined}
 			href={href}
 			onClick={(event) => {
 				if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href)) return;

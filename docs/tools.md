@@ -234,6 +234,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-10-31 | 系統提示加一句：網路查到的事實，在它支持的那句後面接來源連結，文字用網域裡的網站名（`[pixnet](https://…)`），不在結尾列一串連結。回答裡連結文字等於網址主機名其中一段（不含最後的 `.com` 這類結尾）的，畫成來源標籤（`isSource`，`Message.tsx` 的 `Link`） | preamble 多約 60 tokens，尚未在 S24 量 | 未量測：要在 S24 跑 `test/device/tool-cost.sh` 前後各一次、`test/perf/run.ts` 串流場景前後各 3 次，再用暫時 Bot 問會查網路的問題，看來源放的位置和標籤 |
 | 2026-10-31 | 外掛合約 `Triggers` 多一個 `report`：排程在背景跑完後，JS 把 Bot 名稱、頭像、排程名稱、最後一段回答（去掉粗體和標題符號）和時間交給原生端，原生端留最新 3 則，更新桌面的「Bot 匯報」小工具（`ReportsWidget.kt`）。工具介面不變，`notify` 照舊由 Bot 決定要不要發 | 不變 | `plugins.snapshot.json` 已更新 |
 | 2026-10-31 | `PhoneScreen.act` 外掛合約的步驟照瀏覽器的做法改成每個動作一個型別，`key` 的欄位從 `keys` 改成 `key`；`use_phone_screen` 的工具參數不變，在 TS 先轉換（`stepOf`）：缺座標、不認得的按鍵、`open` 沒有 App 名稱，整個呼叫在執行任何一步之前就回錯誤。`swipe` 的預設與上限（300 ms／5 秒）、`wait` 的（0.5 秒／10 秒）、捲動預設 down 從原生移到 TS。原生改寫成 Kotlin（`PhoneScreenPlugin.kt`、`ScreenElements.kt`、`ScreenActor.kt`、`PhoneScreenService.kt`） | 不變 | `plugins.snapshot.json` 已更新；`test/phone-screen-steps.ts` 驗證轉換 |
 | 2026-10-31 | `Browser.act` 外掛合約的步驟從「一個 `action` 加一堆選填欄位」改成每個動作一個型別（union），`key` 的欄位從 `keys` 改成 `key`；`use_browser` 的工具參數不變，在 TS 先把每一步轉成這個型別（`stepOf`）：缺欄位、不認得的按鍵、`close_tab`／`hand_over` 不在最後，整個呼叫在執行任何一步之前就回錯誤，不再先跑前面的步驟。`wait`、`wait_for` 的預設與上限（1 秒／10 秒、8 秒／20 秒）、捲動預設 down 從原生移到 TS。原生改寫成 Kotlin（`BrowserPlugin.kt`、`BrowserTab.kt`、`BrowserSteps.kt`） | 不變 | `plugins.snapshot.json` 已更新；`test/browser-steps.ts` 驗證轉換 |

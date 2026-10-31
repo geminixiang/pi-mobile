@@ -296,6 +296,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown h1 { font-size: var(--fs-title); }
 .markdown strong { font-weight: 700; color: var(--text); }
 .markdown a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.markdown .source {
+	margin-left: 4px; padding: 1px 6px; border: 1px solid var(--line); background: var(--bg-deep);
+	font-family: var(--sans); font-size: var(--fs-small); line-height: 1.5; color: var(--muted); text-decoration: none; white-space: nowrap;
+}
 .markdown code { font-family: var(--mono); font-size: 0.82em; }
 .markdown :not(pre) > code { padding: 1px 5px; background: var(--panel-2); color: var(--text); }
 .markdown blockquote { margin: 0.8em 0; padding: 2px 0 2px 16px; border-left: 2px solid var(--line-strong); color: var(--muted); }
