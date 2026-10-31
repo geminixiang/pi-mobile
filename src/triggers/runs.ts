@@ -238,7 +238,7 @@ export class TriggerRuns {
 				{
 					type: "input",
 					...(request ? { requestId: request } : {}),
-					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}` }],
+					content: [{ type: "text", text: `[trigger] ${label}, ${new Date(now).toString()}\n\n${trigger.prompt}\n\n(Unattended: nobody will answer a question. Start the answer with one line of at most 20 characters that tells the point (what changed or needs the user, or that nothing did), then the details; where something is unclear, pick the likely choice and say the assumption; when a step needs the user, skip it and say what is needed.)` }],
 					entry: {
 						kind: TRIGGER_ENTRY,
 						data: {
