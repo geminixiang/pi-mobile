@@ -39,9 +39,9 @@ async function triggerFixture(
 		doc.runs = options.runs ?? [];
 		const item = options.item;
 		if (!item) return;
-		const base = { id: "i1", title: "回覆面試時間", bot: conversation.id, ...(item.nextAt !== undefined ? { nextAt: item.nextAt } : {}), createdAt: 0, updatedAt: 0 };
+		const base = { id: "i1", title: "回覆房東", bot: conversation.id, ...(item.nextAt !== undefined ? { nextAt: item.nextAt } : {}), createdAt: 0, updatedAt: 0 };
 		(await tx.doc(ItemDoc)).items = [
-			item.state === "done" ? { ...base, state: "done", doneAt: Date.now() } : item.state === "waiting" ? { ...base, state: "waiting", waitingOn: "王經理", wake: { app: "Gmail", contains: "王" } } : { ...base, state: "todo" },
+			item.state === "done" ? { ...base, state: "done", doneAt: Date.now() } : item.state === "waiting" ? { ...base, state: "waiting", waitingOn: "王先生", wake: { app: "Gmail", contains: "王" } } : { ...base, state: "todo" },
 		];
 	}, context);
 	let refuse = false;
@@ -132,7 +132,7 @@ export const checks: Check[] = [
 			const nextAt = Date.now() + DAY;
 			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item: { state: "waiting", nextAt }, verdict: { kind: "answered", probabilities: { instructions: 0.02, secrets: 0.01 }, model: "jev" } });
 			await withTrigger(fixture, async () => {
-				const heard = "收到 Gmail 的通知：王經理：週四下午兩點可以嗎？";
+				const heard = "收到 Gmail 的通知：王先生：週四下午兩點可以嗎？";
 				assert.equal(await fixture.runs.run("reply:i1", "live", { event: "e1", device: heard }), fixture.conversation);
 				assert.equal(await fixture.runs.run("reply:i1", "live", { event: "e1", device: heard }), undefined);
 				assert.equal(await fixture.delivered(), 1);
@@ -153,7 +153,7 @@ export const checks: Check[] = [
 			});
 			const settled = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item: { state: "todo" } });
 			await withTrigger(settled, async () => {
-				assert.equal(await settled.runs.run("reply:i1", "live", { event: "e1", device: "收到 Gmail 的通知：王經理：好" }), undefined);
+				assert.equal(await settled.runs.run("reply:i1", "live", { event: "e1", device: "收到 Gmail 的通知：王先生：好" }), undefined);
 				assert.equal(await settled.delivered(), 0);
 			});
 		},
