@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { agenda, type Item } from "../src/items/items.ts";
+import { agenda, type Item, schedulesOf } from "../src/items/items.ts";
 
 const bots = [
 	{ id: 1, name: "財務管家", avatar: "money" },
@@ -16,4 +16,15 @@ assert.deepEqual(
 assert.deepEqual(agenda([item("waiting", 1, "waiting", at(9)), item("done", 1, "done"), item("orphan", 9, "todo")], bots, endOfDay), []);
 assert.deepEqual(agenda([item("due", 2, "todo", at(9))], bots, endOfDay), [{ conversation: "2", bot: "求職管家", avatar: "job", title: "due", due: at(9) }]);
 
-console.log("items: the widget's agenda is the user's todo items due by the end of today, then undated ones, each with its bot");
+const stored = { id: "i1", title: "等王經理回信", bot: 1, createdAt: 0, updatedAt: 0 };
+assert.deepEqual(
+	schedulesOf({ ...stored, state: "waiting", waitingOn: "王經理", wake: { app: "Gmail", contains: "王" }, nextAt: at(9) }, "job").map((schedule) => [schedule.id, schedule.when]),
+	[
+		["item:i1", { kind: "once", at: at(9) }],
+		["reply:i1", { kind: "notification", app: "Gmail", contains: "王", days: [], gapHours: 1 }],
+	],
+);
+assert.deepEqual(schedulesOf({ ...stored, state: "done", doneAt: 0, nextAt: at(9) }, "job"), []);
+assert.deepEqual(schedulesOf({ ...stored, state: "todo" }, undefined), []);
+
+console.log("items: an item's next time is an alarm and a waited-for reply is a notification watch; the widget's agenda is the user's todo items due by the end of today, then undated ones, each with its bot");

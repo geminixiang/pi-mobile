@@ -2,6 +2,7 @@ import { defineExtension, section } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { oneOf } from "../agent/parse.ts";
 import { defineAppTool, parseLocalTime, text } from "../agent/tools/common.ts";
+import { requireAccess } from "../agent/notification-access.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { described, type Item, ItemDoc, pruned } from "./items.ts";
 
@@ -30,6 +31,8 @@ export function createItemsExtension(triggers: TriggerHost) {
 			state: Type.Optional(oneOf(STATES, { description: "todo: someone has to act; waiting: on a person or condition (give waiting_on); done: closed. Default todo" })),
 			next_at: Type.Optional(Type.String({ description: `When to look at it again: local YYYY-MM-DD HH:MM, or a date for ${MORNING}:00 that day, or "${NO_TIME}"` })),
 			waiting_on: Type.Optional(Type.String({ description: "Who or what it waits on, for state waiting" })),
+			wake_app: Type.Optional(Type.String({ description: "For state waiting on a reply: wake you when this app posts a notification, by its name or package, such as LINE or Gmail" })),
+			wake_contains: Type.Optional(Type.String({ description: "For state waiting on a reply: wake you only when the notification's title, sender or text contains this, such as the person's name" })),
 			ref: Type.Optional(Type.String({ description: "Where the details are: a link, or a record in a bot's own data" })),
 		}),
 		execute: async (args, api, context) => {
@@ -41,6 +44,10 @@ export function createItemsExtension(triggers: TriggerHost) {
 			const state = args.state ?? existing?.state ?? "todo";
 			const waitingOn = args.waiting_on ?? (existing?.state === "waiting" ? existing.waitingOn : undefined);
 			const nextAt = args.next_at !== undefined ? nextAtOf(args.next_at, now) : state === "done" ? undefined : existing?.nextAt;
+			const asked = args.wake_app || args.wake_contains ? { ...(args.wake_app ? { app: args.wake_app } : {}), ...(args.wake_contains ? { contains: args.wake_contains } : {}) } : undefined;
+			const wake = asked ?? (existing?.state === "waiting" ? existing.wake : undefined);
+			if (asked && state !== "waiting") throw new Error("wake_app and wake_contains are for a waiting item: give state waiting and waiting_on too.");
+			if (asked) await requireAccess();
 			const ref = args.ref ?? existing?.ref;
 			const base = {
 				id: existing?.id ?? crypto.randomUUID().slice(0, 6),
@@ -52,14 +59,16 @@ export function createItemsExtension(triggers: TriggerHost) {
 				updatedAt: now,
 			};
 			if (state === "waiting" && !waitingOn) throw new Error("A waiting item needs waiting_on: who or what it waits on.");
-			const item: Item = state === "waiting" && waitingOn ? { ...base, state, waitingOn } : state === "done" ? { ...base, state, doneAt: now } : { ...base, state: "todo" };
+			const item: Item =
+				state === "waiting" && waitingOn ? { ...base, state, waitingOn, ...(wake ? { wake } : {}) } : state === "done" ? { ...base, state, doneAt: now } : { ...base, state: "todo" };
 			await api.commit(async (tx) => {
 				const doc = await tx.doc(ItemDoc);
 				doc.items = pruned([...doc.items.filter((candidate) => candidate.id !== item.id), item], now);
 			}, context);
 			triggers.changed();
-			const lone = item.state !== "done" && item.nextAt === undefined ? " Nothing will bring it back: give next_at unless the user will." : "";
-			return text(`Item ${described(item)}.${lone}`);
+			const lone = item.state !== "done" && item.nextAt === undefined && !wake ? " Nothing will bring it back: give next_at unless the user will." : "";
+			const listening = asked ? " A notification wakes you only while pi runs; it stays running in the background while 通知讀取 is on, as it is now." : "";
+			return text(`Item ${described(item)}.${lone}${listening}`);
 		},
 	});
 
@@ -88,7 +97,7 @@ export function createItemsExtension(triggers: TriggerHost) {
 			section(
 				"items",
 				() =>
-					"What the user will need to come back to (a due date, a reply they wait for, a price or place to watch) goes in note_item with next_at, not only in memory or a table: at next_at the phone wakes you here with it. A timer or alarm only rings; use them when the user asks for one, not to follow something up. Close it with state done once it is handled.",
+					"What the user will need to come back to (a due date, a reply they wait for, a price or place to watch) goes in note_item with next_at, not only in memory or a table: at next_at the phone wakes you here with it. For a reply that arrives as a notification on this phone, also give wake_app or wake_contains, so it wakes you when it comes; next_at is then when to chase it. A timer or alarm only rings; use them when the user asks for one, not to follow something up. Close it with state done once it is handled.",
 			),
 		],
 	});

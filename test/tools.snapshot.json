@@ -3395,6 +3395,14 @@
 				"waiting_on": {
 					"description": "Who or what it waits on, for state waiting",
 					"type": "string"
+				},
+				"wake_app": {
+					"description": "For state waiting on a reply: wake you when this app posts a notification, by its name or package, such as LINE or Gmail",
+					"type": "string"
+				},
+				"wake_contains": {
+					"description": "For state waiting on a reply: wake you only when the notification's title, sender or text contains this, such as the person's name",
+					"type": "string"
 				}
 			},
 			"type": "object"

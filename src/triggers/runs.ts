@@ -9,10 +9,11 @@ import { check, oneOf, valueOrThrow } from "../agent/parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { entryText } from "../agent/entries.ts";
 import type { Judge } from "../agent/judge.ts";
-import { GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
+import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
+import { log } from "../log.ts";
 import { Triggers, When } from "./plugin.ts";
 import { isEvent } from "./when.ts";
-import { agenda, type Item, ITEM_TRIGGER, ItemDoc, itemTrigger } from "../items/items.ts";
+import { agenda, type Item, ITEM_TRIGGER, ItemDoc, itemTrigger, REPLY_TRIGGER, replyTrigger, schedulesOf } from "../items/items.ts";
 import type { Status } from "../computer-agents/workers.ts";
 
 const DELIVERIES = ["live", "later", "manual"] as const;
@@ -43,6 +44,10 @@ export type AgentState = Status | "gone" | "unreachable";
 
 const UNATTENDED = "(Unattended: nobody will answer a question. Start the answer with one line of at most 20 characters that tells the point (what changed or needs the user, or that nothing did), then the details; where something is unclear, pick the likely choice and say the assumption; when a step needs the user, skip it and say what is needed.)";
 const WATCH_LIMIT = 12 * 60 * MINUTE;
+const DUE_PROMPT =
+	"Handle it: do what you can, and notify the user when it needs them. Close it with note_item state done only when the matter itself is settled, not because you reminded the user; otherwise leave it open, with a new next_at if it should come back.";
+const REPLY_PROMPT =
+	"See whether this notification is what the item waits on. If it is, tell the user the gist with notify, then update the item with note_item: state done when it settles the matter, todo when the user now has to act (reply, decide, pay), waiting only while it still waits on someone else. If it is not, leave the item as it is and answer only that it was unrelated.";
 
 const STILL_WAITING: ReadonlySet<AgentState> = new Set(["working", "unknown", "unreachable"]);
 
@@ -182,12 +187,9 @@ export class TriggerRuns {
 		const [triggers, bots, itemDoc] = await Promise.all([this.#harness.snapshot(TriggerDoc, context), this.#bots(), this.#harness.snapshot(ItemDoc, context)]);
 		const items = triggers?.items ?? [];
 		const avatars = new Map(bots.map((bot) => [bot.id, bot.avatar]));
-		const due = (itemDoc?.items ?? []).flatMap((item) =>
-			item.state !== "done" && item.nextAt !== undefined ? [{ id: itemTrigger(item.id), name: item.title, when: { kind: "once" as const, at: item.nextAt }, avatar: avatars.get(item.bot) }] : [],
-		);
 		const schedules = [
 			...items.filter((item) => item.state === "on").map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) })),
-			...due,
+			...(itemDoc?.items ?? []).flatMap((item) => schedulesOf(item, avatars.get(item.bot))),
 		];
 		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
 		if (native.implements(Triggers.agenda)) await Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) });
@@ -222,7 +224,8 @@ export class TriggerRuns {
 	}
 
 	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string } = {}): Promise<ConversationId | undefined> {
-		if (id.startsWith(ITEM_TRIGGER)) return this.#runItem(id.slice(ITEM_TRIGGER.length), delivery, delivered.event);
+		if (id.startsWith(ITEM_TRIGGER)) return this.#runItem(id.slice(ITEM_TRIGGER.length), delivery, delivered.event, { kind: "due" });
+		if (id.startsWith(REPLY_TRIGGER)) return this.#runItem(id.slice(REPLY_TRIGGER.length), delivery, delivered.event, { kind: "reply", heard: delivered.device ?? "a notification" });
 		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
@@ -294,35 +297,56 @@ export class TriggerRuns {
 		return conversationId;
 	}
 
-	async #runItem(id: string, delivery: Delivery, event: string | undefined): Promise<ConversationId | undefined> {
+	async #runItem(id: string, delivery: Delivery, event: string | undefined, cause: { kind: "due" } | { kind: "reply"; heard: string }): Promise<ConversationId | undefined> {
 		const request = event ? `trigger:${event}` : undefined;
+		const trigger = cause.kind === "due" ? itemTrigger(id) : replyTrigger(id);
 		const runs = (await this.#harness.snapshot(TriggerDoc, context))?.runs ?? [];
 		if (request && runs.some((run) => run.request === request)) return undefined;
 		const item = (await this.#harness.snapshot(ItemDoc, context))?.items.find((candidate) => candidate.id === id);
 		const now = Date.now();
-		const due = item && item.state !== "done" && (delivery === "manual" || (item.nextAt !== undefined && item.nextAt <= now + MINUTE));
-		const overLimit = runs.filter((run) => run.at >= startOfToday()).length >= LIMITS.total;
-		const conversation = due && !overLimit && (await this.#bots()).some((bot) => bot.id === item.bot) ? await this.#harness.conversation(item.bot, context) : undefined;
+		const due =
+			cause.kind === "reply"
+				? item?.state === "waiting" && item.wake !== undefined
+				: item && item.state !== "done" && (delivery === "manual" || (item.nextAt !== undefined && item.nextAt <= now + MINUTE));
+		const today = runs.filter((run) => run.at >= startOfToday());
+		const overLimit = today.length >= LIMITS.total || today.filter((run) => run.trigger === trigger).length >= LIMITS.perTrigger;
+		const conversation = item && due && !overLimit && (await this.#bots()).some((bot) => bot.id === item.bot) ? await this.#harness.conversation(item.bot, context) : undefined;
 		if (!item || !conversation) {
 			await this.sync();
 			return undefined;
 		}
-		const details = [item.state === "waiting" ? `waiting on ${item.waitingOn}` : item.state, item.ref ? `details in ${item.ref}` : ""].filter(Boolean).join(", ");
-		await wake(
-			conversation,
-			request,
-			`item ${item.id} "${item.title}" (${details}) is due, ${new Date(now).toString()}`,
-			"Handle it: do what you can, and notify the user when it needs them. Close it with note_item state done only when the matter itself is settled, not because you reminded the user; otherwise leave it open, with a new next_at if it should come back.",
-			{ trigger: itemTrigger(item.id), name: item.title, prompt: item.title, kind: "item", delivery, at: now },
-		);
+		const waiting = item.state === "waiting" ? `waiting on ${item.waitingOn}` : item.state;
+		const details = [waiting, item.ref ? `details in ${item.ref}` : ""].filter(Boolean).join(", ");
+		const screening =
+			cause.kind === "reply" ? screen(DEFAULT_GUARDS, undefined, await this.#judge.ask(screeningQuestions(DEFAULT_GUARDS, undefined), { automation: item.title, purpose: waiting, event: cause.heard })) : undefined;
+		if (screening && !screening.pass) {
+			log.info("item.reply_skipped", { item: id, reason: screening.reason });
+			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger });
+			return undefined;
+		}
+		const label =
+			cause.kind === "reply"
+				? `item ${item.id} "${item.title}" (${details}): a notification came, ${cause.heard}${screening ? `, ${screening.note}` : ""}`
+				: `item ${item.id} "${item.title}" (${details}) is due`;
+		await wake(conversation, request, `${label}, ${new Date(now).toString()}`, cause.kind === "reply" ? REPLY_PROMPT : DUE_PROMPT, {
+			trigger,
+			name: item.title,
+			prompt: item.title,
+			kind: "item",
+			delivery,
+			at: now,
+			...(cause.kind === "reply" ? { device: cause.heard } : {}),
+		});
 		this.#started.set(item.bot, item.title);
 		await this.#touchBot(item.bot, now);
 		const kept = startOfToday() - RUNS_KEPT_MS;
 		await this.#harness.commit(async (tx) => {
-			const items = await tx.doc(ItemDoc);
-			items.items = items.items.map((candidate) => (candidate.id === id ? withoutNextAt(candidate) : candidate));
+			if (cause.kind === "due") {
+				const items = await tx.doc(ItemDoc);
+				items.items = items.items.map((candidate) => (candidate.id === id ? withoutNextAt(candidate) : candidate));
+			}
 			const triggers = await tx.doc(TriggerDoc);
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: itemTrigger(id), at: now, ...(request ? { request } : {}) }];
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger, at: now, ...(request ? { request } : {}) }];
 		}, context);
 		await this.sync();
 		return item.bot;
