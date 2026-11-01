@@ -225,6 +225,12 @@ export const AutomationIcon = ({ size = 18 }: { size?: number }) => (
 		<path d="M15.914 4a1.5 1.5 0 0 0-2.474-1.561l-9 9A1.5 1.5 0 0 0 5.5 14h4.002a.5.5 0 0 1 .471.666L8.086 20a1.5 1.5 0 0 0 2.475 1.56l9-9A1.5 1.5 0 0 0 18.5 10h-3.997a.5.5 0 0 1-.472-.667z" />
 	</Icon>
 );
+export const EyeIcon = ({ size = 18 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0" />
+		<circle cx="12" cy="12" r="3" />
+	</Icon>
+);
 export const DatabaseIcon = ({ size = 18 }: { size?: number }) => (
 	<Icon size={size}>
 		<ellipse cx="12" cy="5" rx="9" ry="3" />

@@ -24,7 +24,7 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
-import { AutomationIcon, ChevronIcon, DatabaseIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
+import { AutomationIcon, ChevronIcon, DatabaseIcon, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { useBack } from "./layers.ts";
 import { pairedHosts, parseComputerKey } from "../agent/sandbox/host.ts";
@@ -41,6 +41,7 @@ import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import { toBase64 } from "../encoding.ts";
+import type { Prefs } from "./prefs.ts";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
 	return (
@@ -377,7 +378,7 @@ function DatabaseGroup() {
 
 const PHONE_PAGE: readonly NativePlugin[] = ["Calendar", "Notifications", "PhoneScreen", "Usage", "KeepAlive"];
 
-type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "browser" | "schedules" | "data";
+type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "browser" | "schedules" | "data" | "display";
 
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
 	const [triggers, setTriggers] = useState<number>();
@@ -405,6 +406,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 		...(native.has("Browser") ? [{ page: "browser" as const, icon: <GlobeIcon size={18} />, label: "瀏覽器", value: SEARCH_ENGINES[settings.searchEngine].name }] : []),
 		...(native.has("Triggers") ? [{ page: "schedules" as const, icon: <AutomationIcon />, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
 		...(native.has("Database") ? [{ page: "data" as const, icon: <DatabaseIcon />, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
+		{ page: "display", icon: <EyeIcon />, label: "顯示", value: undefined },
 	];
 	return (
 		<nav className="menu settings-index">
@@ -453,6 +455,8 @@ export function SettingsView({
 	initial,
 	status,
 	runtime,
+	prefs,
+	onPrefs,
 	onSave,
 	onDraft,
 	onCancel,
@@ -460,6 +464,8 @@ export function SettingsView({
 	initial: Settings;
 	status?: string;
 	runtime?: AgentRuntime;
+	prefs: Prefs;
+	onPrefs: (change: Partial<Prefs>) => void;
 	onSave: (settings: Settings) => void;
 	onDraft?: (settings: Settings, changed: boolean) => void;
 	onCancel?: () => void;
@@ -622,6 +628,19 @@ export function SettingsView({
 		},
 		schedules: { title: "自動化", body: () => (runtime ? <TriggersGroup runtime={runtime} /> : null) },
 		data: { title: "資料庫", body: () => <DatabaseGroup /> },
+		display: {
+			title: "顯示",
+			body: () => (
+				<Group title="對話">
+					<Row label="顯示思考過程">
+						<input type="checkbox" className="switch" aria-label="顯示思考過程" checked={prefs.showThinking} onChange={(event) => onPrefs({ showThinking: event.target.checked })} />
+					</Row>
+					<Row label="預設展開工具輸出">
+						<input type="checkbox" className="switch" aria-label="預設展開工具輸出" checked={prefs.expandTools} onChange={(event) => onPrefs({ expandTools: event.target.checked })} />
+					</Row>
+				</Group>
+			),
+		},
 		browser: {
 			title: "瀏覽器",
 			body: () => (

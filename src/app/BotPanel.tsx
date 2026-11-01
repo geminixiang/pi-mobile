@@ -12,7 +12,6 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { BoxIcon, CheckIcon, ChevronIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "../agent/entries.ts";
-import type { Prefs } from "./prefs.ts";
 import { Sheet } from "./Sheet.tsx";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerRow } from "../triggers/TriggerRow.tsx";
@@ -158,8 +157,6 @@ export function BotPanel({
 	view,
 	context,
 	compactAt,
-	prefs,
-	onPrefs,
 	actions,
 	onClose,
 }: {
@@ -169,8 +166,6 @@ export function BotPanel({
 	view: ConversationView | undefined;
 	context: { used: number; window: number };
 	compactAt: number;
-	prefs: Prefs;
-	onPrefs: (change: Partial<Prefs>) => void;
 	actions: PanelActions;
 	onClose: () => void;
 }) {
@@ -353,20 +348,6 @@ export function BotPanel({
 						</div>
 					</Section>
 				) : null}
-
-
-				<Section title="顯示">
-					<div className="menu toggles">
-						<label>
-							<span className="menu-text">顯示思考過程</span>
-							<input type="checkbox" className="switch" checked={prefs.showThinking} onChange={(event) => onPrefs({ showThinking: event.target.checked })} />
-						</label>
-						<label>
-							<span className="menu-text">預設展開工具輸出</span>
-							<input type="checkbox" className="switch" checked={prefs.expandTools} onChange={(event) => onPrefs({ expandTools: event.target.checked })} />
-						</label>
-					</div>
-				</Section>
 			</div>
 		</SidePanel>
 	);

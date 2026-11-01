@@ -323,7 +323,7 @@ export function App() {
 		if (isConfigured(settings) && !openError) return splash;
 		return (
 			<div className="app">
-				<SettingsView initial={settings} status={openError} onSave={saveAndRestart} />
+				<SettingsView initial={settings} status={openError} prefs={prefs} onPrefs={updatePrefs} onSave={saveAndRestart} />
 				{dialogView}
 			</div>
 		);
@@ -420,8 +420,6 @@ export function App() {
 						view={view}
 						context={{ used, window: contextWindow }}
 						compactAt={settings.compactAt}
-						prefs={prefs}
-						onPrefs={updatePrefs}
 						onClose={close}
 						actions={{
 							edit: () => {
@@ -573,7 +571,7 @@ export function App() {
 			</Layer>
 
 			<Layer open={overlay === "settings"} kind="page" onClose={leaveSettings} label="設定">
-				<SettingsView initial={settings} runtime={runtime} onCancel={leaveSettings} onDraft={onSettingsDraft} onSave={saveAndRestart} />
+				<SettingsView initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} onSave={saveAndRestart} />
 			</Layer>
 
 			{dialogView}
