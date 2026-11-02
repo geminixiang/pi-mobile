@@ -129,6 +129,7 @@
 html, body, .root { margin: 0; height: 100%; background: var(--bg); color: var(--text); user-select: none; -webkit-user-select: none; }
 :where(.markdown, .bubble, pre, code, input, textarea) { user-select: text; -webkit-user-select: text; }
 .root { overflow: clip; }
+.crash { display: grid; gap: var(--space); align-content: center; justify-items: start; min-height: 100dvh; padding: var(--top) var(--space); }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: none; padding: 0; text-align: inherit; }
 :where(button) { background: none; transition: background-color 280ms ease; }

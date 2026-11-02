@@ -1,6 +1,8 @@
-import type { ImageContent } from "@earendil-works/pi-ai";
-import type { PreparedAttachment } from "../agent/attachments.ts";
+import { type Static, Type } from "typebox";
+import { KINDS, type PreparedAttachment } from "../agent/attachments.ts";
+import { check, oneOf } from "../agent/parse.ts";
 import { idbStore } from "../idb.ts";
+import { log } from "../log.ts";
 import { settled } from "../promise.ts";
 
 const textKey = (conversationId: string) => `pi-mobile.draft:${conversationId}`;
@@ -14,17 +16,28 @@ export function saveDraftText(conversationId: string, text: string): void {
 	else localStorage.removeItem(textKey(conversationId));
 }
 
-type DraftAttachments = { images: ImageContent[]; files: PreparedAttachment[] };
+const Image = Type.Object({ type: Type.Literal("image"), data: Type.String(), mimeType: Type.String() });
+const DraftAttachments = Type.Object({
+	images: Type.Array(Image),
+	files: Type.Array(
+		Type.Object({
+			card: Type.Object({ id: Type.String(), name: Type.String(), kind: oneOf(KINDS), size: Type.Number(), pages: Type.Optional(Type.Number()) }),
+			content: Type.Array(Type.Union([Type.Object({ type: Type.Literal("text"), text: Type.String(), textSignature: Type.Optional(Type.String()) }), Image])),
+			tables: Type.Array(Type.String()),
+		}),
+	),
+});
+type DraftAttachments = Static<typeof DraftAttachments>;
 
 const store = idbStore("pi-drafts", "attachments");
 
-function isDraftAttachments(value: unknown): value is DraftAttachments {
-	return typeof value === "object" && value !== null && Array.isArray(Reflect.get(value, "images")) && Array.isArray(Reflect.get(value, "files"));
-}
-
 export async function loadDraftAttachments(conversationId: string): Promise<DraftAttachments | undefined> {
 	const value: unknown = await store.request("readonly", (files) => files.get(conversationId));
-	return isDraftAttachments(value) ? value : undefined;
+	if (value === undefined) return undefined;
+	const checked = check(DraftAttachments, value, "草稿附件");
+	if (checked.ok) return checked.value;
+	log.warn("draft.unreadable", { conversation: conversationId, problem: checked.problem });
+	return undefined;
 }
 
 async function writeDraftAttachments(conversationId: string, draft: DraftAttachments): Promise<void> {

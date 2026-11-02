@@ -5,7 +5,7 @@ import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
 import { Database } from "../plugins/database.ts";
 
-const KINDS = ["pdf", "docx", "sheet", "text"] as const;
+export const KINDS = ["pdf", "docx", "sheet", "text"] as const;
 export type AttachmentKind = (typeof KINDS)[number];
 
 const EXTENSIONS: Record<string, AttachmentKind> = {
