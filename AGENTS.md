@@ -56,7 +56,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Every extension has a toolset or is in `ALWAYS_ON`, and `ALWAYS_ON` lists nothing stale | `test/tools-node.ts` |
 | A tool that acts as the user is `*_as_user`, loaded on demand, in a `*_as_user` extension | `test/tools-node.ts` |
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
-| Tool names the app branches on (`src/app`) are tools that exist | `test/tools-node.ts` |
+| Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
 | A renamed extension keeps each bot's choices | `test/toolsets.ts` |

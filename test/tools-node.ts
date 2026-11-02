@@ -212,19 +212,27 @@ const isNode = (value: unknown): value is Node => typeof value === "object" && v
 const nodesIn = (node: unknown): Node[] => (isNode(node) ? [node, ...Object.values(node).flatMap((value) => (Array.isArray(value) ? value : [value])).flatMap(nodesIn)] : []);
 const isName = (node: unknown) => isNode(node) && ((node.type === "Identifier" && node.name === "name") || (node.type === "MemberExpression" && isNode(node.property) && node.property.name === "name"));
 const stringOf = (node: unknown) => (isNode(node) && node.type === "Literal" && typeof node.value === "string" ? [node.value] : []);
+const isToolList = (node: unknown) => isNode(node) && node.type === "Identifier" && /TOOL/.test(String(node.name));
 function toolNamesIn(node: Node): string[] {
 	if (node.type === "BinaryExpression" && node.operator === "===") return isName(node.left) ? stringOf(node.right) : isName(node.right) ? stringOf(node.left) : [];
-	if (node.type === "VariableDeclarator" && isNode(node.id) && String(node.id.name).endsWith("_TOOLS") && isNode(node.init) && Array.isArray(node.init.arguments)) {
-		const list = node.init.arguments[0];
+	if (node.type === "SwitchStatement" && isName(node.discriminant) && Array.isArray(node.cases)) return node.cases.flatMap((branch) => (isNode(branch) ? stringOf(branch.test) : []));
+	if (node.type === "CallExpression" && isNode(node.callee) && node.callee.type === "MemberExpression" && isNode(node.callee.property) && node.callee.property.name === "includes" && Array.isArray(node.arguments) && isName(node.arguments[0])) {
+		const list = node.callee.object;
 		return isNode(list) && Array.isArray(list.elements) ? list.elements.flatMap(stringOf) : [];
+	}
+	if (node.type === "VariableDeclarator" && isToolList(node.id) && isNode(node.init) && Array.isArray(node.init.arguments)) {
+		const list = node.init.arguments[0];
+		if (!isNode(list) || !Array.isArray(list.elements)) return [];
+		return list.elements.flatMap((element) => (isNode(element) && Array.isArray(element.elements) ? stringOf(element.elements[0]) : stringOf(element)));
 	}
 	return [];
 }
-const APP = new URL("../src/app/", import.meta.url);
+const SRC = new URL("../src/", import.meta.url);
+const uiFiles = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".tsx") || (file.startsWith("app/") && file.endsWith(".ts")));
 const toolNames = new Set(current.map((tool) => tool.name));
-for (const file of readdirSync(APP).filter((name) => /\.tsx?$/.test(name))) {
-	const missing = nodesIn(parseSync(file, readFileSync(new URL(file, APP), "utf8")).program).flatMap(toolNamesIn).filter((name) => !toolNames.has(name));
-	if (missing.length) failures.push(`src/app/${file} names tools that do not exist (renamed or deleted? rename them here too): ${[...new Set(missing)].join(", ")}`);
+for (const file of uiFiles) {
+	const missing = nodesIn(parseSync(file, readFileSync(new URL(file, SRC), "utf8")).program).flatMap(toolNamesIn).filter((name) => !toolNames.has(name));
+	if (missing.length) failures.push(`src/${file} names tools that do not exist (renamed or deleted? rename them here too): ${[...new Set(missing)].join(", ")}`);
 }
 
 const MAP_START = "<!-- 工具總圖：node --import ./test/vite-imports.js test/tools-node.ts --update 產生，不要手改 -->";
