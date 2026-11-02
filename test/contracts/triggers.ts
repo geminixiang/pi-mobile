@@ -3,7 +3,7 @@ import { createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } fr
 import { checkpointEvery64 } from "../../src/agent/doc-policy.ts";
 import { loadModels } from "../../src/agent/available-models.ts";
 import { ItemDoc } from "../../src/items/items.ts";
-import { type AgentState, type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
+import { type AgentState, type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TRIGGER_NOTICE, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
 import { whenOf } from "../../src/triggers/tool.ts";
 import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents } from "../../src/triggers/events.ts";
@@ -80,6 +80,7 @@ async function triggerFixture(
 		doc: async () => (await harness.snapshot(TriggerDoc, context)) ?? { items: [], runs: [] },
 		items: async () => (await harness.snapshot(ItemDoc, context))?.items ?? [],
 		delivered: () => entriesOf(storage, conversation.id, TRIGGER_ENTRY),
+		notices: () => entriesOf(storage, conversation.id, TRIGGER_NOTICE),
 		refuse: (value: boolean) => (refuse = value),
 		close: () => harness.close(context),
 	};
@@ -110,6 +111,23 @@ export const checks: Check[] = [
 				assert.equal(item?.nextAt, undefined);
 				assert.equal(await fixture.runs.run("item:i1", "live", { event: "e2" }), undefined);
 				assert.equal(await fixture.delivered(), 1);
+			});
+		},
+	],
+	[
+		"an item due when today's runs are used up moves to the same time tomorrow and says so in its bot's conversation, instead of firing again every few seconds",
+		async () => {
+			const due = Date.now() - 60_000;
+			const runs = Array.from({ length: LIMITS.total }, (_, index) => ({ trigger: `t${index}`, at: Date.now() - 1000 }));
+			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { runs, item: { state: "todo", nextAt: due } });
+			await withTrigger(fixture, async () => {
+				assert.equal(await fixture.runs.run("item:i1", "live"), undefined);
+				assert.equal(await fixture.delivered(), 0);
+				const [item] = await fixture.items();
+				assert.equal(item?.nextAt, due + DAY);
+				assert.equal(await fixture.notices(), 1);
+				assert.equal(await fixture.runs.run("item:i1", "live"), undefined);
+				assert.equal(await fixture.notices(), 1);
 			});
 		},
 	],

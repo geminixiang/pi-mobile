@@ -4,7 +4,7 @@ import { type Conversation, type ConversationId, defineDoc, type Harness } from 
 import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
-import { DAY, MINUTE, startOfToday } from "../agent/tools/common.ts";
+import { DAY, localTime, MINUTE, startOfToday } from "../agent/tools/common.ts";
 import { check, oneOf, valueOrThrow } from "../agent/parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { entryText } from "../agent/entries.ts";
@@ -131,6 +131,13 @@ const TriggerEntryData = Type.Object({
 });
 
 export type TriggerRun = Static<typeof TriggerEntryData>;
+
+export const TRIGGER_NOTICE = "trigger.notice";
+const TriggerNoticeData = Type.Object({ text: Type.String() });
+
+export function triggerNotice(entry: { kind: string; data?: unknown }): string | undefined {
+	return entry.kind === TRIGGER_NOTICE && Value.Check(TriggerNoticeData, entry.data) ? entry.data.text : undefined;
+}
 
 export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun | undefined {
 	return entry.kind === TRIGGER_ENTRY && Value.Check(TriggerEntryData, entry.data) ? entry.data : undefined;
@@ -310,6 +317,16 @@ export class TriggerRuns {
 				: item && item.state !== "done" && (delivery === "manual" || (item.nextAt !== undefined && item.nextAt <= now + MINUTE));
 		const today = runs.filter((run) => run.at >= startOfToday());
 		const overLimit = today.length >= LIMITS.total || today.filter((run) => run.trigger === trigger).length >= LIMITS.perTrigger;
+		if (item && due && overLimit && cause.kind === "due" && item.nextAt !== undefined) {
+			const next = item.nextAt + DAY * Math.max(1, Math.ceil((now - item.nextAt) / DAY));
+			await this.#harness.commit(async (tx) => {
+				const items = await tx.doc(ItemDoc);
+				items.items = items.items.map((candidate) => (candidate.id === id ? { ...candidate, nextAt: next } : candidate));
+				await tx.appendEntry(item.bot, { kind: TRIGGER_NOTICE, data: { text: `今天的自動執行已達上限，「${item.title}」延到 ${localTime(next)}` } });
+			}, context);
+			await this.sync();
+			return undefined;
+		}
 		const conversation = item && due && !overLimit && (await this.#bots()).some((bot) => bot.id === item.bot) ? await this.#harness.conversation(item.bot, context) : undefined;
 		if (!item || !conversation) {
 			await this.sync();

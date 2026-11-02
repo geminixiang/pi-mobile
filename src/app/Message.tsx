@@ -16,7 +16,7 @@ import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { isSource } from "./sources.ts";
 import { preview, stepsLabel } from "./steps.ts";
-import { triggerRun, type TriggerRun } from "../triggers/runs.ts";
+import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
@@ -475,6 +475,8 @@ export const EntryView = memo(function EntryView({
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
 	const run = triggerRun(entry);
 	if (run) return <TriggerInput id={String(entry.id)} data={run} />;
+	const notice = triggerNotice(entry);
+	if (notice) return <div className="note">{notice}</div>;
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {
 		return (
