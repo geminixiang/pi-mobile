@@ -45,6 +45,7 @@ Finishing the task is half the job; the other half is leaving the design better 
   - a rule that lives only in prose when a check could enforce it.
 - A change that touches structure (a new tool, plugin method, extension, or a shared helper) ends its report with 對未來的影響: the red flags it removes or adds, and what it leaves for later.
 - A mistake that happens twice is fixed at the highest level that works: architecture (one owner, one way, unreachable internals), then types, then a check in `npm run check` whose error names the fix, then a test; prose last, and only for judgment calls. Add it to the table below.
+- Skills for this (`.pi/skills/`, adapted from pstack): `architect` before a non-trivial shape, `blast-radius` before committing a change to something shared or stored, `correct` when the user corrects the same kind of mistake again.
 - Say how you know: a claim in a report or a doc says whether it was run (a script or the app), read at `file:line`, or only assumed. A design doc counts and lists from the code (`grep`), not from memory.
 
 | Rule | Enforced by |
