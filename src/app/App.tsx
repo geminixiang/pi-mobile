@@ -381,7 +381,7 @@ export function App() {
 					<MoreIcon />
 				</button>
 				<div className="meter" aria-hidden="true">
-					<i style={{ width: `${contextPercent(used, contextWindow)}%` }} />
+					<i style={{ "--fill": contextPercent(used, contextWindow) / 100 }} />
 				</div>
 			</header>
 

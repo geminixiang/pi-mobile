@@ -95,7 +95,7 @@ export const ChevronIcon = ({ open, size = 14 }: { open?: boolean; size?: number
 		strokeLinejoin="round"
 		aria-hidden="true"
 		className="chevron"
-		style={{ transform: open ? "rotate(90deg)" : undefined }}
+		data-open={open || undefined}
 	>
 		<path d="m9 5 7 7-7 7" />
 	</svg>

@@ -244,7 +244,7 @@ export function BotPanel({
 							{compactAt > 0 ? <span className="context-note">{formatTokens(compactAt)} 時壓縮</span> : null}
 						</div>
 						<div className="context-bar">
-							<i style={{ width: `${Math.max(percent, 1.5)}%` }} />
+							<i style={{ "--fill": Math.max(percent, 1.5) / 100 }} />
 						</div>
 						<details className="stats-more">
 							<summary>用量</summary>

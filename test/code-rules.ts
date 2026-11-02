@@ -37,12 +37,24 @@ function isSwallowingCatch(node: Node): boolean {
 	return isNode(property) && property.name === "catch" && Array.isArray(node.arguments) && returnsNothing(node.arguments[0]);
 }
 
+function isInlineStyle(node: Node): boolean {
+	if (node.type !== "JSXAttribute" || !isNode(node.name) || node.name.name !== "style" || !isNode(node.value)) return false;
+	const object = node.value.expression;
+	if (!isNode(object) || object.type !== "ObjectExpression" || !Array.isArray(object.properties)) return false;
+	return object.properties.some((property) => {
+		if (!isNode(property) || !isNode(property.key)) return true;
+		const key = property.key.type === "Identifier" ? property.key.name : property.key.value;
+		return typeof key !== "string" || !key.startsWith("--");
+	});
+}
+
 function rule(node: Node, explained: boolean): string | undefined {
 	if (node.type === "TSAsExpression" && !isConstAssertion(node) && !explained) return "as cast without a why: line above it";
 	if (node.type === "TSTypeAssertion") return "<T> cast";
 	if (node.type === "TSNonNullExpression") return "non-null assertion";
 	if (node.type === "TSAnyKeyword") return "any";
 	if (node.type === "CallExpression" && isSwallowingCatch(node)) return "catch that swallows the error";
+	if (isInlineStyle(node)) return "inline style other than a custom property: put it in styles.css, or pass a --custom-property the stylesheet reads (CSS skill)";
 	return undefined;
 }
 
