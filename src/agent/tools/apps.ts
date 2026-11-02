@@ -1,5 +1,7 @@
 import { App } from "@capacitor/app";
 import { Apps } from "../../plugins/apps.ts";
+import { PhoneScreen } from "../../phone-screen/plugin.ts";
+import { native } from "../../native.ts";
 import { Type } from "typebox";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { defineAppTool, parseClock, text } from "./common.ts";
@@ -8,7 +10,10 @@ import { toBase64 } from "../../encoding.ts";
 import { mimeTypeOf } from "../mime.ts";
 
 async function launch(action: () => Promise<void>): Promise<void> {
-	if (!(await App.getState()).isActive)
+	const front = (await App.getState()).isActive;
+	// why: Android lets an app whose accessibility service is bound start activities from the background (measured on the S24, Android 16)
+	const screenControl = native.implements(PhoneScreen.status) && (await PhoneScreen.status()).allowed;
+	if (!front && !screenControl)
 		throw new Error("pi is in the background, and the phone does not let it open other apps from there. Ask the user to open pi and try again.");
 	await action();
 }
