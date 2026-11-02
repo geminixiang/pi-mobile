@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { type Bot, MAX_BOTS } from "../agent/bots.ts";
+import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
 import { GearIcon, MoreIcon, PlusIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
 import type { Trigger } from "../triggers/runs.ts";
@@ -116,9 +116,9 @@ export function Drawer({
 							</button>
 						</div>
 					))}
-					<button type="button" className="drawer-add" onClick={onCreate} disabled={bots.length >= MAX_BOTS}>
+					<button type="button" className="drawer-add" onClick={onCreate}>
 						<PlusIcon size={16} />
-						<span>{bots.length >= MAX_BOTS ? `最多 ${MAX_BOTS} 個 Bot` : "新增 Bot"}</span>
+						<span>新增 Bot</span>
 					</button>
 				</div>
 				<button type="button" className="drawer-settings" onClick={onSettings}>

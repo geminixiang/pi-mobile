@@ -4,6 +4,7 @@ import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
+import { freeAvatar } from "../../src/agent/bots.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
 import { browsers, type Check, faux, folders, reports, settle } from "./setup.ts";
 
@@ -16,6 +17,21 @@ async function busyNow(runtime: AgentRuntime, id: ConversationId): Promise<boole
 }
 
 export const checks: Check[] = [
+	[
+		"there is no limit on how many bots there are, and once every avatar is taken a new bot gets the least used one",
+		async () => {
+			const { runtime } = await openRuntime();
+			try {
+				for (let index = (await runtime.bots()).length; index < 14; index++) await runtime.createBot({ name: `bot${index}`, job: "", avatar: "helper" });
+				assert.equal((await runtime.bots()).length, 14);
+				const twice = (await runtime.bots()).filter((bot) => bot.avatar === "helper").length;
+				assert.ok(twice >= 2);
+				assert.notEqual(freeAvatar(await runtime.bots()), "helper");
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
 	[
 		"a bot that turned a toolset off under its old extension name finds it off after the rename",
 		async () => {

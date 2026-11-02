@@ -41,11 +41,11 @@ export function avatarOf(bot: Pick<Bot, "avatar">): string {
 }
 
 export function freeAvatar(bots: readonly Bot[]): string {
-	return (AVATARS.find((avatar) => !bots.some((bot) => avatarOf(bot) === avatar.id)) ?? AVATARS[0]).id;
+	const uses = (id: string) => bots.filter((bot) => avatarOf(bot) === id).length;
+	return AVATARS.reduce((least, avatar) => (uses(avatar.id) < uses(least.id) ? avatar : least)).id;
 }
 
 export const DEFAULT_BOT = { name: "pi", job: "", avatar: "helper" };
-export const MAX_BOTS = 12;
 export const MAX_JOB = 1500;
 
 export function botFields({ name, job }: { name: string; job: string }): { name: string; job: string } {
