@@ -463,25 +463,27 @@ async function auth(args: string[], client: Api): Promise<ExecResult> {
 	return ok(`github.com\n  ✓ Logged in to github.com account ${text(at(jsonOrText(response.text), "login"))} (token from pi mobile's settings)\n`);
 }
 
+const GH_COMMANDS: Record<string, { usage: string; run: (args: string[], ctx: Ctx, client: Api) => Promise<ExecResult> }> = {
+	api: { usage: "api", run: api },
+	pr: { usage: "pr", run: (args, ctx, client) => items("pr", args, ctx, client) },
+	issue: { usage: "issue", run: (args, ctx, client) => items("issue", args, ctx, client) },
+	repo: { usage: "repo", run: repoCommand },
+	search: { usage: "search", run: searchCommand },
+	auth: { usage: "auth status", run: (args, _ctx, client) => auth(args, client) },
+};
+
+export const GH_USAGE = Object.values(GH_COMMANDS)
+	.map((command) => command.usage)
+	.join(", ");
+
 export function ghCommand(fetch: FolderFetch): Command {
 	const client = new Api(fetch);
 	return defineCommand("gh", async (args, ctx) => {
 		const [group = "", ...rest] = args;
+		const command = GH_COMMANDS[group];
+		if (!command) return failed(`gh: unknown command "${group}"; this gh has ${GH_USAGE}`);
 		try {
-			switch (group) {
-				case "api":
-					return await api(rest, ctx, client);
-				case "pr":
-				case "issue":
-					return await items(group, rest, ctx, client);
-				case "repo":
-					return await repoCommand(rest, ctx, client);
-				case "search":
-					return await searchCommand(rest, ctx, client);
-				case "auth":
-					return await auth(rest, client);
-			}
-			return failed(`gh: unknown command "${group}"; this gh has api, pr, issue, repo, search, auth status`);
+			return await command.run(rest, ctx, client);
 		} catch (error) {
 			if (error instanceof GhError) return failed(`gh: ${error.message}`);
 			throw error;
