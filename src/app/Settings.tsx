@@ -443,25 +443,15 @@ function UpdateLink({ update }: { update: Update | undefined }) {
 	);
 }
 
-export function SettingsView({
-	initial,
-	status,
-	runtime,
-	prefs,
-	onPrefs,
-	onSave,
-	onDraft,
-	onCancel,
-}: {
-	initial: Settings;
-	status?: string;
-	runtime?: AgentRuntime;
-	prefs: Prefs;
-	onPrefs: (change: Partial<Prefs>) => void;
-	onSave: (settings: Settings) => void;
-	onDraft?: (settings: Settings, changed: boolean) => void;
-	onCancel?: () => void;
-}) {
+type SettingsMode =
+	| { mode: "setup"; status?: string; onSave: (settings: Settings) => Promise<void> }
+	| { mode: "app"; runtime: AgentRuntime; onDraft: (settings: Settings, changed: boolean) => void; onCancel: () => void };
+
+export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: (change: Partial<Prefs>) => void } & SettingsMode) {
+	const { initial, prefs, onPrefs } = props;
+	const runtime = props.mode === "app" ? props.runtime : undefined;
+	const onDraft = props.mode === "app" ? props.onDraft : undefined;
+	const [saving, setSaving] = useState(false);
 	const [settings, setSettings] = useState(initial);
 	const { value: update } = useLoaded(inApp && native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
 	const changed = changedKeys(initial, settings).length > 0;
@@ -485,7 +475,7 @@ export function SettingsView({
 			<Group title="模型供應商">
 				<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={change} />
 			</Group>
-			{onCancel ? (
+			{props.mode === "app" ? (
 				<Group title="自動壓縮">
 					<label>
 						<span>門檻</span>
@@ -658,18 +648,29 @@ export function SettingsView({
 	return (
 		<div className="screen">
 			<header className="bar">
-				{current ? <BackButton onClick={() => go(undefined)} /> : onCancel ? <BackButton onClick={onCancel} /> : <span className="bar-spacer" />}
+				{current ? <BackButton onClick={() => go(undefined)} /> : props.mode === "app" ? <BackButton onClick={props.onCancel} /> : <span className="bar-spacer" />}
 				<h1 className="bar-heading">{current?.title ?? "設定"}</h1>
-				{onCancel ? (
+				{props.mode === "app" ? (
 					<span className="bar-spacer" />
 				) : (
-					<button type="button" className="btn primary" disabled={!isConfigured(settings)} onClick={() => onSave(settings)}>
-						開始
+					<button
+						type="button"
+						className="btn primary"
+						disabled={!isConfigured(settings) || saving}
+						onClick={() => {
+							setSaving(true);
+							setProblem(undefined);
+							props
+								.onSave(settings)
+								.catch((error: unknown) => setProblem(`沒有存下來：${messageOf(error)}`))
+								.finally(() => setSaving(false));
+						}}>
+						{saving ? "開始中…" : "開始"}
 					</button>
 				)}
 			</header>
 			<form key={page ?? "index"} className="settings" onSubmit={(event) => event.preventDefault()}>
-				{onCancel ? null : (
+				{props.mode === "app" ? null : (
 					<div className="welcome">
 						<PiMark size={36} />
 						<h2>
@@ -680,9 +681,9 @@ export function SettingsView({
 						<p>加入一個模型供應商就能開始。對話和金鑰都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
 					</div>
 				)}
-				{status ? <div className="banner error">{status}</div> : null}
+				{props.mode === "setup" && props.status ? <div className="banner error">{props.status}</div> : null}
 				{problem ? <div className="banner error">{problem}</div> : null}
-				{current ? current.body() : onCancel ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
+				{current ? current.body() : props.mode === "app" ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
 				{current ? null : (
 					<p className="about">
 						pi mobile · {__BUILD__}
