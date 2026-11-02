@@ -75,9 +75,10 @@ from `CDP_PORT` (default 9333).
 
 ## In the page
 
-- `window.piRuntime`: `bots()`, `createBot({ name, job, avatar })`, `removeBot(id)`, `toolsets(id)`,
+- `window.piRuntime` (`AgentRuntime` in `src/agent/runtime.ts`; `test/device-api.ts` checks scripts call only its
+  members): `bots()`, `createBot({ name, job, avatar })`, `removeBot(id)`, `toolsets(id)`,
   `setToolset(id, toolset, on)`, `memory(scope)`, `saveMemory`, `phoneFolder(id)` (the bot's folder as an
-  ExecutionEnv), `folderOf(id)`, `workspace(id)` (its sandbox folder), `hasSandbox`.
+  ExecutionEnv), `workspace(id)` (its folder on a computer), `toolCost(id)`, `workplaces.at(id)`.
 - `window.piController`: the open conversation (`id`, `subscribe(view => …)`, `setModel`, `setThinking`).
 - `window.Capacitor.Plugins.<Name>`: the native plugins, e.g. `BotFiles`, `Triggers`, `Database`.
 - Settings that are not secret are in `localStorage["pi-mobile.settings"]`; change one there and reload to test without
