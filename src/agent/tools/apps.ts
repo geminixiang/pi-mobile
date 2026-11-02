@@ -13,12 +13,15 @@ const BACKGROUND = "pi is in the background, and the phone does not let it open 
 
 export type ActsAsUser = (conversationId: ConversationId) => Promise<boolean>;
 
-export async function openScreen(actsAsUser: ActsAsUser, conversationId: ConversationId): Promise<void> {
-	if ((await App.getState()).isActive) return;
+export async function mayOpenScreen(actsAsUser: ActsAsUser, conversationId: ConversationId): Promise<boolean> {
+	if ((await App.getState()).isActive) return true;
 	// why: Android lets an app whose accessibility service is bound start activities from the background (measured on the S24, Android 16); only a bot the user lets act as them may use it
 	const screenControl = native.implements(PhoneScreen.status) && (await PhoneScreen.status()).allowed;
-	if (screenControl && (await actsAsUser(conversationId))) return;
-	throw new Error(BACKGROUND);
+	return screenControl && (await actsAsUser(conversationId));
+}
+
+export async function openScreen(actsAsUser: ActsAsUser, conversationId: ConversationId): Promise<void> {
+	if (!(await mayOpenScreen(actsAsUser, conversationId))) throw new Error(BACKGROUND);
 }
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;

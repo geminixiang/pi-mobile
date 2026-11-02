@@ -52,5 +52,5 @@ export const PhoneState = definePlugin("PhoneState", {
 	flashlight: { args: Type.Object({}), result: Flashlight },
 	setFlashlight: { args: Type.Object({ on: Type.Boolean() }), result: Flashlight },
 	connections: { args: Type.Object({}), result: ConnectionsState },
-	setConnection: { args: Type.Object({ what: oneOf(CONNECTIONS), on: Type.Boolean() }), result: ConnectionsState },
+	setConnection: { args: Type.Object({ what: oneOf(CONNECTIONS), on: Type.Boolean(), mayOpen: Type.Boolean() }), result: ConnectionsState },
 });

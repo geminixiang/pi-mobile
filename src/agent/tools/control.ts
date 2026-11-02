@@ -15,7 +15,7 @@ import {
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, localTime, pad, parseNextTime, text } from "./common.ts";
 import { oneOf } from "../parse.ts";
-import { type ActsAsUser, openScreen } from "./apps.ts";
+import { type ActsAsUser, mayOpenScreen } from "./apps.ts";
 const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.floor((ms % 60_000) / 1000))}`;
 
 const media = defineAppTool({
@@ -199,8 +199,8 @@ export function createControlExtension(actsAsUser: ActsAsUser) {
 			const what = args.what;
 			if (!what) throw new Error(`${args.action} needs what`);
 			const on = args.action === "on";
-			await openScreen(actsAsUser, api.conversationId);
-			const state = await native(() => PhoneState.setConnection({ what, on }));
+			const mayOpen = await mayOpenScreen(actsAsUser, api.conversationId);
+			const state = await native(() => PhoneState.setConnection({ what, on, mayOpen }));
 			const name = LABEL[what];
 			const outcome =
 				state.outcome === "already"
