@@ -571,11 +571,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		services: {
 			title: "連接的服務",
 			body: () =>
-				runtime ? (
-					<Group title="MCP">
-						<McpGroup runtime={runtime} onError={setProblem} />
-					</Group>
-				) : null,
+				runtime ? <McpGroup runtime={runtime} onError={setProblem} /> : null,
 		},
 		machines: {
 			title: "電腦",

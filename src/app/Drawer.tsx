@@ -116,7 +116,7 @@ export function Drawer({
 							</button>
 						</div>
 					))}
-					<button type="button" className="drawer-add" onClick={onCreate}>
+					<button type="button" className="list-add" onClick={onCreate}>
 						<PlusIcon size={16} />
 						<span>新增 Bot</span>
 					</button>
