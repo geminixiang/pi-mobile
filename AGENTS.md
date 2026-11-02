@@ -4,6 +4,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 
 - `npm run check` (tsc, Stylelint, no-comments, code rules, tool interface, contracts, just-bash patches) must pass before a commit.
 - Before changing CSS, animations, or overlays, read `.pi/skills/css/SKILL.md`. No `!important`.
+- Before designing or changing a screen, read `DESIGN.md`: the design language taken from the left drawer.
 - UI copy is Traditional Chinese (zh-TW); model prompts are English.
 - Code carries no comments, in any language: a comment marks a design flaw or a hidden bug. Make names, types, and
   structure say it; a reason that still needs words goes in `docs/`. The one exception is a constraint the code cannot
