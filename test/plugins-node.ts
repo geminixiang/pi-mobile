@@ -55,6 +55,18 @@ const current = PLUGINS.map((plugin) => ({
 	ios: Object.keys(plugin.contract.methods).filter((method) => ios.get(plugin.name)?.has(method)),
 }));
 
+function unregistered(directory: URL, extensions: string[], classOf: (source: string) => string | undefined, registry: string, registered: RegExp): string[] {
+	const classes = readdirSync(directory)
+		.filter((name) => extensions.some((extension) => name.endsWith(extension)))
+		.flatMap((file) => classOf(readFileSync(new URL(file, directory), "utf8")) ?? []);
+	const names = new Set([...readFileSync(new URL(registry, directory), "utf8").matchAll(registered)].map((match) => match[1]));
+	return classes.filter((name) => !names.has(name));
+}
+const androidMissing = unregistered(ANDROID, [".java", ".kt"], (source) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1], "MainActivity.java", /registerPlugin\((\w+)(?:\.class|::class\.java)\)/g);
+if (androidMissing.length) failures.push(`Android plugins not registered in MainActivity.onCreate, so their tools vanish without an error: ${androidMissing.join(", ")}; add registerPlugin(X.class)`);
+const iosMissing = unregistered(IOS, [".swift"], (source) => [...source.slice(0, Math.max(0, source.search(/jsName\s*=\s*"/))).matchAll(/class (\w+)/g)].at(-1)?.[1], "MainViewController.swift", /registerPluginInstance\((\w+)\(\)\)/g);
+if (iosMissing.length) failures.push(`iOS plugins not registered in MainViewController.capacitorDidLoad: ${iosMissing.join(", ")}; add bridge?.registerPluginInstance(X())`);
+
 const NATIVE = "android/app/src/main/java/dev/geminixiang/pimobile/";
 const kinds = When.anyOf.map((option) => String(option.properties.kind.const));
 const scheduleKt = readFileSync(new URL(`../${NATIVE}Schedule.kt`, import.meta.url), "utf8");
