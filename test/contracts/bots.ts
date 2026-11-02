@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
-import { MemoryStorage } from "@earendil-works/pi-durable";
+import { createModels, fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
+import { memoryCredentials } from "../../src/agent/credentials.ts";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
 import { browsers, type Check, faux, folders, reports, settle } from "./setup.ts";
@@ -14,6 +16,27 @@ async function busyNow(runtime: AgentRuntime, id: ConversationId): Promise<boole
 }
 
 export const checks: Check[] = [
+	[
+		"a bot that turned a toolset off under its old extension name finds it off after the rename",
+		async () => {
+			const storage = keepOpen(new MemoryStorage());
+			const before = await openRuntime(storage);
+			const bot = await before.runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+			await before.runtime.close();
+			const raw = await Harness.open(storage, { models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
+			await (await raw.conversation(bot, BACKGROUND_CONTEXT))?.configure({ extensions: { add: [], remove: [{ name: "phone_screen" }, { name: "sandbox" }] } }, BACKGROUND_CONTEXT);
+			await raw.close(BACKGROUND_CONTEXT);
+			const after = await openRuntime(storage);
+			try {
+				const enabled = Object.fromEntries((await after.runtime.toolsets(bot)).map((toolset) => [toolset.id, toolset.enabled]));
+				assert.equal(enabled.phone_as_user, false);
+				assert.equal(enabled.computer_shell, false);
+				assert.equal(enabled.web, true);
+			} finally {
+				await after.runtime.close();
+			}
+		},
+	],
 	[
 		"removing a bot stops its work and takes its memory",
 		async () => {

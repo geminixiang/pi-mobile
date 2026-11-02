@@ -7,7 +7,7 @@ import type { PairedHost } from "../src/agent/sandbox/host.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
-import { ALWAYS_ON, TOOLSETS } from "../src/agent/toolsets.ts";
+import { ALWAYS_ON, RENAMED, TOOLSETS } from "../src/agent/toolsets.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
 import { exitOnFailures, plain, snapshotFailures, sourcesMatching, updating } from "./snapshot.ts";
 
@@ -201,6 +201,11 @@ const switchable = new Set(TOOLSETS.flatMap((toolset) => toolset.extensions));
 const installedNames = new Set(extensions.map((extension) => extension.name));
 const unlisted = [...installedNames].filter((name) => !switchable.has(name) && !ALWAYS_ON.includes(name));
 if (unlisted.length) failures.push(`every extension has a toolset or is in ALWAYS_ON (toolsets.ts): ${unlisted.join(", ")}`);
+const SHIPPED = new URL("./extensions.snapshot.json", import.meta.url);
+const shipped: string[] = JSON.parse(readFileSync(SHIPPED, "utf8"));
+const vanished = shipped.filter((name) => !installedNames.has(name) && !(name in RENAMED));
+if (vanished.length) failures.push(`extensions renamed or removed without a migration: ${vanished.join(", ")}. Each bot stores the extensions it turned off by name, so add old → new to RENAMED (src/agent/toolsets.ts); for a removal, drop it from test/extensions.snapshot.json`);
+if (updating) writeFileSync(SHIPPED, `${JSON.stringify([...new Set([...shipped.filter((name) => !(name in RENAMED)), ...installedNames])].sort(), null, "\t")}\n`);
 const stale = ALWAYS_ON.filter((name) => switchable.has(name) || !installedNames.has(name));
 if (stale.length) failures.push(`ALWAYS_ON (toolsets.ts) lists extensions that have a toolset or are not installed: ${stale.join(", ")}`);
 
