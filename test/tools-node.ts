@@ -7,7 +7,7 @@ import type { PairedHost } from "../src/agent/sandbox/host.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
-import { TOOLSETS } from "../src/agent/toolsets.ts";
+import { ALWAYS_ON, TOOLSETS } from "../src/agent/toolsets.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
 import { exitOnFailures, plain, snapshotFailures, sourcesMatching, updating } from "./snapshot.ts";
 
@@ -174,12 +174,11 @@ const rules: Rule[] = [
 			iface.name.endsWith("_as_user") === iface.extension.endsWith("_as_user") && (!iface.name.endsWith("_as_user") || iface.deferred) ? undefined : `${iface.name} (${iface.extension})`,
 	},
 	{
-		rule: "tools are in a toolset, or fixed on and listed as such in toolsets.ts",
-		broken: ({ iface }) => (iface.toolset !== "fixed" || FIXED.has(iface.extension) ? undefined : `${iface.name} (${iface.extension})`),
+		rule: "tools are in a toolset, or always on and listed in ALWAYS_ON in toolsets.ts",
+		broken: ({ iface }) => (iface.toolset !== "fixed" || ALWAYS_ON.includes(iface.extension) ? undefined : `${iface.name} (${iface.extension})`),
 	},
 ];
 
-const FIXED = new Set(["bot", "skills", "attachments", "schedules", "memory", "items", "tool-search", "on-demand", "assistant", "computer_shell"]);
 
 const failures: string[] = [];
 const names = new Map<string, string>();
@@ -197,6 +196,13 @@ for (const { rule, broken } of rules) {
 }
 const reexported = sourcesMatching(/import \{[^}]*\bType\b[^}]*\} from "@earendil-works\/pi-ai"/);
 if (reexported.length) failures.push(`schemas use Type from "typebox", not from @earendil-works/pi-ai: ${reexported.join(", ")}`);
+
+const switchable = new Set(TOOLSETS.flatMap((toolset) => toolset.extensions));
+const installedNames = new Set(extensions.map((extension) => extension.name));
+const unlisted = [...installedNames].filter((name) => !switchable.has(name) && !ALWAYS_ON.includes(name));
+if (unlisted.length) failures.push(`every extension has a toolset or is in ALWAYS_ON (toolsets.ts): ${unlisted.join(", ")}`);
+const stale = ALWAYS_ON.filter((name) => switchable.has(name) || !installedNames.has(name));
+if (stale.length) failures.push(`ALWAYS_ON (toolsets.ts) lists extensions that have a toolset or are not installed: ${stale.join(", ")}`);
 
 const current = tools.map(({ iface }) => iface);
 failures.push(...snapshotFailures(SNAPSHOT, current, "tool", "its interface"));

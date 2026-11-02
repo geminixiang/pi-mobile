@@ -42,6 +42,8 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"], needs: "BotFiles", where: "phone" },
 ];
 
+export const ALWAYS_ON: readonly string[] = ["assistant", "bot", "codemode", "skills", "attachments", "schedules", "memory", "items", "tool-search", "on-demand"];
+
 export const usable = (toolset: Toolset, native: Native): boolean => !toolset.needs || native.has(toolset.needs);
 
 export function unusableExtensions(native: Native): ReadonlySet<string> {

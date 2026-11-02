@@ -52,6 +52,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | No comments except `// why:` | `test/no-comments.ts` |
 | No `any`, `!`, casts, swallowed catches | `test/code-rules.ts` |
 | Tools defined with `defineAppTool`, in the catalog, a toolset, the tool list, the snapshot | `test/tools-node.ts` |
+| Every extension has a toolset or is in `ALWAYS_ON`, and `ALWAYS_ON` lists nothing stale | `test/tools-node.ts` |
 | A tool that acts as the user is `*_as_user`, loaded on demand, in a `*_as_user` extension | `test/tools-node.ts` |
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
 | Tool names the app branches on (`src/app`) are tools that exist | `test/tools-node.ts` |
