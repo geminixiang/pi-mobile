@@ -64,16 +64,20 @@ export function processTriggerEvents(
 		log.info("trigger.run", { id: event.id, trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
 		await Triggers.started({ trigger: event.trigger });
 		if (!event.live && conversation) handlers.onOpened(conversation);
-		setTimeout(releaseIfIdle, 30_000);
 	};
 	const inTurn = serially();
 	const drain = () =>
 		orLogged(
 			inTurn(async () => {
-				const handled = await deliverEvents(await takeEvents(), handle, async (event, error) => {
-					if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
-				});
-				if (handled.length > 0) await Triggers.ack({ ids: handled });
+				try {
+					const handled = await deliverEvents(await takeEvents(), handle, async (event, error) => {
+						if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
+					});
+					if (handled.length > 0) await Triggers.ack({ ids: handled });
+				} finally {
+					// why: an alarm starts the native keep-alive service and a 2 h wake lock before pi runs; only an idle release ends them, whatever the event's outcome
+					setTimeout(releaseIfIdle, 30_000);
+				}
 			}),
 			"trigger.drain_failed",
 			undefined,
