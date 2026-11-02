@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import type { Methods } from "../src/plugins/define.ts";
 import { PLUGINS } from "../src/plugins/index.ts";
+import { ACTIVITIES, When } from "../src/triggers/plugin.ts";
 import { exitOnFailures, plain, snapshotFailures, sourcesMatching } from "./snapshot.ts";
 
 const SNAPSHOT = new URL("./plugins.snapshot.json", import.meta.url);
@@ -53,6 +54,17 @@ const current = PLUGINS.map((plugin) => ({
 	events: Object.fromEntries(Object.entries(plugin.contract.events).map(([event, schema]) => [event, plain(schema)])),
 	ios: Object.keys(plugin.contract.methods).filter((method) => ios.get(plugin.name)?.has(method)),
 }));
+
+const NATIVE = "android/app/src/main/java/dev/geminixiang/pimobile/";
+const kinds = When.anyOf.map((option) => String(option.properties.kind.const));
+const scheduleKt = readFileSync(new URL(`../${NATIVE}Schedule.kt`, import.meta.url), "utf8");
+const readable = new Set([...scheduleKt.matchAll(/"(\w+)" ->|kind == "(\w+)"/g)].map((match) => match[1] ?? match[2]));
+const unread = kinds.filter((kind) => !readable.has(kind));
+if (unread.length) failures.push(`schedule kinds in src/triggers/plugin.ts that When.of in ${NATIVE}Schedule.kt does not read: ${unread.join(", ")}; Android would drop the schedule without an error`);
+const activityKt = readFileSync(new URL(`../${NATIVE}ActivityTrigger.kt`, import.meta.url), "utf8");
+const watched = new Set([...activityKt.matchAll(/DetectedActivity\.\w+, "(\w+)"/g)].map((match) => match[1]));
+const unwatched = ACTIVITIES.filter((activity) => !watched.has(activity));
+if (unwatched.length) failures.push(`ACTIVITIES in src/triggers/plugin.ts that ${NATIVE}ActivityTrigger.kt does not watch: ${unwatched.join(", ")}`);
 
 failures.push(...snapshotFailures(SNAPSHOT, current, "plugin", "its contract or iOS coverage"));
 exitOnFailures(failures);
