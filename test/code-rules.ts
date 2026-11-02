@@ -69,6 +69,11 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "only the phone screen code reaches the accessibility service; ask PhoneScreenService.canStartActivities(activity) whether a screen may open",
 	},
 	{
+		use: /\bopenScreen\(/,
+		owners: ["src/agent/catalog.ts", "src/agent/tools/apps.ts"],
+		fix: "declare effect: \"screen\" and the catalog checks whether pi may open a screen before the tool runs; a tool does not call openScreen itself",
+	},
+	{
 		use: /\bApp\.getState\(/,
 		owners: ["src/agent/tools/apps.ts", "src/app/keepAlive.ts"],
 		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",

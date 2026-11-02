@@ -8,6 +8,7 @@ export const Scanner = definePlugin("Scanner", {
 			Type.Object({ cancelled: Type.Literal(true) }),
 			Type.Object({ cancelled: Type.Literal(false), pdf: Type.String(), pages: Type.Integer() }),
 		]),
+		opens: "screen",
 	},
 	ocr: { args: Type.Object({ data: Type.String() }), result: Type.Object({ text: Type.String() }) },
 });

@@ -19,11 +19,13 @@ export const isImplemented = ({ plugin, method }: PluginMethod): boolean => impl
 interface MethodContract {
 	readonly args: TObject;
 	readonly result?: TSchema;
+	readonly opens?: "screen";
 }
 
 export interface PluginMethod {
 	readonly plugin: string;
 	readonly method: string;
+	readonly opens?: "screen";
 }
 
 type Args<C extends MethodContract> = {} extends Static<C["args"]> ? [args?: Static<C["args"]>] : [args: Static<C["args"]>];
@@ -47,13 +49,13 @@ export function definePlugin<const N extends string, const M extends Methods, co
 	const bridge = registerPlugin<Bridge>(name);
 	const schemas: Events = events ?? {};
 	const contract = { methods, events: schemas };
-	const calls = Object.entries(methods).map(([method, { result }]) => {
+	const calls = Object.entries(methods).map(([method, { result, opens }]) => {
 		const call = async (args: object = {}) => {
 			if (!isImplemented({ plugin: name, method })) throw new Error(`${name}.${method} is not available on this device`);
 			const reply = await bridge[method]?.(args);
 			return result ? parse(result, reply, `${name}.${method}`) : undefined;
 		};
-		return [method, Object.assign(call, { plugin: name, method })];
+		return [method, Object.assign(call, { plugin: name, method, ...(opens ? { opens } : {}) })];
 	});
 	const addListener = (event: string, listener: (data: unknown) => void) =>
 		bridge.addListener(event, (data) => {

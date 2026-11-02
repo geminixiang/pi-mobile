@@ -9,7 +9,7 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { SkillsExtension } from "./skills.ts";
-import { type ActsAsUser, createAppsExtension } from "./tools/apps.ts";
+import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
 import { type CloudService, createCloudExtensions } from "./tools/cloud.ts";
@@ -34,7 +34,7 @@ import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
 import type { Native } from "../native.ts";
 import { unusableExtensions } from "./toolsets.ts";
-import { declarationOf } from "./tools/common.ts";
+import { declarationOf, gated } from "./tools/common.ts";
 import type { Workplace } from "./workplaces.ts";
 
 interface CatalogDeps {
@@ -63,7 +63,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		PlacesExtension,
 		TwStocksExtension,
 		DatabaseExtension,
-		createAppsExtension(deps.actsAsUser),
+		AppsExtension,
 		SpeechExtension,
 		NotificationsExtension,
 		PhoneScreenExtension,
@@ -103,7 +103,13 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 	return {
 		extensions: usable.map((extension) => ({
 			...extension,
-			tools: extension.tools?.map((tool) => (tool.name === "tool_search" ? { ...tool, description: TOOL_SEARCH } : tool)),
+			tools: extension.tools?.map((tool) =>
+				tool.name === "tool_search"
+					? { ...tool, description: TOOL_SEARCH }
+					: declarationOf(tool)?.effect === "screen"
+						? gated(tool, (conversationId) => openScreen(deps.actsAsUser, conversationId))
+						: tool,
+			),
 		})),
 		unsupported: new Set(filtered.filter((extension) => extension.tools?.length === 0).map((extension) => extension.name)),
 	};

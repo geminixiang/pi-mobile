@@ -80,7 +80,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 - 工具直接做，不跳核准（2026-10-23 拿掉了核准機制）。
 - 只是打開一個畫面、讓使用者自己完成的（草稿、分享、地圖），輸出要說「使用者按了才會送出」。
-- **從背景開畫面**：pi 在前景時一律可以開。pi 在背景時（例如 Bot 剛用 `phone_act_as_user` 切到別的 App），只有開著「代你操作 App」的 Bot 可以開（`apps.ts` 的 `openScreen`）：Android 讓無障礙服務綁著的 App 從背景開別的 App，但那是整個 pi 共用的系統開關，關掉 Bot 自己的開關就不該被打擾。iOS 沒有這個例外，只看前景。原生在真的 `startActivity` 那一行再檢查一次（`AppsPlugin.launch`、`PhoneStatePlugin.setConnection`），因為系統從背景擋下時不會丟例外，工具會以為成功；鬧鐘、計時器不開畫面，所以只有這層原生檢查，iOS 的 AlarmKit 在背景照樣能設。
+- **從背景開畫面**：pi 在前景時一律可以開。pi 在背景時（例如 Bot 剛用 `phone_act_as_user` 切到別的 App），只有開著「代你操作 App」的 Bot 可以開。會開畫面的原生方法在合約上標 `opens: "screen"`，用到它的工具要宣告 `effect: "screen"`（`test/tools-node.ts` 檢查），catalog 在這種工具執行前呼叫 `openScreen`（`apps.ts`），工具自己不呼叫（`test/code-rules.ts` 檢查）；`connections` 只有某些動作會開面板，改把 `mayOpen` 交給原生：Android 讓無障礙服務綁著的 App 從背景開別的 App，但那是整個 pi 共用的系統開關，關掉 Bot 自己的開關就不該被打擾。iOS 沒有這個例外，只看前景。原生在真的 `startActivity` 那一行再檢查一次（`AppsPlugin.launch`、`PhoneStatePlugin.setConnection`），因為系統從背景擋下時不會丟例外，工具會以為成功；鬧鐘、計時器不開畫面，所以只有這層原生檢查，iOS 的 AlarmKit 在背景照樣能設。
 
 ### 原生 plugin
 
@@ -314,6 +314,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-02 | 「從背景開畫面要開著代你操作 App」不再靠每個工具記得呼叫 `openScreen`：合約上會開畫面的方法標 `opens: "screen"`（`Apps` 的開畫面方法、`Scanner.scan`），需要它的工具一定是 `effect: "screen"`，catalog 對這種工具在執行前檢查；六個 apps 工具拿掉自己的呼叫 | 不變 | `test/tools-node.ts`（把 `open_link` 改成 `direct` 會失敗）、`test/code-rules.ts`（工具自己呼叫 `openScreen` 會失敗）。S24：`screen-rules.sh`、`background-launch.sh` 都通過 |
 | 2026-11-02 | 手機上的 Bot 不再被告知電腦的工具：「工具組在哪裡能用」只由 `toolsets.ts` 的 `offeredAt`／`isAt` 決定（以前 `labelOf` 拿 toolset id 比 extension 名稱，碰巧相等才對），`tool_search` 的說明不再列出所有需要時載入的工具名稱（以前手機 Bot 也看到 `computer_read_as_user`），改指向系統提示裡「Load these with tool_search」那份依 Bot 所在地列出的清單；「電腦上的 agent」那段說明只給在電腦上的 Bot。`#actsAsUser` 改用 `PhoneScreenExtension.name`，不再寫死字串 | `tool_search` 說明變短（不列名稱），手機 Bot 少一段電腦 agent 說明 | `test/contracts/where.ts`（舊碼失敗：手機 Bot 的提示含 `computer_read_as_user`）、`test/contracts/computers.ts`（電腦 Bot 仍看得到）。S24，Sol，暫時 Bot：看前景 App 用 `tool_search` 載入 `phone_read_as_user`、查 One UI 版本載入 `phone_act_as_user`，兩題答對 |
 | 2026-11-02 | `connections`：開關本來就是要的狀態時，pi 在背景也照實回「已經開了」，不再先被「從背景開畫面」擋下。「這個 Bot 現在能不能開畫面」改成參數 `mayOpen` 交給原生 `PhoneState.setConnection`，原生先判斷「已經是了」，真的要開面板才看 `mayOpen` 和系統能不能開（外掛合約多一個參數） | 不變 | `test/device/screen-rules.sh` 第三段：沒開「代你操作 App」的暫時 Bot 被要求打開已經開著的 Wi‑Fi、中途 pi 退到背景。S24 舊碼回「目前 pi 在背景，無法開啟 Wi-Fi 開關」，新碼回「Wi-Fi 已經開啟，目前連上 …」 |
 | 2026-11-02 | 規範兩條：在畫面上點只出現在 `*_as_user` 工具；從背景開畫面只給開著「代你操作 App」的 Bot。`connections` 只開面板，不再自己用無障礙服務點開關（它等於藏在「手機控制」裡的冒充操作），外掛的 `outcome` 只剩 `already`、`panel`；以前沒綁無障礙、pi 在背景時，系統默默擋下面板，工具卻說「在畫面上了」，現在原生先檢查並回錯誤。鬧鐘、計時器不再經過 TS 的前景檢查（iOS 的 AlarmKit 在背景被誤擋），改由 Android 原生在開 Activity 前檢查。名字帶 `as_user` 的檢查加進 `test/tools-node.ts`。沒採用的：每個工具宣告「走哪條路」（`via`）、宣告「要不要前景」（`front`）、新的原生方法 `canOpenScreen`：三個 pi agent 審查後，兩票認為沒有程式會讀、而且擴充裡本來就混著不同的路 | `connections` 說明短了一點 | S24：`test/device/background-launch.sh` |

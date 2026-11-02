@@ -1,6 +1,6 @@
 import { CapacitorHttp } from "@capacitor/core";
 import type { TSchema } from "@earendil-works/pi-ai";
-import { defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
+import { type ConversationId, defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord";
 import type { Static } from "typebox";
 import { Value } from "typebox/value";
@@ -96,6 +96,22 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 	});
 	declarations.set(registration, { effect, needs });
 	return registration;
+}
+
+export function gated<TParameters extends TSchema, TDetails extends JsonValue>(
+	tool: ToolRegistration<TParameters, TDetails>,
+	gate: (conversationId: ConversationId) => Promise<void>,
+): ToolRegistration<TParameters, TDetails> {
+	const guarded: ToolRegistration<TParameters, TDetails> = {
+		...tool,
+		execute: async (args, api, context) => {
+			await gate(api.conversationId);
+			return tool.execute(args, api, context);
+		},
+	};
+	const declaration = declarations.get(tool);
+	if (declaration) declarations.set(guarded, declaration);
+	return guarded;
 }
 
 export const text = (value: string): ToolExecutionResult => ({ output: [{ type: "text", text: value }] });

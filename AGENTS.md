@@ -58,6 +58,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
 | Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
+| A tool that needs a native method marked `opens: "screen"` declares `effect: "screen"`, and only the catalog calls `openScreen` | `test/tools-node.ts`, `test/code-rules.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
 | A renamed extension keeps each bot's choices: a shipped name that disappears must be in `RENAMED`, and opening the runtime applies it | `test/tools-node.ts` (`test/extensions.snapshot.json`), `test/contracts/bots.ts`, `test/toolsets.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `offeredAt`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |

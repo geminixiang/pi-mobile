@@ -9,11 +9,11 @@ const SharedFile = {
 
 export const Apps = definePlugin("Apps", {
 	setAlarm: { args: Type.Object({ hour: Type.Integer(), minute: Type.Integer(), label: Type.Optional(Type.String()), days: Type.Optional(Type.Array(Type.Integer())) }) },
-	openAlarms: { args: Type.Object({}) },
+	openAlarms: { args: Type.Object({}), opens: "screen" },
 	setTimer: { args: Type.Object({ seconds: Type.Integer(), label: Type.Optional(Type.String()) }) },
-	composeEmail: { args: Type.Object({ to: Type.Array(Type.String()), subject: Type.Optional(Type.String()), body: Type.String() }) },
-	composeSms: { args: Type.Object({ to: Type.String(), body: Type.String() }) },
-	open: { args: Type.Object({ uri: Type.String() }) },
+	composeEmail: { args: Type.Object({ to: Type.Array(Type.String()), subject: Type.Optional(Type.String()), body: Type.String() }), opens: "screen" },
+	composeSms: { args: Type.Object({ to: Type.String(), body: Type.String() }), opens: "screen" },
+	open: { args: Type.Object({ uri: Type.String() }), opens: "screen" },
 	share: {
 		args: Type.Object({
 			text: Type.Optional(Type.String()),
@@ -22,6 +22,7 @@ export const Apps = definePlugin("Apps", {
 			fileName: Type.Optional(SharedFile.fileName),
 			mimeType: Type.Optional(SharedFile.mimeType),
 		}),
+		opens: "screen",
 	},
-	openFile: { args: Type.Object(SharedFile) },
+	openFile: { args: Type.Object(SharedFile), opens: "screen" },
 });

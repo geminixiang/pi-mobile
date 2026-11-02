@@ -169,6 +169,10 @@ const rules: Rule[] = [
 				.join(", ") || undefined,
 	},
 	{
+		rule: "a tool that needs a native method that opens a screen (opens: \"screen\" in src/plugins/) declares effect: \"screen\", so the catalog checks pi may open one first",
+		broken: ({ tool, iface }) => ((declarationOf(tool)?.needs ?? []).some((method) => method.opens === "screen") && iface.effect !== "screen" ? iface.name : undefined),
+	},
+	{
 		rule: "a tool that acts as the user is named *_as_user, loads on demand, and is the only kind in a *_as_user extension",
 		broken: ({ iface }) =>
 			iface.name.endsWith("_as_user") === iface.extension.endsWith("_as_user") && (!iface.name.endsWith("_as_user") || iface.deferred) ? undefined : `${iface.name} (${iface.extension})`,
