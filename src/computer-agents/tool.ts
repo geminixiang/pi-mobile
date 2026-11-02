@@ -2,7 +2,8 @@ import type { Context } from "@earendil-works/chord";
 import { type ConversationId, defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { HostCommands, type PairedHost } from "../agent/sandbox/host.ts";
-import { type AgentState, type Trigger, TriggerDoc } from "../triggers/runs.ts";
+import { type AgentState, type Trigger } from "../triggers/runs.ts";
+import { editTriggers, triggersOf } from "../triggers/edit.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { native } from "../native.ts";
 import { orLogged } from "../promise.ts";
@@ -50,11 +51,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			state: "on",
 			createdAt: now,
 		};
-		await api.commit(async (tx) => {
-			const doc = await tx.doc(TriggerDoc);
-			doc.items = [...doc.items.filter((item) => !isWatch(item, agent, api.conversationId)), watching];
-		}, context);
-		triggers.changed();
+		await editTriggers(api, context, triggers, (items) => [...items.filter((item) => !isWatch(item, agent, api.conversationId)), watching]);
 		return true;
 	};
 
@@ -90,14 +87,8 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const read = reading(place, (await commands.run(readCommand(place, args.lines ?? READ_LINES))).stdout);
 			if (!read.ok) throw new Error(`Could not read ${args.agent}: ${read.problem}`);
 			const settled = Date.now() - SETTLE_MS;
-			const seenDone = read.status === "idle" && (await api.snapshot(TriggerDoc, context))?.items.some((item) => isWatch(item, args.agent, api.conversationId) && item.createdAt < settled);
-			if (seenDone) {
-				await api.commit(async (tx) => {
-					const doc = await tx.doc(TriggerDoc);
-					doc.items = doc.items.filter((item) => !isWatch(item, args.agent, api.conversationId));
-				}, context);
-				triggers.changed();
-			}
+			const seenDone = read.status === "idle" && (await triggersOf(api, context)).some((item) => isWatch(item, args.agent, api.conversationId) && item.createdAt < settled);
+			if (seenDone) await editTriggers(api, context, triggers, (items) => items.filter((item) => !isWatch(item, args.agent, api.conversationId)));
 			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
 			return text(truncated([status, "Terminal:", read.screen].join("\n")));
 		},

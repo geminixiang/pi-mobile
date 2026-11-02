@@ -86,6 +86,16 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "declare effect: \"screen\" and the catalog checks whether pi may open a screen before the tool runs; a tool does not call openScreen itself",
 	},
 	{
+		use: /\bTriggerDoc\b/,
+		owners: ["src/triggers/"],
+		fix: "the schedules belong to src/triggers/: read them with triggersOf and change them with editTriggers (src/triggers/edit.ts), which also re-arms the alarms",
+	},
+	{
+		use: /\bItemDoc\b/,
+		owners: ["src/items/", "src/triggers/runs.ts"],
+		fix: "the items belong to src/items/: change them through its tools and helpers",
+	},
+	{
 		use: /\bJSON\.parse\(/,
 		owners: ["src/agent/parse.ts"],
 		fix: "parse JSON at the boundary with checkJson, decode or parseJson from src/agent/parse.ts",
@@ -99,7 +109,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 
 function borrowed(file: string): Finding[] {
 	const lines = readFileSync(file, "utf8").split("\n");
-	return OWNED.filter(({ owners }) => !owners.some((owner) => file.endsWith(owner))).flatMap(({ use, fix }) =>
+	return OWNED.filter(({ owners }) => !owners.some((owner) => file.endsWith(owner) || (owner.endsWith("/") && file.startsWith(owner)))).flatMap(({ use, fix }) =>
 		lines.flatMap((line, index) => (use.test(line) ? [{ file, line: index + 1, rule: fix }] : [])),
 	);
 }

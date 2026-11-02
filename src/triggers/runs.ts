@@ -132,6 +132,29 @@ const TriggerEntryData = Type.Object({
 
 export type TriggerRun = Static<typeof TriggerEntryData>;
 
+type Outcome =
+	| { kind: "ran"; confidence: Confidence | undefined }
+	| { kind: "skipped"; reason: string; confidence: Confidence | undefined }
+	| { kind: "limited" }
+	| { kind: "gone" }
+	| { kind: "failed"; error: string };
+
+type Wakeup = {
+	key: string;
+	conversationId: ConversationId;
+	delivery: Delivery;
+	request: string | undefined;
+	limited: boolean;
+	screening: { guards: readonly GuardId[]; onlyIf: string | undefined; automation: string; purpose: string; event: string } | undefined;
+	label: (judgement: string) => string;
+	prompt: string;
+	entry: Omit<TriggerRun, "at" | "judged">;
+	started: string;
+	settle: (outcome: Outcome, at: number) => Promise<void>;
+};
+
+const confidenceOf = (confidence: Confidence | undefined): { confidence?: Confidence } => (confidence ? { confidence } : {});
+
 export const TRIGGER_NOTICE = "trigger.notice";
 const TriggerNoticeData = Type.Object({ text: Type.String() });
 
@@ -236,11 +259,8 @@ export class TriggerRuns {
 		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
-		if (request && doc?.runs.some((run) => run.request === request)) {
-			await this.sync();
-			return trigger?.conversationId;
-		}
-		if (!trigger || (delivery !== "manual" && trigger.state === "paused")) return undefined;
+		if (!trigger) return undefined;
+		if (!(request && doc?.runs.some((run) => run.request === request)) && delivery !== "manual" && trigger.state === "paused") return undefined;
 		const agent = trigger.kind === "watch" ? await this.#agentState(trigger.conversationId, trigger.agent) : undefined;
 		const checkedAt = Date.now();
 		const waited = checkedAt - trigger.createdAt;
@@ -249,128 +269,140 @@ export class TriggerRuns {
 			return undefined;
 		}
 		if (trigger.when.kind === "once" && delivery !== "manual" && trigger.state === "on") await this.#markFired(id);
-		const today = startOfToday();
-		const runsToday = (doc?.runs ?? []).filter((run) => run.at >= today);
-		const overLimit =
-			delivery !== "manual" &&
-			(runsToday.filter((run) => run.trigger === id).length >= LIMITS.perTrigger || runsToday.length >= LIMITS.total);
-		const conversation = !overLimit && (await this.#bots()).some((bot) => bot.id === trigger.conversationId) ? await this.#harness.conversation(trigger.conversationId, context) : undefined;
-		const now = Date.now();
-		if (!conversation) {
-			await this.#record(id, { at: now, delivery, outcome: "failed", error: overLimit ? "今天的執行次數已達上限" : "它的 Bot 已經刪除" });
-			return undefined;
-		}
-		const conversationId = trigger.conversationId;
-		const event = isEvent(trigger.when) && delivery !== "manual";
-		const heard = event ? (delivered.device ?? trigger.when.kind) : undefined;
+		const heard = isEvent(trigger.when) && delivery !== "manual" ? (delivered.device ?? trigger.when.kind) : undefined;
 		const guards = trigger.guards ?? [];
-		const screening =
-			heard && (guards.length > 0 || trigger.onlyIf)
-				? screen(guards, trigger.onlyIf, await this.#judge.ask(screeningQuestions(guards, trigger.onlyIf), { automation: trigger.name, purpose: trigger.prompt, event: heard }))
-				: undefined;
-		const probability = screening?.pass ? screening.judged : screening?.probability;
-		const confidence: { confidence?: Confidence } =
-			probability !== undefined ? { confidence: { kind: "judged", probability } } : screening?.unjudged ? { confidence: { kind: "unjudged", reason: screening.unjudged } } : {};
-		if (screening && !screening.pass) {
-			await this.#record(id, { at: now, delivery, outcome: "skipped", reason: screening.reason, ...confidence });
-			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger: id });
-			return undefined;
-		}
-		const judged: { judged?: number } = screening?.judged !== undefined ? { judged: screening.judged } : {};
-		const judgement = screening ? `, ${screening.note}` : "";
-		const scheduled = heard ? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}` : `schedule "${trigger.name}"`;
-		const label = trigger.kind === "watch" ? watched(trigger.agent, agent ?? "unknown", waited) : trigger.kind === "followup" ? "follow-up you scheduled" : scheduled;
 		const activity: Record<string, string> = trigger.when.kind === "activity" ? { activity: trigger.when.activity } : {};
-		try {
-			await wake(conversation, request, `${label}, ${new Date(now).toString()}`, trigger.prompt, {
-				trigger: id,
-				name: trigger.name,
-				prompt: trigger.prompt,
-				kind: trigger.kind,
-				delivery,
-				at: now,
-				on: trigger.when.kind,
-				...activity,
-				...judged,
-				...(heard ? { device: heard } : {}),
-			});
-		} catch (error) {
-			await this.#record(id, { at: now, delivery, outcome: "failed", error: `沒有送出，會再試：${messageOf(error)}` });
-			throw error;
-		}
-		this.#started.set(conversationId, trigger.name);
-		await this.#touchBot(conversationId, now);
-		await this.#record(id, { at: now, delivery, outcome: "ran", ...confidence }, request);
-		return conversationId;
+		return this.#deliver({
+			key: id,
+			conversationId: trigger.conversationId,
+			delivery,
+			request,
+			limited: delivery !== "manual",
+			screening: heard && (guards.length > 0 || trigger.onlyIf) ? { guards, onlyIf: trigger.onlyIf, automation: trigger.name, purpose: trigger.prompt, event: heard } : undefined,
+			label: (judgement) => {
+				const scheduled = heard ? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}` : `schedule "${trigger.name}"`;
+				return trigger.kind === "watch" ? watched(trigger.agent, agent ?? "unknown", waited) : trigger.kind === "followup" ? "follow-up you scheduled" : scheduled;
+			},
+			prompt: trigger.prompt,
+			entry: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, on: trigger.when.kind, ...activity, ...(heard ? { device: heard } : {}) },
+			started: trigger.name,
+			settle: (outcome, at) => {
+				if (outcome.kind === "ran") return this.#record(id, { at, delivery, outcome: "ran", ...confidenceOf(outcome.confidence) });
+				if (outcome.kind === "skipped") return this.#record(id, { at, delivery, outcome: "skipped", reason: outcome.reason, ...confidenceOf(outcome.confidence) });
+				const error = outcome.kind === "limited" ? "今天的執行次數已達上限" : outcome.kind === "gone" ? "它的 Bot 已經刪除" : `沒有送出，會再試：${outcome.error}`;
+				return this.#record(id, { at, delivery, outcome: "failed", error });
+			},
+		});
 	}
 
 	async #runItem(id: string, delivery: Delivery, event: string | undefined, cause: { kind: "due" } | { kind: "reply"; heard: string }): Promise<ConversationId | undefined> {
 		const request = event ? `trigger:${event}` : undefined;
-		const trigger = cause.kind === "due" ? itemTrigger(id) : replyTrigger(id);
-		const runs = (await this.#harness.snapshot(TriggerDoc, context))?.runs ?? [];
-		if (request && runs.some((run) => run.request === request)) return undefined;
 		const item = (await this.#harness.snapshot(ItemDoc, context))?.items.find((candidate) => candidate.id === id);
 		const now = Date.now();
-		const due =
-			cause.kind === "reply"
-				? item?.state === "waiting" && item.wake !== undefined
-				: item && item.state !== "done" && (delivery === "manual" || (item.nextAt !== undefined && item.nextAt <= now + MINUTE));
-		const today = runs.filter((run) => run.at >= startOfToday());
-		const overLimit = today.length >= LIMITS.total || today.filter((run) => run.trigger === trigger).length >= LIMITS.perTrigger;
-		if (item && due && overLimit && cause.kind === "due" && item.nextAt !== undefined) {
-			const next = item.nextAt + DAY * Math.max(1, Math.ceil((now - item.nextAt) / DAY));
-			await this.#harness.commit(async (tx) => {
-				const items = await tx.doc(ItemDoc);
-				items.items = items.items.map((candidate) => (candidate.id === id ? { ...candidate, nextAt: next } : candidate));
-				await tx.appendEntry(item.bot, { kind: TRIGGER_NOTICE, data: { text: `今天的自動執行已達上限，「${item.title}」延到 ${localTime(next)}` } });
-			}, context);
-			await this.sync();
-			return undefined;
-		}
-		const conversation = item && due && !overLimit && (await this.#bots()).some((bot) => bot.id === item.bot) ? await this.#harness.conversation(item.bot, context) : undefined;
-		if (!item || !conversation) {
+		const due = cause.kind === "reply" ? item?.state === "waiting" && item.wake !== undefined : item !== undefined && item.state !== "done" && item.nextAt !== undefined && item.nextAt <= now + MINUTE;
+		const duplicate = request !== undefined && ((await this.#harness.snapshot(TriggerDoc, context))?.runs ?? []).some((run) => run.request === request);
+		if (!item || (!due && !duplicate)) {
 			await this.sync();
 			return undefined;
 		}
 		const waiting = item.state === "waiting" ? `waiting on ${item.waitingOn}` : item.state;
 		const details = [waiting, item.ref ? `details in ${item.ref}` : ""].filter(Boolean).join(", ");
-		const screening =
-			cause.kind === "reply" ? screen(DEFAULT_GUARDS, undefined, await this.#judge.ask(screeningQuestions(DEFAULT_GUARDS, undefined), { automation: item.title, purpose: waiting, event: cause.heard })) : undefined;
-		if (screening && !screening.pass) {
-			log.info("item.reply_skipped", { item: id, reason: screening.reason });
-			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger });
-			return undefined;
-		}
-		const label =
-			cause.kind === "reply"
-				? `item ${item.id} "${item.title}" (${details}): a notification came, ${cause.heard}${screening ? `, ${screening.note}` : ""}`
-				: `item ${item.id} "${item.title}" (${details}) is due`;
-		await wake(conversation, request, `${label}, ${new Date(now).toString()}`, cause.kind === "reply" ? REPLY_PROMPT : DUE_PROMPT, {
-			trigger,
-			name: item.title,
-			prompt: item.title,
-			kind: "item",
+		const notice = (text: string) =>
+			this.#harness.commit(async (tx) => {
+				await tx.appendEntry(item.bot, { kind: TRIGGER_NOTICE, data: { text } });
+			}, context);
+		return this.#deliver({
+			key: cause.kind === "due" ? itemTrigger(id) : replyTrigger(id),
+			conversationId: item.bot,
 			delivery,
-			at: now,
-			...(cause.kind === "reply" ? { device: cause.heard } : {}),
+			request,
+			limited: true,
+			screening: cause.kind === "reply" ? { guards: DEFAULT_GUARDS, onlyIf: undefined, automation: item.title, purpose: waiting, event: cause.heard } : undefined,
+			label: (judgement) =>
+				cause.kind === "reply" ? `item ${item.id} "${item.title}" (${details}): a notification came, ${cause.heard}${judgement}` : `item ${item.id} "${item.title}" (${details}) is due`,
+			prompt: cause.kind === "reply" ? REPLY_PROMPT : DUE_PROMPT,
+			entry: { trigger: cause.kind === "due" ? itemTrigger(id) : replyTrigger(id), name: item.title, prompt: item.title, kind: "item", delivery, on: cause.kind === "reply" ? "notification" : "once", ...(cause.kind === "reply" ? { device: cause.heard } : {}) },
+			started: item.title,
+			settle: async (outcome) => {
+				if (outcome.kind === "ran") {
+					if (cause.kind === "due") await this.#editItems((items) => items.map((candidate) => (candidate.id === id ? withoutNextAt(candidate) : candidate)));
+					return;
+				}
+				if (outcome.kind === "limited" && cause.kind === "due" && item.nextAt !== undefined) {
+					const next = item.nextAt + DAY * Math.max(1, Math.ceil((now - item.nextAt) / DAY));
+					await this.#editItems((items) => items.map((candidate) => (candidate.id === id ? { ...candidate, nextAt: next } : candidate)));
+					return notice(`今天的自動執行已達上限，「${item.title}」延到 ${localTime(next)}`);
+				}
+				if (outcome.kind === "limited") return notice(`今天的自動執行已達上限，「${item.title}」等的回覆來了但這次沒有處理`);
+				if (outcome.kind === "skipped") return notice(`「${item.title}」等的回覆來了，但沒有交給 Bot：${outcome.reason}`);
+				if (outcome.kind === "gone") log.info("item.bot_gone", { item: id });
+			},
 		});
-		this.#started.set(item.bot, item.title);
-		await this.#touchBot(item.bot, now);
-		const kept = startOfToday() - RUNS_KEPT_MS;
-		await this.#harness.commit(async (tx) => {
-			if (cause.kind === "due") {
-				const items = await tx.doc(ItemDoc);
-				items.items = items.items.map((candidate) => (candidate.id === id ? withoutNextAt(candidate) : candidate));
-			}
-			const triggers = await tx.doc(TriggerDoc);
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger, at: now, ...(request ? { request } : {}) }];
-		}, context);
-		await this.sync();
-		return item.bot;
 	}
 
-	gaveUp(id: string, reason: string): Promise<void> {
-		return this.#record(id, { at: Date.now(), delivery: "later", outcome: "failed", error: `一天內都沒有送出，這次跳過：${reason}` });
+	async #deliver(wakeup: Wakeup): Promise<ConversationId | undefined> {
+		const runs = (await this.#harness.snapshot(TriggerDoc, context))?.runs ?? [];
+		if (wakeup.request && runs.some((run) => run.request === wakeup.request)) {
+			await this.sync();
+			return wakeup.conversationId;
+		}
+		const now = Date.now();
+		const today = runs.filter((run) => run.at >= startOfToday());
+		if (wakeup.limited && (today.length >= LIMITS.total || today.filter((run) => run.trigger === wakeup.key).length >= LIMITS.perTrigger)) {
+			await wakeup.settle({ kind: "limited" }, now);
+			await this.sync();
+			return undefined;
+		}
+		const conversation = (await this.#bots()).some((bot) => bot.id === wakeup.conversationId) ? await this.#harness.conversation(wakeup.conversationId, context) : undefined;
+		if (!conversation) {
+			await wakeup.settle({ kind: "gone" }, now);
+			await this.sync();
+			return undefined;
+		}
+		const { screening: asked } = wakeup;
+		const screening = asked ? screen(asked.guards, asked.onlyIf, await this.#judge.ask(screeningQuestions(asked.guards, asked.onlyIf), { automation: asked.automation, purpose: asked.purpose, event: asked.event })) : undefined;
+		const probability = screening?.pass ? screening.judged : screening?.probability;
+		const confidence: Confidence | undefined =
+			probability !== undefined ? { kind: "judged", probability } : screening?.unjudged ? { kind: "unjudged", reason: screening.unjudged } : undefined;
+		if (screening && !screening.pass) {
+			await wakeup.settle({ kind: "skipped", reason: screening.reason, confidence }, now);
+			if (native.implements(Triggers.skipped)) await Triggers.skipped({ trigger: wakeup.key });
+			return undefined;
+		}
+		const judged = screening?.judged !== undefined ? { judged: screening.judged } : {};
+		try {
+			await wake(conversation, wakeup.request, `${wakeup.label(screening ? `, ${screening.note}` : "")}, ${new Date(now).toString()}`, wakeup.prompt, { ...wakeup.entry, at: now, ...judged });
+		} catch (error) {
+			await wakeup.settle({ kind: "failed", error: messageOf(error) }, now);
+			throw error;
+		}
+		this.#started.set(wakeup.conversationId, wakeup.started);
+		await this.#touchBot(wakeup.conversationId, now);
+		await this.#ran(wakeup.key, now, wakeup.request);
+		await wakeup.settle({ kind: "ran", confidence }, now);
+		await this.sync();
+		return wakeup.conversationId;
+	}
+
+	async #ran(key: string, at: number, request: string | undefined): Promise<void> {
+		const kept = startOfToday() - RUNS_KEPT_MS;
+		await this.#harness.commit(async (tx) => {
+			const triggers = await tx.doc(TriggerDoc);
+			if (request && triggers.runs.some((run) => run.request === request)) return;
+			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: key, at, ...(request ? { request } : {}) }];
+		}, context);
+	}
+
+	async #editItems(edit: (items: Item[]) => Item[]): Promise<void> {
+		await this.#harness.commit(async (tx) => {
+			const items = await tx.doc(ItemDoc);
+			items.items = edit(items.items);
+		}, context);
+	}
+
+	async gaveUp(id: string, reason: string): Promise<void> {
+		await this.#record(id, { at: Date.now(), delivery: "later", outcome: "failed", error: `一天內都沒有送出，這次跳過：${reason}` });
+		await this.sync();
 	}
 
 	async #markFired(id: string): Promise<void> {
@@ -380,19 +412,14 @@ export class TriggerRuns {
 		}, context);
 	}
 
-	async #record(id: string, last: LastRun, request?: string): Promise<void> {
-		const kept = startOfToday() - RUNS_KEPT_MS;
+	async #record(id: string, last: LastRun): Promise<void> {
 		await this.#harness.commit(async (tx) => {
 			const triggers = await tx.doc(TriggerDoc);
 			const item = triggers.items.find((candidate) => candidate.id === id);
 			if (!item) return;
 			item.last = last;
-			if (last.outcome !== "ran") return;
-			if (request && triggers.runs.some((run) => run.request === request)) return;
-			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: id, at: last.at, ...(request ? { request } : {}) }];
-			if (item.when.kind === "once" && last.delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
+			if (last.outcome === "ran" && item.when.kind === "once" && last.delivery !== "manual") triggers.items = triggers.items.filter((candidate) => candidate.id !== id);
 		}, context);
-		await this.sync();
 	}
 
 	unattended(id: ConversationId): boolean {
