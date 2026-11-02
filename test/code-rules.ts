@@ -74,6 +74,11 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "declare effect: \"screen\" and the catalog checks whether pi may open a screen before the tool runs; a tool does not call openScreen itself",
 	},
 	{
+		use: /\bJSON\.parse\(/,
+		owners: ["src/agent/parse.ts"],
+		fix: "parse JSON at the boundary with checkJson, decode or parseJson from src/agent/parse.ts",
+	},
+	{
 		use: /\bApp\.getState\(/,
 		owners: ["src/agent/tools/apps.ts", "src/app/keepAlive.ts"],
 		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",

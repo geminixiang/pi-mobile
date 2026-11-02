@@ -11,6 +11,7 @@ import { inApp, type Native, native } from "../native.ts";
 import { Browser } from "../browser/plugin.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
+import { parseJson } from "./parse.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
@@ -49,7 +50,7 @@ export const nativeFetch: McpFetch = async (input, init) => {
 	let data: unknown;
 	const body = init?.body;
 	if (typeof body === "string") {
-		data = (headers["content-type"] ?? "").includes("json") ? JSON.parse(body) : body;
+		data = (headers["content-type"] ?? "").includes("json") ? parseJson(body, "MCP 請求") : body;
 	} else if (body instanceof URLSearchParams) {
 		data = body.toString();
 		headers["content-type"] ??= "application/x-www-form-urlencoded";

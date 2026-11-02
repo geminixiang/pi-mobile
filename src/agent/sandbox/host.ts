@@ -17,7 +17,7 @@ import { containerDescription, directDescription, type Sandbox, SharedEnvs } fro
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
 import { type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
-import { decode, decodeEach, oneOf } from "../parse.ts";
+import { decode, decodeEach, oneOf, parseJson } from "../parse.ts";
 import { onFailure, untilFailure } from "../../promise.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";
@@ -437,7 +437,7 @@ export class HostStdioTransport implements McpTransport {
 				const line = raw.trim();
 				if (!line) return;
 				try {
-					const message = parseJsonRpcMessage(JSON.parse(line));
+					const message = parseJsonRpcMessage(parseJson(line, "電腦上的 MCP 訊息"));
 					for (const listener of this.#message) listener(message);
 				} catch (error) {
 					for (const listener of this.#error) listener(error instanceof Error ? error : new Error(String(error)));
