@@ -366,7 +366,7 @@ public class PhoneStatePlugin extends Plugin {
             call.resolve(result);
             return;
         }
-        if (!TriggersPlugin.inFront(getActivity()) && PhoneScreenService.running == null) {
+        if (!PhoneScreenService.canStartActivities(getActivity())) {
             call.reject("pi is in the background, and the phone does not let it open the " + what + " panel from there. Ask the user to open pi and try again.", "BACKGROUND");
             return;
         }

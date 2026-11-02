@@ -1,6 +1,7 @@
 package dev.geminixiang.pimobile
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Activity
 import android.content.Intent
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
@@ -32,5 +33,8 @@ class PhoneScreenService : AccessibilityService() {
 
     companion object {
         @JvmField @Volatile var running: PhoneScreenService? = null
+
+        // why: Android lets an app whose accessibility service is bound start activities from the background (measured on the S24, Android 16); otherwise it drops them without an error
+        @JvmStatic fun canStartActivities(activity: Activity?) = TriggersPlugin.inFront(activity) || running != null
     }
 }

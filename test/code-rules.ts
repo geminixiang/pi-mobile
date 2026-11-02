@@ -61,12 +61,38 @@ function findings(file: string): Finding[] {
 	return found;
 }
 
-const all = checkedFiles()
-	.filter((file) => SCRIPT_FILE.test(file) && !DEVICE_SCRIPTS.test(file))
-	.flatMap(findings);
+const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
+const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
+	{
+		use: /PhoneScreenService\.(?!canStartActivities\b)\w+/,
+		owners: ["PhoneScreenService.kt", "PhoneScreenPlugin.kt", "ScreenActor.kt", "ScreenElements.kt"],
+		fix: "only the phone screen code reaches the accessibility service; ask PhoneScreenService.canStartActivities(activity) whether a screen may open",
+	},
+	{
+		use: /\bApp\.getState\(/,
+		owners: ["src/agent/tools/apps.ts", "src/app/keepAlive.ts"],
+		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",
+	},
+];
+
+function borrowed(file: string): Finding[] {
+	const lines = readFileSync(file, "utf8").split("\n");
+	return OWNED.filter(({ owners }) => !owners.some((owner) => file.endsWith(owner))).flatMap(({ use, fix }) =>
+		lines.flatMap((line, index) => (use.test(line) ? [{ file, line: index + 1, rule: fix }] : [])),
+	);
+}
+
+const all = [
+	...checkedFiles()
+		.filter((file) => SCRIPT_FILE.test(file) && !DEVICE_SCRIPTS.test(file))
+		.flatMap(findings),
+	...checkedFiles()
+		.filter((file) => SOURCE_FILE.test(file) && !file.startsWith("test/"))
+		.flatMap(borrowed),
+];
 if (all.length > 0) {
 	for (const finding of all) console.error(`${finding.file}:${finding.line}: ${finding.rule}`);
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners");
