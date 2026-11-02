@@ -13,8 +13,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 方式 | 哪些工具 | 每次請求帶什麼 |
 |---|---|---|
-| **直接提供**（`reach: "model"`） | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
-| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`computer_read_as_user`、`computer_act_as_user`、`phone_read_as_user`、`phone_act_as_user`、`read_page`、`use_browser`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
+| **直接提供**（`reach: "model"`） | 〈工具總圖〉標 † 的 | 完整定義 |
+| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片（腳本拿不到圖片），〈工具總圖〉標 ＊ 的 | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；名稱列在系統提示「Load these with tool_search」那段，只列這個 Bot 在所在地（手機或電腦）用得到的 |
 | **只給腳本**（預設） | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
 - 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
