@@ -60,6 +60,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
 | Every native plugin class is registered (`MainActivity`, `MainViewController`) | `test/plugins-node.ts` |
 | Every schedule kind and activity in `src/triggers/plugin.ts` is read by the Android side (`Schedule.kt`, `ActivityTrigger.kt`) | `test/plugins-node.ts` |
+| Every native call in a tool file is in its tools' `needs` or checked with `native.implements` first | `test/tools-node.ts` |
 | A tool that needs a native method marked `opens: "screen"` declares `effect: "screen"`, and only the catalog calls `openScreen` | `test/tools-node.ts`, `test/code-rules.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
 | JSON is parsed only through `src/agent/parse.ts` | `test/code-rules.ts` |

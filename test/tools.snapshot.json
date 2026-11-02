@@ -1668,7 +1668,11 @@
 		"structuredOutput": null,
 		"effect": "direct",
 		"needs": [
-			"Browser.act"
+			"Browser.act",
+			"Browser.read",
+			"Browser.newTab",
+			"Browser.tabs",
+			"Browser.closeTab"
 		]
 	},
 	{

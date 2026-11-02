@@ -1,4 +1,5 @@
 import type { Context } from "@earendil-works/chord";
+import { native } from "../native.ts";
 import { type ConversationId, defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, MINUTE, parseClock, parseLocalTime, text } from "../agent/tools/common.ts";
@@ -37,6 +38,7 @@ function summary(trigger: Trigger): string {
 const oneDialogAtATime = serially();
 
 async function needLocationAlways(what: string): Promise<void> {
+	if (!native.implements(Triggers.requestLocationAlways)) throw new Error(`this phone cannot tell ${what} while pi is not open`);
 	const { background } = await oneDialogAtATime(() => Triggers.requestLocationAlways());
 	if (!background) {
 		throw new Error(
@@ -109,11 +111,13 @@ const CreateScheduleArgs = Type.Object({
 type CreateScheduleArgs = Static<typeof CreateScheduleArgs>;
 
 async function needBluetooth(cannot: string): Promise<void> {
+	if (!native.implements(Triggers.requestBluetooth)) throw new Error(`this phone cannot tell ${cannot}`);
 	const { granted } = await oneDialogAtATime(() => Triggers.requestBluetooth());
 	if (!granted) throw new Error(`the user did not allow pi to see Bluetooth connections, so it cannot tell ${cannot}. Ask them to allow 鄰近裝置 for pi if they want it.`);
 }
 
 async function needAccess(to: "photos" | "activity", cannot: string, allow: string): Promise<void> {
+	if (!native.implements(Triggers.requestAccess)) throw new Error(`this phone does not let pi ${cannot}`);
 	const { granted } = await oneDialogAtATime(() => Triggers.requestAccess({ to }));
 	if (!granted) throw new Error(`the user did not allow pi to ${cannot}. Ask them to allow ${allow} for pi if they want it.`);
 }
@@ -198,7 +202,8 @@ export function createTriggerExtension(host: TriggerHost) {
 		parameters: CreateScheduleArgs,
 		execute: async (args, api, context) => {
 			const when = await whenOf(args);
-			const runningOnly = (when.kind === "unlock" || when.kind === "battery_low") && !(await Notifications.status()).allowed;
+			const listening = native.implements(Notifications.status) && (await Notifications.status()).allowed;
+			const runningOnly = (when.kind === "unlock" || when.kind === "battery_low") && !listening;
 			const existing = await api.snapshot(TriggerDoc, context);
 			if ((existing?.items.length ?? 0) >= MAX_TRIGGERS) throw new Error(`there are already ${MAX_TRIGGERS} schedules; delete one first`);
 			const trigger = await add(api, context, {

@@ -167,7 +167,7 @@ const readPage = defineAppTool({
 const useBrowser = defineAppTool({
 	name: "use_browser",
 	effect: "direct",
-	needs: [Browser.act],
+	needs: [Browser.act, Browser.read, Browser.newTab, Browser.tabs, Browser.closeTab],
 	reach: "loaded",
 	description:
 		"Use this Bot's own browser, then see the page as read_page does. It keeps cookies and logins between calls, and the user can watch it and step in. " +

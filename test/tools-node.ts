@@ -8,6 +8,7 @@ import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
 import { ALWAYS_ON, RENAMED, TOOLSETS } from "../src/agent/toolsets.ts";
+import { PLUGINS } from "../src/plugins/index.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
 import { exitOnFailures, plain, snapshotFailures, sourcesMatching, updating } from "./snapshot.ts";
 
@@ -237,6 +238,20 @@ function toolNamesIn(node: Node): string[] {
 	return [];
 }
 const SRC = new URL("../src/", import.meta.url);
+const pluginNames = PLUGINS.map((plugin) => plugin.name).join("|");
+const CALL = new RegExp(`\\b(${pluginNames})\\.(\\w+)\\(`, "g");
+const NEEDS = /needs:\s*\[([^\]]*)\]/g;
+const GUARD = /native\.implements\(\s*(\w+\.\w+)\s*\)/g;
+const QUALIFIED = /\b(\w+\.\w+)\b/g;
+for (const file of readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".ts"))) {
+	const source = readFileSync(new URL(file, SRC), "utf8");
+	if (!source.includes("defineAppTool(")) continue;
+	const declared = new Set([...source.matchAll(NEEDS)].flatMap((match) => [...(match[1] ?? "").matchAll(QUALIFIED)].map((name) => name[1] ?? "")));
+	const guarded = new Set([...source.matchAll(GUARD)].map((match) => match[1] ?? ""));
+	const loose = [...new Set([...source.matchAll(CALL)].map((match) => `${match[1]}.${match[2]}`))].filter((call) => !call.endsWith(".addListener") && !declared.has(call) && !guarded.has(call));
+	if (loose.length) failures.push(`src/${file} calls native methods its tools neither need nor check: ${loose.join(", ")}; add each to the tool's needs, or check native.implements(…) before an optional call`);
+}
+
 const uiFiles = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".tsx") || (file.startsWith("app/") && file.endsWith(".ts")));
 const toolNames = new Set(current.map((tool) => tool.name));
 for (const file of uiFiles) {
