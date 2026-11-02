@@ -44,6 +44,15 @@ export const TOOLSETS: readonly Toolset[] = [
 
 export const ALWAYS_ON: readonly string[] = ["assistant", "bot", "codemode", "skills", "attachments", "schedules", "memory", "items", "tool-search", "on-demand"];
 
+export type Place = "phone" | "computer" | "missing";
+
+export const isAt = (toolset: Toolset, place: Place): boolean => toolset.where === undefined || toolset.where === place;
+
+export function offeredAt(extension: string, place: Place): boolean {
+	const owners = TOOLSETS.filter((toolset) => toolset.extensions.includes(extension));
+	return owners.length === 0 || owners.some((toolset) => isAt(toolset, place));
+}
+
 export const usable = (toolset: Toolset, native: Native): boolean => !toolset.needs || native.has(toolset.needs);
 
 export function unusableExtensions(native: Native): ReadonlySet<string> {

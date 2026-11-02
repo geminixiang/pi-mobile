@@ -31,7 +31,8 @@ import type { LoadedModels } from "./available-models.ts";
 import { hostOf } from "./parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isEnabled, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
+import { isAt, isEnabled, offeredAt, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
+import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { TriggerRuns } from "../triggers/runs.ts";
 import type { Notified, TriggerHost } from "../triggers/tool.ts";
 import { type Placed, Workplaces } from "./workplaces.ts";
@@ -198,7 +199,7 @@ export class AgentRuntime {
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
-			labelOf: (name, id) => (TOOLSETS.find((toolset) => toolset.id === name)?.where === "computer" && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
+			labelOf: (name, id) => (offeredAt(name, at(id)?.kind ?? "missing") ? labelOf(name, mcp) : undefined),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
 		const harness = await Harness.open(
@@ -248,7 +249,7 @@ export class AgentRuntime {
 	}
 
 	async #actsAsUser(id: ConversationId): Promise<boolean> {
-		const toolset = TOOLSETS.find((candidate) => candidate.extensions.includes("phone_as_user"));
+		const toolset = TOOLSETS.find((candidate) => candidate.extensions.includes(PhoneScreenExtension.name));
 		return toolset !== undefined && isEnabled(await this.#botToolsets.selection(id), toolset);
 	}
 
@@ -495,7 +496,7 @@ export class AgentRuntime {
 		);
 		return here.map((toolset) => ({
 			...toolset,
-			available: (toolset.where === undefined || toolset.where === place) && toolset.extensions.every((name) => installed.has(name)),
+			available: isAt(toolset, place) && toolset.extensions.every((name) => installed.has(name)),
 			enabled: isEnabled(selection, toolset),
 		}));
 	}

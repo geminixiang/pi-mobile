@@ -19,7 +19,7 @@ async function seen(inApp: boolean, native: readonly NativePlugin[], missing: re
 		let offered = "";
 		await turn(runtime, bot, [
 			(context: TranscriptContext) => {
-				offered = JSON.stringify(context.messages);
+				offered = JSON.stringify(context);
 				return fauxAssistantMessage("done");
 			},
 		]);
@@ -33,6 +33,15 @@ async function seen(inApp: boolean, native: readonly NativePlugin[], missing: re
 const NATIVE_TOOLS = ["device_info", "create_schedule", "read_calendar_events", "find_photos", "scan_document"];
 
 export const checks: Check[] = [
+	[
+		"a bot on the phone is not told about a computer's tools, and still is about the phone's",
+		async () => {
+			const phone = await seen(true, NATIVE_PLUGINS);
+			assert.equal(phone.place, "phone");
+			assert.ok(phone.offers("phone_read_as_user"));
+			for (const tool of ["computer_read_as_user", "computer_act_as_user", "tell_agent"]) assert.equal(phone.offers(tool), false, tool);
+		},
+	],
 	[
 		"a bot is offered the tools whose native part this app has, found when it starts",
 		async () => {

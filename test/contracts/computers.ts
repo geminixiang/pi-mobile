@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
 import type { Host } from "../../src/agent/sandbox/host.ts";
 import { openRuntime, toolResults, turn } from "./fixtures.ts";
@@ -133,6 +133,25 @@ export const checks: Check[] = [
 			};
 			assert.deepEqual(await availability({}), { files: true, computer_shell: false, computer_as_user: false, computer_agents: false });
 			assert.deepEqual(await availability({ hosts: [host], computer: "b.example:direct" }), { files: false, computer_shell: true, computer_as_user: true, computer_agents: true });
+		},
+	],
+	[
+		"a bot on a computer is told about the computer's tools",
+		async () => {
+			const { runtime } = await openRuntime(undefined, { hosts: [host], computer: "b.example:direct" });
+			try {
+				const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+				let offered = "";
+				await turn(runtime, bot, [
+					(context: TranscriptContext) => {
+						offered = JSON.stringify(context);
+						return fauxAssistantMessage("done");
+					},
+				]);
+				for (const tool of ["computer_read_as_user", "computer_act_as_user", "tell_agent"]) assert.match(offered, new RegExp(`\\b${tool}\\b`), tool);
+			} finally {
+				await runtime.close();
+			}
 		},
 	],
 ];

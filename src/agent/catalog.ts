@@ -51,8 +51,8 @@ interface CatalogDeps {
 	actsAsUser: ActsAsUser;
 }
 
-const toolSearch = (loaded: readonly string[]) =>
-	`Load ${loaded.join(", ")}, the tools whose result is an image you see; they are callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.`;
+const TOOL_SEARCH =
+	"Load a tool listed under \"Load these with tool_search\", the tools whose result is an image you see; it is callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.";
 
 export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; unsupported: ReadonlySet<string> } {
 	const extensions: Extension[] = [
@@ -100,11 +100,10 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 			tools: extension.tools?.filter((tool) => (declarationOf(tool)?.needs ?? []).every((method) => deps.native.implements(method))),
 		}));
 	const usable = filtered.filter((extension) => extension.tools === undefined || extension.tools.length > 0);
-	const loaded = usable.flatMap((extension) => (extension.tools ?? []).filter((tool) => tool.deferred).map((tool) => tool.name));
 	return {
 		extensions: usable.map((extension) => ({
 			...extension,
-			tools: extension.tools?.map((tool) => (tool.name === "tool_search" ? { ...tool, description: toolSearch(loaded) } : tool)),
+			tools: extension.tools?.map((tool) => (tool.name === "tool_search" ? { ...tool, description: TOOL_SEARCH } : tool)),
 		})),
 		unsupported: new Set(filtered.filter((extension) => extension.tools?.length === 0).map((extension) => extension.name)),
 	};

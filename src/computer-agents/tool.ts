@@ -157,10 +157,10 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		name: "computer_agents",
 		tools: [listAgents, readAgent, tellAgent, answerAgent],
 		sections: [
-			section(
-				"computer_agents",
-				() =>
-					"Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply.",
+			section("computer_agents", (input) =>
+				workplace(String(input.conversationId))?.kind !== "computer"
+					? undefined
+					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply.",
 			),
 		],
 	});
