@@ -90,7 +90,7 @@
 
 - 一個 stdio 的 MCP 服務，手機透過 `/exec` 啟動 `pi-mobile mcp computer`。`/exec` 的 PATH 最前面是 pi-mobile 自己的資料夾，所以不用寫完整路徑。
 - 兩個工具：`screenshot`（唯讀）和 `act`（一次多個步驟，做完回傳新截圖）。截圖附上前景 app、視窗標題和游標位置。
-- **有電腦就有這組工具**：手機上是內建的工具組「電腦畫面」（`src/agent/tools/computer.ts`，`read_screen`、`use_screen`），需要時載入，每台電腦一個連線。Bot 在手機上時這組不可用，也不會列在需要時載入的清單裡。不用另外加 MCP 服務。
+- **有電腦就有這組工具**：手機上是內建的工具組「電腦畫面」（`src/agent/tools/computer.ts`，`computer_read_as_user`、`computer_act_as_user`），需要時載入，每台電腦一個連線。Bot 在手機上時這組不可用，也不會列在需要時載入的清單裡。不用另外加 MCP 服務。
 - macOS 用 `screencapture` 截圖，用 purego 呼叫 Quartz 事件和輔助使用 API，不用 cgo。權限算在 `pi-mobile serve` 頭上，不用另外授權。Linux 還沒做。
 - **它開的 app 由它收掉，不靠模型**：第一次呼叫時記下正在跑的 app（`lsappinfo list` 裡的 Foreground，約 35 毫秒），每次呼叫後記下新出現的。session 結束時，用 SIGTERM 結束這些 app（不問要不要存檔），1.5 秒後還在的就強制結束。原本就開著的 app 不動，即使 Bot 在裡面開了新視窗。session 在三種情況結束：最後一次呼叫後 2 分鐘、手機斷線（stdin 結束）、收到 SIGTERM（serve 結束整個程序群組時）。三種都在 Mac mini 上實測過。
 - 為什麼這樣設計、和 computer-use-mcp 的比較，見 [research/computer-use-mcp-eval.md](../research/computer-use-mcp-eval.md)。

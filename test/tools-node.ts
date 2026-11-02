@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
@@ -172,7 +172,7 @@ const rules: Rule[] = [
 	},
 ];
 
-const FIXED = new Set(["bot", "skills", "attachments", "triggers", "memory", "items", "tool-search", "on-demand", "assistant", "sandbox"]);
+const FIXED = new Set(["bot", "skills", "attachments", "schedules", "memory", "items", "tool-search", "on-demand", "assistant", "computer_shell"]);
 
 const failures: string[] = [];
 const names = new Map<string, string>();
@@ -193,5 +193,27 @@ if (reexported.length) failures.push(`schemas use Type from "typebox", not from 
 
 const current = tools.map(({ iface }) => iface);
 failures.push(...snapshotFailures(SNAPSHOT, current, "tool", "its interface"));
+
+const MAP_START = "<!-- 工具總圖：node --import ./test/vite-imports.js test/tools-node.ts --update 產生，不要手改 -->";
+const MAP_END = "<!-- 工具總圖結束 -->";
+const shown = (tool: ToolInterface) => `\`${tool.name}\`${tool.deferred ? "＊" : tool.callers.includes("model") ? "†" : ""}`;
+const toolsOf = (extension: string) => current.filter((tool) => tool.extension === extension).map(shown).join("、") || "沒有自己的工具";
+const switched = new Set(TOOLSETS.flatMap((toolset) => toolset.extensions));
+const map = [
+	MAP_START,
+	"",
+	"每個開關（工具組）底下是它的擴充，擴充後面是它的工具。＊需要時載入，†直接提供，其他只給腳本。不含 MCP 服務。",
+	"",
+	...TOOLSETS.flatMap((toolset) => [`- **${toolset.label}**（\`${toolset.id}\`）`, ...toolset.extensions.map((extension) => `  - \`${extension}\`：${toolsOf(extension)}`)]),
+	"- **固定開著**（沒有開關）",
+	...[...new Set(current.map((tool) => tool.extension))].filter((extension) => !switched.has(extension)).map((extension) => `  - \`${extension}\`：${toolsOf(extension)}`),
+	"",
+	MAP_END,
+].join("\n");
+const mapAt = docs.indexOf(MAP_START);
+const mapEnd = docs.indexOf(MAP_END);
+if (mapAt < 0 || mapEnd < mapAt) failures.push("docs/tools.md has no 工具總圖 between its two markers");
+else if (updating) writeFileSync(new URL("../docs/tools.md", import.meta.url), docs.slice(0, mapAt) + map + docs.slice(mapEnd + MAP_END.length));
+else if (docs.slice(mapAt, mapEnd + MAP_END.length) !== map) failures.push("docs/tools.md 工具總圖 is out of date: run with --update");
 exitOnFailures(failures);
 console.log(`tools: ${current.length} tools in ${new Set(current.map((tool) => tool.extension)).size} extensions follow the interface${updating ? " (snapshot updated)" : " and match the snapshot"}`);

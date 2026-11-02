@@ -22,7 +22,7 @@ function client(host: PairedHost): Promise<McpClient> {
 }
 
 async function call(host: PairedHost | undefined, tool: "screenshot" | "act", args: Record<string, unknown>, signal: AbortSignal | undefined): Promise<ToolExecutionResult> {
-	if (!host) throw new Error("This bot works on the phone: the phone's own screen is read_as_user and act_as_user; a computer's screen needs a computer picked in the bot's panel.");
+	if (!host) throw new Error("This bot works on the phone: the phone's own screen is phone_read_as_user and phone_act_as_user; a computer's screen needs a computer picked in the bot's panel.");
 	const server = await client(host).catch((error: unknown) => {
 		throw new Error(
 			`Screen control did not start on ${host.name}: ${messageOf(error)}. pi-mobile there may be older than screen control: tell the user to run the install command on ${host.name} again (Settings › 電腦).`,
@@ -37,21 +37,21 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		return place?.kind === "computer" ? place.host : undefined;
 	};
 	const readScreen = defineAppTool({
-		name: "read_screen",
+		name: "computer_read_as_user",
 		effect: "read",
 		reach: "loaded",
 		description:
-			"See the screen of the computer you work on (its desktop, not a container): a screenshot of the main display, and as text its size, the front app, its focused window's title, and the pointer. Coordinates in use_screen are this screenshot's pixels. For what a command cannot reach.",
+			"See the screen of the computer you work on as the user sees it (its desktop, not a container): a screenshot of the main display, and as text its size, the front app, its focused window's title, and the pointer. Coordinates in computer_act_as_user are this screenshot's pixels. For what a command cannot reach.",
 		parameters: Type.Object({}),
 		replay: "safe",
 		execute: (_args, api) => call(hostOf(String(api.conversationId)), "screenshot", {}, undefined),
 	});
 	const useScreen = defineAppTool({
-		name: "use_screen",
+		name: "computer_act_as_user",
 		effect: "direct",
 		reach: "loaded",
 		description:
-			"Use the computer's mouse and keyboard, then see the result: runs the steps in order and returns the screenshot after them, as read_screen does. " +
+			"Act as the user on the computer's mouse and keyboard, for what a command cannot reach; apps may notice. Runs the steps in order and returns the screenshot after them, as computer_read_as_user does. " +
 			"Put the steps you can already tell in one call (open an app with cmd+space, type its name, return; click a field, type, return); prefer keys to clicks. " +
 			"Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click}; move {x, y}; drag {x, y, to_x, to_y}; " +
 			'scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as "cmd+shift+t", "return", "esc", "down"}; type {text}; wait {ms}.',
@@ -76,5 +76,5 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		}),
 		execute: (args, api, context) => call(hostOf(String(api.conversationId)), "act", { steps: args.steps }, context.abortSignal),
 	});
-	return defineExtension({ name: "computer", tools: [readScreen, useScreen] });
+	return defineExtension({ name: "computer_as_user", tools: [readScreen, useScreen] });
 }

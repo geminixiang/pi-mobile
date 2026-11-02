@@ -45,11 +45,11 @@
 | device | `device_info` | 有 | 可 | 可 | 可 | 可 |
 | device | `get_location` | 有 | 可 | 可 | 可（不需要打包） | 可（GeoClue） |
 | device | `read_sensors` | 有 | 部分（CoreMotion：動作、氣壓） | 無 | 無 | 無 |
-| phone_apps | `set_alarm`、`set_timer` | 有 | 可（iOS 26 的 AlarmKit） | 部分（改用通知） | 部分（改用通知） | 部分（改用通知） |
-| phone_apps | `compose_email` | 有 | 可 | 可（`mailto:`） | 可（`mailto:`） | 可（`mailto:`） |
-| phone_apps | `compose_sms` | 有 | 可（只打開撰寫畫面） | 部分（`sms:` 交給訊息 app） | 無 | 無 |
-| phone_apps | `open_maps`、`open_link` | 有 | 可 | 可 | 可 | 可 |
-| phone_apps | `share` | 有 | 可 | 可 | 可 | 無 |
+| apps | `set_alarm`、`set_timer` | 有 | 可（iOS 26 的 AlarmKit） | 部分（改用通知） | 部分（改用通知） | 部分（改用通知） |
+| apps | `compose_email` | 有 | 可 | 可（`mailto:`） | 可（`mailto:`） | 可（`mailto:`） |
+| apps | `compose_sms` | 有 | 可（只打開撰寫畫面） | 部分（`sms:` 交給訊息 app） | 無 | 無 |
+| apps | `open_maps`、`open_link` | 有 | 可 | 可 | 可 | 可 |
+| apps | `share` | 有 | 可 | 可 | 可 | 無 |
 | speech | `speak` | 有 | 可 | 可 | 可 | 部分（WebKitGTK 2.40 起有，要看發行版有沒有編進去） |
 | notifications | `read_notifications`、`reply_notification`、`dismiss_notifications` | 有 | 無 | 無（只能用輔助使用 API 讀螢幕上的通知） | 部分（只能讀，app 要有 package identity） | 部分（監聽 session bus，只能讀，Flatpak 會擋） |
 | phone_control | `media` | 有 | 部分（只能控制 Apple Music） | 無（15.4 起連私有 API 也讀不到） | 可（系統媒體控制） | 可（MPRIS） |
@@ -61,10 +61,10 @@
 | health | `health` | 有（Health Connect） | 可（HealthKit） | 無（Mac 沒有 HealthKit 資料） | 無 | 無 |
 | attachments | `scan_document` | 有 | 可（VisionKit） | 部分（接續互通相機，要有 iPhone） | 無 | 無 |
 | calendar | `read_calendar_events`、`list_calendars`、`add_calendar_event` | 有 | 可（EventKit） | 可（EventKit） | 無（舊系統 API 接不到新版 Outlook，要走 Microsoft Graph） | 未查 |
-| triggers | `create_schedule`、`schedule_followup`：時間 | 有 | 部分（背景工作由系統決定時間，不準；準時的只有通知和鬧鐘，要使用者打開 pi 才會跑） | 可（pi 開著時） | 可（同 macOS） | 可（同 macOS） |
-| triggers | `create_schedule`：事件 | 有 | 部分（地理圍欄要「一律允許」；其他靠 Shortcuts 自動化去跑 App Intent） | 部分（藍牙連線有公開 API；解鎖沒有官方文件） | 部分（解鎖） | 部分（logind 解鎖、UPower 電量） |
-| triggers | `notify` | 有 | 可 | 可 | 可 | 可 |
-| computer | `read_screen`、`use_screen` | 有（透過電腦上的 host） | 有（透過 host） | 可（直接控制本機，要「輔助使用」和「傳送事件」權限） | 可（直接控制本機） | 部分（Wayland 要透過 RemoteDesktop portal，使用者每次都要同意） |
+| schedules | `create_schedule`、`schedule_followup`：時間 | 有 | 部分（背景工作由系統決定時間，不準；準時的只有通知和鬧鐘，要使用者打開 pi 才會跑） | 可（pi 開著時） | 可（同 macOS） | 可（同 macOS） |
+| schedules | `create_schedule`：事件 | 有 | 部分（地理圍欄要「一律允許」；其他靠 Shortcuts 自動化去跑 App Intent） | 部分（藍牙連線有公開 API；解鎖沒有官方文件） | 部分（解鎖） | 部分（logind 解鎖、UPower 電量） |
+| schedules | `notify` | 有 | 可 | 可 | 可 | 可 |
+| computer_as_user | `computer_read_as_user`、`computer_act_as_user` | 有（透過電腦上的 host） | 有（透過 host） | 可（直接控制本機，要「輔助使用」和「傳送事件」權限） | 可（直接控制本機） | 部分（Wayland 要透過 RemoteDesktop portal，使用者每次都要同意） |
 
 ## 3. App 本身
 

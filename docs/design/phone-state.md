@@ -32,7 +32,7 @@
 | 簡訊、電話 | ✓ | 目前是草稿；**直接傳送、直接撥打要使用者決定** | `compose_sms` | 3 |
 | 資料庫 | ✓ | ✓ | `sql` | 已有 |
 | Bot 資料夾 | ✓ | ✓ | `read`、`write`、`bash` | 已有 |
-| 任何 app 的畫面 | ✓ | ✓ | `read_as_user`、`act_as_user` | 已有 |
+| 任何 app 的畫面 | ✓ | ✓ | `phone_read_as_user`、`phone_act_as_user` | 已有 |
 | 螢幕使用時間、感測器、位置、通話紀錄 | ✓ | — | | |
 
 ## Android 的限制（Android 16，minSdk 與 targetSdk 都是 36）

@@ -970,7 +970,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "set_alarm",
 		"deferred": false,
@@ -1016,7 +1016,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "open_alarms",
 		"deferred": false,
@@ -1034,7 +1034,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "set_timer",
 		"deferred": false,
@@ -1066,7 +1066,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "compose_email",
 		"deferred": false,
@@ -1103,7 +1103,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "compose_sms",
 		"deferred": false,
@@ -1133,7 +1133,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "open_maps",
 		"deferred": false,
@@ -1173,7 +1173,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "open_link",
 		"deferred": false,
@@ -1199,7 +1199,7 @@
 		]
 	},
 	{
-		"extension": "phone_apps",
+		"extension": "apps",
 		"toolset": "apps",
 		"name": "share",
 		"deferred": false,
@@ -1409,9 +1409,9 @@
 		]
 	},
 	{
-		"extension": "phone_screen",
-		"toolset": "phone_screen",
-		"name": "read_as_user",
+		"extension": "phone_as_user",
+		"toolset": "phone_as_user",
+		"name": "phone_read_as_user",
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1434,9 +1434,9 @@
 		]
 	},
 	{
-		"extension": "phone_screen",
-		"toolset": "phone_screen",
-		"name": "act_as_user",
+		"extension": "phone_as_user",
+		"toolset": "phone_as_user",
+		"name": "phone_act_as_user",
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1673,7 +1673,7 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "control",
+		"toolset": "phone_control",
 		"name": "media",
 		"deferred": false,
 		"callers": [
@@ -1712,7 +1712,7 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "control",
+		"toolset": "phone_control",
 		"name": "do_not_disturb",
 		"deferred": false,
 		"callers": [
@@ -1751,7 +1751,7 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "control",
+		"toolset": "phone_control",
 		"name": "sound",
 		"deferred": false,
 		"callers": [
@@ -1803,7 +1803,7 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "control",
+		"toolset": "phone_control",
 		"name": "display",
 		"deferred": false,
 		"callers": [
@@ -1853,7 +1853,7 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "control",
+		"toolset": "phone_control",
 		"name": "flashlight",
 		"deferred": false,
 		"callers": [
@@ -1885,7 +1885,7 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "control",
+		"toolset": "phone_control",
 		"name": "connections",
 		"deferred": false,
 		"callers": [
@@ -2140,7 +2140,7 @@
 	},
 	{
 		"extension": "calls_sms",
-		"toolset": "calls",
+		"toolset": "calls_sms",
 		"name": "call_log",
 		"deferred": false,
 		"callers": [
@@ -2215,7 +2215,7 @@
 	},
 	{
 		"extension": "calls_sms",
-		"toolset": "calls",
+		"toolset": "calls_sms",
 		"name": "read_sms",
 		"deferred": false,
 		"callers": [
@@ -2287,7 +2287,7 @@
 	},
 	{
 		"extension": "screen_time",
-		"toolset": "screen",
+		"toolset": "screen_time",
 		"name": "screen_time",
 		"deferred": false,
 		"callers": [
@@ -3097,7 +3097,7 @@
 		"needs": []
 	},
 	{
-		"extension": "triggers",
+		"extension": "schedules",
 		"toolset": "fixed",
 		"name": "create_schedule",
 		"deferred": false,
@@ -3245,7 +3245,7 @@
 		]
 	},
 	{
-		"extension": "triggers",
+		"extension": "schedules",
 		"toolset": "fixed",
 		"name": "schedule_followup",
 		"deferred": false,
@@ -3283,7 +3283,7 @@
 		]
 	},
 	{
-		"extension": "triggers",
+		"extension": "schedules",
 		"toolset": "fixed",
 		"name": "list_schedules",
 		"deferred": false,
@@ -3301,7 +3301,7 @@
 		]
 	},
 	{
-		"extension": "triggers",
+		"extension": "schedules",
 		"toolset": "fixed",
 		"name": "delete_schedule",
 		"deferred": false,
@@ -3327,7 +3327,7 @@
 		]
 	},
 	{
-		"extension": "triggers",
+		"extension": "schedules",
 		"toolset": "fixed",
 		"name": "notify",
 		"deferred": false,
@@ -3474,9 +3474,9 @@
 		"needs": []
 	},
 	{
-		"extension": "computer",
-		"toolset": "computer",
-		"name": "read_screen",
+		"extension": "computer_as_user",
+		"toolset": "computer_as_user",
+		"name": "computer_read_as_user",
 		"deferred": true,
 		"callers": [
 			"model",
@@ -3491,9 +3491,9 @@
 		"needs": []
 	},
 	{
-		"extension": "computer",
-		"toolset": "computer",
-		"name": "use_screen",
+		"extension": "computer_as_user",
+		"toolset": "computer_as_user",
+		"name": "computer_act_as_user",
 		"deferred": true,
 		"callers": [
 			"model",
@@ -3685,7 +3685,7 @@
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "sandbox",
+		"toolset": "computer_shell",
 		"name": "read",
 		"deferred": false,
 		"callers": [
@@ -3718,7 +3718,7 @@
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "sandbox",
+		"toolset": "computer_shell",
 		"name": "write",
 		"deferred": false,
 		"callers": [
@@ -3748,7 +3748,7 @@
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "sandbox",
+		"toolset": "computer_shell",
 		"name": "edit",
 		"deferred": false,
 		"callers": [
@@ -3795,7 +3795,7 @@
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "sandbox",
+		"toolset": "computer_shell",
 		"name": "bash",
 		"deferred": false,
 		"callers": [

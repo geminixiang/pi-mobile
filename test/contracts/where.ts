@@ -72,7 +72,7 @@ export const checks: Check[] = [
 			assert.equal(partial.offers("add_calendar_event"), false);
 
 			const withoutNotifications = await seen(true, NATIVE_PLUGINS.filter((plugin) => platform.native.has(plugin) && plugin !== "Notifications"));
-			assert.ok(withoutNotifications.toolsets.includes("control"));
+			assert.ok(withoutNotifications.toolsets.includes("phone_control"));
 			assert.ok(withoutNotifications.offers("sound"));
 			assert.equal(withoutNotifications.offers("media"), false);
 			assert.ok(!withoutNotifications.toolsets.includes("notifications"));

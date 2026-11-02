@@ -64,9 +64,9 @@ function labelOf(extension: string, mcp: McpHub): string {
 type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
 const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
-	phone: new Set(["sandbox", "computer", "computer_agents"]),
+	phone: new Set(["computer_shell", "computer_as_user", "computer_agents"]),
 	computer: new Set(["files"]),
-	missing: new Set(["files", "sandbox", "computer", "computer_agents"]),
+	missing: new Set(["files", "computer_shell", "computer_as_user", "computer_agents"]),
 };
 
 const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt", "searchEngine"]);
@@ -203,7 +203,7 @@ export class AgentRuntime {
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
-			labelOf: (name, id) => ((name === "computer" || name === "computer_agents") && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
+			labelOf: (name, id) => ((name === "computer_as_user" || name === "computer_agents") && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
 		const harness = await Harness.open(
@@ -243,6 +243,7 @@ export class AgentRuntime {
 		runtimeRef = runtime;
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
+		await runtime.#botToolsets.renameExtensions();
 		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`自動化同步失敗：${messageOf(error)}`));
 		harness.resume();
 		for (const bot of await runtime.#allBots()) {

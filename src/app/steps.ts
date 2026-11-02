@@ -1,4 +1,4 @@
-const SCREEN_TOOLS = new Set(["read_page", "use_browser", "read_as_user", "act_as_user"]);
+const SCREEN_TOOLS = new Set(["read_page", "use_browser", "phone_read_as_user", "phone_act_as_user"]);
 const STOPPED = "Stopped at ";
 const WAITS = new Set(["wait", "wait_for"]);
 const FAILED_STEP = /^step (\d+) \(([^)]+)\): (.*)$/;

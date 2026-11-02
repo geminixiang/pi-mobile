@@ -88,7 +88,7 @@ export function directDescription(host: { name: string; user: string; os: Daemon
 	return [
 		`You operate ${host.name} (${host.os === "darwin" ? "macOS" : "Linux"} ${host.arch}), the user's own computer, as ${host.user}: read, write, edit, and bash run there from ${host.home}, with the user's files, apps, and sign-ins. Find things yourself (ls, find, mdfind) rather than asking.`,
 		desktop,
-		"The screen is the fallback for what no command reaches (a dialog, what a window shows): read_screen to look, use_screen to click and type; keys over clicks.",
+		"The screen is the fallback for what no command reaches (a dialog, what a window shows): computer_read_as_user to look, computer_act_as_user to click and type; keys over clicks.",
 		"Websites: ego-browser if `command -v ego-browser` finds it (run `ego-browser skill` once and follow it), never by clicking a browser.",
 		"Scratch files go in a temp directory.",
 		IMAGES,
@@ -98,9 +98,9 @@ export function directDescription(host: { name: string; user: string; os: Daemon
 
 export function createSandboxExtension(workplace: (conversationId: string) => Workplace | undefined) {
 	return defineExtension({
-		name: "sandbox",
+		name: "computer_shell",
 		sections: [
-			section("sandbox", async (input, context) => {
+			section("computer_shell", async (input, context) => {
 				const place = workplace(String(input.conversationId));
 				if (place?.kind !== "computer") return undefined;
 				const { folder, sandbox } = place;

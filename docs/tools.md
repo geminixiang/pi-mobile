@@ -14,7 +14,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 方式 | 哪些工具 | 每次請求帶什麼 |
 |---|---|---|
 | **直接提供**（`reach: "model"`） | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
-| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`、`read_as_user`、`act_as_user`、`read_page`、`use_browser`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
+| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`computer_read_as_user`、`computer_act_as_user`、`phone_read_as_user`、`phone_act_as_user`、`read_page`、`use_browser`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
 | **只給腳本**（預設） | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
 - 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
@@ -38,18 +38,20 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
   - `reach`：`script`（預設，只給腳本）、`loaded`（需要時載入）、`model`（直接提供）。
   - `needs`：少了它這個工具就沒有意義的原生方法，寫 contract 上的方法本身（`[Records.calls]`），不是字串。透過 `currentPlace` 這類 helper 才呼叫、但工具的主要用途就靠它的，也要寫（`weather` 寫 `Phone.getLocation`）。這支手機沒實作其中任何一個方法時，這個工具不安裝；一個擴充的工具全部裝不了時，整個擴充也不裝，面板也不列它的工具組。只在某些參數下才用到的方法不寫：沒實作時呼叫它會丟出「`X.y` is not available on this device」。「有就用、沒有也行」的呼叫，在呼叫前用 `native.implements(Page.render)` 判斷。
 - 新的內建擴充一定要加進 `catalog.ts`，不能直接在 runtime 裡安裝，否則檢查看不到它。
-- **擴充名稱不能改**：每個 Bot 的工具開關是用擴充名稱存的（`toolsets.ts`），改名會讓使用者的設定失效。
+- **擴充名稱原則上不改**：每個 Bot 的工具開關存的是擴充名稱（pi-durable 記下關掉哪些擴充），改名後舊名字的「關掉」對不上，原本關掉的 Bot 會變回開著。2026-11-02 全部檢查過一次並改了四個（`toolsets.ts` 的 `RENAMED`，開 runtime 時把每個 Bot 存的舊名字換成新名字，`test/toolsets.ts` 檢查）；之後真的要改，也要加進 `RENAMED`。
 - schema 一律用 `typebox` 的 `Type`，不用 pi-ai 轉出口的同一個 `Type`（檢查會擋）。
 - 從常數清單做的列舉用 `oneOf(LIST, options)`（`common.ts`），不用 `Type.Union(LIST.map(Type.Literal))`：後者的 TS 型別是 `never`。
 - 結構化輸出的資料型別用 `type`，不用 `interface`（`interface` 不能指定成 `JsonValue`）。
 
 ### 名稱
 
-- 工具和參數都用 snake_case。
+- 工具、參數、擴充、工具組 id 都用 snake_case。
+- **三層名字**：工具組（`toolsets.ts`，面板上的一個開關，id 不存）→ 擴充（存在每個 Bot 的設定裡）→ 工具（模型看到的名字）。一個工具組只有一個擴充時，工具組 id 等於擴充名稱。擴充名稱是它處理的東西（`calendar`、`computer_shell`），不是實作（不叫 `sandbox`、`triggers`）。
+- **以使用者的身分操作畫面**的工具，名稱寫出在哪一台、以使用者身分：`phone_read_as_user`、`phone_act_as_user`、`computer_read_as_user`、`computer_act_as_user`，擴充是 `phone_as_user`、`computer_as_user`。它們對 App 來說就是使用者本人，App 可能擋，說明的第一句要寫是最後手段。Bot 自己的瀏覽器（`read_page`、`use_browser`）不算。
 - 會改動東西的動作是「動詞_名詞」：`set_alarm`、`add_calendar_event`、`reply_notification`。
 - 讀取是 `read_`、`find_`、`list_`、`get_` 開頭，或者直接是資料來源的名字（`weather`、`contacts`、`health`、`screen_time`、`call_log`）。
 - 同一個東西的「查看」和「控制」放在同一個工具，用 `action` 或 `mode` 區分，第一個值是 `status`：`media`、`do_not_disturb`。
-- 已經上線的工具名稱不再改。
+- 已經上線的工具名稱不再隨意改。工具名稱不存，改名等於刪掉舊工具、加上新工具，對話裡已載入的舊名字會失效；真的要改，在「紀錄」寫理由。
 
 ### 參數
 
@@ -89,6 +91,77 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - `test/plugins-node.ts`（在 `npm run check` 裡）掃 Java 的 `@PluginMethod` 和 Swift 的 `pluginMethods`：contract 的每個方法 Android 都要有；兩個平台都不能有 contract 沒寫的方法；contract 和 iOS 已實作的方法記在 `test/plugins.snapshot.json`。改了 contract，或 iOS 多實作一個方法，都要 `--update`，並在「紀錄」寫一行。
 - 在 iOS 實作一個方法：照 contract 的 schema 回傳，跑 `npm run check` 更新快照；`needs` 只用到已實作方法的工具，就會在 iOS 出現。
 
+## 工具總圖
+
+<!-- 工具總圖：node --import ./test/vite-imports.js test/tools-node.ts --update 產生，不要手改 -->
+
+每個開關（工具組）底下是它的擴充，擴充後面是它的工具。＊需要時載入，†直接提供，其他只給腳本。不含 MCP 服務。
+
+- **網路**（`web`）
+  - `web`：`web_search`、`web_fetch`
+- **天氣**（`weather`）
+  - `weather`：`weather`
+- **台股**（`tw_stocks`）
+  - `tw_stocks`：`tw_stocks`
+- **地點**（`places`）
+  - `places`：`find_places`
+- **手機狀態**（`device`）
+  - `device`：`device_info`、`get_location`、`read_sensors`、`get_travel_time`
+- **手機 App**（`apps`）
+  - `apps`：`set_alarm`、`open_alarms`、`set_timer`、`compose_email`、`compose_sms`、`open_maps`、`open_link`、`share`
+- **日曆**（`calendar`）
+  - `calendar`：`read_calendar_events`、`list_calendars`、`add_calendar_event`、`delete_calendar_event`
+- **聯絡人**（`contacts`）
+  - `contacts`：`contacts`
+- **相片**（`photos`）
+  - `photos`：`find_photos`、`view_photos`＊
+- **通話與簡訊**（`calls_sms`）
+  - `calls_sms`：`call_log`、`read_sms`
+- **健康**（`health`）
+  - `health`：`health`
+- **螢幕使用時間**（`screen_time`）
+  - `screen_time`：`screen_time`
+- **手機控制**（`phone_control`）
+  - `phone_control`：`media`、`do_not_disturb`、`sound`、`display`、`flashlight`、`connections`
+- **瀏覽器**（`browser`）
+  - `browser`：`read_page`＊、`use_browser`＊
+- **代你操作 App**（`phone_as_user`）
+  - `phone_as_user`：`phone_read_as_user`＊、`phone_act_as_user`＊
+- **通知**（`notifications`）
+  - `notifications`：`read_notifications`、`reply_notification`、`dismiss_notifications`
+- **資料庫**（`database`）
+  - `database`：`sql`
+- **語音**（`speech`）
+  - `speech`：`speak`
+- **GitHub**（`github`）
+  - `github`：`github_api`、`github_read_file`
+- **Google Cloud**（`gcp`）
+  - `gcp`：`gcp_api`
+- **Cloudflare**（`cloudflare`）
+  - `cloudflare`：`cloudflare_api`
+- **Azure**（`azure`）
+  - `azure`：`azure_api`
+- **電腦畫面**（`computer_as_user`）
+  - `computer_as_user`：`computer_read_as_user`＊、`computer_act_as_user`＊
+- **電腦上的 agent**（`computer_agents`）
+  - `computer_agents`：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`
+- **電腦**（`computer_shell`）
+  - `computer_shell`：沒有自己的工具
+  - `coding-tools`：`read`†、`write`†、`edit`†、`bash`†
+- **檔案**（`files`）
+  - `files`：沒有自己的工具
+  - `coding-tools`：`read`†、`write`†、`edit`†、`bash`†
+- **固定開著**（沒有開關）
+  - `skills`：`read_skill`
+  - `attachments`：`read_attachment`＊、`scan_document`
+  - `codemode`：`codemode`†
+  - `schedules`：`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`
+  - `items`：`note_item`、`list_items`
+  - `memory`：`update_memory`†
+  - `tool-search`：`tool_search`†
+
+<!-- 工具總圖結束 -->
+
 ## 工具清單
 
 每一個工具都要列在這裡（`test/tools-node.ts` 會檢查）。「改動」：**唯讀**；**開畫面**＝打開畫面讓使用者完成；**直接**＝直接改。「結構化」＝有給腳本用的結構化輸出。模型怎麼拿到每個工具，見上面〈怎麼管理〉。
@@ -104,7 +177,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `find_places` | 地點 | 附近的店家，或用名字找分店 | 唯讀 | ✓ |
 | `sql` | 資料庫 | 手機上的 SQLite | 直接 | ✓ |
 | `set_alarm` | 手機 App | 設鬧鐘 | 直接 | |
-| `open_alarms` | 手機 App | 打開時鐘的鬧鐘清單，讓使用者關掉或刪除鬧鐘（app 不能改時鐘裡的鬧鐘）；手機畫面開著時，模型可以在那個畫面用 `act_as_user` 自己刪 | 開畫面 | |
+| `open_alarms` | 手機 App | 打開時鐘的鬧鐘清單，讓使用者關掉或刪除鬧鐘（app 不能改時鐘裡的鬧鐘）；手機畫面開著時，模型可以在那個畫面用 `phone_act_as_user` 自己刪 | 開畫面 | |
 | `set_timer` | 手機 App | 設計時器 | 直接 | |
 | `compose_email` | 手機 App | 信件草稿 | 開畫面 | |
 | `compose_sms` | 手機 App | 簡訊草稿 | 開畫面 | |
@@ -140,17 +213,17 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `gcp_api` | Google Cloud | Google Cloud REST API | 讀取唯讀，寫入直接 | ✓ |
 | `cloudflare_api` | Cloudflare | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
 | `azure_api` | Azure | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
-| `read_as_user` | 代你操作 App | 手機自己的畫面：前景 app、畫面元件（角色、文字、中心座標），要的時候加截圖；無障礙服務 | 唯讀 | |
-| `act_as_user` | 代你操作 App | 一次多個步驟（開 app、點、長按、滑、捲動、打字、返回、主畫面），做完回傳畫面 | 直接 | |
+| `phone_read_as_user` | 代你操作 App | 手機自己的畫面：前景 app、畫面元件（角色、文字、中心座標），要的時候加截圖；無障礙服務 | 唯讀 | |
+| `phone_act_as_user` | 代你操作 App | 一次多個步驟（開 app、點、長按、滑、捲動、打字、返回、主畫面），做完回傳畫面 | 直接 | |
 | `read_page` | 瀏覽器 | 這個 Bot 自己的瀏覽器開著的那一頁：網址、看得到的元件（角色、文字、中心座標）、頁面文字，要的時候加截圖 | 唯讀 | |
 | `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | |
-| `read_screen` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
-| `use_screen` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
+| `computer_read_as_user` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
+| `computer_act_as_user` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
 | `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
 | `read_agent` | 電腦上的 agent（只在有電腦的 Bot） | 一個 agent 的狀態和終端機最後幾行 | 唯讀 | |
 | `tell_agent` | 電腦上的 agent（只在有電腦的 Bot） | 交辦任務給閒著的 agent，多行也當成一則送出 | 直接 | 工作中、等使用者、狀態不明時拒絕 |
 | `answer_agent` | 電腦上的 agent（只在有電腦的 Bot） | 替使用者回答 agent 在等的批准或問題：從畫面讀出選項，用方向鍵移到第幾個再按 Enter | 直接 | 排程叫醒的那一輪拒絕；「不要再問」「自動模式」要 `stop_asking` |
-| `read`、`write`、`edit`、`bash` | Sandbox 或檔案 | Bot 的資料夾：有 sandbox 時在遠端電腦，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
+| `read`、`write`、`edit`、`bash` | 電腦或檔案 | Bot 的資料夾：選了電腦時在電腦上，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
 | `read_skill` | 固定開啟 | 讀一份 skill | 唯讀 | |
@@ -182,8 +255,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 工具組 | 擴充 | 載入 | 工具數 | 字元 | 約 tokens |
 |---|---|---|---:|---:|---:|
-| 排程（固定開啟） | `triggers` | 常駐 | 5 | 3,845 | 785 |
-| 手機 App | `phone_apps` | 常駐 | 7 | 3,132 | 639 |
+| 排程（固定開啟） | `schedules` | 常駐 | 5 | 3,845 | 785 |
+| 手機 App | `apps` | 常駐 | 7 | 3,132 | 639 |
 | 日曆 | `calendar` | 常駐 | 3 | 2,107 | 430 |
 | 通知 | `notifications` | 常駐 | 3 | 2,032 | 415 |
 | 手機狀態 | `device` | 常駐 | 4 | 1,770 | 361 |
@@ -240,6 +313,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-02 | 全部擴充名稱檢查一次，照〈名稱〉的規則改：`phone_screen` → `phone_as_user`、`computer` → `computer_as_user`、`sandbox` → `computer_shell`、`phone_apps` → `apps`、`triggers` → `schedules`（固定開著，不存設定）；工具組 id 跟著一致（`calls` → `calls_sms`、`screen` → `screen_time`、`control` → `phone_control`）。以使用者身分操作畫面的工具統一成 `phone_read_as_user`、`phone_act_as_user`（剛改的 `read_as_user`、`act_as_user` 沒推出去）、`computer_read_as_user`、`computer_act_as_user`（原 `read_screen`、`use_screen`）。開 runtime 時把每個 Bot 存的舊擴充名稱換成新的（`RENAMED`） | 名稱多幾個字，四個都是需要時載入，平常只多 `tool_search` 說明裡的名稱 | `test/toolsets.ts`。S24：裝新版前後比對每個 Bot 每個開關的開關狀態 |
 | 2026-11-02 | 「手機 App」開畫面的工具（`open_maps`、`compose_email`、`open_link`、`share`…）在 pi 退到背景時，只要「代你操作 App」的無障礙服務綁著就照樣開：Android 讓綁著無障礙服務的 App 從背景開別的 App。以前一律回「pi 在背景」，Bot 先用 `act_as_user` 開了設定之後就開不了地圖、信件草稿 | 不變 | `test/device/background-launch.sh`（暫時的 Bot：先開設定看 Android 版本，再用地圖查路線；舊碼 `open_maps` 失敗、模型改用 `act_as_user` 自己開地圖，新碼 `open_maps` 直接開）。無障礙服務沒綁時照舊拒絕 |
 | 2026-11-02 | `read_phone_screen`、`use_phone_screen` 改名 `read_as_user`、`act_as_user`，工具組標籤「手機畫面」改「代你操作 App」：舊名讓人以為是截圖再操作的通用工具，其實是用無障礙服務以使用者的身分操作別的 App，App 可以擋。`act_as_user` 的說明開頭寫明是最後手段、App 可能會擋。extension 名稱 `phone_screen` 不動（每個 Bot 的開關存的是它） | 名稱與說明的字數差不多 | S24，GPT 6.1 Sol，暫時的 Bot，同 4 題各一次。看前景 App：改前 `read_phone_screen`，改後 `read_as_user`；設定裡查 One UI 版本：改前 5 次 `use_phone_screen`，改後 1 次 `act_as_user`，答案相同；寫信、查路線兩題前後都用 `compose_email`、`open_maps`，沒有改走畫面。後兩題前後都因 pi 在背景開不了別的 App 而失敗，跟改名無關 |
 | 2026-11-02 | 有風險的網址由 pi 擋下，不交給 Bot 判斷：瀏覽器和 `web_fetch`（含 `save_to`）碰到憑證錯誤或 Google Safe Browsing 列為釣魚、惡意軟體的網址就停下，回一行 `pi blocked <網址>: <原因>`。`web_fetch` 先用 `Page.check`（新的 plugin 方法，在隱藏的 WebView 裡載到第一個畫面就停）檢查再抓，瀏覽器的分頁一律回到安全頁面，沒有「仍要前往」可按 | 不變 | 以前瀏覽器只看到空白頁、不知道原因，`web_fetch` 會照樣讀出釣魚頁。`test/device/risky-pages.sh`（舊碼沒有 `Page.check`、瀏覽器沒有說明，會失敗）。S24：一般網址檢查 0.5–0.8 秒，憑證錯誤 1.6–2.4 秒，Safe Browsing 命中約 0.05 秒。暫時 Bot（Sol）請它摘要釣魚頁、用瀏覽器開過期憑證的網站、下載惡意軟體頁，三次都停下並說明原因，沒有試別的路。模擬器沒有 Google Play 服務，Safe Browsing 不會擋 |

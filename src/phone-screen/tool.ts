@@ -83,7 +83,7 @@ async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecu
 }
 
 const readPhoneScreen = defineAppTool({
-	name: "read_as_user",
+	name: "phone_read_as_user",
 	effect: "read",
 	needs: [PhoneScreen.status, PhoneScreen.read],
 	reach: "loaded",
@@ -95,12 +95,12 @@ const readPhoneScreen = defineAppTool({
 });
 
 const usePhoneScreen = defineAppTool({
-	name: "act_as_user",
+	name: "phone_act_as_user",
 	effect: "direct",
 	needs: [PhoneScreen.status, PhoneScreen.act],
 	reach: "loaded",
 	description:
-		"Last resort: act as the user on the phone's screen, for what no other tool, app link, or notification reply reaches; apps may block it. Runs the steps in order and returns the screen after them, as read_as_user does. " +
+		"Last resort: act as the user on the phone's screen, for what no other tool, app link, or notification reply reaches; apps may block it. Runs the steps in order and returns the screen after them, as phone_read_as_user does. " +
 		"Put the steps you can already tell in one call (open an app, tap its search field, type, enter). Tap an element at the x,y listed for it. " +
 		"Steps: open {app: its name or package}; tap {x, y}; long_press {x, y}; swipe {x, y, to_x, to_y, ms}; scroll {direction, x and y of the list, default the middle}; " +
 		"type {text, added to the focused field}; clear (empties the focused field); key {keys: back, home, recents, notifications, quick_settings, enter}; wait {ms}. " +
@@ -120,4 +120,4 @@ const usePhoneScreen = defineAppTool({
 	},
 });
 
-export const PhoneScreenExtension = defineExtension({ name: "phone_screen", tools: [readPhoneScreen, usePhoneScreen] });
+export const PhoneScreenExtension = defineExtension({ name: "phone_as_user", tools: [readPhoneScreen, usePhoneScreen] });

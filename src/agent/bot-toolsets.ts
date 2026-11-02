@@ -3,7 +3,7 @@ import { AgentDoc, type AgentState, defineTool, type Harness } from "@earendil-w
 import { Type } from "typebox";
 import type { ConversationId } from "@earendil-works/pi-durable";
 import type { Grant } from "./mcp.ts";
-import { selectionOf, type Selection, type Toolset, withToolset } from "./toolsets.ts";
+import { renamed, selectionOf, type Selection, type Toolset, withToolset } from "./toolsets.ts";
 import { serially } from "../promise.ts";
 
 const context = BACKGROUND_CONTEXT;
@@ -52,6 +52,12 @@ export class BotToolsets {
 			const target = this.#all().find((candidate) => candidate.id === toolset);
 			if (!target) throw new Error(`${toolset} is not available`);
 			await this.#configure(id, (selection, modelTools) => ({ selection: withToolset(selection, target, enabled), modelTools }));
+		});
+	}
+
+	renameExtensions(): Promise<void> {
+		return this.#write(async () => {
+			for (const bot of await this.#bots()) await this.#configure(bot.id, (selection, modelTools) => ({ selection: renamed(selection), modelTools }));
 		});
 	}
 
