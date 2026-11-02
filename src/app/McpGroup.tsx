@@ -117,6 +117,12 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError:
 									{server.url}
 									<br />
 									{statusText(current)}
+									{current && current.shadowed.length > 0 ? (
+										<>
+											<br />
+											{`與內建工具同名，未載入：${current.shadowed.join("、")}`}
+										</>
+									) : null}
 								</span>
 							</span>
 							<span className="row-actions">

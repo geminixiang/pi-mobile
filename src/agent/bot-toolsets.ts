@@ -24,8 +24,8 @@ const byName = (names: readonly string[]) =>
 		}),
 	);
 
-function withoutTools(modelTools: ModelTools, prefix: string): ModelTools {
-	const keep = (names: readonly string[] | undefined) => (names ?? []).filter((name) => !name.startsWith(prefix));
+function withoutTools(modelTools: ModelTools, prefix: string, builtin: ReadonlySet<string>): ModelTools {
+	const keep = (names: readonly string[] | undefined) => (names ?? []).filter((name) => !name.startsWith(prefix) || builtin.has(name));
 	if (modelTools === undefined) return undefined;
 	if (Array.isArray(modelTools)) return keep(modelTools);
 	return { ...(modelTools.remove ? { remove: modelTools.remove } : {}), ...(modelTools.add ? { add: keep(modelTools.add) } : {}) };
@@ -66,7 +66,7 @@ export class BotToolsets {
 			for (const bot of await this.#bots()) {
 				await this.#configure(bot.id, (selection, modelTools) => ({
 					selection: { add: selection.add.filter((name) => name !== grant.extension), remove: selection.remove },
-					modelTools: withoutTools(modelTools, grant.toolPrefix),
+					modelTools: withoutTools(modelTools, grant.toolPrefix, grant.builtin),
 				}));
 			}
 		});

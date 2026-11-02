@@ -41,7 +41,7 @@ class FakeMcpClient implements McpSession {
 	async listTools() {
 		await this.#wait(mcp.listGate);
 		if (mcp.listFails) throw new Error("tools/list failed");
-		return [{ name: "fixture", description: "A contract fixture, never called.", inputSchema: { type: "object", properties: {} } }];
+		return mcp.toolNames.map((name) => ({ name, description: `A contract fixture (${name}), never called.`, inputSchema: { type: "object", properties: {} } }));
 	}
 	callTool(): never {
 		throw new Error("contract fixtures are never called");
@@ -58,13 +58,14 @@ class FakeMcpClient implements McpSession {
 	}
 }
 
-type McpFixture = { clients: FakeMcpClient[]; connectGate: Gate; listGate: Gate; listFails: boolean };
+type McpFixture = { clients: FakeMcpClient[]; connectGate: Gate; listGate: Gate; listFails: boolean; toolNames: string[] };
 
-export const mcp: McpFixture = { clients: [], connectGate: undefined, listGate: undefined, listFails: false };
+export const mcp: McpFixture = { clients: [], connectGate: undefined, listGate: undefined, listFails: false, toolNames: ["fixture"] };
 
 export function resetMcp(): void {
 	mcp.clients.length = 0;
 	mcp.connectGate = undefined;
+	mcp.toolNames = ["fixture"];
 	mcp.listGate = undefined;
 	mcp.listFails = false;
 }

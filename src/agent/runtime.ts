@@ -199,13 +199,6 @@ export class AgentRuntime {
 		const clouds = connectClouds(settings, platform.rotated);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
-		const mcp: McpHub = new McpHub(platform, {
-			install: (extension) => registry.install(extension),
-			uninstall: (name) => registry.uninstall({ name }),
-			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
-			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
-			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
-		});
 		const catalog = builtinExtensions({
 			native: platform.native,
 			assistant: createAssistant(platform.inApp),
@@ -220,6 +213,15 @@ export class AgentRuntime {
 			labelOf: (name, id) => (offeredAt(name, at(id)?.kind ?? "missing") ? labelOf(name, mcp) : undefined),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
+		const builtinTools: ReadonlySet<string> = new Set(catalog.extensions.flatMap((extension) => (extension.tools ?? []).map((tool) => tool.name)));
+		const mcp: McpHub = new McpHub(platform, {
+			install: (extension) => registry.install(extension),
+			uninstall: (name) => registry.uninstall({ name }),
+			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
+			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
+			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
+			builtinTools: () => builtinTools,
+		});
 		const harness = await Harness.open(
 			storage,
 			{

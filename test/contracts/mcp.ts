@@ -2,11 +2,70 @@ import assert from "node:assert/strict";
 import { extensionName } from "../../src/agent/mcp.ts";
 import { agentState, keepOpen, openRuntime } from "./fixtures.ts";
 import { type Check, mcp, openClients, platform, resetMcp, secrets, settle } from "./setup.ts";
-import { MemoryStorage } from "@earendil-works/pi-durable";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { createModels, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
+import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import { Type } from "typebox";
+import { memoryCredentials } from "../../src/agent/credentials.ts";
+import { turn } from "./fixtures.ts";
 
 const granted = (state: unknown, extension: string) => JSON.stringify(state ?? {}).includes(`"${extension}"`);
 
 export const checks: Check[] = [
+	[
+		"a service named like a built-in tool gets its own id, so adding it leaves the built-in tools a bot loaded",
+		async () => {
+			resetMcp();
+			platform.plain.remove("pi-mobile.mcp-servers");
+			const storage = keepOpen(new MemoryStorage());
+			const first = await openRuntime(storage);
+			const [bot] = await first.runtime.bots();
+			assert(bot);
+			await first.runtime.close();
+			const raw = await Harness.open(storage, { models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
+			const loaded = defineTool({ name: "phone_read_as_user", description: "loaded", parameters: Type.Object({}), execute: async () => ({ output: [] }) });
+			await (await raw.conversation(bot.id, BACKGROUND_CONTEXT))?.configure({ modelTools: { add: [loaded] } }, BACKGROUND_CONTEXT);
+			await raw.close(BACKGROUND_CONTEXT);
+			const { runtime } = await openRuntime(storage);
+			try {
+				const server = await runtime.mcp.add("Phone", "https://phone.invalid/mcp");
+				await settle();
+				assert.notEqual(server.id, "phone");
+				assert.match(JSON.stringify(await agentState(runtime, bot.id)), /phone_read_as_user/);
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
+		"a stored service whose tool shares a built-in tool's name does not replace it, and its status says so",
+		async () => {
+			resetMcp();
+			platform.plain.set("pi-mobile.mcp-servers", JSON.stringify([{ id: "web", name: "Web", url: "https://web.invalid/mcp" }]));
+			mcp.toolNames = ["fetch", "lookup"];
+			const { runtime } = await openRuntime();
+			try {
+				const [bot] = await runtime.bots();
+				assert(bot);
+				runtime.mcp.refresh("web");
+				await settle(300);
+				assert.deepEqual(runtime.mcp.status("web")?.shadowed, ["web_fetch"]);
+				await runtime.setToolset(bot.id, extensionName({ id: "web", name: "Web", url: "https://web.invalid/mcp" }), true);
+				let offered = "";
+				await turn(runtime, bot.id, [
+					(context: TranscriptContext) => {
+						offered = JSON.stringify(context);
+						return fauxAssistantMessage("done");
+					},
+				]);
+				assert.match(offered, /web_lookup/);
+				assert.match(offered, /web_fetch\([^)]*save_to/);
+			} finally {
+				platform.plain.remove("pi-mobile.mcp-servers");
+				await runtime.close();
+			}
+		},
+	],
 	[
 		"removing an MCP service revokes it from every bot and closes its client",
 		async () => {

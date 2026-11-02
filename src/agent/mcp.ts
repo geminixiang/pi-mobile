@@ -83,7 +83,7 @@ function stateStore(server: McpServer, secrets: Platform["secrets"]) {
 }
 
 type McpState = { state: "idle" } | { state: "connecting" } | { state: "ready"; serverName?: string } | { state: "login" } | { state: "error"; message: string };
-export type McpStatus = McpState & { tools: number };
+export type McpStatus = McpState & { tools: number; shadowed: readonly string[] };
 
 type Cached = { tools: Tool[]; instructions?: string };
 const cacheKey = (server: McpServer) => `pi-mobile.mcp:${server.id}:${server.url}`;
@@ -119,6 +119,7 @@ class Connection {
 	readonly #auth: AuthProvider;
 	#stopRedirect: (() => Promise<void>) | undefined;
 	readonly #platform: Platform;
+	#shadowed: readonly string[] = [];
 
 	constructor(server: McpServer, platform: Platform, hooks: ConnectionHooks) {
 		this.server = server;
@@ -141,12 +142,12 @@ class Connection {
 			},
 		};
 		const cached = loadCache(server, platform.plain);
-		this.status = { state: "idle", tools: cached?.tools.length ?? 0 };
 		this.#hooks.install(this.#extension(cached ?? { tools: [] }));
+		this.status = { state: "idle", tools: cached?.tools.length ?? 0, shadowed: this.#shadowed };
 	}
 
 	#set(state: McpState, tools = this.status.tools): void {
-		this.status = { ...state, tools };
+		this.status = { ...state, tools, shadowed: this.#shadowed };
 		this.#hooks.changed();
 	}
 
@@ -285,7 +286,9 @@ class Connection {
 
 	#extension(cached: Cached): Extension {
 		const server = this.server;
-		const tools = cached.tools.map((tool) => {
+		const builtin = this.#hooks.builtinTools();
+		this.#shadowed = cached.tools.map((tool) => toolName(server, tool.name)).filter((name) => builtin.has(name));
+		const tools = cached.tools.filter((tool) => !builtin.has(toolName(server, tool.name))).map((tool) => {
 			const readOnly = tool.annotations?.readOnlyHint === true;
 			return defineTool({
 				name: toolName(server, tool.name),
@@ -325,7 +328,7 @@ class Connection {
 	}
 }
 
-export type Grant = { extension: string; toolPrefix: string };
+export type Grant = { extension: string; toolPrefix: string; builtin: ReadonlySet<string> };
 
 type McpHooks = {
 	install: (extension: Extension) => void;
@@ -333,9 +336,10 @@ type McpHooks = {
 	revoke: (grant: Grant) => Promise<void>;
 	openUrl: (url: string) => Promise<void>;
 	hostKey: (address: string) => string;
+	builtinTools: () => ReadonlySet<string>;
 };
 
-type ConnectionHooks = Pick<McpHooks, "install" | "openUrl" | "hostKey"> & { changed: () => void };
+type ConnectionHooks = Pick<McpHooks, "install" | "openUrl" | "hostKey" | "builtinTools"> & { changed: () => void };
 
 export class McpHub {
 	readonly #connections = new Map<string, Connection>();
@@ -374,14 +378,15 @@ export class McpHub {
 	}
 
 	#grant(server: McpServer): Grant {
-		return { extension: extensionName(server), toolPrefix: `${server.id}_` };
+		return { extension: extensionName(server), toolPrefix: `${server.id}_`, builtin: this.#hooks.builtinTools() };
 	}
 
 	add(name: string, url: string): Promise<McpServer> {
 		return this.#serialized(async () => {
 			const existing = this.servers.find((server) => server.url === url);
 			if (existing) return existing;
-			const server: McpServer = { id: serverId(name, url, [...this.#connections.keys()]), name, url };
+			const builtinPrefixes = [...this.#hooks.builtinTools()].flatMap((tool) => (tool.includes("_") ? [tool.slice(0, tool.indexOf("_"))] : []));
+			const server: McpServer = { id: serverId(name, url, [...this.#connections.keys(), ...builtinPrefixes]), name, url };
 			await this.#hooks.revoke(this.#grant(server));
 			this.#open(server).refresh();
 			this.#save();
