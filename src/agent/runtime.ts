@@ -34,7 +34,7 @@ import { Workspace } from "./sandbox/workspace.ts";
 import { isEnabled, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
 import { TriggerRuns } from "../triggers/runs.ts";
 import type { Notified, TriggerHost } from "../triggers/tool.ts";
-import { type Placed, type Workplace, Workplaces } from "./workplaces.ts";
+import { type Placed, Workplaces } from "./workplaces.ts";
 
 const context = BACKGROUND_CONTEXT;
 
@@ -62,12 +62,6 @@ function labelOf(extension: string, mcp: McpHub): string {
 }
 
 type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
-
-const NOT_HERE: Record<Workplace["kind"], ReadonlySet<string>> = {
-	phone: new Set(["computer_shell", "computer_as_user", "computer_agents"]),
-	computer: new Set(["files"]),
-	missing: new Set(["files", "computer_shell", "computer_as_user", "computer_agents"]),
-};
 
 const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt", "searchEngine"]);
 
@@ -204,7 +198,7 @@ export class AgentRuntime {
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
-			labelOf: (name, id) => ((name === "computer_as_user" || name === "computer_agents") && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
+			labelOf: (name, id) => (TOOLSETS.find((toolset) => toolset.id === name)?.where === "computer" && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
 		const harness = await Harness.open(
@@ -495,13 +489,13 @@ export class AgentRuntime {
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
 		const selection = await this.#botToolsets.selection(id);
 		const installed = this.#installed();
-		const notHere = NOT_HERE[this.workplaces.at(String(id))?.kind ?? "missing"];
+		const place = this.workplaces.at(String(id))?.kind ?? "missing";
 		const here = this.#allToolsets().filter(
 			(toolset) => usable(toolset, this.#platform.native) && !toolset.extensions.every((name) => this.#unsupported.has(name)),
 		);
 		return here.map((toolset) => ({
 			...toolset,
-			available: !notHere.has(toolset.id) && toolset.extensions.every((name) => installed.has(name)),
+			available: (toolset.where === undefined || toolset.where === place) && toolset.extensions.every((name) => installed.has(name)),
 			enabled: isEnabled(selection, toolset),
 		}));
 	}

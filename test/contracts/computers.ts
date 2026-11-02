@@ -118,4 +118,21 @@ export const checks: Check[] = [
 			}
 		},
 	],
+	[
+		"a computer's toolsets are available only to a bot on a computer, and the phone's folder only to a bot on the phone",
+		async () => {
+			const availability = async (overrides: Partial<typeof settings>) => {
+				const { runtime } = await openRuntime(undefined, overrides);
+				try {
+					const [bot] = await runtime.bots();
+					assert(bot);
+					return Object.fromEntries((await runtime.toolsets(bot.id)).filter((toolset) => ["files", "computer_shell", "computer_as_user", "computer_agents"].includes(toolset.id)).map((toolset) => [toolset.id, toolset.available]));
+				} finally {
+					await runtime.close();
+				}
+			};
+			assert.deepEqual(await availability({}), { files: true, computer_shell: false, computer_as_user: false, computer_agents: false });
+			assert.deepEqual(await availability({ hosts: [host], computer: "b.example:direct" }), { files: false, computer_shell: true, computer_as_user: true, computer_agents: true });
+		},
+	],
 ];

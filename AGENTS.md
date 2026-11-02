@@ -57,6 +57,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
 | A renamed extension keeps each bot's choices | `test/toolsets.ts` |
+| Which toolsets a bot on the phone or a computer gets comes from `where` in `toolsets.ts` | `test/contracts/computers.ts` |
 | LBYL, errors as values, store a value once, rule of three, one way to do a task | review only |
 | A fix comes with a test that fails on the old code | review only |
 | Structure red flags, 對未來的影響 | review only |

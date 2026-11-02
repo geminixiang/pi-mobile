@@ -10,6 +10,7 @@ export interface Toolset {
 	hint: string;
 	extensions: readonly string[];
 	needs?: NativePlugin;
+	where?: "phone" | "computer";
 }
 
 export const TOOLSETS: readonly Toolset[] = [
@@ -35,10 +36,10 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "gcp", label: "Google Cloud", hint: "從手機呼叫 API", extensions: ["gcp"] },
 	{ kind: "builtin", id: "cloudflare", label: "Cloudflare", hint: "從手機呼叫 API", extensions: ["cloudflare"] },
 	{ kind: "builtin", id: "azure", label: "Azure", hint: "從手機呼叫 API", extensions: ["azure"] },
-	{ kind: "builtin", id: "computer_as_user", label: "電腦畫面", hint: "以你的身分看電腦的螢幕，用它的滑鼠和鍵盤", extensions: ["computer_as_user"] },
-	{ kind: "builtin", id: "computer_agents", label: "電腦上的 agent", hint: "交辦工作給電腦上 Herdr 或 Rex 裡的 Claude Code、Codex、pi", extensions: ["computer_agents"] },
-	{ kind: "builtin", id: "computer_shell", label: "電腦", hint: "在電腦上跑指令、讀寫檔案", extensions: ["computer_shell", "coding-tools"] },
-	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"], needs: "BotFiles" },
+	{ kind: "builtin", id: "computer_as_user", label: "電腦畫面", hint: "以你的身分看電腦的螢幕，用它的滑鼠和鍵盤", extensions: ["computer_as_user"], where: "computer" },
+	{ kind: "builtin", id: "computer_agents", label: "電腦上的 agent", hint: "交辦工作給電腦上 Herdr 或 Rex 裡的 Claude Code、Codex、pi", extensions: ["computer_agents"], where: "computer" },
+	{ kind: "builtin", id: "computer_shell", label: "電腦", hint: "在電腦上跑指令、讀寫檔案", extensions: ["computer_shell", "coding-tools"], where: "computer" },
+	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"], needs: "BotFiles", where: "phone" },
 ];
 
 export const usable = (toolset: Toolset, native: Native): boolean => !toolset.needs || native.has(toolset.needs);
