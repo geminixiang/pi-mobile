@@ -33,7 +33,7 @@ const ConnectionsState = Type.Object({
 	location: Type.Boolean(),
 	nfc: oneOf(["on", "off", "none"]),
 	batterySaver: Type.Boolean(),
-	outcome: Type.Optional(oneOf(["already", "changed", "pressed", "panel"])),
+	outcome: Type.Optional(oneOf(["already", "panel"])),
 });
 export type ConnectionsState = Static<typeof ConnectionsState>;
 

@@ -24,8 +24,6 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
-import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.accessibility.AccessibilityWindowInfo;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -33,9 +31,6 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @CapacitorPlugin(name = "PhoneState")
 public class PhoneStatePlugin extends Plugin {
@@ -49,7 +44,6 @@ public class PhoneStatePlugin extends Plugin {
         AudioManager.STREAM_VOICE_CALL,
     };
 
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile Boolean torchOn;
     private CameraManager.TorchCallback torchWatch;
 
@@ -356,67 +350,6 @@ public class PhoneStatePlugin extends Plugin {
         }
     }
 
-    private static final String[][] LABELS = {
-        { "wifi", "wi-fi", "wifi", "wlan" },
-        { "bluetooth", "藍牙", "bluetooth" },
-        { "mobile_data", "行動數據", "mobile data", "數據" },
-        { "airplane_mode", "飛航", "airplane", "flight" },
-        { "location", "位置", "定位", "location" },
-        { "nfc", "nfc" },
-        { "battery_saver", "省電", "battery saver", "power saving" },
-    };
-
-    private String[] labelsOf(String what) {
-        for (String[] row : LABELS) if (row[0].equals(what)) return row;
-        return new String[] { what };
-    }
-
-    private AccessibilityNodeInfo findSwitch(AccessibilityNodeInfo node, String[] labels, boolean firstOnly) {
-        if (node == null || !node.isVisibleToUser()) return null;
-        if (node.isCheckable()) {
-            if (firstOnly) return node;
-            String own = describe(node);
-            AccessibilityNodeInfo parent = node.getParent();
-            String around = parent == null ? "" : describe(parent);
-            for (int i = 1; i < labels.length; i++) if ((own + " " + around).contains(labels[i])) return node;
-        }
-        for (int i = 0; i < node.getChildCount(); i++) {
-            AccessibilityNodeInfo found = findSwitch(node.getChild(i), labels, firstOnly);
-            if (found != null) return found;
-        }
-        return null;
-    }
-
-    private static String describe(AccessibilityNodeInfo node) {
-        StringBuilder text = new StringBuilder();
-        collect(node, text, 0);
-        return text.toString().toLowerCase(Locale.ROOT);
-    }
-
-    private static void collect(AccessibilityNodeInfo node, StringBuilder into, int depth) {
-        if (node == null || depth > 3 || into.length() > 200) return;
-        if (node.getText() != null) into.append(node.getText()).append(' ');
-        if (node.getContentDescription() != null) into.append(node.getContentDescription()).append(' ');
-        for (int i = 0; i < node.getChildCount(); i++) collect(node.getChild(i), into, depth + 1);
-    }
-
-    private boolean press(AccessibilityNodeInfo node) {
-        for (AccessibilityNodeInfo at = node; at != null; at = at.getParent()) {
-            if (at.isClickable()) return at.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-        }
-        return false;
-    }
-
-    private void returnTo(PhoneScreenService service, String previous) throws InterruptedException {
-        for (int wait = 0; wait < 10; wait++) {
-            Thread.sleep(150);
-            AccessibilityNodeInfo front = service.getRootInActiveWindow();
-            if (front != null && front.getPackageName() != null && previous.equals(front.getPackageName().toString())) return;
-        }
-        Intent back = getContext().getPackageManager().getLaunchIntentForPackage(previous);
-        if (back != null) getContext().startActivity(back.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED));
-    }
-
     @PluginMethod
     public void setConnection(PluginCall call) {
         String what = call.getString("what", "");
@@ -433,61 +366,13 @@ public class PhoneStatePlugin extends Plugin {
             call.resolve(result);
             return;
         }
-        PhoneScreenService service = PhoneScreenService.running;
-        AccessibilityNodeInfo shown = service == null ? null : service.getRootInActiveWindow();
-        String previous = shown == null || shown.getPackageName() == null ? null : shown.getPackageName().toString();
-        getContext().startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        if (service == null) {
-            JSObject result = connectionsState();
-            result.put("outcome", "panel");
-            call.resolve(result);
+        if (!TriggersPlugin.inFront(getActivity()) && PhoneScreenService.running == null) {
+            call.reject("pi is in the background, and the phone does not let it open the " + what + " panel from there. Ask the user to open pi and try again.", "BACKGROUND");
             return;
         }
-        worker.execute(() -> {
-            String outcome = "panel";
-            try {
-                AccessibilityNodeInfo target = null;
-                String settingsPackage = null;
-                boolean shared = "mobile_data".equals(what) || "airplane_mode".equals(what);
-                for (int wait = 0; wait < 40 && target == null; wait++) {
-                    Thread.sleep(150);
-                    if (wait == 20) getContext().startActivity(new Intent(intent));
-                    for (AccessibilityWindowInfo window : service.getWindows()) {
-                        if (window.getType() != AccessibilityWindowInfo.TYPE_APPLICATION && window.getType() != AccessibilityWindowInfo.TYPE_SYSTEM) continue;
-                        if (!window.isActive() && !window.isFocused()) continue;
-                        AccessibilityNodeInfo root = window.getRoot();
-                        if (root == null || root.getPackageName() == null || root.getPackageName().toString().equals(getContext().getPackageName())) continue;
-                        target = findSwitch(root, labelsOf(what), false);
-                        if (target == null && !shared) target = findSwitch(root, labelsOf(what), true);
-                        if (target != null) {
-                            settingsPackage = root.getPackageName().toString();
-                            break;
-                        }
-                    }
-                }
-                if (target != null && target.isChecked() != want && press(target)) {
-                    outcome = "pressed";
-                    for (int wait = 0; wait < 20; wait++) {
-                        Thread.sleep(200);
-                        Boolean now = isOn(what);
-                        if (now != null && now == want) {
-                            outcome = "changed";
-                            break;
-                        }
-                    }
-                }
-                AccessibilityNodeInfo front = service.getRootInActiveWindow();
-                boolean stillThere = front != null && front.getPackageName() != null && front.getPackageName().toString().equals(settingsPackage);
-                if (!"panel".equals(outcome) && stillThere) service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK);
-                if (!"panel".equals(outcome) && previous != null) returnTo(service, previous);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } catch (RuntimeException unreadable) {
-                outcome = "panel";
-            }
-            JSObject result = connectionsState();
-            result.put("outcome", outcome);
-            call.resolve(result);
-        });
+        getContext().startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        JSObject result = connectionsState();
+        result.put("outcome", "panel");
+        call.resolve(result);
     }
 }

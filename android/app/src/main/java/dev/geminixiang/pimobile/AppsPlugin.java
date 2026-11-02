@@ -22,6 +22,10 @@ import org.json.JSONException;
 public class AppsPlugin extends Plugin {
 
     private void launch(PluginCall call, Intent intent) {
+        if (!TriggersPlugin.inFront(getActivity()) && PhoneScreenService.running == null) {
+            call.reject("pi is in the background, and the phone does not let it open other apps from there. Ask the user to open pi and try again.", "BACKGROUND");
+            return;
+        }
         try {
             getActivity().startActivity(intent);
             call.resolve();

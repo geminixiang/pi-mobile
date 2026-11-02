@@ -203,6 +203,7 @@ export class AgentRuntime {
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
+			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
 			labelOf: (name, id) => ((name === "computer_as_user" || name === "computer_agents") && at(id)?.kind !== "computer" ? undefined : labelOf(name, mcp)),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
@@ -250,6 +251,11 @@ export class AgentRuntime {
 			if (bot.removing) void orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });
 		}
 		return runtime;
+	}
+
+	async #actsAsUser(id: ConversationId): Promise<boolean> {
+		const toolset = TOOLSETS.find((candidate) => candidate.extensions.includes("phone_as_user"));
+		return toolset !== undefined && isEnabled(await this.#botToolsets.selection(id), toolset);
 	}
 
 	#defaultAgent() {

@@ -38,6 +38,7 @@ const { extensions } = builtinExtensions({
 	memory: { changed: () => undefined },
 	workplace: () => workplace,
 	labelOf: (name) => name,
+	actsAsUser: async () => false,
 });
 
 interface ToolInterface {
@@ -165,6 +166,11 @@ const rules: Rule[] = [
 				.filter(([key, schema]) => (schema.type === "number" || schema.type === "integer") && /(radius|delay|duration|timeout|interval|distance|gap|every)/.test(key) && !UNIT.test(key) && !DURATION_WORDS.test(key))
 				.map(([key]) => `${iface.name}.${key}`)
 				.join(", ") || undefined,
+	},
+	{
+		rule: "a tool that acts as the user is named *_as_user, loads on demand, and is the only kind in a *_as_user extension",
+		broken: ({ iface }) =>
+			iface.name.endsWith("_as_user") === iface.extension.endsWith("_as_user") && (!iface.name.endsWith("_as_user") || iface.deferred) ? undefined : `${iface.name} (${iface.extension})`,
 	},
 	{
 		rule: "tools are in a toolset, or fixed on and listed as such in toolsets.ts",

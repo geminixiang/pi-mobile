@@ -15,6 +15,7 @@ import {
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, localTime, pad, parseNextTime, text } from "./common.ts";
 import { oneOf } from "../parse.ts";
+import { type ActsAsUser, openScreen } from "./apps.ts";
 const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.floor((ms % 60_000) / 1000))}`;
 
 const media = defineAppTool({
@@ -182,33 +183,32 @@ const describeConnections = (state: ConnectionsState) =>
 		`battery saver ${state.batterySaver ? "on" : "off"}`,
 	].join("; ") + ".";
 
-const connections = defineAppTool({
-	name: "connections",
-	effect: "direct",
-	needs: [PhoneState.connections, PhoneState.setConnection],
-	description:
-		"Read or switch Wi-Fi (and the network it is on), Bluetooth, mobile data, airplane mode, location, NFC, and battery saver. Android lets apps only open these switches: with screen control on, pi taps it itself and checks; otherwise the switch is left on screen for the user.",
-	parameters: Type.Object({
-		action: oneOf(["status", "on", "off"], { description: "status reads them all; on and off switch one" }),
-		what: Type.Optional(oneOf(CONNECTIONS, { description: "on, off: which one" })),
-	}),
-	execute: async (args) => {
-		if (args.action === "status") return text(describeConnections(await native(() => PhoneState.connections())));
-		const what = args.what;
-		if (!what) throw new Error(`${args.action} needs what`);
-		const on = args.action === "on";
-		const state = await native(() => PhoneState.setConnection({ what, on }));
-		const name = LABEL[what];
-		const outcome =
-			state.outcome === "already"
-				? `${name} was already ${args.action}.`
-				: state.outcome === "changed"
-					? `${name} is now ${args.action}.`
-					: state.outcome === "pressed"
-						? `Tapped the ${name} switch; Android does not tell apps whether it is ${args.action} now.`
-						: `Android lets apps only open the ${name} switch, so it is on the screen now; ${name} changes when the user taps it (screen control is off, so pi cannot).`;
-		return text(`${outcome}\n${describeConnections(state)}`);
-	},
-});
+export function createControlExtension(actsAsUser: ActsAsUser) {
+	const connections = defineAppTool({
+		name: "connections",
+		effect: "direct",
+		needs: [PhoneState.connections, PhoneState.setConnection],
+		description:
+			"Read Wi-Fi (and the network it is on), Bluetooth, mobile data, airplane mode, location, NFC, and battery saver, or open the panel to switch one. Android lets apps only open these switches: the user taps it, or you do with phone_act_as_user when tool_search lists it.",
+		parameters: Type.Object({
+			action: oneOf(["status", "on", "off"], { description: "status reads them all; on and off switch one" }),
+			what: Type.Optional(oneOf(CONNECTIONS, { description: "on, off: which one" })),
+		}),
+		execute: async (args, api) => {
+			if (args.action === "status") return text(describeConnections(await native(() => PhoneState.connections())));
+			const what = args.what;
+			if (!what) throw new Error(`${args.action} needs what`);
+			const on = args.action === "on";
+			await openScreen(actsAsUser, api.conversationId);
+			const state = await native(() => PhoneState.setConnection({ what, on }));
+			const name = LABEL[what];
+			const outcome =
+				state.outcome === "already"
+					? `${name} was already ${args.action}.`
+					: `Android lets apps only open the ${name} switch, so it is on the screen now; ${name} changes when the user taps it, or when you tap it with phone_act_as_user.`;
+			return text(`${outcome}\n${describeConnections(state)}`);
+		},
+	});
 
-export const ControlExtension = defineExtension({ name: "phone_control", tools: [media, doNotDisturb, sound, display, flashlight, connections] });
+	return defineExtension({ name: "phone_control", tools: [media, doNotDisturb, sound, display, flashlight, connections] });
+}

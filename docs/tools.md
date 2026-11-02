@@ -47,7 +47,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 - 工具、參數、擴充、工具組 id 都用 snake_case。
 - **三層名字**：工具組（`toolsets.ts`，面板上的一個開關，id 不存）→ 擴充（存在每個 Bot 的設定裡）→ 工具（模型看到的名字）。一個工具組只有一個擴充時，工具組 id 等於擴充名稱。擴充名稱是它處理的東西（`calendar`、`computer_shell`），不是實作（不叫 `sandbox`、`triggers`）。
-- **以使用者的身分操作畫面**的工具，名稱寫出在哪一台、以使用者身分：`phone_read_as_user`、`phone_act_as_user`、`computer_read_as_user`、`computer_act_as_user`，擴充是 `phone_as_user`、`computer_as_user`。它們對 App 來說就是使用者本人，App 可能擋，說明的第一句要寫是最後手段。Bot 自己的瀏覽器（`read_page`、`use_browser`）不算。
+- **以使用者的身分操作畫面**的工具，名稱寫出在哪一台、以使用者身分：`phone_read_as_user`、`phone_act_as_user`、`computer_read_as_user`、`computer_act_as_user`，擴充是 `phone_as_user`、`computer_as_user`。它們對 App 來說就是使用者本人，App 可能擋，說明的第一句要寫是最後手段。Bot 自己的瀏覽器（`read_page`、`use_browser`）不算。在畫面上點、打字只出現在這幾個工具：其他工具開了畫面（草稿、地圖、`connections` 的 Wi‑Fi 面板）就停在那裡，由使用者或 `phone_act_as_user` 接著做。`test/tools-node.ts` 檢查名字帶 `as_user` 的工具是需要時載入、而且只放在 `*_as_user` 擴充裡。
 - 會改動東西的動作是「動詞_名詞」：`set_alarm`、`add_calendar_event`、`reply_notification`。
 - 讀取是 `read_`、`find_`、`list_`、`get_` 開頭，或者直接是資料來源的名字（`weather`、`contacts`、`health`、`screen_time`、`call_log`）。
 - 同一個東西的「查看」和「控制」放在同一個工具，用 `action` 或 `mode` 區分，第一個值是 `status`：`media`、`do_not_disturb`。
@@ -80,6 +80,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 - 工具直接做，不跳核准（2026-10-23 拿掉了核准機制）。
 - 只是打開一個畫面、讓使用者自己完成的（草稿、分享、地圖），輸出要說「使用者按了才會送出」。
+- **從背景開畫面**：pi 在前景時一律可以開。pi 在背景時（例如 Bot 剛用 `phone_act_as_user` 切到別的 App），只有開著「代你操作 App」的 Bot 可以開（`apps.ts` 的 `openScreen`）：Android 讓無障礙服務綁著的 App 從背景開別的 App，但那是整個 pi 共用的系統開關，關掉 Bot 自己的開關就不該被打擾。iOS 沒有這個例外，只看前景。原生在真的 `startActivity` 那一行再檢查一次（`AppsPlugin.launch`、`PhoneStatePlugin.setConnection`），因為系統從背景擋下時不會丟例外，工具會以為成功；鬧鐘、計時器不開畫面，所以只有這層原生檢查，iOS 的 AlarmKit 在背景照樣能設。
 
 ### 原生 plugin
 
@@ -313,6 +314,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-02 | 規範兩條：在畫面上點只出現在 `*_as_user` 工具；從背景開畫面只給開著「代你操作 App」的 Bot。`connections` 只開面板，不再自己用無障礙服務點開關（它等於藏在「手機控制」裡的冒充操作），外掛的 `outcome` 只剩 `already`、`panel`；以前沒綁無障礙、pi 在背景時，系統默默擋下面板，工具卻說「在畫面上了」，現在原生先檢查並回錯誤。鬧鐘、計時器不再經過 TS 的前景檢查（iOS 的 AlarmKit 在背景被誤擋），改由 Android 原生在開 Activity 前檢查。名字帶 `as_user` 的檢查加進 `test/tools-node.ts`。沒採用的：每個工具宣告「走哪條路」（`via`）、宣告「要不要前景」（`front`）、新的原生方法 `canOpenScreen`：三個 pi agent 審查後，兩票認為沒有程式會讀、而且擴充裡本來就混著不同的路 | `connections` 說明短了一點 | S24：`test/device/background-launch.sh` |
 | 2026-11-02 | 全部擴充名稱檢查一次，照〈名稱〉的規則改：`phone_screen` → `phone_as_user`、`computer` → `computer_as_user`、`sandbox` → `computer_shell`、`phone_apps` → `apps`、`triggers` → `schedules`（固定開著，不存設定）；工具組 id 跟著一致（`calls` → `calls_sms`、`screen` → `screen_time`、`control` → `phone_control`）。以使用者身分操作畫面的工具統一成 `phone_read_as_user`、`phone_act_as_user`（剛改的 `read_as_user`、`act_as_user` 沒推出去）、`computer_read_as_user`、`computer_act_as_user`（原 `read_screen`、`use_screen`）。開 runtime 時把每個 Bot 存的舊擴充名稱換成新的（`RENAMED`） | 名稱多幾個字，四個都是需要時載入，平常只多 `tool_search` 說明裡的名稱 | `test/toolsets.ts`。S24：裝新版前後比對每個 Bot 每個開關的開關狀態 |
 | 2026-11-02 | 「手機 App」開畫面的工具（`open_maps`、`compose_email`、`open_link`、`share`…）在 pi 退到背景時，只要「代你操作 App」的無障礙服務綁著就照樣開：Android 讓綁著無障礙服務的 App 從背景開別的 App。以前一律回「pi 在背景」，Bot 先用 `act_as_user` 開了設定之後就開不了地圖、信件草稿 | 不變 | `test/device/background-launch.sh`（暫時的 Bot：先開設定看 Android 版本，再用地圖查路線；舊碼 `open_maps` 失敗、模型改用 `act_as_user` 自己開地圖，新碼 `open_maps` 直接開）。無障礙服務沒綁時照舊拒絕 |
 | 2026-11-02 | `read_phone_screen`、`use_phone_screen` 改名 `read_as_user`、`act_as_user`，工具組標籤「手機畫面」改「代你操作 App」：舊名讓人以為是截圖再操作的通用工具，其實是用無障礙服務以使用者的身分操作別的 App，App 可以擋。`act_as_user` 的說明開頭寫明是最後手段、App 可能會擋。extension 名稱 `phone_screen` 不動（每個 Bot 的開關存的是它） | 名稱與說明的字數差不多 | S24，GPT 6.1 Sol，暫時的 Bot，同 4 題各一次。看前景 App：改前 `read_phone_screen`，改後 `read_as_user`；設定裡查 One UI 版本：改前 5 次 `use_phone_screen`，改後 1 次 `act_as_user`，答案相同；寫信、查路線兩題前後都用 `compose_email`、`open_maps`，沒有改走畫面。後兩題前後都因 pi 在背景開不了別的 App 而失敗，跟改名無關 |

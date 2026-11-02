@@ -3272,8 +3272,6 @@
 						"outcome": {
 							"enum": [
 								"already",
-								"changed",
-								"pressed",
 								"panel"
 							],
 							"type": "string"
@@ -3386,8 +3384,6 @@
 						"outcome": {
 							"enum": [
 								"already",
-								"changed",
-								"pressed",
 								"panel"
 							],
 							"type": "string"

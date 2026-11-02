@@ -9,11 +9,11 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { SkillsExtension } from "./skills.ts";
-import { AppsExtension } from "./tools/apps.ts";
+import { type ActsAsUser, createAppsExtension } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
 import { type CloudService, createCloudExtensions } from "./tools/cloud.ts";
-import { ControlExtension } from "./tools/control.ts";
+import { createControlExtension } from "./tools/control.ts";
 import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "./tools/device.ts";
 import { createGitHubExtension } from "./tools/github.ts";
@@ -48,6 +48,7 @@ interface CatalogDeps {
 	memory: { changed(): void };
 	workplace: (conversationId: string) => Workplace | undefined;
 	labelOf: (extension: string, conversationId: string) => string | undefined;
+	actsAsUser: ActsAsUser;
 }
 
 const toolSearch = (loaded: readonly string[]) =>
@@ -62,12 +63,12 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		PlacesExtension,
 		TwStocksExtension,
 		DatabaseExtension,
-		AppsExtension,
+		createAppsExtension(deps.actsAsUser),
 		SpeechExtension,
 		NotificationsExtension,
 		PhoneScreenExtension,
 		BrowserExtension,
-		ControlExtension,
+		createControlExtension(deps.actsAsUser),
 		ContactsExtension,
 		PhotosExtension,
 		RecordsExtension,
