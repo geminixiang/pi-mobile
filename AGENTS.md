@@ -31,3 +31,31 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - A change to the transcript, scrolling, streaming, or an animation is measured on the S24 (120 Hz) with `test/perf/run.ts` (docs/development.md § 效能量測), before and after: only the scenes it touches, 3 runs. Code that runs every frame (the streaming render, scroll and gesture handlers, animations, how the transcript mounts rows) gets all scenes at 5 runs, and so does a release when anything since the last measured release changed what the screen does (`src/app/`, CSS, the WebView or native views); a release that changed none of it skips perf and says so in its commit. Virtualizing the transcript (react-virtuoso) was reverted for this: rows mounting while scrolling up dropped frames.
 - Before a new tool or toolset goes in, measure it as `docs/tools.md` describes (`test/device/tool-cost.sh` on the S24, before and after, and natural questions in a temporary bot), choose always or on demand there, and update its table and log.
 - Tools follow `docs/tools.md` § 介面規範: define them with `defineAppTool` (`src/agent/tools/common.ts`), install built-ins only through `src/agent/catalog.ts`, and list every tool in its tool list. `npm run check` enforces this and compares the interface with `test/tools.snapshot.json`; change a tool's name, parameters, or structured output only on purpose, then run `node --import ./test/vite-imports.js test/tools-node.ts --update` and say why in the log. Name an extension by `docs/tools.md` § 名稱 and keep it: per-bot toolset choices are stored by its name, so a rename also goes into `RENAMED` (`src/agent/toolsets.ts`).
+
+## Structure
+
+Finishing the task is half the job; the other half is leaving the design better for the next change. Every contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles, so the repo's shape decides what gets copied.
+
+- Before adding to an existing design, ask: if this requirement had been there from day one, what would we build? Aim the change at that, delivered in small steps; do not bolt a special case onto the nearest function.
+- Check what you touch and what you add for these red flags, and remove the ones you add:
+  - one task done two ways (a check in TS and again in each native plugin, two ways to open a screen);
+  - a module's internals used from outside it (another plugin reading `PhoneScreenService`);
+  - a list kept in sync by hand (names repeated in code, docs, and tests);
+  - one state or decision owned by more than one place;
+  - a rule that lives only in prose when a check could enforce it.
+- A change that touches structure (a new tool, plugin method, extension, or a shared helper) ends its report with 對未來的影響: the red flags it removes or adds, and what it leaves for later.
+- A mistake that happens twice is fixed at the highest level that works: architecture (one owner, one way, unreachable internals), then types, then a check in `npm run check` whose error names the fix, then a test; prose last, and only for judgment calls. Add it to the table below.
+- Say how you know: a claim in a report or a doc says whether it was run (a script or the app), read at `file:line`, or only assumed. A design doc counts and lists from the code (`grep`), not from memory.
+
+| Rule | Enforced by |
+|---|---|
+| No comments except `// why:` | `test/no-comments.ts` |
+| No `any`, `!`, casts, swallowed catches | `test/code-rules.ts` |
+| Tools defined with `defineAppTool`, in the catalog, a toolset, the tool list, the snapshot | `test/tools-node.ts` |
+| A tool that acts as the user is `*_as_user`, loaded on demand, in a `*_as_user` extension | `test/tools-node.ts` |
+| docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
+| Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
+| A renamed extension keeps each bot's choices | `test/toolsets.ts` |
+| LBYL, errors as values, store a value once, rule of three, one way to do a task | review only |
+| A fix comes with a test that fails on the old code | review only |
+| Structure red flags, 對未來的影響 | review only |
