@@ -14,7 +14,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 方式 | 哪些工具 | 每次請求帶什麼 |
 |---|---|---|
 | **直接提供**（`reach: "model"`） | `codemode`、`bash`、`read`、`write`、`edit`、`update_memory`、`tool_search` | 完整定義 |
-| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`、`read_phone_screen`、`use_phone_screen`、`read_page`、`use_browser`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
+| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片：`view_photos`、`read_attachment`、`read_screen`、`use_screen`、`read_as_user`、`act_as_user`、`read_page`、`use_browser`（腳本拿不到圖片） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；`tool_search` 的說明列出的就是這些 |
 | **只給腳本**（預設） | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
 - 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
@@ -104,7 +104,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `find_places` | 地點 | 附近的店家，或用名字找分店 | 唯讀 | ✓ |
 | `sql` | 資料庫 | 手機上的 SQLite | 直接 | ✓ |
 | `set_alarm` | 手機 App | 設鬧鐘 | 直接 | |
-| `open_alarms` | 手機 App | 打開時鐘的鬧鐘清單，讓使用者關掉或刪除鬧鐘（app 不能改時鐘裡的鬧鐘）；手機畫面開著時，模型可以在那個畫面用 `use_phone_screen` 自己刪 | 開畫面 | |
+| `open_alarms` | 手機 App | 打開時鐘的鬧鐘清單，讓使用者關掉或刪除鬧鐘（app 不能改時鐘裡的鬧鐘）；手機畫面開著時，模型可以在那個畫面用 `act_as_user` 自己刪 | 開畫面 | |
 | `set_timer` | 手機 App | 設計時器 | 直接 | |
 | `compose_email` | 手機 App | 信件草稿 | 開畫面 | |
 | `compose_sms` | 手機 App | 簡訊草稿 | 開畫面 | |
@@ -140,8 +140,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `gcp_api` | Google Cloud | Google Cloud REST API | 讀取唯讀，寫入直接 | ✓ |
 | `cloudflare_api` | Cloudflare | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
 | `azure_api` | Azure | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
-| `read_phone_screen` | 手機畫面 | 手機自己的畫面：前景 app、畫面元件（角色、文字、中心座標），要的時候加截圖；無障礙服務 | 唯讀 | |
-| `use_phone_screen` | 手機畫面 | 一次多個步驟（開 app、點、長按、滑、捲動、打字、返回、主畫面），做完回傳畫面 | 直接 | |
+| `read_as_user` | 代你操作 App | 手機自己的畫面：前景 app、畫面元件（角色、文字、中心座標），要的時候加截圖；無障礙服務 | 唯讀 | |
+| `act_as_user` | 代你操作 App | 一次多個步驟（開 app、點、長按、滑、捲動、打字、返回、主畫面），做完回傳畫面 | 直接 | |
 | `read_page` | 瀏覽器 | 這個 Bot 自己的瀏覽器開著的那一頁：網址、看得到的元件（角色、文字、中心座標）、頁面文字，要的時候加截圖 | 唯讀 | |
 | `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | |
 | `read_screen` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
@@ -240,6 +240,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-02 | `read_phone_screen`、`use_phone_screen` 改名 `read_as_user`、`act_as_user`，工具組標籤「手機畫面」改「代你操作 App」：舊名讓人以為是截圖再操作的通用工具，其實是用無障礙服務以使用者的身分操作別的 App，App 可以擋。`act_as_user` 的說明開頭寫明是最後手段、App 可能會擋。extension 名稱 `phone_screen` 不動（每個 Bot 的開關存的是它） | 名稱與說明的字數差不多 | S24，GPT 6.1 Sol，暫時的 Bot，同 4 題各一次。看前景 App：改前 `read_phone_screen`，改後 `read_as_user`；設定裡查 One UI 版本：改前 5 次 `use_phone_screen`，改後 1 次 `act_as_user`，答案相同；寫信、查路線兩題前後都用 `compose_email`、`open_maps`，沒有改走畫面。後兩題前後都因 pi 在背景開不了別的 App 而失敗，跟改名無關 |
 | 2026-11-02 | 有風險的網址由 pi 擋下，不交給 Bot 判斷：瀏覽器和 `web_fetch`（含 `save_to`）碰到憑證錯誤或 Google Safe Browsing 列為釣魚、惡意軟體的網址就停下，回一行 `pi blocked <網址>: <原因>`。`web_fetch` 先用 `Page.check`（新的 plugin 方法，在隱藏的 WebView 裡載到第一個畫面就停）檢查再抓，瀏覽器的分頁一律回到安全頁面，沒有「仍要前往」可按 | 不變 | 以前瀏覽器只看到空白頁、不知道原因，`web_fetch` 會照樣讀出釣魚頁。`test/device/risky-pages.sh`（舊碼沒有 `Page.check`、瀏覽器沒有說明，會失敗）。S24：一般網址檢查 0.5–0.8 秒，憑證錯誤 1.6–2.4 秒，Safe Browsing 命中約 0.05 秒。暫時 Bot（Sol）請它摘要釣魚頁、用瀏覽器開過期憑證的網站、下載惡意軟體頁，三次都停下並說明原因，沒有試別的路。模擬器沒有 Google Play 服務，Safe Browsing 不會擋 |
 | 2026-11-01 | 桌面「輪到你」的清單不再在 JS 截成 10 筆：原生端本來就只畫放得下的行數，截掉之後標題的件數會少算 | 不變 | `test/items.ts` 多一條：33 件全部送出（舊碼 10）。S24 上請一個每天在用的 Bot 把它自己資料庫裡未完成的待辦轉成事項，一句話交代、它自己完成，`ref` 指回原資料，原本的表不動 |
 | 2026-11-01 | `note_item` 多兩個參數 `wake_app`、`wake_contains`（只給在等的事項）：在等的回覆會以通知出現在這支手機時，事項多掛一個通知觸發（id 是 `reply:<id>`，跟 `next_at` 的鬧鐘並存，最多每小時一次），對方一回就叫醒負責的 Bot，帶著通知的 App、寄件人和內文；先經過通知預設的兩道檢查（對 AI 下指令、含驗證碼或密碼），不叫醒也不清掉 `next_at`，`next_at` 變成「沒回就去追」的時間。設了這兩個參數要先有通知讀取。叫醒時的提示：是那則回覆就通知使用者，事情了結就結案，輪到使用者就改成要做（會出現在桌面的「輪到你」），還在等別人才維持在等；無關就不動。事項的提示多一句：等的回覆是這支手機上的通知時給 `wake_app` 或 `wake_contains` | 估計每個 Bot 約 +140 tokens（兩個參數說明加一句提示，依字數換算，沒在 S24 量） | 模擬器，預設的 SOTA 模型，暫時的 Bot（關掉手機 App 和語音）：「我在等房東傳簡訊回我修冷氣的時間，他的號碼是 0912345678，他一回就跟我說，明天中午前還沒回提醒我追」8–11 秒記成在等，`wake_app` Messages、`wake_contains` 號碼、`next_at` 明天 12:00（一次把 `state` 寫成 `open` 被擋，第二次寫對）。pi 在背景時用 `adb emu sms` 送簡訊：別的號碼的包裹通知沒叫醒；房東的那則 15 秒內叫醒，Bot 發通知「房東回覆修冷氣時間」、答「需要你回覆」。第一次的提示只說「結案或更新」，Bot 讓它維持在等，所以加了「輪到使用者就改成要做」，重測改成要做；`note_item` 回覆原本沿用排程那句「告訴使用者開通知讀取」，Bot 照著叫使用者去確認，改成只說明已經開著 |

@@ -331,7 +331,7 @@ function PhoneScreenGroup() {
 	useRefreshOnResume("PhoneScreen", () => void PhoneScreen.status().then((status) => setAllowed(status.allowed)));
 	if (allowed === undefined) return null;
 	return (
-		<Group title="手機畫面">
+		<Group title="代你操作 App">
 			<Row label="無障礙服務" hint={allowed ? undefined : "開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定"}>
 				{allowed ? null : (
 					<button type="button" className="btn" onClick={() => void PhoneScreen.openAppInfo()}>

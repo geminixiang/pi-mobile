@@ -38,7 +38,7 @@ const openAlarms = defineAppTool({
 	effect: "screen",
 	needs: [Apps.openAlarms],
 	description:
-		"Open the clock app's alarm list. No app can turn off or delete alarms there for the user, so they do it on that screen; if tool_search lists use_phone_screen, you can do it there yourself.",
+		"Open the clock app's alarm list. No app can turn off or delete alarms there for the user, so they do it on that screen; if tool_search lists act_as_user, you can do it there yourself.",
 	parameters: Type.Object({}),
 	execute: async () => {
 		await launch(() => Apps.openAlarms());

@@ -133,7 +133,7 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 	if ((name === "web_search" || name === "tool_search") && typeof args.query === "string") return args.query;
 	if (name === "web_fetch" && typeof args.url === "string") return typeof args.save_to === "string" && args.save_to ? `${args.url} → ${args.save_to}` : args.url;
 	if (name === "bash" && typeof args.command === "string") return args.command;
-	if (name === "use_browser" || name === "use_phone_screen") return stepsLabel(args.steps) ?? "";
+	if (name === "use_browser" || name === "act_as_user") return stepsLabel(args.steps) ?? "";
 	if (name === "codemode" && typeof args.code === "string") {
 		return args.code.split("\n").find((line) => line.trim() && !line.trim().startsWith("//"))?.trim() ?? "";
 	}

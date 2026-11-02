@@ -1411,7 +1411,7 @@
 	{
 		"extension": "phone_screen",
 		"toolset": "phone_screen",
-		"name": "read_phone_screen",
+		"name": "read_as_user",
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1436,7 +1436,7 @@
 	{
 		"extension": "phone_screen",
 		"toolset": "phone_screen",
-		"name": "use_phone_screen",
+		"name": "act_as_user",
 		"deferred": true,
 		"callers": [
 			"model",

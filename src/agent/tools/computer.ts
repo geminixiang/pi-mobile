@@ -22,7 +22,7 @@ function client(host: PairedHost): Promise<McpClient> {
 }
 
 async function call(host: PairedHost | undefined, tool: "screenshot" | "act", args: Record<string, unknown>, signal: AbortSignal | undefined): Promise<ToolExecutionResult> {
-	if (!host) throw new Error("This bot works on the phone: the phone's own screen is read_phone_screen and use_phone_screen; a computer's screen needs a computer picked in the bot's panel.");
+	if (!host) throw new Error("This bot works on the phone: the phone's own screen is read_as_user and act_as_user; a computer's screen needs a computer picked in the bot's panel.");
 	const server = await client(host).catch((error: unknown) => {
 		throw new Error(
 			`Screen control did not start on ${host.name}: ${messageOf(error)}. pi-mobile there may be older than screen control: tell the user to run the install command on ${host.name} again (Settings › 電腦).`,
