@@ -64,7 +64,25 @@ function labelOf(extension: string, mcp: McpHub): string {
 
 type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
-const IN_PLACE: ReadonlySet<keyof Settings> = new Set(["hosts", "hostKeys", "computer", "defaultProvider", "defaultModelId", "defaultThinking", "compactAt", "searchEngine"]);
+const APPLY: Record<keyof Settings, "in_place" | "restart"> = {
+	providers: "restart",
+	providerKeys: "restart",
+	providerOAuth: "restart",
+	githubToken: "restart",
+	gcloudCredential: "restart",
+	gcloudProject: "restart",
+	cloudflareCredential: "restart",
+	azureCredential: "restart",
+	calendarAccess: "restart",
+	defaultProvider: "in_place",
+	defaultModelId: "in_place",
+	defaultThinking: "in_place",
+	hosts: "in_place",
+	hostKeys: "in_place",
+	computer: "in_place",
+	compactAt: "in_place",
+	searchEngine: "in_place",
+};
 
 type Loaded = Pick<LoadedModels, "models" | "infos">;
 
@@ -135,7 +153,7 @@ export class AgentRuntime {
 
 	async apply(next: Settings): Promise<Applied> {
 		const changed = changedKeys(this.#settings, next);
-		if (changed.some((key) => !IN_PLACE.has(key))) return "needs_restart";
+		if (changed.some((key) => APPLY[key] === "restart")) return "needs_restart";
 		if (changed.includes("compactAt")) {
 			const { models, infos } = await this.#platform.models(next);
 			this.#loaded.models = models;
