@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { parseSync } from "rolldown/utils";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
@@ -199,6 +200,26 @@ if (reexported.length) failures.push(`schemas use Type from "typebox", not from 
 
 const current = tools.map(({ iface }) => iface);
 failures.push(...snapshotFailures(SNAPSHOT, current, "tool", "its interface"));
+
+type Node = { type: string; [key: string]: unknown };
+const isNode = (value: unknown): value is Node => typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
+const nodesIn = (node: unknown): Node[] => (isNode(node) ? [node, ...Object.values(node).flatMap((value) => (Array.isArray(value) ? value : [value])).flatMap(nodesIn)] : []);
+const isName = (node: unknown) => isNode(node) && ((node.type === "Identifier" && node.name === "name") || (node.type === "MemberExpression" && isNode(node.property) && node.property.name === "name"));
+const stringOf = (node: unknown) => (isNode(node) && node.type === "Literal" && typeof node.value === "string" ? [node.value] : []);
+function toolNamesIn(node: Node): string[] {
+	if (node.type === "BinaryExpression" && node.operator === "===") return isName(node.left) ? stringOf(node.right) : isName(node.right) ? stringOf(node.left) : [];
+	if (node.type === "VariableDeclarator" && isNode(node.id) && String(node.id.name).endsWith("_TOOLS") && isNode(node.init) && Array.isArray(node.init.arguments)) {
+		const list = node.init.arguments[0];
+		return isNode(list) && Array.isArray(list.elements) ? list.elements.flatMap(stringOf) : [];
+	}
+	return [];
+}
+const APP = new URL("../src/app/", import.meta.url);
+const toolNames = new Set(current.map((tool) => tool.name));
+for (const file of readdirSync(APP).filter((name) => /\.tsx?$/.test(name))) {
+	const missing = nodesIn(parseSync(file, readFileSync(new URL(file, APP), "utf8")).program).flatMap(toolNamesIn).filter((name) => !toolNames.has(name));
+	if (missing.length) failures.push(`src/app/${file} names tools that do not exist (renamed or deleted? rename them here too): ${[...new Set(missing)].join(", ")}`);
+}
 
 const MAP_START = "<!-- 工具總圖：node --import ./test/vite-imports.js test/tools-node.ts --update 產生，不要手改 -->";
 const MAP_END = "<!-- 工具總圖結束 -->";
