@@ -7,7 +7,7 @@ import java.util.concurrent.Executor
 internal sealed interface Outcome<out T> {
     data class Ok<T>(val value: T) : Outcome<T>
 
-    data class Stopped(val reason: String) : Outcome<Nothing>
+    data class Stopped(val reason: String, val code: String? = null) : Outcome<Nothing>
 }
 
 internal val DONE: Outcome<JSObject?> = Outcome.Ok(null)
@@ -27,7 +27,7 @@ internal fun Executor.reply(call: PluginCall, job: () -> Outcome<JSObject?>) =
                 Outcome.Stopped(failure.message.toString())
             }
         when (outcome) {
-            is Outcome.Stopped -> call.reject(outcome.reason)
+            is Outcome.Stopped -> call.reject(outcome.reason, outcome.code)
             is Outcome.Ok -> if (outcome.value == null) call.resolve() else call.resolve(outcome.value)
         }
     }
