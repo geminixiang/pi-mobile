@@ -95,6 +95,8 @@ internal class BrowserTab(
 
     @Volatile private var dialog: String? = null
 
+    @Volatile private var blocked: String? = null
+
     private val answers = ConcurrentHashMap<String, CompletableFuture<String>>()
     private val answerKeys = AtomicLong()
 
@@ -108,6 +110,10 @@ internal class BrowserTab(
         }
         view.webViewClient =
             object : WebPages.WebOnly() {
+                override fun blocked(reason: String) {
+                    blocked = reason
+                }
+
                 override fun onPageStarted(webView: WebView, url: String?, favicon: Bitmap?) {
                     loading = true
                     changed(this@BrowserTab)
@@ -174,6 +180,8 @@ internal class BrowserTab(
     }
 
     fun takeDialog(): String? = dialog.also { dialog = null }
+
+    fun takeBlocked(): String? = blocked.also { blocked = null }
 
     fun awaitLoad() {
         val end = SystemClock.uptimeMillis() + LOAD_MS

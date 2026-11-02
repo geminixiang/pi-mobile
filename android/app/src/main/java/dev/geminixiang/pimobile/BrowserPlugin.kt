@@ -385,14 +385,15 @@ class BrowserPlugin : Plugin() {
         val facts = JSONObject(tab.eval(FACTS).valueOr { return it })
         val state = tab.callPage("window.__piPage.state()").valueOr { return it }
         val dialog = tab.takeDialog()
-        val text = facts.optString("text")
+        val blocked = tab.takeBlocked()
+        val text = listOfNotNull(blocked?.let { "[pi blocked $it. Tell the user; do not reach it another way.]" }, dialog?.let { "[The page showed a dialog: $it]" }, facts.optString("text")).joinToString("\n")
         val page =
             JSObject().apply {
                 put("tab", tab.id)
                 put("loading", tab.loading || facts.optString("ready") != "complete")
                 put("elements", "${state.optString("header")}\n${state.optString("content")}\n${state.optString("footer")}")
                 put("tabs", onMain { listing(tab.owner) }.getJSONArray("tabs"))
-                put("text", if (dialog == null) text else "[The page showed a dialog: $dialog]\n$text")
+                put("text", text)
                 if (screenshot) put("jpeg", tab.capture())
                 if (error != null) put("error", error)
             }

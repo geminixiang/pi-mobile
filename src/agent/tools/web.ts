@@ -198,6 +198,8 @@ export function createWebExtension(config: WebConfig) {
 		}),
 		execute: async (args, api, context) => {
 			if (!/^https?:\/\//.test(args.url)) throw new Error("url must start with http:// or https://");
+			const verdict = native.implements(Page.check) ? await Page.check({ url: args.url }) : {};
+			if (verdict.blocked) throw new Error(`pi blocked ${verdict.blocked}. Tell the user; do not reach it another way.`);
 			if (args.save_to) {
 				if (!api.env) throw new Error("this bot has no folder to save to");
 				const saved = await download(api.env, args.url, args.save_to, context);

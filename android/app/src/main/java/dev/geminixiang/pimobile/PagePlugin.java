@@ -23,6 +23,7 @@ public class PagePlugin extends Plugin {
     private static final long POLL_MS = 500;
     private static final long TOTAL_MS = 30_000;
     private static final long SETTLED_MS = 2_000;
+    private static final long CHECK_MS = 15_000;
     private static final String READ = "(function(){return JSON.stringify([document.documentElement.outerHTML, document.body ? document.body.innerText.length : 0, document.title, location.href]);})()";
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -35,6 +36,60 @@ public class PagePlugin extends Plugin {
             return;
         }
         main.post(() -> new Render(call, url).start());
+    }
+
+    @PluginMethod
+    public void check(PluginCall call) {
+        String url = call.getString("url", "");
+        if (!WebPages.isWeb(Uri.parse(url))) {
+            call.reject("url must be http or https");
+            return;
+        }
+        main.post(() -> new Check(call, url).start());
+    }
+
+    private final class Check {
+        private final PluginCall call;
+        private final String url;
+        private WebView view;
+        private boolean done;
+
+        Check(PluginCall call, String url) {
+            this.call = call;
+            this.url = url;
+        }
+
+        void start() {
+            view = WebPages.create(getContext());
+            view.setWebViewClient(new WebPages.WebOnly() {
+                @Override
+                void blocked(String reason) {
+                    finish(reason);
+                }
+
+                @Override
+                public void onPageCommitVisible(WebView webView, String pageUrl) {
+                    finish(null);
+                }
+
+                @Override
+                public void onPageFinished(WebView webView, String pageUrl) {
+                    finish(null);
+                }
+            });
+            view.loadUrl(url);
+            main.postDelayed(() -> finish(null), CHECK_MS);
+        }
+
+        void finish(String blocked) {
+            if (done) return;
+            done = true;
+            view.stopLoading();
+            view.destroy();
+            JSObject out = new JSObject();
+            if (blocked != null) out.put("blocked", blocked);
+            call.resolve(out);
+        }
     }
 
     private final class Render {
@@ -58,6 +113,11 @@ public class PagePlugin extends Plugin {
             view.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY));
             view.layout(0, 0, WIDTH, HEIGHT);
             view.setWebViewClient(new WebPages.WebOnly() {
+                @Override
+                void blocked(String reason) {
+                    error = "pi blocked " + reason;
+                }
+
                 @Override
                 public void onPageStarted(WebView webView, String pageUrl, Bitmap favicon) {
                     loaded = false;
