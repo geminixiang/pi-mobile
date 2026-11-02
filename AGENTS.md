@@ -65,6 +65,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | A renamed extension keeps each bot's choices: a shipped name that disappears must be in `RENAMED`, and opening the runtime applies it | `test/tools-node.ts` (`test/extensions.snapshot.json`), `test/contracts/bots.ts`, `test/toolsets.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `offeredAt`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |
+| Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | LBYL, errors as values, store a value once, rule of three, one way to do a task | review only |
 | A fix comes with a test that fails on the old code | review only |
 | Structure red flags, 對未來的影響 | review only |

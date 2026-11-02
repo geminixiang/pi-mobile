@@ -1,9 +1,20 @@
+import { readdirSync } from "node:fs";
 import type { Check } from "./setup.ts";
 
 await import("./setup.ts");
-const suites: { checks: Check[] }[] = [await import("./computers.ts"), await import("./mcp.ts"), await import("./stream.ts"), await import("./where.ts"), await import("./sent-time.ts"), await import("./cleartext.ts"), await import("./storage.ts"), await import("./triggers.ts"), await import("./bots.ts"), await import("./log.ts"), await import("./resume.ts"), await import("./apply.ts"), await import("./tw-stocks.ts"), await import("./update.ts"), await import("./files.ts")];
+const files = readdirSync(new URL(".", import.meta.url)).filter((file) => file.endsWith(".ts") && !["run.ts", "setup.ts", "fixtures.ts"].includes(file));
+const suites: { file: string; checks: unknown }[] = await Promise.all(files.map(async (file) => ({ file, checks: (await import(`./${file}`)).checks })));
+const unsuited = suites.filter((suite) => !Array.isArray(suite.checks)).map((suite) => suite.file);
+if (unsuited.length > 0) {
+	process.stderr.write(`contracts: ${unsuited.join(", ")} export no checks; a contract file exports \`checks\`, a helper goes next to setup.ts and fixtures.ts\n`);
+	process.exit(1);
+}
 const only = process.argv[2];
-const checks = suites.flatMap((suite) => suite.checks).filter(([name]) => !only || name.includes(only));
+const checks: Check[] = suites.flatMap((suite) => (Array.isArray(suite.checks) ? suite.checks : [])).filter(([name]) => !only || name.includes(only));
+if (checks.length === 0) {
+	process.stderr.write(`contracts: no check matches "${only}"\n`);
+	process.exit(1);
+}
 const failures: string[] = [];
 for (const [name, run] of checks) {
 	let timer: ReturnType<typeof setTimeout> | undefined;
