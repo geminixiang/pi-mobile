@@ -114,6 +114,8 @@ export function gated<TParameters extends TSchema, TDetails extends JsonValue>(
 	return guarded;
 }
 
+export const orList = (values: readonly string[]): string => (values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`);
+
 export const text = (value: string): ToolExecutionResult => ({ output: [{ type: "text", text: value }] });
 
 export const json = (value: unknown): ToolExecutionResult => text(JSON.stringify(value, null, 2));

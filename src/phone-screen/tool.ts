@@ -2,7 +2,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { type Static, Type } from "typebox";
 import { DIRECTIONS, KEYS, PhoneScreen, type PhoneScreenSnapshot, type PhoneScreenStep } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
-import { defineAppTool, withScreenshot } from "../agent/tools/common.ts";
+import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../agent/parse.ts";
 
 const SWIPE_MS = 300;
@@ -40,7 +40,7 @@ const ToolStep = Type.Object({
 	direction: Type.Optional(oneOf(DIRECTIONS, { description: "scroll: which way the content moves into view; default down" })),
 	ms: Type.Optional(Type.Integer({ minimum: 1, description: "swipe: duration, default 300; wait: how long" })),
 	text: Type.Optional(Type.String({ description: "type: the text" })),
-	keys: Type.Optional(Type.String({ description: "key: back, home, recents, notifications, quick_settings, or enter" })),
+	keys: Type.Optional(Type.String({ description: `key: ${orList(KEYS)}` })),
 	app: Type.Optional(Type.String({ description: "open: app name as on the home screen, or its package" })),
 });
 
@@ -64,7 +64,7 @@ export function stepOf(step: Static<typeof ToolStep>): Checked<PhoneScreenStep> 
 			return ok({ action: "clear" });
 		case "key": {
 			const key = KEYS.find((name) => name === step.keys);
-			return key === undefined ? { ok: false, problem: "keys is back, home, recents, notifications, quick_settings, or enter" } : ok({ action: "key", key });
+			return key === undefined ? { ok: false, problem: `keys is ${orList(KEYS)}` } : ok({ action: "key", key });
 		}
 		case "open":
 			return app === undefined || app.trim() === "" ? needs("app") : ok({ action: "open", app });
@@ -103,7 +103,7 @@ const usePhoneScreen = defineAppTool({
 		"Last resort: act as the user on the phone's screen, for what no other tool, app link, or notification reply reaches; apps may block it. Runs the steps in order and returns the screen after them, as phone_read_as_user does. " +
 		"Put the steps you can already tell in one call (open an app, tap its search field, type, enter). Tap an element at the x,y listed for it. " +
 		"Steps: open {app: its name or package}; tap {x, y}; long_press {x, y}; swipe {x, y, to_x, to_y, ms}; scroll {direction, x and y of the list, default the middle}; " +
-		"type {text, added to the focused field}; clear (empties the focused field); key {keys: back, home, recents, notifications, quick_settings, enter}; wait {ms}. " +
+		`type {text, added to the focused field}; clear (empties the focused field); key {keys: ${KEYS.join(", ")}}; wait {ms}. ` +
 		"Before you send, pay, delete, or post for the user, say what you are about to do, unless they asked for exactly that.",
 	parameters: Type.Object({
 		steps: Type.Array(ToolStep, { minItems: 1 }),

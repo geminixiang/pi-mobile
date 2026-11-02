@@ -1,7 +1,7 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { Browser, type BrowserSnapshot, type BrowserStep, DIRECTIONS, KEYS, MAX_TABS } from "./plugin.ts";
-import { defineAppTool, withScreenshot } from "../agent/tools/common.ts";
+import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../agent/parse.ts";
 
 const HANDOVER_MS = 10 * 60_000;
@@ -101,7 +101,7 @@ const ToolStep = Type.Object({
 	y: Type.Optional(Type.Number({ description: "tap_at: CSS px from the top of the viewport" })),
 	text: Type.Optional(Type.String({ description: "type, type_here: the text; wait_for: text to wait for; hand_over: why the user is needed" })),
 	gone: Type.Optional(Type.Boolean({ description: "wait_for: wait until the text is gone instead" })),
-	keys: Type.Optional(Type.String({ description: "key: enter, tab, escape, or backspace" })),
+	keys: Type.Optional(Type.String({ description: `key: ${orList(KEYS)}` })),
 	direction: Type.Optional(oneOf(DIRECTIONS, { description: "scroll, scroll_in: which way the content moves into view; default down" })),
 	ms: Type.Optional(Type.Integer({ minimum: 1, description: "wait: how long; wait_for: the longest to wait, default 8000" })),
 });
@@ -125,7 +125,7 @@ export function stepOf(step: Static<typeof ToolStep>): Checked<BrowserStep> {
 			return index === undefined || option === undefined ? needs("index and option") : ok({ action: "select", index, option });
 		case "key": {
 			const key = KEYS.find((name) => name === step.keys);
-			return key === undefined ? { ok: false, problem: "keys is enter, tab, escape, or backspace" } : ok({ action: "key", key });
+			return key === undefined ? { ok: false, problem: `keys is ${orList(KEYS)}` } : ok({ action: "key", key });
 		}
 		case "scroll":
 			return ok({ action: "scroll", direction: step.direction ?? "down" });
@@ -173,7 +173,7 @@ const useBrowser = defineAppTool({
 		"Use this Bot's own browser, then see the page as read_page does. It keeps cookies and logins between calls, and the user can watch it and step in. " +
 		"Put the steps you can already tell in one call (open, type into the search field, enter, wait_for the results). Act on an element by the [n] index read_page listed for it; read again after the page changes, since indexes are renumbered. " +
 		"Steps: open {url}; tap {index}; tap_at {x, y} for something seen only on a screenshot; type {index, text} (taps the field, then types); type_here {text} (types at the cursor); clear (empties the focused field); select {index, option: the option's text}; " +
-		"key {keys: enter, tab, escape, backspace}; scroll {direction} (the page); scroll_in {index, direction} (inside that element); back; forward; reload; wait {ms}; " +
+		`key {keys: ${KEYS.join(", ")}}; scroll {direction} (the page); scroll_in {index, direction} (inside that element); back; forward; reload; wait {ms}; ` +
 		"wait_for {text, gone: true to wait until it disappears, ms up to 20000}; close_tab as the last step; hand_over {text: why, in the user's language} as the last step, when the user must do it themselves: log in, a captcha, a payment. " +
 		"To look at several pages, open each in its own tab (tab: \"new\") and call use_browser for each in the same turn: they load at the same time. " +
 		"Never type a password. Before you send, pay, delete, or post for the user, say what you are about to do, unless they asked for exactly that.",

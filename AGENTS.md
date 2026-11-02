@@ -58,6 +58,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
 | Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
+| Every step action and key the phone screen and the browser declare is read by their Kotlin side | `test/plugins-node.ts` |
 | Every native plugin class is registered (`MainActivity`, `MainViewController`) | `test/plugins-node.ts` |
 | Every schedule kind and activity in `src/triggers/plugin.ts` is read by the Android side (`Schedule.kt`, `ActivityTrigger.kt`) | `test/plugins-node.ts` |
 | Every native call in a tool file is in its tools' `needs` or checked with `native.implements` first | `test/tools-node.ts` |

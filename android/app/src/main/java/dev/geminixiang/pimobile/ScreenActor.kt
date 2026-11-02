@@ -192,8 +192,10 @@ private fun PhoneScreenService.scroll(step: ScreenStep.Scroll, screen: DisplayMe
 }
 
 private fun press(service: PhoneScreenService, key: String): Outcome<Unit> {
-    val global = GLOBAL_KEYS[key]
-    if (global != null) return if (service.performGlobalAction(global)) Outcome.Ok(Unit) else Outcome.Stopped("the system refused it")
+    if (key != "enter") {
+        val global = GLOBAL_KEYS[key] ?: return Outcome.Stopped("unknown key $key")
+        return if (service.performGlobalAction(global)) Outcome.Ok(Unit) else Outcome.Stopped("the system refused it")
+    }
     val field = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return Outcome.Stopped("no text field has focus")
     if (!field.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)) return Outcome.Stopped("the field has no enter action: tap the send or search button")
     return Outcome.Ok(Unit)

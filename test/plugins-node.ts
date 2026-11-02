@@ -68,6 +68,22 @@ const iosMissing = unregistered(IOS, [".swift"], (source) => [...source.slice(0,
 if (iosMissing.length) failures.push(`iOS plugins not registered in MainViewController.capacitorDidLoad: ${iosMissing.join(", ")}; add bridge?.registerPluginInstance(X())`);
 
 const NATIVE = "android/app/src/main/java/dev/geminixiang/pimobile/";
+const STEP_LISTS = [
+	{ contract: "src/phone-screen/plugin.ts", native: "ScreenActor.kt" },
+	{ contract: "src/browser/plugin.ts", native: "BrowserSteps.kt" },
+];
+for (const { contract, native } of STEP_LISTS) {
+	const source = readFileSync(new URL(`../${contract}`, import.meta.url), "utf8");
+	const names = [
+		...[...source.matchAll(/action: Type\.Literal\("(\w+)"\)/g)].map((match) => match[1] ?? ""),
+		...[...source.matchAll(/action: oneOf\(\[([^\]]*)\]\)/g)].flatMap((match) => [...(match[1] ?? "").matchAll(/"(\w+)"/g)].map((name) => name[1] ?? "")),
+		...[...(/export const KEYS = \[([^\]]*)\]/.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].map((match) => match[1] ?? ""),
+	];
+	const kotlin = readFileSync(new URL(`../${NATIVE}${native}`, import.meta.url), "utf8");
+	const unknown = names.filter((name) => !kotlin.includes(`"${name}"`));
+	if (names.length === 0 || unknown.length > 0) failures.push(`step actions and keys in ${contract} that ${NATIVE}${native} does not read: ${unknown.join(", ") || "none found in the contract"}`);
+}
+
 const kinds = When.anyOf.map((option) => String(option.properties.kind.const));
 const scheduleKt = readFileSync(new URL(`../${NATIVE}Schedule.kt`, import.meta.url), "utf8");
 const readable = new Set([...scheduleKt.matchAll(/"(\w+)" ->|kind == "(\w+)"/g)].map((match) => match[1] ?? match[2]));
