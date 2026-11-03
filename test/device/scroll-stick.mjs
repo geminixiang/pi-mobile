@@ -134,6 +134,26 @@ try {
 	await stop();
 
 	await toBottom();
+	await sendFromComposer(prompt());
+	await streaming();
+	await evaluate(`(async () => {
+		const t = transcript();
+		const block = (px) => Object.assign(document.createElement("div"), { className: "shrink-probe", style: \`height: \${px}px\` });
+		const tall = block(40);
+		t.append(tall);
+		t.scrollTop = t.scrollHeight;
+		await sleep(300);
+		tall.remove();
+		void t.scrollHeight;
+		t.append(block(30));
+		return true;
+	})()`);
+	const shrunk = await follows();
+	await evaluate(`document.querySelectorAll(".shrink-probe").forEach((probe) => probe.remove()) ?? true`);
+	record("(f) 串流中內容縮短", `每 0.2 秒離底 ${shrunk.gaps}`, shrunk.following);
+	await stop();
+
+	await toBottom();
 	await sleep(300);
 	const { x, y } = await evaluate(`center(document.querySelector(".composer textarea"))`);
 	const height = () => evaluate("transcript().clientHeight");
@@ -159,4 +179,4 @@ if (failures.length > 0) {
 	console.error(`FAIL:\n- ${failures.join("\n- ")}`);
 	process.exit(1);
 }
-console.log("PASS: a small drag up while streaming lets go and stays, the bottom keeps following, a parked view is not pulled back, and 回到最新, sending and the keyboard keep it at the bottom");
+console.log("PASS: a small drag up while streaming lets go and stays, the bottom keeps following even when the content shrinks, a parked view is not pulled back, and 回到最新, sending and the keyboard keep it at the bottom");

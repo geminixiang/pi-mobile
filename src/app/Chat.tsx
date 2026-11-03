@@ -23,6 +23,7 @@ import { copy } from "./clipboard.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
+const WHEEL_SCROLL_MS = 200;
 
 function text(content: string | readonly { type: string; text?: string }[] | undefined): string {
 	if (typeof content === "string") return content;
@@ -146,7 +147,8 @@ export function Chat({
 	const [pickImage, setPickImage] = useState(0);
 	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
-	const lastScrollTop = useRef(0);
+	const touching = useRef(false);
+	const wheeledAt = useRef(-Infinity);
 
 	useEffect(() => {
 		if (focusKey || initialDraft) setComposerFocus((key) => key + 1);
@@ -249,12 +251,23 @@ export function Chat({
 			<div
 				className="transcript"
 				ref={scroller}
+				onTouchStart={() => {
+					touching.current = true;
+				}}
+				onTouchEnd={() => {
+					touching.current = false;
+				}}
+				onTouchCancel={() => {
+					touching.current = false;
+				}}
+				onWheel={(event) => {
+					wheeledAt.current = event.timeStamp;
+				}}
 				onScroll={(event) => {
 					const element = event.currentTarget;
-					const movedUp = element.scrollTop < lastScrollTop.current;
-					lastScrollTop.current = element.scrollTop;
+					const byUser = touching.current || event.timeStamp - wheeledAt.current < WHEEL_SCROLL_MS;
 					if (element.scrollHeight - element.scrollTop - element.clientHeight < AT_BOTTOM_PX) stickToBottom.current = true;
-					else if (movedUp) stickToBottom.current = false;
+					else if (byUser) stickToBottom.current = false;
 					setAtBottom(stickToBottom.current);
 				}}
 			>
