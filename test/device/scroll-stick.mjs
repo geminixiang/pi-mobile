@@ -3,6 +3,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const port = process.env.CDP_PORT ?? "9333";
 const serial = process.env.ANDROID_SERIAL;
+if (!serial) throw new Error("Set ANDROID_SERIAL: the drags are real touches (adb input swipe), since DevTools' synthesized scroll never returns on the S24");
 const adb = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const target = targets.find((candidate) => candidate.type === "page" && URL.canParse(candidate.url) && new URL(candidate.url).hostname === "localhost");
@@ -60,8 +61,10 @@ const prompt = () => `stream ${++prompts}`;
 const sendFromElsewhere = (text) => evaluate(`window.piController.send([{ type: "text", text: ${JSON.stringify(text)} }]).then(() => true)`);
 let scale = 1;
 const gesture = async (pixels) => {
-	const { x, y } = await evaluate(`(() => { const r = document.querySelector(".transcript").getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * 0.6) }; })()`);
-	await send("Input.synthesizeScrollGesture", { x, y, yDistance: pixels, speed: 600, preventFling: true, gestureSourceType: "touch", repeatCount: 1 });
+	const { x, y, dpr } = await evaluate(`(() => { const r = document.querySelector(".transcript").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.4, dpr: devicePixelRatio }; })()`);
+	const at = (css) => String(Math.round(css * dpr));
+	execFileSync(adb, ["-s", serial, "shell", "input", "swipe", at(x), at(y), at(x), at(y + pixels), "700"]);
+	await sleep(300);
 };
 const scrollUp = (pixels) => gesture(Math.round(pixels / scale));
 const follows = async () => {
@@ -95,6 +98,7 @@ try {
 	await sleep(400);
 	scale = (await distance()) / 100;
 	results.push(`scroll gesture scale: ${scale}`);
+	if (scale <= 0) throw new Error("A 100px drag up did not move the transcript; is pi in front with the 測試效能 Bot open?");
 	for (const pixels of [20, 40, 80]) {
 		await toBottom();
 		await sendFromComposer(prompt());
@@ -154,24 +158,22 @@ try {
 	record("(d) 離底時送出", `離底 ${before} → 送出後串流中每 0.2 秒 ${sent.gaps}`, sent.following);
 	await stop();
 
-	if (serial) {
-		await toBottom();
-		await sleep(300);
-		const { x, y } = await evaluate(`(() => { const r = document.querySelector(".composer textarea").getBoundingClientRect(); return { x: Math.round((r.left + r.width / 2) * devicePixelRatio), y: Math.round((r.top + r.height / 2) * devicePixelRatio) }; })()`);
-		const height = () => evaluate(`document.querySelector(".transcript").clientHeight`);
-		const open = await height();
-		execFileSync(adb, ["-s", serial, "shell", "input", "tap", String(x), String(y)]);
+	await toBottom();
+	await sleep(300);
+	const { x, y } = await evaluate(`(() => { const r = document.querySelector(".composer textarea").getBoundingClientRect(); return { x: Math.round((r.left + r.width / 2) * devicePixelRatio), y: Math.round((r.top + r.height / 2) * devicePixelRatio) }; })()`);
+	const height = () => evaluate(`document.querySelector(".transcript").clientHeight`);
+	const open = await height();
+	execFileSync(adb, ["-s", serial, "shell", "input", "tap", String(x), String(y)]);
+	await sleep(1500);
+	const typing = await height();
+	const withKeyboard = await distance();
+	if (typing < open) {
+		execFileSync(adb, ["-s", serial, "shell", "input", "keyevent", "KEYCODE_BACK"]);
 		await sleep(1500);
-		const typing = await height();
-		const withKeyboard = await distance();
-		if (typing < open) {
-			execFileSync(adb, ["-s", serial, "shell", "input", "keyevent", "KEYCODE_BACK"]);
-			await sleep(1500);
-			const closed = await distance();
-			record("(e) 在底部開關鍵盤", `對話區高 ${open} → ${typing}；開著離底 ${withKeyboard}，關掉後離底 ${closed}`, withKeyboard < 4 && closed < 4);
-		} else results.push(`(e) skipped: tapping the composer did not open a keyboard (對話區高 ${open} → ${typing})`);
-		await evaluate("document.activeElement?.blur() ?? true");
-	} else results.push("(e) skipped: set ANDROID_SERIAL to tap the composer and open the keyboard");
+		const closed = await distance();
+		record("(e) 在底部開關鍵盤", `對話區高 ${open} → ${typing}；開著離底 ${withKeyboard}，關掉後離底 ${closed}`, withKeyboard < 4 && closed < 4);
+	} else results.push(`(e) skipped: tapping the composer did not open a keyboard (對話區高 ${open} → ${typing})`);
+	await evaluate("document.activeElement?.blur() ?? true");
 } finally {
 	if (await busy()) await stop();
 	socket.close();
