@@ -10,7 +10,7 @@ import { logged } from "./contracts/setup.ts";
 import { snapshotFailures, updating } from "./snapshot.ts";
 
 const SNAPSHOT = new URL("./prompt.snapshot.json", import.meta.url);
-const ZONE = /\([^()]*, UTC[+-]\d+(?::\d+)?\)/;
+const ZONE = /\([^()]*, UTC[^()]*\)/;
 
 async function sections(runtime: AgentRuntime, bot: ConversationId): Promise<[string, string][]> {
 	let seen: [string, string][] = [];
@@ -30,7 +30,7 @@ const failures: string[] = [];
 const fresh = await openRuntime();
 try {
 	const bot = await fresh.runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
-	const current = (await sections(fresh.runtime, bot)).map(([name, text]) => ({ name, chars: text.length, text: text.replace(ZONE, "(ZONE)") }));
+	const current = (await sections(fresh.runtime, bot)).map(([name, rendered]) => ({ name, text: rendered.replace(ZONE, "(ZONE)") })).map(({ name, text }) => ({ name, chars: text.length, text }));
 	failures.push(...snapshotFailures(SNAPSHOT, current, "prompt section", "its text"));
 } finally {
 	await fresh.runtime.close();
