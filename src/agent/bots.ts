@@ -1,4 +1,5 @@
-import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import type { Context } from "@earendil-works/chord/context";
+import { type ConversationId, defineDoc, type DocumentReader, defineExtension, section } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "./doc-policy.ts";
 
 export type Bot = {
@@ -15,6 +16,18 @@ export type Bot = {
 
 export const BotIndex = defineDoc<{ items: Bot[] }>({
 	kind: "app.bots",
+	version: 1,
+	scope: "session",
+	initial: () => ({ items: [] }),
+	checkpointWhen: checkpointEvery64,
+});
+
+export async function botsIn(reader: Pick<DocumentReader, "snapshot">, context: Context): Promise<Bot[]> {
+	return ((await reader.snapshot(BotIndex, context))?.items ?? []).filter((bot) => !bot.removing);
+}
+
+export const LeftFolders = defineDoc<{ items: { folder: string; computer: string }[] }>({
+	kind: "app.left-folders",
 	version: 1,
 	scope: "session",
 	initial: () => ({ items: [] }),
@@ -58,7 +71,7 @@ export const BotExtension = defineExtension({
 	name: "bot",
 	sections: [
 		section("bot", async (input, context) => {
-			const bots = (await input.read.snapshot(BotIndex, context))?.items ?? [];
+			const bots = await botsIn(input.read, context);
 			const self = bots.find((bot) => bot.id === input.conversationId);
 			if (!self) return undefined;
 			const others = bots.filter((bot) => bot.id !== self.id);

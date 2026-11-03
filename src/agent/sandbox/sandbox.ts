@@ -2,7 +2,7 @@ import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import { defineExtension, section } from "@earendil-works/pi-durable";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { BotIndex } from "../bots.ts";
+import { botsIn } from "../bots.ts";
 import type { DaemonArch, DaemonOs } from "./daemon.ts";
 import type { ConnectionStatus, PhoneConnection } from "./phone-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
@@ -105,7 +105,7 @@ export function createSandboxExtension(workplace: (conversationId: string) => Wo
 				if (place?.kind !== "computer") return undefined;
 				const { folder, sandbox } = place;
 				if (sandbox.direct) return sandbox.describe(folder);
-				const others = ((await input.read.snapshot(BotIndex, context))?.items ?? []).filter((bot) => bot.folder !== folder);
+				const others = (await botsIn(input.read, context)).filter((bot) => bot.folder !== folder);
 				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";
 				return sandbox.describe(folder) + whose;
 			}),

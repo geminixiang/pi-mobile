@@ -96,6 +96,11 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "the items belong to src/items/: change them through its tools and helpers",
 	},
 	{
+		use: /\bBotIndex\b/,
+		owners: ["src/agent/bots.ts", "src/agent/runtime.ts"],
+		fix: "read the bots with botsIn (src/agent/bots.ts) or runtime.bots(), which leave out a bot being removed; only the runtime edits the index",
+	},
+	{
 		use: /\bJSON\.parse\(/,
 		owners: ["src/agent/parse.ts"],
 		fix: "parse JSON at the boundary with checkJson, decode or parseJson from src/agent/parse.ts",

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { createModels, fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
+import { createModels, fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { freeAvatar } from "../../src/agent/bots.ts";
+import type { Host } from "../../src/agent/sandbox/host.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
-import { browsers, type Check, faux, folders, reports, settle } from "./setup.ts";
+import { browsers, type Check, faux, folders, logged, reports, settings, settle } from "./setup.ts";
 
 async function busyNow(runtime: AgentRuntime, id: ConversationId): Promise<boolean> {
 	let busy = false;
@@ -155,6 +156,40 @@ export const checks: Check[] = [
 				assert.equal((await second.runtime.bots()).some((bot) => bot.id === gone), false);
 				const third = (await second.runtime.bots()).length;
 				assert.equal(third, 1);
+			} finally {
+				await second.runtime.close();
+			}
+		},
+	],
+	[
+		"a bot whose folder on an unreachable computer cannot be cleared still leaves the list and the other bots' prompt at once, and its folder is tried again when the app opens, once per computer",
+		async () => {
+			const offline: Host = { id: "127.0.0.1", address: "127.0.0.1", name: "Offline", os: "linux", arch: "arm64", user: "fixture", home: "/home/fixture", engine: "docker" };
+			const config = { hosts: [offline], computer: "" } satisfies Partial<typeof settings>;
+			const failures = () => logged.filter((entry) => entry.event === "bot.remove_container_folder_failed").length;
+			const storage = keepOpen(new MemoryStorage());
+			const first = await openRuntime(storage, config);
+			const keep = await first.runtime.createBot({ name: "keep", job: "", avatar: "helper" });
+			for (const name of ["gone-one", "gone-two"]) await first.runtime.removeBot(await first.runtime.createBot({ name, job: "a job nobody does any more", avatar: "helper" }));
+			await settle(100);
+			let prompt = "";
+			await turn(first.runtime, keep, [
+				(context: TranscriptContext) => {
+					prompt = JSON.stringify(context);
+					return fauxAssistantMessage("done");
+				},
+			]);
+			assert.deepEqual(
+				(await first.runtime.bots()).map((bot) => bot.name).filter((name) => name.startsWith("gone")),
+				[],
+			);
+			assert.equal(prompt.includes("gone-"), false);
+			await first.runtime.close();
+			const before = failures();
+			const second = await openRuntime(storage, config);
+			try {
+				await settle(100);
+				assert.equal(failures() - before, 1);
 			} finally {
 				await second.runtime.close();
 			}

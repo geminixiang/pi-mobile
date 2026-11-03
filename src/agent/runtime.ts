@@ -20,7 +20,7 @@ import { pairedHosts } from "./sandbox/host.ts";
 import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
-import { avatarOf, type Bot, botFields, BotIndex, DEFAULT_BOT } from "./bots.ts";
+import { avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders } from "./bots.ts";
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
@@ -262,9 +262,12 @@ export class AgentRuntime {
 		await runtime.#botToolsets.renameExtensions();
 		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`自動化同步失敗：${messageOf(error)}`));
 		harness.resume();
-		for (const bot of await runtime.#allBots()) {
-			if (bot.removing) void orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });
-		}
+		void (async () => {
+			for (const bot of (await runtime.#allBots()).filter((candidate) => candidate.removing)) {
+				await orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });
+			}
+			await orLogged(runtime.#clearLeftFolders(), "bot.clear_left_folders_failed", undefined);
+		})();
 		return runtime;
 	}
 
@@ -283,7 +286,7 @@ export class AgentRuntime {
 	}
 
 	async bots(): Promise<Bot[]> {
-		return (await this.#allBots()).filter((bot) => !bot.removing).sort((a, b) => b.updatedAt - a.updatedAt);
+		return (await botsIn(this.#harness, context)).sort((a, b) => b.updatedAt - a.updatedAt);
 	}
 
 	async #allBots(): Promise<Bot[]> {
@@ -357,16 +360,6 @@ export class AgentRuntime {
 
 	async #finishRemoval(bot: Bot): Promise<void> {
 		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
-		const left = await Promise.all(
-			this.workplaces.containers().map(({ key, sandbox }) =>
-				orLogged(
-					sandbox.remove(bot.folder).then(() => undefined),
-					"bot.remove_container_folder_failed",
-					key,
-					{ bot: bot.folder, computer: key },
-				),
-			),
-		);
 		const phone = this.#platform.phone;
 		if (phone) await orLogged(phone.removeFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });
 		const browser = this.#platform.browser;
@@ -374,14 +367,35 @@ export class AgentRuntime {
 		const reports = this.#platform.reports;
 		if (reports) await orLogged(reports.forget(String(bot.id)), "bot.remove_reports_failed", undefined, { bot: String(bot.id) });
 		await orLogged(deleteAttachments({ conversationId: String(bot.id) }), "bot.remove_attachments_failed", undefined, { bot: String(bot.id) });
-		if (left.some((key) => key !== undefined)) return;
 		await this.#harness.commit(async (tx) => {
 			const items = (await tx.doc(BotIndex)).items;
 			const at = items.findIndex((candidate) => candidate.id === bot.id);
 			if (at >= 0) items.splice(at, 1);
 			await tx.retireDoc(BotMemoryDoc, bot.id);
+			(await tx.doc(LeftFolders)).items.push(...this.workplaces.containers().map(({ key }) => ({ folder: bot.folder, computer: key })));
 		}, context);
 		await this.#publishBots();
+		void orLogged(this.#clearLeftFolders(), "bot.clear_left_folders_failed", undefined);
+	}
+
+	async #clearLeftFolders(): Promise<void> {
+		const left = (await this.#harness.snapshot(LeftFolders, context))?.items ?? [];
+		const containers = this.workplaces.containers();
+		const cleared = new Set<string>();
+		for (const computer of new Set(left.map((item) => item.computer))) {
+			const sandbox = containers.find((candidate) => candidate.key === computer)?.sandbox;
+			for (const { folder } of left.filter((item) => item.computer === computer)) {
+				const removed = sandbox ? await orLogged(sandbox.remove(folder).then(() => true), "bot.remove_container_folder_failed", false, { bot: folder, computer }) : true;
+				if (!removed) break;
+				cleared.add(`${computer}\n${folder}`);
+			}
+		}
+		if (cleared.size === 0) return;
+		await this.#harness.commit(async (tx) => {
+			const items = (await tx.doc(LeftFolders)).items;
+			const kept = items.filter((item) => !cleared.has(`${item.computer}\n${item.folder}`));
+			items.splice(0, items.length, ...kept);
+		}, context);
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {
