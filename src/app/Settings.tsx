@@ -23,18 +23,20 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
-import { AutomationIcon, ChevronIcon, DatabaseIcon, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
+import { AutomationIcon, DatabaseIcon, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { useBack } from "./layers.ts";
-import { pairedHosts, parseComputerKey } from "../agent/sandbox/host.ts";
+import { pairedHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
-import { providerName } from "../agent/providers.ts";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
+import { grouped } from "../triggers/when.ts";
+import { DAY, startOfToday } from "../agent/tools/common.ts";
+import { shortModelName } from "./ModelSheet.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
@@ -379,43 +381,100 @@ const PHONE_PAGE: readonly NativePlugin[] = ["Calendar", "Notifications", "Phone
 
 type Page = "models" | "memory" | "accounts" | "services" | "machines" | "phone" | "browser" | "schedules" | "data" | "display";
 
+const firstEntry = (text: string) => {
+	const line = text.split("\n").find((candidate) => candidate.trim() && !candidate.startsWith("#")) ?? "";
+	return line.startsWith("- ") ? line.slice(2) : line;
+};
+
+type IndexRow = { page: Page; icon: ReactNode; label: string; status?: string; marks?: { label: string; on: boolean }[] };
+
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
-	const [triggers, setTriggers] = useState<number>();
-	const [memory, setMemory] = useState<number>();
-	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text.trim().length)), [runtime]);
-	useEffect(() => runtime?.triggers.subscribe((state) => setTriggers(state.items.length)), [runtime]);
+	const [triggers, setTriggers] = useState<TriggerState>();
+	const [memory, setMemory] = useState<string>();
+	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text)), [runtime]);
+	useEffect(() => runtime?.triggers.subscribe(setTriggers), [runtime]);
 	useMcp(runtime);
 	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables.length) : undefined, []).value;
-	const accounts = [
-		settings.githubToken && "GitHub",
-		settings.gcloudCredential && "Google Cloud",
-		settings.cloudflareCredential && "Cloudflare",
-		settings.azureCredential && "Azure",
-	].filter(Boolean);
-	const chosen = parseComputerKey(settings.computer);
-	const host = settings.hosts.find((candidate) => candidate.id === chosen?.hostId);
-	const services = runtime?.mcp.servers.length ?? 0;
-	const rows: { page: Page; icon: ReactNode; label: string; value: string | undefined }[] = [
-		{ page: "models", icon: <ModelIcon />, label: "模型", value: settings.providers.map(providerName).join("、") },
-		...(runtime ? [{ page: "memory" as const, icon: <MemoryIcon size={18} />, label: "全域記憶", value: memory === undefined ? "" : memory ? `${memory} 字` : "空的" }] : []),
-		{ page: "accounts", icon: <KeyIcon />, label: "帳號", value: accounts.join("、") },
-		{ page: "services", icon: <PlugIcon />, label: "連接的服務", value: services ? `${services} 個` : "" },
-		{ page: "machines", icon: <TerminalIcon size={18} />, label: "電腦", value: host ? `${host.name}${chosen?.mode === "container" ? " · 容器" : ""}` : undefined },
-		...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, icon: <PhoneIcon />, label: "手機", value: undefined }] : []),
-		...(native.has("Browser") ? [{ page: "browser" as const, icon: <GlobeIcon size={18} />, label: "瀏覽器", value: SEARCH_ENGINES[settings.searchEngine].name }] : []),
-		...(native.has("Triggers") ? [{ page: "schedules" as const, icon: <AutomationIcon />, label: "自動化", value: triggers ? `${triggers} 個` : "" }] : []),
-		...(native.has("Database") ? [{ page: "data" as const, icon: <DatabaseIcon />, label: "資料庫", value: tables === undefined ? "" : tables ? `${tables} 個資料表` : "空的" }] : []),
-		{ page: "display", icon: <EyeIcon />, label: "顯示", value: undefined },
+	const model = runtime?.models.find((candidate) => candidate.provider === settings.defaultProvider && candidate.id === settings.defaultModelId);
+	const servers = runtime?.mcp.servers ?? [];
+	const waiting = servers.filter((server) => runtime?.mcp.status(server.id)?.state === "login").length;
+	const today = triggers ? (grouped(triggers.items, triggers.next, startOfToday() + DAY).find((group) => group.label === "今天")?.triggers.length ?? 0) : 0;
+	const phone = [native.has("Calendar") && "行事曆", native.has("Notifications") && "通知", native.has("PhoneScreen") && "代你操作 App"].filter(Boolean).join("、");
+	const groups: { label: string; rows: IndexRow[] }[] = [
+		{
+			label: "Bot 怎麼想",
+			rows: [
+				{
+					page: "models",
+					icon: <ModelIcon />,
+					label: "模型",
+					status: settings.providers.length === 0 ? "還沒有供應商" : [model ? `預設 ${shortModelName(model.name)}` : "", `${settings.providers.length} 個供應商`].filter(Boolean).join(" · "),
+				},
+				...(runtime
+					? [{ page: "memory" as const, icon: <MemoryIcon size={18} />, label: "全域記憶", status: memory ? firstEntry(memory) : "還沒有" }]
+					: []),
+			],
+		},
+		{
+			label: "Bot 能用什麼",
+			rows: [
+				{
+					page: "accounts",
+					icon: <KeyIcon />,
+					label: "帳號",
+					marks: [
+						{ label: "GH", on: Boolean(settings.githubToken) },
+						{ label: "GC", on: Boolean(settings.gcloudCredential) },
+						{ label: "CF", on: Boolean(settings.cloudflareCredential) },
+						{ label: "AZ", on: Boolean(settings.azureCredential) },
+					],
+				},
+				{
+					page: "services",
+					icon: <PlugIcon />,
+					label: "連接的服務",
+					status: servers.length === 0 ? "還沒有" : [`${servers.length - waiting} 個可用`, waiting ? `${waiting} 個待登入` : ""].filter(Boolean).join("、"),
+				},
+				{ page: "machines", icon: <TerminalIcon size={18} />, label: "電腦", status: settings.hosts.map((host) => host.name).join("、") || "還沒有配對" },
+				...(native.has("Browser") ? [{ page: "browser" as const, icon: <GlobeIcon size={18} />, label: "瀏覽器", status: `用 ${SEARCH_ENGINES[settings.searchEngine].name} 搜尋` }] : []),
+			],
+		},
+		{
+			label: "這支手機",
+			rows: [
+				...(PHONE_PAGE.some((plugin) => native.has(plugin)) ? [{ page: "phone" as const, icon: <PhoneIcon />, label: "手機", status: phone || undefined }] : []),
+				...(native.has("Triggers")
+					? [{ page: "schedules" as const, icon: <AutomationIcon />, label: "自動化", status: !triggers || triggers.items.length === 0 ? "還沒有" : today ? `今天還有 ${today} 個` : `${triggers.items.length} 個` }]
+					: []),
+				...(native.has("Database") ? [{ page: "data" as const, icon: <DatabaseIcon />, label: "資料庫", status: tables === undefined ? undefined : tables ? `${tables} 個資料表` : "還沒有資料表" }] : []),
+				{ page: "display", icon: <EyeIcon />, label: "顯示" },
+			],
+		},
 	];
 	return (
-		<nav className="menu settings-index">
-			{rows.map((row) => (
-				<button type="button" key={row.page} onClick={() => onOpen(row.page)}>
-					{row.icon}
-					<span className="menu-text">{row.label}</span>
-					{row.value === undefined ? null : <span className="index-value">{row.value || "未設定"}</span>}
-					<ChevronIcon />
-				</button>
+		<nav className="settings-index">
+			{groups.map((group) => (
+				<section key={group.label}>
+					<h3 className="list-label">{group.label}</h3>
+					{group.rows.map((row) => (
+						<button type="button" key={row.page} onClick={() => onOpen(row.page)}>
+							{row.icon}
+							<span className="menu-text">
+								{row.label}
+								{row.status ? <span className="index-status">{row.status}</span> : null}
+							</span>
+							{row.marks ? (
+								<span className="index-marks">
+									{row.marks.map((mark) => (
+										<span key={mark.label} className={mark.on ? "on" : ""}>
+											{mark.label}
+										</span>
+									))}
+								</span>
+							) : null}
+						</button>
+					))}
+				</section>
 			))}
 		</nav>
 	);

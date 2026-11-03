@@ -842,6 +842,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .check-row .menu-text { font-size: var(--fs-body); overflow-wrap: anywhere; }
 .state { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ok); }
 .index-value { flex-shrink: 1; min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
+.settings-index { display: flex; flex-direction: column; margin: -8px calc(-1 * var(--space)) 0; }
+.settings-index .list-label { margin: 0; padding: 14px var(--space) 4px; }
+.settings-index button { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 8px var(--space); text-align: left; font-size: var(--fs-ui); }
+.settings-index button > svg { color: var(--muted); flex-shrink: 0; }
+.index-status { font-size: var(--fs-small); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.index-marks { display: flex; gap: 8px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
+.index-marks .on { color: var(--text); }
 .about { padding: 4px 6px 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); text-align: center; }
 .about > .link { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .group-body textarea.field { height: auto; padding: 10px 12px; font-size: var(--fs-code); line-height: 1.5; resize: vertical; }
