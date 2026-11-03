@@ -377,11 +377,11 @@ export function App() {
 							{shortModelName(model?.name ?? modelId)}
 							{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
 						</span>
+						<svg className="bar-context" viewBox="0 0 22 22" aria-hidden="true">
+							<circle cx="11" cy="11" r="8.5" />
+							<circle className="used" cx="11" cy="11" r="8.5" pathLength={1} style={{ "--fill": contextPercent(used, contextWindow) / 100 }} />
+						</svg>
 					</button>
-					<svg className="bar-context" viewBox="0 0 22 22" aria-hidden="true">
-						<circle cx="11" cy="11" r="8.5" />
-						<circle className="used" cx="11" cy="11" r="8.5" pathLength={1} style={{ "--fill": contextPercent(used, contextWindow) / 100 }} />
-					</svg>
 				</div>
 				<div className="bar-pill bar-tools">
 					{currentBot && native.has("Browser") ? (
