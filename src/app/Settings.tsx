@@ -43,17 +43,6 @@ import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import type { Prefs } from "./prefs.ts";
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
-	return (
-		<section className="group">
-			<header className="strip">
-				<span className="strip-title">{title}</span>
-			</header>
-			<div className="group-body">{children}</div>
-		</section>
-	);
-}
-
 function RowList({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="row-list">
@@ -679,7 +668,6 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		machines: {
 			title: "電腦",
 			body: () => (
-				<Group title="電腦">
 					<HostsGroup
 						hosts={pairedHosts(settings)}
 						computer={settings.computer}
@@ -692,7 +680,6 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 							}))
 						}
 					/>
-				</Group>
 			),
 		},
 		phone: {

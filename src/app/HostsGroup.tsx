@@ -1,10 +1,13 @@
-import { Row } from "./Row.tsx";
 import { useEffect, useState } from "react";
 import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, stillPaired, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../plugins/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
-import { ShareIcon } from "./icons.tsx";
+import { ShareIcon, TerminalIcon } from "./icons.tsx";
+import { ChoiceRow } from "./ChoiceRow.tsx";
+import { Sheet } from "./Sheet.tsx";
+
+const MANUAL = "manual";
 
 const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
 
@@ -93,17 +96,33 @@ function useUnpaired(host: PairedHost): boolean {
 	return unpaired;
 }
 
-function HostRow({ host, busy, onPair, onRemove }: { host: PairedHost; busy: boolean; onPair: (code: string) => void; onRemove: () => void }) {
-	const unpaired = useUnpaired(host);
+function HostSheet({ host, busy, onPair, onRemove, onClose }: { host: PairedHost | undefined; busy: boolean; onPair: (code: string) => void; onRemove: () => void; onClose: () => void }) {
 	return (
-		<div className="machine">
-			<Row label={host.name} hint={`${osName(host.os)} · ${host.user}`}>
-				<button type="button" className="btn" onClick={onRemove}>
-					移除
-				</button>
-			</Row>
-			{host.key && !unpaired ? null : <PairRow label="配對" primary busy={busy} onPair={onPair} />}
-		</div>
+		<Sheet open={host !== undefined} title={host?.name ?? ""} onClose={onClose}>
+			{host ? (
+				<div className="sheet-form">
+					<PairRow label="重新配對" primary busy={busy} onPair={onPair} />
+					<button type="button" className="danger-verb" onClick={onRemove}>
+						移除
+					</button>
+				</div>
+			) : null}
+		</Sheet>
+	);
+}
+
+function HostRow({ host, onOpen }: { host: PairedHost; onOpen: () => void }) {
+	const unpaired = useUnpaired(host);
+	const paired = Boolean(host.key) && !unpaired;
+	return (
+		<button type="button" onClick={onOpen}>
+			<TerminalIcon size={18} />
+			<span className="menu-text">
+				{host.name}
+				<span className="index-status">{paired ? `${osName(host.os)} · ${host.user}` : "要重新配對"}</span>
+			</span>
+			<i className={`row-dot${paired ? "" : " off"}`} />
+		</button>
 	);
 }
 
@@ -116,25 +135,26 @@ function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; c
 		void prepare(host).then((ready) => ready && onChoose(key));
 	};
 	return (
-		<div className="machine">
-			<label className="check-row">
-				<span className="menu-text">預設</span>
-				<select className="field" value={computer} aria-label="預設" disabled={preparing.state === "running"} onChange={(event) => choose(event.target.value)}>
-					<option value="">手機</option>
-					{hosts.map((host) => [
-						<option key={computerKey(host.id, "direct")} value={computerKey(host.id, "direct")}>
-							{host.name} · 直接
-						</option>,
-						host.engine ? (
-							<option key={computerKey(host.id, "container")} value={computerKey(host.id, "container")}>
-								{host.name} · 容器
-							</option>
-						) : null,
-					])}
-				</select>
-			</label>
-			<PrepareStatus preparing={preparing} />
-		</div>
+		<section className="row-list">
+			<h3 className="list-label">新 Bot 在哪裡跑</h3>
+			<ChoiceRow
+				label="預設"
+				value={computer}
+				choices={[
+					{ value: "", label: "手機" },
+					...hosts.flatMap((host) => [
+						{ value: computerKey(host.id, "direct"), label: `${host.name} · 直接` },
+						...(host.engine ? [{ value: computerKey(host.id, "container"), label: `${host.name} · 容器` }] : []),
+					]),
+				]}
+				onChoose={choose}
+			/>
+			{preparing.state === "idle" ? null : (
+				<p className="row-empty">
+					<PrepareStatus preparing={preparing} />
+				</p>
+			)}
+		</section>
 	);
 }
 
@@ -170,6 +190,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 	const [address, setAddress] = useState("");
 	const [code, setCode] = useState("");
 	const [adding, setAdding] = useState<Adding>({ state: "idle" });
+	const [open, setOpen] = useState<string>();
 	const add = (name: string, pairingCode: string) => {
 		setAdding({ state: "checking" });
 		void (async () => {
@@ -186,67 +207,38 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 	};
 	const ready = found?.filter((item) => item.installed) ?? [];
 	const missing = found?.filter((item) => !item.installed) ?? [];
-	const manual = (
-		<div className="machine-add">
-			<label>
-				<span>電腦名稱</span>
-				<input
-					value={address}
-					onChange={(event) => {
-						setAddress(event.target.value);
-						setAdding({ state: "idle" });
-					}}
-					placeholder="Tailscale 裡的名稱"
-					autoCapitalize="off"
-					autoComplete="off"
-					enterKeyHint="next"
-				/>
-			</label>
-			<label>
-				<span>配對碼</span>
-				<CodeField
-					value={code}
-					onChange={(next) => {
-						setCode(next);
-						setAdding({ state: "idle" });
-					}}
-					onEnter={() => address.trim() && add(address.trim(), code)}
-				/>
-			</label>
-			<div className="row-buttons">
-				<button type="button" className="btn primary" disabled={!address.trim() || code.length !== 6 || adding.state === "checking"} onClick={() => add(address.trim(), code)}>
-					{adding.state === "checking" ? "連線中…" : "加入"}
-				</button>
-			</div>
-		</div>
-	);
+	const busy = adding.state === "checking";
+	const opened = hosts.find((host) => host.id === open);
+	const joining = ready.find((item) => item.peer.dnsName === open);
 	return (
 		<>
-			{hosts.map((host) => (
-				<HostRow
-					key={host.id}
-					host={host}
-					busy={adding.state === "checking"}
-					onPair={(pairingCode) => add(host.address, pairingCode)}
-					onRemove={() => {
-						onChange(
-							hosts.filter((item) => item.id !== host.id),
-							parseComputerKey(computer)?.hostId === host.id ? "" : computer,
-						);
-						if (host.key) void unpairHost(host).catch((error: unknown) => setAdding({ state: "error", detail: `已從手機移除，但電腦上的配對還在：${messageOf(error)}` }));
-					}}
-				/>
-			))}
+			<section className="row-list">
+				<h3 className="list-label">電腦</h3>
+				{hosts.map((host) => (
+					<HostRow key={host.id} host={host} onOpen={() => setOpen(host.id)} />
+				))}
+				<button type="button" className="row-add" onClick={() => setOpen(MANUAL)}>
+					＋ 手動加入
+				</button>
+				{adding.state === "error" ? <p className="row-empty error">{adding.detail}</p> : null}
+			</section>
+			{ready.length > 0 ? (
+				<section className="row-list">
+					<h3 className="list-label">Tailscale 上找到</h3>
+					{ready.map(({ peer }) => (
+						<button type="button" key={peer.dnsName} onClick={() => setOpen(peer.dnsName)}>
+							<TerminalIcon size={18} />
+							<span className="menu-text">
+								{peer.name}
+								<span className="index-status">{osName(peer.os)}</span>
+							</span>
+							<span className="row-value">加入</span>
+						</button>
+					))}
+				</section>
+			) : null}
 			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}
-			{ready.map(({ peer }) => (
-				<div className="machine" key={peer.dnsName}>
-					<Row label={peer.name} hint={osName(peer.os)} />
-					<PairRow label="加入" primary={false} busy={adding.state === "checking"} onPair={(pairingCode) => add(peer.dnsName, pairingCode)} />
-				</div>
-			))}
-			{hosts.length === 0 ? manual : null}
-			{adding.state === "error" ? <span className="check-error machine-error">{adding.detail}</span> : null}
-			{missing.length > 0 || hosts.length === 0 ? (
+			{hosts.length === 0 ? (
 				<div className="pair-steps">
 					<p>{missing.length > 0 ? `還沒裝 pi-mobile：${missing.map((item) => item.peer.name).join("、")}。` : null}在電腦的終端機執行：</p>
 					<div className="copyable">
@@ -265,12 +257,63 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 					</div>
 				</div>
 			) : null}
-			{hosts.length > 0 ? (
-				<details className="manual">
-					<summary>手動輸入</summary>
-					{manual}
-				</details>
-			) : null}
+			<HostSheet
+				host={opened}
+				busy={busy}
+				onClose={() => setOpen(undefined)}
+				onPair={(pairingCode) => opened && add(opened.address, pairingCode)}
+				onRemove={() => {
+					if (!opened) return;
+					setOpen(undefined);
+					onChange(
+						hosts.filter((item) => item.id !== opened.id),
+						parseComputerKey(computer)?.hostId === opened.id ? "" : computer,
+					);
+					if (opened.key) void unpairHost(opened).catch((error: unknown) => setAdding({ state: "error", detail: `已從手機移除，但電腦上的配對還在：${messageOf(error)}` }));
+				}}
+			/>
+			<Sheet open={joining !== undefined} title={joining?.peer.name ?? ""} onClose={() => setOpen(undefined)}>
+				{joining ? (
+					<div className="sheet-form">
+						<PairRow label="加入" primary busy={busy} onPair={(pairingCode) => add(joining.peer.dnsName, pairingCode)} />
+					</div>
+				) : null}
+			</Sheet>
+			<Sheet open={open === MANUAL} title="手動加入" onClose={() => setOpen(undefined)}>
+				<div className="sheet-form">
+					<label>
+						<span>電腦名稱</span>
+						<input
+							value={address}
+							onChange={(event) => {
+								setAddress(event.target.value);
+								setAdding({ state: "idle" });
+							}}
+							placeholder="Tailscale 裡的名稱"
+							autoCapitalize="off"
+							autoComplete="off"
+							enterKeyHint="next"
+						/>
+					</label>
+					<label>
+						<span>配對碼</span>
+						<CodeField
+							value={code}
+							onChange={(next) => {
+								setCode(next);
+								setAdding({ state: "idle" });
+							}}
+							onEnter={() => address.trim() && add(address.trim(), code)}
+						/>
+					</label>
+					<div className="row-buttons">
+						<button type="button" className="btn primary" disabled={!address.trim() || code.length !== 6 || busy} onClick={() => add(address.trim(), code)}>
+							{busy ? "連線中…" : "加入"}
+						</button>
+					</div>
+					{adding.state === "error" ? <p className="row-empty error">{adding.detail}</p> : null}
+				</div>
+			</Sheet>
 		</>
 	);
 }
