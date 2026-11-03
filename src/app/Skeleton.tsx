@@ -17,13 +17,15 @@ export function TranscriptSkeleton() {
 export function Skeleton() {
 	return (
 		<div className="app skeleton" aria-busy="true" aria-label="pi 啟動中">
-			<div className="bar">
-				<span className="skeleton-mark">
-					<PiMark size={18} live />
-				</span>
-				<span className="skeleton-title">
-					<i />
-					<i />
+			<div className="bar chat-bar">
+				<span className="bar-pill bar-who">
+					<span className="skeleton-mark">
+						<PiMark size={18} live />
+					</span>
+					<span className="skeleton-title">
+						<i />
+						<i />
+					</span>
 				</span>
 			</div>
 			<TranscriptSkeleton />

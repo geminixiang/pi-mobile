@@ -9,7 +9,7 @@ CDP_PORT=$PORT ./test/device/ui.sh "async () => {
 	await until(() => rt, 40000);
 	await sleep(1500);
 	const open = async (name) => {
-		document.querySelector('.brand-button').click();
+		click('Bot 列表');
 		await sleep(600);
 		[...document.querySelectorAll('.drawer-open')].find((b) => b.textContent.includes(name)).click();
 		await sleep(1500);

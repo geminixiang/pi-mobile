@@ -13,7 +13,7 @@ steps=$(CDP_PORT=$PORT ./test/device/ui.sh 'async () => {
 	await rt.createBot({ name, job: "", avatar: "coder" });
 	const id = (await rt.bots()).find((bot) => bot.name === name).id;
 	for (const set of await rt.toolsets(id)) if (set.kind === "builtin" && !["apps", "phone_as_user"].some((ext) => set.extensions.includes(ext))) await rt.setToolset(id, set.id, false);
-	document.querySelector(".brand-button").click(); await sleep(600);
+	click("Bot 列表"); await sleep(600);
 	[...document.querySelectorAll(".drawer-open")].find((button) => button.textContent.includes(name)).click(); await sleep(1500);
 	type("先打開設定看這支手機的 Android 版本，再用地圖查台北車站到台北 101 怎麼走"); await sleep(200); click("送出");
 	await until(() => busy(), 20000); await until(() => !busy(), 600000); await sleep(800);

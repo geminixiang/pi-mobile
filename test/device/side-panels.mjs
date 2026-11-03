@@ -3,7 +3,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const port = process.env.CDP_PORT ?? "9333";
 const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-const page = targets.find((target) => target.type === "page");
+const page = targets.find((target) => target.type === "page" && URL.canParse(target.url) && new URL(target.url).hostname === "localhost");
 if (!page) throw new Error("No WebView page target");
 const socket = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });

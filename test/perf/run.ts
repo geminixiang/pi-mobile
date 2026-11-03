@@ -69,8 +69,8 @@ class Page {
 	}
 
 	static async connect(): Promise<Page> {
-		const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
-		const target = targets.find((candidate) => candidate.type === "page");
+		const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; url: string; webSocketDebuggerUrl: string }[];
+		const target = targets.find((candidate) => candidate.type === "page" && URL.canParse(candidate.url) && new URL(candidate.url).hostname === "localhost");
 		if (!target) throw new Error(`No WebView page on tcp:${port}; run .pi/skills/device-testing/scripts/forward.sh`);
 		const socket = new WebSocket(target.webSocketDebuggerUrl);
 		await new Promise((resolve, reject) => {

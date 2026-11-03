@@ -13,7 +13,7 @@ import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { AzureMark, ChevronDownIcon, CloudflareMark, FolderIcon, GitHubMark, GlobeIcon, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
+import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GlobeIcon, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -363,36 +363,40 @@ export function App() {
 			data-thinking={thinking || "off"}
 			className="app"
 		>
-			<header ref={header} className="bar">
-				<button type="button" className="icon-button brand-button" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
-					<PiMark size={18} live={busy} />
-				</button>
-				<button type="button" className="bar-center" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
-					<span className="bar-title">
-						{current ? <BotAvatar bot={current} size={18} /> : null}
-						{current?.name ?? ""}
-					</span>
-					<span className="bar-model">
-						{shortModelName(model?.name ?? modelId)}
-						{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
-						<ChevronDownIcon />
-					</span>
-				</button>
-				{currentBot && native.has("Browser") ? (
-					<button type="button" className="icon-button" aria-label="瀏覽器" onClick={() => setBrowserOpen((count) => count + 1)}>
-						<GlobeIcon />
+			<header ref={header} className="bar chat-bar">
+				<div className="bar-pill bar-who">
+					<button type="button" className="bar-avatar" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
+						{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
 					</button>
-				) : null}
-				{hasFolder ? (
-					<button type="button" className="icon-button" aria-label="資料夾" onClick={() => openWorkspace({ tab: "files" })}>
-						<FolderIcon />
+					<button type="button" className="bar-what" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
+						<span className="bar-title">
+							{current?.name ?? ""}
+							{busy ? <i className="bar-cursor" /> : null}
+						</span>
+						<span className="bar-model">
+							{shortModelName(model?.name ?? modelId)}
+							{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
+						</span>
 					</button>
-				) : null}
-				<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => setOverlay("panel")}>
-					<MoreIcon />
-				</button>
-				<div className="meter" aria-hidden="true">
-					<i style={{ "--fill": contextPercent(used, contextWindow) / 100 }} />
+					<svg className="bar-context" viewBox="0 0 22 22" aria-hidden="true">
+						<circle cx="11" cy="11" r="8.5" />
+						<circle className="used" cx="11" cy="11" r="8.5" pathLength={1} style={{ "--fill": contextPercent(used, contextWindow) / 100 }} />
+					</svg>
+				</div>
+				<div className="bar-pill bar-tools">
+					{currentBot && native.has("Browser") ? (
+						<button type="button" className="icon-button" aria-label="瀏覽器" onClick={() => setBrowserOpen((count) => count + 1)}>
+							<GlobeIcon />
+						</button>
+					) : null}
+					{hasFolder ? (
+						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => openWorkspace({ tab: "files" })}>
+							<FolderIcon />
+						</button>
+					) : null}
+					<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => setOverlay("panel")}>
+						<MoreIcon />
+					</button>
 				</div>
 			</header>
 

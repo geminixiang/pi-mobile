@@ -93,8 +93,9 @@ compositor without repainting the element or laying out the page. Everything els
 - No `filter` in an animation, blur included.
 - No `backdrop-filter` (Stylelint refuses it). The bar and the composer were frosted glass over the transcript;
   the blur was recomputed on the GPU every frame the text under them moved. Without it, streaming while scrolling
-  on the S24 missed 12% of frames instead of 19%. Overlays are opaque: mix a tint into `--bg`, not into
-  `transparent`. The bar and the composer fade the text out instead: a static gradient from `--bg` to
+  on the S24 missed 12% of frames instead of 19%; glass pills tried again in the chat header cost the same
+  (18.5% at 16px, 19.8% at 6px), so the pills are a translucent tint without blur (14.2%). Overlays that cover
+  the page are opaque: mix a tint into `--bg`, not into `transparent`. The bar and the composer fade the text out instead: a static gradient from `--bg` to
   transparent, `--edge-fade` deep, which the GPU only blends; measured on the S24, it costs no frames.
 - A one-off highlight (the dial's jump flash) may animate `box-shadow` or a color; a tint is an inset shadow
   (`inset 0 0 0 999px rgb(255 255 255 / 0.1)`), not `filter: brightness()`.
