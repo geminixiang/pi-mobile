@@ -3,11 +3,19 @@ import { Network as NetworkPlugin } from "@capacitor/network";
 import type { Api, AssistantMessageEvent, AssistantMessageEventStream, Model, Provider } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { log } from "../log.ts";
+import { native } from "../native.ts";
+import { System } from "../plugins/system.ts";
 import { orLogged } from "../promise.ts";
 
 export interface Network {
 	current(): number | undefined;
 	onChange(listener: () => void): () => void;
+}
+
+const CONNECTION_LOST = "connection lost";
+
+export function isConnectionLost(error: string | undefined): boolean {
+	return error?.startsWith(CONNECTION_LOST) ?? false;
 }
 
 interface Patience {
@@ -46,16 +54,20 @@ function watchDevice(): Network {
 		});
 	}
 	if (Capacitor.isPluginAvailable("Network")) {
+		const read = (): Promise<{ connected: boolean; via: string }> =>
+			native.implements(System.network)
+				? System.network().then((status) => ({ connected: status.via !== "none", via: status.via }))
+				: NetworkPlugin.getStatus().then((status) => ({ connected: status.connected, via: status.connectionType }));
 		void orLogged(
-			NetworkPlugin.getStatus().then((status) => {
-				via = status.connectionType;
+			read().then((status) => {
+				via = status.via;
 				if (!status.connected) current = undefined;
 			}),
 			"network.status_failed",
 			undefined,
 		);
 		void orLogged(
-			NetworkPlugin.addListener("networkStatusChange", (status) => update(status.connected, status.connectionType)),
+			NetworkPlugin.addListener("networkStatusChange", () => void orLogged(read().then((status) => update(status.connected, status.via)), "network.status_failed", undefined)),
 			"network.listen_failed",
 			undefined,
 		);
@@ -109,7 +121,7 @@ function onOneNetwork(network: Network, { quietMs, afterSwitchMs }: Patience, st
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const check = () => {
 			const left = deadline - Date.now();
-			if (left <= 0) return lose(`connection lost: ${quiet}`);
+			if (left <= 0) return lose(`${CONNECTION_LOST}: ${quiet}`);
 			timer = setTimeout(check, left);
 		};
 		const expectWithin = (ms: number, why: string) => {
@@ -121,7 +133,7 @@ function onOneNetwork(network: Network, { quietMs, afterSwitchMs }: Patience, st
 		const unwatch = network.onChange(() => {
 			const now = network.current();
 			if (now === on) return;
-			if (now === undefined) return lose("connection lost: the network went away");
+			if (now === undefined) return lose(`${CONNECTION_LOST}: the network went away`);
 			on = now;
 			if (deadline - Date.now() > afterSwitchMs) expectWithin(afterSwitchMs, `no data for ${afterSwitchMs / 1000} s after the network changed`);
 		});

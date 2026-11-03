@@ -3914,6 +3914,29 @@
 				},
 				"result": null
 			},
+			"network": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"via": {
+							"enum": [
+								"wifi",
+								"cellular",
+								"other",
+								"none"
+							],
+							"type": "string"
+						}
+					},
+					"required": [
+						"via"
+					],
+					"type": "object"
+				}
+			},
 			"clipboardText": {
 				"args": {
 					"properties": {},

@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
@@ -49,6 +51,28 @@ class SystemPlugin : Plugin() {
             }
         activity.runOnUiThread { bridge.webView.performHapticFeedback(constant) }
         call.resolve()
+    }
+
+    @PluginMethod
+    fun network(call: PluginCall) {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        val usable =
+            connectivity.allNetworks
+                .mapNotNull { connectivity.getNetworkCapabilities(it) }
+                .filter {
+                    !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                        it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                        it.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                }
+        val via =
+            when {
+                usable.any { it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } -> "wifi"
+                usable.any { it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } -> "cellular"
+                usable.isNotEmpty() -> "other"
+                else -> "none"
+            }
+        call.resolve(JSObject().put("via", via))
     }
 
     @PluginMethod
