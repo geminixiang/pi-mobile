@@ -55,6 +55,15 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 	);
 }
 
+function RowList({ title, children }: { title: string; children: ReactNode }) {
+	return (
+		<section className="row-list">
+			<h3 className="list-label">{title}</h3>
+			{children}
+		</section>
+	);
+}
+
 function SignedIn({ label, onRemove }: { label: string; onRemove: () => void }) {
 	return (
 		<Row label={label}>
@@ -68,6 +77,7 @@ function SignedIn({ label, onRemove }: { label: string; onRemove: () => void }) 
 function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
 	const [calendars, setCalendars] = useState<PhoneCalendar[]>();
 	const [error, setError] = useState("");
+	const [showHidden, setShowHidden] = useState(false);
 	const load = () =>
 		Calendar.listAccounts().then(
 			({ calendars }) => setCalendars(calendars),
@@ -103,73 +113,70 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 
 	const accountRow = (group: { key: string; label: string; calendars: PhoneCalendar[] }) => {
 		const readable = !access.hidden.includes(group.key);
-		const writable = group.calendars.some((calendar) => calendar.writable);
 		return (
-			<Row
+			<ChoiceRow<Use>
 				key={group.key}
 				label={group.label}
 				hint={group.calendars.some((calendar) => !group.label.startsWith(calendar.name)) ? group.calendars.map((calendar) => calendar.name).join("、") : undefined}
-			>
-				<Segmented<Use>
-					label={`${group.label} 的權限`}
-					inline
-					value={!readable ? "off" : access.writable.includes(group.key) ? "write" : "read"}
-					options={[
-						{ value: "off", label: "不用" },
-						{ value: "read", label: "只讀" },
-						{ value: "write", label: "讀寫", disabled: !writable },
-					]}
-					onChange={(use) => choose(group, use)}
-				/>
-			</Row>
+				value={!readable ? "off" : access.writable.includes(group.key) ? "write" : "read"}
+				choices={[
+					{ value: "off", label: "不用" },
+					{ value: "read", label: "只讀" },
+					{ value: "write", label: "讀寫", disabled: !group.calendars.some((calendar) => calendar.writable) },
+				]}
+				onChoose={(use) => choose(group, use)}
+			/>
 		);
 	};
 
 	return (
-		<Group title="行事曆">
+		<RowList title="行事曆">
 			{calendars === undefined ? (
-				<div className="check">
-					<button type="button" className="btn" onClick={() => void load()}>
+				<button type="button" onClick={() => void load()}>
+					<span className="menu-text">
 						讀取帳號清單
-					</button>
-					{error ? <span className="check-error">{error}</span> : null}
-				</div>
+						{error ? <span className="index-status error">{error}</span> : null}
+					</span>
+				</button>
 			) : (
 				<>
 					{groups.filter((group) => !access.hidden.includes(group.key)).map(accountRow)}
-					{hiddenGroups.length > 0 ? (
-						<details className="manual more-rows">
-							<summary>其他 {hiddenGroups.length} 個帳號</summary>
-							{hiddenGroups.map(accountRow)}
-						</details>
+					{hiddenGroups.length > 0 && !showHidden ? (
+						<button type="button" onClick={() => setShowHidden(true)}>
+							<span className="menu-text">其他 {hiddenGroups.length} 個帳號</span>
+							<span className="row-value">不用</span>
+						</button>
 					) : null}
+					{showHidden ? hiddenGroups.map(accountRow) : null}
 					{sharedCount > 0 ? (
-						<Row label="分享的行事曆" hint={`${sharedCount} 個，只能讀`}>
-							<input type="checkbox" className="switch" aria-label="讀取分享的行事曆" checked={access.shared} onChange={(event) => onChange({ ...access, shared: event.target.checked })} />
-						</Row>
+						<ChoiceRow
+							label={`${sharedCount} 個分享的行事曆`}
+							value={access.shared ? "read" : "off"}
+							choices={[
+								{ value: "off", label: "不用" },
+								{ value: "read", label: "只讀" },
+							]}
+							onChoose={(use) => onChange({ ...access, shared: use === "read" })}
+						/>
 					) : null}
 					{writableTargets.length > 0 ? (
-						<label>
-							<span>預設寫入</span>
-							<select
-								className="field"
-								value={access.defaultCalendar ?? ""}
-								onChange={(event) =>
-									onChange({ ...access, defaultCalendar: event.target.value ? Number(event.target.value) : undefined })
-								}
-							>
-								<option value="">每次問我</option>
-								{writableTargets.map((calendar) => (
-									<option key={calendar.id} value={calendar.id}>
-										{calendar.name === calendar.account ? calendar.account : `${calendar.name} · ${calendar.account}`}
-									</option>
-								))}
-							</select>
-						</label>
+						<ChoiceRow
+							label="新行程寫到"
+							value={String(access.defaultCalendar ?? "")}
+							shown={writableTargets.find((calendar) => calendar.id === access.defaultCalendar)?.name}
+							choices={[
+								{ value: "", label: "每次問我" },
+								...writableTargets.map((calendar) => ({
+									value: String(calendar.id),
+									label: calendar.name === calendar.account ? calendar.account : `${calendar.name} · ${calendar.account}`,
+								})),
+							]}
+							onChoose={(id) => onChange({ ...access, defaultCalendar: id ? Number(id) : undefined })}
+						/>
 					) : null}
 				</>
 			)}
-		</Group>
+		</RowList>
 	);
 }
 
@@ -252,6 +259,18 @@ function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): void {
 	}, []);
 }
 
+function StateRow({ label, hint, on, onClick }: { label: string; hint?: string; on: boolean; onClick: () => void }) {
+	return (
+		<button type="button" onClick={onClick}>
+			<span className="menu-text">
+				{label}
+				{hint ? <span className="index-status">{hint}</span> : null}
+			</span>
+			<i className={`row-dot${on ? "" : " off"}`} aria-label={on ? "已開啟" : "未開啟"} />
+		</button>
+	);
+}
+
 function SystemAccessGroup() {
 	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
 	useRefreshOnResume("Usage", () =>
@@ -260,21 +279,19 @@ function SystemAccessGroup() {
 		),
 	);
 	if (!state) return null;
-	const row = (label: string, hint: string | undefined, on: boolean, open: () => Promise<void>) => (
-		<Row label={label} hint={hint}>
-			<button type="button" className="btn" onClick={() => void open()}>
-				{on ? "管理" : "開啟"}
-			</button>
-		</Row>
-	);
 	return (
-		<Group title="系統權限">
-			{row("螢幕使用時間", state.usage ? undefined : "讓 Bot 看每個 app 用了多久", state.usage, () => Usage.openSettings())}
-			{state.settings === undefined
-				? null
-				: row("修改系統設定", state.settings ? undefined : "讓 Bot 調螢幕亮度、自動旋轉、螢幕關閉時間", state.settings, () => PhoneState.openWriteSettings())}
-			{row("數位助理", state.assistant ? "長按側邊鍵叫出 pi，帶著目前的畫面" : "設成數位助理，就能在任何畫面叫出 pi", state.assistant, () => System.openAssistantSettings())}
-		</Group>
+		<RowList title="系統權限">
+			<StateRow label="螢幕使用時間" hint={state.usage ? undefined : "讓 Bot 看每個 app 用了多久"} on={state.usage} onClick={() => void Usage.openSettings()} />
+			{state.settings === undefined ? null : (
+				<StateRow label="修改系統設定" hint={state.settings ? undefined : "讓 Bot 調亮度、自動旋轉、螢幕關閉時間"} on={state.settings} onClick={() => void PhoneState.openWriteSettings()} />
+			)}
+			<StateRow
+				label="數位助理"
+				hint={state.assistant ? "長按側邊鍵叫出 pi，帶著目前的畫面" : "設成數位助理，就能在任何畫面叫出 pi"}
+				on={state.assistant}
+				onClick={() => void System.openAssistantSettings()}
+			/>
+		</RowList>
 	);
 }
 
@@ -282,49 +299,31 @@ function BackgroundGroup() {
 	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery?: boolean }>();
 	useRefreshOnResume("KeepAlive", () => void KeepAlive.status().then(setStatus));
 	if (!status) return null;
-	const row = (label: string, on: boolean, fix: () => void) => (
-		<Row label={label}>
-			{on ? (
-				<span className="state">已開啟</span>
-			) : (
-				<button type="button" className="btn" onClick={fix}>
-					開啟
-				</button>
-			)}
-		</Row>
-	);
 	return (
-		<Group title="背景執行">
-			{row("通知", status.notifications, () =>
-				void KeepAlive.requestNotifications().then(() => KeepAlive.status().then(setStatus)),
+		<RowList title="背景執行">
+			<StateRow label="通知" on={status.notifications} onClick={() => void KeepAlive.requestNotifications().then(() => KeepAlive.status().then(setStatus))} />
+			{status.unrestrictedBattery === undefined ? null : (
+				<StateRow label="不受電池最佳化限制" on={status.unrestrictedBattery} onClick={() => void KeepAlive.requestUnrestrictedBattery()} />
 			)}
-			{status.unrestrictedBattery === undefined
-				? null
-				: row("不受電池最佳化限制", status.unrestrictedBattery, () => void KeepAlive.requestUnrestrictedBattery())}
-		</Group>
+		</RowList>
 	);
 }
 
-function NotificationsGroup() {
-	const [allowed, setAllowed] = useState<boolean>();
-	const [cleared, showCleared] = useBriefly();
-	useRefreshOnResume("Notifications", () => void Notifications.status().then((status) => setAllowed(status.allowed)));
+function NotificationsGroup({ allowed }: { allowed: boolean | undefined }) {
 	if (allowed === undefined) return null;
 	return (
-		<Group title="通知讀取">
-			<Row label="通知存取權" hint={allowed ? "保留 30 天" : undefined}>
-				<button type="button" className="btn" onClick={() => void Notifications.openSettings()}>
-					{allowed ? "管理" : "開啟"}
-				</button>
-			</Row>
-			{allowed ? (
-				<Row label="清除記錄">
-					<button type="button" className="btn" disabled={Boolean(cleared)} onClick={() => void Notifications.clear().then(() => showCleared("已清除"))}>
-						{cleared ?? "清除"}
-					</button>
-				</Row>
-			) : null}
-		</Group>
+		<RowList title="通知">
+			<StateRow label="讀取通知" hint={allowed ? "保留 30 天" : "讓 Bot 看到收到的通知"} on={allowed} onClick={() => void Notifications.openSettings()} />
+		</RowList>
+	);
+}
+
+function ClearNotifications() {
+	const [cleared, showCleared] = useBriefly();
+	return (
+		<button type="button" className="danger-verb" disabled={Boolean(cleared)} onClick={() => void Notifications.clear().then(() => showCleared("已清除"))}>
+			{cleared ?? "清除通知紀錄"}
+		</button>
 	);
 }
 
@@ -333,18 +332,29 @@ function PhoneScreenGroup() {
 	useRefreshOnResume("PhoneScreen", () => void PhoneScreen.status().then((status) => setAllowed(status.allowed)));
 	if (allowed === undefined) return null;
 	return (
-		<Group title="代你操作 App">
-			<Row label="無障礙服務" hint={allowed ? undefined : "開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定"}>
-				{allowed ? null : (
-					<button type="button" className="btn" onClick={() => void PhoneScreen.openAppInfo()}>
-						App 資訊
-					</button>
-				)}
-				<button type="button" className="btn" onClick={() => void PhoneScreen.openSettings()}>
-					{allowed ? "管理" : "開啟"}
+		<RowList title="代你操作 App">
+			<StateRow label="無障礙服務" hint={allowed ? "背景時也能開 App" : "開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定"} on={allowed} onClick={() => void PhoneScreen.openSettings()} />
+			{allowed ? null : (
+				<button type="button" className="row-add" onClick={() => void PhoneScreen.openAppInfo()}>
+					打開 App 資訊
 				</button>
-			</Row>
-		</Group>
+			)}
+		</RowList>
+	);
+}
+
+function PhonePage({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
+	const [notifications, setNotifications] = useState<boolean>();
+	useRefreshOnResume("Notifications", () => void Notifications.status().then((status) => setNotifications(status.allowed)));
+	return (
+		<>
+			<CalendarGroup access={access} onChange={onChange} />
+			<NotificationsGroup allowed={notifications} />
+			<PhoneScreenGroup />
+			<SystemAccessGroup />
+			<BackgroundGroup />
+			{notifications ? <ClearNotifications /> : null}
+		</>
 	);
 }
 
@@ -455,8 +465,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	return (
 		<nav className="settings-index">
 			{groups.map((group) => (
-				<section key={group.label} className="row-list">
-					<h3 className="list-label">{group.label}</h3>
+				<RowList key={group.label} title={group.label}>
 					{group.rows.map((row) => (
 						<button type="button" key={row.page} onClick={() => onOpen(row.page)}>
 							{row.icon}
@@ -475,7 +484,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 							) : null}
 						</button>
 					))}
-				</section>
+				</RowList>
 			))}
 		</nav>
 	);
@@ -656,13 +665,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		phone: {
 			title: "手機",
 			body: () => (
-				<>
-					<CalendarGroup access={settings.calendarAccess} onChange={(calendarAccess) => change({ calendarAccess })} />
-					<NotificationsGroup />
-					<PhoneScreenGroup />
-					<SystemAccessGroup />
-					<BackgroundGroup />
-				</>
+				<PhonePage access={settings.calendarAccess} onChange={(calendarAccess) => change({ calendarAccess })} />
 			),
 		},
 		schedules: { title: "自動化", body: () => (runtime ? <TriggersGroup runtime={runtime} /> : null) },
