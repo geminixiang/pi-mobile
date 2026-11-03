@@ -71,6 +71,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |
 | A JSX `style` sets only `--custom-properties`; a `transition` never names a layout property | `test/code-rules.ts`, Stylelint (`stylelint/transition-no-layout.js`) |
 | No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`) | Stylelint (`selector-pseudo-class-disallowed-list`) |
+| Font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`declaration-property-value-allowed-list`) |
 | New Android files are Kotlin; the Java files left only shrink (`JAVA_LEFT`) | `test/code-rules.ts` |
 | A renamed extension keeps each bot's choices: a shipped name that disappears must be in `RENAMED`, and opening the runtime applies it | `test/tools-node.ts` (`test/extensions.snapshot.json`), `test/contracts/bots.ts`, `test/toolsets.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `offeredAt`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |

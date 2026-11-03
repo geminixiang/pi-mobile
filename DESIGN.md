@@ -200,6 +200,7 @@ pi 是一個住在口袋裡的 agent，畫面要像一張安靜的製圖紙：�
 - **Brand**：Instrument Serif 斜體，只用在品牌字樣「pi mobile」。
 - **Sans（system-ui、Noto Sans TC）**：名稱、說明、對話內容。
 - **Mono（Commit Mono）**：時間、數字、小標、按鈕和行內的動詞（登入、重試、壓縮、＋ 新增）。mono 讀起來像標註，所以它是次要的聲音。時間要對齊時，一律用 mono。
+- **字重只有 400 和 700**：Android 的中文字型沒有 500、600，寫了會退回 400，只有英文數字變粗；要粗就用 700（Stylelint 擋下其他值）。
 
 ## Layout
 
