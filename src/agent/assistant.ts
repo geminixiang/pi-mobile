@@ -1,5 +1,6 @@
 import { defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
+import { type ContextShape, shapeOf } from "./context-shape.ts";
 import { localTime, pad } from "./tools/common.ts";
 
 function utcOffset(): string {
@@ -8,19 +9,21 @@ function utcOffset(): string {
 	return `${sign}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
 }
 
-export function createAssistant(inApp: boolean) {
+export function createAssistant(inApp: boolean, measured: (conversationId: string, shape: ContextShape) => void) {
 	return defineExtension({
 		name: "assistant",
 		hooks: [
 			hook(GenerationTask, {
-				beforeRequest: ({ messages }) => ({
-					messages: messages.map((message) => {
+				beforeRequest: ({ messages }, api) => {
+					const stamped = messages.map((message) => {
 						if (message.role !== "user") return message;
 						const sent = `[${new Date(message.timestamp).toLocaleDateString("en-US", { weekday: "short" })} ${localTime(message.timestamp)}]`;
 						const typed = typeof message.content === "string" ? [{ type: "text" as const, text: message.content }] : message.content;
-						return { ...message, content: [{ type: "text", text: sent }, ...typed] };
-					}),
-				}),
+						return { ...message, content: [{ type: "text" as const, text: sent }, ...typed] };
+					});
+					measured(String(api.conversationId), shapeOf(stamped));
+					return { messages: stamped };
+				},
 			}),
 		],
 		sections: [

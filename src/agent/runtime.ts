@@ -16,6 +16,7 @@ import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
+import type { ContextShape, ToolCost } from "./context-shape.ts";
 import { pairedHosts } from "./sandbox/host.ts";
 import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "./attachments.ts";
@@ -62,7 +63,6 @@ function labelOf(extension: string, mcp: McpHub): string {
 	return TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.label ?? extension;
 }
 
-type ToolCost = Record<string, { offered: number; deferred: number; tools: string[] }>;
 
 const APPLY: Record<keyof Settings, "in_place" | "restart"> = {
 	providers: "restart",
@@ -94,6 +94,7 @@ export class AgentRuntime {
 	#settings: Settings;
 	readonly workplaces: Workplaces;
 	readonly #placed: Map<string, Placed>;
+	readonly #shapes: Map<string, ContextShape>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	#memoryListeners = new Set<() => void>();
 	readonly #installed: () => ReadonlySet<string>;
@@ -110,6 +111,7 @@ export class AgentRuntime {
 		loaded: Loaded,
 		workplaces: Workplaces,
 		placed: Map<string, Placed>,
+		shapes: Map<string, ContextShape>,
 		installed: () => ReadonlySet<string>,
 		unsupported: ReadonlySet<string>,
 		mcp: McpHub,
@@ -124,6 +126,7 @@ export class AgentRuntime {
 		this.#loaded = loaded;
 		this.workplaces = workplaces;
 		this.#placed = placed;
+		this.#shapes = shapes;
 		this.triggers = new TriggerRuns(
 			harness,
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, name: bot.name, avatar: avatarOf(bot) })),
@@ -195,13 +198,14 @@ export class AgentRuntime {
 				return (await options.notify?.(title, text, conversationId, bot && { name: bot.name, avatar: avatarOf(bot) })) ?? "off";
 			},
 		};
+		const shapes = new Map<string, ContextShape>();
 		const placed = new Map<string, Placed>();
 		const clouds = connectClouds(settings, platform.rotated);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
 		const catalog = builtinExtensions({
 			native: platform.native,
-			assistant: createAssistant(platform.inApp),
+			assistant: createAssistant(platform.inApp, (id, shape) => void shapes.set(id, shape)),
 			calendarAccess: settings.calendarAccess,
 			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
 			clouds: clouds.services,
@@ -250,6 +254,7 @@ export class AgentRuntime {
 			loaded,
 			workplaces,
 			placed,
+			shapes,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			catalog.unsupported,
 			mcp,
@@ -486,6 +491,10 @@ export class AgentRuntime {
 			},
 			dispose: () => view.dispose(),
 		};
+	}
+
+	contextShape(id: ConversationId): ContextShape | undefined {
+		return this.#shapes.get(String(id));
 	}
 
 	async toolCost(id: ConversationId): Promise<ToolCost> {

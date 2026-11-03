@@ -4,5 +4,6 @@ declare module "react" {
 	interface CSSProperties {
 		"--fill"?: number;
 		"--tile"?: string;
+		"--share"?: number;
 	}
 }

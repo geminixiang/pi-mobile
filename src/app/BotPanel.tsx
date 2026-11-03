@@ -9,13 +9,13 @@ import type { ToolsetState } from "../agent/toolsets.ts";
 import type { Sandbox } from "../agent/sandbox/sandbox.ts";
 import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
+import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { BoxIcon, CheckIcon, ChevronIcon, CopyIcon, LayersIcon, MemoryIcon, PencilIcon, RefreshIcon } from "./icons.tsx";
 import { entryText } from "../agent/entries.ts";
 import { Sheet } from "./Sheet.tsx";
 import { SidePanel } from "./SidePanel.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
-import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
@@ -217,9 +217,6 @@ export function BotPanel({
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryLines = memory.split("\n").filter((line) => line.trim()).slice(0, 3);
 	const lastAnswer = view?.entries.findLast((entry) => entry.kind === "pi.assistant");
-	const percent = contextPercent(context.used, context.window);
-	const usage = totalUsage(view);
-	const cacheHitRate = latestCacheHitRate(view);
 
 	return (
 		<SidePanel side="right" open={open} onClose={onClose} label={`${bot.name} 的資訊`}>
@@ -236,42 +233,7 @@ export function BotPanel({
 				</button>
 
 				<Section title="上下文" problem={problem}>
-					<div className="context-card">
-						<div className="context-top">
-							<span className="context-numbers">
-								{formatTokens(context.used)} / {formatTokens(context.window)}
-								<b>{percent.toFixed(0)}%</b>
-							</span>
-							{compactAt > 0 ? <span className="context-note">{formatTokens(compactAt)} 時壓縮</span> : null}
-						</div>
-						<div className="context-bar">
-							<i style={{ "--fill": Math.max(percent, 1.5) / 100 }} />
-						</div>
-						<details className="stats-more">
-							<summary>用量</summary>
-							<dl className="stats">
-								{(
-									[
-										["輸入", usage.input],
-										["輸出", usage.output],
-										["快取讀", usage.cacheRead],
-										["快取寫", usage.cacheWrite],
-									] as const
-								).map(([label, value]) => (
-									<div key={label}>
-										<dt>{label}</dt>
-										<dd>{formatTokens(value)}</dd>
-									</div>
-								))}
-								{(usage.cacheRead > 0 || usage.cacheWrite > 0) && cacheHitRate !== undefined ? (
-									<div>
-										<dt>快取命中</dt>
-										<dd>{cacheHitRate.toFixed(1)}%</dd>
-									</div>
-								) : null}
-							</dl>
-						</details>
-					</div>
+					<ContextCard runtime={runtime} botId={bot.id} open={open} view={view} context={context} compactAt={compactAt} />
 					<div className="menu">
 						<Item
 							icon={<LayersIcon />}

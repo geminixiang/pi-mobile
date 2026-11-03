@@ -550,19 +550,30 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .toolset-load { display: block; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 
 .context-card { border: 1px solid var(--line); background: var(--panel); padding: 16px; flex-shrink: 0; }
-.context-top { display: flex; justify-content: space-between; align-items: baseline; }
+.context-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-ui); }
+.context-head b { font-weight: 700; }
 .context-numbers { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
-.context-numbers b { margin-left: 8px; color: var(--text); font-weight: 700; }
-.context-bar {
-	height: 10px; margin: 12px 0; background-color: var(--bg-deep);
-	background-image: linear-gradient(90deg, transparent 9px, var(--panel) 9px);
-	background-size: 10px 10px;
-}
-.context-bar i {
-	display: block; height: 100%; background-color: var(--accent);
-	mask-image: linear-gradient(90deg, #000 9px, transparent 9px); mask-size: 10px 10px;
-	clip-path: inset(0 calc((1 - var(--fill)) * 100%) 0 0); transition: --fill 400ms var(--ease);
-}
+.context-parts { display: flex; height: 10px; margin: 12px 0 8px; overflow: hidden; background: var(--bg-deep); }
+.context-parts > i { display: block; width: calc(var(--share) * 100%); min-width: 2px; height: 100%; }
+.context-parts > .part-reserve { margin-left: auto; }
+.part-messages { background: var(--accent); }
+.part-prompt { background: var(--yellow); }
+.part-memory { background: var(--ok); }
+.part-tools { background: var(--coral); }
+.part-services { background: var(--think-high); }
+.part-reserve { background: repeating-linear-gradient(135deg, var(--line-strong) 0 2px, transparent 2px 4px); }
+.part-free { background: var(--bg-deep); outline: 1px solid var(--line-strong); outline-offset: -1px; }
+.part-deferred { background: var(--faint); }
+.context-rows { display: flex; flex-direction: column; margin-bottom: 8px; }
+.context-line, .context-row > summary { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: var(--fs-small); color: var(--muted); }
+.context-row > summary { list-style: none; cursor: pointer; }
+.context-row > summary::-webkit-details-marker { display: none; }
+.context-line > i, .context-row > summary > i { display: block; width: 9px; height: 9px; flex-shrink: 0; }
+.context-label { flex: 1; min-width: 0; }
+.context-tokens { width: 52px; font-family: var(--mono); font-size: var(--fs-meta); text-align: right; }
+.context-share { width: 44px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--text); text-align: right; }
+.context-item { display: flex; justify-content: space-between; padding: 3px 54px 3px 19px; font-size: var(--fs-meta); color: var(--faint); }
+.context-line.deferred { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--faint); }
 .stats-more > summary { list-style: none; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); cursor: pointer; }
 .stats-more > summary::-webkit-details-marker { display: none; }
 .stats-more > summary::before { content: "▸ "; color: var(--faint); }
