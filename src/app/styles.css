@@ -550,7 +550,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	background: var(--bg); box-shadow: var(--card-shadow); padding-bottom: env(safe-area-inset-bottom);
 	transform: translateY(var(--drawer-swipe-movement-y)); transition: transform 260ms var(--ease);
 }
-.layer-sheet::before { content: ""; align-self: center; margin-top: 8px; }
+.layer-sheet::before { content: ""; flex-shrink: 0; align-self: center; margin-top: 8px; }
 .layer-sheet::before, .browser-grip::before { width: 40px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text) 40%, transparent); }
 .layer-sheet > .strip { border-bottom: none; min-height: 48px; }
 .layer-sheet > .strip > .strip-title { font-family: var(--sans); font-size: var(--fs-ui); font-weight: 600; }
