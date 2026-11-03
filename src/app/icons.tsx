@@ -231,6 +231,21 @@ export const EyeIcon = ({ size = 18 }: { size?: number }) => (
 		<circle cx="12" cy="12" r="3" />
 	</Icon>
 );
+export const RepeatIcon = ({ size = 14 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3" />
+	</Icon>
+);
+export const CalendarIcon = ({ size = 14 }: { size?: number }) => (
+	<Icon size={size}>
+		<path d="M8 2v4M16 2v4M3 4h18v18H3zM3 10h18" />
+	</Icon>
+);
+export const SkipIcon = ({ size = 14 }: { size?: number }) => (
+	<Icon size={size} width={2.2}>
+		<path d="m5 4 10 8-10 8zM19 5v14" />
+	</Icon>
+);
 export const DatabaseIcon = ({ size = 18 }: { size?: number }) => (
 	<Icon size={size}>
 		<ellipse cx="12" cy="5" rx="9" ry="3" />

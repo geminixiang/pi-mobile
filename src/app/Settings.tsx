@@ -34,7 +34,7 @@ import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
-import { TriggerRow } from "../triggers/TriggerRow.tsx";
+import { TriggerList } from "../triggers/TriggerList.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
@@ -197,45 +197,46 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	if (!native.has("Triggers")) return null;
 	const headphones = state.items.some((item) => item.state !== "paused" && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 
+	const asks = exact === false || (state.items.length > 0 && overlay === false) || (headphones && bluetooth === false);
+
 	return (
-		<Group title="自動化">
+		<>
 			{state.items.length === 0 ? (
-				<Row label="還沒有自動化" hint="跟 Bot 說就會建立" />
+				<Group title="自動化">
+					<Row label="還沒有自動化" hint="跟 Bot 說就會建立" />
+				</Group>
 			) : (
-				state.items.map((trigger) => (
-					<TriggerRow
-						key={trigger.id}
-						trigger={trigger}
-						next={state.next[trigger.id]}
-						bot={bots.find((bot) => bot.id === trigger.conversationId) ?? "deleted"}
-						runtime={runtime}
-						onError={setError}
-					/>
-				))
+				<div className="trigger-page">
+					<TriggerList triggers={state.items} next={state.next} bots={bots} runtime={runtime} onError={setError} />
+				</div>
 			)}
-			{exact === false ? (
-				<Row label="準時執行" hint="沒開會晚幾分鐘">
-					<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
-						開啟
-					</button>
-				</Row>
+			{asks ? (
+				<Group title="要開的權限">
+					{exact === false ? (
+						<Row label="準時執行" hint="沒開會晚幾分鐘">
+							<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
+								開啟
+							</button>
+						</Row>
+					) : null}
+					{state.items.length > 0 && overlay === false ? (
+						<Row label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑">
+							<button type="button" className="btn" onClick={() => void Triggers.requestOverlay()}>
+								開啟
+							</button>
+						</Row>
+					) : null}
+					{headphones && bluetooth === false ? (
+						<Row label="偵測藍牙耳機">
+							<button type="button" className="btn" onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted), (failure: unknown) => setError(messageOf(failure)))}>
+								開啟
+							</button>
+						</Row>
+					) : null}
+				</Group>
 			) : null}
-			{state.items.length > 0 && overlay === false ? (
-				<Row label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑">
-					<button type="button" className="btn" onClick={() => void Triggers.requestOverlay()}>
-						開啟
-					</button>
-				</Row>
-			) : null}
-			{headphones && bluetooth === false ? (
-				<Row label="偵測藍牙耳機">
-					<button type="button" className="btn" onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted), (failure: unknown) => setError(messageOf(failure)))}>
-						開啟
-					</button>
-				</Row>
-			) : null}
-			{error ? <div className="check"><span className="check-error">{error}</span></div> : null}
-		</Group>
+			{error ? <div className="banner error">{error}</div> : null}
+		</>
 	);
 }
 

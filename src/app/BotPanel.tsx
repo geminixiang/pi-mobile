@@ -14,7 +14,7 @@ import { BoxIcon, CheckIcon, ChevronIcon, CopyIcon, LayersIcon, MemoryIcon, Penc
 import { entryText } from "../agent/entries.ts";
 import { Sheet } from "./Sheet.tsx";
 import { SidePanel } from "./SidePanel.tsx";
-import { TriggerRow } from "../triggers/TriggerRow.tsx";
+import { TriggerList } from "../triggers/TriggerList.tsx";
 import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
@@ -298,13 +298,15 @@ export function BotPanel({
 
 				{native.has("Triggers") ? (
 					<Section title="自動化" problem={problem}>
-						<div className="menu">
-							{mine.length === 0 ? (
+						{mine.length === 0 ? (
+							<div className="menu">
 								<Row label="還沒有自動化" />
-							) : (
-								mine.map((trigger) => <TriggerRow key={trigger.id} trigger={trigger} next={triggers.next[trigger.id]} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />)
-							)}
-						</div>
+							</div>
+						) : (
+							<div className="trigger-panel">
+								<TriggerList triggers={mine} next={triggers.next} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />
+							</div>
+						)}
 					</Section>
 				) : null}
 

@@ -1,6 +1,7 @@
 import { pad } from "../agent/tools/common.ts";
 import type { TriggerSymbol } from "../app/icons.tsx";
 import type { ACTIVITIES, When } from "./plugin.ts";
+import type { Trigger } from "./runs.ts";
 
 const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
 	walking: ["開始走路", "停止走路"],
@@ -36,9 +37,18 @@ export function isWhenKind(value: string): value is When["kind"] {
 	return Object.hasOwn(KINDS, value);
 }
 
-export function describeTime(at: number): string {
+export function describeDay(at: number): string {
 	const date = new Date(at);
-	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）${pad(date.getHours())}:${pad(date.getMinutes())}`;
+	return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_NAMES[(date.getDay() + 6) % 7]}）`;
+}
+
+export function clockOf(at: number): string {
+	const date = new Date(at);
+	return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function describeTime(at: number): string {
+	return `${describeDay(at)}${clockOf(at)}`;
 }
 
 export function describeWhen(when: When): string {
@@ -113,4 +123,28 @@ export function triggerSymbol(when: Pick<When, "kind"> & { activity?: string }):
 		case "activity":
 			return when.activity === "vehicle" ? "car" : when.activity === "cycling" ? "bike" : when.activity === "still" ? "still" : "walk";
 	}
+}
+
+const GROUPS = [
+	["today", "今天"],
+	["later", "之後"],
+	["events", "遇到時"],
+	["paused", "暫停"],
+	["fired", "跑完了"],
+] as const;
+
+type Group = (typeof GROUPS)[number][0];
+type Scheduled = Pick<Trigger, "id" | "state" | "when" | "createdAt">;
+
+function groupOf(trigger: Scheduled, next: number | undefined, endOfToday: number): Group {
+	if (trigger.state !== "on") return trigger.state;
+	if (isEvent(trigger.when)) return "events";
+	return next !== undefined && next < endOfToday ? "today" : "later";
+}
+
+export function grouped<T extends Scheduled>(triggers: readonly T[], next: Readonly<Record<string, number>>, endOfToday: number): { label: string; triggers: T[] }[] {
+	const soonest = (a: T, b: T) => (next[a.id] ?? Number.MAX_SAFE_INTEGER) - (next[b.id] ?? Number.MAX_SAFE_INTEGER) || a.createdAt - b.createdAt;
+	return GROUPS.map(([group, label]) => ({ label, triggers: triggers.filter((trigger) => groupOf(trigger, next[trigger.id], endOfToday) === group).toSorted(soonest) })).filter(
+		(section) => section.triggers.length > 0,
+	);
 }

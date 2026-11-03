@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import type { Trigger } from "../src/triggers/runs.ts";
+import { grouped } from "../src/triggers/when.ts";
+
+const hour = 60 * 60 * 1000;
+const endOfToday = Date.UTC(2026, 10, 3, 16);
+const trigger = (id: string, when: Trigger["when"], state: Trigger["state"] = "on") => ({ id, when, state, createdAt: 0 });
+
+const triggers = [
+	trigger("tomorrow", { kind: "daily", time: "08:00", days: [] }),
+	trigger("tonight", { kind: "daily", time: "21:30", days: [] }),
+	trigger("soon", { kind: "once", at: endOfToday - 6 * hour }),
+	trigger("headphones", { kind: "headphones", days: [], gapHours: 24 }),
+	trigger("paused", { kind: "daily", time: "07:30", days: [1, 3] }, "paused"),
+	trigger("ran", { kind: "once", at: endOfToday - 30 * hour }, "fired"),
+];
+const next = { tomorrow: endOfToday + 8 * hour, tonight: endOfToday - 2 * hour, soon: endOfToday - 6 * hour };
+
+assert.deepEqual(
+	grouped(triggers, next, endOfToday).map((section) => [section.label, section.triggers.map((item) => item.id)]),
+	[
+		["今天", ["soon", "tonight"]],
+		["之後", ["tomorrow"]],
+		["遇到時", ["headphones"]],
+		["暫停", ["paused"]],
+		["跑完了", ["ran"]],
+	],
+);
+assert.deepEqual(grouped([], {}, endOfToday), []);
+console.log("trigger groups: automations sort into today, later, events, paused and done, soonest first, empty groups left out");
