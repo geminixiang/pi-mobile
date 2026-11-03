@@ -101,7 +101,7 @@
 
 ### TestFlight（2026-10-26）
 
-`TEAM=<team id> ./scripts/testflight-ios.sh` 在有 Xcode、已登入開發者帳號的 Mac 上打包並上傳，只給內部測試員。透過 SSH 時要在桌面工作階段跑（鑰匙圈），見 device-testing skill。第一次要先在開發者網站註冊明確的套件 ID（Xcode 開發時用的是萬用描述檔），再到 App Store Connect 建 app 資料；這兩步只能在網頁上做。
+`./scripts/testflight-ios.sh` 在有 Xcode 的 Mac 上打包並上傳，只給內部測試員。設定放在 `~/.config/pi-mobile/release.env`（或 `PI_MOBILE_RELEASE_ENV` 指的檔案），跟 Android 的簽章設定同一份：`TEAM` 是開發者團隊 ID；有 App Store Connect API 金鑰時再加 `ASC_KEY_ID`、`ASC_ISSUER_ID`，金鑰檔放在同一個資料夾，叫 `AuthKey_<ASC_KEY_ID>.p8`（或用 `ASC_KEY_PATH` 指定）。有金鑰就用雲端簽章，不需要本機的憑證，也不用解鎖鑰匙圈，透過 SSH 也能跑；沒有金鑰時用 Xcode 裡登入的帳號簽章，透過 SSH 要在桌面工作階段跑（鑰匙圈會鎖住）。金鑰的角色要能使用雲端管理的發佈憑證。第一次要先在開發者網站註冊明確的套件 ID（Xcode 開發時用的是萬用描述檔），再到 App Store Connect 建 app 資料；這兩步只能在網頁上做。
 
 上傳前補的：
 - App 圖示：`scripts/make-icons.py` 產生 1024×1024、不透明的 pi 圖示（App Store Connect 不收有 alpha 通道的圖）。

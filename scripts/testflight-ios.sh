@@ -10,7 +10,7 @@ export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Develope
 set --
 if [ -n "${ASC_KEY_ID:-}" ]; then
 	: "${ASC_ISSUER_ID:?set ASC_ISSUER_ID with ASC_KEY_ID}"
-	set -- -authenticationKeyPath "${ASC_KEY_PATH:-$HOME/.config/pi-mobile/AuthKey_$ASC_KEY_ID.p8}" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+	set -- -authenticationKeyPath "${ASC_KEY_PATH:-$(dirname "$ENV_FILE")/AuthKey_$ASC_KEY_ID.p8}" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 fi
 VERSION=$(node -p 'require("./package.json").version')
 BUILD=$(date +%Y%m%d%H%M)

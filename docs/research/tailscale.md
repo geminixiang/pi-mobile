@@ -42,7 +42,7 @@
 
 ## MagicDNS 和位址
 
-- 電腦的 ID 用它的 MagicDNS 名稱（例：`geminixiangmac-mini.tail4f4249.ts.net`）；`status --json` 的 `Self.DNSName` 結尾有一個點，要去掉。
+- 電腦的 ID 用它的 MagicDNS 名稱（例：`mac.tailnet.ts.net`）；`status --json` 的 `Self.DNSName` 結尾有一個點，要去掉。
 - `pi-mobile serve` 只綁 Tailscale 的 IPv4，所以區域網路、公共 Wi‑Fi 都連不到；Tailscale 重啟或位址改變時，它會重新綁定（`listen()`）。
 
 ## Android 看得到什麼

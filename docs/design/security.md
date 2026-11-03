@@ -45,7 +45,7 @@ App 允許 cleartext，因為 tailnet 裡的閘道常是 http。但自訂端點�
 
 ### 2. 電腦上的任何程式都能配對，借用 pi-mobile 的 macOS 權限（中）
 
-- **現況**：來源檢查只比對 Tailscale 使用者。從電腦自己連到自己的 Tailscale 位址時，`whois` 回的就是這台電腦，使用者相同，所以會通過（在這台 Mac 上實測：`curl http://100.120.142.97:4790/version` 回 200）。而 `pi-mobile pair` 誰都能執行。
+- **現況**：來源檢查只比對 Tailscale 使用者。從電腦自己連到自己的 Tailscale 位址時，`whois` 回的就是這台電腦，使用者相同，所以會通過（在這台 Mac 上實測：`curl http://<這台的 Tailscale IP>:4790/version` 回 200）。而 `pi-mobile pair` 誰都能執行。
 - **會怎樣**：電腦上以你身分執行的任何程式（被污染的 npm 套件、VS Code 擴充、瀏覽器下載的工具），可以自己執行 `pi-mobile pair`、用配對碼換到金鑰，再透過 `/exec` 執行指令。這些指令是 pi-mobile 的子程序，所以會用到你在安裝時給 pi-mobile 的權限：桌面、文件、下載項目、控制 System Events、輔助使用、錄製螢幕。macOS 原本會對這些程式另外詢問這些權限，現在可以繞過。
 - **可能性**：要電腦上已經有惡意程式。但 TCC 正是為了這種情況而設的，而 pi-mobile 剛好拿了最敏感的幾項。
 - **修了**：手機永遠不會是這台電腦本身，所以來源 IP 是這台電腦自己的 Tailscale 位址時一律拒絕（`anotherDeviceOfTheUser`）。`/version` 改成不檢查來源，`pi-mobile status` 從本機問它。

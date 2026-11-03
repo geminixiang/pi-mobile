@@ -30,8 +30,8 @@ from `CDP_PORT` (default 9333).
   It uses Xcode through `DEVELOPER_DIR`, so `xcode-select` stays on the Command Line Tools. The simulator shares this
   computer's network: the gateway is `http://localhost:8317`. Screenshot with `xcrun simctl io booted screenshot`.
 - **iPad** (iPad Air 5, iPadOS 26.7) and **iPhone** (iPhone 12 Pro, iOS 27.0.1, with Display Zoom: the page is 320
-  points wide): plugged into the MacBook Air (`ssh geminixiang@yingmacbook-air`, `$MBA` below), which has Xcode and the
-  paid Apple developer team `JJ5LYSJ566`. `~/pi-mobile-ios` there is not a checkout: it holds `ios/` and the two
+  points wide): plugged into another Mac (`$MBA` below, reached over SSH) that has Xcode and is signed in to the
+  paid Apple developer team (`$TEAM`, from `release.env`). `~/pi-mobile-ios` there is not a checkout: it holds `ios/` and the two
   plugins `CapApp-SPM/Package.swift` points at. Build the web part here
   (`npx vite build && PI_MOBILE_DEBUG=1 npx cap sync ios`), then
   `rsync -az --delete --exclude build/ ios/ $MBA:pi-mobile-ios/ios/`, and the same for
@@ -40,7 +40,7 @@ from `CDP_PORT` (default 9333).
   session: over SSH the login keychain is locked and codesign fails with `errSecInternalComponent`. The command is
   `cd ios/App && xcodebuild -project App.xcodeproj -scheme App -configuration Debug -destination id=<UDID>
   -derivedDataPath build/device -allowProvisioningUpdates -allowProvisioningDeviceRegistration
-  DEVELOPMENT_TEAM=JJ5LYSJ566 CODE_SIGN_STYLE=Automatic -quiet build`, with the UDID from
+  DEVELOPMENT_TEAM=$TEAM CODE_SIGN_STYLE=Automatic -quiet build`, with the UDID from
   `xcrun devicectl list devices`; the first build adds a new device to the team's profile. Install and open with
   `xcrun devicectl device install app --device <UDID> ios/App/build/device/Build/Products/Debug-iphoneos/App.app` /
   `process launch` there. To drive it from this Mac, run the CDP bridge on the MacBook Air and forward its port:
@@ -51,9 +51,9 @@ from `CDP_PORT` (default 9333).
   while it is on USB. Unplugged, the iPhone was not found on the MacBook Air's Wi‑Fi: keep it on the cable. Keep the
   MacBook Air awake (`caffeinate -dis`) and the device unlocked to launch pi. Screenshot there with
   `uvx pymobiledevice3 developer dvt screenshot --native <file>.png`. The gateway is this Mac's `*.ts.net` name
-  (`http://geminixiangmac-mini.tail4f4249.ts.net:8317`): ATS blocks plain HTTP to `100.x`.
-- **TestFlight**: on the MacBook Air run `~/pi-mobile-ios/gui-run.sh 'TEAM=JJ5LYSJ566 ./scripts/testflight-ios.sh'`
-  from a checkout, for a build others install.
+  (`http://<this-mac>.<tailnet>.ts.net:8317`): ATS blocks plain HTTP to `100.x`.
+- **TestFlight**: `./scripts/testflight-ios.sh` on any Mac with Xcode, from a checkout of the tag; its settings are in
+  `docs/design/platforms.md` § TestFlight. With an App Store Connect API key it needs no keychain and runs over SSH.
 
 ## Scripts
 
