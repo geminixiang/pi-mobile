@@ -62,19 +62,19 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ### 網路會一直換
 
-手機的網路一直在換：Wi‑Fi、行動網路、換 SIM、Tailscale 斷線。原則跟一般 app 一樣：**聽系統說網路回來了才連，不用計時器猜**；斷線不丟工作，恢復後立刻接回。
+手機的網路一直在換：Wi‑Fi、行動網路、換 SIM、Tailscale 斷線。做法照 Android 和 iOS 的標準公式，不自己發明規則：
 
-- **一個網路來源**：`src/agent/network.ts` 的 `deviceNetwork` 聽原生的 `@capacitor/network`（Android 用預設網路的 `NetworkCallback`，Tailscale 這類 VPN 接上也會通知；iOS 是 `SCNetworkReachability`，VPN 不一定通知）、瀏覽器的 `online`／`offline`，以及回到前景（`visibilitychange`）。
-- **VPN 不等於有網路**：開著 Tailscale 時，預設網路是 VPN，Wi‑Fi 和行動數據都關了，`@capacitor/network` 仍說有網路，只是類型 unknown（2026-11-04 在 S24 上量到）。所以 Android 上收到它的通知後，改問 `System.network`（`SystemPlugin.kt`）：VPN 以外還有沒有通過驗證、能上網的網路。iOS 照舊用外掛的狀態。
-- **重試留下的失敗嘗試**：pi-durable 把每次失敗的嘗試存成一則回答。後面接著重試的那幾則，對話裡只顯示一行「網路斷了，重新回答」（不是網路的錯誤就寫「重新回答：錯誤訊息」），半截的字不顯示；重試用完仍失敗的那一則照常顯示錯誤。
-- **沒網路時等，不重試**：模型請求經過 `waitingForNetwork`，沒網路時不送出、不消耗重試次數，網路回來才送；電腦連線（`resumable-socket.ts`）沒網路時不重試、顯示「等網路中」。兩者等待時都不跑計時器，所以不耗電。
-- **有網路卻連不上，才退避重試**：模型重試 `MODEL_RETRY` 5 次、最多等 30 秒一次（`src/agent/retry.ts`）；電腦連線 1–15 秒退避，只算有網路的時間，4.5 分鐘放棄。網路事件或回到前景會讓退避歸零、立刻再試。
+1. **直接送，不預檢**：有網路就送，不先「試連一下」。Apple 的建議是讓連線自己判斷，因為它也處理 VPN 和代理（[Apple Developer Forums](https://developer.apple.com/forums/thread/832216)）。
+2. **系統說沒網路，就等它回來**：像 iOS 的 `waitsForConnectivity`。模型請求經過 `waitingForNetwork`，沒網路時不送、不花重試次數；網路一回來就送。進行中的回答在網路斷掉時當場失敗（系統的 HTTP 也是這樣，iOS 回 `NSURLErrorNetworkConnectionLost`），交給重試，重試又會先等網路。電腦連線（`resumable-socket.ts`）沒網路時不重試，顯示「等網路中」。等待時不跑計時器，所以不耗電。
+3. **閒置逾時**：開始出字後 60 秒沒有任何東西就放棄這次連線，跟 iOS `timeoutIntervalForRequest` 的預設一樣。第一個字之前不計時，因為模型可以想很久。
+4. **有網路卻失敗，才退避重試**：模型 `MODEL_RETRY` 5 次、每次最多等 30 秒（`src/agent/retry.ts`）；電腦連線 1–15 秒退避，只算有網路的時間，4.5 分鐘放棄。網路回來或回到前景時，退避歸零、立刻再試。
+
+為什麼要這些，以及它們在哪：
+
+- **網路來源只有一個**：`src/agent/network.ts` 的 `deviceNetwork`。它聽 `@capacitor/network`、瀏覽器的 `online`／`offline` 和回到前景（`visibilitychange`）。
+- **VPN 不等於有網路**：開著 Tailscale 時，預設網路是 VPN。Wi‑Fi 和行動數據都關了，`@capacitor/network` 仍說有網路；進行中的連線也不會被系統切斷，只會靜靜卡住，`fetch` 不報錯（2026-11-04 在 S24 上量到：Wi‑Fi 回來 5 分鐘了，回答還是沒動）。所以 Android 上收到它的通知後，改問 `System.network`（`SystemPlugin.kt`）：VPN 以外還有沒有通過驗證、能上網的網路。iOS 照舊用外掛的狀態。
+- **重試留下的失敗嘗試**：pi-durable 把每次失敗的嘗試存成一則回答。後面有重試接著的，對話裡只顯示一行「網路斷了，重新回答」（不是網路造成的，就寫「重新回答：錯誤訊息」），半截的字不顯示；重試用完仍失敗的那一則照常顯示錯誤。
 - **電腦說了算**：電腦握住斷線的 session 15 分鐘（`host/held.go` 的 `holdFor`），或輸出超過 8 MB 才放手；手機接回時電腦若已放手，會回 `no such session`，手機照實告訴使用者，不靜靜結束。
-- **一則回答只走一條網路**：開著 VPN（Tailscale）時，系統眼中的預設網路一直是那個 VPN。Wi‑Fi 斷掉時連線不會被切斷，只會靜靜卡住，`fetch` 永遠等不到下一個字，也不報錯（2026-11-04 在 S24 上量到：Wi‑Fi 回來 5 分鐘都沒動）。所以 `waitingForNetwork` 會在兩種情況切斷正在出字的回答，當成 `connection lost` 交給 `MODEL_RETRY` 重試，重試又會先等網路：
-  - 網路沒了：立刻切。
-  - 網路換了（`Network.current()` 每換一條網路就給一個新號碼；Wi‑Fi 訊號強弱的通知不算換）：5 秒內沒收到東西才切。網路回來時系統會連發好幾次通知（Wi‑Fi、行動數據、VPN 重連），每次都切的話，一次斷網就用掉 3 次重試（S24 上量到的）。
-  - 開始出字後 60 秒都沒有任何東西：只從第一個事件之後才計時，因為模型在第一個字之前可以想很久。
-  - 代價是那則回答從頭再生一次。
 - **還沒處理的**：MCP 工具呼叫、一般網路工具（天氣、搜尋）和不帶 session 的電腦指令（電腦上的 MCP、建 image）斷線就失敗，不重試。
 
 ## 程式碼看不出來的原因

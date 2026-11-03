@@ -10,19 +10,19 @@ import { sleep } from "../../src/promise.ts";
 import type { Check } from "./setup.ts";
 
 const SLOWEST_RETRY_MS = 30_000;
-const QUICK = { quietMs: 300, afterSwitchMs: 300 };
+const IDLE_MS = 300;
 
 function switchable(online = false): Network & { set(online: boolean): void } {
 	const listeners = new Set<() => void>();
-	let current: number | undefined = online ? 1 : undefined;
+	let current = online;
 	return {
-		current: () => current,
+		online: () => current,
 		onChange: (listener) => {
 			listeners.add(listener);
 			return () => void listeners.delete(listener);
 		},
 		set(next) {
-			current = next ? (current ?? 0) + 1 : undefined;
+			current = next;
 			for (const listener of listeners) listener();
 		},
 	};
@@ -114,7 +114,7 @@ export const checks: Check[] = [
 		async () => {
 			const network = switchable(true);
 			const { provider, model, calls } = answering([stopsWhenCut, finished]);
-			const guarded = waitingForNetwork(provider, network, QUICK);
+			const guarded = waitingForNetwork(provider, network, IDLE_MS);
 			const result = await within(5000, "a silent stream was never cut, so the answer hangs forever", retryAssistantCall(() => ask(guarded, model), { ...MODEL_RETRY, baseDelayMs: 10 }, undefined));
 			assert.equal(calls.length, 2);
 			assert.equal(result.stopReason, "stop");
@@ -125,7 +125,7 @@ export const checks: Check[] = [
 		async () => {
 			const network = switchable(true);
 			const { provider, model } = answering([stopsWhenCut]);
-			const answer = ask(waitingForNetwork(provider, network, { quietMs: 60_000, afterSwitchMs: 60_000 }), model);
+			const answer = ask(waitingForNetwork(provider, network, 60_000), model);
 			await sleep(20);
 			network.set(false);
 			const result = await within(1000, "the stream kept waiting on a network that is gone", answer);
@@ -134,51 +134,12 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"after a switch to another network, an answer that stops coming is cut within the short wait, not the long one",
-		async () => {
-			const network = switchable(true);
-			const { provider, model } = answering([stopsWhenCut]);
-			const answer = ask(waitingForNetwork(provider, network, { quietMs: 60_000, afterSwitchMs: 200 }), model);
-			await sleep(20);
-			network.set(true);
-			const result = await within(1500, "a dead connection after a switch waited out the long silence", answer);
-			assert.equal(result.stopReason, "error");
-			assert(isRetryableAssistantError(result), `not retried: ${result.errorMessage}`);
-		},
-	],
-	[
-		"an answer that keeps coming through a switch to another network is not cut, so a flapping network costs no retry",
-		async () => {
-			const network = switchable(true);
-			const flowing: Answer = (events, message) => {
-				events.push({ type: "start", partial: message("stop") });
-				events.push({ type: "text_start", contentIndex: 0, partial: message("stop") });
-				void (async () => {
-					for (let i = 0; i < 12; i++) {
-						await sleep(50);
-						events.push({ type: "text_delta", contentIndex: 0, delta: "字", partial: message("stop") });
-					}
-					finished(events, message, undefined);
-				})();
-			};
-			const { provider, model, calls } = answering([flowing]);
-			const answer = ask(waitingForNetwork(provider, network, { quietMs: 60_000, afterSwitchMs: 200 }), model);
-			for (let i = 0; i < 3; i++) {
-				await sleep(60);
-				network.set(true);
-			}
-			const result = await answer;
-			assert.equal(calls.length, 1);
-			assert.equal(result.stopReason, "stop");
-		},
-	],
-	[
 		"stopping an answer mid-stream stays a stop, not a network error to retry",
 		async () => {
 			const network = switchable(true);
 			const { provider, model } = answering([stopsWhenCut]);
 			const stop = new AbortController();
-			const answer = ask(waitingForNetwork(provider, network, QUICK), model, stop.signal);
+			const answer = ask(waitingForNetwork(provider, network, IDLE_MS), model, stop.signal);
 			await sleep(20);
 			stop.abort();
 			network.set(false);
@@ -191,10 +152,10 @@ export const checks: Check[] = [
 			const network = switchable(true);
 			const thinking: Answer = (events, message) => {
 				events.push({ type: "start", partial: message("stop") });
-				void sleep(QUICK.quietMs * 3).then(() => finished(events, message, undefined));
+				void sleep(IDLE_MS * 3).then(() => finished(events, message, undefined));
 			};
 			const { provider, model, calls } = answering([thinking]);
-			const result = await ask(waitingForNetwork(provider, network, QUICK), model);
+			const result = await ask(waitingForNetwork(provider, network, IDLE_MS), model);
 			assert.equal(calls.length, 1);
 			assert.equal(result.stopReason, "stop");
 		},
