@@ -65,6 +65,8 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 手機的網路一直在換：Wi‑Fi、行動網路、換 SIM、Tailscale 斷線。原則跟一般 app 一樣：**聽系統說網路回來了才連，不用計時器猜**；斷線不丟工作，恢復後立刻接回。
 
 - **一個網路來源**：`src/agent/network.ts` 的 `deviceNetwork` 聽原生的 `@capacitor/network`（Android 用預設網路的 `NetworkCallback`，Tailscale 這類 VPN 接上也會通知；iOS 是 `SCNetworkReachability`，VPN 不一定通知）、瀏覽器的 `online`／`offline`，以及回到前景（`visibilitychange`）。
+- **VPN 不等於有網路**：開著 Tailscale 時，預設網路是 VPN，Wi‑Fi 和行動數據都關了，`@capacitor/network` 仍說有網路，只是類型 unknown（2026-11-04 在 S24 上量到）。所以 Android 上收到它的通知後，改問 `System.network`（`SystemPlugin.kt`）：VPN 以外還有沒有通過驗證、能上網的網路。iOS 照舊用外掛的狀態。
+- **重試留下的失敗嘗試**：pi-durable 把每次失敗的嘗試存成一則回答。後面接著重試的那幾則，對話裡只顯示一行「網路斷了，重新回答」（不是網路的錯誤就寫「重新回答：錯誤訊息」），半截的字不顯示；重試用完仍失敗的那一則照常顯示錯誤。
 - **沒網路時等，不重試**：模型請求經過 `waitingForNetwork`，沒網路時不送出、不消耗重試次數，網路回來才送；電腦連線（`resumable-socket.ts`）沒網路時不重試、顯示「等網路中」。兩者等待時都不跑計時器，所以不耗電。
 - **有網路卻連不上，才退避重試**：模型重試 `MODEL_RETRY` 5 次、最多等 30 秒一次（`src/agent/retry.ts`）；電腦連線 1–15 秒退避，只算有網路的時間，4.5 分鐘放棄。網路事件或回到前景會讓退避歸零、立刻再試。
 - **電腦說了算**：電腦握住斷線的 session 15 分鐘（`host/held.go` 的 `holdFor`），或輸出超過 8 MB 才放手；手機接回時電腦若已放手，會回 `no such session`，手機照實告訴使用者，不靜靜結束。

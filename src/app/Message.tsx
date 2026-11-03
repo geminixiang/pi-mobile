@@ -19,6 +19,7 @@ import { preview, stepsLabel } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 import { haptic } from "./haptics.ts";
+import { isConnectionLost } from "../agent/network.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -451,6 +452,7 @@ function sameCallsFor(entry: EntryRecord, before: CallStates, after: CallStates)
 
 type EntryViewProps = {
 	entry: EntryRecord;
+	retried: boolean;
 	prefs: Prefs;
 	calls: CallStates;
 	onActions: (entry: EntryRecord) => void;
@@ -459,6 +461,7 @@ type EntryViewProps = {
 function sameEntryView(before: EntryViewProps, after: EntryViewProps): boolean {
 	return (
 		before.entry === after.entry &&
+		before.retried === after.retried &&
 		before.prefs === after.prefs &&
 		before.onActions === after.onActions &&
 		sameCallsFor(after.entry, before.calls, after.calls)
@@ -467,6 +470,7 @@ function sameEntryView(before: EntryViewProps, after: EntryViewProps): boolean {
 
 export const EntryView = memo(function EntryView({
 	entry,
+	retried,
 	prefs,
 	calls,
 	onActions,
@@ -494,6 +498,7 @@ export const EntryView = memo(function EntryView({
 		);
 	}
 	if (entry.kind === "pi.assistant" && model.role === "assistant") {
+		if (retried && model.stopReason === "error") return <div className="note">{retryNote(model.errorMessage)}</div>;
 		const aborted = model.stopReason === "aborted";
 		return (
 			<article className={`answer${aborted ? " aborted" : ""}`}>
@@ -505,3 +510,7 @@ export const EntryView = memo(function EntryView({
 	}
 	return null;
 }, sameEntryView);
+
+export function retryNote(error: string | undefined): string {
+	return isConnectionLost(error) ? "網路斷了，重新回答" : `重新回答：${error ?? "出錯了"}`;
+}

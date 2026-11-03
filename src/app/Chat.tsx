@@ -8,7 +8,7 @@ import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
-import { type CallState, Content, EntryView, finishedCalls, isEmptyAnswer } from "./Message.tsx";
+import { type CallState, Content, EntryView, finishedCalls, isEmptyAnswer, retryNote } from "./Message.tsx";
 import { entryText } from "../agent/entries.ts";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
@@ -290,8 +290,15 @@ export function Chat({
 						/>
 					</div>
 				) : null}
-				{entries.map((entry) => (
-					<EntryView key={String(entry.id)} entry={entry} prefs={prefs} calls={calls} onActions={setActionsFor} />
+				{entries.map((entry, index) => (
+					<EntryView
+						key={String(entry.id)}
+						entry={entry}
+						retried={index === entries.length - 1 ? Boolean(live?.generation?.retry) : entries[index + 1]?.kind === "pi.assistant"}
+						prefs={prefs}
+						calls={calls}
+						onActions={setActionsFor}
+					/>
 				))}
 				{lastAnswer && !busy ? (
 					<div className="answer-actions">
@@ -323,7 +330,7 @@ export function Chat({
 				) : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
-				{live?.generation?.retry ? <div className="note error">重試中：{live.generation.retry.error}</div> : null}
+				{live?.generation?.retry && lastEntry?.kind !== "pi.assistant" ? <div className="note">{retryNote(live.generation.retry.error)}</div> : null}
 				{contextShare >= CONTEXT_NEARLY_FULL && !busy && !live?.compactions?.length ? (
 					<button type="button" className="note context-full" onClick={() => void controller.compact().catch(fail)}>
 						上下文 {Math.round(contextShare * 100)}% · <b>壓縮</b>
