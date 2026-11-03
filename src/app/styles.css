@@ -561,13 +561,22 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .layer-dialog {
 	--dialog-inset: 20px;
 	position: fixed; z-index: 20; left: var(--dialog-inset); right: var(--dialog-inset); top: 50%; transform: translateY(-50%); outline: none; overflow: hidden;
-	background: var(--bg); border: 1px solid var(--line-strong); border-radius: calc(var(--card-radius) - var(--dialog-inset)); box-shadow: var(--card-shadow);
+	display: flex; flex-direction: column; gap: 10px; padding: 24px 20px 20px;
+	background: var(--bg); border-radius: calc(var(--card-radius) - var(--dialog-inset)); box-shadow: var(--card-shadow);
 	transition: opacity 200ms ease, transform 200ms var(--ease);
 }
 .layer-dialog[data-starting-style], .layer-dialog[data-ending-style] { opacity: 0; transform: translateY(calc(-50% + 10px)); }
-.dialog-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-.dialog-body p { margin: 0; font-family: var(--serif); font-size: var(--fs-ui); line-height: 1.7; color: var(--copy); }
+.dialog-title { margin: 0; font-family: var(--sans); font-size: var(--fs-heading); font-weight: 700; color: var(--text); }
+.dialog-text { margin: 0; font-size: var(--fs-ui); line-height: 1.6; color: var(--muted); }
+.dialog-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
+.dialog-choice {
+	display: grid; place-items: center; min-height: 48px; padding: 0 12px; border-radius: 12px; background: var(--panel-2); color: var(--text); font-size: var(--fs-ui); text-align: center;
+	transition: scale 120ms ease-out;
+}
+.dialog-choice:not(:disabled):active { scale: 0.96; background-color: var(--panel-2); }
+.dialog-choice.primary, .dialog-choice.primary:active { background-color: var(--accent); color: var(--bg); font-weight: 700; }
+.dialog-choice.danger, .dialog-choice.danger:active { background-color: var(--error); color: var(--bg); font-weight: 700; }
 @keyframes fade-in { from { opacity: 0; } }
 
 .menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
