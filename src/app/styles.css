@@ -331,7 +331,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown p, .markdown ul, .markdown ol { margin: 0.7em 0; }
 .markdown ul, .markdown ol { padding-left: 1.4em; }
 .markdown li + li { margin-top: 0.3em; }
-.markdown ul > li::marker { content: "■  "; font-size: 0.5em; color: var(--accent); }
+.markdown ul > li::marker { content: "■\2003"; font-size: 0.5em; color: var(--accent); }
 .markdown ul > .task-list-item::marker { content: ""; }
 .task-list-item input {
 	appearance: none; width: 15px; height: 15px; margin: 0 10px 0 0; vertical-align: -2px;
