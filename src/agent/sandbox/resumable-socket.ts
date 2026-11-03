@@ -144,9 +144,8 @@ export class ResumableSocket {
 	}
 
 	#networkChanged(): void {
-		if (this.#closed || this.#link === "up" || this.#attaching) return;
+		if (this.#link === "up" || this.#attaching) return;
 		clearTimeout(this.#timer);
-		if (this.#onlineFor() === undefined) return this.#setLink("offline");
 		this.#attempt = 0;
 		void this.#attach();
 	}

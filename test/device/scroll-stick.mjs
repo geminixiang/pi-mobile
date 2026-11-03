@@ -3,13 +3,13 @@ import { Page, touches } from "./page.ts";
 
 const serial = process.env.ANDROID_SERIAL;
 if (!serial) throw new Error("Set ANDROID_SERIAL: the drags are real touches (adb input swipe), since DevTools' synthesized scroll never returns on the S24");
-const { input } = touches(serial);
+const { input, swipe, tap } = touches(serial);
 const page = await Page.connect();
 const evaluate = (expression) => page.eval(`return (${expression});`);
 
 const SENDER = "測試效能";
-const distance = () => evaluate(`(() => { const t = document.querySelector(".transcript"); return t ? Math.round(t.scrollHeight - t.scrollTop - t.clientHeight) + 0 : -999; })()`);
-const contentHeight = () => evaluate(`document.querySelector(".transcript")?.scrollHeight ?? 0`);
+const distance = () => evaluate(`(() => { const t = transcript(); return t ? Math.round(t.scrollHeight - t.scrollTop - t.clientHeight) + 0 : -999; })()`);
+const contentHeight = () => evaluate("transcript()?.scrollHeight ?? 0");
 const busy = () => evaluate("busy()");
 const until = async (check, ms = 30000) => {
 	const end = Date.now() + ms;
@@ -24,7 +24,7 @@ const stop = async () => {
 	await until(async () => !(await busy()));
 	await sleep(500);
 };
-const toBottom = () => evaluate(`(() => { const t = document.querySelector(".transcript"); t.scrollTop = t.scrollHeight; return true; })()`);
+const toBottom = () => evaluate("(() => { const t = transcript(); t.scrollTop = t.scrollHeight; return true; })()");
 const streaming = () => until(() => evaluate(`Boolean(document.querySelector(".transcript .answer .streaming, .transcript article.answer:last-of-type")) && Boolean(button("停止"))`), 20000).then(() => sleep(600));
 const sendFromComposer = async (text) => {
 	await evaluate(`(() => { const area = document.querySelector(".composer textarea"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(area, ${JSON.stringify(text)}); area.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`);
@@ -36,9 +36,9 @@ const prompt = () => `stream ${++prompts}`;
 const sendFromElsewhere = (text) => evaluate(`window.piController.send([{ type: "text", text: ${JSON.stringify(text)} }]).then(() => true)`);
 let scale = 1;
 const gesture = async (pixels) => {
-	const { x, y, dpr } = await evaluate(`(() => { const r = document.querySelector(".transcript").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.4, dpr: devicePixelRatio }; })()`);
-	const at = (css) => String(Math.round(css * dpr));
-	input("swipe", at(x), at(y), at(x), at(y + pixels), "700");
+	const { x, y, dpr } = await evaluate("(() => { const r = transcript().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.4, dpr: devicePixelRatio }; })()");
+	const at = (css) => Math.round(css * dpr);
+	swipe(at(x), at(y), at(x), at(y + pixels), 700);
 	await sleep(300);
 };
 const scrollUp = (pixels) => gesture(Math.round(pixels / scale));
@@ -135,10 +135,10 @@ try {
 
 	await toBottom();
 	await sleep(300);
-	const { x, y } = await evaluate(`(() => { const r = document.querySelector(".composer textarea").getBoundingClientRect(); return { x: Math.round((r.left + r.width / 2) * devicePixelRatio), y: Math.round((r.top + r.height / 2) * devicePixelRatio) }; })()`);
-	const height = () => evaluate(`document.querySelector(".transcript").clientHeight`);
+	const { x, y } = await evaluate(`center(document.querySelector(".composer textarea"))`);
+	const height = () => evaluate("transcript().clientHeight");
 	const open = await height();
-	input("tap", String(x), String(y));
+	tap(x, y);
 	await sleep(1500);
 	const typing = await height();
 	const withKeyboard = await distance();

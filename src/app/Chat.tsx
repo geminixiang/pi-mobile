@@ -201,7 +201,8 @@ export function Chat({
 	const fail = (error: unknown) => onError(messageOf(error));
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	const lastEntry = entries.at(-1);
-	const retried = retriedAttempts(entries, Boolean(live?.generation?.retry));
+	const retrying = Boolean(live?.generation?.retry);
+	const retried = useMemo(() => retriedAttempts(entries, retrying), [entries, retrying]);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
 	const emptyAnswer = !busy && lastEntry !== undefined && isEmptyAnswer(lastEntry);
 	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
