@@ -98,6 +98,20 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - Mermaid 圖：inline SVG、SVG `<img>`、畫一次的 PNG 都只掉 0–2 幀（每次約 260 幀），跟藏起來一樣，所以用最簡單的 inline。
 - Mermaid 用 pele 畫（beautiful-mermaid 的 chunk 是它的兩倍）：它照容器寬度排版（`maxWidth`），橫的流程圖改成直的、圖表縮到螢幕寬，字不會變小，所以要掛上去量到寬度才畫。它跟 Mermaid 一樣嚴格，中文標籤沒加引號的 xychart 會畫不出來，系統提示要模型加引號。
 
+**原生外掛自己寫，不用現成的**（2026-11-03 盤點；「未查證」是憑既有知識判斷，換之前要先查）
+| 外掛 | 現成的 | 為什麼不用 |
+|---|---|---|
+| Health | `@capgo/capacitor-health` 8.11.14 | 實際裝過：manifest 會多出 47 個健康權限（含 23 種寫入），要逐一 `tools:node="remove"`；2,056 行的相依只取代我們 268 行；它的 `build.gradle` 寫給 AGP 8，自己套用 `org.jetbrains.kotlin.android`，在 AGP 9 跟內建 Kotlin 衝突，編譯不過。授權 MPL-2.0 |
+| StreamFetch | `CapacitorHttp` | 回應整個收完才交出，不能串流（見上方「外部服務」） |
+| Database | `@capacitor-community/sqlite` | 啟動量過太慢（見「儲存」）；`sql` 工具還要 authorizer 和一次只跑一個 statement |
+| Scanner | `@capacitor-mlkit/document-scanner` | 只負責掃描，中文 OCR 還是要自己做，換了會變成兩條路 |
+| Voice | `@capacitor-community/speech-recognition` | iOS 的 SFSpeechRecognizer 在 iPad 上回錯誤 201（`docs/design/platforms.md`） |
+| BotFiles | `@capacitor/filesystem` | 未查證：沒有把路徑限制在 Bot 的資料夾內，也沒有 chmod |
+| Photos | `@capacitor/camera` | 未查證：只能挑照片，不能依條件查相簿 |
+| Contacts、Calendar | `@capacitor-community/contacts`、`@ebarooni/capacitor-calendar` | 未查證：介面是為模型自訂的，換掉等於改寫 |
+| System、Apps、Phone | `@capacitor/haptics`、`app-launcher`、`share`、`geolocation`、`device` 等 | 各自只取代幾十行，`share` 收檔案 URI 不收 base64，`installUpdate`、鬧鐘、氣壓計、地名查座標沒有對應；不值得多掛相依 |
+| Notifications、Records、Usage、PhoneState、PhoneScreen、Browser、Page、Triggers、KeepAlive、Loopback | 沒有維護中的套件 | 讀其他 App 的通知、通話簡訊紀錄、使用量、無障礙服務、agent 瀏覽器、背景時讓 WebView 繼續跑、本機 OAuth 回呼 |
+
 **外部服務**
 - 現在時間不放系統提示：pi-durable 每次請求都重算區段，變了就把整段再送一次，放分鐘會每一輪重送 preamble。`assistant.ts` 的 `beforeRequest` 在送出前，給每一則使用者訊息加上它自己的送出時間（只在這次請求，對話紀錄不變）；時間取自訊息的 timestamp，舊訊息每次都一樣，快取照常命中。模型不用再先呼叫 `device_info` 讀時間。
 - pi-durable 在請求超過 contextWindow 減掉保留量（預設 16k）時壓縮。把使用者的門檻加上保留量回報成 window，就會在門檻壓縮，而不是接近模型上限才壓。
