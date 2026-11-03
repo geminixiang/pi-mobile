@@ -549,7 +549,20 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .switch:disabled { opacity: 0.4; }
 .toolset-load { display: block; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 
-.context-card { border: 1px solid var(--line); background: var(--panel); padding: 16px; flex-shrink: 0; }
+.context-card { flex-shrink: 0; }
+.context-toggle { display: block; width: 100%; text-align: left; }
+.panel-where { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: -8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; border: 1px solid var(--line-strong); font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
+.pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill-dot { display: block; width: 6px; height: 6px; flex-shrink: 0; background: var(--faint); }
+.pill-dot.connected { background: var(--ok); }
+.pill-dot.lost { background: var(--error); }
+.panel-verbs { display: flex; gap: 20px; }
+.panel-verbs > button { min-height: 36px; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }
+.panel-verbs > button:disabled { color: var(--faint); }
+.panel-rows { display: flex; flex-direction: column; }
+.panel-rows > button { display: flex; align-items: center; gap: 12px; min-height: 44px; text-align: left; }
+.panel-danger { width: 100%; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-small); color: var(--error); text-align: left; }
 .context-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-ui); }
 .context-head b { font-weight: 700; }
 .context-numbers { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
@@ -937,7 +950,4 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .panel-section > .strip-label { margin: 0 2px; }
 .panel-section > .check-progress, .panel-section > .check-error { margin: 0 2px; font-family: var(--mono); font-size: var(--fs-meta); overflow-wrap: anywhere; }
 .panel-section > .check-progress { color: var(--muted); }
-.menu > .panel-memory { align-items: flex-start; }
-.panel-memory > svg { margin-top: 2px; color: var(--muted); flex-shrink: 0; }
-.panel-memory-line { display: block; font-size: var(--fs-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .context-note { margin: 8px 0 10px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }

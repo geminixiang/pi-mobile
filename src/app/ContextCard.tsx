@@ -54,6 +54,7 @@ export function ContextCard({
 	compactAt: number;
 }) {
 	const [measured, setMeasured] = useState<Measured>();
+	const [expanded, setExpanded] = useState(false);
 	useEffect(() => {
 		if (!open) return;
 		const shape = runtime.contextShape(botId);
@@ -79,26 +80,30 @@ export function ContextCard({
 
 	return (
 		<div className="context-card">
-			<div className="context-head">
-				<span>
-					已使用 <b>{percent.toFixed(0)}%</b>
+			<button type="button" className="context-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+				<span className="context-head">
+					<span>
+						已使用 <b>{percent.toFixed(0)}%</b>
+					</span>
+					<span className="context-numbers">
+						{formatTokens(context.used)} / {formatTokens(context.window)}
+					</span>
 				</span>
-				<span className="context-numbers">
-					{formatTokens(context.used)} / {formatTokens(context.window)}
+				<span className="context-parts">
+					{parts ? (
+						<>
+							{parts.parts.map((part) => (
+								<i key={part.kind} className={`part-${part.kind}`} style={{ "--share": part.tokens / context.window }} />
+							))}
+							{parts.reserve > 0 ? <i className="part-reserve" style={{ "--share": parts.reserve / context.window }} /> : null}
+						</>
+					) : (
+						<i className="part-messages" style={{ "--share": context.window ? context.used / context.window : 0 }} />
+					)}
 				</span>
-			</div>
-			<div className="context-parts">
-				{parts ? (
-					<>
-						{parts.parts.map((part) => (
-							<i key={part.kind} className={`part-${part.kind}`} style={{ "--share": part.tokens / context.window }} />
-						))}
-						{parts.reserve > 0 ? <i className="part-reserve" style={{ "--share": parts.reserve / context.window }} /> : null}
-					</>
-				) : (
-					<i className="part-messages" style={{ "--share": context.window ? context.used / context.window : 0 }} />
-				)}
-			</div>
+			</button>
+			{expanded ? (
+				<>
 			{parts ? (
 				<div className="context-rows">
 					{parts.parts.map((part) =>
@@ -161,6 +166,8 @@ export function ContextCard({
 					) : null}
 				</dl>
 			</details>
+				</>
+			) : null}
 		</div>
 	);
 }
