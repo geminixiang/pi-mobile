@@ -38,7 +38,6 @@ import { TriggerList } from "../triggers/TriggerList.tsx";
 import { grouped } from "../triggers/when.ts";
 import { DAY, startOfToday } from "../agent/tools/common.ts";
 import { shortModelName } from "./ModelSheet.tsx";
-import { Segmented } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
@@ -212,38 +211,26 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	return (
 		<>
 			{state.items.length === 0 ? (
-				<Group title="自動化">
-					<Row label="還沒有自動化" hint="跟 Bot 說就會建立" />
-				</Group>
+				<RowList title="自動化">
+					<p className="row-empty">還沒有自動化，跟 Bot 說就會建立</p>
+				</RowList>
 			) : (
 				<div className="trigger-page">
 					<TriggerList triggers={state.items} next={state.next} bots={bots} runtime={runtime} onError={setError} />
 				</div>
 			)}
 			{asks ? (
-				<Group title="要開的權限">
-					{exact === false ? (
-						<Row label="準時執行" hint="沒開會晚幾分鐘">
-							<button type="button" className="btn" onClick={() => void Triggers.requestExactAlarms()}>
-								開啟
-							</button>
-						</Row>
-					) : null}
-					{state.items.length > 0 && overlay === false ? (
-						<Row label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑">
-							<button type="button" className="btn" onClick={() => void Triggers.requestOverlay()}>
-								開啟
-							</button>
-						</Row>
-					) : null}
+				<RowList title="要開的權限">
+					{exact === false ? <StateRow label="準時執行" hint="沒開會晚幾分鐘" on={false} onClick={() => void Triggers.requestExactAlarms()} /> : null}
+					{state.items.length > 0 && overlay === false ? <StateRow label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑" on={false} onClick={() => void Triggers.requestOverlay()} /> : null}
 					{headphones && bluetooth === false ? (
-						<Row label="偵測藍牙耳機">
-							<button type="button" className="btn" onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted), (failure: unknown) => setError(messageOf(failure)))}>
-								開啟
-							</button>
-						</Row>
+						<StateRow
+							label="偵測藍牙耳機"
+							on={false}
+							onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted), (failure: unknown) => setError(messageOf(failure)))}
+						/>
 					) : null}
-				</Group>
+				</RowList>
 			) : null}
 			{error ? <div className="banner error">{error}</div> : null}
 		</>
@@ -363,18 +350,20 @@ function DatabaseGroup() {
 	const [exportError, setExportError] = useState<string>();
 	if (!tables) return null;
 	return (
-		<Group title="資料庫">
+		<RowList title="資料表">
 			{tables.length === 0 ? (
-				<Row label="還沒有資料表" />
+				<p className="row-empty">還沒有資料表</p>
 			) : (
 				tables.map((table) => (
-					<Row key={table.name} label={<code>{table.name}</code>} hint={`${table.rows} 筆`} />
+					<div className="row-static" key={table.name}>
+						<code className="menu-text">{table.name}</code>
+						<span className="row-count">{table.rows} 筆</span>
+					</div>
 				))
 			)}
-			<Row label="匯出">
+			<div className="inline-verbs">
 				<button
 					type="button"
-					className="btn"
 					onClick={() => {
 						setExportError(undefined);
 						void Database.export().catch((error: unknown) => setExportError(`匯出失敗：${messageOf(error)}`));
@@ -382,9 +371,9 @@ function DatabaseGroup() {
 				>
 					匯出
 				</button>
-			</Row>
-			{exportError ? <div className="note error">{exportError}</div> : null}
-		</Group>
+			</div>
+			{exportError ? <p className="row-empty error">{exportError}</p> : null}
+		</RowList>
 	);
 }
 
@@ -673,30 +662,32 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		display: {
 			title: "顯示",
 			body: () => (
-				<Group title="對話">
-					<Row label="顯示思考過程">
-						<input type="checkbox" className="switch" aria-label="顯示思考過程" checked={prefs.showThinking} onChange={(event) => onPrefs({ showThinking: event.target.checked })} />
-					</Row>
-					<Row label="預設展開工具輸出">
-						<input type="checkbox" className="switch" aria-label="預設展開工具輸出" checked={prefs.expandTools} onChange={(event) => onPrefs({ expandTools: event.target.checked })} />
-					</Row>
-				</Group>
+				<RowList title="對話">
+					<label>
+						<span className="menu-text">顯示思考過程</span>
+						<input type="checkbox" className="switch" checked={prefs.showThinking} onChange={(event) => onPrefs({ showThinking: event.target.checked })} />
+					</label>
+					<label>
+						<span className="menu-text">預設展開工具輸出</span>
+						<input type="checkbox" className="switch" checked={prefs.expandTools} onChange={(event) => onPrefs({ expandTools: event.target.checked })} />
+					</label>
+				</RowList>
 			),
 		},
 		browser: {
 			title: "瀏覽器",
 			body: () => (
-				<Group title="搜尋引擎">
-					<Segmented<SearchEngine>
+				<RowList title="搜尋">
+					<ChoiceRow<SearchEngine>
 						label="搜尋引擎"
 						value={settings.searchEngine}
-						options={[
+						choices={[
 							{ value: "duckduckgo", label: SEARCH_ENGINES.duckduckgo.name },
 							{ value: "google", label: SEARCH_ENGINES.google.name },
 						]}
-						onChange={(searchEngine) => change({ searchEngine })}
+						onChoose={(searchEngine) => change({ searchEngine })}
 					/>
-				</Group>
+				</RowList>
 			),
 		},
 	};

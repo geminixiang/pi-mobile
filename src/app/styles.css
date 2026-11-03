@@ -561,9 +561,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .pill-dot { display: block; width: 6px; height: 6px; flex-shrink: 0; background: var(--faint); }
 .pill-dot.connected { background: var(--ok); }
 .pill-dot.lost { background: var(--error); }
-.panel-verbs { display: flex; gap: 20px; }
-.panel-verbs > button { min-height: 36px; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }
-.panel-verbs > button:disabled { color: var(--faint); }
+.inline-verbs { display: flex; gap: 20px; }
+.inline-verbs > button { min-height: 36px; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }
+.inline-verbs > button:disabled { color: var(--faint); }
 .panel-rows { display: flex; flex-direction: column; }
 .panel-rows > button { display: flex; align-items: center; gap: 12px; min-height: 44px; text-align: left; }
 .context-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-ui); }
@@ -845,6 +845,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .settings > .row-list:first-of-type, .settings-index > .row-list:first-child { margin-top: -8px; }
 .row-list > .list-label { margin: 0; padding: 6px var(--space) 4px; }
 .row-list > button { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 8px var(--space); text-align: left; font-size: var(--fs-ui); }
+.row-list > label { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 56px; padding: 8px var(--space); font-size: var(--fs-ui); }
+.row-list > .row-static { display: flex; align-items: center; gap: 14px; min-height: 48px; padding: 8px var(--space); }
+.row-list > .row-empty { margin: 0; padding: 12px var(--space); font-size: var(--fs-small); color: var(--muted); }
+.row-list > .row-empty.error { color: var(--error); }
+.row-list > .inline-verbs { padding: 4px var(--space) 0; }
+.row-count { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
 .row-list > button > svg { color: var(--muted); flex-shrink: 0; }
 .row-list > .row-add { min-height: 48px; margin-top: 4px; border-top: 1px dashed var(--line); font-family: var(--mono); font-size: var(--fs-small); color: var(--muted); }
 .row-value { flex-shrink: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }

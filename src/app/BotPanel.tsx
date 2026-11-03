@@ -220,7 +220,7 @@ export function BotPanel({
 
 				<Section title="上下文" problem={problem}>
 					<ContextCard runtime={runtime} botId={bot.id} open={open} view={view} context={context} compactAt={compactAt} />
-					<div className="panel-verbs">
+					<div className="inline-verbs">
 						<button
 							type="button"
 							disabled={compacting}
