@@ -22,6 +22,7 @@ import { inApp, native } from "../native.ts";
 import { copy } from "./clipboard.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
+const AT_BOTTOM_PX = 4;
 
 function text(content: string | readonly { type: string; text?: string }[] | undefined): string {
 	if (typeof content === "string") return content;
@@ -145,6 +146,7 @@ export function Chat({
 	const [pickImage, setPickImage] = useState(0);
 	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
+	const lastScrollTop = useRef(0);
 
 	useEffect(() => {
 		if (focusKey || initialDraft) setComposerFocus((key) => key + 1);
@@ -247,9 +249,11 @@ export function Chat({
 				ref={scroller}
 				onScroll={(event) => {
 					const element = event.currentTarget;
-					const bottom = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
-					stickToBottom.current = bottom;
-					setAtBottom(bottom);
+					const movedUp = element.scrollTop < lastScrollTop.current;
+					lastScrollTop.current = element.scrollTop;
+					if (element.scrollHeight - element.scrollTop - element.clientHeight < AT_BOTTOM_PX) stickToBottom.current = true;
+					else if (movedUp) stickToBottom.current = false;
+					setAtBottom(stickToBottom.current);
 				}}
 			>
 				{view === undefined ? <TranscriptSkeleton /> : null}
