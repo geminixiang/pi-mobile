@@ -30,6 +30,7 @@ import { pairedHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
+import { ChoiceRow } from "./ChoiceRow.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -454,7 +455,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	return (
 		<nav className="settings-index">
 			{groups.map((group) => (
-				<section key={group.label}>
+				<section key={group.label} className="row-list">
 					<h3 className="list-label">{group.label}</h3>
 					{group.rows.map((row) => (
 						<button type="button" key={row.page} onClick={() => onOpen(row.page)}>
@@ -532,23 +533,23 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 
 	const models = (
 		<>
-			<Group title="模型供應商">
-				<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={change} />
-			</Group>
+			<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={change} />
 			{props.mode === "app" ? (
-				<Group title="自動壓縮">
-					<label>
-						<span>門檻</span>
-						<select className="field" value={settings.compactAt} onChange={(event) => change({ compactAt: Number(event.target.value) })}>
-							<option value={64_000}>64k tokens</option>
-							<option value={128_000}>128k tokens</option>
-							<option value={256_000}>256k tokens（建議）</option>
-							<option value={512_000}>512k tokens</option>
-							<option value={0}>模型上限</option>
-						</select>
-					</label>
-					<div className="group-spacer" />
-				</Group>
+				<section className="row-list">
+					<h3 className="list-label">上下文</h3>
+					<ChoiceRow
+						label="自動壓縮"
+						value={String(settings.compactAt)}
+						choices={[
+							{ value: "64000", label: "64k" },
+							{ value: "128000", label: "128k" },
+							{ value: "256000", label: "256k（建議）" },
+							{ value: "512000", label: "512k" },
+							{ value: "0", label: "模型上限" },
+						]}
+						onChoose={(value) => change({ compactAt: Number(value) })}
+					/>
+				</section>
 			) : null}
 		</>
 	);

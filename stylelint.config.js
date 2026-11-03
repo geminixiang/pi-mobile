@@ -11,5 +11,6 @@ export default {
 		"no-duplicate-selectors": true,
 		"no-descending-specificity": null,
 		"property-disallowed-list": [["backdrop-filter"], { message: "backdrop-filter costs a GPU pass every frame the content under it moves; see the CSS skill" }],
+		"selector-pseudo-class-disallowed-list": [["focus-visible"], { message: "a focus ring makes the app read as a web page; show focus with the element's own border or background, never a ring" }],
 	},
 };

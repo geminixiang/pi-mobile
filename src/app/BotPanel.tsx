@@ -275,7 +275,7 @@ export function BotPanel({
 				</Sheet>
 
 				{actions.emptyFolder ? (
-					<button type="button" className="panel-danger" onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("其他"))}>
+					<button type="button" className="danger-verb" onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("其他"))}>
 						{emptied ?? "清空資料夾"}
 					</button>
 				) : null}

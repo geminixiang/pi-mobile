@@ -1,5 +1,5 @@
+import { Logo } from "./Logo.tsx";
 import { useEffect, useState } from "react";
-import type { SimpleIcon } from "simple-icons";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";
@@ -36,23 +36,6 @@ const host = (url: string) => (URL.canParse(url) ? new URL(url).hostname : url);
 type Grants = { bot: Bot; enabled: ReadonlySet<string> }[];
 
 const SHOWN_FACES = 3;
-const TILE_COLORS = ["coral", "blue", "yellow", "think-medium", "think-high", "ok"] as const;
-const tileColor = (name: string) => TILE_COLORS[[...name].reduce((sum, char) => sum + (char.codePointAt(0) ?? 0), 0) % TILE_COLORS.length];
-
-function Logo({ name, icon }: { name: string; icon: SimpleIcon | undefined }) {
-	return icon ? (
-		<span className="logo">
-			<svg viewBox="0 0 24 24" aria-hidden="true">
-				<path d={icon.path} fill={`#${icon.hex}`} />
-			</svg>
-		</span>
-	) : (
-		<span className="tile" style={{ "--tile": `var(--${tileColor(name)})` }}>
-			{name.slice(0, 1).toUpperCase()}
-		</span>
-	);
-}
-
 function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
 	const [draft, setDraft] = useState({ name: "", url: "" });
 	const connected = new Set(runtime.mcp.servers.map((server) => server.url));
