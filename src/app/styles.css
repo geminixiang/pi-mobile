@@ -559,24 +559,20 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .layer-sheet[data-swiping] { transition: none; }
 .sheet-body { overflow: hidden auto; padding: 16px var(--sheet-inset); display: flex; flex-direction: column; gap: 16px; }
 .layer-dialog {
-	--dialog-inset: 20px;
-	position: fixed; z-index: 20; left: var(--dialog-inset); right: var(--dialog-inset); top: 50%; transform: translateY(-50%); outline: none; overflow: hidden;
-	display: flex; flex-direction: column; gap: 10px; padding: 24px 20px 20px;
-	background: var(--bg); border-radius: calc(var(--card-radius) - var(--dialog-inset)); box-shadow: var(--card-shadow);
-	transition: opacity 200ms ease, transform 200ms var(--ease);
+	position: fixed; z-index: 20; left: 50%; top: 50%; width: 270px; transform: translate(-50%, -50%); outline: none; overflow: hidden;
+	border-radius: 14px; background: var(--panel); text-align: center;
+	transition: opacity 200ms ease, transform 260ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
 }
-.layer-dialog[data-starting-style], .layer-dialog[data-ending-style] { opacity: 0; transform: translateY(calc(-50% + 10px)); }
-.dialog-title { margin: 0; font-family: var(--sans); font-size: var(--fs-heading); font-weight: 700; color: var(--text); }
-.dialog-text { margin: 0; font-size: var(--fs-ui); line-height: 1.6; color: var(--muted); }
-.dialog-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
-.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
-.dialog-choice {
-	display: grid; place-items: center; min-height: 48px; padding: 0 12px; border-radius: 12px; background: var(--panel-2); color: var(--text); font-size: var(--fs-ui); text-align: center;
-	transition: scale 120ms ease-out;
-}
-.dialog-choice:not(:disabled):active { scale: 0.96; background-color: var(--panel-2); }
-.dialog-choice.primary, .dialog-choice.primary:active { background-color: var(--accent); color: var(--bg); font-weight: 700; }
-.dialog-choice.danger, .dialog-choice.danger:active { background-color: var(--error); color: var(--bg); font-weight: 700; }
+.layer-dialog[data-starting-style] { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
+.layer-dialog[data-ending-style] { opacity: 0; transition-duration: 160ms; }
+.dialog-body { display: flex; flex-direction: column; gap: 4px; padding: 20px 16px 18px; }
+.dialog-title { margin: 0; font-family: var(--sans); font-size: 17px; font-weight: 700; color: var(--text); }
+.dialog-text { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--text); }
+.dialog-choices { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+.dialog-choice { min-height: 44px; padding: 0 8px; font-size: 17px; color: var(--accent); text-align: center; }
+.dialog-choice + .dialog-choice { border-left: 1px solid var(--line); font-weight: 700; }
+.dialog-choice:not(:disabled):active { background-color: color-mix(in srgb, var(--text) 8%, transparent); }
+.dialog-choice.danger { color: var(--error); }
 @keyframes fade-in { from { opacity: 0; } }
 
 .menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
@@ -940,6 +936,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sheet-form textarea.field { height: auto; padding: 10px 12px; font-size: var(--fs-code); line-height: 1.5; resize: vertical; }
 .sign-in { display: flex; flex-direction: column; gap: 10px; padding: 16px; font-size: var(--fs-body); line-height: 1.6; color: var(--copy); }
 .sign-in p { margin: 0; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
 .dialog-actions.inline { padding: 0; }
 .user-code { font-family: var(--mono); font-size: var(--fs-display); letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
 .check-row > select.field { width: auto; max-width: 60%; flex-shrink: 0; }

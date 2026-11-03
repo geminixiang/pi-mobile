@@ -465,7 +465,7 @@ export function App() {
 								const sure = await ask({
 									title: "新的上下文",
 									body: "模型將看不到這之前的訊息。紀錄仍會留在畫面上。",
-									confirm: "開始新的上下文",
+									confirm: "開始",
 								});
 								if (sure) await controller.reset().catch(fail);
 							},

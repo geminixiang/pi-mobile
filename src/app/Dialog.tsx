@@ -18,13 +18,15 @@ export function Dialog({ request, onAnswer }: { request: DialogRequest | undefin
 			<BaseDialog.Portal>
 				<BaseDialog.Backdrop className="backdrop" data-layer />
 				<BaseDialog.Popup className="layer-dialog" data-layer>
-					<BaseDialog.Title className="dialog-title">{shown?.title}</BaseDialog.Title>
-					{shown?.body ? <BaseDialog.Description className="dialog-text">{shown.body}</BaseDialog.Description> : null}
+					<div className="dialog-body">
+						<BaseDialog.Title className="dialog-title">{shown?.title}</BaseDialog.Title>
+						{shown?.body ? <BaseDialog.Description className="dialog-text">{shown.body}</BaseDialog.Description> : null}
+					</div>
 					<div className="dialog-choices">
 						<button type="button" className="dialog-choice" onClick={cancel}>
 							取消
 						</button>
-						<button type="button" className={`dialog-choice ${shown?.danger ? "danger" : "primary"}`} onClick={() => onAnswer(true)}>
+						<button type="button" className={`dialog-choice${shown?.danger ? " danger" : ""}`} onClick={() => onAnswer(true)}>
 							{shown?.confirm}
 						</button>
 					</div>
