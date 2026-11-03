@@ -1,6 +1,6 @@
 import { type ReactNode, type TouchEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { haptic } from "./haptics.ts";
-import { useBack } from "./layers.ts";
+import { useBack, useLast } from "./layers.ts";
 import { ownsSidewaysDrag } from "./SidePanel.tsx";
 import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
 
@@ -30,12 +30,6 @@ class StackMotion extends Motion {
 
 type Drag = { from: number; fromX: number; width: number; samples: Sample[] };
 type Gesture = { x: number; y: number; at: number; ignored: boolean; drag?: Drag };
-
-function useLast<T>(keep: boolean, value: T): T {
-	const last = useRef(value);
-	if (keep) last.current = value;
-	return last.current;
-}
 
 export function PageStack({ side, top, children }: { side: Side; top: StackPage | undefined; children: ReactNode }) {
 	const open = top !== undefined;

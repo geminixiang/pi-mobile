@@ -1,17 +1,18 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import type { Change, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { joinPath, resolvePath } from "./openFile.ts";
-import { Layer } from "./Sheet.tsx";
+import { PageStack } from "./PageStack.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { formatBytes } from "../agent/tools/common.ts";
 
 export type WorkspaceTab = "files" | "git";
+type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;
 
 const relative = new Intl.RelativeTimeFormat("zh-TW", { numeric: "auto" });
 function ago(time: number): string {
@@ -194,31 +195,24 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 }
 
 export const WorkspaceView = memo(function WorkspaceView({
-	open,
 	load,
 	initial,
 	onClose,
 }: {
-	open: boolean;
 	load: () => Promise<Workspace | undefined>;
 	initial: { tab: WorkspaceTab; file?: string };
 	onClose: () => void;
 }) {
-	const { value: workspace, error } = useLoaded(open ? async () => (await load()) ?? null : undefined, [open, initial, load]);
+	const { value: workspace, error } = useLoaded(async () => (await load()) ?? null, [load]);
 	const [tab, setTab] = useState<WorkspaceTab>(initial.tab);
-	const [file, setFile] = useState<string>();
-	const [diff, setDiff] = useState<DiffTarget>();
+	const [open, setOpen] = useState<Open>(initial.file ? { kind: "file", path: initial.file } : undefined);
 	const [reloadKey, setReloadKey] = useState(0);
-
-	useEffect(() => {
-		if (!open) return;
-		setTab(initial.tab);
-		setFile(initial.file);
-		setDiff(undefined);
-	}, [open, initial]);
+	const back = () => setOpen(undefined);
+	const top = (opened: NonNullable<Open>, from: Workspace) =>
+		opened.kind === "file" ? <FileViewer workspace={from} path={resolvePath(from.root, opened.path)} onClose={back} /> : <DiffView target={opened.target} onClose={back} />;
 
 	return (
-		<Layer open={open} kind="page" onClose={onClose} label="工作區">
+		<PageStack side="right" top={workspace && open ? { key: open.kind === "file" ? open.path : open.target.title, content: top(open, workspace), onBack: back } : undefined}>
 			<div className="screen">
 				<header className="bar">
 					<BackButton onClick={onClose} />
@@ -236,12 +230,10 @@ export const WorkspaceView = memo(function WorkspaceView({
 					</div>
 				) : null}
 				{workspace && tab === "files" ? (
-					<FileBrowser workspace={workspace} start={initial.file && resolvePath(workspace.root, initial.file)} onOpen={setFile} reloadKey={reloadKey} />
+					<FileBrowser workspace={workspace} start={initial.file && resolvePath(workspace.root, initial.file)} onOpen={(path) => setOpen({ kind: "file", path })} reloadKey={reloadKey} />
 				) : null}
-				{workspace && tab === "git" ? <GitPanel workspace={workspace} onDiff={setDiff} reloadKey={reloadKey} /> : null}
+				{workspace && tab === "git" ? <GitPanel workspace={workspace} onDiff={(target) => setOpen({ kind: "diff", target })} reloadKey={reloadKey} /> : null}
 			</div>
-			{workspace ? <FileViewer workspace={workspace} path={file && resolvePath(workspace.root, file)} onClose={() => setFile(undefined)} /> : null}
-			<DiffView target={diff} onClose={() => setDiff(undefined)} />
-		</Layer>
+		</PageStack>
 	);
 });

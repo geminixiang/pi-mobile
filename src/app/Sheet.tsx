@@ -1,41 +1,7 @@
-import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { Drawer } from "@base-ui/react/drawer";
-import { type ReactNode, useRef } from "react";
+import type { ReactNode } from "react";
 import { CloseIcon } from "./icons.tsx";
-import { useBack } from "./layers.ts";
-
-function useLast(open: boolean, children: ReactNode): ReactNode {
-	const last = useRef(children);
-	if (open) last.current = children;
-	return last.current;
-}
-
-export function Layer({
-	open,
-	kind,
-	onClose,
-	label,
-	children,
-}: {
-	open: boolean;
-	kind: "page" | "dialog";
-	onClose: () => void;
-	label?: string;
-	children: ReactNode;
-}) {
-	useBack(open, onClose);
-	const content = useLast(open, children);
-	return (
-		<BaseDialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
-			<BaseDialog.Portal>
-				{kind === "dialog" ? <BaseDialog.Backdrop className="backdrop" /> : null}
-				<BaseDialog.Popup className={`layer-${kind}`} aria-label={label} finalFocus={kind === "dialog"}>
-					{content}
-				</BaseDialog.Popup>
-			</BaseDialog.Portal>
-		</BaseDialog.Root>
-	);
-}
+import { useBack, useLast } from "./layers.ts";
 
 export function Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
 	useBack(open, onClose);

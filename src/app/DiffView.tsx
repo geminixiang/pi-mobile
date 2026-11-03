@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Layer } from "./Sheet.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { useLoaded } from "./loaded.ts";
 
@@ -103,41 +102,39 @@ function FileBlock({ file }: { file: FileDiff }) {
 	);
 }
 
-export function DiffView({ target, onClose }: { target: DiffTarget | undefined; onClose: () => void }) {
-	const { value: text, error } = useLoaded(target && (() => target.load()), [target]);
+export function DiffView({ target, onClose }: { target: DiffTarget; onClose: () => void }) {
+	const { value: text, error } = useLoaded(() => target.load(), [target]);
 
 	const parsed = useMemo(() => (text === undefined ? undefined : parse(text)), [text]);
 	const commit = parsed && parsed.message.length > 1 ? parsed.message : undefined;
 	return (
-		<Layer open={Boolean(target)} kind="page" onClose={onClose} label="差異">
-			<div className="screen">
-				<header className="bar">
-					<BackButton onClick={onClose} />
-					<div className="bar-center static">
-						<span className="bar-title">{target?.title}</span>
-						{parsed ? (
-							<span className="bar-model">
-								{parsed.files.length} 個檔案 · +{parsed.files.reduce((sum, file) => sum + file.added, 0)} −
-								{parsed.files.reduce((sum, file) => sum + file.removed, 0)}
-							</span>
-						) : null}
-					</div>
-				</header>
-				<div className="viewer">
-					{error ? <div className="banner error">{error}</div> : null}
-					{!parsed && !error ? <div className="ws-loading">讀取中</div> : null}
-					{commit ? (
-						<div className="commit-message">
-							<div className="commit-meta">
-								{commit[0]?.slice(0, 12)} · {commit[1]} · {commit[2]}
-							</div>
-							<pre>{commit.slice(3).join("\n").trim()}</pre>
-						</div>
+		<div className="screen">
+			<header className="bar">
+				<BackButton onClick={onClose} />
+				<div className="bar-center static">
+					<span className="bar-title">{target.title}</span>
+					{parsed ? (
+						<span className="bar-model">
+							{parsed.files.length} 個檔案 · +{parsed.files.reduce((sum, file) => sum + file.added, 0)} −
+							{parsed.files.reduce((sum, file) => sum + file.removed, 0)}
+						</span>
 					) : null}
-					{parsed?.files.length === 0 ? <div className="ws-empty">沒有差異</div> : null}
-					{parsed?.files.map((file, index) => <FileBlock file={file} key={`${file.path}-${index}`} />)}
 				</div>
+			</header>
+			<div className="viewer">
+				{error ? <div className="banner error">{error}</div> : null}
+				{!parsed && !error ? <div className="ws-loading">讀取中</div> : null}
+				{commit ? (
+					<div className="commit-message">
+						<div className="commit-meta">
+							{commit[0]?.slice(0, 12)} · {commit[1]} · {commit[2]}
+						</div>
+						<pre>{commit.slice(3).join("\n").trim()}</pre>
+					</div>
+				) : null}
+				{parsed?.files.length === 0 ? <div className="ws-empty">沒有差異</div> : null}
+				{parsed?.files.map((file, index) => <FileBlock file={file} key={`${file.path}-${index}`} />)}
 			</div>
-		</Layer>
+		</div>
 	);
 }

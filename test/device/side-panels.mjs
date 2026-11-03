@@ -216,8 +216,50 @@ try {
 	if (!(await snapshot("right")).open) failures.push("going back from memory also closed the panel");
 	await evaluate("document.querySelector('.side-shield')?.click()");
 	await sleep(350);
+	const workspaceTop = ".root > .page-stack > .stack-top";
+	const fileTop = `${workspaceTop} .stack-top`;
+	const folder = await evaluate(`Boolean(document.querySelector('button[aria-label="資料夾"]'))`);
+	if (!folder) console.log("skip workspace: this bot has no folder");
+	if (folder) {
+		await click(`document.querySelector('button[aria-label="資料夾"]')`);
+		await sleep(400);
+		const workspace = await rect(workspaceTop);
+		if (!workspace?.shown || Math.abs(workspace.x) > 0.5) failures.push(`the workspace did not come to rest: ${JSON.stringify(workspace)}`);
+		await sleep(1500);
+		const file = await evaluate(`Boolean([...document.querySelectorAll('.file-list button')].find((button) => !button.querySelector('.directory')))`);
+		if (!file) console.log("skip file: the workspace folder has no file at its top");
+		if (file) {
+			await click(`[...document.querySelectorAll('.file-list button')].find((button) => !button.querySelector('.directory'))`);
+			await sleep(400);
+			const viewer = await rect(fileTop);
+			if (!viewer?.shown || Math.abs(viewer.x) > 0.5) failures.push(`a file did not come to rest: ${JSON.stringify(viewer)}`);
+			await touch("touchStart", 60, y);
+			await touch("touchMove", 90, y);
+			await sleep(50);
+			await touch("touchMove", 150, y);
+			await sleep(50);
+			const fileFollowed = await rect(fileTop);
+			if (Math.abs(fileFollowed.x - 60) > 0.5) failures.push(`a file moved ${fileFollowed.x}px for 60px of drag`);
+			await move(150, width - 16, y);
+			await touch("touchEnd");
+			await sleep(400);
+			if ((await rect(fileTop))?.shown) failures.push("a swipe did not take a file back to the workspace");
+			if (!(await rect(workspaceTop))?.shown) failures.push("going back from a file also closed the workspace");
+		}
+		await touch("touchStart", 60, y);
+		await touch("touchMove", 90, y);
+		await sleep(50);
+		await touch("touchMove", 150, y);
+		await sleep(50);
+		const workspaceFollowed = await rect(workspaceTop);
+		if (Math.abs(workspaceFollowed.x - 60) > 0.5) failures.push(`the workspace moved ${workspaceFollowed.x}px for 60px of drag`);
+		await move(150, width - 16, y);
+		await touch("touchEnd");
+		await sleep(400);
+		if (await rect(workspaceTop)) failures.push("a swipe did not take the workspace back to the chat");
+	}
 	assert.equal(failures.length, 0, failures.join("; "));
-	console.log("PASS: both panels stop at fully open, still swipe closed, and open from a swipe that starts on a button; settings, a settings page and memory follow the finger, stop where they rest, and swipe back one layer at a time.");
+	console.log("PASS: both panels stop at fully open, still swipe closed, and open from a swipe that starts on a button; settings, a settings page, memory, the workspace and a file follow the finger, stop where they rest, and swipe back one layer at a time.");
 } finally {
 	try {
 		if (touching) await touch("touchCancel");

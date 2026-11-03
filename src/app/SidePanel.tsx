@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptic } from "./haptics.ts";
-import { useBack } from "./layers.ts";
+import { useBack, useLast } from "./layers.ts";
 import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
 
 export type SidePage = { open: boolean; label: string; onBack: () => void; content: ReactNode };
@@ -174,12 +174,6 @@ export function SideSwipe({
 			</div>
 		</SideContext.Provider>
 	);
-}
-
-function useLast<T>(keep: boolean, value: T): T {
-	const last = useRef(value);
-	if (keep) last.current = value;
-	return last.current;
 }
 
 export function SidePanel({ side, open, page, onClose, label, children }: { side: Side; open: boolean; page?: SidePage; onClose: () => void; label: string; children: ReactNode }) {

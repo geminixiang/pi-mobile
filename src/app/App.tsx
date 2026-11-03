@@ -23,6 +23,7 @@ import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
+import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
@@ -353,6 +354,10 @@ export function App() {
 	};
 
 	return (
+		<PageStack
+			side="right"
+			top={overlay === "workspace" ? { key: "workspace", content: <WorkspaceView load={loadWorkspace} initial={workspaceStart} onClose={close} />, onBack: close } : undefined}
+		>
 		<div
 			ref={card}
 			data-thinking={thinking || "off"}
@@ -591,7 +596,6 @@ export function App() {
 				</div>
 			</Sheet>
 
-			<WorkspaceView open={overlay === "workspace"} load={loadWorkspace} initial={workspaceStart} onClose={close} />
 
 			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
 
@@ -600,5 +604,6 @@ export function App() {
 			{dialogView}
 
 		</div>
+		</PageStack>
 	);
 }

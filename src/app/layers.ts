@@ -1,6 +1,6 @@
 import { App } from "@capacitor/app";
 import { inApp } from "../native.ts";
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 const stack: (() => void)[] = [];
 
@@ -23,4 +23,10 @@ export function useBack(active: boolean, onBack: () => void): void {
 			if (index !== -1) stack.splice(index, 1);
 		};
 	}, [active]);
+}
+
+export function useLast<T>(keep: boolean, value: T): T {
+	const last = useRef(value);
+	if (keep) last.current = value;
+	return last.current;
 }
