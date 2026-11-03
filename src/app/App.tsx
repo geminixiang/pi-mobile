@@ -583,7 +583,7 @@ export function App() {
 
 			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={backToPanel} label="Bot 的記憶">
 				{memoryBot ? (
-					<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} botName={memoryBot.name} onClose={backToPanel} onError={notify} />
+					<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} />
 				) : null}
 			</Layer>
 

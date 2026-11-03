@@ -880,15 +880,22 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .markdown.interim { font-family: var(--sans); font-size: var(--fs-small); line-height: 1.5; color: var(--faint); }
 .markdown.interim p { margin: 0; }
 .memory { display: flex; flex-direction: column; }
-.memory-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px var(--space) calc(16px + env(safe-area-inset-bottom)); }
-.memory-file { display: flex; justify-content: space-between; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
-.memory-file .over { color: var(--error); }
+.bar-heading .bot-avatar { display: inline-block; vertical-align: -5px; margin-right: 8px; }
+.bar-verb { min-width: 44px; min-height: 44px; padding: 0 var(--space) 0 8px; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }
+.bar-verb:disabled { color: var(--faint); }
+.memory-note { flex: 1; min-height: 0; overflow-y: auto; padding: 6px var(--space) 8px; }
+.memory-note p { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-body); line-height: 1.75; overflow-wrap: anywhere; }
+.memory-note p:last-child { border-bottom: 0; }
+.memory-note p.heading { padding: 18px 0 4px; border-bottom: 0; font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.4; color: var(--faint); }
+.memory-note p.heading:first-child { padding-top: 10px; }
+.memory-empty { width: 100%; min-height: 120px; color: var(--faint); font-size: var(--fs-body); }
 .memory-text {
-	flex: 1; min-height: 240px; width: 100%; resize: none; padding: 16px; border: 1px solid var(--line-strong); border-radius: 0;
-	background: var(--bg-deep); font-family: var(--mono); font-size: var(--fs-body); line-height: 1.7; outline: none;
+	flex: 1; min-height: 0; width: 100%; resize: none; padding: 18px var(--space); border: 0; border-radius: 0;
+	background: none; font-family: var(--sans); font-size: var(--fs-body); line-height: 1.75; outline: none;
 }
-.memory-text:focus { border-color: var(--accent); }
-.memory-hint { margin: 0; font-size: var(--fs-small); line-height: 1.6; color: var(--muted); }
+.memory-problem { margin: 0; padding: 8px var(--space) 0; font-size: var(--fs-small); color: var(--error); }
+.memory-foot { padding: 12px var(--space) calc(16px + env(safe-area-inset-bottom)); font-size: var(--fs-small); line-height: 1.6; color: var(--faint); }
+.memory-foot .error { color: var(--error); }
 
 .machine + .machine, .machine + .machine-add { border-top: 1px solid var(--line); }
 .machine .check-error, .check-error.machine-error { display: block; padding: 0 16px 12px; font-family: var(--mono); font-size: var(--fs-meta); }
