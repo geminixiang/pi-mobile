@@ -546,17 +546,18 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .sheet-backdrop[data-swiping] { transition: none; }
 .sheet-viewport { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
 .layer-sheet {
+	--sheet-inset: 24px;
 	position: absolute; left: 0; right: 0; bottom: 0; max-height: 86%; display: flex; flex-direction: column; pointer-events: auto; outline: none;
 	overflow: hidden; background: var(--bg); border-radius: var(--card-radius) var(--card-radius) 0 0; box-shadow: var(--card-shadow); padding-bottom: env(safe-area-inset-bottom);
 	transform: translateY(var(--drawer-swipe-movement-y)); transition: transform 260ms var(--ease);
 }
 .layer-sheet::before { content: ""; flex-shrink: 0; align-self: center; margin-top: 8px; }
 .layer-sheet::before, .browser-grip::before { width: 40px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text) 40%, transparent); }
-.layer-sheet > .strip { border-bottom: none; min-height: 48px; }
+.layer-sheet > .strip { border-bottom: none; min-height: 52px; padding: 4px 14px 0 var(--sheet-inset); }
 .layer-sheet > .strip > .strip-title { font-family: var(--sans); font-size: var(--fs-heading); font-weight: 700; }
 .layer-sheet[data-starting-style], .layer-sheet[data-ending-style] { transform: translateY(100%); }
 .layer-sheet[data-swiping] { transition: none; }
-.sheet-body { overflow: hidden auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.sheet-body { overflow: hidden auto; padding: 16px var(--sheet-inset); display: flex; flex-direction: column; gap: 16px; }
 .layer-dialog {
 	--dialog-inset: 20px;
 	position: fixed; z-index: 20; left: var(--dialog-inset); right: var(--dialog-inset); top: 50%; transform: translateY(-50%); outline: none; overflow: hidden;
@@ -587,7 +588,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .switch:checked { border-color: var(--accent); background: var(--accent-soft); }
 .switch:checked::after { transform: translateX(20px); background: var(--accent); }
 .switch:disabled { opacity: 0.4; }
-.tool-group > .list-label { display: flex; justify-content: space-between; padding: 0 2px 8px; }
+.tool-group > .list-label { display: flex; justify-content: space-between; padding: 0 0 8px; }
 .tool-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .tool-tile {
 	display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 80px; padding: 12px;
