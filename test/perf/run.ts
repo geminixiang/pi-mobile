@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
+import { Page, touches } from "../device/page.ts";
 
 const PACKAGE = "dev.geminixiang.pimobile";
 const VSYNC_MS = 1000 / 120;
@@ -25,80 +25,8 @@ if (!serial) throw new Error("Pass --serial <adb serial>");
 const unknown = scenes.filter((scene) => !SCENES.includes(scene));
 if (unknown.length > 0) throw new Error(`Unknown scenes: ${unknown.join(", ")}; known: ${SCENES.join(", ")}`);
 
-const adbPath = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
-const adb = (...command: string[]) => execFileSync(adbPath, ["-s", serial, "shell", ...command], { encoding: "utf8" });
-const PI = "dev.geminixiang.pimobile/";
+const { adb, swipe, tap } = touches(serial);
 const TYPING_GAP_MS = 120;
-const input = (...args: string[]) => {
-	const out = adb(`if dumpsys activity activities | grep topResumedActivity | grep -q ${PI}; then input ${args.join(" ")}; else echo NOT_PI; fi`);
-	if (out.includes("NOT_PI")) throw new Error(`pi is not in front; stopped before input ${args.join(" ")}`);
-};
-const swipe = (x1: number, y1: number, x2: number, y2: number, ms: number) => input("swipe", String(x1), String(y1), String(x2), String(y2), String(ms));
-const tap = (x: number, y: number) => input("tap", String(x), String(y));
-
-type Reply = { result?: { value?: unknown }; exceptionDetails?: { exception?: { description?: string } } };
-
-const PAGE_HELPERS = `
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const until = async (predicate, ms = 60000) => { const end = Date.now() + ms; while (Date.now() < end) { if (predicate()) return true; await sleep(100); } return false; };
-const button = (label) => [...document.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === label || b.textContent.trim() === label);
-const busy = () => Boolean(button("停止") || button("插話"));
-const transcript = () => document.querySelector(".transcript");
-const center = (element) => { const r = element.getBoundingClientRect(); return { x: Math.round((r.x + r.width / 2) * devicePixelRatio), y: Math.round((r.y + r.height / 2) * devicePixelRatio) }; };
-`;
-
-class Page {
-	#socket: WebSocket;
-	#next = 0;
-	#pending = new Map<number, { resolve: (reply: Reply) => void; reject: (error: Error) => void }>();
-	#closed: Error | undefined;
-
-	private constructor(socket: WebSocket) {
-		this.#socket = socket;
-		socket.onmessage = (event) => {
-			const message = JSON.parse(String(event.data)) as { id?: number; result?: Reply };
-			if (message.id === undefined) return;
-			this.#pending.get(message.id)?.resolve(message.result ?? {});
-			this.#pending.delete(message.id);
-		};
-		socket.onclose = () => {
-			this.#closed = new Error("The DevTools connection closed: the phone disconnected or pi restarted");
-			for (const { reject } of this.#pending.values()) reject(this.#closed);
-			this.#pending.clear();
-		};
-	}
-
-	static async connect(): Promise<Page> {
-		const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; url: string; webSocketDebuggerUrl: string }[];
-		const target = targets.find((candidate) => candidate.type === "page" && URL.canParse(candidate.url) && new URL(candidate.url).hostname === "localhost");
-		if (!target) throw new Error(`No WebView page on tcp:${port}; run .pi/skills/device-testing/scripts/forward.sh`);
-		const socket = new WebSocket(target.webSocketDebuggerUrl);
-		await new Promise((resolve, reject) => {
-			socket.onopen = resolve;
-			socket.onerror = reject;
-		});
-		return new Page(socket);
-	}
-
-	async eval<T>(body: string): Promise<T> {
-		const expression = `(async () => { ${PAGE_HELPERS} ${body} })()`;
-		const { result, exceptionDetails } = await this.command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
-		if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? JSON.stringify(exceptionDetails));
-		return result?.value as T;
-	}
-
-	command(method: string, params: object): Promise<Reply> {
-		if (this.#closed) throw this.#closed;
-		const id = ++this.#next;
-		const reply = new Promise<Reply>((resolve, reject) => this.#pending.set(id, { resolve, reject }));
-		this.#socket.send(JSON.stringify({ id, method, params }));
-		return reply;
-	}
-
-	close() {
-		this.#socket.close();
-	}
-}
 
 const START_RECORDING = `
 const perf = { frames: [], loaf: [], events: [], observers: [], running: true };
@@ -301,7 +229,7 @@ async function measure(page: Page, scene: Scene) {
 
 type Sample = Awaited<ReturnType<typeof measure>>;
 
-const page = await Page.connect();
+const page = await Page.connect(port);
 const checked = await page.eval<{ bot: string; rafHz: number }>(`
 	const bots = await window.piRuntime.bots();
 	const bot = bots.find((b) => b.id === window.piController?.id);

@@ -39,14 +39,10 @@ function watchDevice(): Network {
 		});
 	}
 	if (Capacitor.isPluginAvailable("Network")) {
-		const read = (): Promise<boolean> =>
-			native.implements(System.network) ? System.network().then((status) => status.via !== "none") : NetworkPlugin.getStatus().then((status) => status.connected);
-		void orLogged(read().then(update), "network.status_failed", undefined);
-		void orLogged(
-			NetworkPlugin.addListener("networkStatusChange", () => void orLogged(read().then(update), "network.status_failed", undefined)),
-			"network.listen_failed",
-			undefined,
-		);
+		const read = native.implements(System.network) ? () => System.network() : () => NetworkPlugin.getStatus().then((status) => ({ online: status.connected }));
+		const refresh = () => void orLogged(read().then((status) => update(status.online)), "network.status_failed", undefined);
+		refresh();
+		void orLogged(NetworkPlugin.addListener("networkStatusChange", refresh), "network.listen_failed", undefined);
 	}
 	return {
 		online: () => connected,

@@ -1,34 +1,12 @@
-import { execFileSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
+import { Page, touches } from "./page.ts";
 
-const port = process.env.CDP_PORT ?? "9333";
 const serial = process.env.ANDROID_SERIAL;
 if (!serial) throw new Error("Set ANDROID_SERIAL: the pulls are real touches (adb input swipe), since the browser follows the finger through touch events");
-const adb = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
-const input = (...args) => execFileSync(adb, ["-s", serial, "shell", "input", ...args.map(String)]);
+const touch = touches(serial);
 const SETTLE_MS = 900;
-
-const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-const target = targets.find((candidate) => candidate.type === "page" && URL.canParse(candidate.url) && new URL(candidate.url).hostname === "localhost");
-if (!target) throw new Error("No pi page on this DevTools port");
-const socket = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((resolve, reject) => {
-	socket.onopen = resolve;
-	socket.onerror = reject;
-});
-let next = 0;
-const pending = new Map();
-socket.onmessage = (event) => {
-	const reply = JSON.parse(String(event.data));
-	pending.get(reply.id)?.(reply);
-	pending.delete(reply.id);
-};
-const evaluate = (expression) =>
-	new Promise((resolve, reject) => {
-		const id = ++next;
-		pending.set(id, (reply) => (reply.error || reply.result.exceptionDetails ? reject(new Error(JSON.stringify(reply.error ?? reply.result.exceptionDetails))) : resolve(reply.result.result.value)));
-		socket.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression: `(async () => (${expression}))()`, awaitPromise: true, returnByValue: true } }));
-	});
+const page = await Page.connect();
+const evaluate = (expression) => page.eval(`return (${expression});`);
 
 if (!(await evaluate(`Boolean(window.Capacitor?.isPluginAvailable("Browser") && document.querySelector(".browser-sheet"))`))) throw new Error("Open a Bot in pi first: the browser sheet belongs to the open Bot");
 await evaluate(`(() => {
@@ -48,16 +26,15 @@ const haptics = async () => (await evaluate(`window.__browserHaptics.splice(0)`)
 const isOpen = () => evaluate(`!document.querySelector(".browser-sheet").inert`);
 const dpr = await evaluate("devicePixelRatio");
 const height = await evaluate("innerHeight");
-const center = (selector) => evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-const px = (css) => Math.round(css * dpr);
+const at = (selector) => evaluate(`center(document.querySelector(${JSON.stringify(selector)}))`);
 const drag = async (selector, dy, ms = 450) => {
-	const { x, y } = await center(selector);
-	input("swipe", px(x), px(y), px(x), px(y + dy), ms);
+	const { x, y } = await at(selector);
+	touch.swipe(x, y, x, y + Math.round(dy * dpr), ms);
 	await sleep(SETTLE_MS);
 };
 const tap = async (selector) => {
-	const { x, y } = await center(selector);
-	input("tap", px(x), px(y));
+	const { x, y } = await at(selector);
+	touch.tap(x, y);
 	await sleep(SETTLE_MS);
 };
 const closed = async () => {
@@ -98,7 +75,7 @@ try {
 	await expect("tap the grip", "", false);
 } finally {
 	await closed();
-	socket.close();
+	page.close();
 }
 
 for (const line of results) console.log(line);

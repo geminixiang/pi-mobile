@@ -8,8 +8,8 @@ import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
-import { type CallState, Content, EntryView, finishedCalls, isEmptyAnswer, retryNote } from "./Message.tsx";
-import { entryText } from "../agent/entries.ts";
+import { type CallState, Content, EntryView, finishedCalls, isEmptyAnswer } from "./Message.tsx";
+import { entryText, retriedAttempts } from "../agent/entries.ts";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import { TranscriptSkeleton } from "./Skeleton.tsx";
@@ -201,6 +201,7 @@ export function Chat({
 	const fail = (error: unknown) => onError(messageOf(error));
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	const lastEntry = entries.at(-1);
+	const retried = retriedAttempts(entries, Boolean(live?.generation?.retry));
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
 	const emptyAnswer = !busy && lastEntry !== undefined && isEmptyAnswer(lastEntry);
 	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
@@ -290,11 +291,11 @@ export function Chat({
 						/>
 					</div>
 				) : null}
-				{entries.map((entry, index) => (
+				{entries.map((entry) => (
 					<EntryView
 						key={String(entry.id)}
 						entry={entry}
-						retried={index === entries.length - 1 ? Boolean(live?.generation?.retry) : entries[index + 1]?.kind === "pi.assistant"}
+						retried={retried.has(entry)}
 						prefs={prefs}
 						calls={calls}
 						onActions={setActionsFor}
@@ -330,7 +331,6 @@ export function Chat({
 				) : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
 				{busy && !partial && !running ? <Working label="思考中" /> : null}
-				{live?.generation?.retry && lastEntry?.kind !== "pi.assistant" ? <div className="note">{retryNote(live.generation.retry.error)}</div> : null}
 				{contextShare >= CONTEXT_NEARLY_FULL && !busy && !live?.compactions?.length ? (
 					<button type="button" className="note context-full" onClick={() => void controller.compact().catch(fail)}>
 						上下文 {Math.round(contextShare * 100)}% · <b>壓縮</b>

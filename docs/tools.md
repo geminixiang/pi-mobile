@@ -320,7 +320,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
-| 2026-11-04 | 外掛合約 `System` 多一個 `network`（只有 Android）：回答 VPN 以外有沒有通過驗證、能上網的 Wi‑Fi 或行動網路（`wifi`／`cellular`／`other`／`none`）。開著 Tailscale 時 `@capacitor/network` 看的是 VPN，Wi‑Fi 和行動數據都關了還說有網路（類型 unknown）；`deviceNetwork` 收到它的通知後改問這個方法。不是工具 | 不變 | `plugins.snapshot.json` 已更新；S24 實測見 docs/architecture.md〈網路會一直換〉 |
+| 2026-11-04 | 外掛合約 `System` 多一個 `network`（只有 Android）：回答 VPN 以外有沒有通過驗證、能上網的網路（`{ online }`；起初回 `wifi`／`cellular`／`other`／`none`，只有 `none` 有人讀，2026-11-04 簡化）。開著 Tailscale 時 `@capacitor/network` 看的是 VPN，Wi‑Fi 和行動數據都關了還說有網路（類型 unknown）；`deviceNetwork` 收到它的通知後改問這個方法。不是工具 | 不變 | `plugins.snapshot.json` 已更新；S24 實測見 docs/architecture.md〈網路會一直換〉 |
 | 2026-11-03 | 點桌面小工具上的一件事，打開負責的 Bot 並拉起這件事的卡片（完整標題、期限、哪天記下；「請 Bot 處理」「完成了」「明天再說」），不再只打開整段對話。外掛合約 `Triggers.agenda` 的每一筆多一個 `item`（事項 id），連結帶 `&item=` | 不變 | `test/contracts/triggers.ts` 一條：讀得到事項、延後到明天、結案後再延後不會改它；`test/items.ts` 的 agenda 帶 item |
 | 2026-11-03 | 桌面小工具的「輪到你」改名「待辦」，時間寫「16:30 到期」「未定時間」「…已過期」；列表改用 `ListView` 加 `RemoteCollectionItems`，由系統排版、可捲動，不再用固定行高推算放得下幾行（Samsung 桌面把小工具縮小，一行實際 41 dp，舊碼當 52 dp，7 件只列 2 件、下方空一行） | 不變 | 原生畫面，沒有 node 測試；S24 上實測：顯示 3 行、可捲動，點一行打開負責的 Bot |
 | 2026-11-03 | 提示段落一律有上限（`appSection`），其他 Bot 只列名字。起因：`bot` 段落直接讀 Bot 索引，刪除中的 Bot 一直留在名單裡，S24 上每次請求帶了約 300 個名字 | S24：第一次請求 4.1k → 2.4k tokens（含 64648a1 的修正） | `test/prompt.ts`：舊碼的 `bot` 段落沒有上限、名單帶工作說明，兩項都失敗；快照 `test/prompt.snapshot.json` |

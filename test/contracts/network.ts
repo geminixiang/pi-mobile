@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { Api, AssistantMessage, AssistantMessageEventStream, Model, Provider } from "@earendil-works/pi-ai";
+import { type Api, type AssistantMessage, type AssistantMessageEventStream, fauxAssistantMessage, type Model, type Provider } from "@earendil-works/pi-ai";
 import { isRetryableAssistantError, retryAssistantCall, retryDelayMs } from "@earendil-works/pi-ai/utils/retry";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
@@ -52,16 +52,7 @@ function answering(answers: Answer[] = [finished]) {
 	const model = base.getModels()[0];
 	assert(model);
 	const calls: { aborted: boolean }[] = [];
-	const message = (stopReason: AssistantMessage["stopReason"]): AssistantMessage => ({
-		role: "assistant",
-		content: [{ type: "text", text: "答案" }],
-		api: model.api,
-		provider: model.provider,
-		model: model.id,
-		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-		stopReason,
-		timestamp: 0,
-	});
+	const message = (stopReason: AssistantMessage["stopReason"]) => fauxAssistantMessage("答案", { stopReason });
 	const stream = (_model: Model<Api>, _context: unknown, options?: { signal?: AbortSignal }) => {
 		calls.push({ aborted: options?.signal?.aborted ?? false });
 		const events = createAssistantMessageEventStream();

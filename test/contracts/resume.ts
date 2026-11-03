@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { type Link, type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
+import { type Link, RESUME_LIMIT_MS, type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 import { sleep } from "../../src/promise.ts";
 
@@ -51,13 +51,10 @@ function fakeNetwork() {
 			online = next;
 			for (const listener of listeners) listener();
 		},
-		foreground() {
-			for (const listener of listeners) listener();
-		},
 	};
 }
 
-async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetwork(), resumeLimitMs?: number) {
+async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetwork(), resumeLimitMs = RESUME_LIMIT_MS) {
 	const links: Link[] = [];
 	const received: RawMessage[] = [];
 	let closedWith: string | undefined | null = null;
@@ -73,7 +70,7 @@ async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetw
 		},
 		onLink: (link) => links.push(link),
 		network,
-		...(resumeLimitMs === undefined ? {} : { resumeLimitMs }),
+		resumeLimitMs,
 	});
 	return { socket, links, received, closed: () => closedWith };
 }
@@ -241,7 +238,7 @@ export const checks: Check[] = [
 			first.drop(undefined);
 			await sleep(100);
 			const shown = Date.now();
-			network.foreground();
+			network.set(true);
 			const second = await opened(opener, 1);
 			assert(Date.now() - shown < 300, "it waited for the scheduled retry after the app came back");
 			await sleep(50);

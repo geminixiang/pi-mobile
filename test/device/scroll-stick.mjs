@@ -1,41 +1,16 @@
-import { execFileSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
+import { Page, touches } from "./page.ts";
 
-const port = process.env.CDP_PORT ?? "9333";
 const serial = process.env.ANDROID_SERIAL;
 if (!serial) throw new Error("Set ANDROID_SERIAL: the drags are real touches (adb input swipe), since DevTools' synthesized scroll never returns on the S24");
-const adb = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
-const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-const target = targets.find((candidate) => candidate.type === "page" && URL.canParse(candidate.url) && new URL(candidate.url).hostname === "localhost");
-if (!target) throw new Error("No pi page on this DevTools port");
-const socket = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((resolve, reject) => {
-	socket.onopen = resolve;
-	socket.onerror = reject;
-});
-let next = 0;
-const pending = new Map();
-socket.onmessage = (event) => {
-	const reply = JSON.parse(String(event.data));
-	pending.get(reply.id)?.(reply);
-	pending.delete(reply.id);
-};
-const send = (method, params = {}) =>
-	new Promise((resolve, reject) => {
-		const id = ++next;
-		pending.set(id, (reply) => (reply.error ? reject(new Error(JSON.stringify(reply.error))) : resolve(reply.result)));
-		socket.send(JSON.stringify({ id, method, params }));
-	});
-const evaluate = async (expression) => {
-	const reply = await send("Runtime.evaluate", { expression: `(async () => (${expression}))()`, awaitPromise: true, returnByValue: true });
-	if (reply.exceptionDetails) throw new Error(JSON.stringify(reply.exceptionDetails));
-	return reply.result.value;
-};
+const { input } = touches(serial);
+const page = await Page.connect();
+const evaluate = (expression) => page.eval(`return (${expression});`);
 
 const SENDER = "測試效能";
 const distance = () => evaluate(`(() => { const t = document.querySelector(".transcript"); return t ? Math.round(t.scrollHeight - t.scrollTop - t.clientHeight) + 0 : -999; })()`);
 const contentHeight = () => evaluate(`document.querySelector(".transcript")?.scrollHeight ?? 0`);
-const busy = () => evaluate(`Boolean([...document.querySelectorAll("button")].find((b) => ["停止", "插話"].includes(b.getAttribute("aria-label") ?? b.textContent.trim())))`);
+const busy = () => evaluate("busy()");
 const until = async (check, ms = 30000) => {
 	const end = Date.now() + ms;
 	while (Date.now() < end) {
@@ -45,16 +20,16 @@ const until = async (check, ms = 30000) => {
 	return false;
 };
 const stop = async () => {
-	await evaluate(`[...document.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === "停止")?.click() ?? true`);
+	await evaluate(`button("停止")?.click() ?? true`);
 	await until(async () => !(await busy()));
 	await sleep(500);
 };
 const toBottom = () => evaluate(`(() => { const t = document.querySelector(".transcript"); t.scrollTop = t.scrollHeight; return true; })()`);
-const streaming = () => until(() => evaluate(`Boolean(document.querySelector(".transcript .answer .streaming, .transcript article.answer:last-of-type")) && [...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "停止")`), 20000).then(() => sleep(600));
+const streaming = () => until(() => evaluate(`Boolean(document.querySelector(".transcript .answer .streaming, .transcript article.answer:last-of-type")) && Boolean(button("停止"))`), 20000).then(() => sleep(600));
 const sendFromComposer = async (text) => {
 	await evaluate(`(() => { const area = document.querySelector(".composer textarea"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(area, ${JSON.stringify(text)}); area.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`);
 	await sleep(150);
-	await evaluate(`[...document.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === "送出").click() ?? true`);
+	await evaluate(`button("送出").click() ?? true`);
 };
 let prompts = 0;
 const prompt = () => `stream ${++prompts}`;
@@ -63,7 +38,7 @@ let scale = 1;
 const gesture = async (pixels) => {
 	const { x, y, dpr } = await evaluate(`(() => { const r = document.querySelector(".transcript").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.4, dpr: devicePixelRatio }; })()`);
 	const at = (css) => String(Math.round(css * dpr));
-	execFileSync(adb, ["-s", serial, "shell", "input", "swipe", at(x), at(y), at(x), at(y + pixels), "700"]);
+	input("swipe", at(x), at(y), at(x), at(y + pixels), "700");
 	await sleep(300);
 };
 const scrollUp = (pixels) => gesture(Math.round(pixels / scale));
@@ -163,12 +138,12 @@ try {
 	const { x, y } = await evaluate(`(() => { const r = document.querySelector(".composer textarea").getBoundingClientRect(); return { x: Math.round((r.left + r.width / 2) * devicePixelRatio), y: Math.round((r.top + r.height / 2) * devicePixelRatio) }; })()`);
 	const height = () => evaluate(`document.querySelector(".transcript").clientHeight`);
 	const open = await height();
-	execFileSync(adb, ["-s", serial, "shell", "input", "tap", String(x), String(y)]);
+	input("tap", String(x), String(y));
 	await sleep(1500);
 	const typing = await height();
 	const withKeyboard = await distance();
 	if (typing < open) {
-		execFileSync(adb, ["-s", serial, "shell", "input", "keyevent", "KEYCODE_BACK"]);
+		input("keyevent", "KEYCODE_BACK");
 		await sleep(1500);
 		const closed = await distance();
 		record("(e) 在底部開關鍵盤", `對話區高 ${open} → ${typing}；開著離底 ${withKeyboard}，關掉後離底 ${closed}`, withKeyboard < 4 && closed < 4);
@@ -176,7 +151,7 @@ try {
 	await evaluate("document.activeElement?.blur() ?? true");
 } finally {
 	if (await busy()) await stop();
-	socket.close();
+	page.close();
 }
 
 for (const line of results) console.log(line);

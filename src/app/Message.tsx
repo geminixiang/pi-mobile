@@ -498,7 +498,7 @@ export const EntryView = memo(function EntryView({
 		);
 	}
 	if (entry.kind === "pi.assistant" && model.role === "assistant") {
-		if (retried && model.stopReason === "error") return <div className="note">{retryNote(model.errorMessage)}</div>;
+		if (retried) return <div className="note">{isConnectionLost(model.errorMessage) ? "網路斷了，重新回答" : `重新回答：${model.errorMessage ?? "出錯了"}`}</div>;
 		const aborted = model.stopReason === "aborted";
 		return (
 			<article className={`answer${aborted ? " aborted" : ""}`}>
@@ -510,7 +510,3 @@ export const EntryView = memo(function EntryView({
 	}
 	return null;
 }, sameEntryView);
-
-export function retryNote(error: string | undefined): string {
-	return isConnectionLost(error) ? "網路斷了，重新回答" : `重新回答：${error ?? "出錯了"}`;
-}

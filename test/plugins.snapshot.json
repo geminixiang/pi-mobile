@@ -3921,18 +3921,12 @@
 				},
 				"result": {
 					"properties": {
-						"via": {
-							"enum": [
-								"wifi",
-								"cellular",
-								"other",
-								"none"
-							],
-							"type": "string"
+						"online": {
+							"type": "boolean"
 						}
 					},
 					"required": [
-						"via"
+						"online"
 					],
 					"type": "object"
 				}

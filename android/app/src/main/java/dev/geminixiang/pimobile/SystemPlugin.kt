@@ -57,22 +57,15 @@ class SystemPlugin : Plugin() {
     fun network(call: PluginCall) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         @Suppress("DEPRECATION")
-        val usable =
-            connectivity.allNetworks
-                .mapNotNull { connectivity.getNetworkCapabilities(it) }
-                .filter {
-                    !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
-                        it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                        it.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                }
-        val via =
-            when {
-                usable.any { it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } -> "wifi"
-                usable.any { it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } -> "cellular"
-                usable.isNotEmpty() -> "other"
-                else -> "none"
+        val online =
+            connectivity.allNetworks.any { network ->
+                val capabilities = connectivity.getNetworkCapabilities(network)
+                capabilities != null &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
             }
-        call.resolve(JSObject().put("via", via))
+        call.resolve(JSObject().put("online", online))
     }
 
     @PluginMethod

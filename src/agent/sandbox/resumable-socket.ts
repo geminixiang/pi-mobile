@@ -18,11 +18,11 @@ export interface ResumableOptions {
 	onLink?: (link: Link) => void;
 	network: Network;
 	quietLimitMs: number;
-	resumeLimitMs?: number;
+	resumeLimitMs: number;
 }
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
-const RESUME_LIMIT_MS = 270_000;
+export const RESUME_LIMIT_MS = 270_000;
 const SENT_LOG_BYTES = 4 * 1024 * 1024;
 // why: the computer ends a held session only on a normal closure (1000); a closure without a code, like the reattach after a quiet link, keeps it held.
 const NORMAL_CLOSURE = 1000;
@@ -40,7 +40,6 @@ export class ResumableSocket {
 	#sentBase = 0;
 	#sentBytes = 0;
 	#closed = false;
-	#down = false;
 	#link: Link = "up";
 	#attaching = false;
 	#unreachableMs = 0;
@@ -72,7 +71,7 @@ export class ResumableSocket {
 			this.#sent.shift();
 			this.#sentBase++;
 		}
-		if (this.#socket && !this.#down) this.#socket.send(data);
+		if (this.#socket && this.#link === "up") this.#socket.send(data);
 	}
 
 	close(): void {
@@ -132,36 +131,35 @@ export class ResumableSocket {
 
 	#dropped(): void {
 		if (this.#closed) return;
-		if (!this.#down) {
-			this.#down = true;
+		if (this.#link === "up") {
 			this.#unreachableMs = 0;
 			this.#onlineSince = undefined;
 			this.#attempt = 0;
 			log.info("host.resume", { what: this.#options.what, state: "dropped", received: this.#received, sent: this.#sentBase + this.#sent.length });
 		}
-		if (!this.#tracked()) return this.#setLink("offline");
+		if (this.#onlineFor() === undefined) return this.#setLink("offline");
 		this.#setLink("reattaching");
 		const delay = RETRY_DELAYS_MS[Math.min(this.#attempt, RETRY_DELAYS_MS.length - 1)] ?? 15000;
 		this.#timer = setTimeout(() => void this.#attach(), delay);
 	}
 
 	#networkChanged(): void {
-		if (this.#closed || !this.#down || this.#attaching) return;
+		if (this.#closed || this.#link === "up" || this.#attaching) return;
 		clearTimeout(this.#timer);
-		if (!this.#tracked()) return this.#setLink("offline");
+		if (this.#onlineFor() === undefined) return this.#setLink("offline");
 		this.#attempt = 0;
 		void this.#attach();
 	}
 
-	#tracked(): boolean {
-		const online = this.#options.network.online();
+	#onlineFor(): number | undefined {
 		const now = Date.now();
-		if (online && this.#onlineSince === undefined) this.#onlineSince = now;
-		if (!online && this.#onlineSince !== undefined) {
-			this.#unreachableMs += now - this.#onlineSince;
+		if (!this.#options.network.online()) {
+			if (this.#onlineSince !== undefined) this.#unreachableMs += now - this.#onlineSince;
 			this.#onlineSince = undefined;
+			return undefined;
 		}
-		return online;
+		this.#onlineSince ??= now;
+		return this.#unreachableMs + now - this.#onlineSince;
 	}
 
 	#setLink(link: Link): void {
@@ -172,9 +170,9 @@ export class ResumableSocket {
 
 	async #attach(): Promise<void> {
 		if (this.#closed || this.#attaching) return;
-		if (!this.#tracked()) return this.#setLink("offline");
-		const unreachable = this.#unreachableMs + Date.now() - (this.#onlineSince ?? Date.now());
-		const limit = this.#options.resumeLimitMs ?? RESUME_LIMIT_MS;
+		const unreachable = this.#onlineFor();
+		if (unreachable === undefined) return this.#setLink("offline");
+		const limit = this.#options.resumeLimitMs;
 		if (unreachable > limit) {
 			log.warn("host.resume", { what: this.#options.what, state: "gave_up", attempts: this.#attempt });
 			return this.#final(`could not reach ${this.#options.what} for ${limit / 60_000} minutes while this phone was online`);
@@ -187,11 +185,10 @@ export class ResumableSocket {
 			this.#socket = socket;
 			this.#lastMessage = Date.now();
 		} catch {
-			this.#attaching = false;
 			this.#dropped();
-			return;
+		} finally {
+			this.#attaching = false;
 		}
-		this.#attaching = false;
 	}
 
 	#resume(received: number): void {
@@ -200,7 +197,6 @@ export class ResumableSocket {
 		if (received < this.#sentBase) return this.#final(`${this.#options.what} is missing more than this phone kept; the command may still be running there`);
 		const missing = this.#sent.slice(received - this.#sentBase);
 		for (const data of missing) socket.send(data);
-		this.#down = false;
 		this.#lastMessage = Date.now();
 		log.info("host.resume", { what: this.#options.what, state: "attached", attempts: this.#attempt, resent: missing.length, received: this.#received });
 		this.#setLink("up");
