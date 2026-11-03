@@ -247,7 +247,7 @@ export function BotPanel({
 
 				<Section title="其他" problem={problem}>
 					<div className="panel-rows">
-						<button type="button" onClick={run(actions.memory)}>
+						<button type="button" onClick={actions.memory}>
 							<span className="menu-text">記憶</span>
 							<span className="index-value">{memoryCount > 0 ? `${memoryCount} 條` : "還沒有"}</span>
 							<ChevronIcon />

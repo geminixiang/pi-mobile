@@ -587,11 +587,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .context-share { width: 44px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--text); text-align: right; }
 .context-item { display: flex; justify-content: space-between; padding: 3px 54px 3px 19px; font-size: var(--fs-meta); color: var(--faint); }
 .context-line.deferred { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--faint); }
-.stats-more > summary { list-style: none; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); cursor: pointer; }
-.stats-more > summary::-webkit-details-marker { display: none; }
-.stats-more > summary::before { content: "▸ "; color: var(--faint); }
-.stats-more[open] > summary::before { content: "▾ "; }
-.stats-more > .stats { margin-top: 10px; }
+.context-card .stats { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; margin: 0; }
 .stats dt { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
 .stats dd { margin: 3px 0 0; font-family: var(--mono); font-size: var(--fs-body); }

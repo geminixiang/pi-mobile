@@ -142,9 +142,7 @@ export function ContextCard({
 			) : (
 				<p className="context-note">下一次對話後列出細目</p>
 			)}
-			<details className="stats-more">
-				<summary>用量</summary>
-				<dl className="stats">
+			<dl className="stats">
 					{(
 						[
 							["輸入", usage.input],
@@ -164,8 +162,7 @@ export function ContextCard({
 							<dd>{cacheHitRate.toFixed(1)}%</dd>
 						</div>
 					) : null}
-				</dl>
-			</details>
+			</dl>
 				</>
 			) : null}
 		</div>

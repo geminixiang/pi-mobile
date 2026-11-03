@@ -80,6 +80,8 @@ export function App() {
 	}, []);
 	const openFile = useCallback((file: string) => openWorkspace({ tab: "files", file }), [openWorkspace]);
 	const close = useCallback(() => setOverlay(undefined), []);
+	const backToPanel = useCallback(() => setOverlay("panel"), []);
+	const backToDrawer = useCallback(() => setOverlay("drawer"), []);
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
 	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const applyRef = useRef<(draft: { settings: Settings; changed: boolean } | undefined) => Promise<void>>(undefined);
@@ -266,8 +268,8 @@ export function App() {
 	const card = useRef<HTMLDivElement>(null);
 	const header = useRef<HTMLElement>(null);
 
-	const side = overlay === "drawer" ? "left" : overlay === "panel" ? "right" : undefined;
-	const sideBlocked = (overlay !== undefined && side === undefined) || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
+	const side = overlay === "drawer" || overlay === "settings" ? "left" : overlay === "panel" || overlay === "botMemory" ? "right" : undefined;
+	const sideBlocked = (overlay !== undefined && side === undefined) || overlay === "settings" || overlay === "botMemory" || dialog !== undefined || botEdit !== undefined || sharing !== undefined;
 
 	const splash = <Skeleton />;
 	const dialogView = (
@@ -314,13 +316,13 @@ export function App() {
 		settingsDraft.current = undefined;
 		if (draft?.changed && !isConfigured(draft.settings)) {
 			void ask({ title: "變更沒有儲存", body: "沒有可用的模型供應商。離開會放棄這次的變更。", confirm: "放棄變更", danger: true }).then((sure) => {
-				if (sure) close();
+				if (sure) backToDrawer();
 				else settingsDraft.current = draft;
 			});
 			return;
 		}
 		if (draft?.changed) void applyRef.current?.(draft);
-		close();
+		backToDrawer();
 	}
 
 	if (!runtime) {
@@ -396,7 +398,7 @@ export function App() {
 				onChange={(next) => setOverlay(next === "left" ? "drawer" : next === "right" ? "panel" : undefined)}
 				left={
 					<Drawer
-						open={overlay === "drawer"}
+						open={overlay === "drawer" || overlay === "settings"}
 						busy={busy}
 						bots={bots}
 						automations={automations}
@@ -418,7 +420,7 @@ export function App() {
 				}
 				right={
 					<BotPanel
-						open={overlay === "panel"}
+						open={overlay === "panel" || overlay === "botMemory"}
 						bot={current}
 						runtime={runtime}
 						view={view}
@@ -577,9 +579,9 @@ export function App() {
 
 			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
 
-			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={close} label="Bot 的記憶">
+			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={backToPanel} label="Bot 的記憶">
 				{memoryBot ? (
-					<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} botName={memoryBot.name} onClose={close} onError={notify} />
+					<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} botName={memoryBot.name} onClose={backToPanel} onError={notify} />
 				) : null}
 			</Layer>
 

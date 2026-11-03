@@ -29,7 +29,7 @@ export function Layer({
 		<BaseDialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
 			<BaseDialog.Portal>
 				{kind === "dialog" ? <BaseDialog.Backdrop className="backdrop" /> : null}
-				<BaseDialog.Popup className={`layer-${kind}`} aria-label={label}>
+				<BaseDialog.Popup className={`layer-${kind}`} aria-label={label} finalFocus={kind === "dialog"}>
 					{content}
 				</BaseDialog.Popup>
 			</BaseDialog.Portal>
