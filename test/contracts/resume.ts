@@ -40,15 +40,15 @@ async function opened(opener: ReturnType<typeof fakeOpener>, index: number): Pro
 
 function fakeNetwork() {
 	const listeners = new Set<() => void>();
-	let online = true;
+	let current: number | undefined = 1;
 	return {
-		online: () => online,
+		current: () => current,
 		onChange: (listener: () => void) => {
 			listeners.add(listener);
 			return () => void listeners.delete(listener);
 		},
 		set(next: boolean) {
-			online = next;
+			current = next ? (current ?? 0) + 1 : undefined;
 			for (const listener of listeners) listener();
 		},
 		foreground() {

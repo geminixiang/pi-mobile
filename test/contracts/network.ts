@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import type { Api, AssistantMessage, Model, Provider } from "@earendil-works/pi-ai";
-import { retryDelayMs } from "@earendil-works/pi-ai/utils/retry";
+import type { Api, AssistantMessage, AssistantMessageEventStream, Model, Provider } from "@earendil-works/pi-ai";
+import { isRetryableAssistantError, retryAssistantCall, retryDelayMs } from "@earendil-works/pi-ai/utils/retry";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import { MODEL_RETRY } from "../../src/agent/retry.ts";
@@ -10,49 +10,75 @@ import { sleep } from "../../src/promise.ts";
 import type { Check } from "./setup.ts";
 
 const SLOWEST_RETRY_MS = 30_000;
+const QUICK = { quietMs: 300, afterSwitchMs: 300 };
 
-function switchable(): Network & { set(online: boolean): void } {
+function switchable(online = false): Network & { set(online: boolean): void } {
 	const listeners = new Set<() => void>();
-	let online = false;
+	let current: number | undefined = online ? 1 : undefined;
 	return {
-		online: () => online,
+		current: () => current,
 		onChange: (listener) => {
 			listeners.add(listener);
 			return () => void listeners.delete(listener);
 		},
 		set(next) {
-			online = next;
+			current = next ? (current ?? 0) + 1 : undefined;
 			for (const listener of listeners) listener();
 		},
 	};
 }
 
-function answering() {
+type Answer = (events: AssistantMessageEventStream, message: (stopReason: AssistantMessage["stopReason"]) => AssistantMessage, signal: AbortSignal | undefined) => void;
+
+const finished: Answer = (events, message) => {
+	queueMicrotask(() => {
+		events.push({ type: "done", reason: "stop", message: message("stop") });
+		events.end();
+	});
+};
+
+const stopsWhenCut: Answer = (events, message, signal) => {
+	events.push({ type: "start", partial: message("stop") });
+	events.push({ type: "text_start", contentIndex: 0, partial: message("stop") });
+	events.push({ type: "text_delta", contentIndex: 0, delta: "答", partial: message("stop") });
+	signal?.addEventListener("abort", () => {
+		events.push({ type: "error", reason: "aborted", error: message("aborted") });
+		events.end();
+	});
+};
+
+function answering(answers: Answer[] = [finished]) {
 	const base = customProvider({ id: "fake", name: "fake", baseUrl: "https://model.invalid/v1" }, "", ["m"], new Map());
 	const model = base.getModels()[0];
 	assert(model);
 	const calls: { aborted: boolean }[] = [];
-	const message: AssistantMessage = {
+	const message = (stopReason: AssistantMessage["stopReason"]): AssistantMessage => ({
 		role: "assistant",
 		content: [{ type: "text", text: "答案" }],
 		api: model.api,
 		provider: model.provider,
 		model: model.id,
 		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-		stopReason: "stop",
+		stopReason,
 		timestamp: 0,
-	};
+	});
 	const stream = (_model: Model<Api>, _context: unknown, options?: { signal?: AbortSignal }) => {
 		calls.push({ aborted: options?.signal?.aborted ?? false });
 		const events = createAssistantMessageEventStream();
-		queueMicrotask(() => {
-			events.push({ type: "done", reason: "stop", message });
-			events.end(message);
-		});
+		const answer = answers[calls.length - 1] ?? finished;
+		answer(events, message, options?.signal);
 		return events;
 	};
 	const provider: Provider = Object.defineProperties(Object.create(base), { stream: { value: stream }, streamSimple: { value: stream } });
 	return { provider, model, calls };
+}
+
+function ask(provider: Provider, model: Model<Api>, signal?: AbortSignal) {
+	return provider.streamSimple(model, normalizeContext({ messages: [] }), { signal }).result();
+}
+
+function within<T>(ms: number, what: string, work: Promise<T>): Promise<T> {
+	return Promise.race([work, sleep(ms).then(() => assert.fail(what))]);
 }
 
 export const checks: Check[] = [
@@ -61,11 +87,11 @@ export const checks: Check[] = [
 		async () => {
 			const network = switchable();
 			const { provider, model, calls } = answering();
-			const answer = waitingForNetwork(provider, network).streamSimple(model, normalizeContext({ messages: [] }), {});
+			const answer = ask(waitingForNetwork(provider, network), model);
 			await sleep(300);
 			assert.equal(calls.length, 0, "the request went out with no network, and would fail and spend a retry");
 			network.set(true);
-			const result = await answer.result();
+			const result = await answer;
 			assert.equal(calls.length, 1);
 			assert.equal(result.stopReason, "stop");
 			assert.deepEqual(result.content, [{ type: "text", text: "答案" }]);
@@ -77,10 +103,100 @@ export const checks: Check[] = [
 			const network = switchable();
 			const { provider, model, calls } = answering();
 			const stop = new AbortController();
-			const answer = waitingForNetwork(provider, network).streamSimple(model, normalizeContext({ messages: [] }), { signal: stop.signal });
+			const answer = ask(waitingForNetwork(provider, network), model, stop.signal);
 			stop.abort();
-			await answer.result();
+			await answer;
 			assert.deepEqual(calls, [{ aborted: true }]);
+		},
+	],
+	[
+		"an answer that goes silent mid-stream is cut and retried, instead of hanging on a connection the network dropped",
+		async () => {
+			const network = switchable(true);
+			const { provider, model, calls } = answering([stopsWhenCut, finished]);
+			const guarded = waitingForNetwork(provider, network, QUICK);
+			const result = await within(5000, "a silent stream was never cut, so the answer hangs forever", retryAssistantCall(() => ask(guarded, model), { ...MODEL_RETRY, baseDelayMs: 10 }, undefined));
+			assert.equal(calls.length, 2);
+			assert.equal(result.stopReason, "stop");
+		},
+	],
+	[
+		"an answer streaming when the network goes away is cut at once as a retryable error",
+		async () => {
+			const network = switchable(true);
+			const { provider, model } = answering([stopsWhenCut]);
+			const answer = ask(waitingForNetwork(provider, network, { quietMs: 60_000, afterSwitchMs: 60_000 }), model);
+			await sleep(20);
+			network.set(false);
+			const result = await within(1000, "the stream kept waiting on a network that is gone", answer);
+			assert.equal(result.stopReason, "error");
+			assert(isRetryableAssistantError(result), `not retried: ${result.errorMessage}`);
+		},
+	],
+	[
+		"after a switch to another network, an answer that stops coming is cut within the short wait, not the long one",
+		async () => {
+			const network = switchable(true);
+			const { provider, model } = answering([stopsWhenCut]);
+			const answer = ask(waitingForNetwork(provider, network, { quietMs: 60_000, afterSwitchMs: 200 }), model);
+			await sleep(20);
+			network.set(true);
+			const result = await within(1500, "a dead connection after a switch waited out the long silence", answer);
+			assert.equal(result.stopReason, "error");
+			assert(isRetryableAssistantError(result), `not retried: ${result.errorMessage}`);
+		},
+	],
+	[
+		"an answer that keeps coming through a switch to another network is not cut, so a flapping network costs no retry",
+		async () => {
+			const network = switchable(true);
+			const flowing: Answer = (events, message) => {
+				events.push({ type: "start", partial: message("stop") });
+				events.push({ type: "text_start", contentIndex: 0, partial: message("stop") });
+				void (async () => {
+					for (let i = 0; i < 12; i++) {
+						await sleep(50);
+						events.push({ type: "text_delta", contentIndex: 0, delta: "字", partial: message("stop") });
+					}
+					finished(events, message, undefined);
+				})();
+			};
+			const { provider, model, calls } = answering([flowing]);
+			const answer = ask(waitingForNetwork(provider, network, { quietMs: 60_000, afterSwitchMs: 200 }), model);
+			for (let i = 0; i < 3; i++) {
+				await sleep(60);
+				network.set(true);
+			}
+			const result = await answer;
+			assert.equal(calls.length, 1);
+			assert.equal(result.stopReason, "stop");
+		},
+	],
+	[
+		"stopping an answer mid-stream stays a stop, not a network error to retry",
+		async () => {
+			const network = switchable(true);
+			const { provider, model } = answering([stopsWhenCut]);
+			const stop = new AbortController();
+			const answer = ask(waitingForNetwork(provider, network, QUICK), model, stop.signal);
+			await sleep(20);
+			stop.abort();
+			network.set(false);
+			assert.equal((await answer).stopReason, "aborted");
+		},
+	],
+	[
+		"a model thinking before its first word is not cut for being quiet",
+		async () => {
+			const network = switchable(true);
+			const thinking: Answer = (events, message) => {
+				events.push({ type: "start", partial: message("stop") });
+				void sleep(QUICK.quietMs * 3).then(() => finished(events, message, undefined));
+			};
+			const { provider, model, calls } = answering([thinking]);
+			const result = await ask(waitingForNetwork(provider, network, QUICK), model);
+			assert.equal(calls.length, 1);
+			assert.equal(result.stopReason, "stop");
 		},
 	],
 	[

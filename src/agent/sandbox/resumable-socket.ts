@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { log } from "../../log.ts";
 import { decode } from "../parse.ts";
-import type { Network } from "../network.ts";
+import { isOnline, type Network } from "../network.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
@@ -154,7 +154,7 @@ export class ResumableSocket {
 	}
 
 	#tracked(): boolean {
-		const online = this.#options.network.online();
+		const online = isOnline(this.#options.network);
 		const now = Date.now();
 		if (online && this.#onlineSince === undefined) this.#onlineSince = now;
 		if (!online && this.#onlineSince !== undefined) {
