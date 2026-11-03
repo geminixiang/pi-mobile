@@ -37,6 +37,7 @@ import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { TriggerRuns } from "../triggers/runs.ts";
 import type { Notified, TriggerHost } from "../triggers/tool.ts";
 import { type Placed, Workplaces } from "./workplaces.ts";
+import { MODEL_RETRY } from "./retry.ts";
 
 const context = BACKGROUND_CONTEXT;
 
@@ -232,6 +233,7 @@ export class AgentRuntime {
 				models: () => loaded.models,
 				registry,
 				settings: {
+					retry: MODEL_RETRY,
 					get extensions() {
 						return registry
 							.snapshot()
