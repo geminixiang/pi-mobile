@@ -1,4 +1,4 @@
-import { pad } from "../agent/tools/common.ts";
+import { DAY, pad } from "../agent/tools/common.ts";
 import type { TriggerSymbol } from "../app/icons.tsx";
 import type { ACTIVITIES, When } from "./plugin.ts";
 import type { Trigger } from "./runs.ts";
@@ -58,6 +58,19 @@ export function describeWhen(when: When): string {
 	const days = describeDays(when.days);
 	const limit = when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`;
 	return `${days === "每天" ? "" : days}${window} ${describeEvent(when)}（${limit}）`.trim();
+}
+
+export function describeRule(when: When): string | undefined {
+	if (when.kind === "once") return undefined;
+	if (when.kind === "daily") return describeDays(when.days);
+	const days = describeDays(when.days);
+	return [days === "每天" ? undefined : days, describeEvent(when), when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`].filter(Boolean).join(" · ");
+}
+
+export function describeAgo(at: number, today: number): string {
+	if (at >= today) return `今天 ${clockOf(at)}`;
+	if (at >= today - DAY) return `昨天 ${clockOf(at)}`;
+	return describeTime(at);
 }
 
 function describeDays(list: readonly number[]): string {

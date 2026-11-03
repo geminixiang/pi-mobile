@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { Trigger } from "../src/triggers/runs.ts";
-import { grouped } from "../src/triggers/when.ts";
+import { describeRule, grouped } from "../src/triggers/when.ts";
 
 const hour = 60 * 60 * 1000;
 const endOfToday = Date.UTC(2026, 10, 3, 16);
@@ -27,4 +27,8 @@ assert.deepEqual(
 	],
 );
 assert.deepEqual(grouped([], {}, endOfToday), []);
-console.log("trigger groups: automations sort into today, later, events, paused and done, soonest first, empty groups left out");
+assert.equal(describeRule({ kind: "daily", time: "21:30", days: [] }), "每天");
+assert.equal(describeRule({ kind: "daily", time: "08:00", days: [1, 2, 3, 4, 5] }), "平日");
+assert.equal(describeRule({ kind: "once", at: endOfToday }), undefined);
+assert.equal(describeRule({ kind: "headphones", days: [], gapHours: 24, from: "18:00", until: "22:00" }), "戴上耳機時 · 一天一次");
+console.log("trigger groups: automations sort into today, later, events, paused and done, soonest first, empty groups left out; a row's detail names the days or the event, never the time again");
