@@ -13,7 +13,7 @@ import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { SidePanel } from "./SidePanel.tsx";
+import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
@@ -138,7 +138,7 @@ type Problem = { section: string; text: string };
 
 export function BotPanel({
 	open,
-	deep,
+	page,
 	bot,
 	runtime,
 	view,
@@ -148,7 +148,7 @@ export function BotPanel({
 	onClose,
 }: {
 	open: boolean;
-	deep: boolean;
+	page: SidePage;
 	bot: Bot | undefined;
 	runtime: AgentRuntime;
 	view: ConversationView | undefined;
@@ -204,7 +204,7 @@ export function BotPanel({
 	const memoryCount = memory.split("\n").filter((line) => line.trim()).length;
 
 	return (
-		<SidePanel side="right" open={open} deep={deep} onClose={onClose} label={`${bot.name} 的資訊`}>
+		<SidePanel side="right" open={open} page={page} onClose={onClose} label={`${bot.name} 的資訊`}>
 			<div className="panel">
 				<button type="button" className="panel-bot" onClick={run(actions.edit)}>
 					<BotAvatar bot={bot} size={48} />

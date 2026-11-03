@@ -19,8 +19,10 @@ export function towardOpen(side: Side, dx: number): number {
 	return side === "left" ? dx : -dx;
 }
 
-export function positionAfter(side: Side, from: number, dx: number, width: number): number {
-	return Math.min(1, Math.max(0, from + towardOpen(side, dx) / width));
+export type Range = { min: number; max: number };
+
+export function positionAfter(side: Side, from: number, dx: number, width: number, range: Range = { min: 0, max: 1 }): number {
+	return Math.min(range.max, Math.max(range.min, from + towardOpen(side, dx) / width));
 }
 
 export function velocityOf(samples: readonly Sample[], releasedAt: number): number {

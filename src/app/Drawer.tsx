@@ -7,7 +7,7 @@ import type { When } from "../triggers/plugin.ts";
 import { triggerSymbol } from "../triggers/when.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
-import { SidePanel } from "./SidePanel.tsx";
+import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { DAY, startOfToday } from "../agent/tools/common.ts";
 
 const SHOWN_SYMBOLS = 3;
@@ -54,7 +54,7 @@ function time(updatedAt: number, today: number): string {
 
 export function Drawer({
 	open,
-	deep,
+	page,
 	busy,
 	bots,
 	automations,
@@ -68,7 +68,7 @@ export function Drawer({
 	onClose,
 }: {
 	open: boolean;
-	deep: boolean;
+	page: SidePage;
 	busy: boolean;
 	bots: Bot[];
 	automations: readonly Trigger[];
@@ -83,7 +83,7 @@ export function Drawer({
 }) {
 	const today = startOfToday();
 	return (
-		<SidePanel side="left" open={open} deep={deep} onClose={onClose} label="Bot 列表">
+		<SidePanel side="left" open={open} page={page} onClose={onClose} label="Bot 列表">
 			<div className="drawer">
 				<div className="drawer-top">
 					<span className="brand">

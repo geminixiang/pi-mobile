@@ -24,7 +24,7 @@ import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
 import { AutomationIcon, AzureMark, CloudflareMark, DatabaseIcon, GitHubMark, GoogleCloudMark, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
-import { useBack } from "./layers.ts";
+import { PageStack } from "./PageStack.tsx";
 import { pairedHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
@@ -622,13 +622,12 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	const changed = changedKeys(initial, settings).length > 0;
 
 	useEffect(() => onDraft?.(settings, changed), [settings, changed, onDraft]);
-	const [{ page, moved }, setNav] = useState<{ page?: Page; moved?: "in" | "out" }>({});
+	const [page, setPage] = useState<Page>();
 	const [problem, setProblem] = useState<string>();
 	const go = (next: Page | undefined) => {
 		setProblem(undefined);
-		setNav(next ? { page: next, moved: "in" } : { moved: "out" });
+		setPage(next);
 	};
-	useBack(page !== undefined, () => go(undefined));
 	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
 
 	const models = (
@@ -723,54 +722,64 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		},
 	};
 
-	if (page === "memory" && runtime) {
-		return (
-			<div className="screen moved-in">
-				<MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => go(undefined)} onError={setProblem} />
+	const banner = problem ? <div className="banner error">{problem}</div> : null;
+	const back = () => go(undefined);
+	const top = (opened: Page) =>
+		opened === "memory" ? (
+			runtime ? <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={back} onError={setProblem} /> : null
+		) : (
+			<div className="screen">
+				<header className="bar">
+					<BackButton onClick={back} />
+					<h1 className="bar-heading">{pages[opened].title}</h1>
+					<span className="bar-spacer" />
+				</header>
+				<form className="settings" onSubmit={(event) => event.preventDefault()}>
+					{banner}
+					{pages[opened].body()}
+				</form>
 			</div>
 		);
-	}
-	const current = page && page !== "memory" ? pages[page] : undefined;
 	return (
-		<div className="screen">
-			<header className="bar">
-				{current ? <BackButton onClick={() => go(undefined)} /> : props.mode === "app" ? <BackButton onClick={props.onCancel} /> : <span className="bar-spacer" />}
-				<h1 className="bar-heading">{current?.title ?? "設定"}</h1>
-				{props.mode === "app" ? (
-					<span className="bar-spacer" />
-				) : (
-					<button
-						type="button"
-						className="btn primary"
-						disabled={!isConfigured(settings) || saving}
-						onClick={() => {
-							setSaving(true);
-							setProblem(undefined);
-							props
-								.onSave(settings)
-								.catch((error: unknown) => setProblem(`沒有存下來：${messageOf(error)}`))
-								.finally(() => setSaving(false));
-						}}>
-						{saving ? "開始中…" : "開始"}
-					</button>
-				)}
-			</header>
-			<form key={page ?? "index"} className={`settings${moved ? ` moved-${moved}` : ""}`} onSubmit={(event) => event.preventDefault()}>
-				{props.mode === "app" ? null : (
-					<div className="welcome">
-						<PiMark size={36} />
-						<h2>
-							口袋裡的 agent，
-							<br />
-							只屬於<em>你</em>。
-						</h2>
-						<p>加入一個模型供應商就能開始。對話和金鑰都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
-					</div>
-				)}
-				{props.mode === "setup" && props.status ? <div className="banner error">{props.status}</div> : null}
-				{problem ? <div className="banner error">{problem}</div> : null}
-				{current ? current.body() : props.mode === "app" ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
-				{current ? null : (
+		<PageStack side="left" top={page ? { key: page, content: top(page), onBack: back } : undefined}>
+			<div className="screen">
+				<header className="bar">
+					{props.mode === "app" ? <BackButton onClick={props.onCancel} /> : <span className="bar-spacer" />}
+					<h1 className="bar-heading">設定</h1>
+					{props.mode === "app" ? (
+						<span className="bar-spacer" />
+					) : (
+						<button
+							type="button"
+							className="btn primary"
+							disabled={!isConfigured(settings) || saving}
+							onClick={() => {
+								setSaving(true);
+								setProblem(undefined);
+								props
+									.onSave(settings)
+									.catch((error: unknown) => setProblem(`沒有存下來：${messageOf(error)}`))
+									.finally(() => setSaving(false));
+							}}>
+							{saving ? "開始中…" : "開始"}
+						</button>
+					)}
+				</header>
+				<form className="settings" onSubmit={(event) => event.preventDefault()}>
+					{props.mode === "app" ? null : (
+						<div className="welcome">
+							<PiMark size={36} />
+							<h2>
+								口袋裡的 agent，
+								<br />
+								只屬於<em>你</em>。
+							</h2>
+							<p>加入一個模型供應商就能開始。對話和金鑰都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
+						</div>
+					)}
+					{props.mode === "setup" && props.status ? <div className="banner error">{props.status}</div> : null}
+					{page ? null : banner}
+					{props.mode === "app" ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
 					<p className="about">
 						pi mobile · {__BUILD__}
 						{inApp ? (
@@ -783,8 +792,8 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 							</>
 						) : null}
 					</p>
-				)}
-			</form>
-		</div>
+				</form>
+			</div>
+		</PageStack>
 	);
 }

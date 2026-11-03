@@ -20,6 +20,10 @@ for (const side of ["left", "right"] as const) {
 	assert.equal(positionAfter(side, 0, -open * 400, 300), 0);
 	assert.equal(positionAfter(side, 1, -open * 600, 300), 0);
 	assert.equal(positionAfter(side, 0.4, open * 30, 300), 0.5);
+	const page = { min: 1, max: 3 };
+	assert.equal(positionAfter(side, 3, -open * 200, 200, page), 2);
+	assert.equal(positionAfter(side, 3, open * 200, 200, page), 3);
+	assert.equal(positionAfter(side, 2, -open * 900, 200, page), 1);
 }
 
 assert.equal(velocityOf([], 0), 0);
@@ -36,4 +40,4 @@ assert.equal(settleCurve(0), 0);
 assert.equal(settleCurve(1), 1);
 assert.equal(settleCurve(2), 1);
 assert(settleCurve(0.5) > 0.9 && settleCurve(0.5) < 1);
-console.log("side gesture: intent, side, bounds, velocity, settling, and the settle curve hold");
+console.log("side gesture: intent, side, bounds (a panel between closed and open, a page between its panel and the full width), velocity, settling, and the settle curve hold");

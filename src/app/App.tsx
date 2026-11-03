@@ -21,7 +21,7 @@ import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
-import { Layer, Sheet } from "./Sheet.tsx";
+import { Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
@@ -399,7 +399,14 @@ export function App() {
 				left={
 					<Drawer
 						open={overlay === "drawer" || overlay === "settings"}
-						deep={overlay === "settings"}
+						page={{
+							open: overlay === "settings",
+							label: "設定",
+							onBack: leaveSettings,
+							content: (
+								<SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />
+							),
+						}}
 						busy={busy}
 						bots={bots}
 						automations={automations}
@@ -422,7 +429,14 @@ export function App() {
 				right={
 					<BotPanel
 						open={overlay === "panel" || overlay === "botMemory"}
-						deep={overlay === "botMemory"}
+						page={{
+							open: overlay === "botMemory" && Boolean(memoryBot),
+							label: "Bot 的記憶",
+							onBack: backToPanel,
+							content: memoryBot ? (
+								<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} />
+							) : null,
+						}}
 						bot={current}
 						runtime={runtime}
 						view={view}
@@ -581,15 +595,7 @@ export function App() {
 
 			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
 
-			<Layer open={overlay === "botMemory" && Boolean(memoryBot)} kind="page" onClose={backToPanel} label="Bot 的記憶">
-				{memoryBot ? (
-					<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} />
-				) : null}
-			</Layer>
 
-			<Layer open={overlay === "settings"} kind="page" from="left" onClose={leaveSettings} label="設定">
-				<SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />
-			</Layer>
 
 			{dialogView}
 

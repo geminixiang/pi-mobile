@@ -1,17 +1,22 @@
-import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptic } from "./haptics.ts";
 import { useBack } from "./layers.ts";
-import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+
+export type SidePage = { open: boolean; label: string; onBack: () => void; content: ReactNode };
 
 class PanelMotion extends Motion {
+	page: { open: boolean; onBack: () => void; element: HTMLElement | null } = { open: false, onBack: () => {}, element: null };
+
 	constructor(
 		readonly side: Side,
 		private readonly viewport: HTMLElement,
 		private readonly popup: HTMLElement,
 		private readonly card: RefObject<HTMLElement | null>,
+		settled: () => void,
 	) {
-		super();
+		super(settled);
 	}
 
 	width(): number {
@@ -27,10 +32,21 @@ class PanelMotion extends Motion {
 		return this.viewport.offsetWidth / Math.max(1, this.width());
 	}
 
+	pageRange(): Range {
+		return { min: 1, max: this.deepest() };
+	}
+
+	pageUnit(): number {
+		return this.viewport.offsetWidth / Math.max(0.01, this.deepest() - 1);
+	}
+
 	protected render(position: number): void {
+		const deep = String(Math.max(0, Math.min(1, (position - 1) / Math.max(0.01, this.deepest() - 1))));
 		this.card.current?.style.setProperty(this.side === "left" ? "--side-left" : "--side-right", String(position));
 		this.popup.style.setProperty("--side-reveal", String(Math.min(position, 1)));
-		this.popup.style.setProperty("--side-deep", String(Math.max(0, Math.min(1, (position - 1) / Math.max(0.01, this.deepest() - 1)))));
+		this.popup.style.setProperty("--side-deep", deep);
+		this.page.element?.style.setProperty("--side-deep", deep);
+		this.page.element?.toggleAttribute("data-shown", position > 1);
 	}
 }
 
@@ -40,13 +56,13 @@ type TouchHandlers = {
 	onTouchEnd: (event: TouchEvent) => void;
 	onTouchCancel: (event: TouchEvent) => void;
 };
-type Drag = { motion: PanelMotion; from: number; fromX: number; width: number; samples: Sample[] };
+type Drag = { motion: PanelMotion; from: number; fromX: number; width: number; range: Range | undefined; samples: Sample[] };
 type Gesture = { x: number; y: number; at: number; selecting: boolean; ignored: boolean; drag?: Drag };
 type SideState = { open: Side | undefined; disabled: boolean; onChange: (open: Side | undefined) => void };
 
 const SideContext = createContext<{ panels: Map<Side, PanelMotion>; card: RefObject<HTMLElement | null> } | null>(null);
 
-function ownsSidewaysDrag(target: EventTarget | null, dx: number): boolean {
+export function ownsSidewaysDrag(target: EventTarget | null, dx: number): boolean {
 	if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true']")) return true;
 	for (let element = target instanceof Element ? target : null; element; element = element.parentElement) {
 		const room = element.scrollWidth - element.clientWidth;
@@ -71,6 +87,15 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 		gesture = undefined;
 		if (!drag) return;
 		const { side } = drag.motion;
+		if (drag.range) {
+			const deep = (drag.motion.position() - drag.range.min) / Math.max(0.01, drag.range.max - drag.range.min);
+			const stays = !cancelled && settlesOpen(deep, towardOpen(side, velocityOf(drag.samples, at)));
+			drag.motion.settleTo(drag.range.max);
+			if (cancelled || stays) return;
+			haptic("tick");
+			drag.motion.page.onBack();
+			return;
+		}
 		const wasOpen = current().open === side;
 		const open = cancelled ? wasOpen : settlesOpen(drag.motion.position(), towardOpen(side, velocityOf(drag.samples, at)));
 		if (open === wasOpen) {
@@ -99,11 +124,19 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 					gesture.ignored = true;
 					return;
 				}
-				gesture.drag = { motion, from: motion.position(), fromX: touch.clientX, width: motion.width(), samples: [] };
+				const page = motion.page.open;
+				gesture.drag = {
+					motion,
+					from: motion.position(),
+					fromX: touch.clientX,
+					width: page ? motion.pageUnit() : motion.width(),
+					range: page ? motion.pageRange() : undefined,
+					samples: [],
+				};
 			}
 			const { drag } = gesture;
 			drag.samples = sampled(drag.samples, touch.clientX, event.timeStamp);
-			drag.motion.drag(positionAfter(drag.motion.side, drag.from, touch.clientX - drag.fromX, drag.width));
+			drag.motion.drag(positionAfter(drag.motion.side, drag.from, touch.clientX - drag.fromX, drag.width, drag.range));
 		},
 		onTouchEnd: (event) => release(false, event.timeStamp),
 		onTouchCancel: (event) => release(true, event.timeStamp),
@@ -143,16 +176,29 @@ export function SideSwipe({
 	);
 }
 
-export function SidePanel({ side, open, deep = false, onClose, label, children }: { side: Side; open: boolean; deep?: boolean; onClose: () => void; label: string; children: ReactNode }) {
+function useLast<T>(keep: boolean, value: T): T {
+	const last = useRef(value);
+	if (keep) last.current = value;
+	return last.current;
+}
+
+export function SidePanel({ side, open, page, onClose, label, children }: { side: Side; open: boolean; page?: SidePage; onClose: () => void; label: string; children: ReactNode }) {
 	useBack(open, onClose);
+	const deep = open && Boolean(page?.open);
+	useBack(deep, () => page?.onBack());
 	const context = useContext(SideContext);
 	const viewport = useRef<HTMLDivElement>(null);
 	const popup = useRef<HTMLDivElement>(null);
+	const pageElement = useRef<HTMLDivElement>(null);
 	const motion = useRef<PanelMotion>(undefined);
+	const [pageMounted, setPageMounted] = useState(false);
+	const pageContent = useLast(deep, page?.content);
 
 	useLayoutEffect(() => {
 		if (!context || !viewport.current || !popup.current) return;
-		const created = new PanelMotion(side, viewport.current, popup.current, context.card);
+		const created: PanelMotion = new PanelMotion(side, viewport.current, popup.current, context.card, () => {
+			if (created.position() <= 1 && !created.page.open) setPageMounted(false);
+		});
 		motion.current = created;
 		context.panels.set(side, created);
 		return () => {
@@ -163,7 +209,17 @@ export function SidePanel({ side, open, deep = false, onClose, label, children }
 	useLayoutEffect(() => {
 		const current = motion.current;
 		if (!current) return;
-		if (open && deep) current.settleTo(current.deepest());
+		current.page = { open: deep, onBack: () => page?.onBack(), element: pageElement.current };
+	});
+
+	useLayoutEffect(() => {
+		if (deep) setPageMounted(true);
+	}, [deep]);
+
+	useLayoutEffect(() => {
+		const current = motion.current;
+		if (!current) return;
+		if (deep) current.settleTo(current.deepest());
 		else current.settle(open);
 	}, [open, deep]);
 
@@ -176,6 +232,11 @@ export function SidePanel({ side, open, deep = false, onClose, label, children }
 		};
 	}, [open]);
 
+	useEffect(() => {
+		if (deep) pageElement.current?.focus({ preventScroll: true });
+		else if (open) popup.current?.focus({ preventScroll: true });
+	}, [deep]);
+
 	if (!context) return null;
 	return createPortal(
 		<div ref={viewport} className="side-viewport">
@@ -186,13 +247,29 @@ export function SidePanel({ side, open, deep = false, onClose, label, children }
 				aria-modal="true"
 				aria-label={label}
 				tabIndex={-1}
-				inert={!open}
+				inert={!open || deep}
 				onKeyDown={(event) => {
 					if (event.key === "Escape") onClose();
 				}}
 			>
 				{children}
 			</div>
+			{deep || pageMounted ? (
+				<div
+					ref={pageElement}
+					className={`side-page side-page-${side}`}
+					role="dialog"
+					aria-modal="true"
+					aria-label={page?.label}
+					tabIndex={-1}
+					inert={!deep}
+					onKeyDown={(event) => {
+						if (event.key === "Escape") page?.onBack();
+					}}
+				>
+					{pageContent}
+				</div>
+			) : null}
 		</div>,
 		document.body,
 	);
