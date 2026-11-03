@@ -1,4 +1,3 @@
-import { Row } from "./Row.tsx";
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
 import { KeepAlive } from "../plugins/keep-alive.ts";
@@ -23,7 +22,7 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
-import { AutomationIcon, DatabaseIcon, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
+import { AutomationIcon, AzureMark, CloudflareMark, DatabaseIcon, GitHubMark, GoogleCloudMark, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { useBack } from "./layers.ts";
 import { pairedHosts } from "../agent/sandbox/host.ts";
@@ -31,6 +30,7 @@ import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
+import { Sheet } from "./Sheet.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -63,13 +63,132 @@ function RowList({ title, children }: { title: string; children: ReactNode }) {
 	);
 }
 
-function SignedIn({ label, onRemove }: { label: string; onRemove: () => void }) {
+type Account = "github" | "gcloud" | "cloudflare" | "azure";
+
+function AccountsPage({ settings, change }: { settings: Settings; change: (next: Partial<Settings>) => void }) {
+	const [open, setOpen] = useState<Account>();
+	const accounts: { id: Account; name: string; mark: ReactNode; signedIn: string }[] = [
+		{ id: "github", name: "GitHub", mark: <GitHubMark />, signedIn: settings.githubToken ? "已填 token" : "" },
+		{ id: "gcloud", name: "Google Cloud", mark: <GoogleCloudMark />, signedIn: settings.gcloudCredential ? describeGcloud(settings.gcloudCredential) : "" },
+		{ id: "cloudflare", name: "Cloudflare", mark: <CloudflareMark />, signedIn: settings.cloudflareCredential ? describeCloudflare(settings.cloudflareCredential) : "" },
+		{ id: "azure", name: "Azure", mark: <AzureMark />, signedIn: settings.azureCredential ? describeAzure(settings.azureCredential) : "" },
+	];
+	const shown = accounts.find((account) => account.id === open);
+	const remove: Record<Account, Partial<Settings>> = {
+		github: { githubToken: "" },
+		gcloud: { gcloudCredential: "", gcloudProject: "" },
+		cloudflare: { cloudflareCredential: "" },
+		azure: { azureCredential: "" },
+	};
 	return (
-		<Row label={label}>
-			<button type="button" className="btn" onClick={onRemove}>
-				移除
-			</button>
-		</Row>
+		<>
+			<RowList title="Bot 用你的身分登入">
+				{accounts.map((account) => (
+					<button type="button" key={account.id} onClick={() => setOpen(account.id)}>
+						{account.mark}
+						<span className="menu-text">
+							{account.name}
+							<span className="index-status">{account.signedIn || "還沒登入"}</span>
+						</span>
+						<i className={`row-dot${account.signedIn ? "" : " off"}`} />
+					</button>
+				))}
+			</RowList>
+			<Sheet open={shown !== undefined} title={shown?.name ?? ""} onClose={() => setOpen(undefined)}>
+				{shown ? (
+					<div className="sheet-form">
+						{shown.id === "github" ? (
+							<>
+								<label>
+									<span>Token</span>
+									<input
+										value={settings.githubToken}
+										onChange={(event) => change({ githubToken: event.target.value.trim() })}
+										type="password"
+										autoComplete="off"
+										placeholder="github_pat_…"
+									/>
+								</label>
+								<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
+							</>
+						) : null}
+						{shown.id === "gcloud" ? (
+							<>
+								{settings.gcloudCredential ? null : (
+									<>
+										<GoogleSignInPanel onCredential={(json) => change({ gcloudCredential: json })} />
+										<details className="manual">
+											<summary>改用 service account 金鑰</summary>
+											<label>
+												<span>憑證 JSON</span>
+												<textarea
+													className="field json"
+													rows={4}
+													value={settings.gcloudCredential}
+													onChange={(event) => change({ gcloudCredential: event.target.value.trim() })}
+													placeholder="service account 金鑰或 application_default_credentials.json"
+													autoCapitalize="off"
+													spellCheck={false}
+												/>
+											</label>
+										</details>
+									</>
+								)}
+								<label>
+									<span>預設專案</span>
+									<input
+										value={settings.gcloudProject}
+										onChange={(event) => change({ gcloudProject: event.target.value.trim() })}
+										placeholder="憑證本身的專案"
+										autoCapitalize="off"
+										autoComplete="off"
+									/>
+								</label>
+								<CheckButton disabled={!settings.gcloudCredential} run={() => checkGcloud(settings.gcloudCredential)} />
+							</>
+						) : null}
+						{shown.id === "cloudflare" ? (
+							settings.cloudflareCredential ? null : (
+								<>
+									<DeviceSignInPanel provider="Cloudflare" start={startCloudflareSignIn} finish={finishCloudflareSignIn} onCredential={(json) => change({ cloudflareCredential: json })} />
+									<details className="manual">
+										<summary>改用 API token</summary>
+										<label>
+											<span>API token</span>
+											<input
+												type="password"
+												autoComplete="off"
+												onChange={(event) => {
+													const token = event.target.value.trim();
+													if (token.length >= 40) change({ cloudflareCredential: apiTokenCredential(token) });
+												}}
+											/>
+										</label>
+									</details>
+								</>
+							)
+						) : null}
+						{shown.id === "azure" ? (
+							settings.azureCredential ? null : (
+								<DeviceSignInPanel provider="Microsoft" start={startAzureSignIn} finish={finishAzureSignIn} copyCode onCredential={(json) => change({ azureCredential: json })} />
+							)
+						) : null}
+						{shown.signedIn ? (
+							<button
+								type="button"
+								className="danger-verb"
+								onClick={() => {
+									setOpen(undefined);
+									change(remove[shown.id]);
+								}}
+							>
+								移除
+							</button>
+						) : null}
+					</div>
+				) : null}
+			</Sheet>
+		</>
 	);
 }
 
@@ -479,8 +598,6 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 	);
 }
 
-type TextSetting = { [K in keyof Settings]: Settings[K] extends string ? K : never }[keyof Settings];
-
 function UpdateLink({ update }: { update: Update | undefined }) {
 	const [busy, setBusy] = useState(false);
 	const [problem, setProblem] = useState("");
@@ -514,10 +631,6 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	const [settings, setSettings] = useState(initial);
 	const { value: update } = useLoaded(inApp && native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
 	const changed = changedKeys(initial, settings).length > 0;
-	const field = (key: TextSetting) => ({
-		value: settings[key],
-		onChange: (event: { target: { value: string } }) => setSettings({ ...settings, [key]: event.target.value.trim() }),
-	});
 
 	useEffect(() => onDraft?.(settings, changed), [settings, changed, onDraft]);
 	const [{ page, moved }, setNav] = useState<{ page?: Page; moved?: "in" | "out" }>({});
@@ -556,76 +669,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		models: { title: "模型", body: () => models },
 		accounts: {
 			title: "帳號",
-			body: () => (
-				<>
-					<Group title="GitHub">
-						<label>
-							<span>Token</span>
-							<input {...field("githubToken")} type="password" autoComplete="off" placeholder="github_pat_…" />
-						</label>
-						<CheckButton disabled={!settings.githubToken} run={() => checkGitHub(settings.githubToken)} />
-					</Group>
-					<Group title="Google Cloud">
-						{settings.gcloudCredential ? (
-							<SignedIn label={describeGcloud(settings.gcloudCredential)} onRemove={() => change({ gcloudCredential: "" })} />
-						) : (
-							<>
-								<GoogleSignInPanel onCredential={(json) => change({ gcloudCredential: json })} />
-								<details className="manual">
-									<summary>改用 service account 金鑰</summary>
-									<label>
-										<span>憑證 JSON</span>
-										<textarea
-											className="field json"
-											rows={4}
-											value={settings.gcloudCredential}
-											onChange={(event) => change({ gcloudCredential: event.target.value.trim() })}
-											placeholder="service account 金鑰或 application_default_credentials.json"
-											autoCapitalize="off"
-											spellCheck={false}
-										/>
-									</label>
-								</details>
-							</>
-						)}
-						<label>
-							<span>預設專案</span>
-							<input {...field("gcloudProject")} placeholder="憑證本身的專案" autoCapitalize="off" autoComplete="off" />
-						</label>
-						<CheckButton disabled={!settings.gcloudCredential} run={() => checkGcloud(settings.gcloudCredential)} />
-					</Group>
-					<Group title="Cloudflare">
-						{settings.cloudflareCredential ? (
-							<SignedIn label={describeCloudflare(settings.cloudflareCredential)} onRemove={() => change({ cloudflareCredential: "" })} />
-						) : (
-							<>
-								<DeviceSignInPanel provider="Cloudflare" start={startCloudflareSignIn} finish={finishCloudflareSignIn} onCredential={(json) => change({ cloudflareCredential: json })} />
-								<details className="manual">
-									<summary>改用 API token</summary>
-									<label>
-										<span>API token</span>
-										<input
-											type="password"
-											autoComplete="off"
-											onChange={(event) => {
-												const token = event.target.value.trim();
-												if (token.length >= 40) change({ cloudflareCredential: apiTokenCredential(token) });
-											}}
-										/>
-									</label>
-								</details>
-							</>
-						)}
-					</Group>
-					<Group title="Azure">
-						{settings.azureCredential ? (
-							<SignedIn label={describeAzure(settings.azureCredential)} onRemove={() => change({ azureCredential: "" })} />
-						) : (
-							<DeviceSignInPanel provider="Microsoft" start={startAzureSignIn} finish={finishAzureSignIn} copyCode onCredential={(json) => change({ azureCredential: json })} />
-						)}
-					</Group>
-				</>
-			),
+			body: () => <AccountsPage settings={settings} change={change} />,
 		},
 		services: {
 			title: "連接的服務",

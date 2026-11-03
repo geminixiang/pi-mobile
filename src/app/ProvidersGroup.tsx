@@ -93,7 +93,7 @@ function ProviderForm({
 }) {
 	const info = config.kind === "builtin" ? builtinInfo(config.id) : undefined;
 	return (
-		<div className="provider">
+		<div className="sheet-form">
 			{config.kind === "custom" ? (
 				<>
 					<label>
