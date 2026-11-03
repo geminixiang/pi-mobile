@@ -262,6 +262,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .bar-pill:has(button:active) { transform: scale(1.05); transition-duration: 0ms; }
 .bar-pill button { position: relative; }
+.bar-pill button::before { content: ""; position: absolute; inset: -6px 0; }
+.bar-pill .bar-avatar::before { left: -12px; }
+.bar-tools button:last-child::before { right: -14px; }
 .bar-pill button:active { background-color: transparent; }
 .bar-pill button::after {
 	content: ""; position: absolute; inset: 2px; border-radius: 20px; pointer-events: none;
