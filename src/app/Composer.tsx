@@ -20,7 +20,7 @@ import { Sheet } from "./Sheet.tsx";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
-import { addDraftFile, loadDraftAttachments, receiveDraftFiles, saveDraftAttachments } from "./drafts.ts";
+import { addToDraft, loadDraftAttachments, receiveDraftAdditions, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 
@@ -130,7 +130,11 @@ export function Composer({
 		};
 	}, []);
 	useEffect(
-		() => receiveDraftFiles(conversationId, (prepared) => setFiles((current) => [...current, { key: prepared.card.id, state: "ready", prepared }])),
+		() =>
+			receiveDraftAdditions(conversationId, (addition) => {
+				setImages((current) => [...current, ...addition.images]);
+				setFiles((current) => [...current, ...addition.files.map((prepared) => ({ key: prepared.card.id, state: "ready" as const, prepared }))]);
+			}),
 		[conversationId],
 	);
 	const removedWhileReading = useRef(new Set<string>());
@@ -174,7 +178,7 @@ export function Composer({
 			prepareAttachment(file, conversationId).then(
 				(prepared) => {
 					if (removedWhileReading.current.delete(key)) discardAttachment(prepared);
-					else if (unmounted.current) void orLogged(addDraftFile(conversationId, prepared), "drafts.save_failed", undefined);
+					else if (unmounted.current) void orLogged(addToDraft(conversationId, { images: [], files: [prepared] }), "drafts.save_failed", undefined);
 					else setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
 				},
 				(error: unknown) => {
@@ -184,6 +188,10 @@ export function Composer({
 			);
 		}
 		const added = await Promise.all(photos.map(toImageContent));
+		if (unmounted.current) {
+			if (added.length > 0) void orLogged(addToDraft(conversationId, { images: added, files: [] }), "drafts.save_failed", undefined);
+			return;
+		}
 		setImages((current) => [...current, ...added]);
 		textArea.current?.focus();
 	};

@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { KINDS, type PreparedAttachment } from "../agent/attachments.ts";
+import { KINDS } from "../agent/attachments.ts";
 import { check, oneOf } from "../agent/parse.ts";
 import { idbStore } from "../idb.ts";
 import { log } from "../log.ts";
@@ -57,24 +57,24 @@ export function saveDraftAttachments(conversationId: string, draft: DraftAttachm
 	return inOrder(conversationId, () => writeDraftAttachments(conversationId, draft));
 }
 
-const openComposers = new Map<string, (file: PreparedAttachment) => void>();
+const openComposers = new Map<string, (addition: DraftAttachments) => void>();
 
-export function receiveDraftFiles(conversationId: string, receive: (file: PreparedAttachment) => void): () => void {
+export function receiveDraftAdditions(conversationId: string, receive: (addition: DraftAttachments) => void): () => void {
 	openComposers.set(conversationId, receive);
 	return () => {
 		if (openComposers.get(conversationId) === receive) openComposers.delete(conversationId);
 	};
 }
 
-export function addDraftFile(conversationId: string, file: PreparedAttachment): Promise<void> {
+export function addToDraft(conversationId: string, addition: DraftAttachments): Promise<void> {
 	const receive = openComposers.get(conversationId);
 	if (receive) {
-		receive(file);
+		receive(addition);
 		return Promise.resolve();
 	}
 	return inOrder(conversationId, async () => {
 		const saved = await loadDraftAttachments(conversationId);
-		await writeDraftAttachments(conversationId, { images: saved?.images ?? [], files: [...(saved?.files ?? []), file] });
+		await writeDraftAttachments(conversationId, { images: [...(saved?.images ?? []), ...addition.images], files: [...(saved?.files ?? []), ...addition.files] });
 	});
 }
 
