@@ -320,6 +320,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-03 | 桌面小工具的「輪到你」改名「待辦」，時間寫「16:30 到期」「未定時間」「…已過期」；列表改用 `ListView` 加 `RemoteCollectionItems`，由系統排版、可捲動，不再用固定行高推算放得下幾行（Samsung 桌面把小工具縮小，一行實際 41 dp，舊碼當 52 dp，7 件只列 2 件、下方空一行） | 不變 | 原生畫面，沒有 node 測試；S24 上實測：顯示 3 行、可捲動，點一行打開負責的 Bot |
 | 2026-11-03 | 提示段落一律有上限（`appSection`），其他 Bot 只列名字。起因：`bot` 段落直接讀 Bot 索引，刪除中的 Bot 一直留在名單裡，S24 上每次請求帶了約 300 個名字 | S24：第一次請求 4.1k → 2.4k tokens（含 64648a1 的修正） | `test/prompt.ts`：舊碼的 `bot` 段落沒有上限、名單帶工作說明，兩項都失敗；快照 `test/prompt.snapshot.json` |
 | 2026-11-02 | MCP 工具不再蓋掉內建工具：和內建同名的（例如舊的 id `web` 服務的 `fetch` → `web_fetch`）不載入，設定 › MCP 那列寫「與內建工具同名，未載入」；收回權限時不卸下內建工具；新服務的 id 避開內建工具用到的前綴（`GitHub` 不再得到 `github`）。runtime 先裝 catalog 再建 MCP | 不變 | `test/contracts/mcp.ts` 兩條（舊碼都失敗） |
 | 2026-11-02 | 工具呼叫的原生方法一定要宣告或先檢查：`use_browser` 的 `needs` 補上 `Browser.read`、`newTab`、`tabs`、`closeTab`（只移植一部分的平台不會在任務中途才失敗）；`create_schedule` 只在某些種類才用的權限要求和 `Notifications.status` 改成先 `native.implements`，平台沒有時說清楚做不到（不放進 `needs`，免得整個工具消失） | 不變 | `test/tools-node.ts`：定義工具的檔案裡，每個原生呼叫都在該檔的 `needs` 或 `native.implements(…)` 裡；舊碼抓到 7 個 |

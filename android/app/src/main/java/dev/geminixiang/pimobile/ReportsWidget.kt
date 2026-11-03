@@ -23,8 +23,6 @@ private const val PREFS = "pi-reports"
 private const val KEY_LATEST = "latest"
 private const val KEY_SHOWN = "shown"
 private const val KEY_AGENDA = "agenda"
-private const val AGENDA_HEADER_DP = 58
-private const val AGENDA_ROW_DP = 52
 private const val FEW = 2
 private const val FEW_TITLE_SP = 20f
 private const val FEW_META_SP = 14f
@@ -116,7 +114,7 @@ class ReportsWidget : AppWidgetProvider() {
                 val views =
                     when {
                         shown != null -> report(context, shown, reports.indexOf(shown) + 1, reports.size, width, height)
-                        due.isNotEmpty() -> agendaViews(context, due, height)
+                        due.isNotEmpty() -> agendaViews(context, due)
                         else -> room(context, width, height)
                     }
                 manager.updateAppWidget(id, views)
@@ -135,7 +133,7 @@ class ReportsWidget : AppWidgetProvider() {
             return views
         }
 
-        private fun agendaViews(context: Context, due: List<JSONObject>, height: Int): RemoteViews {
+        private fun agendaViews(context: Context, due: List<JSONObject>): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.reports_widget)
             views.setViewVisibility(R.id.report, View.GONE)
             views.setViewVisibility(R.id.report_next, View.GONE)
@@ -143,10 +141,11 @@ class ReportsWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.agenda, View.VISIBLE)
             views.setTextViewText(R.id.agenda_header, context.getString(R.string.agenda_header, due.size))
             views.setOnClickPendingIntent(R.id.agenda, AgentService.openApp(context))
-            views.removeAllViews(R.id.agenda_rows)
-            val fits = ((height - AGENDA_HEADER_DP) / AGENDA_ROW_DP).coerceAtLeast(1)
+            val open = Intent(Intent.ACTION_VIEW, null, context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            views.setPendingIntentTemplate(R.id.agenda_rows, PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             val now = System.currentTimeMillis()
-            for (item in due.take(fits)) {
+            val rows = RemoteViews.RemoteCollectionItems.Builder().setViewTypeCount(1)
+            for ((index, item) in due.withIndex()) {
                 val row = RemoteViews(context.packageName, R.layout.reports_widget_agenda_row)
                 val title = item.getString("title")
                 val meta = "${item.getString("bot")} · ${whenDue(context, if (item.has("due")) item.getLong("due") else null, now)}"
@@ -159,9 +158,10 @@ class ReportsWidget : AppWidgetProvider() {
                 }
                 row.setContentDescription(R.id.agenda_row, "$title，$meta")
                 AgentService.avatar(context, item.getString("avatar"))?.let { row.setImageViewIcon(R.id.agenda_avatar, it) }
-                row.setOnClickPendingIntent(R.id.agenda_row, TriggersPlugin.openConversation(context, item.getString("conversation")))
-                views.addView(R.id.agenda_rows, row)
+                row.setOnClickFillInIntent(R.id.agenda_row, Intent().setData(TriggersPlugin.conversationUri(item.getString("conversation"))))
+                rows.addItem(index.toLong(), row)
             }
+            views.setRemoteAdapter(R.id.agenda_rows, rows.build())
             return views
         }
 
@@ -169,7 +169,7 @@ class ReportsWidget : AppWidgetProvider() {
             if (due == null) return context.getString(R.string.agenda_no_time)
             val at = Instant.ofEpochMilli(due).atZone(ZoneId.systemDefault())
             val time = (if (at.toLocalDate() == LocalDate.now()) TODAY else EARLIER).format(at)
-            return if (due < now) context.getString(R.string.agenda_overdue, time) else time
+            return context.getString(if (due < now) R.string.agenda_overdue else R.string.agenda_due, time)
         }
 
         private fun report(context: Context, report: JSONObject, place: Int, count: Int, width: Int, height: Int): RemoteViews {

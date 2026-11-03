@@ -6,8 +6,9 @@
     <string name="custom_url_scheme">dev.geminixiang.pimobile</string>
     <string name="phone_screen_description">讓 pi 的 Bot 以你的身分看手機畫面，替你點、滑、打字、開 app。只有你在 Bot 面板開著「代你操作 App」的 Bot 會用，而且只在它回答你的時候。畫面上的內容（包括密碼欄以外的文字）會送給你設定的模型。</string>
     <string name="reports_empty">沒有新的匯報</string>
-    <string name="agenda_header">輪到你 · %1$d 件</string>
-    <string name="agenda_no_time">沒有時間</string>
-    <string name="agenda_overdue">已過 %1$s</string>
+    <string name="agenda_header">待辦 · %1$d 件</string>
+    <string name="agenda_no_time">未定時間</string>
+    <string name="agenda_due">%1$s 到期</string>
+    <string name="agenda_overdue">%1$s 已過期</string>
     <string name="reports_widget_description">哪些 Bot 有新的匯報，一次看一則</string>
 </resources>

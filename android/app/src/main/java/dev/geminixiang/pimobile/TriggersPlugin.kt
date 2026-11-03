@@ -271,11 +271,11 @@ class TriggersPlugin : Plugin() {
 
         private fun proactiveNotificationId(conversation: String) = 0x3000 + (conversation.hashCode() and 0xfff)
 
+        internal fun conversationUri(conversation: String): Uri = Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation))
+
         internal fun openConversation(context: Context, conversation: String): PendingIntent {
             if (conversation.isEmpty()) return AgentService.openApp(context)
-            val intent =
-                Intent(Intent.ACTION_VIEW, Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation)), context, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val intent = Intent(Intent.ACTION_VIEW, conversationUri(conversation), context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             return PendingIntent.getActivity(context, conversation.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
 
