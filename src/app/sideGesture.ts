@@ -64,10 +64,14 @@ export abstract class Motion {
 	}
 
 	settle(open: boolean): void {
+		this.settleTo(open ? 1 : 0);
+	}
+
+	settleTo(target: number): void {
 		this.#stop();
+		const open = target > 0;
 		if (open) this.reveal(true);
 		const from = this.#position;
-		const target = open ? 1 : 0;
 		const started = performance.now();
 		const step = (now: number) => {
 			const progress = from === target ? 1 : (now - started) / SETTLE_MS;

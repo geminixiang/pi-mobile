@@ -23,9 +23,14 @@ class PanelMotion extends Motion {
 		this.viewport.toggleAttribute("data-open", shown);
 	}
 
+	deepest(): number {
+		return this.viewport.offsetWidth / Math.max(1, this.width());
+	}
+
 	protected render(position: number): void {
 		this.card.current?.style.setProperty(this.side === "left" ? "--side-left" : "--side-right", String(position));
-		this.popup.style.setProperty("--side-reveal", String(position));
+		this.popup.style.setProperty("--side-reveal", String(Math.min(position, 1)));
+		this.popup.style.setProperty("--side-deep", String(Math.max(0, Math.min(1, (position - 1) / Math.max(0.01, this.deepest() - 1)))));
 	}
 }
 
@@ -138,7 +143,7 @@ export function SideSwipe({
 	);
 }
 
-export function SidePanel({ side, open, onClose, label, children }: { side: Side; open: boolean; onClose: () => void; label: string; children: ReactNode }) {
+export function SidePanel({ side, open, deep = false, onClose, label, children }: { side: Side; open: boolean; deep?: boolean; onClose: () => void; label: string; children: ReactNode }) {
 	useBack(open, onClose);
 	const context = useContext(SideContext);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -156,8 +161,11 @@ export function SidePanel({ side, open, onClose, label, children }: { side: Side
 	}, [context, side]);
 
 	useLayoutEffect(() => {
-		motion.current?.settle(open);
-	}, [open]);
+		const current = motion.current;
+		if (!current) return;
+		if (open && deep) current.settleTo(current.deepest());
+		else current.settle(open);
+	}, [open, deep]);
 
 	useEffect(() => {
 		if (!open) return;

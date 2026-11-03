@@ -462,11 +462,11 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	});
 
 	useEffect(() => onDraft?.(settings, changed), [settings, changed, onDraft]);
-	const [page, setPage] = useState<Page>();
+	const [{ page, moved }, setNav] = useState<{ page?: Page; moved?: "in" | "out" }>({});
 	const [problem, setProblem] = useState<string>();
 	const go = (next: Page | undefined) => {
 		setProblem(undefined);
-		setPage(next);
+		setNav(next ? { page: next, moved: "in" } : { moved: "out" });
 	};
 	useBack(page !== undefined, () => go(undefined));
 	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
@@ -639,7 +639,11 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	};
 
 	if (page === "memory" && runtime) {
-		return <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => go(undefined)} onError={setProblem} />;
+		return (
+			<div className="screen moved-in">
+				<MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={() => go(undefined)} onError={setProblem} />
+			</div>
+		);
 	}
 	const current = page && page !== "memory" ? pages[page] : undefined;
 	return (
@@ -666,7 +670,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 					</button>
 				)}
 			</header>
-			<form key={page ?? "index"} className="settings" onSubmit={(event) => event.preventDefault()}>
+			<form key={page ?? "index"} className={`settings${moved ? ` moved-${moved}` : ""}`} onSubmit={(event) => event.preventDefault()}>
 				{props.mode === "app" ? null : (
 					<div className="welcome">
 						<PiMark size={36} />

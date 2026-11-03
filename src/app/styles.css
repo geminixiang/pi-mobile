@@ -522,10 +522,15 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
 .layer-page {
 	position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); outline: none;
-	transition: opacity 240ms ease, transform 260ms var(--ease);
+	transition: transform 260ms var(--ease);
 }
-.layer-page[data-starting-style], .layer-page[data-ending-style] { opacity: 0; transform: translateX(28px); }
+.layer-page[data-starting-style], .layer-page[data-ending-style] { transform: translateX(100%); }
+.layer-page.from-left[data-starting-style], .layer-page.from-left[data-ending-style] { transform: translateX(-100%); }
 @keyframes fade-in { from { opacity: 0; } }
+@keyframes from-left { from { transform: translateX(-100%); } }
+@keyframes back-from-aside { from { transform: translateX(25%); opacity: 0.4; } }
+.moved-in { animation: from-left 260ms var(--ease); }
+.moved-out { animation: back-from-aside 260ms var(--ease); }
 
 .menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
 .menu > button, .menu > label { display: flex; align-items: center; gap: 16px; min-height: 54px; padding: 10px 16px; text-align: left; font-size: var(--fs-ui); }
@@ -611,13 +616,14 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 @property --side-left { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --side-right { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --side-reveal { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --side-deep { syntax: "<number>"; inherits: false; initial-value: 0; }
 .side-swipe { flex: 1; min-height: 0; display: flex; flex-direction: column; touch-action: pan-y; }
 .side-shield { position: absolute; inset: 0; z-index: 50; touch-action: none; }
 .side-viewport { position: fixed; inset: 0; z-index: 0; background: var(--bg); visibility: hidden; }
 .side-viewport[data-open] { visibility: visible; }
-.side-popup { position: absolute; top: 0; bottom: 0; width: var(--side-width); outline: none; will-change: transform; }
-.side-left { left: 0; transform-origin: left center; transform: translateX(calc((var(--side-reveal) - 1) * 12%)) scale(calc(0.96 + var(--side-reveal) * 0.04)); }
-.side-right { right: 0; transform-origin: right center; transform: scale(calc(0.96 + var(--side-reveal) * 0.04)); }
+.side-popup { position: absolute; top: 0; bottom: 0; width: var(--side-width); outline: none; will-change: transform; opacity: calc(1 - var(--side-deep) * 0.6); }
+.side-left { left: 0; transform-origin: left center; transform: translateX(calc((var(--side-reveal) - 1) * 12% - var(--side-deep) * 25%)) scale(calc(0.96 + var(--side-reveal) * 0.04)); }
+.side-right { right: 0; transform-origin: right center; transform: translateX(calc(var(--side-deep) * 25%)) scale(calc(0.96 + var(--side-reveal) * 0.04)); }
 .chat, .drawer, .panel { touch-action: pan-y; }
 
 .drawer {

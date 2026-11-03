@@ -399,6 +399,7 @@ export function App() {
 				left={
 					<Drawer
 						open={overlay === "drawer" || overlay === "settings"}
+						deep={overlay === "settings"}
 						busy={busy}
 						bots={bots}
 						automations={automations}
@@ -421,6 +422,7 @@ export function App() {
 				right={
 					<BotPanel
 						open={overlay === "panel" || overlay === "botMemory"}
+						deep={overlay === "botMemory"}
 						bot={current}
 						runtime={runtime}
 						view={view}
@@ -585,7 +587,7 @@ export function App() {
 				) : null}
 			</Layer>
 
-			<Layer open={overlay === "settings"} kind="page" onClose={leaveSettings} label="設定">
+			<Layer open={overlay === "settings"} kind="page" from="left" onClose={leaveSettings} label="設定">
 				<SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />
 			</Layer>
 

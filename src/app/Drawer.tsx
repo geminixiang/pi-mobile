@@ -54,6 +54,7 @@ function time(updatedAt: number, today: number): string {
 
 export function Drawer({
 	open,
+	deep,
 	busy,
 	bots,
 	automations,
@@ -67,6 +68,7 @@ export function Drawer({
 	onClose,
 }: {
 	open: boolean;
+	deep: boolean;
 	busy: boolean;
 	bots: Bot[];
 	automations: readonly Trigger[];
@@ -81,7 +83,7 @@ export function Drawer({
 }) {
 	const today = startOfToday();
 	return (
-		<SidePanel side="left" open={open} onClose={onClose} label="Bot 列表">
+		<SidePanel side="left" open={open} deep={deep} onClose={onClose} label="Bot 列表">
 			<div className="drawer">
 				<div className="drawer-top">
 					<span className="brand">
