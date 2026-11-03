@@ -1,4 +1,5 @@
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 import { defineAppTool, text } from "./tools/common.ts";
 import { oneOf } from "./parse.ts";
 import { Type } from "typebox";
@@ -46,7 +47,7 @@ export const SkillsExtension = defineExtension({
 	name: "skills",
 	tools: [readSkill],
 	sections: [
-		section("skills", () =>
+		appSection("skills", 800, () =>
 			[
 				"Skills: read one with read_skill before the task it is for, once per conversation unless it left your context.",
 				...SKILLS.map((skill) => `- ${skill.name}: ${skill.when}`),

@@ -38,6 +38,12 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
   - `reach`：`script`（預設，只給腳本）、`loaded`（需要時載入）、`model`（直接提供）。
   - `needs`：少了它這個工具就沒有意義的原生方法，寫 contract 上的方法本身（`[Records.calls]`），不是字串。透過 `currentPlace` 這類 helper 才呼叫、但工具的主要用途就靠它的，也要寫（`weather` 寫 `Phone.getLocation`）。這支手機沒實作其中任何一個方法時，這個工具不安裝；一個擴充的工具全部裝不了時，整個擴充也不裝，面板也不列它的工具組。只在某些參數下才用到的方法不寫：沒實作時呼叫它會丟出「`X.y` is not available on this device」。「有就用、沒有也行」的呼叫，在呼叫前用 `native.implements(Page.render)` 判斷。
 - 新的內建擴充一定要加進 `catalog.ts`，不能直接在 runtime 裡安裝，否則檢查看不到它。
+
+### 提示段落
+
+- 系統提示的每一段都用 `appSection(key, budget, render)`（`src/agent/section.ts`）定義，不直接用 `section`（code-rules 擋）。超過上限的段落會整行截斷，結尾寫明被截掉，並記一筆 `prompt.section_over_budget`。
+- 由資料組成的段落（其他 Bot、記憶、資料表、MCP 服務自己的說明）一定要想清楚資料多的時候長什麼樣子：只放模型這一題需要的，例如其他 Bot 只列名字、不列工作說明。
+- `test/prompt.ts` 檢查兩件事。一是預設 Bot 的完整提示和 `test/prompt.snapshot.json` 一致，改了提示就加 `--update`，並在「紀錄」寫一行。二是塞滿資料時，例如刪掉 40 個 Bot、多 20 個 Bot、兩份記憶寫滿、工具組全開，每段都不超過上限、也不會被截斷，總長在 `PROMPT_BUDGET` 內，刪掉的 Bot 不出現。
 - **擴充名稱原則上不改**：每個 Bot 的工具開關存的是擴充名稱（pi-durable 記下關掉哪些擴充），改名後舊名字的「關掉」對不上，原本關掉的 Bot 會變回開著。2026-11-02 全部檢查過一次並改了四個（`toolsets.ts` 的 `RENAMED`，開 runtime 時把每個 Bot 存的舊名字換成新名字，`test/toolsets.ts` 檢查）；之後真的要改，也要加進 `RENAMED`。
 - schema 一律用 `typebox` 的 `Type`，不用 pi-ai 轉出口的同一個 `Type`（檢查會擋）。
 - 從常數清單做的列舉用 `oneOf(LIST, options)`（`common.ts`），不用 `Type.Union(LIST.map(Type.Literal))`：後者的 TS 型別是 `never`。
@@ -314,6 +320,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-03 | 提示段落一律有上限（`appSection`），其他 Bot 只列名字。起因：`bot` 段落直接讀 Bot 索引，刪除中的 Bot 一直留在名單裡，S24 上每次請求帶了約 300 個名字 | S24：第一次請求 4.1k → 2.4k tokens（含 64648a1 的修正） | `test/prompt.ts`：舊碼的 `bot` 段落沒有上限、名單帶工作說明，兩項都失敗；快照 `test/prompt.snapshot.json` |
 | 2026-11-02 | MCP 工具不再蓋掉內建工具：和內建同名的（例如舊的 id `web` 服務的 `fetch` → `web_fetch`）不載入，設定 › MCP 那列寫「與內建工具同名，未載入」；收回權限時不卸下內建工具；新服務的 id 避開內建工具用到的前綴（`GitHub` 不再得到 `github`）。runtime 先裝 catalog 再建 MCP | 不變 | `test/contracts/mcp.ts` 兩條（舊碼都失敗） |
 | 2026-11-02 | 工具呼叫的原生方法一定要宣告或先檢查：`use_browser` 的 `needs` 補上 `Browser.read`、`newTab`、`tabs`、`closeTab`（只移植一部分的平台不會在任務中途才失敗）；`create_schedule` 只在某些種類才用的權限要求和 `Notifications.status` 改成先 `native.implements`，平台沒有時說清楚做不到（不放進 `needs`，免得整個工具消失） | 不變 | `test/tools-node.ts`：定義工具的檔案裡，每個原生呼叫都在該檔的 `needs` 或 `native.implements(…)` 裡；舊碼抓到 7 個 |
 | 2026-11-02 | 「從背景開畫面要開著代你操作 App」不再靠每個工具記得呼叫 `openScreen`：合約上會開畫面的方法標 `opens: "screen"`（`Apps` 的開畫面方法、`Scanner.scan`），需要它的工具一定是 `effect: "screen"`，catalog 對這種工具在執行前檢查；六個 apps 工具拿掉自己的呼叫 | 不變 | `test/tools-node.ts`（把 `open_link` 改成 `direct` 會失敗）、`test/code-rules.ts`（工具自己呼叫 `openScreen` 會失敗）。S24：`screen-rules.sh`、`background-launch.sh` 都通過 |

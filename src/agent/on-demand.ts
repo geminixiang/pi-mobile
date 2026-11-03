@@ -1,10 +1,11 @@
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 
 export function createOnDemandExtension(label: (extension: string, conversationId: string) => string | undefined) {
 	return defineExtension({
 		name: "on-demand",
 		sections: [
-			section("on-demand", (input) => {
+			appSection("on-demand", 800, (input) => {
 				const deferred = new Set(input.agent.deferred.map((tool) => tool.name));
 				const lines = input.agent.extensions.flatMap((extension) => {
 					const names = (extension.tools ?? []).map((tool) => tool.name).filter((name) => deferred.has(name));

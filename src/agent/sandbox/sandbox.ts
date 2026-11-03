@@ -1,5 +1,6 @@
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { botsIn } from "../bots.ts";
@@ -100,7 +101,7 @@ export function createSandboxExtension(workplace: (conversationId: string) => Wo
 	return defineExtension({
 		name: "computer_shell",
 		sections: [
-			section("computer_shell", async (input, context) => {
+			appSection("computer_shell", 2_000, async (input, context) => {
 				const place = workplace(String(input.conversationId));
 				if (place?.kind !== "computer") return undefined;
 				const { folder, sandbox } = place;

@@ -1,5 +1,6 @@
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
-import { defineExtension, section, type ToolExecutionResult } from "@earendil-works/pi-durable";
+import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
 import type { FromWorker, ToWorker } from "./codemode-worker.ts";
 
@@ -106,7 +107,7 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 		name: "codemode",
 		tools: [{ ...codemode, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) }],
 		sections: [
-			section("codemode", (input) => {
+			appSection("codemode", 4_000, (input) => {
 				const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
 				const callable = new Set(input.agent.callable.map((tool) => tool.name));
 				const lines = input.agent.extensions.flatMap((extension) => {

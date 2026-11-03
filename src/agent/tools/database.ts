@@ -1,6 +1,7 @@
 import type { JsonValue } from "@earendil-works/chord";
 import { Type } from "typebox";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import { Database, type SqlValue, type StatementResult } from "../../plugins/database.ts";
 import { defineAppTool, text } from "./common.ts";
 
@@ -66,7 +67,7 @@ export const DatabaseExtension = defineExtension({
 	name: "database",
 	tools: [sql],
 	sections: [
-		section("database", async () => {
+		appSection("database", 3_000, async () => {
 			const { tables } = await Database.schema();
 			return [
 				"sql is the user's SQLite database, shared by their bots: reuse a fitting table, English names, times as YYYY-MM-DD HH:MM, amounts as numbers, a column for what they filter or total by.",

@@ -1,4 +1,5 @@
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import type { Workplace } from "../workplaces.ts";
 import { GH_USAGE } from "./gh-command.ts";
 
@@ -19,7 +20,7 @@ export function createFilesExtension(workplace: (conversationId: string) => Work
 	return defineExtension({
 		name: "files",
 		sections: [
-			section("files", (input) => {
+			appSection("files", 1_500, (input) => {
 				const place = workplace(String(input.conversationId));
 				return place && SECTION[place.kind];
 			}),

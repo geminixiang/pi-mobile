@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { Phone } from "../../plugins/phone.ts";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import { defineAppTool, getJson, localTime, text } from "./common.ts";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
@@ -162,6 +163,6 @@ export const PlacesExtension = defineExtension({
 	name: "places",
 	tools: [findPlaces],
 	sections: [
-		section("places", () => "find_places is OpenStreetMap: straight-line distances (get_travel_time for the real ones) and no ratings (check good ones with web_search)."),
+		appSection("places", 400, () => "find_places is OpenStreetMap: straight-line distances (get_travel_time for the real ones) and no ratings (check good ones with web_search)."),
 	],
 });

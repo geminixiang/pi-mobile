@@ -1,4 +1,5 @@
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../agent/section.ts";
 import { Type } from "typebox";
 import { oneOf } from "../agent/parse.ts";
 import { defineAppTool, parseLocalTime, text } from "../agent/tools/common.ts";
@@ -94,8 +95,9 @@ export function createItemsExtension(triggers: TriggerHost) {
 		name: "items",
 		tools: [noteItem, listItems],
 		sections: [
-			section(
+			appSection(
 				"items",
+				800,
 				() =>
 					"What the user will need to come back to (a due date, a reply they wait for, a price or place to watch) goes in note_item with next_at, not only in memory or a table: at next_at the phone wakes you here with it. For a reply that arrives as a notification on this phone, also give wake_app or wake_contains, so it wakes you when it comes; next_at is then when to chase it. A timer or alarm only rings; use them when the user asks for one, not to follow something up. Close it with state done once it is handled.",
 			),

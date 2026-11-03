@@ -3,7 +3,8 @@ import { Apps } from "../../plugins/apps.ts";
 import { PhoneScreen } from "../../phone-screen/plugin.ts";
 import { native } from "../../native.ts";
 import { Type } from "typebox";
-import { type ConversationId, defineExtension, section } from "@earendil-works/pi-durable";
+import { type ConversationId, defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import { defineAppTool, parseClock, text } from "./common.ts";
 import { oneOf } from "../parse.ts";
 import { toBase64 } from "../../encoding.ts";
@@ -184,6 +185,6 @@ export const AppsExtension = defineExtension({
 	name: "apps",
 	tools: [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
-		section("apps", () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send."),
+		appSection("apps", 400, () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send."),
 	],
 });

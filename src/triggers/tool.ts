@@ -1,6 +1,7 @@
 import type { Context } from "@earendil-works/chord";
 import { native } from "../native.ts";
-import { type ConversationId, defineExtension, section, type ToolExecutionApi } from "@earendil-works/pi-durable";
+import { type ConversationId, defineExtension, type ToolExecutionApi } from "@earendil-works/pi-durable";
+import { appSection } from "../agent/section.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, localTime, MINUTE, parseClock, parseLocalTime, text } from "../agent/tools/common.ts";
 import { oneOf } from "../agent/parse.ts";
@@ -294,7 +295,7 @@ export function createTriggerExtension(host: TriggerHost) {
 		name: "schedules",
 		tools: [createSchedule, scheduleFollowup, listSchedules, deleteSchedule, notify],
 		sections: [
-			section("schedules", () =>
+			appSection("schedules", 600, () =>
 				[
 					`A message starting "[trigger]" came from a schedule: answer briefly without mentioning the schedule or the notification, and notify the gist when it is worth it or the schedule asks for it.`,
 					"Headphones connected: the user is listening, not reading: read the spoken-report skill and report with speak. Other events (charging, Wi-Fi, a place) say what happened.",

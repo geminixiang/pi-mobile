@@ -1,5 +1,6 @@
 import type { Context } from "@earendil-works/chord/context";
-import { type ConversationId, defineDoc, type DocumentReader, defineExtension, section } from "@earendil-works/pi-durable";
+import { type ConversationId, defineDoc, type DocumentReader, defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 import { checkpointEvery64 } from "./doc-policy.ts";
 
 export type Bot = {
@@ -70,7 +71,7 @@ export function botFields({ name, job }: { name: string; job: string }): { name:
 export const BotExtension = defineExtension({
 	name: "bot",
 	sections: [
-		section("bot", async (input, context) => {
+		appSection("bot", 1_200, async (input, context) => {
 			const bots = await botsIn(input.read, context);
 			const self = bots.find((bot) => bot.id === input.conversationId);
 			if (!self) return undefined;
@@ -79,7 +80,7 @@ export const BotExtension = defineExtension({
 				`You are ${self.name}, one of the user's bots in this app. You keep one long conversation with the user; older parts are summarized automatically, so put what must last in your MEMORY.md.`,
 				self.job ? `Your job:\n${self.job}` : "You are the user's general assistant.",
 				others.length > 0
-					? `The user's other bots (they cannot see this conversation): ${others.map((bot) => `${bot.name}${bot.job ? ` (${bot.job.split("\n")[0]?.slice(0, 80)})` : ""}`).join("; ")}. When a request clearly belongs to one of them, say so.`
+					? `The user's other bots (they cannot see this conversation): ${others.map((bot) => bot.name).join(", ")}. When a request clearly belongs to one of them, say so.`
 					: "",
 			]
 				.filter(Boolean)

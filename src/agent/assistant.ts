@@ -1,4 +1,5 @@
-import { defineExtension, GenerationTask, hook, section } from "@earendil-works/pi-durable";
+import { defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 import { localTime, pad } from "./tools/common.ts";
 
 function utcOffset(): string {
@@ -23,8 +24,9 @@ export function createAssistant(inApp: boolean) {
 			}),
 		],
 		sections: [
-			section(
+			appSection(
 				"preamble",
+				2_000,
 				() =>
 					[
 						`${inApp ? "You run in pi, an assistant app on the user's phone; your conversation and the user's credentials stay on the device." : "You run in pi, an assistant in the user's web browser; your conversation and the user's credentials stay in this browser. Phone tools (calendar, contacts, notifications, location) are not here."} Reply in Traditional Chinese (Taiwan) unless the user writes otherwise; Markdown, concise for a small screen.`,

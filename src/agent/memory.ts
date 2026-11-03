@@ -1,5 +1,6 @@
 import { Type } from "typebox";
-import { type ConversationId, defineDoc, defineExtension, section } from "@earendil-works/pi-durable";
+import { type ConversationId, defineDoc, defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { defineAppTool, text } from "./tools/common.ts";
 import { oneOf } from "./parse.ts";
@@ -68,7 +69,7 @@ export function createMemoryExtension(host: { changed: () => void }) {
 		name: "memory",
 		tools: [updateMemory],
 		sections: [
-			section("memory", async (input, context) => {
+			appSection("memory", 9_000, async (input, context) => {
 				const global = (await input.read.snapshot(MemoryDoc, context))?.text.trim() ?? "";
 				const own = (await input.read.snapshot(BotMemoryDoc, input.conversationId, context))?.text.trim() ?? "";
 				return [

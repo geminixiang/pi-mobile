@@ -96,6 +96,11 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "the items belong to src/items/: change them through its tools and helpers",
 	},
 	{
+		use: /\bsection\(/,
+		owners: ["src/agent/section.ts"],
+		fix: "define a prompt section with appSection(key, budget, render) from src/agent/section.ts, so it has a budget and test/prompt.ts sees it",
+	},
+	{
 		use: /\bBotIndex\b/,
 		owners: ["src/agent/bots.ts", "src/agent/runtime.ts"],
 		fix: "read the bots with botsIn (src/agent/bots.ts) or runtime.bots(), which leave out a bot being removed; only the runtime edits the index",

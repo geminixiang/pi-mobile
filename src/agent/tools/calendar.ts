@@ -1,6 +1,7 @@
 import { Calendar, type PhoneCalendar, type PhoneEvent } from "../../plugins/calendar.ts";
 import { Type } from "typebox";
-import { defineExtension, section } from "@earendil-works/pi-durable";
+import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text, weekdayOf } from "./common.ts";
 
@@ -231,7 +232,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		name: "calendar",
 		tools: [readEvents, listCalendars, addEvent, deleteEvent],
 		sections: [
-			section("calendar", () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account."),
+			appSection("calendar", 400, () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account."),
 		],
 	});
 }

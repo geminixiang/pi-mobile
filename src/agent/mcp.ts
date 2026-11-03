@@ -1,5 +1,6 @@
 import { isJsonValue } from "@earendil-works/chord";
-import { defineExtension, defineTool, type Extension, section, type ToolExecutionResult } from "@earendil-works/pi-durable";
+import { defineExtension, defineTool, type Extension, type ToolExecutionResult } from "@earendil-works/pi-durable";
+import { appSection } from "./section.ts";
 import { type AuthProvider, type CallToolResult, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
 import {
 	adaptOAuthProvider,
@@ -312,7 +313,7 @@ class Connection {
 			sections:
 				tools.length > 0
 					? [
-							section(extensionName(server), () =>
+							appSection(extensionName(server), 2_000, () =>
 								[
 									`${server.name}, a service the user connected (MCP); its tools start with ${server.id}_ and are called from codemode scripts.`,
 									cached.instructions
