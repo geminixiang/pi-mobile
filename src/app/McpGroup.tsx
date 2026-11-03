@@ -8,6 +8,7 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { PlusIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
+import { haptic } from "./haptics.ts";
 
 function statusText(status: McpStatus | undefined): string {
 	switch (status?.state) {
@@ -159,6 +160,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError:
 								onClick={() => status && resolve(server, status)}
 								onContextMenu={(event) => {
 									event.preventDefault();
+									haptic("press");
 									setSelectedId(server.id);
 								}}>
 								<Logo name={server.name} icon={entryOf(server)?.icon} />

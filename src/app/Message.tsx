@@ -18,6 +18,7 @@ import { isSource } from "./sources.ts";
 import { preview, stepsLabel } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
+import { haptic } from "./haptics.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -482,6 +483,7 @@ export const EntryView = memo(function EntryView({
 		return (
 			<section className="prompt" data-entry={String(entry.id)} onContextMenu={(event) => {
 					event.preventDefault();
+					haptic("press");
 					onActions(entry);
 				}}
 				onClick={() => onActions(entry)}>

@@ -8,6 +8,7 @@ import { pageKey, sameInputs, SHEET_START, type SheetInputs, sheetAfter } from "
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
 import { useBack } from "../app/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../app/sideGesture.ts";
+import { haptic } from "../app/haptics.ts";
 
 const COLLAPSE_AFTER_MS = 1500;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
@@ -209,6 +210,10 @@ export const BrowserSheet = memo(function BrowserSheet({
 		if (next === latest.current.expanded) motion.current?.settle(next);
 		dispatch({ type: "settled", open: next });
 	};
+	const settleByHand = (next: boolean) => {
+		if (next !== latest.current.expanded) haptic(next ? "press" : "tick");
+		settleTo(next);
+	};
 	useBack(open, () => {
 		const { bot: target, canGoBack } = latest.current;
 		if (target && canGoBack) navigate(target, "back");
@@ -245,7 +250,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 		};
 		const onEnd = (event: globalThis.TouchEvent) => {
 			const current = motion.current;
-			if (drag && current) settleTo(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
+			if (drag && current) settleByHand(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
 			start = undefined;
 			drag = undefined;
 		};
@@ -283,7 +288,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 			const drag = pushing.current?.drag;
 			const current = motion.current;
 			pushing.current = undefined;
-			if (drag && current) settleTo(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
+			if (drag && current) settleByHand(settlesOpen(current.position(), velocityOf(drag.samples, event.timeStamp)));
 		},
 	};
 

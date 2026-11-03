@@ -2,6 +2,7 @@ import { native } from "../native.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Voice } from "../plugins/voice.ts";
 import { messageOf } from "../promise.ts";
+import { haptic } from "./haptics.ts";
 
 type DictationState = "idle" | "starting" | "listening";
 
@@ -47,6 +48,7 @@ export function useDictation(onText: (text: string) => void, onError: (message: 
 	}, []);
 
 	const start = useCallback(() => {
+		haptic("press");
 		setState("starting");
 		setPartial("");
 		Voice.start({ language: "zh-TW" }).catch((error: unknown) => {
