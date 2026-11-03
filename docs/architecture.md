@@ -62,11 +62,12 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ### 網路會一直換
 
-手機的網路一直在換：Wi‑Fi、行動網路、換 SIM、Tailscale 斷線。原則是斷線不丟工作，恢復後立刻接回。
+手機的網路一直在換：Wi‑Fi、行動網路、換 SIM、Tailscale 斷線。原則跟一般 app 一樣：**聽系統說網路回來了才連，不用計時器猜**；斷線不丟工作，恢復後立刻接回。
 
-- **沒網路時等，不要結束**：電腦的連線（`resumable-socket.ts`）沒網路時不重試，狀態顯示「等網路中」；只有「有網路卻連不上」的時間算進 4.5 分鐘的期限。網路一回來（`online`）或 app 回到前景（`visibilitychange`）就立刻重接、退避歸零（`sandbox/network.ts`）。
+- **一個網路來源**：`src/agent/network.ts` 的 `deviceNetwork` 聽原生的 `@capacitor/network`（Android 用預設網路的 `NetworkCallback`，Tailscale 這類 VPN 接上也會通知；iOS 是 `SCNetworkReachability`，VPN 不一定通知）、瀏覽器的 `online`／`offline`，以及回到前景（`visibilitychange`）。
+- **沒網路時等，不重試**：模型請求經過 `waitingForNetwork`，沒網路時不送出、不消耗重試次數，網路回來才送；電腦連線（`resumable-socket.ts`）沒網路時不重試、顯示「等網路中」。兩者等待時都不跑計時器，所以不耗電。
+- **有網路卻連不上，才退避重試**：模型重試 `MODEL_RETRY` 5 次、最多等 30 秒一次（`src/agent/retry.ts`）；電腦連線 1–15 秒退避，只算有網路的時間，4.5 分鐘放棄。網路事件或回到前景會讓退避歸零、立刻再試。
 - **電腦說了算**：電腦握住斷線的 session 15 分鐘（`host/held.go` 的 `holdFor`），或輸出超過 8 MB 才放手；手機接回時電腦若已放手，會回 `no such session`，手機照實告訴使用者，不靜靜結束。
-- **模型回答用重試撐過斷網**：`MODEL_RETRY`（`src/agent/retry.ts`）12 次、最多等 30 秒一次，涵蓋約 4.5 分鐘；pi-durable 預設的 3 次只撐 14 秒。等待存在 pi-durable 裡，app 重開也接得回來。契約測試 `test/contracts/network.ts` 擋住涵蓋不到 4 分鐘的設定。
 - **還沒處理的**：MCP 工具呼叫、一般網路工具（天氣、搜尋）和不帶 session 的電腦指令（電腦上的 MCP、建 image）斷線就失敗，不重試；模型串流在 WebView `fetch` 沒有卡住的逾時。
 
 ## 程式碼看不出來的原因

@@ -1,14 +1,11 @@
 import { Type } from "typebox";
 import { log } from "../../log.ts";
 import { decode } from "../parse.ts";
+import type { Network } from "../network.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type Link = "up" | "reattaching" | "offline";
-export interface Network {
-	online(): boolean;
-	onChange(listener: () => void): () => void;
-}
 type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
 export interface ResumableOptions {
