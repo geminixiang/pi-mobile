@@ -44,11 +44,10 @@ APK is not debuggable, so everything measured runs on a dev build of the same co
    `-r`, turn accessibility on again, and check `dumpsys package dev.geminixiang.pimobile | grep versionName` has no
    `-dev`. Android phones update from the app itself: 設定's last line shows 更新到 <x.y.z> once the release is out.
 7. **iPhone through TestFlight**: iOS has no in-app update and nothing iOS goes on GitHub; the iPhone takes the
-   release from TestFlight. Upload from the Mac that holds the Apple signing identity (`security find-identity -v -p
-   codesigning`), on a checkout of the tagged commit there (`git fetch --tags && git checkout v<x.y.z> && npm ci`).
-   Codesign cannot reach a keychain locked in an SSH session (`errSecInternalComponent`): ask the user to unlock it
-   on that Mac (`security unlock-keychain ~/Library/Keychains/login.keychain-db`), then run the script in its GUI
-   session, e.g. `osascript -e 'tell application "Terminal" to do script "cd <repo> && TEAM=<team id>
-   ./scripts/testflight-ios.sh > testflight.log 2>&1"'`, and read the log for `uploaded pi mobile`. The build
-   number is the time, so a rerun of the same version uploads again. The build reaches the phone after App Store
-   Connect finishes processing it (minutes); the user updates it in the TestFlight app.
+   release from TestFlight. Upload from this Mac mini, on a checkout of the tagged commit (`git worktree add
+   ../pi-mobile-tf v<x.y.z>`, then `npm ci` there): `./scripts/testflight-ios.sh`, and read the log for `uploaded pi
+   mobile`. The script reads `~/.config/pi-mobile/release.env` (`TEAM`, `ASC_KEY_ID`, `ASC_ISSUER_ID`) and signs with
+   the App Store Connect API key `~/.config/pi-mobile/AuthKey_<ASC_KEY_ID>.p8` through cloud signing, so it needs no
+   local certificate and no unlocked keychain; it uses `/Applications/Xcode.app` whatever `xcode-select` points to.
+   The build number is the time, so a rerun of the same version uploads again. The build reaches the phone after App
+   Store Connect finishes processing it (minutes); the user updates it in the TestFlight app. Remove the worktree after.

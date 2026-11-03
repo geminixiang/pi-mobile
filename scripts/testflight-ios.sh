@@ -1,7 +1,17 @@
 #!/bin/sh
 set -e
 cd "$(dirname "$0")/.."
+ENV_FILE="${PI_MOBILE_RELEASE_ENV:-$HOME/.config/pi-mobile/release.env}"
+if [ -f "$ENV_FILE" ]; then
+	set -a; . "$ENV_FILE"; set +a
+fi
 : "${TEAM:?set TEAM to the Apple developer team id}"
+export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+set --
+if [ -n "${ASC_KEY_ID:-}" ]; then
+	: "${ASC_ISSUER_ID:?set ASC_ISSUER_ID with ASC_KEY_ID}"
+	set -- -authenticationKeyPath "${ASC_KEY_PATH:-$HOME/.config/pi-mobile/AuthKey_$ASC_KEY_ID.p8}" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+fi
 VERSION=$(node -p 'require("./package.json").version')
 BUILD=$(date +%Y%m%d%H%M)
 npx tsc --noEmit
@@ -22,7 +32,7 @@ cd ios/App
 rm -rf build/pi.xcarchive build/export
 xcodebuild archive -project App.xcodeproj -scheme App -configuration Release -destination generic/platform=iOS \
 	-archivePath build/pi.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
-	MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" -quiet
+	MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" -quiet "$@"
 xcodebuild -exportArchive -archivePath build/pi.xcarchive -exportOptionsPlist build/ExportOptions.plist \
-	-exportPath build/export -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM"
+	-exportPath build/export -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM" "$@"
 echo "uploaded pi mobile $VERSION ($BUILD) to TestFlight"
