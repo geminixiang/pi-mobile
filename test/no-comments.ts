@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { parseSync } from "rolldown/utils";
 
 export type Comment = { start: number; end: number };
@@ -94,9 +94,9 @@ export function commentsIn(file: string, source: string): Comment[] {
 }
 
 export function checkedFiles(): string[] {
-	return execFileSync("git", ["ls-files"], { encoding: "utf8" })
+	return execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate"], { encoding: "utf8" })
 		.split("\n")
-		.filter((file) => file && !GENERATED.has(file) && !file.startsWith("android/app/src/main/res/"));
+		.filter((file) => file && existsSync(file) && !GENERATED.has(file) && !file.startsWith("android/app/src/main/res/"));
 }
 
 if (import.meta.main) {

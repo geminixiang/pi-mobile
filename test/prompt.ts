@@ -18,7 +18,7 @@ async function sections(runtime: AgentRuntime, bot: ConversationId): Promise<[st
 		(context: TranscriptContext) => {
 			const first = context.messages[0];
 			const rendered: unknown = first && "sections" in first ? first.sections : undefined;
-			seen = typeof rendered === "object" && rendered !== null ? Object.entries(rendered).flatMap(([key, text]) => (typeof text === "string" ? [[key, text] as [string, string]] : [])) : [];
+			seen = typeof rendered === "object" && rendered !== null ? Object.entries(rendered).flatMap(([key, text]): [string, string][] => (typeof text === "string" ? [[key, text]] : [])) : [];
 			return fauxAssistantMessage("done");
 		},
 	]);
