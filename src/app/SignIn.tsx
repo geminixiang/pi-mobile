@@ -3,8 +3,9 @@ import { App } from "@capacitor/app";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
-import { System } from "../plugins/system.ts";
 import { messageOf, orLogged, sleep } from "../promise.ts";
+import { copy, pasted } from "./clipboard.ts";
+import { System } from "../plugins/system.ts";
 
 export function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
 	const [signIn, setSignIn] = useState<GoogleSignIn>();
@@ -29,7 +30,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 		if (!signIn) return;
 		const listener = App.addListener("resume", async () => {
 			await sleep(400);
-			const { text } = await orLogged(System.clipboardText(), "sign_in.clipboard_unreadable", { text: "" });
+			const text = await orLogged(pasted(), "sign_in.clipboard_unreadable", "");
 			if (looksLikeAuthCode(text)) {
 				setCode(text.trim());
 				void finishPasted(text);
@@ -96,7 +97,7 @@ export function DeviceSignInPanel({
 		try {
 			const next = await start();
 			setSignIn(next);
-			if (copyCode) await orLogged(navigator.clipboard.writeText(next.userCode), "sign_in.clipboard_unwritable", undefined);
+			if (copyCode) await orLogged(copy(next.userCode), "sign_in.clipboard_unwritable", undefined);
 			const controller = new AbortController();
 			abort.current = controller;
 			await System.openExternal({ url: next.url });

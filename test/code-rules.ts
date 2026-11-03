@@ -96,6 +96,11 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "the items belong to src/items/: change them through its tools and helpers",
 	},
 	{
+		use: /navigator\.clipboard|\.clipboardText\(/,
+		owners: ["src/app/clipboard.ts"],
+		fix: "copy and read the clipboard with copy and pasted from src/app/clipboard.ts, which picks the native read where the WebView cannot",
+	},
+	{
 		use: /\bsection\(/,
 		owners: ["src/agent/section.ts"],
 		fix: "define a prompt section with appSection(key, budget, render) from src/agent/section.ts, so it has a budget and test/prompt.ts sees it",

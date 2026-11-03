@@ -19,6 +19,7 @@ import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
 import { inApp, native } from "../native.ts";
+import { copy } from "./clipboard.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 
@@ -367,7 +368,7 @@ export function Chat({
 						onClick={async () => {
 							const entry = actionsFor;
 							setActionsFor(undefined);
-							if (entry) await navigator.clipboard.writeText(entryText(entry)).then(() => haptic("confirm"), fail);
+							if (entry) await copy(entryText(entry)).then(() => haptic("confirm"), fail);
 						}}
 					>
 						<CopyIcon size={18} />

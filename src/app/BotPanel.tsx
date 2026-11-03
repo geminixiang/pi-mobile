@@ -19,6 +19,7 @@ import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
+import { copy } from "./clipboard.ts";
 
 interface PanelActions {
 	edit: () => void;
@@ -290,7 +291,7 @@ export function BotPanel({
 							icon={<CopyIcon size={18} />}
 							label={copied ?? "複製最後的回答"}
 							disabled={!lastAnswer}
-							onClick={() => lastAnswer && void navigator.clipboard.writeText(entryText(lastAnswer)).then(() => showCopied("已複製"), failIn("上下文"))}
+							onClick={() => lastAnswer && void copy(entryText(lastAnswer)).then(() => showCopied("已複製"), failIn("上下文"))}
 						/>
 					</div>
 				</Section>
