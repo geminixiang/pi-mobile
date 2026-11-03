@@ -1,4 +1,3 @@
-import { Row } from "./Row.tsx";
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
@@ -13,6 +12,7 @@ import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { ToolsetTiles } from "./ToolsetTiles.tsx";
 import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
@@ -25,22 +25,6 @@ interface PanelActions {
 	compact: () => Promise<boolean>;
 	reset: () => void;
 	emptyFolder?: () => Promise<boolean>;
-}
-
-function ToolsetToggle({ toolset, onToggle }: { toolset: ToolsetState; onToggle: (id: string, enabled: boolean) => void }) {
-	return (
-		<label className={toolset.available ? "" : "unavailable"}>
-			<span className="menu-text">{toolset.label}</span>
-			{toolset.available ? null : <span className="index-value">未設定</span>}
-			<input
-				type="checkbox"
-				className="switch"
-				disabled={!toolset.available}
-				checked={toolset.available && toolset.enabled}
-				onChange={(event) => onToggle(toolset.id, event.target.checked)}
-			/>
-		</label>
-	);
 }
 
 function statusText(status: ConnectionStatus): { text: string; error: boolean } | undefined {
@@ -262,16 +246,7 @@ export function BotPanel({
 					</div>
 				</Section>
 				<Sheet open={toolSheet} title="工具" onClose={() => setToolSheet(false)}>
-					<h3 className="list-label">內建</h3>
-					<div className="menu toggles">
-						{builtins.map((toolset) => (
-							<ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />
-						))}
-					</div>
-					<h3 className="list-label">連接的服務</h3>
-					<div className="menu toggles">
-						{services.length === 0 ? <Row label="還沒有連接服務" /> : services.map((toolset) => <ToolsetToggle key={toolset.id} toolset={toolset} onToggle={toggle} />)}
-					</div>
+					<ToolsetTiles toolsets={toolsets} onToggle={toggle} />
 				</Sheet>
 
 				{actions.emptyFolder ? (

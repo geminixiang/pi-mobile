@@ -13,7 +13,7 @@ export interface Toolset {
 	where?: "phone" | "computer";
 }
 
-export const TOOLSETS: readonly Toolset[] = [
+const BUILTINS = [
 	{ kind: "builtin", id: "web", label: "網路", hint: "搜尋、讀網頁", extensions: ["web"] },
 	{ kind: "builtin", id: "weather", label: "天氣", hint: "這裡或任何地點的逐小時與 16 天預報", extensions: ["weather"] },
 	{ kind: "builtin", id: "tw_stocks", label: "台股", hint: "盤後股價、三大法人、融資融券（證交所、櫃買中心）", extensions: ["tw_stocks"], needs: "Phone" },
@@ -40,7 +40,11 @@ export const TOOLSETS: readonly Toolset[] = [
 	{ kind: "builtin", id: "computer_agents", label: "電腦上的 agent", hint: "交辦工作給電腦上 Herdr 或 Rex 裡的 Claude Code、Codex、pi", extensions: ["computer_agents"], where: "computer" },
 	{ kind: "builtin", id: "computer_shell", label: "電腦", hint: "在電腦上跑指令、讀寫檔案", extensions: ["computer_shell", "coding-tools"], where: "computer" },
 	{ kind: "builtin", id: "files", label: "檔案", hint: "這個 Bot 在手機上的資料夾：讀寫檔案、跑 bash 指令", extensions: ["files", "coding-tools"], needs: "BotFiles", where: "phone" },
-];
+] as const satisfies readonly Toolset[];
+
+export const TOOLSETS: readonly Toolset[] = BUILTINS;
+export type BuiltinId = (typeof BUILTINS)[number]["id"];
+export const isBuiltinId = (id: string): id is BuiltinId => TOOLSETS.some((toolset) => toolset.id === id);
 
 export const ALWAYS_ON: readonly string[] = ["assistant", "bot", "codemode", "skills", "attachments", "schedules", "memory", "items", "tool-search", "on-demand"];
 
