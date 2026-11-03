@@ -8,6 +8,7 @@ import { isConfigured, loadSettings, type Settings, saveSettings } from "../sett
 import { openAppStorage } from "./storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
+import { ItemSheet } from "../items/ItemSheet.tsx";
 import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { Dialog, type DialogRequest } from "./Dialog.tsx";
@@ -67,6 +68,7 @@ export function App() {
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
 	const [memoryBot, setMemoryBot] = useState<Bot>();
+	const [openItem, setOpenItem] = useState<string>();
 	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
 	const [chatKey, setChatKey] = useState(0);
 	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
@@ -227,10 +229,12 @@ export function App() {
 			else setSharing({ draft, files });
 		};
 		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openLatest(id) });
-		const stopLinks = listenForOpenLinks((conversation) => {
-			void runtime.bots().then((items) => {
+		const stopLinks = listenForOpenLinks((conversation, item) => {
+			void runtime.bots().then(async (items) => {
 				const target = botWithId(items, conversation);
-				if (target) void openLatest(target.id);
+				if (!target) return;
+				await openLatest(target.id);
+				setOpenItem(item);
 			});
 		});
 		return () => {
@@ -537,6 +541,15 @@ export function App() {
 					}
 				}}
 			/>
+
+			{runtime ? (
+				<ItemSheet
+					runtime={runtime}
+					id={openItem}
+					onAsk={(text) => void controller?.send([{ type: "text", text }]).catch(fail)}
+					onClose={() => setOpenItem(undefined)}
+				/>
+			) : null}
 
 			<Sheet open={Boolean(sharing)} title="要交給哪個 Bot？" onClose={() => setSharing(undefined)}>
 				<div className="menu">

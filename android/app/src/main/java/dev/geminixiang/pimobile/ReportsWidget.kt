@@ -158,7 +158,7 @@ class ReportsWidget : AppWidgetProvider() {
                 }
                 row.setContentDescription(R.id.agenda_row, "$title，$meta")
                 AgentService.avatar(context, item.getString("avatar"))?.let { row.setImageViewIcon(R.id.agenda_avatar, it) }
-                row.setOnClickFillInIntent(R.id.agenda_row, Intent().setData(TriggersPlugin.conversationUri(item.getString("conversation"))))
+                row.setOnClickFillInIntent(R.id.agenda_row, Intent().setData(TriggersPlugin.conversationUri(item.getString("conversation"), item.optString("item"))))
                 rows.addItem(index.toLong(), row)
             }
             views.setRemoteAdapter(R.id.agenda_rows, rows.build())

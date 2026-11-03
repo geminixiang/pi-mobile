@@ -393,6 +393,22 @@ export class TriggerRuns {
 		}, context);
 	}
 
+	async item(id: string): Promise<Item | undefined> {
+		return (await this.#harness.snapshot(ItemDoc, context))?.items.find((item) => item.id === id);
+	}
+
+	async finishItem(id: string): Promise<void> {
+		const now = Date.now();
+		await this.#editItems((items) => items.map((item) => (item.id === id && item.state !== "done" ? { ...item, state: "done", doneAt: now, updatedAt: now } : item)));
+		await this.sync();
+	}
+
+	async postponeItem(id: string, until: number): Promise<void> {
+		const now = Date.now();
+		await this.#editItems((items) => items.map((item) => (item.id === id && item.state !== "done" ? { ...item, nextAt: until, updatedAt: now } : item)));
+		await this.sync();
+	}
+
 	async #editItems(edit: (items: Item[]) => Item[]): Promise<void> {
 		await this.#harness.commit(async (tx) => {
 			const items = await tx.doc(ItemDoc);

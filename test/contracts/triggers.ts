@@ -100,6 +100,26 @@ const alarm = (id: string, at = Date.now()): QueuedEvent => ({ id, at, kind: "al
 
 export const checks: Check[] = [
 	[
+		"an item opened from the widget can be read, finished, or put off to tomorrow morning, and a finished one leaves the agenda",
+		async () => {
+			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item: { state: "todo" } });
+			await withTrigger(fixture, async () => {
+				assert.equal((await fixture.runs.item("i1"))?.title, "回覆房東");
+				assert.equal(await fixture.runs.item("missing"), undefined);
+				const tomorrow = Date.now() + DAY;
+				await fixture.runs.postponeItem("i1", tomorrow);
+				const [later] = await fixture.items();
+				assert.equal(later?.state, "todo");
+				assert.equal(later?.nextAt, tomorrow);
+				await fixture.runs.finishItem("i1");
+				const [done] = await fixture.items();
+				assert.equal(done?.state, "done");
+				await fixture.runs.postponeItem("i1", tomorrow + DAY);
+				assert.equal((await fixture.items())[0]?.nextAt, tomorrow);
+			});
+		},
+	],
+	[
 		"an item whose next time has come wakes its bot once and waits for a new next time",
 		async () => {
 			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { item: { state: "todo", nextAt: Date.now() - 1000 } });

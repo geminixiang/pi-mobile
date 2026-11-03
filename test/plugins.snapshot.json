@@ -4798,11 +4798,15 @@
 									"due": {
 										"type": "number"
 									},
+									"item": {
+										"type": "string"
+									},
 									"title": {
 										"type": "string"
 									}
 								},
 								"required": [
+									"item",
 									"conversation",
 									"bot",
 									"avatar",

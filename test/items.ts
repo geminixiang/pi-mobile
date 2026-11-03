@@ -6,7 +6,7 @@ const bots = [
 	{ id: 2, name: "旅行", avatar: "plane" },
 ];
 const at = (hours: number) => Date.UTC(2026, 10, 1, hours);
-const item = (title: string, bot: number, state: Item["state"], nextAt?: number) => ({ title, bot, state, ...(nextAt !== undefined ? { nextAt } : {}) });
+const item = (title: string, bot: number, state: Item["state"], nextAt?: number) => ({ id: title, title, bot, state, ...(nextAt !== undefined ? { nextAt } : {}) });
 const endOfDay = at(24);
 
 assert.deepEqual(
@@ -14,7 +14,7 @@ assert.deepEqual(
 	["overdue", "due", "undated"],
 );
 assert.deepEqual(agenda([item("waiting", 1, "waiting", at(9)), item("done", 1, "done"), item("orphan", 9, "todo")], bots, endOfDay), []);
-assert.deepEqual(agenda([item("due", 2, "todo", at(9))], bots, endOfDay), [{ conversation: "2", bot: "旅行", avatar: "plane", title: "due", due: at(9) }]);
+assert.deepEqual(agenda([item("due", 2, "todo", at(9))], bots, endOfDay), [{ item: "due", conversation: "2", bot: "旅行", avatar: "plane", title: "due", due: at(9) }]);
 
 assert.equal(agenda(Array.from({ length: 33 }, (_, index) => item(`job ${index}`, 2, "todo")), bots, endOfDay).length, 33);
 

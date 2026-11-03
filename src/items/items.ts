@@ -50,14 +50,14 @@ export function described(item: Item): string {
 	return [item.id, item.title, state, item.nextAt !== undefined ? `next ${localTime(item.nextAt)}` : "no next time", item.ref].filter(Boolean).join(" · ");
 }
 
-export type Due = { conversation: string; bot: string; avatar: string; title: string; due?: number };
+export type Due = { item: string; conversation: string; bot: string; avatar: string; title: string; due?: number };
 
-export function agenda<Id>(items: readonly { bot: Id; title: string; state: Item["state"]; nextAt?: number }[], bots: readonly { id: Id; name: string; avatar: string }[], endOfDay: number): Due[] {
+export function agenda<Id>(items: readonly { id: string; bot: Id; title: string; state: Item["state"]; nextAt?: number }[], bots: readonly { id: Id; name: string; avatar: string }[], endOfDay: number): Due[] {
 	return items
 		.filter((item) => item.state === "todo" && (item.nextAt === undefined || item.nextAt < endOfDay))
 		.toSorted((a, b) => (a.nextAt ?? Number.MAX_SAFE_INTEGER) - (b.nextAt ?? Number.MAX_SAFE_INTEGER))
 		.flatMap((item) => {
 			const bot = bots.find((candidate) => candidate.id === item.bot);
-			return bot ? [{ conversation: String(item.bot), bot: bot.name, avatar: bot.avatar, title: item.title, ...(item.nextAt !== undefined ? { due: item.nextAt } : {}) }] : [];
+			return bot ? [{ item: item.id, conversation: String(item.bot), bot: bot.name, avatar: bot.avatar, title: item.title, ...(item.nextAt !== undefined ? { due: item.nextAt } : {}) }] : [];
 		});
 }

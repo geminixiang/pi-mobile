@@ -93,12 +93,13 @@ export function processTriggerEvents(
 	};
 }
 
-export function listenForOpenLinks(onOpen: (conversation: string) => void): () => void {
+export function listenForOpenLinks(onOpen: (conversation: string, item: string | undefined) => void): () => void {
 	if (!native.has("Triggers")) return () => undefined;
 	const handle = (link: string | undefined) => {
 		if (!link?.startsWith("pimobile://open")) return;
-		const conversation = new URL(link).searchParams.get("conversation");
-		if (conversation) onOpen(conversation);
+		const params = new URL(link).searchParams;
+		const conversation = params.get("conversation");
+		if (conversation) onOpen(conversation, params.get("item") ?? undefined);
 	};
 	void App.getLaunchUrl().then((launch) => handle(launch?.url));
 	const listener = App.addListener("appUrlOpen", ({ url }) => handle(url));

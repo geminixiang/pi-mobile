@@ -802,6 +802,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .service .list-sub { white-space: normal; }
 .service > .btn { align-self: flex-start; margin-top: 8px; }
 .service-url { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); overflow-wrap: anywhere; }
+.item-card { display: flex; flex-direction: column; gap: 8px; }
+.item-title { font-size: var(--fs-ui); line-height: 1.55; overflow-wrap: anywhere; }
+.item-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.item-problem { font-size: var(--fs-small); color: var(--error); }
 .service-remove { margin: 16px calc(-1 * var(--space)) 0; padding: 16px var(--space) 0; border-top: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-small); color: var(--error); text-align: left; }
 .catalog { --list-inset: 16px; display: flex; flex-direction: column; gap: 8px; margin: -16px -16px 0; }
 .catalog > .manual { padding-bottom: 16px; }

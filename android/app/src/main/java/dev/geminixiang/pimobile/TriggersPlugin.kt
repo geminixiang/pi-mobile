@@ -271,7 +271,8 @@ class TriggersPlugin : Plugin() {
 
         private fun proactiveNotificationId(conversation: String) = 0x3000 + (conversation.hashCode() and 0xfff)
 
-        internal fun conversationUri(conversation: String): Uri = Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation))
+        internal fun conversationUri(conversation: String, item: String = ""): Uri =
+            Uri.parse("pimobile://open?conversation=" + Uri.encode(conversation) + (if (item.isEmpty()) "" else "&item=" + Uri.encode(item)))
 
         internal fun openConversation(context: Context, conversation: String): PendingIntent {
             if (conversation.isEmpty()) return AgentService.openApp(context)
