@@ -10,8 +10,8 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
 	return (
 		<Drawer.Root open={open} onOpenChange={(next) => !next && onClose()}>
 			<Drawer.Portal>
-				<Drawer.Backdrop className="backdrop sheet-backdrop" />
-				<Drawer.Viewport className="sheet-viewport">
+				<Drawer.Backdrop className="backdrop sheet-backdrop" data-layer />
+				<Drawer.Viewport className="sheet-viewport" data-layer>
 					<Drawer.Popup className="layer-sheet" aria-label={title}>
 						<header className="strip">
 							<span className="strip-title">{heading}</span>

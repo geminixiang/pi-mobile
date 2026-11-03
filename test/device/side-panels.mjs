@@ -214,6 +214,15 @@ try {
 	await sleep(450);
 	if (await rect(".side-page-right")) failures.push("a swipe did not take memory back to the panel");
 	if (!(await snapshot("right")).open) failures.push("going back from memory also closed the panel");
+	await click(`[...document.querySelectorAll('.panel button')].find((button) => button.textContent.startsWith('工具'))`);
+	await sleep(500);
+	await drag(60, width - 16, y);
+	await touch("touchEnd");
+	await sleep(450);
+	if (!(await snapshot("right")).open) failures.push("a swipe on a sheet moved the panel behind it");
+	if (!(await evaluate("Boolean(document.querySelector('.layer-sheet'))"))) failures.push("a swipe on a sheet closed the sheet");
+	await evaluate(`document.querySelector('.layer-sheet button[aria-label="關閉"]')?.click()`);
+	await sleep(450);
 	await evaluate("document.querySelector('.side-shield')?.click()");
 	await sleep(350);
 	const workspaceTop = ".root > .page-stack > .stack-top";
@@ -259,7 +268,7 @@ try {
 		if (await rect(workspaceTop)) failures.push("a swipe did not take the workspace back to the chat");
 	}
 	assert.equal(failures.length, 0, failures.join("; "));
-	console.log("PASS: both panels stop at fully open, still swipe closed, and open from a swipe that starts on a button; settings, a settings page, memory, the workspace and a file follow the finger, stop where they rest, and swipe back one layer at a time.");
+	console.log("PASS: both panels stop at fully open, still swipe closed, and open from a swipe that starts on a button; settings, a settings page, memory, the workspace and a file follow the finger, a sheet keeps sideways swipes to itself, stop where they rest, and swipe back one layer at a time.");
 } finally {
 	try {
 		if (touching) await touch("touchCancel");

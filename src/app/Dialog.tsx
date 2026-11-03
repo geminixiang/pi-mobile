@@ -16,8 +16,8 @@ export function Dialog({ request, onAnswer }: { request: DialogRequest | undefin
 	return (
 		<BaseDialog.Root open={open} onOpenChange={(next) => !next && cancel()}>
 			<BaseDialog.Portal>
-				<BaseDialog.Backdrop className="backdrop" />
-				<BaseDialog.Popup className="layer-dialog" aria-label={shown?.title}>
+				<BaseDialog.Backdrop className="backdrop" data-layer />
+				<BaseDialog.Popup className="layer-dialog" data-layer aria-label={shown?.title}>
 					<header className="strip">
 						<span className="strip-title">{shown?.title}</span>
 					</header>

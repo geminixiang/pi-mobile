@@ -63,7 +63,7 @@ type SideState = { open: Side | undefined; disabled: boolean; onChange: (open: S
 const SideContext = createContext<{ panels: Map<Side, PanelMotion>; card: RefObject<HTMLElement | null> } | null>(null);
 
 export function ownsSidewaysDrag(target: EventTarget | null, dx: number): boolean {
-	if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true']")) return true;
+	if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true'], [data-layer]")) return true;
 	for (let element = target instanceof Element ? target : null; element; element = element.parentElement) {
 		const room = element.scrollWidth - element.clientWidth;
 		if (room <= 1 || !/auto|scroll/.test(getComputedStyle(element).overflowX)) continue;
