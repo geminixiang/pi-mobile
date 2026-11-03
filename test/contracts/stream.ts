@@ -1,3 +1,4 @@
+import type { Link } from "../../src/agent/sandbox/resumable-socket.ts";
 import assert from "node:assert/strict";
 import { RemoteError } from "@earendil-works/pi-env";
 import { type ConnectionStatus, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
@@ -19,18 +20,18 @@ function reply(id: number, json: Record<string, unknown>): Uint8Array<ArrayBuffe
 	return out;
 }
 
-type Daemon = { connection: PhoneConnection; sent: string[]; drop: (reason: string) => void; link: (up: boolean) => void; answer: (id: number, json: Record<string, unknown>) => void; statuses: ConnectionStatus[] };
+type Daemon = { connection: PhoneConnection; sent: string[]; drop: (reason: string) => void; link: (state: Link) => void; answer: (id: number, json: Record<string, unknown>) => void; statuses: ConnectionStatus[] };
 
 function daemonAnswering(hello: Record<string, unknown>): Daemon {
 	const sent: string[] = [];
 	const statuses: ConnectionStatus[] = [];
 	let drop: (reason: string) => void = () => undefined;
-	let link: (up: boolean) => void = () => undefined;
+	let link: (state: Link) => void = () => undefined;
 	let answer: (id: number, json: Record<string, unknown>) => void = () => undefined;
 	const connection = new PhoneConnection({
 		open: async (token, handlers) => {
 			drop = (reason) => handlers.onClose(reason);
-			link = (up) => handlers.onLink?.(up);
+			link = (state) => handlers.onLink?.(state);
 			answer = (id, json) => handlers.onData(reply(id, json));
 			let greeted = false;
 			return {
@@ -50,7 +51,7 @@ function daemonAnswering(hello: Record<string, unknown>): Daemon {
 		onLog: () => undefined,
 		onStatus: (status) => statuses.push(status),
 	});
-	return { connection, sent, drop: (reason) => drop(reason), link: (up) => link(up), answer: (id, json) => answer(id, json), statuses };
+	return { connection, sent, drop: (reason) => drop(reason), link: (state: Link) => link(state), answer: (id, json) => answer(id, json), statuses };
 }
 
 function lostError(error: unknown): error is RemoteError {
@@ -162,12 +163,12 @@ export const checks: Check[] = [
 				const session = await connection.session();
 				const inFlight = connection.request("exec", { command: "sleep 90" }, { session });
 				const id = Number(sent.at(-1)?.split(":")[1]);
-				link(false);
+				link("reattaching");
 				const down = statuses.at(-1);
 				assert(down?.kind === "reattaching" && down.session === session);
 				await settle(50);
 				assert.equal(statuses.at(-1)?.kind, "reattaching");
-				link(true);
+				link("up");
 				assert.deepEqual(statuses.at(-1), { kind: "connected", session });
 				answer(id, { exitCode: 0 });
 				assert.deepEqual((await inFlight).json, { exitCode: 0 });

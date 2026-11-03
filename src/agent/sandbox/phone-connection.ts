@@ -4,6 +4,7 @@ import { Connection, RemoteError, type RemoteInfo, type Reply, type RequestOptio
 import { check } from "../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { registerProgram } from "../../shims/node-child-process.ts";
+import type { Link } from "./resumable-socket.ts";
 
 type Json = Record<string, unknown>;
 
@@ -12,6 +13,7 @@ export type ConnectionStatus =
 	| { kind: "connecting" }
 	| { kind: "connected"; session: number }
 	| { kind: "reattaching"; session: number; since: number }
+	| { kind: "offline"; session: number; since: number }
 	| { kind: "lost"; reason: string; at: number }
 	| { kind: "closed" };
 
@@ -23,7 +25,7 @@ interface DaemonStream {
 interface StreamHandlers {
 	onData(data: Uint8Array): void;
 	onClose(reason?: string): void;
-	onLink(up: boolean): void;
+	onLink(link: Link): void;
 }
 
 export type OpenDaemon = (token: string, handlers: StreamHandlers) => Promise<DaemonStream>;
@@ -116,7 +118,7 @@ class DaemonProcess extends Events {
 		this.#marker = Buffer.from(`PI-ENV ${token}\n`, "utf8");
 		this.#report = report;
 		report({ kind: "connecting" });
-		open(token, { onData: (data) => this.#onData(data), onClose: (reason) => this.end(reason ?? "the computer closed the connection"), onLink: (up) => this.#onLink(up) }).then(
+		open(token, { onData: (data) => this.#onData(data), onClose: (reason) => this.end(reason ?? "the computer closed the connection"), onLink: (link) => this.#onLink(link) }).then(
 			(stream) => {
 				if (this.#exited) return stream.close();
 				this.#stream = stream;
@@ -180,11 +182,11 @@ class DaemonProcess extends Events {
 		this.#need = rest.length >= 4 ? 4 + rest.readUInt32BE(0) : 4;
 	}
 
-	#onLink(up: boolean): void {
+	#onLink(link: Link): void {
 		if (this.#exited) return;
 		clearInterval(this.#pings);
-		this.#pings = up ? undefined : setInterval(() => this.#synced && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS);
-		this.#report(up ? { kind: "connected", session: this.#session } : { kind: "reattaching", session: this.#session, since: Date.now() });
+		this.#pings = link === "up" ? undefined : setInterval(() => this.#synced && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS);
+		this.#report(link === "up" ? { kind: "connected", session: this.#session } : { kind: link, session: this.#session, since: Date.now() });
 	}
 }
 

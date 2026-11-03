@@ -14,6 +14,7 @@ import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SharedEnvs } from "./sandbox.ts";
+import { deviceNetwork } from "./network.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
 import { type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
@@ -183,6 +184,7 @@ function holdSocket(
 		first: socketUrl(reach, path, first),
 		attach: (received) => socketUrl(reach, path, { attach: token, received: String(received) }),
 		open: openSocket,
+		network: deviceNetwork,
 		what,
 		...handlers,
 	}).catch((error: unknown) => explained(reach, error));

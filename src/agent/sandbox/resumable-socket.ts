@@ -4,6 +4,11 @@ import { decode } from "../parse.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
+export type Link = "up" | "reattaching" | "offline";
+export interface Network {
+	online(): boolean;
+	onChange(listener: () => void): () => void;
+}
 type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
 export interface ResumableOptions {
@@ -13,8 +18,10 @@ export interface ResumableOptions {
 	what: string;
 	onMessage: (data: RawMessage) => void;
 	onClose: (reason: string | undefined) => void;
-	onLink?: (up: boolean) => void;
+	onLink?: (link: Link) => void;
+	network: Network;
 	quietLimitMs: number;
+	resumeLimitMs?: number;
 }
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
@@ -37,15 +44,20 @@ export class ResumableSocket {
 	#sentBytes = 0;
 	#closed = false;
 	#down = false;
-	#downSince = 0;
+	#link: Link = "up";
+	#attaching = false;
+	#unreachableMs = 0;
+	#onlineSince: number | undefined;
 	#attempt = 0;
 	#timer: ReturnType<typeof setTimeout> | undefined;
 	#lastMessage = Date.now();
 	readonly #quiet: ReturnType<typeof setInterval>;
+	readonly #unwatch: () => void;
 
 	private constructor(options: ResumableOptions) {
 		this.#options = options;
 		this.#quiet = setInterval(() => this.#checkQuiet(), options.quietLimitMs / 4);
+		this.#unwatch = options.network.onChange(() => this.#networkChanged());
 	}
 
 	static async connect(options: ResumableOptions): Promise<ResumableSocket> {
@@ -71,6 +83,7 @@ export class ResumableSocket {
 		this.#closed = true;
 		clearTimeout(this.#timer);
 		clearInterval(this.#quiet);
+		this.#unwatch();
 		this.#socket?.close(NORMAL_CLOSURE);
 		this.#socket = undefined;
 	}
@@ -124,30 +137,64 @@ export class ResumableSocket {
 		if (this.#closed) return;
 		if (!this.#down) {
 			this.#down = true;
-			this.#downSince = Date.now();
+			this.#unreachableMs = 0;
+			this.#onlineSince = undefined;
 			this.#attempt = 0;
 			log.info("host.resume", { what: this.#options.what, state: "dropped", received: this.#received, sent: this.#sentBase + this.#sent.length });
-			this.#options.onLink?.(false);
 		}
+		if (!this.#tracked()) return this.#setLink("offline");
+		this.#setLink("reattaching");
 		const delay = RETRY_DELAYS_MS[Math.min(this.#attempt, RETRY_DELAYS_MS.length - 1)] ?? 15000;
 		this.#timer = setTimeout(() => void this.#attach(), delay);
 	}
 
+	#networkChanged(): void {
+		if (this.#closed || !this.#down || this.#attaching) return;
+		clearTimeout(this.#timer);
+		if (!this.#tracked()) return this.#setLink("offline");
+		this.#attempt = 0;
+		void this.#attach();
+	}
+
+	#tracked(): boolean {
+		const online = this.#options.network.online();
+		const now = Date.now();
+		if (online && this.#onlineSince === undefined) this.#onlineSince = now;
+		if (!online && this.#onlineSince !== undefined) {
+			this.#unreachableMs += now - this.#onlineSince;
+			this.#onlineSince = undefined;
+		}
+		return online;
+	}
+
+	#setLink(link: Link): void {
+		if (link === this.#link) return;
+		this.#link = link;
+		this.#options.onLink?.(link);
+	}
+
 	async #attach(): Promise<void> {
-		if (this.#closed) return;
-		if (Date.now() - this.#downSince > RESUME_LIMIT_MS) {
+		if (this.#closed || this.#attaching) return;
+		if (!this.#tracked()) return this.#setLink("offline");
+		const unreachable = this.#unreachableMs + Date.now() - (this.#onlineSince ?? Date.now());
+		const limit = this.#options.resumeLimitMs ?? RESUME_LIMIT_MS;
+		if (unreachable > limit) {
 			log.warn("host.resume", { what: this.#options.what, state: "gave_up", attempts: this.#attempt });
-			return this.#final(`could not reach ${this.#options.what} again within ${Math.round(RESUME_LIMIT_MS / 60_000)} minutes`);
+			return this.#final(`could not reach ${this.#options.what} for ${limit / 60_000} minutes while this phone was online`);
 		}
 		this.#attempt++;
+		this.#attaching = true;
 		try {
 			const socket = await this.#open(this.#options.attach(this.#received), true);
 			if (this.#closed) return socket.close(NORMAL_CLOSURE);
 			this.#socket = socket;
 			this.#lastMessage = Date.now();
 		} catch {
+			this.#attaching = false;
 			this.#dropped();
+			return;
 		}
+		this.#attaching = false;
 	}
 
 	#resume(received: number): void {
@@ -159,6 +206,6 @@ export class ResumableSocket {
 		this.#down = false;
 		this.#lastMessage = Date.now();
 		log.info("host.resume", { what: this.#options.what, state: "attached", attempts: this.#attempt, resent: missing.length, received: this.#received });
-		this.#options.onLink?.(true);
+		this.#setLink("up");
 	}
 }

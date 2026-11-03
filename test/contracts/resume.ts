@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
+import { type Link, type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 import { sleep } from "../../src/promise.ts";
 
@@ -38,8 +38,27 @@ async function opened(opener: ReturnType<typeof fakeOpener>, index: number): Pro
 	throw new Error(`socket ${index} never opened`);
 }
 
-async function connect(opener: ReturnType<typeof fakeOpener>) {
-	const links: boolean[] = [];
+function fakeNetwork() {
+	const listeners = new Set<() => void>();
+	let online = true;
+	return {
+		online: () => online,
+		onChange: (listener: () => void) => {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		},
+		set(next: boolean) {
+			online = next;
+			for (const listener of listeners) listener();
+		},
+		foreground() {
+			for (const listener of listeners) listener();
+		},
+	};
+}
+
+async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetwork(), resumeLimitMs?: number) {
+	const links: Link[] = [];
 	const received: RawMessage[] = [];
 	let closedWith: string | undefined | null = null;
 	const socket = await ResumableSocket.connect({
@@ -52,7 +71,9 @@ async function connect(opener: ReturnType<typeof fakeOpener>) {
 		onClose: (reason) => {
 			closedWith = reason;
 		},
-		onLink: (up) => links.push(up),
+		onLink: (link) => links.push(link),
+		network,
+		...(resumeLimitMs === undefined ? {} : { resumeLimitMs }),
 	});
 	return { socket, links, received, closed: () => closedWith };
 }
@@ -70,7 +91,7 @@ export const checks: Check[] = [
 			first.deliver("from computer 1");
 			first.deliver("from computer 2");
 			first.drop(undefined);
-			assert.deepEqual(links, [false]);
+			assert.deepEqual(links, ["reattaching"]);
 			socket.send("three");
 			assert.deepEqual(first.sent, ["one", "two"]);
 			await sleep(1200);
@@ -80,7 +101,7 @@ export const checks: Check[] = [
 			assert.equal(second.url.searchParams.get("received"), "2");
 			second.deliver(JSON.stringify({ received: 1 }));
 			assert.deepEqual(second.sent, ["two", "three"]);
-			assert.deepEqual(links, [false, true]);
+			assert.deepEqual(links, ["reattaching", "up"]);
 			second.deliver("from computer 3");
 			assert.deepEqual(received, ["from computer 1", "from computer 2", "from computer 3"]);
 			socket.send("four");
@@ -106,7 +127,7 @@ export const checks: Check[] = [
 			const third = opener.sockets[2];
 			assert(third, "no second attach attempt");
 			third.deliver(JSON.stringify({ received: 0 }));
-			assert.deepEqual(links, [false, true]);
+			assert.deepEqual(links, ["reattaching", "up"]);
 			third.drop("no such session");
 			assert.equal(closed(), "no such session");
 			socket.send("after");
@@ -130,11 +151,12 @@ export const checks: Check[] = [
 			await sleep(400);
 			assert(first.closed);
 			assert.equal(first.closeCode, undefined);
-			assert.deepEqual(links, [false]);
+			assert.deepEqual(links, ["reattaching"]);
 			const second = await opened(opener, 1);
 			assert.equal(second.url.searchParams.get("received"), "2");
+			await sleep(50);
 			second.deliver(JSON.stringify({ received: 0 }));
-			assert.deepEqual(links, [false, true]);
+			assert.deepEqual(links, ["reattaching", "up"]);
 			socket.close();
 		},
 	],
@@ -159,7 +181,71 @@ export const checks: Check[] = [
 			assert.equal(silent.closeCode, undefined);
 			const next = await opened(opener, 2);
 			next.deliver(JSON.stringify({ received: 0 }));
-			assert.deepEqual(links, [false, true]);
+			assert.deepEqual(links, ["reattaching", "up"]);
+			socket.close();
+		},
+	],
+	[
+		"while the phone is offline it waits without trying, and reattaches as soon as the network is back",
+		async () => {
+			const opener = fakeOpener();
+			const network = fakeNetwork();
+			const { socket, links, closed } = await connect(opener, network);
+			const first = opener.sockets[0];
+			assert(first);
+			first.deliver("from computer 1");
+			network.set(false);
+			first.drop(undefined);
+			assert.deepEqual(links, ["offline"]);
+			await sleep(1500);
+			assert.equal(opener.sockets.length, 1, "it tried to reattach with no network");
+			const back = Date.now();
+			network.set(true);
+			const second = await opened(opener, 1);
+			assert(Date.now() - back < 300, "it waited for the next retry instead of reattaching when the network came back");
+			await sleep(50);
+			second.deliver(JSON.stringify({ received: 0 }));
+			assert.deepEqual(links, ["offline", "up"]);
+			assert.equal(closed(), null);
+			socket.close();
+		},
+	],
+	[
+		"time without a network does not count toward giving up",
+		async () => {
+			const opener = fakeOpener();
+			const network = fakeNetwork();
+			const { socket, links, closed } = await connect(opener, network, 300);
+			const first = opener.sockets[0];
+			assert(first);
+			network.set(false);
+			first.drop(undefined);
+			await sleep(700);
+			network.set(true);
+			const second = await opened(opener, 1);
+			await sleep(50);
+			second.deliver(JSON.stringify({ received: 0 }));
+			assert.equal(closed(), null, `it gave up while offline: ${closed()}`);
+			assert.deepEqual(links, ["offline", "up"]);
+			socket.close();
+		},
+	],
+	[
+		"coming back to the foreground reattaches right away instead of waiting out the backoff",
+		async () => {
+			const opener = fakeOpener();
+			const network = fakeNetwork();
+			const { socket } = await connect(opener, network);
+			const first = opener.sockets[0];
+			assert(first);
+			first.drop(undefined);
+			await sleep(100);
+			const shown = Date.now();
+			network.foreground();
+			const second = await opened(opener, 1);
+			assert(Date.now() - shown < 300, "it waited for the scheduled retry after the app came back");
+			await sleep(50);
+			second.deliver(JSON.stringify({ received: 0 }));
 			socket.close();
 		},
 	],

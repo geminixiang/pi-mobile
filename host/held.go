@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	holdFor        = 5 * time.Minute
+	holdFor        = 15 * time.Minute
 	heartbeatEvery = 5 * time.Second
 )
 

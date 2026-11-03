@@ -1,3 +1,4 @@
+import type { Link } from "./resumable-socket.ts";
 import { type Static, Type } from "typebox";
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
@@ -62,7 +63,7 @@ export interface CommandHandlers {
 	onStdout(data: Uint8Array): void;
 	onStderr?(data: Uint8Array): void;
 	onExit(code: number | undefined): void;
-	onLink?(up: boolean): void;
+	onLink?(link: Link): void;
 }
 
 export interface CommandChannel {
