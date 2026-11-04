@@ -1,7 +1,7 @@
 import { isJsonValue } from "@earendil-works/chord";
 import { defineExtension, defineTool, type Extension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
-import { type AuthProvider, type CallToolResult, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
+import { type AuthProvider, type CallToolResult, McpSessionExpiredError, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";
 import {
 	adaptOAuthProvider,
 	authorizeMcp,
@@ -220,6 +220,13 @@ class Connection {
 		if (live) await this.#closeQuietly(live);
 	}
 
+	async #forget(client: McpSession): Promise<void> {
+		if (this.#live !== client) return;
+		this.#live = undefined;
+		this.#client = undefined;
+		await this.#closeQuietly(client);
+	}
+
 	#closeQuietly(client: McpSession): Promise<void> {
 		return orLogged(client.close(), "mcp.close_failed", undefined, { server: this.server.id });
 	}
@@ -320,12 +327,19 @@ class Connection {
 				replay: readOnly ? "safe" : "unsafe",
 				callers: ["tools"],
 				execute: async (args, api, context) => {
-					const client = await this.client().catch((error: unknown) => (error instanceof Superseded ? this.client() : Promise.reject(error)));
+					const connected = () => this.client().catch((error: unknown) => (error instanceof Superseded ? this.client() : Promise.reject(error)));
 					const signal = context.abortSignal;
 					const endpoint = { url: server.url, fetch: this.#platform.mcpFetch, auth: this.#auth };
-					const result = (await this.#speaksStateless())
-						? await callTool(endpoint, tool.name, args, (request) => this.#hooks.ask(api.callId, { conversationId: api.conversationId, service: server.name, request }, signal), signal)
-						: await client.callTool(tool.name, args, signal ? { signal } : {});
+					const call = async (client: McpSession) =>
+						(await this.#speaksStateless())
+							? await callTool(endpoint, tool.name, args, (request) => this.#hooks.ask(api.callId, { conversationId: api.conversationId, service: server.name, request }, signal), signal)
+							: await client.callTool(tool.name, args, signal ? { signal } : {});
+					const client = await connected();
+					const result = await call(client).catch(async (error: unknown) => {
+						if (!(error instanceof McpSessionExpiredError)) throw error;
+						await this.#forget(client);
+						return call(await connected());
+					});
 					const content = toLlmContent(result);
 					if (content.length === 0) content.push({ type: "text", text: result.isError ? `${tool.name} failed` : "Done." });
 					return mcpResult(result, content);
