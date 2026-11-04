@@ -102,7 +102,7 @@ type whois struct {
 	} `json:"UserProfile"`
 }
 
-func owner(ctx context.Context, remoteAddr string) (string, error) {
+func tailnetOwner(ctx context.Context, remoteAddr string) (string, error) {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		return "", err

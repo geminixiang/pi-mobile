@@ -34,6 +34,7 @@ var (
 	shaPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	tokenPattern   = regexp.MustCompile(`^[0-9a-f]{16,128}$`)
 	allowedOrigins = map[string]bool{"http://localhost": true, "https://localhost": true, "capacitor://localhost": true}
+	owner          = tailnetOwner
 )
 
 func daemonsDir() string {
