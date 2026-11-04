@@ -129,3 +129,12 @@
 - `unattended` 只在記憶體。排程回合跑到一半 App 重啟，接手後會當成有人，卡片又會一直等。
 - 手機開機但 App 沒開時，超過 6 小時的事項不會叫醒。要解決得改原生端。
 - 等待中的事項仍不上小工具，`test/items.ts` 明確要求這樣，要改得先決定。
+
+## 第 3 步的紀錄
+
+- **MCP session 過期**：呼叫收到 `McpSessionExpiredError` 時丟掉舊連線，重連一次再送。伺服器回 404 代表這次呼叫沒有執行，所以寫入工具也能重送。假伺服器的測試裡工具只執行一次。〔跑過〕
+- **iOS 日曆**：`CalendarPlugin.swift` 補上 `requestPermissions`。這台 Mac 沒有 Xcode，Swift 沒有編譯過，也沒上 iPhone。`test/plugins-node.ts` 現在要求回報權限的 iOS plugin 也要能請求。
+- **Android 大約位置**：`PhonePlugin` 覆寫 `getPermissionStates`，和 `anyLocation()` 同一個判斷。模擬器上收回精確位置、只留大約位置：舊版回 `prompt`，新版回 `granted`。〔跑過〕
+- **null 毀清單**：確實會發生。模擬器的日曆寫入一筆沒標題的事件，資料庫存 `NULL`，舊版的結果少了 `title` 鍵，新版回空字串。〔跑過〕其他欄位用同樣改法，只驗過日曆。`test/plugins-node.ts` 現在禁止 Java 把 cursor 字串直接放進結果，但抓不到先存進變數的寫法。
+
+第 8 項（頁面凍結）還沒上真機驗。
