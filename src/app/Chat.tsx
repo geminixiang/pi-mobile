@@ -20,6 +20,7 @@ import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
 import { inApp, native } from "../native.ts";
 import { copy } from "./clipboard.ts";
+import { LONE_RUN, stepRuns } from "./step-runs.ts";
 import { questionStates } from "../interaction/answers.ts";
 import { type Interaction, InteractionContext } from "../interaction/context.ts";
 import type { Forms, FormsState } from "../interaction/forms.ts";
@@ -233,6 +234,7 @@ export function Chat({
 	const lastEntry = entries.at(-1);
 	const retry = retrying(live?.generation);
 	const retried = useMemo(() => retriedAttempts(entries, retry), [entries, retry]);
+	const runs = useMemo(() => stepRuns(entries), [entries]);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
 	const waitsForAnswer = [...asked.values()].some((question) => question.state === "open");
 	const emptyAnswer = !busy && !waitsForAnswer && lastEntry !== undefined && isEmptyAnswer(lastEntry);
@@ -339,6 +341,7 @@ export function Chat({
 						<EntryView
 							key={String(entry.id)}
 							entry={entry}
+							run={runs.get(entry) ?? LONE_RUN}
 							retried={retried.has(entry)}
 							prefs={prefs}
 							calls={calls}

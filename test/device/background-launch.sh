@@ -17,6 +17,8 @@ steps=$(CDP_PORT=$PORT ./test/device/ui.sh 'async () => {
 	[...document.querySelectorAll(".drawer-open")].find((button) => button.textContent.includes(name)).click(); await sleep(1500);
 	type("先打開設定看這支手機的 Android 版本，再用地圖查台北車站到台北 101 怎麼走"); await sleep(200); click("送出");
 	await until(() => busy(), 20000); await until(() => !busy(), 600000); await sleep(800);
+	document.querySelectorAll(".work-line[aria-expanded=false]").forEach((line) => line.click());
+	await sleep(300);
 	const steps = [...document.querySelectorAll(".step")].map((row) => row.dataset.tool + ": " + row.innerText.replace(/\s+/g, " ").slice(0, 100));
 	await rt.removeBot(id);
 	return steps.join("\n");

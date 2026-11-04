@@ -39,6 +39,8 @@ ask_in_background() {
 	[...document.querySelectorAll('.drawer-open')].find((button) => button.textContent.includes(name)).click(); await sleep(1500);
 	type('$2'); await sleep(200); click('送出');
 	await until(() => busy(), 20000); await until(() => !busy(), 300000); await sleep(800);
+	document.querySelectorAll('.work-line[aria-expanded=false]').forEach((line) => line.click());
+	await sleep(300);
 	const steps = [...document.querySelectorAll('.step')].map((row) => row.dataset.tool + ': ' + row.innerText.replace(/\\s+/g, ' ').slice(0, 100));
 	const answer = [...document.querySelectorAll('.answer')].at(-1)?.innerText ?? '';
 	await rt.removeBot(id);

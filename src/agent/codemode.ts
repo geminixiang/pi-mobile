@@ -1,3 +1,4 @@
+import { Type } from "typebox";
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
@@ -103,9 +104,13 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
 	const codemode = createCodemodeTool({ sandbox, models: false });
+	const parameters = Type.Object({
+		title: Type.Optional(Type.String({ description: "What this does, for the user to read while it runs: a few words in the user's language, such as 查詢台北天氣" })),
+		code: Type.String({ description: "Raw JavaScript source." }),
+	});
 	return defineExtension({
 		name: "codemode",
-		tools: [{ ...codemode, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) }],
+		tools: [{ ...codemode, parameters, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) }],
 		sections: [
 			appSection("codemode", 4_000, (input) => {
 				const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));

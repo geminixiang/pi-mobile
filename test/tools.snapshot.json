@@ -2792,6 +2792,10 @@
 				"code": {
 					"description": "Raw JavaScript source.",
 					"type": "string"
+				},
+				"title": {
+					"description": "What this does, for the user to read while it runs: a few words in the user's language, such as 查詢台北天氣",
+					"type": "string"
 				}
 			},
 			"required": [

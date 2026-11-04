@@ -439,6 +439,11 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .form-record-service { font-size: var(--fs-ui); font-weight: 700; color: var(--text); }
 .form-record-outcome { flex: 1; min-width: 0; font-size: var(--fs-ui); color: var(--faint); }
 
+.work { display: flex; flex-direction: column; gap: 8px; }
+.work-line { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0; text-align: left; font-size: var(--fs-small); color: var(--muted); }
+.work-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.work-meta { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; }
+.work-failed { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--error); }
 .steps { display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); }
 .step { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--tool-pending); }
 .step.ok { background: var(--tool-success); }

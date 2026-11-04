@@ -22,6 +22,7 @@ import { longPress } from "./haptics.ts";
 import { isConnectionLost } from "../agent/network.ts";
 import { InteractionCard } from "../interaction/Interaction.tsx";
 import { isInteraction } from "../interaction/tool.ts";
+import { type Call, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -148,7 +149,30 @@ function callLabel(name: string, args: Record<string, unknown>): string {
 
 const harnessTag = /<\/?harness>\n?/g;
 
-type Call = Extract<Block, { type: "toolCall" }>;
+const TOOL_DOING = new Map<string, string>([
+	["bash", "跑指令"],
+	["read", "讀檔案"],
+	["write", "寫檔案"],
+	["edit", "改檔案"],
+	["codemode", "執行腳本"],
+	["update_memory", "更新記憶"],
+	["tool_search", "載入工具"],
+	["read_page", "看網頁"],
+	["use_browser", "操作瀏覽器"],
+	["phone_read_as_user", "看手機畫面"],
+	["phone_act_as_user", "操作手機"],
+	["computer_read_as_user", "看電腦畫面"],
+	["computer_act_as_user", "操作電腦"],
+	["view_photos", "看照片"],
+	["read_attachment", "讀附件"],
+]);
+
+const TOOLS_ALWAYS_SHOWN = new Set(["update_memory"]);
+
+function doing(call: Call): string {
+	if (call.name === "codemode" && typeof call.arguments.title === "string" && call.arguments.title.trim()) return call.arguments.title.trim();
+	return TOOL_DOING.get(call.name) ?? "使用工具";
+}
 
 const TOOL_NAMES = new Map<string, string>([
 	["bash", "$"],
@@ -180,8 +204,8 @@ const TOOL_NAMES = new Map<string, string>([
 
 const toolName = (name: string) => TOOL_NAMES.get(name) ?? name;
 
-function useElapsed(running: boolean): number {
-	const [started] = useState(() => Date.now());
+function useElapsed(running: boolean, since?: number): number {
+	const [started] = useState(() => since ?? Date.now());
 	const [now, setNow] = useState(started);
 	useEffect(() => {
 		if (!running) return;
@@ -244,6 +268,45 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					<img src={`data:${image.mimeType};base64,${image.data}`} alt={filePath ?? ""} />
 				</button>
 			))}
+		</div>
+	);
+}
+
+function staysVisible(call: Call, state: CallState | undefined): boolean {
+	if (TOOLS_ALWAYS_SHOWN.has(call.name)) return true;
+	if (state?.status !== "done") return false;
+	if (state.images.length > 0) return true;
+	return call.name === "write" || call.name === "edit" ? /\.html?$/i.test(String(call.arguments.path ?? "")) : htmlPathsIn(state.output).length > 0;
+}
+
+function WorkLine({ calls, states, prefs, since }: { calls: readonly Call[]; states: CallStates; prefs: Prefs; since: number | undefined }) {
+	const [open, setOpen] = useState(prefs.expandTools);
+	const running = calls.some((call) => states.get(call.id)?.status !== "done");
+	const failed = calls.filter((call) => {
+		const state = states.get(call.id);
+		return state?.status === "done" && state.isError;
+	}).length;
+	const elapsed = useElapsed(running, since);
+	const last = calls.at(-1);
+	if (!last) return null;
+	const rows = open ? calls : calls.filter((call) => staysVisible(call, states.get(call.id)));
+	return (
+		<div className="work">
+			<button type="button" className="work-line" onClick={() => setOpen(!open)} aria-expanded={open}>
+				{running ? <span className="block-cursor" aria-label="執行中" /> : null}
+				<span className="work-name">{doing(last)}</span>
+				{running && elapsed >= 3 ? <span className="work-meta">{elapsed}s</span> : null}
+				{!running && calls.length > 1 ? <span className="work-meta">{calls.length} 步</span> : null}
+				{failed > 0 ? <span className="work-failed">{failed} 失敗</span> : null}
+				<ChevronIcon open={open} size={12} />
+			</button>
+			{rows.length > 0 ? (
+				<div className="steps">
+					{rows.map((call) => (
+						<StepRow key={call.id} call={call} state={states.get(call.id)} prefs={prefs} />
+					))}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -337,7 +400,7 @@ export function isEmptyAnswer(entry: EntryRecord): boolean {
 	);
 }
 
-export function Content({ content, prefs, calls, streaming }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean }) {
+export function Content({ content, prefs, calls, streaming, run = LONE_RUN, since }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean; run?: StepRun; since?: number }) {
 	const groups: (Block | Call[])[] = [];
 	for (const block of content) {
 		const last = groups.at(-1);
@@ -352,16 +415,13 @@ export function Content({ content, prefs, calls, streaming }: { content: readonl
 		<>
 			{groups.map((group, index) => {
 				if (Array.isArray(group)) {
-					const steps = group.filter((call) => !isInteraction(call.name));
+					const own = group.filter((call) => !isInteraction(call.name));
+					const first = groups.find(Array.isArray) === group;
+					const steps = first ? [...run.carried, ...own] : own;
+					const hidden = run.hidden && groups.findLast(Array.isArray) === group;
 					return (
 						<Fragment key={index}>
-							{steps.length > 0 ? (
-								<div className="steps">
-									{steps.map((call) => (
-										<StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
-									))}
-								</div>
-							) : null}
+							{steps.length > 0 && !hidden ? <WorkLine calls={steps} states={calls} prefs={prefs} since={run.since ?? since} /> : null}
 							{group.map((call) => (
 								<InteractionCard key={call.id} call={call} />
 							))}
@@ -462,6 +522,7 @@ function sameCallsFor(entry: EntryRecord, before: CallStates, after: CallStates)
 
 type EntryViewProps = {
 	entry: EntryRecord;
+	run: StepRun;
 	retried: boolean;
 	prefs: Prefs;
 	calls: CallStates;
@@ -471,6 +532,8 @@ type EntryViewProps = {
 function sameEntryView(before: EntryViewProps, after: EntryViewProps): boolean {
 	return (
 		before.entry === after.entry &&
+		sameRun(before.run, after.run) &&
+		after.run.carried.every((call) => sameCall(before.calls.get(call.id), after.calls.get(call.id))) &&
 		before.retried === after.retried &&
 		before.prefs === after.prefs &&
 		before.onActions === after.onActions &&
@@ -480,6 +543,7 @@ function sameEntryView(before: EntryViewProps, after: EntryViewProps): boolean {
 
 export const EntryView = memo(function EntryView({
 	entry,
+	run,
 	retried,
 	prefs,
 	calls,
@@ -488,8 +552,8 @@ export const EntryView = memo(function EntryView({
 	const model = message(entry);
 	if (entry.kind === "pi.compaction") return <div className="divider">較早的對話已壓縮成摘要</div>;
 	if (entry.kind === "pi.reset") return <div className="divider">新的上下文</div>;
-	const run = triggerRun(entry);
-	if (run) return <TriggerInput id={String(entry.id)} data={run} />;
+	const trigger = triggerRun(entry);
+	if (trigger) return <TriggerInput id={String(entry.id)} data={trigger} />;
 	const notice = triggerNotice(entry);
 	if (notice) return <div className="note">{notice}</div>;
 	if (!model) return null;
@@ -508,7 +572,7 @@ export const EntryView = memo(function EntryView({
 		const aborted = model.stopReason === "aborted";
 		return (
 			<article className={`answer${aborted ? " aborted" : ""}`}>
-				<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
+				<Content content={blocks(model.content)} prefs={prefs} calls={calls} run={run} since={model.timestamp} />
 				{aborted ? <div className="note">已中斷</div> : null}
 				{model.errorMessage && !aborted ? <div className="note error">{model.errorMessage}</div> : null}
 			</article>
