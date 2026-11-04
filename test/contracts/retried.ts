@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
-import { retriedAttempts } from "../../src/agent/entries.ts";
+import { retriedAttempts, retrying } from "../../src/agent/entries.ts";
 import type { Check } from "./setup.ts";
 
 const prompt = { kind: "pi.user", model: [{ role: "user" as const, content: "stream", timestamp: 0 }] };
@@ -30,6 +30,15 @@ export const checks: Check[] = [
 		async () => {
 			const gaveUp = failed("半截");
 			assert.deepEqual([...retriedAttempts([prompt, gaveUp, prompt, answered], false)], []);
+		},
+	],
+	[
+		"an attempt counts as retrying while it waits out the backoff and while the retry streams, so the failed one stays folded until the new answer lands",
+		async () => {
+			assert.equal(retrying({ attempt: 1, retry: { at: 0, error: "connection lost: the network went away" } }), true);
+			assert.equal(retrying({ attempt: 2 }), true);
+			assert.equal(retrying({ attempt: 1 }), false);
+			assert.equal(retrying(undefined), false);
 		},
 	],
 ];

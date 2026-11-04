@@ -1,5 +1,5 @@
 import { contentText, type ImageContent, type Message, type TextContent, type ThinkingContent, type ToolCall } from "@earendil-works/pi-ai";
-import type { EntryRecord } from "@earendil-works/pi-durable";
+import type { EntryRecord, LiveState } from "@earendil-works/pi-durable";
 import { withoutAttachments } from "./attachments.ts";
 
 export type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
@@ -15,6 +15,10 @@ export function message(entry: Pick<EntryRecord, "model">): Message | undefined 
 
 export function entryText(entry: EntryRecord): string {
 	return contentText(withoutAttachments(blocks(message(entry)?.content)));
+}
+
+export function retrying(generation: LiveState["generation"]): boolean {
+	return Boolean(generation?.retry) || (generation?.attempt ?? 1) > 1;
 }
 
 export function retriedAttempts<E extends Pick<EntryRecord, "kind" | "model">>(entries: readonly E[], retrying: boolean): ReadonlySet<E> {
