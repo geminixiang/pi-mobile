@@ -378,38 +378,6 @@ func env(w http.ResponseWriter, r *http.Request) {
 	}, protocol.PiEnvPing, false, "pi-env")
 }
 
-type permission struct {
-	key   string
-	label string
-	fix   string
-	check func(home string) error
-}
-
-func permissionsFile() string {
-	return filepath.Join(stateDir(), "permissions.json")
-}
-
-func askPermissions() {
-	home, _ := os.UserHomeDir()
-	go func() {
-		answers := map[string]bool{}
-		for _, p := range permissions {
-			answers[p.key] = p.check(home) == nil
-			if err := writeJSON(permissionsFile(), answers); err != nil {
-				log.Printf("permissions: %v", err)
-			}
-		}
-	}()
-}
-
-func readPermissions() map[string]bool {
-	answers := map[string]bool{}
-	if readJSON(permissionsFile(), &answers) != nil {
-		return nil
-	}
-	return answers
-}
-
 func main() {
 	command := ""
 	if len(os.Args) > 1 {
@@ -429,6 +397,8 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Pairing code: %s (for %d minutes)\n", code, int(codeLifetime.Minutes()))
+	case "permissions":
+		walkPermissions()
 	case "devices":
 		os.Exit(printDevices())
 	case "unpair":
@@ -440,7 +410,7 @@ func main() {
 		}
 		os.Exit(serveComputerMCP())
 	default:
-		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile pair      a one-time code that lets a phone in\n  pi-mobile devices   the phones paired with this computer\n  pi-mobile unpair <device>|--all   stop letting a phone in, and end what it has open\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
+		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile pair      a one-time code that lets a phone in\n  pi-mobile permissions   wait for the macOS permissions serve asks for, one by one (install.sh runs it)\n  pi-mobile devices   the phones paired with this computer\n  pi-mobile unpair <device>|--all   stop letting a phone in, and end what it has open\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
 		if command != "" && command != "help" && command != "--help" && command != "-h" {
 			os.Exit(2)
 		}

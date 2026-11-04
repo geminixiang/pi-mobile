@@ -172,8 +172,20 @@ function javaRule(): Finding[] {
 	];
 }
 
+// why: joined at run time so this file does not contain the address it forbids
+const MAIN_INSTALLER = ["raw.githubusercontent.com", "geminixiang/pi-mobile/main/host/install.sh"].join("/");
+
+function installerRule(): Finding[] {
+	return checkedFiles().flatMap((file) =>
+		readFileSync(file, "utf8")
+			.split("\n")
+			.flatMap((text, index) => (text.includes(MAIN_INSTALLER) ? [{ file, line: index + 1, rule: "install from the release (https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh), not main: the script on main can call a command the released pi-mobile does not have yet" }] : [])),
+	);
+}
+
 const all = [
 	...javaRule(),
+	...installerRule(),
 	...checkedFiles()
 		.filter((file) => SCRIPT_FILE.test(file) && !DEVICE_SCRIPTS.test(file))
 		.flatMap(findings),

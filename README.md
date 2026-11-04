@@ -34,7 +34,7 @@
      tailnet 後台要開 MagicDNS 和 HTTPS 憑證。直接填 `http://` 也能用，但 iPhone、iPad 上只能填 Tailscale 名稱，不能填 IP。
 3. **（選用）把你的電腦交給 pi**：在 Mac 或 Linux 上（要裝好 Tailscale，手機也登入同一個帳號）執行下面這行，再到手機的設定 › 電腦輸入它印出的名稱和配對碼。之後更新也是同一行。
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
+   curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh
    ```
 4. **（選用）** 在設定裡連接 GitHub、雲端帳號、MCP 服務。
 5. **背景執行**：在設定 › 背景執行允許通知，並讓 app 不受電池最佳化限制。

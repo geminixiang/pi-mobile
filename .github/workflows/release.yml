@@ -111,6 +111,7 @@ jobs:
             CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "../pi-mobile-$os-$name" .
           done
           cp macos/pi-mobile.icns ../pi-mobile.icns
+          cp install.sh ../install.sh
 
       - uses: actions/upload-artifact@v7
         with:
@@ -119,6 +120,7 @@ jobs:
             pi-mobile-darwin-*
             pi-mobile-linux-*
             pi-mobile.icns
+            install.sh
 
   release:
     needs: [check, android, computer]
@@ -137,11 +139,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           apk="pi-mobile-$VERSION.apk"
-          sha256sum "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns > pi-mobile.sha256
+          sha256sum "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns install.sh > pi-mobile.sha256
           {
             cat "docs/releases/$VERSION.md"
             printf '\n## 驗證\n- APK SHA-256：`%s`\n- 簽章憑證 SHA-256：`%s`\n- 所有檔案的 SHA-256：`pi-mobile.sha256`\n' \
               "$(sha256sum "$apk" | cut -d' ' -f1)" "$(cat cert.sha256)"
           } > notes.md
-          gh release create "$GITHUB_REF_NAME" "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns pi-mobile.sha256 \
+          gh release create "$GITHUB_REF_NAME" "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile.icns install.sh pi-mobile.sha256 \
             --title "pi mobile $VERSION" --notes-file notes.md --verify-tag --latest

@@ -9,7 +9,7 @@ import { Sheet } from "./Sheet.tsx";
 
 const MANUAL = "manual";
 
-const INSTALL_HOST = "curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh";
+const INSTALL_HOST = "curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh";
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 

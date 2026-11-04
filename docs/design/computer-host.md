@@ -107,7 +107,7 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 - **固定的簽章**：安裝腳本第一次執行時，在 `~/.pi/mobile/signing/` 建一個自己的鑰匙圈和一張自簽的程式碼簽章憑證「pi-mobile (local)」，密碼存在旁邊，所以簽章不會跳出詢問；不碰登入鑰匙圈，也不加進鑰匙圈的搜尋清單。之後每次更新都用同一張憑證簽，DR 是 `identifier "dev.pi-mobile" and certificate leaf = H"…"`，macOS 就把新版認成同一個 app（`docs/research/macos-automation.md`）。移除時連同憑證一起刪掉。
 - `pi-mobile serve` 一啟動，就依序碰一次：讀桌面、文件、下載項目，用 osascript 問 System Events，**向系統要輔助使用**（`AXIsProcessTrustedWithOptions` 加上詢問，最多等 3 分鐘），**要錄製螢幕**（`CGRequestScreenCaptureAccess`）再截一張螢幕。主動要，pi-mobile 才會出現在設定的列表裡，不用使用者按「+」。macOS 一個接一個問；已經允許的直接通過，不會再問。
 - 每一項的結果寫進 `~/.pi/mobile/permissions.json`，`pi-mobile status` 會列出 granted、denied 或 waiting。
-- 安裝腳本跟著 serve 一項一項走：等到每一項有結果就印一行 ✓，等太久的印出要做什麼；輔助使用等 20 秒還沒開就直接打開那一頁設定。最後列出沒拿到的項目和設定的位置。`pi-mobile status` 在服務剛重啟、還沒開始聽時，會等它最多 15 秒。
+- `pi-mobile permissions`（`host/permissions.go`，安裝腳本在 macOS 上呼叫它）跟著 serve 一項一項走，權限的清單、名稱、設定頁位置只在 `host/permissions_darwin.go`：等到每一項有結果就印一行 ✓，等太久的印出要做什麼；輔助使用等 20 秒還沒開就直接打開那一頁設定。最後列出沒拿到的項目和設定的位置。`pi-mobile status` 在服務剛重啟、還沒開始聽時，會等它最多 15 秒。
 - 模型的提示也寫了：遇到 `Operation not permitted` 或逾時，就請使用者到 Mac 上允許，不要一直重試。
 - 錄製螢幕跟其他項目不同：要在系統設定裡打開，而且要重新啟動的程式才看得到。所以沒拿到時，安裝腳本會直接打開那一頁設定，等使用者按 Enter，再重新啟動 `pi-mobile serve` 確認一次。
 - 打開之後，macOS 還會另外問一次「pi-mobile 正在要求略過系統私密視窗選擇器並直接取用你的畫面和音訊」，要再按一次「允許」。這是 macOS Sequoia 之後所有直接截取螢幕的程式都會遇到的確認，**每個月會再問一次**（[TechSmith 的說明](https://support.techsmith.com/hc/en-us/articles/30302332343693)），一般 app 無法略過。`pi-mobile serve` 每次啟動（通常是登入時）都會截圖檢查，所以到期後的詢問多半在使用者剛登入、人在電腦前時出現。允許後重新啟動 serve，不會再問。

@@ -172,77 +172,7 @@ fi
 "$BIN" status >/dev/null 2>&1 || fail "pi-mobile 裝好了，但沒有回應。看狀態：$BIN status，紀錄：tail $DIR/pi-mobile.log"
 step "啟動，只聽 Tailscale"
 
-state() { "$BIN" status 2>/dev/null | sed -n "s/^Permission $1: \\([a-z]*\\).*/\\1/p"; }
-name() {
-	case "$1" in
-		desktop) echo "桌面" ;; documents) echo "文件" ;; downloads) echo "下載項目" ;;
-		automation) echo "控制 System Events" ;; accessibility) echo "輔助使用" ;; screen) echo "錄製螢幕" ;;
-	esac
-}
-pane() {
-	case "$1" in
-		desktop | documents | downloads) echo "檔案與檔案夾" ;; automation) echo "自動化" ;;
-		accessibility) echo "輔助使用" ;; screen) echo "螢幕與系統錄音" ;;
-	esac
-}
-settings() {
-	case "$1" in
-		accessibility) open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility" 2>/dev/null || true ;;
-		screen) open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture" 2>/dev/null || true ;;
-	esac
-}
-permissions() {
-	say ""
-	say "允許權限：Mac 會一個一個問，都按「允許」"
-	missing=""
-	for key in desktop documents downloads automation accessibility screen; do
-		waited=0
-		shown=""
-		while [ "$(state "$key")" = waiting ] || [ -z "$(state "$key")" ]; do
-			if [ -z "$shown" ] && [ "$waited" -ge 3 ]; then
-				case "$key" in
-					accessibility) printf '  … 輔助使用：在跳出的設定裡把 pi-mobile 打開\r' ;;
-					*) printf '  … %s\r' "$(name "$key")" ;;
-				esac
-				shown=1
-			fi
-			[ "$key" = accessibility ] && [ "$waited" -eq 20 ] && settings accessibility
-			[ "$waited" -ge 200 ] && break
-			sleep 1
-			waited=$((waited + 1))
-		done
-		if [ "$(state "$key")" = granted ]; then
-			printf '\033[2K'
-			step "$(name "$key")"
-		else
-			missing="$missing $key"
-		fi
-	done
-	case "$missing" in
-		*screen*)
-			if [ -r /dev/tty ]; then
-				settings screen
-				printf '\033[2K  … 錄製螢幕：在打開的設定裡把 pi-mobile 打開，回到這裡按 Enter'
-				read -r _ < /dev/tty || true
-				launchctl kickstart -k "gui/$(id -u)/$LABEL"
-				waited=0
-				while [ "$(state screen)" != granted ] && [ "$(state screen)" != denied ] && [ "$waited" -lt 30 ]; do
-					sleep 1
-					waited=$((waited + 1))
-				done
-				printf '\033[2K\r'
-				if [ "$(state screen)" = granted ]; then
-					step "錄製螢幕"
-					missing=$(echo "$missing" | sed 's/ screen//')
-				fi
-			fi
-			;;
-	esac
-	for key in $missing; do
-		say "  ✗ $(name "$key")：還沒允許，Bot 用到時會失敗。到 系統設定 › 隱私權與安全性 › $(pane "$key") 打開 pi-mobile，再執行一次這個安裝指令"
-	done
-}
-[ "$os" = darwin ] && permissions
+[ "$os" = darwin ] && "$BIN" permissions
 
 say ""
 "$BIN" status | sed -n 's/^On the phone, add: /好了。在手機的 pi › 設定 › 電腦 輸入：/p'

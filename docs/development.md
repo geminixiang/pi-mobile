@@ -42,7 +42,7 @@ App 內的更新（設定頁最下面的「更新到 <版本>」）讀 GitHub �
 電腦（macOS，或有 systemd 的 Linux）要裝好 Tailscale，並登入跟手機同一個帳號。在電腦上執行一次：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
+curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh
 ```
 
 它會安裝 `pi-mobile`，並設定成登入時自動執行 `pi-mobile serve`。之後可以用 `~/.pi/mobile/bin/pi-mobile status` 確認它有沒有在跑。最後印出一個名稱，到手機的設定 › 電腦輸入它。
