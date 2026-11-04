@@ -1,5 +1,5 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ConversationController } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY, triggerRun } from "../triggers/runs.ts";
 import { parseAttachment } from "../agent/attachments.ts";
@@ -22,8 +22,10 @@ import { inApp, native } from "../native.ts";
 import { copy } from "./clipboard.ts";
 import { questionStates } from "../interaction/answers.ts";
 import { type Interaction, InteractionContext } from "../interaction/context.ts";
+import type { Forms, FormsState } from "../interaction/forms.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
+const NO_FORMS: FormsState = { pending: new Map(), settled: new Map() };
 const AT_BOTTOM_PX = 4;
 const WHEEL_SCROLL_MS = 200;
 
@@ -115,6 +117,7 @@ export function isBusy(view: ConversationView | undefined): boolean {
 
 export function Chat({
 	controller,
+	forms,
 	prefs,
 	sandbox,
 	view,
@@ -128,6 +131,7 @@ export function Chat({
 	contextShare,
 }: {
 	controller: ConversationController;
+	forms: Forms | undefined;
 	prefs: Prefs;
 	sandbox: boolean;
 	view: ConversationView | undefined;
@@ -199,16 +203,25 @@ export function Chat({
 	}, [entries, live?.tools]);
 
 	const asked = useMemo(() => questionStates(entries), [entries]);
+	useEffect(() => {
+		if (forms) void forms.load(controller.id).catch((error: unknown) => onError(messageOf(error)));
+	}, [forms, controller.id, onError]);
+	const formsState = useSyncExternalStore(
+		(listener) => forms?.subscribe(listener) ?? (() => undefined),
+		() => forms?.state ?? NO_FORMS,
+	);
 	const interaction: Interaction = useMemo(
 		() => ({
 			questions: asked,
+			forms: formsState,
+			answerForm: (callId, answer) => forms?.answer(callId, answer),
 			reply: (reply) => {
 				stickToBottom.current = true;
 				setAtBottom(true);
 				controller.send([{ type: "text", text: reply }], "steer").catch((error: unknown) => onError(messageOf(error)));
 			},
 		}),
-		[asked, controller, onError],
+		[asked, formsState, forms, controller, onError],
 	);
 
 	const queued: QueuedItem[] = (inbox?.items ?? []).flatMap((item) =>
@@ -389,6 +402,7 @@ export function Chat({
 				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
+					forms?.skip(controller.id);
 					if (notices.length > 0) onDismissNotices(notices.map((notice) => notice.id));
 					setAtBottom(true);
 					controller.send(content, whenBusy).catch(fail);

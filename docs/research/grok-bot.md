@@ -65,5 +65,5 @@
 14. pi-mcp 升到 1.5.0（OAuth 只接受 `http:`、`https:` 的授權網址）。
 15. 呼叫回「找不到工具」時重新連線、換上新清單，再告訴 Bot 改用新名稱。App 每次開啟都會重抓清單（`src/agent/runtime.ts` 的 `mcp.refreshAll()`），只有開著時伺服器部署新版才會遇到。
 16. 照伺服器的 `ttlMs` 快取清單；能讀 `resource_link`，把一封信加進對話（pi-mcp 已有 `readResource`）。
-17. 伺服器在寄信前要求確認（2026-07-28 的 `input_required`），畫面用第 4 項的確認卡；要等 pi-mcp 支援 2026-07-28（見 [mcp-2026-07-28.md](mcp-2026-07-28.md)）。
+17. 伺服器在寄信前要求確認（2026-07-28 的 `input_required`）：已做。pi-mcp 還不支援 2026-07-28，`src/agent/mcp-stateless.ts` 只替 `tools/call` 補上新版（先問 `server/discover`，不支援就照舊走 pi-mcp），確認卡在 `src/interaction/FormCard.tsx`。別人怎麼做互動卡見 [interaction-cards.md](interaction-cards.md)。
 18. 伺服器提供的 prompts（整理收件匣、回覆這封信）當成輸入框的快捷動作；pi-mcp 目前沒有 prompts API。

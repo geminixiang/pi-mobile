@@ -362,7 +362,7 @@ export function Content({ content, prefs, calls, streaming }: { content: readonl
 									))}
 								</div>
 							) : null}
-							{group.filter((call) => isInteraction(call.name)).map((call) => (
+							{group.map((call) => (
 								<InteractionCard key={call.id} call={call} />
 							))}
 						</Fragment>

@@ -72,7 +72,7 @@ export function resetMcp(): void {
 
 export const openClients = () => mcp.clients.filter((client) => !client.closed).length;
 
-export const mcpHttp: { routes: Record<string, () => Response>; requests: string[] } = { routes: {}, requests: [] };
+export const mcpHttp: { routes: Record<string, (init?: RequestInit) => Response>; requests: string[] } = { routes: {}, requests: [] };
 
 export const secrets: { removeGate: Gate } = { removeGate: undefined };
 
@@ -110,7 +110,7 @@ export const platform: Platform = {
 		mcpHttp.requests.push(request);
 		const route = mcpHttp.routes[request];
 		if (!route) throw new Error(`no route for ${request}: contract tests run offline`);
-		return route();
+		return route(init);
 	},
 	loopback: async () => async () => undefined,
 	phone: {

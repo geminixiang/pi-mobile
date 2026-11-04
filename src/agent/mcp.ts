@@ -14,6 +14,8 @@ import { type Static, Type } from "typebox";
 import { decode, decodeEach } from "./parse.ts";
 import { type McpSession, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
+import { callTool, type FormAnswer, speaksStateless } from "./mcp-stateless.ts";
+import type { PendingForm } from "../interaction/forms.ts";
 import { messageOf, onFailure, orLogged, serially, settled } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;
@@ -121,6 +123,7 @@ class Connection {
 	#stopRedirect: (() => Promise<void>) | undefined;
 	readonly #platform: Platform;
 	#shadowed: readonly string[] = [];
+	#stateless: Promise<boolean> | undefined;
 
 	constructor(server: McpServer, platform: Platform, hooks: ConnectionHooks) {
 		this.server = server;
@@ -211,6 +214,7 @@ class Connection {
 	async close(): Promise<void> {
 		this.#generation++;
 		this.#client = undefined;
+		this.#stateless = undefined;
 		const live = this.#live;
 		this.#live = undefined;
 		if (live) await this.#closeQuietly(live);
@@ -230,6 +234,12 @@ class Connection {
 		const stop = this.#stopRedirect;
 		this.#stopRedirect = undefined;
 		return stop ? orLogged(stop(), "mcp.loopback_stop_failed", undefined, { server: this.server.id }) : Promise.resolve();
+	}
+
+	#speaksStateless(): Promise<boolean> {
+		if (parseComputerMcp(this.server.url)) return Promise.resolve(false);
+		this.#stateless ??= speaksStateless({ url: this.server.url, fetch: this.#platform.mcpFetch, auth: this.#auth });
+		return this.#stateless;
 	}
 
 	refresh(): void {
@@ -309,9 +319,13 @@ class Connection {
 				...(tool.outputSchema ? { structuredOutputSchema: Type.Unsafe(tool.outputSchema) } : {}),
 				replay: readOnly ? "safe" : "unsafe",
 				callers: ["tools"],
-				execute: async (args, _api, context) => {
+				execute: async (args, api, context) => {
 					const client = await this.client().catch((error: unknown) => (error instanceof Superseded ? this.client() : Promise.reject(error)));
-					const result = await client.callTool(tool.name, args, context.abortSignal ? { signal: context.abortSignal } : {});
+					const signal = context.abortSignal;
+					const endpoint = { url: server.url, fetch: this.#platform.mcpFetch, auth: this.#auth };
+					const result = (await this.#speaksStateless())
+						? await callTool(endpoint, tool.name, args, (request) => this.#hooks.ask(api.callId, { conversationId: api.conversationId, service: server.name, request }, signal), signal)
+						: await client.callTool(tool.name, args, signal ? { signal } : {});
 					const content = toLlmContent(result);
 					if (content.length === 0) content.push({ type: "text", text: result.isError ? `${tool.name} failed` : "Done." });
 					return mcpResult(result, content);
@@ -349,9 +363,10 @@ type McpHooks = {
 	openUrl: (url: string) => Promise<void>;
 	hostKey: (address: string) => string;
 	builtinTools: () => ReadonlySet<string>;
+	ask: (callId: string, form: PendingForm, signal: AbortSignal | undefined) => Promise<FormAnswer>;
 };
 
-type ConnectionHooks = Pick<McpHooks, "install" | "openUrl" | "hostKey" | "builtinTools"> & { changed: () => void };
+type ConnectionHooks = Pick<McpHooks, "install" | "openUrl" | "hostKey" | "builtinTools" | "ask"> & { changed: () => void };
 
 export class McpHub {
 	readonly #connections = new Map<string, Connection>();

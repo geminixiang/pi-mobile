@@ -1,3 +1,4 @@
+import { Forms } from "../interaction/forms.ts";
 import { createJudge, type Judge } from "./judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
@@ -103,6 +104,7 @@ export class AgentRuntime {
 	readonly #installed: () => ReadonlySet<string>;
 	readonly #unsupported: ReadonlySet<string>;
 	readonly mcp: McpHub;
+	readonly forms: Forms;
 	readonly triggers: TriggerRuns;
 	readonly #botToolsets: BotToolsets;
 	readonly #platform: Platform;
@@ -118,12 +120,14 @@ export class AgentRuntime {
 		installed: () => ReadonlySet<string>,
 		unsupported: ReadonlySet<string>,
 		mcp: McpHub,
+		forms: Forms,
 		judge: Judge,
 	) {
 		this.#installed = installed;
 		this.#unsupported = unsupported;
 		this.#platform = platform;
 		this.mcp = mcp;
+		this.forms = forms;
 		this.#harness = harness;
 		this.#settings = settings;
 		this.#loaded = loaded;
@@ -228,6 +232,7 @@ export class AgentRuntime {
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
 			builtinTools: () => builtinTools,
+			ask: (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" })),
 		});
 		const harness = await Harness.open(
 			storage,
@@ -262,6 +267,7 @@ export class AgentRuntime {
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			catalog.unsupported,
 			mcp,
+			new Forms(harness),
 			createJudge(models),
 		);
 		mcp.refreshAll();

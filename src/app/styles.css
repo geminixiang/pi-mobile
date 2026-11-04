@@ -423,6 +423,22 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .question.answered .question-options button { color: var(--faint); }
 .question .chosen .question-letter { background: var(--text); border-color: var(--text); color: var(--interaction-card); }
 .question-hint { margin: 0 0 0 4px; font-size: var(--fs-small); color: var(--faint); }
+.form-card { display: flex; flex-direction: column; gap: 8px; }
+.form-service { margin: 0; font-size: var(--fs-small); font-weight: 700; color: var(--muted); }
+.form-message { margin: 0; white-space: pre-wrap; text-align: left; font-size: var(--fs-ui); line-height: 1.55; color: var(--text); }
+.form-unsupported { margin: 0; font-size: var(--fs-small); color: var(--error); }
+.form-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 0 6px; }
+.form-button {
+	height: 38px; padding: 0 18px; border-radius: 19px; border: 1px solid var(--interaction-border);
+	font-size: var(--fs-ui); color: var(--text);
+}
+.form-button.primary { background: var(--text); border-color: var(--text); color: var(--interaction-card); font-weight: 700; }
+.form-button:disabled { opacity: 0.5; }
+.form-record { width: 100%; padding: 14px 16px; text-align: left; gap: 10px; }
+.form-record-head { display: flex; align-items: center; gap: 10px; width: 100%; }
+.form-record-service { font-size: var(--fs-ui); font-weight: 700; color: var(--text); }
+.form-record-outcome { flex: 1; min-width: 0; font-size: var(--fs-ui); color: var(--faint); }
+
 .steps { display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); }
 .step { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--tool-pending); }
 .step.ok { background: var(--tool-success); }
