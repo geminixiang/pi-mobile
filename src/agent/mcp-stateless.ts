@@ -46,9 +46,10 @@ const meta = {
 const ASCII_HEADER = /^[\x20-\x7e]*$/;
 const headerValue = (value: string) => (ASCII_HEADER.test(value) ? value : `=?base64?${btoa(String.fromCodePoint(...new TextEncoder().encode(value)))}?=`);
 
-export async function speaksStateless(endpoint: Endpoint, signal?: AbortSignal): Promise<boolean> {
+export async function speaksStateless(endpoint: Endpoint, signal?: AbortSignal): Promise<boolean | undefined> {
 	const response = await orLogged(send(endpoint, "server/discover", undefined, {}, signal), "mcp.discover_failed", undefined, { url: endpoint.url });
-	if (!response || "error" in response) return false;
+	if (!response) return undefined;
+	if ("error" in response) return false;
 	const discovered = check(Discovered, response.result, "server/discover");
 	return discovered.ok && discovered.value.supportedVersions.includes(STATELESS_VERSION);
 }

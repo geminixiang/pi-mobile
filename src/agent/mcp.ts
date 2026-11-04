@@ -245,8 +245,13 @@ class Connection {
 
 	#speaksStateless(): Promise<boolean> {
 		if (parseComputerMcp(this.server.url)) return Promise.resolve(false);
-		this.#stateless ??= speaksStateless({ url: this.server.url, fetch: this.#platform.mcpFetch, auth: this.#auth });
-		return this.#stateless;
+		if (this.#stateless) return this.#stateless;
+		const asking: Promise<boolean> = speaksStateless({ url: this.server.url, fetch: this.#platform.mcpFetch, auth: this.#auth }).then((answer) => {
+			if (answer === undefined && this.#stateless === asking) this.#stateless = undefined;
+			return answer ?? false;
+		});
+		this.#stateless = asking;
+		return asking;
 	}
 
 	refresh(): void {

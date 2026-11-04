@@ -107,6 +107,36 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a discovery that failed is asked again on the next call, so one network error does not end confirmations until a reconnect",
+		async () => {
+			const seen: Seen[] = [];
+			const server = statelessServer(seen);
+			let down = true;
+			mcpHttp.routes = {
+				[`POST ${URL_}`]: (init) => {
+					if (down && JSON.parse(String(init?.body)).method === "server/discover") throw new Error("network down");
+					return server(init);
+				},
+			};
+			const { runtime } = await openRuntime();
+			const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+			const { hub, forms, run } = await sendDraftTool(runtime, bot);
+			try {
+				await assert.rejects(run(), /never called/);
+				down = false;
+				const result = run();
+				await pendingForm(forms);
+				forms.answer("call-1/1", { action: "accept", content: { send: true } });
+				assert.match(JSON.stringify((await result).output), /"sent"/);
+				await settle();
+			} finally {
+				mcpHttp.routes = {};
+				await hub.close();
+				await runtime.close();
+			}
+		},
+	],
+	[
 		"declining the confirmation sends nothing, and the bot is told so",
 		async () => {
 			mcpHttp.routes = { [`POST ${URL_}`]: statelessServer([]) };
