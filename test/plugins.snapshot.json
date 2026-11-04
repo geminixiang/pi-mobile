@@ -1591,7 +1591,8 @@
 			"listEvents",
 			"insertEvent",
 			"deleteEvent",
-			"checkPermissions"
+			"checkPermissions",
+			"requestPermissions"
 		]
 	},
 	{

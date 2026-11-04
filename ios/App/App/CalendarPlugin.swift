@@ -8,7 +8,7 @@ private let day: TimeInterval = 86_400
 public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "CalendarPlugin"
     public let jsName = "Calendar"
-    public let pluginMethods: [CAPPluginMethod] = ["listAccounts", "listEvents", "insertEvent", "deleteEvent", "checkPermissions"].map {
+    public let pluginMethods: [CAPPluginMethod] = ["listAccounts", "listEvents", "insertEvent", "deleteEvent", "checkPermissions", "requestPermissions"].map {
         CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)
     }
 
@@ -78,6 +78,10 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc override public func checkPermissions(_ call: CAPPluginCall) {
         let undecided = EKEventStore.authorizationStatus(for: .event) == .notDetermined
         call.resolve(["calendar": granted ? "granted" : undecided ? "prompt" : "denied"])
+    }
+
+    @objc override public func requestPermissions(_ call: CAPPluginCall) {
+        store.requestFullAccessToEvents { _, _ in self.checkPermissions(call) }
     }
 
     @objc func listAccounts(_ call: CAPPluginCall) {
