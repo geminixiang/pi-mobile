@@ -122,6 +122,7 @@ func TestAHeldCommandIsKilledAfterTheGrace(t *testing.T) {
 	first := dial(t, wsURL(server, "/exec?session="+token+"&command="+url.QueryEscape(command)))
 	waitFor(func() bool { return alive(marker) == 1 })
 	_ = first.CloseNow()
+	time.Sleep(holdFor)
 	waitFor(func() bool { return alive(marker) == 0 })
 	if n := alive(marker); n != 0 {
 		t.Fatalf("%d left after the grace", n)
