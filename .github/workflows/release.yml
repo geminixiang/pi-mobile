@@ -45,6 +45,11 @@ jobs:
           java-version: 21
           cache: gradle
 
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: host/go.mod
+          cache-dependency-path: host/go.sum
+
       - run: npm ci
       - run: npm run check
 

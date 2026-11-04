@@ -65,7 +65,7 @@ cd host && go build -o /tmp/pi-mobile-darwin-arm64 . && PI_MOBILE_URL=file:///tm
 ## 測試
 
 ```sh
-npm run check                                   # 型別檢查
+npm run check                                   # 型別檢查、規則、合約，最後是 host/ 的 go vet 和 go test（要裝 Go，版本見 host/go.mod）
 
 # 手機上的 UI（先跑 run-android.sh 轉發 DevTools）
 CDP_PORT=9333 ./test/device/ui.sh 'async () => { return (await window.piRuntime.bots()).map((bot) => bot.name); }'
