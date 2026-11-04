@@ -87,7 +87,7 @@ const V1Trigger = Type.Object({
 		}),
 	),
 });
-const V1Doc = Type.Object({ items: Type.Array(V1Trigger), runs: Type.Array(Type.Object({ trigger: Type.String(), at: Type.Number(), request: Type.Optional(Type.String()) })) });
+const V1Doc = Type.Object({ items: Type.Array(Type.Unknown()), runs: Type.Array(Type.Object({ trigger: Type.String(), at: Type.Number(), request: Type.Optional(Type.String()) })) });
 
 export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string; at: number; request?: string }[] }>({
 	kind: "app.triggers",
@@ -96,7 +96,13 @@ export const TriggerDoc = defineDoc<{ items: Trigger[]; runs: { trigger: string;
 	initial: () => ({ items: [], runs: [] }),
 	migrate: (value) => {
 		const v1 = valueOrThrow(check(V1Doc, value, "第 1 版的排程"));
-		return { items: v1.items.map(fromV1), runs: v1.runs };
+		const items = v1.items.flatMap((item) => {
+			const read = check(V1Trigger, item, "第 1 版的排程");
+			if (read.ok) return [fromV1(read.value)];
+			log.warn("trigger.unreadable", { problem: read.problem });
+			return [];
+		});
+		return { items, runs: v1.runs };
 	},
 	checkpointWhen: checkpointEvery64,
 });

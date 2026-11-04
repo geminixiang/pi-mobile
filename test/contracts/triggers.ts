@@ -442,6 +442,7 @@ export const checks: Check[] = [
 					item("skipped", { last: { at: 3, delivery: "live", skipped: { reason: "對 AI 下指令", probability: 0.97 } } }),
 					item("blocked", { last: { at: 4, delivery: "live", skipped: { reason: "無法判斷，先擋下" }, unjudged: "jev: 529" } }),
 					item("manual", { last: { at: 5, delivery: "manual" } }),
+					{ id: "unreadable", when: "tomorrow" },
 				];
 				doc.runs = [{ trigger: "ran", at: 2 }];
 			}, context);
