@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ var (
 )
 
 func holdSession(id string, session *held) {
-	untrack := track(session.owner, func() { session.killBecause(unpaired) })
+	untrack := track(session.owner, func() { session.kill(unpaired) })
 	heldMu.Lock()
 	previous := heldByID[id]
 	heldByID[id] = session
@@ -82,7 +83,7 @@ func holdSession(id string, session *held) {
 	}
 	heldMu.Unlock()
 	if previous != nil {
-		previous.kill()
+		previous.kill(sessionGone)
 	}
 }
 
@@ -115,7 +116,7 @@ func (h *held) deliver(m message) {
 	for h.sentBytes > holdBytes && len(h.sent) > 0 {
 		if h.conn == nil {
 			log.Printf("held session dropped: %d bytes waiting while the phone was away", h.sentBytes)
-			h.killLocked()
+			h.killLocked(sessionGone)
 			return
 		}
 		h.sentBytes -= len(h.sent[0].data)
@@ -178,7 +179,7 @@ func (h *held) detachLocked() {
 		return
 	}
 	log.Printf("held session detached; keeping its command for %s", holdFor)
-	h.grace = time.AfterFunc(holdFor, h.kill)
+	h.grace = time.AfterFunc(holdFor, func() { h.kill(sessionGone) })
 }
 
 func (h *held) keepAlive() {
@@ -216,21 +217,13 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 	}
 }
 
-func (h *held) kill() {
-	h.killBecause(sessionGone)
-}
-
-func (h *held) killBecause(reason string) {
+func (h *held) kill(reason string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.killLockedBecause(reason)
+	h.killLocked(reason)
 }
 
-func (h *held) killLocked() {
-	h.killLockedBecause(sessionGone)
-}
-
-func (h *held) killLockedBecause(reason string) {
+func (h *held) killLocked(reason string) {
 	if h.killed {
 		return
 	}
@@ -322,34 +315,20 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 	// why: the phone sends a normal closure only when it means to end the session; a dropped network sends no close frame, and the phone's own reattach closes without a code.
 	if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
 		h.conn = nil
-		h.killLocked()
+		h.killLocked(sessionGone)
 		return
 	}
 	h.detachLocked()
 }
 
 type heldWriter struct {
-	tag  byte
-	held *held
+	prefix []byte
+	held   *held
 }
 
 func (w heldWriter) Write(data []byte) (int, error) {
-	w.held.deliver(message{data: append([]byte{w.tag}, data...)})
+	w.held.deliver(message{data: append(slices.Clip(w.prefix), data...)})
 	return len(data), nil
-}
-
-func exitCode(err error, cmd *exec.Cmd) int {
-	if errors.Is(err, exec.ErrWaitDelay) {
-		return cmd.ProcessState.ExitCode()
-	}
-	if err == nil {
-		return 0
-	}
-	var exit *exec.ExitError
-	if errors.As(err, &exit) {
-		return exit.ExitCode()
-	}
-	return -1
 }
 
 var errSessionTaken = errors.New(sessionTaken)
@@ -363,15 +342,11 @@ func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heart
 		return nil, err
 	}
 	session := &held{owner: owner, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
-	var stdout io.ReadCloser
 	if tagged {
-		cmd.Stdout = heldWriter{1, session}
-		cmd.Stderr = heldWriter{2, session}
+		cmd.Stdout = heldWriter{[]byte{1}, session}
+		cmd.Stderr = heldWriter{[]byte{2}, session}
 	} else {
-		stdout, err = cmd.StdoutPipe()
-		if err != nil {
-			return nil, err
-		}
+		cmd.Stdout = heldWriter{nil, session}
 		cmd.Stderr = log.Writer()
 	}
 	if err := cmd.Start(); err != nil {
@@ -381,25 +356,11 @@ func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heart
 	if heartbeat != nil {
 		go session.keepAlive()
 	}
-	if stdout != nil {
-		go func() {
-			buffer := make([]byte, 256<<10)
-			for {
-				n, err := stdout.Read(buffer)
-				if n > 0 {
-					session.deliver(message{data: append([]byte(nil), buffer[:n]...)})
-				}
-				if err != nil {
-					return
-				}
-			}
-		}()
-	}
 	go func() {
-		err := cmd.Wait()
+		_ = cmd.Wait()
 		_ = endGroup(cmd)
 		if tagged {
-			exit, _ := json.Marshal(map[string]int{"exit": exitCode(err, cmd)})
+			exit, _ := json.Marshal(map[string]int{"exit": cmd.ProcessState.ExitCode()})
 			session.end(&message{text: true, data: exit}, "")
 			return
 		}

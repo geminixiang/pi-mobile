@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -197,7 +199,7 @@ func TestAHeldSessionAnswersOnlyTheKeyThatStartedIt(t *testing.T) {
 	if err != nil || kind != websocket.MessageText || string(data) != `{"received":0}` {
 		t.Fatalf("the starting key could not attach: %v %q", err, data)
 	}
-	takeSession("exec:"+token, digest("phone-a")).kill()
+	takeSession("exec:"+token, digest("phone-a")).kill(sessionGone)
 }
 
 func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
@@ -213,7 +215,7 @@ func TestAnotherKeyCannotTakeOverASessionToken(t *testing.T) {
 	if session == nil {
 		t.Fatal("the first key's session was replaced")
 	}
-	session.kill()
+	session.kill(sessionGone)
 }
 
 func TestRemovingAPairingEndsEverythingItHasOpen(t *testing.T) {
@@ -259,7 +261,7 @@ func TestRemovingAPairingEndsEverythingItHasOpen(t *testing.T) {
 	if session == nil {
 		t.Fatal("another pairing's session ended with it")
 	}
-	session.kill()
+	session.kill(sessionGone)
 }
 
 func TestEndingAHeldSessionClosesItsStdinBeforeKillingIt(t *testing.T) {
@@ -274,7 +276,7 @@ func TestEndingAHeldSessionClosesItsStdinBeforeKillingIt(t *testing.T) {
 	if _, _, err := conn.Read(ctx); err != nil {
 		t.Fatal(err)
 	}
-	takeSession("exec:"+token, digest("phone-a")).kill()
+	takeSession("exec:"+token, digest("phone-a")).kill(sessionGone)
 	waitFor(func() bool { _, err := os.Stat(seen); return err == nil })
 	if _, err := os.Stat(seen); err != nil {
 		t.Fatal("the command was killed without seeing its stdin end, so pi-env could not end the commands it started")
@@ -308,5 +310,30 @@ func TestStartingAHeldTokenAgainReplacesTheSessionHoldingIt(t *testing.T) {
 	if session == nil {
 		t.Fatal("the new session is not held")
 	}
-	session.kill()
+	session.kill(sessionGone)
+}
+
+func TestARawHeldSessionDeliversEverythingItsCommandWroteBeforeExiting(t *testing.T) {
+	const size = 4 << 20
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		command := func(ctx context.Context) *exec.Cmd {
+			return exec.CommandContext(ctx, "/bin/sh", "-c", fmt.Sprintf("head -c %d /dev/zero", size))
+		}
+		serveHeld(w, r, fmt.Sprintf("env:%032x", time.Now().UnixNano()), command, nil, false, "the test command")
+	}))
+	t.Cleanup(server.Close)
+	conn := dial(t, wsURL(server, "/"))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	got := 0
+	for {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			break
+		}
+		got += len(data)
+	}
+	if got != size {
+		t.Fatalf("the phone received %d of the %d bytes the command wrote", got, size)
+	}
 }

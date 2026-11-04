@@ -339,15 +339,12 @@ func endGroup(cmd *exec.Cmd) error {
 }
 
 type taggedWriter struct {
-	tag    byte
-	conn   *websocket.Conn
-	ctx    context.Context
-	writes *sync.Mutex
+	tag  byte
+	conn *websocket.Conn
+	ctx  context.Context
 }
 
 func (t taggedWriter) Write(data []byte) (int, error) {
-	t.writes.Lock()
-	defer t.writes.Unlock()
 	if err := t.conn.Write(t.ctx, websocket.MessageBinary, append([]byte{t.tag}, data...)); err != nil {
 		return 0, err
 	}
@@ -387,9 +384,8 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 	})()
 	cmd := loginShell(run, command)
 	stdin, _ := cmd.StdinPipe()
-	var writes sync.Mutex
-	cmd.Stdout = taggedWriter{1, conn, ctx, &writes}
-	cmd.Stderr = taggedWriter{2, conn, ctx, &writes}
+	cmd.Stdout = taggedWriter{1, conn, ctx}
+	cmd.Stderr = taggedWriter{2, conn, ctx}
 	if err := cmd.Start(); err != nil {
 		conn.Close(websocket.StatusInternalError, "cannot start the command")
 		return
@@ -412,16 +408,14 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	err := cmd.Wait()
+	_ = cmd.Wait()
 	_ = endGroup(cmd)
 	if revoked.Load() {
 		conn.Close(websocket.StatusPolicyViolation, unpaired)
 		return
 	}
-	message, _ := json.Marshal(map[string]int{"exit": exitCode(err, cmd)})
-	writes.Lock()
+	message, _ := json.Marshal(map[string]int{"exit": cmd.ProcessState.ExitCode()})
 	_ = conn.Write(ctx, websocket.MessageText, message)
-	writes.Unlock()
 	conn.Close(websocket.StatusNormalClosure, "")
 }
 
@@ -681,7 +675,7 @@ func printStatus() int {
 	if names := engines(context.Background()); len(names) > 0 {
 		found = strings.Join(names, ", ")
 	}
-	name := strings.Split(strings.TrimSuffix(st.Self.DNSName, "."), ".")[0]
+	name := shortName(st.Self.DNSName)
 	fmt.Printf("pi-mobile %s is running on %s:%s\nOn the phone, add: %s\nContainer engines: %s\n", info.Version, ip, port, name, found)
 	answers := readPermissions()
 	for _, p := range permissions {

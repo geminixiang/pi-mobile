@@ -105,17 +105,21 @@ func redeem(dir, code, device string, now time.Time) (string, error) {
 		return "", err
 	}
 	key := hex.EncodeToString(raw)
-	var devices []paired
-	if err := readJSON(filepath.Join(dir, "paired.json"), &devices); err != nil && !errors.Is(err, os.ErrNotExist) {
+	devices, err := pairedDevices(dir)
+	if err != nil {
 		return "", err
 	}
 	devices = append(devices, paired{Device: device, Hash: digest(key), At: now})
-	return key, writeJSON(filepath.Join(dir, "paired.json"), devices)
+	return key, writeJSON(pairedFile(dir), devices)
+}
+
+func pairedFile(dir string) string {
+	return filepath.Join(dir, "paired.json")
 }
 
 func pairedDevices(dir string) ([]paired, error) {
 	var devices []paired
-	if err := readJSON(filepath.Join(dir, "paired.json"), &devices); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := readJSON(pairedFile(dir), &devices); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	return devices, nil
@@ -153,7 +157,7 @@ func forget(dir string, gone func(paired) bool) (int, error) {
 	if len(kept) == len(devices) {
 		return 0, nil
 	}
-	return len(devices) - len(kept), writeJSON(filepath.Join(dir, "paired.json"), kept)
+	return len(devices) - len(kept), writeJSON(pairedFile(dir), kept)
 }
 
 func unpair(dir, key string) (bool, error) {
