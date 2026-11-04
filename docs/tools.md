@@ -322,7 +322,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
-| 2026-11-04 | 結果卡（`src/interaction/`，[research/grok-bot.md](research/grok-bot.md) 第 21 項）：`weather` 把結果存進對話的 `app.interaction.results`，畫成天氣卡，接在那一步底下，腳本裡呼叫也一樣；每一步最多兩張，對話留最新 20 張。新段落 `weather`：卡片有的數字不用重複 | 全開 4,153 → 4,206 tokens，全關不變（含下一筆 `files` 那句） | `prompt.snapshot.json` 已更新；`test/contracts/interaction.ts`。S24：天氣卡重開 App 還在 |
+| 2026-11-04 | 頁面卡（`src/interaction/pages.ts`）：`write`、`edit` 的 `.html` 畫成卡，標題和摘要取自內容，同一個檔案只留最新一張，點開是檔案檢視器；工作行不再為 `.html` 留步驟。`files` 那句改成卡片會顯示，不要放連結 | 見下一筆 | `test/contracts/interaction.ts`；S24 上重開 App 還在 |
+| 2026-11-04 | 結果卡（`src/interaction/`，[research/grok-bot.md](research/grok-bot.md) 第 21 項）：`weather` 把結果存進對話的 `app.interaction.results`，畫成天氣卡，接在那一步底下，腳本裡呼叫也一樣；每一步最多兩張，對話留最新 20 張。新段落 `weather`：卡片有的數字不用重複 | 全開 4,153 → 4,206 tokens，全關不變（含上一筆 `files` 那句） | `prompt.snapshot.json` 已更新；`test/contracts/interaction.ts`。S24：天氣卡重開 App 還在 |
 | 2026-11-04 | 開場段落：做完要說沒做到、查不到、沒核對的部分，猜的不能講成查過的；有沒做完的事才提下一步。學 Grok Bot（[research/grok-bot.md](research/grok-bot.md) 第 22 項） | 兩筆合計全開 4,056 → 4,153 tokens，全關 2,663 → 2,760 | S24、GPT 6.1 Sol，暫時的 Bot：查售價那題結尾列尚未確認的項目，爬山那題說明市區預報不等於山區 |
 | 2026-11-04 | 開場段落：第一次呼叫工具前先說一句要做什麼，久的任務說大概多久，之後不逐步旁白，不用工具就能答的直接答（原本是「通常不寫前言」）。學 Grok Bot（[research/grok-bot.md](research/grok-bot.md) 第 20 項）。段落上限 2,000 → 2,400 字元：手機版 1,973，瀏覽器版比較長，超過會截掉最後一行 | 見上一筆 | `prompt.snapshot.json` 已更新。S24、GPT 6.1 Sol，暫時的 Bot：「明天台北會下雨嗎」「這週末台北適合去爬山嗎」先回一句，查售價那題說約一兩分鐘；算術和「謝謝」直接答 |
 | 2026-11-04 | `codemode` 多一個選填參數 `title`：模型寫給使用者看的一句話（「查詢台北天氣」），對話裡連續的工具呼叫併成一行工作行，顯示這個名字。學 Grok Bot 工作時只留一行（[research/grok-bot.md](research/grok-bot.md) 第 19 項）；步驟收起來，點開才看，有圖片、可開啟的 `.html`、記憶的修改不收 | 全開 3,972 → 4,056 tokens，全關 2,579 → 2,663（含上一筆 `items` 那句；工具定義多 145 字元） | `tools.snapshot.json` 已更新；`test/contracts/step-runs.ts` |

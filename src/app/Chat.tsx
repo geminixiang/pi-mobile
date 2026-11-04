@@ -24,6 +24,7 @@ import { LONE_RUN, stepRuns } from "./step-runs.ts";
 import { questionStates } from "../interaction/answers.ts";
 import { type Interaction, InteractionContext } from "../interaction/context.ts";
 import type { Forms, FormsState } from "../interaction/forms.ts";
+import { pageCards } from "../interaction/pages.ts";
 import type { ResultCard } from "../interaction/results.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
@@ -205,6 +206,10 @@ export function Chat({
 	}, [entries, live?.tools]);
 
 	const asked = useMemo(() => questionStates(entries), [entries]);
+	const pages = useMemo(() => pageCards(entries, (callId) => {
+		const state = calls.get(callId);
+		return state?.status === "done" && !state.isError;
+	}), [entries, calls]);
 	const [results, setResults] = useState<readonly ResultCard[]>([]);
 	useEffect(() => {
 		controller.results().then(setResults, (error: unknown) => onError(messageOf(error)));
@@ -221,6 +226,7 @@ export function Chat({
 			questions: asked,
 			forms: formsState,
 			results,
+			pages,
 			answerForm: (callId, answer) => forms?.answer(callId, answer),
 			reply: (reply) => {
 				stickToBottom.current = true;
@@ -228,7 +234,7 @@ export function Chat({
 				controller.send([{ type: "text", text: reply }], "steer").catch((error: unknown) => onError(messageOf(error)));
 			},
 		}),
-		[asked, formsState, forms, results, controller, onError],
+		[asked, formsState, forms, results, pages, controller, onError],
 	);
 
 	const queued: QueuedItem[] = (inbox?.items ?? []).flatMap((item) =>

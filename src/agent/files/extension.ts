@@ -4,7 +4,7 @@ import type { Workplace } from "../workplaces.ts";
 import { GH_USAGE } from "./gh-command.ts";
 
 export const SHOWN_AS_FILE =
-	"To give the user something to look at or send on (a report, a comparison, a chart, a small tool), write a self-contained .html file after reading the html-page skill. The app shows it and can share it.";
+	"To give the user something to look at or send on (a report, a comparison, a chart, a small tool), write a self-contained .html file after reading the html-page skill. The conversation shows it as a card the user can open and share, so name what it is but do not link it.";
 
 const FOLDER = [
 	"read, write, edit, and bash work in your own folder on this phone; / is its root and nothing outside it exists, and bash starts there, so todo.md and /todo.md are the same file. It is private and kept across conversations: put there what the user will want as a file, or what is too long for the conversation; short facts go in memory. A file the user names is probably already there: ls before saying it is missing, and work on it with bash rather than reading it whole.",

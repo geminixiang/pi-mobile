@@ -439,6 +439,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .weather-low { color: var(--faint); }
 .weather-range { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--interaction-border); overflow: hidden; }
 .weather-range i { position: absolute; top: 0; bottom: 0; left: calc(var(--from) * 100%); right: calc((1 - var(--to)) * 100%); border-radius: 2px; background: var(--accent); }
+.page-card { width: 100%; padding: 16px; gap: 8px; text-align: left; }
+.page-title { font-size: var(--fs-prose); font-weight: 700; line-height: 1.4; color: var(--text); }
+.page-summary { font-size: var(--fs-small); line-height: 1.5; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.page-file { display: flex; align-items: center; gap: 8px; padding-top: 4px; font-size: var(--fs-small); color: var(--faint); }
 .form-card { display: flex; flex-direction: column; gap: 8px; }
 .form-service { margin: 0; font-size: var(--fs-small); font-weight: 700; color: var(--muted); }
 .form-message { margin: 0; white-space: pre-wrap; text-align: left; font-size: var(--fs-ui); line-height: 1.55; color: var(--text); }

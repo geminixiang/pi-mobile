@@ -274,9 +274,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 
 function staysVisible(call: Call, state: CallState | undefined): boolean {
 	if (TOOLS_ALWAYS_SHOWN.has(call.name)) return true;
-	if (state?.status !== "done") return false;
-	if (state.images.length > 0) return true;
-	return call.name === "write" || call.name === "edit" ? /\.html?$/i.test(String(call.arguments.path ?? "")) : htmlPathsIn(state.output).length > 0;
+	return state?.status === "done" && state.images.length > 0;
 }
 
 function WorkLine({ calls, states, prefs, since }: { calls: readonly Call[]; states: CallStates; prefs: Prefs; since: number | undefined }) {

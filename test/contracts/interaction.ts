@@ -3,6 +3,7 @@ import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@ear
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { questionStates } from "../../src/interaction/answers.ts";
+import { pageCards } from "../../src/interaction/pages.ts";
 import { addResult, type ResultCard } from "../../src/interaction/results.ts";
 import { openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
@@ -42,6 +43,26 @@ export const checks: Check[] = [
 
 				await turn(runtime, bot, [fauxAssistantMessage("好，先申請延長。")], "申請延長");
 				assert.deepEqual(questionStates(await entriesOf(runtime, bot)).get("ask-1"), { state: "answered", answer: "申請延長" });
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
+		"an .html the bot wrote is one card with its title and summary, on the latest write or edit of that file",
+		async () => {
+			const { runtime } = await openRuntime();
+			try {
+				const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+				const content = '<title>比較表</title><meta name="description" content="三個工具">';
+				await turn(runtime, bot, [
+					fauxAssistantMessage([fauxToolCall("write", { path: "a.html", content }, { id: "w1" }), fauxToolCall("write", { path: "notes.txt", content: "x" }, { id: "w2" })], { stopReason: "toolUse" }),
+					fauxAssistantMessage(fauxToolCall("edit", { path: "a.html", edits: [] }, { id: "e1" }), { stopReason: "toolUse" }),
+					fauxAssistantMessage("好了"),
+				]);
+				const entries = await entriesOf(runtime, bot);
+				assert.deepEqual([...pageCards(entries, () => true)], [["e1", { path: "a.html", title: "比較表", summary: "三個工具" }]]);
+				assert.deepEqual([...pageCards(entries, (id) => id === "w1")], [["w1", { path: "a.html", title: "比較表", summary: "三個工具" }]], "a failed edit keeps the card on the write");
 			} finally {
 				await runtime.close();
 			}

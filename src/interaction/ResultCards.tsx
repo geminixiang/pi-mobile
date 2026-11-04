@@ -1,4 +1,8 @@
 import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, type LucideIcon, Sun } from "lucide-react";
+import { useContext } from "react";
+import { FileIcon } from "../app/icons.tsx";
+import { OpenFileContext } from "../app/openFile.ts";
+import type { Page } from "./pages.ts";
 import type { ResultCard } from "./results.ts";
 
 const ICONS: readonly (readonly [string, LucideIcon])[] = [
@@ -66,5 +70,19 @@ export function WeatherCard({ card }: { card: ResultCard }) {
 				))}
 			</ol>
 		</section>
+	);
+}
+
+export function PageCard({ page }: { page: Page }) {
+	const openFile = useContext(OpenFileContext);
+	return (
+		<button type="button" className="question-card page-card" disabled={!openFile} onClick={() => openFile?.(page.path)}>
+			<span className="page-title">{page.title}</span>
+			{page.summary ? <span className="page-summary">{page.summary}</span> : null}
+			<span className="page-file">
+				<FileIcon size={18} />
+				<span>頁面</span>
+			</span>
+		</button>
 	);
 }
