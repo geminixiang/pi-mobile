@@ -17,7 +17,7 @@ function server() {
 		}
 		if (new Headers(init?.headers).get("mcp-session-id") !== state.session) return new Response("gone", { status: 404 });
 		if (body?.id === undefined) return new Response(null, { status: 202 });
-		if (body.method === "tools/list") return reply({ tools: [{ name: "ping", description: "ping", inputSchema: { type: "object", properties: {} } }] });
+		if (body.method === "tools/list") return reply({ tools: [{ name: "ping", description: "ping", annotations: { readOnlyHint: true }, inputSchema: { type: "object", properties: {} } }, { name: "send", description: "send", inputSchema: { type: "object", properties: {} } }] });
 		state.calls++;
 		return reply({ content: [{ type: "text", text: "pong" }] });
 	};
@@ -59,6 +59,7 @@ export const checks: Check[] = [
 				assert.equal(state.opened, 2);
 				assert.match(JSON.stringify((await run()).output), /pong/);
 				assert.equal(state.opened, 2, "the new session stays");
+				assert.deepEqual(installed.get(extensionName(added))?.tools?.map((candidate) => [candidate.name.split("_").at(-1), candidate.replay]), [["ping", "safe"], ["send", "unsafe"]], "only a tool the service marks read-only is run again after a restart, so a send never goes out twice");
 			} finally {
 				await hub.close();
 			}
