@@ -45,7 +45,9 @@ function watchDevice(): Network {
 		window.addEventListener("online", () => refresh(true));
 		window.addEventListener("offline", () => refresh(false));
 		document.addEventListener("visibilitychange", () => {
-			if (document.visibilityState === "visible") changed();
+			if (document.visibilityState !== "visible") return;
+			refresh(navigator.onLine);
+			changed();
 		});
 	}
 	return {
