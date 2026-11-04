@@ -378,11 +378,11 @@ export class AgentRuntime {
 		await this.#editBot(id, (item) => {
 			item.removing = { at: Date.now() };
 		});
-		await this.triggers.removeBot(id);
 		await this.#finishRemoval(bot);
 	}
 
 	async #finishRemoval(bot: Bot): Promise<void> {
+		await this.triggers.removeBot(bot.id);
 		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
 		const phone = this.#platform.phone;
 		if (phone) await orLogged(phone.removeFolder(bot.folder), "bot.remove_phone_folder_failed", undefined, { bot: bot.folder });

@@ -6,6 +6,7 @@ import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durab
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { freeAvatar } from "../../src/agent/bots.ts";
 import type { Host } from "../../src/agent/sandbox/host.ts";
+import { TriggerRuns } from "../../src/triggers/runs.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
 import { browsers, type Check, faux, folders, logged, reports, settings, settle } from "./setup.ts";
 
@@ -51,6 +52,31 @@ export const checks: Check[] = [
 				assert.equal(enabled.web, true);
 			} finally {
 				await after.runtime.close();
+			}
+		},
+	],
+	[
+		"a removal cut short finishes at the next start, and takes the bot's schedules and items with it",
+		async () => {
+			const storage = keepOpen(new MemoryStorage());
+			const { runtime } = await openRuntime(storage);
+			const gone = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+			const remove = TriggerRuns.prototype.removeBot;
+			const cleared: unknown[] = [];
+			TriggerRuns.prototype.removeBot = async () => Promise.reject(new Error("the phone killed pi"));
+			await assert.rejects(runtime.removeBot(gone), /killed pi/);
+			await runtime.close();
+			TriggerRuns.prototype.removeBot = async function (id) {
+				cleared.push(id);
+				return remove.call(this, id);
+			};
+			const reopened = await openRuntime(storage);
+			try {
+				for (let tries = 0; tries < 50 && cleared.length === 0; tries++) await settle();
+				assert.deepEqual(cleared, [gone]);
+			} finally {
+				TriggerRuns.prototype.removeBot = remove;
+				await reopened.runtime.close();
 			}
 		},
 	],
