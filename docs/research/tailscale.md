@@ -36,9 +36,10 @@
   - **Standalone**：在 app 的設定裡安裝 CLI 後，有 `/usr/local/bin/tailscale`。
   - **App Store 版**：直接執行 `/Applications/Tailscale.app/Contents/MacOS/Tailscale`。
 - **在腳本裡用時**：官方建議寫完整路徑；如果執行後打開的是 app 而不是 CLI，就設 **`TAILSCALE_BE_CLI=1`**。（[CLI](https://tailscale.com/docs/reference/tailscale-cli?tab=macos)）
-- **我們現在的做法跟官方不同**：
-  - launchd 沒有 `TERM`，所以我們塞了 `TERM=dumb`，讓 app 的執行檔以為自己在終端機裡（`host/main.go` 的 `tailscaleJSON`）。這能用，但不是官方介面，應該改成 `TAILSCALE_BE_CLI=1`。
-  - 路徑裡寫的是小寫 `tailscale`，實際檔名是 `Tailscale`。macOS 的檔案系統預設不分大小寫才剛好找得到，應該改成正確的大小寫。
+- **我們的做法**（`host/main.go` 的 `tailscaleCLI`、`tailscaleJSON`）：
+  - 先在 PATH 上找 `tailscale`，找不到再依序試 `/Applications/Tailscale.app/Contents/MacOS/Tailscale`（大小寫正確）、`/usr/bin`、`/usr/local/bin`、`/opt/homebrew/bin`。
+  - 每次執行都帶官方的 `TAILSCALE_BE_CLI=1`，10 秒逾時。
+  - 2026-10-23 的第一版塞 `TERM=dumb`，並用小寫路徑；`ac8959c` 改成上面的做法。
 
 ## MagicDNS 和位址
 
@@ -63,7 +64,7 @@
 
 ## 對 pi-mobile 的結論
 
-1. **改用官方的 `TAILSCALE_BE_CLI=1`**，路徑用正確的大小寫 `Tailscale`。
+1. **已改用官方的 `TAILSCALE_BE_CLI=1`**，路徑用正確的大小寫 `Tailscale`（`ac8959c`）。
 2. **whois 規則維持現狀**：拒絕有 tag 的裝置、只接受同一個 user id。這擋住了分享和其他成員，Tailscale 的預設規則擋不住這些。
 3. **在設定或文件裡建議收緊 tailnet 規則**：例如只讓 `autogroup:member` 連到這台電腦的 4790，多一層保護。不強制。
 4. **手機遺失時的處理**要放在電腦設定頁看得到的地方，不只寫在 security.md。
