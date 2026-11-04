@@ -3716,7 +3716,32 @@
 			],
 			"type": "object"
 		},
-		"structuredOutput": null,
+		"structuredOutput": {
+			"anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"properties": {
+						"data": {
+							"type": "string"
+						},
+						"mimeType": {
+							"type": "string"
+						},
+						"type": {
+							"const": "image"
+						}
+					},
+					"required": [
+						"type",
+						"data",
+						"mimeType"
+					],
+					"type": "object"
+				}
+			]
+		},
 		"effect": null,
 		"needs": []
 	},

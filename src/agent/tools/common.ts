@@ -1,8 +1,7 @@
 import { CapacitorHttp } from "@capacitor/core";
-import type { TSchema } from "@earendil-works/pi-ai";
-import { type ConversationId, defineTool, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
-import { isJsonValue, type JsonValue } from "@earendil-works/chord";
-import type { Static } from "typebox";
+import { type ConversationId, defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
+import { type Context, isJsonValue, type JsonValue } from "@earendil-works/chord";
+import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { parseJson } from "../parse.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
@@ -77,25 +76,36 @@ const declarations = new WeakMap<object, ToolDeclaration>();
 
 export const declarationOf = (tool: object): ToolDeclaration | undefined => declarations.get(tool);
 
+type AppTool<TParameters extends TSchema, TDetails extends JsonValue> = Omit<ToolRegistration<TParameters, TDetails>, "execute" | "prepareArguments"> & {
+	execute(args: Static<TParameters>, api: ToolExecutionApi<TDetails>, context: Context): Promise<ToolExecutionResult<TDetails>>;
+};
+
 export function defineAppTool<TParameters extends TSchema, TDetails extends JsonValue = JsonValue>({
 	reach = "script",
 	effect,
 	needs = [],
+	execute,
 	...tool
-}: ToolRegistration<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[] }): ToolRegistration<TParameters, TDetails> {
-	const registration = defineTool({
+}: AppTool<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[] }): ToolRegistration<object, TDetails> {
+	const registration = defineTool<object, TDetails>({
 		...tool,
 		...REACH[reach],
-		prepareArguments: (raw): Static<TParameters> => {
+		prepareArguments: (raw) => {
 			const args = cleaned(tool.parameters, raw);
 			if (Value.Check(tool.parameters, args)) return args;
 			if (Value.Check(tool.parameters, raw)) return raw;
 			const [first] = Value.Errors(tool.parameters, args);
 			throw new Error(first ? `${first.instancePath || "arguments"} ${first.message}` : "invalid arguments");
 		},
+		execute: (args, api, context) => execute(typeboxArgs<TParameters>(args), api, context),
 	});
 	declarations.set(registration, { effect, needs });
 	return registration;
+}
+
+function typeboxArgs<TParameters extends TSchema>(args: unknown): Static<TParameters> {
+	// why: pi-schema's Static types TypeBox's Enum as unknown; the Harness has checked args against the TypeBox parameters.
+	return args as Static<TParameters>;
 }
 
 export function gated<TParameters extends TSchema, TDetails extends JsonValue>(

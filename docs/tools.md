@@ -320,6 +320,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-04 | pi 套件升到 1.5.0：內建的 `read` 現在宣告結構化輸出（文字，或 `{ type: "image", data, mimeType }`），是 pi-durable 改用 pi-schema 建內建工具時加的，我們沒改它。pi-ai 的參數檢查改用 pi-schema，沒有經過 `defineAppTool` 的工具（MCP 工具）列舉值不符時，模型看到的是 `data: expected one of ["prices","margin"]`，不再是 TypeBox 語系設定的 `must be one of` | 不變 | `tools.snapshot.json` 已更新；`test/tool-args-node.ts` 改成新措辭 |
 | 2026-11-04 | 外掛合約 `System` 多一個 `network`（只有 Android）：回答 VPN 以外有沒有通過驗證、能上網的網路（`{ online }`；起初回 `wifi`／`cellular`／`other`／`none`，只有 `none` 有人讀，2026-11-04 簡化）。開著 Tailscale 時 `@capacitor/network` 看的是 VPN，Wi‑Fi 和行動數據都關了還說有網路（類型 unknown）；`deviceNetwork` 收到它的通知後改問這個方法。不是工具 | 不變 | `plugins.snapshot.json` 已更新；S24 實測見 docs/architecture.md〈網路會一直換〉 |
 | 2026-11-03 | 點桌面小工具上的一件事，打開負責的 Bot 並拉起這件事的卡片（完整標題、期限、哪天記下；「請 Bot 處理」「完成了」「明天再說」），不再只打開整段對話。外掛合約 `Triggers.agenda` 的每一筆多一個 `item`（事項 id），連結帶 `&item=` | 不變 | `test/contracts/triggers.ts` 一條：讀得到事項、延後到明天、結案後再延後不會改它；`test/items.ts` 的 agenda 帶 item |
 | 2026-11-03 | 桌面小工具的「輪到你」改名「待辦」，時間寫「16:30 到期」「未定時間」「…已過期」；列表改用 `ListView` 加 `RemoteCollectionItems`，由系統排版、可捲動，不再用固定行高推算放得下幾行（Samsung 桌面把小工具縮小，一行實際 41 dp，舊碼當 52 dp，7 件只列 2 件、下方空一行） | 不變 | 原生畫面，沒有 node 測試；S24 上實測：顯示 3 行、可捲動，點一行打開負責的 Bot |

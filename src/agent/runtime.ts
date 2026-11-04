@@ -11,7 +11,9 @@ import {
 	type SessionEnd,
 	type Storage,
 	type SubmissionId,
+	type TaskGraph,
 } from "@earendil-works/pi-durable";
+import { activeView } from "./active-view.ts";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
@@ -241,7 +243,7 @@ export class AgentRuntime {
 							.filter((extension) => !isMcpExtension(extension.name));
 					},
 				},
-				onReport: (error) => options.onReport?.(messageOf(error)),
+				onReport: (report) => options.onReport?.(messageOf(report.error)),
 				env: ({ conversationId }) => {
 					const place = at(String(conversationId));
 					return place?.kind === "missing" ? undefined : place?.env();
@@ -406,25 +408,16 @@ export class AgentRuntime {
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {
-		let disposed = false;
-		let dispose = () => {
-			disposed = true;
-		};
-		void this.#harness.taskGraph(context).then((state) => {
-			if (disposed) {
-				state.dispose();
-				return;
-			}
-			const emit = (graph: { tasks: Readonly<Record<string, { conversationId: ConversationId; background: boolean }>> }) =>
-				listener(new Set(Object.values(graph.tasks).flatMap((task) => (task.background ? [] : [task.conversationId]))));
-			emit(state.value);
-			const unsubscribe = state.subscribe(emit);
-			dispose = () => {
-				unsubscribe();
-				state.dispose();
-			};
+		const emit = (graph: TaskGraph) =>
+			listener(new Set(Object.values(graph.tasks).flatMap((task) => (task.background ? [] : [task.conversationId]))));
+		const watching = this.#harness.watchTaskGraph(context).then((watch) => {
+			emit(watch.value);
+			watch.start(async (call) => {
+				if (call.kind === "value") emit(call.value);
+			});
+			return watch;
 		});
-		return () => dispose();
+		return () => void watching.then((watch) => watch.stop());
 	}
 
 	async workspace(id: ConversationId): Promise<Workspace | undefined> {
@@ -448,7 +441,7 @@ export class AgentRuntime {
 	async openConversation(id: ConversationId): Promise<ConversationController> {
 		const conversation: Conversation | undefined = await this.#harness.conversation(id, context);
 		if (!conversation) throw new Error(`Unknown conversation ${id}`);
-		const view = await conversation.viewState(context);
+		const view = await activeView(conversation);
 		const inFlight = new Set<Promise<unknown>>();
 		return {
 			id,
@@ -491,7 +484,7 @@ export class AgentRuntime {
 				if (!isThinkingLevel(level)) throw new Error(`unknown thinking level ${level}`);
 				await conversation.configure({ thinkingLevel: level }, context);
 			},
-			dispose: () => view.dispose(),
+			dispose: () => void orLogged(view.dispose(), "conversation.unwatch_failed", undefined),
 		};
 	}
 

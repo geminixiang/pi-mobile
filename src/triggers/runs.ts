@@ -454,9 +454,8 @@ export class TriggerRuns {
 		const conversation = await this.#harness.conversation(id, context);
 		const bot = (await this.#bots()).find((candidate) => candidate.id === id);
 		if (!conversation || !bot) return;
-		const view = await conversation.viewState(context);
-		const answer = view.value.entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
-		view.dispose();
+		const { entries } = await conversation.context(context);
+		const answer = entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
 		const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
 		await Triggers.report({ conversation: String(id), bot: bot.name, avatar: bot.avatar, schedule, headline, text: detail.join("\n"), at: Date.now() });
 	}

@@ -54,7 +54,7 @@ export const checks: Check[] = [
 			const controller = await failing.openConversation(bot);
 			await assert.rejects(controller.send([{ type: "text", text: "lost" }]), /without an in-progress transaction/);
 			const end = await failing.closed;
-			assert.equal(end.reason, "failed");
+			assert.equal(end.kind, "failed");
 			controller.dispose();
 			await failing.close();
 			const reopened = await open(memory);

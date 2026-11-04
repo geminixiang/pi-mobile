@@ -88,9 +88,15 @@ class Events {
 	}
 }
 
+class TextStream extends Events {
+	setEncoding(): this {
+		return this;
+	}
+}
+
 class DaemonProcess extends Events {
 	readonly stdout = new Events();
-	readonly stderr = new Events();
+	readonly stderr = new TextStream();
 	readonly #session: number;
 	readonly #marker: Buffer;
 	readonly #report: (status: ConnectionStatus) => void;
@@ -146,7 +152,7 @@ class DaemonProcess extends Events {
 		this.#held = [];
 		this.#queued = [];
 		this.#report({ kind: "lost", reason, at: Date.now() });
-		this.stderr.emit("data", Buffer.from(reason, "utf8"));
+		this.stderr.emit("data", reason);
 		this.emit("exit", null);
 	}
 

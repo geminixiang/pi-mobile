@@ -134,7 +134,7 @@ export function App() {
 				setRuntime(opened);
 				const openedAt = Date.now();
 				void opened.closed.then(async (end) => {
-					if (end.reason !== "failed") return;
+					if (end.kind !== "failed") return;
 					log.warn("runtime.failed", { error: messageOf(end.error) });
 					if (Date.now() - openedAt < REOPEN_AFTER_MS) {
 						setOpenError(`資料出錯，請重開 pi：${messageOf(end.error)}`);
