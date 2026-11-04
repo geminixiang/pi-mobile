@@ -31,18 +31,22 @@ function watchDevice(): Network {
 		log.info("network.change", { online: now });
 		changed();
 	};
+	const read = native.implements(System.network) ? () => System.network() : () => NetworkPlugin.getStatus().then((status) => ({ online: status.connected }));
+	const plugin = Capacitor.isPluginAvailable("Network");
+	const refresh = (browser: boolean) => {
+		if (!plugin) return update(browser);
+		void orLogged(read().then((status) => update(status.online)), "network.status_failed", undefined);
+	};
+	if (plugin) {
+		refresh(connected);
+		void orLogged(NetworkPlugin.addListener("networkStatusChange", () => refresh(connected)), "network.listen_failed", undefined);
+	}
 	if (typeof window !== "undefined" && typeof document !== "undefined") {
-		window.addEventListener("online", () => update(true));
-		window.addEventListener("offline", () => update(false));
+		window.addEventListener("online", () => refresh(true));
+		window.addEventListener("offline", () => refresh(false));
 		document.addEventListener("visibilitychange", () => {
 			if (document.visibilityState === "visible") changed();
 		});
-	}
-	if (Capacitor.isPluginAvailable("Network")) {
-		const read = native.implements(System.network) ? () => System.network() : () => NetworkPlugin.getStatus().then((status) => ({ online: status.connected }));
-		const refresh = () => void orLogged(read().then((status) => update(status.online)), "network.status_failed", undefined);
-		refresh();
-		void orLogged(NetworkPlugin.addListener("networkStatusChange", refresh), "network.listen_failed", undefined);
 	}
 	return {
 		online: () => connected,

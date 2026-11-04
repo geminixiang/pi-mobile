@@ -10,7 +10,7 @@ if ((command !== "setup" && command !== "teardown") || !serial) throw new Error(
 
 const ui = (body: string) => execFileSync("./test/device/ui.sh", [`async () => { ${body} }`], { encoding: "utf8", env: process.env });
 const reloadAndWait = () => {
-	ui(`setTimeout(() => location.reload(), 50); return true;`);
+	ui(`setTimeout(() => location.reload(), 500); return true;`);
 	execFileSync("sleep", ["6"]);
 	ui(`await until(() => window.piRuntime && window.piController, 30000); return true;`);
 };

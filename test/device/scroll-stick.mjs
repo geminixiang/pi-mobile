@@ -8,26 +8,19 @@ const page = await Page.connect();
 const evaluate = (expression) => page.eval(`return (${expression});`);
 
 const SENDER = "測試效能";
-const distance = () => evaluate(`(() => { const t = transcript(); return t ? Math.round(t.scrollHeight - t.scrollTop - t.clientHeight) + 0 : -999; })()`);
+const distance = () => page.eval("const t = transcript(); return t ? Math.round(t.scrollHeight - t.scrollTop - t.clientHeight) + 0 : -999;");
 const contentHeight = () => evaluate("transcript()?.scrollHeight ?? 0");
 const busy = () => evaluate("busy()");
-const until = async (check, ms = 30000) => {
-	const end = Date.now() + ms;
-	while (Date.now() < end) {
-		if (await check()) return true;
-		await sleep(100);
-	}
-	return false;
-};
+const until = (check, ms = 30000) => page.eval(`return until(() => ${check}, ${ms});`);
 const stop = async () => {
 	await evaluate(`button("停止")?.click() ?? true`);
-	await until(async () => !(await busy()));
+	await until("!busy()");
 	await sleep(500);
 };
-const toBottom = () => evaluate("(() => { const t = transcript(); t.scrollTop = t.scrollHeight; return true; })()");
-const streaming = () => until(() => evaluate(`Boolean(document.querySelector(".transcript .answer .streaming, .transcript article.answer:last-of-type")) && Boolean(button("停止"))`), 20000).then(() => sleep(600));
+const toBottom = () => page.eval("const t = transcript(); t.scrollTop = t.scrollHeight; return true;");
+const streaming = () => until(`Boolean(document.querySelector(".transcript .answer .streaming, .transcript article.answer:last-of-type")) && Boolean(button("停止"))`, 20000).then(() => sleep(600));
 const sendFromComposer = async (text) => {
-	await evaluate(`(() => { const area = document.querySelector(".composer textarea"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(area, ${JSON.stringify(text)}); area.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`);
+	await page.eval(`const area = document.querySelector(".composer textarea"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(area, ${JSON.stringify(text)}); area.dispatchEvent(new Event("input", { bubbles: true })); return true;`);
 	await sleep(150);
 	await evaluate(`button("送出").click() ?? true`);
 };
@@ -36,7 +29,7 @@ const prompt = () => `stream ${++prompts}`;
 const sendFromElsewhere = (text) => evaluate(`window.piController.send([{ type: "text", text: ${JSON.stringify(text)} }]).then(() => true)`);
 let scale = 1;
 const gesture = async (pixels) => {
-	const { x, y, dpr } = await evaluate("(() => { const r = transcript().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.4, dpr: devicePixelRatio }; })()");
+	const { x, y, dpr } = await page.eval("const r = transcript().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.4, dpr: devicePixelRatio };");
 	const at = (css) => Math.round(css * dpr);
 	swipe(at(x), at(y), at(x), at(y + pixels), 700);
 	await sleep(300);
@@ -57,11 +50,11 @@ const record = (scenario, seen, ok) => {
 	if (!ok) failures.push(`${scenario}: ${seen}`);
 };
 
-const sender = await evaluate(`(async () => (await window.piRuntime.bots()).find((bot) => bot.name === ${JSON.stringify(SENDER)})?.id ?? null)()`);
+const sender = await page.eval(`return (await window.piRuntime.bots()).find((bot) => bot.name === ${JSON.stringify(SENDER)})?.id ?? null;`);
 if (sender === null) throw new Error(`Run test/perf/fixture.ts setup first: the ${SENDER} bot streams from the fake model, so no real model is called`);
 if ((await evaluate("window.piController?.id")) !== sender) {
 	await evaluate(`[...document.querySelectorAll(".drawer-open")].find((item) => item.textContent.includes(${JSON.stringify(SENDER)})).click() ?? true`);
-	await until(() => evaluate(`window.piController?.id === ${sender} && Boolean(document.querySelector(".composer textarea"))`));
+	await until(`window.piController?.id === ${sender} && Boolean(document.querySelector(".composer textarea"))`);
 }
 await evaluate("document.activeElement?.blur() ?? true");
 if (await busy()) await stop();
@@ -136,7 +129,7 @@ try {
 	await toBottom();
 	await sendFromComposer(prompt());
 	await streaming();
-	await evaluate(`(async () => {
+	await page.eval(`
 		const t = transcript();
 		const block = (px) => Object.assign(document.createElement("div"), { className: "shrink-probe", style: \`height: \${px}px\` });
 		const tall = block(40);
@@ -147,7 +140,7 @@ try {
 		void t.scrollHeight;
 		t.append(block(30));
 		return true;
-	})()`);
+	`);
 	const shrunk = await follows();
 	await evaluate(`document.querySelectorAll(".shrink-probe").forEach((probe) => probe.remove()) ?? true`);
 	record("(f) 串流中內容縮短", `每 0.2 秒離底 ${shrunk.gaps}`, shrunk.following);

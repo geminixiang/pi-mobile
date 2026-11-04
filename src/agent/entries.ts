@@ -9,7 +9,7 @@ export function blocks(content: string | readonly Block[] | undefined): readonly
 	return content ?? [];
 }
 
-export function message(entry: EntryRecord): Message | undefined {
+export function message(entry: Pick<EntryRecord, "model">): Message | undefined {
 	return entry.model?.[0];
 }
 
@@ -19,7 +19,7 @@ export function entryText(entry: EntryRecord): string {
 
 export function retriedAttempts<E extends Pick<EntryRecord, "kind" | "model">>(entries: readonly E[], retrying: boolean): ReadonlySet<E> {
 	const failed = (entry: E) => {
-		const answer = entry.model?.[0];
+		const answer = message(entry);
 		return entry.kind === "pi.assistant" && answer?.role === "assistant" && answer.stopReason === "error";
 	};
 	return new Set(entries.filter((entry, index) => failed(entry) && (index === entries.length - 1 ? retrying : entries[index + 1]?.kind === "pi.assistant")));
