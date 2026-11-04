@@ -10,6 +10,14 @@ function keywords(sql: string): string {
 }
 
 const REFUSED = /\b(ATTACH|DETACH)\b|\bVACUUM\s+INTO\b/;
+const TRIGGER_BODY = /^\s*CREATE\s+(TEMP\s+|TEMPORARY\s+)?TRIGGER\b/;
+
+export function severalStatements(sql: string): boolean {
+	const words = keywords(sql);
+	if (TRIGGER_BODY.test(words)) return false;
+	const end = words.indexOf(";");
+	return end >= 0 && words.slice(end).replaceAll(";", "").trim() !== "";
+}
 
 function format(result: StatementResult, index: number): string {
 	if (result.columns && result.rows) {
@@ -49,6 +57,7 @@ const sql = defineAppTool({
 	execute: async (args) => {
 		const words = args.statements.map((statement) => keywords(statement.sql));
 		if (words.some((word) => REFUSED.test(word))) throw new Error("ATTACH, DETACH, and VACUUM INTO are not allowed: the database is one file");
+		if (args.statements.some((statement) => severalStatements(statement.sql))) throw new Error("One statement per entry: Android would run only the first. Put the rest in the next entry of statements.");
 		const { results } = await Database.execute({ statements: args.statements });
 		const structured = results.map((result): JsonValue =>
 			result.columns && result.rows
