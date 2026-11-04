@@ -4,7 +4,10 @@ import { InteractionContext } from "./context.ts";
 import { FormCard, FormRecord } from "./FormCard.tsx";
 import { stepOf } from "./forms.ts";
 import { QuestionCard } from "./QuestionCard.tsx";
+import { WeatherCard } from "./ResultCards.tsx";
 import { ASK_USER } from "./tool.ts";
+
+const MOST_PER_STEP = 2;
 
 export function InteractionCard({ call }: { call: ToolCall }) {
 	const interaction = useContext(InteractionContext);
@@ -14,6 +17,9 @@ export function InteractionCard({ call }: { call: ToolCall }) {
 	const pending = [...interaction.forms.pending.keys()].filter((callId) => stepOf(callId) === call.id);
 	return (
 		<>
+			{interaction.results.filter((card) => card.step === call.id).slice(-MOST_PER_STEP).map((card) => (
+				<WeatherCard key={card.place} card={card} />
+			))}
 			{settled.map((form) => (
 				<FormRecord key={form.at} form={form} />
 			))}

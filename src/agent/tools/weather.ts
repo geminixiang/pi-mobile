@@ -1,9 +1,11 @@
 import { Type } from "typebox";
 import { Phone } from "../../plugins/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
 import { defineAppTool, text, weekdayOf } from "./common.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, resolvePlace } from "./device.ts";
+import { showWeather } from "../../interaction/results.ts";
 
 const CONDITIONS: Record<number, string> = {
 	0: "晴",
@@ -100,7 +102,7 @@ const weather = defineAppTool({
 	}),
 	structuredOutputSchema: Type.Object({ place: Type.String(), now: Hour, hours: Type.Array(Hour), days: Type.Array(Day) }),
 	replay: "safe",
-	execute: async (args, _api, context) => {
+	execute: async (args, api, context) => {
 		const point = args.place ? await resolvePlace(args.place) : await currentPlace();
 		const hours = Math.min(args.hours ?? 24, 384);
 		const days = Math.min(args.days ?? 7, 16);
@@ -155,6 +157,7 @@ const weather = defineAppTool({
 			"Daily (date weekday condition low–high rain-chance rainfall UV sunrise–sunset):",
 			...daily.map((day) => `${day.date} ${day.weekday} ${day.condition} ${day.low_c}–${day.high_c}°C ${day.rain_chance}% ${day.rain_mm}mm UV ${day.uv_index} ${day.sunrise}–${day.sunset}`),
 		].join("\n");
+		await showWeather(api, context, { place: point.label, now: { condition: now.condition, temperature_c: now.temperature_c, feels_c: c.apparent_temperature }, hours: hourly, days: daily });
 		return { ...text(summary), structuredOutput: { place: point.label, now, hours: hourly, days: daily } };
 	},
 });
@@ -162,4 +165,5 @@ const weather = defineAppTool({
 export const WeatherExtension = defineExtension({
 	name: "weather",
 	tools: [weather],
+	sections: [appSection("weather", 200, () => "Each weather call shows the user a card with the forecast, so answer in a sentence or two, what it means for them, without repeating its numbers.")],
 });

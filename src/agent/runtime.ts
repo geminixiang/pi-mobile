@@ -1,4 +1,5 @@
-import { Forms } from "../interaction/forms.ts";
+import { Forms, FormsDoc } from "../interaction/forms.ts";
+import { type ResultCard, ResultsDoc } from "../interaction/results.ts";
 import { createJudge, type Judge } from "./judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
@@ -56,6 +57,7 @@ export interface ConversationController {
 	stop(): Promise<string[]>;
 	compact(): Promise<boolean>;
 	reset(): Promise<void>;
+	results(): Promise<readonly ResultCard[]>;
 	setModel(provider: string, modelId: string): Promise<void>;
 	setThinking(level: string): Promise<void>;
 	dispose(): void;
@@ -387,6 +389,8 @@ export class AgentRuntime {
 			const at = items.findIndex((candidate) => candidate.id === bot.id);
 			if (at >= 0) items.splice(at, 1);
 			await tx.retireDoc(BotMemoryDoc, bot.id);
+			await tx.retireDoc(FormsDoc, bot.id);
+			await tx.retireDoc(ResultsDoc, bot.id);
 			(await tx.doc(LeftFolders)).items.push(...this.workplaces.containers().map(({ key }) => ({ folder: bot.folder, computer: key })));
 		}, context);
 		await this.#publishBots();
@@ -490,6 +494,7 @@ export class AgentRuntime {
 				if (!isThinkingLevel(level)) throw new Error(`unknown thinking level ${level}`);
 				await conversation.configure({ thinkingLevel: level }, context);
 			},
+			results: async () => [...((await this.#harness.snapshot(ResultsDoc, id, context))?.cards ?? [])],
 			dispose: () => void orLogged(view.dispose(), "conversation.unwatch_failed", undefined),
 		};
 	}

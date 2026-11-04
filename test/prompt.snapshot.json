@@ -10,6 +10,11 @@
 		"text": "<bot>\nYou are tmp, one of the user's bots in this app. You keep one long conversation with the user; older parts are summarized automatically, so put what must last in your MEMORY.md.\nYou are the user's general assistant.\nThe user's other bots (they cannot see this conversation): pi. When a request clearly belongs to one of them, say so.\n</bot>"
 	},
 	{
+		"name": "weather",
+		"chars": 166,
+		"text": "<weather>\nEach weather call shows the user a card with the forecast, so answer in a sentence or two, what it means for them, without repeating its numbers.\n</weather>"
+	},
+	{
 		"name": "places",
 		"chars": 158,
 		"text": "<places>\nfind_places is OpenStreetMap: straight-line distances (get_travel_time for the real ones) and no ratings (check good ones with web_search).\n</places>"

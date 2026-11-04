@@ -3,6 +3,7 @@ import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@ear
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { questionStates } from "../../src/interaction/answers.ts";
+import { addResult, type ResultCard } from "../../src/interaction/results.ts";
 import { openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
 
@@ -44,6 +45,19 @@ export const checks: Check[] = [
 			} finally {
 				await runtime.close();
 			}
+		},
+	],
+	[
+		"asking a place's weather twice in one step keeps one card, and only the latest results are kept",
+		async () => {
+			const card = (step: string, place: string): ResultCard => ({ kind: "weather", step, place, at: 0, now: { condition: "晴", temperature_c: 20, feels_c: 20 }, hours: [], days: [] });
+			const cards: ResultCard[] = [];
+			addResult(cards, card("s1", "台北"));
+			addResult(cards, card("s1", "台北"));
+			addResult(cards, card("s1", "宜蘭"));
+			assert.deepEqual(cards.map((kept) => kept.place), ["台北", "宜蘭"]);
+			for (let n = 0; n < 30; n++) addResult(cards, card(`s${n + 2}`, "台北"));
+			assert.equal(cards.length, 20);
 		},
 	],
 ];

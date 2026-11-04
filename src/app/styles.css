@@ -423,6 +423,22 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .question.answered .question-options button { color: var(--faint); }
 .question .chosen .question-letter { background: var(--text); border-color: var(--text); color: var(--interaction-card); }
 .question-hint { margin: 0 0 0 4px; font-size: var(--fs-small); color: var(--faint); }
+.weather { gap: 12px; padding-bottom: 14px; }
+.weather-place { margin: 0; font-size: var(--fs-small); color: var(--muted); }
+.weather-now { display: flex; align-items: center; gap: 12px; color: var(--text); }
+.weather-temperature { font-size: 44px; line-height: 1; }
+.weather-condition { display: flex; flex-direction: column; font-size: var(--fs-ui); }
+.weather-condition small { font-size: var(--fs-small); color: var(--faint); }
+.weather-hours { list-style: none; display: flex; gap: 16px; margin: 0; padding: 0; overflow-x: auto; scrollbar-width: none; }
+.weather-hours li { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; font-size: var(--fs-small); color: var(--muted); }
+.weather-hours strong { font-weight: 400; color: var(--text); }
+.weather-days { list-style: none; margin: 0; padding: 0; }
+.weather-days li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: var(--fs-small); color: var(--text); }
+.weather-day { width: 2.5em; }
+.weather-rain { width: 2.6em; font-size: var(--fs-meta); color: var(--accent); }
+.weather-low { color: var(--faint); }
+.weather-range { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--interaction-border); overflow: hidden; }
+.weather-range i { position: absolute; top: 0; bottom: 0; left: calc(var(--from) * 100%); right: calc((1 - var(--to)) * 100%); border-radius: 2px; background: var(--accent); }
 .form-card { display: flex; flex-direction: column; gap: 8px; }
 .form-service { margin: 0; font-size: var(--fs-small); font-weight: 700; color: var(--muted); }
 .form-message { margin: 0; white-space: pre-wrap; text-align: left; font-size: var(--fs-ui); line-height: 1.55; color: var(--text); }
