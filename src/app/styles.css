@@ -27,6 +27,8 @@
 	--user-bg: #d2d7de;
 	--custom-bg: #d7d3e7;
 	--custom-label: #5f4994;
+	--interaction-card: #ffffff;
+	--interaction-border: rgb(37 47 61 / 0.1);
 	--think-off: #c2c8ca;
 	--think-minimal: #b5c4cb;
 	--think-low: #9fc2d5;
@@ -116,6 +118,8 @@
 		--user-bg: #213b49;
 		--custom-bg: #3a3055;
 		--custom-label: #a798d7;
+		--interaction-card: #212730;
+		--interaction-border: rgb(235 231 228 / 0.1);
 		--think-off: #6c767b;
 		--think-minimal: #68808d;
 		--think-low: #5489a4;
@@ -400,6 +404,25 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .chevron { transition: transform 160ms var(--ease); flex-shrink: 0; color: var(--faint); }
 .chevron[data-open] { transform: rotate(90deg); }
 
+.question { display: flex; flex-direction: column; gap: 8px; }
+.question-card {
+	display: flex; flex-direction: column; gap: 4px; padding: 16px 16px 8px;
+	background: var(--interaction-card); border: 1px solid var(--interaction-border); border-radius: 24px;
+}
+.question-text { margin: 0 0 8px; font-size: var(--fs-prose); font-weight: 700; line-height: 1.5; color: var(--text); }
+.question.answered .question-text { color: var(--faint); }
+.question-options { list-style: none; margin: 0; padding: 0; }
+.question-options button { display: flex; align-items: center; gap: 14px; width: 100%; padding: 8px 0; text-align: left; color: var(--text); }
+.question-options button:disabled { opacity: 1; }
+.question-options button:not(:disabled):active { opacity: 0.6; }
+.question-letter {
+	display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+	border: 1px solid var(--interaction-border); font-size: var(--fs-small); color: var(--muted);
+}
+.question-option { flex: 1; min-width: 0; font-size: var(--fs-prose); }
+.question.answered .question-options button { color: var(--faint); }
+.question .chosen .question-letter { background: var(--text); border-color: var(--text); color: var(--interaction-card); }
+.question-hint { margin: 0 0 0 4px; font-size: var(--fs-small); color: var(--faint); }
 .steps { display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--space)); }
 .step { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--tool-pending); }
 .step.ok { background: var(--tool-success); }

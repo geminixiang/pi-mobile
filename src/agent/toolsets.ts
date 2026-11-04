@@ -46,7 +46,7 @@ export const TOOLSETS: readonly Toolset[] = BUILTINS;
 export type BuiltinId = (typeof BUILTINS)[number]["id"];
 export const isBuiltinId = (id: string): id is BuiltinId => TOOLSETS.some((toolset) => toolset.id === id);
 
-export const ALWAYS_ON: readonly string[] = ["assistant", "bot", "codemode", "skills", "attachments", "schedules", "memory", "items", "tool-search", "on-demand"];
+export const ALWAYS_ON: readonly string[] = ["assistant", "bot", "codemode", "skills", "attachments", "schedules", "memory", "items", "interaction", "tool-search", "on-demand"];
 
 export type Place = "phone" | "computer" | "missing";
 

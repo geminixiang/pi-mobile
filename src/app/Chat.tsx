@@ -20,6 +20,8 @@ import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
 import { inApp, native } from "../native.ts";
 import { copy } from "./clipboard.ts";
+import { questionStates } from "../interaction/answers.ts";
+import { type Interaction, InteractionContext } from "../interaction/context.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
@@ -196,6 +198,19 @@ export function Chat({
 		return states;
 	}, [entries, live?.tools]);
 
+	const asked = useMemo(() => questionStates(entries), [entries]);
+	const interaction: Interaction = useMemo(
+		() => ({
+			questions: asked,
+			reply: (reply) => {
+				stickToBottom.current = true;
+				setAtBottom(true);
+				controller.send([{ type: "text", text: reply }], "steer").catch((error: unknown) => onError(messageOf(error)));
+			},
+		}),
+		[asked, controller, onError],
+	);
+
 	const queued: QueuedItem[] = (inbox?.items ?? []).flatMap((item) =>
 		item.mode === "write" ? [] : [{ id: item.id, mode: item.mode, text: text(item.content) }],
 	);
@@ -206,7 +221,8 @@ export function Chat({
 	const retry = retrying(live?.generation);
 	const retried = useMemo(() => retriedAttempts(entries, retry), [entries, retry]);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
-	const emptyAnswer = !busy && lastEntry !== undefined && isEmptyAnswer(lastEntry);
+	const waitsForAnswer = [...asked.values()].some((question) => question.state === "open");
+	const emptyAnswer = !busy && !waitsForAnswer && lastEntry !== undefined && isEmptyAnswer(lastEntry);
 	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
 	const sizeWhenLeft = useRef(contentSize);
 	useEffect(() => {
@@ -305,16 +321,18 @@ export function Chat({
 						/>
 					</div>
 				) : null}
-				{entries.map((entry) => (
-					<EntryView
-						key={String(entry.id)}
-						entry={entry}
-						retried={retried.has(entry)}
-						prefs={prefs}
-						calls={calls}
-						onActions={setActionsFor}
-					/>
-				))}
+				<InteractionContext.Provider value={interaction}>
+					{entries.map((entry) => (
+						<EntryView
+							key={String(entry.id)}
+							entry={entry}
+							retried={retried.has(entry)}
+							prefs={prefs}
+							calls={calls}
+							onActions={setActionsFor}
+						/>
+					))}
+				</InteractionContext.Provider>
 				{lastAnswer && !busy ? (
 					<div className="answer-actions">
 						<CopyButton text={entryText(lastAnswer)} />

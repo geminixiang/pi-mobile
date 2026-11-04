@@ -1,6 +1,6 @@
 import { contentText, type ImageContent } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { type ComponentProps, isValidElement, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
+import { type ComponentProps, Fragment, isValidElement, lazy, memo, Suspense, useContext, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
@@ -20,6 +20,8 @@ import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts"
 import { formatBytes, monthDayTime } from "../agent/tools/common.ts";
 import { longPress } from "./haptics.ts";
 import { isConnectionLost } from "../agent/network.ts";
+import { InteractionCard } from "../interaction/Interaction.tsx";
+import { isInteraction } from "../interaction/tool.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -350,12 +352,20 @@ export function Content({ content, prefs, calls, streaming }: { content: readonl
 		<>
 			{groups.map((group, index) => {
 				if (Array.isArray(group)) {
+					const steps = group.filter((call) => !isInteraction(call.name));
 					return (
-						<div className="steps" key={index}>
-							{group.map((call) => (
-								<StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
+						<Fragment key={index}>
+							{steps.length > 0 ? (
+								<div className="steps">
+									{steps.map((call) => (
+										<StepRow key={call.id} call={call} state={calls.get(call.id)} prefs={prefs} />
+									))}
+								</div>
+							) : null}
+							{group.filter((call) => isInteraction(call.name)).map((call) => (
+								<InteractionCard key={call.id} call={call} />
 							))}
-						</div>
+						</Fragment>
 					);
 				}
 				switch (group.type) {

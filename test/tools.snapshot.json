@@ -3478,6 +3478,41 @@
 		"needs": []
 	},
 	{
+		"extension": "interaction",
+		"toolset": "fixed",
+		"name": "ask_user",
+		"deferred": false,
+		"callers": [
+			"model"
+		],
+		"parameters": {
+			"properties": {
+				"options": {
+					"description": "2 to 4 answers, the likeliest first",
+					"items": {
+						"description": "An answer the user can tap, a few words, written as the user would say it",
+						"type": "string"
+					},
+					"maxItems": 4,
+					"minItems": 2,
+					"type": "array"
+				},
+				"question": {
+					"description": "One short question in the user's language",
+					"type": "string"
+				}
+			},
+			"required": [
+				"question",
+				"options"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": []
+	},
+	{
 		"extension": "computer_as_user",
 		"toolset": "computer_as_user",
 		"name": "computer_read_as_user",

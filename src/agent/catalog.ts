@@ -32,6 +32,7 @@ import { TwStocksExtension } from "./tools/tw-stocks.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
+import { InteractionExtension } from "../interaction/tool.ts";
 import type { Native } from "../native.ts";
 import { unusableExtensions } from "./toolsets.ts";
 import { declarationOf, gated } from "./tools/common.ts";
@@ -84,6 +85,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createTriggerExtension(deps.triggers),
 		createItemsExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
+		InteractionExtension,
 		createSandboxExtension(deps.workplace),
 		createFilesExtension(deps.workplace),
 		createComputerExtension(deps.workplace),

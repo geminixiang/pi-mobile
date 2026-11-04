@@ -165,6 +165,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
   - `schedules`：`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`
   - `items`：`note_item`、`list_items`
   - `memory`：`update_memory`†
+  - `interaction`：`ask_user`†
   - `tool-search`：`tool_search`†
 
 <!-- 工具總圖結束 -->
@@ -243,6 +244,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `note_item` | 固定開啟 | 記下、更新、結案一筆所有 Bot 共用的事項（要做、在等、完成），`next_at` 到了叫醒負責的 Bot；在等的回覆來了也會叫醒（`wake_app`、`wake_contains`） | 直接 | 見 [design/life-items.md](design/life-items.md) |
 | `list_items` | 固定開啟 | 列出還沒結案的事項，預設只有這個 Bot 的 | 唯讀 | |
 | `tool_search` | 固定開啟 | 載入需要時才載入的工具 | 唯讀 | |
+| `ask_user` | 固定開啟 | 問使用者一個問題，附 2–4 個點一下就回答的選項（對話裡的問題卡，也可以直接打字）；回答就是使用者的下一則訊息，見 [research/grok-bot.md](research/grok-bot.md) | 唯讀 | |
 
 ## 新工具上線前
 
@@ -320,6 +322,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-04 | 新工具 `ask_user`（擴充 `interaction`，固定開啟、直接提供）：Bot 問一個問題附 2–4 個選項，對話裡畫成問題卡（`src/interaction/`）。`interaction` 是 Bot 在對話裡跟使用者互動的元件的家：之後的確認卡、連服務卡、提議自動化都放進這個擴充，對話畫面只問 `isInteraction`，由 `InteractionCard` 決定畫哪一張，點一個選項就用那段文字送出使用者訊息，也可以直接打字；工具結果叫模型結束這一輪，卡片在使用者下一則訊息之前都算「等回答」，這段時間不顯示「沒有回答」。pi-durable 沒有讓工具結束一輪的方法，所以不用等待中的工具（會讓 Bot 一直是執行中，App 關掉後也接不回來） | 全開 3,821 → 3,972 tokens，全關 2,428 → 2,579（定義 763 字元） | S24、GPT 6.1 Sol，暫時的 Bot 問三題：「今晚不知道要吃什麼」直接列建議、沒問；「我想開始學一個新語言」「週六想出去走走」各用一次 `ask_user`（3、4 個選項），問完就停，點選項後接著做。`test/contracts/interaction.ts` |
 | 2026-11-04 | pi 套件升到 1.5.0：內建的 `read` 現在宣告結構化輸出（文字，或 `{ type: "image", data, mimeType }`），是 pi-durable 改用 pi-schema 建內建工具時加的，我們沒改它。pi-ai 的參數檢查改用 pi-schema，沒有經過 `defineAppTool` 的工具（MCP 工具）列舉值不符時，模型看到的是 `data: expected one of ["prices","margin"]`，不再是 TypeBox 語系設定的 `must be one of` | 不變 | `tools.snapshot.json` 已更新；`test/tool-args-node.ts` 改成新措辭 |
 | 2026-11-04 | 外掛合約 `System` 多一個 `network`（只有 Android）：回答 VPN 以外有沒有通過驗證、能上網的網路（`{ online }`；起初回 `wifi`／`cellular`／`other`／`none`，只有 `none` 有人讀，2026-11-04 簡化）。開著 Tailscale 時 `@capacitor/network` 看的是 VPN，Wi‑Fi 和行動數據都關了還說有網路（類型 unknown）；`deviceNetwork` 收到它的通知後改問這個方法。不是工具 | 不變 | `plugins.snapshot.json` 已更新；S24 實測見 docs/architecture.md〈網路會一直換〉 |
 | 2026-11-03 | 點桌面小工具上的一件事，打開負責的 Bot 並拉起這件事的卡片（完整標題、期限、哪天記下；「請 Bot 處理」「完成了」「明天再說」），不再只打開整段對話。外掛合約 `Triggers.agenda` 的每一筆多一個 `item`（事項 id），連結帶 `&item=` | 不變 | `test/contracts/triggers.ts` 一條：讀得到事項、延後到明天、結案後再延後不會改它；`test/items.ts` 的 agenda 帶 item |
