@@ -1,11 +1,13 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { patchJustBash } from "../../vite-plugins/just-bash.ts";
 
 const bundle = new URL("../../node_modules/just-bash/dist/bundle/browser.js", import.meta.url);
 const patchedDir = new URL("../../node_modules/.cache/just-bash/", import.meta.url);
 mkdirSync(patchedDir, { recursive: true });
 const patched = new URL("browser.js", patchedDir);
-writeFileSync(patched, patchJustBash(readFileSync(bundle, "utf8")));
+const writing = new URL(`browser.${process.pid}.js`, patchedDir);
+writeFileSync(writing, patchJustBash(readFileSync(bundle, "utf8")));
+renameSync(writing, patched);
 const { Bash } = await import(patched.href);
 const b = new Bash({ executionLimits: { maxCommandCount: 1e7, maxLoopIterations: 1e7 } });
 const checks: [string, string][] = [
