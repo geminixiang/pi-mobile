@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { type Link, RESUME_LIMIT_MS, type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
+import wire from "../../host/protocol.json" with { type: "json" };
 import { sleep } from "../../src/promise.ts";
 
 type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data: RawMessage): void; drop(reason?: string): void; closed: boolean; closeCode: number | undefined };
@@ -244,6 +245,12 @@ export const checks: Check[] = [
 			await sleep(50);
 			second.deliver(JSON.stringify({ received: 0 }));
 			socket.close();
+		},
+	],
+	[
+		"the phone gives up reattaching before the computer lets the held session go, so a phone that comes back in time finds it",
+		async () => {
+			assert(RESUME_LIMIT_MS < wire.holdMinutes * 60_000, `the phone tries for ${RESUME_LIMIT_MS / 60_000} min but the computer holds for ${wire.holdMinutes} min`);
 		},
 	],
 ];

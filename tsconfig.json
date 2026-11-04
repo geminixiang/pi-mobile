@@ -15,6 +15,7 @@
 		"allowImportingTsExtensions": true,
 		"skipLibCheck": true,
 		"verbatimModuleSyntax": true,
+		"resolveJsonModule": true,
 		"jsx": "react-jsx"
 	},
 	"include": [

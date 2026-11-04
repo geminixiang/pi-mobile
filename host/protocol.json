@@ -1,0 +1,8 @@
+{
+	"holdMinutes": 15,
+	"endOfInput": "eof",
+	"stdout": 1,
+	"stderr": 2,
+	"heartbeat": "pi-env",
+	"piEnvPing": [0, 0, 0, 11, 6, 0, 0, 0, 0, 0, 0, 0, 2, 123, 125]
+}

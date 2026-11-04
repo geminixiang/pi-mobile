@@ -78,6 +78,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
+| Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |
 | The computer-side host passes `go vet` and its tests | `npm run check:host`, part of `npm run check` |
 | LBYL, errors as values, store a value once, rule of three, one way to do a task | review only |
 | A fix comes with a test that fails on the old code | review only |

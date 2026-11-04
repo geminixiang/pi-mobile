@@ -1,6 +1,7 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
+import wire from "../../../host/protocol.json" with { type: "json" };
 
 import {
 	type JsonRpcMessage,
@@ -240,18 +241,18 @@ export class HostCommands implements CommandClient {
 				return;
 			}
 			const bytes = new Uint8Array(data);
-			if (bytes[0] === 1) handlers.onStdout(bytes.subarray(1));
-			else if (bytes[0] === 2) handlers.onStderr?.(bytes.subarray(1));
+			if (bytes[0] === wire.stdout) handlers.onStdout(bytes.subarray(1));
+			else if (bytes[0] === wire.stderr) handlers.onStderr?.(bytes.subarray(1));
 		};
 		if (session) {
-			const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, heartbeat: "pi-env" }, session, {
+			const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, heartbeat: wire.heartbeat }, session, {
 				onMessage,
 				onClose: () => exit(undefined),
 				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
 			});
 			return {
 				write: (data) => resumable.send(data.slice()),
-				end: () => resumable.send("eof"),
+				end: () => resumable.send(wire.endOfInput),
 				close: () => resumable.close(),
 			};
 		}
@@ -261,7 +262,7 @@ export class HostCommands implements CommandClient {
 				if (socket.readyState === WebSocket.OPEN) socket.send(data.slice());
 			},
 			end: () => {
-				if (socket.readyState === WebSocket.OPEN) socket.send("eof");
+				if (socket.readyState === WebSocket.OPEN) socket.send(wire.endOfInput);
 			},
 			close: () => socket.close(),
 		};

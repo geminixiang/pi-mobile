@@ -363,8 +363,8 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var heartbeat []byte
-		if r.URL.Query().Get("heartbeat") == "pi-env" {
-			heartbeat = piEnvPing
+		if r.URL.Query().Get("heartbeat") == protocol.Heartbeat {
+			heartbeat = protocol.PiEnvPing
 		}
 		serveHeld(w, r, "exec:"+session, func(ctx context.Context) *exec.Cmd { return loginShell(ctx, command) }, heartbeat, true, "the command")
 		return
@@ -384,8 +384,8 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 	})()
 	cmd := loginShell(run, command)
 	stdin, _ := cmd.StdinPipe()
-	cmd.Stdout = taggedWriter{1, conn, ctx}
-	cmd.Stderr = taggedWriter{2, conn, ctx}
+	cmd.Stdout = taggedWriter{protocol.Stdout, conn, ctx}
+	cmd.Stderr = taggedWriter{protocol.Stderr, conn, ctx}
 	if err := cmd.Start(); err != nil {
 		conn.Close(websocket.StatusInternalError, "cannot start the command")
 		return
@@ -398,7 +398,7 @@ func runCommand(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if kind == websocket.MessageText {
-				if string(data) == "eof" {
+				if string(data) == protocol.EndOfInput {
 					stdin.Close()
 				}
 				continue
@@ -504,7 +504,7 @@ func env(w http.ResponseWriter, r *http.Request) {
 	}
 	serveHeld(w, r, "env:"+token, func(ctx context.Context) *exec.Cmd {
 		return loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
-	}, piEnvPing, false, "pi-env")
+	}, protocol.PiEnvPing, false, "pi-env")
 }
 
 type permission struct {

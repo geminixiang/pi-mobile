@@ -31,12 +31,10 @@ const (
 )
 
 var (
-	holdFor        = 15 * time.Minute
+	holdFor        = time.Duration(protocol.HoldMinutes) * time.Minute
 	heartbeatEvery = 5 * time.Second
 )
 
-// why: pi-env's wire format, type 6 (ping) with id 0 and the JSON object {}; it keeps the daemon from exiting after 30 s of silence while the phone is away.
-var piEnvPing = []byte{0, 0, 0, 11, 6, 0, 0, 0, 0, 0, 0, 0, 2, '{', '}'}
 
 type message struct {
 	text bool
@@ -298,7 +296,7 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 		h.received++
 		h.mu.Unlock()
 		if kind == websocket.MessageText {
-			if string(data) == "eof" {
+			if string(data) == protocol.EndOfInput {
 				h.stdin.Close()
 			}
 			continue
@@ -343,8 +341,8 @@ func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heart
 	}
 	session := &held{owner: owner, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
 	if tagged {
-		cmd.Stdout = heldWriter{[]byte{1}, session}
-		cmd.Stderr = heldWriter{[]byte{2}, session}
+		cmd.Stdout = heldWriter{[]byte{protocol.Stdout}, session}
+		cmd.Stderr = heldWriter{[]byte{protocol.Stderr}, session}
 	} else {
 		cmd.Stdout = heldWriter{nil, session}
 		cmd.Stderr = log.Writer()

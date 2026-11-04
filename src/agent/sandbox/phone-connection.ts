@@ -1,6 +1,7 @@
 import { Buffer } from "buffer";
 import { Type } from "typebox";
 import { Connection, RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
+import wire from "../../../host/protocol.json" with { type: "json" };
 import { check } from "../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { registerProgram } from "../../shims/node-child-process.ts";
@@ -52,8 +53,8 @@ const Hello = Type.Object({
 
 const MAX_FRAME = 16 * 1024 * 1024 + 64;
 const PING_EVERY_MS = 5000;
-// why: pi-env's wire format, a daemon ping (type 6, id 0, JSON {}); pi-env's Connection drops a daemon after 30 s without bytes, so while the link is down and the computer holds the daemon, the phone stands in for its pings.
-const DAEMON_PING = Buffer.from([0, 0, 0, 11, 6, 0, 0, 0, 0, 0, 0, 0, 2, 0x7b, 0x7d]);
+// why: pi-env's Connection drops a daemon after 30 s without bytes, so while the link is down and the computer holds the daemon, the phone stands in for its pings.
+const DAEMON_PING = Buffer.from(wire.piEnvPing);
 
 function ownsArrayBuffer(data: Uint8Array): data is Uint8Array<ArrayBuffer> {
 	return data.buffer instanceof ArrayBuffer;
