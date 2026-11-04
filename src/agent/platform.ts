@@ -1,5 +1,6 @@
 import type { PhonePermissions } from "../interaction/permissions.ts";
 import { phonePermissions } from "../interaction/phone-permissions.ts";
+import { inForeground } from "../app/keepAlive.ts";
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { CapacitorHttp } from "@capacitor/core";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
@@ -46,6 +47,7 @@ export interface Platform {
 	mcpFetch: McpFetch;
 	loopback: typeof listenForRedirect;
 	permissions: PhonePermissions;
+	inFront(): Promise<boolean>;
 	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
 
@@ -108,6 +110,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 		mcpFetch: nativeFetch,
 		loopback: listenForRedirect,
 		permissions: phonePermissions,
+		inFront: inForeground,
 		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
 	};
 }

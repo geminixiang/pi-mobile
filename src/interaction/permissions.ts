@@ -19,7 +19,6 @@ export type PermissionState = "granted" | "ask" | "denied" | "unknown";
 export type PhonePermissions = {
 	state(kind: PermissionKind): Promise<PermissionState>;
 	request(kind: PermissionKind): Promise<boolean>;
-	inFront(): Promise<boolean>;
 };
 
 export type AskForm = (callId: string, form: PendingForm, signal: AbortSignal | undefined) => Promise<FormAnswer>;
@@ -33,13 +32,13 @@ export function permissionGate(permissions: PhonePermissions, ask: AskForm) {
 			{ conversationId: api.conversationId, service: label, confirm: "允許", accepted: "已允許", request: { message: why, schema: { type: "object", properties: {} } } },
 			context.abortSignal,
 		);
+		if (answer.action === "cancel") throw new Error(`Nobody answered the request for ${kind} access. Answer without it, and say what you need it for.`);
 		if (answer.action !== "accept" || !(await permissions.request(kind))) throw new Error(`The user did not allow ${kind} access. Answer without it, and do not ask again in this turn.`);
 	};
 	return async (kind: PermissionKind, api: ToolExecutionApi, context: Context): Promise<void> => {
 		const state = await permissions.state(kind);
 		if (state === "granted" || state === "unknown") return;
 		if (state === "denied") throw new Error(`${kind} access is turned off for pi. Tell the user to allow it in the phone's 設定 › 應用程式 › pi › 權限.`);
-		if (!(await permissions.inFront())) return;
 		const key = `${String(api.conversationId)}:${kind}`;
 		const running = asking.get(key) ?? obtain(kind, api, context).finally(() => asking.delete(key));
 		asking.set(key, running);

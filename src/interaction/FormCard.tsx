@@ -3,7 +3,7 @@ import { ChevronIcon } from "../app/icons.tsx";
 import { InteractionContext } from "./context.ts";
 import type { Outcome, SettledForm } from "./forms.ts";
 
-const OUTCOME: Record<Outcome, string> = { accepted: "已確認", declined: "已取消", skipped: "已略過", cancelled: "已中斷" };
+const OUTCOME: Record<Outcome, string> = { accepted: "已確認", declined: "已取消", skipped: "已略過", cancelled: "已中斷", unattended: "沒有人在，沒有做" };
 
 export function FormCard({ callId }: { callId: string }) {
 	const interaction = useContext(InteractionContext);

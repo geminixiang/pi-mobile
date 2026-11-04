@@ -1,4 +1,3 @@
-import { inForeground } from "../app/keepAlive.ts";
 import { native } from "../native.ts";
 import { Calendar } from "../plugins/calendar.ts";
 import { Contacts } from "../plugins/contacts.ts";
@@ -33,5 +32,4 @@ export const phonePermissions: PhonePermissions = {
 		const { plugin, aliases } = SOURCES[kind];
 		return stateOf(await plugin.requestPermissions({ permissions: [...aliases] }), aliases) === "granted";
 	},
-	inFront: inForeground,
 };

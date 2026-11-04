@@ -6,7 +6,7 @@ import { orLogged } from "../promise.ts";
 
 export type PendingForm = { conversationId: ConversationId; service: string; request: FormRequest; confirm?: string; accepted?: string };
 
-export type Outcome = "accepted" | "declined" | "skipped" | "cancelled";
+export type Outcome = "accepted" | "declined" | "skipped" | "cancelled" | "unattended";
 
 export type SettledForm = { step: string; service: string; message: string; outcome: Outcome; at: number; accepted?: string };
 
@@ -28,31 +28,40 @@ export type FormsState = { pending: ReadonlyMap<string, PendingForm>; settled: R
 
 type Waiting = PendingForm & { settle: (answer: FormAnswer, outcome: Outcome) => void };
 
+export type Presence = { unattended(conversationId: ConversationId): boolean; waiting(form: PendingForm): Promise<void> };
+
 export class Forms {
 	readonly #harness: Harness;
+	readonly #presence: Presence;
 	readonly #waiting = new Map<string, Waiting>();
 	readonly #settled = new Map<string, readonly SettledForm[]>();
 	readonly #listeners = new Set<() => void>();
 	#state: FormsState = { pending: new Map(), settled: new Map() };
 
-	constructor(harness: Harness) {
+	constructor(harness: Harness, presence: Presence) {
 		this.#harness = harness;
+		this.#presence = presence;
 	}
 
 	ask(callId: string, form: PendingForm, signal: AbortSignal | undefined): Promise<FormAnswer> {
 		if (signal?.aborted) return Promise.resolve({ action: "cancel" });
+		if (this.#presence.unattended(form.conversationId)) {
+			this.#keep(callId, form, "unattended");
+			return Promise.resolve({ action: "cancel" });
+		}
 		return new Promise((resolve) => {
 			const settle = (answer: FormAnswer, outcome: Outcome) => {
 				signal?.removeEventListener("abort", cancel);
 				this.#waiting.delete(callId);
 				this.#changed();
-				void orLogged(this.#record(form.conversationId, { step: stepOf(callId), service: form.service, message: form.request.message, outcome, at: Date.now(), ...(form.accepted ? { accepted: form.accepted } : {}) }), "forms.record_failed", undefined);
+				this.#keep(callId, form, outcome);
 				resolve(answer);
 			};
 			const cancel = () => settle({ action: "cancel" }, "cancelled");
 			signal?.addEventListener("abort", cancel, { once: true });
 			this.#waiting.set(callId, { ...form, settle });
 			this.#changed();
+			void orLogged(this.#presence.waiting(form), "forms.notify_failed", undefined);
 		});
 	}
 
@@ -77,6 +86,10 @@ export class Forms {
 	subscribe(listener: () => void): () => void {
 		this.#listeners.add(listener);
 		return () => this.#listeners.delete(listener);
+	}
+
+	#keep(callId: string, form: PendingForm, outcome: Outcome): void {
+		void orLogged(this.#record(form.conversationId, { step: stepOf(callId), service: form.service, message: form.request.message, outcome, at: Date.now(), ...(form.accepted ? { accepted: form.accepted } : {}) }), "forms.record_failed", undefined);
 	}
 
 	async #record(conversationId: ConversationId, settled: SettledForm): Promise<void> {

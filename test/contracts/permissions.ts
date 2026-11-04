@@ -11,11 +11,11 @@ const api = { callId: "call-1/1", conversationId: "bot-1" } as unknown as ToolEx
 
 const ACCEPTED: FormAnswer = { action: "accept", content: {} };
 
-function fixture(state: PermissionState, { inFront = true, answer = ACCEPTED, granted = true }: { inFront?: boolean; answer?: FormAnswer; granted?: boolean } = {}) {
+function fixture(state: PermissionState, { answer = ACCEPTED, granted = true }: { answer?: FormAnswer; granted?: boolean } = {}) {
 	const asked: PendingForm[] = [];
 	const requests: string[] = [];
 	const gate = permissionGate(
-		{ state: async () => state, request: async (kind) => (requests.push(kind), granted), inFront: async () => inFront },
+		{ state: async () => state, request: async (kind) => (requests.push(kind), granted) },
 		async (_callId, form) => (asked.push(form), answer),
 	);
 	return { asked, requests, pass: () => gate("contacts", api, BACKGROUND_CONTEXT) };
@@ -65,11 +65,11 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"a run in the background shows no card nobody would answer, and the native side refuses as before",
+		"a card nobody answered asks the system nothing and tells the bot so",
 		async () => {
-			const { asked, pass } = fixture("ask", { inFront: false });
-			await pass();
-			assert.equal(asked.length, 0);
+			const { requests, pass } = fixture("ask", { answer: { action: "cancel" } });
+			await assert.rejects(pass(), /Nobody answered the request for contacts/);
+			assert.equal(requests.length, 0);
 		},
 	],
 	[

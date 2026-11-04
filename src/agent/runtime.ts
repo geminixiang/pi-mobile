@@ -271,7 +271,12 @@ export class AgentRuntime {
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
 			catalog.unsupported,
 			mcp,
-			new Forms(harness),
+			new Forms(harness, {
+				unattended: triggerHost.unattended,
+				waiting: async (form) => {
+					if (!(await platform.inFront())) await triggerHost.notify(form.service, "等你回覆", form.conversationId);
+				},
+			}),
 			createJudge(models),
 		);
 		mcp.refreshAll();

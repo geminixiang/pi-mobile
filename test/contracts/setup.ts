@@ -113,7 +113,8 @@ export const platform: Platform = {
 		return route(init);
 	},
 	loopback: async () => async () => undefined,
-	permissions: { state: async () => "granted", request: async () => true, inFront: async () => true },
+	permissions: { state: async () => "granted", request: async () => true },
+	inFront: async () => true,
 	phone: {
 		folder: (folder, network) => new PhoneEnv(folder, network),
 		removeFolder: async (folder) => {
