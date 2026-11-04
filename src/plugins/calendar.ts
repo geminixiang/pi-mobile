@@ -47,4 +47,5 @@ export const Calendar = definePlugin("Calendar", {
 	},
 	deleteEvent: { args: Type.Object({ id: Type.String(), begin: Type.Number(), all: Type.Boolean() }), result: Type.Object({ repeating: Type.Boolean() }) },
 	checkPermissions: { args: Type.Object({}), result: Type.Object({ calendar: Type.String() }) },
+	requestPermissions: { args: Type.Object({ permissions: Type.Array(Type.String()) }), result: Type.Record(Type.String(), Type.String()) },
 });

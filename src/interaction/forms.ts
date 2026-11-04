@@ -4,11 +4,11 @@ import type { FormAnswer, FormRequest } from "../agent/mcp-stateless.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
 import { orLogged } from "../promise.ts";
 
-export type PendingForm = { conversationId: ConversationId; service: string; request: FormRequest };
+export type PendingForm = { conversationId: ConversationId; service: string; request: FormRequest; confirm?: string; accepted?: string };
 
 export type Outcome = "accepted" | "declined" | "skipped" | "cancelled";
 
-export type SettledForm = { step: string; service: string; message: string; outcome: Outcome; at: number };
+export type SettledForm = { step: string; service: string; message: string; outcome: Outcome; at: number; accepted?: string };
 
 const KEPT = 100;
 
@@ -46,7 +46,7 @@ export class Forms {
 				signal?.removeEventListener("abort", cancel);
 				this.#waiting.delete(callId);
 				this.#changed();
-				void orLogged(this.#record(form.conversationId, { step: stepOf(callId), service: form.service, message: form.request.message, outcome, at: Date.now() }), "forms.record_failed", undefined);
+				void orLogged(this.#record(form.conversationId, { step: stepOf(callId), service: form.service, message: form.request.message, outcome, at: Date.now(), ...(form.accepted ? { accepted: form.accepted } : {}) }), "forms.record_failed", undefined);
 				resolve(answer);
 			};
 			const cancel = () => settle({ action: "cancel" }, "cancelled");

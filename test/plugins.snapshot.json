@@ -1559,6 +1559,30 @@
 					],
 					"type": "object"
 				}
+			},
+			"requestPermissions": {
+				"args": {
+					"properties": {
+						"permissions": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"permissions"
+					],
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
 			}
 		},
 		"events": {},
@@ -1637,6 +1661,44 @@
 					"required": [
 						"items"
 					],
+					"type": "object"
+				}
+			},
+			"checkPermissions": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
+			"requestPermissions": {
+				"args": {
+					"properties": {
+						"permissions": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"permissions"
+					],
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
 					"type": "object"
 				}
 			}
@@ -2468,6 +2530,44 @@
 	{
 		"name": "Phone",
 		"methods": {
+			"checkPermissions": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
+			"requestPermissions": {
+				"args": {
+					"properties": {
+						"permissions": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"permissions"
+					],
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
 			"getStatus": {
 				"args": {
 					"properties": {},
@@ -3430,6 +3530,44 @@
 	{
 		"name": "Photos",
 		"methods": {
+			"checkPermissions": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
+			"requestPermissions": {
+				"args": {
+					"properties": {
+						"permissions": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"permissions"
+					],
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
 			"search": {
 				"args": {
 					"properties": {
@@ -3542,6 +3680,44 @@
 	{
 		"name": "Records",
 		"methods": {
+			"checkPermissions": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
+			"requestPermissions": {
+				"args": {
+					"properties": {
+						"permissions": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"permissions"
+					],
+					"type": "object"
+				},
+				"result": {
+					"patternProperties": {
+						"^.*$": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				}
+			},
 			"calls": {
 				"args": {
 					"properties": {

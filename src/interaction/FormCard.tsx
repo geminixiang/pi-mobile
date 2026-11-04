@@ -31,12 +31,12 @@ export function FormCard({ callId }: { callId: string }) {
 					</button>
 					{confirmable ? (
 						<button type="button" className="form-button primary" disabled={sent} onClick={() => answer(true)}>
-							確認
+							{form.confirm ?? "確認"}
 						</button>
 					) : null}
 				</div>
 			</div>
-			<p className="question-hint">或在下方直接回答，就不會送出</p>
+			{form.confirm ? null : <p className="question-hint">或在下方直接回答，就不會送出</p>}
 		</section>
 	);
 }
@@ -48,7 +48,7 @@ export function FormRecord({ form }: { form: SettledForm }) {
 			<button type="button" className={`question-card form-record${open ? " open" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
 				<span className="form-record-head">
 					<span className="form-record-service">{form.service}</span>
-					<span className="form-record-outcome">{OUTCOME[form.outcome]}</span>
+					<span className="form-record-outcome">{form.outcome === "accepted" ? (form.accepted ?? OUTCOME.accepted) : OUTCOME[form.outcome]}</span>
 					<ChevronIcon open={open} size={12} />
 				</span>
 				{open ? <span className="form-message">{form.message}</span> : null}

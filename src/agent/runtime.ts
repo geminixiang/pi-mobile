@@ -223,6 +223,8 @@ export class AgentRuntime {
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
+			permissions: platform.permissions,
+			ask: (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" })),
 			labelOf: (name, id) => (offeredAt(name, at(id)?.kind ?? "missing") ? labelOf(name, mcp) : undefined),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);

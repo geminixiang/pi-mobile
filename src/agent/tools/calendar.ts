@@ -75,6 +75,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		name: "read_calendar_events",
 		effect: "read",
 		needs: [Calendar.listEvents],
+		asks: "calendar",
 		description:
 			"The user's schedule: events on their own calendars (recurring events expanded, declined invitations left out) between two local times, from the accounts Settings allows. Default: from now to the end of tomorrow. Shared calendars they subscribe to, such as a team calendar or a colleague's, hold other people's events: include_shared adds them, marked shared with the owner, if Settings allows it.",
 		parameters: Type.Object({
@@ -139,6 +140,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		name: "list_calendars",
 		effect: "read",
 		needs: [Calendar.listAccounts],
+		asks: "calendar",
 		description:
 			"The calendars events can be added to: the user's own calendars in the accounts they enabled for writing in Settings, the default first. Call before add_calendar_event when the user names an account or there is no default.",
 		parameters: Type.Object({}),
@@ -161,6 +163,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		name: "add_calendar_event",
 		effect: "direct",
 		needs: [Calendar.listAccounts, Calendar.insertEvent],
+		asks: "calendar",
 		description:
 			"Add an event to the user's calendar. Without calendar_id it goes to the default calendar set in Settings.",
 		parameters: Type.Object({
@@ -203,6 +206,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		name: "delete_calendar_event",
 		effect: "direct",
 		needs: [Calendar.listEvents, Calendar.listAccounts, Calendar.deleteEvent],
+		asks: "calendar",
 		description:
 			"Delete an event from the user's calendar. Of a repeating event only the occurrence at start goes, unless the user asks to delete the whole series.",
 		parameters: Type.Object({

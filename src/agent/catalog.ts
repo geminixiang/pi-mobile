@@ -36,6 +36,7 @@ import { InteractionExtension } from "../interaction/tool.ts";
 import type { Native } from "../native.ts";
 import { unusableExtensions } from "./toolsets.ts";
 import { declarationOf, gated } from "./tools/common.ts";
+import { type AskForm, permissionGate, type PhonePermissions } from "../interaction/permissions.ts";
 import type { Workplace } from "./workplaces.ts";
 
 interface CatalogDeps {
@@ -50,6 +51,8 @@ interface CatalogDeps {
 	workplace: (conversationId: string) => Workplace | undefined;
 	labelOf: (extension: string, conversationId: string) => string | undefined;
 	actsAsUser: ActsAsUser;
+	permissions: PhonePermissions;
+	ask: AskForm;
 }
 
 const TOOL_SEARCH =
@@ -95,6 +98,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createOnDemandExtension(deps.labelOf),
 	];
 	const unusable = unusableExtensions(deps.native);
+	const obtain = permissionGate(deps.permissions, deps.ask);
 	const filtered = extensions
 		.filter((extension) => !unusable.has(extension.name))
 		.map((extension) => ({
@@ -105,13 +109,13 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 	return {
 		extensions: usable.map((extension) => ({
 			...extension,
-			tools: extension.tools?.map((tool) =>
-				tool.name === "tool_search"
-					? { ...tool, description: TOOL_SEARCH }
-					: declarationOf(tool)?.effect === "screen"
-						? gated(tool, (conversationId) => openScreen(deps.actsAsUser, conversationId))
-						: tool,
-			),
+			tools: extension.tools?.map((tool) => {
+				if (tool.name === "tool_search") return { ...tool, description: TOOL_SEARCH };
+				const declared = declarationOf(tool);
+				if (declared?.effect === "screen") return gated(tool, (api) => openScreen(deps.actsAsUser, api.conversationId));
+				const asks = declared?.asks;
+				return asks ? gated(tool, (api, context) => obtain(asks, api, context)) : tool;
+			}),
 		})),
 		unsupported: new Set(filtered.filter((extension) => extension.tools?.length === 0).map((extension) => extension.name)),
 	};

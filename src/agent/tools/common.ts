@@ -1,5 +1,6 @@
+import type { PermissionKind } from "../../interaction/permissions.ts";
 import { CapacitorHttp } from "@capacitor/core";
-import { type ConversationId, defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
+import { defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import { type Context, isJsonValue, type JsonValue } from "@earendil-works/chord";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
@@ -68,6 +69,7 @@ export type Effect = "read" | "screen" | "direct";
 interface ToolDeclaration {
 	readonly effect: Effect;
 	readonly needs: readonly PluginMethod[];
+	readonly asks?: PermissionKind;
 }
 
 const REACH = { model: {}, loaded: { deferred: true }, script: { callers: ["tools"] } } as const;
@@ -84,9 +86,10 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 	reach = "script",
 	effect,
 	needs = [],
+	asks,
 	execute,
 	...tool
-}: AppTool<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[] }): ToolRegistration<object, TDetails> {
+}: AppTool<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[]; asks?: PermissionKind }): ToolRegistration<object, TDetails> {
 	const registration = defineTool<object, TDetails>({
 		...tool,
 		...REACH[reach],
@@ -99,7 +102,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 		},
 		execute: (args, api, context) => execute(typeboxArgs<TParameters>(args), api, context),
 	});
-	declarations.set(registration, { effect, needs });
+	declarations.set(registration, { effect, needs, ...(asks ? { asks } : {}) });
 	return registration;
 }
 
@@ -110,12 +113,12 @@ function typeboxArgs<TParameters extends TSchema>(args: unknown): Static<TParame
 
 export function gated<TParameters extends TSchema, TDetails extends JsonValue>(
 	tool: ToolRegistration<TParameters, TDetails>,
-	gate: (conversationId: ConversationId) => Promise<void>,
+	gate: (api: ToolExecutionApi, context: Context) => Promise<void>,
 ): ToolRegistration<TParameters, TDetails> {
 	const guarded: ToolRegistration<TParameters, TDetails> = {
 		...tool,
 		execute: async (args, api, context) => {
-			await gate(api.conversationId);
+			await gate(api, context);
 			return tool.execute(args, api, context);
 		},
 	};

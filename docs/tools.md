@@ -322,6 +322,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-04 | 手機權限卡（[research/grok-bot.md](research/grok-bot.md) 第 24 項）：`defineAppTool` 多一個 `asks`（`contacts`、`calendar`、`photos`、`calls`、`sms`、`location`），catalog 在執行前把關（`src/interaction/permissions.ts`）：沒權限又在前景，對話裡先出權限卡，按「允許」才跳系統對話框；取消或系統拒絕就回報工具失敗，Bot 改用別的方式答；系統不再詢問時指到手機設定；背景執行不出卡，照舊由原生拒絕。`weather`、`find_places` 這些給了地點就不用定位的不宣告，維持直接跳系統對話框。外掛合約多 `checkPermissions`、`requestPermissions`。特殊權限（螢幕使用時間、修改系統設定、讀取通知）還是文字錯誤 | 不變 | `plugins.snapshot.json` 已更新；`test/contracts/permissions.ts` |
 | 2026-11-04 | 頁面卡（`src/interaction/pages.ts`）：`write`、`edit` 的 `.html` 畫成卡，標題和摘要取自內容，同一個檔案只留最新一張，點開是檔案檢視器；工作行不再為 `.html` 留步驟。`files` 那句改成卡片會顯示，不要放連結 | 見下一筆 | `test/contracts/interaction.ts`；S24 上重開 App 還在 |
 | 2026-11-04 | 結果卡（`src/interaction/`，[research/grok-bot.md](research/grok-bot.md) 第 21 項）：`weather` 把結果存進對話的 `app.interaction.results`，畫成天氣卡，接在那一步底下，腳本裡呼叫也一樣；每一步最多兩張，對話留最新 20 張。新段落 `weather`：卡片有的數字不用重複 | 全開 4,153 → 4,206 tokens，全關不變（含上一筆 `files` 那句） | `prompt.snapshot.json` 已更新；`test/contracts/interaction.ts`。S24：天氣卡重開 App 還在 |
 | 2026-11-04 | 開場段落：做完要說沒做到、查不到、沒核對的部分，猜的不能講成查過的；有沒做完的事才提下一步。學 Grok Bot（[research/grok-bot.md](research/grok-bot.md) 第 22 項） | 兩筆合計全開 4,056 → 4,153 tokens，全關 2,663 → 2,760 | S24、GPT 6.1 Sol，暫時的 Bot：查售價那題結尾列尚未確認的項目，爬山那題說明市區預報不等於山區 |

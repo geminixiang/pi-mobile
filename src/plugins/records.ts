@@ -23,6 +23,8 @@ const SmsRecord = Type.Object({
 });
 
 export const Records = definePlugin("Records", {
+	checkPermissions: { args: Type.Object({}), result: Type.Record(Type.String(), Type.String()) },
+	requestPermissions: { args: Type.Object({ permissions: Type.Array(Type.String()) }), result: Type.Record(Type.String(), Type.String()) },
 	calls: { args: Type.Object({ since: Type.Number(), limit: Type.Optional(Type.Integer()) }), result: Type.Object({ items: Type.Array(CallRecord) }) },
 	sms: {
 		args: Type.Object({ since: Type.Number(), limit: Type.Optional(Type.Integer()), query: Type.Optional(Type.String()) }),

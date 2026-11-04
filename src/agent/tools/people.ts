@@ -20,6 +20,7 @@ const contacts = defineAppTool({
 	name: "contacts",
 	effect: "read",
 	needs: [Contacts.search],
+	asks: "contacts",
 	description:
 		"Find people in the user's contacts by name, number, email, or company: their numbers, emails, company, birthday. Use it before compose_sms or compose_email when the user names a person. With upcoming_birthdays, only those whose birthday is in the next 30 days, soonest first.",
 	parameters: Type.Object({
@@ -67,6 +68,7 @@ const findPhotos = defineAppTool({
 	name: "find_photos",
 	effect: "read",
 	needs: [Photos.search],
+	asks: "photos",
 	description:
 		"List the user's photos by when they were taken, where (a place name or lat,lon), and album (Camera, Screenshots, a chat app's folder). Returns ids, times, places, and albums; look at them with view_photos. Use it for 「上週在台南拍的照片」「昨天拍的收據」.",
 	parameters: Type.Object({
@@ -130,6 +132,7 @@ const viewPhotos = defineAppTool({
 	name: "view_photos",
 	effect: "read",
 	needs: [Photos.view],
+	asks: "photos",
 	reach: "loaded",
 	description: `Look at photos by the ids find_photos gave, at most ${MAX_VIEW} a call, scaled down. To show one to the user, describe it; they see it in their gallery.`,
 	parameters: Type.Object({ ids: Type.Array(Type.String(), { minItems: 1, maxItems: MAX_VIEW, description: "Photo ids from find_photos" }) }),

@@ -1,3 +1,5 @@
+import type { PhonePermissions } from "../interaction/permissions.ts";
+import { phonePermissions } from "../interaction/phone-permissions.ts";
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { CapacitorHttp } from "@capacitor/core";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
@@ -43,6 +45,7 @@ export interface Platform {
 	mcpClient(): McpSession;
 	mcpFetch: McpFetch;
 	loopback: typeof listenForRedirect;
+	permissions: PhonePermissions;
 	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
 
@@ -104,6 +107,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),
 		mcpFetch: nativeFetch,
 		loopback: listenForRedirect,
+		permissions: phonePermissions,
 		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
 	};
 }

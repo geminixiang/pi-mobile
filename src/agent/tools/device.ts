@@ -32,6 +32,7 @@ const getLocation = defineAppTool({
 	name: "get_location",
 	effect: "read",
 	needs: [Phone.getLocation],
+	asks: "location",
 	description:
 		"The phone's current location: latitude, longitude, accuracy, altitude, speed, and the street address. Use it for anything about where the user is or what is nearby, instead of asking them.",
 	parameters: Type.Object({}),

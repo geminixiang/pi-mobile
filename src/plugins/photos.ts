@@ -13,6 +13,8 @@ const Photo = Type.Object({
 });
 
 export const Photos = definePlugin("Photos", {
+	checkPermissions: { args: Type.Object({}), result: Type.Record(Type.String(), Type.String()) },
+	requestPermissions: { args: Type.Object({ permissions: Type.Array(Type.String()) }), result: Type.Record(Type.String(), Type.String()) },
 	search: {
 		args: Type.Object({ from: Type.Optional(Type.Number()), to: Type.Optional(Type.Number()), album: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer()) }),
 		result: Type.Object({ items: Type.Array(Photo) }),

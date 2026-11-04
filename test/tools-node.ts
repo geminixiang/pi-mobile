@@ -41,6 +41,8 @@ const { extensions } = builtinExtensions({
 	workplace: () => workplace,
 	labelOf: (name) => name,
 	actsAsUser: async () => false,
+	permissions: { state: async () => "granted", request: async () => true, inFront: async () => true },
+	ask: async () => ({ action: "cancel" }),
 });
 
 interface ToolInterface {

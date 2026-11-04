@@ -13,4 +13,6 @@ export type Contact = Static<typeof Contact>;
 
 export const Contacts = definePlugin("Contacts", {
 	search: { args: Type.Object({ query: Type.Optional(Type.String()) }), result: Type.Object({ items: Type.Array(Contact) }) },
+	checkPermissions: { args: Type.Object({}), result: Type.Record(Type.String(), Type.String()) },
+	requestPermissions: { args: Type.Object({ permissions: Type.Array(Type.String()) }), result: Type.Record(Type.String(), Type.String()) },
 });
