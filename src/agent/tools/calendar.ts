@@ -60,8 +60,8 @@ function formatEvent(event: PhoneEvent) {
 	};
 }
 
-async function writableCalendars(access: CalendarAccess): Promise<PhoneCalendar[]> {
-	const { calendars } = await Calendar.listAccounts();
+async function writableCalendars(access: CalendarAccess, store: CalendarStore): Promise<PhoneCalendar[]> {
+	const { calendars } = await store.listAccounts();
 	return calendars
 		.filter((calendar) => calendar.writable && canWrite(access, calendar))
 		.sort((a, b) => Number(b.id === access.defaultCalendar) - Number(a.id === access.defaultCalendar));
@@ -70,7 +70,14 @@ async function writableCalendars(access: CalendarAccess): Promise<PhoneCalendar[
 const NO_WRITABLE =
 	"No calendar is enabled for adding events. Tell the user to open Settings → 行事曆 and turn on 寫入 for the account to use; do not suggest another way to add it.";
 
-export function createCalendarExtension(access: CalendarAccess) {
+export type CalendarStore = {
+	listAccounts(): Promise<{ calendars: PhoneCalendar[] }>;
+	listEvents(args: Parameters<typeof Calendar.listEvents>[0]): Promise<{ events: PhoneEvent[] }>;
+	insertEvent(args: Parameters<typeof Calendar.insertEvent>[0]): Promise<{ id: number | string }>;
+	deleteEvent(args: Parameters<typeof Calendar.deleteEvent>[0]): Promise<{ repeating: boolean }>;
+};
+
+export function createCalendarExtension(access: CalendarAccess, store: CalendarStore = Calendar) {
 	const readEvents = defineAppTool({
 		name: "read_calendar_events",
 		effect: "read",
@@ -108,7 +115,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 			const to = args.to ? parseLocalBound(args.to, "to", true) : startOfToday() + 2 * DAY;
 			if (to <= from) throw new Error("to must be after from");
 			if (to - from > 366 * DAY) throw new Error("the range can be at most a year");
-			const { events } = await Calendar.listEvents({ from, to, includeShared: args.include_shared ?? false });
+			const { events } = await store.listEvents({ from, to, includeShared: args.include_shared ?? false });
 			const first = localDate(from);
 			const last = localDate(to - 1);
 			const allowed = events.filter(
@@ -146,7 +153,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		parameters: Type.Object({}),
 		replay: "safe",
 		execute: async () => {
-			const calendars = await writableCalendars(access);
+			const calendars = await writableCalendars(access, store);
 			if (calendars.length === 0) return text(NO_WRITABLE);
 			return json(
 				calendars.map(({ id, name, account, accountType }) => ({
@@ -180,7 +187,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 		execute: async (args) => {
 			const allDay = args.all_day ?? false;
 			const times = eventTimes(args.start, args.end, allDay);
-			const calendars = await writableCalendars(access);
+			const calendars = await writableCalendars(access, store);
 			if (calendars.length === 0) throw new Error(NO_WRITABLE);
 			const id = args.calendar_id ?? access.defaultCalendar;
 			if (id === undefined) {
@@ -190,7 +197,7 @@ export function createCalendarExtension(access: CalendarAccess) {
 			}
 			const calendar = calendars.find((candidate) => candidate.id === id);
 			if (!calendar) throw new Error(`calendar ${id} is not enabled for writing in Settings; call list_calendars`);
-			const created = await Calendar.insertEvent({
+			const created = await store.insertEvent({
 				calendarId: calendar.id,
 				title: args.title,
 				...times,
@@ -217,14 +224,14 @@ export function createCalendarExtension(access: CalendarAccess) {
 		execute: async (args) => {
 			const at = parseLocalTime(args.start, "start");
 			const wanted = at.hasTime ? localTime(at.ms) : localDate(at.ms);
-			const { events } = await Calendar.listEvents({ from: at.ms - DAY, to: at.ms + DAY, includeShared: false });
+			const { events } = await store.listEvents({ from: at.ms - DAY, to: at.ms + DAY, includeShared: false });
 			const event = events.find((candidate) => candidate.id === args.id && startOf(candidate) === wanted);
 			if (!event) throw new Error(`No event ${args.id} starts at ${args.start}; read_calendar_events gives each event's id and start.`);
-			const calendars = await writableCalendars(access);
+			const calendars = await writableCalendars(access, store);
 			if (!calendars.some((calendar) => calendar.id === event.calendarId))
 				throw new Error(`"${event.calendar}" (${event.account}) is not enabled for writing in Settings → 行事曆. Tell the user; do not retry.`);
 			const all = args.all_occurrences ?? false;
-			const { repeating } = await Calendar.deleteEvent({ id: event.id, begin: event.begin, all });
+			const { repeating } = await store.deleteEvent({ id: event.id, begin: event.begin, all });
 			const when = describeTimes(event, event.allDay);
 			if (!repeating) return text(`Deleted "${event.title}" (${when}) from "${event.calendar}".`);
 			if (all) return text(`Deleted "${event.title}" from "${event.calendar}", every occurrence.`);
