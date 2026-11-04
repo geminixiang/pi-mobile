@@ -1,17 +1,57 @@
 import assert from "node:assert/strict";
 import { extensionName } from "../../src/agent/mcp.ts";
 import { agentState, keepOpen, openRuntime } from "./fixtures.ts";
-import { type Check, mcp, openClients, platform, resetMcp, secrets, settle } from "./setup.ts";
+import { type Check, mcp, mcpHttp, openClients, platform, resetMcp, secrets, settings, settle } from "./setup.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
+import { AgentRuntime } from "../../src/agent/runtime.ts";
 import { turn } from "./fixtures.ts";
 
 const granted = (state: unknown, extension: string) => JSON.stringify(state ?? {}).includes(`"${extension}"`);
 
+const json = (body: unknown, status = 200) => () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
 export const checks: Check[] = [
+	[
+		"signing in to a service behind Cloudflare Access reads the resource metadata its 401 names, not the well-known path that redirects to a login page",
+		async () => {
+			resetMcp();
+			platform.plain.remove("pi-mobile.mcp-servers");
+			const metadata = "https://mail.example/.well-known/cloudflare-access-protected-resource/mcp";
+			const team = "https://team.example";
+			mcpHttp.requests.length = 0;
+			mcpHttp.routes = {
+				"POST https://mail.example/mcp": () => new Response("", { status: 401, headers: { "www-authenticate": `Bearer realm="OAuth", error="invalid_token", resource_metadata="${metadata}"` } }),
+				"GET https://mail.example/.well-known/oauth-protected-resource/mcp": () => new Response("<!DOCTYPE html><title>Sign in</title>", { status: 302, headers: { "content-type": "text/html" } }),
+				[`GET ${metadata}`]: json({ resource: "https://mail.example/mcp", authorization_servers: [team] }),
+				[`GET ${team}/.well-known/oauth-authorization-server`]: json({
+					issuer: team,
+					authorization_endpoint: `${team}/cdn-cgi/access/oauth/authorization`,
+					token_endpoint: `${team}/cdn-cgi/access/oauth/token`,
+					registration_endpoint: `${team}/cdn-cgi/access/oauth/registration`,
+					response_types_supported: ["code"],
+					grant_types_supported: ["authorization_code", "refresh_token"],
+					token_endpoint_auth_methods_supported: ["none"],
+					code_challenge_methods_supported: ["S256"],
+				}),
+				[`POST ${team}/cdn-cgi/access/oauth/registration`]: json({ client_id: "pi", redirect_uris: ["http://127.0.0.1:47823/oauth/mcp"], token_endpoint_auth_method: "none" }, 201),
+			};
+			const opened: string[] = [];
+			const runtime = await AgentRuntime.open(new MemoryStorage(), settings, platform, { openUrl: async (url) => void opened.push(url) });
+			try {
+				const server = await runtime.mcp.add("Mail", "https://mail.example/mcp");
+				await runtime.mcp.login(server.id);
+				assert.equal(opened.length, 1, `requests: ${mcpHttp.requests.join(", ")}`);
+				assert(opened[0]?.startsWith(`${team}/cdn-cgi/access/oauth/authorization?`), opened[0]);
+			} finally {
+				mcpHttp.routes = {};
+				await runtime.close();
+			}
+		},
+	],
 	[
 		"a service named like a built-in tool gets its own id, so adding it leaves the built-in tools a bot loaded",
 		async () => {

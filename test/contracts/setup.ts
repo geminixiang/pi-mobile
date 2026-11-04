@@ -72,6 +72,8 @@ export function resetMcp(): void {
 
 export const openClients = () => mcp.clients.filter((client) => !client.closed).length;
 
+export const mcpHttp: { routes: Record<string, () => Response>; requests: string[] } = { routes: {}, requests: [] };
+
 export const secrets: { removeGate: Gate } = { removeGate: undefined };
 
 export const folders: { removeGate: Gate; removed: string[] } = { removeGate: undefined, removed: [] };
@@ -103,6 +105,14 @@ export const platform: Platform = {
 	},
 	rotated: { cloudflare: async () => undefined, azure: async () => undefined },
 	mcpClient: () => new FakeMcpClient(),
+	mcpFetch: async (input, init) => {
+		const request = `${init?.method ?? "GET"} ${String(input)}`;
+		mcpHttp.requests.push(request);
+		const route = mcpHttp.routes[request];
+		if (!route) throw new Error(`no route for ${request}: contract tests run offline`);
+		return route();
+	},
+	loopback: async () => async () => undefined,
 	phone: {
 		folder: (folder, network) => new PhoneEnv(folder, network),
 		removeFolder: async (folder) => {

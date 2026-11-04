@@ -12,6 +12,7 @@ import { Browser } from "../browser/plugin.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 import { parseJson } from "./parse.ts";
+import { listenForRedirect } from "./oauth.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
@@ -40,6 +41,8 @@ export interface Platform {
 	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
 	rotated: RotatedCredentials;
 	mcpClient(): McpSession;
+	mcpFetch: McpFetch;
+	loopback: typeof listenForRedirect;
 	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
 
@@ -99,6 +102,8 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 		},
 		rotated: { cloudflare: saveCloudflareCredential, azure: saveAzureCredential },
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),
+		mcpFetch: nativeFetch,
+		loopback: listenForRedirect,
 		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
 	};
 }

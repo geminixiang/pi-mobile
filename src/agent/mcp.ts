@@ -8,12 +8,12 @@ import {
 	McpOAuthAuthorizationRequiredError,
 	McpOAuthProvider,
 	type McpOAuthState,
+	parseWwwAuthenticate,
 } from "@earendil-works/pi-mcp/oauth";
 import { type Static, Type } from "typebox";
 import { decode, decodeEach } from "./parse.ts";
-import { type McpSession, nativeFetch, type Platform } from "./platform.ts";
+import { type McpSession, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
-import { listenForRedirect } from "./oauth.ts";
 import { messageOf, onFailure, orLogged, serially, settled } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;
@@ -172,7 +172,7 @@ class Connection {
 			? new HostStdioTransport({ address: onComputer.address, key: this.#hooks.hostKey(onComputer.address) }, onComputer.command)
 			: new StreamableHttpTransport({
 					url: this.server.url,
-					fetch: nativeFetch,
+					fetch: this.#platform.mcpFetch,
 					openGetStream: false,
 					authProvider: this.#auth,
 				});
@@ -244,13 +244,14 @@ class Connection {
 			await this.#provider.invalidateCredentials("client");
 		}
 		await this.#endRedirect();
-		this.#stopRedirect = await listenForRedirect({ port: REDIRECT_PORT, path: REDIRECT_PATH }, (url) => {
+		this.#stopRedirect = await this.#platform.loopback({ port: REDIRECT_PORT, path: REDIRECT_PATH }, (url) => {
 			void this.#endRedirect();
 			this.#complete(url).catch((error: unknown) => this.#set({ state: "error", message: messageOf(error) }));
 		});
 		this.#signingIn = true;
 		try {
-			const result = await authorizeMcp(this.#provider, { serverUrl: this.server.url, fetch: nativeFetch });
+			const resourceMetadataUrl = await this.#resourceMetadata();
+			const result = await authorizeMcp(this.#provider, { serverUrl: this.server.url, fetch: this.#platform.mcpFetch, ...(resourceMetadataUrl ? { resourceMetadataUrl } : {}) });
 			if (result === "AUTHORIZED") {
 				await this.#endRedirect();
 				this.refresh();
@@ -261,6 +262,16 @@ class Connection {
 		} finally {
 			this.#signingIn = false;
 		}
+	}
+
+	async #resourceMetadata(): Promise<URL | undefined> {
+		const response = await this.#platform.mcpFetch(this.server.url, {
+			method: "POST",
+			headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+			body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "ping" }),
+		});
+		if (response.status !== 401) return undefined;
+		return parseWwwAuthenticate(response.headers.get("www-authenticate")).resourceMetadataUrl;
 	}
 
 	async #complete(url: URL): Promise<void> {
@@ -275,7 +286,7 @@ class Connection {
 		const code = url.searchParams.get("code");
 		if (!code) return;
 		const iss = url.searchParams.get("iss");
-		await authorizeMcp(this.#provider, { serverUrl: this.server.url, authorizationCode: code, ...(iss ? { iss } : {}), fetch: nativeFetch });
+		await authorizeMcp(this.#provider, { serverUrl: this.server.url, authorizationCode: code, ...(iss ? { iss } : {}), fetch: this.#platform.mcpFetch });
 		this.refresh();
 	}
 
