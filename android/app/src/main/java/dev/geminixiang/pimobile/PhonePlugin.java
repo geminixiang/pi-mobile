@@ -30,6 +30,7 @@ import android.os.PowerManager;
 import android.os.StatFs;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -38,6 +39,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @CapacitorPlugin(
@@ -55,6 +57,13 @@ public class PhonePlugin extends Plugin {
 
     private boolean granted(String permission) {
         return getContext().checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public Map<String, PermissionState> getPermissionStates() {
+        Map<String, PermissionState> states = super.getPermissionStates();
+        if (anyLocation()) states.put("location", PermissionState.GRANTED);
+        return states;
     }
 
     private boolean anyLocation() {
