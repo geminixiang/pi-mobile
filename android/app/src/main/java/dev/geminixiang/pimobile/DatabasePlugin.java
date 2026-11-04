@@ -15,6 +15,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -141,7 +142,7 @@ public class DatabasePlugin extends Plugin {
                     String name = cursor.getString(0);
                     JSObject table = new JSObject();
                     table.put("name", name);
-                    table.put("sql", cursor.getString(1));
+                    table.put("sql", Objects.toString(cursor.getString(1), ""));
                     table.put("rows", DatabaseUtils.queryNumEntries(database, name));
                     tables.put(table);
                 }

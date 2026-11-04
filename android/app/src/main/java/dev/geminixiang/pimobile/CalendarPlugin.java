@@ -15,6 +15,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
+import java.util.Objects;
 import java.util.TimeZone;
 
 @CapacitorPlugin(
@@ -122,7 +123,7 @@ public class CalendarPlugin extends Plugin {
                     if (calendar == null) continue;
                     JSObject event = new JSObject();
                     event.put("id", String.valueOf(cursor.getLong(10)));
-                    event.put("title", cursor.getString(0));
+                    event.put("title", Objects.toString(cursor.getString(0), ""));
                     event.put("begin", cursor.getLong(1));
                     event.put("end", cursor.getLong(2));
                     event.put("allDay", cursor.getInt(3) == 1);
@@ -131,13 +132,13 @@ public class CalendarPlugin extends Plugin {
                         String notes = cursor.getString(5);
                         event.put("notes", notes.length() > 400 ? notes.substring(0, 400) + "…" : notes);
                     }
-                    event.put("calendar", calendar.name);
-                    event.put("account", calendar.account);
-                    event.put("accountType", calendar.accountType);
+                    event.put("calendar", Objects.toString(calendar.name, ""));
+                    event.put("account", Objects.toString(calendar.account, ""));
+                    event.put("accountType", Objects.toString(calendar.accountType, ""));
                     event.put("calendarId", calendar.id);
                     if (!calendar.own) {
                         event.put("shared", true);
-                        event.put("owner", calendar.owner);
+                        event.put("owner", Objects.toString(calendar.owner, ""));
                     }
                     events.put(event);
                 }
@@ -166,10 +167,10 @@ public class CalendarPlugin extends Plugin {
             for (CalendarRow row : visibleCalendars()) {
                 JSObject calendar = new JSObject();
                 calendar.put("id", row.id);
-                calendar.put("name", row.name);
-                calendar.put("account", row.account);
-                calendar.put("accountType", row.accountType);
-                calendar.put("owner", row.owner);
+                calendar.put("name", Objects.toString(row.name, ""));
+                calendar.put("account", Objects.toString(row.account, ""));
+                calendar.put("accountType", Objects.toString(row.accountType, ""));
+                calendar.put("owner", Objects.toString(row.owner, ""));
                 calendar.put("own", row.own);
                 calendar.put("writable", row.writable);
                 calendar.put("primary", row.primary);

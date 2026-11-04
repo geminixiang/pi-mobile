@@ -45,6 +45,16 @@ for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java") 
 	}
 }
 
+for (const [name, methods] of ios) {
+	if (methods.has("checkPermissions") && !methods.has("requestPermissions")) failures.push(`iOS ${name} reports permissions but cannot ask for them, so the permission card's 允許 does nothing: add requestPermissions to its pluginMethods`);
+}
+
+for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java"))) {
+	if (/^\s*\w+\.put\("\w+", cursor\.getString\(/m.test(readFileSync(new URL(file, ANDROID), "utf8"))) {
+		failures.push(`${file} puts a cursor string straight into a result: a null removes the key, and one row then fails the whole list against its contract; use Objects.toString(value, "") or skip the key`);
+	}
+}
+
 const registering = sourcesMatching(/\bregisterPlugin\b/, ["plugins/define.ts"]);
 if (registering.length) failures.push(`native plugins are declared with definePlugin in src/plugins/, not registerPlugin: ${registering.join(", ")}`);
 

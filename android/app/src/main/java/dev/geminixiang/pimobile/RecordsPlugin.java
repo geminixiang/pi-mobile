@@ -18,6 +18,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @CapacitorPlugin(
     name = "Records",
@@ -62,7 +63,7 @@ public class RecordsPlugin extends Plugin {
                 while (cursor != null && cursor.moveToNext() && items.length() < limit) {
                     JSObject item = new JSObject();
                     String number = cursor.getString(0);
-                    item.put("number", number);
+                    item.put("number", Objects.toString(number, ""));
                     String name = cursor.getString(1);
                     if ((name == null || name.isEmpty()) && number != null) {
                         if (!names.containsKey(number)) names.put(number, contactName(number));
@@ -126,11 +127,11 @@ public class RecordsPlugin extends Plugin {
                 while (cursor != null && cursor.moveToNext() && items.length() < limit) {
                     String address = cursor.getString(0);
                     JSObject item = new JSObject();
-                    item.put("address", address);
+                    item.put("address", Objects.toString(address, ""));
                     if (address != null && !names.containsKey(address)) names.put(address, contactName(address));
                     String name = address != null ? names.get(address) : null;
                     if (name != null) item.put("name", name);
-                    item.put("text", cursor.getString(1));
+                    item.put("text", Objects.toString(cursor.getString(1), ""));
                     item.put("time", cursor.getLong(2));
                     item.put("sent", cursor.getInt(3) == Telephony.Sms.MESSAGE_TYPE_SENT);
                     item.put("read", cursor.getInt(4) == 1);

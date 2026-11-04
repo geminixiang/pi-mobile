@@ -20,6 +20,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @CapacitorPlugin(name = "Contacts", permissions = { @Permission(strings = { Manifest.permission.READ_CONTACTS }, alias = "contacts") })
 public class ContactsPlugin extends Plugin {
@@ -79,7 +80,7 @@ public class ContactsPlugin extends Plugin {
                     JSObject person = people.get(id);
                     if (person == null) {
                         person = new JSObject();
-                        person.put("name", cursor.getString(1));
+                        person.put("name", Objects.toString(cursor.getString(1), ""));
                         if (cursor.getInt(6) == 1) person.put("starred", true);
                         person.put("phones", new JSArray());
                         person.put("emails", new JSArray());
