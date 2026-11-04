@@ -32,10 +32,10 @@ const DONE_KEPT_MS = 30 * DAY;
 export const itemTrigger = (id: string) => `${ITEM_TRIGGER}${id}`;
 export const replyTrigger = (id: string) => `${REPLY_TRIGGER}${id}`;
 
-export function schedulesOf<Bot>(item: ItemOf<Bot>, avatar: string | undefined): { id: string; name: string; when: When; avatar?: string }[] {
+export function schedulesOf<Bot>(item: ItemOf<Bot>, avatar: string | undefined, now: number): { id: string; name: string; when: When; avatar?: string }[] {
 	if (item.state === "done") return [];
 	const shown = avatar !== undefined ? { avatar } : {};
-	const due = item.nextAt !== undefined ? [{ id: itemTrigger(item.id), name: item.title, when: { kind: "once" as const, at: item.nextAt }, ...shown }] : [];
+	const due = item.nextAt !== undefined ? [{ id: itemTrigger(item.id), name: item.title, when: { kind: "once" as const, at: Math.max(item.nextAt, now) }, ...shown }] : [];
 	const reply = item.state === "waiting" && item.wake ? [{ id: replyTrigger(item.id), name: item.title, when: { kind: "notification" as const, ...item.wake, days: [], gapHours: 1 }, ...shown }] : [];
 	return [...due, ...reply];
 }

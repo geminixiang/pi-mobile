@@ -6,7 +6,7 @@ import { ItemDoc } from "../../src/items/items.ts";
 import { type AgentState, type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TRIGGER_NOTICE, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
 import { whenOf } from "../../src/triggers/tool.ts";
 import type { QueuedEvent } from "../../src/triggers/plugin.ts";
-import { deliverEvents } from "../../src/triggers/events.ts";
+import { deliverEvents, latestAlarms } from "../../src/triggers/events.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
 import { DAY, localDate } from "../../src/agent/tools/common.ts";
@@ -96,7 +96,7 @@ async function withTrigger(fixture: Awaited<ReturnType<typeof triggerFixture>>, 
 
 const confidenceOf = (last: LastRun | undefined) => (last?.outcome === "failed" ? undefined : last?.confidence);
 
-const alarm = (id: string, at = Date.now()): QueuedEvent => ({ id, at, kind: "alarm", trigger: "t1", live: true });
+const alarm = (id: string, at = Date.now()): Extract<QueuedEvent, { kind: "alarm" }> => ({ id, at, kind: "alarm", trigger: "t1", live: true });
 
 export const checks: Check[] = [
 	[
@@ -462,6 +462,45 @@ export const checks: Check[] = [
 			} finally {
 				await harness.close(context);
 			}
+		},
+	],
+	[
+		"alarms missed while pi was away run once, the latest of each schedule, and events that each carry their own news all run",
+		async () => {
+			const heard = (id: string, at: number): QueuedEvent => ({ ...alarm(id, at), device: id });
+			const other: QueuedEvent = { ...alarm("other", 1), trigger: "t2" };
+			const share: QueuedEvent = { id: "share", at: 1, kind: "share" };
+			const { current, superseded } = latestAlarms([alarm("monday", 1), alarm("tuesday", 2), alarm("wednesday", 3), other, heard("first", 1), heard("second", 2), share]);
+			assert.deepEqual(current.map((event) => event.id), ["wednesday", "other", "first", "second", "share"]);
+			assert.deepEqual(superseded.map((event) => event.id), ["monday", "tuesday"]);
+			assert.deepEqual(latestAlarms([alarm("a", 5), alarm("b", 5)]).current.map((event) => event.id), ["b"], "two alarms at the same moment still run once");
+		},
+	],
+	[
+		"the alarms a schedule missed are said in its bot's conversation",
+		async () => {
+			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] });
+			await withTrigger(fixture, async () => {
+				await fixture.runs.missed("t1", 2);
+				await fixture.runs.missed("gone", 2);
+				assert.equal(await fixture.notices(), 1);
+			});
+		},
+	],
+	[
+		"a one-time schedule due when today's runs are used up moves to the same time tomorrow and says so, instead of being lost",
+		async () => {
+			const due = Date.now() - 60_000;
+			const runs = Array.from({ length: LIMITS.total }, (_, index) => ({ trigger: `t${index}`, at: Date.now() - 1000 }));
+			const fixture = await triggerFixture({ kind: "once", at: due }, { runs });
+			await withTrigger(fixture, async () => {
+				assert.equal(await fixture.runs.run("t1", "live", { event: "e1" }), undefined);
+				assert.equal(await fixture.delivered(), 0);
+				const [trigger] = (await fixture.doc()).items;
+				assert.deepEqual([trigger?.state, trigger?.when], ["on", { kind: "once", at: due + DAY }]);
+				assert.match(trigger?.last?.outcome === "failed" ? trigger.last.error : "", /延到/);
+				assert.equal(await fixture.notices(), 1);
+			});
 		},
 	],
 	[

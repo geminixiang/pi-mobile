@@ -217,9 +217,10 @@ export class TriggerRuns {
 		const [triggers, bots, itemDoc] = await Promise.all([this.#harness.snapshot(TriggerDoc, context), this.#bots(), this.#harness.snapshot(ItemDoc, context)]);
 		const items = triggers?.items ?? [];
 		const avatars = new Map(bots.map((bot) => [bot.id, bot.avatar]));
+		const now = Date.now();
 		const schedules = [
 			...items.filter((item) => item.state === "on").map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) })),
-			...(itemDoc?.items ?? []).flatMap((item) => schedulesOf(item, avatars.get(item.bot))),
+			...(itemDoc?.items ?? []).flatMap((item) => schedulesOf(item, avatars.get(item.bot), now)),
 		];
 		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
 		if (native.implements(Triggers.agenda)) await Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) });
@@ -289,6 +290,7 @@ export class TriggerRuns {
 			settle: (outcome, at) => {
 				if (outcome.kind === "ran") return this.#record(id, { at, delivery, outcome: "ran", ...confidenceOf(outcome.confidence) });
 				if (outcome.kind === "skipped") return this.#record(id, { at, delivery, outcome: "skipped", reason: outcome.reason, ...confidenceOf(outcome.confidence) });
+				if (outcome.kind === "limited" && trigger.when.kind === "once") return this.#postpone(trigger, trigger.when.at, at);
 				const error = outcome.kind === "limited" ? "今天的執行次數已達上限" : outcome.kind === "gone" ? "它的 Bot 已經刪除" : `沒有送出，會再試：${outcome.error}`;
 				return this.#record(id, { at, delivery, outcome: "failed", error });
 			},
@@ -307,10 +309,7 @@ export class TriggerRuns {
 		}
 		const waiting = item.state === "waiting" ? `waiting on ${item.waitingOn}` : item.state;
 		const details = [waiting, item.ref ? `details in ${item.ref}` : ""].filter(Boolean).join(", ");
-		const notice = (text: string) =>
-			this.#harness.commit(async (tx) => {
-				await tx.appendEntry(item.bot, { kind: TRIGGER_NOTICE, data: { text } });
-			}, context);
+		const notice = (text: string) => this.#notice(item.bot, text);
 		return this.#deliver({
 			key: cause.kind === "due" ? itemTrigger(id) : replyTrigger(id),
 			conversationId: item.bot,
@@ -419,6 +418,24 @@ export class TriggerRuns {
 	async gaveUp(id: string, reason: string): Promise<void> {
 		await this.#record(id, { at: Date.now(), delivery: "later", outcome: "failed", error: `一天內都沒有送出，這次跳過：${reason}` });
 		await this.sync();
+	}
+
+	async #postpone(trigger: Trigger, due: number, now: number): Promise<void> {
+		const next = due + DAY * Math.max(1, Math.ceil((now - due) / DAY));
+		await this.#edit((items) => items.map((item) => (item.id === trigger.id ? { ...item, state: "on", when: { kind: "once", at: next } } : item)));
+		await this.#record(trigger.id, { at: now, delivery: "later", outcome: "failed", error: `今天的執行次數已達上限，延到 ${localTime(next)}` });
+		await this.#notice(trigger.conversationId, `今天的自動執行已達上限，「${trigger.name}」延到 ${localTime(next)}`);
+	}
+
+	async missed(id: string, count: number): Promise<void> {
+		const trigger = (await this.#harness.snapshot(TriggerDoc, context))?.items.find((item) => item.id === id);
+		if (trigger) await this.#notice(trigger.conversationId, `「${trigger.name}」錯過了 ${count} 次，只跑最新一次`);
+	}
+
+	#notice(conversationId: ConversationId, text: string): Promise<void> {
+		return this.#harness.commit(async (tx) => {
+			await tx.appendEntry(conversationId, { kind: TRIGGER_NOTICE, data: { text } });
+		}, context);
 	}
 
 	async #markFired(id: string): Promise<void> {

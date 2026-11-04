@@ -12,6 +12,12 @@ const RETRY_FOR_MS = DAY;
 
 export type SharedItem = Extract<QueuedEvent, { kind: "share" }>;
 
+export function latestAlarms(events: readonly QueuedEvent[]): { current: QueuedEvent[]; superseded: Extract<QueuedEvent, { kind: "alarm" }>[] } {
+	const timed = events.flatMap((event) => (event.kind === "alarm" && event.device === undefined ? [event] : []));
+	const superseded = timed.filter((event) => timed.some((other) => other.trigger === event.trigger && (other.at > event.at || (other.at === event.at && other.id > event.id))));
+	return { current: events.filter((event) => !superseded.some((old) => old.id === event.id)), superseded };
+}
+
 export async function deliverEvents(
 	queue: { events: readonly QueuedEvent[]; unreadable: readonly string[] },
 	handle: (event: QueuedEvent) => Promise<void>,
@@ -70,7 +76,14 @@ export function processTriggerEvents(
 		orLogged(
 			inTurn(async () => {
 				try {
-					const handled = await deliverEvents(await takeEvents(), handle, async (event, error) => {
+					const queue = await takeEvents();
+					const { current, superseded } = latestAlarms(queue.events);
+					for (const trigger of new Set(superseded.map((event) => event.trigger))) {
+						const missed = superseded.filter((event) => event.trigger === trigger).length;
+						log.info("trigger.missed", { trigger, missed });
+						await orLogged(runtime.triggers.missed(trigger, missed), "trigger.missed_notice_failed", undefined, { trigger });
+					}
+					const handled = await deliverEvents({ events: current, unreadable: [...queue.unreadable, ...superseded.map((event) => event.id)] }, handle, async (event, error) => {
 						if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
 					});
 					if (handled.length > 0) await Triggers.ack({ ids: handled });

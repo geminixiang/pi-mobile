@@ -20,13 +20,14 @@ assert.equal(agenda(Array.from({ length: 33 }, (_, index) => item(`job ${index}`
 
 const stored = { id: "i1", title: "等王先生回信", bot: 1, createdAt: 0, updatedAt: 0 };
 assert.deepEqual(
-	schedulesOf({ ...stored, state: "waiting", waitingOn: "王先生", wake: { app: "Gmail", contains: "王" }, nextAt: at(9) }, "plane").map((schedule) => [schedule.id, schedule.when]),
+	schedulesOf({ ...stored, state: "waiting", waitingOn: "王先生", wake: { app: "Gmail", contains: "王" }, nextAt: at(9) }, "plane", at(8)).map((schedule) => [schedule.id, schedule.when]),
 	[
 		["item:i1", { kind: "once", at: at(9) }],
 		["reply:i1", { kind: "notification", app: "Gmail", contains: "王", days: [], gapHours: 1 }],
 	],
 );
-assert.deepEqual(schedulesOf({ ...stored, state: "done", doneAt: 0, nextAt: at(9) }, "plane"), []);
-assert.deepEqual(schedulesOf({ ...stored, state: "todo" }, undefined), []);
+assert.deepEqual(schedulesOf({ ...stored, state: "done", doneAt: 0, nextAt: at(9) }, "plane", at(8)), []);
+assert.deepEqual(schedulesOf({ ...stored, state: "todo" }, undefined, at(8)), []);
+assert.deepEqual(schedulesOf({ ...stored, state: "todo", nextAt: at(1) }, undefined, at(20)).map((schedule) => schedule.when), [{ kind: "once", at: at(20) }], "an item overdue by any length of time is still owed, so it is armed for now");
 
 console.log("items: an item's next time is an alarm and a waited-for reply is a notification watch; the widget's agenda is the user's todo items due by the end of today, then undated ones, each with its bot, all of them so the widget's count is the real one");
