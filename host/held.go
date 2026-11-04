@@ -35,7 +35,6 @@ var (
 	heartbeatEvery = 5 * time.Second
 )
 
-
 type message struct {
 	text bool
 	data []byte

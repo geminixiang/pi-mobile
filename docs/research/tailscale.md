@@ -1,6 +1,6 @@
 # Tailscale：`pi-mobile serve` 怎麼拿它當驗證
 
-2026-10-23。`pi-mobile serve` 不用密碼、金鑰或 SSH，只靠 Tailscale：它只聽這台電腦的 Tailscale IPv4 位址，每個請求都用 `tailscale whois` 確認對方是同一個 Tailscale 使用者的裝置（`host/main.go` 的 `owner`、`guard`）。這份整理這件事依賴的 Tailscale 行為，以及它的邊界。原始碼出處是 [tailscale/tailscale](https://github.com/tailscale/tailscale)。
+2026-10-23。`pi-mobile serve` 不用密碼、金鑰或 SSH，只靠 Tailscale：它只聽這台電腦的 Tailscale IPv4 位址，每個請求都用 `tailscale whois` 確認對方是同一個 Tailscale 使用者的裝置（`host/tailnet.go` 的 `owner`，`host/main.go` 的 `guard`）。這份整理這件事依賴的 Tailscale 行為，以及它的邊界。原始碼出處是 [tailscale/tailscale](https://github.com/tailscale/tailscale)。
 
 ## `whois` 回什麼
 
@@ -36,7 +36,7 @@
   - **Standalone**：在 app 的設定裡安裝 CLI 後，有 `/usr/local/bin/tailscale`。
   - **App Store 版**：直接執行 `/Applications/Tailscale.app/Contents/MacOS/Tailscale`。
 - **在腳本裡用時**：官方建議寫完整路徑；如果執行後打開的是 app 而不是 CLI，就設 **`TAILSCALE_BE_CLI=1`**。（[CLI](https://tailscale.com/docs/reference/tailscale-cli?tab=macos)）
-- **我們的做法**（`host/main.go` 的 `tailscaleCLI`、`tailscaleJSON`）：
+- **我們的做法**（`host/tailnet.go` 的 `tailscaleCLI`、`tailscaleJSON`）：
   - 先在 PATH 上找 `tailscale`，找不到再依序試 `/Applications/Tailscale.app/Contents/MacOS/Tailscale`（大小寫正確）、`/usr/bin`、`/usr/local/bin`、`/opt/homebrew/bin`。
   - 每次執行都帶官方的 `TAILSCALE_BE_CLI=1`，10 秒逾時。
   - 2026-10-23 的第一版塞 `TERM=dumb`，並用小寫路徑；`ac8959c` 改成上面的做法。

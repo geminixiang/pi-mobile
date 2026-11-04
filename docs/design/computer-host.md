@@ -7,7 +7,7 @@
 1. 電腦上已經裝好 Tailscale，並且登入跟手機同一個帳號。
 2. 在電腦的終端機執行一次：
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/geminixiang/pi-mobile/main/host/install.sh | sh
+   curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh
    ```
    它會下載對應平台的 `pi-mobile`，比對 checksum，設定成登入時自動啟動（macOS 用 launchd，Linux 用 `systemd --user`），用 `pi-mobile status` 從這台電腦的 Tailscale 位址確認它有回應，最後印出要在手機上輸入的名稱和一組配對碼（15 分鐘內有效）。
    - 從**最新的 release** 下載（`releases/latest/download`）。每個 release 由 `.github/workflows/release.yml` 從同一個 commit 建出 APK 和電腦端：4 個平台的 `pi-mobile-<os>-<arch>`、`pi-mobile.icns`，以及涵蓋所有檔案的 `pi-mobile.sha256`。所以手機和電腦的版本永遠成對。
@@ -52,6 +52,7 @@
   - `/info` 也回報 login shell 找得到、而且 `info` 答得出來的容器引擎（docker、podman、nerdctl）。
   - `DELETE /unpair`：撤銷呼叫者自己的金鑰，回 204；金鑰不在清單上回 404。
   - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS 或 Linux、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
+- **Tailscale 只在 `host/tailnet.go`**：CLI 的位置和呼叫、`status` 的快取、聽哪個位址（`listen`）、來源是不是同一個使用者的裝置（`owner`、`mine`）、`/peers` 列出的電腦。「同一個使用者、沒有 tag」只由 `mine` 決定，來源檢查和 `/peers` 共用。之後要支援別的網路，換掉的是這一個檔。
 - **兩邊共用的值只寫在 `host/protocol.json`**：電腦保留 session 的分鐘數、輸入結束的訊號、stdout／stderr 的標記、`heartbeat` 的參數值、pi-env 的 ping 封包。Go 用 `go:embed`（`host/protocol.go`），手機直接 import。手機放棄重接的時間（`RESUME_LIMIT_MS`）必須比電腦保留的短，`test/contracts/resume.ts` 檢查這件事。
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，電腦上的 pi-mobile 不用跟著更新。
 - **呼叫 Tailscale CLI**：在 PATH 上找 `tailscale`，找不到就用 macOS app 裡的執行檔。那個執行檔從 launchd 啟動時不會自己當 CLI 用，照 Tailscale 文件設 `TAILSCALE_BE_CLI=1`（`docs/research/tailscale.md`）。
