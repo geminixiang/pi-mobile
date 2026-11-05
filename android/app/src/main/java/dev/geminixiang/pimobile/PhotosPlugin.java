@@ -18,7 +18,6 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-import com.getcapacitor.annotation.PermissionCallback;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,28 +44,8 @@ public class PhotosPlugin extends Plugin {
             || getPermissionState("selected") == PermissionState.GRANTED;
     }
 
-    private boolean ensurePermission(PluginCall call, String callback) {
-        if (allowed()) return true;
-        if (!TriggersPlugin.inFront(getActivity())) {
-            call.reject("pi has no photos permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.");
-            return false;
-        }
-        requestPermissionForAliases(new String[] { "photos", "selected" }, call, callback);
-        return false;
-    }
-
     @PluginMethod
     public void search(PluginCall call) {
-        if (ensurePermission(call, "searchResult")) list(call);
-    }
-
-    @PermissionCallback
-    private void searchResult(PluginCall call) {
-        if (allowed()) list(call);
-        else call.reject("photos permission denied", "permission");
-    }
-
-    private void list(PluginCall call) {
         long from = call.getData().optLong("from", 0L);
         long to = call.getData().optLong("to", Long.MAX_VALUE);
         int limit = call.getInt("limit", 200);

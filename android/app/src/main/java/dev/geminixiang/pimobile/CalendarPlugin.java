@@ -8,13 +8,11 @@ import android.net.Uri;
 import android.provider.CalendarContract;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
-import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-import com.getcapacitor.annotation.PermissionCallback;
 import java.util.Objects;
 import java.util.TimeZone;
 
@@ -23,16 +21,6 @@ import java.util.TimeZone;
     permissions = { @Permission(strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR }, alias = "calendar") }
 )
 public class CalendarPlugin extends Plugin {
-
-    private boolean ensurePermission(PluginCall call, String callback) {
-        if (getPermissionState("calendar") == PermissionState.GRANTED) return true;
-        if (!TriggersPlugin.inFront(getActivity())) {
-            call.reject("pi has no calendar permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.");
-            return false;
-        }
-        requestPermissionForAlias("calendar", call, callback);
-        return false;
-    }
 
     private static final class CalendarRow {
         long id;
@@ -76,16 +64,6 @@ public class CalendarPlugin extends Plugin {
 
     @PluginMethod
     public void listEvents(PluginCall call) {
-        if (ensurePermission(call, "eventsResult")) events(call);
-    }
-
-    @PermissionCallback
-    private void eventsResult(PluginCall call) {
-        if (getPermissionState("calendar") == PermissionState.GRANTED) events(call);
-        else call.reject("calendar permission denied", "permission");
-    }
-
-    private void events(PluginCall call) {
         Background.run(call, () -> {
             boolean includeShared = Boolean.TRUE.equals(call.getBoolean("includeShared", false));
             java.util.Map<Long, CalendarRow> calendars = new java.util.HashMap<>();
@@ -152,16 +130,6 @@ public class CalendarPlugin extends Plugin {
 
     @PluginMethod
     public void listAccounts(PluginCall call) {
-        if (ensurePermission(call, "accountsResult")) accounts(call);
-    }
-
-    @PermissionCallback
-    private void accountsResult(PluginCall call) {
-        if (getPermissionState("calendar") == PermissionState.GRANTED) accounts(call);
-        else call.reject("calendar permission denied", "permission");
-    }
-
-    private void accounts(PluginCall call) {
         Background.run(call, () -> {
             JSArray calendars = new JSArray();
             for (CalendarRow row : visibleCalendars()) {
@@ -185,16 +153,6 @@ public class CalendarPlugin extends Plugin {
 
     @PluginMethod
     public void insertEvent(PluginCall call) {
-        if (ensurePermission(call, "insertResult")) insert(call);
-    }
-
-    @PermissionCallback
-    private void insertResult(PluginCall call) {
-        if (getPermissionState("calendar") == PermissionState.GRANTED) insert(call);
-        else call.reject("calendar permission denied", "permission");
-    }
-
-    private void insert(PluginCall call) {
         Background.run(call, () -> {
             JSObject args = call.getData();
             if (!args.has("calendarId") || !args.has("begin") || !args.has("end")) {
@@ -236,16 +194,6 @@ public class CalendarPlugin extends Plugin {
 
     @PluginMethod
     public void deleteEvent(PluginCall call) {
-        if (ensurePermission(call, "deleteResult")) delete(call);
-    }
-
-    @PermissionCallback
-    private void deleteResult(PluginCall call) {
-        if (getPermissionState("calendar") == PermissionState.GRANTED) delete(call);
-        else call.reject("calendar permission denied", "permission");
-    }
-
-    private void delete(PluginCall call) {
         Background.run(call, () -> {
             JSObject args = call.getData();
             String id = args.optString("id");

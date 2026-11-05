@@ -11,13 +11,11 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Data;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
-import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-import com.getcapacitor.annotation.PermissionCallback;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -25,28 +23,8 @@ import java.util.Objects;
 @CapacitorPlugin(name = "Contacts", permissions = { @Permission(strings = { Manifest.permission.READ_CONTACTS }, alias = "contacts") })
 public class ContactsPlugin extends Plugin {
 
-    private boolean ensurePermission(PluginCall call, String callback) {
-        if (getPermissionState("contacts") == PermissionState.GRANTED) return true;
-        if (!TriggersPlugin.inFront(getActivity())) {
-            call.reject("pi has no contacts permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.");
-            return false;
-        }
-        requestPermissionForAlias("contacts", call, callback);
-        return false;
-    }
-
     @PluginMethod
     public void search(PluginCall call) {
-        if (ensurePermission(call, "searchResult")) run(call);
-    }
-
-    @PermissionCallback
-    private void searchResult(PluginCall call) {
-        if (getPermissionState("contacts") == PermissionState.GRANTED) run(call);
-        else call.reject("contacts permission denied", "permission");
-    }
-
-    private void run(PluginCall call) {
         Background.run(call, () -> {
             String query = call.getString("query", "").trim();
             ContentResolver resolver = getContext().getContentResolver();

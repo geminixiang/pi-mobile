@@ -17,6 +17,7 @@ import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCl
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
 import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar-access.ts";
 import { Calendar, type PhoneCalendar } from "../plugins/calendar.ts";
+import { phonePermissions } from "../interaction/phone-permissions.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../triggers/runs.ts";
@@ -182,6 +183,11 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 			({ calendars }) => setCalendars(calendars),
 			(failure: unknown) => setError(messageOf(failure)),
 		);
+	const askThenLoad = () =>
+		phonePermissions.request("calendar").then(
+			(allowed) => (allowed ? load() : setError("沒有行事曆權限，到手機設定開啟")),
+			(failure: unknown) => setError(messageOf(failure)),
+		);
 	useEffect(() => {
 		if (!native.has("Calendar")) return;
 		void Calendar.checkPermissions().then(({ calendar }) => {
@@ -231,7 +237,7 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 	return (
 		<RowList title="行事曆">
 			{calendars === undefined ? (
-				<button type="button" onClick={() => void load()}>
+				<button type="button" onClick={() => void askThenLoad()}>
 					<span className="menu-text">
 						讀取帳號清單
 						{error ? <span className="index-status error">{error}</span> : null}

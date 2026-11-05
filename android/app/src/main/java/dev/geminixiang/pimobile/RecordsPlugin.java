@@ -9,13 +9,11 @@ import android.provider.ContactsContract.PhoneLookup;
 import android.provider.Telephony;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
-import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-import com.getcapacitor.annotation.PermissionCallback;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -29,28 +27,8 @@ import java.util.Objects;
 )
 public class RecordsPlugin extends Plugin {
 
-    private boolean ensure(PluginCall call, String alias, String callback) {
-        if (getPermissionState(alias) == PermissionState.GRANTED) return true;
-        if (!TriggersPlugin.inFront(getActivity())) {
-            call.reject("pi has no " + alias + " permission yet, and cannot ask for it while it is in the background. Ask the user to open pi and allow it.");
-            return false;
-        }
-        requestPermissionForAlias(alias, call, callback);
-        return false;
-    }
-
     @PluginMethod
     public void calls(PluginCall call) {
-        if (ensure(call, "calls", "callsResult")) readCalls(call);
-    }
-
-    @PermissionCallback
-    private void callsResult(PluginCall call) {
-        if (getPermissionState("calls") == PermissionState.GRANTED) readCalls(call);
-        else call.reject("call log permission denied", "permission");
-    }
-
-    private void readCalls(PluginCall call) {
         Background.run(call, () -> {
             long since = call.getData().optLong("since", 0L);
             int limit = call.getInt("limit", 50);
@@ -104,16 +82,6 @@ public class RecordsPlugin extends Plugin {
 
     @PluginMethod
     public void sms(PluginCall call) {
-        if (ensure(call, "sms", "smsResult")) readSms(call);
-    }
-
-    @PermissionCallback
-    private void smsResult(PluginCall call) {
-        if (getPermissionState("sms") == PermissionState.GRANTED) readSms(call);
-        else call.reject("SMS permission denied", "permission");
-    }
-
-    private void readSms(PluginCall call) {
         Background.run(call, () -> {
             long since = call.getData().optLong("since", 0L);
             int limit = call.getInt("limit", 50);
