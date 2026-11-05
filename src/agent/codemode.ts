@@ -74,18 +74,48 @@ function compiles(code: string): boolean {
 	}
 }
 
+function lastStatement(line: string): { start: number; closed: boolean } {
+	let depth = 0;
+	let quote = "";
+	let start = line.length - line.trimStart().length;
+	let afterSemicolon: number | undefined;
+	for (let at = start; at < line.length; at++) {
+		const char = line.charAt(at);
+		if (quote) {
+			if (char === "\\") at++;
+			else if (char === quote) quote = "";
+			continue;
+		}
+		if (char === "/" && line.charAt(at + 1) === "/") break;
+		if (char === " " || char === "\t") continue;
+		if (char === ";" && depth === 0) {
+			afterSemicolon = at + 1;
+			continue;
+		}
+		if (afterSemicolon !== undefined) start = at;
+		afterSemicolon = undefined;
+		if (`"'\``.includes(char)) quote = char;
+		else if ("([{".includes(char)) depth++;
+		else if (")]}".includes(char)) depth--;
+	}
+	return { start, closed: quote === "" && depth === 0 };
+}
+
 export function returnLast(code: string): string {
 	const lines = code.split("\n");
 	const meaningful = (line: string) => line.trim() !== "" && !line.trim().startsWith("//");
 	const indent = (line: string) => line.length - line.trimStart().length;
 	const top = Math.min(...lines.filter(meaningful).map(indent));
 	const index = lines.findLastIndex((line) => meaningful(line) && indent(line) === top && !CONTINUATION.test(line.trim()));
-	const head = lines[index]?.trimStart();
-	if (head === undefined) return code;
+	const line = lines[index];
+	if (line === undefined) return code;
+	const { start, closed } = lastStatement(line);
+	const head = line.slice(start);
 	const declared = DECLARED.exec(head)?.[1];
-	const followed = head.replace(/;\s*$/, "").includes(";") || lines.slice(index + 1).some((line) => meaningful(line) && !CONTINUATION.test(line.trim()));
-	if (!declared && (STATEMENT.test(head) || followed)) return code;
-	const rewritten = declared ? `${code}\nreturn ${declared}` : lines.map((line, at) => (at === index ? line.replace(head, `return ${head}`) : line)).join("\n");
+	const followed = lines.slice(index + 1).some((line) => meaningful(line) && !CONTINUATION.test(line.trim()));
+	// why: the scan does not know regex literals, so an open quote or bracket may mean it lost a statement boundary; a return placed before that boundary would skip what follows it
+	if (!declared && (!closed || STATEMENT.test(head) || followed)) return code;
+	const rewritten = declared ? `${code}\nreturn ${declared}` : lines.map((other, at) => (at === index ? `${line.slice(0, start)}return ${head}` : other)).join("\n");
 	return compiles(code) && compiles(rewritten) ? rewritten : code;
 }
 
