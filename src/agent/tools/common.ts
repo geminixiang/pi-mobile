@@ -4,6 +4,7 @@ import { defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolR
 import { type Context, isJsonValue, type JsonValue } from "@earendil-works/chord";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
+import { log } from "../../log.ts";
 import { parseJson } from "../parse.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
 
@@ -100,7 +101,15 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 			const [first] = Value.Errors(tool.parameters, args);
 			throw new Error(first ? `${first.instancePath || "arguments"} ${first.message}` : "invalid arguments");
 		},
-		execute: (args, api, context) => execute(typeboxArgs<TParameters>(args), api, context),
+		execute: async (args, api, context) => {
+			const started = Date.now();
+			log.info("tool.start", { tool: tool.name });
+			try {
+				return await execute(typeboxArgs<TParameters>(args), api, context);
+			} finally {
+				log.info("tool.end", { tool: tool.name, ms: Date.now() - started });
+			}
+		},
 	});
 	declarations.set(registration, { effect, needs, ...(asks ? { asks } : {}) });
 	return registration;
