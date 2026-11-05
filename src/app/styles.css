@@ -225,6 +225,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 		linear-gradient(var(--grid-major) 0 1px, transparent 1px 20px),
 		linear-gradient(to right, var(--grid-major) 0 1px, transparent 1px 20px),
 		radial-gradient(circle at center, transparent 2px, var(--bg) 2px 100%),
+.bar.bare { border-bottom-color: transparent; }
 		linear-gradient(var(--grid-cross) 0 1px, transparent 1px 20px),
 		linear-gradient(to right, var(--grid-cross) 0 1px, transparent 1px 20px);
 	background-size: 100% 100%, 4px 4px, 4px 4px, 20px 20px, 20px 20px, 20px 20px, 20px 20px, 20px 20px;
@@ -772,6 +773,12 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .drawer-item.current { background: var(--panel-2); }
 .drawer-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 6px 12px var(--side-inset); text-align: left; }
 .drawer-title { flex: 1; display: flex; align-items: center; gap: 8px; font-size: var(--fs-ui); white-space: nowrap; overflow: hidden; }
+.first-sign-in { margin: auto calc(-1 * var(--space)) 0; display: flex; flex-direction: column; gap: 12px; }
+.first-sign-in > .btn { width: 100%; height: 56px; border: 0; background: var(--accent); color: var(--bg); font-family: inherit; font-size: var(--fs-ui); font-weight: 700; }
+.first-sign-in > .btn::before, .first-sign-in > .btn::after { content: none; }
+.first-sign-in > .btn:disabled { opacity: 0.6; }
+.first-sign-in > .note { margin: 0 var(--space); }
+.first-sign-in > .link { align-self: center; padding: 6px 12px; font-size: var(--fs-small); color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .drawer-time { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 .drawer-settings { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; color: var(--text); }
 .drawer-settings > svg { color: var(--muted); }

@@ -215,6 +215,11 @@ export async function saveProviderOAuth(id: string, json: string): Promise<void>
 	await saveRotatingSecret(providerOAuthKey(id), json);
 }
 
+export function signedInWithChatGPT(settings: Settings, credential: string): Settings {
+	const openai: ProviderConfig = { kind: "builtin", id: "openai" };
+	return { ...settings, providers: [openai], providerOAuth: { ...settings.providerOAuth, openai: credential }, defaultProvider: openai.id };
+}
+
 export function isConfigured(settings: Settings): boolean {
 	return usableProviders(settings).length > 0;
 }

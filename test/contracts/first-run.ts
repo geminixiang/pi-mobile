@@ -6,12 +6,20 @@ import { runFailureNote } from "../../src/agent/entries.ts";
 import { customProvider } from "../../src/agent/models.ts";
 import { AgentRuntime } from "../../src/agent/runtime.ts";
 import { liveOf } from "../../src/app/docs.ts";
-import { isConfigured, type Settings } from "../../src/settings.ts";
+import { isConfigured, type Settings, signedInWithChatGPT } from "../../src/settings.ts";
 import { type Check, platform, settings, settle } from "./setup.ts";
 
 const withProvider = (baseUrl: string): Settings => ({ ...settings, providers: [{ kind: "custom", id: "custom", name: "", baseUrl }], providerKeys: {}, providerOAuth: {} });
 
 export const checks: Check[] = [
+	[
+		"signing in with ChatGPT on the first screen is enough to start, on OpenAI",
+		async () => {
+			const ready = signedInWithChatGPT(settings, "{}");
+			assert.equal(isConfigured(ready), true);
+			assert.equal(ready.defaultProvider, "openai");
+		},
+	],
 	[
 		"a custom endpoint with no address is not enough to start, the same way its form says so",
 		async () => {

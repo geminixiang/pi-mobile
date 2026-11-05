@@ -22,7 +22,7 @@ import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
-import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings } from "../settings.ts";
+import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings, signedInWithChatGPT } from "../settings.ts";
 import { AutomationIcon, AzureMark, CloudflareMark, DatabaseIcon, GitHubMark, GoogleCloudMark, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { PageStack } from "./PageStack.tsx";
@@ -30,7 +30,7 @@ import { pairedHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { RowList } from "./RowList.tsx";
-import { ProvidersGroup } from "./ProvidersGroup.tsx";
+import { FirstSignIn, ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
@@ -613,6 +613,8 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	const onDraft = props.mode === "app" ? props.onDraft : undefined;
 	const [saving, setSaving] = useState(false);
 	const [settings, setSettings] = useState(initial);
+	const [manual, setManual] = useState(settings.providers.length > 0 || !native.has("Loopback"));
+	const firstScreen = props.mode === "setup" && !manual;
 	const { value: update } = useLoaded(inApp && native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
 	const changed = changedKeys(initial, settings).length > 0;
 
@@ -624,6 +626,15 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		setPage(next);
 	};
 	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
+	const start = (ready: Settings) => {
+		if (props.mode !== "setup") return;
+		setSaving(true);
+		setProblem(undefined);
+		props
+			.onSave(ready)
+			.catch((error: unknown) => setProblem(`沒有存下來：${messageOf(error)}`))
+			.finally(() => setSaving(false));
+	};
 
 	const models = (
 		<>
@@ -737,26 +748,15 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	return (
 		<PageStack side="left" top={page ? { key: page, content: top(page), onBack: back } : undefined}>
 			<div className="screen">
-				<header className="bar">
+				<header className={firstScreen ? "bar bare" : "bar"}>
 					{props.mode === "app" ? <BackButton onClick={props.onCancel} /> : <span className="bar-spacer" />}
-					<h1 className="bar-heading">設定</h1>
-					{props.mode === "app" ? (
-						<span className="bar-spacer" />
-					) : (
-						<button
-							type="button"
-							className="btn primary"
-							disabled={!isConfigured(settings) || saving}
-							onClick={() => {
-								setSaving(true);
-								setProblem(undefined);
-								props
-									.onSave(settings)
-									.catch((error: unknown) => setProblem(`沒有存下來：${messageOf(error)}`))
-									.finally(() => setSaving(false));
-							}}>
+					<h1 className="bar-heading">{firstScreen ? "" : "設定"}</h1>
+					{props.mode === "setup" && manual ? (
+						<button type="button" className="btn primary" disabled={!isConfigured(settings) || saving} onClick={() => start(settings)}>
 							{saving ? "開始中…" : "開始"}
 						</button>
+					) : (
+						<span className="bar-spacer" />
 					)}
 				</header>
 				<form className="settings" onSubmit={(event) => event.preventDefault()}>
@@ -768,24 +768,41 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 								<br />
 								只屬於<em>你</em>。
 							</h2>
-							<p>加入一個模型供應商就能開始。對話和金鑰都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
+							<p>
+								{manual ? "加入一個模型供應商就能開始。" : ""}對話和金鑰都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。
+							</p>
 						</div>
 					)}
 					{props.mode === "setup" && props.status ? <div className="banner error">{props.status}</div> : null}
 					{page ? null : banner}
-					{props.mode === "app" ? <SettingsIndex settings={settings} runtime={runtime} onOpen={go} /> : models}
-					<p className="about">
-						pi mobile · {__BUILD__}
-						{inApp ? (
-							<>
-								<UpdateLink update={update} />
-								{" · "}
-								<button type="button" className="link" onClick={() => void shareDiagnostics().catch((error: unknown) => setProblem(messageOf(error)))}>
-									分享診斷記錄
-								</button>
-							</>
-						) : null}
-					</p>
+					{props.mode === "app" ? (
+						<SettingsIndex settings={settings} runtime={runtime} onOpen={go} />
+					) : manual ? (
+						models
+					) : (
+						<FirstSignIn
+							onSignIn={(credential) => {
+								const ready = signedInWithChatGPT(settings, credential);
+								setSettings(ready);
+								start(ready);
+							}}
+							onManual={() => setManual(true)}
+						/>
+					)}
+					{firstScreen ? null : (
+						<p className="about">
+							pi mobile · {__BUILD__}
+							{inApp ? (
+								<>
+									<UpdateLink update={update} />
+									{" · "}
+									<button type="button" className="link" onClick={() => void shareDiagnostics().catch((error: unknown) => setProblem(messageOf(error)))}>
+										分享診斷記錄
+									</button>
+								</>
+							) : null}
+						</p>
+					)}
 				</form>
 			</div>
 		</PageStack>

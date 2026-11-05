@@ -17,8 +17,37 @@ import { hostOf } from "../parse.ts";
 
 type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;
 
-function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: string) => void }) {
+function useChatGPTSignIn(onSignIn: (json: string) => void) {
 	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "error"; message: string }>({ kind: "idle" });
+	const start = () => {
+		setState({ kind: "busy" });
+		signInWithChatGPT((url) => System.openExternal({ url }))
+			.then((credential) => {
+				setState({ kind: "idle" });
+				onSignIn(JSON.stringify(credential));
+			})
+			.catch((error: unknown) => setState({ kind: "error", message: messageOf(error) }));
+	};
+	return { state, start };
+}
+
+export function FirstSignIn({ onSignIn, onManual }: { onSignIn: (json: string) => void; onManual: () => void }) {
+	const { state, start } = useChatGPTSignIn(onSignIn);
+	return (
+		<div className="first-sign-in">
+			<button type="button" className="btn primary" disabled={state.kind === "busy"} onClick={start}>
+				{state.kind === "busy" ? "登入中…" : "用 ChatGPT 登入"}
+			</button>
+			{state.kind === "error" ? <p className="note error">{state.message}</p> : null}
+			<button type="button" className="link" onClick={onManual}>
+				我有 API key
+			</button>
+		</div>
+	);
+}
+
+function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: string) => void }) {
+	const { state, start } = useChatGPTSignIn(onSignIn);
 	if (signIn) {
 		return (
 			<Row label="已用 ChatGPT 登入">
@@ -34,20 +63,7 @@ function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: 
 				或用 ChatGPT 訂閱
 				{state.kind === "error" ? <span className="menu-hint error">{state.message}</span> : null}
 			</span>
-			<button
-				type="button"
-				className="btn"
-				disabled={state.kind === "busy"}
-				onClick={() => {
-					setState({ kind: "busy" });
-					signInWithChatGPT((url) => System.openExternal({ url }))
-						.then((credential) => {
-							setState({ kind: "idle" });
-							onSignIn(JSON.stringify(credential));
-						})
-						.catch((error: unknown) => setState({ kind: "error", message: messageOf(error) }));
-				}}
-			>
+			<button type="button" className="btn" disabled={state.kind === "busy"} onClick={start}>
 				{state.kind === "busy" ? "登入中…" : "登入"}
 			</button>
 		</div>
