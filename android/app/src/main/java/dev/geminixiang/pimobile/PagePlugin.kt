@@ -15,7 +15,6 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.io.File
-import kotlin.concurrent.thread
 
 private const val IDLE_MS = 60_000L
 
@@ -25,15 +24,14 @@ class PagePlugin : Plugin() {
 
     private val main = Handler(Looper.getMainLooper())
     private val requests = HashMap<Int, Request>()
-    private val unsent = ArrayList<Int>()
     private val replies = Messenger(
         Handler(Looper.getMainLooper()) { message ->
             requests.remove(message.arg1)?.let { answer(it, message) }
-            idleLater()
+            if (requests.isEmpty()) main.postDelayed(release, IDLE_MS)
             true
         },
     )
-    private val release = Runnable { if (requests.isEmpty()) unbind() }
+    private val release = Runnable(::unbind)
     private var nextId = 0
     private var bound = false
     private var worker: Messenger? = null
@@ -41,15 +39,12 @@ class PagePlugin : Plugin() {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             worker = Messenger(service)
-            unsent.forEach(::post)
-            unsent.clear()
+            requests.forEach(::post)
         }
 
         override fun onServiceDisconnected(name: ComponentName) = workerGone()
 
         override fun onBindingDied(name: ComponentName) = workerGone()
-
-        override fun onNullBinding(name: ComponentName) = workerGone()
     }
 
     @PluginMethod
@@ -67,15 +62,15 @@ class PagePlugin : Plugin() {
         main.post {
             main.removeCallbacks(release)
             val id = nextId++
-            requests[id] = Request(kind, call)
-            if (worker != null) post(id) else unsent.add(id)
+            val request = Request(kind, call)
+            requests[id] = request
+            post(id, request)
             if (!bound) bound = context.bindService(Intent(context, PageWorker::class.java), connection, Context.BIND_AUTO_CREATE)
             if (!bound) workerGone()
         }
     }
 
-    private fun post(id: Int) {
-        val request = requests[id] ?: return
+    private fun post(id: Int, request: Request) {
         worker?.send(Message.obtain().also {
             it.what = request.kind
             it.arg1 = id
@@ -94,7 +89,7 @@ class PagePlugin : Plugin() {
             return request.call.resolve(out)
         }
         val file = File(data.getString(PageWorker.FILE).orEmpty())
-        thread {
+        Background.run(request.call) {
             val out = JSObject()
             out.put("html", file.readText())
             out.put("title", data.getString(PageWorker.TITLE))
@@ -107,18 +102,12 @@ class PagePlugin : Plugin() {
     }
 
     private fun workerGone() {
-        val lost = requests.values.toList()
-        requests.clear()
-        unsent.clear()
-        unbind()
-        lost.forEach {
+        DeviceLog.event(context, "warn", "page.worker_gone", "${requests.size} pages were waiting")
+        requests.values.forEach {
             if (it.kind == PageWorker.CHECK) it.call.resolve(JSObject()) else it.call.reject("the page stopped responding")
         }
-    }
-
-    private fun idleLater() {
-        main.removeCallbacks(release)
-        if (requests.isEmpty()) main.postDelayed(release, IDLE_MS)
+        requests.clear()
+        unbind()
     }
 
     private fun unbind() {

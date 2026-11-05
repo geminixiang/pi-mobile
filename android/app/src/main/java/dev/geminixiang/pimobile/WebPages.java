@@ -39,6 +39,8 @@ final class WebPages {
     abstract static class WebOnly extends WebViewClient {
         abstract void blocked(String reason);
 
+        abstract void gone();
+
         @Override
         public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
             return !isWeb(request.getUrl());
@@ -52,7 +54,7 @@ final class WebPages {
 
         @Override
         public boolean onRenderProcessGone(WebView webView, RenderProcessGoneDetail detail) {
-            blocked(webView.getUrl() + ": its renderer stopped");
+            gone();
             return true;
         }
 

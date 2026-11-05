@@ -12,6 +12,7 @@ import android.os.Message
 import android.os.Messenger
 import android.os.Process
 import android.view.View
+import androidx.core.os.bundleOf
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -28,9 +29,10 @@ private const val CHECK_MS = 15_000L
 private const val ANSWER_MS = 3_000L
 private const val EXIT_MS = 100L
 private const val DATA_SUFFIX = "webpages"
+private const val TEXT_LENGTH = "document.body ? document.body.innerText.length : 0"
 private const val READ = "(function(){return JSON.stringify([document.documentElement.outerHTML, document.body ? document.body.innerText.length : 0, document.title, location.href]);})()"
 
-// why: Android WebViews in one process share one renderer and its main thread, so a page spinning in pi's process froze pi with it; this process has its own renderer, and the worker ends itself when a page stops answering
+// why: a page spinning on pi's profile froze pi with it; here it cannot reach pi's renderer, and the WebView's browser side (network, GPU, callbacks) is away from pi's main thread too, which a separate profile alone would not give
 class PageWorker : Service() {
     private val main = Handler(Looper.getMainLooper())
     private val messenger = Messenger(
@@ -56,29 +58,24 @@ class PageWorker : Service() {
         main.postDelayed({ Process.killProcess(Process.myPid()) }, EXIT_MS)
     }
 
-    private inner class Reply(private val to: Messenger, private val id: Int) {
+    private class Reply(private val to: Messenger, val id: Int) {
         fun send(data: Bundle) {
             to.send(Message.obtain().also {
                 it.arg1 = id
                 it.data = data
             })
         }
-
-        fun sendHtml(html: String, data: Bundle) {
-            val file = File(pagesDir(this@PageWorker), "$id.html").also { it.writeText(html) }
-            data.putString(FILE, file.path)
-            send(data)
-        }
     }
 
     private inner class Check(private val url: String, private val reply: Reply) {
-        private lateinit var view: WebView
+        private val view = WebPages.create(this@PageWorker)
         private var done = false
 
         fun start() {
-            view = WebPages.create(this@PageWorker)
             view.webViewClient = object : WebPages.WebOnly() {
                 override fun blocked(reason: String) = finish(bundleOf(BLOCKED to reason))
+
+                override fun gone() = finish(Bundle())
 
                 override fun onPageCommitVisible(webView: WebView, pageUrl: String?) = finish(Bundle())
 
@@ -109,7 +106,7 @@ class PageWorker : Service() {
 
     private inner class Render(private val url: String, private val reply: Reply) {
         private val started = System.currentTimeMillis()
-        private lateinit var view: WebView
+        private val view = WebPages.create(this@PageWorker)
         private var loaded = false
         private var done = false
         private var lastLength = -1
@@ -117,12 +114,15 @@ class PageWorker : Service() {
         private var error: String? = null
 
         fun start() {
-            view = WebPages.create(this@PageWorker)
             view.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY))
             view.layout(0, 0, WIDTH, HEIGHT)
             view.webViewClient = object : WebPages.WebOnly() {
                 override fun blocked(reason: String) {
                     error = "pi blocked $reason"
+                }
+
+                override fun gone() {
+                    if (!done) fail("the page stopped responding")
                 }
 
                 override fun onPageStarted(webView: WebView, pageUrl: String?, favicon: Bitmap?) {
@@ -153,36 +153,32 @@ class PageWorker : Service() {
             if (done) return
             val now = System.currentTimeMillis()
             val late = now - started >= TOTAL_MS
-            val failure = error
-            if (failure != null && (loaded || late)) return fail("could not load the page: $failure")
+            if (error != null && (loaded || late)) return fail("could not load the page: $error")
             if (!loaded && !late) {
                 main.postDelayed(::poll, POLL_MS)
                 return
             }
-            view.evaluateJavascript(READ) { json -> read(json, late) }
+            view.evaluateJavascript(TEXT_LENGTH) { length -> settle(length.toIntOrNull() ?: 0, late) }
+        }
+
+        private fun settle(length: Int, late: Boolean) {
+            if (done) return
+            val time = System.currentTimeMillis()
+            if (length != lastLength) {
+                lastLength = length
+                sameSince = time
+            }
+            if (late || (length > 0 && time - sameSince >= SETTLED_MS)) view.evaluateJavascript(READ) { json -> read(json, late) }
+            else main.postDelayed(::poll, POLL_MS)
         }
 
         private fun read(json: String, late: Boolean) {
             if (done) return
             try {
                 val values = JSONArray(JSONArray("[$json]").getString(0))
-                val length = values.getInt(1)
-                val time = System.currentTimeMillis()
-                if (length != lastLength) {
-                    lastLength = length
-                    sameSince = time
-                }
-                if (!late && (length == 0 || time - sameSince < SETTLED_MS)) {
-                    main.postDelayed(::poll, POLL_MS)
-                    return
-                }
+                val file = File(cacheDir, "page-${reply.id}.html").also { it.writeText(values.getString(0)) }
                 close()
-                reply.sendHtml(values.getString(0), Bundle().apply {
-                    putString(TITLE, values.getString(2))
-                    putString(URL, values.getString(3))
-                    putLong(MS, time - started)
-                    putBoolean(SETTLED, !late)
-                })
+                reply.send(bundleOf(FILE to file.path, TITLE to values.getString(2), URL to values.getString(3), MS to System.currentTimeMillis() - started, SETTLED to !late))
             } catch (_: JSONException) {
                 if (late) fail("could not read the page") else main.postDelayed(::poll, POLL_MS)
             }
@@ -211,9 +207,5 @@ class PageWorker : Service() {
         const val MS = "ms"
         const val SETTLED = "settled"
         private var suffixed = false
-
-        fun pagesDir(context: android.content.Context): File = File(context.cacheDir, "pages").also { it.mkdirs() }
-
-        private fun bundleOf(entry: Pair<String, String>) = Bundle().apply { putString(entry.first, entry.second) }
     }
 }

@@ -41,6 +41,7 @@ private const val TAP_MS = 60L
 private const val USER_QUIET_MS = 4_000L
 private const val USER_WAIT_MS = 60_000L
 private const val EVAL_SECONDS = 10L
+private const val FROZEN_SECONDS = 2 * EVAL_SECONDS
 private const val PAGE_ANSWER_MS = 15_000L
 private const val ANSWER_CHANNEL = "piAnswer"
 private const val PAGE_SCRIPT = "public/page-controller.js"
@@ -81,6 +82,8 @@ internal class BrowserTab(
     window: Window,
     changed: (BrowserTab) -> Unit,
     idle: (BrowserTab) -> Unit,
+    private val frozen: (BrowserTab) -> Unit,
+    gone: (BrowserTab) -> Unit,
 ) {
     val view: WebView = WebPages.create(context)
     val expire = Runnable { idle(this) }
@@ -113,6 +116,8 @@ internal class BrowserTab(
                 override fun blocked(reason: String) {
                     blocked = reason
                 }
+
+                override fun gone() = gone(this@BrowserTab)
 
                 override fun onPageStarted(webView: WebView, url: String?, favicon: Bitmap?) {
                     loading = true
@@ -197,9 +202,10 @@ internal class BrowserTab(
         val result = CompletableFuture<String>()
         mainHandler.post { view.evaluateJavascript(script) { result.complete(it) } }
         return try {
-            Outcome.Ok(result.get(EVAL_SECONDS, TimeUnit.SECONDS))
+            Outcome.Ok(result.get(FROZEN_SECONDS, TimeUnit.SECONDS))
         } catch (timeout: TimeoutException) {
-            Outcome.Stopped("the page did not answer in $EVAL_SECONDS s")
+            frozen(this)
+            Outcome.Stopped("the page froze for $FROZEN_SECONDS s, so it and this bot's other tabs were closed; do not open it again")
         }
     }
 

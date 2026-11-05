@@ -38,6 +38,7 @@ internal class BotTabs(val bot: String) {
     val open = LinkedHashMap<String, BrowserTab>()
     var active: String? = null
     var next = 1
+    var frozen = false
     var shownAt: Placement? = null
     var width = DEFAULT_WIDTH
     var height = DEFAULT_HEIGHT
@@ -150,8 +151,7 @@ class BrowserPlugin : Plugin() {
             val tabs = bots.remove(bot)
             prefs.edit().remove(TABS_KEY + bot).apply()
             onMain {
-                tabs?.open?.values?.forEach(::destroy)
-                tabs?.open?.clear()
+                tabs?.let(::closeAll)
             }
             if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return@reply DONE
             val deleted =
@@ -214,6 +214,10 @@ class BrowserPlugin : Plugin() {
             val saved = JSONArray(prefs.getString(TABS_KEY + bot, "[]"))
             Outcome.Ok(onMain { if (tabs == null || tabs.open.isEmpty()) savedListing(bot, saved) else listing(tabs) })
         }
+
+    override fun handleOnDestroy() {
+        bots.values.forEach(::closeAll)
+    }
 
     override fun load() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
@@ -311,7 +315,7 @@ class BrowserPlugin : Plugin() {
     }
 
     private fun create(tabs: BotTabs): BrowserTab {
-        val tab = BrowserTab(tabs, (tabs.next++).toString(), context, activity.window, ::announce, ::expire)
+        val tab = BrowserTab(tabs, (tabs.next++).toString(), context, activity.window, ::announce, ::expire, ::forgetFrozen, ::rendererGone)
         tabs.open[tab.id] = tab
         if (tabs.active == null) tabs.active = tab.id
         mainHandler.postDelayed(tab.expire, IDLE_MS)
@@ -345,6 +349,30 @@ class BrowserPlugin : Plugin() {
         select(tabs, last)
     }
 
+    private fun forgetFrozen(tab: BrowserTab) = onMain {
+        if (tab.owner.open[tab.id] !== tab) return@onMain
+        DeviceLog.event(context, "warn", "browser.frozen", "bot ${tab.owner.bot}: its renderer was ended")
+        tab.owner.frozen = true
+        tab.view.webViewRenderProcess?.terminate()
+    }
+
+    private fun rendererGone(tab: BrowserTab) {
+        val tabs = tab.owner
+        if (tabs.open[tab.id] !== tab) return
+        val saved = prefs.getString(TABS_KEY + tabs.bot, null)
+        closeAll(tabs)
+        tabs.active = null
+        announceTabs(tabs)
+        if (!tabs.frozen && saved != null) prefs.edit().putString(TABS_KEY + tabs.bot, saved).apply()
+        tabs.frozen = false
+    }
+
+    private fun closeAll(tabs: BotTabs) {
+        val closing = tabs.open.values.toList()
+        tabs.open.clear()
+        closing.forEach(::destroy)
+    }
+
     private fun park(tab: BrowserTab) {
         tab.view.detach()
         tab.layOut()
@@ -354,6 +382,8 @@ class BrowserPlugin : Plugin() {
 
     private fun destroy(tab: BrowserTab) {
         mainHandler.removeCallbacks(tab.expire)
+        // why: destroying a WebView does not stop a script spinning in its renderer, which goes on at full CPU; a bot's tabs share one renderer through its profile
+        if (tab.owner.open.isEmpty()) tab.view.webViewRenderProcess?.terminate()
         tab.view.detach()
         tab.view.destroy()
     }
