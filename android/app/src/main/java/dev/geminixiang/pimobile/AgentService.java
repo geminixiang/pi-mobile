@@ -22,6 +22,7 @@ public class AgentService extends Service {
     static final String CHANNEL_WORKING = "agent-working";
     static final String CHANNEL_DONE = "agent-done";
     static final String CHANNEL_PROACTIVE = "agent-proactive";
+    static final String ACTION_STOP = "dev.geminixiang.pimobile.AGENT_STOP";
     static final String EXTRA_TEXT = "text";
     private static final int NOTIFICATION_ID = 1;
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
@@ -69,6 +70,10 @@ public class AgentService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            stopSelf(startId);
+            return START_NOT_STICKY;
+        }
         String text = intent != null && intent.hasExtra(EXTRA_TEXT) ? intent.getStringExtra(EXTRA_TEXT) : "";
         createChannels(this);
         String title = "pi 工作中";

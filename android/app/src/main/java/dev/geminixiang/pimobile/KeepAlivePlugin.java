@@ -51,7 +51,12 @@ public class KeepAlivePlugin extends Plugin {
 
     @PluginMethod
     public void stop(PluginCall call) {
-        getContext().stopService(new Intent(getContext(), AgentService.class));
+        // why: stopService before onStartCommand ran crashes pi (ForegroundServiceDidNotStartInTimeException); a queued stop runs after startForeground.
+        try {
+            getContext().startService(new Intent(getContext(), AgentService.class).setAction(AgentService.ACTION_STOP));
+        } catch (IllegalStateException inBackground) {
+            getContext().stopService(new Intent(getContext(), AgentService.class));
+        }
         setRendererImportant(false);
         call.resolve();
     }
