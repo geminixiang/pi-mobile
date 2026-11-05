@@ -14,9 +14,11 @@ public class MainActivity extends BridgeActivity {
 
     static final String EXTRA_QUIET = "dev.geminixiang.pimobile.QUIET";
     private static final String KEPT_RUNNING = "keptRunning";
+    private boolean restoring;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        restoring = savedInstanceState != null;
         registerPlugin(KeepAlivePlugin.class);
         registerPlugin(VoicePlugin.class);
         registerPlugin(SystemPlugin.class);
@@ -46,8 +48,8 @@ public class MainActivity extends BridgeActivity {
                 return reloadAfterRenderer(view, detail);
             }
         });
-        if (savedInstanceState == null) goQuietIfAsked(getIntent());
-        else if (savedInstanceState.getBoolean(KEPT_RUNNING)) KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
+        restoring = false;
+        if (savedInstanceState != null && savedInstanceState.getBoolean(KEPT_RUNNING)) KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
         removeSshKey();
         removeOldCaptures();
     }
@@ -61,11 +63,11 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
-        state.putBoolean(KEPT_RUNNING, getBridge().getWebView() instanceof PiWebView web && web.getKeptRunning());
+        state.putBoolean(KEPT_RUNNING, getBridge().getWebView() instanceof PiWebView web && web.getKeepRunning());
     }
 
     private void goQuietIfAsked(Intent intent) {
-        if (!intent.getBooleanExtra(EXTRA_QUIET, false)) return;
+        if (restoring || !intent.getBooleanExtra(EXTRA_QUIET, false)) return;
         KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
         moveTaskToBack(true);
     }
@@ -74,7 +76,7 @@ public class MainActivity extends BridgeActivity {
         if (!(view instanceof PiWebView web) || !web.getRunning()) return false;
         Log.w("PiWatchdog", "the page's renderer is gone: loading the app again");
         DeviceLog.INSTANCE.event(this, "error", "renderer.gone", detail.didCrash() ? "it crashed" : "the system or the watchdog ended it");
-        runOnUiThread(this::recreate);
+        recreate();
         return true;
     }
 

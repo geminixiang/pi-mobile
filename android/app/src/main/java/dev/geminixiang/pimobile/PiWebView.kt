@@ -8,14 +8,12 @@ import com.getcapacitor.CapacitorWebView
 
 class PiWebView(context: Context, attrs: AttributeSet?) : CapacitorWebView(context, attrs) {
     private val watchdog = RendererWatchdog(this)
-    private var keepRunning = false
+    var keepRunning = false
+        private set
     private var windowVisibility = View.VISIBLE
 
     val running: Boolean
         get() = keepRunning || windowVisibility == View.VISIBLE
-
-    val keptRunning: Boolean
-        get() = keepRunning
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         windowVisibility = visibility
