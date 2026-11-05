@@ -1,7 +1,6 @@
 package dev.geminixiang.pimobile
 
 import android.app.Activity
-import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -99,7 +98,6 @@ class TriggersPlugin : Plugin() {
     fun status(call: PluginCall) =
         call.resolve(
             JSObject()
-                .put("exactAlarms", context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
                 .put("bluetooth", granted("bluetooth"))
                 .put("overlay", Settings.canDrawOverlays(context)),
         )
@@ -146,12 +144,6 @@ class TriggersPlugin : Plugin() {
         val allowed = granted(call.getString("to").orEmpty())
         call.resolve(JSObject().put("granted", allowed))
         if (allowed) TriggerStore.armAll(context)
-    }
-
-    @PluginMethod
-    fun requestExactAlarms(call: PluginCall) {
-        context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        call.resolve()
     }
 
     @PluginMethod

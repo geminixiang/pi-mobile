@@ -288,7 +288,6 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const [state, setState] = useState<TriggerState>({ items: [], next: {} });
 	const [bots, setBots] = useState<Bot[]>([]);
-	const [exact, setExact] = useState<boolean>();
 	const [bluetooth, setBluetooth] = useState<boolean>();
 	const [overlay, setOverlay] = useState<boolean>();
 	const [error, setError] = useState("");
@@ -298,7 +297,6 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 		if (!native.has("Triggers")) return;
 		const refresh = () =>
 			void Triggers.status().then((status) => {
-				setExact(status.exactAlarms);
 				setBluetooth(status.bluetooth);
 				setOverlay(status.overlay);
 			});
@@ -312,7 +310,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	if (!native.has("Triggers")) return null;
 	const headphones = state.items.some((item) => item.state !== "paused" && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 
-	const asks = exact === false || (state.items.length > 0 && overlay === false) || (headphones && bluetooth === false);
+	const asks = (state.items.length > 0 && overlay === false) || (headphones && bluetooth === false);
 
 	return (
 		<>
@@ -327,7 +325,6 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 			)}
 			{asks ? (
 				<RowList title="要開的權限">
-					{exact === false ? <StateRow label="準時執行" hint="沒開會晚幾分鐘" on={false} onClick={() => void Triggers.requestExactAlarms()} /> : null}
 					{state.items.length > 0 && overlay === false ? <StateRow label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑" on={false} onClick={() => void Triggers.requestOverlay()} /> : null}
 					{headphones && bluetooth === false ? (
 						<StateRow

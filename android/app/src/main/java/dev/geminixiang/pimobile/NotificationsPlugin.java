@@ -296,8 +296,7 @@ public class NotificationsPlugin extends Plugin {
         long until = call.getData().optLong("until", 0L);
         alarms.cancel(end);
         if (filter != NotificationListenerService.INTERRUPTION_FILTER_ALL && until > System.currentTimeMillis()) {
-            if (alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
-            else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
+            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, until, end);
         } else {
             until = 0;
         }

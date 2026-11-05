@@ -90,9 +90,7 @@ class BotFilesPlugin : Plugin() {
                 val bytes = ByteArray(length.toInt())
                 input.seek(start)
                 input.readFully(bytes)
-                val out = JSObject().put("size", size)
-                if (call.getBoolean("text", false) == true) out.put("text", String(bytes, Charsets.UTF_8)) else out.put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
-                call.resolve(out)
+                call.resolve(JSObject().put("size", size).put("data", Base64.encodeToString(bytes, Base64.NO_WRAP)))
             }
         }
 

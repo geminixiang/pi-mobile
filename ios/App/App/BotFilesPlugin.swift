@@ -131,11 +131,7 @@ public class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin {
             let length = min(max(self.number(call, "length") ?? (size - start), 0), size - start)
             try handle.seek(toOffset: UInt64(start))
             let bytes = try handle.read(upToCount: Int(length)) ?? Data()
-            if call.getBool("text") ?? false {
-                call.resolve(["size": size, "text": String(decoding: bytes, as: UTF8.self)])
-            } else {
-                call.resolve(["size": size, "data": bytes.base64EncodedString()])
-            }
+            call.resolve(["size": size, "data": bytes.base64EncodedString()])
         }
     }
 

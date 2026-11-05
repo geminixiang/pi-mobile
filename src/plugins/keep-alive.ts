@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import { Granted, definePlugin } from "./define.ts";
 
 export const KeepAlive = definePlugin("KeepAlive", {
-	start: { args: Type.Object({ text: Type.String(), title: Type.Optional(Type.String()) }) },
+	start: { args: Type.Object({ text: Type.String() }) },
 	stop: { args: Type.Object({}) },
 	notify: { args: Type.Object({ title: Type.String(), text: Type.String() }) },
 	clearNotification: { args: Type.Object({}) },

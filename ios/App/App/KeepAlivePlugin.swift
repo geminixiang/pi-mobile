@@ -22,7 +22,7 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
     private var ticker: Timer?
 
     @objc func start(_ call: CAPPluginCall) {
-        let title = call.getString("title") ?? "pi 工作中"
+        let title = "pi 工作中"
         let text = call.getString("text") ?? ""
         // why: on iPhone WebKit suspends the page about a second after pi leaves the screen, task or not, so all it gives is the system's progress banner and result notices
         guard UIDevice.current.userInterfaceIdiom == .pad else {

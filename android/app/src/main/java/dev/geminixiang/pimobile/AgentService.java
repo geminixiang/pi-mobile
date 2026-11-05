@@ -23,7 +23,6 @@ public class AgentService extends Service {
     static final String CHANNEL_DONE = "agent-done";
     static final String CHANNEL_PROACTIVE = "agent-proactive";
     static final String EXTRA_TEXT = "text";
-    static final String EXTRA_TITLE = "title";
     private static final int NOTIFICATION_ID = 1;
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
 
@@ -72,7 +71,7 @@ public class AgentService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String text = intent != null && intent.hasExtra(EXTRA_TEXT) ? intent.getStringExtra(EXTRA_TEXT) : "";
         createChannels(this);
-        String title = intent != null && intent.hasExtra(EXTRA_TITLE) ? intent.getStringExtra(EXTRA_TITLE) : "pi 工作中";
+        String title = "pi 工作中";
         Notification notification = build(title, text);
         startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         if (wakeLock == null) {

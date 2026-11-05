@@ -71,11 +71,10 @@ export const Triggers = definePlugin(
 		ack: { args: Type.Object({ ids: Type.Array(Type.String()) }) },
 		started: { args: Type.Object({ trigger: Type.String() }) },
 		skipped: { args: Type.Object({ trigger: Type.String() }) },
-		status: { args: Type.Object({}), result: Type.Object({ exactAlarms: Type.Boolean(), bluetooth: Type.Boolean(), overlay: Type.Boolean() }) },
+		status: { args: Type.Object({}), result: Type.Object({ bluetooth: Type.Boolean(), overlay: Type.Boolean() }) },
 		requestBluetooth: { args: Type.Object({}), result: Granted },
 		requestAccess: { args: Type.Object({ to: oneOf(["photos", "activity"]) }), result: Granted },
 		requestLocationAlways: { args: Type.Object({}), result: Type.Object({ foreground: Type.Boolean(), background: Type.Boolean() }) },
-		requestExactAlarms: { args: Type.Object({}) },
 		requestOverlay: { args: Type.Object({}) },
 		notify: {
 			args: Type.Object({ title: Type.String(), text: Type.String(), conversation: Type.Optional(Type.String()), bot: Type.Optional(Type.String()), avatar: Type.Optional(Type.String()) }),

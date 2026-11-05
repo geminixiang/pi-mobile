@@ -84,8 +84,7 @@ object TriggerStore {
         }
         val alarms = context.getSystemService(AlarmManager::class.java)
         val fire = fireIntent(context, schedule.id)
-        if (alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, fire)
-        else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, fire)
+        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, fire)
         return at
     }
 

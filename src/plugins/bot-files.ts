@@ -20,8 +20,8 @@ export const BotFiles = definePlugin("BotFiles", {
 	chmod: { args: Type.Object({ ...At, mode: Type.Integer() }) },
 	list: { args: Type.Object(At), result: Type.Object({ entries: Type.Array(BotFileInfo) }) },
 	read: {
-		args: Type.Object({ ...At, offset: Type.Optional(Type.Number()), length: Type.Optional(Type.Number()), text: Type.Optional(Type.Boolean()) }),
-		result: Type.Object({ size: Type.Number(), data: Type.Optional(Type.String()), text: Type.Optional(Type.String()) }),
+		args: Type.Object({ ...At, offset: Type.Optional(Type.Number()), length: Type.Optional(Type.Number()) }),
+		result: Type.Object({ size: Type.Number(), data: Type.Optional(Type.String()) }),
 	},
 	write: { args: Type.Object({ ...At, text: Type.Optional(Type.String()), data: Type.Optional(Type.String()), append: Type.Optional(Type.Boolean()) }) },
 	truncate: { args: Type.Object({ ...At, size: Type.Number() }) },

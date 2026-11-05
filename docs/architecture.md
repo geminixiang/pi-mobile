@@ -105,7 +105,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - WebView 的 JavaScript 跑在 Chromium 的 renderer 程序，不在前景服務保護的 app 程序裡。WebView 看不見時 Chromium 會降低 renderer 的重要性，所以 `KeepAlivePlugin` 在 agent 工作時把它拉高。
 - Blink 會凍結隱藏超過一分鐘的頁面（計時器、plugin callback 都停），`PiWebView` 讓它在背景時仍算可見。
 - Samsung 會讓 app 睡著，所以設定裡可以申請不受電池最佳化限制。
-- Android 14 起精確鬧鐘預設關閉，排程要使用者在系統設定裡打開才會準時；沒打開時會晚幾分鐘。
+- 精確鬧鐘靠 `USE_EXACT_ALARM`，安裝時就給，使用者不用打開也收不回去。
 - 鬧鐘觸發後的短暫豁免期內才能啟動前景服務，所以 `TriggerReceiver` 一收到就先啟動服務。
 - 返回鍵用 `@capacitor/app` 的 backButton 事件，不用瀏覽器 history：Chromium 會跳過頁面自己推的 history。
 

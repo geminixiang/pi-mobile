@@ -361,9 +361,6 @@
 						},
 						"path": {
 							"type": "string"
-						},
-						"text": {
-							"type": "boolean"
 						}
 					},
 					"required": [
@@ -379,9 +376,6 @@
 						},
 						"size": {
 							"type": "number"
-						},
-						"text": {
-							"type": "string"
 						}
 					},
 					"required": [
@@ -1960,9 +1954,6 @@
 				"args": {
 					"properties": {
 						"text": {
-							"type": "string"
-						},
-						"title": {
 							"type": "string"
 						}
 					},
@@ -4832,15 +4823,11 @@
 						"bluetooth": {
 							"type": "boolean"
 						},
-						"exactAlarms": {
-							"type": "boolean"
-						},
 						"overlay": {
 							"type": "boolean"
 						}
 					},
 					"required": [
-						"exactAlarms",
 						"bluetooth",
 						"overlay"
 					],
@@ -4912,13 +4899,6 @@
 					],
 					"type": "object"
 				}
-			},
-			"requestExactAlarms": {
-				"args": {
-					"properties": {},
-					"type": "object"
-				},
-				"result": null
 			},
 			"requestOverlay": {
 				"args": {
