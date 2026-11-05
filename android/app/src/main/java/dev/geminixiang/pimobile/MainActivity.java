@@ -1,13 +1,19 @@
 package dev.geminixiang.pimobile;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
+import android.webkit.RenderProcessGoneDetail;
+import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
 import java.io.File;
 
 public class MainActivity extends BridgeActivity {
 
     static final String EXTRA_QUIET = "dev.geminixiang.pimobile.QUIET";
+    private static final String KEPT_RUNNING = "keptRunning";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -34,12 +40,35 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PhoneScreenPlugin.class);
         registerPlugin(PhoneStatePlugin.class);
         super.onCreate(savedInstanceState);
-        if (getIntent().getBooleanExtra(EXTRA_QUIET, false)) {
-            KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
-            moveTaskToBack(true);
-        }
+        getBridge().addWebViewListener(new WebViewListener() {
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                return reloadAfterRenderer(view);
+            }
+        });
+        if (savedInstanceState == null) goQuietIfAsked(getIntent());
+        else if (savedInstanceState.getBoolean(KEPT_RUNNING)) KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
         removeSshKey();
         removeOldCaptures();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putBoolean(KEPT_RUNNING, getBridge().getWebView() instanceof PiWebView web && web.getKeptRunning());
+    }
+
+    private void goQuietIfAsked(Intent intent) {
+        if (!intent.getBooleanExtra(EXTRA_QUIET, false)) return;
+        KeepAlivePlugin.keepWebViewRunning(getBridge().getWebView(), true);
+        moveTaskToBack(true);
+    }
+
+    private boolean reloadAfterRenderer(WebView view) {
+        if (!(view instanceof PiWebView web) || !web.getRunning()) return false;
+        Log.w("PiWatchdog", "the page's renderer is gone: loading the app again");
+        runOnUiThread(this::recreate);
+        return true;
     }
 
     private static final long CAPTURE_KEPT_MS = 24 * 60 * 60 * 1000L;

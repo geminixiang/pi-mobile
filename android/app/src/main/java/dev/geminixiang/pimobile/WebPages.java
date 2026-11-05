@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.Uri;
 import android.net.http.SslError;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SafeBrowsingResponse;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
@@ -47,6 +48,12 @@ final class WebPages {
         public void onReceivedSslError(WebView webView, SslErrorHandler handler, SslError error) {
             handler.cancel();
             blocked(error.getUrl() + ": its certificate " + certificateProblem(error.getPrimaryError()));
+        }
+
+        @Override
+        public boolean onRenderProcessGone(WebView webView, RenderProcessGoneDetail detail) {
+            blocked(webView.getUrl() + ": its renderer stopped");
+            return true;
         }
 
         @Override

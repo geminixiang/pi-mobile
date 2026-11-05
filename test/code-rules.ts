@@ -135,7 +135,6 @@ function borrowed(file: string): Finding[] {
 }
 
 const JAVA_LEFT = new Set([
-	"PiWebView.java",
 	"AgentService.java",
 	"AppsPlugin.java",
 	"AssistRecognitionService.java",
