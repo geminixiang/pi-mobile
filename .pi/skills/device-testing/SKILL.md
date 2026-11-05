@@ -48,10 +48,17 @@ from `CDP_PORT` (default 9333).
   `ssh -f -N -L 9223:localhost:9223 $MBA`; `CDP_PORT=9223 ./test/device/ui.sh` and `ask.js` work as on Android. The bridge
   exits at once with `Web Inspector is disabled` until 設定 › App › Safari › 進階 › 網頁檢閱器 is on.
   `--native` reaches the device through CoreDevice over USB or the local network alike; forwarding usbmuxd works only
-  while it is on USB. Unplugged, the iPhone was not found on the MacBook Air's Wi‑Fi: keep it on the cable. Keep the
-  MacBook Air awake (`caffeinate -dis`) and the device unlocked to launch pi. Screenshot there with
+  while it is on USB. Keep the MacBook Air awake (`caffeinate -dis`) and the device unlocked to launch pi. Screenshot there with
   `uvx pymobiledevice3 developer dvt screenshot --native <file>.png`. The gateway is this Mac's `*.ts.net` name
   (`http://<this-mac>.<tailnet>.ts.net:8317`): ATS blocks plain HTTP to `100.x`.
+- **Without the cable**: the iPhone and iPad need Tailscale on, and this runs on `$MBA` with no root. Plug the device
+  in once and pair: `uvx --from pymobiledevice3 python ios-wireless.py pair <UDID>` (`scripts/ios-wireless.py`, copied
+  there), which shows no prompt on the device. After that every `pymobiledevice3` command goes over the device's
+  Tailscale address: `uvx --from pymobiledevice3 python ios-wireless.py <UDID> <100.x> <command>`, with `webinspector cdp
+  --port 9223`, `developer dvt launch <bundle id>`, `developer dvt screenshot <file>.png`, or
+  `apps install --developer <App.app>` (about 20 s; without `--developer` it hangs at 0 % after the upload, and
+  `--streaming` fails with `IXErrorDomain` 48). The script connects to the device's pairing port by address, because
+  the tunnel pymobiledevice3 starts by itself needs USB or Bonjour.
 - **TestFlight**: `./scripts/testflight-ios.sh` on any Mac with Xcode, from a checkout of the tag; its settings are in
   `docs/design/platforms.md` § TestFlight. With an App Store Connect API key it needs no keychain and runs over SSH.
 
