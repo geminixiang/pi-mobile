@@ -61,7 +61,7 @@ function stateStore(server: McpServer, secrets: Platform["secrets"]) {
 	const read = async (): Promise<McpOAuthState | undefined> => {
 		const stored = await secrets.get(key);
 		const value = stored === undefined ? undefined : decode(Type.Unknown(), stored);
-		return isState(value) && value.serverUrl === server.url ? value : undefined;
+		return isState(value) ? value : undefined;
 	};
 	let current: Promise<McpOAuthState | undefined> | undefined;
 	return {
@@ -76,7 +76,7 @@ function stateStore(server: McpServer, secrets: Platform["secrets"]) {
 		},
 		save: async (state: McpOAuthState) => {
 			await secrets.set(key, JSON.stringify(state));
-			current = Promise.resolve(state.serverUrl === server.url ? state : undefined);
+			current = Promise.resolve(state);
 		},
 		forget: async () => {
 			await secrets.remove(key);
@@ -375,7 +375,7 @@ class Connection {
 
 export type Grant = { extension: string; toolPrefix: string; builtin: ReadonlySet<string> };
 
-type McpHooks = {
+export type McpHooks = {
 	install: (extension: Extension) => void;
 	uninstall: (name: string) => void;
 	revoke: (grant: Grant) => Promise<void>;

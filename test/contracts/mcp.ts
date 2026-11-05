@@ -53,6 +53,42 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a service whose address has no path keeps what its sign-in saved, so the callback can finish it",
+		async () => {
+			resetMcp();
+			platform.plain.remove("pi-mobile.mcp-servers");
+			const issuer = "https://auth.example";
+			mcpHttp.requests.length = 0;
+			mcpHttp.routes = {
+				"POST https://bare.example/": () => new Response("", { status: 401 }),
+				"POST https://bare.example": () => new Response("", { status: 401 }),
+				"GET https://bare.example/.well-known/oauth-protected-resource": json({ resource: "https://bare.example/", authorization_servers: [issuer] }),
+				[`GET ${issuer}/.well-known/oauth-authorization-server`]: json({
+					issuer,
+					authorization_endpoint: `${issuer}/authorize`,
+					token_endpoint: `${issuer}/token`,
+					registration_endpoint: `${issuer}/register`,
+					response_types_supported: ["code"],
+					grant_types_supported: ["authorization_code", "refresh_token"],
+					token_endpoint_auth_methods_supported: ["none"],
+					code_challenge_methods_supported: ["S256"],
+				}),
+				[`POST ${issuer}/register`]: json({ client_id: "pi", redirect_uris: ["http://127.0.0.1:47823/oauth/mcp"], token_endpoint_auth_method: "none" }, 201),
+			};
+			const runtime = await AgentRuntime.open(new MemoryStorage(), settings, platform, { openUrl: async () => undefined });
+			try {
+				const server = await runtime.mcp.add("Bare", "https://bare.example");
+				await runtime.mcp.login(server.id);
+				await runtime.mcp.login(server.id);
+				const registered = mcpHttp.requests.filter((request) => request === `POST ${issuer}/register`);
+				assert.equal(registered.length, 1, `saved sign-in state read back empty: ${mcpHttp.requests.join(", ")}`);
+			} finally {
+				mcpHttp.routes = {};
+				await runtime.close();
+			}
+		},
+	],
+	[
 		"a service named like a built-in tool gets its own id, so adding it leaves the built-in tools a bot loaded",
 		async () => {
 			resetMcp();
