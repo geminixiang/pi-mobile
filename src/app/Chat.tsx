@@ -330,7 +330,7 @@ export function Chat({
 						</h2>
 						<p>
 							我在你的{sandbox ? "電腦" : "手機"}上工作，動到你的資料前會先問你。
-							{offersFirstTask ? "要我看看有什麼能幫你的嗎？我只會讀，不會改任何東西。" : ""}
+							{offersFirstTask ? "要我看看你的行事曆和通知，找找有什麼能幫你的嗎？我只會讀，不會改任何東西。" : ""}
 						</p>
 						{offersFirstTask ? (
 							<button
