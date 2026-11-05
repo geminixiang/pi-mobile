@@ -51,7 +51,6 @@ export function Composer({
 	onDraftChange,
 	queued,
 	focusKey,
-	pickImageKey,
 	conversationId,
 	initialFiles,
 	onSend,
@@ -67,7 +66,6 @@ export function Composer({
 	onDraftChange: (text: string) => void;
 	queued: QueuedItem[];
 	focusKey: number;
-	pickImageKey: number;
 	conversationId: string;
 	initialFiles?: readonly File[];
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
@@ -100,10 +98,6 @@ export function Composer({
 		area?.focus();
 		area?.setSelectionRange(area.value.length, area.value.length);
 	}, [focusKey]);
-
-	useEffect(() => {
-		if (pickImageKey) fileInput.current?.click();
-	}, [pickImageKey]);
 
 	const restored = useRef(false);
 	useEffect(() => {

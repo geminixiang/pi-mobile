@@ -493,6 +493,7 @@ export function App() {
 						forms={runtime.forms}
 						prefs={prefs}
 						sandbox={onSandbox}
+						botName={current?.name ?? "pi"}
 						view={view}
 						initialDraft={pending.draft}
 						initialFiles={pending.files}

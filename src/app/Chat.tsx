@@ -18,7 +18,7 @@ import { Sheet } from "./Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
 import { messageOf } from "../promise.ts";
 import { haptic } from "./haptics.ts";
-import { inApp, native } from "../native.ts";
+import { native } from "../native.ts";
 import { copy } from "./clipboard.ts";
 import { LONE_RUN, stepRuns } from "./step-runs.ts";
 import { questionStates } from "../interaction/answers.ts";
@@ -46,7 +46,6 @@ function text(content: string | readonly { type: string; text?: string }[] | und
 interface Suggestion {
 	title: string;
 	prompt: string;
-	image?: boolean;
 }
 
 export type SharedKind = "image" | "file" | "text" | "screen";
@@ -98,15 +97,7 @@ function shareActions(kind: SharedKind): Suggestion[] {
 			];
 }
 
-function suggestions(sandbox: boolean): Suggestion[] {
-	return [
-		{ title: "比較後做成表格", prompt: "比較 iPhone 17 和 Pixel 11 現在的售價、相機和電池，整理成表格檔傳給我" },
-		...(native.has("Triggers") && native.has("Phone") ? [{ title: "每天早上報天氣", prompt: "每天早上七點告訴我今天要不要帶傘、穿多少" }] : []),
-		...(native.has("Calendar") ? [{ title: "找時間約吃飯", prompt: "看看我這週的行程，哪幾天晚上有空可以約朋友吃飯" }] : []),
-		...(native.has("Database") ? [{ title: "拍收據記帳", prompt: "幫我把這張收據記進帳本，之後問這個月花多少要算得出來", image: true }] : []),
-		...(sandbox ? [{ title: "畫一張圖表", prompt: "在電腦上用 Python 畫一張台灣六都人口的長條圖給我看" }] : []),
-	];
-}
+const FIRST_TASK = "幫我看最近的行事曆；手機通知已經開放的話也一起看。找出幾件你能幫上忙的事，用選項問我要從哪件開始。只讀，不要改任何東西。";
 
 export interface Notice {
 	id: number;
@@ -122,6 +113,7 @@ export function Chat({
 	forms,
 	prefs,
 	sandbox,
+	botName,
 	view,
 	initialDraft,
 	initialFiles,
@@ -136,6 +128,7 @@ export function Chat({
 	forms: Forms;
 	prefs: Prefs;
 	sandbox: boolean;
+	botName: string;
 	view: ConversationView | undefined;
 	initialDraft?: string;
 	initialFiles?: readonly File[];
@@ -152,7 +145,6 @@ export function Chat({
 	const [actionsFor, setActionsFor] = useState<EntryRecord>();
 	const [atBottom, setAtBottom] = useState(true);
 	const [composerFocus, setComposerFocus] = useState(0);
-	const [pickImage, setPickImage] = useState(0);
 	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
 	const touching = useRef(false);
@@ -191,6 +183,7 @@ export function Chat({
 
 	const live = liveOf(view);
 	const failureNote = runFailureNote(live);
+	const offersFirstTask = !sandbox && native.has("Calendar");
 	const inbox = inboxOf(view);
 	const busy = isBusy(view);
 	const partial = live?.generation?.message?.content;
@@ -333,19 +326,24 @@ export function Chat({
 					<div className="empty">
 						<PiMark size={36} />
 						<h2>
-							口袋裡的 agent，
-							<br />
-							只屬於<em>你</em>。
+							嗨，我是 <em>{botName}</em>。
 						</h2>
-						<p>對話、金鑰和紀錄都只存在{inApp ? "這支手機上" : "這個瀏覽器裡"}。</p>
-						<SuggestionList
-							items={suggestions(sandbox)}
-							onPick={(suggestion) => {
-								setDraft(suggestion.prompt);
-								if (suggestion.image) setPickImage((key) => key + 1);
-								else setComposerFocus((key) => key + 1);
-							}}
-						/>
+						<p>
+							我在你的{sandbox ? "電腦" : "手機"}上工作，動到你的資料前會先問你。
+							{offersFirstTask ? "要我看看有什麼能幫你的嗎？我只會讀，不會改任何東西。" : ""}
+						</p>
+						{offersFirstTask ? (
+							<button
+								type="button"
+								className="btn solid"
+								onClick={() => {
+									stickToBottom.current = true;
+									controller.send([{ type: "text", text: FIRST_TASK }]).catch(fail);
+								}}
+							>
+								建議第一個任務
+							</button>
+						) : null}
 					</div>
 				) : null}
 				<InteractionContext.Provider value={interaction}>
@@ -413,7 +411,6 @@ export function Chat({
 				onDraftChange={setDraft}
 				queued={queued}
 				focusKey={composerFocus}
-				pickImageKey={pickImage}
 				conversationId={conversationId}
 				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
