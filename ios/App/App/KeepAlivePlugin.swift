@@ -1,5 +1,6 @@
 import BackgroundTasks
 import Capacitor
+import UIKit
 import UserNotifications
 
 @objc(KeepAlivePlugin)
@@ -23,6 +24,11 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func start(_ call: CAPPluginCall) {
         let title = call.getString("title") ?? "pi 工作中"
         let text = call.getString("text") ?? ""
+        // why: on iPhone WebKit suspends the page about a second after pi leaves the screen, task or not, so all it gives is the system's progress banner and result notices
+        guard UIDevice.current.userInterfaceIdiom == .pad else {
+            call.resolve()
+            return
+        }
         DispatchQueue.main.async {
             if let running = self.task {
                 running.updateTitle(title, subtitle: text)

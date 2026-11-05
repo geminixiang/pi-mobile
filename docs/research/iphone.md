@@ -95,7 +95,7 @@ API 是用一個暫時的偵測 plugin 量的：它只編進這次的 debug buil
    - 停的是 WebKit：pi 一離開畫面，App 裡 WebKit 的 `ProcessThrottler` 就對網頁內容的 process 送出 `PrepareToSuspend`（`remainingRunTime=0`），接著允許系統暫停它。
    - 這跟 iPad 的結果相反：[design/platforms.md](../design/platforms.md) 記錄 iPad（iPadOS 26.7）上 8 次有 7 次在背景跑完。差在 iOS 27 還是 iPhone，這次分不出來。
    - 要在 iPhone 上背景跑，agent 可能得移出 WebKit，例如放到 App 自己 process 裡的 JavaScriptCore；動手前先在 iPad 升 iOS 27 後重量一次。
-2. **進度橫幅蓋住標題列**：在沒有動態島的 iPhone 上，`BGContinuedProcessingTask` 的系統橫幅整個回合都蓋在 pi 的標題列上，遮住 Bot 名稱和資料夾按鈕。
+2. **進度橫幅蓋住標題列**（2026-11-05 解決）：`BGContinuedProcessingTask` 的系統 UI 顯示「執行中」和進度圈圈，結束時還跳結果通知。重量一次，工作有跑，離開 pi 約 1 秒後頁面仍然停住（計時器停了 14.3 秒，離開多久停多久），所以 iPhone 不再送這個工作，iPad 保留。〔跑過〕改完系統紀錄裡沒有工作，使用者看過，沒有橫幅也沒有通知。iPad 的數字是 iPadOS 26.7 的舊資料。
 3. **行事曆權限狀態不更新**：剛給完行事曆權限時，`EKEventStore.authorizationStatus` 在同一次執行裡還是回「沒問過」，重開 pi 才變成已允許。這段時間「設定 › 手機」的行事曆只顯示「讀取帳號清單」按鈕。
 4. **`compose_email` 沒有寄信帳號時**：「郵件」App 沒設帳號時，pi 改開 `mailto:`，結果停在「郵件」的加入帳號畫面，草稿不見了。有 Gmail App 時，可以改開它。
 5. **`read_sensors` 漏了距離感測**：iOS 有距離感測器，但工具回報 `proximity` 讀不到；光線則確實沒有 API。
