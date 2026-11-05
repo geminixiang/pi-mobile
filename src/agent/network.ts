@@ -14,6 +14,7 @@ export interface Network {
 
 const IDLE_MS = 60_000;
 const CONNECTION_LOST = "connection lost";
+const BROWSER_LOST_CONNECTION = ["Load failed", "Failed to fetch", "The network connection was lost."];
 
 export function isConnectionLost(error: string | undefined): boolean {
 	return error?.startsWith(CONNECTION_LOST) ?? false;
@@ -112,7 +113,7 @@ function connected(network: Network, idleMs: number, start: Start, signal: Abort
 					if (idle === undefined) watchIdle(idleMs);
 					heard = Date.now();
 				}
-				guarded.push(lost && !signal?.aborted ? asLost(event, lost) : event);
+				guarded.push(lost && !signal?.aborted ? asLost(event, lost) : inPlainWords(event));
 			}
 		} finally {
 			clearTimeout(idle);
@@ -126,6 +127,12 @@ function connected(network: Network, idleMs: number, start: Start, signal: Abort
 function asLost(event: AssistantMessageEvent, why: string): AssistantMessageEvent {
 	if (event.type !== "error") return event;
 	return { type: "error", reason: "error", error: { ...event.error, stopReason: "error", errorMessage: why } };
+}
+
+function inPlainWords(event: AssistantMessageEvent): AssistantMessageEvent {
+	if (event.type !== "error" || event.reason !== "error") return event;
+	const words = event.error.errorMessage ?? "";
+	return BROWSER_LOST_CONNECTION.includes(words) ? asLost(event, `${CONNECTION_LOST}: ${words}`) : event;
 }
 
 export function waitingForNetwork(provider: Provider, network: Network, idleMs = IDLE_MS): Provider {

@@ -47,6 +47,15 @@ const stopsWhenCut: Answer = (events, message, signal) => {
 	});
 };
 
+const failsWith =
+	(errorMessage: string): Answer =>
+	(events, message) => {
+		queueMicrotask(() => {
+			events.push({ type: "error", reason: "error", error: { ...message("error"), errorMessage } });
+			events.end();
+		});
+	};
+
 function answering(answers: Answer[] = [finished]) {
 	const base = customProvider({ id: "fake", name: "fake", baseUrl: "https://model.invalid/v1" }, "", ["m"], new Map());
 	const model = base.getModels()[0];
@@ -122,6 +131,27 @@ export const checks: Check[] = [
 			const result = await within(1000, "the stream kept waiting on a network that is gone", answer);
 			assert.equal(result.stopReason, "error");
 			assert(isRetryableAssistantError(result), `not retried: ${result.errorMessage}`);
+		},
+	],
+	[
+		"a connection the browser engine reports as lost is retried, in WebKit's words and Chrome's",
+		async () => {
+			for (const words of ["Load failed", "Failed to fetch", "The network connection was lost."]) {
+				const { provider, model, calls } = answering([failsWith(words), finished]);
+				const guarded = waitingForNetwork(provider, switchable(true), IDLE_MS);
+				const result = await retryAssistantCall(() => ask(guarded, model), { ...MODEL_RETRY, baseDelayMs: 10 }, undefined);
+				assert.equal(calls.length, 2, `"${words}" ended the turn instead of being retried`);
+				assert.equal(result.stopReason, "stop");
+			}
+		},
+	],
+	[
+		"an error that only resembles a lost connection keeps its words and is not retried",
+		async () => {
+			const { provider, model } = answering([failsWith("Load failed to parse the prompt")]);
+			const result = await ask(waitingForNetwork(provider, switchable(true), IDLE_MS), model);
+			assert.equal(result.errorMessage, "Load failed to parse the prompt");
+			assert(!isRetryableAssistantError(result));
 		},
 	],
 	[
