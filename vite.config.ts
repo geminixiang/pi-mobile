@@ -74,6 +74,7 @@ export default defineConfig({
 			"node:string_decoder": "string_decoder",
 			"node:child_process": shim("node-child-process.ts"),
 			"node:zlib": shim("node-zlib.ts"),
+			"node:util": shim("node-util.ts"),
 		},
 	},
 });

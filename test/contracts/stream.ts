@@ -2,6 +2,7 @@ import type { Link } from "../../src/agent/sandbox/resumable-socket.ts";
 import assert from "node:assert/strict";
 import { RemoteError } from "@earendil-works/pi-env";
 import { type ConnectionStatus, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
+import { stripVTControlCharacters } from "../../src/shims/node-util.ts";
 import { type Check, settle } from "./setup.ts";
 
 const RESULT = 2;
@@ -72,6 +73,14 @@ const fullHello = {
 };
 
 export const checks: Check[] = [
+	[
+		"the daemon's error output reaches the phone without its colour codes, as Node would strip them",
+		async () => {
+			assert.equal(stripVTControlCharacters("\u001b[31mpermission denied\u001b[0m\n"), "permission denied\n");
+			assert.equal(stripVTControlCharacters("\u001b[1;33mwarn\u001b[K"), "warn");
+			assert.equal(stripVTControlCharacters("plain [31m"), "plain [31m");
+		},
+	],
 	[
 		"a daemon's hello is checked field by field before it is trusted, and a bad one ends the connection",
 		async () => {
