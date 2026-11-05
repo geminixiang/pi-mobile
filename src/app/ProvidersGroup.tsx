@@ -8,6 +8,7 @@ import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { native } from "../native.ts";
 import { System } from "../plugins/system.ts";
 import { CheckButton } from "./CheckButton.tsx";
+import { RowList } from "./RowList.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Logo } from "./Logo.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -171,8 +172,7 @@ export function ProvidersGroup({
 
 	return (
 		<>
-			<section className="row-list">
-				<h3 className="list-label">供應商</h3>
+			<RowList title="供應商">
 				{providers.map((config) => (
 					<button type="button" key={config.id} onClick={() => setEditing(config.id)}>
 						<Logo name={providerName(config)} />
@@ -186,10 +186,9 @@ export function ProvidersGroup({
 				<button type="button" className="row-add" onClick={() => setAdding(true)}>
 					＋ 新增供應商
 				</button>
-			</section>
+			</RowList>
 			{choices.length > 0 ? (
-				<section className="row-list">
-					<h3 className="list-label">新 Bot 預設</h3>
+				<RowList title="新 Bot 預設">
 					<ChoiceRow
 						label="模型"
 						value={current}
@@ -200,7 +199,7 @@ export function ProvidersGroup({
 							onChange({ defaultProvider: provider, defaultModelId: modelId });
 						}}
 					/>
-				</section>
+				</RowList>
 			) : null}
 			<Sheet open={edited !== undefined} title={edited ? providerName(edited) || "自訂端點" : ""} onClose={() => setEditing(undefined)}>
 				{edited ? (

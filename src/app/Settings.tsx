@@ -28,6 +28,7 @@ import { PageStack } from "./PageStack.tsx";
 import { pairedHosts } from "../agent/sandbox/host.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
+import { RowList } from "./RowList.tsx";
 import { ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -42,15 +43,6 @@ import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import type { Prefs } from "./prefs.ts";
-
-function RowList({ title, children }: { title: string; children: ReactNode }) {
-	return (
-		<section className="row-list">
-			<h3 className="list-label">{title}</h3>
-			{children}
-		</section>
-	);
-}
 
 type Account = "github" | "gcloud" | "cloudflare" | "azure";
 
@@ -634,8 +626,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		<>
 			<ProvidersGroup settings={settings} models={runtime?.models ?? []} onChange={change} />
 			{props.mode === "app" ? (
-				<section className="row-list">
-					<h3 className="list-label">上下文</h3>
+				<RowList title="上下文">
 					<ChoiceRow
 						label="自動壓縮"
 						value={String(settings.compactAt)}
@@ -648,7 +639,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 						]}
 						onChoose={(value) => change({ compactAt: Number(value) })}
 					/>
-				</section>
+				</RowList>
 			) : null}
 		</>
 	);

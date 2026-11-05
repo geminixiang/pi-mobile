@@ -5,6 +5,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
 import { ShareIcon, TerminalIcon } from "./icons.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
+import { RowList } from "./RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 const MANUAL = "manual";
@@ -135,8 +136,7 @@ function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; c
 		void prepare(host).then((ready) => ready && onChoose(key));
 	};
 	return (
-		<section className="row-list">
-			<h3 className="list-label">新 Bot 在哪裡跑</h3>
+		<RowList title="新 Bot 在哪裡跑">
 			<ChoiceRow
 				label="預設"
 				value={computer}
@@ -154,7 +154,7 @@ function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; c
 					<PrepareStatus preparing={preparing} />
 				</p>
 			)}
-		</section>
+		</RowList>
 	);
 }
 
@@ -212,8 +212,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 	const joining = ready.find((item) => item.peer.dnsName === open);
 	return (
 		<>
-			<section className="row-list">
-				<h3 className="list-label">電腦</h3>
+			<RowList title="電腦">
 				{hosts.map((host) => (
 					<HostRow key={host.id} host={host} onOpen={() => setOpen(host.id)} />
 				))}
@@ -221,10 +220,9 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 					＋ 手動加入
 				</button>
 				{adding.state === "error" ? <p className="row-empty error">{adding.detail}</p> : null}
-			</section>
+			</RowList>
 			{ready.length > 0 ? (
-				<section className="row-list">
-					<h3 className="list-label">Tailscale 上找到</h3>
+				<RowList title="Tailscale 上找到">
 					{ready.map(({ peer }) => (
 						<button type="button" key={peer.dnsName} onClick={() => setOpen(peer.dnsName)}>
 							<TerminalIcon size={18} />
@@ -235,7 +233,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 							<span className="row-value">加入</span>
 						</button>
 					))}
-				</section>
+				</RowList>
 			) : null}
 			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}
 			{hosts.length === 0 ? (
