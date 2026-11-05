@@ -1,5 +1,5 @@
 import { Row } from "./Row.tsx";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { checkModels, checkProvider } from "../agent/checks.ts";
 import type { ModelInfo } from "../agent/models.ts";
 import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, providerName } from "../agent/providers.ts";
@@ -19,35 +19,44 @@ type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerO
 
 function useChatGPTSignIn(onSignIn: (json: string) => void) {
 	const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "error"; message: string }>({ kind: "idle" });
+	const waiting = useRef<AbortController>(null);
 	const start = () => {
+		const abort = new AbortController();
+		waiting.current = abort;
 		setState({ kind: "busy" });
-		signInWithChatGPT((url) => System.openExternal({ url }))
+		signInWithChatGPT((url) => System.openExternal({ url }), abort.signal)
 			.then((credential) => {
 				setState({ kind: "idle" });
 				onSignIn(JSON.stringify(credential));
 			})
-			.catch((error: unknown) => setState({ kind: "error", message: messageOf(error) }));
+			.catch((error: unknown) => {
+				if (!abort.signal.aborted) setState({ kind: "error", message: messageOf(error) });
+			});
 	};
-	return { state, start };
+	const cancel = () => {
+		waiting.current?.abort();
+		setState({ kind: "idle" });
+	};
+	return { state, start, cancel };
 }
 
 export function FirstSignIn({ onSignIn, onManual }: { onSignIn: (json: string) => void; onManual: () => void }) {
-	const { state, start } = useChatGPTSignIn(onSignIn);
+	const { state, start, cancel } = useChatGPTSignIn(onSignIn);
 	return (
 		<div className="first-sign-in">
 			<button type="button" className="btn solid" disabled={state.kind === "busy"} onClick={start}>
 				{state.kind === "busy" ? "登入中…" : "用 ChatGPT 登入"}
 			</button>
 			{state.kind === "error" ? <p className="note error">{state.message}</p> : null}
-			<button type="button" className="link" onClick={onManual}>
-				我有 API key
+			<button type="button" className="link" onClick={state.kind === "busy" ? cancel : onManual}>
+				{state.kind === "busy" ? "取消" : "我有 API key"}
 			</button>
 		</div>
 	);
 }
 
 function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: string) => void }) {
-	const { state, start } = useChatGPTSignIn(onSignIn);
+	const { state, start, cancel } = useChatGPTSignIn(onSignIn);
 	if (signIn) {
 		return (
 			<Row label="已用 ChatGPT 登入">
@@ -63,8 +72,8 @@ function ChatGPTSignIn({ signIn, onSignIn }: { signIn: string; onSignIn: (json: 
 				或用 ChatGPT 訂閱
 				{state.kind === "error" ? <span className="menu-hint error">{state.message}</span> : null}
 			</span>
-			<button type="button" className="btn" disabled={state.kind === "busy"} onClick={start}>
-				{state.kind === "busy" ? "登入中…" : "登入"}
+			<button type="button" className="btn" onClick={state.kind === "busy" ? cancel : start}>
+				{state.kind === "busy" ? "取消" : "登入"}
 			</button>
 		</div>
 	);

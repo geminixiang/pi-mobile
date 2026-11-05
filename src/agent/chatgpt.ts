@@ -52,12 +52,13 @@ async function requestToken(form: Record<string, string>, clientId: string): Pro
 	};
 }
 
-export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>): Promise<OAuthCredential> {
+export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>, signal: AbortSignal): Promise<OAuthCredential> {
 	const { verifier, challenge } = await pkce(32);
 	const state = randomBase64Url(32);
 	const { promise: callback, resolve, reject } = Promise.withResolvers<URL>();
 	const stop = await listenForRedirect({ port: PORT, path: PATH }, resolve);
 	const timer = setTimeout(() => reject(new Error("沒有完成登入")), WAIT_MS);
+	signal.addEventListener("abort", () => reject(new Error("已取消登入")), { once: true });
 	try {
 		const authorize = new URL(AUTHORIZE_URL);
 		authorize.search = new URLSearchParams({
