@@ -89,7 +89,7 @@ API 是用一個暫時的偵測 plugin 量的：它只編進這次的 debug buil
 
 **還沒改的問題**：
 
-1. **背景跑不下去**：pi 離開前景後，它的網頁內容約 1 秒內就被暫停，回到前景才接著跑，不會失敗。
+1. **背景跑不下去**：pi 離開前景後，它的網頁內容約 1 秒內就被暫停，回到前景才接著跑。暫停時正在路上的模型請求可能斷掉：按側邊鍵鎖定 iPhone 時，WebKit 回 `Load failed`，回合就此結束，因為 pi-ai 只認得 Node 的 `fetch failed`。`waitingForNetwork` 現在把 WebKit 和 Chrome 的這類錯誤改寫成 `connection lost`，交給一般的重試。
    - 量法：在前景搜尋完、打開 Safari，再連續抓 60 次網頁。三次都一樣：離開後最多再抓幾次，之後就停到回前景。開了 WebView 的 `inactiveSchedulingPolicy = .none` 也一樣。
    - 背景接續工作確實在跑：前景有系統的進度橫幅；系統紀錄裡 `BGContinuedProcessingTask` 從送出跑到回合結束，pi 的 App 一直是「背景執行中」，沒有被暫停。
    - 停的是 WebKit：pi 一離開畫面，App 裡 WebKit 的 `ProcessThrottler` 就對網頁內容的 process 送出 `PrepareToSuspend`（`remainingRunTime=0`），接著允許系統暫停它。
