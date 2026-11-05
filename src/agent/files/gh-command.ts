@@ -4,8 +4,6 @@ import { jsonOrText } from "../parse.ts";
 import { shellQuote } from "../shell.ts";
 
 const API = "https://api.github.com";
-const DEFAULT_LIMIT = 30;
-
 type Ctx = ResolvedCommandContext;
 type Repo = { owner: string; name: string };
 type Flags = { positional: string[]; values: Map<string, string[]>; set: Set<string> };
@@ -69,13 +67,6 @@ async function currentRepo(ctx: Ctx, flags: Flags): Promise<Repo> {
 	return repo;
 }
 
-async function currentBranch(ctx: Ctx): Promise<string> {
-	const result = await ctx.exec?.("git branch --show-current", { cwd: ctx.cwd });
-	const branch = result?.stdout.trim();
-	if (!branch) throw new GhError("could not tell the current branch; pass it explicitly");
-	return branch;
-}
-
 class Api {
 	readonly #fetch: FolderFetch;
 	constructor(fetch: FolderFetch) {
@@ -103,244 +94,11 @@ function nextPage(link: string): string | undefined {
 	return /<([^>]+)>;\s*rel="next"/.exec(link)?.[1];
 }
 
-const REPO_FIELDS: Record<string, (info: unknown) => unknown> = {
-	name: (info) => at(info, "name"),
-	nameWithOwner: (info) => at(info, "full_name"),
-	description: (info) => at(info, "description"),
-	url: (info) => at(info, "html_url"),
-	defaultBranchRef: (info) => ({ name: at(info, "default_branch") }),
-	isPrivate: (info) => at(info, "private"),
-	stargazerCount: (info) => at(info, "stargazers_count"),
-	updatedAt: (info) => at(info, "updated_at"),
-};
-
-const ITEM_FIELDS = ["number", "title", "state", "url", "body", "author", "createdAt", "updatedAt", "closedAt", "labels", "assignees", "headRefName", "baseRefName", "isDraft", "mergedAt"];
-
-function itemField(item: unknown, field: string): unknown {
-	switch (field) {
-		case "number":
-			return at(item, "number");
-		case "title":
-		case "body":
-			return text(at(item, field));
-		case "state":
-			return at(item, "merged_at") ? "MERGED" : text(at(item, "state")).toUpperCase();
-		case "url":
-			return at(item, "html_url");
-		case "author":
-			return { login: at(at(item, "user"), "login") };
-		case "createdAt":
-		case "updatedAt":
-		case "closedAt":
-		case "mergedAt":
-			return at(item, field.replace(/At$/, "_at")) ?? null;
-		case "labels": {
-			const labels = at(item, "labels");
-			return Array.isArray(labels) ? labels.map((label) => ({ name: at(label, "name") })) : [];
-		}
-		case "assignees": {
-			const people = at(item, "assignees");
-			return Array.isArray(people) ? people.map((person) => ({ login: at(person, "login") })) : [];
-		}
-		case "headRefName":
-			return at(at(item, "head"), "ref") ?? null;
-		case "baseRefName":
-			return at(at(item, "base"), "ref") ?? null;
-		case "isDraft":
-			return at(item, "draft") === true;
-		case "repository":
-			return { nameWithOwner: text(at(item, "repository_url")).replace(`${API}/repos/`, "") };
-	}
-	return undefined;
-}
-
-async function present(ctx: Ctx, flags: Flags, value: unknown, fields: readonly string[], plain: () => string, read: (item: unknown, field: string) => unknown = itemField): Promise<ExecResult> {
-	const asked = one(flags, "json");
-	if (asked === undefined) {
-		if (flags.values.has("jq")) throw new GhError("--jq needs --json FIELDS");
-		return ok(plain());
-	}
-	const wanted = asked.split(",").map((field) => field.trim()).filter(Boolean);
-	const unknown = wanted.filter((field) => !fields.includes(field));
-	if (wanted.length === 0 || unknown.length > 0) throw new GhError(`${unknown.length > 0 ? `Unknown JSON field: ${unknown.join(", ")}\n` : ""}Available fields:\n  ${fields.join("\n  ")}`);
-	const pick = (item: unknown) => Object.fromEntries(wanted.map((field) => [field, read(item, field)]));
-	const json = JSON.stringify(Array.isArray(value) ? value.map(pick) : pick(value), null, 2);
-	return filter(ctx, flags, json);
-}
-
 async function filter(ctx: Ctx, flags: Flags, json: string): Promise<ExecResult> {
 	const expression = one(flags, "jq");
 	if (expression === undefined) return ok(`${json}\n`);
 	const result = await ctx.exec?.(`jq -r ${shellQuote(expression)}`, { cwd: ctx.cwd, stdin: json });
 	return result ?? failed("jq is not available");
-}
-
-function row(item: unknown, kind: "pr" | "issue"): string {
-	const cells = [text(at(item, "number")), text(at(item, "title")), kind === "pr" ? text(at(at(item, "head"), "ref")) : "", text(itemField(item, "state")), text(at(item, "created_at"))];
-	return (kind === "pr" ? cells : cells.filter((_, index) => index !== 2)).join("\t");
-}
-
-function detail(item: unknown, comments: readonly unknown[]): string {
-	const lines = [
-		`title:\t${text(at(item, "title"))}`,
-		`state:\t${text(itemField(item, "state"))}`,
-		`author:\t${text(at(at(item, "user"), "login"))}`,
-		`url:\t${text(at(item, "html_url"))}`,
-	];
-	const head = at(at(item, "head"), "ref");
-	if (head) lines.push(`branch:\t${text(head)} -> ${text(at(at(item, "base"), "ref"))}`);
-	lines.push("--", text(at(item, "body")));
-	for (const comment of comments) lines.push("--", `${text(at(at(comment, "user"), "login"))} (${text(at(comment, "created_at"))}):`, text(at(comment, "body")));
-	return `${lines.join("\n")}\n`;
-}
-
-async function readBody(ctx: Ctx, flags: Flags): Promise<string | undefined> {
-	const file = one(flags, "bodyFile");
-	if (file === undefined) return one(flags, "body");
-	if (file === "-") return ctx.stdin.toString();
-	return ctx.fs.readFile(ctx.fs.resolvePath(ctx.cwd, file));
-}
-
-async function list(api: Api, path: string, limit: number, keep: (item: unknown) => boolean): Promise<unknown[]> {
-	const items: unknown[] = [];
-	let next: string | undefined = `${path}${path.includes("?") ? "&" : "?"}per_page=${Math.min(100, Math.max(limit, 1))}`;
-	while (next && items.length < limit) {
-		const page = await api.raw("GET", next);
-		if (!page.ok) throw new GhError(`${apiMessage(page.text)} (HTTP ${page.status})`);
-		const parsed = jsonOrText(page.text);
-		if (!Array.isArray(parsed)) break;
-		items.push(...parsed.filter(keep));
-		next = nextPage(page.link);
-	}
-	return items.slice(0, limit);
-}
-
-async function searchIssues(api: Api, terms: string[], limit: number): Promise<unknown[]> {
-	const result = await api.json("GET", `/search/issues?per_page=${Math.min(100, limit)}&q=${encodeURIComponent(terms.filter(Boolean).join(" "))}`);
-	const matches = at(result, "items");
-	return (Array.isArray(matches) ? matches : []).slice(0, limit);
-}
-
-const LIST_FLAGS = { "--search": "search", "-S": "search", "--state": "state", "-s": "state", "--limit": "limit", "-L": "limit", "--author": "author", "-A": "author", "--label": "label", "-l": "label", "--assignee": "assignee", "-a": "assignee", "--base": "base", "-B": "base", "--head": "head", "-H": "head", "--json": "json", "--jq": "jq", "-q": "jq", "--repo": "repo", "-R": "repo" };
-const VIEW_FLAGS = { "--json": "json", "--jq": "jq", "-q": "jq", "--repo": "repo", "-R": "repo" };
-const WRITE_FLAGS = { "--title": "title", "-t": "title", "--body": "body", "-b": "body", "--body-file": "bodyFile", "-F": "bodyFile", "--base": "base", "-B": "base", "--head": "head", "-H": "head", "--label": "label", "-l": "label", "--assignee": "assignee", "-a": "assignee", "--repo": "repo", "-R": "repo" };
-
-async function itemNumber(api: Api, ctx: Ctx, repo: Repo, given: string | undefined): Promise<number> {
-	if (given && /^#?\d+$/.test(given)) return Number(given.replace("#", ""));
-	const linked = /\/(?:pull|issues)\/(\d+)/.exec(given ?? "");
-	if (linked) return Number(linked[1]);
-	const branch = given ?? (await currentBranch(ctx));
-	const found = await api.json("GET", `/repos/${repo.owner}/${repo.name}/pulls?state=all&head=${encodeURIComponent(`${repo.owner}:${branch}`)}`);
-	const number = Array.isArray(found) ? at(found[0], "number") : undefined;
-	if (typeof number !== "number") throw new GhError(`no pull request found for branch "${branch}"`);
-	return number;
-}
-
-async function items(kind: "pr" | "issue", args: string[], ctx: Ctx, api: Api): Promise<ExecResult> {
-	const [action = "", ...rest] = args;
-	const base = (repo: Repo) => `/repos/${repo.owner}/${repo.name}`;
-	const plural = kind === "pr" ? "pulls" : "issues";
-	const numberOf = async (repo: Repo, given: string | undefined) => (kind === "pr" ? itemNumber(api, ctx, repo, given) : Number((given ?? "").replace("#", "")));
-	switch (action) {
-		case "list": {
-			const flags = parseFlags(rest, LIST_FLAGS, {});
-			const repo = await currentRepo(ctx, flags);
-			const state = one(flags, "state") ?? "open";
-			const query = new URLSearchParams({ state: state === "merged" ? "closed" : state });
-			const label = one(flags, "label");
-			const assignee = one(flags, "assignee");
-			const baseRef = one(flags, "base");
-			const headRef = one(flags, "head");
-			if (kind === "issue" && label) query.set("labels", label);
-			if (kind === "issue" && assignee) query.set("assignee", assignee);
-			if (kind === "pr" && baseRef) query.set("base", baseRef);
-			if (kind === "pr" && headRef) query.set("head", headRef.includes(":") ? headRef : `${repo.owner}:${headRef}`);
-			const author = one(flags, "author");
-			const search = one(flags, "search");
-			const limit = Number(one(flags, "limit") ?? DEFAULT_LIMIT);
-			const found =
-				search !== undefined
-					? await searchIssues(api, [`repo:${repo.owner}/${repo.name}`, kind === "pr" ? "is:pr" : "is:issue", state === "all" ? "" : state === "merged" ? "is:merged" : `is:${state}`, author ? `author:${author}` : "", search], limit)
-					: await list(api, `${base(repo)}/${plural}?${query}`, limit, (item) =>
-							(kind === "pr" || at(item, "pull_request") === undefined) &&
-							(state !== "merged" || Boolean(at(item, "merged_at"))) &&
-							(!author || at(at(item, "user"), "login") === author),
-						);
-			return present(ctx, flags, found, ITEM_FIELDS, () => found.map((item) => `${row(item, kind)}\n`).join(""));
-		}
-		case "view": {
-			const flags = parseFlags(rest, VIEW_FLAGS, { "--comments": "comments", "-c": "comments" });
-			const repo = await currentRepo(ctx, flags);
-			const number = await numberOf(repo, flags.positional[0]);
-			if (!number) throw new GhError("which issue? pass its number");
-			const [item, comments] = await Promise.all([
-				api.json("GET", `${base(repo)}/${plural}/${number}`),
-				flags.set.has("comments") ? list(api, `${base(repo)}/issues/${number}/comments`, 100, () => true) : [],
-			]);
-			return present(ctx, flags, item, ITEM_FIELDS, () => detail(item, comments));
-		}
-		case "create": {
-			const flags = parseFlags(rest, WRITE_FLAGS, { "--draft": "draft", "-d": "draft" });
-			const repo = await currentRepo(ctx, flags);
-			const title = one(flags, "title");
-			if (!title) throw new GhError("--title is required");
-			const body = (await readBody(ctx, flags)) ?? "";
-			if (kind === "issue") {
-				const created = await api.json("POST", `${base(repo)}/issues`, { title, body, labels: flags.values.get("label") ?? [], assignees: flags.values.get("assignee") ?? [] });
-				return ok(`${text(at(created, "html_url"))}\n`);
-			}
-			const head = one(flags, "head") ?? (await currentBranch(ctx));
-			const baseRef = one(flags, "base") ?? text(at(await api.json("GET", base(repo)), "default_branch"));
-			const created = await api.json("POST", `${base(repo)}/pulls`, { title, body, head, base: baseRef, draft: flags.set.has("draft") });
-			return ok(`${text(at(created, "html_url"))}\n`);
-		}
-		case "comment": {
-			const flags = parseFlags(rest, WRITE_FLAGS, {});
-			const repo = await currentRepo(ctx, flags);
-			const number = await numberOf(repo, flags.positional[0]);
-			const body = await readBody(ctx, flags);
-			if (!number || !body) throw new GhError("usage: gh " + kind + " comment NUMBER --body TEXT");
-			const created = await api.json("POST", `${base(repo)}/issues/${number}/comments`, { body });
-			return ok(`${text(at(created, "html_url"))}\n`);
-		}
-		case "close":
-		case "reopen": {
-			const flags = parseFlags(rest, VIEW_FLAGS, {});
-			const repo = await currentRepo(ctx, flags);
-			const number = await numberOf(repo, flags.positional[0]);
-			if (!number) throw new GhError(`usage: gh ${kind} ${action} NUMBER`);
-			await api.json("PATCH", `${base(repo)}/${plural}/${number}`, { state: action === "close" ? "closed" : "open" });
-			return ok(`${action === "close" ? "Closed" : "Reopened"} ${kind === "pr" ? "pull request" : "issue"} #${number}\n`);
-		}
-	}
-	if (kind === "pr") return pullOnly(action, rest, ctx, api);
-	throw new GhError(`unknown command "issue ${action}"; supported: list, view, create, comment, close, reopen. Use \`gh api\` for anything else.`);
-}
-
-const PULL_ONLY = new Set(["diff", "checkout", "merge"]);
-
-async function pullOnly(action: string, rest: string[], ctx: Ctx, api: Api): Promise<ExecResult> {
-	if (!PULL_ONLY.has(action)) throw new GhError(`unknown command "pr ${action}"; supported: list, view, create, diff, checkout, comment, merge, close, reopen. Use \`gh api\` for anything else.`);
-	const flags = parseFlags(rest, VIEW_FLAGS, { "--merge": "merge", "-m": "merge", "--squash": "squash", "-s": "squash", "--rebase": "rebase", "-r": "rebase" });
-	const repo = await currentRepo(ctx, flags);
-	const number = await itemNumber(api, ctx, repo, flags.positional[0]);
-	const path = `/repos/${repo.owner}/${repo.name}/pulls/${number}`;
-	switch (action) {
-		case "diff": {
-			const response = await api.raw("GET", path, undefined, "application/vnd.github.diff");
-			if (!response.ok) throw new GhError(`could not get the diff (HTTP ${response.status})`);
-			return ok(response.text);
-		}
-		case "checkout": {
-			const pull = await api.json("GET", path);
-			const branch = text(at(at(pull, "head"), "ref"));
-			const result = await ctx.exec?.(`git fetch origin ${shellQuote(`pull/${number}/head:${branch}`)} && git checkout ${shellQuote(branch)}`, { cwd: ctx.cwd });
-			return result ?? failed("git is not available");
-		}
-	}
-	const method = flags.set.has("squash") ? "squash" : flags.set.has("rebase") ? "rebase" : "merge";
-	const merged = await api.json("PUT", `${path}/merge`, { merge_method: method });
-	return ok(`${text(at(merged, "message")) || "Merged"} #${number}\n`);
 }
 
 function typedField(raw: string): unknown {
@@ -399,63 +157,6 @@ async function api(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
 	return flags.set.has("include") ? { ...result, stdout: `HTTP ${status}\n\n${result.stdout}` } : result;
 }
 
-async function repoCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
-	const [action = "", ...rest] = args;
-	if (action === "clone") {
-		const flags = parseFlags(rest, {}, {});
-		const [spec, directory, ...gitFlags] = flags.positional;
-		const repo = spec ? parseRepo(spec) : undefined;
-		if (!repo) throw new GhError("usage: gh repo clone OWNER/REPO [DIRECTORY] [-- git flags]");
-		const words = ["git", "clone", ...gitFlags, `https://github.com/${repo.owner}/${repo.name}.git`, ...(directory ? [directory] : [])];
-		const result = await ctx.exec?.(words.map(shellQuote).join(" "), { cwd: ctx.cwd });
-		return result ?? failed("git is not available");
-	}
-	if (action === "view") {
-		const flags = parseFlags(rest, VIEW_FLAGS, {});
-		const given = flags.positional[0];
-		const repo = given ? parseRepo(given) : await currentRepo(ctx, flags);
-		if (!repo) throw new GhError(`expected OWNER/REPO, got ${given}`);
-		const [info, readme] = await Promise.all([
-			client.json("GET", `/repos/${repo.owner}/${repo.name}`),
-			one(flags, "json") === undefined ? client.raw("GET", `/repos/${repo.owner}/${repo.name}/readme`, undefined, "application/vnd.github.raw") : undefined,
-		]);
-		return present(
-			ctx,
-			flags,
-			info,
-			Object.keys(REPO_FIELDS),
-			() => `name:\t${text(at(info, "full_name"))}\ndescription:\t${text(at(info, "description"))}\n--\n${readme?.ok ? readme.text : ""}\n`,
-			(item, field) => REPO_FIELDS[field]?.(item),
-		);
-	}
-	throw new GhError(`unknown command "repo ${action}"; supported: clone, view. Use \`gh api\` for anything else.`);
-}
-
-const SEARCH_KINDS: Record<string, string> = { issues: "is:issue", prs: "is:pr" };
-
-async function searchCommand(args: string[], ctx: Ctx, client: Api): Promise<ExecResult> {
-	const [kind = "", ...rest] = args;
-	const qualifier = SEARCH_KINDS[kind];
-	if (!qualifier) throw new GhError(`unknown command "search ${kind}"; supported: issues, prs. Use \`gh api search/...\` for anything else.`);
-	const flags = parseFlags(rest, { "--repo": "repo", "-R": "repo", "--owner": "owner", "--state": "state", "--author": "author", "--label": "label", "--limit": "limit", "-L": "limit", "--json": "json", "--jq": "jq", "-q": "jq" }, {});
-	const state = one(flags, "state");
-	const terms = [
-		...flags.positional,
-		qualifier,
-		...(flags.values.get("repo") ?? []).map((repo) => `repo:${repo}`),
-		...(flags.values.get("owner") ?? []).map((owner) => `user:${owner}`),
-		...(flags.values.get("label") ?? []).map((label) => `label:"${label}"`),
-		state ? `state:${state}` : "",
-		one(flags, "author") ? `author:${one(flags, "author")}` : "",
-	].filter(Boolean);
-	if (flags.positional.length === 0 && terms.length === 1) throw new GhError(`usage: gh search ${kind} QUERY [--repo OWNER/REPO] [--state open|closed] [--limit N]`);
-	const found = await searchIssues(client, terms, Math.min(100, Number(one(flags, "limit") ?? DEFAULT_LIMIT)));
-	const repoOf = (item: unknown) => text(at(item, "repository_url")).replace(`${API}/repos/`, "");
-	return present(ctx, flags, found, [...ITEM_FIELDS, "repository"], () =>
-		found.map((item) => `${[repoOf(item), text(at(item, "number")), text(itemField(item, "state")), text(at(item, "title")), text(at(item, "updated_at"))].join("\t")}\n`).join(""),
-	);
-}
-
 async function auth(args: string[], client: Api): Promise<ExecResult> {
 	if (args[0] !== "status") throw new GhError("only `gh auth status` is available: the token comes from pi mobile's settings");
 	const response = await client.raw("GET", "/user");
@@ -465,10 +166,6 @@ async function auth(args: string[], client: Api): Promise<ExecResult> {
 
 const GH_COMMANDS: Record<string, { usage: string; run: (args: string[], ctx: Ctx, client: Api) => Promise<ExecResult> }> = {
 	api: { usage: "api", run: api },
-	pr: { usage: "pr", run: (args, ctx, client) => items("pr", args, ctx, client) },
-	issue: { usage: "issue", run: (args, ctx, client) => items("issue", args, ctx, client) },
-	repo: { usage: "repo", run: repoCommand },
-	search: { usage: "search", run: searchCommand },
 	auth: { usage: "auth status", run: (args, _ctx, client) => auth(args, client) },
 };
 

@@ -1,5 +1,7 @@
 # 手機 Git inspection
 
+2026-11-05：`git diff --check` 已從 app 拿掉，只留 `git cat-file`。下面關於 `diff --check` 的段落是當時的紀錄。
+
 狀態：0.6.0 起在 app 裡。`npm run check` 會跑 `test/bash/git-inspection.ts`；2026-10-25 在模擬器上由 Bot 的手機資料夾跑過 `git diff --check`、`git diff --check --cached`、`git cat-file -t/-s/-p`，輸出和下表一致，`HEAD:f.txt` 這類 `<rev>:<path>` 如表所寫回不支援。S24 還沒跑過。
 
 ## 實作與介面
