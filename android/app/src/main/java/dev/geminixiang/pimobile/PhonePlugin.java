@@ -101,6 +101,12 @@ public class PhonePlugin extends Plugin {
             call.reject("no location provider is available", "unavailable");
             return;
         }
+        // why: with only approximate permission Android stretches the request to one fix per 10 minutes; on the S24 no provider answered in 20 s, and the wait ended on this same location
+        Location approximate = granted(Manifest.permission.ACCESS_FINE_LOCATION) ? null : lastKnown(manager);
+        if (approximate != null) {
+            resolve(call, approximate, true);
+            return;
+        }
         AtomicBoolean done = new AtomicBoolean(false);
         CancellationSignal cancel = new CancellationSignal();
         Runnable timeout = () -> {
