@@ -28,3 +28,7 @@ export function retriedAttempts<E extends Pick<EntryRecord, "kind" | "model">>(e
 	};
 	return new Set(entries.filter((entry, index) => failed(entry) && (index === entries.length - 1 ? retrying : entries[index + 1]?.kind === "pi.assistant")));
 }
+
+export function runFailureNote(live: LiveState | undefined): string | undefined {
+	return live?.runFailure?.reason === "no_model" ? "沒有可用的模型，所以沒有回答。到 設定 › 模型 確認供應商，再送一次。" : undefined;
+}

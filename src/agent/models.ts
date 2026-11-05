@@ -11,6 +11,7 @@ import { ios } from "../native.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
+const KEYLESS = "none";
 
 function windowFor(own: number, compactAt: number): number {
 	return compactAt > 0 ? Math.min(own, compactAt + DEFAULT_COMPACTION_POLICY.reserveTokens) : own;
@@ -126,7 +127,7 @@ export function customProvider(config: { id: string; name: string; baseUrl: stri
 				name: "API key",
 				resolve: async () => {
 					if (apiKey) refuseCleartextSecret(config.baseUrl);
-					return { auth: { apiKey } };
+					return { auth: { apiKey: apiKey || KEYLESS } };
 				},
 			},
 		},

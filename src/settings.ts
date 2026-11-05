@@ -203,10 +203,12 @@ export function changedKeys<T extends object>(before: T, after: T): (keyof T)[] 
 	return changed;
 }
 
+export function providerReady(config: ProviderConfig, apiKey: string, signIn: string): boolean {
+	return config.kind === "custom" ? Boolean(config.baseUrl) : Boolean(apiKey || signIn);
+}
+
 export function usableProviders(settings: Pick<Settings, "providers" | "providerKeys" | "providerOAuth">): ProviderConfig[] {
-	return settings.providers.filter(
-		(provider) => provider.kind === "custom" || Boolean(settings.providerKeys[provider.id] || settings.providerOAuth[provider.id]),
-	);
+	return settings.providers.filter((provider) => providerReady(provider, settings.providerKeys[provider.id] ?? "", settings.providerOAuth[provider.id] ?? ""));
 }
 
 export async function saveProviderOAuth(id: string, json: string): Promise<void> {

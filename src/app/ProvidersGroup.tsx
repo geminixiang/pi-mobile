@@ -3,7 +3,7 @@ import { useState } from "react";
 import { checkModels, checkProvider } from "../agent/checks.ts";
 import type { ModelInfo } from "../agent/models.ts";
 import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, providerName } from "../agent/providers.ts";
-import type { Settings } from "../settings.ts";
+import { providerReady, type Settings } from "../settings.ts";
 import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { native } from "../native.ts";
 import { System } from "../plugins/system.ts";
@@ -127,7 +127,7 @@ function ProviderForm({
 			) : null}
 			{info?.chatgpt && native.has("Loopback") ? <ChatGPTSignIn signIn={signIn} onSignIn={onSignIn} /> : null}
 			<CheckButton
-				disabled={!isComplete(config, apiKey, signIn)}
+				disabled={!providerReady(config, apiKey, signIn)}
 				run={() => (config.kind === "custom" ? checkModels(config.baseUrl, apiKey) : checkProvider(config.id, apiKey, signIn))}
 			/>
 			<button type="button" className="danger-verb" onClick={onRemove}>
@@ -137,10 +137,8 @@ function ProviderForm({
 	);
 }
 
-const isComplete = (config: ProviderConfig, apiKey: string, signIn: string) => (config.kind === "custom" ? Boolean(config.baseUrl) : Boolean(apiKey || signIn));
-
 function summaryOf(config: ProviderConfig, apiKey: string, signIn: string): string {
-	if (!isComplete(config, apiKey, signIn)) return config.kind === "custom" ? "還沒填網址" : "還沒填 API key";
+	if (!providerReady(config, apiKey, signIn)) return config.kind === "custom" ? "還沒填網址" : "還沒填 API key";
 	if (config.kind === "custom") return hostOf(config.baseUrl);
 	return signIn ? "ChatGPT 訂閱" : "API key";
 }
@@ -180,7 +178,7 @@ export function ProvidersGroup({
 							{providerName(config)}
 							<span className="index-status">{summaryOf(config, keyOf(config), signInOf(config))}</span>
 						</span>
-						<i className={`row-dot${isComplete(config, keyOf(config), signInOf(config)) ? "" : " off"}`} />
+						<i className={`row-dot${providerReady(config, keyOf(config), signInOf(config)) ? "" : " off"}`} />
 					</button>
 				))}
 				<button type="button" className="row-add" onClick={() => setAdding(true)}>

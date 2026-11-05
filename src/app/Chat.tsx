@@ -9,7 +9,7 @@ import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { type CallState, Content, EntryView, finishedCalls, isEmptyAnswer } from "./Message.tsx";
-import { entryText, retriedAttempts, retrying } from "../agent/entries.ts";
+import { entryText, retriedAttempts, retrying, runFailureNote } from "../agent/entries.ts";
 import { inboxOf, liveOf } from "./docs.ts";
 import { PiMark } from "./PiMark.tsx";
 import { TranscriptSkeleton } from "./Skeleton.tsx";
@@ -190,6 +190,7 @@ export function Chat({
 	}, []);
 
 	const live = liveOf(view);
+	const failureNote = runFailureNote(live);
 	const inbox = inboxOf(view);
 	const busy = isBusy(view);
 	const partial = live?.generation?.message?.content;
@@ -383,6 +384,7 @@ export function Chat({
 						</button>
 					</div>
 				) : null}
+				{failureNote ? <p className="note error">{failureNote}</p> : null}
 				{partial ? (
 					<article className="answer" ref={followStream}>
 						<Content content={partial} prefs={prefs} calls={calls} streaming />
