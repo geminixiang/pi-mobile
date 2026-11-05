@@ -43,7 +43,7 @@ public class MainActivity extends BridgeActivity {
         getBridge().addWebViewListener(new WebViewListener() {
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-                return reloadAfterRenderer(view);
+                return reloadAfterRenderer(view, detail);
             }
         });
         if (savedInstanceState == null) goQuietIfAsked(getIntent());
@@ -70,9 +70,10 @@ public class MainActivity extends BridgeActivity {
         moveTaskToBack(true);
     }
 
-    private boolean reloadAfterRenderer(WebView view) {
+    private boolean reloadAfterRenderer(WebView view, RenderProcessGoneDetail detail) {
         if (!(view instanceof PiWebView web) || !web.getRunning()) return false;
         Log.w("PiWatchdog", "the page's renderer is gone: loading the app again");
+        DeviceLog.INSTANCE.event(this, "error", "renderer.gone", detail.didCrash() ? "it crashed" : "the system or the watchdog ended it");
         runOnUiThread(this::recreate);
         return true;
     }

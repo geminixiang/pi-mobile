@@ -7,6 +7,8 @@ const STALL_LIMIT_MS = 500;
 const SECRET = /\b(?:gh[pousr]_|github_pat_|sk-|xox[abp]-|ya29\.)[A-Za-z0-9_.-]+|Bearer [A-Za-z0-9_.-]+/g;
 
 const recent: string[] = [];
+let unsaved: string[] = [];
+let saving: ((lines: string[]) => void) | undefined;
 
 function scrubbed(fields: Fields): Fields {
 	return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, typeof value === "string" ? value.replace(SECRET, "[redacted]") : value]));
@@ -15,8 +17,25 @@ function scrubbed(fields: Fields): Fields {
 function write(level: Level, event: string, fields: Fields): void {
 	const entry = { event, ...scrubbed(fields) };
 	console[level](JSON.stringify(entry));
-	recent.push(JSON.stringify({ at: new Date().toISOString(), level, ...entry }));
+	const line = JSON.stringify({ at: new Date().toISOString(), level, ...entry });
+	recent.push(line);
 	if (recent.length > RECENT_LIMIT) recent.shift();
+	if (saving) keep(line, saving);
+}
+
+function keep(line: string, save: (lines: string[]) => void): void {
+	unsaved.push(line);
+	if (unsaved.length > 1) return;
+	queueMicrotask(() => {
+		const lines = unsaved;
+		unsaved = [];
+		save(lines);
+	});
+}
+
+export function saveLogWith(save: (lines: string[]) => void): void {
+	saving = save;
+	for (const line of recent) keep(line, save);
 }
 
 export const log = {

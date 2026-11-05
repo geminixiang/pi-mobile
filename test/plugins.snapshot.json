@@ -4108,6 +4108,40 @@
 					"type": "object"
 				}
 			},
+			"appendLog": {
+				"args": {
+					"properties": {
+						"lines": {
+							"items": {
+								"type": "string"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"lines"
+					],
+					"type": "object"
+				},
+				"result": null
+			},
+			"readLog": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"text": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"text"
+					],
+					"type": "object"
+				}
+			},
 			"clipboardText": {
 				"args": {
 					"properties": {},

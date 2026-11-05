@@ -6,6 +6,8 @@ export const System = definePlugin("System", {
 	openExternal: { args: Type.Object({ url: Type.String() }) },
 	haptic: { args: Type.Object({ kind: oneOf(["tick", "press", "confirm"]) }) },
 	network: { args: Type.Object({}), result: Type.Object({ online: Type.Boolean() }) },
+	appendLog: { args: Type.Object({ lines: Type.Array(Type.String()) }) },
+	readLog: { args: Type.Object({}), result: Type.Object({ text: Type.String() }) },
 	clipboardText: { args: Type.Object({}), result: Type.Object({ text: Type.String() }) },
 	assistant: { args: Type.Object({}), result: Type.Object({ held: Type.Boolean() }) },
 	openAssistantSettings: { args: Type.Object({}) },

@@ -42,7 +42,9 @@ internal class RendererWatchdog(private val view: WebView) {
 
     private fun restart() {
         running = false
-        Log.w(TAG, "the page did not answer for ${SILENCE_MS / 1000} s: restarting its renderer")
+        val message = "the page did not answer for ${SILENCE_MS / 1000} s: restarting its renderer"
+        Log.w(TAG, message)
+        DeviceLog.event(view.context, "error", "renderer.restarted", message)
         view.webViewRenderProcess?.terminate()
     }
 }

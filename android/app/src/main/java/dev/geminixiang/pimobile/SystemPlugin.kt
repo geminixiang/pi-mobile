@@ -54,6 +54,18 @@ class SystemPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun appendLog(call: PluginCall) {
+        val lines = call.getArray("lines").toList<String>()
+        DeviceLog.append(context, lines)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun readLog(call: PluginCall) {
+        DeviceLog.read(context) { text -> call.resolve(JSObject().put("text", text)) }
+    }
+
+    @PluginMethod
     fun network(call: PluginCall) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         @Suppress("DEPRECATION")
