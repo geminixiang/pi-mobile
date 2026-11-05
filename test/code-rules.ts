@@ -76,6 +76,11 @@ function findings(file: string): Finding[] {
 const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
 const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 	{
+		use: /WebPages\.create\b/,
+		owners: ["PageWorker.kt", "BrowserTab.kt", "WebPages.java"],
+		fix: "a third-party page shares its renderer with every WebView in its process, so it can freeze pi: load it in PageWorker (its own process), not in a new WebView here",
+	},
+	{
 		use: /PhoneScreenService\.(?!canStartActivities\b)\w+/,
 		owners: ["PhoneScreenService.kt", "PhoneScreenPlugin.kt", "ScreenActor.kt", "ScreenElements.kt"],
 		fix: "only the phone screen code reaches the accessibility service; ask PhoneScreenService.canStartActivities(activity) whether a screen may open",
@@ -130,6 +135,7 @@ function borrowed(file: string): Finding[] {
 }
 
 const JAVA_LEFT = new Set([
+	"PiWebView.java",
 	"AgentService.java",
 	"AppsPlugin.java",
 	"AssistRecognitionService.java",
@@ -149,11 +155,9 @@ const JAVA_LEFT = new Set([
 	"NotificationsListener.java",
 	"NotificationsPlugin.java",
 	"NotificationStore.java",
-	"PagePlugin.java",
 	"PhonePlugin.java",
 	"PhoneStatePlugin.java",
 	"PhotosPlugin.java",
-	"PiWebView.java",
 	"PlacesCache.java",
 	"RecordsPlugin.java",
 	"ScannerPlugin.java",

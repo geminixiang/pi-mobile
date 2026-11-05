@@ -102,6 +102,10 @@
         <receiver android:name=".DndReceiver" android:exported="false" />
 
         <service
+            android:name=".PageWorker"
+            android:exported="false"
+            android:process=":webpages" />
+        <service
             android:name=".AgentService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
