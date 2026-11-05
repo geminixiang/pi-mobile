@@ -186,6 +186,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .btn::after { content: "]"; color: var(--faint); }
 .btn:not(:disabled):active { background: var(--accent-soft); border-color: var(--accent); }
 .btn.primary { color: var(--accent); border-color: var(--accent); }
+.btn.solid { width: 100%; height: 56px; border: 0; background: var(--accent); color: var(--bg); font-family: inherit; font-size: var(--fs-ui); font-weight: 700; }
+.btn.solid::before, .btn.solid::after { content: none; }
+.btn.solid:disabled { opacity: 0.6; }
 .btn.danger { color: var(--error); border-color: var(--error); }
 .btn svg { margin: 0 -2px; }
 .icon-button { display: inline-grid; place-items: center; width: 44px; height: 44px; color: var(--text); flex-shrink: 0; }
@@ -774,9 +777,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .welcome { padding: 8px 2px 0; }
 .welcome p { margin-bottom: 4px; }
 .first-sign-in { margin: auto calc(-1 * var(--space)) 0; display: flex; flex-direction: column; gap: 12px; }
-.first-sign-in > .btn { width: 100%; height: 56px; border: 0; background: var(--accent); color: var(--bg); font-family: inherit; font-size: var(--fs-ui); font-weight: 700; }
-.first-sign-in > .btn::before, .first-sign-in > .btn::after { content: none; }
-.first-sign-in > .btn:disabled { opacity: 0.6; }
 .first-sign-in > .note { margin: 0 var(--space); }
 .first-sign-in > .link { align-self: center; padding: 6px 12px; font-size: var(--fs-small); color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .banner { padding: 12px 16px; font-size: var(--fs-small); line-height: 1.5; }

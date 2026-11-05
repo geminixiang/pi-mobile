@@ -35,7 +35,7 @@ export function FirstSignIn({ onSignIn, onManual }: { onSignIn: (json: string) =
 	const { state, start } = useChatGPTSignIn(onSignIn);
 	return (
 		<div className="first-sign-in">
-			<button type="button" className="btn primary" disabled={state.kind === "busy"} onClick={start}>
+			<button type="button" className="btn solid" disabled={state.kind === "busy"} onClick={start}>
 				{state.kind === "busy" ? "登入中…" : "用 ChatGPT 登入"}
 			</button>
 			{state.kind === "error" ? <p className="note error">{state.message}</p> : null}
