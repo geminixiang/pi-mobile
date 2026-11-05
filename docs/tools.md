@@ -14,7 +14,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | 方式 | 哪些工具 | 每次請求帶什麼 |
 |---|---|---|
 | **直接提供**（`reach: "model"`） | 〈工具總圖〉標 † 的 | 完整定義 |
-| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片（腳本拿不到圖片），〈工具總圖〉標 ＊ 的 | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；名稱列在系統提示「Load these with tool_search」那段，只列這個 Bot 在所在地（手機或電腦）用得到的 |
+| **需要時載入**（`reach: "loaded"`） | 結果是要模型看的圖片，〈工具總圖〉標 ＊ 的（沒有結構化輸出的工具，腳本拿不到圖片；有的話，腳本用 `image(r.screenshot)` 顯示，例如 `use_browser`） | 只有名稱（`on-demand.ts`），用 `tool_search` 載入，之後留在那段對話；名稱列在系統提示「Load these with tool_search」那段，只列這個 Bot 在所在地（手機或電腦）用得到的 |
 | **只給腳本**（預設） | 其他全部，包括 MCP 服務（`callers: ["tools"]`） | codemode 段落裡一行一組：工具名稱和參數名稱（`codemode.ts`）；細節由腳本用 `describeTool(name)` 查 |
 
 - 只給腳本的工具，它們的說明段落也只留模型一定要知道的一句（例：通知不可信、草稿要使用者自己送出）；能從工具名稱看出來的不寫。
@@ -131,7 +131,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - **手機控制**（`phone_control`）
   - `phone_control`：`media`、`do_not_disturb`、`sound`、`display`、`flashlight`、`connections`
 - **瀏覽器**（`browser`）
-  - `browser`：`read_page`＊、`use_browser`＊
+  - `browser`：`read_page`、`use_browser`
 - **代你操作 App**（`phone_as_user`）
   - `phone_as_user`：`phone_read_as_user`＊、`phone_act_as_user`＊
 - **通知**（`notifications`）
@@ -223,8 +223,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `azure_api` | Azure | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
 | `phone_read_as_user` | 代你操作 App | 手機自己的畫面：前景 app、畫面元件（角色、文字、中心座標），要的時候加截圖；無障礙服務 | 唯讀 | |
 | `phone_act_as_user` | 代你操作 App | 一次多個步驟（開 app、點、長按、滑、捲動、打字、返回、主畫面），做完回傳畫面 | 直接 | |
-| `read_page` | 瀏覽器 | 這個 Bot 自己的瀏覽器開著的那一頁：網址、看得到的元件（角色、文字、中心座標）、頁面文字，要的時候加截圖 | 唯讀 | |
-| `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | |
+| `read_page` | 瀏覽器 | 這個 Bot 自己的瀏覽器開著的那一頁：網址、看得到的元件（角色、文字、中心座標）、頁面文字，要的時候加截圖 | 唯讀 | ✓ |
+| `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | ✓ |
 | `computer_read_as_user` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
 | `computer_act_as_user` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
 | `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
@@ -322,6 +322,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-05 | `read_page`、`use_browser` 改成只給腳本（不再 `tool_search`），加結構化輸出：`elements`、`text` 分開，截圖是 data URL，用 `image(r.screenshot)` 顯示，所以腳本裡也看得到圖 | codemode 段落多 75 字元，on-demand 少一行 | S24，GPT 6.1 Sol，各跑一次。瀏覽器查維基百科：134 秒 → 95 秒，模型呼叫 15 → 8，輸入 tokens 約 78.4 萬 → 21.0 萬。三個網站比較：62 → 50 秒，工具結果 85,813 → 63,850 字元。截圖：模型能看到畫面。沒量 `test/device/tool-cost.sh` |
 | 2026-11-05 | `returnLast` 改看這一行最後一個敘述（略過字串、括號和行尾註解裡的分號）：是宣告就回傳它的變數，是運算式就 `return` 它，`text(r)` 回傳 undefined，所以結果不再進模型兩次，也不會變成什麼都沒回而被重跑。`server/discover` 回明確的 HTTP 拒絕（如 400）當成舊版服務記住。`stock-analysis` 技能：`t00` 是當日加權指數、`snapshot_market` 是前一交易日、不要 `text()` 整包結果 | 不加工具，技能多約 40 tokens（只在讀取時付） | S24，GPT 6.1 Sol，題目「台股最近怎麼一直跌」「外資這波賣了多少」，三種 Bot 各跑一次，前後都只有一次，差距不能當結論。分析題工具結果字元：只開 MCP 32,132 → 21,356、只開 `tw_stocks` 47,714 → 15,020、兩者都開 25,056 → 28,247。追問題 4,183 → 10,197、9,997 → 1,291、11,208 → 12,635。`const r = …;text(r);` 的輸出只剩一份（〔跑過〕）。`t00` 只有兩者都開的 Bot 查過（讀 trace）；只開 MCP 的 Bot 仍用新聞的收盤，但明講官方彙整只到前一天。`web_search` 沒動，上游 `tools/list` 新版也沒做 |
 | 2026-11-04 | 手機權限卡（[research/grok-bot.md](research/grok-bot.md) 第 24 項）：`defineAppTool` 多一個 `asks`（`contacts`、`calendar`、`photos`、`calls`、`sms`、`location`），catalog 在執行前把關（`src/interaction/permissions.ts`）：沒權限又在前景，對話裡先出權限卡，按「允許」才跳系統對話框；取消或系統拒絕就回報工具失敗，Bot 改用別的方式答；系統不再詢問時指到手機設定；背景執行不出卡，照舊由原生拒絕。`weather`、`find_places` 這些給了地點就不用定位的不宣告，維持直接跳系統對話框。外掛合約多 `checkPermissions`、`requestPermissions`。特殊權限（螢幕使用時間、修改系統設定、讀取通知）還是文字錯誤 | 不變 | `plugins.snapshot.json` 已更新；`test/contracts/permissions.ts` |
 | 2026-11-04 | 頁面卡（`src/interaction/pages.ts`）：`write`、`edit` 的 `.html` 畫成卡，標題和摘要取自內容，同一個檔案只留最新一張，點開是檔案檢視器；工作行不再為 `.html` 留步驟。`files` 那句改成卡片會顯示，不要放連結 | 見下一筆 | `test/contracts/interaction.ts`；S24 上重開 App 還在 |
