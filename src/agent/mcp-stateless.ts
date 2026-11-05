@@ -3,7 +3,7 @@ import { type Static, Type } from "typebox";
 import { check, jsonOrText } from "./parse.ts";
 import { orLogged } from "../promise.ts";
 
-export const STATELESS_VERSION = "2026-07-28";
+const STATELESS_VERSION = "2026-07-28";
 const MAX_ROUNDS = 4;
 
 export type Endpoint = { url: string; fetch: McpFetch; auth: AuthProvider };

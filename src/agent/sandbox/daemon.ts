@@ -3,8 +3,6 @@ import { sha256Hex } from "../../encoding.ts";
 export type DaemonOs = "darwin" | "linux";
 export type DaemonArch = "x64" | "arm64";
 
-export const ENV_PATH = 'export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"';
-
 export interface Daemon {
 	sha: string;
 	bytes(): Promise<Uint8Array<ArrayBuffer>>;

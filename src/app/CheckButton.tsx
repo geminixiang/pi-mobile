@@ -1,9 +1,9 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { messageOf } from "../promise.ts";
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ok"; detail: string } | { state: "error"; detail: string };
 
-export function CheckButton({ run, disabled, children }: { run: () => Promise<string>; disabled: boolean; children?: ReactNode }) {
+export function CheckButton({ run, disabled }: { run: () => Promise<string>; disabled: boolean }) {
 	const [check, setCheck] = useState<Check>({ state: "idle" });
 	return (
 		<div className="check">
@@ -24,7 +24,6 @@ export function CheckButton({ run, disabled, children }: { run: () => Promise<st
 			</button>
 			{check.state === "ok" ? <span className="check-ok">{check.detail}</span> : null}
 			{check.state === "error" ? <span className="check-error">{check.detail}</span> : null}
-			{children ? <span className="check-more">{children}</span> : null}
 		</div>
 	);
 }

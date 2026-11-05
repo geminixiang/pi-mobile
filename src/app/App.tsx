@@ -491,7 +491,7 @@ export function App() {
 					<Chat
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
-						forms={runtime?.forms}
+						forms={runtime.forms}
 						prefs={prefs}
 						sandbox={onSandbox}
 						view={view}

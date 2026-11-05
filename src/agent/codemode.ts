@@ -7,7 +7,6 @@ import type { FromWorker, ToWorker } from "./codemode-worker.ts";
 
 const MEMORY_LIMIT_BYTES = 128 * 1024 * 1024;
 const NOTHING_SHOWN = "Nothing came back: only what the script returns, text()s, or console.log()s reaches you. End it with `return <value>`.";
-const INTERRUPT_BUDGET = 1_000_000;
 
 class WorkerRemote implements CodemodeRemote {
 	#worker: Worker | undefined;
@@ -130,7 +129,6 @@ const remote = new WorkerRemote();
 export function createPhoneCodemode(label: (extension: string, conversationId: string) => string | undefined) {
 	const sandbox = new RemoteCodemodeSandbox({
 		remote: () => remote,
-		interruptBudget: INTERRUPT_BUDGET,
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
 	});
 	const codemode = createCodemodeTool({ sandbox, models: false });

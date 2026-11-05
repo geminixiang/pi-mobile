@@ -41,7 +41,7 @@ export interface Platform {
 	browser: BotBrowser | undefined;
 	reports: BotReports | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
-	secrets: { keys(): Promise<string[]>; get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
+	secrets: { get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
 	rotated: RotatedCredentials;
 	mcpClient(): McpSession;
 	mcpFetch: McpFetch;
@@ -92,7 +92,6 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 			remove: (key) => localStorage.removeItem(key),
 		},
 		secrets: {
-			keys: () => SecureStorage.keys(),
 			get: async (key) => {
 				if (!(await SecureStorage.keys()).includes(key)) return undefined;
 				const stored = await SecureStorage.get(key);

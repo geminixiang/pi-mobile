@@ -7,7 +7,7 @@ const FLING_PX_PER_MS = 0.35;
 export const SETTLE_MS = 260;
 const VELOCITY_WINDOW_MS = 100;
 
-export type Intent = "undecided" | "swipe" | "ignore";
+type Intent = "undecided" | "swipe" | "ignore";
 
 export function intentOf(move: { dx: number; dy: number; elapsedMs: number; selecting: boolean }): Intent {
 	if (Math.hypot(move.dx, move.dy) <= TOUCH_SLOP) return "undecided";

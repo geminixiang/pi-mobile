@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CheckIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 
-export type Choice<T extends string> = { value: T; label: string; group?: string; disabled?: boolean };
+type Choice<T extends string> = { value: T; label: string; group?: string; disabled?: boolean };
 
 export function ChoiceRow<T extends string>({
 	label,

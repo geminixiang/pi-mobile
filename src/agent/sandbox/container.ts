@@ -6,7 +6,7 @@ import egressDockerfile from "../../../sandbox/egress/Dockerfile?raw";
 import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
 import { log } from "../../log.ts";
 import type { AccessToken } from "../oauth.ts";
-import { type Daemon, daemon, ENV_PATH } from "./daemon.ts";
+import { type Daemon, daemon } from "./daemon.ts";
 import { lost, type OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, sleep, untilFailure, whilePending } from "../../promise.ts";
 import { decode } from "../parse.ts";
@@ -14,7 +14,6 @@ import { randomHex, sha256Hex } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
 
 const CONTAINER = "pim-main";
-const LABEL = "pi-mobile=1";
 const NETWORK = "pi-mobile";
 const EGRESS = "pi-mobile-egress";
 const SANDBOX_IMAGE = "pi-mobile/sandbox";
@@ -22,7 +21,6 @@ const EGRESS_IMAGE = "pi-mobile/egress";
 const PROXY = `http://${EGRESS}:8080`;
 const CA_PATH = "/usr/local/share/ca-certificates/pi-egress.crt";
 const DAEMON = "/usr/local/bin/pi-env";
-const MAX_RUNNING = 6;
 const CPUS = "2";
 const MEMORY = "2g";
 const PIDS = "512";
@@ -119,7 +117,6 @@ export class ContainerHost {
 	readonly #engine: string;
 	readonly #client: CommandClient;
 	#prepared: string | undefined;
-	#active = 0;
 	#arch: "x64" | "arm64" | undefined;
 
 	constructor(engine: string, client: CommandClient) {
@@ -128,13 +125,13 @@ export class ContainerHost {
 	}
 
 	async #engineOutput(args: string, input?: Uint8Array): Promise<string> {
-		const result = await this.#client.run(`${ENV_PATH}; ${this.#engine} ${args}`, input);
+		const result = await this.#client.run(`${this.#engine} ${args}`, input);
 		if (result.code !== 0) throw new Error(`${this.#engine} ${args.split(" ")[0]}: ${result.stderr.trim() || `exit ${result.code}`}`);
 		return result.stdout.trim();
 	}
 
 	async #outputIfSucceeds(args: string): Promise<string | undefined> {
-		const result = await this.#client.run(`${ENV_PATH}; ${this.#engine} ${args}`);
+		const result = await this.#client.run(`${this.#engine} ${args}`);
 		return result.code === 0 ? result.stdout.trim() : undefined;
 	}
 
@@ -175,7 +172,7 @@ export class ContainerHost {
 				if (line) onProgress(`${name}：${line.slice(0, 80)}`);
 			};
 			this.#client
-				.exec(`${ENV_PATH}; ${this.#engine} build -t ${name} --label dev.pi-mobile.hash=${hash} ${shellQuote(dir)} 2>&1`, {
+				.exec(`${this.#engine} build -t ${name} --label dev.pi-mobile.hash=${hash} ${shellQuote(dir)} 2>&1`, {
 					onStdout: take,
 					onExit: (code) => resolve({ code, tail }),
 				})
@@ -232,7 +229,7 @@ export class ContainerHost {
 			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
 			const ended = new Promise<void>((resolve) => {
 				void this.#client
-					.exec(`${ENV_PATH}; ${this.#engine} exec -i ${EGRESS} python3 /egress/bridge.py`, {
+					.exec(`${this.#engine} exec -i ${EGRESS} python3 /egress/bridge.py`, {
 						onStdout: lineReader((line) => void this.#onBridge(line, credentials, send)),
 						onExit: (code) => {
 							if (code === 3) log.warn("sandbox.bridge_busy", { engine: this.#engine });
@@ -291,7 +288,6 @@ export class ContainerHost {
 	async #ensureNow(): Promise<string> {
 		const [state, id = ""] = (await this.#outputIfSucceeds(`inspect -f '{{.State.Running}} {{.Id}}' ${CONTAINER}`))?.split(" ") ?? [];
 		if (state === "true") return id;
-		await this.#makeRoom();
 		if (state === "false") {
 			await this.#engineOutput(`start ${CONTAINER}`);
 			return id;
@@ -300,7 +296,6 @@ export class ContainerHost {
 			[
 				"run -d",
 				`--name ${CONTAINER}`,
-				`--label ${LABEL}`,
 				`--hostname ${CONTAINER}`,
 				`--cpus ${CPUS}`,
 				`--memory ${MEMORY}`,
@@ -311,21 +306,6 @@ export class ContainerHost {
 				SANDBOX_IMAGE,
 			].join(" "),
 		);
-	}
-
-	async #makeRoom(): Promise<void> {
-		const ids = await this.#outputIfSucceeds(`ps -q --filter label=${LABEL}`);
-		const running = ids ? ids.split(/\s+/) : [];
-		if (running.length < MAX_RUNNING) return;
-		const out = await this.#engineOutput(`inspect -f '{{.Name}} {{.State.StartedAt}}' ${running.join(" ")}`);
-		const idle = out
-			.split("\n")
-			.map((line) => line.trim().split(" "))
-			.map(([name = "", started = ""]) => ({ name: name.replace(/^\//, ""), started }))
-			.filter((candidate) => candidate.name !== CONTAINER || this.#active === 0)
-			.sort((a, b) => a.started.localeCompare(b.started))[0];
-		if (!idle) throw new Error(`${MAX_RUNNING} 個 sandbox 都在使用中`);
-		await this.#engineOutput(`stop -t 2 ${idle.name}`);
 	}
 
 	async #prepare(id: string, ca: string, piEnv: Daemon): Promise<void> {
@@ -356,17 +336,15 @@ export class ContainerHost {
 			const env = Object.entries({ ...SANDBOX_ENV, ...serviceEnv() })
 				.map(([key, value]) => `-e ${shellQuote(`${key}=${value}`)}`)
 				.join(" ");
-			this.#active++;
 			let stderr = "";
 			const channel = await this.#client.exec(
-				`${ENV_PATH}; exec ${this.#engine} exec -i -w /workspace ${env} ${CONTAINER} ${DAEMON} serve --token ${token}`,
+				`exec ${this.#engine} exec -i -w /workspace ${env} ${CONTAINER} ${DAEMON} serve --token ${token}`,
 				{
 					onStdout: handlers.onData,
 					onStderr: (data) => {
 						stderr = (stderr + new TextDecoder().decode(data)).slice(-2000);
 					},
 					onExit: (code) => {
-						this.#active--;
 						handlers.onClose(stderr.trim() || `daemon exited ${code ?? "?"}`);
 					},
 					onLink: handlers.onLink,

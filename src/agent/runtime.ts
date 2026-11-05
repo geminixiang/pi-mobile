@@ -29,7 +29,7 @@ import { avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolde
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { extensionName, isMcpExtension, McpHub } from "./mcp.ts";
+import { extensionName, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
 import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import type { LoadedModels } from "./available-models.ts";
@@ -199,6 +199,7 @@ export class AgentRuntime {
 		const loaded: Loaded = { models, infos };
 		const registry = createRegistry();
 		let runtimeRef: AgentRuntime | undefined;
+		const ask: McpHooks["ask"] = (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" }));
 		const triggerHost: TriggerHost = {
 			changed: () => void runtimeRef?.triggers.sync(),
 			unattended: (id) => runtimeRef?.triggers.unattended(id) ?? false,
@@ -224,7 +225,7 @@ export class AgentRuntime {
 			workplace: at,
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
 			permissions: platform.permissions,
-			ask: (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" })),
+			ask,
 			labelOf: (name, id) => (offeredAt(name, at(id)?.kind ?? "missing") ? labelOf(name, mcp) : undefined),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
@@ -236,7 +237,7 @@ export class AgentRuntime {
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
 			builtinTools: () => builtinTools,
-			ask: (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" })),
+			ask,
 		});
 		const harness = await Harness.open(
 			storage,

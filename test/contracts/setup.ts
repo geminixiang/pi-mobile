@@ -96,7 +96,6 @@ export const platform: Platform = {
 		remove: (key) => void plain.delete(key),
 	},
 	secrets: {
-		keys: async () => [],
 		get: async () => undefined,
 		set: async () => undefined,
 		remove: async () => {

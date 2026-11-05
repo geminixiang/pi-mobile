@@ -100,11 +100,6 @@ export const ChevronIcon = ({ open, size = 14 }: { open?: boolean; size?: number
 		<path d="m9 5 7 7-7 7" />
 	</svg>
 );
-export const ChevronDownIcon = () => (
-	<Icon size={14} width={2.2}>
-		<path d="m6 9 6 6 6-6" />
-	</Icon>
-);
 export const BackIcon = () => (
 	<Icon>
 		<path d="M15 5l-7 7 7 7" />
@@ -165,18 +160,6 @@ export const FileIcon = ({ size = 16 }: { size?: number }) => (
 export const PencilIcon = ({ size = 16 }: { size?: number }) => (
 	<Icon size={size}>
 		<path d="M15.5 5.5a2.1 2.1 0 0 1 3 3L9 18l-4 1 1-4z" />
-	</Icon>
-);
-export const BoxIcon = ({ size = 16 }: { size?: number }) => (
-	<Icon size={size}>
-		<path d="M12 3 4.5 7v10L12 21l7.5-4V7z" />
-		<path d="M4.5 7 12 11l7.5-4M12 11v10" />
-	</Icon>
-);
-export const LayersIcon = ({ size = 18 }: { size?: number }) => (
-	<Icon size={size}>
-		<path d="m12 4 8.5 4.5L12 13 3.5 8.5z" />
-		<path d="m3.5 12.5 8.5 4.5 8.5-4.5M3.5 16.5 12 21l8.5-4.5" />
 	</Icon>
 );
 export const RefreshIcon = ({ size = 18 }: { size?: number }) => (

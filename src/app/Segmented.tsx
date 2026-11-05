@@ -3,16 +3,14 @@ export function Segmented<T extends string>({
 	options,
 	value,
 	onChange,
-	inline = false,
 }: {
 	label: string;
 	options: readonly { value: T; label: string; disabled?: boolean }[];
 	value: T;
 	onChange: (value: T) => void;
-	inline?: boolean;
 }) {
 	return (
-		<div className={`segmented${inline ? " inline" : ""}`} role="radiogroup" aria-label={label}>
+		<div className="segmented" role="radiogroup" aria-label={label}>
 			{options.map((option) => (
 				<button
 					type="button"

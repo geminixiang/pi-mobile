@@ -4,7 +4,7 @@ import { useBack, useLast } from "./layers.ts";
 import { ownsSidewaysDrag } from "./SidePanel.tsx";
 import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
 
-export type StackPage = { key: string; content: ReactNode; onBack: () => void };
+type StackPage = { key: string; content: ReactNode; onBack: () => void };
 
 class StackMotion extends Motion {
 	constructor(

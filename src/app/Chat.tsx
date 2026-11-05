@@ -23,12 +23,11 @@ import { copy } from "./clipboard.ts";
 import { LONE_RUN, stepRuns } from "./step-runs.ts";
 import { questionStates } from "../interaction/answers.ts";
 import { type Interaction, InteractionContext } from "../interaction/context.ts";
-import type { Forms, FormsState } from "../interaction/forms.ts";
+import type { Forms } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import type { ResultCard } from "../interaction/results.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
-const NO_FORMS: FormsState = { pending: new Map(), settled: new Map() };
 const AT_BOTTOM_PX = 4;
 const WHEEL_SCROLL_MS = 200;
 
@@ -134,7 +133,7 @@ export function Chat({
 	contextShare,
 }: {
 	controller: ConversationController;
-	forms: Forms | undefined;
+	forms: Forms;
 	prefs: Prefs;
 	sandbox: boolean;
 	view: ConversationView | undefined;
@@ -215,11 +214,11 @@ export function Chat({
 		controller.results().then(setResults, (error: unknown) => onError(messageOf(error)));
 	}, [controller, entries.length, onError]);
 	useEffect(() => {
-		if (forms) void forms.load(controller.id).catch((error: unknown) => onError(messageOf(error)));
+		void forms.load(controller.id).catch((error: unknown) => onError(messageOf(error)));
 	}, [forms, controller.id, onError]);
 	const formsState = useSyncExternalStore(
-		(listener) => forms?.subscribe(listener) ?? (() => undefined),
-		() => forms?.state ?? NO_FORMS,
+		(listener) => forms.subscribe(listener),
+		() => forms.state,
 	);
 	const interaction: Interaction = useMemo(
 		() => ({
@@ -227,7 +226,7 @@ export function Chat({
 			forms: formsState,
 			results,
 			pages,
-			answerForm: (callId, answer) => forms?.answer(callId, answer),
+			answerForm: (callId, answer) => forms.answer(callId, answer),
 			reply: (reply) => {
 				stickToBottom.current = true;
 				setAtBottom(true);
@@ -417,7 +416,7 @@ export function Chat({
 				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
-					forms?.skip(controller.id);
+					forms.skip(controller.id);
 					if (notices.length > 0) onDismissNotices(notices.map((notice) => notice.id));
 					setAtBottom(true);
 					controller.send(content, whenBusy).catch(fail);
