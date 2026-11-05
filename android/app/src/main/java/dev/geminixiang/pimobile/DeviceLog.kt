@@ -1,6 +1,8 @@
 package dev.geminixiang.pimobile
 
 import android.content.Context
+import com.getcapacitor.JSObject
+import com.getcapacitor.PluginCall
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executors
@@ -15,7 +17,7 @@ internal object DeviceLog {
     private fun file(context: Context) = File(context.filesDir, "device.log")
 
     fun append(context: Context, lines: List<String>) {
-        val target = file(context.applicationContext)
+        val target = file(context)
         writer.execute {
             target.appendText(lines.joinToString(separator = "\n", postfix = "\n"))
             if (target.length() > LIMIT_BYTES) trim(target)
@@ -26,9 +28,9 @@ internal object DeviceLog {
         append(context, listOf(JSONObject().put("at", Instant.now().toString()).put("level", level).put("event", event).put("message", message).toString()))
     }
 
-    fun read(context: Context, done: (String) -> Unit) {
-        val target = file(context.applicationContext)
-        writer.execute { done(if (target.exists()) target.readText() else "") }
+    fun read(context: Context, call: PluginCall) {
+        val target = file(context)
+        writer.reply(call) { Outcome.Ok(JSObject().put("text", if (target.exists()) target.readText() else "")) }
     }
 
     private fun trim(target: File) {

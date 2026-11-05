@@ -7,7 +7,7 @@ const STALL_LIMIT_MS = 500;
 const SECRET = /\b(?:gh[pousr]_|github_pat_|sk-|xox[abp]-|ya29\.)[A-Za-z0-9_.-]+|Bearer [A-Za-z0-9_.-]+/g;
 
 const recent: string[] = [];
-let unsaved: string[] = [];
+const unsaved: string[] = [];
 let saving: ((lines: string[]) => void) | undefined;
 
 function scrubbed(fields: Fields): Fields {
@@ -26,11 +26,7 @@ function write(level: Level, event: string, fields: Fields): void {
 function keep(line: string, save: (lines: string[]) => void): void {
 	unsaved.push(line);
 	if (unsaved.length > 1) return;
-	queueMicrotask(() => {
-		const lines = unsaved;
-		unsaved = [];
-		save(lines);
-	});
+	queueMicrotask(() => save(unsaved.splice(0)));
 }
 
 export function saveLogWith(save: (lines: string[]) => void): void {

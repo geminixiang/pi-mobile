@@ -77,8 +77,8 @@ const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
 const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 	{
 		use: /WebPages\.create\b/,
-		owners: ["PageWorker.kt", "BrowserTab.kt", "WebPages.java"],
-		fix: "a third-party page shares its renderer with every WebView in its process, so it can freeze pi: load it in PageWorker (its own process), not in a new WebView here",
+		owners: ["PageWorker.kt", "BrowserTab.kt"],
+		fix: "a WebView on pi's profile shares pi's renderer, so a third-party page can freeze pi: load it in PageWorker (its own process), not in a new WebView here",
 	},
 	{
 		use: /PhoneScreenService\.(?!canStartActivities\b)\w+/,

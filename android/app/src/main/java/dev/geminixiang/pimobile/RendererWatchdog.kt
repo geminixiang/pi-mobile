@@ -13,22 +13,17 @@ private const val SILENCE_MS = 30_000L
 internal class RendererWatchdog(private val view: WebView) {
     private val main = Handler(Looper.getMainLooper())
     private val tick = Runnable { tick() }
-    private var running = false
     private var lastTick = 0L
     private var lastAnswer = 0L
 
     fun start() {
-        if (running) return
-        running = true
+        if (main.hasCallbacks(tick)) return
         lastTick = SystemClock.uptimeMillis()
         lastAnswer = lastTick
         main.postDelayed(tick, TICK_MS)
     }
 
-    fun stop() {
-        running = false
-        main.removeCallbacks(tick)
-    }
+    fun stop() = main.removeCallbacks(tick)
 
     private fun tick() {
         val now = SystemClock.uptimeMillis()
@@ -41,7 +36,6 @@ internal class RendererWatchdog(private val view: WebView) {
     }
 
     private fun restart() {
-        running = false
         val message = "the page did not answer for ${SILENCE_MS / 1000} s: restarting its renderer"
         Log.w(TAG, message)
         DeviceLog.event(view.context, "error", "renderer.restarted", message)
