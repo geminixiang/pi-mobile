@@ -2,7 +2,7 @@ import type { Api, ApiStreamOptions, Model, OAuthAuth, OAuthCredential, Provider
 import { streamFetch } from "./stream-fetch.ts";
 import { Type } from "typebox";
 import { listenForRedirect, pkce, postForm } from "./oauth.ts";
-import { decode, parse, readStored } from "./parse.ts";
+import { decode, parse, readStored } from "../parse.ts";
 import { orLogged } from "../promise.ts";
 import { randomBase64Url } from "../encoding.ts";
 

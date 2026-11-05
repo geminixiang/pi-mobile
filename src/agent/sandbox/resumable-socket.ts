@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { log } from "../../log.ts";
-import { decode } from "../parse.ts";
+import { decode } from "../../parse.ts";
 import type { Network } from "../network.ts";
 
 export type RawMessage = ArrayBuffer | string;

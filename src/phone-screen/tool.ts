@@ -3,7 +3,7 @@ import { type Static, Type } from "typebox";
 import { DIRECTIONS, KEYS, PhoneScreen, type PhoneScreenSnapshot, type PhoneScreenStep } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
-import { type Checked, oneOf } from "../agent/parse.ts";
+import { type Checked, oneOf } from "../parse.ts";
 
 const SWIPE_MS = 300;
 const SWIPE_MAX_MS = 5000;

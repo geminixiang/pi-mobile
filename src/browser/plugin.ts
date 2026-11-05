@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { definePlugin } from "../plugins/define.ts";
-import { oneOf } from "../agent/parse.ts";
+import { oneOf } from "../parse.ts";
 
 export const MAX_TABS = 8;
 export const KEYS = ["enter", "tab", "escape", "backspace"] as const;

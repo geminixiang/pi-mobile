@@ -5,9 +5,9 @@ import { type AppFile, appFile } from "../agent/tools/apps.ts";
 import { Apps } from "../plugins/apps.ts";
 import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
-import { markdownComponents, remarkPlugins } from "./Message.tsx";
+import { markdownComponents, remarkPlugins } from "./markdown.tsx";
 import { codeOf, messageOf } from "../promise.ts";
-import { formatBytes } from "../agent/tools/common.ts";
+import { formatBytes } from "../encoding.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 

@@ -11,7 +11,7 @@ import {
 	parseWwwAuthenticate,
 } from "@earendil-works/pi-mcp/oauth";
 import { type Static, Type } from "typebox";
-import { decode, decodeEach } from "./parse.ts";
+import { decode, decodeEach } from "../parse.ts";
 import { type McpSession, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { callTool, type FormAnswer, speaksStateless } from "./mcp-stateless.ts";

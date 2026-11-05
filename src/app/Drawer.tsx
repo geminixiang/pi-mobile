@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
-import { GearIcon, MoreIcon, PlusIcon, TriggerIcon, type TriggerSymbol } from "./icons.tsx";
+import { GearIcon, MoreIcon, PlusIcon, TriggerIcon } from "./icons.tsx";
+import type { TriggerSymbol } from "../triggers/when.ts";
 import type { Trigger } from "../triggers/runs.ts";
 import type { When } from "../triggers/plugin.ts";
 import { triggerSymbol } from "../triggers/when.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { type SidePage, SidePanel } from "./SidePanel.tsx";
-import { DAY, startOfToday } from "../agent/tools/common.ts";
+import { DAY, startOfToday } from "../time.ts";
 import { longPress } from "./haptics.ts";
 
 const SHOWN_SYMBOLS = 3;

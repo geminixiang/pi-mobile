@@ -165,7 +165,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
 | `src/agent/workplaces.ts`、`src/agent/sandbox/` | `Workplaces.at(bot)` 回答一個 Bot 在哪裡工作（手機、電腦直接或容器、已移除的電腦），帶著它的執行環境；pi-env 的 frame 協定、檔案與 git |
 | `src/agent/platform.ts` | `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。App 給 Capacitor 的實作，`test/contracts/` 給記憶體的 |
-| `src/agent/parse.ts` | 邊界驗證（typebox） |
+| `src/parse.ts` | 邊界驗證（typebox） |
 | `src/browser/` | Bot 的瀏覽器：外掛合約、注入網頁的 `page.ts`、`read_page` 和 `use_browser` 工具、瀏覽器面板。程式碼依功能分資料夾，其他功能整理時也會搬成這樣 |
 | `src/phone-screen/` | 代你操作 App（extension `phone_as_user`）：外掛合約、`phone_read_as_user` 和 `phone_act_as_user` 工具。設定頁的開關還在 `Settings.tsx`，跟其他設定區塊放在一起 |
 | `src/triggers/` | 排程：外掛合約（`plugin.ts`）、排程存檔與 `TriggerRuns`（`runs.ts`：同步到原生鬧鐘、觸發時的檢查和次數上限）、`create_schedule` 等工具（`tool.ts`）、原生事件佇列（`events.ts`）、排程的文字和圖示（`when.ts`）、設定頁的一列（`TriggerRow.tsx`） |

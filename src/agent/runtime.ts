@@ -33,7 +33,7 @@ import { extensionName, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
 import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import type { LoadedModels } from "./available-models.ts";
-import { hostOf } from "./parse.ts";
+import { hostOf } from "../parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
 import { isAt, isEnabled, offeredAt, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";

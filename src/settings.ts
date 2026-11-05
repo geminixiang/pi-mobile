@@ -1,7 +1,7 @@
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { type Static, Type } from "typebox";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
-import { readStored } from "./agent/parse.ts";
+import { readStored } from "./parse.ts";
 import { log } from "./log.ts";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 import { messageOf } from "./promise.ts";

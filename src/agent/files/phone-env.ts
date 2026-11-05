@@ -23,7 +23,7 @@ import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
-import { HOUR } from "../tools/common.ts";
+import { HOUR } from "../../time.ts";
 
 const TEMP_DIR = "/tmp";
 const MAX_TIMEOUT_MS = 2 * HOUR;

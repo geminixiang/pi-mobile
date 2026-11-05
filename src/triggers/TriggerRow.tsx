@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import { DAY, startOfToday } from "../agent/tools/common.ts";
+import { DAY, startOfToday } from "../time.ts";
 import type { LastRun, Trigger } from "./runs.ts";
 import { messageOf } from "../promise.ts";
 import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon, TriggerIcon } from "../app/icons.tsx";

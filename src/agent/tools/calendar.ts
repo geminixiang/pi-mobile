@@ -3,7 +3,8 @@ import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { DAY, defineAppTool, HOUR, json, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, text, weekdayOf } from "./common.ts";
+import { defineAppTool, json, text } from "./common.ts";
+import { DAY, HOUR, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, weekdayOf } from "../../time.ts";
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 

@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { Allowed, definePlugin } from "../plugins/define.ts";
-import { oneOf } from "../agent/parse.ts";
+import { oneOf } from "../parse.ts";
 
 export const KEYS = ["back", "home", "recents", "notifications", "quick_settings", "enter"] as const;
 export const DIRECTIONS = ["down", "up", "left", "right"] as const;

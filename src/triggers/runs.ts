@@ -4,8 +4,8 @@ import { type Conversation, type ConversationId, defineDoc, type Harness } from 
 import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
-import { DAY, localTime, MINUTE, startOfToday } from "../agent/tools/common.ts";
-import { check, oneOf, valueOrThrow } from "../agent/parse.ts";
+import { DAY, localTime, MINUTE, startOfToday } from "../time.ts";
+import { check, oneOf, valueOrThrow } from "../parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { entryText } from "../agent/entries.ts";
 import type { Judge } from "../agent/judge.ts";

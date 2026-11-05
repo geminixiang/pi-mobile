@@ -1,6 +1,6 @@
 import { type Command, defineCommand, type IFileSystem } from "just-bash/browser";
 import { Type } from "typebox";
-import { check } from "../parse.ts";
+import { check } from "../../parse.ts";
 import type { FolderFetch } from "./folder-fetch.ts";
 
 const WRITES_COMMITS = new Set(["commit", "merge", "rebase", "cherry-pick", "revert", "tag", "stash", "pull"]);

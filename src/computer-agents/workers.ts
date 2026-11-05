@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { checkJson } from "../agent/parse.ts";
+import { checkJson } from "../parse.ts";
 import { shellQuote } from "../agent/shell.ts";
 
 export type Status = "idle" | "working" | "needs_user" | "unknown";

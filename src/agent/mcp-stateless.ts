@@ -1,6 +1,6 @@
 import { type AuthProvider, type CallToolResult, type ContentBlock, type McpFetch, McpError, isJsonRpcResponse, parseJsonRpcMessage } from "@earendil-works/pi-mcp";
 import { type Static, Type } from "typebox";
-import { check, jsonOrText } from "./parse.ts";
+import { check, jsonOrText } from "../parse.ts";
 import { orLogged } from "../promise.ts";
 
 const STATELESS_VERSION = "2026-07-28";

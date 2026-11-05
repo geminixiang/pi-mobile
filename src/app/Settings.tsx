@@ -38,7 +38,7 @@ import { MemoryView } from "./MemoryView.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { grouped } from "../triggers/when.ts";
-import { DAY, startOfToday } from "../agent/tools/common.ts";
+import { DAY, startOfToday } from "../time.ts";
 import { shortModelName } from "./ModelSheet.tsx";
 import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";

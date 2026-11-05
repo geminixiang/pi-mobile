@@ -1,6 +1,6 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { type Static, Type } from "typebox";
-import { check, type Checked, parse, parseJson, valueOrThrow } from "./parse.ts";
+import { check, type Checked, parse, parseJson, valueOrThrow } from "../parse.ts";
 import { sleep } from "@earendil-works/pi-ai/utils/sleep";
 import { orLogged } from "../promise.ts";
 import { randomBase64Url, toBase64Url } from "../encoding.ts";

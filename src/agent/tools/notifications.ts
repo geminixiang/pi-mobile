@@ -3,7 +3,8 @@ import { appSection } from "../section.ts";
 import { Type } from "typebox";
 import { requireAccess } from "../notification-access.ts";
 import { type ActiveNotification, Notifications, type RecordedNotification } from "../../plugins/notifications.ts";
-import { defineAppTool, HOUR, localTime, text } from "./common.ts";
+import { defineAppTool, text } from "./common.ts";
+import { HOUR, localTime } from "../../time.ts";
 
 function line(item: RecordedNotification): string {
 	const where = item.sender

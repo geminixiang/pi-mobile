@@ -3,7 +3,7 @@ import { type ConversationId, defineDoc, defineExtension } from "@earendil-works
 import { appSection } from "./section.ts";
 import { checkpointEvery64 } from "./doc-policy.ts";
 import { defineAppTool, text } from "./tools/common.ts";
-import { oneOf } from "./parse.ts";
+import { oneOf } from "../parse.ts";
 
 export const MEMORY_LIMIT = 4000;
 

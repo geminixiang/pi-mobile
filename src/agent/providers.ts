@@ -1,7 +1,7 @@
 import type { Provider } from "@earendil-works/pi-ai";
 import { withChatGPTSignIn } from "./chatgpt.ts";
 import { type Static, Type } from "typebox";
-import { decodeEach } from "./parse.ts";
+import { decodeEach } from "../parse.ts";
 
 interface BuiltinProviderInfo {
 	id: string;

@@ -9,7 +9,7 @@ import { PageStack } from "./PageStack.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
-import { formatBytes } from "../agent/tools/common.ts";
+import { formatBytes } from "../encoding.ts";
 
 export type WorkspaceTab = "files" | "git";
 type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;

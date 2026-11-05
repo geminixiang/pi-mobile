@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { Granted, definePlugin } from "../plugins/define.ts";
-import { oneOf } from "../agent/parse.ts";
+import { oneOf } from "../parse.ts";
 
 const Clock = Type.String({ pattern: "^\\d{2}:\\d{2}$" });
 const Days = Type.Array(Type.Integer({ minimum: 1, maximum: 7 }));

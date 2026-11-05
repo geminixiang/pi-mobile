@@ -19,7 +19,7 @@ import { deviceNetwork } from "../network.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
 import { RESUME_LIMIT_MS, type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
-import { decode, decodeEach, oneOf, parseJson } from "../parse.ts";
+import { decode, decodeEach, oneOf, parseJson } from "../../parse.ts";
 import { onFailure, untilFailure } from "../../promise.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";

@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remend from "remend";
-import { remarkPlugins, streamingMarkdownComponents } from "./Message.tsx";
+import { remarkPlugins, streamingMarkdownComponents } from "./markdown.tsx";
 
 const CATCH_UP_MS = 160;
 

@@ -1,7 +1,7 @@
 import { App } from "@capacitor/app";
-import { KeepAlive } from "../plugins/keep-alive.ts";
-import { native } from "../native.ts";
-import { orLogged } from "../promise.ts";
+import { KeepAlive } from "./plugins/keep-alive.ts";
+import { native } from "./native.ts";
+import { orLogged } from "./promise.ts";
 
 const available = native.has("KeepAlive");
 

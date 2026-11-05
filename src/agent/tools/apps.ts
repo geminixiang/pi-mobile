@@ -5,8 +5,9 @@ import { native } from "../../native.ts";
 import { Type } from "typebox";
 import { type ConversationId, defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
-import { defineAppTool, parseClock, text } from "./common.ts";
-import { oneOf } from "../parse.ts";
+import { defineAppTool, text } from "./common.ts";
+import { parseClock } from "../../time.ts";
+import { oneOf } from "../../parse.ts";
 import { toBase64 } from "../../encoding.ts";
 import { mimeTypeOf } from "../mime.ts";
 

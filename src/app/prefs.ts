@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { type Static, Type } from "typebox";
-import { readStored } from "../agent/parse.ts";
+import { readStored } from "../parse.ts";
 
 const KEY = "pi-mobile.prefs";
 

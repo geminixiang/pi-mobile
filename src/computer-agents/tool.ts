@@ -9,7 +9,8 @@ import { Triggers } from "../triggers/plugin.ts";
 import { native } from "../native.ts";
 import { orLogged } from "../promise.ts";
 import type { Workplace } from "../agent/workplaces.ts";
-import { defineAppTool, MINUTE, text, truncated } from "../agent/tools/common.ts";
+import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
+import { MINUTE } from "../time.ts";
 import { choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 

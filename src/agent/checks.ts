@@ -4,7 +4,7 @@ import { fetchModelIds } from "./models.ts";
 import { builtinInfo } from "./providers.ts";
 import { memoryCredentials } from "./credentials.ts";
 import { chatgptModels, parseOAuthCredential } from "./chatgpt.ts";
-import { parse } from "./parse.ts";
+import { parse } from "../parse.ts";
 
 const GitHubUser = Type.Object({ login: Type.String() });
 const timeout = () => AbortSignal.timeout(8000);

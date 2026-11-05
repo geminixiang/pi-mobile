@@ -1,7 +1,7 @@
 import { Value } from "typebox/value";
 import { type Static, Type } from "typebox";
 import { type AccessToken, cachedToken, checkTokens, jwtPayload, pkce, postForm } from "./oauth.ts";
-import { type Checked, checkJson, parse, valueOrThrow } from "./parse.ts";
+import { type Checked, checkJson, parse, valueOrThrow } from "../parse.ts";
 import { fromBase64, randomBase64Url, toBase64Url } from "../encoding.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";

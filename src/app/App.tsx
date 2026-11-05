@@ -27,7 +27,7 @@ import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { inForeground, notifyAway, setWorking, stayAwakeFor } from "./keepAlive.ts";
+import { inForeground, notifyAway, setWorking, stayAwakeFor } from "../keepAlive.ts";
 import { native } from "../native.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "../triggers/events.ts";
 import type { Trigger } from "../triggers/runs.ts";

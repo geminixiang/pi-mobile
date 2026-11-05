@@ -1,6 +1,6 @@
 import type { ToolCall } from "@earendil-works/pi-ai";
 import { useContext, useState } from "react";
-import { check } from "../agent/parse.ts";
+import { check } from "../parse.ts";
 import { InteractionContext } from "./context.ts";
 import { AskArgs } from "./tool.ts";
 

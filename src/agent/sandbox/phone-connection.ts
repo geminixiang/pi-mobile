@@ -2,7 +2,7 @@ import { Buffer } from "buffer";
 import { Type } from "typebox";
 import { Connection, RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
 import wire from "../../../host/protocol.json" with { type: "json" };
-import { check } from "../parse.ts";
+import { check } from "../../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { registerProgram } from "../../shims/node-child-process.ts";
 import type { Link } from "./resumable-socket.ts";

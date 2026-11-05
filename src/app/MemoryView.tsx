@@ -6,7 +6,7 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import { messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";
 import { BotAvatar } from "./BotAvatar.tsx";
-import { monthDayTime } from "../agent/tools/common.ts";
+import { monthDayTime } from "../time.ts";
 
 const BOT_PLACEHOLDER = `# 這份工作
 - 資料來源：

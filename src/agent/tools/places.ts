@@ -2,9 +2,10 @@ import { Type } from "typebox";
 import { Phone } from "../../plugins/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
-import { defineAppTool, getJson, localTime, text } from "./common.ts";
+import { defineAppTool, getJson, text } from "./common.ts";
+import { localTime } from "../../time.ts";
 import { Value } from "typebox/value";
-import { parse } from "../parse.ts";
+import { parse } from "../../parse.ts";
 import { currentPlace, metersBetween, type Point, resolvePlace } from "./device.ts";
 import { orLogged } from "../../promise.ts";
 

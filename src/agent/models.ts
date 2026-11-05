@@ -5,7 +5,7 @@ import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messag
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { Type } from "typebox";
-import { parse } from "./parse.ts";
+import { parse } from "../parse.ts";
 import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "./cleartext.ts";
 import { ios } from "../native.ts";
 

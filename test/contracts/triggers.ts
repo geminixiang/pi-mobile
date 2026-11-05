@@ -9,7 +9,7 @@ import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents, latestAlarms } from "../../src/triggers/events.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
-import { DAY, localDate } from "../../src/agent/tools/common.ts";
+import { DAY, localDate } from "../../src/time.ts";
 import { context, entriesOf } from "./fixtures.ts";
 import { type Check, logged, settings } from "./setup.ts";
 

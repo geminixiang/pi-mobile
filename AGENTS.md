@@ -13,7 +13,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Look before you leap (LBYL): check the precondition (it exists, is permitted, is available, parses) before acting.
   A failure no check can foresee (network, native I/O) surfaces to the user or becomes a named outcome; never
   swallow it with `catch(() => undefined)`.
-- Validate an unknown value once, at the boundary that owns it (`src/agent/parse.ts`), and pass typed values inward; do not re-check what a type or schema already guarantees. No `any`; `as` only for `as const` and a narrowing TypeScript cannot express otherwise, never in place of validation; `as unknown as` only where a library's nominal type forces it, in one named function with its `why:`. `test/code-rules.ts` fails on `any`, `!`, `<T>` casts, `.catch(() => undefined)` and any `as` (other than `as const`) without a `// why:` line right above it.
+- Validate an unknown value once, at the boundary that owns it (`src/parse.ts`), and pass typed values inward; do not re-check what a type or schema already guarantees. No `any`; `as` only for `as const` and a narrowing TypeScript cannot express otherwise, never in place of validation; `as unknown as` only where a library's nominal type forces it, in one named function with its `why:`. `test/code-rules.ts` fails on `any`, `!`, `<T>` casts, `.catch(() => undefined)` and any `as` (other than `as const`) without a `// why:` line right above it.
 - Split code by responsibility, not by size. Do not extract a helper used once; inline a value used once. A function reads as its happy path, with early returns instead of `else` and `const` instead of reassignment; supporting details go in named helpers below it only when they name a real concept.
 - Write it inline first and compress later: code that repeats becomes shared on its third occurrence, not its second.
 - Functional by default: pure functions and data pipelines (`filter`, `map`), side effects at the edges. Mutation inside a function (`push`, `Map.set`, a `for` loop) is fine when the function is pure from outside. A class only for something with a lifetime (a connection, a WebView).
@@ -67,7 +67,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | A tool that needs a native method marked `opens: "screen"` declares `effect: "screen"`, and only the catalog calls `openScreen` | `test/tools-node.ts`, `test/code-rules.ts` |
 | A WebView is created only by `WebPages.create(context, profile)`: one on pi's profile shares pi's renderer, so a spinning page freezes pi | `test/code-rules.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
-| JSON is parsed only through `src/agent/parse.ts` | `test/code-rules.ts` |
+| JSON is parsed only through `src/parse.ts` | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
 | Every prompt section is an `appSection` with a budget; with a crowded app (removed bots, full memory, every toolset) each stays in it and the whole prompt in `PROMPT_BUDGET`; the rendered prompt matches `test/prompt.snapshot.json` | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |

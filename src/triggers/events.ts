@@ -4,9 +4,9 @@ import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
 import { native } from "../native.ts";
 import { QueuedEvent, Triggers } from "./plugin.ts";
 import { log } from "../log.ts";
-import { releaseIfIdle } from "../app/keepAlive.ts";
+import { releaseIfIdle } from "../keepAlive.ts";
 import { messageOf, orLogged, serially } from "../promise.ts";
-import { DAY } from "../agent/tools/common.ts";
+import { DAY } from "../time.ts";
 
 const RETRY_FOR_MS = DAY;
 

@@ -1,6 +1,6 @@
 import type { PhonePermissions } from "../interaction/permissions.ts";
 import { phonePermissions } from "../interaction/phone-permissions.ts";
-import { inForeground } from "../app/keepAlive.ts";
+import { inForeground } from "../keepAlive.ts";
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { CapacitorHttp } from "@capacitor/core";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
@@ -14,7 +14,7 @@ import { inApp, type Native, native } from "../native.ts";
 import { Browser } from "../browser/plugin.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
-import { parseJson } from "./parse.ts";
+import { parseJson } from "../parse.ts";
 import { listenForRedirect } from "./oauth.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;

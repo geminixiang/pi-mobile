@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { Allowed, definePlugin } from "./define.ts";
-import { oneOf } from "../agent/parse.ts";
+import { oneOf } from "../parse.ts";
 
 const RecordedNotification = Type.Object({
 	package: Type.String(),

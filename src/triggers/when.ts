@@ -1,7 +1,8 @@
-import { DAY, pad } from "../agent/tools/common.ts";
-import type { TriggerSymbol } from "../app/icons.tsx";
+import { DAY, pad } from "../time.ts";
 import type { ACTIVITIES, When } from "./plugin.ts";
 import type { Trigger } from "./runs.ts";
+
+export type TriggerSymbol = "clock" | "headphones" | "bell" | "pin" | "wifi" | "charging" | "battery" | "unlock" | "image" | "car" | "globe" | "bluetooth" | "walk" | "bike" | "still";
 
 const ACTIVITY_NAMES: Record<(typeof ACTIVITIES)[number], [string, string]> = {
 	walking: ["開始走路", "停止走路"],

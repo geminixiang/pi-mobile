@@ -9,7 +9,7 @@ import type { AccessToken } from "../oauth.ts";
 import { type Daemon, daemon } from "./daemon.ts";
 import { lost, type OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, sleep, untilFailure, whilePending } from "../../promise.ts";
-import { decode } from "../parse.ts";
+import { decode } from "../../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
 

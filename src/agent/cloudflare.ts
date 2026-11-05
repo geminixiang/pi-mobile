@@ -1,8 +1,8 @@
 import { type Static, Type } from "typebox";
 import { type AccessToken, cachedToken, type DeviceSignIn, getJson, pollDeviceFlow, refreshRotating, startDeviceFlow } from "./oauth.ts";
-import { type Checked, check, checkJson, parse } from "./parse.ts";
+import { type Checked, check, checkJson, parse } from "../parse.ts";
 import { orLogged } from "../promise.ts";
-import { DAY } from "./tools/common.ts";
+import { DAY } from "../time.ts";
 
 const AUTH_DOMAIN = "https://dash.cloudflare.com";
 const TOKEN_URL = `${AUTH_DOMAIN}/oauth2/token`;

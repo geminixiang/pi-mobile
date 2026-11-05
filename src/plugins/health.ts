@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/parse.ts";
+import { oneOf } from "../parse.ts";
 
 export const METRICS = ["steps", "heart_rate", "sleep", "exercise", "weight"] as const;
 

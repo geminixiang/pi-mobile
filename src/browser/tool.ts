@@ -2,7 +2,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { type Static, Type } from "typebox";
 import { Browser, type BrowserSnapshot, type BrowserStep, DIRECTIONS, KEYS, MAX_TABS } from "./plugin.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
-import { type Checked, oneOf } from "../agent/parse.ts";
+import { type Checked, oneOf } from "../parse.ts";
 
 const HANDOVER_MS = 10 * 60_000;
 const WAIT_MS = 1000;

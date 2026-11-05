@@ -13,7 +13,7 @@ import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Logo } from "./Logo.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { messageOf } from "../promise.ts";
-import { hostOf } from "../agent/parse.ts";
+import { hostOf } from "../parse.ts";
 
 type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;
 

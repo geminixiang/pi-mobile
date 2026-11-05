@@ -117,12 +117,12 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 	},
 	{
 		use: /\bJSON\.parse\(/,
-		owners: ["src/agent/parse.ts"],
-		fix: "parse JSON at the boundary with checkJson, decode or parseJson from src/agent/parse.ts",
+		owners: ["src/parse.ts"],
+		fix: "parse JSON at the boundary with checkJson, decode or parseJson from src/parse.ts",
 	},
 	{
 		use: /\bApp\.getState\(/,
-		owners: ["src/agent/tools/apps.ts", "src/app/keepAlive.ts"],
+		owners: ["src/agent/tools/apps.ts", "src/keepAlive.ts"],
 		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",
 	},
 ];

@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { definePlugin } from "./define.ts";
-import { oneOf } from "../agent/parse.ts";
+import { oneOf } from "../parse.ts";
 
 export const STREAMS = ["ring", "media", "alarm", "notification", "call"] as const;
 const RINGERS = ["normal", "vibrate", "silent"] as const;

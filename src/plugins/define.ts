@@ -1,6 +1,6 @@
 import { Capacitor, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 import { type Static, type TObject, type TSchema, Type } from "typebox";
-import { check, parse } from "../agent/parse.ts";
+import { check, parse } from "../parse.ts";
 import { log } from "../log.ts";
 
 const PluginHeaders = Type.Array(Type.Object({ name: Type.String(), methods: Type.Array(Type.Object({ name: Type.String() })) }));

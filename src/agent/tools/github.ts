@@ -1,7 +1,7 @@
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { jsonOrText, oneOf, parse } from "../parse.ts";
+import { jsonOrText, oneOf, parse } from "../../parse.ts";
 import { defineAppTool, jsonOrNull, text as textResult, truncated } from "./common.ts";
 import { fromBase64 } from "../../encoding.ts";
 

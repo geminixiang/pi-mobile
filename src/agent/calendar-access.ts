@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { decode } from "./parse.ts";
+import { decode } from "../parse.ts";
 import type { PhoneCalendar } from "../plugins/calendar.ts";
 
 const CalendarAccess = Type.Object({
