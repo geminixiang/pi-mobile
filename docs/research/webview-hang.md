@@ -16,7 +16,7 @@
 
 ## 原因
 
-`Page.check`、`Page.render` 在 App 裡開第二個 WebView。同一個程序的 WebView 共用渲染程序和它的主執行緒，所以網頁的 JS 空轉時 pi 也動不了。`Render` 的 30 秒期限只在 `evaluateJavascript` 的回呼裡判斷，回呼不來就永遠不結束。
+`Page.check`、`Page.render` 在 App 裡開第二個 WebView，用的是 pi 的預設 profile。同一個程序裡同一個 profile 的 WebView 共用渲染程序和它的主執行緒，所以網頁的 JS 空轉時 pi 也動不了。`Render` 的 30 秒期限只在 `evaluateJavascript` 的回呼裡判斷，回呼不來就永遠不結束。
 
 〔跑過〕模擬器：`Page.render` 載入 `setTimeout(() => { for (;;) { [].concat([1]); } }, 100)` 的網頁後，pi 不再回應，主執行緒 100%，3 分鐘沒恢復。一般開機 0%。
 
@@ -33,7 +33,14 @@ S24 上也跑過：空轉網頁渲染時 pi 回應 19–50 ms，33 秒後回報�
 
 - log 寫到原生端的 `device.log`，重開後還在。〔跑過〕模擬器上頁面空轉、看門狗重開後，紀錄有 `renderer.restarted`、`renderer.gone` 和之前的內容。
 
+## Bot 的瀏覽器
+
+`BrowserTab` 不用隔離。〔跑過〕模擬器和 S24 上，它的空轉頁面都有自己的渲染程序（profile `bot-<id>`），pi 全程回應，看門狗沒有觸發。
+
+但關掉分頁、刪掉 profile 都停不了空轉，渲染程序繼續吃滿 CPU、記憶體還在漲。所以最後一個分頁關掉時要明確結束渲染程序，分頁 20 秒沒回應時也一樣。
+
+這也表示 `Page` 當初可能換個獨立 profile 就夠，`terminate()` 一樣能結束它。獨立程序多換到的是 WebView 的瀏覽器端：網路、GPU 和回呼都不在 pi 的主執行緒，無人看管開任意網址時少一分風險。代價是多一套 Messenger 協定和冷啟動，已在 S24 驗過，所以留著。
+
 ## 還留著的
 
-- `BrowserTab` 還在 pi 的程序裡，看門狗是它唯一的保護。它要顯示在同一畫面，View 不能跨程序，搬出去要換做法。
 - `web.ts` 的 `htmlToText` 還在 pi 的主執行緒解析第三方 HTML。
