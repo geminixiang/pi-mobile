@@ -9,13 +9,15 @@ changed today, or a recurring digest of the user's watchlist.
   `valuation` or `market`, and months of `prices`. `prices` (daily OHLC, volume), `institutional` (三大法人 net shares),
   `margin` (融資融券 in 張), `valuation` (本益比, 股價淨值比, 殖利率), `revenue` (the latest 月營收 with 月增, 年增,
   累計), `market` (加權 and 櫃買 indexes, turnover, 三大法人 net NT$). Its structured `rows` are for scripts.
-- Taiwan, during the session (09:00–13:30): an intraday quote service, if this bot has one (台股開放資料
-  `quote_realtime`, also its market snapshot and futures). Otherwise say the price is the last close.
+- Taiwan, today (during the session, and after it until `tw_stocks` has today): an intraday quote service, if this
+  bot has one (台股開放資料 `quote_realtime`; code `t00` with market `tse` is today's 加權指數). Its `snapshot_market` is
+  the previous trading day, so never present it as today. Without one, say the price is the last close.
 - US: a US stock data service, if this bot has one (Shibui Finance: read its schema and query patterns once, then SQL).
   Without one, say so instead of guessing figures.
 - News, reasons, events: `web_search`, after the numbers, and say which is which.
-- Get every series a question needs in one codemode script (`Promise.all`), and compute there; return a compact
-  table, not the raw rows.
+- Get every series a question needs in one codemode script (`Promise.all`), and compute there. Never `text()` a whole
+  result: months of `prices` is thousands of tokens you read again on every later step. Keep the columns and days you
+  need (`r.rows.map(...)`) and return a compact table.
 
 ## Taiwan conventions
 
