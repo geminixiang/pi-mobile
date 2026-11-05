@@ -137,6 +137,30 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a service that refuses discovery with HTTP 400 is an older service, and is not asked again on every call",
+		async () => {
+			let asked = 0;
+			mcpHttp.routes = {
+				[`POST ${URL_}`]: () => {
+					asked++;
+					return new Response(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Unsupported protocol version" } }), { status: 400 });
+				},
+			};
+			const { runtime } = await openRuntime();
+			const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+			const { hub, run } = await sendDraftTool(runtime, bot);
+			try {
+				await assert.rejects(run(), /never called/);
+				await assert.rejects(run(), /never called/);
+				assert.equal(asked, 1);
+			} finally {
+				mcpHttp.routes = {};
+				await hub.close();
+				await runtime.close();
+			}
+		},
+	],
+	[
 		"declining the confirmation sends nothing, and the bot is told so",
 		async () => {
 			mcpHttp.routes = { [`POST ${URL_}`]: statelessServer([]) };

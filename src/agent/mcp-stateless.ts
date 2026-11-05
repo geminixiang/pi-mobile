@@ -46,8 +46,23 @@ const meta = {
 const ASCII_HEADER = /^[\x20-\x7e]*$/;
 const headerValue = (value: string) => (ASCII_HEADER.test(value) ? value : `=?base64?${btoa(String.fromCodePoint(...new TextEncoder().encode(value)))}?=`);
 
+const PASSING_STATUSES = new Set([401, 403, 408, 429]);
+
+class HttpRefusal extends Error {
+	readonly final: boolean;
+
+	constructor(method: string, status: number) {
+		super(`MCP ${method} answered HTTP ${status}`);
+		this.final = status >= 400 && status < 500 && !PASSING_STATUSES.has(status);
+	}
+}
+
 export async function speaksStateless(endpoint: Endpoint, signal?: AbortSignal): Promise<boolean | undefined> {
-	const response = await orLogged(send(endpoint, "server/discover", undefined, {}, signal), "mcp.discover_failed", undefined, { url: endpoint.url });
+	const discovering = send(endpoint, "server/discover", undefined, {}, signal).catch((error: unknown) => {
+		if (error instanceof HttpRefusal && error.final) return { error: error.message };
+		throw error;
+	});
+	const response = await orLogged(discovering, "mcp.discover_failed", undefined, { url: endpoint.url });
 	if (!response) return undefined;
 	if ("error" in response) return false;
 	const discovered = check(Discovered, response.result, "server/discover");
@@ -105,7 +120,7 @@ async function send(endpoint: Endpoint, method: string, name: string | undefined
 		first.response.status === 401 && refresh
 			? await refresh({ response: first.response, serverUrl: new URL(endpoint.url), fetch: endpoint.fetch, ...(first.token ? { token: first.token } : {}) }).then(post).then((again) => again.response)
 			: first.response;
-	if (!response.ok) throw new Error(`MCP ${method} answered HTTP ${response.status}`);
+	if (!response.ok) throw new HttpRefusal(method, response.status);
 	const text = await response.text();
 	const message = (response.headers.get("content-type") ?? "").includes("text/event-stream") ? fromEvents(text, id) : jsonOrText(text);
 	const parsed = parseJsonRpcMessage(message);
