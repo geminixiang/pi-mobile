@@ -85,7 +85,7 @@ internal class BrowserTab(
     private val frozen: (BrowserTab) -> Unit,
     gone: (BrowserTab) -> Unit,
 ) {
-    val view: WebView = WebPages.create(context)
+    val view: WebView = WebPages.create(context, profileOf(owner.bot))
     val expire = Runnable { idle(this) }
 
     @Volatile var loading = false
@@ -104,8 +104,6 @@ internal class BrowserTab(
     private val answerKeys = AtomicLong()
 
     init {
-        ProfileStore.getInstance().getOrCreateProfile(profileOf(owner.bot))
-        WebViewCompat.setProfile(view, profileOf(owner.bot))
         WebViewCompat.addWebMessageListener(view, ANSWER_CHANNEL, setOf("*")) { _, message, _, _, _ ->
             val data = message.data.orEmpty()
             val cut = data.indexOf('\n')

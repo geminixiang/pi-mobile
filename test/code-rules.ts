@@ -76,9 +76,9 @@ function findings(file: string): Finding[] {
 const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
 const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 	{
-		use: /WebPages\.create\b/,
-		owners: ["PageWorker.kt", "BrowserTab.kt"],
-		fix: "a WebView on pi's profile shares pi's renderer, so a third-party page can freeze pi: load it in PageWorker (its own process), not in a new WebView here",
+		use: /\bnew WebView\(|[=(] *WebView\(/,
+		owners: ["WebPages.java"],
+		fix: "a WebView on pi's profile shares pi's renderer, so a third-party page can freeze pi: create it with WebPages.create(context, profile)",
 	},
 	{
 		use: /PhoneScreenService\.(?!canStartActivities\b)\w+/,

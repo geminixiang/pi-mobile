@@ -11,6 +11,8 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.webkit.ProfileStore;
+import androidx.webkit.WebViewCompat;
 
 final class WebPages {
 
@@ -22,8 +24,11 @@ final class WebPages {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    static WebView create(Context context) {
+    static WebView create(Context context, String profile) {
         WebView view = new WebView(context);
+        // why: WebViews on one profile share one renderer and its main thread; on pi's profile a spinning page froze pi with it
+        ProfileStore.getInstance().getOrCreateProfile(profile);
+        WebViewCompat.setProfile(view, profile);
         WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
