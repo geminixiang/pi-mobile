@@ -53,6 +53,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        goQuietIfAsked(intent);
+    }
+
+    @Override
     public void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putBoolean(KEPT_RUNNING, getBridge().getWebView() instanceof PiWebView web && web.getKeptRunning());
