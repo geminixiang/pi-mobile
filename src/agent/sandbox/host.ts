@@ -327,7 +327,7 @@ export class HostSandbox implements Sandbox {
 
 	constructor(host: PairedHost, mode: HostMode, credentials: Credentials) {
 		this.host = host;
-		this.mode = mode;
+		this.mode = mode === "container" && host.engine ? "container" : "direct";
 		const onLog = (text: string) => log.warn("sandbox.daemon_output", { host: host.name, text });
 		const onStatus = (status: ConnectionStatus) => {
 			this.#status = status;
