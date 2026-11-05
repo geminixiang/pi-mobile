@@ -86,7 +86,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - `IndexedDbStorage` 只能有一個擁有者，所以用 Web Lock 擋住第二個 WebView（數位助理以前會開一個）。reload 時舊頁面走了才放鎖，新頁面最多等 5 秒。
 
 **診斷**
-- `src/log.ts` 除了寫 console，還留最近 2000 行在記憶體（含時間、已遮蔽 token 樣式的字串），設定頁最下面「分享診斷記錄」把它存成 `.jsonl` 走分享表。正式版關閉 WebView 偵錯，這是正式版唯一拿得到 JS 端證據的路。主執行緒每 250 ms 心跳一次，前景時間隔超過 500 ms 記一筆 `ui.stall`；頁面在背景被 Chromium 凍結的那一段不算。
+- `src/log.ts` 除了寫 console，還留最近 2000 行在記憶體（含時間、已遮蔽 token 樣式的字串）。Android 上每行也交給原生端追加到 `device.log`（`DeviceLog`，上限 1 MB），所以頁面卡死或渲染程序被重開時，之前的紀錄還在；看門狗重開時也會寫一筆。工具開始和結束各記一行，卡住時看得出在哪個工具。設定頁最下面「分享診斷記錄」把它存成 `.jsonl` 走分享表。正式版關閉 WebView 偵錯，這是正式版唯一拿得到 JS 端證據的路。主執行緒每 250 ms 心跳一次，前景時間隔超過 500 ms 記一筆 `ui.stall`；頁面在背景被 Chromium 凍結的那一段不算。
 
 **Runtime 的生命週期**
 - 改設定先問 `AgentRuntime.apply(next)`。runtime 邊跑邊讀的設定（預設模型、思考程度、壓縮門檻、電腦清單、配對金鑰、預設電腦）就地生效：沒變的電腦連線留著，進行中的回合不受影響；壓縮門檻換掉的是 harness 每次請求時讀的 `models`。其他設定（供應商與金鑰、雲端憑證、GitHub token、行事曆範圍）在開 harness 時就裝進了 extension，`apply` 回 `needs_restart`，`App.tsx` 才關掉整個 `AgentRuntime` 再開一個新的；這會停下正在跑的工作（2026-10-26 在 S24 重現：改壓縮門檻時容器裡的指令回 `Tool bash was interrupted`）。`close()` 先關 harness，再關 MCP 和電腦連線；前一步失敗也照樣關後面的。

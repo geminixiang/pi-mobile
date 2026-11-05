@@ -31,8 +31,9 @@
 
 S24 上也跑過：空轉網頁渲染時 pi 回應 19–50 ms，33 秒後回報失敗，`:webpages` 沒有殘留；pi 頁面空轉時約 30 秒重開，App 程序不變，資料完好。排程回合在背景時的恢復和 `onNewIntent` 只在模擬器跑過。
 
+- log 寫到原生端的 `device.log`，重開後還在。〔跑過〕模擬器上頁面空轉、看門狗重開後，紀錄有 `renderer.restarted`、`renderer.gone` 和之前的內容。
+
 ## 還留著的
 
 - `BrowserTab` 還在 pi 的程序裡，看門狗是它唯一的保護。它要顯示在同一畫面，View 不能跨程序，搬出去要換做法。
 - `web.ts` 的 `htmlToText` 還在 pi 的主執行緒解析第三方 HTML。
-- 卡住前的 log 只在記憶體裡，看門狗重開後就沒了。
