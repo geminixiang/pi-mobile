@@ -126,7 +126,7 @@ export function Chat({
 	initialDraft,
 	initialFiles,
 	shared,
-	focusKey,
+	focus,
 	notices,
 	onDismissNotices,
 	onError,
@@ -140,7 +140,7 @@ export function Chat({
 	initialDraft?: string;
 	initialFiles?: readonly File[];
 	shared?: SharedKind;
-	focusKey: number;
+	focus: boolean;
 	notices: readonly Notice[];
 	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
@@ -159,8 +159,8 @@ export function Chat({
 	const wheeledAt = useRef(-Infinity);
 
 	useEffect(() => {
-		if (focusKey || initialDraft) setComposerFocus((key) => key + 1);
-	}, [focusKey, initialDraft]);
+		if (focus || initialDraft) setComposerFocus((key) => key + 1);
+	}, [focus, initialDraft]);
 
 	useLayoutEffect(() => {
 		const element = scroller.current;

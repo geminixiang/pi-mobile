@@ -62,10 +62,9 @@ export function App() {
 	const [bots, setBots] = useState<Bot[]>([]);
 	const [controller, setController] = useState<ConversationController>();
 	const [view, setView] = useState<ConversationView>();
-	const [pending, setPending] = useState<{ draft?: string; files?: readonly File[]; shared?: SharedKind }>({});
+	const [pending, setPending] = useState<{ draft?: string; files?: readonly File[]; shared?: SharedKind; focus?: boolean }>({});
 	const [overlay, setOverlay] = useState<Overlay>();
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (sure: boolean) => void }>();
-	const [focusKey, setFocusKey] = useState(0);
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
 	const [memoryBot, setMemoryBot] = useState<Bot>();
@@ -498,7 +497,7 @@ export function App() {
 						initialDraft={pending.draft}
 						initialFiles={pending.files}
 						shared={pending.shared}
-						focusKey={focusKey}
+						focus={pending.focus ?? false}
 						notices={notices}
 						onDismissNotices={dismissNotices}
 						onError={notify}
@@ -541,7 +540,7 @@ export function App() {
 							const id = await runtime.createBot(change);
 							setBotEdit(undefined);
 							await openConversation(id);
-							setFocusKey((key) => key + 1);
+							setPending((current) => ({ ...current, focus: true }));
 						}
 					} catch (error) {
 						fail(error);
