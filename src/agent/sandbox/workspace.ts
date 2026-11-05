@@ -11,6 +11,7 @@ const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_DIFF_CHARS = 1_500_000;
+const GIT_TIMEOUT_SECONDS = 30;
 
 export type FileContent =
 	| { kind: "text"; text: string; truncated: boolean; size: number; limit: number }
@@ -151,7 +152,7 @@ export class Workspace {
 			command,
 			{
 				cwd: this.root,
-				timeout: 30_000,
+				timeout: GIT_TIMEOUT_SECONDS,
 				onOutput: (text, _context, info) => {
 					if (info.stream !== "stderr" && stdout.length < MAX_DIFF_CHARS) stdout += text;
 				},
