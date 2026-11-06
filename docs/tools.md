@@ -322,6 +322,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-06 | 下一步的條件改成看得見的：使用者在做決定或在等什麼、而且還能多做時，不以建議收尾，最後用 `ask_user`，答案會變的話放一個排程選項；單純事實和閒聊直接結束 | preamble 略長 | S24，暫時的 Bot。舊寫法（「結果留下真正的選擇」）該跳卡的題目 GPT 6.1 Sol 0/8、Claude Opus 5.5 5/8。新寫法用沒出現在提示例子裡的三題（機票、換手機、帶小孩爬山）各一次：GPT 2/3、Claude 3/3；今天星期幾、單位換算、謝謝三題兩個模型都沒跳卡（6/6） |
 | 2026-11-06 | 學 Grok Bot 的互動習慣，只改提示：結果留下選擇時，結尾用 `ask_user` 提下一步，含「先這樣」，該追蹤或會重複時把排程放進選項；瀏覽器不可逆的步驟先貼畫面、用 `ask_user` 確認，做完再貼結果；`hand_over` 交還後要 Bot 自己確認真的完成 | preamble 和 `use_browser` 說明略長 | |
 | 2026-11-05 | 手機資料夾的 `gh` 只留 `gh api`、`gh auth status`；`pr`、`issue`、`repo`、`search` 拿掉，和 `github_api` 重疊，也沒有測試。`git diff --check` 也拿掉，只留 `cat-file`，現在回 `Unknown option "--check"`。瘦身，砍掉約 420 行 | `files` 段落的 `gh` 用法變短 | 跑過 `npm run check`；沒量 `test/device/tool-cost.sh` |
 | 2026-11-05 | `read_page`、`use_browser` 改成只給腳本（不再 `tool_search`），加結構化輸出：`elements`、`text` 分開，截圖是 data URL，用 `image(r.screenshot)` 顯示，所以腳本裡也看得到圖 | codemode 段落多 75 字元，on-demand 少一行 | S24，GPT 6.1 Sol，各跑一次。瀏覽器查維基百科：134 秒 → 95 秒，模型呼叫 15 → 8，輸入 tokens 約 78.4 萬 → 21.0 萬。三個網站比較：62 → 50 秒，工具結果 85,813 → 63,850 字元。截圖：模型能看到畫面。沒量 `test/device/tool-cost.sh` |
