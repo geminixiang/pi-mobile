@@ -199,7 +199,7 @@ const useBrowser = defineAppTool({
 		`key {keys: ${KEYS.join(", ")}}; scroll {direction} (the page); scroll_in {index, direction} (inside that element); back; forward; reload; wait {ms}; ` +
 		"wait_for {text, gone: true to wait until it disappears, ms up to 20000}; close_tab as the last step; hand_over {text: why, in the user's language} as the last step, when the user must do it themselves: log in, a captcha, a payment. " +
 		"Print only what you need from the result (r.elements, or the part of r.text that matters): a page is long, and whatever you print you read again on every later step. Chain the steps you can tell in one script. To look at several pages, open each in its own tab (tab: \"new\") with Promise.all: they load at the same time. " +
-		"Never type a password. Before you send, pay, delete, or post for the user, say what you are about to do, unless they asked for exactly that.",
+		"Never type a password. Before a step that cannot be undone (send, pay, cancel, delete, post), show the page with image(r.screenshot) and confirm with ask_user, unless the user already approved this exact step; afterwards show the result the same way.",
 	parameters: Type.Object({
 		steps: Type.Array(ToolStep, { minItems: 1 }),
 		tab: TAB,
@@ -229,7 +229,7 @@ const useBrowser = defineAppTool({
 				return present(await Browser.read({ bot, screenshot }), `Closed tab ${closing}. The tab in front now:`);
 			}
 			const outcome = await waitForUser(bot, end.text ?? "", context.abortSignal);
-			const note = outcome === "returned" ? "The user handed the browser back. The page now:" : "The user did not hand the browser back in 10 minutes. The page now:";
+			const note = outcome === "returned" ? "The user handed the browser back. Check below that it is really done before going on; if not, say so and ask whether to hand it over again. The page now:" : "The user did not hand the browser back in 10 minutes. The page now:";
 			return present(await Browser.read({ bot, ...where, screenshot }), note);
 		});
 	},
