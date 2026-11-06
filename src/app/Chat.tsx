@@ -341,7 +341,7 @@ export function Chat({
 									controller.send([{ type: "text", text: FIRST_TASK }]).catch(fail);
 								}}
 							>
-								建議第一個任務
+								看看我的行事曆和通知
 							</button>
 						) : null}
 					</div>
