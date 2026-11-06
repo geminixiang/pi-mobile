@@ -26,6 +26,7 @@ private const val DEFAULT_WIDTH = 1080
 private const val DEFAULT_HEIGHT = 2100
 private const val IDLE_MS = 15 * 60_000L
 private const val FADE_MS = 140L
+private const val SILENT_MS = 2_000L
 private const val MAX_TABS = 8
 private const val PREFS = "browser"
 private const val FORGOTTEN_KEY = "forgotten"
@@ -382,10 +383,18 @@ class BrowserPlugin : Plugin() {
 
     private fun destroy(tab: BrowserTab) {
         mainHandler.removeCallbacks(tab.expire)
-        // why: destroying a WebView does not stop a script spinning in its renderer, which goes on at full CPU; a bot's tabs share one renderer through its profile
-        if (tab.owner.open.isEmpty()) tab.view.webViewRenderProcess?.terminate()
         tab.view.detach()
-        tab.view.destroy()
+        if (tab.owner.open.isNotEmpty()) return tab.view.destroy()
+        // why: destroying a WebView does not stop a spinning script, but ending a healthy renderer freezes a tab opened right after it (S24: 2 of 2 at no gap), so only a silent page ends it
+        val silent = Runnable {
+            tab.view.webViewRenderProcess?.terminate()
+            tab.view.destroy()
+        }
+        mainHandler.postDelayed(silent, SILENT_MS)
+        tab.view.evaluateJavascript("1") {
+            mainHandler.removeCallbacks(silent)
+            tab.view.destroy()
+        }
     }
 
     private fun attach(tab: BrowserTab, placement: Placement, fade: Boolean) {
