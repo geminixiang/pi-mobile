@@ -807,6 +807,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .browser-dot:is([data-active], [data-waiting]) { animation: browser-pulse 1.2s ease-in-out infinite; }
 .browser-dot[data-active] { background: var(--ok); }
 .browser-dot[data-waiting] { background: var(--yellow); }
+.browser-button { position: relative; }
+.browser-button .browser-dot { position: absolute; top: 9px; right: 8px; }
 @keyframes browser-pulse { 50% { opacity: 0.35; } }
 .browser-address {
 	flex: 1; min-width: 0; height: 32px; padding: 0; border: 0; background: none; outline: none;

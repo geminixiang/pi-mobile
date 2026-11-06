@@ -10,7 +10,6 @@ import { useBack } from "../app/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../app/sideGesture.ts";
 import { haptic } from "../app/haptics.ts";
 
-const COLLAPSE_AFTER_MS = 1500;
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
 
@@ -91,14 +90,14 @@ function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) 
 export const BrowserSheet = memo(function BrowserSheet({
 	bot,
 	hidden,
-	working,
+	asking,
 	openKey,
 	pullFrom,
 	engine,
 }: {
 	bot: string | undefined;
 	hidden: boolean;
-	working: boolean;
+	asking: boolean;
 	openKey: number;
 	pullFrom: RefObject<HTMLElement | null>;
 	engine: SearchEngine;
@@ -126,7 +125,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const active = bot !== undefined && state.active.has(bot);
 	const handover = state.handovers.find((item) => item.bot === bot);
 	const reason = handover?.reason;
-	const inputs: SheetInputs = { bot, active, handover: reason, openKey };
+	const inputs: SheetInputs = { bot, handover: reason, asking, openKey };
 	if (!sameInputs(sheet.inputs, inputs)) dispatch({ type: "inputs", inputs });
 	const tabList = bot ? sheet.tabs[bot] : undefined;
 	const page = bot && tabList?.active ? sheet.pages[pageKey(bot, tabList.active)] : undefined;
@@ -165,17 +164,11 @@ export const BrowserSheet = memo(function BrowserSheet({
 			.then((list) => dispatch({ type: "tabs", list }))
 			.catch(report);
 	}, [bot]);
-	const closesItself = sheet.mode === "auto";
-	useEffect(() => {
-		if (active || !closesItself || reason !== undefined || working) return;
-		const timer = setTimeout(() => dispatch({ type: "agent_finished" }), COLLAPSE_AFTER_MS);
-		return () => clearTimeout(timer);
-	}, [active, reason, working, closesItself]);
 
 	useEffect(() => {
 		if (!bot) return;
 		if (open) {
-			if (!closesItself) {
+			if (sheet.mode === "open") {
 				Browser.tabs({ bot })
 					.then((list) => {
 						const front = list.tabs.find((tab) => tab.id === list.active);

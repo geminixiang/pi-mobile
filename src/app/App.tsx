@@ -1,6 +1,6 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
@@ -13,8 +13,10 @@ import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GlobeIcon, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
+import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
+import { BrowserButton } from "../browser/BrowserButton.tsx";
 import { BrowserSheet } from "../browser/BrowserSheet.tsx";
+import { questionStates } from "../interaction/answers.ts";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
@@ -246,6 +248,7 @@ export function App() {
 	}, [runtime, notify]);
 
 	useEffect(() => controller?.subscribe(setView), [controller]);
+	const asking = useMemo(() => [...questionStates(view?.entries ?? []).values()].some((asked) => asked.state === "open"), [view?.entries]);
 
 	useEffect(() => {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
@@ -384,9 +387,7 @@ export function App() {
 				</div>
 				<div className="bar-pill bar-tools">
 					{currentBot && native.has("Browser") ? (
-						<button type="button" className="icon-button" aria-label="瀏覽器" onClick={() => setBrowserOpen((count) => count + 1)}>
-							<GlobeIcon />
-						</button>
+						<BrowserButton bot={currentBot} onOpen={() => setBrowserOpen((count) => count + 1)} />
 					) : null}
 					{hasFolder ? (
 						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => openWorkspace({ tab: "files" })}>
@@ -602,7 +603,7 @@ export function App() {
 			</Sheet>
 
 
-			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} working={busy} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
+			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} asking={asking} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
 
 
 
