@@ -7,9 +7,9 @@ import org.json.JSONObject
 private const val MISSED_GRACE_MS = 6 * 60 * 60 * 1000L
 private const val LATE_FIRE_MS = 5_000L
 
-internal data class Schedule(val id: String, val name: String, val avatar: String?, val trigger: When) {
+internal data class Schedule(val id: String, val name: String, val avatar: String?, val conversation: String?, val trigger: When) {
     companion object {
-        fun of(json: JSONObject) = Schedule(json.getString("id"), json.getString("name"), json.stringOrNull("avatar"), When.of(json.getJSONObject("when")))
+        fun of(json: JSONObject) = Schedule(json.getString("id"), json.getString("name"), json.stringOrNull("avatar"), json.stringOrNull("conversation"), When.of(json.getJSONObject("when")))
     }
 }
 

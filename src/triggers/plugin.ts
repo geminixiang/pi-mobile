@@ -64,7 +64,7 @@ export const Triggers = definePlugin(
 	"Triggers",
 	{
 		sync: {
-			args: Type.Object({ schedules: Type.Array(Type.Object({ id: Type.String(), name: Type.String(), when: When, avatar: Type.Optional(Type.String()) })) }),
+			args: Type.Object({ schedules: Type.Array(Type.Object({ id: Type.String(), name: Type.String(), when: When, conversation: Type.Optional(Type.String()), avatar: Type.Optional(Type.String()) })) }),
 			result: Type.Object({ next: Type.Record(Type.String(), Type.Number()) }),
 		},
 		events: { args: Type.Object({}), result: Type.Object({ events: Type.Array(Type.Unknown()) }) },

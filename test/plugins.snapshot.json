@@ -4212,6 +4212,9 @@
 									"avatar": {
 										"type": "string"
 									},
+									"conversation": {
+										"type": "string"
+									},
 									"id": {
 										"type": "string"
 									},

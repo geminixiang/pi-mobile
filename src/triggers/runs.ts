@@ -226,8 +226,8 @@ export class TriggerRuns {
 		const avatars = new Map(bots.map((bot) => [bot.id, bot.avatar]));
 		const now = Date.now();
 		const schedules = [
-			...items.filter((item) => item.state === "on").map(({ id, name, when, conversationId }) => ({ id, name, when, avatar: avatars.get(conversationId) })),
-			...(itemDoc?.items ?? []).flatMap((item) => schedulesOf(item, avatars.get(item.bot), now)),
+			...items.filter((item) => item.state === "on").map(({ id, name, when, conversationId }) => ({ id, name, when, conversation: String(conversationId), avatar: avatars.get(conversationId) })),
+			...(itemDoc?.items ?? []).flatMap((item) => schedulesOf(item, avatars.get(item.bot), now).map((schedule) => ({ ...schedule, conversation: String(item.bot) }))),
 		];
 		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
 		if (native.implements(Triggers.agenda)) await Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) });

@@ -108,7 +108,7 @@ class TriggerReceiver : BroadcastReceiver() {
                     .setContentTitle(schedule.name)
                     .setContentText("點一下開始")
                     .setVisibility(Notification.VISIBILITY_PRIVATE)
-                    .setContentIntent(AgentService.openApp(context))
+                    .setContentIntent(TriggersPlugin.openConversation(context, schedule.conversation.orEmpty()))
                     .setAutoCancel(true)
                     .build()
             context.getSystemService(NotificationManager::class.java).notify(TriggersPlugin.waitingNotificationId(schedule.id), notification)
