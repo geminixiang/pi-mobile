@@ -11,6 +11,8 @@ import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
+import android.media.AudioAttributes;
+import android.net.Uri;
 import android.os.IBinder;
 import android.os.PowerManager;
 import java.io.IOException;
@@ -20,14 +22,20 @@ import java.util.List;
 public class AgentService extends Service {
 
     static final String CHANNEL_WORKING = "agent-working";
-    static final String CHANNEL_DONE = "agent-done";
-    static final String CHANNEL_PROACTIVE = "agent-proactive";
+    static final String CHANNEL_DONE = "agent-done-knock";
+    static final String CHANNEL_PROACTIVE = "agent-proactive-knock";
     static final String ACTION_STOP = "dev.geminixiang.pimobile.AGENT_STOP";
     static final String EXTRA_TEXT = "text";
     private static final int NOTIFICATION_ID = 1;
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
 
+    private static final AudioAttributes SOUND = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build();
+
     private PowerManager.WakeLock wakeLock;
+
+    private static Uri sound(Context context, String name) {
+        return Uri.parse("android.resource://" + context.getPackageName() + "/raw/" + name);
+    }
 
     static void createChannels(Context context) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
@@ -38,7 +46,11 @@ public class AgentService extends Service {
         done.setDescription("app 不在前景時，agent 完成");
         NotificationChannel proactive = new NotificationChannel(CHANNEL_PROACTIVE, "pi 主動通知", NotificationManager.IMPORTANCE_DEFAULT);
         proactive.setDescription("自動化執行的結果");
+        done.setSound(sound(context, "pi_done"), SOUND);
+        proactive.setSound(sound(context, "pi_knock"), SOUND);
         manager.createNotificationChannels(List.of(working, done, proactive));
+        manager.deleteNotificationChannel("agent-done");
+        manager.deleteNotificationChannel("agent-proactive");
     }
 
     static Icon avatar(Context context, String id) {

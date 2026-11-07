@@ -477,8 +477,8 @@ export class TriggerRuns {
 	async lastWord(id: ConversationId): Promise<FinalWord | undefined> {
 		const conversation = await this.#harness.conversation(id, context);
 		if (!conversation) return undefined;
-		const { headline, text } = finalWord((await conversation.context(context)).entries);
-		return { headline, text: text.split("\n").slice(0, DETAIL_LINES).join("\n") };
+		const word = finalWord((await conversation.context(context)).entries);
+		return { ...word, text: word.text.split("\n").slice(0, DETAIL_LINES).join("\n") };
 	}
 
 	async #report(id: ConversationId, schedule: string): Promise<void> {
@@ -511,16 +511,16 @@ function withoutNextAt({ nextAt: _passed, ...item }: Item): Item {
 const LINK = /\[([^\]]*)\]\([^)]*\)/g;
 const DETAIL_LINES = 3;
 
-export type FinalWord = { headline: string; text: string };
+export type FinalWord = { headline: string; text: string; asking: boolean };
 
 export function finalWord(entries: readonly EntryRecord[]): FinalWord {
 	const last = entries.findLast((entry) => entry.kind === "pi.assistant");
 	const asked = blocks(last && message(last)?.content).find((block) => block.type === "toolCall" && block.name === ASK_USER);
 	const question = asked?.type === "toolCall" ? check(AskArgs, asked.arguments, ASK_USER) : undefined;
-	if (question?.ok) return { headline: question.value.question, text: question.value.options.join("、") };
+	if (question?.ok) return { headline: question.value.question, text: question.value.options.join("、"), asking: true };
 	const answer = entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
 	const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
-	return { headline, text: detail.join("\n") };
+	return { headline, text: detail.join("\n"), asking: false };
 }
 
 function plain(markdown: string): string {

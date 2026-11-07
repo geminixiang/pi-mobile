@@ -180,7 +180,7 @@ export function App() {
 			const word = await runtime?.triggers.lastWord(id);
 			if (!bot || !word || !(await away())) return;
 			if (!native.implements(Triggers.notify)) return KeepAlive.notify({ title: bot.name, text: word.headline });
-			await Triggers.notify({ title: word.headline, text: word.text, done: true, conversation: String(id), bot: bot.name, avatar: avatarOf(bot) });
+			await Triggers.notify({ title: word.headline, text: word.text, done: !word.asking, conversation: String(id), bot: bot.name, avatar: avatarOf(bot) });
 		};
 		for (const { id, report } of ended) if (!report) void orLogged(tell(id), "keep_alive.notify_failed", undefined);
 		previousBusy.current = busyIds;
