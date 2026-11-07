@@ -1,3 +1,4 @@
+import type { ConversationId } from "@earendil-works/pi-durable";
 import type { Extension } from "@earendil-works/pi-durable";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import { BotExtension } from "./bots.ts";
@@ -41,6 +42,7 @@ import type { Workplace } from "./workplaces.ts";
 
 interface CatalogDeps {
 	native: Native;
+	userSaid: (id: ConversationId) => Promise<readonly string[]>;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;
 	githubToken?: string;
@@ -92,7 +94,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createSandboxExtension(deps.workplace),
 		createFilesExtension(deps.workplace),
 		createComputerExtension(deps.workplace),
-		createComputerAgentsExtension(deps.workplace, deps.triggers),
+		createComputerAgentsExtension(deps.workplace, deps.triggers, deps.userSaid),
 		CodingTools,
 		createToolSearchExtension(),
 		createOnDemandExtension(deps.labelOf),

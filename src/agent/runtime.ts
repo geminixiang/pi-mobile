@@ -1,5 +1,6 @@
 import { Forms, FormsDoc } from "../interaction/forms.ts";
 import { type ResultCard, ResultsDoc } from "../interaction/results.ts";
+import { entryText } from "./entries.ts";
 import { createJudge, type Judge } from "./judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
@@ -89,6 +90,8 @@ const APPLY: Record<keyof Settings, "in_place" | "restart"> = {
 	compactAt: "in_place",
 	searchEngine: "in_place",
 };
+
+const USER_MESSAGES = 4;
 
 type Loaded = Pick<LoadedModels, "models" | "infos">;
 
@@ -226,6 +229,7 @@ export class AgentRuntime {
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
 			permissions: platform.permissions,
 			ask,
+			userSaid: async (id) => (runtimeRef ? runtimeRef.#userSaid(id) : []),
 			labelOf: (name, id) => (offeredAt(name, at(id)?.kind ?? "missing") ? labelOf(name, mcp) : undefined),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
@@ -505,6 +509,17 @@ export class AgentRuntime {
 			results: async () => [...((await this.#harness.snapshot(ResultsDoc, id, context))?.cards ?? [])],
 			dispose: () => void orLogged(view.dispose(), "conversation.unwatch_failed", undefined),
 		};
+	}
+
+	async #userSaid(id: ConversationId): Promise<readonly string[]> {
+		const conversation = await this.#harness.conversation(id, context);
+		if (!conversation) return [];
+		const { entries } = await conversation.context(context);
+		return entries
+			.filter((entry) => entry.kind === "pi.user")
+			.map(entryText)
+			.filter((said) => !said.includes("[trigger]"))
+			.slice(-USER_MESSAGES);
 	}
 
 	contextShape(id: ConversationId): ContextShape | undefined {

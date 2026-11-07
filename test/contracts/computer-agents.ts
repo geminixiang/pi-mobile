@@ -15,6 +15,7 @@ function answerAgent(unattended: boolean) {
 			return undefined;
 		},
 		{ changed: () => undefined, unattended: () => unattended, notify: async () => "off" },
+		async () => [],
 	);
 	const tool = extension.tools?.find((candidate) => candidate.name === "answer_agent");
 	assert(tool, "answer_agent exists");

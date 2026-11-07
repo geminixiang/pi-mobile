@@ -30,6 +30,7 @@ const host: PairedHost = { id: "fixture", address: "fixture", name: "fixture", o
 const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { key: "fixture:container", name: "fixture", mode: "容器" }, host, sandbox, root: "fixture", env: unused };
 
 const { extensions } = builtinExtensions({
+	userSaid: async () => [],
 	native: { has: () => true, implements: () => true },
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,

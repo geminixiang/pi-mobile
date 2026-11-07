@@ -13,6 +13,8 @@ import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
 import { MINUTE } from "../time.ts";
 import { choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
+import { createJudge } from "../agent/judge.ts";
+import { checkAnswer, checkScreen, checkTask, Repeats } from "./guard.ts";
 
 const READ_LINES = 60;
 const TASK_CHARS = 500;
@@ -28,7 +30,8 @@ const SETTLE_MS = 5_000;
 const STOPS_ASKING = ["don’t ask again", "don't ask again", "auto mode", "always"];
 const AGENT = Type.String({ description: "The agent's id from list_agents, such as herdr:default:w1:p1 or rex:c834ae" });
 
-export function createComputerAgentsExtension(workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost) {
+export function createComputerAgentsExtension(workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, userSaid: (conversationId: ConversationId) => Promise<readonly string[]>) {
+	const repeats = new Repeats();
 	const commandsOf = (conversationId: string): { host: PairedHost; commands: HostCommands } => {
 		const place = workplace(conversationId);
 		if (place?.kind !== "computer") throw new Error("This bot works on the phone: agents on a computer need a computer picked in the bot's panel.");
@@ -91,8 +94,10 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const settled = Date.now() - SETTLE_MS;
 			const seenDone = read.status === "idle" && (await triggersOf(api, context)).some((item) => isWatch(item, args.agent, api.conversationId) && item.createdAt < settled);
 			if (seenDone) await editTriggers(api, context, triggers, (items) => items.filter((item) => !isWatch(item, args.agent, api.conversationId)));
+			if (repeats.tooMany(`read:${api.conversationId}:${args.agent}`, read.screen)) throw new Error(`${args.agent} has not changed since your last reads: stop checking and tell the user where it stands.`);
 			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
-			return text(truncated([status, "Terminal:", read.screen].join("\n")));
+			const warning = await checkScreen(createJudge(api.models), read.screen);
+			return text(truncated([...(warning ? [warning] : []), status, "Terminal:", read.screen].join("\n")));
 		},
 	});
 
@@ -105,6 +110,8 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		parameters: Type.Object({ agent: AGENT, task: Type.String({ minLength: 1, description: "The task, sent as one message even when it has several lines" }) }),
 		execute: async (args, api, context) => {
 			const { place, commands } = reach(args.agent, api.conversationId);
+			const gate = await checkTask(createJudge(api.models), args.task, await userSaid(api.conversationId));
+			if (!gate.allow) throw new Error(gate.reason);
 			const before = reading(place, (await commands.run(readCommand(place, 1))).stdout);
 			if (!before.ok) throw new Error(`Could not reach ${args.agent}: ${before.problem}`);
 			if (before.status !== "idle") throw new Error(`${args.agent}${before.doing ? ` (${before.doing})` : ""} ${NOT_READY[before.status]}`);
@@ -137,6 +144,8 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const chosen = choices.options[args.option - 1];
 			if (chosen === undefined) throw new Error(`${args.agent} offers ${choices.options.length} options: ${choices.options.map((option, index) => `${index + 1}. ${option}`).join("; ")}.`);
 			if (STOPS_ASKING.some((words) => chosen.toLowerCase().includes(words)) && !args.stop_asking) throw new Error(`"${chosen}" stops future questions: choose it only when the user asked for exactly that, with stop_asking.`);
+			const gate = await checkAnswer(createJudge(api.models), chosen, read.screen, await userSaid(api.conversationId));
+			if (!gate.allow) throw new Error(gate.reason);
 			const move = args.option - 1 - choices.at;
 			const keys = [...Array.from({ length: Math.abs(move) }, () => (move > 0 ? "down" : "up")), "enter"];
 			const sent = await commands.run(keysCommand(place, keys));
