@@ -17,6 +17,7 @@ import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, Mor
 import { BrowserButton } from "../browser/BrowserButton.tsx";
 import { BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { questionStates } from "../interaction/answers.ts";
+import { type PageHost, PageHostContext } from "../interaction/PageFrame.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
@@ -274,6 +275,17 @@ export function App() {
 		[runtime, controllerId],
 	);
 
+	const pageHost = useMemo<PageHost>(
+		() => ({
+			read: async (path) => {
+				const content = await orLogged(loadWorkspace().then((workspace) => workspace?.read(path)), "page_frame.read_failed", undefined);
+				return content?.kind === "text" ? content.text : undefined;
+			},
+			openSide: (next) => setOverlay(next === "left" ? "drawer" : "panel"),
+		}),
+		[loadWorkspace],
+	);
+
 	const applying = useRef<Promise<void>>(Promise.resolve());
 	const card = useRef<HTMLDivElement>(null);
 	const header = useRef<HTMLElement>(null);
@@ -495,6 +507,7 @@ export function App() {
 			>
 				{controller ? (
 					<OpenFileContext.Provider value={hasFolder ? openFile : undefined}>
+					<PageHostContext.Provider value={pageHost}>
 					<Chat
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
@@ -512,6 +525,7 @@ export function App() {
 						onError={notify}
 						contextShare={contextWindow > 0 ? used / contextWindow : 0}
 					/>
+					</PageHostContext.Provider>
 					</OpenFileContext.Provider>
 				) : (
 					<div className="chat">

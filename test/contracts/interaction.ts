@@ -62,7 +62,7 @@ export const checks: Check[] = [
 				]);
 				const entries = await entriesOf(runtime, bot);
 				assert.deepEqual([...pageCards(entries, () => true)], [["e1", { path: "a.html", title: "比較表", summary: "三個工具" }]]);
-				assert.deepEqual([...pageCards(entries, (id) => id === "w1")], [["w1", { path: "a.html", title: "比較表", summary: "三個工具" }]], "a failed edit keeps the card on the write");
+				assert.deepEqual([...pageCards(entries, (id) => id === "w1")], [["w1", { path: "a.html", title: "比較表", summary: "三個工具", html: content }]], "a failed edit keeps the card on the write");
 			} finally {
 				await runtime.close();
 			}

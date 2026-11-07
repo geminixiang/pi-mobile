@@ -444,6 +444,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .weather-range { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--interaction-border); overflow: hidden; }
 .weather-range i { position: absolute; top: 0; bottom: 0; left: calc(var(--from) * 100%); right: calc((1 - var(--to)) * 100%); border-radius: 2px; background: var(--accent); }
 .page-card { width: 100%; padding: 16px; gap: 8px; text-align: left; }
+.page-frame-card { width: 100%; padding: 0; overflow: hidden; }
+.page-frame { display: block; width: 100%; height: var(--frame-height, 240px); border: 0; background: #fff; }
+.page-frame-open { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 16px; text-align: left; color: var(--muted); font-size: var(--fs-small); }
 .page-title { font-size: var(--fs-prose); font-weight: 700; line-height: 1.4; color: var(--text); }
 .page-summary { font-size: var(--fs-small); line-height: 1.5; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .page-file { display: flex; align-items: center; gap: 8px; padding-top: 4px; font-size: var(--fs-small); color: var(--faint); }

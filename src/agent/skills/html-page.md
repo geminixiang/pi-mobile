@@ -1,7 +1,8 @@
 # HTML page
 
-For anything you write as an `.html` for the user: a report, a comparison, a chart, a small tool. It opens on a
-phone, in a frame with no network, and is often forwarded to someone else. Aim for a page that reads like a clean
+For anything you write as an `.html` for the user: a report, a comparison, a chart, a small tool. It is drawn inside
+the conversation, phone-wide and as tall as its content (so no `100vh` and no inner scrolling), in a frame with no
+network, and is often forwarded to someone else. Aim for a page that reads like a clean
 printed document, not an app or a landing page.
 
 ## Look

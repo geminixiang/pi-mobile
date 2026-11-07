@@ -2,6 +2,7 @@ import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Cl
 import { useContext } from "react";
 import { FileIcon } from "../app/icons.tsx";
 import { OpenFileContext } from "../app/openFile.ts";
+import { PageFrame, usePageHtml } from "./PageFrame.tsx";
 import type { Page } from "./pages.ts";
 import type { ResultCard } from "./results.ts";
 
@@ -75,6 +76,8 @@ export function WeatherCard({ card }: { card: ResultCard }) {
 
 export function PageCard({ page }: { page: Page }) {
 	const openFile = useContext(OpenFileContext);
+	const html = usePageHtml(page);
+	if (html) return <PageFrame page={page} html={html} />;
 	return (
 		<button type="button" className="question-card page-card" disabled={!openFile} onClick={() => openFile?.(page.path)}>
 			<span className="page-title">{page.title}</span>

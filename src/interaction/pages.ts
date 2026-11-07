@@ -1,7 +1,7 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { blocks, message } from "../agent/entries.ts";
 
-export type Page = { path: string; title: string; summary: string };
+export type Page = { path: string; title: string; summary: string; html?: string };
 
 const HTML_FILE = /\.html?$/i;
 const TITLE = /<title[^>]*>([^<]*)<\/title>/i;
@@ -22,7 +22,7 @@ export function pageCards(entries: readonly EntryRecord[], succeeded: (callId: s
 			const before = latest.get(path)?.page;
 			const title = TITLE.exec(content)?.[1]?.trim() || before?.title || nameOf(path);
 			const summary = (DESCRIPTION.exec(content)?.[1] ?? FIRST_PARAGRAPH.exec(content)?.[1] ?? "").trim() || (before?.summary ?? "");
-			latest.set(path, { callId: block.id, page: { path, title, summary } });
+			latest.set(path, { callId: block.id, page: { path, title, summary, ...(content ? { html: content } : {}) } });
 		}
 	}
 	return new Map([...latest.values()].map(({ callId, page }) => [callId, page]));
