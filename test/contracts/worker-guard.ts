@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import { checkAnswer, checkScreen, checkTask, Repeats } from "../../src/computer-agents/guard.ts";
+import { addResult, type ResultCard } from "../../src/interaction/results.ts";
 import type { Check } from "./setup.ts";
 
 const answered = (probabilities: Record<string, number>): Judge => ({ ask: async () => ({ kind: "answered", probabilities, model: "fixture" }) });
 const silent = (verdict: Verdict): Judge => ({ ask: async () => verdict });
 
 export const checks: Check[] = [
+	[
+		"an alert is kept once per step beside that step's weather, so the user sees it even when the model says nothing",
+		async () => {
+			const cards: ResultCard[] = [];
+			addResult(cards, { kind: "weather", step: "s", place: "台北", at: 1, now: { condition: "晴", temperature_c: 20, feels_c: 20 }, hours: [], days: [] });
+			addResult(cards, { kind: "alert", step: "s", at: 2, quote: "a" });
+			addResult(cards, { kind: "alert", step: "s", at: 3, quote: "b" });
+			assert.deepEqual(cards.map((card) => card.kind), ["weather", "alert"]);
+			assert.equal(cards.at(-1)?.at, 3);
+		},
+	],
 	[
 		"a task that could do harm and did not come from the user does not reach the worker, and an ordinary one does",
 		async () => {

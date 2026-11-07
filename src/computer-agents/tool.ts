@@ -15,6 +15,7 @@ import { choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCom
 import type { TriggerHost } from "../triggers/tool.ts";
 import { createJudge } from "../agent/judge.ts";
 import { checkAnswer, checkScreen, checkTask, Repeats } from "./guard.ts";
+import { showAlert } from "../interaction/results.ts";
 
 const READ_LINES = 60;
 const TASK_CHARS = 500;
@@ -97,6 +98,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			if (repeats.tooMany(`read:${api.conversationId}:${args.agent}`, read.screen)) throw new Error(`${args.agent} has not changed since your last reads: stop checking and tell the user where it stands.`);
 			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
 			const warning = await checkScreen(createJudge(api.models), read.screen);
+			if (warning) await showAlert(api, context, read.screen);
 			return text(truncated([...(warning ? [warning] : []), status, "Terminal:", read.screen].join("\n")));
 		},
 	});

@@ -76,7 +76,7 @@ export const checks: Check[] = [
 			addResult(cards, card("s1", "台北"));
 			addResult(cards, card("s1", "台北"));
 			addResult(cards, card("s1", "宜蘭"));
-			assert.deepEqual(cards.map((kept) => kept.place), ["台北", "宜蘭"]);
+			assert.deepEqual(cards.map((kept) => (kept.kind === "weather" ? kept.place : "")), ["台北", "宜蘭"]);
 			for (let n = 0; n < 30; n++) addResult(cards, card(`s${n + 2}`, "台北"));
 			assert.equal(cards.length, 20);
 		},

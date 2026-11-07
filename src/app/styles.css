@@ -329,6 +329,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .answer.aborted .markdown { opacity: 0.6; }
 .note { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 .note.error { color: var(--error); padding: 10px 12px; background: var(--error-bg); border-left: 2px solid var(--error); }
+.alert-card p { margin: 0; }
+.alert-card blockquote { margin: 8px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .notice { display: block; width: 100%; text-align: left; }
 .context-full { align-self: flex-start; padding: 8px 12px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
 .context-full > b { color: var(--accent); font-weight: inherit; }

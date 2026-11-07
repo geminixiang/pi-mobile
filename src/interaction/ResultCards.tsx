@@ -4,7 +4,7 @@ import { FileIcon } from "../app/icons.tsx";
 import { OpenFileContext } from "../app/openFile.ts";
 import { PageFrame, usePageHtml } from "./PageFrame.tsx";
 import type { Page } from "./pages.ts";
-import type { ResultCard } from "./results.ts";
+import type { AlertResult, WeatherResult } from "./results.ts";
 
 const ICONS: readonly (readonly [string, LucideIcon])[] = [
 	["雷", CloudLightning],
@@ -33,7 +33,16 @@ function dayName(date: string, at: number): string {
 	return local.toDateString() === new Date(at).toDateString() ? "今天" : `週${WEEKDAYS[local.getDay()]}`;
 }
 
-export function WeatherCard({ card }: { card: ResultCard }) {
+export function AlertCard({ card }: { card: AlertResult }) {
+	return (
+		<section className="note error alert-card">
+			<p>電腦上的 agent 回報裡有想指揮 Bot 的文字。這不是你說的，已提醒 Bot 不要照做。</p>
+			<blockquote>{card.quote}</blockquote>
+		</section>
+	);
+}
+
+export function WeatherCard({ card }: { card: WeatherResult }) {
 	const low = Math.min(...card.days.map((day) => day.low_c));
 	const span = Math.max(...card.days.map((day) => day.high_c)) - low || 1;
 	return (
