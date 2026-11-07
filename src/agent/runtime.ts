@@ -275,7 +275,7 @@ export class AgentRuntime {
 			new Forms(harness, {
 				unattended: triggerHost.unattended,
 				waiting: async (form) => {
-					if (!(await platform.inFront())) await triggerHost.notify(form.service, "等你回覆", form.conversationId);
+					if (!(await platform.inFront())) await triggerHost.notify(form.request.message, form.service, form.conversationId);
 				},
 			}),
 			createJudge(models),

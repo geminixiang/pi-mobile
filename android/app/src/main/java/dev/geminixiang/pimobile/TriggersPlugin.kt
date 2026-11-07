@@ -160,13 +160,16 @@ class TriggersPlugin : Plugin() {
         val bot = call.getString("bot")
         val manager = context.getSystemService(NotificationManager::class.java)
         AgentService.createChannels(context)
-        if (!manager.areNotificationsEnabled() || manager.getNotificationChannel(AgentService.CHANNEL_PROACTIVE)?.importance == NotificationManager.IMPORTANCE_NONE) {
+        val channel = if (call.getBoolean("done", false) == true) AgentService.CHANNEL_DONE else AgentService.CHANNEL_PROACTIVE
+        if (!manager.areNotificationsEnabled() || manager.getNotificationChannel(channel)?.importance == NotificationManager.IMPORTANCE_NONE) {
             return call.resolve(JSObject().put("shown", false))
         }
         val notification =
-            Notification.Builder(context, AgentService.CHANNEL_PROACTIVE)
+            Notification.Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setLargeIcon(AgentService.avatar(context, call.getString("avatar")))
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setPublicVersion(Notification.Builder(context, channel).setSmallIcon(R.drawable.ic_notification).setContentTitle(bot ?: "pi").build())
                 .setContentTitle(bot ?: title)
                 .setContentText(if (bot == null) text else title)
                 .setStyle(Notification.BigTextStyle().bigText(if (bot == null) text else "$title\n$text"))

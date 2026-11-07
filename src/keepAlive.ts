@@ -46,6 +46,6 @@ export function releaseIfIdle(): void {
 	if (available && !running) void KeepAlive.stop();
 }
 
-export async function notifyAway(title: string, text: string): Promise<void> {
-	if (available && !(await inForeground())) await KeepAlive.notify({ title, text });
+export async function away(): Promise<boolean> {
+	return available && !(await inForeground());
 }

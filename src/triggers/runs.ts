@@ -1,13 +1,14 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Value } from "typebox/value";
-import { type Conversation, type ConversationId, defineDoc, type Harness } from "@earendil-works/pi-durable";
+import { type Conversation, type ConversationId, defineDoc, type EntryRecord, type Harness } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
 import { DAY, localTime, MINUTE, startOfToday } from "../time.ts";
 import { check, oneOf, valueOrThrow } from "../parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
-import { entryText } from "../agent/entries.ts";
+import { blocks, entryText, message } from "../agent/entries.ts";
+import { ASK_USER, AskArgs } from "../interaction/tool.ts";
 import type { Judge } from "../agent/judge.ts";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
 import { log } from "../log.ts";
@@ -473,14 +474,20 @@ export class TriggerRuns {
 		return orLogged(this.#report(id, schedule), "trigger.report_failed", undefined, { conversation: String(id) });
 	}
 
+	async lastWord(id: ConversationId): Promise<FinalWord | undefined> {
+		const conversation = await this.#harness.conversation(id, context);
+		if (!conversation) return undefined;
+		const { headline, text } = finalWord((await conversation.context(context)).entries);
+		return { headline, text: text.split("\n").slice(0, DETAIL_LINES).join("\n") };
+	}
+
 	async #report(id: ConversationId, schedule: string): Promise<void> {
 		const conversation = await this.#harness.conversation(id, context);
 		const bot = (await this.#bots()).find((candidate) => candidate.id === id);
 		if (!conversation || !bot) return;
 		const { entries } = await conversation.context(context);
-		const answer = entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
-		const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
-		await Triggers.report({ conversation: String(id), bot: bot.name, avatar: bot.avatar, schedule, headline, text: detail.join("\n"), at: Date.now() });
+		const { headline, text } = finalWord(entries);
+		await Triggers.report({ conversation: String(id), bot: bot.name, avatar: bot.avatar, schedule, headline, text, at: Date.now() });
 	}
 }
 
@@ -501,10 +508,25 @@ function withoutNextAt({ nextAt: _passed, ...item }: Item): Item {
 	return item;
 }
 
+const LINK = /\[([^\]]*)\]\([^)]*\)/g;
+const DETAIL_LINES = 3;
+
+export type FinalWord = { headline: string; text: string };
+
+export function finalWord(entries: readonly EntryRecord[]): FinalWord {
+	const last = entries.findLast((entry) => entry.kind === "pi.assistant");
+	const asked = blocks(last && message(last)?.content).find((block) => block.type === "toolCall" && block.name === ASK_USER);
+	const question = asked?.type === "toolCall" ? check(AskArgs, asked.arguments, ASK_USER) : undefined;
+	if (question?.ok) return { headline: question.value.question, text: question.value.options.join("、") };
+	const answer = entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
+	const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
+	return { headline, text: detail.join("\n") };
+}
+
 function plain(markdown: string): string {
 	return markdown
 		.split("\n")
-		.map((line) => line.replaceAll("**", "").replaceAll("`", "").trim())
+		.map((line) => line.replaceAll(LINK, "$1").replaceAll("**", "").replaceAll("`", "").trim())
 		.map((line) => (line.startsWith("#") ? line.slice(line.indexOf(" ") + 1) : line))
 		.filter(Boolean)
 		.join("\n");

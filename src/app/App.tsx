@@ -1,7 +1,7 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import type { Bot } from "../agent/bots.ts";
+import { avatarOf, type Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
@@ -29,11 +29,12 @@ import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
-import { inForeground, notifyAway, setWorking, stayAwakeFor } from "../keepAlive.ts";
+import { away, inForeground, setWorking, stayAwakeFor } from "../keepAlive.ts";
 import { native } from "../native.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "../triggers/events.ts";
 import type { Trigger } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
+import { KeepAlive } from "../plugins/keep-alive.ts";
 import { System } from "../plugins/system.ts";
 import { contextPercent, contextTokens } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
@@ -174,8 +175,14 @@ export function App() {
 		const ended = [...previousBusy.current].filter((id) => !busyIds.has(id)).map((id) => ({ id, report: runtime?.triggers.finished(id) }));
 		for (const { report } of ended) if (report) stayAwakeFor(report);
 		setWorking([...busyIds].map(title));
-		const finished = ended.filter(({ report }) => !report).map(({ id }) => id);
-		if (finished.length > 0) void orLogged(notifyAway("pi 完成了", finished.map(title).join("、")), "keep_alive.notify_failed", undefined);
+		const tell = async (id: ConversationId) => {
+			const bot = bots.find((candidate) => candidate.id === id);
+			const word = await runtime?.triggers.lastWord(id);
+			if (!bot || !word || !(await away())) return;
+			if (!native.implements(Triggers.notify)) return KeepAlive.notify({ title: bot.name, text: word.headline });
+			await Triggers.notify({ title: word.headline, text: word.text, done: true, conversation: String(id), bot: bot.name, avatar: avatarOf(bot) });
+		};
+		for (const { id, report } of ended) if (!report) void orLogged(tell(id), "keep_alive.notify_failed", undefined);
 		previousBusy.current = busyIds;
 	}, [busyIds, bots, runtime]);
 

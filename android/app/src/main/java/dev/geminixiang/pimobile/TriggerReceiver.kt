@@ -107,6 +107,7 @@ class TriggerReceiver : BroadcastReceiver() {
                     .setLargeIcon(AgentService.avatar(context, schedule.avatar))
                     .setContentTitle(schedule.name)
                     .setContentText("點一下開始")
+                    .setVisibility(Notification.VISIBILITY_PRIVATE)
                     .setContentIntent(AgentService.openApp(context))
                     .setAutoCancel(true)
                     .build()
