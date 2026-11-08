@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
 import { createComputerAgentsExtension } from "../../src/computer-agents/tool.ts";
+import { InteractionExtension } from "../../src/interaction/tool.ts";
 import { check, checkJson } from "../../src/parse.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 
@@ -16,7 +17,7 @@ const Sections = Type.Array(Type.Object({ name: Type.String(), text: Type.String
 const Event = Type.Object({ type: Type.Optional(Type.String()), message: Type.Optional(Type.Object({ role: Type.Optional(Type.String()), content: Type.Optional(Type.Unknown()) })) });
 const Part = Type.Object({ type: Type.String(), text: Type.Optional(Type.String()) });
 const Content = Type.Array(Part);
-const World = Type.Object({ agents: Type.Unknown(), gone: Type.Array(Type.String()), said: Type.Optional(Type.String()), calls: Type.Array(Type.Object({ tool: Type.String(), args: Type.Record(Type.String(), Type.Unknown()) })) });
+const World = Type.Object({ agents: Type.Unknown(), gone: Type.Array(Type.String()), said: Type.Optional(Type.String()), turn: Type.Number(), outside: Type.Optional(Type.Object({ held: Type.Array(Type.Unknown()) })), calls: Type.Array(Type.Object({ tool: Type.String(), args: Type.Record(Type.String(), Type.Unknown()) })) });
 
 function parsed<T>(result: { ok: true; value: T } | { ok: false; error?: unknown }): T {
 	if (!result.ok) throw new Error("unexpected shape");
@@ -25,7 +26,7 @@ function parsed<T>(result: { ok: true; value: T } | { ok: false; error?: unknown
 
 const prompt = parsed(checkJson(Sections, readFileSync(new URL("../prompt.snapshot.json", import.meta.url), "utf8"), "prompt snapshot"));
 const extension = createComputerAgentsExtension(() => undefined, { changed: () => undefined, unattended: () => false, notify: async () => "off" }, async () => []);
-const tools = (extension.tools ?? []).map(({ name, description, parameters }) => ({ name, description, parameters }));
+const tools = [...(extension.tools ?? []), ...(InteractionExtension.tools ?? [])].map(({ name, description, parameters }) => ({ name, description, parameters }));
 const dir = mkdtempSync(join(tmpdir(), "manager-"));
 const toolsFile = join(dir, "tools.json");
 writeFileSync(toolsFile, JSON.stringify(tools));
@@ -34,13 +35,13 @@ const system = [prompt.find((section) => section.name === "preamble")?.text ?? "
 
 const TIMED_OUT = "(沒有在時限內結束)";
 
-function ask(model: string, session: string, world: string, text: string): string {
+function ask(model: string, session: string, world: string, text: string, judgeless: boolean): string {
 	const result = spawnSync("pi", ["--mode", "json", "--no-extensions", "--no-mcp", "--no-skills", "--session", session, "--tools", tools.map((tool) => tool.name).join(","), "-e", provider ?? "", "-e", new URL("./world.ts", import.meta.url).pathname, "--model", model, "--system-prompt", system, text], {
 		encoding: "utf8",
 		timeout: 240_000,
 		stdio: ["ignore", "pipe", "pipe"],
 		maxBuffer: 64 * 1024 * 1024,
-		env: { ...process.env, MANAGER_WORLD: world, MANAGER_TOOLS: toolsFile },
+		env: { ...process.env, MANAGER_WORLD: world, MANAGER_TOOLS: toolsFile, ...(judgeless ? { MANAGER_JUDGE: "none" } : {}) },
 	});
 	const replies = result.stdout
 		.split("\n")
@@ -58,17 +59,17 @@ function ask(model: string, session: string, world: string, text: string): strin
 function run(scenario: Scenario, model: string, index: number) {
 	const world = join(dir, `${scenario.name}-${index}.json`);
 	const session = join(dir, `${scenario.name}-${index}-${model.replaceAll("/", "_")}.jsonl`);
-	writeFileSync(world, JSON.stringify({ agents: scenario.agents, gone: [], calls: [] }));
+	writeFileSync(world, JSON.stringify({ agents: scenario.agents, gone: [], turn: 0, calls: [] }));
 	let reply = "";
 	for (const step of scenario.steps) {
 		const state = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
-		writeFileSync(world, JSON.stringify({ ...state, agents: step.agents ?? state.agents, gone: step.gone ?? state.gone, said: step.say ?? "" }));
-		reply = ask(model, session, world, step.say ?? step.wake ?? "");
+		writeFileSync(world, JSON.stringify({ ...state, agents: step.agents ?? state.agents, gone: step.gone ?? state.gone, said: step.say ?? "", turn: state.turn + (step.say === undefined ? 0 : 1) }));
+		reply = ask(model, session, world, step.say ?? step.wake ?? "", scenario.judgeless === true);
 		if (reply === TIMED_OUT) break;
 	}
-	const { calls } = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
+	const { calls, outside } = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
 	const problems = reply === TIMED_OUT ? ["沒有在時限內結束", ...scenario.judge(calls, reply)] : scenario.judge(calls, reply);
-	return { problems, calls: calls.map((call) => call.tool), tasks: calls.filter((call) => call.tool === "tell_agent").map((call) => String(call.args.task).slice(0, 180)), reply, broken: calls.length === 0 || scenario.steps.length > 1 && !calls.some((call) => call.tool === "tell_agent") };
+	return { problems, held: outside?.held.length ?? 0, calls: calls.map((call) => call.tool), tasks: calls.filter((call) => call.tool === "tell_agent").map((call) => String(call.args.task).slice(0, 180)), reply, broken: calls.length === 0 || scenario.steps.length > 1 && !calls.some((call) => call.tool === "tell_agent") };
 }
 
 for (const model of models) {
@@ -79,7 +80,7 @@ for (const model of models) {
 			const result = run(scenario, model, index);
 			if (!result.broken) total += 1;
 			if (!result.broken && result.problems.length === 0) passed += 1;
-			console.log(JSON.stringify({ model, scenario: scenario.name, broken: result.broken, ok: result.problems.length === 0, problems: result.problems, calls: result.calls, tasks: result.tasks, reply: result.reply.slice(-240) }));
+			console.log(JSON.stringify({ model, scenario: scenario.name, broken: result.broken, ok: result.problems.length === 0, problems: result.problems, held: result.held, calls: result.calls, tasks: result.tasks, reply: result.reply.slice(-240) }));
 		}
 	}
 	console.log(`${model}: ${passed}/${total}`);
