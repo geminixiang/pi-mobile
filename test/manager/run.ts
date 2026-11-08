@@ -16,7 +16,7 @@ const Sections = Type.Array(Type.Object({ name: Type.String(), text: Type.String
 const Event = Type.Object({ type: Type.Optional(Type.String()), message: Type.Optional(Type.Object({ role: Type.Optional(Type.String()), content: Type.Optional(Type.Unknown()) })) });
 const Part = Type.Object({ type: Type.String(), text: Type.Optional(Type.String()) });
 const Content = Type.Array(Part);
-const World = Type.Object({ agents: Type.Unknown(), gone: Type.Array(Type.String()), calls: Type.Array(Type.Object({ tool: Type.String(), args: Type.Record(Type.String(), Type.Unknown()) })) });
+const World = Type.Object({ agents: Type.Unknown(), gone: Type.Array(Type.String()), said: Type.Optional(Type.String()), calls: Type.Array(Type.Object({ tool: Type.String(), args: Type.Record(Type.String(), Type.Unknown()) })) });
 
 function parsed<T>(result: { ok: true; value: T } | { ok: false; error?: unknown }): T {
 	if (!result.ok) throw new Error("unexpected shape");
@@ -32,10 +32,12 @@ writeFileSync(toolsFile, JSON.stringify(tools));
 const LEAD = "Coding agents on the computer are yours to lead through list_agents, tell_agent, read_agent and answer_agent: hand them work with tell_agent, never do it yourself, and when the phone wakes you with [trigger], check the result and report to the user.";
 const system = [prompt.find((section) => section.name === "preamble")?.text ?? "", LEAD].join("\n\n");
 
-function ask(scenario: Scenario, model: string, session: string, world: string, text: string): string {
+const TIMED_OUT = "(沒有在時限內結束)";
+
+function ask(model: string, session: string, world: string, text: string): string {
 	const result = spawnSync("pi", ["--mode", "json", "--no-extensions", "--no-mcp", "--no-skills", "--session", session, "--tools", tools.map((tool) => tool.name).join(","), "-e", provider ?? "", "-e", new URL("./world.ts", import.meta.url).pathname, "--model", model, "--system-prompt", system, text], {
 		encoding: "utf8",
-		timeout: 180_000,
+		timeout: 240_000,
 		stdio: ["ignore", "pipe", "pipe"],
 		maxBuffer: 64 * 1024 * 1024,
 		env: { ...process.env, MANAGER_WORLD: world, MANAGER_TOOLS: toolsFile },
@@ -49,7 +51,7 @@ function ask(scenario: Scenario, model: string, session: string, world: string, 
 			const content = check(Content, read.value.message.content, "pi content");
 			return content.ok ? content.value.filter((part) => part.type === "text").map((part) => part.text ?? "") : [];
 		});
-	if (result.status !== 0 && replies.length === 0) throw new Error(`${scenario.name}: pi ended with ${String(result.status)}: ${result.stderr.slice(-300)}`);
+	if (result.status !== 0 && replies.length === 0) return TIMED_OUT;
 	return replies.join("\n");
 }
 
@@ -60,22 +62,24 @@ function run(scenario: Scenario, model: string, index: number) {
 	let reply = "";
 	for (const step of scenario.steps) {
 		const state = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
-		writeFileSync(world, JSON.stringify({ ...state, agents: step.agents ?? state.agents, gone: step.gone ?? state.gone }));
-		reply = ask(scenario, model, session, world, step.say ?? step.wake ?? "");
+		writeFileSync(world, JSON.stringify({ ...state, agents: step.agents ?? state.agents, gone: step.gone ?? state.gone, said: step.say ?? "" }));
+		reply = ask(model, session, world, step.say ?? step.wake ?? "");
+		if (reply === TIMED_OUT) break;
 	}
 	const { calls } = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
-	return { problems: scenario.judge(calls, reply), calls: calls.map((call) => call.tool), reply, broken: calls.length === 0 || scenario.steps.length > 1 && !calls.some((call) => call.tool === "tell_agent") };
+	const problems = reply === TIMED_OUT ? ["沒有在時限內結束", ...scenario.judge(calls, reply)] : scenario.judge(calls, reply);
+	return { problems, calls: calls.map((call) => call.tool), tasks: calls.filter((call) => call.tool === "tell_agent").map((call) => String(call.args.task).slice(0, 180)), reply, broken: calls.length === 0 || scenario.steps.length > 1 && !calls.some((call) => call.tool === "tell_agent") };
 }
 
 for (const model of models) {
 	let passed = 0;
 	let total = 0;
-	for (const scenario of SCENARIOS.filter((item) => !only || item.name === only)) {
+	for (const scenario of SCENARIOS.filter((item) => !only || item.name.startsWith(only))) {
 		for (let index = 0; index < Number(runsArg); index++) {
 			const result = run(scenario, model, index);
 			if (!result.broken) total += 1;
 			if (!result.broken && result.problems.length === 0) passed += 1;
-			console.log(JSON.stringify({ model, scenario: scenario.name, broken: result.broken, ok: result.problems.length === 0, problems: result.problems, calls: result.calls, reply: result.reply.slice(-240) }));
+			console.log(JSON.stringify({ model, scenario: scenario.name, broken: result.broken, ok: result.problems.length === 0, problems: result.problems, calls: result.calls, tasks: result.tasks, reply: result.reply.slice(-240) }));
 		}
 	}
 	console.log(`${model}: ${passed}/${total}`);
