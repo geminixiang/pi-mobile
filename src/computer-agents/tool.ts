@@ -14,7 +14,7 @@ import { MINUTE } from "../time.ts";
 import { choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { createJudge } from "../agent/judge.ts";
-import { checkAnswer, checkScreen, checkTask, Repeats } from "./guard.ts";
+import { checkAnswer, checkScreen, checkTask, Menus, Repeats } from "./guard.ts";
 import { showAlert } from "../interaction/results.ts";
 
 const READ_LINES = 60;
@@ -33,6 +33,7 @@ const AGENT = Type.String({ description: "The agent's id from list_agents, such 
 
 export function createComputerAgentsExtension(workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, userSaid: (conversationId: ConversationId) => Promise<readonly string[]>) {
 	const repeats = new Repeats();
+	const menus = new Menus();
 	const commandsOf = (conversationId: string): { host: PairedHost; commands: HostCommands } => {
 		const place = workplace(conversationId);
 		if (place?.kind !== "computer") throw new Error("This bot works on the phone: agents on a computer need a computer picked in the bot's panel.");
@@ -96,6 +97,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const seenDone = read.status === "idle" && (await triggersOf(api, context)).some((item) => isWatch(item, args.agent, api.conversationId) && item.createdAt < settled);
 			if (seenDone) await editTriggers(api, context, triggers, (items) => items.filter((item) => !isWatch(item, args.agent, api.conversationId)));
 			if (repeats.tooMany(`read:${api.conversationId}:${args.agent}`, read.screen)) throw new Error(`${args.agent} has not changed since your last reads: stop checking and tell the user where it stands.`);
+			menus.saw(`${api.conversationId}:${args.agent}`, choicesOf(read.screen)?.options);
 			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
 			const warning = await checkScreen(createJudge(api.models), read.screen);
 			if (warning) await showAlert(api, context, read.screen);
@@ -143,6 +145,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			if (!read.ok) throw new Error(`Could not reach ${args.agent}: ${read.problem}`);
 			const choices = read.status === "working" || read.status === "idle" ? undefined : choicesOf(read.screen);
 			if (!choices) throw new Error(`${args.agent} is ${read.status} and shows no options to choose from: read_agent to see its screen.`);
+			if (menus.changed(`${api.conversationId}:${args.agent}`, choices.options)) throw new Error(`${args.agent}'s options are not the ones you last read: read_agent, show the user the new options, and answer only after they choose.`);
 			const chosen = choices.options[args.option - 1];
 			if (chosen === undefined) throw new Error(`${args.agent} offers ${choices.options.length} options: ${choices.options.map((option, index) => `${index + 1}. ${option}`).join("; ")}.`);
 			if (STOPS_ASKING.some((words) => chosen.toLowerCase().includes(words)) && !args.stop_asking) throw new Error(`"${chosen}" stops future questions: choose it only when the user asked for exactly that, with stop_asking.`);

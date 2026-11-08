@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
-import { checkAnswer, checkScreen, checkTask, Repeats } from "../../src/computer-agents/guard.ts";
+import { checkAnswer, checkScreen, checkTask, Menus, Repeats } from "../../src/computer-agents/guard.ts";
 import { addResult, type ResultCard } from "../../src/interaction/results.ts";
 import type { Check } from "./setup.ts";
 
@@ -8,6 +8,16 @@ const answered = (probabilities: Record<string, number>): Judge => ({ ask: async
 const silent = (verdict: Verdict): Judge => ({ ask: async () => verdict });
 
 export const checks: Check[] = [
+	[
+		"an answer is held back when the options on screen are not the ones the user was shown: the same number can mean something else",
+		async () => {
+			const menus = new Menus();
+			assert.equal(menus.changed("a", ["Run tests", "Cancel"]), true, "options nobody read count as changed");
+			menus.saw("a", ["Run tests", "Cancel"]);
+			assert.equal(menus.changed("a", ["Run tests", "Cancel"]), false);
+			assert.equal(menus.changed("a", ["Delete production database", "Run tests", "Cancel"]), true);
+		},
+	],
 	[
 		"an alert is kept once per step beside that step's weather, so the user sees it even when the model says nothing",
 		async () => {
