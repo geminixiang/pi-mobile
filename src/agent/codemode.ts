@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
-import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
+import { defineExtension, hook, type ToolExecutionResult, ToolTask } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
 import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
 import type { FromWorker, ToWorker } from "./codemode-worker.ts";
@@ -118,6 +118,10 @@ export function returnLast(code: string): string {
 	return compiles(code) && compiles(rewritten) ? rewritten : code;
 }
 
+export function scriptHint(name: string): string {
+	return `${name} is not offered to you directly. If it is listed among the codemode tools, call it from a codemode script: await tools.${name}({ ...args }). Otherwise there is no such tool here.`;
+}
+
 export function withSilenceHint(result: ToolExecutionResult): ToolExecutionResult {
 	const [header, ...shown] = result.output ?? [];
 	if (result.isError || shown.length > 0 || header?.type !== "text") return result;
@@ -138,6 +142,12 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 	});
 	return defineExtension({
 		name: "codemode",
+		hooks: [
+			hook(ToolTask, {
+				afterTool: (call, result) =>
+					call.parent === undefined && result.diagnostics?.some((diagnostic) => diagnostic.code === "tool_unavailable") ? { ...result, output: [{ type: "text", text: scriptHint(call.name) }] } : undefined,
+			}),
+		],
 		tools: [{ ...codemode, parameters, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) }],
 		sections: [
 			appSection("codemode", 4_000, (input) => {
