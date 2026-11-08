@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import pkg from "./package.json" with { type: "json" };
 import { justBashPatches } from "./vite-plugins/just-bash.ts";
 import { piEnvInWebView } from "./vite-plugins/pi-env.ts";
 import { pageControllerScript } from "./vite-plugins/page-controller.ts";
@@ -60,7 +61,7 @@ export default defineConfig({
 			Object.fromEntries(DAEMONS.map((name) => [name, createHash("sha256").update(readFileSync(daemonFile(name))).digest("hex")])),
 		),
 		__BUILD__: JSON.stringify(
-			`${execSync("git rev-parse --short HEAD").toString().trim()} · ${new Date().toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}`,
+			`${process.env.PI_MOBILE_VERSION_NAME || pkg.version} · ${execSync("git rev-parse --short HEAD").toString().trim()} · ${new Date().toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}`,
 		),
 	},
 	worker: { format: "es", plugins: () => [justBashPatches()] },
