@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { choicesOf, LIST, placeOf, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
+import { choicesOf, LIST, placeOf, readCommand, reading, sendProblem, startCommand, workers } from "../src/computer-agents/workers.ts";
 
 const herdrAgent = { agent: "claude", agent_status: "blocked", cwd: "/Users/me/app", focused: true, name: "tester", pane_id: "w1:p1", terminal_title_stripped: "Claude Code", workspace_id: "w1" };
 const rexProcess = (argv0: string, cwd: string) => JSON.stringify({ last_exit: null, foreground: { pid: 1, name: argv0.split("/").at(-1), argv0, cwd } });
@@ -69,6 +69,31 @@ if (existsSync("/bin/zsh")) {
 	assert.deepEqual(workers(listed.stdout).map((worker) => worker.id), ["herdr:default:w1:p1"]);
 }
 
+assert.deepEqual(placeOf("job:1a2b3c4d"), { via: "job", id: "1a2b3c4d" });
+assert.equal(placeOf("job:../../etc"), undefined, "a job id is only what run_command makes, so it cannot reach outside the jobs folder");
+const job = { via: "job" as const, id: "1a2b3c4d" };
+assert.deepEqual(reading(job, "running\n@@screen\nbuilding"), { ok: true, status: "working", doing: "running", screen: "building" });
+assert.deepEqual(reading(job, "no background command 1a2b3c4d"), { ok: false, problem: "no background command 1a2b3c4d" });
+
+if (existsSync("/bin/zsh")) {
+	const home = mkdtempSync(join(tmpdir(), "jobs-"));
+	const env = { HOME: home, SHELL: "/bin/zsh", PATH: "/usr/bin:/bin" };
+	const zsh = (script: string) => spawnSync("/bin/zsh", ["-lc", script], { env, encoding: "utf8" });
+	const started = zsh(startCommand("0badc0de", "sleep 1\necho built; exit 4", home));
+	assert.equal(started.status, 0, started.stderr);
+	assert.deepEqual(workers(zsh(LIST).stdout).map((worker) => [worker.id, worker.status, worker.title]), [["job:0badc0de", "working", "sleep 1"]], "the start returns while the command still runs");
+	const place = { via: "job" as const, id: "0badc0de" };
+	const deadline = Date.now() + 10_000;
+	const read = () => reading(place, zsh(readCommand(place, 5)).stdout);
+	const working = () => {
+		const state = read();
+		return state.ok && state.status === "working";
+	};
+	while (Date.now() < deadline && working()) await new Promise((resolve) => setTimeout(resolve, 100));
+	assert.deepEqual(read(), { ok: true, status: "idle", doing: "exited 4", screen: "built" });
+	assert.equal(zsh(startCommand("0badc0df", "true", join(home, "missing"))).status, 3, "a folder that is not there does not start");
+	rmSync(home, { recursive: true });
+}
 
 const approval = [
 	" │ git worktree list && git worktree add -b fix-widget-delete /Users/me/pi-mobile-fix",
@@ -89,4 +114,4 @@ assert.deepEqual(choicesOf(" Do you want to proceed?\n   1. Yes\n ❯ 2. No"), {
 assert.equal(choicesOf("────────\n❯ \n────────\n  ⏵⏵ auto mode on"), undefined);
 assert.equal(choicesOf("⏺ 0 files.\n❯ commit 吧"), undefined);
 
-console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen");
+console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen; a background command starts at once, is listed while it runs, and is read with its exit code and output when it ends");

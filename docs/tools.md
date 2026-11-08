@@ -151,7 +151,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - **電腦畫面**（`computer_as_user`）
   - `computer_as_user`：`computer_read_as_user`＊、`computer_act_as_user`＊
 - **電腦上的 agent**（`computer_agents`）
-  - `computer_agents`：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`
+  - `computer_agents`：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`、`run_command`
 - **電腦**（`computer_shell`）
   - `computer_shell`：沒有自己的工具
   - `coding-tools`：`read`†、`write`†、`edit`†、`bash`†
@@ -227,10 +227,11 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | ✓ |
 | `computer_read_as_user` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
 | `computer_act_as_user` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
-| `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
-| `read_agent` | 電腦上的 agent（只在有電腦的 Bot） | 一個 agent 的狀態和終端機最後幾行 | 唯讀 | |
+| `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent，和 `run_command` 開的背景指令（`job:<id>`）：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
+| `read_agent` | 電腦上的 agent（只在有電腦的 Bot） | 一個 agent 的狀態和終端機最後幾行；背景指令是結束碼和輸出最後幾行 | 唯讀 | |
 | `tell_agent` | 電腦上的 agent（只在有電腦的 Bot） | 交辦任務給閒著的 agent，多行也當成一則送出 | 直接 | 工作中、等使用者、狀態不明時拒絕 |
 | `answer_agent` | 電腦上的 agent（只在有電腦的 Bot） | 替使用者回答 agent 在等的批准或問題：從畫面讀出選項，用方向鍵移到第幾個再按 Enter | 直接 | 排程叫醒的那一輪拒絕；「不要再問」「自動模式」要 `stop_asking` |
+| `run_command` | 電腦上的 agent（只在有電腦的 Bot） | 在電腦上背景跑一個 shell 指令，馬上回來；手機睡著也照跑，結束時用「等它做完」叫醒 Bot | 直接 | 預設在 Bot 的資料夾；資料夾不存在時不開始 |
 | `read`、`write`、`edit`、`bash` | 電腦或檔案 | Bot 的資料夾：選了電腦時在電腦上，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |

@@ -14,7 +14,9 @@ export interface Worker {
 	doing: string;
 }
 
-export type Place = { via: "herdr"; session: string; pane: string } | { via: "rex"; session: string; block: string };
+export type AgentPlace = { via: "herdr"; session: string; pane: string } | { via: "rex"; session: string; block: string };
+
+export type Place = AgentPlace | { via: "job"; id: string };
 
 const FIND = [
 	'herdr="$(command -v herdr || printf %s "$HOME/.local/bin/herdr")"',
@@ -22,6 +24,9 @@ const FIND = [
 ].join("; ");
 const HERDR = '"$herdr"';
 const REX = '"$rex" --autostart=false';
+const JOBS = '"$HOME/.pi-mobile/jobs"';
+const JOB_ID = /^[0-9a-f]{8}$/;
+const DAY_MINUTES = 1440;
 const SECTION = "@@";
 const SCREEN = "@@screen";
 const SHORT = 6;
@@ -47,6 +52,11 @@ export const LIST = [
 	"    done",
 	"  done",
 	"fi",
+	`find ${JOBS} -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read -r dir; do`,
+	'  [ -f "$dir/command" ] || continue',
+	`  if [ -n "$(find "$dir/exit" -mmin +${DAY_MINUTES} 2>/dev/null)" ]; then rm -rf "$dir"; continue; fi`,
+	`  echo "${SECTION}job $(basename "$dir")"; head -n 1 "$dir/command"; head -n 1 "$dir/cwd"; cat "$dir/exit" 2>/dev/null || echo`,
+	"done",
 ].join("\n");
 
 const HerdrAgent = Type.Object({
@@ -81,6 +91,7 @@ export function workers(output: string): Worker[] {
 	return sections.flatMap(({ via, name, block, lines }) => {
 		if (via === "herdr") return herdrWorkers(name, lines[0] ?? "");
 		if (via === "rex") return rexWorker(name, labels.get(name) ?? "", block, lines);
+		if (via === "job") return [jobWorker(name, lines)];
 		return [];
 	});
 }
@@ -121,8 +132,14 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 	];
 }
 
+function jobWorker(id: string, [command = "", cwd = "", exit = ""]: string[]): Worker {
+	const code = exit.trim();
+	return { id: `job:${id}`, name: "", agent: "command", status: code ? "idle" : "working", cwd: cwd.trim(), title: command.trim(), doing: code ? `exited ${code}` : "running" };
+}
+
 export function placeOf(id: string): Place | undefined {
 	const [via, session, ...rest] = id.split(":");
+	if (via === "job" && session && JOB_ID.test(session) && rest.length === 0) return { via, id: session };
 	if (!session || rest.length === 0) return undefined;
 	if (via === "rex" && rest.length === 1 && rest[0]) return { via, session, block: rest[0] };
 	if (via === "herdr") return { via, session, pane: rest.join(":") };
@@ -133,7 +150,23 @@ const rexAt = (place: Extract<Place, { via: "rex" }>) => `-s ${shellQuote(place.
 
 const herdr = (session: string) => (session === "default" ? HERDR : `${HERDR} --session ${shellQuote(session)}`);
 
+const jobDir = (id: string) => `${JOBS}/${id}`;
+
+export function startCommand(id: string, command: string, cwd: string): string {
+	const dir = jobDir(id);
+	return [
+		`mkdir -p ${dir} && cd ${shellQuote(cwd)} || exit 3`,
+		`printf '%s\\n' ${shellQuote(command)} > ${dir}/command && pwd > ${dir}/cwd`,
+		`printf '%s\\n' 'cd "$(cat "$1/cwd")" && "\${SHELL:-/bin/sh}" -l "$1/command" > "$1/log" 2>&1; echo $? > "$1/exit.tmp" && mv "$1/exit.tmp" "$1/exit"' > ${dir}/run`,
+		`sh -c 'set -m; nohup sh "$0/run" "$0" > /dev/null 2>&1 &' ${dir}`,
+	].join("\n");
+}
+
 export function readCommand(place: Place, lines: number): string {
+	if (place.via === "job") {
+		const dir = jobDir(place.id);
+		return `[ -d ${dir} ] || { echo "no background command ${place.id}"; exit 0; }; if [ -f ${dir}/exit ]; then echo "exit $(cat ${dir}/exit)"; else echo running; fi; echo ${SCREEN}; tail -n ${lines} ${dir}/log 2>/dev/null`;
+	}
 	if (place.via === "herdr") {
 		const cli = herdr(place.session);
 		return `${FIND}; ${cli} agent get ${shellQuote(place.pane)} 2>&1; echo ${SCREEN}; ${cli} agent read ${shellQuote(place.pane)} --source recent-unwrapped --lines ${lines} 2>&1`;
@@ -142,7 +175,7 @@ export function readCommand(place: Place, lines: number): string {
 	return `${FIND}; ${REX} block call ${at} program_status 2>&1; echo ${SCREEN}; ${REX} block capture ${at} --trim 2>&1 | tail -n ${lines}`;
 }
 
-export function sendCommand(place: Place, text: string): string {
+export function sendCommand(place: AgentPlace, text: string): string {
 	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent prompt ${shellQuote(place.pane)} ${shellQuote(text)} 2>&1`;
 	const at = rexAt(place);
 	return `${FIND}; { printf '\\033[200~'; printf '%s' ${shellQuote(text)}; printf '\\033[201~'; } | ${REX} block send ${at} && sleep 0.3 && ${REX} block send-key ${at} enter`;
@@ -155,6 +188,11 @@ export function reading(place: Place, output: string): Reading {
 	if (at < 0) return { ok: false, problem: output.trim() };
 	const head = output.slice(0, at).trim();
 	const screen = output.slice(at + SCREEN.length).trim();
+	if (place.via === "job") {
+		if (head === "running") return { ok: true, status: "working", doing: "running", screen };
+		if (head.startsWith("exit ")) return { ok: true, status: "idle", doing: `exited ${head.slice("exit ".length)}`, screen };
+		return { ok: false, problem: head };
+	}
 	if (place.via === "herdr") {
 		const got = checkJson(HerdrGet, head, "herdr agent get");
 		if (got.ok) return { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen };
@@ -167,7 +205,7 @@ export function reading(place: Place, output: string): Reading {
 	return { ok: true, status: record ? (STATUS[record.state] ?? "unknown") : "unknown", doing: record?.msg ?? "", screen };
 }
 
-export function sendProblem(place: Place, output: string): string | undefined {
+export function sendProblem(place: AgentPlace, output: string): string | undefined {
 	if (place.via === "rex") return output.trim() === "" ? undefined : output.trim();
 	const failed = checkJson(HerdrError, output.trim(), "herdr error");
 	return failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : undefined;
@@ -201,7 +239,7 @@ export function choicesOf(screen: string): Choices | undefined {
 	return options.length > 1 ? { options, at } : undefined;
 }
 
-export function keysCommand(place: Place, keys: readonly string[]): string {
+export function keysCommand(place: AgentPlace, keys: readonly string[]): string {
 	const words = keys.map(shellQuote).join(" ");
 	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent send-keys ${shellQuote(place.pane)} ${words} 2>&1`;
 	return `${FIND}; ${REX} block send-key ${rexAt(place)} ${words} 2>&1`;
