@@ -1,7 +1,7 @@
 {
 	"name": "pi-mobile",
 	"private": true,
-	"version": "0.16.4",
+	"version": "0.16.5",
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
