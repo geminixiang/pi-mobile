@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { stepRuns } from "../../src/app/step-runs.ts";
+import { lastStep, stepRuns } from "../../src/app/step-runs.ts";
 import type { Check } from "./setup.ts";
 
 let id = 0;
@@ -39,6 +39,15 @@ export const checks: Check[] = [
 			const earlier = assistant(call("a"));
 			const later = assistant(call("b"));
 			assert.equal(stepRuns([earlier, entry("pi.user"), later]).size, 0);
+		},
+	],
+	[
+		"text before a question card is the answer, not narration: only a step after it makes it small",
+		async () => {
+			const text = (value: string) => ({ type: "text" as const, text: value });
+			const ask = fauxToolCall("ask_user", {}, { id: "ask" });
+			assert.equal(lastStep([text("中研院有參與嗎？"), ask]), -1);
+			assert.equal(lastStep([text("我先查一下"), call("a"), text("查到了"), ask]), 1);
 		},
 	],
 ];

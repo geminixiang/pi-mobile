@@ -13,6 +13,10 @@ const PASSING = new Set(["pi.tool-result", "pi.system"]);
 const shown = (entry: EntryRecord) => blocks(message(entry)?.content).filter((block) => block.type !== "thinking");
 const isStep = (block: Block | undefined): block is Call => block?.type === "toolCall" && !isInteraction(block.name);
 
+export function lastStep(content: readonly Block[]): number {
+	return content.findLastIndex(isStep);
+}
+
 function trailingSteps(content: readonly Block[]): readonly Call[] {
 	const lastOther = content.findLastIndex((block) => !isStep(block));
 	return content.slice(lastOther + 1).filter(isStep);

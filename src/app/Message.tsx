@@ -20,7 +20,7 @@ import { longPress } from "./haptics.ts";
 import { isConnectionLost } from "../agent/network.ts";
 import { InteractionCard } from "../interaction/Interaction.tsx";
 import { isInteraction } from "../interaction/tool.ts";
-import { type Call, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
+import { type Call, lastStep, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -343,7 +343,7 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 		} else groups.push(block);
 	}
 	const lastText = content.findLastIndex((block) => block.type === "text");
-	const lastCall = content.findLastIndex((block) => block.type === "toolCall");
+	const narrated = lastStep(content);
 	return (
 		<>
 			{groups.map((group, index) => {
@@ -370,7 +370,7 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 						const caret = streaming && content[lastText] === group;
 						return (
 							<div
-								className={`markdown${content.indexOf(group) < lastCall ? " interim" : ""}${caret ? " caret" : ""}`}
+								className={`markdown${content.indexOf(group) < narrated ? " interim" : ""}${caret ? " caret" : ""}`}
 								key={index}
 							>
 								{caret ? (
