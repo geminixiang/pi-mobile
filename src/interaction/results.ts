@@ -16,7 +16,7 @@ export type WeatherResult = {
 	days: WeatherDay[];
 };
 
-export type AlertResult = { kind: "alert"; step: string; at: number; quote: string };
+export type AlertResult = { kind: "alert"; step: string; at: number; tool: string; quote: string };
 
 export type ResultCard = WeatherResult | AlertResult;
 
@@ -54,7 +54,7 @@ export function showWeather(api: ToolExecutionApi, context: Context, weather: Pi
 	return api.commit(async (tx) => addResult((await tx.doc(ResultsDoc, api.conversationId)).cards, card), context);
 }
 
-export function showAlert(api: ToolExecutionApi, context: Context, text: string): Promise<void> {
-	const card: AlertResult = { kind: "alert", step: stepOf(api.callId), at: api.now(), quote: text.trim().slice(-QUOTE_CHARS) };
+export function showAlert(api: ToolExecutionApi, context: Context, tool: string, quote: string): Promise<void> {
+	const card: AlertResult = { kind: "alert", step: stepOf(api.callId), at: api.now(), tool, quote: quote.trim().slice(0, QUOTE_CHARS) };
 	return api.commit(async (tx) => addResult((await tx.doc(ResultsDoc, api.conversationId)).cards, card), context);
 }

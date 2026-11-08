@@ -1,6 +1,7 @@
 import { Forms, FormsDoc } from "../interaction/forms.ts";
 import { type ResultCard, ResultsDoc } from "../interaction/results.ts";
 import { entryText } from "./entries.ts";
+import { OutsideDoc, said } from "./outside.ts";
 import { createJudge, type Judge } from "./judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
@@ -476,6 +477,11 @@ export class AgentRuntime {
 					const bot = (await this.#allBots()).find((candidate) => candidate.id === id);
 					if (!bot || bot.removing) throw new Error("這個 Bot 已經刪除");
 					if (content.length > 0) await this.#touchBot(id, Date.now());
+					const text = content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n");
+					await this.#harness.commit(async (tx) => {
+						const doc = await tx.doc(OutsideDoc, id);
+						Object.assign(doc, said(doc, text));
+					}, context);
 					await conversation.submit({ type: "input", content, whenBusy }, context);
 				})();
 				inFlight.add(submitted);
