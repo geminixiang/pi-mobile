@@ -14,7 +14,7 @@ import { MINUTE } from "../time.ts";
 import { choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { createJudge } from "../agent/judge.ts";
-import { checkAnswer, checkScreen, checkTask, Menus, Repeats } from "./guard.ts";
+import { Alerted, checkAnswer, checkScreen, checkTask, Menus, quoteOf, Repeats } from "./guard.ts";
 import { showAlert } from "../interaction/results.ts";
 
 const READ_LINES = 60;
@@ -34,6 +34,7 @@ const AGENT = Type.String({ description: "The agent's id from list_agents, such 
 export function createComputerAgentsExtension(workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, userSaid: (conversationId: ConversationId) => Promise<readonly string[]>) {
 	const repeats = new Repeats();
 	const menus = new Menus();
+	const alerted = new Alerted();
 	const commandsOf = (conversationId: string): { host: PairedHost; commands: HostCommands } => {
 		const place = workplace(conversationId);
 		if (place?.kind !== "computer") throw new Error("This bot works on the phone: agents on a computer need a computer picked in the bot's panel.");
@@ -100,7 +101,8 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			menus.saw(`${api.conversationId}:${args.agent}`, choicesOf(read.screen)?.options);
 			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
 			const warning = await checkScreen(createJudge(api.models), read.screen);
-			if (warning) await showAlert(api, context, read.screen);
+			const quote = warning ? quoteOf(read.screen) : "";
+			if (warning && alerted.isNew(`${api.conversationId}:${args.agent}`, quote)) await showAlert(api, context, quote);
 			return text(truncated([...(warning ? [warning] : []), status, "Terminal:", read.screen].join("\n")));
 		},
 	});
