@@ -168,6 +168,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 	const runCommand = defineAppTool({
 		name: "run_command",
 		effect: "direct",
+		reach: "model",
 		sends: true,
 		description:
 			"Start a shell command on the computer in the background and return at once, for anything that takes more than a minute (builds, tests, deploys, downloads), so the conversation goes on while it runs. " +
@@ -184,7 +185,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			if (started.code !== 0) throw new Error(`The command did not start: ${started.stdout.trim() || started.stderr.trim() || `${cwd} is not a folder on the computer`}`);
 			const job = `job:${id}`;
 			const watched = await watch(api, context, job, `You started this command in the background: ${JSON.stringify(args.command.slice(0, TASK_CHARS))}.`, `等「${args.command.slice(0, NAME_CHARS)}」跑完`);
-			return text(watched ? `Started as ${job}. Answer the user now: the phone wakes you here when it ends, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `Started as ${job}. Check on it with read_agent.`);
+			return text(watched ? `Started as ${job}; it is still running. Tell the user it has started, not that it is done: the phone wakes you here when it ends, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `Started as ${job}; it is still running. Check on it with read_agent.`);
 		},
 	});
 

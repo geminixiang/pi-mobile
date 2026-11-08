@@ -151,7 +151,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - **電腦畫面**（`computer_as_user`）
   - `computer_as_user`：`computer_read_as_user`＊、`computer_act_as_user`＊
 - **電腦上的 agent**（`computer_agents`）
-  - `computer_agents`：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`、`run_command`
+  - `computer_agents`：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`、`run_command`†
 - **電腦**（`computer_shell`）
   - `computer_shell`：沒有自己的工具
   - `coding-tools`：`read`†、`write`†、`edit`†、`bash`†
