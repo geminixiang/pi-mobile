@@ -36,6 +36,7 @@ function editMemory(current: string, oldText: string | undefined, newText: strin
 export function createMemoryExtension(host: { changed: () => void }) {
 	const updateMemory = defineAppTool({
 		name: "update_memory",
+		groups: "always",
 		effect: "direct",
 		reach: "model",
 		callers: ["model"],

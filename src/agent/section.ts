@@ -20,12 +20,17 @@ export function appSection<Tool extends ToolRegistration = ToolRegistration>(
 	key: string,
 	budget: number,
 	render: PromptSection<Tool>["render"],
-	options?: { readonly tag?: boolean },
+	{ about, ...options }: { readonly tag?: boolean; readonly about?: readonly { readonly name: string }[] } = {},
 ): PromptSection<Tool> {
 	budgets.set(key.startsWith("mcp-") ? "mcp-" : key, budget);
+	const offered = (agent: { tools: readonly Tool[]; callable: readonly Tool[]; deferred: readonly Tool[] }) => {
+		const names = new Set([...agent.tools, ...agent.callable, ...agent.deferred].map((tool) => tool.name));
+		return about === undefined || about.some((tool) => names.has(tool.name));
+	};
 	return section<Tool>(
 		key,
 		async (input, context) => {
+			if (!offered(input.agent)) return undefined;
 			const text = await render(input, context);
 			if (text === undefined || text.length <= budget) return text;
 			log.warn("prompt.section_over_budget", { section: key, chars: String(text.length), budget: String(budget) });

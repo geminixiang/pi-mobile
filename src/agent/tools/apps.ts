@@ -42,6 +42,7 @@ export function appFile(fileName: string, bytes: Uint8Array): AppFile {
 
 const setAlarm = defineAppTool({
 	name: "set_alarm",
+	groups: ["apps"],
 	effect: "direct",
 	needs: [Apps.setAlarm],
 	description: "Set an alarm in the phone's clock app, without opening it. Time is the phone's local time.",
@@ -60,6 +61,7 @@ const setAlarm = defineAppTool({
 
 const openAlarms = defineAppTool({
 	name: "open_alarms",
+	groups: ["apps"],
 	effect: "screen",
 	needs: [Apps.openAlarms],
 	description:
@@ -73,6 +75,7 @@ const openAlarms = defineAppTool({
 
 const setTimer = defineAppTool({
 	name: "set_timer",
+	groups: ["apps"],
 	effect: "direct",
 	needs: [Apps.setTimer],
 	description: "Start a countdown timer in the phone's clock app, without opening it.",
@@ -88,6 +91,7 @@ const setTimer = defineAppTool({
 
 const composeEmail = defineAppTool({
 	name: "compose_email",
+	groups: ["apps"],
 	effect: "screen",
 	needs: [Apps.composeEmail],
 	description: "Open the phone's email app on a draft. The user reviews it and sends it; nothing is sent by this tool.",
@@ -104,6 +108,7 @@ const composeEmail = defineAppTool({
 
 const composeSms = defineAppTool({
 	name: "compose_sms",
+	groups: ["apps"],
 	effect: "screen",
 	needs: [Apps.composeSms],
 	description: "Open the phone's messaging app on a text message draft. The user sends it; nothing is sent by this tool.",
@@ -119,6 +124,7 @@ const composeSms = defineAppTool({
 
 const openMaps = defineAppTool({
 	name: "open_maps",
+	groups: ["apps"],
 	effect: "screen",
 	needs: [Apps.open],
 	description: "Open directions to a place in Google Maps (or the phone's maps app). The user starts navigation there.",
@@ -140,6 +146,7 @@ const openMaps = defineAppTool({
 
 const openLink = defineAppTool({
 	name: "open_link",
+	groups: ["apps"],
 	effect: "screen",
 	needs: [Apps.open],
 	description:
@@ -156,6 +163,7 @@ const openLink = defineAppTool({
 
 const share = defineAppTool({
 	name: "share",
+	groups: ["apps"],
 	effect: "screen",
 	needs: [Apps.share],
 	description:
@@ -186,6 +194,6 @@ export const AppsExtension = defineExtension({
 	name: "apps",
 	tools: [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share],
 	sections: [
-		appSection("apps", 400, () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send."),
+		appSection("apps", 400, () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send.", { about: [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share] }),
 	],
 });

@@ -389,6 +389,7 @@ const pct = (value: number | null) => (value === null ? "-" : `${value > 0 ? "+"
 
 const twStocks = defineAppTool({
 	name: "tw_stocks",
+	groups: ["tw_stocks"],
 	effect: "read",
 	description:
 		"Taiwan stock market after-hours data from TWSE and TPEx (listed 上市 and OTC 上櫃 stocks and ETFs), published after the close: daily prices, institutional investors' (三大法人) net buying, margin trading (融資融券), valuation (P/E, P/B, yield), monthly revenue (月營收), or the whole market (加權指數, 櫃買指數, turnover, 三大法人 totals). Use it instead of searching the web for Taiwan stock data.",

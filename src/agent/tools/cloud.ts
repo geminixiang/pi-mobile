@@ -22,6 +22,7 @@ const truncate = (value: string) => truncated(value, "; narrow the request with 
 function cloudTool(service: CloudService) {
 	return defineAppTool({
 		name: service.tool,
+		groups: [service.id],
 		effect: "direct",
 		description: [
 			`Call the ${service.label} REST API as the user, from the phone (no sandbox needed). ${service.usage}`,

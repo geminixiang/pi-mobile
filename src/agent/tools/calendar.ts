@@ -81,6 +81,7 @@ export type CalendarStore = {
 export function createCalendarExtension(access: CalendarAccess, store: CalendarStore = Calendar) {
 	const readEvents = defineAppTool({
 		name: "read_calendar_events",
+		groups: ["calendar"],
 		effect: "read",
 		needs: [Calendar.listEvents],
 		asks: "calendar",
@@ -146,6 +147,7 @@ export function createCalendarExtension(access: CalendarAccess, store: CalendarS
 
 	const listCalendars = defineAppTool({
 		name: "list_calendars",
+		groups: ["calendar"],
 		effect: "read",
 		needs: [Calendar.listAccounts],
 		asks: "calendar",
@@ -169,6 +171,7 @@ export function createCalendarExtension(access: CalendarAccess, store: CalendarS
 
 	const addEvent = defineAppTool({
 		name: "add_calendar_event",
+		groups: ["calendar"],
 		effect: "direct",
 		needs: [Calendar.listAccounts, Calendar.insertEvent],
 		asks: "calendar",
@@ -212,6 +215,7 @@ export function createCalendarExtension(access: CalendarAccess, store: CalendarS
 
 	const deleteEvent = defineAppTool({
 		name: "delete_calendar_event",
+		groups: ["calendar"],
 		effect: "direct",
 		needs: [Calendar.listEvents, Calendar.listAccounts, Calendar.deleteEvent],
 		asks: "calendar",
@@ -244,7 +248,7 @@ export function createCalendarExtension(access: CalendarAccess, store: CalendarS
 		name: "calendar",
 		tools: [readEvents, listCalendars, addEvent, deleteEvent],
 		sections: [
-			appSection("calendar", 400, () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account."),
+			appSection("calendar", 400, () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account.", { about: [readEvents, listCalendars, addEvent, deleteEvent] }),
 		],
 	});
 }

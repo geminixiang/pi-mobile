@@ -7,6 +7,7 @@ import { oneOf } from "../../parse.ts";
 
 const health = defineAppTool({
 	name: "health",
+	groups: ["health"],
 	effect: "read",
 	needs: [Health.read],
 	description:

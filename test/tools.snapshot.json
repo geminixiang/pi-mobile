@@ -1,7 +1,9 @@
 [
 	{
 		"extension": "device",
-		"toolset": "device",
+		"groups": [
+			"device"
+		],
 		"name": "device_info",
 		"deferred": false,
 		"callers": [
@@ -21,7 +23,9 @@
 	},
 	{
 		"extension": "device",
-		"toolset": "device",
+		"groups": [
+			"device"
+		],
 		"name": "get_location",
 		"deferred": false,
 		"callers": [
@@ -41,7 +45,9 @@
 	},
 	{
 		"extension": "device",
-		"toolset": "device",
+		"groups": [
+			"device"
+		],
 		"name": "read_sensors",
 		"deferred": false,
 		"callers": [
@@ -61,7 +67,9 @@
 	},
 	{
 		"extension": "device",
-		"toolset": "device",
+		"groups": [
+			"device"
+		],
 		"name": "get_travel_time",
 		"deferred": false,
 		"callers": [
@@ -104,7 +112,9 @@
 	},
 	{
 		"extension": "weather",
-		"toolset": "weather",
+		"groups": [
+			"weather"
+		],
 		"name": "weather",
 		"deferred": false,
 		"callers": [
@@ -260,7 +270,9 @@
 	},
 	{
 		"extension": "places",
-		"toolset": "places",
+		"groups": [
+			"places"
+		],
 		"name": "find_places",
 		"deferred": false,
 		"callers": [
@@ -372,7 +384,9 @@
 	},
 	{
 		"extension": "tw_stocks",
-		"toolset": "tw_stocks",
+		"groups": [
+			"tw_stocks"
+		],
 		"name": "tw_stocks",
 		"deferred": false,
 		"callers": [
@@ -885,7 +899,9 @@
 	},
 	{
 		"extension": "database",
-		"toolset": "database",
+		"groups": [
+			"database"
+		],
 		"name": "sql",
 		"deferred": false,
 		"callers": [
@@ -987,7 +1003,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "set_alarm",
 		"deferred": false,
 		"callers": [
@@ -1035,7 +1053,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "open_alarms",
 		"deferred": false,
 		"callers": [
@@ -1055,7 +1075,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "set_timer",
 		"deferred": false,
 		"callers": [
@@ -1089,7 +1111,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "compose_email",
 		"deferred": false,
 		"callers": [
@@ -1128,7 +1152,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "compose_sms",
 		"deferred": false,
 		"callers": [
@@ -1160,7 +1186,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "open_maps",
 		"deferred": false,
 		"callers": [
@@ -1202,7 +1230,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "open_link",
 		"deferred": false,
 		"callers": [
@@ -1230,7 +1260,9 @@
 	},
 	{
 		"extension": "apps",
-		"toolset": "apps",
+		"groups": [
+			"apps"
+		],
 		"name": "share",
 		"deferred": false,
 		"callers": [
@@ -1263,7 +1295,9 @@
 	},
 	{
 		"extension": "speech",
-		"toolset": "speech",
+		"groups": [
+			"speech"
+		],
 		"name": "speak",
 		"deferred": false,
 		"callers": [
@@ -1296,7 +1330,9 @@
 	},
 	{
 		"extension": "notifications",
-		"toolset": "notifications",
+		"groups": [
+			"notifications"
+		],
 		"name": "read_notifications",
 		"deferred": false,
 		"callers": [
@@ -1380,7 +1416,9 @@
 	},
 	{
 		"extension": "notifications",
-		"toolset": "notifications",
+		"groups": [
+			"notifications"
+		],
 		"name": "reply_notification",
 		"deferred": false,
 		"callers": [
@@ -1420,7 +1458,9 @@
 	},
 	{
 		"extension": "notifications",
-		"toolset": "notifications",
+		"groups": [
+			"notifications"
+		],
 		"name": "dismiss_notifications",
 		"deferred": false,
 		"callers": [
@@ -1450,7 +1490,9 @@
 	},
 	{
 		"extension": "phone_as_user",
-		"toolset": "phone_as_user",
+		"groups": [
+			"phone_as_user"
+		],
 		"name": "phone_read_as_user",
 		"deferred": true,
 		"callers": [
@@ -1477,7 +1519,9 @@
 	},
 	{
 		"extension": "phone_as_user",
-		"toolset": "phone_as_user",
+		"groups": [
+			"phone_as_user"
+		],
 		"name": "phone_act_as_user",
 		"deferred": true,
 		"callers": [
@@ -1576,7 +1620,9 @@
 	},
 	{
 		"extension": "browser",
-		"toolset": "browser",
+		"groups": [
+			"browser"
+		],
 		"name": "read_page",
 		"deferred": false,
 		"callers": [
@@ -1647,7 +1693,9 @@
 	},
 	{
 		"extension": "browser",
-		"toolset": "browser",
+		"groups": [
+			"browser"
+		],
 		"name": "use_browser",
 		"deferred": false,
 		"callers": [
@@ -1807,7 +1855,9 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "phone_control",
+		"groups": [
+			"phone_control"
+		],
 		"name": "media",
 		"deferred": false,
 		"callers": [
@@ -1848,7 +1898,9 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "phone_control",
+		"groups": [
+			"phone_control"
+		],
 		"name": "do_not_disturb",
 		"deferred": false,
 		"callers": [
@@ -1889,7 +1941,9 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "phone_control",
+		"groups": [
+			"phone_control"
+		],
 		"name": "sound",
 		"deferred": false,
 		"callers": [
@@ -1943,7 +1997,9 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "phone_control",
+		"groups": [
+			"phone_control"
+		],
 		"name": "display",
 		"deferred": false,
 		"callers": [
@@ -1995,7 +2051,9 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "phone_control",
+		"groups": [
+			"phone_control"
+		],
 		"name": "flashlight",
 		"deferred": false,
 		"callers": [
@@ -2029,7 +2087,9 @@
 	},
 	{
 		"extension": "phone_control",
-		"toolset": "phone_control",
+		"groups": [
+			"phone_control"
+		],
 		"name": "connections",
 		"deferred": false,
 		"callers": [
@@ -2076,7 +2136,9 @@
 	},
 	{
 		"extension": "contacts",
-		"toolset": "contacts",
+		"groups": [
+			"contacts"
+		],
 		"name": "contacts",
 		"deferred": false,
 		"callers": [
@@ -2162,7 +2224,9 @@
 	},
 	{
 		"extension": "photos",
-		"toolset": "photos",
+		"groups": [
+			"photos"
+		],
 		"name": "find_photos",
 		"deferred": false,
 		"callers": [
@@ -2258,7 +2322,9 @@
 	},
 	{
 		"extension": "photos",
-		"toolset": "photos",
+		"groups": [
+			"photos"
+		],
 		"name": "view_photos",
 		"deferred": true,
 		"callers": [
@@ -2292,7 +2358,9 @@
 	},
 	{
 		"extension": "calls_sms",
-		"toolset": "calls_sms",
+		"groups": [
+			"calls_sms"
+		],
 		"name": "call_log",
 		"deferred": false,
 		"callers": [
@@ -2369,7 +2437,9 @@
 	},
 	{
 		"extension": "calls_sms",
-		"toolset": "calls_sms",
+		"groups": [
+			"calls_sms"
+		],
 		"name": "read_sms",
 		"deferred": false,
 		"callers": [
@@ -2443,7 +2513,9 @@
 	},
 	{
 		"extension": "screen_time",
-		"toolset": "screen_time",
+		"groups": [
+			"screen_time"
+		],
 		"name": "screen_time",
 		"deferred": false,
 		"callers": [
@@ -2522,7 +2594,9 @@
 	},
 	{
 		"extension": "health",
-		"toolset": "health",
+		"groups": [
+			"health"
+		],
 		"name": "health",
 		"deferred": false,
 		"callers": [
@@ -2633,7 +2707,7 @@
 	},
 	{
 		"extension": "skills",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "read_skill",
 		"deferred": false,
 		"callers": [
@@ -2664,7 +2738,7 @@
 	},
 	{
 		"extension": "attachments",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "read_attachment",
 		"deferred": true,
 		"callers": [
@@ -2713,7 +2787,7 @@
 	},
 	{
 		"extension": "attachments",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "scan_document",
 		"deferred": false,
 		"callers": [
@@ -2740,7 +2814,9 @@
 	},
 	{
 		"extension": "calendar",
-		"toolset": "calendar",
+		"groups": [
+			"calendar"
+		],
 		"name": "read_calendar_events",
 		"deferred": false,
 		"callers": [
@@ -2837,7 +2913,9 @@
 	},
 	{
 		"extension": "calendar",
-		"toolset": "calendar",
+		"groups": [
+			"calendar"
+		],
 		"name": "list_calendars",
 		"deferred": false,
 		"callers": [
@@ -2857,7 +2935,9 @@
 	},
 	{
 		"extension": "calendar",
-		"toolset": "calendar",
+		"groups": [
+			"calendar"
+		],
 		"name": "add_calendar_event",
 		"deferred": false,
 		"callers": [
@@ -2912,7 +2992,9 @@
 	},
 	{
 		"extension": "calendar",
-		"toolset": "calendar",
+		"groups": [
+			"calendar"
+		],
 		"name": "delete_calendar_event",
 		"deferred": false,
 		"callers": [
@@ -2951,7 +3033,7 @@
 	},
 	{
 		"extension": "codemode",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "codemode",
 		"deferred": false,
 		"callers": [
@@ -2974,14 +3056,16 @@
 			"type": "object"
 		},
 		"structuredOutput": null,
-		"effect": null,
+		"effect": "direct",
 		"needs": [],
 		"outside": null,
 		"sends": false
 	},
 	{
 		"extension": "github",
-		"toolset": "github",
+		"groups": [
+			"github"
+		],
 		"name": "github_api",
 		"deferred": false,
 		"callers": [
@@ -3036,7 +3120,9 @@
 	},
 	{
 		"extension": "github",
-		"toolset": "github",
+		"groups": [
+			"github"
+		],
 		"name": "github_read_file",
 		"deferred": false,
 		"callers": [
@@ -3076,7 +3162,9 @@
 	},
 	{
 		"extension": "gcp",
-		"toolset": "gcp",
+		"groups": [
+			"gcp"
+		],
 		"name": "gcp_api",
 		"deferred": false,
 		"callers": [
@@ -3128,7 +3216,9 @@
 	},
 	{
 		"extension": "cloudflare",
-		"toolset": "cloudflare",
+		"groups": [
+			"cloudflare"
+		],
 		"name": "cloudflare_api",
 		"deferred": false,
 		"callers": [
@@ -3180,7 +3270,9 @@
 	},
 	{
 		"extension": "azure",
-		"toolset": "azure",
+		"groups": [
+			"azure"
+		],
 		"name": "azure_api",
 		"deferred": false,
 		"callers": [
@@ -3232,7 +3324,9 @@
 	},
 	{
 		"extension": "web",
-		"toolset": "web",
+		"groups": [
+			"web"
+		],
 		"name": "web_search",
 		"deferred": false,
 		"callers": [
@@ -3258,7 +3352,9 @@
 	},
 	{
 		"extension": "web",
-		"toolset": "web",
+		"groups": [
+			"web"
+		],
 		"name": "web_fetch",
 		"deferred": false,
 		"callers": [
@@ -3292,7 +3388,7 @@
 	},
 	{
 		"extension": "schedules",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "create_schedule",
 		"deferred": false,
 		"callers": [
@@ -3442,7 +3538,7 @@
 	},
 	{
 		"extension": "schedules",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "schedule_followup",
 		"deferred": false,
 		"callers": [
@@ -3482,7 +3578,7 @@
 	},
 	{
 		"extension": "schedules",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "list_schedules",
 		"deferred": false,
 		"callers": [
@@ -3502,7 +3598,7 @@
 	},
 	{
 		"extension": "schedules",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "delete_schedule",
 		"deferred": false,
 		"callers": [
@@ -3530,7 +3626,7 @@
 	},
 	{
 		"extension": "schedules",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "notify",
 		"deferred": false,
 		"callers": [
@@ -3563,7 +3659,7 @@
 	},
 	{
 		"extension": "items",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "note_item",
 		"deferred": false,
 		"callers": [
@@ -3619,7 +3715,7 @@
 	},
 	{
 		"extension": "items",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "list_items",
 		"deferred": false,
 		"callers": [
@@ -3646,7 +3742,7 @@
 	},
 	{
 		"extension": "memory",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "update_memory",
 		"deferred": false,
 		"callers": [
@@ -3685,7 +3781,7 @@
 	},
 	{
 		"extension": "interaction",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "ask_user",
 		"deferred": false,
 		"callers": [
@@ -3722,7 +3818,9 @@
 	},
 	{
 		"extension": "computer_as_user",
-		"toolset": "computer_as_user",
+		"groups": [
+			"computer_as_user"
+		],
 		"name": "computer_read_as_user",
 		"deferred": true,
 		"callers": [
@@ -3741,7 +3839,9 @@
 	},
 	{
 		"extension": "computer_as_user",
-		"toolset": "computer_as_user",
+		"groups": [
+			"computer_as_user"
+		],
 		"name": "computer_act_as_user",
 		"deferred": true,
 		"callers": [
@@ -3826,7 +3926,9 @@
 	},
 	{
 		"extension": "computer_agents",
-		"toolset": "computer_agents",
+		"groups": [
+			"computer_agents"
+		],
 		"name": "list_agents",
 		"deferred": false,
 		"callers": [
@@ -3844,7 +3946,9 @@
 	},
 	{
 		"extension": "computer_agents",
-		"toolset": "computer_agents",
+		"groups": [
+			"computer_agents"
+		],
 		"name": "read_agent",
 		"deferred": false,
 		"callers": [
@@ -3876,7 +3980,9 @@
 	},
 	{
 		"extension": "computer_agents",
-		"toolset": "computer_agents",
+		"groups": [
+			"computer_agents"
+		],
 		"name": "tell_agent",
 		"deferred": false,
 		"callers": [
@@ -3908,7 +4014,9 @@
 	},
 	{
 		"extension": "computer_agents",
-		"toolset": "computer_agents",
+		"groups": [
+			"computer_agents"
+		],
 		"name": "answer_agent",
 		"deferred": false,
 		"callers": [
@@ -3944,7 +4052,9 @@
 	},
 	{
 		"extension": "computer_agents",
-		"toolset": "computer_agents",
+		"groups": [
+			"computer_agents"
+		],
 		"name": "run_command",
 		"deferred": false,
 		"callers": [
@@ -3976,7 +4086,10 @@
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "computer_shell",
+		"groups": [
+			"files",
+			"computer_shell"
+		],
 		"name": "read",
 		"deferred": false,
 		"callers": [
@@ -4029,14 +4142,17 @@
 				}
 			]
 		},
-		"effect": null,
+		"effect": "direct",
 		"needs": [],
 		"outside": null,
 		"sends": false
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "computer_shell",
+		"groups": [
+			"files",
+			"computer_shell"
+		],
 		"name": "write",
 		"deferred": false,
 		"callers": [
@@ -4061,14 +4177,17 @@
 			"type": "object"
 		},
 		"structuredOutput": null,
-		"effect": null,
+		"effect": "direct",
 		"needs": [],
 		"outside": null,
 		"sends": false
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "computer_shell",
+		"groups": [
+			"files",
+			"computer_shell"
+		],
 		"name": "edit",
 		"deferred": false,
 		"callers": [
@@ -4110,14 +4229,17 @@
 			"type": "object"
 		},
 		"structuredOutput": null,
-		"effect": null,
+		"effect": "direct",
 		"needs": [],
 		"outside": null,
 		"sends": false
 	},
 	{
 		"extension": "coding-tools",
-		"toolset": "computer_shell",
+		"groups": [
+			"files",
+			"computer_shell"
+		],
 		"name": "bash",
 		"deferred": false,
 		"callers": [
@@ -4165,14 +4287,14 @@
 			],
 			"type": "object"
 		},
-		"effect": null,
+		"effect": "direct",
 		"needs": [],
 		"outside": null,
 		"sends": false
 	},
 	{
 		"extension": "tool-search",
-		"toolset": "fixed",
+		"groups": "always",
 		"name": "tool_search",
 		"deferred": false,
 		"callers": [
@@ -4195,7 +4317,7 @@
 			"type": "object"
 		},
 		"structuredOutput": null,
-		"effect": null,
+		"effect": "read",
 		"needs": [],
 		"outside": null,
 		"sends": false

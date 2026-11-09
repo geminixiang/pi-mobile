@@ -170,6 +170,7 @@ export function createWebExtension(config: WebConfig) {
 
 	const search = defineAppTool({
 		name: "web_search",
+		groups: ["web"],
 		effect: "read",
 		description:
 			"Search the web for current information (news, docs, releases, prices, facts after your training data). Returns a short answer with source URLs; follow up with web_fetch to read a page. A search takes 20-60 s: one search per bank, product, or source, asked for together.",
@@ -185,6 +186,7 @@ export function createWebExtension(config: WebConfig) {
 
 	const fetchPage = defineAppTool({
 		name: "web_fetch",
+		groups: ["web"],
 		effect: "direct",
 		description:
 			"Fetch a web page (http or https) and return its readable text with links, the raw body for JSON and plain text, or a PDF's text by page (read more with read_attachment). With save_to, download the file (PDF, image, spreadsheet…) into your folder instead.",

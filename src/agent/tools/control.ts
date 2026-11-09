@@ -21,6 +21,7 @@ const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.fl
 
 const media = defineAppTool({
 	name: "media",
+	groups: ["phone_control"],
 	effect: "direct",
 	needs: [Notifications.status, Notifications.media, Notifications.mediaControl],
 	description: "See what is playing in media apps (Spotify, YouTube Music, podcasts) or control it: play, pause, next, previous. Without app, the most recent player.",
@@ -56,6 +57,7 @@ const MODES: Record<DndMode, string> = { off: "off", priority: "priority only", 
 
 const doNotDisturb = defineAppTool({
 	name: "do_not_disturb",
+	groups: ["phone_control"],
 	effect: "direct",
 	needs: [Notifications.status, Notifications.dnd, Notifications.setDnd],
 	description:
@@ -97,6 +99,7 @@ const describeSound = (state: SoundState) =>
 
 const sound = defineAppTool({
 	name: "sound",
+	groups: ["phone_control"],
 	effect: "direct",
 	needs: [PhoneState.sound, PhoneState.setRinger, PhoneState.setVolume],
 	description:
@@ -129,6 +132,7 @@ const describeDisplay = (state: DisplayState) =>
 
 const display = defineAppTool({
 	name: "display",
+	groups: ["phone_control"],
 	effect: "direct",
 	needs: [PhoneState.display, PhoneState.setDisplay],
 	description: "Read or change the screen: brightness, adaptive brightness, auto-rotate, and how long until it turns off.",
@@ -153,6 +157,7 @@ const display = defineAppTool({
 
 const flashlight = defineAppTool({
 	name: "flashlight",
+	groups: ["phone_control"],
 	effect: "direct",
 	needs: [PhoneState.flashlight, PhoneState.setFlashlight],
 	description: "Read or switch the phone's flashlight (the camera's torch), such as to light the way or find something in the dark.",
@@ -187,6 +192,7 @@ const describeConnections = (state: ConnectionsState) =>
 export function createControlExtension(actsAsUser: ActsAsUser) {
 	const connections = defineAppTool({
 		name: "connections",
+		groups: ["phone_control"],
 		effect: "direct",
 		needs: [PhoneState.connections, PhoneState.setConnection],
 		description:

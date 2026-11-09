@@ -44,7 +44,7 @@ CDP_PORT=$PORT ./test/device/ui.sh "async () => {
 	await rt.removeBot(full);
 	await rt.removeBot(bare);
 	const rows = Object.entries(cost).map(([extension, c]) => {
-		const toolset = toolsets.find((t) => t.extensions.includes(extension));
+		const toolset = toolsets.find((t) => (t.kind === 'service' ? t.extension : t.id) === extension);
 		const fixed = { triggers: '排程', memory: '記憶', 'tool-search': '工具搜尋', skills: 'skills' }[extension];
 		const label = toolset ? toolset.label + (toolset.kind === 'service' ? '（MCP）' : '') : (fixed ?? extension) + '（固定開啟）';
 		return { extension, label, load: c.deferred > 0 ? '需要時載入' : '常駐', chars: c.offered + c.deferred, tools: c.tools.length };

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { createModels, fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import { configure, createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
-import { freeAvatar } from "../../src/agent/bots.ts";
+import { BotIndex, freeAvatar } from "../../src/agent/bots.ts";
 import type { Host } from "../../src/agent/sandbox/host.ts";
 import { TriggerRuns } from "../../src/triggers/runs.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
@@ -35,21 +35,35 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"a bot that turned a toolset off under its old extension name finds it off after the rename",
+		"a bot from before toolsets were stored keeps what it turned off by extension name, and its choices then outlive any extension rename",
 		async () => {
 			const storage = keepOpen(new MemoryStorage());
 			const before = await openRuntime(storage);
 			const bot = await before.runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
 			await before.runtime.close();
 			const raw = await Harness.open(storage, { models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
-			await (await raw.conversation(bot, BACKGROUND_CONTEXT))?.configure({ extensions: { add: [], remove: [{ name: "phone_screen" }, { name: "sandbox" }] } }, BACKGROUND_CONTEXT);
+			await raw.commit(async (tx) => {
+				const stored = (await tx.doc(BotIndex)).items.find((candidate) => candidate.id === bot);
+				if (stored) delete stored.off;
+				await configure(tx, bot, { extensions: { add: [], remove: [{ name: "phone_screen" }, { name: "sandbox" }, { name: "web" }] } });
+			}, BACKGROUND_CONTEXT);
 			await raw.close(BACKGROUND_CONTEXT);
 			const after = await openRuntime(storage);
 			try {
 				const enabled = Object.fromEntries((await after.runtime.toolsets(bot)).map((toolset) => [toolset.id, toolset.enabled]));
 				assert.equal(enabled.phone_as_user, false);
 				assert.equal(enabled.computer_shell, false);
-				assert.equal(enabled.web, true);
+				assert.equal(enabled.web, false);
+				assert.equal(enabled.weather, true);
+				assert.deepEqual((await after.runtime.bots()).find((candidate) => candidate.id === bot)?.off?.sort(), ["computer_shell", "phone_as_user", "web"]);
+				let offered = "";
+				await turn(after.runtime, bot, [
+					(context: TranscriptContext) => {
+						offered = JSON.stringify(context);
+						return fauxAssistantMessage("done");
+					},
+				]);
+				assert.ok(!offered.includes("web_search(") && offered.includes("weather("));
 			} finally {
 				await after.runtime.close();
 			}

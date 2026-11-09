@@ -13,6 +13,7 @@ export type Bot = {
 	createdAt: number;
 	updatedAt: number;
 	removing?: { at: number };
+	off?: string[];
 };
 
 export const BotIndex = defineDoc<{ items: Bot[] }>({

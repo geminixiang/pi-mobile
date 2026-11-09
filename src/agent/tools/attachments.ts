@@ -30,6 +30,7 @@ function window(lines: string[], start: number, limit: number): { text: string; 
 
 const readAttachment = defineAppTool({
 	name: "read_attachment",
+	groups: "always",
 	effect: "read",
 	reach: "loaded",
 	description: [
@@ -90,6 +91,7 @@ const readAttachment = defineAppTool({
 
 const scanDocument = defineAppTool({
 	name: "scan_document",
+	groups: "always",
 	effect: "screen",
 	needs: [Scanner.scan],
 	description:

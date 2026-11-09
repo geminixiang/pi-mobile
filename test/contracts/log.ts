@@ -10,7 +10,7 @@ export const checks: Check[] = [
 	[
 		"a tool's start and end are logged even when it fails, so a hang shows which tool it was in",
 		async () => {
-			const tool = defineAppTool({ name: "contract_tool", description: "fixture", effect: "read", parameters: Type.Object({}), execute: async () => Promise.reject(new Error("no")) });
+			const tool = defineAppTool({ name: "contract_tool", description: "fixture", effect: "read", groups: "always", parameters: Type.Object({}), execute: async () => Promise.reject(new Error("no")) });
 			// why: this tool reads nothing from its api; a whole Harness is not what this check is about
 			await assert.rejects(tool.execute({}, {} as unknown as ToolExecutionApi, BACKGROUND_CONTEXT), /no/);
 			const lines = recentLog().trim().split("\n").slice(-2).map((line) => JSON.parse(line));

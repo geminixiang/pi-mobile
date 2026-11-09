@@ -1,5 +1,4 @@
-import type { ConversationId } from "@earendil-works/pi-durable";
-import type { Extension } from "@earendil-works/pi-durable";
+import type { ConversationId, Extension, ToolRegistration } from "@earendil-works/pi-durable";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import { BotExtension } from "./bots.ts";
 import type { CalendarAccess } from "./calendar-access.ts";
@@ -35,8 +34,9 @@ import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
 import { InteractionExtension } from "../interaction/tool.ts";
 import type { Native } from "../native.ts";
-import { unusableExtensions } from "./toolsets.ts";
-import { declarationOf, gated } from "./tools/common.ts";
+import { type Groups, usableGroups } from "./toolsets.ts";
+import { adopt, declarationOf, gated } from "./tools/common.ts";
+import { ToolFilterExtension } from "./tool-filter.ts";
 import { type AskForm, permissionGate, type PhonePermissions } from "../interaction/permissions.ts";
 import type { Workplace } from "./workplaces.ts";
 
@@ -51,7 +51,7 @@ interface CatalogDeps {
 	triggers: TriggerHost;
 	memory: { changed(): void };
 	workplace: (conversationId: string) => Workplace | undefined;
-	labelOf: (extension: string, conversationId: string) => string | undefined;
+	labelOf: (tool: string, extension: string, conversationId: string) => string | undefined;
 	actsAsUser: ActsAsUser;
 	permissions: PhonePermissions;
 	ask: AskForm;
@@ -60,7 +60,19 @@ interface CatalogDeps {
 const TOOL_SEARCH =
 	"Load a tool listed under \"Load these with tool_search\", the tools whose result is an image you see; it is callable from your next call. Every other tool is offered already or called from codemode scripts: never search for those.";
 
-export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; unsupported: ReadonlySet<string> } {
+function toolSearch(): Extension {
+	const extension = createToolSearchExtension();
+	return { ...extension, tools: (extension.tools ?? []).map((tool) => adopt({ ...tool, description: TOOL_SEARCH }, { groups: "always", effect: "read", needs: [] })) };
+}
+
+function groupsOf(tool: ToolRegistration): Groups {
+	const declared = declarationOf(tool);
+	if (!declared) throw new Error(`${tool.name} has no declaration: define it with defineAppTool or adopt it in catalog.ts`);
+	return declared.groups;
+}
+
+export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; owners: ReadonlyMap<string, Groups> } {
+	for (const tool of CodingTools.tools ?? []) adopt(tool, { groups: ["files", "computer_shell"], effect: "direct", needs: [] });
 	const extensions: Extension[] = [
 		deps.assistant,
 		BotExtension,
@@ -96,29 +108,27 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createComputerExtension(deps.workplace),
 		createComputerAgentsExtension(deps.workplace, deps.triggers, deps.userSaid),
 		CodingTools,
-		createToolSearchExtension(),
+		toolSearch(),
 		createOnDemandExtension(deps.labelOf),
+		ToolFilterExtension,
 	];
-	const unusable = unusableExtensions(deps.native);
+	const installable = (tool: ToolRegistration) =>
+		usableGroups(groupsOf(tool), deps.native) && (declarationOf(tool)?.needs ?? []).every((method) => deps.native.implements(method));
 	const obtain = permissionGate(deps.permissions, deps.ask);
-	const filtered = extensions
-		.filter((extension) => !unusable.has(extension.name))
-		.map((extension) => ({
+	const usable = extensions
+		.map((extension) => ({ extension, tools: extension.tools?.filter(installable) }))
+		.filter(({ tools }) => tools === undefined || tools.length > 0)
+		.map(({ extension, tools }) => ({
 			...extension,
-			tools: extension.tools?.filter((tool) => (declarationOf(tool)?.needs ?? []).every((method) => deps.native.implements(method))),
-		}));
-	const usable = filtered.filter((extension) => extension.tools === undefined || extension.tools.length > 0);
-	return {
-		extensions: usable.map((extension) => ({
-			...extension,
-			tools: extension.tools?.map((tool) => {
-				if (tool.name === "tool_search") return { ...tool, description: TOOL_SEARCH };
+			tools: tools?.map((tool) => {
 				const declared = declarationOf(tool);
 				if (declared?.effect === "screen") return gated(tool, (api) => openScreen(deps.actsAsUser, api.conversationId));
 				const asks = declared?.asks;
 				return asks ? gated(tool, (api, context) => obtain(asks, api, context)) : tool;
 			}),
-		})),
-		unsupported: new Set(filtered.filter((extension) => extension.tools?.length === 0).map((extension) => extension.name)),
+		}));
+	return {
+		extensions: usable,
+		owners: new Map(usable.flatMap((extension) => (extension.tools ?? []).map((tool) => [tool.name, groupsOf(tool)] as const))),
 	};
 }

@@ -23,6 +23,7 @@ function nextAtOf(value: string, now: number): number | undefined {
 export function createItemsExtension(triggers: TriggerHost) {
 	const noteItem = defineAppTool({
 		name: "note_item",
+		groups: "always",
 		effect: "direct",
 		description:
 			"Keep one thing the user will need to come back to (a due date, waiting on someone or on a condition), shared by all bots: give id to update or close it, leave id out for a new one. " +
@@ -76,6 +77,7 @@ export function createItemsExtension(triggers: TriggerHost) {
 
 	const listItems = defineAppTool({
 		name: "list_items",
+		groups: "always",
 		effect: "read",
 		description: "The open items: what is due, what waits on someone, what has no next time; this bot's by default, every bot's with all.",
 		parameters: Type.Object({

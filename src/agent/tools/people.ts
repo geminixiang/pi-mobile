@@ -19,6 +19,7 @@ function daysUntil(birthday: string): number | undefined {
 
 const contacts = defineAppTool({
 	name: "contacts",
+	groups: ["contacts"],
 	effect: "read",
 	needs: [Contacts.search],
 	asks: "contacts",
@@ -67,6 +68,7 @@ const contacts = defineAppTool({
 
 const findPhotos = defineAppTool({
 	name: "find_photos",
+	groups: ["photos"],
 	effect: "read",
 	needs: [Photos.search],
 	asks: "photos",
@@ -131,6 +133,7 @@ const MAX_VIEW = 4;
 
 const viewPhotos = defineAppTool({
 	name: "view_photos",
+	groups: ["photos"],
 	effect: "read",
 	needs: [Photos.view],
 	asks: "photos",

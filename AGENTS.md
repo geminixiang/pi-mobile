@@ -31,7 +31,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - UI design: avoid unnecessary secondary labels and descriptions; let the layout do the explaining. No toasts: a result or an error shows where the action happened (the button's own label, under its section, in the composer); one with no place of its own goes at the end of the transcript, like a model error.
 - A change to the transcript, scrolling, streaming, or an animation is measured on the S24 (120 Hz) with `test/perf/run.ts` (docs/development.md § 效能量測), before and after: only the scenes it touches, 3 runs. Code that runs every frame (the streaming render, scroll and gesture handlers, animations, how the transcript mounts rows) gets all scenes at 5 runs, and so does a release when anything since the last measured release changed what the screen does (`src/app/`, CSS, the WebView or native views); a release that changed none of it skips perf and says so in its commit. Virtualizing the transcript (react-virtuoso) was reverted for this: rows mounting while scrolling up dropped frames.
 - Before a new tool or toolset goes in, measure it as `docs/tools.md` describes (`test/device/tool-cost.sh` on the S24, before and after, and natural questions in a temporary bot), choose always or on demand there, and update its table and log.
-- Tools follow `docs/tools.md` § 介面規範: define them with `defineAppTool` (`src/agent/tools/common.ts`), install built-ins only through `src/agent/catalog.ts`, and list every tool in its tool list. `npm run check` enforces this and compares the interface with `test/tools.snapshot.json`; change a tool's name, parameters, or structured output only on purpose, then run `node --import ./test/vite-imports.js test/tools-node.ts --update` and say why in the log. Name an extension by `docs/tools.md` § 名稱 and keep it: per-bot toolset choices are stored by its name, so a rename also goes into `RENAMED` (`src/agent/toolsets.ts`).
+- Tools follow `docs/tools.md` § 介面規範: define them with `defineAppTool` (`src/agent/tools/common.ts`), install built-ins only through `src/agent/catalog.ts`, and list every tool in its tool list. `npm run check` enforces this and compares the interface with `test/tools.snapshot.json`; change a tool's name, parameters, or structured output only on purpose, then run `node --import ./test/vite-imports.js test/tools-node.ts --update` and say why in the log. Every tool declares its `groups` (the toolsets that switch it, or `"always"`); a library's tools are adopted with their groups in `src/agent/catalog.ts`. A bot stores only toolset ids (`Bot.off`), so extensions can be renamed, split, merged, or regrouped freely; moving a tool to another toolset changes what bots that turned either one off get, so it is a product change.
 
 ## Structure
 
@@ -54,7 +54,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | No comments except `// why:` | `test/no-comments.ts` |
 | No `any`, `!`, casts, swallowed catches | `test/code-rules.ts` |
 | Tools defined with `defineAppTool`, in the catalog, a toolset, the tool list, the snapshot | `test/tools-node.ts` |
-| Every extension has a toolset or is in `ALWAYS_ON`, and `ALWAYS_ON` lists nothing stale | `test/tools-node.ts` |
+| Every tool declares its groups (`defineAppTool`, or `adopt` in `catalog.ts`); a tool in several groups has one per `where`; the snapshot records each tool's groups | `test/tools-node.ts` |
 | A tool that acts as the user is `*_as_user`, loaded on demand, in a `*_as_user` extension | `test/tools-node.ts` |
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
 | Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
@@ -75,8 +75,8 @@ Finishing the task is half the job; the other half is leaving the design better 
 | No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`) | Stylelint (`selector-pseudo-class-disallowed-list`) |
 | Font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`declaration-property-value-allowed-list`) |
 | New Android files are Kotlin; the Java files left only shrink (`JAVA_LEFT`) | `test/code-rules.ts` |
-| A renamed extension keeps each bot's choices: a shipped name that disappears must be in `RENAMED`, and opening the runtime applies it | `test/tools-node.ts` (`test/extensions.snapshot.json`), `test/contracts/bots.ts`, `test/toolsets.ts` |
-| Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `offeredAt`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
+| A bot's tools are its toolsets (`Bot.off`) and place projected onto tool names (`removedTools`), written only by `BotToolsets`; a tool result cannot switch a tool back on (`ToolFilterExtension` is the only reader of `addTools` and the last `afterTool`) | `test/contracts/where.ts`, `test/contracts/bots.ts`, `test/toolsets.ts`, `test/code-rules.ts` |
+| Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `removedTools`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |

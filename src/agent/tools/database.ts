@@ -30,6 +30,7 @@ function format(result: StatementResult, index: number): string {
 
 const sql = defineAppTool({
 	name: "sql",
+	groups: ["database"],
 	effect: "direct",
 	needs: [Database.execute, Database.schema],
 	description: [
@@ -82,6 +83,6 @@ export const DatabaseExtension = defineExtension({
 				"sql is the user's SQLite database, shared by their bots: reuse a fitting table, English names, times as YYYY-MM-DD HH:MM, amounts as numbers, a column for what they filter or total by.",
 				tables.length > 0 ? `Tables now:\n${tables.map((table) => `${table.sql}; -- ${table.rows} rows`).join("\n")}` : "It has no tables yet.",
 			].join("\n");
-		}),
+		}, { about: [sql] }),
 	],
 });

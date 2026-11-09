@@ -7,7 +7,7 @@ import type { PairedHost } from "../src/agent/sandbox/host.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
-import { ALWAYS_ON, RENAMED, TOOLSETS } from "../src/agent/toolsets.ts";
+import { TOOLSETS } from "../src/agent/toolsets.ts";
 import { PLUGINS } from "../src/plugins/index.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
 import { exitOnFailures, plain, snapshotFailures, sourcesMatching, updating } from "./snapshot.ts";
@@ -40,7 +40,7 @@ const { extensions } = builtinExtensions({
 	triggers: { changed: () => undefined, unattended: () => false, notify: async () => "shown" },
 	memory: { changed: () => undefined },
 	workplace: () => workplace,
-	labelOf: (name) => name,
+	labelOf: (tool) => tool,
 	actsAsUser: async () => false,
 	permissions: { state: async () => "granted", request: async () => true },
 	ask: async () => ({ action: "cancel" }),
@@ -48,7 +48,7 @@ const { extensions } = builtinExtensions({
 
 interface ToolInterface {
 	extension: string;
-	toolset: string;
+	groups: readonly string[] | "always" | null;
 	name: string;
 	deferred: boolean;
 	callers: readonly string[];
@@ -60,12 +60,10 @@ interface ToolInterface {
 	sends: boolean;
 }
 
-const toolsetOf = (extension: string) => TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.id ?? "fixed";
-
 function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 	return {
 		extension,
-		toolset: toolsetOf(extension),
+		groups: declarationOf(tool)?.groups ?? null,
 		name: tool.name,
 		deferred: tool.deferred === true,
 		callers: tool.callers ?? ["model", "tools"],
@@ -124,7 +122,7 @@ function properties(schema: unknown): [string, Record<string, unknown>][] {
 
 const rules: Rule[] = [
 	{
-		rule: "app tools are defined with defineAppTool (src/agent/tools/common.ts), which cleans empty optional arguments and declares reach, effect and needs",
+		rule: "every tool is declared with its groups: app tools with defineAppTool (src/agent/tools/common.ts), which also cleans empty optional arguments and declares reach, effect and needs; tools from a library with adopt in src/agent/catalog.ts",
 		broken: ({ tool, iface }) => (declarationOf(tool) ? undefined : `${iface.name} (${iface.extension})`),
 	},
 	{
@@ -181,13 +179,19 @@ const rules: Rule[] = [
 		broken: ({ tool, iface }) => ((declarationOf(tool)?.needs ?? []).some((method) => method.opens === "screen") && iface.effect !== "screen" ? iface.name : undefined),
 	},
 	{
-		rule: "a tool that acts as the user is named *_as_user, loads on demand, and is the only kind in a *_as_user extension",
-		broken: ({ iface }) =>
-			iface.name.endsWith("_as_user") === iface.extension.endsWith("_as_user") && (!iface.name.endsWith("_as_user") || iface.deferred) ? undefined : `${iface.name} (${iface.extension})`,
+		rule: "a tool that acts as the user is named *_as_user, loads on demand, and is the only kind in a *_as_user toolset",
+		broken: ({ iface }) => {
+			const asUser = Array.isArray(iface.groups) && iface.groups.every((group) => group.endsWith("_as_user"));
+			return iface.name.endsWith("_as_user") === asUser && (!asUser || iface.deferred) ? undefined : `${iface.name} (${String(iface.groups)})`;
+		},
 	},
 	{
-		rule: "tools are in a toolset, or always on and listed in ALWAYS_ON in toolsets.ts",
-		broken: ({ iface }) => (iface.toolset !== "fixed" || ALWAYS_ON.includes(iface.extension) ? undefined : `${iface.name} (${iface.extension})`),
+		rule: "every tool is in groups whose where differ when it has several, so one toolset decides it wherever the bot works",
+		broken: ({ iface }) => {
+			if (!Array.isArray(iface.groups) || iface.groups.length < 2) return undefined;
+			const wheres = iface.groups.map((group) => TOOLSETS.find((toolset) => toolset.id === group)?.where);
+			return wheres.every((where) => where !== undefined) && new Set(wheres).size === wheres.length ? undefined : `${iface.name} (${iface.groups.join(", ")})`;
+		},
 	},
 ];
 
@@ -208,18 +212,6 @@ for (const { rule, broken } of rules) {
 }
 const reexported = sourcesMatching(/import \{[^}]*\bType\b[^}]*\} from "@earendil-works\/pi-ai"/);
 if (reexported.length) failures.push(`schemas use Type from "typebox", not from @earendil-works/pi-ai: ${reexported.join(", ")}`);
-
-const switchable = new Set(TOOLSETS.flatMap((toolset) => toolset.extensions));
-const installedNames = new Set(extensions.map((extension) => extension.name));
-const unlisted = [...installedNames].filter((name) => !switchable.has(name) && !ALWAYS_ON.includes(name));
-if (unlisted.length) failures.push(`every extension has a toolset or is in ALWAYS_ON (toolsets.ts): ${unlisted.join(", ")}`);
-const SHIPPED = new URL("./extensions.snapshot.json", import.meta.url);
-const shipped: string[] = JSON.parse(readFileSync(SHIPPED, "utf8"));
-const vanished = shipped.filter((name) => !installedNames.has(name) && !(name in RENAMED));
-if (vanished.length) failures.push(`extensions renamed or removed without a migration: ${vanished.join(", ")}. Each bot stores the extensions it turned off by name, so add old → new to RENAMED (src/agent/toolsets.ts); for a removal, drop it from test/extensions.snapshot.json`);
-if (updating) writeFileSync(SHIPPED, `${JSON.stringify([...new Set([...shipped.filter((name) => !(name in RENAMED)), ...installedNames])].sort(), null, "\t")}\n`);
-const stale = ALWAYS_ON.filter((name) => switchable.has(name) || !installedNames.has(name));
-if (stale.length) failures.push(`ALWAYS_ON (toolsets.ts) lists extensions that have a toolset or are not installed: ${stale.join(", ")}`);
 
 const current = tools.map(({ iface }) => iface);
 failures.push(...snapshotFailures(SNAPSHOT, current, "tool", "its interface"));
@@ -269,16 +261,14 @@ for (const file of uiFiles) {
 const MAP_START = "<!-- 工具總圖：node --import ./test/vite-imports.js test/tools-node.ts --update 產生，不要手改 -->";
 const MAP_END = "<!-- 工具總圖結束 -->";
 const shown = (tool: ToolInterface) => `\`${tool.name}\`${tool.deferred ? "＊" : tool.callers.includes("model") ? "†" : ""}`;
-const toolsOf = (extension: string) => current.filter((tool) => tool.extension === extension).map(shown).join("、") || "沒有自己的工具";
-const switched = new Set(TOOLSETS.flatMap((toolset) => toolset.extensions));
+const toolsIn = (id: string) => current.filter((tool) => Array.isArray(tool.groups) && tool.groups.includes(id)).map(shown).join("、");
 const map = [
 	MAP_START,
 	"",
-	"每個開關（工具組）底下是它的擴充，擴充後面是它的工具。＊需要時載入，†直接提供，其他只給腳本。不含 MCP 服務。",
+	"每個開關（工具組）後面是它的工具，由工具自己宣告的 groups 決定，和擴充無關。＊需要時載入，†直接提供，其他只給腳本。不含 MCP 服務。",
 	"",
-	...TOOLSETS.flatMap((toolset) => [`- **${toolset.label}**（\`${toolset.id}\`）`, ...toolset.extensions.map((extension) => `  - \`${extension}\`：${toolsOf(extension)}`)]),
-	"- **固定開著**（沒有開關）",
-	...[...new Set(current.map((tool) => tool.extension))].filter((extension) => !switched.has(extension)).map((extension) => `  - \`${extension}\`：${toolsOf(extension)}`),
+	...TOOLSETS.map((toolset) => `- **${toolset.label}**（\`${toolset.id}\`）：${toolsIn(toolset.id)}`),
+	`- **固定開著**（沒有開關）：${current.filter((tool) => tool.groups === "always").map(shown).join("、")}`,
 	"",
 	MAP_END,
 ].join("\n");

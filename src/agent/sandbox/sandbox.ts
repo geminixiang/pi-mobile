@@ -1,5 +1,6 @@
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import { defineExtension } from "@earendil-works/pi-durable";
+import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { appSection } from "../section.ts";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
@@ -109,7 +110,7 @@ export function createSandboxExtension(workplace: (conversationId: string) => Wo
 				const others = (await botsIn(input.read, context)).filter((bot) => bot.folder !== folder);
 				const whose = others.length > 0 ? ` The other bots' folders: ${others.map((bot) => `${bot.folder} (${bot.name})`).join(", ")}.` : "";
 				return sandbox.describe(folder) + whose;
-			}),
+			}, { about: CodingTools.tools ?? [] }),
 		],
 	});
 }

@@ -15,6 +15,7 @@ export const AskArgs = Type.Object({
 
 const askUser = defineAppTool({
 	name: ASK_USER,
+	groups: "always",
 	effect: "read",
 	reach: "model",
 	callers: ["model"],

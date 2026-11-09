@@ -69,6 +69,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 
 	const listAgents = defineAppTool({
 		name: "list_agents",
+		groups: ["computer_agents"],
 		effect: "read",
 		description:
 			"List the coding agents (Claude Code, Codex, pi…) running on the computer you work on, in Herdr or Rex: each one's id, the name the user calls it by (its Herdr name or Rex session), which agent, status (idle, working, needs_user: waiting for the user to approve or answer, unknown), folder, title, and what it is doing. " +
@@ -85,6 +86,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 
 	const readAgent = defineAppTool({
 		name: "read_agent",
+		groups: ["computer_agents"],
 		effect: "read",
 		outside: "電腦上的 agent 的畫面",
 		description:
@@ -111,6 +113,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 
 	const tellAgent = defineAppTool({
 		name: "tell_agent",
+		groups: ["computer_agents"],
 		effect: "direct",
 		sends: true,
 		description:
@@ -134,6 +137,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 
 	const answerAgent = defineAppTool({
 		name: "answer_agent",
+		groups: ["computer_agents"],
 		effect: "direct",
 		description:
 			"Answer the question or approval an agent is waiting on (status needs_user), choosing one of the options on its screen, as the user would at the computer. " +
@@ -167,6 +171,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 
 	const runCommand = defineAppTool({
 		name: "run_command",
+		groups: ["computer_agents"],
 		effect: "direct",
 		reach: "model",
 		sends: true,
@@ -196,8 +201,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			appSection("computer_agents", 800, (input) =>
 				workplace(String(input.conversationId))?.kind !== "computer"
 					? undefined
-					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply. A long shell command (build, tests, deploy) goes to run_command, not bash, so the user can keep talking while it runs.",
-			),
+					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply. A long shell command (build, tests, deploy) goes to run_command, not bash, so the user can keep talking while it runs.", { about: [listAgents, readAgent, tellAgent, answerAgent, runCommand] }),
 		],
 	});
 }

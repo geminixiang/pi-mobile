@@ -10,6 +10,7 @@ import { PhoneState } from "../../plugins/phone-state.ts";
 
 const deviceInfo = defineAppTool({
 	name: "device_info",
+	groups: ["device"],
 	effect: "read",
 	needs: [Phone.getStatus],
 	description:
@@ -30,6 +31,7 @@ const deviceInfo = defineAppTool({
 
 const getLocation = defineAppTool({
 	name: "get_location",
+	groups: ["device"],
 	effect: "read",
 	needs: [Phone.getLocation],
 	asks: "location",
@@ -42,6 +44,7 @@ const getLocation = defineAppTool({
 
 const readSensors = defineAppTool({
 	name: "read_sensors",
+	groups: ["device"],
 	effect: "read",
 	needs: [Phone.readSensors],
 	description:
@@ -98,6 +101,7 @@ const OsrmResponse = Type.Object({
 
 const travelTime = defineAppTool({
 	name: "get_travel_time",
+	groups: ["device"],
 	effect: "read",
 	needs: [Phone.getLocation, Phone.geocode],
 	description:

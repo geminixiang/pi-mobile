@@ -197,6 +197,7 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const createSchedule = defineAppTool({
 		name: "create_schedule",
+		groups: "always",
 		effect: "direct",
 		needs: [Triggers.sync],
 		description:
@@ -223,6 +224,7 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const scheduleFollowup = defineAppTool({
 		name: "schedule_followup",
+		groups: "always",
 		effect: "direct",
 		needs: [Triggers.sync],
 		description:
@@ -244,6 +246,7 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const listSchedules = defineAppTool({
 		name: "list_schedules",
+		groups: "always",
 		effect: "read",
 		needs: [Triggers.sync],
 		description: "Your schedules and pending follow-ups, with their ids.",
@@ -256,6 +259,7 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const deleteSchedule = defineAppTool({
 		name: "delete_schedule",
+		groups: "always",
 		effect: "direct",
 		needs: [Triggers.sync],
 		description: "Delete a schedule or a pending follow-up by id.",
@@ -276,6 +280,7 @@ export function createTriggerExtension(host: TriggerHost) {
 
 	const notify = defineAppTool({
 		name: "notify",
+		groups: "always",
 		effect: "direct",
 		needs: [Triggers.notify],
 		description:

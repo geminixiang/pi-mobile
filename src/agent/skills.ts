@@ -33,6 +33,7 @@ const SKILLS: readonly Skill[] = [
 
 const readSkill = defineAppTool({
 	name: "read_skill",
+	groups: "always",
 	effect: "read",
 	description: "Read a skill: instructions for a kind of task, listed in the system prompt. Read it before doing that task.",
 	parameters: Type.Object({ name: oneOf(SKILLS.map((skill) => skill.name), { description: "A skill listed in the system prompt" }) }),

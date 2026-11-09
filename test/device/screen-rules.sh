@@ -34,7 +34,7 @@ ask_in_background() {
 	const name = '背景測試';
 	await rt.createBot({ name, job: '', avatar: 'coder' });
 	const id = (await rt.bots()).find((bot) => bot.name === name).id;
-	for (const set of await rt.toolsets(id)) if (set.kind === 'builtin' && !set.extensions.includes('$1')) await rt.setToolset(id, set.id, false);
+	for (const set of await rt.toolsets(id)) if (set.kind === 'builtin' && set.id !== '$1') await rt.setToolset(id, set.id, false);
 	click('Bot 列表'); await sleep(600);
 	[...document.querySelectorAll('.drawer-open')].find((button) => button.textContent.includes(name)).click(); await sleep(1500);
 	type('$2'); await sleep(200); click('送出');

@@ -38,6 +38,7 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 	};
 	const readScreen = defineAppTool({
 		name: "computer_read_as_user",
+		groups: ["computer_as_user"],
 		effect: "read",
 		reach: "loaded",
 		description:
@@ -48,6 +49,7 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 	});
 	const useScreen = defineAppTool({
 		name: "computer_act_as_user",
+		groups: ["computer_as_user"],
 		effect: "direct",
 		reach: "loaded",
 		description:

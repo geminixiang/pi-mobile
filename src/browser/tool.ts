@@ -175,6 +175,7 @@ const Page = Type.Object({
 
 const readPage = defineAppTool({
 	name: "read_page",
+	groups: ["browser"],
 	effect: "read",
 	needs: [Browser.read],
 	description:
@@ -190,6 +191,7 @@ const readPage = defineAppTool({
 
 const useBrowser = defineAppTool({
 	name: "use_browser",
+	groups: ["browser"],
 	effect: "direct",
 	needs: [Browser.act, Browser.read, Browser.newTab, Browser.tabs, Browser.closeTab],
 	description:

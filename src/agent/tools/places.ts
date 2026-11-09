@@ -65,6 +65,7 @@ function localNow(): string {
 
 const findPlaces = defineAppTool({
 	name: "find_places",
+	groups: ["places"],
 	effect: "read",
 	needs: [Phone.getLocation, Phone.geocode],
 	description: [
@@ -164,6 +165,6 @@ export const PlacesExtension = defineExtension({
 	name: "places",
 	tools: [findPlaces],
 	sections: [
-		appSection("places", 400, () => "find_places is OpenStreetMap: straight-line distances (get_travel_time for the real ones) and no ratings (check good ones with web_search)."),
+		appSection("places", 400, () => "find_places is OpenStreetMap: straight-line distances (get_travel_time for the real ones) and no ratings (check good ones with web_search).", { about: [findPlaces] }),
 	],
 });

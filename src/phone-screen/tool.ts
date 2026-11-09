@@ -84,6 +84,7 @@ async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecu
 
 const readPhoneScreen = defineAppTool({
 	name: "phone_read_as_user",
+	groups: ["phone_as_user"],
 	effect: "read",
 	needs: [PhoneScreen.status, PhoneScreen.read],
 	reach: "loaded",
@@ -96,6 +97,7 @@ const readPhoneScreen = defineAppTool({
 
 const usePhoneScreen = defineAppTool({
 	name: "phone_act_as_user",
+	groups: ["phone_as_user"],
 	effect: "direct",
 	needs: [PhoneScreen.status, PhoneScreen.act],
 	reach: "loaded",

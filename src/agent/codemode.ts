@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
 import { defineExtension, hook, type ToolExecutionResult, ToolTask } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
+import { adopt } from "./tools/common.ts";
 import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
 import type { FromWorker, ToWorker } from "./codemode-worker.ts";
 
@@ -130,7 +131,7 @@ export function withSilenceHint(result: ToolExecutionResult): ToolExecutionResul
 
 const remote = new WorkerRemote();
 
-export function createPhoneCodemode(label: (extension: string, conversationId: string) => string | undefined) {
+export function createPhoneCodemode(label: (tool: string, extension: string, conversationId: string) => string | undefined) {
 	const sandbox = new RemoteCodemodeSandbox({
 		remote: () => remote,
 		memoryLimitBytes: MEMORY_LIMIT_BYTES,
@@ -148,16 +149,24 @@ export function createPhoneCodemode(label: (extension: string, conversationId: s
 					call.parent === undefined && result.diagnostics?.some((diagnostic) => diagnostic.code === "tool_unavailable") ? { ...result, output: [{ type: "text", text: scriptHint(call.name) }] } : undefined,
 			}),
 		],
-		tools: [{ ...codemode, parameters, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) }],
+		tools: [
+			adopt(
+				{ ...codemode, parameters, execute: async (...[args, api, context]: Parameters<typeof codemode.execute>) => withSilenceHint(await codemode.execute({ ...args, code: returnLast(args.code) }, api, context)) },
+				{ groups: "always", effect: "direct", needs: [] },
+			),
+		],
 		sections: [
 			appSection("codemode", 4_000, (input) => {
 				const offered = new Set([...input.agent.tools, ...input.agent.deferred].map((tool) => tool.name));
 				const callable = new Set(input.agent.callable.map((tool) => tool.name));
-				const lines = input.agent.extensions.flatMap((extension) => {
-					const name = label(extension.name, String(input.conversationId));
-					const tools = (extension.tools ?? []).filter((tool) => !offered.has(tool.name) && callable.has(tool.name));
-					return name && tools.length > 0 ? [`- ${name}: ${tools.map(signatureOf).join("; ")}`] : [];
-				});
+				const grouped = new Map<string, string[]>();
+				for (const extension of input.agent.extensions) {
+					for (const tool of (extension.tools ?? []).filter((candidate) => !offered.has(candidate.name) && callable.has(candidate.name))) {
+						const name = label(tool.name, extension.name, String(input.conversationId));
+						if (name) grouped.set(name, [...(grouped.get(name) ?? []), signatureOf(tool)]);
+					}
+				}
+				const lines = [...grouped].map(([name, signatures]) => `- ${name}: ${signatures.join("; ")}`);
 				if (lines.length === 0) return undefined;
 				return [
 					"These tools are called only from codemode scripts, as `await tools.<name>({ ...args })`, by exactly these names: put every call a task needs in one script (Promise.all for independent ones), shape the results there, and return only what the answer needs. When a tool's arguments or result are not obvious from its name, `return describeTool(name)` first. Look up rather than guess or ask: the phone's place and time, weather, travel times (no transit: estimate and say so).",

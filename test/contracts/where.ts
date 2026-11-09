@@ -6,7 +6,7 @@ import { NATIVE_PLUGINS, type NativePlugin } from "../../src/native.ts";
 import { turn } from "./fixtures.ts";
 import { type Check, platform, settings } from "./setup.ts";
 
-async function seen(inApp: boolean, native: readonly NativePlugin[], missing: readonly string[] = [], off: readonly string[] = []) {
+async function seen(inApp: boolean, native: readonly NativePlugin[], missing: readonly string[] = [], off: readonly string[] = [], on: readonly string[] = []) {
 	const runtime = await AgentRuntime.open(new MemoryStorage(), settings, {
 		...platform,
 		inApp,
@@ -16,6 +16,7 @@ async function seen(inApp: boolean, native: readonly NativePlugin[], missing: re
 	try {
 		const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
 		for (const toolset of off) await runtime.setToolset(bot, toolset, false);
+		for (const toolset of on) await runtime.setToolset(bot, toolset, true);
 		let offered = "";
 		await turn(runtime, bot, [
 			(context: TranscriptContext) => {
@@ -33,6 +34,18 @@ async function seen(inApp: boolean, native: readonly NativePlugin[], missing: re
 const NATIVE_TOOLS = ["device_info", "create_schedule", "read_calendar_events", "find_photos", "scan_document"];
 
 export const checks: Check[] = [
+	[
+		"two toolsets that share tools decide them where each applies: files off on the phone keeps bash away even after the computer's toolset is switched on",
+		async () => {
+			const phone = await seen(true, NATIVE_PLUGINS, [], ["files"], ["computer_shell"]);
+			assert.equal(phone.place, "phone");
+			for (const tool of ["read", "write", "edit", "bash"]) assert.equal(phone.offered.includes(`"name":"${tool}"`), false, tool);
+			assert.doesNotMatch(phone.offered, /<files>/);
+			const open = await seen(true, NATIVE_PLUGINS);
+			assert.ok(open.offered.includes(`"name":"bash"`));
+			assert.match(open.offered, /<files>/);
+		},
+	],
 	[
 		"a bot on the phone is not told about a computer's tools, and still is about the phone's",
 		async () => {

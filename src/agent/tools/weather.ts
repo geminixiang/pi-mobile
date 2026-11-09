@@ -92,6 +92,7 @@ const clock = (iso: string) => iso.slice(11, 16);
 
 const weather = defineAppTool({
 	name: "weather",
+	groups: ["weather"],
 	effect: "read",
 	needs: [Phone.getLocation, Phone.geocode],
 	description:
@@ -166,5 +167,5 @@ const weather = defineAppTool({
 export const WeatherExtension = defineExtension({
 	name: "weather",
 	tools: [weather],
-	sections: [appSection("weather", 200, () => "Each weather call shows the user a card with the forecast, so answer in a sentence or two, what it means for them, without repeating its numbers.")],
+	sections: [appSection("weather", 200, () => "Each weather call shows the user a card with the forecast, so answer in a sentence or two, what it means for them, without repeating its numbers.", { about: [weather] })],
 });

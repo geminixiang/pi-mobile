@@ -10,6 +10,7 @@ import { log } from "../../log.ts";
 import { gateSend, noteRead, warningOf } from "../outside.ts";
 import { parseJson } from "../../parse.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
+import type { Groups } from "../toolsets.ts";
 
 function unset(value: unknown, schema: unknown): boolean {
 	if (value === "" || value === null || (Array.isArray(value) && value.length === 0)) return true;
@@ -71,6 +72,7 @@ type Reach = "model" | "loaded" | "script";
 export type Effect = "read" | "screen" | "direct";
 
 interface ToolDeclaration {
+	readonly groups: Groups;
 	readonly effect: Effect;
 	readonly needs: readonly PluginMethod[];
 	readonly asks?: PermissionKind;
@@ -84,11 +86,17 @@ const declarations = new WeakMap<object, ToolDeclaration>();
 
 export const declarationOf = (tool: object): ToolDeclaration | undefined => declarations.get(tool);
 
+export function adopt<Tool extends object>(tool: Tool, declaration: ToolDeclaration): Tool {
+	declarations.set(tool, declaration);
+	return tool;
+}
+
 type AppTool<TParameters extends TSchema, TDetails extends JsonValue> = Omit<ToolRegistration<TParameters, TDetails>, "execute" | "prepareArguments"> & {
 	execute(args: Static<TParameters>, api: ToolExecutionApi<TDetails>, context: Context): Promise<ToolExecutionResult<TDetails>>;
 };
 
 export function defineAppTool<TParameters extends TSchema, TDetails extends JsonValue = JsonValue>({
+	groups,
 	reach = "script",
 	effect,
 	needs = [],
@@ -97,7 +105,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 	sends,
 	execute,
 	...tool
-}: AppTool<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[]; asks?: PermissionKind; outside?: string; sends?: true }): ToolRegistration<object, TDetails> {
+}: AppTool<TParameters, TDetails> & { groups: Groups; reach?: Reach; effect: Effect; needs?: readonly PluginMethod[]; asks?: PermissionKind; outside?: string; sends?: true }): ToolRegistration<object, TDetails> {
 	const registration = defineTool<object, TDetails>({
 		...tool,
 		...REACH[reach],
@@ -123,7 +131,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 			}
 		},
 	});
-	declarations.set(registration, { effect, needs, ...(asks ? { asks } : {}), ...(outside ? { outside } : {}), ...(sends ? { sends } : {}) });
+	declarations.set(registration, { groups, effect, needs, ...(asks ? { asks } : {}), ...(outside ? { outside } : {}), ...(sends ? { sends } : {}) });
 	return registration;
 }
 

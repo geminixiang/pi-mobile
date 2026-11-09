@@ -9,7 +9,7 @@ import { parseLocalBound, parseLocalTime, parseNextTime } from "../src/time.ts";
 
 const tool = defineAppTool({
 	name: "probe",
-	effect: "read",
+	effect: "read", groups: "always",
 	description: "A tool to check argument cleaning with.",
 	parameters: Type.Object({
 		need: Type.String(),
@@ -43,7 +43,7 @@ throws(() => prepare({ need: "a", limit: "three" }), /limit/);
 
 const statements = defineAppTool({
 	name: "statements",
-	effect: "read",
+	effect: "read", groups: "always",
 	description: "A tool whose list items are objects with one required text field.",
 	parameters: Type.Object({
 		statements: Type.Array(Type.Object({ sql: Type.String(), params: Type.Optional(Type.Array(Type.String())) }), { minItems: 1 }),
@@ -60,7 +60,7 @@ deepStrictEqual(prepareStatements({ statements: [{ sql: "SELECT 1", params: [] }
 
 const steps = defineAppTool({
 	name: "steps",
-	effect: "read",
+	effect: "read", groups: "always",
 	description: "A tool whose list items carry optional fields a model may fill with blanks.",
 	parameters: Type.Object({
 		steps: Type.Array(Type.Object({ action: Type.String(), text: Type.Optional(Type.String()), ms: Type.Optional(Type.Integer({ minimum: 1 })) })),

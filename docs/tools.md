@@ -44,7 +44,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 系統提示的每一段都用 `appSection(key, budget, render)`（`src/agent/section.ts`）定義，不直接用 `section`（code-rules 擋）。超過上限的段落會整行截斷，結尾寫明被截掉，並記一筆 `prompt.section_over_budget`。
 - 由資料組成的段落（其他 Bot、記憶、資料表、MCP 服務自己的說明）一定要想清楚資料多的時候長什麼樣子：只放模型這一題需要的，例如其他 Bot 只列名字、不列工作說明。
 - `test/prompt.ts` 檢查兩件事。一是預設 Bot 的完整提示和 `test/prompt.snapshot.json` 一致，改了提示就加 `--update`，並在「紀錄」寫一行。二是塞滿資料時，例如刪掉 40 個 Bot、多 20 個 Bot、兩份記憶寫滿、工具組全開，每段都不超過上限、也不會被截斷，總長在 `PROMPT_BUDGET` 內，刪掉的 Bot 不出現。
-- **擴充名稱原則上不改**：每個 Bot 的工具開關存的是擴充名稱（pi-durable 記下關掉哪些擴充），改名後舊名字的「關掉」對不上，原本關掉的 Bot 會變回開著。2026-11-02 全部檢查過一次並改了四個（`toolsets.ts` 的 `RENAMED`，開 runtime 時把每個 Bot 存的舊名字換成新名字，`test/toolsets.ts` 檢查）；之後真的要改，也要加進 `RENAMED`。
+- **每個工具宣告自己屬於哪些工具組**（`defineAppTool` 的 `groups`，固定開著的寫 `"always"`；pi-durable 的 `CodingTools` 在 `catalog.ts` 用 `adopt` 補上）。每個 Bot 只存關掉的工具組 id（`Bot.off`），開 runtime、切開關、換地點時，由 `BotToolsets` 依「關掉的組 × 地點」算出這個 Bot 不能用的工具，寫進 `pi.agent.tools.remove`。所以擴充可以自由改名、拆開、合併、搬工具，Bot 的設定都不受影響；工具換組才是產品變更。工具組 id 不改。
 - schema 一律用 `typebox` 的 `Type`，不用 pi-ai 轉出口的同一個 `Type`（檢查會擋）。
 - 從常數清單做的列舉用 `oneOf(LIST, options)`（`common.ts`），不用 `Type.Union(LIST.map(Type.Literal))`：後者的 TS 型別是 `never`。
 - 結構化輸出的資料型別用 `type`，不用 `interface`（`interface` 不能指定成 `JsonValue`）。
@@ -52,7 +52,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 ### 名稱
 
 - 工具、參數、擴充、工具組 id 都用 snake_case。
-- **三層名字**：工具組（`toolsets.ts`，面板上的一個開關，id 不存）→ 擴充（存在每個 Bot 的設定裡）→ 工具（模型看到的名字）。一個工具組只有一個擴充時，工具組 id 等於擴充名稱。擴充名稱是它處理的東西（`calendar`、`computer_shell`），不是實作（不叫 `sandbox`、`triggers`）。
+- **三層名字**：工具組（`toolsets.ts`，面板上的一個開關，id 存在每個 Bot 裡，不改）→ 擴充（實作和載入的單位，不存，可以改）→ 工具（模型看到的名字；改了，舊對話裡模型可能照舊名叫一次）。擴充名稱是它處理的東西（`calendar`、`computer_shell`），不是實作（不叫 `sandbox`、`triggers`）。
 - **以使用者的身分操作畫面**的工具，名稱寫出在哪一台、以使用者身分：`phone_read_as_user`、`phone_act_as_user`、`computer_read_as_user`、`computer_act_as_user`，擴充是 `phone_as_user`、`computer_as_user`。它們對 App 來說就是使用者本人，App 可能擋，說明的第一句要寫是最後手段。Bot 自己的瀏覽器（`read_page`、`use_browser`）不算。在畫面上點、打字只出現在這幾個工具：其他工具開了畫面（草稿、地圖、`connections` 的 Wi‑Fi 面板）就停在那裡，由使用者或 `phone_act_as_user` 接著做。`test/tools-node.ts` 檢查名字帶 `as_user` 的工具是需要時載入、而且只放在 `*_as_user` 擴充裡。
 - 會改動東西的動作是「動詞_名詞」：`set_alarm`、`add_calendar_event`、`reply_notification`。
 - 讀取是 `read_`、`find_`、`list_`、`get_` 開頭，或者直接是資料來源的名字（`weather`、`contacts`、`health`、`screen_time`、`call_log`）。
@@ -102,71 +102,35 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 <!-- 工具總圖：node --import ./test/vite-imports.js test/tools-node.ts --update 產生，不要手改 -->
 
-每個開關（工具組）底下是它的擴充，擴充後面是它的工具。＊需要時載入，†直接提供，其他只給腳本。不含 MCP 服務。
+每個開關（工具組）後面是它的工具，由工具自己宣告的 groups 決定，和擴充無關。＊需要時載入，†直接提供，其他只給腳本。不含 MCP 服務。
 
-- **網路**（`web`）
-  - `web`：`web_search`、`web_fetch`
-- **天氣**（`weather`）
-  - `weather`：`weather`
-- **台股**（`tw_stocks`）
-  - `tw_stocks`：`tw_stocks`
-- **地點**（`places`）
-  - `places`：`find_places`
-- **手機狀態**（`device`）
-  - `device`：`device_info`、`get_location`、`read_sensors`、`get_travel_time`
-- **手機 App**（`apps`）
-  - `apps`：`set_alarm`、`open_alarms`、`set_timer`、`compose_email`、`compose_sms`、`open_maps`、`open_link`、`share`
-- **日曆**（`calendar`）
-  - `calendar`：`read_calendar_events`、`list_calendars`、`add_calendar_event`、`delete_calendar_event`
-- **聯絡人**（`contacts`）
-  - `contacts`：`contacts`
-- **相片**（`photos`）
-  - `photos`：`find_photos`、`view_photos`＊
-- **通話與簡訊**（`calls_sms`）
-  - `calls_sms`：`call_log`、`read_sms`
-- **健康**（`health`）
-  - `health`：`health`
-- **螢幕使用時間**（`screen_time`）
-  - `screen_time`：`screen_time`
-- **手機控制**（`phone_control`）
-  - `phone_control`：`media`、`do_not_disturb`、`sound`、`display`、`flashlight`、`connections`
-- **瀏覽器**（`browser`）
-  - `browser`：`read_page`、`use_browser`
-- **代你操作 App**（`phone_as_user`）
-  - `phone_as_user`：`phone_read_as_user`＊、`phone_act_as_user`＊
-- **通知**（`notifications`）
-  - `notifications`：`read_notifications`、`reply_notification`、`dismiss_notifications`
-- **資料庫**（`database`）
-  - `database`：`sql`
-- **語音**（`speech`）
-  - `speech`：`speak`
-- **GitHub**（`github`）
-  - `github`：`github_api`、`github_read_file`
-- **Google Cloud**（`gcp`）
-  - `gcp`：`gcp_api`
-- **Cloudflare**（`cloudflare`）
-  - `cloudflare`：`cloudflare_api`
-- **Azure**（`azure`）
-  - `azure`：`azure_api`
-- **電腦畫面**（`computer_as_user`）
-  - `computer_as_user`：`computer_read_as_user`＊、`computer_act_as_user`＊
-- **電腦上的 agent**（`computer_agents`）
-  - `computer_agents`：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`、`run_command`†
-- **電腦**（`computer_shell`）
-  - `computer_shell`：沒有自己的工具
-  - `coding-tools`：`read`†、`write`†、`edit`†、`bash`†
-- **檔案**（`files`）
-  - `files`：沒有自己的工具
-  - `coding-tools`：`read`†、`write`†、`edit`†、`bash`†
-- **固定開著**（沒有開關）
-  - `skills`：`read_skill`
-  - `attachments`：`read_attachment`＊、`scan_document`
-  - `codemode`：`codemode`†
-  - `schedules`：`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`
-  - `items`：`note_item`、`list_items`
-  - `memory`：`update_memory`†
-  - `interaction`：`ask_user`†
-  - `tool-search`：`tool_search`†
+- **網路**（`web`）：`web_search`、`web_fetch`
+- **天氣**（`weather`）：`weather`
+- **台股**（`tw_stocks`）：`tw_stocks`
+- **地點**（`places`）：`find_places`
+- **手機狀態**（`device`）：`device_info`、`get_location`、`read_sensors`、`get_travel_time`
+- **手機 App**（`apps`）：`set_alarm`、`open_alarms`、`set_timer`、`compose_email`、`compose_sms`、`open_maps`、`open_link`、`share`
+- **日曆**（`calendar`）：`read_calendar_events`、`list_calendars`、`add_calendar_event`、`delete_calendar_event`
+- **聯絡人**（`contacts`）：`contacts`
+- **相片**（`photos`）：`find_photos`、`view_photos`＊
+- **通話與簡訊**（`calls_sms`）：`call_log`、`read_sms`
+- **健康**（`health`）：`health`
+- **螢幕使用時間**（`screen_time`）：`screen_time`
+- **手機控制**（`phone_control`）：`media`、`do_not_disturb`、`sound`、`display`、`flashlight`、`connections`
+- **瀏覽器**（`browser`）：`read_page`、`use_browser`
+- **代你操作 App**（`phone_as_user`）：`phone_read_as_user`＊、`phone_act_as_user`＊
+- **通知**（`notifications`）：`read_notifications`、`reply_notification`、`dismiss_notifications`
+- **資料庫**（`database`）：`sql`
+- **語音**（`speech`）：`speak`
+- **GitHub**（`github`）：`github_api`、`github_read_file`
+- **Google Cloud**（`gcp`）：`gcp_api`
+- **Cloudflare**（`cloudflare`）：`cloudflare_api`
+- **Azure**（`azure`）：`azure_api`
+- **電腦畫面**（`computer_as_user`）：`computer_read_as_user`＊、`computer_act_as_user`＊
+- **電腦上的 agent**（`computer_agents`）：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`、`run_command`†
+- **電腦**（`computer_shell`）：`read`†、`write`†、`edit`†、`bash`†
+- **檔案**（`files`）：`read`†、`write`†、`edit`†、`bash`†
+- **固定開著**（沒有開關）：`read_skill`、`read_attachment`＊、`scan_document`、`codemode`†、`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`、`note_item`、`list_items`、`update_memory`†、`ask_user`†、`tool_search`†
 
 <!-- 工具總圖結束 -->
 
@@ -323,6 +287,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-09 | 工具開關和擴充脫鉤：每個工具用 `groups` 宣告自己屬於哪些工具組（`CodingTools` 在 `catalog.ts` 用 `adopt` 補上，屬於「檔案」和「電腦」），Bot 只存關掉的工具組 id（`Bot.off`）。`BotToolsets` 依「關掉的組 × 地點」算出不能用的工具寫進 `pi.agent.tools.remove`；擴充只剩 MCP 服務用 `extensions.add`。舊 Bot 第一次開 runtime 時，從存著的擴充名字換成工具組一次（`legacyOff`）。`ToolFilterExtension` 擋掉工具結果用 `addTools` 開回被關掉的工具。組專屬的說明段落改成跟著自己的工具（`appSection` 的 `about`），「電腦被移除」的說明拆成 `workplace` 段落。刪掉 `RENAMED`、`ALWAYS_ON`、`test/extensions.snapshot.json`；工具快照的 `toolset` 改成 `groups`，codemode 與 `tool_search` 的 `effect` 從 null 變成宣告值 | 不變（預設 Bot 的提示快照沒變） | `test/contracts/where.ts`（舊碼失敗：手機上關「檔案」、開「電腦」，`bash` 等工具還在）、`test/contracts/bots.ts`（舊 Bot 的擴充名字轉成工具組，工具跟著拿掉）、`test/toolsets.ts`。設計見 docs/design/toolset-preferences.md |
 | 2026-11-08 | `run_command` 改成直接提供（†），回覆寫明「還在跑，告訴使用者已經開始、不要說完成」；只給腳本的工具被模型直接呼叫時，`afterTool` 把「Tool X is not available」換成怎麼在腳本裡呼叫（`codemode.ts` 的 `scriptHint`，所有只給腳本的工具都適用） | 選了電腦、開著電腦上的 agent 的 Bot：4,256 → 4,410 tokens（+154，量兩次） | S24 → Mac mini，`custom`／`qwen3.6`，全新 Bot 說「幫我在 Mac 上跑 sleep 60; echo 打包完成 這要一陣子，好了跟我說」。改之前（只給腳本）：一次用了 `run_command`，之後三次都用 `bash` 在同一輪乾等；叫它用 `run_command` 時直接呼叫，拿到「not available」就說工具壞了。只改成直接提供：3 次中 2 次用 `run_command`，1 次沒呼叫工具卻說已啟動，1 次用了卻說「跑好了」。加上回覆的說明後：3/3 用 `run_command`，都說已開始、結束會回報。通知：pi 在背景時，GPT 6.1 Sol 的 Bot 在指令結束 37 秒後發了通知（「第五次打包完成」）；排程叫醒的回合要 Bot 自己呼叫 `notify`，pi 開著那段對話時不發 |
 | 2026-11-08 | 新工具 `run_command`（電腦上的 agent，只給腳本）：在電腦上背景跑一個 shell 指令，馬上回來，結束時沿用「等它做完」叫醒 Bot。指令脫離 host 的 process group 跑（`sh -c 'set -m; nohup …'`；zsh 不能 `set -m`），手機斷線、host 停掉那次執行都不影響；log 和結束碼存在電腦的 `~/.pi-mobile/jobs/<id>/`，結束超過一天的在列表時刪掉。背景指令在 `list_agents`、`read_agent` 裡是 `job:<id>`；`tell_agent`、`answer_agent` 遇到它直接拒絕（`AgentPlace` 型別擋）。`agent` 參數的說明多了 `job:` 的例子，所以 `read_agent`、`tell_agent`、`answer_agent` 的快照也更新 | 選了電腦、開著電腦上的 agent 的 Bot：4,220 → 4,256 tokens（+36，加之後量兩次） | S24 → Mac mini，`custom`／`qwen3.6`：「幫我在 Mac 上跑 sleep 150; echo 測試全部通過 這個要跑一陣子，好了跟我說」18 秒回覆，用的是 `run_command`；跑的時候問「台北現在幾點」5 秒答；指令 18:45:35 結束，18:46:18 Bot 被叫醒回報「測試全部通過（exit code 0）」。通知沒有驗到（pi 在前景）。`test/computer-agents.ts` 在 zsh 裡真的開一個背景指令、看它列出和結束 |
 | 2026-11-07 | 通知對齊「Bot 名字加一句重點」：工作做完改由 `Triggers.notify`（`done`）發，每個 Bot 一則，有頭像，內文是最後回答的第一行，問題沒回就是那個問題，點開到該對話；等你回覆的內文放問題；排程開始的通知點開到該 Bot（`Schedule.conversation`）；Bot 的通知標成 `VISIBILITY_PRIVATE` | 不變 | `Triggers` 的 contract 多 `done`、`conversation`，快照已更新。iOS 沒有 `Triggers`，仍走 `KeepAlive.notify`。S24：通知面板顯示 Bot 頭像、名字和重點，在別的 Bot 點通知會開到該 Bot。`lock_screen_allow_private_notifications` 是 1，`VISIBILITY_PRIVATE` 不會隱藏內容；這台的鎖定畫面只顯示圖示 |

@@ -1,4 +1,5 @@
 import { defineExtension } from "@earendil-works/pi-durable";
+import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { appSection } from "../section.ts";
 import type { Workplace } from "../workplaces.ts";
 import { GH_USAGE } from "./gh-command.ts";
@@ -14,16 +15,13 @@ const FOLDER = [
 
 const MISSING = "The computer you were set to work on was removed from the user's settings, so read, write, edit, and bash cannot run anywhere until the user picks a computer for you in your bot panel (電腦). Say so if a task needs them; everything else works.";
 
-const SECTION: Record<Workplace["kind"], string | undefined> = { phone: FOLDER, computer: undefined, missing: MISSING };
-
 export function createFilesExtension(workplace: (conversationId: string) => Workplace | undefined) {
+	const kind = (conversationId: unknown) => workplace(String(conversationId))?.kind;
 	return defineExtension({
 		name: "files",
 		sections: [
-			appSection("files", 1_500, (input) => {
-				const place = workplace(String(input.conversationId));
-				return place && SECTION[place.kind];
-			}),
+			appSection("files", 1_500, (input) => (kind(input.conversationId) === "phone" ? FOLDER : undefined), { about: CodingTools.tools ?? [] }),
+			appSection("workplace", 400, (input) => (kind(input.conversationId) === "missing" ? MISSING : undefined)),
 		],
 	});
 }

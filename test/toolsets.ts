@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
-import { RENAMED, renamed, TOOLSETS } from "../src/agent/toolsets.ts";
+import { type Groups, legacyOff, removedTools } from "../src/agent/toolsets.ts";
 
-const current = new Set(TOOLSETS.flatMap((toolset) => toolset.extensions));
-assert.deepEqual(renamed({ add: ["mcp-notes"], remove: ["phone_screen", "sandbox", "coding-tools", "web"] }), { add: ["mcp-notes"], remove: ["phone_as_user", "computer_shell", "coding-tools", "web"] });
-assert.deepEqual(renamed({ add: [], remove: ["phone_as_user"] }), { add: [], remove: ["phone_as_user"] });
-for (const [old, next] of Object.entries(RENAMED)) {
-	assert(!current.has(old), `${old} was renamed, so no toolset may use it again: a bot that turned it off would find it off`);
-	assert(current.has(next), `${old} is renamed to ${next}, which no toolset has`);
-}
-console.log("toolsets: a bot's choices made under an old extension name carry over to the new name");
+assert.deepEqual(legacyOff(undefined), []);
+assert.deepEqual(legacyOff({ add: ["mcp-notes"] }), []);
+assert.deepEqual(legacyOff({ remove: ["phone_screen", "sandbox", "web"] }).sort(), ["computer_shell", "phone_as_user", "web"]);
+assert.deepEqual(legacyOff({ remove: ["coding-tools"] }).sort(), ["computer_shell", "files"]);
+
+const all = { has: () => true, implements: () => true };
+const owners = new Map<string, Groups>([
+	["weather", ["weather"]],
+	["find_places", ["places"]],
+	["bash", ["files", "computer_shell"]],
+	["run_command", ["computer_agents"]],
+	["codemode", "always"],
+]);
+assert.deepEqual(removedTools(owners, [], "phone", all), ["run_command"]);
+assert.deepEqual(removedTools(owners, ["places"], "phone", all), ["find_places", "run_command"]);
+assert.deepEqual(removedTools(owners, ["files"], "phone", all), ["bash", "run_command"]);
+assert.deepEqual(removedTools(owners, ["files"], "computer", all), []);
+assert.deepEqual(removedTools(owners, ["computer_shell"], "computer", all), ["bash"]);
+assert.deepEqual(removedTools(owners, [], "missing", all), ["bash", "run_command"]);
+assert.deepEqual(removedTools(owners, [], "phone", { has: (plugin) => plugin !== "BotFiles", implements: () => true }), ["bash", "run_command"]);
+assert.deepEqual(removedTools(owners, ["no_longer_a_group"], "phone", all), ["run_command"]);
+console.log("toolsets: old extension choices become toolset choices, and a bot's toolsets and place decide its tools, whatever extension holds them");

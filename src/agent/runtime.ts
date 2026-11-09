@@ -31,15 +31,14 @@ import { avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolde
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { extensionName, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
+import { extensionName, type Grant, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
 import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import type { LoadedModels } from "./available-models.ts";
 import { hostOf } from "../parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
-import { isAt, isEnabled, offeredAt, type Toolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
-import { PhoneScreenExtension } from "../phone-screen/tool.ts";
+import { type Groups, isAt, type Place, type ServiceToolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
 import { TriggerRuns } from "../triggers/runs.ts";
 import type { Notified, TriggerHost } from "../triggers/tool.ts";
 import { type Placed, Workplaces } from "./workplaces.ts";
@@ -65,10 +64,12 @@ export interface ConversationController {
 	dispose(): void;
 }
 
-function labelOf(extension: string, mcp: McpHub): string {
+function labelOf(tool: string, extension: string, place: Place, owners: ReadonlyMap<string, Groups>, mcp: McpHub): string | undefined {
 	const server = mcp.servers.find((candidate) => extensionName(candidate) === extension);
 	if (server) return `${server.name} (a service the user connected)`;
-	return TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.label ?? extension;
+	const groups = owners.get(tool);
+	if (groups === undefined || groups === "always") return extension;
+	return TOOLSETS.find((toolset) => groups.some((id) => id === toolset.id) && isAt(toolset, place))?.label;
 }
 
 
@@ -108,7 +109,7 @@ export class AgentRuntime {
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	#memoryListeners = new Set<() => void>();
 	readonly #installed: () => ReadonlySet<string>;
-	readonly #unsupported: ReadonlySet<string>;
+	readonly #owners: ReadonlyMap<string, Groups>;
 	readonly mcp: McpHub;
 	readonly forms: Forms;
 	readonly triggers: TriggerRuns;
@@ -124,13 +125,13 @@ export class AgentRuntime {
 		placed: Map<string, Placed>,
 		shapes: Map<string, ContextShape>,
 		installed: () => ReadonlySet<string>,
-		unsupported: ReadonlySet<string>,
+		owners: ReadonlyMap<string, Groups>,
 		mcp: McpHub,
 		forms: Forms,
 		judge: Judge,
 	) {
 		this.#installed = installed;
-		this.#unsupported = unsupported;
+		this.#owners = owners;
 		this.#platform = platform;
 		this.mcp = mcp;
 		this.forms = forms;
@@ -150,7 +151,7 @@ export class AgentRuntime {
 				return place?.kind === "computer" ? agentState(place.host, agent) : "unreachable";
 			},
 		);
-		this.#botToolsets = new BotToolsets(harness, () => this.bots(), () => this.#allToolsets());
+		this.#botToolsets = new BotToolsets(harness, owners, platform.native, (id) => this.workplaces.at(String(id))?.kind ?? "missing");
 	}
 
 	#touchBot(id: ConversationId, at: number): Promise<void> {
@@ -231,14 +232,14 @@ export class AgentRuntime {
 			permissions: platform.permissions,
 			ask,
 			userSaid: async (id) => (runtimeRef ? runtimeRef.#userSaid(id) : []),
-			labelOf: (name, id) => (offeredAt(name, at(id)?.kind ?? "missing") ? labelOf(name, mcp) : undefined),
+			labelOf: (tool, extension, id) => labelOf(tool, extension, at(id)?.kind ?? "missing", catalog.owners, mcp),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
 		const builtinTools: ReadonlySet<string> = new Set(catalog.extensions.flatMap((extension) => (extension.tools ?? []).map((tool) => tool.name)));
 		const mcp: McpHub = new McpHub(platform, {
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
-			revoke: (grant) => (runtimeRef ? runtimeRef.#botToolsets.revoke(grant) : Promise.resolve()),
+			revoke: (grant) => (runtimeRef ? runtimeRef.#revoke(grant) : Promise.resolve()),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
 			builtinTools: () => builtinTools,
@@ -275,7 +276,7 @@ export class AgentRuntime {
 			placed,
 			shapes,
 			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
-			catalog.unsupported,
+			catalog.owners,
 			mcp,
 			new Forms(harness, {
 				unattended: triggerHost.unattended,
@@ -289,7 +290,7 @@ export class AgentRuntime {
 		runtimeRef = runtime;
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
-		await runtime.#botToolsets.renameExtensions();
+		await runtime.#botToolsets.apply((await runtime.bots()).map((bot) => bot.id), "always");
 		await runtime.triggers.sync().catch((error: unknown) => options.onReport?.(`自動化同步失敗：${messageOf(error)}`));
 		harness.resume();
 		void (async () => {
@@ -301,9 +302,13 @@ export class AgentRuntime {
 		return runtime;
 	}
 
+	async #revoke(grant: Grant): Promise<void> {
+		await this.#botToolsets.revoke(grant, (await this.bots()).map((bot) => bot.id));
+	}
+
 	async #actsAsUser(id: ConversationId): Promise<boolean> {
-		const toolset = TOOLSETS.find((candidate) => candidate.extensions.includes(PhoneScreenExtension.name));
-		return toolset !== undefined && isEnabled(await this.#botToolsets.selection(id), toolset);
+		const bot = (await this.bots()).find((candidate) => candidate.id === id);
+		return bot !== undefined && !(await this.#botToolsets.off(bot)).includes("phone_as_user");
 	}
 
 	#defaultAgent() {
@@ -333,6 +338,7 @@ export class AgentRuntime {
 		const bots = await this.bots();
 		this.#placed.clear();
 		for (const bot of bots) this.#placed.set(String(bot.id), { folder: bot.folder, ...(bot.computer ? { computer: bot.computer } : {}) });
+		await this.#botToolsets.apply(bots.map((bot) => bot.id), "moved");
 		for (const listener of this.#botListeners) listener(bots);
 	}
 
@@ -357,7 +363,7 @@ export class AgentRuntime {
 				agent: this.#defaultAgent(),
 				init: async (tx, id) => {
 					const now = Date.now();
-					(await tx.doc(BotIndex)).items.push({ id, name, job, folder, avatar, createdAt: now, updatedAt: now });
+					(await tx.doc(BotIndex)).items.push({ id, name, job, folder, avatar, createdAt: now, updatedAt: now, off: [] });
 				},
 			},
 			context,
@@ -550,35 +556,29 @@ export class AgentRuntime {
 		return cost;
 	}
 
-	#allToolsets(): Toolset[] {
-		return [
-			...TOOLSETS,
-			...this.mcp.servers.map((server) => ({
-				kind: "service" as const,
-				id: extensionName(server),
-				label: server.name,
-				hint: hostOf(server.url),
-				extensions: [extensionName(server)],
-			})),
-		];
+	#services(): ServiceToolset[] {
+		return this.mcp.servers.map((server) => ({ kind: "service" as const, id: extensionName(server), label: server.name, hint: hostOf(server.url), extension: extensionName(server) }));
 	}
 
 	async toolsets(id: ConversationId): Promise<ToolsetState[]> {
-		const selection = await this.#botToolsets.selection(id);
+		const bot = (await this.bots()).find((candidate) => candidate.id === id);
+		const off = bot ? await this.#botToolsets.off(bot) : [];
+		const services = await this.#botToolsets.services(id);
 		const installed = this.#installed();
 		const place = this.workplaces.at(String(id))?.kind ?? "missing";
-		const here = this.#allToolsets().filter(
-			(toolset) => usable(toolset, this.#platform.native) && !toolset.extensions.every((name) => this.#unsupported.has(name)),
-		);
-		return here.map((toolset) => ({
-			...toolset,
-			available: isAt(toolset, place) && toolset.extensions.every((name) => installed.has(name)),
-			enabled: isEnabled(selection, toolset),
-		}));
+		const owned = [...this.#owners.values()];
+		const builtins = TOOLSETS.filter((toolset) => usable(toolset, this.#platform.native) && owned.some((groups) => groups !== "always" && groups.some((group) => group === toolset.id)));
+		return [
+			...builtins.map((toolset) => ({ ...toolset, available: isAt(toolset, place), enabled: !off.includes(toolset.id) })),
+			...this.#services().map((toolset) => ({ ...toolset, available: installed.has(toolset.extension), enabled: services.includes(toolset.extension) })),
+		];
 	}
 
 	setToolset(id: ConversationId, toolset: string, enabled: boolean): Promise<void> {
-		return this.#botToolsets.set(id, toolset, enabled);
+		const service = this.#services().find((candidate) => candidate.id === toolset);
+		if (service) return this.#botToolsets.setService(id, service.extension, enabled);
+		if (!TOOLSETS.some((candidate) => candidate.id === toolset)) return Promise.reject(new Error(`${toolset} is not available`));
+		return this.#botToolsets.setGroup(id, toolset, enabled);
 	}
 
 	async memory(scope: MemoryScope): Promise<Memory> {

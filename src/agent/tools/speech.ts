@@ -7,6 +7,7 @@ const MAX_CHARS = 3000;
 
 const speak = defineAppTool({
 	name: "speak",
+	groups: ["speech"],
 	effect: "direct",
 	needs: [Voice.speak, Voice.stopSpeaking],
 	description:

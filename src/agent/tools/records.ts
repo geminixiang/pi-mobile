@@ -10,6 +10,7 @@ const CALL_TYPES: Record<CallRecord["type"], string> = { incoming: "接聽", out
 
 const callLog = defineAppTool({
 	name: "call_log",
+	groups: ["calls_sms"],
 	effect: "read",
 	needs: [Records.calls],
 	asks: "calls",
@@ -44,6 +45,7 @@ const callLog = defineAppTool({
 
 const readSms = defineAppTool({
 	name: "read_sms",
+	groups: ["calls_sms"],
 	effect: "read",
 	needs: [Records.sms],
 	asks: "sms",
@@ -79,6 +81,7 @@ const readSms = defineAppTool({
 
 const screenTime = defineAppTool({
 	name: "screen_time",
+	groups: ["screen_time"],
 	effect: "read",
 	needs: [Usage.status, Usage.apps],
 	description: "How long the user used each app on a day, or over the last days, and how many times they unlocked the phone; as Digital Wellbeing counts it.",
