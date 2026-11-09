@@ -56,6 +56,8 @@ interface ToolInterface {
 	structuredOutput: unknown;
 	effect: Effect | null;
 	needs: string[];
+	outside: string | null;
+	sends: boolean;
 }
 
 const toolsetOf = (extension: string) => TOOLSETS.find((toolset) => toolset.extensions.includes(extension))?.id ?? "fixed";
@@ -71,6 +73,8 @@ function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 		structuredOutput: tool.structuredOutputSchema ? plain(tool.structuredOutputSchema) : null,
 		effect: declarationOf(tool)?.effect ?? null,
 		needs: (declarationOf(tool)?.needs ?? []).map(({ plugin, method }) => `${plugin}.${method}`),
+		outside: declarationOf(tool)?.outside ?? null,
+		sends: declarationOf(tool)?.sends === true,
 	};
 }
 

@@ -1,7 +1,5 @@
 import { type Judge, LIKELY, type Question } from "../agent/judge.ts";
-import { ASKED, HARMFUL } from "../agent/outside.ts";
-
-export type Gate = { allow: true } | { allow: false; reason: string };
+import { ASKED, type Gate, HARMFUL } from "../agent/outside.ts";
 
 const DESTRUCTIVE = /\b(rm\s+-|drop\s+(table|database)|truncate|git\s+push\s+(-f|--force)|mkfs|shred)\b|刪除|清空|覆寫/i;
 const SAME_READS = 3;

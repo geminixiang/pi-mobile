@@ -1,12 +1,12 @@
 import type { PermissionKind } from "../../interaction/permissions.ts";
 import { CapacitorHttp } from "@capacitor/core";
+import { contentText } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import { type Context, isJsonValue, type JsonValue } from "@earendil-works/chord";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { showAlert } from "../../interaction/results.ts";
 import { log } from "../../log.ts";
-import { createJudge, type Judge } from "../judge.ts";
 import { gateSend, noteRead, warningOf } from "../outside.ts";
 import { parseJson } from "../../parse.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
@@ -72,10 +72,10 @@ export type Effect = "read" | "screen" | "direct";
 
 interface ToolDeclaration {
 	readonly effect: Effect;
-	readonly outside?: true;
-	readonly sends?: true;
 	readonly needs: readonly PluginMethod[];
 	readonly asks?: PermissionKind;
+	readonly outside?: string;
+	readonly sends?: true;
 }
 
 const REACH = { model: {}, loaded: { deferred: true }, script: { callers: ["tools"] } } as const;
@@ -97,7 +97,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 	sends,
 	execute,
 	...tool
-}: AppTool<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[]; asks?: PermissionKind; outside?: true; sends?: true }): ToolRegistration<object, TDetails> {
+}: AppTool<TParameters, TDetails> & { reach?: Reach; effect: Effect; needs?: readonly PluginMethod[]; asks?: PermissionKind; outside?: string; sends?: true }): ToolRegistration<object, TDetails> {
 	const registration = defineTool<object, TDetails>({
 		...tool,
 		...REACH[reach],
@@ -112,13 +112,12 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 			const started = Date.now();
 			log.info("tool.start", { tool: tool.name });
 			try {
-				const judge = createJudge(api.models);
 				if (sends) {
-					const gate = await gateSend(api, context, judge, tool.name, args);
+					const gate = await gateSend(api, context, tool.name, args);
 					if (!gate.allow) throw new Error(gate.reason);
 				}
 				const result = await execute(typeboxArgs<TParameters>(args), api, context);
-				return outside ? await screened(api, context, judge, tool.name, result) : result;
+				return outside ? await screened(api, context, tool.name, outside, result) : result;
 			} finally {
 				log.info("tool.end", { tool: tool.name, ms: Date.now() - started });
 			}
@@ -178,12 +177,12 @@ export async function getJson(url: string, what: string, signal?: AbortSignal): 
 	return typeof response.data === "string" ? parseJson(response.data, what) : response.data;
 }
 
-async function screened<TDetails extends JsonValue>(api: ToolExecutionApi<TDetails>, context: Context, judge: Judge, tool: string, result: ToolExecutionResult<TDetails>): Promise<ToolExecutionResult<TDetails>> {
-	const words = (result.output ?? []).flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n");
+async function screened<TDetails extends JsonValue>(api: ToolExecutionApi<TDetails>, context: Context, tool: string, source: string, result: ToolExecutionResult<TDetails>): Promise<ToolExecutionResult<TDetails>> {
+	const words = contentText(result.output ?? []);
 	if (!words) return result;
-	const read = await noteRead(api, context, judge, tool, words);
-	if (!read.flagged) return result;
-	if (read.fresh) await showAlert(api, context, tool, read.quote);
-	return { ...result, output: [{ type: "text", text: warningOf(read) ?? "" }, ...(result.output ?? [])] };
+	const read = await noteRead(api, context, tool, words);
+	if (!read) return result;
+	if (read.fresh) await showAlert(api, context, source, read.quote);
+	return { ...result, output: [{ type: "text", text: warningOf(read) }, ...(result.output ?? [])] };
 }
 

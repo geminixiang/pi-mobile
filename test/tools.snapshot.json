@@ -15,7 +15,9 @@
 		"effect": "read",
 		"needs": [
 			"Phone.getStatus"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "device",
@@ -33,7 +35,9 @@
 		"effect": "read",
 		"needs": [
 			"Phone.getLocation"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "device",
@@ -51,7 +55,9 @@
 		"effect": "read",
 		"needs": [
 			"Phone.readSensors"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "device",
@@ -92,7 +98,9 @@
 		"needs": [
 			"Phone.getLocation",
 			"Phone.geocode"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "weather",
@@ -246,7 +254,9 @@
 		"needs": [
 			"Phone.getLocation",
 			"Phone.geocode"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "places",
@@ -356,7 +366,9 @@
 		"needs": [
 			"Phone.getLocation",
 			"Phone.geocode"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "tw_stocks",
@@ -867,7 +879,9 @@
 			"type": "object"
 		},
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "database",
@@ -967,7 +981,9 @@
 		"needs": [
 			"Database.execute",
 			"Database.schema"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1013,7 +1029,9 @@
 		"effect": "direct",
 		"needs": [
 			"Apps.setAlarm"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1031,7 +1049,9 @@
 		"effect": "screen",
 		"needs": [
 			"Apps.openAlarms"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1063,7 +1083,9 @@
 		"effect": "direct",
 		"needs": [
 			"Apps.setTimer"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1100,7 +1122,9 @@
 		"effect": "screen",
 		"needs": [
 			"Apps.composeEmail"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1130,7 +1154,9 @@
 		"effect": "screen",
 		"needs": [
 			"Apps.composeSms"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1170,7 +1196,9 @@
 		"effect": "screen",
 		"needs": [
 			"Apps.open"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1196,7 +1224,9 @@
 		"effect": "screen",
 		"needs": [
 			"Apps.open"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "apps",
@@ -1227,7 +1257,9 @@
 		"effect": "screen",
 		"needs": [
 			"Apps.share"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "speech",
@@ -1258,7 +1290,9 @@
 		"needs": [
 			"Voice.speak",
 			"Voice.stopSpeaking"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "notifications",
@@ -1340,7 +1374,9 @@
 		"needs": [
 			"Notifications.status",
 			"Notifications.list"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "notifications",
@@ -1378,7 +1414,9 @@
 			"Notifications.status",
 			"Notifications.active",
 			"Notifications.reply"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "notifications",
@@ -1406,7 +1444,9 @@
 			"Notifications.status",
 			"Notifications.active",
 			"Notifications.dismiss"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_as_user",
@@ -1431,7 +1471,9 @@
 		"needs": [
 			"PhoneScreen.status",
 			"PhoneScreen.read"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_as_user",
@@ -1528,7 +1570,9 @@
 		"needs": [
 			"PhoneScreen.status",
 			"PhoneScreen.act"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "browser",
@@ -1597,7 +1641,9 @@
 		"effect": "read",
 		"needs": [
 			"Browser.read"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "browser",
@@ -1755,7 +1801,9 @@
 			"Browser.newTab",
 			"Browser.tabs",
 			"Browser.closeTab"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_control",
@@ -1794,7 +1842,9 @@
 			"Notifications.status",
 			"Notifications.media",
 			"Notifications.mediaControl"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_control",
@@ -1833,7 +1883,9 @@
 			"Notifications.status",
 			"Notifications.dnd",
 			"Notifications.setDnd"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_control",
@@ -1885,7 +1937,9 @@
 			"PhoneState.sound",
 			"PhoneState.setRinger",
 			"PhoneState.setVolume"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_control",
@@ -1935,7 +1989,9 @@
 		"needs": [
 			"PhoneState.display",
 			"PhoneState.setDisplay"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_control",
@@ -1967,7 +2023,9 @@
 		"needs": [
 			"PhoneState.flashlight",
 			"PhoneState.setFlashlight"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "phone_control",
@@ -2012,7 +2070,9 @@
 		"needs": [
 			"PhoneState.connections",
 			"PhoneState.setConnection"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "contacts",
@@ -2096,7 +2156,9 @@
 		"effect": "read",
 		"needs": [
 			"Contacts.search"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "photos",
@@ -2190,7 +2252,9 @@
 		"effect": "read",
 		"needs": [
 			"Photos.search"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "photos",
@@ -2222,7 +2286,9 @@
 		"effect": "read",
 		"needs": [
 			"Photos.view"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "calls_sms",
@@ -2297,7 +2363,9 @@
 		"effect": "read",
 		"needs": [
 			"Records.calls"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "calls_sms",
@@ -2369,7 +2437,9 @@
 		"effect": "read",
 		"needs": [
 			"Records.sms"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "screen_time",
@@ -2446,7 +2516,9 @@
 		"needs": [
 			"Usage.status",
 			"Usage.apps"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "health",
@@ -2555,7 +2627,9 @@
 		"effect": "read",
 		"needs": [
 			"Health.read"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "skills",
@@ -2584,7 +2658,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "attachments",
@@ -2631,7 +2707,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "attachments",
@@ -2656,7 +2734,9 @@
 		"effect": "screen",
 		"needs": [
 			"Scanner.scan"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "calendar",
@@ -2751,7 +2831,9 @@
 		"effect": "read",
 		"needs": [
 			"Calendar.listEvents"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "calendar",
@@ -2769,7 +2851,9 @@
 		"effect": "read",
 		"needs": [
 			"Calendar.listAccounts"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "calendar",
@@ -2822,7 +2906,9 @@
 		"needs": [
 			"Calendar.listAccounts",
 			"Calendar.insertEvent"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "calendar",
@@ -2859,7 +2945,9 @@
 			"Calendar.listEvents",
 			"Calendar.listAccounts",
 			"Calendar.deleteEvent"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "codemode",
@@ -2887,7 +2975,9 @@
 		},
 		"structuredOutput": null,
 		"effect": null,
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "github",
@@ -2940,7 +3030,9 @@
 			"type": "object"
 		},
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "github",
@@ -2978,7 +3070,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "gcp",
@@ -3028,7 +3122,9 @@
 			"type": "object"
 		},
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "cloudflare",
@@ -3078,7 +3174,9 @@
 			"type": "object"
 		},
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "azure",
@@ -3128,7 +3226,9 @@
 			"type": "object"
 		},
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "web",
@@ -3152,7 +3252,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "web",
@@ -3184,7 +3286,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "schedules",
@@ -3332,7 +3436,9 @@
 		"effect": "direct",
 		"needs": [
 			"Triggers.sync"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "schedules",
@@ -3370,7 +3476,9 @@
 		"effect": "direct",
 		"needs": [
 			"Triggers.sync"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "schedules",
@@ -3388,7 +3496,9 @@
 		"effect": "read",
 		"needs": [
 			"Triggers.sync"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "schedules",
@@ -3414,7 +3524,9 @@
 		"effect": "direct",
 		"needs": [
 			"Triggers.sync"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "schedules",
@@ -3445,7 +3557,9 @@
 		"effect": "direct",
 		"needs": [
 			"Triggers.notify"
-		]
+		],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "items",
@@ -3499,7 +3613,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "items",
@@ -3524,7 +3640,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "memory",
@@ -3561,7 +3679,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "interaction",
@@ -3596,7 +3716,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "computer_as_user",
@@ -3613,7 +3735,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "computer_as_user",
@@ -3696,7 +3820,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "computer_agents",
@@ -3712,7 +3838,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "computer_agents",
@@ -3742,7 +3870,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
-		"needs": []
+		"needs": [],
+		"outside": "電腦上的 agent 的畫面",
+		"sends": false
 	},
 	{
 		"extension": "computer_agents",
@@ -3772,7 +3902,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": true
 	},
 	{
 		"extension": "computer_agents",
@@ -3806,7 +3938,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "computer_agents",
@@ -3836,7 +3970,9 @@
 		},
 		"structuredOutput": null,
 		"effect": "direct",
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": true
 	},
 	{
 		"extension": "coding-tools",
@@ -3894,7 +4030,9 @@
 			]
 		},
 		"effect": null,
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "coding-tools",
@@ -3924,7 +4062,9 @@
 		},
 		"structuredOutput": null,
 		"effect": null,
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "coding-tools",
@@ -3971,7 +4111,9 @@
 		},
 		"structuredOutput": null,
 		"effect": null,
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "coding-tools",
@@ -4024,7 +4166,9 @@
 			"type": "object"
 		},
 		"effect": null,
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	},
 	{
 		"extension": "tool-search",
@@ -4052,6 +4196,8 @@
 		},
 		"structuredOutput": null,
 		"effect": null,
-		"needs": []
+		"needs": [],
+		"outside": null,
+		"sends": false
 	}
 ]

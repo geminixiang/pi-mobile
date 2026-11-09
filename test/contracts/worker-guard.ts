@@ -23,10 +23,10 @@ export const checks: Check[] = [
 		async () => {
 			const cards: ResultCard[] = [];
 			addResult(cards, { kind: "weather", step: "s", place: "台北", at: 1, now: { condition: "晴", temperature_c: 20, feels_c: 20 }, hours: [], days: [] });
-			addResult(cards, { kind: "alert", step: "s", at: 2, tool: "read_agent", quote: "a" });
-			addResult(cards, { kind: "alert", step: "s", at: 3, tool: "read_agent", quote: "b" });
+			addResult(cards, { kind: "alert", step: "s", source: "x", quote: "a" });
+			addResult(cards, { kind: "alert", step: "s", source: "x", quote: "b" });
 			assert.deepEqual(cards.map((card) => card.kind), ["weather", "alert"]);
-			assert.equal(cards.at(-1)?.at, 3);
+			assert.deepEqual(cards.at(-1), { kind: "alert", step: "s", source: "x", quote: "b" });
 		},
 	],
 	[

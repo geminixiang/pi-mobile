@@ -33,23 +33,10 @@ function dayName(date: string, at: number): string {
 	return local.toDateString() === new Date(at).toDateString() ? "今天" : `週${WEEKDAYS[local.getDay()]}`;
 }
 
-const SOURCES: Record<string, string> = {
-	read_agent: "電腦上的 agent 的畫面",
-	web_fetch: "這個網頁",
-	read_page: "這個網頁",
-	use_browser: "這個網頁",
-	read_notifications: "這則通知",
-	read_sms: "這則簡訊",
-	read_calendar_events: "這個行程",
-	phone_read_as_user: "這個畫面",
-	computer_read_as_user: "電腦的畫面",
-	github_read_file: "這個 GitHub 檔案",
-};
-
 export function AlertCard({ card }: { card: AlertResult }) {
 	return (
 		<section className="note error alert-card">
-			<p>{SOURCES[card.tool] ?? "讀進來的內容"}裡有想指揮 Bot 的文字。這不是你說的，已提醒 Bot 不要照做；要送出東西前會先問你。</p>
+			<p>{card.source ?? "讀進來的內容"}裡有想指揮 Bot 的文字。這不是你說的，已提醒 Bot 不要照做；要送出東西前會先問你。</p>
 			<blockquote>{card.quote}</blockquote>
 		</section>
 	);

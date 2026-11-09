@@ -477,7 +477,7 @@ export class AgentRuntime {
 					const bot = (await this.#allBots()).find((candidate) => candidate.id === id);
 					if (!bot || bot.removing) throw new Error("這個 Bot 已經刪除");
 					if (content.length > 0) await this.#touchBot(id, Date.now());
-					const text = content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n");
+					const text = contentText(content);
 					await this.#harness.commit(async (tx) => {
 						const doc = await tx.doc(OutsideDoc, id);
 						Object.assign(doc, said(doc, text));

@@ -118,7 +118,7 @@ export function returnLast(code: string): string {
 	return compiles(code) && compiles(rewritten) ? rewritten : code;
 }
 
-export function scriptHint(name: string): string {
+function scriptHint(name: string): string {
 	return `${name} is not offered to you directly. If it is listed among the codemode tools, call it from a codemode script: await tools.${name}({ ...args }). Otherwise there is no such tool here.`;
 }
 

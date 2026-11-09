@@ -16,7 +16,7 @@ export type WeatherResult = {
 	days: WeatherDay[];
 };
 
-export type AlertResult = { kind: "alert"; step: string; at: number; tool: string; quote: string };
+export type AlertResult = { kind: "alert"; step: string; source?: string; quote: string };
 
 export type ResultCard = WeatherResult | AlertResult;
 
@@ -36,10 +36,14 @@ export const ResultsDoc = defineDoc<{ cards: ResultCard[] }>({
 });
 
 export function addResult(cards: ResultCard[], card: ResultCard): void {
-	const same = cards.findIndex((kept) => kept.step === card.step && kept.kind === card.kind && (kept.kind !== "weather" || card.kind !== "weather" || kept.place === card.place));
+	const same = cards.findIndex((kept) => kept.step === card.step && slot(kept) === slot(card));
 	if (same >= 0) cards.splice(same, 1);
 	cards.push(card);
 	if (cards.length > KEPT) cards.splice(0, cards.length - KEPT);
+}
+
+function slot(card: ResultCard): string {
+	return card.kind === "weather" ? `weather:${card.place}` : card.kind;
 }
 
 export function showWeather(api: ToolExecutionApi, context: Context, weather: Pick<WeatherResult, "place" | "now" | "hours" | "days">): Promise<void> {
@@ -54,7 +58,7 @@ export function showWeather(api: ToolExecutionApi, context: Context, weather: Pi
 	return api.commit(async (tx) => addResult((await tx.doc(ResultsDoc, api.conversationId)).cards, card), context);
 }
 
-export function showAlert(api: ToolExecutionApi, context: Context, tool: string, quote: string): Promise<void> {
-	const card: AlertResult = { kind: "alert", step: stepOf(api.callId), at: api.now(), tool, quote: quote.trim().slice(0, QUOTE_CHARS) };
+export function showAlert(api: ToolExecutionApi, context: Context, source: string, quote: string): Promise<void> {
+	const card: AlertResult = { kind: "alert", step: stepOf(api.callId), source, quote: quote.trim().slice(0, QUOTE_CHARS) };
 	return api.commit(async (tx) => addResult((await tx.doc(ResultsDoc, api.conversationId)).cards, card), context);
 }

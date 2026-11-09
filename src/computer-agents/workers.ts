@@ -132,9 +132,12 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 	];
 }
 
+function jobState(exit: string): { status: Status; doing: string } {
+	return exit ? { status: "idle", doing: `exited ${exit}` } : { status: "working", doing: "running" };
+}
+
 function jobWorker(id: string, [command = "", cwd = "", exit = ""]: string[]): Worker {
-	const code = exit.trim();
-	return { id: `job:${id}`, name: "", agent: "command", status: code ? "idle" : "working", cwd: cwd.trim(), title: command.trim(), doing: code ? `exited ${code}` : "running" };
+	return { id: `job:${id}`, name: "", agent: "command", ...jobState(exit.trim()), cwd: cwd.trim(), title: command.trim() };
 }
 
 export function placeOf(id: string): Place | undefined {
@@ -189,9 +192,8 @@ export function reading(place: Place, output: string): Reading {
 	const head = output.slice(0, at).trim();
 	const screen = output.slice(at + SCREEN.length).trim();
 	if (place.via === "job") {
-		if (head === "running") return { ok: true, status: "working", doing: "running", screen };
-		if (head.startsWith("exit ")) return { ok: true, status: "idle", doing: `exited ${head.slice("exit ".length)}`, screen };
-		return { ok: false, problem: head };
+		if (head !== "running" && !head.startsWith("exit ")) return { ok: false, problem: head };
+		return { ok: true, ...jobState(head === "running" ? "" : head.slice("exit ".length)), screen };
 	}
 	if (place.via === "herdr") {
 		const got = checkJson(HerdrGet, head, "herdr agent get");
