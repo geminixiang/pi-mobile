@@ -1,6 +1,7 @@
 ---
 name: architect
-description: Settle the shape before code for non-trivial pi-mobile work (a new tool or toolset, a native plugin method, a rule shared by several tools, a module boundary): ground in the real code, sketch two or more structurally different designs, screen them for red flags, and bring one page to the user before implementing. Use for "architect this", "design this", or when jumping to code would lock in the wrong shape.
+description: >-
+  Settle the shape before code for non-trivial pi-mobile work (a new tool or toolset, a native plugin method, a rule shared by several tools, a module boundary): ground in the real code, sketch two or more structurally different designs, screen them for red flags, and bring one page to the user before implementing. Use for "architect this", "design this", or when jumping to code would lock in the wrong shape.
 ---
 
 # Architect
