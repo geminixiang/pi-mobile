@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Type } from "typebox";
 import { createComputerAgentsExtension } from "../../src/computer-agents/tool.ts";
 import { InteractionExtension } from "../../src/interaction/tool.ts";
-import { check, checkJson } from "../../src/parse.ts";
+import { check, checkJson, valueOrThrow } from "../../src/parse.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 
 const [modelsArg = "", runsArg = "1", only = ""] = process.argv.slice(2);
@@ -19,12 +19,7 @@ const Part = Type.Object({ type: Type.String(), text: Type.Optional(Type.String(
 const Content = Type.Array(Part);
 const World = Type.Object({ agents: Type.Unknown(), gone: Type.Array(Type.String()), said: Type.Optional(Type.String()), turn: Type.Number(), outside: Type.Optional(Type.Object({ held: Type.Array(Type.Unknown()) })), calls: Type.Array(Type.Object({ tool: Type.String(), args: Type.Record(Type.String(), Type.Unknown()) })) });
 
-function parsed<T>(result: { ok: true; value: T } | { ok: false; error?: unknown }): T {
-	if (!result.ok) throw new Error("unexpected shape");
-	return result.value;
-}
-
-const prompt = parsed(checkJson(Sections, readFileSync(new URL("../prompt.snapshot.json", import.meta.url), "utf8"), "prompt snapshot"));
+const prompt = valueOrThrow(checkJson(Sections, readFileSync(new URL("../prompt.snapshot.json", import.meta.url), "utf8"), "prompt snapshot"));
 const extension = createComputerAgentsExtension(() => undefined, { changed: () => undefined, unattended: () => false, notify: async () => "off" }, async () => []);
 const tools = [...(extension.tools ?? []), ...(InteractionExtension.tools ?? [])].map(({ name, description, parameters }) => ({ name, description, parameters }));
 const dir = mkdtempSync(join(tmpdir(), "manager-"));
@@ -62,12 +57,12 @@ function run(scenario: Scenario, model: string, index: number) {
 	writeFileSync(world, JSON.stringify({ agents: scenario.agents, gone: [], turn: 0, calls: [] }));
 	let reply = "";
 	for (const step of scenario.steps) {
-		const state = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
+		const state = valueOrThrow(checkJson(World, readFileSync(world, "utf8"), "world"));
 		writeFileSync(world, JSON.stringify({ ...state, agents: step.agents ?? state.agents, gone: step.gone ?? state.gone, said: step.say ?? "", turn: state.turn + (step.say === undefined ? 0 : 1) }));
 		reply = ask(model, session, world, step.say ?? step.wake ?? "", scenario.judgeless === true);
 		if (reply === TIMED_OUT) break;
 	}
-	const { calls, outside } = parsed(checkJson(World, readFileSync(world, "utf8"), "world"));
+	const { calls, outside } = valueOrThrow(checkJson(World, readFileSync(world, "utf8"), "world"));
 	const problems = reply === TIMED_OUT ? ["沒有在時限內結束", ...scenario.judge(calls, reply)] : scenario.judge(calls, reply);
 	return { problems, held: outside?.held.length ?? 0, calls: calls.map((call) => call.tool), tasks: calls.filter((call) => call.tool === "tell_agent").map((call) => String(call.args.task).slice(0, 180)), reply, broken: calls.length === 0 || scenario.steps.length > 1 && !calls.some((call) => call.tool === "tell_agent") };
 }
