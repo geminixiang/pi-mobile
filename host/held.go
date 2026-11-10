@@ -49,15 +49,32 @@ type held struct {
 	onEnd     func()
 
 	mu        sync.Mutex
-	conn      *websocket.Conn
-	ctx       context.Context
+	link      link
 	sent      []message
 	sentBase  int
 	sentBytes int
 	received  int
 	ended     *string
-	grace     *time.Timer
-	killed    bool
+}
+
+type link interface{ held() }
+
+type attached struct {
+	conn *websocket.Conn
+	ctx  context.Context
+}
+
+type away struct{ grace *time.Timer }
+
+type finished struct{}
+
+func (attached) held() {}
+func (away) held()     {}
+func (finished) held() {}
+
+func (h *held) attachedTo(conn *websocket.Conn) bool {
+	current, ok := h.link.(attached)
+	return ok && current.conn == conn
 }
 
 var (
@@ -110,8 +127,9 @@ func (h *held) deliver(m message) {
 	defer h.mu.Unlock()
 	h.sent = append(h.sent, m)
 	h.sentBytes += len(m.data)
+	current, attachedNow := h.link.(attached)
 	for h.sentBytes > holdBytes && len(h.sent) > 0 {
-		if h.conn == nil {
+		if !attachedNow {
 			log.Printf("held session dropped: %d bytes waiting while the phone was away", h.sentBytes)
 			h.killLocked(sessionGone)
 			return
@@ -120,8 +138,8 @@ func (h *held) deliver(m message) {
 		h.sent = h.sent[1:]
 		h.sentBase++
 	}
-	if h.conn != nil {
-		if err := writeMessage(h.conn, h.ctx, m); err != nil {
+	if attachedNow {
+		if err := writeMessage(current.conn, current.ctx, m); err != nil {
 			h.detachLocked()
 		}
 	}
@@ -144,39 +162,35 @@ func (h *held) end(final *message, closing string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.ended = &closing
-	if h.conn != nil {
-		go h.conn.Close(websocket.StatusNormalClosure, closing)
-		h.conn = nil
-		h.finishLocked()
-		return
-	}
-	if h.grace == nil {
+	if current, ok := h.link.(attached); ok {
+		go current.conn.Close(websocket.StatusNormalClosure, closing)
 		h.finishLocked()
 	}
 }
 
 func (h *held) finishLocked() {
-	if h.grace != nil {
-		h.grace.Stop()
-		h.grace = nil
+	switch current := h.link.(type) {
+	case finished:
+		return
+	case away:
+		current.grace.Stop()
 	}
-	h.killed = true
+	h.link = finished{}
 	if h.onEnd != nil {
 		h.onEnd()
 	}
 }
 
 func (h *held) detachLocked() {
-	if h.conn == nil || h.killed {
+	if _, ok := h.link.(attached); !ok {
 		return
 	}
-	h.conn = nil
 	if h.ended != nil {
 		h.finishLocked()
 		return
 	}
 	log.Printf("held session detached; keeping its command for %s", holdFor)
-	h.grace = time.AfterFunc(holdFor, func() { h.kill(sessionGone) })
+	h.link = away{grace: time.AfterFunc(holdFor, func() { h.kill(sessionGone) })}
 }
 
 func (h *held) keepAlive() {
@@ -194,7 +208,7 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 	defer ticker.Stop()
 	for range ticker.C {
 		h.mu.Lock()
-		current := h.conn == conn
+		current := h.attachedTo(conn)
 		h.mu.Unlock()
 		if !current {
 			return
@@ -204,7 +218,7 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 		cancel()
 		if err != nil {
 			h.mu.Lock()
-			if h.conn == conn {
+			if h.attachedTo(conn) {
 				h.detachLocked()
 			}
 			h.mu.Unlock()
@@ -221,12 +235,11 @@ func (h *held) kill(reason string) {
 }
 
 func (h *held) killLocked(reason string) {
-	if h.killed {
+	if _, done := h.link.(finished); done {
 		return
 	}
-	if h.conn != nil {
-		go h.conn.Close(websocket.StatusNormalClosure, reason)
-		h.conn = nil
+	if current, ok := h.link.(attached); ok {
+		go current.conn.Close(websocket.StatusNormalClosure, reason)
 	}
 	h.finishLocked()
 	// why: pi-env runs each command in its own session, so ending pi-env's group leaves them orphaned; it ends them itself when its stdin ends.
@@ -237,21 +250,19 @@ func (h *held) killLocked(reason string) {
 func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (string, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.killed && h.ended == nil {
+	if _, done := h.link.(finished); done {
 		return sessionGone, false
 	}
 	if have < h.sentBase || have > h.sentBase+len(h.sent) {
 		return sessionBehind, false
 	}
-	if h.conn != nil {
-		go h.conn.Close(websocket.StatusNormalClosure, sessionReplace)
+	switch current := h.link.(type) {
+	case attached:
+		go current.conn.Close(websocket.StatusNormalClosure, sessionReplace)
+	case away:
+		current.grace.Stop()
 	}
-	if h.grace != nil {
-		h.grace.Stop()
-		h.grace = nil
-	}
-	h.conn = conn
-	h.ctx = ctx
+	h.link = attached{conn: conn, ctx: ctx}
 	log.Printf("held session attached again; %d messages to resend", h.sentBase+len(h.sent)-have)
 	resume, _ := json.Marshal(map[string]int{"received": h.received})
 	if err := writeMessage(conn, ctx, message{text: true, data: resume}); err != nil {
@@ -266,7 +277,6 @@ func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (stri
 	}
 	if h.ended != nil {
 		go conn.Close(websocket.StatusNormalClosure, *h.ended)
-		h.conn = nil
 		h.finishLocked()
 	}
 	return "", true
@@ -274,7 +284,7 @@ func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (stri
 
 func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 	h.mu.Lock()
-	current := h.conn == conn
+	current := h.attachedTo(conn)
 	h.mu.Unlock()
 	if !current {
 		return
@@ -288,7 +298,7 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 			break
 		}
 		h.mu.Lock()
-		if h.conn != conn {
+		if !h.attachedTo(conn) {
 			h.mu.Unlock()
 			return
 		}
@@ -306,12 +316,11 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.conn != conn {
+	if !h.attachedTo(conn) {
 		return
 	}
 	// why: the phone sends a normal closure only when it means to end the session; a dropped network sends no close frame, and the phone's own reattach closes without a code.
 	if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
-		h.conn = nil
 		h.killLocked(sessionGone)
 		return
 	}
@@ -338,7 +347,7 @@ func startHeld(id, owner string, cmd *exec.Cmd, cancel context.CancelFunc, heart
 	if err != nil {
 		return nil, err
 	}
-	session := &held{owner: owner, stdin: stdin, heartbeat: heartbeat, cancel: cancel, conn: conn, ctx: ctx}
+	session := &held{owner: owner, stdin: stdin, heartbeat: heartbeat, cancel: cancel, link: attached{conn: conn, ctx: ctx}}
 	if tagged {
 		cmd.Stdout = heldWriter{[]byte{protocol.Stdout}, session}
 		cmd.Stderr = heldWriter{[]byte{protocol.Stderr}, session}
