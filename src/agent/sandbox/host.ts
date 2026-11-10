@@ -13,7 +13,7 @@ import {
 } from "@earendil-works/pi-mcp";
 import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
-import { daemon } from "./daemon.ts";
+import { DAEMON_OSES, daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SharedEnvs } from "./sandbox.ts";
 import { deviceNetwork, type Network } from "../network.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
@@ -27,7 +27,7 @@ import { ios } from "../../native.ts";
 const HOST_PORT = 4790;
 
 const System = {
-	os: oneOf(["darwin", "linux"]),
+	os: oneOf(DAEMON_OSES),
 	arch: oneOf(["x64", "arm64"]),
 };
 
@@ -162,14 +162,13 @@ export function hostFrom(address: string, info: HostInfo, known?: Host): Host {
 	};
 }
 
-const Peers = Type.Array(Type.Object({ name: Type.String(), dnsName: Type.String(), os: System.os }));
-export type Peer = Static<typeof Peers>[number];
+const Peer = Type.Object({ name: Type.String(), dnsName: Type.String(), os: System.os });
+export type Peer = Static<typeof Peer>;
 
 export async function listPeers(host: Reach): Promise<Peer[]> {
 	const response = await fetch(url(host, "/peers"), { signal: AbortSignal.timeout(8000) });
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
-	const peers: unknown = await response.json();
-	return Value.Check(Peers, peers) ? peers : [];
+	return decodeEach(Peer, await response.text());
 }
 
 export type Dial = { open: OpenRaw; network: Network };

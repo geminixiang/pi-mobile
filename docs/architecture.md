@@ -12,7 +12,7 @@
 │ AgentService（前景服務，背景執行）                          │  │
 └────────────────────────────────────────────────────────────┼──┘
                                                  Tailscale │
-┌──────────── 你的電腦（macOS、Linux）─────────────────────────┼──┐
+┌──────────── 你的電腦（macOS、Linux、Windows）─────────────────────────┼──┐
 │ pi-mobile serve：只聽 Tailscale 位址，只接受同一個使用者    ◀┘  │
 │   ├─ 直接：pi-env serve，以你的帳號、從家目錄                    │
 │   └─ 容器：docker exec ─▶ pim-main：pi-env serve，/workspace/<bot>│
@@ -145,6 +145,10 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 **電腦（macOS）**
 - `screencapture` 取圖（macOS 15 起 CoreGraphics 的擷取已移除），Quartz 事件送滑鼠和鍵盤。
 - 控制其他 app 時 macOS 每個 app 各問一次權限，沒辦法事先問完；安裝時只問最常用的 System Events。
+
+**電腦（Linux、Windows）**
+- Linux 的 Wayland 桌面（GNOME、KDE）不讓程式直接看畫面或送輸入，只能走 xdg-desktop-portal，第一次要使用者在電腦上按允許，中文要經剪貼簿貼上；X11 沒有這些限制。
+- Windows 的服務跑在 session 0，看不到畫面，所以 `pi-mobile serve` 是登入時啟動的排程工作；鎖定畫面和 UAC 視窗任何程式都操作不了。
 
 ## 專案結構
 

@@ -36,6 +36,10 @@
    ```sh
    curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh
    ```
+   Windows 在 PowerShell 執行：
+   ```powershell
+   iex ([Text.Encoding]::UTF8.GetString((iwr -useb https://github.com/geminixiang/pi-mobile/releases/latest/download/install.ps1).Content))
+   ```
 4. **（選用）** 在設定裡連接 GitHub、雲端帳號、MCP 服務。
 5. **背景執行**：在設定 › 背景執行允許通知，並讓 app 不受電池最佳化限制。
 

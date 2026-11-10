@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, stillPaired, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
+import { OS_NAMES } from "../agent/sandbox/daemon.ts";
 import { Apps } from "../plugins/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
@@ -10,7 +11,10 @@ import { Sheet } from "./Sheet.tsx";
 
 const MANUAL = "manual";
 
-const INSTALL_HOST = "curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh";
+const INSTALLS = [
+	{ where: "Mac、Linux 在終端機執行：", command: "curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh" },
+	{ where: "Windows 在 PowerShell 執行：", command: "iex ([Text.Encoding]::UTF8.GetString((iwr -useb https://github.com/geminixiang/pi-mobile/releases/latest/download/install.ps1).Content))" },
+];
 
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
@@ -82,8 +86,6 @@ function PairRow({ label, primary, busy, onPair }: { label: string; primary: boo
 	);
 }
 
-const osName = (os: string) => (os === "darwin" ? "macOS" : "Linux");
-
 function useUnpaired(host: PairedHost): boolean {
 	const [unpaired, setUnpaired] = useState(false);
 	useEffect(() => {
@@ -120,7 +122,7 @@ function HostRow({ host, onOpen }: { host: PairedHost; onOpen: () => void }) {
 			<TerminalIcon size={18} />
 			<span className="menu-text">
 				{host.name}
-				<span className="index-status">{paired ? `${osName(host.os)} · ${host.user}` : "要重新配對"}</span>
+				<span className="index-status">{paired ? `${OS_NAMES[host.os]} · ${host.user}` : "要重新配對"}</span>
 			</span>
 			<i className={`row-dot${paired ? "" : " off"}`} />
 		</button>
@@ -228,7 +230,7 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 							<TerminalIcon size={18} />
 							<span className="menu-text">
 								{peer.name}
-								<span className="index-status">{osName(peer.os)}</span>
+								<span className="index-status">{OS_NAMES[peer.os]}</span>
 							</span>
 							<span className="row-value">加入</span>
 						</button>
@@ -238,21 +240,26 @@ export function HostsGroup({ hosts, computer, onChange }: { hosts: PairedHost[];
 			{hosts.length > 0 ? <DefaultComputer hosts={hosts} computer={computer} onChoose={(key) => onChange(hosts, key)} /> : null}
 			{hosts.length === 0 ? (
 				<div className="pair-steps">
-					<p>{missing.length > 0 ? `還沒裝 pi-mobile：${missing.map((item) => item.peer.name).join("、")}。` : null}在電腦的終端機執行：</p>
-					<div className="copyable">
-						<pre className="console">{INSTALL_HOST}</pre>
-						<div className="row-buttons">
-							<button
-								type="button"
-								className="icon-button small"
-								aria-label="分享"
-								onClick={() => void orLogged(Apps.share({ text: INSTALL_HOST, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}
-							>
-								<ShareIcon size={16} />
-							</button>
-							<CopyButton text={INSTALL_HOST} />
+					{missing.length > 0 ? <p>{`還沒裝 pi-mobile：${missing.map((item) => item.peer.name).join("、")}。`}</p> : null}
+					{INSTALLS.map((install) => (
+						<div key={install.where}>
+							<p>{install.where}</p>
+							<div className="copyable">
+								<pre className="console">{install.command}</pre>
+								<div className="row-buttons">
+									<button
+										type="button"
+										className="icon-button small"
+										aria-label="分享"
+										onClick={() => void orLogged(Apps.share({ text: install.command, title: "在電腦上安裝 pi-mobile" }), "hosts.share_failed", undefined)}
+									>
+										<ShareIcon size={16} />
+									</button>
+									<CopyButton text={install.command} />
+								</div>
+							</div>
 						</div>
-					</div>
+					))}
 				</div>
 			) : null}
 			<HostSheet

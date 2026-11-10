@@ -39,10 +39,16 @@ App 內的更新（設定頁最下面的「更新到 <版本>」）讀 GitHub �
 
 ## 把電腦交給 pi
 
-電腦（macOS，或有 systemd 的 Linux）要裝好 Tailscale，並登入跟手機同一個帳號。在電腦上執行一次：
+電腦（macOS、有 systemd 的 Linux，或 Windows）要裝好 Tailscale，並登入跟手機同一個帳號。在電腦上執行一次：
 
 ```sh
 curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh
+```
+
+Windows 在 PowerShell 執行（`bash` 工具走 Git Bash，要先裝 Git for Windows）：
+
+```powershell
+iex ([Text.Encoding]::UTF8.GetString((iwr -useb https://github.com/geminixiang/pi-mobile/releases/latest/download/install.ps1).Content))
 ```
 
 它會安裝 `pi-mobile`，並設定成登入時自動執行 `pi-mobile serve`。之後可以用 `~/.pi/mobile/bin/pi-mobile status` 確認它有沒有在跑。最後印出一個名稱，到手機的設定 › 電腦輸入它。
@@ -60,7 +66,7 @@ curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/ins
 cd host && go build -o /tmp/pi-mobile-darwin-arm64 . && PI_MOBILE_URL=file:///tmp/pi-mobile-darwin-arm64 sh install.sh
 ```
 
-移除：`sh host/install.sh uninstall`。
+移除：`sh host/install.sh uninstall`；Windows 下載 `install.ps1` 後執行 `.\install.ps1 uninstall`。
 
 ## 測試
 

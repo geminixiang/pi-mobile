@@ -1,18 +1,9 @@
-//go:build !darwin
+//go:build !darwin && !linux && !windows
 
 package main
 
-import (
-	"errors"
-	"time"
-)
+import "errors"
 
 func newScreen() (screen, error) {
-	return nil, errors.New("screen control is only on macOS for now")
+	return nil, errors.New("screen control is on macOS, Linux, and Windows only")
 }
-
-func requestAccessibility(time.Duration) bool { return false }
-
-func requestScreenCapture() {}
-
-var permissions []permission

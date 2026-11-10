@@ -54,7 +54,7 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		reach: "loaded",
 		description:
 			"Act as the user on the computer's mouse and keyboard, for what a command cannot reach; apps may notice. Runs the steps in order and returns the screenshot after them, as computer_read_as_user does. " +
-			"Put the steps you can already tell in one call (open an app with cmd+space, type its name, return; click a field, type, return); prefer keys to clicks. " +
+			"Put the steps you can already tell in one call (open an app with the launcher key, cmd+space on macOS or super elsewhere, type its name, return; click a field, type, return); prefer keys to clicks. " +
 			"Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click}; move {x, y}; drag {x, y, to_x, to_y}; " +
 			'scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as "cmd+shift+t", "return", "esc", "down"}; type {text}; wait {ms}.',
 		parameters: Type.Object({

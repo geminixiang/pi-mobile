@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
+	"unicode"
 	"unicode/utf16"
 
 	"github.com/ebitengine/purego"
@@ -69,6 +69,7 @@ type macScreen struct {
 	stringGet        func(uintptr, *byte, int64, uint32) bool
 	appElement       func(int32) uintptr
 	copyAttribute    func(uintptr, uintptr, *uintptr) int32
+	clipboard        *pasteboard
 }
 
 func newScreen() (screen, error) {
@@ -88,6 +89,9 @@ func newScreen() (screen, error) {
 		"AXUIElementCopyAttributeValue": &s.copyAttribute,
 	} {
 		purego.RegisterLibFunc(fn, lib, name)
+	}
+	if clipboard, err := newPasteboard(); err == nil {
+		s.clipboard = clipboard
 	}
 	return s, nil
 }
@@ -207,16 +211,7 @@ func (s *macScreen) apps() map[int]string {
 }
 
 func (s *macScreen) quit(pids []int) {
-	for _, pid := range pids {
-		_ = syscall.Kill(pid, syscall.SIGTERM)
-	}
-	deadline := time.Now().Add(1500 * time.Millisecond)
-	for _, pid := range pids {
-		for syscall.Kill(pid, 0) == nil && time.Now().Before(deadline) {
-			time.Sleep(50 * time.Millisecond)
-		}
-		_ = syscall.Kill(pid, syscall.SIGKILL)
-	}
+	quitProcesses(pids)
 }
 
 func (s *macScreen) send(event uintptr) {
@@ -298,6 +293,9 @@ func (s *macScreen) key(keys string) error {
 		held = append(held, mod)
 	}
 	code, ok := keyCodes[name]
+	if mod, alone := modifiers[name]; !ok && alone {
+		code, ok = mod.code, true
+	}
 	if !ok {
 		return fmt.Errorf("unknown key %q in %q", name, keys)
 	}
@@ -324,21 +322,46 @@ func (s *macScreen) typeText(text string) error {
 	if !s.axTrusted() {
 		return errNoAccessibility
 	}
+	pasting := s.clipboard != nil && correctable(text)
+	if pasting {
+		saved := s.clipboard.save()
+		defer s.clipboard.restore(saved)
+	}
 	for i, line := range strings.Split(text, "\n") {
 		if i > 0 {
 			if err := s.key("return"); err != nil {
 				return err
 			}
 		}
-		for _, r := range line {
-			units := utf16.Encode([]rune{r})
-			for _, down := range []bool{true, false} {
-				event := s.keyboardEvent(0, 0, down)
-				s.setUnicodeString(event, uint64(len(units)), &units[0])
-				s.send(event)
-			}
-			time.Sleep(5 * time.Millisecond)
+		if line == "" {
+			continue
 		}
+		if pasting && correctable(line) {
+			s.clipboard.setText(line)
+			if err := s.key("cmd+v"); err != nil {
+				return err
+			}
+			// why: the app reads the pasteboard after the cmd+v event arrives, so putting the user's clipboard back at once can paste that instead.
+			time.Sleep(250 * time.Millisecond)
+			continue
+		}
+		s.typeKeys(line)
 	}
 	return nil
+}
+
+func correctable(line string) bool {
+	return strings.ContainsFunc(line, unicode.IsLetter) || strings.ContainsAny(line, "'\"-")
+}
+
+func (s *macScreen) typeKeys(line string) {
+	for _, r := range line {
+		units := utf16.Encode([]rune{r})
+		for _, down := range []bool{true, false} {
+			event := s.keyboardEvent(0, 0, down)
+			s.setUnicodeString(event, uint64(len(units)), &units[0])
+			s.send(event)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }

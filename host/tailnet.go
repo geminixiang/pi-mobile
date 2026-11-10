@@ -19,7 +19,7 @@ func tailscaleCLI() string {
 	if path, err := exec.LookPath("tailscale"); err == nil {
 		return path
 	}
-	for _, path := range []string{"/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/usr/bin/tailscale", "/usr/local/bin/tailscale", "/opt/homebrew/bin/tailscale"} {
+	for _, path := range []string{"/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/usr/bin/tailscale", "/usr/local/bin/tailscale", "/opt/homebrew/bin/tailscale", `C:\Program Files\Tailscale\tailscale.exe`} {
 		if _, err := os.Stat(path); err == nil {
 			return path
 		}
@@ -142,7 +142,7 @@ func tailnetPeers(ctx context.Context) ([]map[string]string, error) {
 	}
 	out := []map[string]string{}
 	for _, peer := range st.Peer {
-		os := map[string]string{"macOS": "darwin", "linux": "linux"}[peer.OS]
+		os := map[string]string{"macOS": "darwin", "linux": "linux", "windows": "windows"}[peer.OS]
 		if !peer.Online || os == "" || !mine(peer.UserID, peer.Tags, st) {
 			continue
 		}

@@ -9,8 +9,8 @@
    ```sh
    curl -fsSL https://github.com/geminixiang/pi-mobile/releases/latest/download/install.sh | sh
    ```
-   它會下載對應平台的 `pi-mobile`，比對 checksum，設定成登入時自動啟動（macOS 用 launchd，Linux 用 `systemd --user`），用 `pi-mobile status` 從這台電腦的 Tailscale 位址確認它有回應，最後印出要在手機上輸入的名稱和一組配對碼（15 分鐘內有效）。
-   - 從**最新的 release** 下載（`releases/latest/download`）。每個 release 由 `.github/workflows/release.yml` 從同一個 commit 建出 APK 和電腦端：4 個平台的 `pi-mobile-<os>-<arch>`、`pi-mobile.icns`，以及涵蓋所有檔案的 `pi-mobile.sha256`。所以手機和電腦的版本永遠成對。
+   它會下載對應平台的 `pi-mobile`，比對 checksum，設定成登入時自動啟動（macOS 用 launchd，Linux 用 `systemd --user`，Windows 用 `install.ps1` 建的排程工作），用 `pi-mobile status` 從這台電腦的 Tailscale 位址確認它有回應，最後印出要在手機上輸入的名稱和一組配對碼（15 分鐘內有效）。
+   - 從**最新的 release** 下載（`releases/latest/download`）。每個 release 由 `.github/workflows/release.yml` 從同一個 commit 建出 APK 和電腦端：6 個平台的 `pi-mobile-<os>-<arch>`（Windows 是 `.exe`）、`pi-mobile.icns`、`install.sh`、`install.ps1`，以及涵蓋所有檔案的 `pi-mobile.sha256`。所以手機和電腦的版本永遠成對。
 3. 手機：設定 › 電腦 › 輸入那個名稱和配對碼 › 加入。配對碼過期了，在電腦上執行 `pi-mobile pair` 拿一組新的。第一台會成為預設（直接）；電腦上有容器引擎時，按「容器」會先在那裡建好 image（第一次要幾分鐘），之後就能選。每個 Bot 也可以在面板的「電腦」自己選。
 
 移除：執行同一行指令，最後加上 `-s uninstall`。
@@ -51,7 +51,7 @@
   - `GET /exec?command=<sh>`：WebSocket。在 login shell 裡執行一個指令，用來驅動容器引擎：建 image、啟動 `pim-main` 和 egress、在容器裡跑 pi-env，以及 egress 的 `bridge.py`。它沒有比 `/env` 多給任何權限，兩者都是以使用者身分，執行使用者自己裝置要求的指令。
   - `/info` 也回報 login shell 找得到、而且 `info` 答得出來的容器引擎（docker、podman、nerdctl）。
   - `DELETE /unpair`：撤銷呼叫者自己的金鑰，回 204；金鑰不在清單上回 404。
-  - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS 或 Linux、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
+  - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS、Linux 或 Windows、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
 - **Tailscale 只在 `host/tailnet.go`**：CLI 的位置和呼叫、`status` 的快取、聽哪個位址（`listen`）、來源是不是同一個使用者的裝置（`owner`、`mine`）、`/peers` 列出的電腦。「同一個使用者、沒有 tag」只由 `mine` 決定，來源檢查和 `/peers` 共用。之後要支援別的網路，換掉的是這一個檔。
 - **兩邊共用的值只寫在 `host/protocol.json`**：電腦保留 session 的分鐘數、輸入結束的訊號、stdout／stderr 的標記、`heartbeat` 的參數值、pi-env 的 ping 封包。Go 用 `go:embed`（`host/protocol.go`），手機直接 import。手機放棄重接的時間（`RESUME_LIMIT_MS`）必須比電腦保留的短，`test/contracts/resume.ts` 檢查這件事。
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，電腦上的 pi-mobile 不用跟著更新。
@@ -93,7 +93,13 @@
 - 一個 stdio 的 MCP 服務，手機透過 `/exec` 啟動 `pi-mobile mcp computer`。`/exec` 的 PATH 最前面是 pi-mobile 自己的資料夾，所以不用寫完整路徑。
 - 兩個工具：`screenshot`（唯讀）和 `act`（一次多個步驟，做完回傳新截圖）。截圖附上前景 app、視窗標題和游標位置。
 - **有電腦就有這組工具**：手機上是內建的工具組「電腦畫面」（`src/agent/tools/computer.ts`，`computer_read_as_user`、`computer_act_as_user`），需要時載入，每台電腦一個連線。Bot 在手機上時這組不可用，也不會列在需要時載入的清單裡。不用另外加 MCP 服務。
-- macOS 用 `screencapture` 截圖，用 purego 呼叫 Quartz 事件和輔助使用 API，不用 cgo。權限算在 `pi-mobile serve` 頭上，不用另外授權。Linux 還沒做。
+- macOS 用 `screencapture` 截圖，用 purego 呼叫 Quartz 事件和輔助使用 API，不用 cgo。權限算在 `pi-mobile serve` 頭上，不用另外授權。
+- **macOS 的 `type` 用貼上**（`clipboard_darwin.go`）：逐字送按鍵時，app 的自動大寫、智慧引號、`--` 轉破折號會改掉模型打的字，1280 寬的截圖上又看不出 `P` 和 `p`。所以含有文字、引號或 `-` 的內容，先透過 NSPasteboard 存下剪貼簿裡每個項目的每種格式（圖片、RTF、檔案都算），放上這段文字按 `cmd+v`，等 250 毫秒再原樣放回。只有數字和運算符號的內容（計算機的算式）照樣逐鍵送，因為計算機這類 app 不吃貼上。換行一律是真的 Enter。
+- **Linux（`computer_linux.go` 依環境挑一個）**：systemd 的 user 服務在登入前就啟動，拿不到 `DISPLAY`，所以每次啟動 MCP 時先看自己的環境，沒有就從 `systemctl --user show-environment` 補上桌面的變數；兩個都沒有就回「沒有登入桌面」。
+  - **X11**（`computer_x11.go`，純 Go 的 jezek/xgb）：`GetImage` 截主螢幕（RandR 找主螢幕的位置），XTEST 送滑鼠鍵盤，每次送完做一次 round-trip（不做的話短連線上的按鍵會掉）。不在鍵盤配置裡的字（中文、☃）借一個空的 keycode 暫時對到那個字，打完等 50 毫秒再還原（太早還原，app 查表時已經查不到）。前景 app 和標題讀 `_NET_ACTIVE_WINDOW`、`_NET_WM_NAME`、`_NET_WM_PID`。
+  - **Wayland**（`computer_portal.go`，godbus）：GNOME、KDE 不讓一般程式看畫面或送輸入，只能走 xdg-desktop-portal：`Screenshot` 截圖，`RemoteDesktop`（連 ScreenCast 選一個螢幕，只拿它的 id 和大小，不接 PipeWire）送滑鼠鍵盤。第一次會在電腦上跳出授權框，之後用存在 `~/.pi/mobile/remote-desktop-token` 的 restore token，不再問。portal 只認目前鍵盤配置裡的字，所以 ASCII 以外的字經 portal 的剪貼簿貼上（`ctrl+v`；會換掉使用者的剪貼簿）。拿不到前景 app 和視窗標題，也不收掉它開的 app。
+- **Windows（`computer_windows.go`，golang.org/x/sys）**：啟動時宣告 per-monitor V2 DPI，之後全部是實體像素；GDI `BitBlt` 截主螢幕，`SendInput` 送滑鼠鍵盤（文字用 `KEYEVENTF_UNICODE`，換行送真的 Enter），檢查 `SendInput` 送進去的數量，少了就是被擋（前景是系統管理員權限的視窗，或鎖定畫面）。鎖定畫面、UAC、session 0（以服務身分執行，沒有畫面）都回明確的錯誤。收 app 時先送 `WM_CLOSE`，1.5 秒後還在才結束程序，不碰 explorer。
+- **只有 macOS 和 X11（docker 裡的 Xvfb＋openbox＋zenity）實際跑過**：X11 打 `Hello 中文 é Ü ☃!`、`ctrl+a` 取代、點 OK 鈕都對，前景 app 和視窗標題正確。Wayland 和 Windows 只有編譯和單元測試（`linux_desktop_test.go`、`computer_windows_test.go`，後者在 GitHub 的 Windows runner 上跑），還沒在真的 GNOME、KDE、Windows 上試過。
 - **它開的 app 由它收掉，不靠模型**：第一次呼叫時記下正在跑的 app（`lsappinfo list` 裡的 Foreground，約 35 毫秒），每次呼叫後記下新出現的。session 結束時，用 SIGTERM 結束這些 app（不問要不要存檔），1.5 秒後還在的就強制結束。原本就開著的 app 不動，即使 Bot 在裡面開了新視窗。session 在三種情況結束：最後一次呼叫後 2 分鐘、手機斷線（stdin 結束）、收到 SIGTERM（serve 結束整個程序群組時）。三種都在 Mac mini 上實測過。
 - 為什麼這樣設計、和 computer-use-mcp 的比較，見 [research/computer-use-mcp-eval.md](../research/computer-use-mcp-eval.md)。
 
@@ -130,7 +136,7 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
   - 電腦上的 pi-mobile 停了：Bot 回覆連不到這台電腦，請使用者確認；電腦上的 pi-mobile 回來之後，同一段對話直接就能用。
   - 換了另一個 Tailscale 帳號的手機（回 403）還沒實際試過。
 
-- Linux 還沒有實際安裝測試過。
+- Linux、Windows 還沒有實際安裝測試過；`install.ps1` 用排程工作在登入時啟動 `pi-mobile serve`（服務跑在 session 0，看不到畫面），透過 `conhost --headless` 不開視窗。Windows 上沒有容器模式，`run_command` 和電腦上的 agent（Herdr、Rex）都假設 POSIX shell，也還不能用。
 - 一台電腦接了多支手機時，直接模式各自連線、互不影響；容器模式的 egress bridge 一次只接一支手機，誰拿到 bridge，就是誰的憑證生效。這要改成每支手機各自一條。
 - 排程在電腦上執行時，需要電腦開著、Tailscale 連著；手機連不到時的錯誤訊息還沒調整。
 - App 被系統殺掉時，保留的 session 等不到手機回來（新的 App 行程會開新的 session），寬限期（15 分鐘）後被收掉；pi-durable 的 bash 沒有宣告 replay-safe，重開後不會重跑。要接回同一個指令，要先讓 bash 的結果能以 request 對回，另開題。

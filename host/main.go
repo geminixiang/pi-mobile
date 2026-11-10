@@ -20,7 +20,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/coder/websocket"
@@ -41,6 +40,10 @@ func daemonsDir() string {
 	return filepath.Join(stateDir(), "daemons")
 }
 
+func daemonPath(sha string) string {
+	return filepath.Join(daemonsDir(), sha+executableSuffix)
+}
+
 func daemons() []string {
 	out := []string{}
 	if _, err := os.Stat(daemonsDir()); err != nil {
@@ -52,8 +55,8 @@ func daemons() []string {
 		return out
 	}
 	for _, entry := range entries {
-		if shaPattern.MatchString(entry.Name()) {
-			out = append(out, entry.Name())
+		if name := strings.TrimSuffix(entry.Name(), executableSuffix); shaPattern.MatchString(name) {
+			out = append(out, name)
 		}
 	}
 	return out
@@ -205,31 +208,6 @@ func engines(ctx context.Context) []string {
 	return out
 }
 
-func loginShell(ctx context.Context, command string, args ...string) *exec.Cmd {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/sh"
-	}
-	self, _ := os.Executable()
-	path := `export PATH="` + filepath.Dir(self) + `:$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/bin"; `
-	cmd := exec.CommandContext(ctx, shell, append([]string{"-l", "-c", path + command}, args...)...)
-	cmd.Dir, _ = os.UserHomeDir()
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error { return endGroup(cmd) }
-	cmd.WaitDelay = 5 * time.Second
-	return cmd
-}
-
-func endGroup(cmd *exec.Cmd) error {
-	if cmd.Process == nil {
-		return nil
-	}
-	group := -cmd.Process.Pid
-	err := syscall.Kill(group, syscall.SIGTERM)
-	time.AfterFunc(2*time.Second, func() { _ = syscall.Kill(group, syscall.SIGKILL) })
-	return err
-}
-
 type taggedWriter struct {
 	tag  byte
 	conn *websocket.Conn
@@ -356,7 +334,7 @@ func putDaemon(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := os.Rename(tmp.Name(), filepath.Join(daemonsDir(), sha)); err != nil {
+	if err := os.Rename(tmp.Name(), daemonPath(sha)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -369,13 +347,13 @@ func env(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "daemon and token required", http.StatusBadRequest)
 		return
 	}
-	daemon := filepath.Join(daemonsDir(), sha)
+	daemon := daemonPath(sha)
 	if _, err := os.Stat(daemon); err != nil {
 		http.Error(w, "no such daemon; PUT it first", http.StatusNotFound)
 		return
 	}
 	serveHeld(w, r, "env:"+token, func(ctx context.Context) *exec.Cmd {
-		return loginShell(ctx, `exec "$0" serve --token "$1"`, daemon, token)
+		return daemonCommand(ctx, daemon, token)
 	}, protocol.PiEnvPing, false, "pi-env")
 }
 
@@ -474,7 +452,7 @@ func printStatus() int {
 	url := "http://" + net.JoinHostPort(ip, port) + "/version"
 	client := http.Client{Timeout: 5 * time.Second}
 	response, err := client.Get(url)
-	for wait := 0; err != nil && errors.Is(err, syscall.ECONNREFUSED) && wait < 15; wait++ {
+	for wait := 0; err != nil && refused(err) && wait < 15; wait++ {
 		time.Sleep(time.Second)
 		response, err = client.Get(url)
 	}

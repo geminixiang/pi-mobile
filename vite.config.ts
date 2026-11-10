@@ -12,8 +12,8 @@ import { pageControllerScript } from "./vite-plugins/page-controller.ts";
 
 const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, import.meta.url));
 
-const DAEMONS = ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64"];
-const daemonFile = (name: string) => new URL(`./node_modules/@earendil-works/pi-env/bin/pi-env-${name}/pi-env`, import.meta.url);
+const DAEMONS = ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "windows-x64", "windows-arm64"];
+const daemonFile = (name: string) => new URL(`./node_modules/@earendil-works/pi-env/bin/pi-env-${name}/pi-env${name.startsWith("windows") ? ".exe" : ""}`, import.meta.url);
 function piEnvDaemons(): Plugin {
 	return {
 		name: "pi-env-daemons",

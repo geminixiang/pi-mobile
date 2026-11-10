@@ -5,7 +5,7 @@ import { appSection } from "../section.ts";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { botsIn } from "../bots.ts";
-import type { DaemonArch, DaemonOs } from "./daemon.ts";
+import { type DaemonArch, type DaemonOs, OS_NAMES } from "./daemon.ts";
 import type { ConnectionStatus, PhoneConnection } from "./phone-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";
@@ -83,12 +83,13 @@ export function containerDescription(folder: string): string {
 }
 
 export function directDescription(host: { name: string; user: string; os: DaemonOs; arch: DaemonArch; home: string }): string {
-	const desktop =
-		host.os === "darwin"
-			? `Commands first: CLIs, \`open\`, and \`osascript\` (scriptable apps; System Events for settings, windows, menus, keys). If one fails with "Operation not permitted" or times out, macOS is asking on the computer: tell the user to allow pi-mobile there.`
-			: "Commands first; `xdg-open` opens files and URLs when a desktop session is running.";
+	const desktop = {
+		darwin: `Commands first: CLIs, \`open\`, and \`osascript\` (scriptable apps; System Events for settings, windows, menus, keys). If one fails with "Operation not permitted" or times out, macOS is asking on the computer: tell the user to allow pi-mobile there.`,
+		linux: "Commands first, while a desktop session is running: `xdg-open` opens files and URLs, `gsettings` (GNOME) or `kwriteconfig6` (KDE) changes settings, `gdbus call` drives apps with a D-Bus interface, `wl-copy`/`wl-paste` or `xclip` is the clipboard; on X11 also `xdotool` and `wmctrl` for windows and keys.",
+		windows: "Commands first: bash is Git Bash (Git for Windows must be installed); `powershell -NoProfile -Command` reaches Windows itself: `Start-Process` opens files, URLs, and apps, `start ms-settings:<page>` a Settings page, COM objects (`Outlook.Application`, `Excel.Application`, `Shell.Application`) script those apps, `Get-Clipboard`/`Set-Clipboard` is the clipboard.",
+	}[host.os];
 	return [
-		`You operate ${host.name} (${host.os === "darwin" ? "macOS" : "Linux"} ${host.arch}), the user's own computer, as ${host.user}: read, write, edit, and bash run there from ${host.home}, with the user's files, apps, and sign-ins. Find things yourself (ls, find, mdfind) rather than asking.`,
+		`You operate ${host.name} (${OS_NAMES[host.os]} ${host.arch}), the user's own computer, as ${host.user}: read, write, edit, and bash run there from ${host.home}, with the user's files, apps, and sign-ins. Find things yourself (ls, find, mdfind) rather than asking.`,
 		desktop,
 		"The screen is the fallback for what no command reaches (a dialog, what a window shows): computer_read_as_user to look, computer_act_as_user to click and type; keys over clicks.",
 		"Websites: ego-browser if `command -v ego-browser` finds it (run `ego-browser skill` once and follow it), never by clicking a browser.",

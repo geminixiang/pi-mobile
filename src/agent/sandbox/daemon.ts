@@ -1,7 +1,10 @@
 import { sha256Hex } from "../../encoding.ts";
 
-export type DaemonOs = "darwin" | "linux";
+export const DAEMON_OSES = ["darwin", "linux", "windows"] as const;
+export type DaemonOs = (typeof DAEMON_OSES)[number];
 export type DaemonArch = "x64" | "arm64";
+
+export const OS_NAMES: Record<DaemonOs, string> = { darwin: "macOS", linux: "Linux", windows: "Windows" };
 
 export interface Daemon {
 	sha: string;
