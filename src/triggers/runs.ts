@@ -5,6 +5,7 @@ import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
 import { DAY, localTime, MINUTE, startOfToday } from "../time.ts";
+import { isWatch } from "./watch.ts";
 import { check, oneOf, valueOrThrow } from "../parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { blocks, entryText, message } from "../agent/entries.ts";
@@ -255,6 +256,19 @@ export class TriggerRuns {
 				return guards.length > 0 ? { ...rest, guards: [...guards] } : rest;
 			}),
 		);
+	}
+
+	async checkWatch(conversationId: ConversationId, agent: string): Promise<void> {
+		const watching = (await this.#harness.snapshot(TriggerDoc, context))?.items.find((item) => isWatch(item, agent, conversationId));
+		if (watching) await this.run(watching.id, "live");
+	}
+
+	async watching(): Promise<readonly { conversationId: ConversationId; agent: string }[]> {
+		return ((await this.#harness.snapshot(TriggerDoc, context))?.items ?? []).flatMap((item) => (item.kind === "watch" ? [{ conversationId: item.conversationId, agent: item.agent }] : []));
+	}
+
+	stopWatching(conversationId: ConversationId, agent: string): Promise<void> {
+		return this.#edit((items) => items.filter((item) => !isWatch(item, agent, conversationId)));
 	}
 
 	delete(id: string): Promise<void> {

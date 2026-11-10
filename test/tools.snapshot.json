@@ -3957,7 +3957,7 @@
 		"parameters": {
 			"properties": {
 				"agent": {
-					"description": "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a background command",
+					"description": "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a command bash sent to the background",
 					"type": "string"
 				},
 				"lines": {
@@ -3991,7 +3991,7 @@
 		"parameters": {
 			"properties": {
 				"agent": {
-					"description": "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a background command",
+					"description": "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a command bash sent to the background",
 					"type": "string"
 				},
 				"task": {
@@ -4025,7 +4025,7 @@
 		"parameters": {
 			"properties": {
 				"agent": {
-					"description": "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a background command",
+					"description": "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a command bash sent to the background",
 					"type": "string"
 				},
 				"option": {
@@ -4049,40 +4049,6 @@
 		"needs": [],
 		"outside": null,
 		"sends": false
-	},
-	{
-		"extension": "computer_agents",
-		"groups": [
-			"computer_agents"
-		],
-		"name": "run_command",
-		"deferred": false,
-		"callers": [
-			"model",
-			"tools"
-		],
-		"parameters": {
-			"properties": {
-				"command": {
-					"description": "The shell command",
-					"minLength": 1,
-					"type": "string"
-				},
-				"cwd": {
-					"description": "Folder to run in, absolute or relative to the bot's folder; default the bot's folder",
-					"type": "string"
-				}
-			},
-			"required": [
-				"command"
-			],
-			"type": "object"
-		},
-		"structuredOutput": null,
-		"effect": "direct",
-		"needs": [],
-		"outside": null,
-		"sends": true
 	},
 	{
 		"extension": "coding-tools",

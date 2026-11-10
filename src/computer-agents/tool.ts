@@ -3,23 +3,19 @@ import { type ConversationId, defineExtension, type ToolExecutionApi } from "@ea
 import { appSection } from "../agent/section.ts";
 import { Type } from "typebox";
 import { HostCommands, type PairedHost } from "../agent/sandbox/host.ts";
-import { type AgentState, type Trigger } from "../triggers/runs.ts";
+import type { AgentState } from "../triggers/runs.ts";
 import { editTriggers, triggersOf } from "../triggers/edit.ts";
-import { Triggers } from "../triggers/plugin.ts";
-import { native } from "../native.ts";
+import { isWatch, watch } from "../triggers/watch.ts";
 import { orLogged } from "../promise.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
-import { MINUTE } from "../time.ts";
-import { type AgentPlace, choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, startCommand, workers } from "./workers.ts";
+import { type AgentPlace, choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { createJudge } from "../agent/judge.ts";
 import { checkAnswer, checkTask, Menus, Repeats } from "./guard.ts";
 
 const READ_LINES = 60;
 const TASK_CHARS = 500;
-const NAME_CHARS = 30;
-const FIRST_CHECK = MINUTE;
 const NOT_READY: Record<Exclude<Status, "idle">, string> = {
 	working: "is still working: tell it once it is idle.",
 	needs_user: "is waiting for the user to approve or answer something: tell the user, or read_agent to see what.",
@@ -29,7 +25,7 @@ const MAX_LINES = 400;
 const SCREEN_LINES = 40;
 const SETTLE_MS = 5_000;
 const STOPS_ASKING = ["don’t ask again", "don't ask again", "auto mode", "always"];
-const AGENT = Type.String({ description: "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a background command" });
+const AGENT = Type.String({ description: "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a command bash sent to the background" });
 
 export function createComputerAgentsExtension(workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, userSaid: (conversationId: ConversationId) => Promise<readonly string[]>) {
 	const repeats = new Repeats();
@@ -49,31 +45,19 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		if (!place) throw new Error(`${agent} is not an agent id: take one from list_agents.`);
 		return { place, commands: commandsOf(String(conversationId)).commands };
 	};
-	const watch = async (api: ToolExecutionApi, context: Context, agent: string, prompt: string, name = `等 ${agent} 做完`): Promise<boolean> => {
-		if (!native.implements(Triggers.sync)) return false;
-		const now = Date.now();
-		const watching: Trigger = {
-			id: crypto.randomUUID().slice(0, 8),
-			name,
-			prompt: `${prompt} read_agent to see what it did, check that the task is really done (look at the result, not only its words), and report to the user; if it waits on the user, say what it needs. The user is waiting to hear, so notify them with the gist.`,
-			when: { kind: "once", at: now + FIRST_CHECK },
-			kind: "watch",
+	const watchAgent = (api: ToolExecutionApi, context: Context, agent: string, prompt: string) =>
+		watch(triggers, api, context, {
 			agent,
-			conversationId: api.conversationId,
-			state: "on",
-			createdAt: now,
-		};
-		await editTriggers(api, context, triggers, (items) => [...items.filter((item) => !isWatch(item, agent, api.conversationId)), watching]);
-		return true;
-	};
-
+			name: `等 ${agent} 做完`,
+			prompt: `${prompt} read_agent to see what it did, check that the task is really done (look at the result, not only its words), and report to the user; if it waits on the user, say what it needs. The user is waiting to hear, so notify them with the gist.`,
+		});
 	const listAgents = defineAppTool({
 		name: "list_agents",
 		groups: ["computer_agents"],
 		effect: "read",
 		description:
 			"List the coding agents (Claude Code, Codex, pi…) running on the computer you work on, in Herdr or Rex: each one's id, the name the user calls it by (its Herdr name or Rex session), which agent, status (idle, working, needs_user: waiting for the user to approve or answer, unknown), folder, title, and what it is doing. " +
-			"You lead these agents: hand them the work with tell_agent and check on it with read_agent, instead of doing their work yourself. Background commands started with run_command are listed too, as job:<id>.",
+			"You lead these agents: hand them the work with tell_agent and check on it with read_agent, instead of doing their work yourself. Shell commands that bash sent to the background are listed too, as job:<id>.",
 		parameters: Type.Object({}),
 		replay: "safe",
 		execute: async (_args, api) => {
@@ -131,7 +115,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			if (sent.code === undefined) throw new Error(`The link to the computer dropped before it said whether ${args.agent} got the task: read_agent to see whether it is working on it before telling it again.`);
 			const problem = sent.code === 0 ? sendProblem(place, sent.stdout) : sent.stdout.trim() || sent.stderr.trim() || `exit ${sent.code}`;
 			if (problem) throw new Error(`The task did not reach ${args.agent}: ${problem}`);
-			const watched = await watch(api, context, args.agent, `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}.`);
+			const watched = await watchAgent(api, context, args.agent, `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}.`);
 			return text(watched ? `${args.agent} has the task. Answer the user now: the phone wakes you here when it is idle again or needs the user, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `${args.agent} has the task. Check on it with read_agent.`);
 		},
 	});
@@ -166,50 +150,21 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const sent = await commands.run(keysCommand(place, keys));
 			if (sent.code === undefined) throw new Error(`The link to the computer dropped before it said whether ${args.agent} got the answer: read_agent to see whether it is still asking before answering again.`);
 			if (sent.code !== 0) throw new Error(`The answer did not reach ${args.agent}: ${sent.stdout.trim() || sent.stderr.trim()}`);
-			await watch(api, context, args.agent, `For the user you answered ${args.agent}'s question with "${chosen}".`);
+			await watchAgent(api, context, args.agent, `For the user you answered ${args.agent}'s question with "${chosen}".`);
 			return text(`Chose "${chosen}" for ${args.agent}. The phone will wake you here when it is idle again or needs the user.`);
-		},
-	});
-
-	const runCommand = defineAppTool({
-		name: "run_command",
-		groups: ["computer_agents"],
-		effect: "direct",
-		reach: "model",
-		sends: true,
-		description:
-			"Start a shell command on the computer in the background and return at once, for anything that takes more than a minute (builds, tests, deploys, downloads), so the conversation goes on while it runs. " +
-			"It runs in the user's login shell, in the bot's folder unless cwd says otherwise, and keeps running when the phone sleeps. The phone checks on it by itself and wakes you here when it ends; list_agents shows it as job:<id>, and read_agent shows its exit code and last output lines.",
-		parameters: Type.Object({
-			command: Type.String({ minLength: 1, description: "The shell command" }),
-			cwd: Type.Optional(Type.String({ description: "Folder to run in, absolute or relative to the bot's folder; default the bot's folder" })),
-		}),
-		execute: async (args, api, context) => {
-			const { root, commands } = commandsOf(String(api.conversationId));
-			const id = crypto.randomUUID().slice(0, 8);
-			const cwd = args.cwd?.startsWith("/") ? args.cwd : [root, args.cwd].filter(Boolean).join("/");
-			const started = await commands.run(startCommand(id, args.command, cwd));
-			if (started.code !== 0) throw new Error(`The command did not start: ${started.stdout.trim() || started.stderr.trim() || `${cwd} is not a folder on the computer`}`);
-			const job = `job:${id}`;
-			const watched = await watch(api, context, job, `You started this command in the background: ${JSON.stringify(args.command.slice(0, TASK_CHARS))}.`, `等「${args.command.slice(0, NAME_CHARS)}」跑完`);
-			return text(watched ? `Started as ${job}; it is still running. Tell the user it has started, not that it is done: the phone wakes you here when it ends, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `Started as ${job}; it is still running. Check on it with read_agent.`);
 		},
 	});
 
 	return defineExtension({
 		name: "computer_agents",
-		tools: [listAgents, readAgent, tellAgent, answerAgent, runCommand],
+		tools: [listAgents, readAgent, tellAgent, answerAgent],
 		sections: [
 			appSection("computer_agents", 800, (input) =>
 				workplace(String(input.conversationId))?.kind !== "computer"
 					? undefined
-					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply. A long shell command (build, tests, deploy) goes to run_command, not bash, so the user can keep talking while it runs.", { about: [listAgents, readAgent, tellAgent, answerAgent, runCommand] }),
+					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply.", { about: [listAgents, readAgent, tellAgent, answerAgent] }),
 		],
 	});
-}
-
-function isWatch(item: Trigger, agent: string, conversationId: ConversationId): boolean {
-	return item.kind === "watch" && item.agent === agent && item.conversationId === conversationId;
 }
 
 export async function agentState(host: PairedHost, agent: string): Promise<AgentState> {

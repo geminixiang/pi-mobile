@@ -61,6 +61,10 @@ export class Workplaces {
 		});
 	}
 
+	hosts(): readonly PairedHost[] {
+		return this.#hosts;
+	}
+
 	list(): Computer[] {
 		const computers = this.#entries().map((entry) => entry.computer);
 		return this.#phone ? [{ key: PHONE, name: "手機", mode: "手機" }, ...computers] : computers;

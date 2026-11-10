@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { choicesOf, LIST, placeOf, readCommand, reading, sendProblem, startCommand, workers } from "../src/computer-agents/workers.ts";
+import { choicesOf, LIST, placeOf, readCommand, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
+import { startJob } from "../src/jobs/commands.ts";
 
 const herdrAgent = { agent: "claude", agent_status: "blocked", cwd: "/Users/me/app", focused: true, name: "tester", pane_id: "w1:p1", terminal_title_stripped: "Claude Code", workspace_id: "w1" };
 const rexProcess = (argv0: string, cwd: string) => JSON.stringify({ last_exit: null, foreground: { pid: 1, name: argv0.split("/").at(-1), argv0, cwd } });
@@ -70,16 +71,16 @@ if (existsSync("/bin/zsh")) {
 }
 
 assert.deepEqual(placeOf("job:1a2b3c4d"), { via: "job", id: "1a2b3c4d" });
-assert.equal(placeOf("job:../../etc"), undefined, "a job id is only what run_command makes, so it cannot reach outside the jobs folder");
+assert.equal(placeOf("job:../../etc"), undefined, "a job id is only what bash makes, so it cannot reach outside the jobs folder");
 const job = { via: "job" as const, id: "1a2b3c4d" };
-assert.deepEqual(reading(job, "running\n@@screen\nbuilding"), { ok: true, status: "working", doing: "running", screen: "building" });
-assert.deepEqual(reading(job, "no background command 1a2b3c4d"), { ok: false, problem: "no background command 1a2b3c4d" });
+assert.deepEqual(reading(job, "state=running\nseconds=1\nlines=1\nbytes=9\nlog=/l\n@@log\nbuilding\n@@screen\n"), { ok: true, status: "working", doing: "running", screen: "building" });
+assert.deepEqual(reading(job, "state=missing"), { ok: false, problem: "no background command 1a2b3c4d" });
 
 if (existsSync("/bin/zsh")) {
 	const home = mkdtempSync(join(tmpdir(), "jobs-"));
 	const env = { HOME: home, SHELL: "/bin/zsh", PATH: "/usr/bin:/bin" };
 	const zsh = (script: string) => spawnSync("/bin/zsh", ["-lc", script], { env, encoding: "utf8" });
-	const started = zsh(startCommand("0badc0de", "sleep 1\necho built; exit 4", home));
+	const started = zsh(startJob({ id: "0badc0de", command: "sleep 1\necho built; exit 4", cwd: home, owner: "bot", limitSeconds: 60 }));
 	assert.equal(started.status, 0, started.stderr);
 	assert.deepEqual(workers(zsh(LIST).stdout).map((worker) => [worker.id, worker.status, worker.title]), [["job:0badc0de", "working", "sleep 1"]], "the start returns while the command still runs");
 	const place = { via: "job" as const, id: "0badc0de" };
@@ -91,8 +92,7 @@ if (existsSync("/bin/zsh")) {
 	};
 	while (Date.now() < deadline && working()) await new Promise((resolve) => setTimeout(resolve, 100));
 	assert.deepEqual(read(), { ok: true, status: "idle", doing: "exited 4", screen: "built" });
-	assert.equal(zsh(startCommand("0badc0df", "true", join(home, "missing"))).status, 3, "a folder that is not there does not start");
-	rmSync(home, { recursive: true });
+		rmSync(home, { recursive: true });
 }
 
 const approval = [

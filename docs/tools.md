@@ -127,7 +127,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - **Cloudflare**（`cloudflare`）：`cloudflare_api`
 - **Azure**（`azure`）：`azure_api`
 - **電腦畫面**（`computer_as_user`）：`computer_read_as_user`＊、`computer_act_as_user`＊
-- **電腦上的 agent**（`computer_agents`）：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`、`run_command`†
+- **電腦上的 agent**（`computer_agents`）：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`
 - **電腦**（`computer_shell`）：`read`†、`write`†、`edit`†、`bash`†
 - **檔案**（`files`）：`read`†、`write`†、`edit`†、`bash`†
 - **固定開著**（沒有開關）：`read_skill`、`read_attachment`＊、`scan_document`、`codemode`†、`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`、`note_item`、`list_items`、`update_memory`†、`ask_user`†、`tool_search`†
@@ -191,12 +191,11 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | ✓ |
 | `computer_read_as_user` | 電腦畫面（只在有電腦的 Bot） | 電腦螢幕的截圖，加上前景 app、視窗標題、游標位置 | 唯讀 | |
 | `computer_act_as_user` | 電腦畫面（只在有電腦的 Bot） | 一次多個滑鼠、鍵盤步驟，做完回傳截圖 | 直接 | |
-| `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent，和 `run_command` 開的背景指令（`job:<id>`）：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
+| `list_agents` | 電腦上的 agent（只在有電腦的 Bot） | 電腦上 Herdr、Rex 裡的 coding agent，和 `bash` 轉到背景的指令（`job:<id>`）：id、哪個 agent、狀態、資料夾、標題、正在做什麼 | 唯讀 | |
 | `read_agent` | 電腦上的 agent（只在有電腦的 Bot） | 一個 agent 的狀態和終端機最後幾行；背景指令是結束碼和輸出最後幾行 | 唯讀 | |
 | `tell_agent` | 電腦上的 agent（只在有電腦的 Bot） | 交辦任務給閒著的 agent，多行也當成一則送出 | 直接 | 工作中、等使用者、狀態不明時拒絕 |
 | `answer_agent` | 電腦上的 agent（只在有電腦的 Bot） | 替使用者回答 agent 在等的批准或問題：從畫面讀出選項，用方向鍵移到第幾個再按 Enter | 直接 | 排程叫醒的那一輪拒絕；「不要再問」「自動模式」要 `stop_asking` |
-| `run_command` | 電腦上的 agent（只在有電腦的 Bot） | 在電腦上背景跑一個 shell 指令，馬上回來；手機睡著也照跑，結束時用「等它做完」叫醒 Bot | 直接 | 預設在 Bot 的資料夾；資料夾不存在時不開始 |
-| `read`、`write`、`edit`、`bash` | 電腦或檔案 | Bot 的資料夾：選了電腦時在電腦上，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools | 直接，只在 Bot 自己的資料夾裡 | `bash` |
+| `read`、`write`、`edit`、`bash` | 電腦或檔案 | Bot 的資料夾：選了電腦時在電腦上，沒有時在手機上（`files/`：原生資料夾加 just-bash）；pi-durable 的 coding tools。直接模式的電腦上，`bash` 跑超過 10 秒就轉到背景（`src/jobs/`），對話裡那一行顯示「背景執行中」和停止鈕，跑完叫醒 Bot，最多 2 小時 | 直接，只在 Bot 自己的資料夾裡 | `bash` |
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
 | `read_skill` | 固定開啟 | 讀一份 skill | 唯讀 | |
@@ -287,6 +286,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-10 | `bash` 在直接模式的電腦上自動轉背景（`src/jobs/`）：指令一律以 job 啟動（自己的程序群組，記下 pid、owner、上限、開始時間），等 10 秒，跑完就照舊回輸出和結束碼，沒跑完就回「還在跑，是 job:X」並建「等它做完」，跑完叫醒 Bot 用 `bash` 讀記錄。電腦端的看門程序到上限（預設 2 小時，`timeout` 參數可改）就結束整個群組；程序不見又沒有結束碼的是「遺失」，不會一直算在跑。對話裡那一行在背景跑時留在外面，顯示「背景執行中」、已跑多久和「停止指令」（不叫「停止」，免得和輸入框的停止鈕撞名）；刪除 Bot 時在所有配對的電腦上停掉它的 job。`run_command` 拿掉（`bash` 涵蓋它），`list_agents`／`read_agent` 仍看得到 job。手機上的 just-bash、容器模式不變 | 選了電腦、開著電腦上的 agent 的 Bot：約少 120 tokens（`run_command` −140、工具組說明 −29、三個 agent 工具各 +4、`bash` 說明 +37，o200k 算）；手機 Bot 的 `bash` +37。S24 實測電腦 Bot 第一次呼叫輸入 4,313 tokens（GPT 6.1 Sol；11-08 記的是 4,410） | `test/jobs.ts` 在 zsh 裡真的跑：結束碼和輸出、超時連子程序一起結束、停止連子程序一起結束、依 owner 停止只停那個 Bot 的、被 KILL 的是遺失。S24 → 這台 Mac，暫時 Bot，`gpt-6.1-sol`：「跑 sleep 25; echo 背景測試完成，跑完跟我說」21 秒回覆（`bash` 10.4 秒後轉背景），約 1 分鐘後被叫醒、自己讀記錄回報「結束碼 0、輸出 背景測試完成」；5 分鐘的指令跑著時問台北幾點 6 秒答；按「停止指令」4 秒內那一行回到一般狀態，Mac 上的 `sleep` 不見、記錄是 stopped／143；刪除暫時 Bot 後 2 秒 Mac 上它的 job 是 stopped（第一版只看 Bot 目前的位置，刪除中的 Bot 已不在對照表裡而漏停，改成問每台配對的電腦）。第一版靠「等它做完」定時檢查（1、3、10 分鐘遞增），25 秒的指令約 98 秒才回報；改成轉背景後手機在電腦上掛一個等待指令（`waitJob`，走 held session），job 一結束就跑那個 watch，app 重開時把還在等的 job 重新掛上，定時檢查只剩後備：同一題 40 秒回報，45 秒的指令中途強制結束 pi 再打開，60 秒回報。`test/jobs.ts` 加了等待在 job 結束時返回；加上它之後第一次跑失敗一次（沒留下訊息），之後連跑 13 次都過 |
 | 2026-11-10 | macOS 的 `computer_act_as_user` 打字改成貼上：含文字、引號或 `-` 的內容經剪貼簿 `cmd+v`，前後完整存回使用者的剪貼簿（每個項目每種格式），純數字和符號照樣逐鍵送。工具介面不變 | 不變 | 改之前文字編輯打「pi eval 測試」8 次只有 2 次對（自動大寫成「Pi」，GPT 4 次都沒發現）。改之後 `claude-opus-5-5`、`gpt-6.1-sol` 各兩次：文字編輯 4/4 是小寫的「pi eval 測試」（全解析度截圖逐張看），計算機 4/4 算出 984（第一版連算式也貼上，計算機停在 0，才改成數字符號逐鍵送），8 次結束後剪貼簿都還是測試前放的字串。手動：剪貼簿放圖片時貼上 `i think 中文 "quotes" -- dash` 一字不差，之後剪貼簿的每種圖片格式和大小都跟之前一樣。`host/computer_darwin_test.go` 測哪些內容要貼上 |
 | 2026-11-10 | 電腦畫面支援 Linux（X11、GNOME／KDE 的 Wayland）和 Windows：`pi-mobile mcp computer` 各有一個後端，介面不變。`computer_act_as_user` 說明裡開 app 的例子從只寫 `cmd+space` 改成「macOS 用 cmd+space，其他用 super」，單獨按 `super`／`cmd` 也接受。手機接受 Windows 電腦（附 Windows 的 pi-env，`bash` 走 Git Bash），Bot 的電腦說明依系統寫：Windows 列出 `Start-Process`、`ms-settings:`、COM、`Get-Clipboard`，Linux 列出 `xdg-open`、`gsettings`／`kwriteconfig6`、`gdbus call`、剪貼簿和 X11 的 `xdotool`、`wmctrl`（這兩行還沒在真機驗證） | `computer_act_as_user` 說明多 44 字元（約 10 tokens，沒在 S24 量）；只在選了電腦、載入這組工具時才有 | macOS（Mac mini，1920×1080，這次建的 binary 直接當 stdio MCP，cliproxyapi）：計算機、系統設定兩題 `claude-opus-5-5`、`gpt-6.1-sol` 各兩次 8/8 答對，Claude 10–15 秒、2–3 次呼叫，GPT 13–34 秒、3–4 次；每次結束後它開的計算機、系統設定都被收掉。網頁表單三題（`computer-use-token-benchmark` 的治具和判分）兩個模型各一次 6/6，GPT 輸入 38k／60k／86k（之前五次的範圍 51–90k／51–90k／139–178k，只有一次，不宣稱變省）。文字編輯打「pi eval 測試」8 次只有 2 次文字正確：macOS 的自動大寫把開頭改成「Pi」，Claude 4 次都發現（2 次改回、2 次照實說），GPT 4 次都說打對了。單按 `cmd`、未知修飾鍵回錯也試過。X11：docker 裡 Xvfb＋openbox＋zenity，`act` 打 `Hello 中文 é Ü ☃!`、`ctrl+a` 取代、點 OK 鈕，zenity 收到的文字正確，前景 app 和視窗標題正確。Wayland、Windows 只有編譯和單元測試（`host/linux_desktop_test.go`、`host/computer_windows_test.go`），沒在真機跑過 |
 | 2026-11-10 | 手機送到電腦的指令（`tell_agent`、`answer_agent`、`list_agents`、`read_agent`、`run_command`、電腦畫面的 MCP、建 image、egress bridge）一律走 held session（`HostCommands.exec` 帶 `session`），斷線時電腦把指令做完，手機接回後拿到輸出和結束碼。以前沒有 session 的 `/exec` 一斷線就殺掉整個 process group：Rex 的「貼上 → `sleep 0.3` → Enter」停在貼上，agent 輸入框留著任務、狀態仍是 idle，重試再貼一次就變成兩份任務；`computer_act_as_user` 的步驟停在一半，模型看到 `MCP connection closed` 整串重做，字打兩次。只有 pi-env 帶 heartbeat。手機拿到結束碼就自己關掉連線，免得電腦正常關閉時手機以為斷線又去接。拿不到結束碼時改成說「不確定送到沒，先 `read_agent`」，不再說「did not reach」。參考 Rex 的 `client.perform`：逾時回 `timeout` 並寫明對方之後可能仍會執行 | 不變 | Mac 上電腦端真的 `/exec` handler，送出後 0.7 秒或 150 ms 硬斷 websocket。Rex 加 pi（cliproxyapi、`claude-opus-5-5`）：舊版重試後模型收到兩份任務黏成一則，held 收到一份。電腦畫面打字到 TextEdit（打 `STEP-ONE ` → 等 1.5 秒 → 打 `STEP-TWO`）：舊版重做後檔案是 `STEP-ONE STEP-ONE STEP-TWO`，held 是 `STEP-ONE STEP-TWO`。Herdr 加 pi：`agent prompt` 本身全有全無，新舊版都只有一份。`test/contracts/held-commands.ts` 用假的電腦端在指令中途斷線，`run` 和 MCP `callTool` 接回後拿到結果；換回沒有 session 的舊路徑兩條都失敗 |

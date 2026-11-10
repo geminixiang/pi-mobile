@@ -885,7 +885,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .commit-text .file-name { font-family: var(--sans); font-size: var(--fs-body); }
 .commit-meta { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 
-.step-body, .step-open { grid-area: 1 / 1; }
+.step-body, .step-open, .step-stop { grid-area: 1 / 1; }
+.step-stop { justify-self: end; align-self: start; min-height: 40px; margin-top: 4px; padding: 0 var(--space) 0 12px; color: var(--accent); font-size: var(--fs-meta); }
+.step-stop:disabled { color: var(--muted); }
+.step:has(.step-stop) .step-head { padding-right: 72px; }
 .step-open { justify-self: end; align-self: start; width: 40px; height: 40px; margin: 4px calc(var(--space) - 12px) 0 0; display: grid; place-items: center; color: var(--muted); }
 .step:has(.step-open) .step-head { padding-right: 32px; }
 

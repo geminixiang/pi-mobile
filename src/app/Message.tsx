@@ -21,6 +21,8 @@ import { isConnectionLost } from "../agent/network.ts";
 import { InteractionCard } from "../interaction/Interaction.tsx";
 import { isInteraction } from "../interaction/tool.ts";
 import { type Call, lastStep, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
+import { backgroundJobIn } from "../jobs/background.ts";
+import { JobsContext } from "../jobs/JobsContext.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -222,9 +224,42 @@ function htmlPathsIn(output: string | undefined): string[] {
 	return [...found];
 }
 
+function clock(seconds: number): string {
+	return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function useBackgroundJob(call: Call, state: CallState | undefined): { job: string; since: number } | undefined {
+	const jobs = useContext(JobsContext);
+	const job = call.name === "bash" && state?.status === "done" ? backgroundJobIn(state.output) : undefined;
+	const since = job ? jobs?.since.get(job) : undefined;
+	return job && since !== undefined ? { job, since } : undefined;
+}
+
+type Stopping = { state: "idle" } | { state: "stopping" } | { state: "failed" };
+
+function StopJob({ job }: { job: string }) {
+	const jobs = useContext(JobsContext);
+	const [stopping, setStopping] = useState<Stopping>({ state: "idle" });
+	const stop = async () => {
+		setStopping({ state: "stopping" });
+		try {
+			await jobs?.stop(job);
+		} catch {
+			setStopping({ state: "failed" });
+		}
+	};
+	return (
+		<button type="button" className="step-stop" disabled={stopping.state === "stopping"} onClick={() => void stop()}>
+			{stopping.state === "stopping" ? "停止中" : stopping.state === "failed" ? "停不下來，再試" : "停止指令"}
+		</button>
+	);
+}
+
 function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefined; prefs: Prefs }) {
 	const [open, setOpen] = useState(prefs.expandTools);
 	const output = state && state.status !== "pending" ? state.output?.replace(harnessTag, "").trim() : undefined;
+	const background = useBackgroundJob(call, state);
+	const backgroundFor = useElapsed(background !== undefined, background?.since);
 	const status = state?.status !== "done" ? "running" : state.isError ? "error" : "ok";
 	const images = state?.status === "done" ? state.images : [];
 	const openFile = useContext(OpenFileContext);
@@ -245,6 +280,8 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
 					{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
 					{status === "error" ? <span className="step-status">失敗</span> : null}
+					{background ? <span className="step-status">背景執行中</span> : null}
+					{background ? <span className="step-elapsed">{clock(backgroundFor)}</span> : null}
 				</span>
 				{open && script ? <span className="step-script">{script}</span> : null}
 				{shown.length > 0 ? (
@@ -256,7 +293,8 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					</span>
 				) : null}
 			</button>
-			{openFile && status !== "running" && openable[0] ? (
+			{background ? <StopJob job={background.job} /> : null}
+			{openFile && status !== "running" && !background && openable[0] ? (
 				<button type="button" className="step-open" onClick={() => openFile(openable[0])} aria-label={`開啟 ${openable[0].split("/").at(-1) ?? "檔案"}`}>
 					<FileIcon size={14} />
 				</button>
@@ -270,8 +308,10 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	);
 }
 
-function staysVisible(call: Call, state: CallState | undefined): boolean {
+function staysVisible(call: Call, state: CallState | undefined, running: ReadonlyMap<string, number> | undefined): boolean {
 	if (TOOLS_ALWAYS_SHOWN.has(call.name)) return true;
+	const job = call.name === "bash" && state?.status === "done" ? backgroundJobIn(state.output) : undefined;
+	if (job && running?.has(job)) return true;
 	return state?.status === "done" && state.images.length > 0;
 }
 
@@ -283,9 +323,10 @@ function WorkLine({ calls, states, prefs, since }: { calls: readonly Call[]; sta
 		return state?.status === "done" && state.isError;
 	}).length;
 	const elapsed = useElapsed(running, since);
+	const backgroundJobs = useContext(JobsContext)?.since;
 	const last = calls.at(-1);
 	if (!last) return null;
-	const rows = open ? calls : calls.filter((call) => staysVisible(call, states.get(call.id)));
+	const rows = open ? calls : calls.filter((call) => staysVisible(call, states.get(call.id), backgroundJobs));
 	return (
 		<div className="work">
 			<button type="button" className="work-line" onClick={() => setOpen(!open)} aria-expanded={open}>

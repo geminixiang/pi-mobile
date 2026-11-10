@@ -23,7 +23,8 @@ import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import type { ContextShape, ToolCost } from "./context-shape.ts";
-import { pairedHosts } from "./sandbox/host.ts";
+import { HostCommands, pairedHosts } from "./sandbox/host.ts";
+import { JOB_ID, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
 import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
@@ -105,6 +106,7 @@ export class AgentRuntime {
 	#settings: Settings;
 	readonly workplaces: Workplaces;
 	readonly #placed: Map<string, Placed>;
+	readonly #waiting = new Set<string>();
 	readonly #shapes: Map<string, ContextShape>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	#memoryListeners = new Set<() => void>();
@@ -228,6 +230,7 @@ export class AgentRuntime {
 			triggers: triggerHost,
 			memory: { changed: () => void runtimeRef?.publishMemory() },
 			workplace: at,
+			waitForJob: (id, job) => runtimeRef?.waitForJob(id, job),
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
 			permissions: platform.permissions,
 			ask,
@@ -298,6 +301,8 @@ export class AgentRuntime {
 				await orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });
 			}
 			await orLogged(runtime.#clearLeftFolders(), "bot.clear_left_folders_failed", undefined);
+			const watching = await orLogged(runtime.triggers.watching(), "jobs.resume_failed", []);
+			for (const { conversationId, agent } of watching) if (agent.startsWith("job:")) runtime.waitForJob(conversationId, agent);
 		})();
 		return runtime;
 	}
@@ -394,6 +399,9 @@ export class AgentRuntime {
 	}
 
 	async #finishRemoval(bot: Bot): Promise<void> {
+		await Promise.all(
+			this.workplaces.hosts().map((host) => orLogged(new HostCommands(host).run(stopOwnedJobs(String(bot.id))), "bot.stop_jobs_failed", undefined, { bot: bot.folder, host: host.name })),
+		);
 		await this.triggers.removeBot(bot.id);
 		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
 		const phone = this.#platform.phone;
@@ -434,6 +442,27 @@ export class AgentRuntime {
 			const kept = items.filter((item) => !cleared.has(`${item.computer}\n${item.folder}`));
 			items.splice(0, items.length, ...kept);
 		}, context);
+	}
+
+	waitForJob(id: ConversationId, job: string): void {
+		const key = `${String(id)}\n${job}`;
+		const place = this.workplaces.at(String(id));
+		const jobId = job.slice("job:".length);
+		if (this.#waiting.has(key) || place?.kind !== "computer" || !JOB_ID.test(jobId)) return;
+		this.#waiting.add(key);
+		const waited = new HostCommands(place.host).run(waitJob(jobId)).then(async (ended) => {
+			if (ended.code === 0) await this.triggers.checkWatch(id, job);
+		});
+		void orLogged(waited, "jobs.wait_failed", undefined, { job }).finally(() => this.#waiting.delete(key));
+	}
+
+	async stopJob(id: ConversationId, job: string): Promise<void> {
+		const place = this.workplaces.at(String(id));
+		const jobId = job.slice("job:".length);
+		if (place?.kind !== "computer" || !JOB_ID.test(jobId)) return;
+		const stopped = await new HostCommands(place.host).run(stopJob(jobId));
+		if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
+		await this.triggers.stopWatching(id, job);
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {

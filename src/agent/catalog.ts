@@ -7,7 +7,8 @@ import { createMemoryExtension } from "./memory.ts";
 import { createFilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";
-import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { CodingTools, createBashTool } from "@earendil-works/pi-durable/tools";
+import { BACKGROUND_NOTE, jobsOnComputers } from "../jobs/bash.ts";
 import { SkillsExtension } from "./skills.ts";
 import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
@@ -51,6 +52,7 @@ interface CatalogDeps {
 	triggers: TriggerHost;
 	memory: { changed(): void };
 	workplace: (conversationId: string) => Workplace | undefined;
+	waitForJob: (conversationId: ConversationId, job: string) => void;
 	labelOf: (tool: string, extension: string, conversationId: string) => string | undefined;
 	actsAsUser: ActsAsUser;
 	permissions: PhonePermissions;
@@ -72,7 +74,15 @@ function groupsOf(tool: ToolRegistration): Groups {
 }
 
 export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; owners: ReadonlyMap<string, Groups> } {
-	for (const tool of CodingTools.tools ?? []) adopt(tool, { groups: ["files", "computer_shell"], effect: "direct", needs: [] });
+	const bash = createBashTool();
+	const jobBash = { ...bash, description: bash.description + BACKGROUND_NOTE, execute: jobsOnComputers(bash.execute, deps.workplace, deps.triggers, deps.waitForJob) };
+	const codingTools = (CodingTools.tools ?? []).map((tool) =>
+		adopt(tool.name === bash.name ? jobBash : tool, {
+			groups: ["files", "computer_shell"],
+			effect: "direct",
+			needs: [],
+		}),
+	);
 	const extensions: Extension[] = [
 		deps.assistant,
 		BotExtension,
@@ -107,7 +117,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createFilesExtension(deps.workplace),
 		createComputerExtension(deps.workplace),
 		createComputerAgentsExtension(deps.workplace, deps.triggers, deps.userSaid),
-		CodingTools,
+		{ ...CodingTools, tools: codingTools },
 		toolSearch(),
 		createOnDemandExtension(deps.labelOf),
 		ToolFilterExtension,

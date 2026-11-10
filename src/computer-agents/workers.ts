@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { checkJson } from "../parse.ts";
 import { shellQuote } from "../agent/shell.ts";
+import { JOB_ID, JOBS, type Job, parseJob, readJob } from "../jobs/commands.ts";
 
 export type Status = "idle" | "working" | "needs_user" | "unknown";
 
@@ -24,8 +25,6 @@ const FIND = [
 ].join("; ");
 const HERDR = '"$herdr"';
 const REX = '"$rex" --autostart=false';
-const JOBS = '"$HOME/.pi-mobile/jobs"';
-const JOB_ID = /^[0-9a-f]{8}$/;
 const DAY_MINUTES = 1440;
 const SECTION = "@@";
 const SCREEN = "@@screen";
@@ -55,7 +54,8 @@ export const LIST = [
 	`find ${JOBS} -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read -r dir; do`,
 	'  [ -f "$dir/command" ] || continue',
 	`  if [ -n "$(find "$dir/exit" -mmin +${DAY_MINUTES} 2>/dev/null)" ]; then rm -rf "$dir"; continue; fi`,
-	`  echo "${SECTION}job $(basename "$dir")"; head -n 1 "$dir/command"; head -n 1 "$dir/cwd"; cat "$dir/exit" 2>/dev/null || echo`,
+	`  echo "${SECTION}job $(basename "$dir")"; head -n 1 "$dir/command"; head -n 1 "$dir/cwd"`,
+	'  if [ -f "$dir/exit" ]; then echo "$(cat "$dir/reason" 2>/dev/null || echo exited) $(cat "$dir/exit")"; elif kill -0 "$(cat "$dir/pid" 2>/dev/null)" 2>/dev/null; then echo; else echo "$(cat "$dir/reason" 2>/dev/null || echo lost)"; fi',
 	"done",
 ].join("\n");
 
@@ -132,12 +132,16 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 	];
 }
 
-function jobState(exit: string): { status: Status; doing: string } {
-	return exit ? { status: "idle", doing: `exited ${exit}` } : { status: "working", doing: "running" };
+function jobWorker(id: string, [command = "", cwd = "", ended = ""]: string[]): Worker {
+	const state = ended.trim() ? { status: "idle" as const, doing: ended.trim() } : { status: "working" as const, doing: "running" };
+	return { id: `job:${id}`, name: "", agent: "command", ...state, cwd: cwd.trim(), title: command.trim() };
 }
 
-function jobWorker(id: string, [command = "", cwd = "", exit = ""]: string[]): Worker {
-	return { id: `job:${id}`, name: "", agent: "command", ...jobState(exit.trim()), cwd: cwd.trim(), title: command.trim() };
+export function jobEnding(job: Exclude<Job, { state: "running" | "missing" }>): string {
+	if (job.state === "timed_out") return "stopped at its time limit";
+	if (job.state === "stopped") return "stopped by the user";
+	if (job.state === "lost") return "gone without an exit code (the computer restarted or something killed it)";
+	return `exited ${job.exitCode ?? "?"}`;
 }
 
 export function placeOf(id: string): Place | undefined {
@@ -153,23 +157,8 @@ const rexAt = (place: Extract<Place, { via: "rex" }>) => `-s ${shellQuote(place.
 
 const herdr = (session: string) => (session === "default" ? HERDR : `${HERDR} --session ${shellQuote(session)}`);
 
-const jobDir = (id: string) => `${JOBS}/${id}`;
-
-export function startCommand(id: string, command: string, cwd: string): string {
-	const dir = jobDir(id);
-	return [
-		`mkdir -p ${dir} && cd ${shellQuote(cwd)} || exit 3`,
-		`printf '%s\\n' ${shellQuote(command)} > ${dir}/command && pwd > ${dir}/cwd`,
-		`printf '%s\\n' 'cd "$(cat "$1/cwd")" && "\${SHELL:-/bin/sh}" -l "$1/command" > "$1/log" 2>&1; echo $? > "$1/exit.tmp" && mv "$1/exit.tmp" "$1/exit"' > ${dir}/run`,
-		`sh -c 'set -m; nohup sh "$0/run" "$0" > /dev/null 2>&1 &' ${dir}`,
-	].join("\n");
-}
-
 export function readCommand(place: Place, lines: number): string {
-	if (place.via === "job") {
-		const dir = jobDir(place.id);
-		return `[ -d ${dir} ] || { echo "no background command ${place.id}"; exit 0; }; if [ -f ${dir}/exit ]; then echo "exit $(cat ${dir}/exit)"; else echo running; fi; echo ${SCREEN}; tail -n ${lines} ${dir}/log 2>/dev/null`;
-	}
+	if (place.via === "job") return `${readJob(place.id, lines)}\necho ${SCREEN}`;
 	if (place.via === "herdr") {
 		const cli = herdr(place.session);
 		return `${FIND}; ${cli} agent get ${shellQuote(place.pane)} 2>&1; echo ${SCREEN}; ${cli} agent read ${shellQuote(place.pane)} --source recent-unwrapped --lines ${lines} 2>&1`;
@@ -187,14 +176,16 @@ export function sendCommand(place: AgentPlace, text: string): string {
 export type Reading = { ok: true; status: Status; doing: string; screen: string } | { ok: false; problem: string };
 
 export function reading(place: Place, output: string): Reading {
+	if (place.via === "job") {
+		const end = output.lastIndexOf(SCREEN);
+		const job = parseJob(end < 0 ? output : output.slice(0, end));
+		if (job.state === "missing") return { ok: false, problem: `no background command ${place.id}` };
+		return job.state === "running" ? { ok: true, status: "working", doing: "running", screen: job.output.text.trim() } : { ok: true, status: "idle", doing: jobEnding(job), screen: job.output.text.trim() };
+	}
 	const at = output.indexOf(SCREEN);
 	if (at < 0) return { ok: false, problem: output.trim() };
 	const head = output.slice(0, at).trim();
 	const screen = output.slice(at + SCREEN.length).trim();
-	if (place.via === "job") {
-		if (head !== "running" && !head.startsWith("exit ")) return { ok: false, problem: head };
-		return { ok: true, ...jobState(head === "running" ? "" : head.slice("exit ".length)), screen };
-	}
 	if (place.via === "herdr") {
 		const got = checkJson(HerdrGet, head, "herdr agent get");
 		if (got.ok) return { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen };

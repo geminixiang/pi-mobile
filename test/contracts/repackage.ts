@@ -19,6 +19,7 @@ const { extensions } = builtinExtensions({
 	triggers: { changed: () => undefined, unattended: () => false, notify: async () => "shown" },
 	memory: { changed: () => undefined },
 	workplace: () => undefined,
+	waitForJob: () => undefined,
 	labelOf: (tool) => tool,
 	actsAsUser: async () => false,
 	permissions: { state: async () => "granted", request: async () => true },

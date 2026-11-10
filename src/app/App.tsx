@@ -26,6 +26,8 @@ import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
+import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
+import { WAIT_MS } from "../jobs/background.ts";
 import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
@@ -166,6 +168,12 @@ export function App() {
 
 	useEffect(() => (runtime ? runtime.subscribeBots(setBots) : undefined), [runtime]);
 	const [automations, setAutomations] = useState<readonly Trigger[]>([]);
+	const jobs = useMemo<RunningJobs | undefined>(() => {
+		if (!runtime || !controller) return undefined;
+		const id = controller.id;
+		const since = new Map(automations.flatMap((item) => (item.kind === "watch" && item.conversationId === id && item.agent.startsWith("job:") ? [[item.agent, item.createdAt - WAIT_MS] as const] : [])));
+		return { since, stop: (job) => runtime.stopJob(id, job) };
+	}, [automations, controller, runtime]);
 	useEffect(() => (runtime ? runtime.triggers.subscribe((state) => setAutomations(state.items)) : undefined), [runtime]);
 
 	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
@@ -508,6 +516,7 @@ export function App() {
 				{controller ? (
 					<OpenFileContext.Provider value={hasFolder ? openFile : undefined}>
 					<PageHostContext.Provider value={pageHost}>
+					<JobsContext.Provider value={jobs}>
 					<Chat
 						key={`${String(controller.id)}-${chatKey}`}
 						controller={controller}
@@ -525,6 +534,7 @@ export function App() {
 						onError={notify}
 						contextShare={contextWindow > 0 ? used / contextWindow : 0}
 					/>
+					</JobsContext.Provider>
 					</PageHostContext.Provider>
 					</OpenFileContext.Provider>
 				) : (
