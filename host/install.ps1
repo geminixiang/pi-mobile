@@ -1,4 +1,6 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
+# why: Windows decodes a program's output with the console code page (Big5 on Chinese Windows), which mangles the UTF-8 JSON tailscale prints
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 
 $Repo = "geminixiang/pi-mobile"
 $Dir = Join-Path $HOME ".pi\mobile"

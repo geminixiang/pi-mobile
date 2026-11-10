@@ -19,6 +19,11 @@ import (
 var (
 	user32 = windows.NewLazySystemDLL("user32.dll")
 	gdi32  = windows.NewLazySystemDLL("gdi32.dll")
+	imm32  = windows.NewLazySystemDLL("imm32.dll")
+
+	immGetDefaultIMEWnd = imm32.NewProc("ImmGetDefaultIMEWnd")
+	getGUIThreadInfo    = user32.NewProc("GetGUIThreadInfo")
+	sendMessageTimeout  = user32.NewProc("SendMessageTimeoutW")
 
 	setDpiAwarenessContext = user32.NewProc("SetProcessDpiAwarenessContext")
 	setProcessDPIAware     = user32.NewProc("SetProcessDPIAware")
@@ -510,11 +515,52 @@ func textRecords(text string) [][]inputRecord {
 func (s *winScreen) typeText(text string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, chunk := range textRecords(text) {
-		if err := send(chunk); err != nil {
-			return err
+	return withInputMethodClosed(func() error {
+		for _, chunk := range textRecords(text) {
+			if err := send(chunk); err != nil {
+				return err
+			}
+			time.Sleep(10 * time.Millisecond)
 		}
-		time.Sleep(10 * time.Millisecond)
+		return nil
+	})
+}
+
+const (
+	wmIMEControl     = 0x0283
+	imcGetOpenStatus = 0x0005
+	imcSetOpenStatus = 0x0006
+	smtoAbortIfHung  = 0x0002
+)
+
+type guiThreadInfo struct {
+	size, flags                                        uint32
+	active, focus, capture, menuOwner, moveSize, caret uintptr
+	caretRect                                          [4]int32
+}
+
+func focusedWindow() uintptr {
+	info := guiThreadInfo{size: uint32(unsafe.Sizeof(guiThreadInfo{}))}
+	if ok, _, _ := getGUIThreadInfo.Call(0, uintptr(unsafe.Pointer(&info))); ok != 0 && info.focus != 0 {
+		return info.focus
 	}
-	return nil
+	front, _, _ := getForegroundWindow.Call()
+	return front
+}
+
+func inputMethod(ime, command, value uintptr) uintptr {
+	var result uintptr
+	sendMessageTimeout.Call(ime, wmIMEControl, command, value, smtoAbortIfHung, 200, uintptr(unsafe.Pointer(&result)))
+	return result
+}
+
+// why: an open Chinese or Japanese input method composes typed characters instead of inserting them, so the next return only confirms them
+func withInputMethodClosed(typing func() error) error {
+	ime, _, _ := immGetDefaultIMEWnd.Call(focusedWindow())
+	if ime == 0 || inputMethod(ime, imcGetOpenStatus, 0) == 0 {
+		return typing()
+	}
+	inputMethod(ime, imcSetOpenStatus, 0)
+	defer inputMethod(ime, imcSetOpenStatus, 1)
+	return typing()
 }

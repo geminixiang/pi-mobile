@@ -161,9 +161,16 @@ function installerRule(): Finding[] {
 	);
 }
 
+function powershellRule(): Finding[] {
+	return checkedFiles()
+		.filter((file) => file.endsWith(".ps1") && !readFileSync(file).subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])))
+		.map((file) => ({ file, line: 1, rule: "save this script as UTF-8 with a BOM: Windows PowerShell 5.1 reads a .ps1 without one as the system code page, and its Chinese breaks the script" }));
+}
+
 const all = [
 	...javaRule(),
 	...installerRule(),
+	...powershellRule(),
 	...checkedFiles()
 		.filter((file) => SCRIPT_FILE.test(file) && !DEVICE_SCRIPTS.test(file))
 		.flatMap(findings),
