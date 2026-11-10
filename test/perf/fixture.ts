@@ -1,12 +1,15 @@
 import { execFileSync } from "node:child_process";
 
 const BOT = "測試效能";
-const PROVIDER = { kind: "custom", id: "perf", name: "perf", baseUrl: "http://localhost:8399" };
+const BASE_URL = process.env.PERF_BASE_URL ?? "http://localhost:8399";
+const PROVIDER = { kind: "custom", id: "perf", name: "perf", baseUrl: BASE_URL };
 const KEY = "capacitor-storage_provider.perf.apiKey";
 const ANSWERS = 30;
 
 const [command, serial] = process.argv.slice(2);
-if ((command !== "setup" && command !== "teardown") || !serial) throw new Error("Usage: node test/perf/fixture.ts setup|teardown <adb serial>");
+if ((command !== "setup" && command !== "teardown") || !serial) throw new Error("Usage: node test/perf/fixture.ts setup|teardown <adb serial | ios>");
+const ios = serial === "ios";
+if (ios && !process.env.PERF_BASE_URL) throw new Error("The iPhone reaches the fixture model over the tailnet: set PERF_BASE_URL=http://<this Mac's tailnet name>:8399 and start the server with PERF_HOST=<this Mac's tailnet IP>");
 
 const ui = (body: string) => execFileSync("./test/device/ui.sh", [`async () => { ${body} }`], { encoding: "utf8", env: process.env });
 const reloadAndWait = () => {
@@ -16,17 +19,15 @@ const reloadAndWait = () => {
 };
 
 if (command === "setup") {
-	const adbPath = process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
-	execFileSync(adbPath, ["-s", serial, "reverse", "tcp:8399", "tcp:8399"]);
-	const models = await fetch("http://127.0.0.1:8399/v1/models").then(
+	if (!ios) execFileSync(process.env.ADB ?? `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`, ["-s", serial, "reverse", "tcp:8399", "tcp:8399"]);
+	const models = await fetch(`${ios ? BASE_URL : "http://127.0.0.1:8399"}/v1/models`).then(
 		(response) => response.ok,
 		() => false,
 	);
 	if (!models) throw new Error("Start the fixture model first: node test/perf/server.ts");
 	ui(`
 		const settings = JSON.parse(localStorage["pi-mobile.settings"]);
-		const providers = JSON.parse(settings.providers);
-		if (!providers.some((p) => p.id === "perf")) providers.push(${JSON.stringify(PROVIDER)});
+		const providers = [...JSON.parse(settings.providers).filter((p) => p.id !== "perf"), ${JSON.stringify(PROVIDER)}];
 		settings.providers = JSON.stringify(providers);
 		localStorage["pi-mobile.settings"] = JSON.stringify(settings);
 		await window.Capacitor.Plugins.SecureStorage.internalSetItem({ prefixedKey: "${KEY}", data: JSON.stringify("perf"), sync: false, access: 0 });
@@ -61,7 +62,7 @@ if (command === "setup") {
 			settings.providers = JSON.stringify(JSON.parse(settings.providers).filter((p) => p.id !== "perf"));
 			if (settings.defaultProvider === "perf") delete settings.defaultProvider;
 			localStorage["pi-mobile.settings"] = JSON.stringify(settings);
-			localStorage.removeItem("pi-mobile.models:http://localhost:8399");
+			localStorage.removeItem("pi-mobile.models:${BASE_URL}");
 			await window.Capacitor.Plugins.SecureStorage.internalRemoveItem({ prefixedKey: "${KEY}", sync: false });
 			if (bot && localStorage["pi-mobile.lastBot"] === String(bot.id)) localStorage.removeItem("pi-mobile.lastBot");
 			return { removed: bot?.id ?? null };

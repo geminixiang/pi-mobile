@@ -4,6 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const PERF_MODEL = "perf-fixture";
 const PORT = Number(process.env.PERF_PORT ?? "8399");
+const HOST = process.env.PERF_HOST ?? "127.0.0.1";
 const BURST_MS = 150;
 const EVENTS_PER_BURST = 6;
 const CHARS_PER_EVENT = 6;
@@ -97,4 +98,4 @@ createServer(async (request, response) => {
 		return;
 	}
 	response.writeHead(404, CORS).end();
-}).listen(PORT, "127.0.0.1", () => console.log(`perf model on 127.0.0.1:${PORT}`));
+}).listen(PORT, HOST, () => console.log(`perf model on ${HOST}:${PORT}`));

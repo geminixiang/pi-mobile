@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 
 const PI = "dev.geminixiang.pimobile/";
 
-type Reply = { result?: { value?: unknown }; exceptionDetails?: { exception?: { description?: string } } };
+type Reply = { result?: { value?: unknown; objectId?: string; description?: string }; exceptionDetails?: { exception?: { description?: string } }; wasThrown?: boolean };
 
 const PAGE_HELPERS = `
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,9 +48,12 @@ export class Page {
 
 	async eval<T>(body: string): Promise<T> {
 		const expression = `(async () => { ${PAGE_HELPERS} ${body} })()`;
-		const { result, exceptionDetails } = await this.command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
-		if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? JSON.stringify(exceptionDetails));
-		return result?.value as T;
+		// why: the iPhone's CDP bridge (pymobiledevice3) ignores awaitPromise on evaluate, and reports a throw as wasThrown instead of exceptionDetails
+		const started = await this.command("Runtime.evaluate", { expression });
+		const settled = started.exceptionDetails || started.wasThrown ? started : await this.command("Runtime.awaitPromise", { promiseObjectId: started.result?.objectId, returnByValue: true });
+		if (settled.exceptionDetails) throw new Error(settled.exceptionDetails.exception?.description ?? JSON.stringify(settled.exceptionDetails));
+		if (settled.wasThrown) throw new Error(settled.result?.description ?? "the page threw");
+		return settled.result?.value as T;
 	}
 
 	command(method: string, params: object): Promise<Reply> {
