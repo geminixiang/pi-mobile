@@ -1,6 +1,6 @@
 ---
 name: release
-description: Publish a pi-mobile release (version bump, notes, full perf on the S24 when the screen changed, tag, GitHub workflow, putting the official APK back on the phone, TestFlight for the iPhone). Use when the user asks to release or 發版.
+description: Publish a pi-mobile release (version bump, notes, full perf on the S24 and the iPhone when the screen changed, tag, GitHub workflow, putting the official APK back on the phone, TestFlight for the iPhone). Use when the user asks to release or 發版.
 ---
 
 # Release
@@ -35,6 +35,21 @@ APK is not debuggable, so everything measured runs on a dev build of the same co
    between 8.5 and 16.7/24 from one launch to the next; stream `gfxFrames` at about 1550 or about 2920; typing
    `gpuP99` 4950 (see docs/development.md § 效能量測). A real-looking regression is confirmed with fresh installs
    of both versions before anyone is told. Keep `rel-<x.y.z>.json`; delete other outputs.
+
+   **The iPhone too**, in the same releases, when it is reachable (`.pi/skills/device-testing/SKILL.md` § iOS: the
+   CDP bridge on `$MBA` forwarded to 9223, the phone unlocked with pi in front). Install a Debug build of the same
+   commit first (that skill's build and `devicectl device install app` steps), then:
+   ```sh
+   PERF_HOST=<this Mac's tailnet IP> node test/perf/server.ts &
+   export CDP_PORT=9223 PERF_BASE_URL=http://<this Mac's tailnet name>:8399
+   node test/perf/fixture.ts setup ios
+   node test/perf/run.ts --ios --label rel-<x.y.z>-iphone --compare test/perf/out/rel-<previous>-iphone.json
+   node test/perf/fixture.ts teardown ios
+   ```
+   The first release measured on the iPhone has no file to compare with: drop `--compare`. Compare iPhone numbers
+   only with iPhone numbers. Keep `rel-<x.y.z>-iphone.json`. When the iPhone is not reachable, say so in the release
+   commit's body (`perf iphone: skipped, not reachable`) and go on; the user puts the TestFlight build back on it in
+   step 7.
 5. **Commit and tag**: `npm run check`, then commit only package.json, package-lock.json and the notes as
    `chore(release): <x.y.z>`, `git tag v<x.y.z>`, `git push origin main v<x.y.z>`. The workflow
    (`.github/workflows/release.yml`) fails when the tag and package.json differ; it builds the APK and host binaries
