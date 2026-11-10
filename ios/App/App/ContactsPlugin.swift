@@ -7,7 +7,7 @@ import UIKit
 public final class ContactsPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "ContactsPlugin"
     public let jsName = "Contacts"
-    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "search", returnType: CAPPluginReturnPromise)]
+    public let pluginMethods: [CAPPluginMethod] = ["search", "checkPermissions", "requestPermissions"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
 
     private let store = CNContactStore()
     private let keys: [CNKeyDescriptor] = [
@@ -37,6 +37,15 @@ public final class ContactsPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Senda
                 if granted { DispatchQueue.global(qos: .userInitiated).async(execute: then) } else { call.reject("contacts permission denied", "permission") }
             }
         }
+    }
+
+    @objc override public func checkPermissions(_ call: CAPPluginCall) {
+        let status = CNContactStore.authorizationStatus(for: .contacts)
+        call.resolve(["contacts": status == .authorized || status == .limited ? "granted" : status == .notDetermined ? "prompt" : "denied"])
+    }
+
+    @objc override public func requestPermissions(_ call: CAPPluginCall) {
+        store.requestAccess(for: .contacts) { _, _ in self.checkPermissions(call) }
     }
 
     private static func birthday(_ parts: DateComponents?) -> String? {

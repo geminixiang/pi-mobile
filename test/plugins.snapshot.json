@@ -1700,7 +1700,9 @@
 		},
 		"events": {},
 		"ios": [
-			"search"
+			"search",
+			"checkPermissions",
+			"requestPermissions"
 		]
 	},
 	{
@@ -2630,6 +2632,8 @@
 		},
 		"events": {},
 		"ios": [
+			"checkPermissions",
+			"requestPermissions",
 			"getStatus",
 			"getLocation",
 			"readSensors",
@@ -3665,6 +3669,8 @@
 		},
 		"events": {},
 		"ios": [
+			"checkPermissions",
+			"requestPermissions",
 			"search",
 			"view"
 		]

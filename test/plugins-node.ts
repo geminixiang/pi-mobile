@@ -46,6 +46,8 @@ for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".kt"))) 
 }
 
 for (const [name, methods] of ios) {
+	const missing = [...INHERITED_ON_ANDROID].filter((method) => contracts.get(name)?.has(method) && !methods.has(method));
+	if (missing.length) failures.push(`iOS ${name} does not list ${missing.join(" and ")} in its pluginMethods: Capacitor still announces them to the page, and a call then never answers, so a tool waiting on the permission check hangs; implement them as CalendarPlugin.swift does`);
 	if (methods.has("checkPermissions") && !methods.has("requestPermissions")) failures.push(`iOS ${name} reports permissions but cannot ask for them, so the permission card's 允許 does nothing: add requestPermissions to its pluginMethods`);
 }
 

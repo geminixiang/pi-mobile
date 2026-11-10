@@ -13,7 +13,7 @@ private let fixTimeout: TimeInterval = 20
 public final class PhonePlugin: CAPPlugin, CAPBridgedPlugin, @MainActor CLLocationManagerDelegate, @unchecked Sendable {
     public let identifier = "PhonePlugin"
     public let jsName = "Phone"
-    public let pluginMethods: [CAPPluginMethod] = ["getStatus", "getLocation", "readSensors", "geocode"].map {
+    public let pluginMethods: [CAPPluginMethod] = ["getStatus", "getLocation", "readSensors", "geocode", "checkPermissions", "requestPermissions"].map {
         CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)
     }
 
@@ -24,6 +24,7 @@ public final class PhonePlugin: CAPPlugin, CAPBridgedPlugin, @MainActor CLLocati
         return manager
     }()
     @MainActor private var headings: [(CLHeading) -> Void] = []
+    @MainActor private var authorizing: [CAPPluginCall] = []
     @MainActor private let altimeter = CMAltimeter()
     @MainActor private let motion = CMMotionManager()
 
@@ -61,6 +62,36 @@ public final class PhonePlugin: CAPPlugin, CAPBridgedPlugin, @MainActor CLLocati
                     call.reject("no location fix within \(Int(fixTimeout)) seconds", "timeout")
                 }
             }
+        }
+    }
+
+    @objc override public func checkPermissions(_ call: CAPPluginCall) {
+        Task { @MainActor in call.resolve(["location": Self.permission(self.locations.authorizationStatus)]) }
+    }
+
+    @objc override public func requestPermissions(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            guard self.locations.authorizationStatus == .notDetermined else {
+                call.resolve(["location": Self.permission(self.locations.authorizationStatus)])
+                return
+            }
+            self.authorizing.append(call)
+            self.locations.requestWhenInUseAuthorization()
+        }
+    }
+
+    @MainActor public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard manager.authorizationStatus != .notDetermined else { return }
+        let waiting = authorizing
+        authorizing = []
+        for call in waiting { call.resolve(["location": Self.permission(manager.authorizationStatus)]) }
+    }
+
+    private static func permission(_ status: CLAuthorizationStatus) -> String {
+        switch status {
+        case .authorizedAlways, .authorizedWhenInUse: "granted"
+        case .notDetermined: "prompt"
+        default: "denied"
         }
     }
 

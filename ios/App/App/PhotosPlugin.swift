@@ -7,7 +7,7 @@ import UIKit
 public final class PhotosPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "PhotosPlugin"
     public let jsName = "Photos"
-    public let pluginMethods: [CAPPluginMethod] = ["search", "view"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+    public let pluginMethods: [CAPPluginMethod] = ["search", "view", "checkPermissions", "requestPermissions"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
 
     private var allowed: Bool {
         [.authorized, .limited].contains(PHPhotoLibrary.authorizationStatus(for: .readWrite))
@@ -31,6 +31,15 @@ public final class PhotosPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendabl
                 if [.authorized, .limited].contains(status) { DispatchQueue.global(qos: .userInitiated).async(execute: then) } else { call.reject("photos permission denied", "permission") }
             }
         }
+    }
+
+    @objc override public func checkPermissions(_ call: CAPPluginCall) {
+        let undecided = PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined
+        call.resolve(["photos": allowed ? "granted" : undecided ? "prompt" : "denied"])
+    }
+
+    @objc override public func requestPermissions(_ call: CAPPluginCall) {
+        PHPhotoLibrary.requestAuthorization(for: .readWrite) { _ in self.checkPermissions(call) }
     }
 
     private func millis(_ date: Date?) -> Int64 {
