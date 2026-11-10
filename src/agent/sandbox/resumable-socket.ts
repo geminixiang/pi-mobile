@@ -6,7 +6,7 @@ import type { Network } from "../network.ts";
 export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type Link = "up" | "reattaching" | "offline";
-type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
+export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
 export interface ResumableOptions {
 	first: URL;

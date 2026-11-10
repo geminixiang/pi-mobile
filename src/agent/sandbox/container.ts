@@ -71,7 +71,7 @@ export interface CommandChannel {
 }
 
 export interface CommandClient {
-	exec(command: string, handlers: CommandHandlers, session?: string): Promise<CommandChannel>;
+	exec(command: string, handlers: CommandHandlers, daemonToken?: string): Promise<CommandChannel>;
 	run(command: string, input?: Uint8Array): Promise<{ stdout: string; stderr: string; code: number | undefined }>;
 }
 

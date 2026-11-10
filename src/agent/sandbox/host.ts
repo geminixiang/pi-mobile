@@ -15,9 +15,9 @@ import { log } from "../../log.ts";
 import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
 import { daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SharedEnvs } from "./sandbox.ts";
-import { deviceNetwork } from "../network.ts";
+import { deviceNetwork, type Network } from "../network.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
-import { RESUME_LIMIT_MS, type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
+import { type OpenRaw, RESUME_LIMIT_MS, type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { decode, decodeEach, oneOf, parseJson } from "../../parse.ts";
 import { onFailure, untilFailure } from "../../promise.ts";
@@ -172,12 +172,17 @@ export async function listPeers(host: Reach): Promise<Peer[]> {
 	return Value.Check(Peers, peers) ? peers : [];
 }
 
+export type Dial = { open: OpenRaw; network: Network };
+
+const deviceDial: Dial = { open: openSocket, network: deviceNetwork };
+
 function holdSocket(
 	reach: Reach,
 	what: string,
 	path: "/exec" | "/env",
 	first: Record<string, string>,
 	token: string,
+	dial: Dial,
 	handlers: Pick<ResumableOptions, "onMessage" | "onClose" | "onLink">,
 ): Promise<ResumableSocket> {
 	return ResumableSocket.connect({
@@ -185,8 +190,7 @@ function holdSocket(
 		resumeLimitMs: RESUME_LIMIT_MS,
 		first: socketUrl(reach, path, first),
 		attach: (received) => socketUrl(reach, path, { attach: token, received: String(received) }),
-		open: openSocket,
-		network: deviceNetwork,
+		...dial,
 		what,
 		...handlers,
 	}).catch((error: unknown) => explained(reach, error));
@@ -222,49 +226,42 @@ const DAEMON_QUIET_LIMIT_MS = 20_000;
 
 export class HostCommands implements CommandClient {
 	readonly #host: Pick<PairedHost, "address" | "name" | "key">;
+	readonly #dial: Dial;
 
-	constructor(host: Pick<PairedHost, "address" | "name" | "key">) {
+	constructor(host: Pick<PairedHost, "address" | "name" | "key">, dial = deviceDial) {
 		this.#host = host;
+		this.#dial = dial;
 	}
 
-	async exec(command: string, handlers: CommandHandlers, session?: string): Promise<CommandChannel> {
+	async exec(command: string, handlers: CommandHandlers, daemonToken?: string): Promise<CommandChannel> {
 		let exited = false;
+		const opened = Promise.withResolvers<ResumableSocket>();
 		const exit = (code: number | undefined) => {
 			if (exited) return;
 			exited = true;
+			if (code !== undefined) void opened.promise.then((socket) => socket.close());
 			handlers.onExit(code);
 		};
-		const onMessage = (data: RawMessage) => {
-			if (typeof data === "string") {
-				const message = decode(ExitMessage, data);
-				if (message) exit(message.exit);
-				return;
-			}
-			const bytes = new Uint8Array(data);
-			if (bytes[0] === wire.stdout) handlers.onStdout(bytes.subarray(1));
-			else if (bytes[0] === wire.stderr) handlers.onStderr?.(bytes.subarray(1));
-		};
-		if (session) {
-			const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, heartbeat: wire.heartbeat }, session, {
-				onMessage,
-				onClose: () => exit(undefined),
-				...(handlers.onLink ? { onLink: handlers.onLink } : {}),
-			});
-			return {
-				write: (data) => resumable.send(data.slice()),
-				end: () => resumable.send(wire.endOfInput),
-				close: () => resumable.close(),
-			};
-		}
-		const socket = await openSocket(socketUrl(this.#host, "/exec", { command }), this.#host.name, onMessage, () => exit(undefined)).catch((error: unknown) => explained(this.#host, error));
+		const session = daemonToken ?? crypto.randomUUID().replaceAll("-", "");
+		const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, ...(daemonToken ? { heartbeat: wire.heartbeat } : {}) }, session, this.#dial, {
+			onMessage: (data) => {
+				if (typeof data === "string") {
+					const message = decode(ExitMessage, data);
+					if (message) exit(message.exit);
+					return;
+				}
+				const bytes = new Uint8Array(data);
+				if (bytes[0] === wire.stdout) handlers.onStdout(bytes.subarray(1));
+				else if (bytes[0] === wire.stderr) handlers.onStderr?.(bytes.subarray(1));
+			},
+			onClose: () => exit(undefined),
+			...(handlers.onLink ? { onLink: handlers.onLink } : {}),
+		});
+		opened.resolve(resumable);
 		return {
-			write: (data) => {
-				if (socket.readyState === WebSocket.OPEN) socket.send(data.slice());
-			},
-			end: () => {
-				if (socket.readyState === WebSocket.OPEN) socket.send(wire.endOfInput);
-			},
-			close: () => socket.close(),
+			write: (data) => resumable.send(data.slice()),
+			end: () => resumable.send(wire.endOfInput),
+			close: () => resumable.close(),
 		};
 	}
 
@@ -361,7 +358,7 @@ export class HostSandbox implements Sandbox {
 	#direct(): OpenDaemon {
 		return async (token, handlers) => {
 			const sha = await this.#daemon();
-			const socket = await holdSocket(this.host, `${this.host.name}（${this.host.address}）`, "/env", { daemon: sha, token }, token, {
+			const socket = await holdSocket(this.host, `${this.host.name}（${this.host.address}）`, "/env", { daemon: sha, token }, token, deviceDial, {
 				onMessage: (data) => {
 					if (data instanceof ArrayBuffer) handlers.onData(new Uint8Array(data));
 				},
@@ -429,14 +426,17 @@ export class HostStdioTransport implements McpTransport {
 	readonly #error = new Set<McpTransportErrorListener>();
 	readonly #close = new Set<McpTransportCloseListener>();
 
-	constructor(reach: Reach, command: string) {
+	readonly #dial: Dial;
+
+	constructor(reach: Reach, command: string, dial = deviceDial) {
 		this.#reach = reach;
 		this.#command = command;
+		this.#dial = dial;
 	}
 
 	async start(): Promise<void> {
 		let stderr = "";
-		this.#channel = await new HostCommands({ ...this.#reach, name: this.#reach.address }).exec(this.#command, {
+		this.#channel = await new HostCommands({ ...this.#reach, name: this.#reach.address }, this.#dial).exec(this.#command, {
 			onStdout: lineReader((raw) => {
 				const line = raw.trim();
 				if (!line) return;

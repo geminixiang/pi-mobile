@@ -128,7 +128,8 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			if (!before.ok) throw new Error(`Could not reach ${args.agent}: ${before.problem}`);
 			if (before.status !== "idle") throw new Error(`${args.agent}${before.doing ? ` (${before.doing})` : ""} ${NOT_READY[before.status]}`);
 			const sent = await commands.run(sendCommand(place, args.task));
-			const problem = sent.code === 0 ? sendProblem(place, sent.stdout) : sent.stdout.trim() || sent.stderr.trim() || `exit ${sent.code ?? "unknown"}`;
+			if (sent.code === undefined) throw new Error(`The link to the computer dropped before it said whether ${args.agent} got the task: read_agent to see whether it is working on it before telling it again.`);
+			const problem = sent.code === 0 ? sendProblem(place, sent.stdout) : sent.stdout.trim() || sent.stderr.trim() || `exit ${sent.code}`;
 			if (problem) throw new Error(`The task did not reach ${args.agent}: ${problem}`);
 			const watched = await watch(api, context, args.agent, `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}.`);
 			return text(watched ? `${args.agent} has the task. Answer the user now: the phone wakes you here when it is idle again or needs the user, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `${args.agent} has the task. Check on it with read_agent.`);
@@ -163,6 +164,7 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			const move = args.option - 1 - choices.at;
 			const keys = [...Array.from({ length: Math.abs(move) }, () => (move > 0 ? "down" : "up")), "enter"];
 			const sent = await commands.run(keysCommand(place, keys));
+			if (sent.code === undefined) throw new Error(`The link to the computer dropped before it said whether ${args.agent} got the answer: read_agent to see whether it is still asking before answering again.`);
 			if (sent.code !== 0) throw new Error(`The answer did not reach ${args.agent}: ${sent.stdout.trim() || sent.stderr.trim()}`);
 			await watch(api, context, args.agent, `For the user you answered ${args.agent}'s question with "${chosen}".`);
 			return text(`Chose "${chosen}" for ${args.agent}. The phone will wake you here when it is idle again or needs the user.`);
