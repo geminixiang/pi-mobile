@@ -67,6 +67,7 @@ export function App() {
 	const [openError, setOpenError] = useState("");
 	const [bots, setBots] = useState<Bot[]>([]);
 	const [controller, setController] = useState<ConversationController>();
+	const [opening, setOpening] = useState<ConversationId>();
 	const [view, setView] = useState<ConversationView>();
 	const [pending, setPending] = useState<{ draft?: string; files?: readonly File[]; shared?: SharedKind; focus?: boolean }>({});
 	const [overlay, setOverlay] = useState<Overlay>();
@@ -266,6 +267,14 @@ export function App() {
 	}, [runtime, notify]);
 
 	useEffect(() => controller?.subscribe(setView), [controller]);
+	useEffect(() => {
+		if (opening === undefined || controller?.id !== opening || !view) return;
+		const frame = requestAnimationFrame(() => {
+			setOverlay(undefined);
+			setOpening(undefined);
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [opening, controller, view]);
 	const asking = useMemo(() => [...questionStates(view?.entries ?? []).values()].some((asked) => asked.state === "open"), [view?.entries]);
 
 	useEffect(() => {
@@ -448,7 +457,7 @@ export function App() {
 						busy={busy}
 						bots={bots}
 						automations={automations}
-						currentId={controller?.id}
+						currentId={opening ?? controller?.id}
 						status={[
 							{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
 							{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.workplaces.any },
@@ -456,7 +465,14 @@ export function App() {
 							{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
 							{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
 						]}
-						onOpen={(id) => void openConversation(id)}
+						onOpen={(id) => {
+							setOpening(id);
+							void openConversation(id, undefined, undefined, undefined, true).catch((error: unknown) => {
+								setOpening(undefined);
+								setOverlay(undefined);
+								throw error;
+							});
+						}}
 						onCreate={() => setBotEdit({ kind: "create" })}
 						running={busyIds}
 						onEdit={(bot) => setBotEdit({ kind: "edit", bot })}

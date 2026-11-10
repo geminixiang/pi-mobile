@@ -794,10 +794,13 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .brand { display: inline-flex; align-items: center; gap: 12px; }
 .brand-name { font-family: var(--display); font-style: italic; font-size: var(--fs-title); line-height: 1; }
 .drawer-list { --list-inset: var(--side-inset); flex: 1; overflow: hidden auto; margin: 0 -12px 0 calc(-1 * var(--side-inset)); padding-top: 12px; }
-.drawer-item { display: flex; align-items: center; padding-right: 4px; }
-.drawer-item:active { background: var(--accent-soft); }
+.drawer-item { display: flex; align-items: center; }
+.drawer-item:has(> .drawer-open:active) { background: var(--accent-soft); }
 .drawer-item.current { background: var(--panel-2); }
 .drawer-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 6px 12px var(--side-inset); text-align: left; }
+.drawer-open:active { background-color: transparent; }
+.drawer-item > .icon-button { align-self: stretch; width: 52px; height: auto; }
+.drawer-item > .icon-button:active { scale: none; }
 .drawer-title { flex: 1; display: flex; align-items: center; gap: 8px; font-size: var(--fs-ui); white-space: nowrap; overflow: hidden; }
 .drawer-time { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 .drawer-settings { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; color: var(--text); }
