@@ -203,7 +203,7 @@ export const checks: Check[] = [
 			assert(Date.now() - back < 300, "it waited for the next retry instead of reattaching when the network came back");
 			await sleep(50);
 			second.deliver(JSON.stringify({ received: 0 }));
-			assert.deepEqual(links, ["offline", "up"]);
+			assert.deepEqual(links, ["offline", "reattaching", "up"]);
 			assert.equal(closed(), null);
 			socket.close();
 		},
@@ -224,7 +224,7 @@ export const checks: Check[] = [
 			await sleep(50);
 			second.deliver(JSON.stringify({ received: 0 }));
 			assert.equal(closed(), null, `it gave up while offline: ${closed()}`);
-			assert.deepEqual(links, ["offline", "up"]);
+			assert.deepEqual(links, ["offline", "reattaching", "up"]);
 			socket.close();
 		},
 	],

@@ -94,26 +94,27 @@ class TextStream extends Events {
 	}
 }
 
+type Pipe = { kind: "opening"; queued: Uint8Array<ArrayBuffer>[] } | { kind: "open"; stream: DaemonStream } | { kind: "failed"; reason: string } | { kind: "ended" };
+
+type Line = { kind: "up" } | { kind: "down"; link: Exclude<Link, "up">; since: number; pings: ReturnType<typeof setInterval> };
+
 class DaemonProcess extends Events {
 	readonly stdout = new Events();
 	readonly stderr = new TextStream();
 	readonly #session: number;
 	readonly #marker: Buffer;
 	readonly #report: (status: ConnectionStatus) => void;
-	#stream: DaemonStream | undefined;
-	#queued: Uint8Array<ArrayBuffer>[] = [];
+	#pipe: Pipe = { kind: "opening", queued: [] };
+	#line: Line = { kind: "up" };
 	#held: Uint8Array[] = [];
 	#heldBytes = 0;
 	#need = 0;
 	#synced = false;
-	#pings: ReturnType<typeof setInterval> | undefined;
-	#failure: string | undefined;
-	#exited = false;
 	readonly stdin = {
 		write: (data: Uint8Array) => {
 			const bytes = ownsArrayBuffer(data) ? data : new Uint8Array(data);
-			if (this.#stream) this.#stream.send(bytes);
-			else this.#queued.push(bytes);
+			if (this.#pipe.kind === "open") this.#pipe.stream.send(bytes);
+			else if (this.#pipe.kind === "opening") this.#pipe.queued.push(bytes);
 		},
 		end: () => undefined,
 		on: () => undefined,
@@ -127,37 +128,44 @@ class DaemonProcess extends Events {
 		report({ kind: "connecting" });
 		open(token, { onData: (data) => this.#onData(data), onClose: (reason) => this.end(reason ?? "the computer closed the connection"), onLink: (link) => this.#onLink(link) }).then(
 			(stream) => {
-				if (this.#exited) return stream.close();
-				this.#stream = stream;
-				for (const data of this.#queued) stream.send(data);
-				this.#queued = [];
+				if (this.#pipe.kind !== "opening") return stream.close();
+				const { queued } = this.#pipe;
+				this.#pipe = { kind: "open", stream };
+				for (const data of queued) stream.send(data);
 			},
 			(error: unknown) => {
-				this.#failure = messageOf(error);
-				this.emit("error", lost(this.#failure));
-				this.end(this.#failure);
+				if (this.#pipe.kind !== "opening") return;
+				const reason = messageOf(error);
+				this.#pipe = { kind: "failed", reason };
+				this.emit("error", lost(reason));
+				this.end(reason);
 			},
 		);
 	}
 
 	kill(): void {
-		this.end(this.#failure ?? "the phone closed the connection");
+		this.end(this.#pipe.kind === "failed" ? this.#pipe.reason : "the phone closed the connection");
 	}
 
 	end(reason: string): void {
-		if (this.#exited) return;
-		this.#exited = true;
-		clearInterval(this.#pings);
-		this.#stream?.close();
+		const pipe = this.#pipe;
+		if (pipe.kind === "ended") return;
+		this.#pipe = { kind: "ended" };
+		if (this.#line.kind === "down") clearInterval(this.#line.pings);
+		if (pipe.kind === "open") pipe.stream.close();
 		this.#held = [];
-		this.#queued = [];
 		this.#report({ kind: "lost", reason, at: Date.now() });
 		this.stderr.emit("data", reason);
 		this.emit("exit", null);
 	}
 
+	#status(): ConnectionStatus {
+		if (this.#line.kind === "down") return { kind: this.#line.link, session: this.#session, since: this.#line.since };
+		return this.#synced ? { kind: "connected", session: this.#session } : { kind: "connecting" };
+	}
+
 	#onData(data: Uint8Array): void {
-		if (this.#exited) return;
+		if (this.#pipe.kind === "ended") return;
 		this.#held.push(data);
 		this.#heldBytes += data.byteLength;
 		if (this.#heldBytes < this.#need) return;
@@ -171,7 +179,7 @@ class DaemonProcess extends Events {
 			}
 			end = index + this.#marker.length;
 			this.#synced = true;
-			this.#report({ kind: "connected", session: this.#session });
+			if (this.#line.kind === "up") this.#report(this.#status());
 		}
 		while (pending.length - end >= 4) {
 			const length = pending.readUInt32BE(end);
@@ -190,10 +198,13 @@ class DaemonProcess extends Events {
 	}
 
 	#onLink(link: Link): void {
-		if (this.#exited) return;
-		clearInterval(this.#pings);
-		this.#pings = link === "up" ? undefined : setInterval(() => this.#synced && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS);
-		this.#report(link === "up" ? { kind: "connected", session: this.#session } : { kind: link, session: this.#session, since: Date.now() });
+		if (this.#pipe.kind === "ended") return;
+		if (this.#line.kind === "down") clearInterval(this.#line.pings);
+		this.#line =
+			link === "up"
+				? { kind: "up" }
+				: { kind: "down", link, since: Date.now(), pings: setInterval(() => this.#synced && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS) };
+		this.#report(this.#status());
 	}
 }
 
