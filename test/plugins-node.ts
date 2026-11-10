@@ -19,8 +19,8 @@ function scan(directory: URL, extensions: string[], plugin: RegExp, methods: (so
 	return found;
 }
 
-const android = scan(ANDROID, [".java", ".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
-	[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+(?:public\s+void|fun)\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
+const android = scan(ANDROID, [".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
+	[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+fun\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
 );
 const ios = scan(IOS, [".swift"], /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
 
@@ -39,7 +39,7 @@ for (const [name, methods] of contracts) {
 	for (const method of methods) if (!implemented?.has(method) && !INHERITED_ON_ANDROID.has(method)) failures.push(`${name}.${method} is in its contract but not implemented on Android`);
 }
 
-for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java") || name.endsWith(".kt"))) {
+for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".kt"))) {
 	if (/\bcall\.getLong\(/.test(readFileSync(new URL(file, ANDROID), "utf8"))) {
 		failures.push(`${file} reads a number with call.getLong, which returns its default for any number that fits in an int; use call.getData().optLong`);
 	}
@@ -49,9 +49,9 @@ for (const [name, methods] of ios) {
 	if (methods.has("checkPermissions") && !methods.has("requestPermissions")) failures.push(`iOS ${name} reports permissions but cannot ask for them, so the permission card's 允許 does nothing: add requestPermissions to its pluginMethods`);
 }
 
-for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".java"))) {
-	if (/^\s*\w+\.put\("\w+", cursor\.getString\(/m.test(readFileSync(new URL(file, ANDROID), "utf8"))) {
-		failures.push(`${file} puts a cursor string straight into a result: a null removes the key, and one row then fails the whole list against its contract; use Objects.toString(value, "") or skip the key`);
+for (const file of readdirSync(ANDROID).filter((name) => name.endsWith(".kt"))) {
+	if (/\.put\("\w+", cursor\.getString\((?:[^()]|\([^()]*\))*\)\)/.test(readFileSync(new URL(file, ANDROID), "utf8"))) {
+		failures.push(`${file} puts a cursor string straight into a result: a null removes the key, and one row then fails the whole list against its contract; use cursor.getString(i).orEmpty() or skip the key`);
 	}
 }
 
@@ -72,8 +72,8 @@ function unregistered(directory: URL, extensions: string[], classOf: (source: st
 	const names = new Set([...readFileSync(new URL(registry, directory), "utf8").matchAll(registered)].map((match) => match[1]));
 	return classes.filter((name) => !names.has(name));
 }
-const androidMissing = unregistered(ANDROID, [".java", ".kt"], (source) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1], "MainActivity.java", /registerPlugin\((\w+)(?:\.class|::class\.java)\)/g);
-if (androidMissing.length) failures.push(`Android plugins not registered in MainActivity.onCreate, so their tools vanish without an error: ${androidMissing.join(", ")}; add registerPlugin(X.class)`);
+const androidMissing = unregistered(ANDROID, [".kt"], (source) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1], "MainActivity.kt", /registerPlugin\((\w+)::class\.java\)/g);
+if (androidMissing.length) failures.push(`Android plugins not registered in MainActivity.onCreate, so their tools vanish without an error: ${androidMissing.join(", ")}; add registerPlugin(X::class.java)`);
 const iosMissing = unregistered(IOS, [".swift"], (source) => [...source.slice(0, Math.max(0, source.search(/jsName\s*=\s*"/))).matchAll(/class (\w+)/g)].at(-1)?.[1], "MainViewController.swift", /registerPluginInstance\((\w+)\(\)\)/g);
 if (iosMissing.length) failures.push(`iOS plugins not registered in MainViewController.capacitorDidLoad: ${iosMissing.join(", ")}; add bridge?.registerPluginInstance(X())`);
 

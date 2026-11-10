@@ -77,7 +77,7 @@ const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
 const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 	{
 		use: /\bnew WebView\(|[=(] *WebView\(/,
-		owners: ["WebPages.java"],
+		owners: ["WebPages.kt"],
 		fix: "a WebView on pi's profile shares pi's renderer, so a third-party page can freeze pi: create it with WebPages.create(context, profile)",
 	},
 	{
@@ -144,45 +144,10 @@ function borrowed(file: string): Finding[] {
 	);
 }
 
-const JAVA_LEFT = new Set([
-	"AgentService.java",
-	"AppsPlugin.java",
-	"AssistRecognitionService.java",
-	"AssistService.java",
-	"AssistSession.java",
-	"AssistSessionService.java",
-	"Background.java",
-	"CalendarPlugin.java",
-	"ContactsPlugin.java",
-	"DatabasePlugin.java",
-	"DndReceiver.java",
-	"HeadphonesReceiver.java",
-	"HealthPlugin.java",
-	"KeepAlivePlugin.java",
-	"LoopbackPlugin.java",
-	"MainActivity.java",
-	"NotificationsListener.java",
-	"NotificationsPlugin.java",
-	"NotificationStore.java",
-	"PhonePlugin.java",
-	"PhoneStatePlugin.java",
-	"PhotosPlugin.java",
-	"PlacesCache.java",
-	"RecordsPlugin.java",
-	"ScannerPlugin.java",
-	"Speaker.java",
-	"UsagePlugin.java",
-	"VoicePlugin.java",
-	"WebPages.java",
-]);
-
 function javaRule(): Finding[] {
-	const java = checkedFiles().filter((file) => file.startsWith("android/app/src/main/java/") && file.endsWith(".java"));
-	const names = new Set(java.map((file) => file.slice(file.lastIndexOf("/") + 1)));
-	return [
-		...java.filter((file) => !JAVA_LEFT.has(file.slice(file.lastIndexOf("/") + 1))).map((file) => ({ file, line: 1, rule: "new Android code is Kotlin: write this file as .kt" })),
-		...[...JAVA_LEFT].filter((name) => !names.has(name)).map((name) => ({ file: "test/code-rules.ts", line: 1, rule: `${name} is gone (moved to Kotlin?): remove it from JAVA_LEFT` })),
-	];
+	return checkedFiles()
+		.filter((file) => file.startsWith("android/app/src/main/") && file.endsWith(".java"))
+		.map((file) => ({ file, line: 1, rule: "Android code is Kotlin: write this file as .kt" }));
 }
 
 // why: joined at run time so this file does not contain the address it forbids

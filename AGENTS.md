@@ -22,7 +22,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Few regular expressions: reach for string methods (`startsWith`, `includes`, `split`, `slice`) or a real parser first. A regex is for a genuine pattern, kept short and held in a named constant; a long or stacked one is a sign the input wants parsing.
 - Names are complete but not wordy: one precise word (`save`, not `saveFileToDiskAndNotify`), with types and placement carrying the rest.
 - Code is grouped by feature: one folder holds a feature's UI, logic, plugin wrapper and tool (`src/browser/`). New features start that way; an existing feature moves into its folder when it is refactored.
-- Android code is Kotlin from here on: new native files are Kotlin, and a Java file becomes Kotlin when it is refactored.
+- Android code is Kotlin: no Java file in `android/app/src/main/`.
 - Models to read like: the pi packages (`@earendil-works/*`), the Go standard library, and type-driven Elm/Rust code.
 - Store a value once: what can be computed from state, props, or a store is computed where it is used, not kept in its own `useState`, ref, or field (keep the selected id, derive the selected item from the list).
 - Before adding code for a speculative race, edge case, or security concern, state the concrete failure, how likely it is, and what the code costs, and get the user's buy-in; over-design is itself a mistake.
@@ -61,7 +61,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
 | Every step action and key the phone screen and the browser declare is read by their Kotlin side | `test/plugins-node.ts` |
 | Every native plugin class is registered (`MainActivity`, `MainViewController`) | `test/plugins-node.ts` |
-| An iOS plugin that reports permissions can also ask for them; a Java plugin never puts a cursor string straight into a result | `test/plugins-node.ts` |
+| An iOS plugin that reports permissions can also ask for them; an Android plugin never puts a cursor string straight into a result | `test/plugins-node.ts` |
 | Every schedule kind and activity in `src/triggers/plugin.ts` is read by the Android side (`Schedule.kt`, `ActivityTrigger.kt`) | `test/plugins-node.ts` |
 | Every native call in a tool file is in its tools' `needs` or checked with `native.implements` first | `test/tools-node.ts` |
 | A tool that needs a native method marked `opens: "screen"` declares `effect: "screen"`, and only the catalog calls `openScreen` | `test/tools-node.ts`, `test/code-rules.ts` |
@@ -74,7 +74,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | A JSX `style` sets only `--custom-properties`; a `transition` never names a layout property | `test/code-rules.ts`, Stylelint (`stylelint/transition-no-layout.js`) |
 | No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`) | Stylelint (`selector-pseudo-class-disallowed-list`) |
 | Font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`declaration-property-value-allowed-list`) |
-| New Android files are Kotlin; the Java files left only shrink (`JAVA_LEFT`) | `test/code-rules.ts` |
+| Android code is Kotlin: no `.java` file | `test/code-rules.ts` |
 | A bot's tools are its toolsets (`Bot.off`) and place projected onto tool names (`removedTools`), written only by `BotToolsets`; a tool result cannot switch a tool back on (`ToolFilterExtension` is the only reader of `addTools` and the last `afterTool`) | `test/contracts/where.ts`, `test/contracts/bots.ts`, `test/toolsets.ts`, `test/code-rules.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `removedTools`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |

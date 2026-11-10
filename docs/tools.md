@@ -90,7 +90,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ### 原生 plugin
 
-工具和 app 呼叫的原生功能（Android 的 Java plugin、iOS 的 Swift plugin）都在 `src/plugins/` 有一份 contract：每個方法的參數和回傳 schema，以及事件的 schema。它是兩個平台要照著實作的介面。
+工具和 app 呼叫的原生功能（Android 的 Kotlin plugin、iOS 的 Swift plugin）都在 `src/plugins/` 有一份 contract：每個方法的參數和回傳 schema，以及事件的 schema。它是兩個平台要照著實作的介面。
 
 - 一律用 `definePlugin`（`src/plugins/define.ts`）宣告，不直接用 `registerPlugin`（檢查會擋）。
 - 回傳的資料在呼叫時用 contract 驗證一次，不符就丟出「`X.y`格式不符」的錯誤；事件不符就記一筆 `plugin.event_mismatch` 並略過。這支手機沒實作的方法，呼叫時丟「`X.y` is not available on this device」。
