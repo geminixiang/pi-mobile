@@ -94,19 +94,23 @@ type keyInput struct {
 	extra    uintptr
 }
 
+// why: INPUT is a C union; Go may drop the gaps between fields when it copies a struct, and the keyboard member's dwExtraInfo lies in a gap of the mouse member, so the union is plain bytes.
 type inputRecord struct {
+	_     [0]uint64
 	kind  uint32
-	mouse mouseInput
+	_     uint32
+	union [32]byte
 }
 
 func mouseRecord(m mouseInput) inputRecord {
-	return inputRecord{kind: inputMouse, mouse: m}
+	record := inputRecord{kind: inputMouse}
+	*(*mouseInput)(unsafe.Pointer(&record.union)) = m
+	return record
 }
 
 func keyRecord(k keyInput) inputRecord {
 	record := inputRecord{kind: inputKeyboard}
-	// why: INPUT is a C union; the keyboard member is smaller than the mouse one and shares its memory.
-	*(*keyInput)(unsafe.Pointer(&record.mouse)) = k
+	*(*keyInput)(unsafe.Pointer(&record.union)) = k
 	return record
 }
 

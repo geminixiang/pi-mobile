@@ -6,8 +6,8 @@ import (
 )
 
 func TestInputRecordIsTheSizeOfWindowsINPUT(t *testing.T) {
-	if size := unsafe.Sizeof(inputRecord{}); size != 40 {
-		t.Fatalf("INPUT is 40 bytes on 64-bit Windows, inputRecord is %d", size)
+	if size, union := unsafe.Sizeof(inputRecord{}), unsafe.Offsetof(inputRecord{}.union); size != 40 || union != 8 {
+		t.Fatalf("INPUT is 40 bytes with its union at 8 on 64-bit Windows, inputRecord is %d with it at %d", size, union)
 	}
 }
 
@@ -15,7 +15,7 @@ func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
 	var keys []keyInput
 	for _, chunk := range textRecords("a中\r\n😀") {
 		for _, record := range chunk {
-			keys = append(keys, *(*keyInput)(unsafe.Pointer(&record.mouse)))
+			keys = append(keys, *(*keyInput)(unsafe.Pointer(&record.union)))
 		}
 	}
 	want := []keyInput{
@@ -41,7 +41,7 @@ func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
 
 func TestTextRecordsNeverSplitASurrogatePair(t *testing.T) {
 	for _, chunk := range textRecords("😀😀😀😀😀😀😀😀😀😀") {
-		first := *(*keyInput)(unsafe.Pointer(&chunk[0].mouse))
+		first := *(*keyInput)(unsafe.Pointer(&chunk[0].union))
 		if first.scan == 0xde00 {
 			t.Fatal("a chunk starts with the low half of a surrogate pair")
 		}
