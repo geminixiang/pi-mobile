@@ -4213,9 +4213,14 @@
 			"tools"
 		],
 		"parameters": {
+			"additionalProperties": true,
 			"properties": {
 				"command": {
 					"description": "Bash command to execute",
+					"type": "string"
+				},
+				"label": {
+					"description": "A few words in the user's language on what it does, such as 跑單元測試; shown while it runs in the background",
 					"type": "string"
 				},
 				"timeout": {

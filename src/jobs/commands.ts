@@ -6,10 +6,11 @@ export const JOB_LIMIT_SECONDS = 2 * 60 * 60;
 export const OUTPUT_LINES = 2000;
 export const OUTPUT_BYTES = 50 * 1024;
 const LOG = "@@log";
+const COMMAND = "@@command";
 
 export type JobEnd = "exited" | "timed_out" | "stopped" | "lost";
 export type Job = { state: "running"; seconds: number; output: Output } | { state: JobEnd; exitCode: number | undefined; seconds: number; output: Output } | { state: "missing" };
-export type Output = { text: string; lines: number; bytes: number; log: string };
+export type Output = { text: string; lines: number; bytes: number; log: string; command: string };
 
 const dir = (id: string) => `${JOBS}/${id}`;
 
@@ -54,6 +55,8 @@ export function readJob(id: string, lines = OUTPUT_LINES): string {
 		'echo "lines=$(wc -l < "$d/log" 2>/dev/null || echo 0)"',
 		'echo "bytes=$(wc -c < "$d/log" 2>/dev/null || echo 0)"',
 		'echo "log=$(cd "$d" && pwd)/log"',
+		`echo ${COMMAND}`,
+		'cat "$d/command" 2>/dev/null',
 		`echo ${LOG}`,
 		`tail -n ${lines} "$d/log" 2>/dev/null | tail -c ${OUTPUT_BYTES}`,
 	].join("\n");
@@ -82,14 +85,16 @@ export function stopOwnedJobs(owner: string): string {
 
 export function parseJob(stdout: string): Job {
 	const at = stdout.indexOf(`${LOG}\n`);
-	const head = at < 0 ? stdout : stdout.slice(0, at);
+	const commandAt = stdout.indexOf(`${COMMAND}\n`);
+	const head = stdout.slice(0, commandAt >= 0 ? commandAt : at >= 0 ? at : stdout.length);
+	const command = commandAt >= 0 ? stdout.slice(commandAt + COMMAND.length + 1, at >= 0 ? at : stdout.length).trimEnd() : "";
 	const fields = new Map(head.split("\n").flatMap((line) => (line.includes("=") ? [[line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1).trim()] as const] : [])));
 	const state = fields.get("state");
 	const number = (name: string) => {
 		const value = Number(fields.get(name));
 		return Number.isFinite(value) ? value : 0;
 	};
-	const output: Output = { text: at < 0 ? "" : stdout.slice(at + LOG.length + 1), lines: number("lines"), bytes: number("bytes"), log: fields.get("log") ?? "" };
+	const output: Output = { text: at < 0 ? "" : stdout.slice(at + LOG.length + 1), lines: number("lines"), bytes: number("bytes"), log: fields.get("log") ?? "", command };
 	const seconds = number("seconds");
 	if (state === "running") return { state, seconds, output };
 	if (state === "exited" || state === "timed_out" || state === "stopped" || state === "lost") {

@@ -604,10 +604,27 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .thumb { position: relative; width: 64px; height: 64px; flex-shrink: 0; border: 1px solid var(--line); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb-remove { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 20px; height: 20px; background: var(--console-bg); color: var(--console-text); }
-.queue { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.queue { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .queue li { display: flex; align-items: center; gap: 10px; padding-left: var(--space); background: color-mix(in srgb, var(--user-bg) 55%, var(--bg)); }
 .queue-mode { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: var(--fs-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue.jobs { gap: 0; }
+.jobs li { position: relative; z-index: 4; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.jobs > li { transition: scale 320ms var(--spring); }
+.jobs > .pressing { scale: 1.03; transition: scale 380ms cubic-bezier(0.3, 0, 0.6, 1); }
+.jobs-more { flex: 1; min-height: 36px; text-align: left; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
+.job-peek-backdrop { position: fixed; inset: 0; z-index: 5; background: color-mix(in srgb, var(--bg-deep) 60%, transparent); animation: fade-in 120ms var(--ease); }
+.job-peek-backdrop.closing { animation: fade-out 110ms var(--ease) forwards; }
+.jobs > .peeked, .jobs > .job-peek { z-index: 6; }
+.jobs > .job-peek { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; max-height: 45vh; animation: peek-in 300ms var(--spring); transform-origin: 50% 100%; }
+.jobs > .job-peek.closing { animation: peek-out 140ms var(--ease) forwards; }
+.composer:has(> .queue) .scroll-hint.ghost { display: none; }
+.job-peek-note { margin: 0; padding: 12px var(--space); font-size: var(--fs-small); color: var(--muted); }
+.job-peek-command { margin: 0; padding: 10px var(--space) 6px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 4lh; overflow: hidden; flex-shrink: 0; }
+.job-peek-output { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 var(--space) 10px; mask-image: linear-gradient(to bottom, transparent, #000 32px); }
+.job-peek-output > pre { margin: 0; font-family: var(--mono); font-size: var(--fs-code); color: var(--tool-output); white-space: pre-wrap; overflow-wrap: anywhere; }
+@keyframes peek-in { from { opacity: 0; transform: translateY(16px) scale(0.92); } }
+@keyframes peek-out { to { opacity: 0; transform: translateY(16px) scale(0.92); } }
 
 
 .backdrop {
@@ -647,6 +664,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .dialog-choice:not(:disabled):active { background-color: color-mix(in srgb, var(--text) 8%, transparent); }
 .dialog-choice.danger { color: var(--error); }
 @keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
 
 .menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
 .menu > button, .menu > label { display: flex; align-items: center; gap: 16px; min-height: 54px; padding: 10px 16px; text-align: left; font-size: var(--fs-ui); }
@@ -885,10 +903,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .commit-text .file-name { font-family: var(--sans); font-size: var(--fs-body); }
 .commit-meta { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 
-.step-body, .step-open, .step-stop { grid-area: 1 / 1; }
-.step-stop { justify-self: end; align-self: start; min-height: 40px; margin-top: 4px; padding: 0 var(--space) 0 12px; color: var(--accent); font-size: var(--fs-meta); }
-.step-stop:disabled { color: var(--muted); }
-.step:has(.step-stop) .step-head { padding-right: 72px; }
+.step-body, .step-open { grid-area: 1 / 1; }
 .step-open { justify-self: end; align-self: start; width: 40px; height: 40px; margin: 4px calc(var(--space) - 12px) 0 0; display: grid; place-items: center; color: var(--muted); }
 .step:has(.step-open) .step-head { padding-right: 32px; }
 

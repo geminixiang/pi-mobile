@@ -8,7 +8,7 @@ import { createFilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";
 import { CodingTools, createBashTool } from "@earendil-works/pi-durable/tools";
-import { BACKGROUND_NOTE, jobsOnComputers } from "../jobs/bash.ts";
+import { BACKGROUND_NOTE, JOB_BASH_PARAMETERS, jobsOnComputers } from "../jobs/bash.ts";
 import { SkillsExtension } from "./skills.ts";
 import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
@@ -75,7 +75,7 @@ function groupsOf(tool: ToolRegistration): Groups {
 
 export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; owners: ReadonlyMap<string, Groups> } {
 	const bash = createBashTool();
-	const jobBash = { ...bash, description: bash.description + BACKGROUND_NOTE, execute: jobsOnComputers(bash.execute, deps.workplace, deps.triggers, deps.waitForJob) };
+	const jobBash = { ...bash, parameters: JOB_BASH_PARAMETERS, description: bash.description + BACKGROUND_NOTE, execute: jobsOnComputers(bash.execute, deps.workplace, deps.triggers, deps.waitForJob) };
 	const codingTools = (CodingTools.tools ?? []).map((tool) =>
 		adopt(tool.name === bash.name ? jobBash : tool, {
 			groups: ["files", "computer_shell"],

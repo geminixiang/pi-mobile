@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { type DialState, repeatingOf } from "./dialState.ts";
-import { haptic } from "./haptics.ts";
+import { haptic, HOLD_MS, HOLD_SLOP } from "./haptics.ts";
 import { ArrowDownIcon } from "./icons.tsx";
 
 export interface DialPrompt {
@@ -8,8 +8,6 @@ export interface DialPrompt {
 	text: string;
 }
 
-const LONG_PRESS_MS = 380;
-const SLOP = 10;
 const HYSTERESIS = 0.6;
 const PREVIEW_CHARS = 40;
 const STEP = 12;
@@ -106,13 +104,13 @@ export function ScrollTab({
 		const target = event.currentTarget;
 		const { pointerId, clientX, clientY } = event;
 		opened.current = false;
-		press.current = { x: clientX, y: clientY, timer: setTimeout(() => open(target, pointerId, clientX, clientY), LONG_PRESS_MS) };
+		press.current = { x: clientX, y: clientY, timer: setTimeout(() => open(target, pointerId, clientX, clientY), HOLD_MS) };
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
 		if (!dial) {
 			const start = press.current;
-			if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > SLOP) {
+			if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > HOLD_SLOP) {
 				clearTimeout(start.timer);
 				press.current = undefined;
 			}

@@ -24,7 +24,9 @@ import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import type { ContextShape, ToolCost } from "./context-shape.ts";
 import { HostCommands, pairedHosts } from "./sandbox/host.ts";
-import { JOB_ID, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
+import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
+
+const PEEK_LINES = 60;
 import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
@@ -454,6 +456,14 @@ export class AgentRuntime {
 			if (ended.code === 0) await this.triggers.checkWatch(id, job);
 		});
 		void orLogged(waited, "jobs.wait_failed", undefined, { job }).finally(() => this.#waiting.delete(key));
+	}
+
+	async peekJob(id: ConversationId, job: string): Promise<{ command: string; output: string } | undefined> {
+		const place = this.workplaces.at(String(id));
+		const jobId = job.slice("job:".length);
+		if (place?.kind !== "computer" || !JOB_ID.test(jobId)) return undefined;
+		const read = parseJob((await new HostCommands(place.host).run(readJob(jobId, PEEK_LINES))).stdout);
+		return read.state === "missing" ? undefined : { command: read.output.command, output: read.output.text };
 	}
 
 	async stopJob(id: ConversationId, job: string): Promise<void> {

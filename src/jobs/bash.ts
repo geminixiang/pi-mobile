@@ -1,19 +1,28 @@
 import type { Context } from "@earendil-works/chord";
+import { type Static, Type } from "typebox";
 import type { ConversationId, ToolExecutionApi, ToolExecutionResult } from "@earendil-works/pi-durable";
 import { HostCommands } from "../agent/sandbox/host.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import { watch } from "../triggers/watch.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
-import { BACKGROUND, WAIT_MS } from "./background.ts";
+import { BACKGROUND, jobWatchName, WAIT_MS } from "./background.ts";
 import { type Job, JOB_LIMIT_SECONDS, OUTPUT_BYTES, OUTPUT_LINES, parseJob, readJob, startJob, stopJob } from "./commands.ts";
 
 const POLL_MS = 400;
-const NAME_CHARS = 30;
 const PROMPT_CHARS = 500;
 
 export const BACKGROUND_NOTE = ` On a computer, a command still running after ${WAIT_MS / 1000} seconds goes on in the background for up to its timeout (default ${JOB_LIMIT_SECONDS / 3600} hours), and the phone wakes you when it ends.`;
 
-type Args = { command: string; timeout?: number };
+export const JOB_BASH_PARAMETERS = Type.Object(
+	{
+		command: Type.String({ description: "Bash command to execute" }),
+		timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
+		label: Type.Optional(Type.String({ description: "A few words in the user's language on what it does, such as 跑單元測試; shown while it runs in the background" })),
+	},
+	{ additionalProperties: true },
+);
+
+type Args = Static<typeof JOB_BASH_PARAMETERS>;
 type Execute = (args: Args, api: ToolExecutionApi, context: Context) => Promise<ToolExecutionResult>;
 
 export function jobsOnComputers(execute: Execute, workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, waitFor: (conversationId: ConversationId, job: string) => void): Execute {
@@ -41,7 +50,7 @@ export function jobsOnComputers(execute: Execute, workplace: (conversationId: st
 		if (job.state !== "running") return ended(job, limitSeconds, api);
 		const watched = await watch(triggers, api, context, {
 			agent: `job:${id}`,
-			name: `等「${args.command.slice(0, NAME_CHARS)}」跑完`,
+			name: jobWatchName(args.label?.trim() || args.command),
 			prompt: `Your bash command ${JSON.stringify(args.command.slice(0, PROMPT_CHARS))} went on in the background as job:${id} and has now ended. Read how it ended with bash (tail -n 80 ${job.output.log}; the exit code is in ${job.output.log.slice(0, -"log".length)}exit), check the result, and tell the user the gist; they are waiting to hear.`,
 		});
 		if (watched) waitFor(api.conversationId, `job:${id}`);

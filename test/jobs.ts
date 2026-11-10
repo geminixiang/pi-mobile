@@ -6,10 +6,10 @@ import { join } from "node:path";
 import { type Job, parseJob, readJob, startJob, stopJob, stopOwnedJobs, waitJob } from "../src/jobs/commands.ts";
 import { backgroundJobIn } from "../src/jobs/background.ts";
 
-assert.deepEqual(parseJob("state=running\nseconds=3\nlines=  2\nbytes=  10\nlog=/h/.pi-mobile/jobs/0badc0de/log\n@@log\na\nb\n"), {
+assert.deepEqual(parseJob("state=running\nseconds=3\nlines=  2\nbytes=  10\nlog=/h/.pi-mobile/jobs/0badc0de/log\n@@command\nnpm test\n  --watch=false\n@@log\na\nb\n"), {
 	state: "running",
 	seconds: 3,
-	output: { text: "a\nb\n", lines: 2, bytes: 10, log: "/h/.pi-mobile/jobs/0badc0de/log" },
+	output: { text: "a\nb\n", lines: 2, bytes: 10, log: "/h/.pi-mobile/jobs/0badc0de/log", command: "npm test\n  --watch=false" },
 });
 assert.deepEqual(parseJob("state=timed_out\nexit=\nseconds=7\nlines=0\nbytes=0\nlog=/l\n@@log\n").state, "timed_out");
 assert.deepEqual(parseJob("state=missing"), { state: "missing" });
@@ -44,6 +44,7 @@ if (existsSync("/bin/zsh")) {
 	assert.ok(built.state === "exited", built.state);
 	assert.equal(built.exitCode, 4);
 	assert.equal(built.output.text, "built\n");
+	assert.equal(built.output.command, "sleep 1\necho built; exit 4", "reading a job gives its whole command, for the peek");
 
 	start("8badc0de", "sleep 2");
 	const waited = waitFor("8badc0de");

@@ -20,6 +20,7 @@ import { Sheet } from "./Sheet.tsx";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
+import { JobsStrip } from "../jobs/JobsStrip.tsx";
 import { addToDraft, loadDraftAttachments, receiveDraftAdditions, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
@@ -197,6 +198,7 @@ export function Composer({
 
 	return (
 		<div className="composer" onTouchStart={(event) => event.stopPropagation()}>
+			<JobsStrip />
 			{queued.length > 0 ? (
 				<ul className="queue">
 					{queued.map((item) => (

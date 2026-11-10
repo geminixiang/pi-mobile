@@ -27,7 +27,7 @@ import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
-import { WAIT_MS } from "../jobs/background.ts";
+import { jobCommand, WAIT_MS } from "../jobs/background.ts";
 import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
 import { log } from "../log.ts";
@@ -171,8 +171,10 @@ export function App() {
 	const jobs = useMemo<RunningJobs | undefined>(() => {
 		if (!runtime || !controller) return undefined;
 		const id = controller.id;
-		const since = new Map(automations.flatMap((item) => (item.kind === "watch" && item.conversationId === id && item.agent.startsWith("job:") ? [[item.agent, item.createdAt - WAIT_MS] as const] : [])));
-		return { since, stop: (job) => runtime.stopJob(id, job) };
+		const running = automations.flatMap((item) =>
+			item.kind === "watch" && item.conversationId === id && item.agent.startsWith("job:") ? [{ job: item.agent, since: item.createdAt - WAIT_MS, label: jobCommand(item.name) }] : [],
+		);
+		return { jobs: running, stop: (job) => runtime.stopJob(id, job), peek: (job) => runtime.peekJob(id, job) };
 	}, [automations, controller, runtime]);
 	useEffect(() => (runtime ? runtime.triggers.subscribe((state) => setAutomations(state.items)) : undefined), [runtime]);
 
