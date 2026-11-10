@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { intentOf, isTap, positionAfter, settleCurve, settlesOpen, towardOpen, velocityOf } from "../src/app/sideGesture.ts";
+import { staysPut } from "../src/app/press.ts";
+import { intentOf, positionAfter, settleCurve, settlesOpen, towardOpen, velocityOf } from "../src/app/sideGesture.ts";
 
 const move = (dx: number, dy: number, elapsedMs = 50, selecting = false) => intentOf({ dx, dy, elapsedMs, selecting });
 assert.equal(move(6, 6), "undecided");
@@ -40,8 +41,7 @@ assert.equal(settleCurve(0), 0);
 assert.equal(settleCurve(1), 1);
 assert.equal(settleCurve(2), 1);
 assert(settleCurve(0.5) > 0.9 && settleCurve(0.5) < 1);
-assert.equal(isTap({ x: 10, y: 10, at: 0 }, { x: 14, y: 12, at: 60 }), true, "a press that stays put is a tap, even when the browser does not turn it into a click");
-assert.equal(isTap({ x: 10, y: 10, at: 0 }, { x: 40, y: 10, at: 60 }), false);
-assert.equal(isTap({ x: 10, y: 10, at: 0 }, { x: 10, y: 10, at: 600 }), false, "a long press stays a long press");
+assert.equal(staysPut({ x: 10, y: 10 }, { x: 14, y: 12 }), true, "a press that stays put is a tap, even when the browser does not turn it into a click");
+assert.equal(staysPut({ x: 10, y: 10 }, { x: 40, y: 10 }), false, "a press that moved is a scroll or a swipe, not a tap");
 
 console.log("side gesture: intent, side, bounds (a panel between closed and open, a page between its panel and the full width), velocity, settling, and the settle curve hold");

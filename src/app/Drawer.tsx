@@ -10,7 +10,6 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { DAY, startOfToday } from "../time.ts";
-import { longPress } from "./haptics.ts";
 
 const SHOWN_SYMBOLS = 3;
 const CLOCK = new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -95,11 +94,7 @@ export function Drawer({
 				</div>
 				<div className="drawer-list">
 					{bots.map((bot) => (
-						<div
-							key={String(bot.id)}
-							className={`drawer-item${bot.id === currentId ? " current" : ""}`}
-							onContextMenu={longPress(() => onEdit(bot))}
-						>
+						<div key={String(bot.id)} className={`drawer-item${bot.id === currentId ? " current" : ""}`}>
 							<button type="button" className="drawer-open" onClick={() => onOpen(bot.id)}>
 								<BotAvatar bot={bot} size={36} />
 								<span className="bot-text">

@@ -16,7 +16,6 @@ import { preview, stepsLabel } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { monthDayTime } from "../time.ts";
 import { formatBytes } from "../encoding.ts";
-import { longPress } from "./haptics.ts";
 import { isConnectionLost } from "../agent/network.ts";
 import { InteractionCard } from "../interaction/Interaction.tsx";
 import { isInteraction } from "../interaction/tool.ts";
@@ -504,8 +503,7 @@ export const EntryView = memo(function EntryView({
 	if (!model) return null;
 	if (entry.kind === "pi.user" && model.role === "user") {
 		return (
-			<section className="prompt" data-entry={String(entry.id)} onContextMenu={longPress(() => onActions(entry))}
-				onClick={() => onActions(entry)}>
+			<section className="prompt" role="button" data-entry={String(entry.id)} onClick={() => onActions(entry)}>
 				<div className="bubble">
 					<Content content={blocks(model.content)} prefs={prefs} calls={calls} />
 				</div>

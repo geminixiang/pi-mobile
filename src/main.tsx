@@ -7,10 +7,12 @@ import "./app/fonts.ts";
 import "./app/index.css";
 import { watchMainThread } from "./log.ts";
 import { keepLogOnDevice } from "./app/diagnostics.ts";
+import { showPresses } from "./app/press.ts";
 import { ios } from "./native.ts";
 
 watchMainThread();
 keepLogOnDevice();
+showPresses(document);
 if (ios) document.documentElement.dataset.platform = "ios";
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root");

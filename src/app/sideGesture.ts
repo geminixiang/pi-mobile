@@ -3,7 +3,6 @@ export type Side = "left" | "right";
 export const TOUCH_SLOP = 10;
 const SIDEWAYS_RATIO = 2;
 const LONG_PRESS_MS = 400;
-export const MISSED_TAP_MS = 80;
 const FLING_PX_PER_MS = 0.35;
 export const SETTLE_MS = 260;
 const VELOCITY_WINDOW_MS = 100;
@@ -14,10 +13,6 @@ export function intentOf(move: { dx: number; dy: number; elapsedMs: number; sele
 	if (Math.hypot(move.dx, move.dy) <= TOUCH_SLOP) return "undecided";
 	if (move.selecting || move.elapsedMs >= LONG_PRESS_MS) return "ignore";
 	return Math.abs(move.dx) > SIDEWAYS_RATIO * Math.abs(move.dy) ? "swipe" : "ignore";
-}
-
-export function isTap(down: { x: number; y: number; at: number }, up: { x: number; y: number; at: number }): boolean {
-	return Math.hypot(up.x - down.x, up.y - down.y) <= TOUCH_SLOP && up.at - down.at < LONG_PRESS_MS;
 }
 
 export function towardOpen(side: Side, dx: number): number {

@@ -15,6 +15,11 @@ class PiWebView(context: Context, attrs: AttributeSet?) : CapacitorWebView(conte
     val running: Boolean
         get() = keepRunning || windowVisibility == View.VISIBLE
 
+    init {
+        // why: Chromium vibrates on every long press, even one the page cancels; pi's own haptics go through the window instead
+        isHapticFeedbackEnabled = false
+    }
+
     override fun onWindowVisibilityChanged(visibility: Int) {
         windowVisibility = visibility
         applyVisibility()

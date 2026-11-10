@@ -1,8 +1,8 @@
-import { createContext, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptic } from "./haptics.ts";
 import { useBack, useLast } from "./layers.ts";
-import { intentOf, isTap, MISSED_TAP_MS, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
 
 export type SidePage = { open: boolean; label: string; onBack: () => void; content: ReactNode };
 
@@ -70,35 +70,6 @@ export function ownsSidewaysDrag(target: EventTarget | null, dx: number): boolea
 		if (dx < 0 ? element.scrollLeft < room - 1 : element.scrollLeft > 0) return true;
 	}
 	return false;
-}
-
-type Press = { x: number; y: number; at: number; target: EventTarget; clicked: boolean };
-
-function useMissedTaps() {
-	const press = useRef<Press>(undefined);
-	return {
-		onPointerDown: (event: PointerEvent) => {
-			press.current = { x: event.clientX, y: event.clientY, at: event.timeStamp, target: event.target, clicked: false };
-		},
-		onPointerUp: (event: PointerEvent) => {
-			const down = press.current;
-			if (!down || !isTap(down, { x: event.clientX, y: event.clientY, at: event.timeStamp })) return;
-			setTimeout(() => {
-				if (down.clicked || !(down.target instanceof Element)) return;
-				down.clicked = true;
-				down.target.closest<HTMLElement>("button, a, [role='button']")?.click();
-			}, MISSED_TAP_MS);
-		},
-		onClickCapture: (event: MouseEvent) => {
-			const down = press.current;
-			if (down?.clicked && event.isTrusted) {
-				event.preventDefault();
-				event.stopPropagation();
-				return;
-			}
-			if (down) down.clicked = true;
-		},
-	};
 }
 
 function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState): TouchHandlers {
@@ -216,7 +187,6 @@ export function SidePanel({ side, open, page, onClose, label, children }: { side
 	const motion = useRef<PanelMotion>(undefined);
 	const [pageMounted, setPageMounted] = useState(false);
 	const pageContent = useLast(deep, page?.content);
-	const missedTaps = useMissedTaps();
 
 	useLayoutEffect(() => {
 		if (!context || !viewport.current || !popup.current) return;
@@ -272,7 +242,6 @@ export function SidePanel({ side, open, page, onClose, label, children }: { side
 				aria-label={label}
 				tabIndex={-1}
 				inert={!open || deep}
-				{...missedTaps}
 				onKeyDown={(event) => {
 					if (event.key === "Escape") onClose();
 				}}

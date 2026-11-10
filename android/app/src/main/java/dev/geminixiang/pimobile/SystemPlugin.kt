@@ -49,7 +49,7 @@ class SystemPlugin : Plugin() {
                 "confirm" -> HapticFeedbackConstants.CONFIRM
                 else -> HapticFeedbackConstants.SEGMENT_TICK
             }
-        activity.runOnUiThread { bridge.webView.performHapticFeedback(constant) }
+        activity.runOnUiThread { activity.window.decorView.performHapticFeedback(constant) }
         call.resolve()
     }
 
