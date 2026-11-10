@@ -97,7 +97,7 @@ class AppsPlugin : Plugin() {
     fun open(call: PluginCall) = launch(call, Intent(Intent.ACTION_VIEW, Uri.parse(call.getString("uri", ""))).addCategory(Intent.CATEGORY_BROWSABLE))
 
     private fun stage(call: PluginCall, base64: String): Uri {
-        val file = File(emptyShareFolder(context), File(call.getString("fileName", "file")).name)
+        val file = File(emptyShareFolder(context), File(call.getString("fileName") ?: "file").name)
         file.outputStream().use { it.write(Base64.decode(base64, Base64.DEFAULT)) }
         return shared(context, file)
     }
