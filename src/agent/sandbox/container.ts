@@ -113,6 +113,8 @@ export function lineReader(onLine: (line: string) => void): (data: Uint8Array) =
 	};
 }
 
+type BridgeLink = { kind: "starting" } | { kind: "open"; channel: CommandChannel } | { kind: "stopped" };
+
 export class ContainerHost {
 	readonly #engine: string;
 	readonly #client: CommandClient;
@@ -221,11 +223,14 @@ export class ContainerHost {
 	});
 
 	bridge(credentials: Credentials): () => void {
-		let stopped = false;
-		let close: (() => void) | undefined;
+		let link: BridgeLink = { kind: "starting" };
+		const stopped = () => link.kind === "stopped";
+		const send = (message: unknown) => {
+			if (link.kind === "open") link.channel.write(new TextEncoder().encode(`${JSON.stringify(message)}\n`));
+		};
 		const run = async (): Promise<void> => {
 			await this.#ensureEgress();
-			let send: (message: unknown) => void = () => {};
+			if (stopped()) return;
 			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
 			const ended = new Promise<void>((resolve) => {
 				void this.#client
@@ -233,12 +238,13 @@ export class ContainerHost {
 						onStdout: lineReader((line) => void this.#onBridge(line, credentials, send)),
 						onExit: (code) => {
 							if (code === 3) log.warn("sandbox.bridge_busy", { engine: this.#engine });
+							if (link.kind === "open") link = { kind: "starting" };
 							resolve();
 						},
 					})
 					.then((channel) => {
-						close = () => channel.close();
-						send = (message) => channel.write(new TextEncoder().encode(`${JSON.stringify(message)}\n`));
+						if (link.kind === "stopped") return channel.close();
+						link = { kind: "open", channel };
 						const tenant = credentials.minted.azure?.env.AZURE_TENANT_ID;
 						if (tenant) send({ type: "config", azureTenant: tenant });
 					});
@@ -247,18 +253,19 @@ export class ContainerHost {
 		};
 		const loop = async () => {
 			let delay = 1000;
-			while (!stopped) {
+			while (!stopped()) {
 				const started = Date.now();
 				await orLogged(run(), "egress.bridge_ended", undefined, { engine: this.#engine });
-				if (stopped) return;
+				if (stopped()) return;
 				delay = Date.now() - started > 30_000 ? 1000 : Math.min(delay * 2, 30_000);
 				await sleep(delay);
 			}
 		};
 		void loop();
 		return () => {
-			stopped = true;
-			close?.();
+			const was = link;
+			link = { kind: "stopped" };
+			if (was.kind === "open") was.channel.close();
 		};
 	}
 
