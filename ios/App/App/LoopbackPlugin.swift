@@ -1,9 +1,12 @@
-import Capacitor
+@preconcurrency import Capacitor
 import Network
+import os
 import SafariServices
+import Synchronization
 
 @objc(LoopbackPlugin)
-public class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "LoopbackPlugin"
     public let jsName = "Loopback"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -12,7 +15,7 @@ public class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private let queue = DispatchQueue(label: "pi.loopback")
-    private var listener: NWListener?
+    private let listener = Mutex<NWListener?>(nil)
     private static let page = """
         <!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width"><title>pi mobile</title>\
         <body style="font-family:system-ui;background:#161d27;color:#ebe7e4;padding:40px 24px"><h2>登入完成</h2><p>回到 pi mobile。</p>
@@ -25,7 +28,7 @@ public class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         queue.async {
-            self.listener?.cancel()
+            self.listener.withLock { $0?.cancel() }
             let parameters = NWParameters.tcp
             parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: port)
             let listener: NWListener
@@ -35,17 +38,15 @@ public class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("cannot listen on 127.0.0.1:\(port): \(error.localizedDescription)")
                 return
             }
-            self.listener = listener
-            var answered = false
+            self.listener.withLock { $0 = listener }
+            let answered = OSAllocatedUnfairLock(initialState: false)
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    if answered { return }
-                    answered = true
+                    if answered.withLock({ settled in defer { settled = true }; return settled }) { return }
                     call.resolve(["port": Int(listener.port?.rawValue ?? port.rawValue)])
                 case let .failed(error):
-                    if answered { return }
-                    answered = true
+                    if answered.withLock({ settled in defer { settled = true }; return settled }) { return }
                     call.reject("cannot listen on 127.0.0.1:\(port): \(error.localizedDescription)")
                 default:
                     break
@@ -68,8 +69,10 @@ public class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin {
             connection.send(content: Data((head + body).utf8), completion: .contentProcessed { _ in connection.cancel() })
             guard ours else { return }
             self.notifyListeners("redirect", data: ["url": "http://127.0.0.1:\(port)\(target)"])
-            self.listener?.cancel()
-            self.listener = nil
+            self.listener.withLock { listener in
+                listener?.cancel()
+                listener = nil
+            }
             DispatchQueue.main.async {
                 if let safari = self.bridge?.viewController?.presentedViewController as? SFSafariViewController {
                     safari.dismiss(animated: true)
@@ -80,8 +83,10 @@ public class LoopbackPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func stop(_ call: CAPPluginCall) {
         queue.async {
-            self.listener?.cancel()
-            self.listener = nil
+            self.listener.withLock { listener in
+                listener?.cancel()
+                listener = nil
+            }
             call.resolve()
         }
     }

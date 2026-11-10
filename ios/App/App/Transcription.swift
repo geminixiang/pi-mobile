@@ -6,13 +6,13 @@ final class Transcription {
     private var analyzer: SpeechAnalyzer?
     private var inputs: AsyncStream<AnalyzerInput>.Continuation?
     private var reading: Task<Void, Never>?
-    private let emit: (String, [String: Any]) -> Void
+    private let emit: @Sendable (String, [String: Any]) -> Void
 
-    init(emit: @escaping (String, [String: Any]) -> Void) {
+    init(emit: @escaping @Sendable (String, [String: Any]) -> Void) {
         self.emit = emit
     }
 
-    func start(language: String) async throws {
+    nonisolated(nonsending) func start(language: String) async throws {
         let locale = Locale(identifier: language)
         let module: any SpeechModule
         let results: AsyncThrowingStream<(text: String, isFinal: Bool), Error>
@@ -61,7 +61,7 @@ final class Transcription {
             }
             if failure == nil, converted.frameLength > 0 { inputs.yield(AnalyzerInput(buffer: converted)) }
         }
-        reading = Task { [weak self] in
+        reading = Task { [emit] in
             var finished = ""
             var volatile = ""
             do {
@@ -72,14 +72,14 @@ final class Transcription {
                     } else {
                         volatile = result.text
                     }
-                    self?.emit("partial", ["text": finished + volatile])
+                    emit("partial", ["text": finished + volatile])
                 }
-                self?.emit("final", ["text": finished + volatile])
+                emit("final", ["text": finished + volatile])
             } catch is CancellationError {
             } catch {
-                self?.emit("error", ["code": (error as NSError).code, "message": error.localizedDescription])
+                emit("error", ["code": (error as NSError).code, "message": error.localizedDescription])
             }
-            self?.emit("end", [:])
+            emit("end", [:])
         }
         try await analyzer.start(inputSequence: stream)
         engine.prepare()
@@ -87,18 +87,18 @@ final class Transcription {
         emit("ready", [:])
     }
 
-    private static func texts<S: AsyncSequence>(_ sequence: S) -> AsyncThrowingStream<(text: String, isFinal: Bool), Error> where S.Element == (String, Bool) {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    for try await (text, isFinal) in sequence { continuation.yield((text, isFinal)) }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
+    private static func texts<S: AsyncSequence & SendableMetatype>(_ sequence: sending S) -> AsyncThrowingStream<(text: String, isFinal: Bool), Error> where S.Element == (String, Bool) {
+        let (stream, continuation) = AsyncThrowingStream.makeStream(of: (text: String, isFinal: Bool).self)
+        let task = Task {
+            do {
+                for try await (text, isFinal) in sequence { continuation.yield((text, isFinal)) }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
+        continuation.onTermination = { _ in task.cancel() }
+        return stream
     }
 
     private func level(_ buffer: AVAudioPCMBuffer) {
@@ -118,13 +118,13 @@ final class Transcription {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
-    func stop() async {
+    nonisolated(nonsending) func stop() async {
         release()
         try? await analyzer?.finalizeAndFinishThroughEndOfInput()
         analyzer = nil
     }
 
-    func cancel() async {
+    nonisolated(nonsending) func cancel() async {
         release()
         reading?.cancel()
         await analyzer?.cancelAndFinishNow()

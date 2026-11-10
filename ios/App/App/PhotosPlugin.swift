@@ -1,9 +1,10 @@
-import Capacitor
+@preconcurrency import Capacitor
 import Photos
 import UIKit
 
 @objc(PhotosPlugin)
-public class PhotosPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class PhotosPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "PhotosPlugin"
     public let jsName = "Photos"
     public let pluginMethods: [CAPPluginMethod] = ["search", "view"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
@@ -12,7 +13,7 @@ public class PhotosPlugin: CAPPlugin, CAPBridgedPlugin {
         [.authorized, .limited].contains(PHPhotoLibrary.authorizationStatus(for: .readWrite))
     }
 
-    private func withAccess(_ call: CAPPluginCall, _ then: @escaping () -> Void) {
+    private func withAccess(_ call: CAPPluginCall, _ then: @escaping @Sendable () -> Void) {
         if allowed {
             DispatchQueue.global(qos: .userInitiated).async(execute: then)
             return

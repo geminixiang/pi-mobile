@@ -1,9 +1,10 @@
-import Capacitor
+@preconcurrency import Capacitor
 import SafariServices
 import UIKit
 
 @objc(SystemPlugin)
-public class SystemPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class SystemPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "SystemPlugin"
     public let jsName = "System"
     public let pluginMethods: [CAPPluginMethod] = [

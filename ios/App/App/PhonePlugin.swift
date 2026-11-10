@@ -1,5 +1,5 @@
 import AVFoundation
-import Capacitor
+@preconcurrency import Capacitor
 import CoreLocation
 import CoreMotion
 import MapKit
@@ -9,22 +9,23 @@ import UIKit
 private let fixTimeout: TimeInterval = 20
 
 @objc(PhonePlugin)
-public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class PhonePlugin: CAPPlugin, CAPBridgedPlugin, @MainActor CLLocationManagerDelegate, @unchecked Sendable {
     public let identifier = "PhonePlugin"
     public let jsName = "Phone"
     public let pluginMethods: [CAPPluginMethod] = ["getStatus", "getLocation", "readSensors", "geocode"].map {
         CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)
     }
 
-    private lazy var locations: CLLocationManager = {
+    @MainActor private lazy var locations: CLLocationManager = {
         let manager = CLLocationManager()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         return manager
     }()
-    private var headings: [(CLHeading) -> Void] = []
-    private let altimeter = CMAltimeter()
-    private let motion = CMMotionManager()
+    @MainActor private var headings: [(CLHeading) -> Void] = []
+    @MainActor private let altimeter = CMAltimeter()
+    @MainActor private let motion = CMMotionManager()
 
     @objc func getLocation(_ call: CAPPluginCall) {
         Task { @MainActor in
@@ -82,14 +83,14 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
         return nil
     }
 
-    public func locationManager(_ manager: CLLocationManager, didUpdateHeading heading: CLHeading) {
+    @MainActor public func locationManager(_ manager: CLLocationManager, didUpdateHeading heading: CLHeading) {
         let waiting = headings
         headings = []
         manager.stopUpdatingHeading()
         for answer in waiting { answer(heading) }
     }
 
-    private func answer(_ call: CAPPluginCall, _ location: CLLocation, lastKnown: Bool) async {
+    @MainActor private func answer(_ call: CAPPluginCall, _ location: CLLocation, lastKnown: Bool) async {
         var result: [String: Any] = [
             "latitude": location.coordinate.latitude,
             "longitude": location.coordinate.longitude,
@@ -144,10 +145,10 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
         DispatchQueue.main.async {
             let device = UIDevice.current
             device.isBatteryMonitoringEnabled = true
-            var battery: [String: Any] = ["powerSaving": ProcessInfo.processInfo.isLowPowerModeEnabled]
+            var battery: JSObject = ["powerSaving": ProcessInfo.processInfo.isLowPowerModeEnabled]
             if device.batteryLevel >= 0 { battery["percent"] = Int((device.batteryLevel * 100).rounded()) }
             battery["charging"] = device.batteryState == .charging || device.batteryState == .full
-            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.compactMap { output -> [String: Any]? in
+            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.compactMap { output -> JSObject? in
                 switch output.portType {
                 case .headphones, .usbAudio: return ["kind": "wired", "name": output.portName]
                 case .bluetoothA2DP, .bluetoothLE, .bluetoothHFP: return ["kind": "bluetooth", "name": output.portName]
@@ -157,22 +158,23 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
             var system = utsname()
             uname(&system)
             let machine = withUnsafeBytes(of: system.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
-            var result: [String: Any] = [
+            var status: JSObject = [
                 "battery": battery,
                 "sound": ["connectedAudio": outputs],
                 "model": "Apple \(device.model) (\(machine))",
                 "ios": device.systemVersion,
             ]
             if let free = try? URL(fileURLWithPath: NSHomeDirectory()).resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey]) {
-                var storage: [String: Any] = [:]
+                var storage: JSObject = [:]
                 if let bytes = free.volumeAvailableCapacityForImportantUsage { storage["freeGB"] = (Double(bytes) / 1e8).rounded() / 10 }
                 if let bytes = free.volumeTotalCapacity { storage["totalGB"] = (Double(bytes) / 1e8).rounded() / 10 }
-                result["storage"] = storage
+                status["storage"] = storage
             }
             let monitor = NWPathMonitor()
-            monitor.pathUpdateHandler = { path in
+            monitor.pathUpdateHandler = { [status] path in
                 monitor.cancel()
                 let type = path.status != .satisfied ? "none" : path.usesInterfaceType(.wifi) ? "wifi" : path.usesInterfaceType(.cellular) ? "cellular" : path.usesInterfaceType(.wiredEthernet) ? "ethernet" : "other"
+                var result = status
                 result["network"] = ["type": type, "metered": path.isExpensive, "constrained": path.isConstrained, "internet": path.status == .satisfied]
                 call.resolve(result)
             }
@@ -241,7 +243,7 @@ public class PhonePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate
                 call.resolve(result)
             }
             group.notify(queue: .main, execute: finish)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: finish)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { finish() }
         }
     }
 }

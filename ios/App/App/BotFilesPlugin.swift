@@ -1,5 +1,6 @@
-import Capacitor
+@preconcurrency import Capacitor
 import Foundation
+import os
 
 private struct Failure: Error {
     let code: String
@@ -7,17 +8,19 @@ private struct Failure: Error {
 }
 
 @objc(BotFilesPlugin)
-public class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "BotFilesPlugin"
     public let jsName = "BotFiles"
     public let pluginMethods: [CAPPluginMethod] = [
         "stat", "exists", "create", "chmod", "list", "read", "write", "truncate", "mkdir", "remove", "rename", "removeBot", "listBots", "download",
     ].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
 
-    private let files = FileManager.default
+    private var files: FileManager { .default }
     private let work = DispatchQueue(label: "pi.bot-files", attributes: .concurrent)
 
-    private lazy var bots: URL = {
+    private static let bots: URL = {
+        let files = FileManager.default
         var url = files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("bots", isDirectory: true)
         try? files.createDirectory(at: url, withIntermediateDirectories: true)
         // why: the Android app keeps bot folders out of backups (allowBackup=false); iCloud backs up Application Support unless told not to
@@ -27,7 +30,7 @@ public class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin {
         return url.resolvingSymlinksInPath()
     }()
 
-    private func run(_ call: CAPPluginCall, _ job: @escaping () throws -> Void) {
+    private func run(_ call: CAPPluginCall, _ job: @escaping @Sendable () throws -> Void) {
         work.async {
             do {
                 try job()
@@ -42,7 +45,7 @@ public class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin {
     private func botRoot(_ call: CAPPluginCall) throws -> URL {
         let bot = call.getString("bot") ?? ""
         guard bot.range(of: "^[A-Za-z0-9_-]{1,64}$", options: .regularExpression) != nil else { throw Failure(code: "invalid", message: "bad bot id") }
-        return bots.appendingPathComponent(bot, isDirectory: true)
+        return Self.bots.appendingPathComponent(bot, isDirectory: true)
     }
 
     private func resolve(_ call: CAPPluginCall, _ key: String = "path") throws -> URL {
@@ -255,24 +258,24 @@ public class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin {
             var request = URLRequest(url: url, timeoutInterval: 60)
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) pi-mobile", forHTTPHeaderField: "User-Agent")
             let done = DispatchSemaphore(value: 0)
-            var outcome: Result<(URL, HTTPURLResponse), Error> = .failure(Failure(code: "io", message: "no response"))
+            let outcome = OSAllocatedUnfairLock<Result<(URL, HTTPURLResponse), Error>>(initialState: .failure(Failure(code: "io", message: "no response")))
             URLSession.shared.downloadTask(with: request) { temp, response, error in
                 defer { done.signal() }
                 if let error {
-                    outcome = .failure(error)
+                    outcome.withLock { $0 = .failure(error) }
                     return
                 }
                 guard let temp, let http = response as? HTTPURLResponse else { return }
                 let kept = self.files.temporaryDirectory.appendingPathComponent(UUID().uuidString)
                 do {
                     try self.files.moveItem(at: temp, to: kept)
-                    outcome = .success((kept, http))
+                    outcome.withLock { $0 = .success((kept, http)) }
                 } catch {
-                    outcome = .failure(error)
+                    outcome.withLock { $0 = .failure(error) }
                 }
             }.resume()
             done.wait()
-            let (temp, response) = try outcome.get()
+            let (temp, response) = try outcome.withLock { $0 }.get()
             defer { try? self.files.removeItem(at: temp) }
             guard response.statusCode < 400 else { throw Failure(code: "http", message: "HTTP \(response.statusCode) \(response.url?.absoluteString ?? url.absoluteString)") }
             let parent = file.deletingLastPathComponent()
@@ -286,8 +289,8 @@ public class BotFilesPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func listBots(_ call: CAPPluginCall) {
         run(call) {
-            let names = try self.files.contentsOfDirectory(atPath: self.bots.path)
-            let ids = names.filter { $0.range(of: "^[A-Za-z0-9_-]{1,64}$", options: .regularExpression) != nil && self.isDirectory(self.bots.appendingPathComponent($0)) }
+            let names = try self.files.contentsOfDirectory(atPath: Self.bots.path)
+            let ids = names.filter { $0.range(of: "^[A-Za-z0-9_-]{1,64}$", options: .regularExpression) != nil && self.isDirectory(Self.bots.appendingPathComponent($0)) }
             call.resolve(["ids": ids])
         }
     }

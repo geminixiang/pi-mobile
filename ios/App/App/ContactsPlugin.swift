@@ -1,9 +1,10 @@
-import Capacitor
-import Contacts
+@preconcurrency import Capacitor
+@preconcurrency import Contacts
 import UIKit
 
 @objc(ContactsPlugin)
-public class ContactsPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class ContactsPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "ContactsPlugin"
     public let jsName = "Contacts"
     public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "search", returnType: CAPPluginReturnPromise)]
@@ -17,7 +18,7 @@ public class ContactsPlugin: CAPPlugin, CAPBridgedPlugin {
         CNContactBirthdayKey as CNKeyDescriptor,
     ]
 
-    private func withAccess(_ call: CAPPluginCall, _ then: @escaping () -> Void) {
+    private func withAccess(_ call: CAPPluginCall, _ then: @escaping @Sendable () -> Void) {
         let status = CNContactStore.authorizationStatus(for: .contacts)
         if status == .authorized || status == .limited {
             DispatchQueue.global(qos: .userInitiated).async(execute: then)

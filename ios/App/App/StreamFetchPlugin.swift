@@ -1,7 +1,9 @@
-import Capacitor
+@preconcurrency import Capacitor
+import Synchronization
 
 @objc(StreamFetchPlugin)
-public class StreamFetchPlugin: CAPPlugin, CAPBridgedPlugin, URLSessionDataDelegate {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class StreamFetchPlugin: CAPPlugin, CAPBridgedPlugin, URLSessionDataDelegate, @unchecked Sendable {
     public let identifier = "StreamFetchPlugin"
     public let jsName = "StreamFetch"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -9,15 +11,14 @@ public class StreamFetchPlugin: CAPPlugin, CAPBridgedPlugin, URLSessionDataDeleg
         CAPPluginMethod(name: "abort", returnType: CAPPluginReturnPromise),
     ]
 
-    private let lock = NSLock()
-    private var ids: [Int: String] = [:]
-    private var tasks: [String: URLSessionDataTask] = [:]
-    private var next = 0
-    private lazy var session: URLSession = {
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 120
-        return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-    }()
+    private struct Fetches {
+        var session: URLSession?
+        var ids: [Int: String] = [:]
+        var tasks: [String: URLSessionDataTask] = [:]
+        var next = 0
+    }
+
+    private let fetches = Mutex(Fetches())
 
     @objc func start(_ call: CAPPluginCall) {
         guard let text = call.getString("url"), let url = URL(string: text) else {
@@ -34,36 +35,44 @@ public class StreamFetchPlugin: CAPPlugin, CAPBridgedPlugin, URLSessionDataDeleg
         } else if let body = call.getString("body") {
             request.httpBody = Data(body.utf8)
         }
-        let task = session.dataTask(with: request)
-        lock.lock()
-        next += 1
-        let id = "f\(next)"
-        ids[task.taskIdentifier] = id
-        tasks[id] = task
-        lock.unlock()
+        let (id, task) = fetches.withLock { fetches in
+            let session = fetches.session ?? {
+                let configuration = URLSessionConfiguration.default
+                configuration.timeoutIntervalForRequest = 120
+                return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+            }()
+            fetches.session = session
+            let task = session.dataTask(with: request)
+            fetches.next += 1
+            let id = "f\(fetches.next)"
+            fetches.ids[task.taskIdentifier] = id
+            fetches.tasks[id] = task
+            return (id, task)
+        }
         call.resolve(["id": id])
         task.resume()
     }
 
     @objc func abort(_ call: CAPPluginCall) {
         let id = call.getString("id") ?? ""
-        lock.lock()
-        let task = tasks.removeValue(forKey: id)
-        if let task { ids.removeValue(forKey: task.taskIdentifier) }
-        lock.unlock()
+        let task = fetches.withLock { fetches in
+            let task = fetches.tasks.removeValue(forKey: id)
+            if let task { fetches.ids.removeValue(forKey: task.taskIdentifier) }
+            return task
+        }
         task?.cancel()
         call.resolve()
     }
 
     private func id(of task: URLSessionTask, finished: Bool = false) -> String? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let id = ids[task.taskIdentifier] else { return nil }
-        if finished {
-            ids.removeValue(forKey: task.taskIdentifier)
-            tasks.removeValue(forKey: id)
+        fetches.withLock { fetches in
+            guard let id = fetches.ids[task.taskIdentifier] else { return nil }
+            if finished {
+                fetches.ids.removeValue(forKey: task.taskIdentifier)
+                fetches.tasks.removeValue(forKey: id)
+            }
+            return id
         }
-        return id
     }
 
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {

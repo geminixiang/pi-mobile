@@ -1,6 +1,7 @@
-import Capacitor
+@preconcurrency import Capacitor
 import Foundation
 import SQLite3
+import Synchronization
 import UIKit
 
 private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -10,7 +11,8 @@ private struct SqlError: Error {
 }
 
 @objc(DatabasePlugin)
-public class DatabasePlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class DatabasePlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "DatabasePlugin"
     public let jsName = "Database"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -20,10 +22,10 @@ public class DatabasePlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private let queue = DispatchQueue(label: "pi.database")
-    private var handle: OpaquePointer?
-    private lazy var file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("pi-data.db")
+    private let connection = Mutex<OpaquePointer?>(nil)
+    private let file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("pi-data.db")
 
-    private func db() throws -> OpaquePointer {
+    private func open(_ handle: inout OpaquePointer?) throws -> OpaquePointer {
         if let handle { return handle }
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         var opened: OpaquePointer?
@@ -107,64 +109,70 @@ public class DatabasePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func execute(_ call: CAPPluginCall) {
         let statements = call.getArray("statements", JSObject.self) ?? []
         queue.async {
-            var index = 0
-            do {
-                let db = try self.db()
-                sqlite3_exec(db, "BEGIN", nil, nil, nil)
-                var results: [[String: Any]] = []
-                for statement in statements {
-                    index += 1
-                    results.append(try self.run(db, statement["sql"] as? String ?? "", statement["params"] as? [Any] ?? []))
+            self.connection.withLock { handle in
+                var index = 0
+                do {
+                    let db = try self.open(&handle)
+                    sqlite3_exec(db, "BEGIN", nil, nil, nil)
+                    var results: [[String: Any]] = []
+                    for statement in statements {
+                        index += 1
+                        results.append(try self.run(db, statement["sql"] as? String ?? "", statement["params"] as? [Any] ?? []))
+                    }
+                    sqlite3_exec(db, "COMMIT", nil, nil, nil)
+                    call.resolve(["results": results])
+                } catch {
+                    if let handle { sqlite3_exec(handle, "ROLLBACK", nil, nil, nil) }
+                    call.reject("statement \(index): \((error as? SqlError)?.message ?? error.localizedDescription)")
                 }
-                sqlite3_exec(db, "COMMIT", nil, nil, nil)
-                call.resolve(["results": results])
-            } catch {
-                if let handle = self.handle { sqlite3_exec(handle, "ROLLBACK", nil, nil, nil) }
-                call.reject("statement \(index): \((error as? SqlError)?.message ?? error.localizedDescription)")
             }
         }
     }
 
     @objc func schema(_ call: CAPPluginCall) {
         queue.async {
-            do {
-                let db = try self.db()
-                let listed = try self.run(db, "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name", [])
-                let tables = try (listed["rows"] as? [[Any]] ?? []).map { row -> [String: Any] in
-                    let name = row[0] as? String ?? ""
-                    let counted = try self.run(db, "SELECT COUNT(*) FROM \"\(name.replacingOccurrences(of: "\"", with: "\"\""))\"", [])
-                    return ["name": name, "sql": row[1] as? String ?? "", "rows": (counted["rows"] as? [[Any]])?.first?.first ?? 0]
+            self.connection.withLock { handle in
+                do {
+                    let db = try self.open(&handle)
+                    let listed = try self.run(db, "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name", [])
+                    let tables = try (listed["rows"] as? [[Any]] ?? []).map { row -> [String: Any] in
+                        let name = row[0] as? String ?? ""
+                        let counted = try self.run(db, "SELECT COUNT(*) FROM \"\(name.replacingOccurrences(of: "\"", with: "\"\""))\"", [])
+                        return ["name": name, "sql": row[1] as? String ?? "", "rows": (counted["rows"] as? [[Any]])?.first?.first ?? 0]
+                    }
+                    call.resolve(["tables": tables])
+                } catch {
+                    call.reject((error as? SqlError)?.message ?? error.localizedDescription)
                 }
-                call.resolve(["tables": tables])
-            } catch {
-                call.reject((error as? SqlError)?.message ?? error.localizedDescription)
             }
         }
     }
 
     @objc func export(_ call: CAPPluginCall) {
         queue.async {
-            do {
-                let db = try self.db()
-                let copy = FileManager.default.temporaryDirectory.appendingPathComponent("pi-data.db")
-                if FileManager.default.fileExists(atPath: copy.path) { try FileManager.default.removeItem(at: copy) }
-                // why: VACUUM INTO attaches its target, which the authorizer denies to the model's SQL; this runs on the same serial queue, so no other statement sees it lifted
-                sqlite3_set_authorizer(db, nil, nil)
-                defer { self.denyAttach(db) }
-                _ = try self.run(db, "VACUUM INTO ?", [copy.path])
-                DispatchQueue.main.async {
-                    guard let presenter = self.bridge?.viewController else {
-                        call.reject("no window to share from")
-                        return
+            self.connection.withLock { handle in
+                do {
+                    let db = try self.open(&handle)
+                    let copy = FileManager.default.temporaryDirectory.appendingPathComponent("pi-data.db")
+                    if FileManager.default.fileExists(atPath: copy.path) { try FileManager.default.removeItem(at: copy) }
+                    // why: VACUUM INTO attaches its target, which the authorizer denies to the model's SQL; this runs on the same serial queue, so no other statement sees it lifted
+                    sqlite3_set_authorizer(db, nil, nil)
+                    defer { self.denyAttach(db) }
+                    _ = try self.run(db, "VACUUM INTO ?", [copy.path])
+                    DispatchQueue.main.async {
+                        guard let presenter = self.bridge?.viewController else {
+                            call.reject("no window to share from")
+                            return
+                        }
+                        let share = UIActivityViewController(activityItems: [copy], applicationActivities: nil)
+                        share.popoverPresentationController?.sourceView = presenter.view
+                        share.popoverPresentationController?.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.maxY, width: 0, height: 0)
+                        presenter.present(share, animated: true)
+                        call.resolve()
                     }
-                    let share = UIActivityViewController(activityItems: [copy], applicationActivities: nil)
-                    share.popoverPresentationController?.sourceView = presenter.view
-                    share.popoverPresentationController?.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.maxY, width: 0, height: 0)
-                    presenter.present(share, animated: true)
-                    call.resolve()
+                } catch {
+                    call.reject((error as? SqlError)?.message ?? error.localizedDescription)
                 }
-            } catch {
-                call.reject((error as? SqlError)?.message ?? error.localizedDescription)
             }
         }
     }

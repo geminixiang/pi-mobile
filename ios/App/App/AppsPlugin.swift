@@ -1,5 +1,5 @@
 import AlarmKit
-import Capacitor
+@preconcurrency import Capacitor
 import MessageUI
 import QuickLook
 import SwiftUI
@@ -8,16 +8,17 @@ import UIKit
 private struct PiAlarm: AlarmMetadata {}
 
 @objc(AppsPlugin)
-public class AppsPlugin: CAPPlugin, CAPBridgedPlugin, MFMailComposeViewControllerDelegate, MFMessageComposeViewControllerDelegate, QLPreviewControllerDataSource {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+nonisolated public final class AppsPlugin: CAPPlugin, CAPBridgedPlugin, @MainActor MFMailComposeViewControllerDelegate, @MainActor MFMessageComposeViewControllerDelegate, @MainActor QLPreviewControllerDataSource, @unchecked Sendable {
     public let identifier = "AppsPlugin"
     public let jsName = "Apps"
     public let pluginMethods: [CAPPluginMethod] = ["setAlarm", "setTimer", "composeEmail", "composeSms", "open", "share", "openFile"].map {
         CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)
     }
 
-    private var previewing: URL?
+    @MainActor private var previewing: URL?
 
-    private func present(_ call: CAPPluginCall, _ controller: UIViewController) {
+    @MainActor private func present(_ call: CAPPluginCall, _ controller: UIViewController) {
         guard let presenter = bridge?.viewController else {
             call.reject("no window to open it in")
             return
@@ -29,7 +30,7 @@ public class AppsPlugin: CAPPlugin, CAPBridgedPlugin, MFMailComposeViewControlle
     }
 
     // why: the first call waits on the permission alert, which can stay up for minutes; a timer's end is counted from when it is allowed, or it lands in the past and AlarmKit refuses it
-    private func schedule(_ call: CAPPluginCall, label: String, _ alarm: @escaping () -> Alarm.Schedule) {
+    private func schedule(_ call: CAPPluginCall, label: String, _ alarm: @escaping @Sendable () -> Alarm.Schedule) {
         Task {
             do {
                 let state = try await AlarmManager.shared.requestAuthorization()
@@ -128,11 +129,11 @@ public class AppsPlugin: CAPPlugin, CAPBridgedPlugin, MFMailComposeViewControlle
         }
     }
 
-    public func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+    @MainActor public func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
         controller.dismiss(animated: true)
     }
 
-    public func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
+    @MainActor public func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
         controller.dismiss(animated: true)
     }
 
@@ -187,11 +188,11 @@ public class AppsPlugin: CAPPlugin, CAPBridgedPlugin, MFMailComposeViewControlle
         }
     }
 
-    public func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+    @MainActor public func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
         previewing == nil ? 0 : 1
     }
 
-    public func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+    @MainActor public func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
         (previewing ?? URL(fileURLWithPath: "/")) as NSURL
     }
 }

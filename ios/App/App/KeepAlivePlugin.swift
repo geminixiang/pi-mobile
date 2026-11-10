@@ -1,10 +1,11 @@
-import BackgroundTasks
-import Capacitor
+@preconcurrency import BackgroundTasks
+@preconcurrency import Capacitor
 import UIKit
 import UserNotifications
 
 @objc(KeepAlivePlugin)
-public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "KeepAlivePlugin"
     public let jsName = "KeepAlive"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -17,19 +18,19 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestUnrestrictedBattery", returnType: CAPPluginReturnPromise),
     ]
 
-    private var task: BGContinuedProcessingTask?
-    private var pending = false
-    private var ticker: Timer?
+    @MainActor private var task: BGContinuedProcessingTask?
+    @MainActor private var pending = false
+    @MainActor private var ticker: Timer?
 
     @objc func start(_ call: CAPPluginCall) {
         let title = "pi 工作中"
         let text = call.getString("text") ?? ""
-        // why: on iPhone WebKit suspends the page about a second after pi leaves the screen, task or not, so all it gives is the system's progress banner and result notices
-        guard UIDevice.current.userInterfaceIdiom == .pad else {
-            call.resolve()
-            return
-        }
         DispatchQueue.main.async {
+            // why: on iPhone WebKit suspends the page about a second after pi leaves the screen, task or not, so all it gives is the system's progress banner and result notices
+            guard UIDevice.current.userInterfaceIdiom == .pad else {
+                call.resolve()
+                return
+            }
             if let running = self.task {
                 running.updateTitle(title, subtitle: text)
                 call.resolve()
@@ -56,20 +57,21 @@ public class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    private func run(_ task: BGContinuedProcessingTask) {
+    @MainActor private func run(_ task: BGContinuedProcessingTask) {
         pending = false
         self.task = task
         task.progress.totalUnitCount = 1000
-        task.expirationHandler = { [weak self] in
+        task.expirationHandler = { @Sendable [weak self] in
             DispatchQueue.main.async { self?.finish(success: false) }
         }
         // why: the system expires a continued task that reports no progress; a turn has no measurable total, so the bar creeps while it runs
+        let progress = task.progress
         ticker = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-            task.progress.completedUnitCount = min(task.progress.completedUnitCount + 1, 999)
+            progress.completedUnitCount = min(progress.completedUnitCount + 1, 999)
         }
     }
 
-    private func finish(success: Bool) {
+    @MainActor private func finish(success: Bool) {
         ticker?.invalidate()
         ticker = nil
         if let running = task {

@@ -1,11 +1,12 @@
-import Capacitor
-import CoreMotion
+@preconcurrency import Capacitor
+@preconcurrency import CoreMotion
 
 // why: CMPedometer keeps only the last 7 days of steps; older dates come back as an error
 private let pedometerDays = 7
 
 @objc(HealthPlugin)
-public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class HealthPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "HealthPlugin"
     public let jsName = "Health"
     public let pluginMethods: [CAPPluginMethod] = ["read"].map {

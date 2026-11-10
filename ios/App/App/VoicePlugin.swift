@@ -1,22 +1,23 @@
 import AVFoundation
-import Capacitor
+@preconcurrency import Capacitor
 import Speech
 
 @objc(VoicePlugin)
-public class VoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDelegate {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class VoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     public let identifier = "VoicePlugin"
     public let jsName = "Voice"
     public let pluginMethods: [CAPPluginMethod] = ["available", "start", "stop", "cancel", "speak", "stopSpeaking"].map {
         CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)
     }
 
-    private var transcription: Transcription?
-    private lazy var synthesizer: AVSpeechSynthesizer = {
+    @MainActor private var transcription: Transcription?
+    @MainActor private lazy var synthesizer: AVSpeechSynthesizer = {
         let synthesizer = AVSpeechSynthesizer()
         synthesizer.delegate = self
         return synthesizer
     }()
-    private var speaking: (call: CAPPluginCall, utterance: AVSpeechUtterance)?
+    @MainActor private var speaking: (call: CAPPluginCall, utterance: AVSpeechUtterance)?
 
     @objc func available(_ call: CAPPluginCall) {
         Task {
@@ -94,18 +95,20 @@ public class VoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDelega
         }
     }
 
-    private func spoke(_ utterance: AVSpeechUtterance, _ spoken: Bool, reason: String? = nil) {
-        guard let (call, current) = speaking, current === utterance else { return }
+    @MainActor private func spoke(_ utterance: ObjectIdentifier, _ spoken: Bool, reason: String? = nil) {
+        guard let (call, current) = speaking, ObjectIdentifier(current) == utterance else { return }
         speaking = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         call.resolve(reason.map { ["spoken": spoken, "reason": $0] } ?? ["spoken": spoken])
     }
 
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        spoke(utterance, true)
+        let finished = ObjectIdentifier(utterance)
+        DispatchQueue.main.async { self.spoke(finished, true) }
     }
 
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        spoke(utterance, false, reason: "stopped")
+        let cancelled = ObjectIdentifier(utterance)
+        DispatchQueue.main.async { self.spoke(cancelled, false, reason: "stopped") }
     }
 }

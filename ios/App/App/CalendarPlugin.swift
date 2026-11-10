@@ -1,11 +1,12 @@
-import Capacitor
-import EventKit
+@preconcurrency import Capacitor
+@preconcurrency import EventKit
 import UIKit
 
 private let day: TimeInterval = 86_400
 
 @objc(CalendarPlugin)
-public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
+// why: Capacitor's CAPPlugin is unannotated Objective-C, called from the main thread and the bridge queue; this plugin adds only lets, locked state, or main-actor state
+public final class CalendarPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Sendable {
     public let identifier = "CalendarPlugin"
     public let jsName = "Calendar"
     public let pluginMethods: [CAPPluginMethod] = ["listAccounts", "listEvents", "insertEvent", "deleteEvent", "checkPermissions", "requestPermissions"].map {
@@ -54,7 +55,7 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         EKEventStore.authorizationStatus(for: .event) == .fullAccess
     }
 
-    private func withAccess(_ call: CAPPluginCall, _ then: @escaping () -> Void) {
+    private func withAccess(_ call: CAPPluginCall, _ then: @escaping @Sendable () -> Void) {
         if granted {
             then()
             return
