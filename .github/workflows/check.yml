@@ -44,4 +44,4 @@ jobs:
           cache-dependency-path: host/go.sum
 
       - working-directory: host
-        run: go test -run "InputRecord|TextRecords|Chord|Rune|Zpixmap|Crop|DesktopEnvironment|Batch" .
+        run: go test -run "InputRecord|TextRecords|Chord|Rune|Zpixmap|Crop|DesktopEnvironment|Batch|LoginShell" .

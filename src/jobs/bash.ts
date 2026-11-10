@@ -11,7 +11,7 @@ import { type Job, JOB_LIMIT_SECONDS, OUTPUT_BYTES, OUTPUT_LINES, parseJob, read
 const POLL_MS = 400;
 const PROMPT_CHARS = 500;
 
-export const BACKGROUND_NOTE = ` On a macOS or Linux computer, a command still running after ${WAIT_MS / 1000} seconds goes on in the background for up to its timeout (default ${JOB_LIMIT_SECONDS / 3600} hours), and the phone wakes you when it ends.`;
+export const BACKGROUND_NOTE = ` On a computer, a command still running after ${WAIT_MS / 1000} seconds goes on in the background for up to its timeout (default ${JOB_LIMIT_SECONDS / 3600} hours), and the phone wakes you when it ends.`;
 
 export const JOB_BASH_PARAMETERS = Type.Object(
 	{
@@ -28,7 +28,7 @@ type Execute = (args: Args, api: ToolExecutionApi, context: Context) => Promise<
 export function jobsOnComputers(execute: Execute, workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, waitFor: (conversationId: ConversationId, job: string) => void): Execute {
 	return async (args, api, context) => {
 		const place = workplace(String(api.conversationId));
-		if (place?.kind !== "computer" || !place.sandbox.direct || place.host.os === "windows") return execute(args, api, context);
+		if (place?.kind !== "computer" || !place.sandbox.direct) return execute(args, api, context);
 		const commands = new HostCommands(place.host);
 		const id = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 		const limitSeconds = args.timeout ?? JOB_LIMIT_SECONDS;

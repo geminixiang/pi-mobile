@@ -15,7 +15,23 @@ import (
 
 const executableSuffix = ".exe"
 
+func gitBash() string {
+	for _, dir := range []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)"), filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs")} {
+		bash := filepath.Join(dir, "Git", "bin", "bash.exe")
+		if _, err := os.Stat(bash); dir != "" && err == nil {
+			return bash
+		}
+	}
+	return ""
+}
+
 func loginShell(ctx context.Context, command string, args ...string) *exec.Cmd {
+	if bash := gitBash(); bash != "" {
+		// why: console programs print in the console's code page (Big5 on Chinese Windows); the phone reads UTF-8
+		cmd := exec.CommandContext(ctx, bash, append([]string{"-l", "-c", "chcp.com 65001 >/dev/null 2>&1; " + command}, args...)...)
+		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP | windows.CREATE_NO_WINDOW}
+		return windowsCommand(cmd)
+	}
 	shell := os.Getenv("ComSpec")
 	if shell == "" {
 		shell = `C:\Windows\System32\cmd.exe`
