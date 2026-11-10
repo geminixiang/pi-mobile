@@ -20,10 +20,9 @@ const askUser = defineAppTool({
 	reach: "model",
 	callers: ["model"],
 	description:
-		"Ask the user one question with 2 to 4 answers shown as buttons they tap; they can also type their own. Use it whenever you need the user to choose or confirm before going on (which one first, which time, whether to go ahead), instead of listing the choices in your reply. Not for open questions with no natural answers. Then end your turn.",
+		"Ask the user one question with 2 to 4 answers shown as buttons they tap; they can also type their own. Use it only when you cannot go on without their choice or consent, not for open questions. Before asking them to approve something you will send, post, or delete, show all of it in your reply first and say what changed since they last saw it. When their next message is not an answer, reply to it in text and do not call ask_user in that reply. Call it last and alone: the card ends your turn.",
 	parameters: AskArgs,
-	execute: async () =>
-		text("Shown to the user as a card with those buttons. End your turn now, without repeating the question or the answers; the user's answer comes as their next message."),
+	execute: async () => ({ ...text("Shown to the user as a card with those buttons. If their next message answers it, go on; if it is about something else, reply to that in text and do not ask again in that reply."), control: { terminate: true } }),
 });
 
 export const InteractionExtension = defineExtension({ name: "interaction", tools: [askUser] });

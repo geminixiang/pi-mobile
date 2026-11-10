@@ -26,19 +26,19 @@ export const checks: Check[] = [
 			try {
 				const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
 				let offered = "";
-				let toolResult = "";
+				let askedAgain = false;
 				await turn(runtime, bot, [
 					(context: TranscriptContext) => {
 						offered = JSON.stringify(context);
 						return fauxAssistantMessage(fauxToolCall("ask_user", ASK, { id: "ask-1" }), { stopReason: "toolUse" });
 					},
-					(context: TranscriptContext) => {
-						toolResult = JSON.stringify(context.messages.at(-1));
-						return fauxAssistantMessage("");
+					() => {
+						askedAgain = true;
+						return fauxAssistantMessage("(waiting for your answer)");
 					},
 				]);
 				assert.match(offered, /"ask_user"/, "ask_user is offered to the model directly");
-				assert.match(toolResult, /End your turn now/);
+				assert.equal(askedAgain, false, "the card ends the turn, so the model is not asked to say something after it");
 				assert.deepEqual(questionStates(await entriesOf(runtime, bot)).get("ask-1"), { state: "open" });
 
 				await turn(runtime, bot, [fauxAssistantMessage("好，先申請延長。")], "申請延長");
