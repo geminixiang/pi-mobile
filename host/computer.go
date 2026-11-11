@@ -143,6 +143,7 @@ type seen struct {
 	origin display
 	scale  float64
 	ui     []uiNode
+	lines  []string
 }
 
 type computer struct {
@@ -201,6 +202,10 @@ func (c *computer) end() {
 }
 
 func (c *computer) shot(index int, picture bool) ([]any, error) {
+	return c.look(index, picture, false)
+}
+
+func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 	all, err := c.screen.displays()
 	if err != nil {
 		return nil, err
@@ -223,11 +228,16 @@ func (c *computer) shot(index int, picture bool) ([]any, error) {
 			now.focus, _ = reader.focused()
 		}
 		if reader, ok := c.screen.(uiReader); ok {
-			now.ui, now.read = reader.window(d)
+			nodes, read := reader.window(d)
+			now.ui, now.read = tidy(nodes), read
 		}
 		return now
 	}()
 	w, h := shotSize(d)
+	var before []string
+	if c.seen != nil && c.seen.index == index {
+		before = c.seen.lines
+	}
 	c.seen = &seen{index: index, origin: d, scale: d.w / float64(w), ui: now.ui}
 	var content []any
 	if picture || !now.read || named(now.ui) < uiThin {
@@ -249,13 +259,14 @@ func (c *computer) shot(index int, picture bool) ([]any, error) {
 	if now.window != "" {
 		facts["window"] = now.window
 	}
-	if now.focus.role != "" {
+	if now.focus.role != "" && (len(now.ui) == 0 || now.ui[0].name == now.window) {
 		facts["focus"] = focusFacts(now.focus)
 	}
 	text, _ := json.Marshal(facts)
 	said := string(text)
 	if now.read {
-		said += "\n" + uiText(now.ui, toShot)
+		c.seen.lines = render(now.ui, toShot)
+		said += "\n" + changed(before, c.seen.lines, changes)
 	}
 	return append(content, map[string]any{"type": "text", "text": said}), nil
 }
@@ -285,6 +296,43 @@ func (c *computer) picture(d display, w, h int) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+func tidy(nodes []uiNode) []uiNode {
+	type kept struct {
+		depth, children int
+		name            string
+	}
+	var out []uiNode
+	var stack []kept
+	for i, n := range nodes {
+		for len(stack) > 0 && stack[len(stack)-1].depth >= n.depth {
+			stack = stack[:len(stack)-1]
+		}
+		n.name = strings.TrimSpace(strings.Map(visible, n.name))
+		depth, above := 0, ""
+		if len(stack) > 0 {
+			depth, above = stack[len(stack)-1].children, stack[len(stack)-1].name
+		}
+		parent := i+1 < len(nodes) && nodes[i+1].depth > n.depth
+		drop := n.depth > 0 && ((n.name == "" && parent) || (n.name != "" && n.name == above) || (n.disabled && !parent))
+		if drop {
+			stack = append(stack, kept{n.depth, depth, above})
+			continue
+		}
+		stack = append(stack, kept{n.depth, depth + 1, n.name})
+		n.depth = depth
+		out = append(out, n)
+	}
+	return out
+}
+
+func visible(r rune) rune {
+	switch r {
+	case '\u200b', '\u200c', '\u200d', '\u200e', '\u200f', '\ufeff':
+		return -1
+	}
+	return r
+}
+
 func named(nodes []uiNode) int {
 	count := 0
 	for _, n := range nodes {
@@ -296,7 +344,27 @@ func named(nodes []uiNode) int {
 }
 
 func uiText(nodes []uiNode, toShot func(x, y float64) (int, int)) string {
-	lines := []string{"ui:"}
+	return "ui:\n" + strings.Join(render(nodes, toShot), "\n")
+}
+
+func changed(before, now []string, changes bool) string {
+	if !changes || len(before) == 0 || len(now) == 0 || before[0] != now[0] {
+		return "ui:\n" + strings.Join(now, "\n")
+	}
+	var lines []string
+	for i, line := range now {
+		if i >= len(before) || before[i] != line {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) == 0 {
+		return "ui: nothing changed since the last look"
+	}
+	return fmt.Sprintf("ui, only the lines that changed since the last look (the others are as they were; %d lines now):\n%s", len(now), strings.Join(lines, "\n"))
+}
+
+func render(nodes []uiNode, toShot func(x, y float64) (int, int)) []string {
+	var lines []string
 	others := len(nodes)
 	for i, n := range nodes {
 		if i > 0 && n.depth == 0 {
@@ -315,7 +383,7 @@ func uiText(nodes []uiNode, toShot func(x, y float64) (int, int)) string {
 		if n.name != "" {
 			line += " " + strconv.Quote(clip(n.name, uiName))
 		}
-		if n.placed {
+		if leaf := i+1 == len(nodes) || nodes[i+1].depth <= n.depth; n.placed && leaf {
 			x, y := toShot(n.x, n.y)
 			line += fmt.Sprintf(" @%d,%d", x, y)
 		}
@@ -329,7 +397,7 @@ func uiText(nodes []uiNode, toShot func(x, y float64) (int, int)) string {
 		}
 		lines = append(lines, line)
 	}
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 func clip(s string, limit int) string {
@@ -589,6 +657,10 @@ func pauseAfter(s step) time.Duration {
 }
 
 func (c *computer) act(steps []step, picture bool) ([]any, error) {
+	if err := c.front(steps); err != nil {
+		content, _ := c.shot(c.lastDisplay(), picture)
+		return content, err
+	}
 	for i, s := range steps {
 		if err := c.run(s); err != nil {
 			failure := fmt.Errorf("step %d (%s): %w; earlier steps were done, later steps were not run", i+1, s.Action, err)
@@ -603,7 +675,26 @@ func (c *computer) act(steps []step, picture bool) ([]any, error) {
 		}
 	}
 	c.settle()
-	return c.shot(c.lastDisplay(), picture)
+	return c.look(c.lastDisplay(), picture, true)
+}
+
+// why: the window looked at can be on one display while another display's window has the keyboard, and keys sent then land in that other window
+func (c *computer) front(steps []step) error {
+	if len(steps) == 0 || (steps[0].Action != "key" && steps[0].Action != "type") || c.seen == nil || len(c.seen.ui) == 0 {
+		return nil
+	}
+	looked := c.seen.ui[0]
+	if _, window, _, _ := c.screen.state(); window == looked.name || looked.target == nil {
+		return nil
+	}
+	if err := looked.target.activate(false); err != nil {
+		return fmt.Errorf("the keys were not sent: %q is not in front and could not be brought there (%w)", looked.name, err)
+	}
+	time.Sleep(settle)
+	if _, window, _, _ := c.screen.state(); window != looked.name {
+		return fmt.Errorf("the keys were not sent: %q is in front, not %q; click the window to work in first", window, looked.name)
+	}
+	return nil
 }
 
 func (c *computer) pause(done, next step) {
@@ -654,13 +745,13 @@ func awaitFocus(reader focusReader, ready func(focus) bool, limit time.Duration)
 var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
-		"description": "See the computer's screen now, as text first: its size, the front app, the title of its focused window, the focused element (its role, the last lines of its text, the selection, and where the caret is), the pointer, which display of how many when there are several, and ui: the front window's elements, one a line, indented by nesting, numbered, with role, name, @x,y of its center when known, and focused, selected, on or disabled. A JPEG of the display comes too when image is true, or by itself when the window gives no ui (a canvas, a game, an app without accessibility); ask for it only when the text cannot answer, such as how something looks. Coordinates everywhere are pixels of a screenshot of that display, until the next look. Apps opened while using the screen are quit two minutes after the last use.",
-		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display (default), 2 and up the others"}, "image": map[string]any{"type": "boolean", "description": "also return a JPEG of the display; the text usually is enough"}}},
+		"description": "See one display of the computer's screen now (the one looked at last; work on one display at a time), as text first: its size, the front app, the title of its focused window, the focused element (its role, the last lines of its text, the selection, and where the caret is), the pointer, which display of how many when there are several, and ui: the elements of the top window on that display, one a line, indented by nesting, numbered, with role, name, @x,y of its center when known, and focused, selected, on or disabled, then the other windows on that display, behind. A JPEG of the display comes too when image is true, or by itself when the window gives no ui (a canvas, a game, an app without accessibility); ask for it only when the text cannot answer, such as how something looks. Coordinates everywhere are pixels of a screenshot of that display, until the next look. Apps opened while using the screen are quit two minutes after the last use.",
+		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display, 2 and up the others; by default the one looked at last (the main one at first)"}, "image": map[string]any{"type": "boolean", "description": "also return a JPEG of the display; the text usually is enough"}}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},
 	{
 		"name": "act",
-		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the look after them, as screenshot does (text, and a JPEG only when image is true or there is no ui). " +
+		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the look after them, as screenshot does (text, and a JPEG only when image is true or there is no ui); when the same window is still on top, ui lists only the lines that changed, and the ids of the others still hold. " +
 			"Put the steps you can already tell in one call (click a field, type, press return); prefer keys to clicks. " +
 			"Steps: click {id of a ui element, or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
 			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms}.",
@@ -764,7 +855,7 @@ func serveComputerMCP() int {
 			c.touch()
 			switch p.Name {
 			case "screenshot":
-				content, err = c.shot(cmp.Or(p.Arguments.Display, 1), p.Arguments.Image)
+				content, err = c.shot(cmp.Or(p.Arguments.Display, c.lastDisplay()), p.Arguments.Image)
 			case "act":
 				content, err = c.act(p.Arguments.Steps, p.Arguments.Image)
 			default:

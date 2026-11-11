@@ -53,3 +53,14 @@ func TestTextRecordsNeverSplitASurrogatePair(t *testing.T) {
 		}
 	}
 }
+
+func TestACOMCallOnNothingFailsInsteadOfCrashing(t *testing.T) {
+	if got := comCall(0, rangeMoveByUnit, 0); got != pointerMissing {
+		t.Fatalf("comCall on a nil object = %#x, want E_POINTER", got)
+	}
+	var f focus
+	readText(0, &f)
+	if f.end != "" {
+		t.Fatalf("reading no text gave %q", f.end)
+	}
+}

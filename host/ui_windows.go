@@ -46,7 +46,7 @@ var (
 )
 
 var (
-	skippedTypes   = map[int32]bool{50006: true, 50014: true, 50027: true, 50037: true, 50038: true, 50022: true}
+	skippedTypes   = map[int32]bool{50034: true, 50006: true, 50014: true, 50027: true, 50037: true, 50038: true, 50022: true}
 	flattenedTypes = map[int32]bool{50033: true, 50025: true, 50026: true, 50039: true}
 	leafTypes      = map[int32]bool{50007: true, 50024: true, 50029: true, 50019: true, 50005: true}
 )
@@ -62,7 +62,10 @@ func (s *winScreen) window(on display) ([]uiNode, bool) {
 	var nodes []uiNode
 	var read bool
 	s.automation.ask(func(client uintptr) { nodes, read = walkWindow(client, front) })
-	return append(nodes, behind(front)...), read
+	if len(nodes) > 0 {
+		nodes[0].target = winRaise{front}
+	}
+	return append(nodes, behind(front, on)...), read
 }
 
 func walkWindow(client, handle uintptr) ([]uiNode, bool) {
@@ -194,10 +197,10 @@ func elementString(element uintptr, property int) string {
 	return strings.TrimSpace(takeString(text))
 }
 
-func behind(front uintptr) []uiNode {
+func behind(front uintptr, on display) []uiNode {
 	var nodes []uiNode
 	for _, w := range topWindows() {
-		if w.handle == front || len(nodes) == uiOthers || hidden(w.handle) {
+		if w.handle == front || len(nodes) == uiOthers || hidden(w.handle) || !within(w.handle, on) {
 			continue
 		}
 		nodes = append(nodes, uiNode{role: "window", name: windowTitle(w.handle) + " (" + exeName(w.pid) + ", behind)", target: winRaise{w.handle}})

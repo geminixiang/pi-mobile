@@ -3830,7 +3830,7 @@
 		"parameters": {
 			"properties": {
 				"display": {
-					"description": "1 is the main display (default); 2 and up the others",
+					"description": "1 is the main display, 2 and up the others; by default the one looked at last (the main one at first)",
 					"minimum": 1,
 					"type": "integer"
 				},

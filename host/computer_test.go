@@ -499,3 +499,74 @@ func TestTheWindowsBehindShowPastALongWindow(t *testing.T) {
 		t.Fatalf("the window behind is cut off:\n%s", text[len(text)-200:])
 	}
 }
+
+func TestTidyKeepsOnlyWhatALineSays(t *testing.T) {
+	nodes := tidy([]uiNode{
+		{role: "window", name: "files - 檔案總管", placed: true},
+		{depth: 1, role: "app bar", placed: true},
+		{depth: 2, role: "button", name: "上一頁", disabled: true, placed: true},
+		{depth: 2, role: "button", name: "剪下\u200b\u200b", x: 10, y: 20, placed: true},
+		{depth: 1, role: "split button", name: "使用者", x: 30, y: 40, placed: true},
+		{depth: 2, role: "text", name: "使用者", placed: true},
+	})
+	text := uiText(nodes, func(x, y float64) (int, int) { return int(x), int(y) })
+	want := "ui:\n[1] window \"files - 檔案總管\"\n [2] button \"剪下\" @10,20\n [3] split button \"使用者\" @30,40"
+	if text != want {
+		t.Fatalf("tidy gave\n%s\nwant\n%s", text, want)
+	}
+}
+
+type focusedElsewhere struct{ windowScreen }
+
+func (s *focusedElsewhere) focused() (focus, bool) {
+	return focus{role: "document", end: "another display's text", length: 22}, true
+}
+
+func TestTheFocusShowsOnlyWhenItIsInTheWindowLookedAt(t *testing.T) {
+	s := &focusedElsewhere{}
+	s.nodes = []uiNode{{role: "window", name: "files"}, {depth: 1, role: "button", name: "a"}, {depth: 1, role: "button", name: "b"}}
+	content, err := (&computer{screen: s}).shot(1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := content[len(content)-1].(map[string]any)["text"].(string); strings.Contains(text, "another display") {
+		t.Fatalf("the focus of the window \"test\" showed with the window \"files\": %s", text)
+	}
+	s.nodes[0].name = "test"
+	content, _ = (&computer{screen: s}).shot(1, false)
+	if text := content[len(content)-1].(map[string]any)["text"].(string); !strings.Contains(text, "another display") {
+		t.Fatalf("the focus of the window looked at is missing: %s", text)
+	}
+}
+
+func TestAnActShowsOnlyTheLinesThatChanged(t *testing.T) {
+	before := []string{`[1] window "files"`, ` [2] list item "a.txt" @1,1`, ` [3] list item "b.txt" @1,2`}
+	now := []string{`[1] window "files"`, ` [2] list item "a.txt" @1,1 selected`, ` [3] list item "b.txt" @1,2`, ` [4] text "1 selected" @1,3`}
+	if got := changed(before, now, true); !strings.HasSuffix(got, "4 lines now):\n [2] list item \"a.txt\" @1,1 selected\n [4] text \"1 selected\" @1,3") {
+		t.Fatalf("changes = %s", got)
+	}
+	if got := changed(before, before, true); got != "ui: nothing changed since the last look" {
+		t.Fatalf("no change = %s", got)
+	}
+	other := append([]string{`[1] window "封存"`}, now[1:]...)
+	if got := changed(before, other, true); !strings.HasPrefix(got, "ui:\n[1] window \"封存\"\n") {
+		t.Fatalf("another window should come whole, got %s", got)
+	}
+}
+
+func TestKeysWaitForTheWindowLookedAtToBeInFront(t *testing.T) {
+	s := &windowScreen{}
+	s.nodes = []uiNode{{role: "window", name: "note.txt"}, {depth: 1, role: "button", name: "a"}, {depth: 1, role: "button", name: "b"}}
+	s.nodes[0].target = pressed{s}
+	c := &computer{screen: s}
+	if _, err := c.shot(1, false); err != nil {
+		t.Fatal(err)
+	}
+	_, err := c.act([]step{{Action: "type", Text: "into the wrong window"}}, false)
+	if len(s.activated) != 1 || err == nil || !strings.Contains(err.Error(), "keys were not sent") {
+		t.Fatalf("activated %v, err %v: the window looked at should be raised, and keys refused while another stays in front", s.activated, err)
+	}
+	if strings.Contains(strings.Join(s.calls, ","), "type") {
+		t.Fatal("text was typed into the window in front")
+	}
+}

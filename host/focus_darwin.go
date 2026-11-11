@@ -50,23 +50,32 @@ func newAXFocus(lib uintptr, name func(uintptr, string, uint32) uintptr) *axFocu
 }
 
 func (s *macScreen) frontWindowPID() int32 {
-	windows := s.ax.windowList(onScreenOnly|excludeDesktop, 0)
-	if windows == 0 {
+	pids := s.windowPIDs()
+	if len(pids) == 0 {
 		return 0
 	}
+	return pids[0]
+}
+
+func (s *macScreen) windowPIDs() []int32 {
+	windows := s.ax.windowList(onScreenOnly|excludeDesktop, 0)
+	if windows == 0 {
+		return nil
+	}
 	defer s.release(windows)
+	seen := map[int32]bool{}
+	var pids []int32
 	for i := range s.ax.count(windows) {
 		window := s.ax.item(windows, i)
 		layer, owner := s.ax.lookup(window, s.ax.layerKey), s.ax.lookup(window, s.ax.pidKey)
 		var depth, pid int32
-		if layer == 0 || owner == 0 || !s.ax.number(layer, cfNumberSInt32, unsafe.Pointer(&depth)) || depth != 0 {
+		if layer == 0 || owner == 0 || !s.ax.number(layer, cfNumberSInt32, unsafe.Pointer(&depth)) || depth != 0 || !s.ax.number(owner, cfNumberSInt32, unsafe.Pointer(&pid)) || seen[pid] {
 			continue
 		}
-		if s.ax.number(owner, cfNumberSInt32, unsafe.Pointer(&pid)) {
-			return pid
-		}
+		seen[pid] = true
+		pids = append(pids, pid)
 	}
-	return 0
+	return pids
 }
 
 func (s *macScreen) focused() (focus, bool) {

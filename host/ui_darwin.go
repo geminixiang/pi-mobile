@@ -53,6 +53,7 @@ type axTree struct {
 	numberType   uint64
 	timeout      func(uintptr, float32) int32
 	perform      func(uintptr, uintptr) int32
+	retain       func(uintptr) uintptr
 	set          func(uintptr, uintptr, uintptr) int32
 	yes          uintptr
 	names        uintptr
@@ -82,7 +83,7 @@ func newAXTree(lib uintptr, s *macScreen) *axTree {
 		purego.RegisterLibFunc(fn, lib, symbol)
 	}
 	for symbol, fn := range map[string]any{
-		"CFArrayCreate": &t.arrayCreate, "CFBooleanGetTypeID": &booleanType, "CFBooleanGetValue": &t.boolean,
+		"CFArrayCreate": &t.arrayCreate, "CFRetain": &t.retain, "CFBooleanGetTypeID": &booleanType, "CFBooleanGetValue": &t.boolean,
 		"CFArrayGetTypeID": &arrayType, "CFNumberGetTypeID": &numberType,
 	} {
 		purego.RegisterLibFunc(fn, foundation, symbol)
@@ -99,78 +100,78 @@ func newAXTree(lib uintptr, s *macScreen) *axTree {
 	return t
 }
 
-func (s *macScreen) window(display) ([]uiNode, bool) {
-	if s.tree == nil {
+func (s *macScreen) window(on display) ([]uiNode, bool) {
+	if s.tree == nil || !s.axTrusted() {
 		return nil, false
 	}
-	pid := s.frontWindowPID()
-	if pid == 0 || !s.axTrusted() {
-		return nil, false
+	var front uintptr
+	var raise macRaise
+	var others []uiNode
+	for _, pid := range s.windowPIDs() {
+		app := s.appElement(pid)
+		s.tree.timeout(app, uiTimeout)
+		name := s.text(s.attribute(app, "AXTitle"))
+		for _, window := range s.shown(app, on) {
+			title := s.text(s.attribute(window, "AXTitle"))
+			switch {
+			case title == "":
+			case front == 0:
+				front, raise = window, macRaise{s: s, pid: pid, title: title}
+				continue
+			case len(others) < uiOthers:
+				others = append(others, uiNode{role: "window", name: title + " (" + name + ", behind)", target: macRaise{s: s, pid: pid, title: title}})
+			}
+			s.release(window)
+		}
+		s.release(app)
 	}
-	app := s.appElement(pid)
-	defer s.release(app)
-	s.tree.timeout(app, uiTimeout)
-	window := s.attribute(app, "AXFocusedWindow")
-	if window == 0 {
-		return nil, false
+	if front == 0 {
+		return others, false
 	}
-	defer s.release(window)
+	defer s.release(front)
 	walk := &uiWalker{s: s}
-	walk.visit(window, 0)
-	return append(walk.nodes, s.otherWindows(pid)...), walk.seen > 1
+	walk.visit(front, 0)
+	if len(walk.nodes) > 0 {
+		walk.nodes[0].target = raise
+	}
+	return append(walk.nodes, others...), walk.seen > 1
 }
 
-func (s *macScreen) otherWindows(front int32) []uiNode {
-	listed := s.ax.windowList(onScreenOnly|excludeDesktop, 0)
-	if listed == 0 {
-		return nil
-	}
-	defer s.release(listed)
-	seen := map[int32]bool{front: true}
-	var nodes []uiNode
-	for i := range s.ax.count(listed) {
-		window := s.ax.item(listed, i)
-		layer, owner := s.ax.lookup(window, s.ax.layerKey), s.ax.lookup(window, s.ax.pidKey)
-		var depth, pid int32
-		if layer == 0 || owner == 0 || !s.ax.number(layer, cfNumberSInt32, unsafe.Pointer(&depth)) || depth != 0 || !s.ax.number(owner, cfNumberSInt32, unsafe.Pointer(&pid)) || seen[pid] {
-			continue
-		}
-		seen[pid] = true
-		nodes = append(nodes, s.appWindows(pid)...)
-		if len(nodes) >= uiOthers {
-			return nodes[:uiOthers]
-		}
-	}
-	return nodes
-}
-
-func (s *macScreen) appWindows(pid int32) []uiNode {
-	app := s.appElement(pid)
-	defer s.release(app)
-	s.tree.timeout(app, uiTimeout)
-	name := s.text(s.attribute(app, "AXTitle"))
+func (s *macScreen) shown(app uintptr, on display) []uintptr {
 	windows := s.attribute(app, "AXWindows")
 	if windows == 0 {
 		return nil
 	}
 	defer s.release(windows)
-	var nodes []uiNode
+	var found []uintptr
 	for i := range s.ax.count(windows) {
 		window := s.ax.item(windows, i)
 		minimized := s.attribute(window, "AXMinimized")
 		if minimized != 0 {
 			s.release(minimized)
 		}
-		if minimized == s.tree.yes {
+		if minimized == s.tree.yes || !s.within(window, on) {
 			continue
 		}
-		title := s.text(s.attribute(window, "AXTitle"))
-		if title == "" {
-			continue
-		}
-		nodes = append(nodes, uiNode{role: "window", name: strings.TrimSpace(title + " (" + name + ", behind)"), target: macRaise{s: s, pid: pid, title: title}})
+		found = append(found, s.tree.retain(window))
 	}
-	return nodes
+	return found
+}
+
+func (s *macScreen) within(window uintptr, on display) bool {
+	position, size := s.attribute(window, "AXPosition"), s.attribute(window, "AXSize")
+	if position == 0 || size == 0 {
+		return false
+	}
+	defer s.release(position)
+	defer s.release(size)
+	var at cgPoint
+	var extent struct{ W, H float64 }
+	if !s.tree.value(position, axPointType, unsafe.Pointer(&at)) || !s.tree.value(size, axSizeType, unsafe.Pointer(&extent)) {
+		return false
+	}
+	x, y := at.X+extent.W/2, at.Y+extent.H/2
+	return x >= on.x && x < on.x+on.w && y >= on.y && y < on.y+on.h
 }
 
 type macRaise struct {

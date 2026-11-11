@@ -45,7 +45,10 @@ func (a *accessibility) window(display) ([]uiNode, bool) {
 		}
 	}
 	walk := &atspiWalker{a: a}
-	walk.visit(front, 0, uiNode{})
+	walk.visit(front, 0)
+	if len(walk.nodes) > 0 {
+		walk.nodes[0].target = nil
+	}
 	return walk.nodes, walk.seen > 1
 }
 
@@ -55,7 +58,7 @@ type atspiWalker struct {
 	seen  int
 }
 
-func (w *atspiWalker) visit(at node, depth int, parent uiNode) {
+func (w *atspiWalker) visit(at node, depth int) {
 	if w.seen >= uiWalk || depth > uiDepth {
 		return
 	}
@@ -89,16 +92,15 @@ func (w *atspiWalker) visit(at node, depth int, parent uiNode) {
 		w.nodes = append(w.nodes, n)
 		return
 	}
-	repeated := n.name != "" && n.name == parent.name
-	if (flattened[role] && n.name == "") || repeated {
+	if flattened[role] && n.name == "" {
 		for _, child := range children {
-			w.visit(child, depth, parent)
+			w.visit(child, depth)
 		}
 		return
 	}
 	w.nodes = append(w.nodes, n)
 	for _, child := range children {
-		w.visit(child, depth+1, n)
+		w.visit(child, depth+1)
 	}
 }
 

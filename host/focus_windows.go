@@ -209,7 +209,12 @@ func takeString(text uintptr) string {
 	return windows.UTF16ToString(unsafe.Slice((*uint16)(asPointer(text)), n))
 }
 
+const pointerMissing = 0x80004003
+
 func comCall(object uintptr, method int, args ...uintptr) uintptr {
+	if object == 0 {
+		return pointerMissing
+	}
 	table := *(*unsafe.Pointer)(asPointer(object))
 	fn := *(*uintptr)(unsafe.Add(table, uintptr(method)*unsafe.Sizeof(uintptr(0))))
 	hr, _, _ := syscall.SyscallN(fn, append([]uintptr{object}, args...)...)

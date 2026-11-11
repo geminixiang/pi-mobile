@@ -380,10 +380,10 @@ func (s *x11Screen) typeRemapped(runes []rune) (int, error) {
 
 func (s *x11Screen) window(on display) ([]uiNode, bool) {
 	nodes, read := s.accessibility.window(on)
-	return append(nodes, s.behind()...), read
+	return append(nodes, s.behind(on)...), read
 }
 
-func (s *x11Screen) behind() []uiNode {
+func (s *x11Screen) behind(on display) []uiNode {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	active := s.windows("_NET_ACTIVE_WINDOW")
@@ -395,7 +395,7 @@ func (s *x11Screen) behind() []uiNode {
 			continue
 		}
 		title := cmp.Or(string(s.property(window, "_NET_WM_NAME")), string(s.property(window, "WM_NAME")))
-		if title == "" {
+		if title == "" || !s.within(window, on) {
 			continue
 		}
 		nodes = append(nodes, uiNode{role: "window", name: title + " (" + processName(s.pid(window)) + ", behind)", target: x11Raise{s: s, window: window}})
@@ -417,4 +417,17 @@ func (r x11Raise) activate(bool) error {
 	// why: a pager asks the window manager to raise a window with this client message (EWMH, source 2); setting the input focus directly is ignored by most window managers
 	event := xproto.ClientMessageEvent{Format: 32, Window: r.window, Type: s.atom("_NET_ACTIVE_WINDOW"), Data: xproto.ClientMessageDataUnionData32New([]uint32{2, 0, 0, 0, 0})}
 	return xproto.SendEventChecked(s.conn, false, s.root, xproto.EventMaskSubstructureRedirect|xproto.EventMaskSubstructureNotify, string(event.Bytes())).Check()
+}
+
+func (s *x11Screen) within(window xproto.Window, on display) bool {
+	geometry, err := xproto.GetGeometry(s.conn, xproto.Drawable(window)).Reply()
+	if err != nil {
+		return false
+	}
+	at, err := xproto.TranslateCoordinates(s.conn, window, s.root, 0, 0).Reply()
+	if err != nil {
+		return false
+	}
+	x, y := float64(at.DstX)+float64(geometry.Width)/2, float64(at.DstY)+float64(geometry.Height)/2
+	return x >= on.x && x < on.x+on.w && y >= on.y && y < on.y+on.h
 }
