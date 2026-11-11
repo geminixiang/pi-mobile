@@ -21,7 +21,7 @@ import (
 	"golang.org/x/image/draw"
 )
 
-const shotLongSide = 1280
+const shotLongSide = 1024
 
 const settle = 400 * time.Millisecond
 

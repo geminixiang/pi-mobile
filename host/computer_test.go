@@ -103,13 +103,13 @@ func TestClicksLandOnTheDisplayLastSeen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if text := content[1].(map[string]any)["text"].(string); !strings.Contains(text, `"display":"2 of 2"`) || !strings.Contains(text, `"size":[720,1280]`) {
+	if text := content[1].(map[string]any)["text"].(string); !strings.Contains(text, `"display":"2 of 2"`) || !strings.Contains(text, `"size":[576,1024]`) {
 		t.Fatalf("screenshot facts = %s", text)
 	}
 	if _, err := c.act([]step{{Action: "click", X: 10, Y: 5}}, false); err != nil {
 		t.Fatal(err)
 	}
-	scale := 1920.0 / 1280
+	scale := 1920.0 / 1024
 	if want := [2]float64{1920 + 10*scale, -580 + 5*scale}; s.clicked != want {
 		t.Fatalf("clicked %v, want %v on the second display", s.clicked, want)
 	}
@@ -467,7 +467,7 @@ func TestALookIsTextUnlessTheWindowGivesTooLittle(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := content[len(content)-1].(map[string]any)["text"].(string)
-	if images(content) != 0 || !strings.Contains(text, "\n [2] button \"Save\" @200,100 focused\n [3] grid cell \"合約.txt\"") {
+	if images(content) != 0 || !strings.Contains(text, "\n [2] button \"Save\" @160,80 focused\n [3] grid cell \"合約.txt\"") {
 		t.Fatalf("a look with a full window = %d images and %s", images(content), text)
 	}
 	if _, err := c.act([]step{{Action: "click", ID: 2}, {Action: "click", ID: 3, Keys: "ctrl"}}, false); err != nil {
