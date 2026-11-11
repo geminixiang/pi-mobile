@@ -166,6 +166,36 @@ func TestTextIsPastedLineByLineAndTheClipboardPutBack(t *testing.T) {
 	}
 }
 
+type readPasting struct {
+	pasting
+	taken  chan struct{}
+	reader bool
+}
+
+func (s *readPasting) reads() <-chan struct{} { return s.taken }
+func (s *readPasting) press(key string, down bool) error {
+	if key == "v" && down && s.reader {
+		poke(s.taken)
+	}
+	return s.pasting.press(key, down)
+}
+
+func TestAPasteGoesOnOnceTheAppHasReadIt(t *testing.T) {
+	for name, c := range map[string]struct {
+		reader     bool
+		fast, slow time.Duration
+	}{"read": {true, 0, 2 * pasteRead}, "never read": {false, 3 * pasteRead, 4 * pasteRead}} {
+		s := &readPasting{taken: make(chan struct{}, 1), reader: c.reader}
+		start := time.Now()
+		if err := (&computer{screen: s}).typeText("a\nb\nc"); err != nil {
+			t.Fatal(err)
+		}
+		if took := time.Since(start); took < c.fast || took >= c.slow {
+			t.Errorf("%s: three lines took %s, want at least %s and under %s", name, took, c.fast, c.slow)
+		}
+	}
+}
+
 func TestTextIsTypedKeyByKeyWithoutAClipboard(t *testing.T) {
 	busy := &pasting{holdError: errors.New("busy")}
 	none := &keyboard{}

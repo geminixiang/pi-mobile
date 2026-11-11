@@ -21,6 +21,7 @@ type selection struct {
 	clipboard, targets, utf8, plain, got xproto.Atom
 	incr                                 xproto.Atom
 	notified                             chan xproto.SelectionNotifyEvent
+	taken                                chan struct{}
 	mu                                   sync.Mutex
 	text                                 string
 }
@@ -39,7 +40,7 @@ func (s *x11Screen) selection() (*selection, error) {
 		return nil, err
 	}
 	sel := &selection{
-		conn: s.conn, window: window, notified: make(chan xproto.SelectionNotifyEvent, 1),
+		conn: s.conn, window: window, notified: make(chan xproto.SelectionNotifyEvent, 1), taken: make(chan struct{}, 1),
 		clipboard: s.atom("CLIPBOARD"), targets: s.atom("TARGETS"), utf8: s.atom("UTF8_STRING"),
 		plain: s.atom("text/plain;charset=utf-8"), got: s.atom("PI_MOBILE_CLIPBOARD"), incr: s.atom("INCR"),
 	}
@@ -86,6 +87,7 @@ func (sel *selection) answer(e xproto.SelectionRequestEvent) {
 		xproto.ChangeProperty(sel.conn, xproto.PropModeReplace, e.Requestor, property, xproto.AtomAtom, 32, uint32(len(atoms)), data)
 	case e.Target == sel.utf8 || e.Target == sel.plain:
 		xproto.ChangeProperty(sel.conn, xproto.PropModeReplace, e.Requestor, property, e.Target, 8, uint32(len(text)), []byte(text))
+		defer poke(sel.taken)
 	default:
 		property = xproto.AtomNone
 	}
@@ -102,6 +104,7 @@ func (sel *selection) own(text string) error {
 	sel.mu.Lock()
 	sel.text = text
 	sel.mu.Unlock()
+	drain(sel.taken)
 	xproto.SetSelectionOwner(sel.conn, sel.window, sel.clipboard, xproto.TimeCurrentTime)
 	if !sel.owned() {
 		return errors.New("another app kept the clipboard")
@@ -174,3 +177,11 @@ func (s *x11Screen) putClipboard(text string) error {
 }
 
 func (s *x11Screen) pasteKeys() string { return "ctrl+v" }
+
+func (s *x11Screen) reads() <-chan struct{} {
+	sel, err := s.selection()
+	if err != nil {
+		return nil
+	}
+	return sel.taken
+}

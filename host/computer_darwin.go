@@ -19,6 +19,8 @@ import (
 
 type cgPoint struct{ X, Y float64 }
 
+type cgRect struct{ X, Y, W, H float64 }
+
 const (
 	leftDown, leftUp, rightDown, rightUp, mouseMoved, leftDragged = 1, 2, 3, 4, 5, 6
 	otherDown, otherUp                                            = 25, 26
@@ -46,8 +48,8 @@ var keyCodes = map[string]uint16{
 type macScreen struct {
 	axTrusted        func() bool
 	mainDisplay      func() uint32
-	displayWide      func(uint32) uintptr
-	displayHigh      func(uint32) uintptr
+	activeDisplays   func(uint32, *uint32, *uint32) int32
+	displayBounds    func(uint32) cgRect
 	eventCreate      func(uintptr) uintptr
 	eventLocation    func(uintptr) cgPoint
 	mouseEvent       func(uintptr, uint32, cgPoint, uint32) uintptr
@@ -76,7 +78,7 @@ func newScreen() (screen, error) {
 	}
 	s := &macScreen{}
 	for name, fn := range map[string]any{
-		"AXIsProcessTrusted": &s.axTrusted, "CGMainDisplayID": &s.mainDisplay, "CGDisplayPixelsWide": &s.displayWide, "CGDisplayPixelsHigh": &s.displayHigh,
+		"AXIsProcessTrusted": &s.axTrusted, "CGMainDisplayID": &s.mainDisplay, "CGGetActiveDisplayList": &s.activeDisplays, "CGDisplayBounds": &s.displayBounds,
 		"CGEventCreate": &s.eventCreate, "CGEventGetLocation": &s.eventLocation,
 		"CGEventCreateMouseEvent": &s.mouseEvent, "CGEventCreateKeyboardEvent": &s.keyboardEvent,
 		"CGEventCreateScrollWheelEvent2": &s.scrollEvent, "CGEventSetFlags": &s.setFlags,
@@ -99,11 +101,26 @@ func newScreen() (screen, error) {
 var errNoAccessibility = errors.New("macOS has not given pi-mobile Accessibility, so the mouse and keyboard do nothing: tell the user to turn on pi-mobile in System Settings › Privacy & Security › Accessibility on the computer")
 
 func (s *macScreen) displays() ([]display, error) {
+	ids := make([]uint32, 16)
+	var count uint32
+	if s.activeDisplays(uint32(len(ids)), &ids[0], &count) != 0 || count == 0 {
+		return nil, errors.New("macOS lists no display")
+	}
 	main := s.mainDisplay()
-	return []display{{0, 0, float64(s.displayWide(main)), float64(s.displayHigh(main))}}, nil
+	all := []display{}
+	for _, id := range ids[:count] {
+		b := s.displayBounds(id)
+		d := display{b.X, b.Y, b.W, b.H}
+		if id == main {
+			all = append([]display{d}, all...)
+			continue
+		}
+		all = append(all, d)
+	}
+	return all, nil
 }
 
-func (s *macScreen) capture(display) (image.Image, error) {
+func (s *macScreen) capture(d display) (image.Image, error) {
 	file, err := os.CreateTemp("", "pi-mobile-shot-*.jpg")
 	if err != nil {
 		return nil, err
@@ -111,7 +128,7 @@ func (s *macScreen) capture(display) (image.Image, error) {
 	path := file.Name()
 	file.Close()
 	defer os.Remove(path)
-	if out, err := exec.Command("/usr/sbin/screencapture", "-x", "-m", "-t", "jpg", path).CombinedOutput(); err != nil {
+	if out, err := exec.Command("/usr/sbin/screencapture", "-x", "-t", "jpg", "-R", fmt.Sprintf("%g,%g,%g,%g", d.x, d.y, d.w, d.h), path).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("screencapture: %v %s", err, strings.TrimSpace(string(out)))
 	}
 	file, err = os.Open(path)

@@ -57,6 +57,24 @@ type clipboard interface {
 
 const pasteRead = 250 * time.Millisecond
 
+type pasteReads interface {
+	reads() <-chan struct{}
+}
+
+func poke(c chan struct{}) {
+	select {
+	case c <- struct{}{}:
+	default:
+	}
+}
+
+func drain(c chan struct{}) {
+	select {
+	case <-c:
+	default:
+	}
+}
+
 type step struct {
 	Action string  `json:"action"`
 	X      float64 `json:"x"`
@@ -341,13 +359,25 @@ func (c *computer) typeLines(lines []string, board clipboard) error {
 		if err := c.key(board.pasteKeys()); err != nil {
 			return err
 		}
-		// why: the app reads the clipboard after the paste keys arrive, so the next line or the restored clipboard must wait for it
-		time.Sleep(pasteRead)
+		c.awaitPaste(board)
 	}
 	return nil
 }
 
 const stepPause = 60 * time.Millisecond
+
+func (c *computer) awaitPaste(board clipboard) {
+	watch, ok := board.(pasteReads)
+	if !ok {
+		// why: the app reads the clipboard after the paste keys arrive, so the next line or the restored clipboard must wait for it
+		time.Sleep(pasteRead)
+		return
+	}
+	select {
+	case <-watch.reads():
+	case <-time.After(pasteRead):
+	}
+}
 
 func pauseAfter(s step) time.Duration {
 	if s.Action != "key" {

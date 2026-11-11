@@ -63,6 +63,8 @@ type portalScreen struct {
 	pasteMu  sync.Mutex
 	pasteNow string
 	owner    selectionOwner
+	taken    chan struct{}
+	owned    chan struct{}
 }
 
 var errPortalDenied = errors.New("the user declined on the computer: GNOME or KDE asked whether pi-mobile may see the screen and use the mouse and keyboard, and the answer was no; tell the user to allow it there next time")
@@ -72,7 +74,7 @@ func newPortalScreen() (screen, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Wayland: cannot reach the desktop's session bus: %w", err)
 	}
-	s := &portalScreen{bus: bus, desktop: bus.Object(portalName, portalPath)}
+	s := &portalScreen{bus: bus, desktop: bus.Object(portalName, portalPath), taken: make(chan struct{}, 1), owned: make(chan struct{}, 1)}
 	if _, err := s.desktop.GetProperty(remoteDesktop + ".AvailableDeviceTypes"); err != nil {
 		bus.Close()
 		return nil, fmt.Errorf("Wayland: this desktop has no remote desktop portal (xdg-desktop-portal with a GNOME or KDE backend), so pi-mobile cannot see the screen or use the mouse and keyboard: %w", err)
@@ -361,7 +363,10 @@ func (s *portalScreen) paste(text string) error {
 	if err := s.chord([]uint32{modifierKeysyms["ctrl"]}, 'v'); err != nil {
 		return err
 	}
-	time.Sleep(150 * time.Millisecond)
+	select {
+	case <-s.taken:
+	case <-time.After(150 * time.Millisecond):
+	}
 	return nil
 }
 
@@ -376,10 +381,15 @@ func (s *portalScreen) offer(text string) error {
 	s.pasteMu.Lock()
 	s.pasteNow, s.owner = text, ownerUs
 	s.pasteMu.Unlock()
+	drain(s.owned)
+	drain(s.taken)
 	if err := s.desktop.Call(portalClip+".SetSelection", 0, session.handle, map[string]dbus.Variant{"mime_types": dbus.MakeVariant(textTypes)}).Err; err != nil {
 		return fmt.Errorf("SetSelection: %w", err)
 	}
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-s.owned:
+	case <-time.After(100 * time.Millisecond):
+	}
 	return nil
 }
 
@@ -456,9 +466,13 @@ func (s *portalScreen) answerPastes(session dbus.ObjectPath) {
 	for signal := range transfers {
 		if signal.Name == portalClip+".SelectionOwnerChanged" && len(signal.Body) >= 2 {
 			options, _ := signal.Body[1].(map[string]dbus.Variant)
+			owner := ownerOf(options)
 			s.pasteMu.Lock()
-			s.owner = ownerOf(options)
+			s.owner = owner
 			s.pasteMu.Unlock()
+			if owner == ownerUs {
+				poke(s.owned)
+			}
 			continue
 		}
 		if signal.Name != portalClip+".SelectionTransfer" || len(signal.Body) < 3 {
@@ -476,5 +490,8 @@ func (s *portalScreen) answerPastes(session dbus.ObjectPath) {
 		_, err := file.WriteString(text)
 		file.Close()
 		s.desktop.Call(portalClip+".SelectionWriteDone", 0, session, serial, err == nil)
+		poke(s.taken)
 	}
 }
+
+func (s *portalScreen) reads() <-chan struct{} { return s.taken }
