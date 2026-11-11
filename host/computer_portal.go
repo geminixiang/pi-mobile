@@ -8,6 +8,7 @@ import (
 	"image"
 	_ "image/png"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -49,6 +50,7 @@ type portalScreen struct {
 	px, py   float64
 	pasteMu  sync.Mutex
 	pasteNow string
+	ours     bool
 }
 
 var errPortalDenied = errors.New("the user declined on the computer: GNOME or KDE asked whether pi-mobile may see the screen and use the mouse and keyboard, and the answer was no; tell the user to allow it there next time")
@@ -109,6 +111,13 @@ func restoreTokenFile() string {
 	return filepath.Join(stateDir(), "remote-desktop-token")
 }
 
+func rememberRestoreToken(token string) error {
+	if err := os.MkdirAll(filepath.Dir(restoreTokenFile()), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(restoreTokenFile(), []byte(token), 0o600)
+}
+
 func (s *portalScreen) start() (*remoteSession, error) {
 	if s.session != nil {
 		return s.session, nil
@@ -138,7 +147,9 @@ func (s *portalScreen) start() (*remoteSession, error) {
 		return nil, err
 	}
 	if token, ok := started["restore_token"].Value().(string); ok {
-		_ = os.WriteFile(restoreTokenFile(), []byte(token), 0o600)
+		if err := rememberRestoreToken(token); err != nil {
+			log.Printf("Wayland: the desktop will ask for permission again next time, the token was not saved: %v", err)
+		}
 	}
 	var streams []struct {
 		Node  uint32
@@ -355,7 +366,7 @@ func (s *portalScreen) offer(text string) error {
 		return fmt.Errorf("Wayland: this desktop's portal has no clipboard, so %q cannot be typed (only ASCII can); paste it some other way", text)
 	}
 	s.pasteMu.Lock()
-	s.pasteNow = text
+	s.pasteNow, s.ours = text, true
 	s.pasteMu.Unlock()
 	if err := s.desktop.Call(portalClip+".SetSelection", 0, session.handle, map[string]dbus.Variant{"mime_types": dbus.MakeVariant([]string{plainText, "text/plain", "UTF8_STRING"})}).Err; err != nil {
 		return fmt.Errorf("SetSelection: %w", err)
@@ -373,6 +384,13 @@ func (s *portalScreen) holdClipboard() (func() error, error) {
 	}
 	if !session.clipboard {
 		return nil, errors.New("this desktop's portal has no clipboard")
+	}
+	s.pasteMu.Lock()
+	ours, offered := s.ours, s.pasteNow
+	s.pasteMu.Unlock()
+	if ours {
+		// why: reading a selection this session owns crashed xdg-desktop-portal-gnome 48 ("Tried to read own selection") and took the remote session with it
+		return func() error { return s.putClipboard(offered) }, nil
 	}
 	var fd dbus.UnixFD
 	if err := s.desktop.Call(portalClip+".SelectionRead", 0, session.handle, plainText).Store(&fd); err != nil {
@@ -399,13 +417,23 @@ func (s *portalScreen) putClipboard(text string) error {
 func (s *portalScreen) pasteKeys() string { return "ctrl+v" }
 
 func (s *portalScreen) answerPastes(session dbus.ObjectPath) {
-	match := []dbus.MatchOption{dbus.WithMatchObjectPath(portalPath), dbus.WithMatchInterface(portalClip), dbus.WithMatchMember("SelectionTransfer")}
-	if s.bus.AddMatchSignal(match...) != nil {
-		return
+	for _, member := range []string{"SelectionTransfer", "SelectionOwnerChanged"} {
+		if s.bus.AddMatchSignal(dbus.WithMatchObjectPath(portalPath), dbus.WithMatchInterface(portalClip), dbus.WithMatchMember(member)) != nil {
+			return
+		}
 	}
 	transfers := make(chan *dbus.Signal, 8)
 	s.bus.Signal(transfers)
 	for signal := range transfers {
+		if signal.Name == portalClip+".SelectionOwnerChanged" && len(signal.Body) >= 2 {
+			options, _ := signal.Body[1].(map[string]dbus.Variant)
+			if ours, ok := options["session_is_owner"].Value().(bool); ok {
+				s.pasteMu.Lock()
+				s.ours = ours
+				s.pasteMu.Unlock()
+			}
+			continue
+		}
 		if signal.Name != portalClip+".SelectionTransfer" || len(signal.Body) < 3 {
 			continue
 		}
