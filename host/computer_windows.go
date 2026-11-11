@@ -22,6 +22,8 @@ var (
 	imm32  = windows.NewLazySystemDLL("imm32.dll")
 
 	immGetDefaultIMEWnd = imm32.NewProc("ImmGetDefaultIMEWnd")
+	enumDisplayMonitors = user32.NewProc("EnumDisplayMonitors")
+	getMonitorInfo      = user32.NewProc("GetMonitorInfoW")
 	getGUIThreadInfo    = user32.NewProc("GetGUIThreadInfo")
 	sendMessageTimeout  = user32.NewProc("SendMessageTimeoutW")
 
@@ -192,45 +194,82 @@ type bitmapInfoHeader struct {
 	colorsImp     uint32
 }
 
-func (s *winScreen) capture() (image.Image, float64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := inputDesktopReady(); err != nil {
-		return nil, 0, err
+type monitorInfo struct {
+	size          uint32
+	monitor, work [4]int32
+	flags         uint32
+}
+
+const monitorPrimary = 1
+
+var (
+	monitorsMu    sync.Mutex
+	monitorsFound []display
+	monitorEach   = windows.NewCallback(func(monitor, _, _, _ uintptr) uintptr {
+		info := monitorInfo{size: uint32(unsafe.Sizeof(monitorInfo{}))}
+		if ok, _, _ := getMonitorInfo.Call(monitor, uintptr(unsafe.Pointer(&info))); ok != 0 {
+			d := display{float64(info.monitor[0]), float64(info.monitor[1]), float64(info.monitor[2] - info.monitor[0]), float64(info.monitor[3] - info.monitor[1])}
+			if info.flags&monitorPrimary != 0 {
+				monitorsFound = append([]display{d}, monitorsFound...)
+			} else {
+				monitorsFound = append(monitorsFound, d)
+			}
+		}
+		return 1
+	})
+)
+
+func (s *winScreen) displays() ([]display, error) {
+	monitorsMu.Lock()
+	defer monitorsMu.Unlock()
+	monitorsFound = nil
+	enumDisplayMonitors.Call(0, 0, monitorEach, 0)
+	if len(monitorsFound) > 0 {
+		return monitorsFound, nil
 	}
 	width, height := screenSize()
 	if width <= 0 || height <= 0 {
-		return nil, 0, errors.New("Windows reports no screen")
+		return nil, errors.New("Windows reports no screen")
 	}
+	return []display{{0, 0, float64(width), float64(height)}}, nil
+}
+
+func (s *winScreen) capture(d display) (image.Image, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := inputDesktopReady(); err != nil {
+		return nil, err
+	}
+	width, height := int(d.w), int(d.h)
 	screenDC, _, _ := getDC.Call(0)
 	if screenDC == 0 {
-		return nil, 0, errors.New("Windows gave no screen to capture")
+		return nil, errors.New("Windows gave no screen to capture")
 	}
 	defer releaseDC.Call(0, screenDC)
 	memoryDC, _, _ := createCompatibleDC.Call(screenDC)
 	defer deleteDC.Call(memoryDC)
 	bitmap, _, _ := createCompatibleBitmap.Call(screenDC, uintptr(width), uintptr(height))
 	if bitmap == 0 {
-		return nil, 0, errors.New("Windows could not make a bitmap for the screenshot")
+		return nil, errors.New("Windows could not make a bitmap for the screenshot")
 	}
 	defer deleteObject.Call(bitmap)
 	previous, _, _ := selectObject.Call(memoryDC, bitmap)
-	if ok, _, err := bitBlt.Call(memoryDC, 0, 0, uintptr(width), uintptr(height), screenDC, 0, 0, srcCopy|captureBlt); ok == 0 {
+	if ok, _, err := bitBlt.Call(memoryDC, 0, 0, uintptr(width), uintptr(height), screenDC, uintptr(int(d.x)), uintptr(int(d.y)), srcCopy|captureBlt); ok == 0 {
 		selectObject.Call(memoryDC, previous)
-		return nil, 0, fmt.Errorf("screenshot: %w", err)
+		return nil, fmt.Errorf("screenshot: %w", err)
 	}
 	selectObject.Call(memoryDC, previous)
 	header := bitmapInfoHeader{width: int32(width), height: -int32(height), planes: 1, bitCount: 32}
 	header.size = uint32(unsafe.Sizeof(header))
 	pixels := make([]byte, width*height*4)
 	if lines, _, err := getDIBits.Call(memoryDC, bitmap, 0, uintptr(height), uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), 0); lines == 0 {
-		return nil, 0, fmt.Errorf("screenshot: %w", err)
+		return nil, fmt.Errorf("screenshot: %w", err)
 	}
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for i := 0; i < len(pixels); i += 4 {
 		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = pixels[i+2], pixels[i+1], pixels[i], 0xff
 	}
-	return img, float64(width), nil
+	return img, nil
 }
 
 func windowTitle(window uintptr) string {

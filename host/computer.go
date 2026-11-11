@@ -25,10 +25,13 @@ const settle = 400 * time.Millisecond
 
 const sessionIdle = 2 * time.Minute
 
+type display struct{ x, y, w, h float64 }
+
 type screen interface {
 	apps() map[int]string
 	quit(pids []int)
-	capture() (image.Image, float64, error)
+	displays() ([]display, error)
+	capture(d display) (image.Image, error)
 	state() (app, window string, x, y float64)
 	click(x, y float64, button string, count int) error
 	move(x, y float64) error
@@ -54,8 +57,10 @@ type step struct {
 }
 
 type computer struct {
-	screen screen
-	scale  float64
+	screen  screen
+	scale   float64
+	display int
+	origin  display
 
 	mu     sync.Mutex
 	before map[int]string
@@ -110,8 +115,16 @@ func (c *computer) end() {
 	c.idle = nil
 }
 
-func (c *computer) shot() ([]any, error) {
-	img, width, err := c.screen.capture()
+func (c *computer) shot(index int) ([]any, error) {
+	all, err := c.screen.displays()
+	if err != nil {
+		return nil, err
+	}
+	if index < 1 || index > len(all) {
+		return nil, fmt.Errorf("no display %d: this computer has %d", index, len(all))
+	}
+	d := all[index-1]
+	img, err := c.screen.capture(d)
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +136,16 @@ func (c *computer) shot() ([]any, error) {
 		draw.ApproxBiLinear.Scale(small, small.Bounds(), img, bounds, draw.Src, nil)
 		img = small
 	}
-	c.scale = width / float64(w)
+	c.scale, c.display, c.origin = d.w/float64(w), index, d
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 70}); err != nil {
 		return nil, err
 	}
 	app, window, x, y := c.screen.state()
-	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int(x / c.scale), int(y / c.scale)}}
+	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int((x - d.x) / c.scale), int((y - d.y) / c.scale)}}
+	if len(all) > 1 {
+		facts["display"] = fmt.Sprintf("%d of %d", index, len(all))
+	}
 	if app != "" {
 		facts["app"] = app
 	}
@@ -147,7 +163,7 @@ func (c *computer) run(s step) error {
 	if c.scale == 0 && s.Action != "key" && s.Action != "type" && s.Action != "wait" {
 		return errors.New("take a screenshot first: coordinates are its pixels")
 	}
-	x, y := s.X*c.scale, s.Y*c.scale
+	x, y := c.origin.x+s.X*c.scale, c.origin.y+s.Y*c.scale
 	switch s.Action {
 	case "click":
 		button := s.Button
@@ -158,7 +174,7 @@ func (c *computer) run(s step) error {
 	case "move":
 		return c.screen.move(x, y)
 	case "drag":
-		return c.screen.drag(x, y, s.ToX*c.scale, s.ToY*c.scale)
+		return c.screen.drag(x, y, c.origin.x+s.ToX*c.scale, c.origin.y+s.ToY*c.scale)
 	case "scroll":
 		return c.screen.scroll(x, y, s.DX, s.DY)
 	case "key":
@@ -189,7 +205,7 @@ func (c *computer) act(steps []step) ([]any, error) {
 	for i, s := range steps {
 		if err := c.run(s); err != nil {
 			failure := fmt.Errorf("step %d (%s): %w; earlier steps were done, later steps were not run", i+1, s.Action, err)
-			content, captureError := c.shot()
+			content, captureError := c.shot(max(c.display, 1))
 			if captureError != nil {
 				return content, errors.Join(failure, fmt.Errorf("failure screenshot: %w", captureError))
 			}
@@ -200,14 +216,14 @@ func (c *computer) act(steps []step) ([]any, error) {
 		}
 	}
 	time.Sleep(settle)
-	return c.shot()
+	return c.shot(max(c.display, 1))
 }
 
 var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
-		"description": "See the computer's screen now: a JPEG of the main display, and as text its size, the front app, the title of its focused window, and the pointer. Coordinates everywhere are this screenshot's pixels. Apps opened while using the screen are quit two minutes after the last use.",
-		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
+		"description": "See the computer's screen now: a JPEG of one display (the main one unless display says another), and as text its size, the front app, the title of its focused window, the pointer, and which display of how many when there are several. Coordinates everywhere are this screenshot's pixels, on its display, until the next screenshot. Apps opened while using the screen are quit two minutes after the last use.",
+		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display (default), 2 and up the others"}}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},
 	{
@@ -300,7 +316,8 @@ func serveComputerMCP() int {
 			var p struct {
 				Name      string `json:"name"`
 				Arguments struct {
-					Steps []step `json:"steps"`
+					Steps   []step `json:"steps"`
+					Display int    `json:"display"`
 				} `json:"arguments"`
 			}
 			if json.Unmarshal(m.Params, &p) != nil {
@@ -312,7 +329,7 @@ func serveComputerMCP() int {
 			c.touch()
 			switch p.Name {
 			case "screenshot":
-				content, err = c.shot()
+				content, err = c.shot(max(p.Arguments.Display, 1))
 			case "act":
 				content, err = c.act(p.Arguments.Steps)
 			default:

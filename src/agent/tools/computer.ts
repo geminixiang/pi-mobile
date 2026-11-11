@@ -42,10 +42,10 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		effect: "read",
 		reach: "loaded",
 		description:
-			"See the screen of the computer you work on as the user sees it (its desktop, not a container): a screenshot of the main display, and as text its size, the front app, its focused window's title, and the pointer. Coordinates in computer_act_as_user are this screenshot's pixels. For what a command cannot reach.",
-		parameters: Type.Object({}),
+			"See the screen of the computer you work on as the user sees it (its desktop, not a container): a screenshot of one display, the main one unless display names another, and as text its size, the front app, its focused window's title, the pointer, and which display of how many when there are several. Coordinates in computer_act_as_user are this screenshot's pixels, on its display. For what a command cannot reach.",
+		parameters: Type.Object({ display: Type.Optional(Type.Integer({ minimum: 1, description: "1 is the main display (default); 2 and up the others" })) }),
 		replay: "safe",
-		execute: (_args, api) => call(hostOf(String(api.conversationId)), "screenshot", {}, undefined),
+		execute: (args, api) => call(hostOf(String(api.conversationId)), "screenshot", args.display ? { display: args.display } : {}, undefined),
 	});
 	const useScreen = defineAppTool({
 		name: "computer_act_as_user",

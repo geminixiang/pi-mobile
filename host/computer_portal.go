@@ -165,33 +165,43 @@ func streamPair(value dbus.Variant) [2]float64 {
 	return [2]float64{float64(pair.A), float64(pair.B)}
 }
 
-func (s *portalScreen) capture() (image.Image, float64, error) {
+func (s *portalScreen) displays() ([]display, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	session, err := s.start()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
+	}
+	return []display{{0, 0, session.width, session.height}}, nil
+}
+
+func (s *portalScreen) capture(display) (image.Image, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	session, err := s.start()
+	if err != nil {
+		return nil, err
 	}
 	results, err := s.request("org.freedesktop.portal.Screenshot.Screenshot", map[string]dbus.Variant{"interactive": dbus.MakeVariant(false)}, "")
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	uri, _ := results["uri"].Value().(string)
 	address, err := url.Parse(uri)
 	if err != nil || address.Scheme != "file" {
-		return nil, 0, fmt.Errorf("the screenshot portal answered %q, not a file", uri)
+		return nil, fmt.Errorf("the screenshot portal answered %q, not a file", uri)
 	}
 	defer os.Remove(address.Path)
 	file, err := os.Open(address.Path)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	defer file.Close()
 	img, _, err := image.Decode(file)
 	if err != nil {
-		return nil, 0, fmt.Errorf("the screenshot portal's file: %w", err)
+		return nil, fmt.Errorf("the screenshot portal's file: %w", err)
 	}
-	return cropToStream(img, session.streamArea), session.width, nil
+	return cropToStream(img, session.streamArea), nil
 }
 
 func (s *portalScreen) state() (string, string, float64, float64) {

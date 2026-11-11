@@ -3828,7 +3828,13 @@
 			"tools"
 		],
 		"parameters": {
-			"properties": {},
+			"properties": {
+				"display": {
+					"description": "1 is the main display (default); 2 and up the others",
+					"minimum": 1,
+					"type": "integer"
+				}
+			},
 			"type": "object"
 		},
 		"structuredOutput": null,

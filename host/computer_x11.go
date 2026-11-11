@@ -96,40 +96,52 @@ func (s *x11Screen) place(sym uint32) (keyPlace, bool) {
 	return keyPlace{}, false
 }
 
-func (s *x11Screen) monitor() (x, y, width, height int) {
-	screen := s.setup.DefaultScreen(s.conn)
-	x, y, width, height = 0, 0, int(screen.WidthInPixels), int(screen.HeightInPixels)
-	if randr.Init(s.conn) != nil {
-		return
-	}
-	primary, err := randr.GetOutputPrimary(s.conn, s.root).Reply()
-	if err != nil || primary.Output == 0 {
-		return
-	}
-	output, err := randr.GetOutputInfo(s.conn, primary.Output, 0).Reply()
-	if err != nil || output.Crtc == 0 {
-		return
-	}
-	crtc, err := randr.GetCrtcInfo(s.conn, output.Crtc, 0).Reply()
-	if err != nil || crtc.Width == 0 {
-		return
-	}
-	return int(crtc.X), int(crtc.Y), int(crtc.Width), int(crtc.Height)
-}
-
-func (s *x11Screen) capture() (image.Image, float64, error) {
+func (s *x11Screen) displays() ([]display, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	x, y, width, height := s.monitor()
-	reply, err := xproto.GetImage(s.conn, xproto.ImageFormatZPixmap, xproto.Drawable(s.root), int16(x), int16(y), uint16(width), uint16(height), 0xffffffff).Reply()
-	if err != nil {
-		return nil, 0, fmt.Errorf("X11 screenshot: %w", err)
+	screen := s.setup.DefaultScreen(s.conn)
+	whole := []display{{0, 0, float64(screen.WidthInPixels), float64(screen.HeightInPixels)}}
+	if randr.Init(s.conn) != nil {
+		return whole, nil
 	}
-	img, err := zpixmap(reply.Data, reply.Depth, width, height, s.setup)
+	resources, err := randr.GetScreenResourcesCurrent(s.conn, s.root).Reply()
 	if err != nil {
-		return nil, 0, err
+		return whole, nil
 	}
-	return img, float64(width), nil
+	var primaryCrtc randr.Crtc
+	if primary, err := randr.GetOutputPrimary(s.conn, s.root).Reply(); err == nil && primary.Output != 0 {
+		if output, err := randr.GetOutputInfo(s.conn, primary.Output, 0).Reply(); err == nil {
+			primaryCrtc = output.Crtc
+		}
+	}
+	var all []display
+	for _, id := range resources.Crtcs {
+		crtc, err := randr.GetCrtcInfo(s.conn, id, 0).Reply()
+		if err != nil || crtc.Width == 0 {
+			continue
+		}
+		d := display{float64(crtc.X), float64(crtc.Y), float64(crtc.Width), float64(crtc.Height)}
+		if id == primaryCrtc {
+			all = append([]display{d}, all...)
+		} else {
+			all = append(all, d)
+		}
+	}
+	if len(all) == 0 {
+		return whole, nil
+	}
+	return all, nil
+}
+
+func (s *x11Screen) capture(d display) (image.Image, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	width, height := int(d.w), int(d.h)
+	reply, err := xproto.GetImage(s.conn, xproto.ImageFormatZPixmap, xproto.Drawable(s.root), int16(d.x), int16(d.y), uint16(width), uint16(height), 0xffffffff).Reply()
+	if err != nil {
+		return nil, fmt.Errorf("X11 screenshot: %w", err)
+	}
+	return zpixmap(reply.Data, reply.Depth, width, height, s.setup)
 }
 
 func (s *x11Screen) atom(name string) xproto.Atom {
@@ -180,10 +192,9 @@ func processName(pid int) string {
 func (s *x11Screen) state() (string, string, float64, float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	originX, originY, _, _ := s.monitor()
 	px, py := 0.0, 0.0
 	if pointer, err := xproto.QueryPointer(s.conn, s.root).Reply(); err == nil {
-		px, py = float64(int(pointer.RootX)-originX), float64(int(pointer.RootY)-originY)
+		px, py = float64(pointer.RootX), float64(pointer.RootY)
 	}
 	active := s.windows("_NET_ACTIVE_WINDOW")
 	if len(active) == 0 || active[0] == 0 {
@@ -225,8 +236,7 @@ func (s *x11Screen) sync() {
 }
 
 func (s *x11Screen) rootPoint(x, y float64) (int16, int16) {
-	originX, originY, _, _ := s.monitor()
-	return int16(int(math.Round(x)) + originX), int16(int(math.Round(y)) + originY)
+	return int16(math.Round(x)), int16(math.Round(y))
 }
 
 func (s *x11Screen) move(x, y float64) error {
