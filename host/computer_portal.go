@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -38,8 +39,18 @@ type remoteSession struct {
 	streamArea
 	handle    dbus.ObjectPath
 	stream    uint32
-	clipboard bool
+	clipboard error
 }
+
+type selectionOwner int
+
+const (
+	ownerUnknown selectionOwner = iota
+	ownerNobody
+	ownerUs
+	ownerOtherText
+	ownerOtherNoText
+)
 
 type portalScreen struct {
 	mu       sync.Mutex
@@ -50,7 +61,7 @@ type portalScreen struct {
 	px, py   float64
 	pasteMu  sync.Mutex
 	pasteNow string
-	ours     bool
+	owner    selectionOwner
 }
 
 var errPortalDenied = errors.New("the user declined on the computer: GNOME or KDE asked whether pi-mobile may see the screen and use the mouse and keyboard, and the answer was no; tell the user to allow it there next time")
@@ -141,7 +152,7 @@ func (s *portalScreen) start() (*remoteSession, error) {
 	if _, err := s.request("org.freedesktop.portal.ScreenCast.SelectSources", map[string]dbus.Variant{"types": dbus.MakeVariant(uint32(monitorSource)), "multiple": dbus.MakeVariant(false)}, session); err != nil {
 		return nil, err
 	}
-	clipboard := s.desktop.Call(portalClip+".RequestClipboard", 0, session, map[string]dbus.Variant{}).Err == nil
+	clipboard := s.desktop.Call(portalClip+".RequestClipboard", 0, session, map[string]dbus.Variant{}).Err
 	started, err := s.request(remoteDesktop+".Start", map[string]dbus.Variant{}, session, "")
 	if err != nil {
 		return nil, err
@@ -163,7 +174,7 @@ func (s *portalScreen) start() (*remoteSession, error) {
 		return nil, errors.New("the desktop shared a screen without its size")
 	}
 	s.session = &remoteSession{streamArea: streamArea{x: at[0], y: at[1], width: size[0], height: size[1]}, handle: session, stream: streams[0].Node, clipboard: clipboard}
-	if clipboard {
+	if clipboard == nil {
 		go s.answerPastes(session)
 	}
 	return s.session, nil
@@ -362,11 +373,11 @@ func (s *portalScreen) offer(text string) error {
 	if err != nil {
 		return err
 	}
-	if !session.clipboard {
-		return fmt.Errorf("Wayland: this desktop's portal has no clipboard, so %q cannot be typed (only ASCII can); paste it some other way", text)
+	if session.clipboard != nil {
+		return fmt.Errorf("Wayland: this desktop's portal gave no clipboard (%v), so %q cannot be typed (only ASCII can); paste it some other way", session.clipboard, text)
 	}
 	s.pasteMu.Lock()
-	s.pasteNow, s.ours = text, true
+	s.pasteNow, s.owner = text, ownerUs
 	s.pasteMu.Unlock()
 	if err := s.desktop.Call(portalClip+".SetSelection", 0, session.handle, map[string]dbus.Variant{"mime_types": dbus.MakeVariant([]string{plainText, "text/plain", "UTF8_STRING"})}).Err; err != nil {
 		return fmt.Errorf("SetSelection: %w", err)
@@ -382,15 +393,21 @@ func (s *portalScreen) holdClipboard() (func() error, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !session.clipboard {
-		return nil, errors.New("this desktop's portal has no clipboard")
+	if session.clipboard != nil {
+		return nil, fmt.Errorf("this desktop's portal gave no clipboard: %w", session.clipboard)
 	}
 	s.pasteMu.Lock()
-	ours, offered := s.ours, s.pasteNow
+	owner, offered := s.owner, s.pasteNow
 	s.pasteMu.Unlock()
-	if ours {
+	switch owner {
+	case ownerUs:
 		// why: reading a selection this session owns crashed xdg-desktop-portal-gnome 48 ("Tried to read own selection") and took the remote session with it
 		return func() error { return s.putClipboard(offered) }, nil
+	case ownerOtherNoText:
+		return nil, errNoClipboardText
+	case ownerUnknown, ownerNobody:
+		// why: reading a clipboard nobody owns crashed xdg-desktop-portal-gnome 48, after which the portal refused every clipboard until the next login; the portal drops the owner mutter reports when a session starts, so an unknown owner may be nobody
+		return func() error { return nil }, nil
 	}
 	var fd dbus.UnixFD
 	if err := s.desktop.Call(portalClip+".SelectionRead", 0, session.handle, plainText).Store(&fd); err != nil {
@@ -406,6 +423,23 @@ func (s *portalScreen) holdClipboard() (func() error, error) {
 		return nil, errors.New("the clipboard is too large to put back")
 	}
 	return func() error { return s.putClipboard(string(saved)) }, nil
+}
+
+func ownerOf(options map[string]dbus.Variant) selectionOwner {
+	if us, _ := options["session_is_owner"].Value().(bool); us {
+		return ownerUs
+	}
+	// why: the portal sends mime_types as (as), a struct holding the list, not a bare list
+	var listed struct{ Types []string }
+	if variant, ok := options["mime_types"]; !ok || variant.Store(&listed) != nil || len(listed.Types) == 0 {
+		return ownerNobody
+	}
+	if slices.ContainsFunc(listed.Types, func(m string) bool {
+		return m == plainText || m == "text/plain" || m == "UTF8_STRING" || m == "STRING" || m == "TEXT"
+	}) {
+		return ownerOtherText
+	}
+	return ownerOtherNoText
 }
 
 func (s *portalScreen) putClipboard(text string) error {
@@ -427,11 +461,9 @@ func (s *portalScreen) answerPastes(session dbus.ObjectPath) {
 	for signal := range transfers {
 		if signal.Name == portalClip+".SelectionOwnerChanged" && len(signal.Body) >= 2 {
 			options, _ := signal.Body[1].(map[string]dbus.Variant)
-			if ours, ok := options["session_is_owner"].Value().(bool); ok {
-				s.pasteMu.Lock()
-				s.ours = ours
-				s.pasteMu.Unlock()
-			}
+			s.pasteMu.Lock()
+			s.owner = ownerOf(options)
+			s.pasteMu.Unlock()
 			continue
 		}
 		if signal.Name != portalClip+".SelectionTransfer" || len(signal.Body) < 3 {

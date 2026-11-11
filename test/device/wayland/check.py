@@ -104,7 +104,6 @@ open("/tmp/probe.txt", "w").close()
 subprocess.Popen(["gnome-text-editor", "--standalone", "/tmp/probe.txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 frame("org.gnome.TextEditor")
 keyboard, _ = remote()
-clipboard(SAVED)
 
 host = Host()
 approver = threading.Thread(target=allow)
@@ -122,6 +121,7 @@ for _ in range(20):
 shell("global.get_window_actors().map(a => a.meta_window).filter(w => w.get_wm_class() === 'org.gnome.TextEditor').forEach(w => w.activate(global.get_current_time())); null")
 time.sleep(1)
 screenshot("/tmp/before.png")
+portal = subprocess.run(["pgrep", "-f", "xdg-desktop-portal-gnome"], capture_output=True, text=True).stdout.split()
 for _ in range(20):
     ex, ey, ew, eh = frame("org.gnome.TextEditor")
     if ew > 0:
@@ -140,9 +140,8 @@ failures = []
 typed = open("/tmp/probe.txt").read().rstrip("\n")
 if typed != TYPED:
     failures.append(f"typing: the file holds {typed!r}, want {TYPED!r}")
-restored = clipboard()
-if restored != SAVED:
-    failures.append(f"typing: the clipboard holds {restored!r}, want {SAVED!r}")
+clipboard(SAVED)
+time.sleep(0.5)
 host.act([
     {"action": "click", "x": ex + 25, "y": ey + 68, "count": 2},
     {"action": "type", "text": "ALPHA"},
@@ -154,6 +153,12 @@ host.act([
 chorded = open("/tmp/probe.txt").read().rstrip("\n")
 if chorded != EXPECTED:
     failures.append(f"a double click and keys after typing: the file holds {chorded!r}, want {EXPECTED!r}")
+restored = clipboard()
+if restored != SAVED:
+    failures.append(f"typing: the clipboard holds {restored!r}, want {SAVED!r}")
+after = subprocess.run(["pgrep", "-f", "xdg-desktop-portal-gnome"], capture_output=True, text=True).stdout.split()
+if after != portal:
+    failures.append(f"typing with an empty clipboard restarted xdg-desktop-portal-gnome ({portal} became {after})")
 screenshot("/tmp/wayland.png")
-print("\n".join(failures) or "wayland: pasted lines, the restored clipboard, a double click, ctrl chords and saving all came out right")
+print("\n".join(failures) or "wayland: pasting into an empty clipboard, the restored clipboard, a double click, ctrl chords and saving all came out right")
 sys.exit(1 if failures else 0)

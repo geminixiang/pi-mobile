@@ -223,7 +223,7 @@ func (s *input) press(key string, down bool) error {
 
 func TestADoubleClickNumbersEachClick(t *testing.T) {
 	s := &input{}
-	if err := (&computer{screen: s}).click(3, 4, "right", 2); err != nil {
+	if err := (&computer{screen: s}).click(3, 4, "right", 2, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := strings.Join(s.events, ","); got != "at 3,4,right true 1,right false 1,right true 2,right false 2" {
@@ -275,10 +275,36 @@ func (s *timedButtons) button(_ string, down bool, _ int) error {
 
 func TestADoubleClickLeavesAGapBetweenPresses(t *testing.T) {
 	s := &timedButtons{}
-	if err := (&computer{screen: s}).click(1, 1, "left", 2); err != nil {
+	if err := (&computer{screen: s}).click(1, 1, "left", 2, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(s.presses) != 2 || s.presses[1].Sub(s.presses[0]) < clickGap {
 		t.Fatalf("presses %v: the second press must come at least %s after the first, or GTK on Wayland sees two single clicks", s.presses, clickGap)
+	}
+}
+
+func TestAPlusKeyAndSpacedChordsAreRead(t *testing.T) {
+	for keys, want := range map[string]string{"cmd++": "cmd true,+ true,+ false,cmd false", "ctrl+plus": "ctrl true,+ true,+ false,ctrl false", "+": "+ true,+ false", "cmd+ c": "cmd true,c true,c false,cmd false"} {
+		s := &input{}
+		if err := (&computer{screen: s}).key(keys); err != nil {
+			t.Fatalf("%s: %v", keys, err)
+		}
+		if got := strings.Join(s.events, ","); got != want {
+			t.Errorf("%s: events = %s", keys, got)
+		}
+	}
+	if _, _, err := keyChord("cmd+"); err == nil {
+		t.Error("a chord ending in a lone + should name no key")
+	}
+}
+
+func TestAClickHoldsItsModifiersAroundThePress(t *testing.T) {
+	s := &input{}
+	c := &computer{screen: s, seen: &seen{index: 1, origin: display{0, 0, 20, 10}, scale: 1}}
+	if err := c.run(step{Action: "click", X: 3, Y: 4, Keys: "cmd+shift"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.events, ","); got != "at 3,4,cmd true,shift true,left true 1,left false 1,shift false,cmd false" {
+		t.Fatalf("events = %s", got)
 	}
 }

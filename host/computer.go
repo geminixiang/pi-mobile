@@ -209,7 +209,7 @@ func (c *computer) run(s step) error {
 		if button == "" {
 			button = "left"
 		}
-		return c.click(x, y, button, max(s.Count, 1))
+		return c.click(x, y, button, max(s.Count, 1), heldKeys(s.Keys))
 	case "move":
 		return c.screen.pointer(x, y)
 	case "drag":
@@ -224,11 +224,15 @@ func (c *computer) run(s step) error {
 	return fmt.Errorf("unknown action %q", s.Action)
 }
 
-func (c *computer) click(x, y float64, button string, count int) error {
+func (c *computer) click(x, y float64, button string, count int, mods []string) error {
 	if err := c.screen.pointer(x, y); err != nil {
 		return err
 	}
 	time.Sleep(clickAim)
+	return c.holding(mods, func() error { return c.clicks(button, count) })
+}
+
+func (c *computer) clicks(button string, count int) error {
 	for i := 1; i <= count; i++ {
 		if i > 1 {
 			// why: on Wayland the app counts a double click from the gap between presses; GTK took two presses sent back to back as two single clicks
@@ -265,6 +269,15 @@ func (c *computer) key(keys string) error {
 	if err != nil {
 		return err
 	}
+	return c.holding(mods, func() error {
+		if err := c.screen.press(name, true); err != nil {
+			return err
+		}
+		return c.screen.press(name, false)
+	})
+}
+
+func (c *computer) holding(mods []string, act func() error) error {
 	held := []string{}
 	release := func() error {
 		var errs []error
@@ -283,14 +296,11 @@ func (c *computer) key(keys string) error {
 		// why: WinUI apps such as Notepad check whether ctrl is down when they handle the key, not when it was sent; a chord sent at once pasted a bare "v" or nothing
 		time.Sleep(chordHold)
 	}
-	if err := c.screen.press(name, true); err != nil {
-		return errors.Join(err, release())
-	}
-	tapped := c.screen.press(name, false)
+	acted := act()
 	if len(held) > 0 {
 		time.Sleep(chordHold)
 	}
-	return errors.Join(tapped, release())
+	return errors.Join(acted, release())
 }
 
 func (c *computer) typeText(text string) error {
@@ -377,7 +387,7 @@ var computerTools = []map[string]any{
 		"name": "act",
 		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the screenshot after them, as screenshot does. " +
 			"Put the steps you can already tell in one call (click a field, type, press return); prefer keys to clicks. " +
-			"Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click}; move {x, y}; drag {x, y, to_x, to_y}; " +
+			"Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
 			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms}.",
 		"inputSchema": map[string]any{
 			"type": "object",
@@ -497,9 +507,27 @@ func serveComputerMCP() int {
 }
 
 func keyChord(keys string) (mods []string, key string, err error) {
-	parts := strings.Split(strings.ToLower(strings.TrimSpace(keys)), "+")
-	if parts[len(parts)-1] == "" {
+	chord := strings.ToLower(strings.TrimSpace(keys))
+	if chord == "+" || strings.HasSuffix(chord, "++") {
+		return heldKeys(strings.TrimSuffix(chord, "++")), "+", nil
+	}
+	parts := heldKeys(chord)
+	if len(parts) == 0 || strings.HasSuffix(chord, "+") {
 		return nil, "", fmt.Errorf("no key in %q", keys)
 	}
-	return parts[:len(parts)-1], parts[len(parts)-1], nil
+	key = parts[len(parts)-1]
+	if key == "plus" {
+		key = "+"
+	}
+	return parts[:len(parts)-1], key, nil
+}
+
+func heldKeys(keys string) []string {
+	var names []string
+	for _, part := range strings.Split(strings.ToLower(keys), "+") {
+		if name := strings.TrimSpace(part); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }

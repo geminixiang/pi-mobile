@@ -32,6 +32,8 @@ var (
 	setCursorPos           = user32.NewProc("SetCursorPos")
 	getCursorPos           = user32.NewProc("GetCursorPos")
 	sendInput              = user32.NewProc("SendInput")
+	getLastInputInfo       = user32.NewProc("GetLastInputInfo")
+	getTickCount           = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetTickCount")
 	mapVirtualKey          = user32.NewProc("MapVirtualKeyW")
 	vkKeyScan              = user32.NewProc("VkKeyScanW")
 	getDC                  = user32.NewProc("GetDC")
@@ -245,6 +247,9 @@ func (s *winScreen) capture(d display) (image.Image, error) {
 	if err := inputDesktopReady(); err != nil {
 		return nil, err
 	}
+	if err := wakeDisplay(); err != nil {
+		return nil, err
+	}
 	width, height := int(d.w), int(d.h)
 	screenDC, _, _ := getDC.Call(0)
 	if screenDC == 0 {
@@ -361,6 +366,28 @@ func (s *winScreen) quit(pids []int) {
 		}
 		windows.CloseHandle(process)
 	}
+}
+
+const (
+	idleBeforeWake = 30 * time.Second
+	wakeSettle     = time.Second
+)
+
+func wakeDisplay() error {
+	info := struct{ size, time uint32 }{size: 8}
+	if ok, _, _ := getLastInputInfo.Call(uintptr(unsafe.Pointer(&info))); ok == 0 {
+		return nil
+	}
+	now, _, _ := getTickCount.Call()
+	if time.Duration(uint32(now)-info.time)*time.Millisecond < idleBeforeWake {
+		return nil
+	}
+	// why: once the display idles off, the desktop stops composing and a capture returns the last frame shown; SetCursorPos is not input, so it never wakes it
+	if err := send([]inputRecord{mouseRecord(mouseInput{flags: mouseMove})}); err != nil {
+		return err
+	}
+	time.Sleep(wakeSettle)
+	return nil
 }
 
 func send(records []inputRecord) error {

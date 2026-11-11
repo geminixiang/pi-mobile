@@ -229,6 +229,7 @@ func (s *macScreen) send(event uintptr) {
 
 func (s *macScreen) mouse(kind uint32, x, y float64, button uint32, clicks int) {
 	event := s.mouseEvent(0, kind, cgPoint{x, y}, button)
+	s.setFlags(event, s.flags)
 	if clicks > 0 {
 		s.setIntegerField(event, clickState, int64(clicks))
 	}
@@ -283,6 +284,9 @@ func (s *macScreen) press(name string, down bool) error {
 	if !s.axTrusted() {
 		return errNoAccessibility
 	}
+	if base, ok := shiftedKeys[name]; ok {
+		return s.pressShifted(base, down)
+	}
 	code, ok := keyCodes[name]
 	if mod, isModifier := modifiers[name]; isModifier {
 		code, ok = mod.code, true
@@ -299,6 +303,21 @@ func (s *macScreen) press(name string, down bool) error {
 	s.setFlags(event, s.flags)
 	s.send(event)
 	return nil
+}
+
+var shiftedKeys = map[string]string{
+	"!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+	"_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/", "~": "`",
+}
+
+func (s *macScreen) pressShifted(base string, down bool) error {
+	if !down {
+		return errors.Join(s.press(base, false), s.press("shift", false))
+	}
+	if err := s.press("shift", true); err != nil {
+		return err
+	}
+	return s.press(base, true)
 }
 
 var errNoPasteboard = errors.New("the pasteboard could not be opened")
