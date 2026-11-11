@@ -533,29 +533,20 @@ func (s *winScreen) key(keys string) error {
 
 func textRecords(text string) [][]inputRecord {
 	chunks := [][]inputRecord{}
-	chunk := []inputRecord{}
-	flush := func() {
-		if len(chunk) > 0 {
-			chunks = append(chunks, chunk)
-			chunk = []inputRecord{}
-		}
-	}
 	for _, r := range strings.ReplaceAll(text, "\r\n", "\n") {
 		switch r {
 		case '\n', '\r':
-			chunk = append(chunk, chordRecords(nil, namedKeys["return"])...)
+			chunks = append(chunks, chordRecords(nil, namedKeys["return"]))
 		case '\t':
-			chunk = append(chunk, chordRecords(nil, namedKeys["tab"])...)
+			chunks = append(chunks, chordRecords(nil, namedKeys["tab"]))
 		default:
+			chunk := []inputRecord{}
 			for _, unit := range utf16.Encode([]rune{r}) {
 				chunk = append(chunk, keyRecord(keyInput{scan: unit, flags: keyUnicode}), keyRecord(keyInput{scan: unit, flags: keyUnicode | keyUp}))
 			}
-		}
-		if len(chunk) >= 32 {
-			flush()
+			chunks = append(chunks, chunk)
 		}
 	}
-	flush()
 	return chunks
 }
 
@@ -567,7 +558,8 @@ func (s *winScreen) typeText(text string) error {
 			if err := send(chunk); err != nil {
 				return err
 			}
-			time.Sleep(10 * time.Millisecond)
+			// why: Windows 11 Notepad dropped or repeated characters sent faster; 8 ms still lost one in 8 lines, 15 ms none in 10
+			time.Sleep(keyPace)
 		}
 		return nil
 	})
@@ -578,6 +570,9 @@ const (
 	imcGetOpenStatus = 0x0005
 	imcSetOpenStatus = 0x0006
 	smtoAbortIfHung  = 0x0002
+	inputSettle      = 50 * time.Millisecond
+	inputDrain       = 300 * time.Millisecond
+	keyPace          = 15 * time.Millisecond
 )
 
 func focusedWindow() uintptr {
@@ -601,6 +596,10 @@ func withInputMethodClosed(typing func() error) error {
 		return typing()
 	}
 	inputMethod(ime, imcSetOpenStatus, 0)
-	defer inputMethod(ime, imcSetOpenStatus, 1)
-	return typing()
+	// why: the input method takes effect a moment after the call and the app reads typed keys after SendInput returns; keys sent while it is open get composed
+	time.Sleep(inputSettle)
+	err := typing()
+	time.Sleep(inputDrain)
+	inputMethod(ime, imcSetOpenStatus, 1)
+	return err
 }

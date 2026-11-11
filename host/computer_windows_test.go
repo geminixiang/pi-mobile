@@ -39,6 +39,12 @@ func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
 	}
 }
 
+func TestTextRecordsSendOneCharacterAtATime(t *testing.T) {
+	if chunks := textRecords("Hello pi 123, IME test!\n中😀"); len(chunks) != 26 {
+		t.Fatalf("got %d chunks, want one per character (26): an app that falls behind a batch drops or repeats its characters", len(chunks))
+	}
+}
+
 func TestTextRecordsNeverSplitASurrogatePair(t *testing.T) {
 	for _, chunk := range textRecords("😀😀😀😀😀😀😀😀😀😀") {
 		first := *(*keyInput)(unsafe.Pointer(&chunk[0].union))
