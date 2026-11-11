@@ -114,23 +114,32 @@ func (a *accessibility) has(of node, state uint) bool {
 	return a.bus.Object(of.Sender, of.Path).Call(atspi+"Accessible.GetState", 0).Store(&states) == nil && len(states) > 0 && states[0]&(1<<state) != 0
 }
 
+func (a *accessibility) current() (string, dbus.ObjectPath) {
+	a.mu.Lock()
+	sender, path := a.sender, a.path
+	a.mu.Unlock()
+	if sender != "" {
+		return sender, path
+	}
+	sender, path = a.search()
+	if sender == "" {
+		return "", ""
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.sender == "" {
+		a.sender, a.path = sender, path
+	}
+	return a.sender, a.path
+}
+
 func (a *accessibility) focused() (focus, bool) {
 	if a == nil {
 		return focus{}, false
 	}
-	a.mu.Lock()
-	sender, path := a.sender, a.path
-	a.mu.Unlock()
+	sender, path := a.current()
 	if sender == "" {
-		sender, path = a.search()
-		if sender == "" {
-			return focus{}, false
-		}
-		a.mu.Lock()
-		if a.sender == "" {
-			a.sender, a.path = sender, path
-		}
-		a.mu.Unlock()
+		return focus{}, false
 	}
 	element := a.bus.Object(sender, path)
 	var role string

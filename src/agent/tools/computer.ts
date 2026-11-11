@@ -42,8 +42,11 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		effect: "read",
 		reach: "loaded",
 		description:
-			"See the screen of the computer you work on as the user sees it (its desktop, not a container): a screenshot of one display, the main one unless display names another, and as text its size, the front app, its focused window's title, the pointer, and which display of how many when there are several. Coordinates in computer_act_as_user are this screenshot's pixels, on its display. For what a command cannot reach.",
-		parameters: Type.Object({ display: Type.Optional(Type.Integer({ minimum: 1, description: "1 is the main display (default); 2 and up the others" })) }),
+			"See the screen of the computer you work on as the user sees it (its desktop, not a container), as text first: the front app, its focused window's title, the focused element (role, last lines of its text, selection, caret), the pointer, which display of how many, and ui: the front window's elements, numbered, with role, name, @x,y when known, and focused, selected, on or disabled. A JPEG of the display comes too with image true, or by itself when the window gives no ui; ask for it only when the text cannot answer. Coordinates in computer_act_as_user are pixels of a screenshot of that display. For what a command cannot reach.",
+		parameters: Type.Object({
+			display: Type.Optional(Type.Integer({ minimum: 1, description: "1 is the main display (default); 2 and up the others" })),
+			image: Type.Optional(Type.Boolean({ description: "also return a JPEG of the display; the text usually is enough" })),
+		}),
 		replay: "safe",
 		execute: (args, api) => call(hostOf(String(api.conversationId)), "screenshot", args, undefined),
 	});
@@ -53,14 +56,15 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		effect: "direct",
 		reach: "loaded",
 		description:
-			"Act as the user on the computer's mouse and keyboard, for what a command cannot reach; apps may notice. Runs the steps in order and returns the screenshot after them, as computer_read_as_user does. " +
+			"Act as the user on the computer's mouse and keyboard, for what a command cannot reach; apps may notice. Runs the steps in order and returns the look after them, as computer_read_as_user does. " +
 			"Put the steps you can already tell in one call (open an app with the launcher key, cmd+space on macOS or super elsewhere, type its name, return; click a field, type, return); prefer keys to clicks. " +
-			"Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click}; move {x, y}; drag {x, y, to_x, to_y}; " +
+			'Steps: click {id of a ui element, or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as "cmd"}; move {x, y}; drag {x, y, to_x, to_y}; ' +
 			'scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as "cmd+shift+t", "return", "esc", "down"}; type {text}; wait {ms}.',
 		parameters: Type.Object({
 			steps: Type.Array(
 				Type.Object({
 					action: oneOf(["click", "move", "drag", "scroll", "key", "type", "wait"]),
+					id: Type.Optional(Type.Integer({ description: "a ui element's [number] from the last look, for click instead of x, y" })),
 					x: Type.Optional(Type.Number()),
 					y: Type.Optional(Type.Number()),
 					to_x: Type.Optional(Type.Number()),
@@ -75,8 +79,9 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 				}),
 				{ minItems: 1 },
 			),
+			image: Type.Optional(Type.Boolean({ description: "also return a JPEG of the display after the steps" })),
 		}),
-		execute: (args, api, context) => call(hostOf(String(api.conversationId)), "act", { steps: args.steps }, context.abortSignal),
+		execute: (args, api, context) => call(hostOf(String(api.conversationId)), "act", { steps: args.steps, ...(args.image ? { image: true } : {}) }, context.abortSignal),
 	});
 	return defineExtension({ name: "computer_as_user", tools: [readScreen, useScreen] });
 }

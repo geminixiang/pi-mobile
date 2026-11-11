@@ -3,6 +3,7 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"image"
@@ -375,4 +376,45 @@ func (s *x11Screen) typeRemapped(runes []rune) (int, error) {
 	}
 	s.sync()
 	return batch, nil
+}
+
+func (s *x11Screen) window() ([]uiNode, bool) {
+	nodes, read := s.accessibility.window()
+	return append(nodes, s.behind()...), read
+}
+
+func (s *x11Screen) behind() []uiNode {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	active := s.windows("_NET_ACTIVE_WINDOW")
+	stacked := s.windows("_NET_CLIENT_LIST_STACKING")
+	var nodes []uiNode
+	for i := len(stacked) - 1; i >= 0 && len(nodes) < uiOthers; i-- {
+		window := stacked[i]
+		if len(active) > 0 && window == active[0] {
+			continue
+		}
+		title := cmp.Or(string(s.property(window, "_NET_WM_NAME")), string(s.property(window, "WM_NAME")))
+		if title == "" {
+			continue
+		}
+		nodes = append(nodes, uiNode{role: "window", name: title + " (" + processName(s.pid(window)) + ", behind)", target: x11Raise{s: s, window: window}})
+	}
+	return nodes
+}
+
+type x11Raise struct {
+	s      *x11Screen
+	window xproto.Window
+}
+
+func (r x11Raise) selects() bool { return false }
+
+func (r x11Raise) activate(bool) error {
+	s := r.s
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// why: a pager asks the window manager to raise a window with this client message (EWMH, source 2); setting the input focus directly is ignored by most window managers
+	event := xproto.ClientMessageEvent{Format: 32, Window: r.window, Type: s.atom("_NET_ACTIVE_WINDOW"), Data: xproto.ClientMessageDataUnionData32New([]uint32{2, 0, 0, 0, 0})}
+	return xproto.SendEventChecked(s.conn, false, s.root, xproto.EventMaskSubstructureRedirect|xproto.EventMaskSubstructureNotify, string(event.Bytes())).Check()
 }

@@ -3833,6 +3833,10 @@
 					"description": "1 is the main display (default); 2 and up the others",
 					"minimum": 1,
 					"type": "integer"
+				},
+				"image": {
+					"description": "also return a JPEG of the display; the text usually is enough",
+					"type": "boolean"
 				}
 			},
 			"type": "object"
@@ -3856,6 +3860,10 @@
 		],
 		"parameters": {
 			"properties": {
+				"image": {
+					"description": "also return a JPEG of the display after the steps",
+					"type": "boolean"
+				},
 				"steps": {
 					"items": {
 						"properties": {
@@ -3886,6 +3894,10 @@
 								"type": "integer"
 							},
 							"dy": {
+								"type": "integer"
+							},
+							"id": {
+								"description": "a ui element's [number] from the last look, for click instead of x, y",
 								"type": "integer"
 							},
 							"keys": {

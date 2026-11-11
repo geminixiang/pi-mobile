@@ -67,6 +67,7 @@ type macScreen struct {
 	clipboard        *pasteboard
 	layout           *keyboardLayout
 	ax               *axFocus
+	tree             *axTree
 	at               cgPoint
 	dragging         bool
 	flags            uint64
@@ -91,6 +92,7 @@ func newScreen() (screen, error) {
 		purego.RegisterLibFunc(fn, lib, name)
 	}
 	s.ax = newAXFocus(lib, s.stringCreate)
+	s.tree = newAXTree(lib, s)
 	if clipboard, err := newPasteboard(); err == nil {
 		s.clipboard = clipboard
 	}

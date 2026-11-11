@@ -12,6 +12,7 @@ import (
 	"image/jpeg"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -76,6 +77,33 @@ const (
 	typeReady  = time.Second
 )
 
+type uiNode struct {
+	depth                                int
+	role, name                           string
+	x, y                                 float64
+	placed                               bool
+	focused, selected, disabled, checked bool
+	target                               uiTarget
+}
+
+type uiTarget interface {
+	activate(adding bool) error
+	selects() bool
+}
+
+type uiReader interface {
+	window() ([]uiNode, bool)
+}
+
+const (
+	uiLines  = 150
+	uiName   = 80
+	uiThin   = 3
+	uiWalk   = 800
+	uiOthers = 8
+	uiDepth  = 30
+)
+
 type pasteReads interface {
 	reads() <-chan struct{}
 }
@@ -96,6 +124,7 @@ func drain(c chan struct{}) {
 
 type step struct {
 	Action string  `json:"action"`
+	ID     int     `json:"id"`
 	X      float64 `json:"x"`
 	Y      float64 `json:"y"`
 	ToX    float64 `json:"to_x"`
@@ -113,6 +142,7 @@ type seen struct {
 	index  int
 	origin display
 	scale  float64
+	ui     []uiNode
 }
 
 type computer struct {
@@ -170,7 +200,7 @@ func (c *computer) end() {
 	c.session = nil
 }
 
-func (c *computer) shot(index int) ([]any, error) {
+func (c *computer) shot(index int, picture bool) ([]any, error) {
 	all, err := c.screen.displays()
 	if err != nil {
 		return nil, err
@@ -183,35 +213,33 @@ func (c *computer) shot(index int) ([]any, error) {
 		app, window string
 		x, y        float64
 		focus       focus
+		ui          []uiNode
+		read        bool
 	}
-	states := make(chan state, 1)
-	go func() {
+	now := func() state {
 		app, window, x, y := c.screen.state()
 		now := state{app: app, window: window, x: x, y: y}
 		if reader, ok := c.screen.(focusReader); ok {
 			now.focus, _ = reader.focused()
 		}
-		states <- now
+		if reader, ok := c.screen.(uiReader); ok {
+			now.ui, now.read = reader.window()
+		}
+		return now
 	}()
-	img, err := c.screen.capture(d)
-	now := <-states
-	if err != nil {
-		return nil, err
+	w, h := shotSize(d)
+	c.seen = &seen{index: index, origin: d, scale: d.w / float64(w), ui: now.ui}
+	var content []any
+	if picture || !now.read || named(now.ui) < uiThin {
+		jpg, err := c.picture(d, w, h)
+		if err != nil {
+			return nil, err
+		}
+		content = append(content, map[string]any{"type": "image", "data": base64.StdEncoding.EncodeToString(jpg), "mimeType": "image/jpeg"})
 	}
-	bounds := img.Bounds()
-	w, h := bounds.Dx(), bounds.Dy()
-	if long := max(w, h); long > shotLongSide {
-		w, h = w*shotLongSide/long, h*shotLongSide/long
-		small := image.NewRGBA(image.Rect(0, 0, w, h))
-		draw.ApproxBiLinear.Scale(small, small.Bounds(), img, bounds, draw.Src, nil)
-		img = small
-	}
-	c.seen = &seen{index: index, origin: d, scale: d.w / float64(w)}
-	var out bytes.Buffer
-	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 70}); err != nil {
-		return nil, err
-	}
-	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int((now.x - d.x) / c.seen.scale), int((now.y - d.y) / c.seen.scale)}}
+	toShot := func(x, y float64) (int, int) { return int((x - d.x) / c.seen.scale), int((y - d.y) / c.seen.scale) }
+	px, py := toShot(now.x, now.y)
+	facts := map[string]any{"size": []int{w, h}, "pointer": []int{px, py}}
 	if len(all) > 1 {
 		facts["display"] = fmt.Sprintf("%d of %d", index, len(all))
 	}
@@ -225,10 +253,81 @@ func (c *computer) shot(index int) ([]any, error) {
 		facts["focus"] = focusFacts(now.focus)
 	}
 	text, _ := json.Marshal(facts)
-	return []any{
-		map[string]any{"type": "image", "data": base64.StdEncoding.EncodeToString(out.Bytes()), "mimeType": "image/jpeg"},
-		map[string]any{"type": "text", "text": string(text)},
-	}, nil
+	said := string(text)
+	if now.read {
+		said += "\n" + uiText(now.ui, toShot)
+	}
+	return append(content, map[string]any{"type": "text", "text": said}), nil
+}
+
+func shotSize(d display) (int, int) {
+	w, h := int(d.w), int(d.h)
+	if long := max(w, h); long > shotLongSide {
+		return w * shotLongSide / long, h * shotLongSide / long
+	}
+	return w, h
+}
+
+func (c *computer) picture(d display, w, h int) ([]byte, error) {
+	img, err := c.screen.capture(d)
+	if err != nil {
+		return nil, err
+	}
+	if bounds := img.Bounds(); bounds.Dx() != w || bounds.Dy() != h {
+		small := image.NewRGBA(image.Rect(0, 0, w, h))
+		draw.ApproxBiLinear.Scale(small, small.Bounds(), img, bounds, draw.Src, nil)
+		img = small
+	}
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 70}); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+func named(nodes []uiNode) int {
+	count := 0
+	for _, n := range nodes {
+		if n.name != "" {
+			count++
+		}
+	}
+	return count
+}
+
+func uiText(nodes []uiNode, toShot func(x, y float64) (int, int)) string {
+	lines := []string{"ui:"}
+	for i, n := range nodes {
+		if i == uiLines {
+			lines = append(lines, fmt.Sprintf("… %d more", len(nodes)-uiLines))
+			break
+		}
+		line := fmt.Sprintf("%s[%d] %s", strings.Repeat(" ", n.depth), i+1, n.role)
+		if n.name != "" {
+			line += " " + strconv.Quote(clip(n.name, uiName))
+		}
+		if n.placed {
+			x, y := toShot(n.x, n.y)
+			line += fmt.Sprintf(" @%d,%d", x, y)
+		}
+		for _, flag := range []struct {
+			on   bool
+			name string
+		}{{n.focused, "focused"}, {n.selected, "selected"}, {n.checked, "on"}, {n.disabled, "disabled"}} {
+			if flag.on {
+				line += " " + flag.name
+			}
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func clip(s string, limit int) string {
+	if runes := []rune(s); len(runes) > limit {
+		return string(runes[:limit]) + "…"
+	}
+	return s
 }
 
 func focusFacts(f focus) map[string]any {
@@ -291,6 +390,9 @@ func (c *computer) run(s step) error {
 	if c.seen == nil {
 		return errors.New("take a screenshot first: coordinates are its pixels")
 	}
+	if s.Action == "click" && s.ID != 0 {
+		return c.clickUI(s)
+	}
 	at := func(x, y float64) (float64, float64) {
 		return c.seen.origin.x + x*c.seen.scale, c.seen.origin.y + y*c.seen.scale
 	}
@@ -310,6 +412,27 @@ func (c *computer) run(s step) error {
 		return c.screen.wheel(s.DX, s.DY)
 	}
 	return fmt.Errorf("unknown action %q", s.Action)
+}
+
+func (c *computer) clickUI(s step) error {
+	if s.ID < 1 || s.ID > len(c.seen.ui) {
+		return fmt.Errorf("no element [%d] in the last look", s.ID)
+	}
+	n := c.seen.ui[s.ID-1]
+	if n.placed {
+		return c.click(n.x, n.y, cmp.Or(s.Button, "left"), max(s.Count, 1), heldKeys(s.Keys))
+	}
+	if n.target == nil {
+		return fmt.Errorf("element [%d] has no position or action: look with image true and click its x, y", s.ID)
+	}
+	if s.Count < 2 || !n.target.selects() {
+		return n.target.activate(s.Keys != "")
+	}
+	// why: GTK4 list and grid cells have no action and no position, so opening one is selecting it and pressing return
+	if err := n.target.activate(false); err != nil {
+		return err
+	}
+	return c.key("return")
 }
 
 func (c *computer) click(x, y float64, button string, count int, mods []string) error {
@@ -456,11 +579,11 @@ func pauseAfter(s step) time.Duration {
 	return stepPause
 }
 
-func (c *computer) act(steps []step) ([]any, error) {
+func (c *computer) act(steps []step, picture bool) ([]any, error) {
 	for i, s := range steps {
 		if err := c.run(s); err != nil {
 			failure := fmt.Errorf("step %d (%s): %w; earlier steps were done, later steps were not run", i+1, s.Action, err)
-			content, captureError := c.shot(c.lastDisplay())
+			content, captureError := c.shot(c.lastDisplay(), picture)
 			if captureError != nil {
 				return content, errors.Join(failure, fmt.Errorf("failure screenshot: %w", captureError))
 			}
@@ -471,7 +594,7 @@ func (c *computer) act(steps []step) ([]any, error) {
 		}
 	}
 	c.settle()
-	return c.shot(c.lastDisplay())
+	return c.shot(c.lastDisplay(), picture)
 }
 
 func (c *computer) pause(done, next step) {
@@ -522,15 +645,15 @@ func awaitFocus(reader focusReader, ready func(focus) bool, limit time.Duration)
 var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
-		"description": "See the computer's screen now: a JPEG of one display (the main one unless display says another), and as text its size, the front app, the title of its focused window, the focused element (its role, the last lines of its text, the selection, and where the caret is), the pointer, and which display of how many when there are several. Coordinates everywhere are this screenshot's pixels, on its display, until the next screenshot. Apps opened while using the screen are quit two minutes after the last use.",
-		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display (default), 2 and up the others"}}},
+		"description": "See the computer's screen now, as text first: its size, the front app, the title of its focused window, the focused element (its role, the last lines of its text, the selection, and where the caret is), the pointer, which display of how many when there are several, and ui: the front window's elements, one a line, indented by nesting, numbered, with role, name, @x,y of its center when known, and focused, selected, on or disabled. A JPEG of the display comes too when image is true, or by itself when the window gives no ui (a canvas, a game, an app without accessibility); ask for it only when the text cannot answer, such as how something looks. Coordinates everywhere are pixels of a screenshot of that display, until the next look. Apps opened while using the screen are quit two minutes after the last use.",
+		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display (default), 2 and up the others"}, "image": map[string]any{"type": "boolean", "description": "also return a JPEG of the display; the text usually is enough"}}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},
 	{
 		"name": "act",
-		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the screenshot after them, as screenshot does. " +
+		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the look after them, as screenshot does (text, and a JPEG only when image is true or there is no ui). " +
 			"Put the steps you can already tell in one call (click a field, type, press return); prefer keys to clicks. " +
-			"Steps: click {x, y, button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
+			"Steps: click {id of a ui element, or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
 			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms}.",
 		"inputSchema": map[string]any{
 			"type": "object",
@@ -541,6 +664,7 @@ var computerTools = []map[string]any{
 						"type": "object",
 						"properties": map[string]any{
 							"action": map[string]any{"type": "string", "enum": []string{"click", "move", "drag", "scroll", "key", "type", "wait"}},
+							"id":     map[string]any{"type": "integer", "description": "a ui element's [number] from the last look, for click instead of x, y"},
 							"x":      map[string]any{"type": "number"}, "y": map[string]any{"type": "number"},
 							"to_x": map[string]any{"type": "number"}, "to_y": map[string]any{"type": "number"},
 							"button": map[string]any{"type": "string", "enum": []string{"left", "right", "middle"}},
@@ -552,6 +676,7 @@ var computerTools = []map[string]any{
 						"required": []string{"action"},
 					},
 				},
+				"image": map[string]any{"type": "boolean", "description": "also return a JPEG of the display; the text usually is enough"},
 			},
 			"required": []string{"steps"},
 		},
@@ -618,6 +743,7 @@ func serveComputerMCP() int {
 				Arguments struct {
 					Steps   []step `json:"steps"`
 					Display int    `json:"display"`
+					Image   bool   `json:"image"`
 				} `json:"arguments"`
 			}
 			if json.Unmarshal(m.Params, &p) != nil {
@@ -629,9 +755,9 @@ func serveComputerMCP() int {
 			c.touch()
 			switch p.Name {
 			case "screenshot":
-				content, err = c.shot(cmp.Or(p.Arguments.Display, 1))
+				content, err = c.shot(cmp.Or(p.Arguments.Display, 1), p.Arguments.Image)
 			case "act":
-				content, err = c.act(p.Arguments.Steps)
+				content, err = c.act(p.Arguments.Steps, p.Arguments.Image)
 			default:
 				err = fmt.Errorf("no tool %q", p.Name)
 			}

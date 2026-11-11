@@ -55,7 +55,7 @@ func (s *failingScreen) typeRunes(string) error { s.calls = append(s.calls, "typ
 func TestComputerBatchFailureReturnsScreenAndStops(t *testing.T) {
 	s := &failingScreen{}
 	c := &computer{screen: s, seen: &seen{index: 1, origin: display{0, 0, 20, 10}, scale: 1}}
-	content, err := c.act([]step{{Action: "click"}, {Action: "key", Keys: "unknown"}, {Action: "type", Text: "must not run"}})
+	content, err := c.act([]step{{Action: "click"}, {Action: "key", Keys: "unknown"}, {Action: "type", Text: "must not run"}}, false)
 	if err == nil || !strings.Contains(err.Error(), "step 2 (key)") {
 		t.Fatalf("error = %v", err)
 	}
@@ -74,7 +74,7 @@ func TestComputerBatchFailurePreservesBothErrors(t *testing.T) {
 	captureError := errors.New("screen unavailable")
 	s := &failingScreen{captureError: captureError}
 	c := &computer{screen: s}
-	_, err := c.act([]step{{Action: "key", Keys: "unknown"}})
+	_, err := c.act([]step{{Action: "key", Keys: "unknown"}}, false)
 	if err == nil || !strings.Contains(err.Error(), "key unavailable") || !errors.Is(err, captureError) {
 		t.Fatalf("error = %v", err)
 	}
@@ -99,21 +99,21 @@ func (s *twoDisplays) pointer(x, y float64) error {
 func TestClicksLandOnTheDisplayLastSeen(t *testing.T) {
 	s := &twoDisplays{}
 	c := &computer{screen: s}
-	content, err := c.shot(2)
+	content, err := c.shot(2, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if text := content[1].(map[string]any)["text"].(string); !strings.Contains(text, `"display":"2 of 2"`) || !strings.Contains(text, `"size":[720,1280]`) {
 		t.Fatalf("screenshot facts = %s", text)
 	}
-	if _, err := c.act([]step{{Action: "click", X: 10, Y: 5}}); err != nil {
+	if _, err := c.act([]step{{Action: "click", X: 10, Y: 5}}, false); err != nil {
 		t.Fatal(err)
 	}
 	scale := 1920.0 / 1280
 	if want := [2]float64{1920 + 10*scale, -580 + 5*scale}; s.clicked != want {
 		t.Fatalf("clicked %v, want %v on the second display", s.clicked, want)
 	}
-	if _, err := c.shot(3); err == nil || !strings.Contains(err.Error(), "has 2") {
+	if _, err := c.shot(3, false); err == nil || !strings.Contains(err.Error(), "has 2") {
 		t.Fatalf("a missing display should say how many there are, got %v", err)
 	}
 }
@@ -367,7 +367,7 @@ func (s *slowField) focused() (focus, bool) {
 
 func TestTypingWaitsForTheFieldAKeyOpened(t *testing.T) {
 	s := &slowField{}
-	if _, err := (&computer{screen: s}).act([]step{{Action: "key", Keys: "cmd+shift+n"}, {Action: "type", Text: "封存"}}); err != nil {
+	if _, err := (&computer{screen: s}).act([]step{{Action: "key", Keys: "cmd+shift+n"}, {Action: "type", Text: "封存"}}, false); err != nil {
 		t.Fatal(err)
 	}
 	if waited := s.typed.Sub(s.opened); waited < 300*time.Millisecond {
@@ -424,5 +424,66 @@ func TestFocusFactsShowTheEndOfTheTextAndHideSecrets(t *testing.T) {
 	secret := focusFacts(focus{role: "AXTextField", secret: true, end: "hunter2", length: 7})
 	if secret["text"] != "hidden" || secret["end"] != nil {
 		t.Errorf("a password field showed %v", secret)
+	}
+}
+
+type windowScreen struct {
+	twoDisplays
+	nodes     []uiNode
+	activated []bool
+}
+
+func (s *windowScreen) window() ([]uiNode, bool) { return s.nodes, true }
+
+type pressed struct{ s *windowScreen }
+
+func (p pressed) selects() bool { return true }
+
+func (p pressed) activate(adding bool) error {
+	p.s.activated = append(p.s.activated, adding)
+	return nil
+}
+
+func images(content []any) int {
+	count := 0
+	for _, part := range content {
+		if part.(map[string]any)["type"] == "image" {
+			count++
+		}
+	}
+	return count
+}
+
+func TestALookIsTextUnlessTheWindowGivesTooLittle(t *testing.T) {
+	s := &windowScreen{}
+	s.nodes = []uiNode{
+		{role: "window", name: "files"},
+		{depth: 1, role: "button", name: "Save", x: 300, y: 150, placed: true, focused: true},
+		{depth: 1, role: "grid cell", name: "合約.txt", target: pressed{s}},
+	}
+	c := &computer{screen: s}
+	content, err := c.shot(1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := content[len(content)-1].(map[string]any)["text"].(string)
+	if images(content) != 0 || !strings.Contains(text, "\n [2] button \"Save\" @200,100 focused\n [3] grid cell \"合約.txt\"") {
+		t.Fatalf("a look with a full window = %d images and %s", images(content), text)
+	}
+	if _, err := c.act([]step{{Action: "click", ID: 2}, {Action: "click", ID: 3, Keys: "ctrl"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if s.clicked != [2]float64{300, 150} || len(s.activated) != 1 || !s.activated[0] {
+		t.Fatalf("clicked %v and activated %v, want the button's center and the cell added to the selection", s.clicked, s.activated)
+	}
+	if _, err := c.act([]step{{Action: "click", ID: 9}}, false); err == nil || !strings.Contains(err.Error(), "no element [9]") {
+		t.Fatalf("an unknown id = %v", err)
+	}
+	if content, _ := c.shot(1, true); images(content) != 1 {
+		t.Fatal("image true gave no image")
+	}
+	s.nodes = s.nodes[:1]
+	if content, _ := c.shot(1, false); images(content) != 1 {
+		t.Fatal("a window with one named element gave no image")
 	}
 }
