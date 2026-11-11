@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { choicesOf, LIST, placeOf, readCommand, reading, sendProblem, workers } from "../src/computer-agents/workers.ts";
+import { choicesOf, keysCommand, LIST, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "../src/computer-agents/workers.ts";
 import { startJob } from "../src/jobs/commands.ts";
 
 const herdrAgent = { agent: "claude", agent_status: "blocked", cwd: "/Users/me/app", focused: true, name: "tester", pane_id: "w1:p1", terminal_title_stripped: "Claude Code", workspace_id: "w1" };
@@ -114,4 +114,26 @@ assert.deepEqual(choicesOf(" Do you want to proceed?\n   1. Yes\n ❯ 2. No"), {
 assert.equal(choicesOf("────────\n❯ \n────────\n  ⏵⏵ auto mode on"), undefined);
 assert.equal(choicesOf("⏺ 0 files.\n❯ commit 吧"), undefined);
 
-console.log("computer agents: Herdr's and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen; a background command starts at once, is listed while it runs, and is read with its exit code and output when it ends");
+const hcList = {
+	terminals: [
+		{ address: "t3", agent: "pwsh.exe", cwd: "C:\\Users\\me", state: "live", turn: 5 },
+		{ address: "t5", agent: "C:\\tools\\Claude.exe", cwd: "C:/work/app", state: "live", status: "blocked", name: "fixer", title: "Claude Code" },
+		{ address: "t6", agent: "codex", cwd: "C:/work", state: "finished" },
+	],
+};
+assert.deepEqual(workers(`@@hc\n${JSON.stringify(hcList)}`), [
+	{ id: "hc:t5", name: "fixer", agent: "claude", status: "needs_user", cwd: "C:/work/app", title: "Claude Code", doing: "" },
+	{ id: "hc:t6", name: "", agent: "codex", status: "idle", cwd: "C:/work", title: "", doing: "" },
+], "Herdr on Windows (hc) lists its coding agents, not its shells");
+assert.deepEqual(workers(`@@hc\n${JSON.stringify({ error: { kind: "unavailable", message: "the Windows core is not reachable" } })}`), [], "an hc that is not running lists nothing");
+assert.deepEqual(placeOf("hc:t5"), { via: "hc", terminal: "t5" });
+assert.deepEqual(placeOf("hc:office/t7"), { via: "hc", terminal: "office/t7" });
+const hc = { via: "hc", terminal: "t5" } as const;
+assert.deepEqual(reading(hc, `${JSON.stringify({ address: "t5", state: "live", status: { app: "pi", state: "working" } })}\n@@screen\n⏺ editing`), { ok: true, status: "working", doing: "", screen: "⏺ editing" }, "hc get reports status as an object, hc ls as a string");
+assert.deepEqual(reading(hc, `${JSON.stringify({ error: { kind: "not_found", message: "no terminal t5", hint: "hc ls" } })}\n@@screen\n`), { ok: false, problem: "no terminal t5 (hc ls)" });
+assert.match(readCommand(hc, 40), /"\$hc" read 't5' --lines 40/);
+assert.match(sendCommand(hc, "fix it"), /"\$hc" send 't5' 'fix it'/);
+assert.match(keysCommand(hc, ["esc", "enter"]), /"\$hc" keys 't5' 'esc' 'enter'/);
+assert.equal(sendProblem(hc, JSON.stringify({ error: { kind: "blocked", message: "the program is waiting" } })), "the program is waiting");
+
+console.log("computer agents: Herdr's (also hc on Windows) and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen; a background command starts at once, is listed while it runs, and is read with its exit code and output when it ends");

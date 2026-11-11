@@ -15,14 +15,16 @@ export interface Worker {
 	doing: string;
 }
 
-export type AgentPlace = { via: "herdr"; session: string; pane: string } | { via: "rex"; session: string; block: string };
+export type AgentPlace = { via: "herdr"; session: string; pane: string } | { via: "rex"; session: string; block: string } | { via: "hc"; terminal: string };
 
 export type Place = AgentPlace | { via: "job"; id: string };
 
 const FIND = [
 	'herdr="$(command -v herdr || printf %s "$HOME/.local/bin/herdr")"',
 	'rex="$(command -v rex || printf %s "$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex")"',
+	'hc="$(command -v hc || printf %s "$LOCALAPPDATA/Programs/herdr-core/hc.exe")"',
 ].join("; ");
+const HC = '"$hc"';
 const HERDR = '"$herdr"';
 const REX = '"$rex" --autostart=false';
 const DAY_MINUTES = 1440;
@@ -40,6 +42,7 @@ export const LIST = [
 	`    name=$(basename "$dir"); echo "${SECTION}herdr $name"; ${HERDR} --session "$name" agent list 2>&1`,
 	"  done",
 	"fi",
+	`if [ -x "$hc" ]; then echo "${SECTION}hc"; ${HC} ls --json 2>&1; fi`,
 	'if [ -x "$rex" ]; then',
 	`  echo "${SECTION}rex-sessions"; ${REX} ls --json 2>&1`,
 	`  for session in $(${REX} ls -q 2>/dev/null); do`,
@@ -74,6 +77,9 @@ const RexProcess = Type.Object({ foreground: Type.Union([Type.Null(), Type.Objec
 const RexStatus = Type.Object({ records: Type.Array(Type.Object({ state: Type.String(), app: Type.String(), msg: Type.Optional(Type.String()) })) });
 const RexTitle = Type.Object({ title: Type.String() });
 const RexSessions = Type.Object({ sessions: Type.Array(Type.Object({ session_id: Type.String(), label: Type.String() })) });
+const HcTerminal = Type.Object({ address: Type.String(), agent: Type.Optional(Type.String()), cwd: Type.Optional(Type.String()), state: Type.String(), status: Type.Optional(Type.Union([Type.String(), Type.Object({ state: Type.String() }), Type.Null()])), name: Type.Optional(Type.Union([Type.String(), Type.Null()])), title: Type.Optional(Type.String()) });
+const HcList = Type.Object({ terminals: Type.Array(HcTerminal) });
+const HcError = Type.Object({ error: Type.Object({ kind: Type.String(), message: Type.String(), hint: Type.Optional(Type.String()) }) });
 
 const STATUS: Record<string, Status> = { idle: "idle", done: "idle", failed: "idle", working: "working", blocked: "needs_user" };
 
@@ -90,6 +96,7 @@ export function workers(output: string): Worker[] {
 	const labels = new Map(listed.ok ? listed.value.sessions.map((session) => [session.session_id, session.label]) : []);
 	return sections.flatMap(({ via, name, block, lines }) => {
 		if (via === "herdr") return herdrWorkers(name, lines[0] ?? "");
+		if (via === "hc") return hcWorkers(lines.join("\n"));
 		if (via === "rex") return rexWorker(name, labels.get(name) ?? "", block, lines);
 		if (via === "job") return [jobWorker(name, lines)];
 		return [];
@@ -108,6 +115,27 @@ function herdrWorkers(session: string, line: string): Worker[] {
 		title: agent.terminal_title_stripped ?? "",
 		doing: "",
 	}));
+}
+
+function hcStatus(terminal: { state: string; status?: string | { state: string } | null }): Status {
+	if (terminal.state !== "live") return "idle";
+	const status = typeof terminal.status === "string" ? terminal.status : terminal.status?.state;
+	return (status && STATUS[status]) || "unknown";
+}
+
+function programOf(agent: string): string {
+	const file = (agent.split("\\").at(-1) ?? "").split("/").at(-1)?.toLowerCase() ?? "";
+	return file.endsWith(".exe") ? file.slice(0, -".exe".length) : file;
+}
+
+function hcWorkers(json: string): Worker[] {
+	const list = checkJson(HcList, json.trim(), "hc ls");
+	if (!list.ok) return [];
+	return list.value.terminals.flatMap((terminal) => {
+		const agent = programOf(terminal.agent ?? "");
+		if (!AGENTS.has(agent)) return [];
+		return [{ id: `hc:${terminal.address}`, name: terminal.name ?? "", agent, status: hcStatus(terminal), cwd: terminal.cwd ?? "", title: terminal.title ?? "", doing: "" }];
+	});
 }
 
 function rexWorker(session: string, label: string, block: string, [processLine = "", statusLine = "", titleLine = ""]: string[]): Worker[] {
@@ -147,6 +175,7 @@ export function jobEnding(job: Exclude<Job, { state: "running" | "missing" }>): 
 export function placeOf(id: string): Place | undefined {
 	const [via, session, ...rest] = id.split(":");
 	if (via === "job" && session && JOB_ID.test(session) && rest.length === 0) return { via, id: session };
+	if (via === "hc" && session && rest.length <= 1) return { via, terminal: [session, ...rest].join(":") };
 	if (!session || rest.length === 0) return undefined;
 	if (via === "rex" && rest.length === 1 && rest[0]) return { via, session, block: rest[0] };
 	if (via === "herdr") return { via, session, pane: rest.join(":") };
@@ -159,6 +188,7 @@ const herdr = (session: string) => (session === "default" ? HERDR : `${HERDR} --
 
 export function readCommand(place: Place, lines: number): string {
 	if (place.via === "job") return `${readJob(place.id, lines)}\necho ${SCREEN}`;
+	if (place.via === "hc") return `${FIND}; ${HC} get ${shellQuote(place.terminal)} --json 2>&1; echo ${SCREEN}; ${HC} read ${shellQuote(place.terminal)} --lines ${lines} 2>&1`;
 	if (place.via === "herdr") {
 		const cli = herdr(place.session);
 		return `${FIND}; ${cli} agent get ${shellQuote(place.pane)} 2>&1; echo ${SCREEN}; ${cli} agent read ${shellQuote(place.pane)} --source recent-unwrapped --lines ${lines} 2>&1`;
@@ -168,6 +198,7 @@ export function readCommand(place: Place, lines: number): string {
 }
 
 export function sendCommand(place: AgentPlace, text: string): string {
+	if (place.via === "hc") return `${FIND}; ${HC} send ${shellQuote(place.terminal)} ${shellQuote(text)} 2>&1`;
 	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent prompt ${shellQuote(place.pane)} ${shellQuote(text)} 2>&1`;
 	const at = rexAt(place);
 	return `${FIND}; { printf '\\033[200~'; printf '%s' ${shellQuote(text)}; printf '\\033[201~'; } | ${REX} block send ${at} && sleep 0.3 && ${REX} block send-key ${at} enter`;
@@ -186,6 +217,12 @@ export function reading(place: Place, output: string): Reading {
 	if (at < 0) return { ok: false, problem: output.trim() };
 	const head = output.slice(0, at).trim();
 	const screen = output.slice(at + SCREEN.length).trim();
+	if (place.via === "hc") {
+		const got = checkJson(HcTerminal, head, "hc get");
+		if (got.ok) return { ok: true, status: hcStatus(got.value), doing: "", screen };
+		const failed = checkJson(HcError, head, "hc error");
+		return { ok: false, problem: failed.ok ? `${failed.value.error.message}${failed.value.error.hint ? ` (${failed.value.error.hint})` : ""}` : head };
+	}
 	if (place.via === "herdr") {
 		const got = checkJson(HerdrGet, head, "herdr agent get");
 		if (got.ok) return { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen };
@@ -200,6 +237,10 @@ export function reading(place: Place, output: string): Reading {
 
 export function sendProblem(place: AgentPlace, output: string): string | undefined {
 	if (place.via === "rex") return output.trim() === "" ? undefined : output.trim();
+	if (place.via === "hc") {
+		const failed = checkJson(HcError, output.trim(), "hc error");
+		return failed.ok ? failed.value.error.message : undefined;
+	}
 	const failed = checkJson(HerdrError, output.trim(), "herdr error");
 	return failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : undefined;
 }
@@ -234,6 +275,7 @@ export function choicesOf(screen: string): Choices | undefined {
 
 export function keysCommand(place: AgentPlace, keys: readonly string[]): string {
 	const words = keys.map(shellQuote).join(" ");
+	if (place.via === "hc") return `${FIND}; ${HC} keys ${shellQuote(place.terminal)} ${words} 2>&1`;
 	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent send-keys ${shellQuote(place.pane)} ${words} 2>&1`;
 	return `${FIND}; ${REX} block send-key ${rexAt(place)} ${words} 2>&1`;
 }
