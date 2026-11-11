@@ -4,3 +4,4 @@ dist
 .shots
 pi-mobile-*.apk
 test/perf/out/
+host/host
