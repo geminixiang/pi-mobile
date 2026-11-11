@@ -260,3 +260,25 @@ func TestAnUnknownKeyLetsGoOfTheModifiers(t *testing.T) {
 		t.Fatalf("events = %s", got)
 	}
 }
+
+type timedButtons struct {
+	failingScreen
+	presses []time.Time
+}
+
+func (s *timedButtons) button(_ string, down bool, _ int) error {
+	if down {
+		s.presses = append(s.presses, time.Now())
+	}
+	return nil
+}
+
+func TestADoubleClickLeavesAGapBetweenPresses(t *testing.T) {
+	s := &timedButtons{}
+	if err := (&computer{screen: s}).click(1, 1, "left", 2); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.presses) != 2 || s.presses[1].Sub(s.presses[0]) < clickGap {
+		t.Fatalf("presses %v: the second press must come at least %s after the first, or GTK on Wayland sees two single clicks", s.presses, clickGap)
+	}
+}

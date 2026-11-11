@@ -43,6 +43,7 @@ type screen interface {
 
 const (
 	clickAim  = 30 * time.Millisecond
+	clickGap  = 60 * time.Millisecond
 	dragSteps = 12
 	dragStep  = 15 * time.Millisecond
 	chordHold = 30 * time.Millisecond
@@ -229,6 +230,10 @@ func (c *computer) click(x, y float64, button string, count int) error {
 	}
 	time.Sleep(clickAim)
 	for i := 1; i <= count; i++ {
+		if i > 1 {
+			// why: on Wayland the app counts a double click from the gap between presses; GTK took two presses sent back to back as two single clicks
+			time.Sleep(clickGap)
+		}
 		if err := c.screen.button(button, true, i); err != nil {
 			return err
 		}
