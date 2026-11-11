@@ -341,3 +341,80 @@ func TestAClickHoldsItsModifiersAroundThePress(t *testing.T) {
 		t.Fatalf("events = %s", got)
 	}
 }
+
+type slowField struct {
+	keyboard
+	opened time.Time
+	typed  time.Time
+}
+
+func (s *slowField) press(key string, down bool) error {
+	if key == "n" && down {
+		s.opened = time.Now()
+	}
+	return s.keyboard.press(key, down)
+}
+func (s *slowField) typeRunes(line string) error {
+	s.typed = time.Now()
+	return s.keyboard.typeRunes(line)
+}
+func (s *slowField) focused() (focus, bool) {
+	if s.opened.IsZero() || time.Since(s.opened) < 300*time.Millisecond {
+		return focus{role: "list"}, true
+	}
+	return focus{role: "text field", editable: true}, true
+}
+
+func TestTypingWaitsForTheFieldAKeyOpened(t *testing.T) {
+	s := &slowField{}
+	if _, err := (&computer{screen: s}).act([]step{{Action: "key", Keys: "cmd+shift+n"}, {Action: "type", Text: "封存"}}); err != nil {
+		t.Fatal(err)
+	}
+	if waited := s.typed.Sub(s.opened); waited < 300*time.Millisecond {
+		t.Fatalf("typed %s after the key, before the field took the focus at 300ms", waited)
+	}
+}
+
+type changingFocus struct {
+	keyboard
+	changes []time.Duration
+	start   time.Time
+}
+
+func (s *changingFocus) focused() (focus, bool) {
+	seen := 0
+	for _, at := range s.changes {
+		if time.Since(s.start) >= at {
+			seen++
+		}
+	}
+	return focus{role: fmt.Sprint(seen)}, true
+}
+
+func TestTheScreenshotIsTakenOnceTheScreenStopsChanging(t *testing.T) {
+	for name, c := range map[string]struct {
+		changes  []time.Duration
+		min, max time.Duration
+	}{
+		"settles early": {[]time.Duration{40 * time.Millisecond}, 100 * time.Millisecond, 300 * time.Millisecond},
+		"keeps changing": {[]time.Duration{40 * time.Millisecond, 120 * time.Millisecond, 200 * time.Millisecond}, 280 * time.Millisecond, 520 * time.Millisecond},
+		"never changes":  {nil, settle, settle + 100*time.Millisecond},
+	} {
+		s := &changingFocus{changes: c.changes, start: time.Now()}
+		(&computer{screen: s}).settle()
+		if took := time.Since(s.start); took < c.min || took > c.max {
+			t.Errorf("%s: settled after %s, want between %s and %s", name, took, c.min, c.max)
+		}
+	}
+}
+
+func TestFocusFactsShowTheEndOfTheTextAndHideSecrets(t *testing.T) {
+	text := focusFacts(focus{role: "AXTextArea", end: "gamma\n", length: 17, caret: 0})
+	if text["end"] != "…gamma\n" || text["caret"] != "at the end" {
+		t.Errorf("text facts = %v", text)
+	}
+	secret := focusFacts(focus{role: "AXTextField", secret: true, end: "hunter2", length: 7})
+	if secret["text"] != "hidden" || secret["end"] != nil {
+		t.Errorf("a password field showed %v", secret)
+	}
+}

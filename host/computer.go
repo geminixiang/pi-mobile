@@ -57,6 +57,23 @@ type clipboard interface {
 
 const pasteRead = 250 * time.Millisecond
 
+type focus struct {
+	role, window, end, selected string
+	length, caret               int
+	editable, secret            bool
+}
+
+type focusReader interface {
+	focused() (focus, bool)
+}
+
+const (
+	focusTail  = 40
+	focusPoll  = 15 * time.Millisecond
+	focusQuiet = 100 * time.Millisecond
+	typeReady  = time.Second
+)
+
 type pasteReads interface {
 	reads() <-chan struct{}
 }
@@ -163,11 +180,16 @@ func (c *computer) shot(index int) ([]any, error) {
 	type state struct {
 		app, window string
 		x, y        float64
+		focus       focus
 	}
 	states := make(chan state, 1)
 	go func() {
 		app, window, x, y := c.screen.state()
-		states <- state{app, window, x, y}
+		now := state{app: app, window: window, x: x, y: y}
+		if reader, ok := c.screen.(focusReader); ok {
+			now.focus, _ = reader.focused()
+		}
+		states <- now
 	}()
 	img, err := c.screen.capture(d)
 	now := <-states
@@ -197,11 +219,39 @@ func (c *computer) shot(index int) ([]any, error) {
 	if now.window != "" {
 		facts["window"] = now.window
 	}
+	if now.focus.role != "" {
+		facts["focus"] = focusFacts(now.focus)
+	}
 	text, _ := json.Marshal(facts)
 	return []any{
 		map[string]any{"type": "image", "data": base64.StdEncoding.EncodeToString(out.Bytes()), "mimeType": "image/jpeg"},
 		map[string]any{"type": "text", "text": string(text)},
 	}, nil
+}
+
+func focusFacts(f focus) map[string]any {
+	facts := map[string]any{"role": f.role}
+	if f.secret {
+		facts["text"] = "hidden"
+		return facts
+	}
+	if f.length == 0 {
+		return facts
+	}
+	facts["end"] = f.end
+	if f.length > len([]rune(f.end)) {
+		facts["end"] = "…" + f.end
+	}
+	if f.selected != "" {
+		facts["selected"] = f.selected
+	}
+	switch {
+	case f.caret == 0:
+		facts["caret"] = "at the end"
+	case f.caret > 0:
+		facts["caret"] = fmt.Sprintf("%d characters before the end", f.caret)
+	}
+	return facts
 }
 
 func (c *computer) lastDisplay() int {
@@ -400,17 +450,62 @@ func (c *computer) act(steps []step) ([]any, error) {
 			return content, failure
 		}
 		if i+1 < len(steps) {
-			time.Sleep(pauseAfter(s))
+			c.pause(s, steps[i+1])
 		}
 	}
-	time.Sleep(settle)
+	c.settle()
 	return c.shot(c.lastDisplay())
+}
+
+func (c *computer) pause(done, next step) {
+	reader, ok := c.screen.(focusReader)
+	if !ok {
+		time.Sleep(pauseAfter(done))
+		return
+	}
+	if pauseAfter(done) == settle {
+		c.settle()
+	} else {
+		time.Sleep(stepPause)
+	}
+	if next.Action == "type" {
+		// why: a field the last key opened takes a moment to take the focus; Finder's new folder name took 312–360 ms, and text typed before that landed on the list
+		awaitFocus(reader, func(f focus) bool { return f.editable }, typeReady)
+	}
+}
+
+func (c *computer) settle() {
+	reader, ok := c.screen.(focusReader)
+	if !ok {
+		time.Sleep(settle)
+		return
+	}
+	before, _ := reader.focused()
+	changed := awaitFocus(reader, func(f focus) bool { return f != before }, settle)
+	if !changed {
+		return
+	}
+	last, quietSince := before, time.Now()
+	for deadline := time.Now().Add(settle); time.Since(quietSince) < focusQuiet && time.Now().Before(deadline); time.Sleep(focusPoll) {
+		if now, _ := reader.focused(); now != last {
+			last, quietSince = now, time.Now()
+		}
+	}
+}
+
+func awaitFocus(reader focusReader, ready func(focus) bool, limit time.Duration) bool {
+	for deadline := time.Now().Add(limit); time.Now().Before(deadline); time.Sleep(focusPoll) {
+		if now, ok := reader.focused(); ok && ready(now) {
+			return true
+		}
+	}
+	return false
 }
 
 var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
-		"description": "See the computer's screen now: a JPEG of one display (the main one unless display says another), and as text its size, the front app, the title of its focused window, the pointer, and which display of how many when there are several. Coordinates everywhere are this screenshot's pixels, on its display, until the next screenshot. Apps opened while using the screen are quit two minutes after the last use.",
+		"description": "See the computer's screen now: a JPEG of one display (the main one unless display says another), and as text its size, the front app, the title of its focused window, the focused element (its role, the end of its text, the selection, and where the caret is), the pointer, and which display of how many when there are several. Coordinates everywhere are this screenshot's pixels, on its display, until the next screenshot. Apps opened while using the screen are quit two minutes after the last use.",
 		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display (default), 2 and up the others"}}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},
