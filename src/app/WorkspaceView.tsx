@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import type { Change, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
-import { ChevronIcon, FileIcon, RefreshIcon } from "./icons.tsx";
+import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "./icons.tsx";
 import { useBack } from "./layers.ts";
 import { joinPath, resolvePath } from "./openFile.ts";
 import { PageStack } from "./PageStack.tsx";
@@ -95,12 +95,9 @@ function FileBrowser({
 							type="button"
 							onClick={() => (entry.kind === "directory" ? setStack([...stack, joinPath(path, entry.name)]) : onOpen(joinPath(path, entry.name)))}
 						>
-							<span className={`file-kind ${entry.kind}`}>{entry.kind === "directory" ? "▸" : <FileIcon size={14} />}</span>
-							<span className="file-name">
-								{entry.name}
-								{entry.kind === "directory" ? "/" : ""}
-							</span>
-							<span className="file-meta">{entry.kind === "directory" ? "" : formatBytes(entry.size)}</span>
+							<span className="file-kind">{entry.kind === "directory" ? <FolderIcon size={18} /> : <FileIcon size={18} />}</span>
+							<span className="file-name">{entry.name}</span>
+							{entry.kind === "directory" ? <ChevronIcon size={12} /> : <span className="file-meta">{formatBytes(entry.size)}</span>}
 						</button>
 					</li>
 				))}
@@ -139,8 +136,8 @@ function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDi
 		<div className="ws-pane">
 			{repos.map((repo) => (
 				<section className="repo" key={repo.path}>
-					<header className="strip">
-						<span className="strip-title">{repoName(workspace.root, repo.path)}</span>
+					<header className="repo-head">
+						<span className="repo-name">{repoName(workspace.root, repo.path)}</span>
 						<span className="repo-branch">
 							{repo.branch}
 							{repo.ahead ? ` ↑${repo.ahead}` : ""}
@@ -221,7 +218,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 						<RefreshIcon />
 					</button>
 				</header>
-				<Tabs options={workspace?.git === false ? [["files", "檔案"]] : [["files", "檔案"], ["git", "變更"]]} value={tab} onChange={setTab} />
+				{workspace?.git === false ? null : <Tabs options={[["files", "檔案"], ["git", "變更"]]} value={tab} onChange={setTab} />}
 				{error ? <div className="ws-pane"><div className="banner error">{error}</div></div> : null}
 				{workspace === undefined && !error ? <div className="ws-pane"><div className="ws-loading">連接電腦</div></div> : null}
 				{workspace === null ? (
