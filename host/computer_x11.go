@@ -25,6 +25,7 @@ type keyPlace struct {
 }
 
 type x11Screen struct {
+	*accessibility
 	mu        sync.Mutex
 	conn      *xgb.Conn
 	root      xproto.Window
@@ -48,7 +49,7 @@ func newX11Screen(display string) (*x11Screen, error) {
 		return nil, fmt.Errorf("the X11 display %s has no XTEST, so the mouse and keyboard cannot be driven: %w", display, err)
 	}
 	setup := xproto.Setup(conn)
-	s := &x11Screen{conn: conn, root: setup.DefaultScreen(conn).Root, setup: setup, atoms: map[string]xproto.Atom{}, randr: randr.Init(conn) == nil}
+	s := &x11Screen{accessibility: startAccessibility(), conn: conn, root: setup.DefaultScreen(conn).Root, setup: setup, atoms: map[string]xproto.Atom{}, randr: randr.Init(conn) == nil}
 	if err := s.loadKeymap(); err != nil {
 		conn.Close()
 		return nil, err

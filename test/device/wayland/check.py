@@ -127,16 +127,19 @@ for _ in range(20):
     if ew > 0:
         break
     time.sleep(0.5)
-host.act([
+typed_facts = host.act([
     {"action": "click", "x": ex + ew // 2, "y": ey + eh // 2},
     {"action": "type", "text": TYPED},
 ])
+typed_focus = json.loads(next(part["text"] for part in typed_facts["content"] if part.get("type") == "text")).get("focus", {})
 keyboard.NotifyKeyboardKeysym(0xFFE3, True)
 keyboard.NotifyKeyboardKeysym(0x73, True)
 keyboard.NotifyKeyboardKeysym(0x73, False)
 keyboard.NotifyKeyboardKeysym(0xFFE3, False)
 time.sleep(1.5)
 failures = []
+if not typed_focus.get("end", "").endswith(TYPED[-10:]) or typed_focus.get("caret") != "at the end":
+    failures.append(f"focus: after typing the screenshot reported {typed_focus!r}, want the end of the typed text and the caret at the end")
 typed = open("/tmp/probe.txt").read().rstrip("\n")
 if typed != TYPED:
     failures.append(f"typing: the file holds {typed!r}, want {TYPED!r}")
@@ -160,5 +163,5 @@ after = subprocess.run(["pgrep", "-f", "xdg-desktop-portal-gnome"], capture_outp
 if after != portal:
     failures.append(f"typing with an empty clipboard restarted xdg-desktop-portal-gnome ({portal} became {after})")
 screenshot("/tmp/wayland.png")
-print("\n".join(failures) or "wayland: pasting into an empty clipboard, the restored clipboard, a double click, ctrl chords and saving all came out right")
+print("\n".join(failures) or "wayland: pasting into an empty clipboard, the restored clipboard, the focused text, a double click, ctrl chords and saving all came out right")
 sys.exit(1 if failures else 0)

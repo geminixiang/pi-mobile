@@ -54,6 +54,7 @@ const (
 )
 
 type portalScreen struct {
+	*accessibility
 	mu       sync.Mutex
 	bus      *dbus.Conn
 	desktop  dbus.BusObject
@@ -74,7 +75,7 @@ func newPortalScreen() (screen, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Wayland: cannot reach the desktop's session bus: %w", err)
 	}
-	s := &portalScreen{bus: bus, desktop: bus.Object(portalName, portalPath), taken: make(chan struct{}, 1), owned: make(chan struct{}, 1)}
+	s := &portalScreen{accessibility: startAccessibility(), bus: bus, desktop: bus.Object(portalName, portalPath), taken: make(chan struct{}, 1), owned: make(chan struct{}, 1)}
 	if _, err := s.desktop.GetProperty(remoteDesktop + ".AvailableDeviceTypes"); err != nil {
 		bus.Close()
 		return nil, fmt.Errorf("Wayland: this desktop has no remote desktop portal (xdg-desktop-portal with a GNOME or KDE backend), so pi-mobile cannot see the screen or use the mouse and keyboard: %w", err)

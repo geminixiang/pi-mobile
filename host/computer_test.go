@@ -396,7 +396,7 @@ func TestTheScreenshotIsTakenOnceTheScreenStopsChanging(t *testing.T) {
 		changes  []time.Duration
 		min, max time.Duration
 	}{
-		"settles early": {[]time.Duration{40 * time.Millisecond}, 100 * time.Millisecond, 300 * time.Millisecond},
+		"settles early":  {[]time.Duration{40 * time.Millisecond}, 100 * time.Millisecond, 300 * time.Millisecond},
 		"keeps changing": {[]time.Duration{40 * time.Millisecond, 120 * time.Millisecond, 200 * time.Millisecond}, 280 * time.Millisecond, 520 * time.Millisecond},
 		"never changes":  {nil, settle, settle + 100*time.Millisecond},
 	} {

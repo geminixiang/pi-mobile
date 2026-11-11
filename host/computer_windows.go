@@ -142,8 +142,9 @@ var modifierKeys = map[string]uint16{
 var extendedKeys = map[uint16]bool{0x2D: true, 0x2E: true, 0x24: true, 0x23: true, 0x21: true, 0x22: true, 0x25: true, 0x26: true, 0x27: true, 0x28: true, 0x5B: true}
 
 type winScreen struct {
-	mu   sync.Mutex
-	held bool
+	mu         sync.Mutex
+	held       bool
+	automation *automation
 }
 
 var (
@@ -164,7 +165,7 @@ func newScreen() (screen, error) {
 	} else {
 		setProcessDPIAware.Call()
 	}
-	return &winScreen{}, nil
+	return &winScreen{automation: startAutomation()}, nil
 }
 
 func inputDesktopReady() error {
