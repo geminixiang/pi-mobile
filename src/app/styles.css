@@ -643,8 +643,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 }
 .layer-sheet::before { content: ""; flex-shrink: 0; align-self: center; margin-top: 8px; }
 .layer-sheet::before, .browser-grip::before { width: 40px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text) 40%, transparent); }
-.layer-sheet > .strip { border-bottom: none; min-height: 52px; padding: 4px 14px 0 var(--sheet-inset); }
-.layer-sheet > .strip > .icon-button { border-radius: 50%; }
+.layer-sheet > .strip { border-bottom: none; min-height: 52px; padding: 0 calc(var(--card-radius) + 30px) 0 var(--sheet-inset); }
+.layer-sheet > .strip > .icon-button { --close-size: 44px; position: absolute; top: calc(var(--card-radius) - var(--close-size) / 2); right: calc(var(--card-radius) - var(--close-size) / 2); width: var(--close-size); height: var(--close-size); border-radius: 50%; background: var(--panel-2); color: var(--muted); }
+.layer-sheet > .strip > .icon-button[data-pressed] { background: color-mix(in srgb, var(--text) 16%, var(--panel-2)); }
 .layer-sheet > .strip > .strip-title { font-family: var(--sans); font-size: var(--fs-heading); font-weight: 700; }
 .layer-sheet[data-starting-style], .layer-sheet[data-ending-style] { transform: translateY(100%); }
 .layer-sheet[data-swiping] { transition: none; }

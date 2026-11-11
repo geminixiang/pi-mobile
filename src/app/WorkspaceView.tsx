@@ -48,16 +48,17 @@ function levelsTo(root: string, file: string | undefined): string[] {
 
 function FileBrowser({
 	workspace,
-	start,
+	stack,
+	setStack,
 	onOpen,
 	reloadKey,
 }: {
 	workspace: Workspace;
-	start: string | undefined;
+	stack: string[];
+	setStack: (update: (current: string[]) => string[]) => void;
 	onOpen: (path: string) => void;
 	reloadKey: number;
 }) {
-	const [stack, setStack] = useState<string[]>(() => levelsTo(workspace.root, start));
 	const path = stack.at(-1) ?? workspace.root;
 	const { value: entries, error } = useLoaded(() => workspace.list(path), [workspace, path, reloadKey]);
 
@@ -93,7 +94,7 @@ function FileBrowser({
 					<li key={entry.name}>
 						<button
 							type="button"
-							onClick={() => (entry.kind === "directory" ? setStack([...stack, joinPath(path, entry.name)]) : onOpen(joinPath(path, entry.name)))}
+							onClick={() => (entry.kind === "directory" ? setStack((current) => [...current, joinPath(path, entry.name)]) : onOpen(joinPath(path, entry.name)))}
 						>
 							<span className="file-kind">{entry.kind === "directory" ? <FolderIcon size={18} /> : <FileIcon size={18} />}</span>
 							<span className="file-name">{entry.name}</span>
@@ -204,6 +205,10 @@ export const WorkspaceView = memo(function WorkspaceView({
 	const [tab, setTab] = useState<WorkspaceTab>(initial.tab);
 	const [open, setOpen] = useState<Open>(initial.file ? { kind: "file", path: initial.file } : undefined);
 	const [reloadKey, setReloadKey] = useState(0);
+	const [folders, setFolders] = useState<string[]>();
+	const stack = folders ?? (workspace ? levelsTo(workspace.root, initial.file && resolvePath(workspace.root, initial.file)) : []);
+	const setStack = (update: (current: string[]) => string[]) => setFolders(update(stack));
+	const inFolder = tab === "files" && stack.length > 1;
 	const back = () => setOpen(undefined);
 	const top = (opened: NonNullable<Open>, from: Workspace) =>
 		opened.kind === "file" ? <FileViewer workspace={from} path={resolvePath(from.root, opened.path)} onClose={back} /> : <DiffView target={opened.target} onClose={back} />;
@@ -212,8 +217,8 @@ export const WorkspaceView = memo(function WorkspaceView({
 		<PageStack side="right" top={workspace && open ? { key: open.kind === "file" ? open.path : open.target.title, content: top(open, workspace), onBack: back } : undefined}>
 			<div className="screen">
 				<header className="bar">
-					<BackButton onClick={onClose} />
-					<h1 className="bar-heading">工作區</h1>
+					<BackButton onClick={inFolder ? () => setStack((current) => current.slice(0, -1)) : onClose} />
+					<h1 className="bar-heading">{inFolder ? stack.at(-1)?.split("/").at(-1) : "工作區"}</h1>
 					<button type="button" className="icon-button" onClick={() => setReloadKey((key) => key + 1)} aria-label="重新整理" disabled={!workspace}>
 						<RefreshIcon />
 					</button>
@@ -227,7 +232,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 					</div>
 				) : null}
 				{workspace && tab === "files" ? (
-					<FileBrowser workspace={workspace} start={initial.file && resolvePath(workspace.root, initial.file)} onOpen={(path) => setOpen({ kind: "file", path })} reloadKey={reloadKey} />
+					<FileBrowser workspace={workspace} stack={stack} setStack={setStack} onOpen={(path) => setOpen({ kind: "file", path })} reloadKey={reloadKey} />
 				) : null}
 				{workspace && tab === "git" ? <GitPanel workspace={workspace} onDiff={(target) => setOpen({ kind: "diff", target })} reloadKey={reloadKey} /> : null}
 			</div>
