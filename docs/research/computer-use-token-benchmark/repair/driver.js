@@ -1,5 +1,6 @@
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
+import {spawn} from 'node:child_process';
 const out=new URL('./runs/',import.meta.url);await mkdir(out,{recursive:true});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 const config=JSON.parse(await readFile(process.env.HOME+'/.pi/agent/cliproxyapi.json','utf8'));
@@ -9,17 +10,23 @@ const tasks=Function(taskSource+'return tasks;')();
 const judgeSource=source.slice(source.indexOf('function judge('),source.indexOf('const repeats='));
 const judge=Function(judgeSource+'return judge;')();
 const system='You operate the visible isolated local benchmark web app using ONLY the provided computer screenshot, mouse and keyboard tools. Use screenshots to ground coordinates. You may batch known actions, including multiple tool calls per response; they execute in order. Screenshot images follow tool results as user messages. Do not use terminal, files, network, DOM, accessibility APIs, browser automation, developer tools or JavaScript URLs. Do not interact with other apps, sites or system permissions. If the fixture is not visible, report blocked. Complete and visually verify the requested change, then answer briefly. All fixture data are synthetic and form submissions are authorized.';
-async function cdp(){const target=(await(await fetch('http://127.0.0.1:9444/json')).json()).find(t=>t.type==='page'&&t.url.startsWith('http://127.0.0.1:47881'));if(!target)throw new Error('no fixture');const ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});let id=0;const pending=new Map();ws.onmessage=({data})=>{const m=JSON.parse(data);if(pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);}};const call=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});return {call,close:()=>ws.close(),evaluate:async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result?.value;}};}
-async function mcp(command){
- const host=process.env.BENCH_HOST??'localhost';const ws=new WebSocket('ws://'+host+':4790/exec?command='+encodeURIComponent(command));ws.binaryType='arraybuffer';
- await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});let id=0,buffer='',stderr='';const pending=new Map();
- ws.onmessage=({data})=>{if(typeof data==='string')return;const bytes=new Uint8Array(data);const s=new TextDecoder().decode(bytes.subarray(1));if(bytes[0]!==1){stderr+=s;return;}buffer+=s;for(let n;(n=buffer.indexOf('\n'))>=0;){const line=buffer.slice(0,n);buffer=buffer.slice(n+1);if(!line.trim())continue;let m;try{m=JSON.parse(line);}catch(error){for(const p of pending.values())p.reject(error);continue;}const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);}}};
- ws.onclose=()=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(new Error('MCP closed '+stderr.slice(-1000)));}pending.clear();};
- const call=(method,params={})=>new Promise((resolve,reject)=>{const n=++id,timer=setTimeout(()=>{pending.delete(n);reject(new Error('MCP timeout '+stderr.slice(-1000)));},30000);pending.set(n,{resolve,reject,timer});ws.send(new TextEncoder().encode(JSON.stringify({jsonrpc:'2.0',id:n,method,params})+'\n'));});
- const initialized=await call('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'gui-benchmark',version:'1.0.0'}});ws.send(new TextEncoder().encode(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n'));
- return {call,close:()=>ws.close(),initialized};
+async function cdp(){const target=(await(await fetch((process.env.BENCH_CDP??'http://127.0.0.1:9444')+'/json')).json()).find(t=>t.type==='page'&&t.url.startsWith('http://127.0.0.1:47881'));if(!target)throw new Error('no fixture');const ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});let id=0;const pending=new Map();ws.onmessage=({data})=>{const m=JSON.parse(data);if(pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);}};const call=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});return {call,close:()=>ws.close(),evaluate:async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result?.value;}};}
+function transport(command){
+ if(process.env.BENCH_HOST){
+  const ws=new WebSocket('ws://'+process.env.BENCH_HOST+':4790/exec?command='+encodeURIComponent(command)+'&key='+encodeURIComponent(process.env.BENCH_KEY??''));ws.binaryType='arraybuffer';
+  return {opened:new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;}),send:text=>ws.send(new TextEncoder().encode(text)),close:()=>ws.close(),listen:(out,err,closed)=>{ws.onmessage=({data})=>{if(typeof data==='string')return;const bytes=new Uint8Array(data);const s=new TextDecoder().decode(bytes.subarray(1));bytes[0]===1?out(s):err(s);};ws.onclose=closed;}};
+ }
+ const child=spawn('sh',['-c',command],{stdio:['pipe','pipe','pipe']});
+ return {opened:Promise.resolve(),send:text=>child.stdin.write(text),close:()=>child.kill(),listen:(out,err,closed)=>{child.stdout.setEncoding('utf8').on('data',out);child.stderr.setEncoding('utf8').on('data',err);child.on('close',closed);}};
 }
-const commands={own:'/tmp/pi-computer-token-bench/pi-mobile-fixed mcp computer',upstream:`node ${process.env.HOME}/.npm/_npx/f4783362991e8b05/node_modules/computer-use-mcp/dist/main.js`};
+async function mcp(command){
+ const link=transport(command);await link.opened;let id=0,buffer='',stderr='';const pending=new Map();
+ link.listen(s=>{buffer+=s;for(let n;(n=buffer.indexOf('\n'))>=0;){const line=buffer.slice(0,n);buffer=buffer.slice(n+1);if(!line.trim())continue;let m;try{m=JSON.parse(line);}catch(error){for(const p of pending.values())p.reject(error);continue;}const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);}}},s=>{stderr+=s;},()=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(new Error('MCP closed '+stderr.slice(-1000)));}pending.clear();});
+ const call=(method,params={})=>new Promise((resolve,reject)=>{const n=++id,timer=setTimeout(()=>{pending.delete(n);reject(new Error('MCP timeout '+stderr.slice(-1000)));},30000);pending.set(n,{resolve,reject,timer});link.send(JSON.stringify({jsonrpc:'2.0',id:n,method,params})+'\n');});
+ const initialized=await call('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'gui-benchmark',version:'1.0.0'}});link.send(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
+ return {call,close:link.close,initialized};
+}
+const commands={own:`${process.env.BINARY} mcp computer`,upstream:`node ${process.env.HOME}/.npm/_npx/f4783362991e8b05/node_modules/computer-use-mcp/dist/main.js`};
 const browser=await cdp();const clients={};
 const model=process.env.BENCH_MODEL??'gpt-6.1-sol',prefix=process.env.RUN_PREFIX??'direct-pilot',repeats=Number(process.env.REPEATS??1),selected=process.env.TASKS?.split(',')??Object.keys(tasks);
 try{

@@ -23,6 +23,23 @@
 
 這不是通用 computer-use 排名：單模型路由、特製表單任務、每格五次。包含一筆真實失敗，沒有刪掉或補跑。手機 app 的兩次 code-mode 圖片遺失預檢另存，不算進這 30 次。
 
+## 2026-11-11：用當天的 host 在四個桌面重跑
+
+同樣三題、每題五次，只跑 pi-mobile（`repair/driver.js`），模型和路由不變。runs 在 `repair/runs/`，前綴 `rerun-1111`（macOS）、`win-1111`、`x11-1111`、`wl-1111`。
+
+| 桌面 | 成功 | 總 tokens | 未快取輸入 | 中位秒數 | 中位模型呼叫 |
+|---|---:|---:|---:|---:|---:|
+| macOS（10-24） | 14/15 | 1,484,263 | 367,875 | 52 | 11 |
+| macOS | 15/15 | 1,135,546 | 384,068 | 54 | 11 |
+| Windows 11 | 15/15 | 863,441 | 323,798 | 50 | 10 |
+| Linux X11（Docker） | 15/15 | 841,826 | 310,247 | 50 | 10 |
+| Linux Wayland（Docker，GNOME 48） | 15/15 | 847,444 | 304,769 | 48 | 10 |
+
+- 工具定義從 404 變成 452 tokens（o200k_base），多的全部來自多螢幕的 `display` 參數。
+- Wayland 第一次跑有 4 次中文打不進去，原因是 host 讀了空的剪貼簿，讓 portal 當掉。那批不算，避開之後重跑才是上表的數字；host 已經修好，見 [computer-use-native](../computer-use-native/README.md)。
+- driver 現在可以用 `BINARY` 指定 MCP 指令（沒設 `BENCH_HOST` 時直接用 stdio 啟動，例如 `docker exec -i …`）、用 `BENCH_CDP` 指定瀏覽器的 CDP 位址；`BENCH_HOST` 和 `BENCH_KEY` 經 host 的 `/exec` 連遠端電腦。
+- 網頁其實該交給 CDP，這批只拿來跟 10-24 比 MCP 本身的成本。原生 app 的量測見 [computer-use-native](../computer-use-native/README.md)。
+
 ## 固定版本
 
 - pi-mobile binary 的來源 HEAD：`21b3ebdd107a6e77c3b250f8c2a037c1569be898`，建置時 host 工作樹沒有改動。

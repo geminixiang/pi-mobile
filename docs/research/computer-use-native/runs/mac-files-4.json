@@ -1,0 +1,828 @@
+{
+  "run": "mac-files-4",
+  "platform": "mac",
+  "task": "files",
+  "rep": 4,
+  "model": "gpt-6.1-sol",
+  "system": "You operate the visible computer using ONLY the provided computer screenshot, mouse and keyboard tools. Use screenshots to ground coordinates. You may batch known actions, including multiple tool calls per response; they execute in order. Screenshot images follow tool results as user messages. Do not open a terminal or any app the task does not need, and leave other windows alone. If the needed window is not visible, look for it before reporting blocked. Complete and visually verify the requested change, then answer briefly. All files are synthetic test data.",
+  "prompt": "檔案管理員開著 files 資料夾。在 files 裡新增一個叫「封存」的資料夾，把 報價單.txt、合約.txt、收據.txt 搬進封存，再把封存裡的 收據.txt 改名成 收據-2025.txt。備忘.txt 留在原處。",
+  "seconds": 87.816,
+  "modelCalls": 11,
+  "toolCalls": 10,
+  "usage": {
+    "input": 72786,
+    "cached": 46976,
+    "output": 854,
+    "total": 73640
+  },
+  "limited": false,
+  "answer": "已完成：在 files 新增「封存」，將報價單.txt、合約.txt、收據.txt 搬入，並將收據.txt 改名為「收據-2025.txt」。備忘.txt 保留在原處。",
+  "success": true,
+  "before": {
+    "files": null,
+    "files/備忘.txt": "備忘 的內容\n",
+    "files/合約.txt": "合約 的內容\n",
+    "files/報價單.txt": "報價單 的內容\n",
+    "files/收據.txt": "收據 的內容\n",
+    "inbox": null,
+    "inbox/2025 預算": null,
+    "inbox/Q3 deck": null,
+    "inbox/客戶 林安": null,
+    "inbox/舊照片": null,
+    "list.txt": "",
+    "note.txt": "alpha beta gamma\n"
+  },
+  "after": {
+    "files": null,
+    "files/備忘.txt": "備忘 的內容\n",
+    "files/封存": null,
+    "files/封存/合約.txt": "合約 的內容\n",
+    "files/封存/報價單.txt": "報價單 的內容\n",
+    "files/封存/收據-2025.txt": "收據 的內容\n",
+    "inbox": null,
+    "inbox/2025 預算": null,
+    "inbox/Q3 deck": null,
+    "inbox/客戶 林安": null,
+    "inbox/舊照片": null,
+    "list.txt": "",
+    "note.txt": "alpha beta gamma\n"
+  },
+  "expected": {
+    "files": null,
+    "files/備忘.txt": "備忘 的內容\n",
+    "files/封存": null,
+    "files/封存/報價單.txt": "報價單 的內容\n",
+    "files/封存/合約.txt": "合約 的內容\n",
+    "files/封存/收據-2025.txt": "收據 的內容\n"
+  },
+  "trace": [
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 14,
+        "total_tokens": 578,
+        "prompt_tokens": 564,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_42acda4b20b745a386f9be6768505bd5",
+            "type": "function",
+            "function": {
+              "name": "screenshot",
+              "arguments": "{}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 2146
+    },
+    {
+      "kind": "tool",
+      "name": "screenshot",
+      "args": {},
+      "text": "{\"app\":\"Finder\",\"pointer\":[251,100],\"size\":[1280,720],\"window\":\"files\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 84173,
+          "sha256": "73b1eeea3f147ea7d47a1a4b632beeffb408597c66fdaca8e59fd50f4827d6fc"
+        }
+      ],
+      "ms": 215
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 45,
+        "total_tokens": 1778,
+        "prompt_tokens": 1733,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_2f42941e32b540c380679f014ad2c4be",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"key\",\"keys\":\"cmd+shift+n\"},{\"action\":\"type\",\"text\":\"封存\"},{\"action\":\"key\",\"keys\":\"return\"}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 6266
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "key",
+            "keys": "cmd+shift+n"
+          },
+          {
+            "action": "type",
+            "text": "封存"
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[251,100],\"size\":[1280,720],\"window\":\"files\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 87017,
+          "sha256": "225a97975dcb2e7726bc8dbacdbe1cb4cafb03a162de4d2c9a4ff26ed16c1ecb"
+        }
+      ],
+      "ms": 1111
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 105,
+        "total_tokens": 3037,
+        "prompt_tokens": 2932,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 23
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": "**Removing paste clipping**",
+        "tool_calls": [
+          {
+            "id": "call_0797cb403b794305a4dfae5a26171558",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"key\",\"keys\":\"cmd+delete\"},{\"action\":\"click\",\"x\":510,\"y\":184},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":400},{\"action\":\"type\",\"text\":\"封存\"},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":500}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 15928
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "key",
+            "keys": "cmd+delete"
+          },
+          {
+            "action": "click",
+            "x": 510,
+            "y": 184
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 400
+          },
+          {
+            "action": "type",
+            "text": "封存"
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 500
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[510,184],\"size\":[1280,720],\"window\":\"files\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 85846,
+          "sha256": "11e38eba6338bf34c1488720d7cf0d963e083ce9fe2e797ebb7468236fb89720"
+        }
+      ],
+      "ms": 2975
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 68,
+        "total_tokens": 4234,
+        "prompt_tokens": 4166,
+        "prompt_tokens_details": {
+          "cached_tokens": 2688,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 11
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": "**Undoing contract rename**",
+        "tool_calls": [
+          {
+            "id": "call_e855521fa000429a82394977edf0b436",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"key\",\"keys\":\"cmd+z\"},{\"action\":\"click\",\"x\":510,\"y\":170},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":500}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 26382
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "key",
+            "keys": "cmd+z"
+          },
+          {
+            "action": "click",
+            "x": 510,
+            "y": 170
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 500
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[510,170],\"size\":[1280,720]}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 85656,
+          "sha256": "e826e9e5d0b36e14ee987039c44e6d8ace24df214f0ccf457ba0b4872ea3388c"
+        }
+      ],
+      "ms": 1742
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 63,
+        "total_tokens": 5434,
+        "prompt_tokens": 5371,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 8
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": "**Checking click timing**",
+        "tool_calls": [
+          {
+            "id": "call_24291225e80a455fbecfca9bf2e0761b",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"click\",\"x\":530,\"y\":170},{\"action\":\"wait\",\"ms\":700},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":700}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 35405
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "click",
+            "x": 530,
+            "y": 170
+          },
+          {
+            "action": "wait",
+            "ms": 700
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 700
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[530,170],\"size\":[1280,720]}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 85896,
+          "sha256": "6fb4504dd19a9fe8158d90af20546e7738c04c6e01f0411d2e1d3c01f9aed0c5"
+        }
+      ],
+      "ms": 2590
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 42,
+        "total_tokens": 6616,
+        "prompt_tokens": 6574,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_94d2926868fa4151983eaa166c582b68",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"type\",\"text\":\"封存\"},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":700}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 41274
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "type",
+            "text": "封存"
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 700
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[530,170],\"size\":[1280,720],\"window\":\"files\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 85544,
+          "sha256": "e7126e8d9bc73a14933c3217c113a643eb41c4ac6dada39ae140402997ffd155"
+        }
+      ],
+      "ms": 2118
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 135,
+        "total_tokens": 7905,
+        "prompt_tokens": 7770,
+        "prompt_tokens_details": {
+          "cached_tokens": 6272,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 31
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_bd4a4267f92d4d53a40a61f4526ef287",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"click\",\"x\":499,\"y\":170},{\"action\":\"key\",\"keys\":\"shift+down\"},{\"action\":\"key\",\"keys\":\"cmd+c\"},{\"action\":\"click\",\"x\":492,\"y\":197,\"count\":2},{\"action\":\"key\",\"keys\":\"cmd+alt+v\"},{\"action\":\"wait\",\"ms\":700},{\"action\":\"key\",\"keys\":\"cmd+[\"},{\"action\":\"wait\",\"ms\":500}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 50215
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "click",
+            "x": 499,
+            "y": 170
+          },
+          {
+            "action": "key",
+            "keys": "shift+down"
+          },
+          {
+            "action": "key",
+            "keys": "cmd+c"
+          },
+          {
+            "action": "click",
+            "x": 492,
+            "y": 197,
+            "count": 2
+          },
+          {
+            "action": "key",
+            "keys": "cmd+alt+v"
+          },
+          {
+            "action": "wait",
+            "ms": 700
+          },
+          {
+            "action": "key",
+            "keys": "cmd+["
+          },
+          {
+            "action": "wait",
+            "ms": 500
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[492,197],\"size\":[1280,720],\"window\":\"files\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 85634,
+          "sha256": "83805074d9563d02a09981fe64d462824b529013b936f95a85386cce67df4c85"
+        }
+      ],
+      "ms": 2640
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 127,
+        "total_tokens": 9153,
+        "prompt_tokens": 9026,
+        "prompt_tokens_details": {
+          "cached_tokens": 7424,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 9
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_14f3efd79eb64b3dba78b637df8b88b5",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"click\",\"x\":495,\"y\":170},{\"action\":\"wait\",\"ms\":300},{\"action\":\"key\",\"keys\":\"shift+down\"},{\"action\":\"wait\",\"ms\":300},{\"action\":\"key\",\"keys\":\"cmd+c\"},{\"action\":\"wait\",\"ms\":300},{\"action\":\"click\",\"x\":491,\"y\":197,\"count\":2},{\"action\":\"wait\",\"ms\":600},{\"action\":\"key\",\"keys\":\"cmd+alt+v\"},{\"action\":\"wait\",\"ms\":800}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 58473
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "click",
+            "x": 495,
+            "y": 170
+          },
+          {
+            "action": "wait",
+            "ms": 300
+          },
+          {
+            "action": "key",
+            "keys": "shift+down"
+          },
+          {
+            "action": "wait",
+            "ms": 300
+          },
+          {
+            "action": "key",
+            "keys": "cmd+c"
+          },
+          {
+            "action": "wait",
+            "ms": 300
+          },
+          {
+            "action": "click",
+            "x": 491,
+            "y": 197,
+            "count": 2
+          },
+          {
+            "action": "wait",
+            "ms": 600
+          },
+          {
+            "action": "key",
+            "keys": "cmd+alt+v"
+          },
+          {
+            "action": "wait",
+            "ms": 800
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[491,197],\"size\":[1280,720],\"window\":\"封存\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 82889,
+          "sha256": "4f8d3c28cb03f39b74d2bc74dc0425c64d662d634e05df3b64b74946233006b7"
+        }
+      ],
+      "ms": 3789
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 99,
+        "total_tokens": 10396,
+        "prompt_tokens": 10297,
+        "prompt_tokens_details": {
+          "cached_tokens": 8704,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_afd5f6c4d2ac441e9da194f4823fd0e5",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"click\",\"x\":495,\"y\":184},{\"action\":\"wait\",\"ms\":300},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":400},{\"action\":\"type\",\"text\":\"收據-2025\"},{\"action\":\"key\",\"keys\":\"return\"},{\"action\":\"wait\",\"ms\":400},{\"action\":\"key\",\"keys\":\"cmd+[\"},{\"action\":\"wait\",\"ms\":500}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 66988
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "click",
+            "x": 495,
+            "y": 184
+          },
+          {
+            "action": "wait",
+            "ms": 300
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 400
+          },
+          {
+            "action": "type",
+            "text": "收據-2025"
+          },
+          {
+            "action": "key",
+            "keys": "return"
+          },
+          {
+            "action": "wait",
+            "ms": 400
+          },
+          {
+            "action": "key",
+            "keys": "cmd+["
+          },
+          {
+            "action": "wait",
+            "ms": 500
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[495,184],\"size\":[1280,720],\"window\":\"files\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 83531,
+          "sha256": "3d19fb97f923ec1c0f71507ac36982bc687771ff3f51be7db9648e9d63f9d2fa"
+        }
+      ],
+      "ms": 3789
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 98,
+        "total_tokens": 11648,
+        "prompt_tokens": 11550,
+        "prompt_tokens_details": {
+          "cached_tokens": 10368,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": null,
+        "tool_calls": [
+          {
+            "id": "call_060418c9787645e787073242d02d7feb",
+            "type": "function",
+            "function": {
+              "name": "act",
+              "arguments": "{\"steps\":[{\"action\":\"click\",\"x\":498,\"y\":197},{\"action\":\"wait\",\"ms\":300},{\"action\":\"key\",\"keys\":\"cmd+c\"},{\"action\":\"wait\",\"ms\":300},{\"action\":\"click\",\"x\":491,\"y\":170,\"count\":2},{\"action\":\"wait\",\"ms\":500},{\"action\":\"key\",\"keys\":\"cmd+alt+v\"},{\"action\":\"wait\",\"ms\":600}]}"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 79125
+    },
+    {
+      "kind": "tool",
+      "name": "act",
+      "args": {
+        "steps": [
+          {
+            "action": "click",
+            "x": 498,
+            "y": 197
+          },
+          {
+            "action": "wait",
+            "ms": 300
+          },
+          {
+            "action": "key",
+            "keys": "cmd+c"
+          },
+          {
+            "action": "wait",
+            "ms": 300
+          },
+          {
+            "action": "click",
+            "x": 491,
+            "y": 170,
+            "count": 2
+          },
+          {
+            "action": "wait",
+            "ms": 500
+          },
+          {
+            "action": "key",
+            "keys": "cmd+alt+v"
+          },
+          {
+            "action": "wait",
+            "ms": 600
+          }
+        ]
+      },
+      "text": "{\"app\":\"Finder\",\"pointer\":[491,170],\"size\":[1280,720],\"window\":\"封存\"}",
+      "isError": false,
+      "images": [
+        {
+          "mimeType": "image/jpeg",
+          "bytes": 83899,
+          "sha256": "ba94279ac2f2af14ba23a4228ba07d8546114f0a6f4c2d6fabce33a98c98f809"
+        }
+      ],
+      "ms": 2994
+    },
+    {
+      "kind": "model",
+      "usage": {
+        "completion_tokens": 58,
+        "total_tokens": 12861,
+        "prompt_tokens": 12803,
+        "prompt_tokens_details": {
+          "cached_tokens": 11520,
+          "cache_write_tokens": 0,
+          "cached_creation_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "model": "gpt-6.1-sol",
+      "message": {
+        "role": "assistant",
+        "content": "已完成：在 files 新增「封存」，將報價單.txt、合約.txt、收據.txt 搬入，並將收據.txt 改名為「收據-2025.txt」。備忘.txt 保留在原處。",
+        "reasoning_content": null,
+        "tool_calls": null
+      },
+      "elapsedMs": 87254
+    }
+  ]
+}
