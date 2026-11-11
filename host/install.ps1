@@ -20,7 +20,7 @@ function Step($message) {
 function Stop-PiMobile {
 	Stop-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
 	Unregister-ScheduledTask -TaskName $Task -Confirm:$false -ErrorAction SilentlyContinue
-	Get-Process pi-mobile -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+	Get-Process pi-mobile -ErrorAction SilentlyContinue | Stop-Process -Force -PassThru -ErrorAction SilentlyContinue | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
 }
 
 if ($args[0] -eq "uninstall") {
