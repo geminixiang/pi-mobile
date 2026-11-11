@@ -129,7 +129,7 @@ func readFocus(client uintptr) (focus, bool) {
 			var current uintptr
 			comCall(value, valueGet, uintptr(unsafe.Pointer(&current)))
 			runes := []rune(takeString(current))
-			f.length, f.end = len(runes), string(runes[max(len(runes)-focusTail, 0):])
+			f.length, f.end = len(runes), string(runes[max(len(runes)-focusRead, 0):])
 		}
 	}
 	return f, true
@@ -145,9 +145,9 @@ func readText(text uintptr, f *focus) {
 	defer release(tail)
 	var moved int32
 	comCall(tail, rangeMoveToRange, endpointStart, document, endpointEnd)
-	comCall(tail, rangeMoveByUnit, endpointStart, unitCharacter, uintptr(^uint32(focusTail)), uintptr(unsafe.Pointer(&moved)))
-	end := []rune(rangeString(tail, focusTail+1))
-	f.length, f.end = len(end), string(end[max(len(end)-focusTail, 0):])
+	comCall(tail, rangeMoveByUnit, endpointStart, unitCharacter, uintptr(^uint32(focusRead)), uintptr(unsafe.Pointer(&moved)))
+	end := []rune(rangeString(tail, focusRead+1))
+	f.length, f.end = len(end), string(end[max(len(end)-focusRead, 0):])
 	var selections uintptr
 	if comCall(text, textSelection, uintptr(unsafe.Pointer(&selections))) != 0 || selections == 0 {
 		return

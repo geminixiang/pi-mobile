@@ -152,7 +152,7 @@ func (a *accessibility) focused() (focus, bool) {
 	}
 	length, _ := count.Value().(int32)
 	var end string
-	if element.Call(atspi+"Text.GetText", 0, max(length-focusTail, 0), length).Store(&end) != nil {
+	if element.Call(atspi+"Text.GetText", 0, max(length-focusRead, 0), length).Store(&end) != nil {
 		return f, true
 	}
 	f.length, f.end = int(length), end

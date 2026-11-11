@@ -104,7 +104,7 @@ func (s *macScreen) focused() (focus, bool) {
 		return f, true
 	}
 	f.length = int(s.ax.length(value))
-	f.end = s.tail(value, int64(f.length), focusTail)
+	f.end = s.tail(value, int64(f.length), focusRead)
 	if selected := s.attribute(element, "AXSelectedText"); selected != 0 {
 		if s.ax.typeOf(selected) == s.ax.stringType {
 			f.selected = s.tail(selected, s.ax.length(selected), focusTail)

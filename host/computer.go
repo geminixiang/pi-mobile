@@ -69,6 +69,8 @@ type focusReader interface {
 
 const (
 	focusTail  = 40
+	focusLines = 4
+	focusRead  = focusTail * focusLines
 	focusPoll  = 15 * time.Millisecond
 	focusQuiet = 100 * time.Millisecond
 	typeReady  = time.Second
@@ -238,10 +240,7 @@ func focusFacts(f focus) map[string]any {
 	if f.length == 0 {
 		return facts
 	}
-	facts["end"] = f.end
-	if f.length > len([]rune(f.end)) {
-		facts["end"] = "…" + f.end
-	}
+	facts["end"] = lastLines(f.end, f.length > len([]rune(f.end)))
 	if f.selected != "" {
 		facts["selected"] = f.selected
 	}
@@ -252,6 +251,24 @@ func focusFacts(f focus) map[string]any {
 		facts["caret"] = fmt.Sprintf("%d characters before the end", f.caret)
 	}
 	return facts
+}
+
+func lastLines(end string, cut bool) string {
+	// why: UI Automation ends Notepad's lines with a bare \r
+	lines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(end, "\r\n", "\n"), "\r", "\n"), "\n")
+	if len(lines) > focusLines {
+		lines, cut = lines[len(lines)-focusLines:], true
+	}
+	for i, line := range lines {
+		if runes := []rune(line); len(runes) > focusTail {
+			lines[i] = "…" + string(runes[len(runes)-focusTail:])
+			continue
+		}
+		if i == 0 && cut {
+			lines[i] = "…" + line
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (c *computer) lastDisplay() int {
@@ -505,7 +522,7 @@ func awaitFocus(reader focusReader, ready func(focus) bool, limit time.Duration)
 var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
-		"description": "See the computer's screen now: a JPEG of one display (the main one unless display says another), and as text its size, the front app, the title of its focused window, the focused element (its role, the end of its text, the selection, and where the caret is), the pointer, and which display of how many when there are several. Coordinates everywhere are this screenshot's pixels, on its display, until the next screenshot. Apps opened while using the screen are quit two minutes after the last use.",
+		"description": "See the computer's screen now: a JPEG of one display (the main one unless display says another), and as text its size, the front app, the title of its focused window, the focused element (its role, the last lines of its text, the selection, and where the caret is), the pointer, and which display of how many when there are several. Coordinates everywhere are this screenshot's pixels, on its display, until the next screenshot. Apps opened while using the screen are quit two minutes after the last use.",
 		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display (default), 2 and up the others"}}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},

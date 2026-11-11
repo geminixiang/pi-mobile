@@ -413,6 +413,14 @@ func TestFocusFactsShowTheEndOfTheTextAndHideSecrets(t *testing.T) {
 	if text["end"] != "…gamma\n" || text["caret"] != "at the end" {
 		t.Errorf("text facts = %v", text)
 	}
+	notepad := "alpha BETA gamma\r\r會議改到週四 15:30\rRoom 7B, bring the Q3 deck"
+	if got := focusFacts(focus{role: "document", end: notepad, length: len([]rune(notepad)), caret: 0})["end"]; got != "alpha BETA gamma\n\n會議改到週四 15:30\nRoom 7B, bring the Q3 deck" {
+		t.Errorf("a blank line Notepad typed showed as %q", got)
+	}
+	long := strings.Repeat("x", 50) + "\none\ntwo\nthree\nfour"
+	if got := focusFacts(focus{role: "document", end: long, length: len(long)})["end"]; got != "…one\ntwo\nthree\nfour" {
+		t.Errorf("the last lines of a long text showed as %q", got)
+	}
 	secret := focusFacts(focus{role: "AXTextField", secret: true, end: "hunter2", length: 7})
 	if secret["text"] != "hidden" || secret["end"] != nil {
 		t.Errorf("a password field showed %v", secret)
