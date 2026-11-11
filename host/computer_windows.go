@@ -24,7 +24,6 @@ var (
 	immGetDefaultIMEWnd = imm32.NewProc("ImmGetDefaultIMEWnd")
 	enumDisplayMonitors = user32.NewProc("EnumDisplayMonitors")
 	getMonitorInfo      = user32.NewProc("GetMonitorInfoW")
-	getGUIThreadInfo    = user32.NewProc("GetGUIThreadInfo")
 	sendMessageTimeout  = user32.NewProc("SendMessageTimeoutW")
 
 	setDpiAwarenessContext = user32.NewProc("SetProcessDpiAwarenessContext")
@@ -37,7 +36,6 @@ var (
 	vkKeyScan              = user32.NewProc("VkKeyScanW")
 	getDC                  = user32.NewProc("GetDC")
 	releaseDC              = user32.NewProc("ReleaseDC")
-	getForegroundWindow    = user32.NewProc("GetForegroundWindow")
 	getWindowText          = user32.NewProc("GetWindowTextW")
 	getWindowThreadProcess = user32.NewProc("GetWindowThreadProcessId")
 	enumWindows            = user32.NewProc("EnumWindows")
@@ -60,6 +58,10 @@ const (
 	perMonitorAwareV2 = ^uintptr(3)
 	smCxScreen        = 0
 	smCyScreen        = 1
+	smXVirtualScreen  = 76
+	smYVirtualScreen  = 77
+	smCxVirtualScreen = 78
+	smCyVirtualScreen = 79
 	srcCopy           = 0x00CC0020
 	captureBlt        = 0x40000000
 	gwOwner           = 4
@@ -69,17 +71,18 @@ const (
 	inputMouse    = 0
 	inputKeyboard = 1
 
-	mouseMove       = 0x0001
-	mouseLeftDown   = 0x0002
-	mouseLeftUp     = 0x0004
-	mouseRightDown  = 0x0008
-	mouseRightUp    = 0x0010
-	mouseMiddleDown = 0x0020
-	mouseMiddleUp   = 0x0040
-	mouseWheel      = 0x0800
-	mouseHWheel     = 0x1000
-	mouseAbsolute   = 0x8000
-	wheelDelta      = 120
+	mouseMove        = 0x0001
+	mouseLeftDown    = 0x0002
+	mouseLeftUp      = 0x0004
+	mouseRightDown   = 0x0008
+	mouseRightUp     = 0x0010
+	mouseMiddleDown  = 0x0020
+	mouseMiddleUp    = 0x0040
+	mouseWheel       = 0x0800
+	mouseHWheel      = 0x1000
+	mouseAbsolute    = 0x8000
+	mouseVirtualDesk = 0x4000
+	wheelDelta       = 120
 
 	keyExtended = 0x0001
 	keyUp       = 0x0002
@@ -196,7 +199,7 @@ type bitmapInfoHeader struct {
 
 type monitorInfo struct {
 	size          uint32
-	monitor, work [4]int32
+	monitor, work windows.Rect
 	flags         uint32
 }
 
@@ -208,7 +211,8 @@ var (
 	monitorEach   = windows.NewCallback(func(monitor, _, _, _ uintptr) uintptr {
 		info := monitorInfo{size: uint32(unsafe.Sizeof(monitorInfo{}))}
 		if ok, _, _ := getMonitorInfo.Call(monitor, uintptr(unsafe.Pointer(&info))); ok != 0 {
-			d := display{float64(info.monitor[0]), float64(info.monitor[1]), float64(info.monitor[2] - info.monitor[0]), float64(info.monitor[3] - info.monitor[1])}
+			m := info.monitor
+			d := display{float64(m.Left), float64(m.Top), float64(m.Right - m.Left), float64(m.Bottom - m.Top)}
 			if info.flags&monitorPrimary != 0 {
 				monitorsFound = append([]display{d}, monitorsFound...)
 			} else {
@@ -301,7 +305,7 @@ func exeName(pid int) string {
 func (s *winScreen) state() (string, string, float64, float64) {
 	var at struct{ X, Y int32 }
 	getCursorPos.Call(uintptr(unsafe.Pointer(&at)))
-	front, _, _ := getForegroundWindow.Call()
+	front := uintptr(windows.GetForegroundWindow())
 	if front == 0 {
 		return "", "", float64(at.X), float64(at.Y)
 	}
@@ -404,11 +408,15 @@ func (s *winScreen) click(x, y float64, button string, count int) error {
 }
 
 func absolute(x, y float64) mouseInput {
-	width, height := screenSize()
+	metric := func(index uintptr) float64 {
+		value, _, _ := getSystemMetrics.Call(index)
+		return float64(int32(value))
+	}
+	left, top, width, height := metric(smXVirtualScreen), metric(smYVirtualScreen), metric(smCxVirtualScreen), metric(smCyVirtualScreen)
 	return mouseInput{
-		dx:    int32(math.Round(x * 65535 / float64(max(width-1, 1)))),
-		dy:    int32(math.Round(y * 65535 / float64(max(height-1, 1)))),
-		flags: mouseMove | mouseAbsolute,
+		dx:    int32(math.Round((x - left) * 65535 / max(width-1, 1))),
+		dy:    int32(math.Round((y - top) * 65535 / max(height-1, 1))),
+		flags: mouseMove | mouseAbsolute | mouseVirtualDesk,
 	}
 }
 
@@ -572,19 +580,12 @@ const (
 	smtoAbortIfHung  = 0x0002
 )
 
-type guiThreadInfo struct {
-	size, flags                                        uint32
-	active, focus, capture, menuOwner, moveSize, caret uintptr
-	caretRect                                          [4]int32
-}
-
 func focusedWindow() uintptr {
-	info := guiThreadInfo{size: uint32(unsafe.Sizeof(guiThreadInfo{}))}
-	if ok, _, _ := getGUIThreadInfo.Call(0, uintptr(unsafe.Pointer(&info))); ok != 0 && info.focus != 0 {
-		return info.focus
+	info := windows.GUIThreadInfo{Size: uint32(unsafe.Sizeof(windows.GUIThreadInfo{}))}
+	if windows.GetGUIThreadInfo(0, &info) == nil && info.Focus != 0 {
+		return uintptr(info.Focus)
 	}
-	front, _, _ := getForegroundWindow.Call()
-	return front
+	return uintptr(windows.GetForegroundWindow())
 }
 
 func inputMethod(ime, command, value uintptr) uintptr {

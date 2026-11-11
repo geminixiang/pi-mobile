@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -56,11 +57,15 @@ type step struct {
 	MS     int     `json:"ms"`
 }
 
+type seen struct {
+	index  int
+	origin display
+	scale  float64
+}
+
 type computer struct {
-	screen  screen
-	scale   float64
-	display int
-	origin  display
+	screen screen
+	seen   *seen
 
 	mu     sync.Mutex
 	before map[int]string
@@ -136,13 +141,13 @@ func (c *computer) shot(index int) ([]any, error) {
 		draw.ApproxBiLinear.Scale(small, small.Bounds(), img, bounds, draw.Src, nil)
 		img = small
 	}
-	c.scale, c.display, c.origin = d.w/float64(w), index, d
+	c.seen = &seen{index: index, origin: d, scale: d.w / float64(w)}
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 70}); err != nil {
 		return nil, err
 	}
 	app, window, x, y := c.screen.state()
-	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int((x - d.x) / c.scale), int((y - d.y) / c.scale)}}
+	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int((x - d.x) / c.seen.scale), int((y - d.y) / c.seen.scale)}}
 	if len(all) > 1 {
 		facts["display"] = fmt.Sprintf("%d of %d", index, len(all))
 	}
@@ -159,11 +164,30 @@ func (c *computer) shot(index int) ([]any, error) {
 	}, nil
 }
 
+func (c *computer) lastDisplay() int {
+	if c.seen == nil {
+		return 1
+	}
+	return c.seen.index
+}
+
 func (c *computer) run(s step) error {
-	if c.scale == 0 && s.Action != "key" && s.Action != "type" && s.Action != "wait" {
+	switch s.Action {
+	case "key":
+		return c.screen.key(s.Keys)
+	case "type":
+		return c.screen.typeText(s.Text)
+	case "wait":
+		time.Sleep(time.Duration(min(max(s.MS, 0), 10000)) * time.Millisecond)
+		return nil
+	}
+	if c.seen == nil {
 		return errors.New("take a screenshot first: coordinates are its pixels")
 	}
-	x, y := c.origin.x+s.X*c.scale, c.origin.y+s.Y*c.scale
+	at := func(x, y float64) (float64, float64) {
+		return c.seen.origin.x + x*c.seen.scale, c.seen.origin.y + y*c.seen.scale
+	}
+	x, y := at(s.X, s.Y)
 	switch s.Action {
 	case "click":
 		button := s.Button
@@ -174,16 +198,10 @@ func (c *computer) run(s step) error {
 	case "move":
 		return c.screen.move(x, y)
 	case "drag":
-		return c.screen.drag(x, y, c.origin.x+s.ToX*c.scale, c.origin.y+s.ToY*c.scale)
+		toX, toY := at(s.ToX, s.ToY)
+		return c.screen.drag(x, y, toX, toY)
 	case "scroll":
 		return c.screen.scroll(x, y, s.DX, s.DY)
-	case "key":
-		return c.screen.key(s.Keys)
-	case "type":
-		return c.screen.typeText(s.Text)
-	case "wait":
-		time.Sleep(time.Duration(min(max(s.MS, 0), 10000)) * time.Millisecond)
-		return nil
 	}
 	return fmt.Errorf("unknown action %q", s.Action)
 }
@@ -205,7 +223,7 @@ func (c *computer) act(steps []step) ([]any, error) {
 	for i, s := range steps {
 		if err := c.run(s); err != nil {
 			failure := fmt.Errorf("step %d (%s): %w; earlier steps were done, later steps were not run", i+1, s.Action, err)
-			content, captureError := c.shot(max(c.display, 1))
+			content, captureError := c.shot(c.lastDisplay())
 			if captureError != nil {
 				return content, errors.Join(failure, fmt.Errorf("failure screenshot: %w", captureError))
 			}
@@ -216,7 +234,7 @@ func (c *computer) act(steps []step) ([]any, error) {
 		}
 	}
 	time.Sleep(settle)
-	return c.shot(max(c.display, 1))
+	return c.shot(c.lastDisplay())
 }
 
 var computerTools = []map[string]any{
@@ -329,7 +347,7 @@ func serveComputerMCP() int {
 			c.touch()
 			switch p.Name {
 			case "screenshot":
-				content, err = c.shot(max(p.Arguments.Display, 1))
+				content, err = c.shot(cmp.Or(p.Arguments.Display, 1))
 			case "act":
 				content, err = c.act(p.Arguments.Steps)
 			default:

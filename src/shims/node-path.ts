@@ -31,14 +31,12 @@ function render(device: string, absolute: boolean, parts: readonly string[], tra
 	return head + body + (trailing ? "\\" : "");
 }
 
-const endsInSeparator = (input: string) => input.endsWith("\\") || input.endsWith("/");
-
 export const win32 = {
 	sep: "\\",
 	isAbsolute: (input: string): boolean => parse(input).absolute,
 	normalize: (input: string): string => {
 		const { device, absolute, parts } = parse(input);
-		return render(device, absolute, collapse(parts, absolute), endsInSeparator(input));
+		return render(device, absolute, collapse(parts, absolute), input.endsWith("\\") || input.endsWith("/"));
 	},
 	join: (...inputs: string[]): string => {
 		const joined = inputs.filter((input) => input !== "").join("\\");

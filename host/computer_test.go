@@ -52,7 +52,7 @@ func (s *failingScreen) typeText(string) error { s.calls = append(s.calls, "type
 
 func TestComputerBatchFailureReturnsScreenAndStops(t *testing.T) {
 	s := &failingScreen{}
-	c := &computer{screen: s, scale: 1}
+	c := &computer{screen: s, seen: &seen{index: 1, origin: display{0, 0, 20, 10}, scale: 1}}
 	content, err := c.act([]step{{Action: "click"}, {Action: "key", Keys: "unknown"}, {Action: "type", Text: "must not run"}})
 	if err == nil || !strings.Contains(err.Error(), "step 2 (key)") {
 		t.Fatalf("error = %v", err)

@@ -1,3 +1,4 @@
+import { win32 } from "node:path";
 import { Type } from "typebox";
 import { checkJson } from "../parse.ts";
 import { shellQuote } from "../agent/shell.ts";
@@ -123,16 +124,11 @@ function hcStatus(terminal: { state: string; status?: string | { state: string }
 	return (status && STATUS[status]) || "unknown";
 }
 
-function programOf(agent: string): string {
-	const file = (agent.split("\\").at(-1) ?? "").split("/").at(-1)?.toLowerCase() ?? "";
-	return file.endsWith(".exe") ? file.slice(0, -".exe".length) : file;
-}
-
 function hcWorkers(json: string): Worker[] {
 	const list = checkJson(HcList, json.trim(), "hc ls");
 	if (!list.ok) return [];
 	return list.value.terminals.flatMap((terminal) => {
-		const agent = programOf(terminal.agent ?? "");
+		const agent = win32.basename((terminal.agent ?? "").toLowerCase(), ".exe");
 		if (!AGENTS.has(agent)) return [];
 		return [{ id: `hc:${terminal.address}`, name: terminal.name ?? "", agent, status: hcStatus(terminal), cwd: terminal.cwd ?? "", title: terminal.title ?? "", doing: "" }];
 	});
@@ -182,29 +178,80 @@ export function placeOf(id: string): Place | undefined {
 	return undefined;
 }
 
-const rexAt = (place: Extract<Place, { via: "rex" }>) => `-s ${shellQuote(place.session)} -b ${shellQuote(place.block)}`;
+export type Reading = { ok: true; status: Status; doing: string; screen: string } | { ok: false; problem: string };
 
-const herdr = (session: string) => (session === "default" ? HERDR : `${HERDR} --session ${shellQuote(session)}`);
+type Backend = {
+	read(lines: number): string;
+	send(text: string): string;
+	keys(words: string): string;
+	reading(head: string, screen: string): Reading;
+	problem(output: string): string | undefined;
+};
+
+function hcProblem(text: string): string | undefined {
+	const failed = checkJson(HcError, text, "hc error");
+	return failed.ok ? `${failed.value.error.message}${failed.value.error.hint ? ` (${failed.value.error.hint})` : ""}` : undefined;
+}
+
+function herdrProblem(text: string): string | undefined {
+	const failed = checkJson(HerdrError, text, "herdr error");
+	return failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : undefined;
+}
+
+function backendOf(place: AgentPlace): Backend {
+	switch (place.via) {
+		case "hc": {
+			const terminal = shellQuote(place.terminal);
+			return {
+				read: (lines) => `${FIND}; ${HC} get ${terminal} --json 2>&1; echo ${SCREEN}; ${HC} read ${terminal} --lines ${lines} 2>&1`,
+				send: (text) => `${FIND}; ${HC} send ${terminal} ${shellQuote(text)} 2>&1`,
+				keys: (words) => `${FIND}; ${HC} keys ${terminal} ${words} 2>&1`,
+				reading: (head, screen) => {
+					const got = checkJson(HcTerminal, head, "hc get");
+					return got.ok ? { ok: true, status: hcStatus(got.value), doing: "", screen } : { ok: false, problem: hcProblem(head) ?? head };
+				},
+				problem: (output) => hcProblem(output.trim()),
+			};
+		}
+		case "herdr": {
+			const cli = place.session === "default" ? HERDR : `${HERDR} --session ${shellQuote(place.session)}`;
+			const pane = shellQuote(place.pane);
+			return {
+				read: (lines) => `${FIND}; ${cli} agent get ${pane} 2>&1; echo ${SCREEN}; ${cli} agent read ${pane} --source recent-unwrapped --lines ${lines} 2>&1`,
+				send: (text) => `${FIND}; ${cli} agent prompt ${pane} ${shellQuote(text)} 2>&1`,
+				keys: (words) => `${FIND}; ${cli} agent send-keys ${pane} ${words} 2>&1`,
+				reading: (head, screen) => {
+					const got = checkJson(HerdrGet, head, "herdr agent get");
+					return got.ok ? { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen } : { ok: false, problem: herdrProblem(head) ?? head };
+				},
+				problem: (output) => herdrProblem(output.trim()),
+			};
+		}
+		case "rex": {
+			const at = `-s ${shellQuote(place.session)} -b ${shellQuote(place.block)}`;
+			return {
+				read: (lines) => `${FIND}; ${REX} block call ${at} program_status 2>&1; echo ${SCREEN}; ${REX} block capture ${at} --trim 2>&1 | tail -n ${lines}`,
+				send: (text) => `${FIND}; { printf '\\033[200~'; printf '%s' ${shellQuote(text)}; printf '\\033[201~'; } | ${REX} block send ${at} && sleep 0.3 && ${REX} block send-key ${at} enter`,
+				keys: (words) => `${FIND}; ${REX} block send-key ${at} ${words} 2>&1`,
+				reading: (head, screen) => {
+					const status = checkJson(RexStatus, head, "rex program_status");
+					if (!status.ok) return { ok: false, problem: head };
+					const record = status.value.records[0];
+					return { ok: true, status: record ? (STATUS[record.state] ?? "unknown") : "unknown", doing: record?.msg ?? "", screen };
+				},
+				problem: (output) => (output.trim() === "" ? undefined : output.trim()),
+			};
+		}
+	}
+}
 
 export function readCommand(place: Place, lines: number): string {
-	if (place.via === "job") return `${readJob(place.id, lines)}\necho ${SCREEN}`;
-	if (place.via === "hc") return `${FIND}; ${HC} get ${shellQuote(place.terminal)} --json 2>&1; echo ${SCREEN}; ${HC} read ${shellQuote(place.terminal)} --lines ${lines} 2>&1`;
-	if (place.via === "herdr") {
-		const cli = herdr(place.session);
-		return `${FIND}; ${cli} agent get ${shellQuote(place.pane)} 2>&1; echo ${SCREEN}; ${cli} agent read ${shellQuote(place.pane)} --source recent-unwrapped --lines ${lines} 2>&1`;
-	}
-	const at = rexAt(place);
-	return `${FIND}; ${REX} block call ${at} program_status 2>&1; echo ${SCREEN}; ${REX} block capture ${at} --trim 2>&1 | tail -n ${lines}`;
+	return place.via === "job" ? `${readJob(place.id, lines)}\necho ${SCREEN}` : backendOf(place).read(lines);
 }
 
 export function sendCommand(place: AgentPlace, text: string): string {
-	if (place.via === "hc") return `${FIND}; ${HC} send ${shellQuote(place.terminal)} ${shellQuote(text)} 2>&1`;
-	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent prompt ${shellQuote(place.pane)} ${shellQuote(text)} 2>&1`;
-	const at = rexAt(place);
-	return `${FIND}; { printf '\\033[200~'; printf '%s' ${shellQuote(text)}; printf '\\033[201~'; } | ${REX} block send ${at} && sleep 0.3 && ${REX} block send-key ${at} enter`;
+	return backendOf(place).send(text);
 }
-
-export type Reading = { ok: true; status: Status; doing: string; screen: string } | { ok: false; problem: string };
 
 export function reading(place: Place, output: string): Reading {
 	if (place.via === "job") {
@@ -215,34 +262,11 @@ export function reading(place: Place, output: string): Reading {
 	}
 	const at = output.indexOf(SCREEN);
 	if (at < 0) return { ok: false, problem: output.trim() };
-	const head = output.slice(0, at).trim();
-	const screen = output.slice(at + SCREEN.length).trim();
-	if (place.via === "hc") {
-		const got = checkJson(HcTerminal, head, "hc get");
-		if (got.ok) return { ok: true, status: hcStatus(got.value), doing: "", screen };
-		const failed = checkJson(HcError, head, "hc error");
-		return { ok: false, problem: failed.ok ? `${failed.value.error.message}${failed.value.error.hint ? ` (${failed.value.error.hint})` : ""}` : head };
-	}
-	if (place.via === "herdr") {
-		const got = checkJson(HerdrGet, head, "herdr agent get");
-		if (got.ok) return { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen };
-		const failed = checkJson(HerdrError, head, "herdr error");
-		return { ok: false, problem: failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : head };
-	}
-	const status = checkJson(RexStatus, head, "rex program_status");
-	if (!status.ok) return { ok: false, problem: head };
-	const record = status.value.records[0];
-	return { ok: true, status: record ? (STATUS[record.state] ?? "unknown") : "unknown", doing: record?.msg ?? "", screen };
+	return backendOf(place).reading(output.slice(0, at).trim(), output.slice(at + SCREEN.length).trim());
 }
 
 export function sendProblem(place: AgentPlace, output: string): string | undefined {
-	if (place.via === "rex") return output.trim() === "" ? undefined : output.trim();
-	if (place.via === "hc") {
-		const failed = checkJson(HcError, output.trim(), "hc error");
-		return failed.ok ? failed.value.error.message : undefined;
-	}
-	const failed = checkJson(HerdrError, output.trim(), "herdr error");
-	return failed.ok ? `${failed.value.error.code}: ${failed.value.error.message}` : undefined;
+	return backendOf(place).problem(output);
 }
 
 const CURSOR = "❯ ";
@@ -274,8 +298,5 @@ export function choicesOf(screen: string): Choices | undefined {
 }
 
 export function keysCommand(place: AgentPlace, keys: readonly string[]): string {
-	const words = keys.map(shellQuote).join(" ");
-	if (place.via === "hc") return `${FIND}; ${HC} keys ${shellQuote(place.terminal)} ${words} 2>&1`;
-	if (place.via === "herdr") return `${FIND}; ${herdr(place.session)} agent send-keys ${shellQuote(place.pane)} ${words} 2>&1`;
-	return `${FIND}; ${REX} block send-key ${rexAt(place)} ${words} 2>&1`;
+	return backendOf(place).keys(keys.map(shellQuote).join(" "));
 }
