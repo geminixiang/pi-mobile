@@ -297,10 +297,19 @@ func named(nodes []uiNode) int {
 
 func uiText(nodes []uiNode, toShot func(x, y float64) (int, int)) string {
 	lines := []string{"ui:"}
+	others := len(nodes)
 	for i, n := range nodes {
-		if i == uiLines {
-			lines = append(lines, fmt.Sprintf("… %d more", len(nodes)-uiLines))
+		if i > 0 && n.depth == 0 {
+			others = i
 			break
+		}
+	}
+	for i, n := range nodes {
+		if i >= uiLines && i < others {
+			if i == uiLines {
+				lines = append(lines, fmt.Sprintf("… %d more", others-uiLines))
+			}
+			continue
 		}
 		line := fmt.Sprintf("%s[%d] %s", strings.Repeat(" ", n.depth), i+1, n.role)
 		if n.name != "" {

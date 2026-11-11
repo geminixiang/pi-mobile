@@ -98,7 +98,7 @@
 - 文字 1 的 X11 files 加倍：GTK4 的格子沒有任何 AT-SPI 動作、也沒有座標（實測 `GetExtents` 螢幕跟視窗座標都是 0），模型 `click {id, count: 2}` 開不了資料夾，貼上落回原處。文字 2 改成選取再按 return 後，每次 6 次呼叫、一張圖都不用。
 - 文字 1 的 crossapp 要圖：元件只有最前面的視窗，模型看不到後面的 Finder。
 - macOS editor 多的呼叫是模型在 TextEdit 按 `cmd+end`（不會到結尾），從焦點文字發現後重打；呼叫多 2 次但每次只有 0.6–1.7k，tokens 跟截圖版差不多。
-- 還沒做：Windows（UI Automation）、Wayland 把後面的視窗叫到前面（沒有通用的方法）、macOS 的選單和彈出選單（不在視窗裡）。
+- 還沒做：Windows 已有元件清單（見 docs/tools.md）但還沒量改前改後；Wayland 把後面的視窗叫到前面（沒有通用的方法）、macOS 的選單和彈出選單（不在視窗裡）。
 
 ## 要在 Windows 實機驗證的
 

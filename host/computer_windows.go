@@ -314,21 +314,26 @@ func (s *winScreen) state() (string, string, float64, float64) {
 
 var (
 	windowsMu    sync.Mutex
-	windowsFound map[uintptr]int
+	windowsFound []shownWindow
 	// why: a Go callback for Windows is never freed and a process gets about 2000, so one made per call ran out after enough tool calls
 	windowEach = windows.NewCallback(func(window, _ uintptr) uintptr {
 		owner, _, _ := getWindow.Call(window, gwOwner)
 		if windows.IsWindowVisible(windows.HWND(window)) && owner == 0 && windowTitle(window) != "" {
-			windowsFound[window] = windowProcess(window)
+			windowsFound = append(windowsFound, shownWindow{window, windowProcess(window)})
 		}
 		return 1
 	})
 )
 
-func topWindows() map[uintptr]int {
+type shownWindow struct {
+	handle uintptr
+	pid    int
+}
+
+func topWindows() []shownWindow {
 	windowsMu.Lock()
 	defer windowsMu.Unlock()
-	windowsFound = map[uintptr]int{}
+	windowsFound = nil
 	windows.EnumWindows(windowEach, nil)
 	return windowsFound
 }
@@ -337,9 +342,9 @@ var keptRunning = map[string]bool{"explorer": true, "ApplicationFrameHost": true
 
 func (s *winScreen) apps() map[int]string {
 	apps := map[int]string{}
-	for _, pid := range topWindows() {
-		if name := exeName(pid); name != "" && !keptRunning[name] {
-			apps[pid] = name
+	for _, w := range topWindows() {
+		if name := exeName(w.pid); name != "" && !keptRunning[name] {
+			apps[w.pid] = name
 		}
 	}
 	return apps
@@ -350,9 +355,9 @@ func (s *winScreen) quit(pids []int) {
 	for _, pid := range pids {
 		closing[pid] = true
 	}
-	for window, pid := range topWindows() {
-		if closing[pid] {
-			postMessage.Call(window, wmClose, 0, 0)
+	for _, w := range topWindows() {
+		if closing[w.pid] {
+			postMessage.Call(w.handle, wmClose, 0, 0)
 		}
 	}
 	deadline := time.Now().Add(1500 * time.Millisecond)

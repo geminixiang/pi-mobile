@@ -51,20 +51,18 @@ var controlTypes = map[int32]string{
 	50000: "button", 50002: "check box", 50003: "combo box", 50004: "edit", 50005: "link", 50007: "list item", 50008: "list",
 	50011: "menu item", 50013: "radio button", 50018: "tab", 50019: "tab item", 50020: "text", 50023: "tree", 50024: "tree item",
 	50026: "group", 50028: "data grid", 50029: "data item", 50030: "document", 50032: "window", 50033: "pane", 50036: "table",
+	50001: "calendar", 50006: "image", 50009: "menu", 50010: "menu bar", 50012: "progress bar", 50014: "scroll bar", 50015: "slider",
+	50016: "spinner", 50017: "status bar", 50021: "tool bar", 50022: "tooltip", 50025: "custom", 50027: "thumb", 50031: "split button",
+	50034: "header", 50035: "header item", 50037: "title bar", 50038: "separator", 50039: "semantic zoom", 50040: "app bar",
 }
 
 // why: COM objects belong to the thread that made them, and Go moves goroutines between threads, so one locked thread asks UI Automation for everyone
 type automation struct {
-	asks chan chan focusAnswer
-}
-
-type focusAnswer struct {
-	focus focus
-	ok    bool
+	asks chan func(client uintptr)
 }
 
 func startAutomation() *automation {
-	a := &automation{asks: make(chan chan focusAnswer)}
+	a := &automation{asks: make(chan func(client uintptr))}
 	ready := make(chan uintptr)
 	go func() {
 		runtime.LockOSThread()
@@ -75,8 +73,7 @@ func startAutomation() *automation {
 		}
 		ready <- client
 		for ask := range a.asks {
-			f, ok := readFocus(client)
-			ask <- focusAnswer{f, ok}
+			ask(client)
 		}
 	}()
 	if <-ready == 0 {
@@ -89,11 +86,20 @@ func (s *winScreen) focused() (focus, bool) {
 	if s.automation == nil {
 		return focus{}, false
 	}
-	answer := make(chan focusAnswer, 1)
-	s.automation.asks <- answer
-	got := <-answer
-	got.focus.window = windowTitle(uintptr(windows.GetForegroundWindow()))
-	return got.focus, got.ok
+	var f focus
+	var ok bool
+	s.automation.ask(func(client uintptr) { f, ok = readFocus(client) })
+	f.window = windowTitle(uintptr(windows.GetForegroundWindow()))
+	return f, ok
+}
+
+func (a *automation) ask(job func(client uintptr)) {
+	done := make(chan struct{})
+	a.asks <- func(client uintptr) {
+		job(client)
+		close(done)
+	}
+	<-done
 }
 
 func readFocus(client uintptr) (focus, bool) {

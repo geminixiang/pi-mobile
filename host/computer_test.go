@@ -487,3 +487,15 @@ func TestALookIsTextUnlessTheWindowGivesTooLittle(t *testing.T) {
 		t.Fatal("a window with one named element gave no image")
 	}
 }
+
+func TestTheWindowsBehindShowPastALongWindow(t *testing.T) {
+	nodes := []uiNode{{role: "window", name: "front"}}
+	for range uiLines + 20 {
+		nodes = append(nodes, uiNode{depth: 1, role: "link", name: "x"})
+	}
+	nodes = append(nodes, uiNode{role: "window", name: "files (explorer, behind)"})
+	text := uiText(nodes, func(x, y float64) (int, int) { return int(x), int(y) })
+	if !strings.Contains(text, "… 21 more\n[172] window \"files (explorer, behind)\"") {
+		t.Fatalf("the window behind is cut off:\n%s", text[len(text)-200:])
+	}
+}
