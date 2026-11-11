@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
+	"slices"
 	"strings"
 
 	"github.com/jezek/xgb/xproto"
@@ -18,28 +19,22 @@ func desktopEnvironment(systemd []byte) map[string]string {
 	lines := bufio.NewScanner(bytes.NewReader(systemd))
 	for lines.Scan() {
 		name, value, ok := strings.Cut(lines.Text(), "=")
-		if !ok || strings.HasPrefix(value, "$'") {
-			continue
-		}
-		for _, wanted := range desktopVariables {
-			if name == wanted {
-				found[name] = value
-			}
+		if ok && !strings.HasPrefix(value, "$'") && slices.Contains(desktopVariables, name) {
+			found[name] = value
 		}
 	}
 	return found
 }
 
 var namedKeysyms = map[string]uint32{
-	"return": 0xff0d, "enter": 0xff0d, "tab": 0xff09, "space": 0x20, "backspace": 0xff08, "delete": 0xff08, "esc": 0xff1b, "escape": 0xff1b,
+	"return": 0xff0d, "tab": 0xff09, "space": 0x20, "backspace": 0xff08, "esc": 0xff1b,
 	"forwarddelete": 0xffff, "insert": 0xff63, "home": 0xff50, "end": 0xff57, "pageup": 0xff55, "pagedown": 0xff56,
 	"left": 0xff51, "up": 0xff52, "right": 0xff53, "down": 0xff54,
 	"f1": 0xffbe, "f2": 0xffbf, "f3": 0xffc0, "f4": 0xffc1, "f5": 0xffc2, "f6": 0xffc3, "f7": 0xffc4, "f8": 0xffc5, "f9": 0xffc6, "f10": 0xffc7, "f11": 0xffc8, "f12": 0xffc9,
 }
 
 var modifierKeysyms = map[string]uint32{
-	"shift": 0xffe1, "ctrl": 0xffe3, "control": 0xffe3, "alt": 0xffe9, "option": 0xffe9, "opt": 0xffe9,
-	"cmd": 0xffeb, "command": 0xffeb, "meta": 0xffeb, "super": 0xffeb, "win": 0xffeb,
+	"shift": 0xffe1, "ctrl": 0xffe3, "alt": 0xffe9, "cmd": 0xffeb,
 }
 
 func keysymOf(name string) (uint32, bool) {
@@ -58,33 +53,12 @@ func keysymOf(name string) (uint32, bool) {
 
 func runeKeysym(r rune) uint32 {
 	switch {
-	case r == '\n':
-		return 0xff0d
 	case r == '\t':
 		return 0xff09
 	case r >= 0x20 && r <= 0x7e, r >= 0xa0 && r <= 0xff:
 		return uint32(r)
 	}
 	return 0x01000000 | uint32(r)
-}
-
-func chordKeysyms(keys string) (mods []uint32, key uint32, err error) {
-	names, name, err := keyChord(keys)
-	if err != nil {
-		return nil, 0, err
-	}
-	for _, m := range names {
-		sym, ok := modifierKeysyms[m]
-		if !ok {
-			return nil, 0, fmt.Errorf("unknown modifier %q in %q", m, keys)
-		}
-		mods = append(mods, sym)
-	}
-	key, ok := keysymOf(name)
-	if !ok {
-		return nil, 0, fmt.Errorf("unknown key %q in %q", name, keys)
-	}
-	return mods, key, nil
 }
 
 func zpixmap(data []byte, depth byte, width, height int, setup *xproto.SetupInfo) (*image.RGBA, error) {

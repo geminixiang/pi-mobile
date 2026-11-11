@@ -35,6 +35,7 @@ type x11Screen struct {
 	shiftCode xproto.Keycode
 	atoms     map[string]xproto.Atom
 	clip      *selection
+	randr     bool
 }
 
 func newX11Screen(display string) (*x11Screen, error) {
@@ -47,7 +48,7 @@ func newX11Screen(display string) (*x11Screen, error) {
 		return nil, fmt.Errorf("the X11 display %s has no XTEST, so the mouse and keyboard cannot be driven: %w", display, err)
 	}
 	setup := xproto.Setup(conn)
-	s := &x11Screen{conn: conn, root: setup.DefaultScreen(conn).Root, setup: setup, atoms: map[string]xproto.Atom{}}
+	s := &x11Screen{conn: conn, root: setup.DefaultScreen(conn).Root, setup: setup, atoms: map[string]xproto.Atom{}, randr: randr.Init(conn) == nil}
 	if err := s.loadKeymap(); err != nil {
 		conn.Close()
 		return nil, err
@@ -102,7 +103,7 @@ func (s *x11Screen) displays() ([]display, error) {
 	defer s.mu.Unlock()
 	screen := s.setup.DefaultScreen(s.conn)
 	whole := []display{{0, 0, float64(screen.WidthInPixels), float64(screen.HeightInPixels)}}
-	if randr.Init(s.conn) != nil {
+	if !s.randr {
 		return whole, nil
 	}
 	resources, err := randr.GetScreenResourcesCurrent(s.conn, s.root).Reply()
@@ -236,15 +237,10 @@ func (s *x11Screen) sync() {
 	_, _ = xproto.GetInputFocus(s.conn).Reply()
 }
 
-func (s *x11Screen) rootPoint(x, y float64) (int16, int16) {
-	return int16(math.Round(x)), int16(math.Round(y))
-}
-
 func (s *x11Screen) pointer(x, y float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	rx, ry := s.rootPoint(x, y)
-	s.fake(xproto.MotionNotify, 0, rx, ry)
+	s.fake(xproto.MotionNotify, 0, int16(math.Round(x)), int16(math.Round(y)))
 	s.sync()
 	return nil
 }
@@ -297,30 +293,28 @@ func (s *x11Screen) press(name string, down bool) error {
 	if !ok {
 		return fmt.Errorf("the keyboard layout has no key %q", name)
 	}
-	if down && place.shift {
-		s.fake(xproto.KeyPress, byte(s.shiftCode), 0, 0)
-	}
+	s.key(place, down)
+	s.sync()
+	return nil
+}
+
+func (s *x11Screen) key(place keyPlace, down bool) {
 	kind := byte(xproto.KeyRelease)
 	if down {
 		kind = xproto.KeyPress
+	}
+	if down && place.shift {
+		s.fake(xproto.KeyPress, byte(s.shiftCode), 0, 0)
 	}
 	s.fake(kind, byte(place.code), 0, 0)
 	if !down && place.shift {
 		s.fake(xproto.KeyRelease, byte(s.shiftCode), 0, 0)
 	}
-	s.sync()
-	return nil
 }
 
 func (s *x11Screen) tap(place keyPlace) {
-	if place.shift {
-		s.fake(xproto.KeyPress, byte(s.shiftCode), 0, 0)
-	}
-	s.fake(xproto.KeyPress, byte(place.code), 0, 0)
-	s.fake(xproto.KeyRelease, byte(place.code), 0, 0)
-	if place.shift {
-		s.fake(xproto.KeyRelease, byte(s.shiftCode), 0, 0)
-	}
+	s.key(place, true)
+	s.key(place, false)
 	s.sync()
 	time.Sleep(5 * time.Millisecond)
 }

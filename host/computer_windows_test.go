@@ -11,9 +11,9 @@ func TestInputRecordIsTheSizeOfWindowsINPUT(t *testing.T) {
 	}
 }
 
-func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
+func TestTextRecordsSendUnicodeUnitsAndRealTab(t *testing.T) {
 	var keys []keyInput
-	for _, chunk := range textRecords("a中\r\n😀") {
+	for _, chunk := range textRecords("a中\t😀") {
 		for _, record := range chunk {
 			keys = append(keys, *(*keyInput)(unsafe.Pointer(&record.union)))
 		}
@@ -21,7 +21,7 @@ func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
 	want := []keyInput{
 		{scan: 'a', flags: keyUnicode}, {scan: 'a', flags: keyUnicode | keyUp},
 		{scan: 0x4e2d, flags: keyUnicode}, {scan: 0x4e2d, flags: keyUnicode | keyUp},
-		{vk: 0x0D, flags: 0}, {vk: 0x0D, flags: keyUp},
+		{vk: 0x09, flags: 0}, {vk: 0x09, flags: keyUp},
 		{scan: 0xd83d, flags: keyUnicode}, {scan: 0xd83d, flags: keyUnicode | keyUp},
 		{scan: 0xde00, flags: keyUnicode}, {scan: 0xde00, flags: keyUnicode | keyUp},
 	}
@@ -30,7 +30,7 @@ func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
 	}
 	for i := range want {
 		got := keys[i]
-		if got.vk == 0x0D {
+		if got.vk == 0x09 {
 			got.scan = 0
 		}
 		if got != want[i] {
@@ -40,7 +40,7 @@ func TestTextRecordsSendUnicodeUnitsAndRealEnter(t *testing.T) {
 }
 
 func TestTextRecordsSendOneCharacterAtATime(t *testing.T) {
-	if chunks := textRecords("Hello pi 123, IME test!\n中😀"); len(chunks) != 26 {
+	if chunks := textRecords("Hello pi 123, IME test!\t中😀"); len(chunks) != 26 {
 		t.Fatalf("got %d chunks, want one per character (26): an app that falls behind a batch drops or repeats its characters", len(chunks))
 	}
 }

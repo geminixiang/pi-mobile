@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unicode/utf16"
 	"unsafe"
@@ -33,15 +32,12 @@ var (
 	getCursorPos           = user32.NewProc("GetCursorPos")
 	sendInput              = user32.NewProc("SendInput")
 	getLastInputInfo       = user32.NewProc("GetLastInputInfo")
-	getTickCount           = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetTickCount")
+	getTickCount           = kernel32.NewProc("GetTickCount")
 	mapVirtualKey          = user32.NewProc("MapVirtualKeyW")
 	vkKeyScan              = user32.NewProc("VkKeyScanW")
 	getDC                  = user32.NewProc("GetDC")
 	releaseDC              = user32.NewProc("ReleaseDC")
 	getWindowText          = user32.NewProc("GetWindowTextW")
-	getWindowThreadProcess = user32.NewProc("GetWindowThreadProcessId")
-	enumWindows            = user32.NewProc("EnumWindows")
-	isWindowVisible        = user32.NewProc("IsWindowVisible")
 	getWindow              = user32.NewProc("GetWindow")
 	postMessage            = user32.NewProc("PostMessageW")
 	openInputDesktop       = user32.NewProc("OpenInputDesktop")
@@ -133,15 +129,14 @@ var winButtons = map[string][2]uint32{
 }
 
 var namedKeys = map[string]uint16{
-	"return": 0x0D, "enter": 0x0D, "tab": 0x09, "space": 0x20, "backspace": 0x08, "delete": 0x08, "esc": 0x1B, "escape": 0x1B,
+	"return": 0x0D, "tab": 0x09, "space": 0x20, "backspace": 0x08, "esc": 0x1B,
 	"forwarddelete": 0x2E, "insert": 0x2D, "home": 0x24, "end": 0x23, "pageup": 0x21, "pagedown": 0x22,
 	"left": 0x25, "up": 0x26, "right": 0x27, "down": 0x28,
 	"f1": 0x70, "f2": 0x71, "f3": 0x72, "f4": 0x73, "f5": 0x74, "f6": 0x75, "f7": 0x76, "f8": 0x77, "f9": 0x78, "f10": 0x79, "f11": 0x7A, "f12": 0x7B,
 }
 
 var modifierKeys = map[string]uint16{
-	"shift": 0xA0, "ctrl": 0xA2, "control": 0xA2, "alt": 0xA4, "option": 0xA4, "opt": 0xA4,
-	"cmd": 0x5B, "command": 0x5B, "meta": 0x5B, "super": 0x5B, "win": 0x5B,
+	"shift": 0xA0, "ctrl": 0xA2, "alt": 0xA4, "cmd": 0x5B,
 }
 
 var extendedKeys = map[uint16]bool{0x2D: true, 0x2E: true, 0x24: true, 0x23: true, 0x21: true, 0x22: true, 0x25: true, 0x26: true, 0x27: true, 0x28: true, 0x5B: true}
@@ -181,10 +176,9 @@ func inputDesktopReady() error {
 	return nil
 }
 
-func screenSize() (int, int) {
-	w, _, _ := getSystemMetrics.Call(smCxScreen)
-	h, _, _ := getSystemMetrics.Call(smCyScreen)
-	return int(int32(w)), int(int32(h))
+func metric(index uintptr) float64 {
+	value, _, _ := getSystemMetrics.Call(index)
+	return float64(int32(value))
 }
 
 type bitmapInfoHeader struct {
@@ -234,11 +228,11 @@ func (s *winScreen) displays() ([]display, error) {
 	if len(monitorsFound) > 0 {
 		return monitorsFound, nil
 	}
-	width, height := screenSize()
+	width, height := metric(smCxScreen), metric(smCyScreen)
 	if width <= 0 || height <= 0 {
 		return nil, errors.New("Windows reports no screen")
 	}
-	return []display{{0, 0, float64(width), float64(height)}}, nil
+	return []display{{0, 0, width, height}}, nil
 }
 
 func (s *winScreen) capture(d display) (image.Image, error) {
@@ -264,20 +258,19 @@ func (s *winScreen) capture(d display) (image.Image, error) {
 	}
 	defer deleteObject.Call(bitmap)
 	previous, _, _ := selectObject.Call(memoryDC, bitmap)
-	if ok, _, err := bitBlt.Call(memoryDC, 0, 0, uintptr(width), uintptr(height), screenDC, uintptr(int(d.x)), uintptr(int(d.y)), srcCopy|captureBlt); ok == 0 {
-		selectObject.Call(memoryDC, previous)
+	copied, _, err := bitBlt.Call(memoryDC, 0, 0, uintptr(width), uintptr(height), screenDC, uintptr(int(d.x)), uintptr(int(d.y)), srcCopy|captureBlt)
+	selectObject.Call(memoryDC, previous)
+	if copied == 0 {
 		return nil, fmt.Errorf("screenshot: %w", err)
 	}
-	selectObject.Call(memoryDC, previous)
 	header := bitmapInfoHeader{width: int32(width), height: -int32(height), planes: 1, bitCount: 32}
 	header.size = uint32(unsafe.Sizeof(header))
-	pixels := make([]byte, width*height*4)
-	if lines, _, err := getDIBits.Call(memoryDC, bitmap, 0, uintptr(height), uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), 0); lines == 0 {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	if lines, _, err := getDIBits.Call(memoryDC, bitmap, 0, uintptr(height), uintptr(unsafe.Pointer(&img.Pix[0])), uintptr(unsafe.Pointer(&header)), 0); lines == 0 {
 		return nil, fmt.Errorf("screenshot: %w", err)
 	}
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for i := 0; i < len(pixels); i += 4 {
-		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = pixels[i+2], pixels[i+1], pixels[i], 0xff
+	for i := 0; i < len(img.Pix); i += 4 {
+		img.Pix[i], img.Pix[i+2], img.Pix[i+3] = img.Pix[i+2], img.Pix[i], 0xff
 	}
 	return img, nil
 }
@@ -285,12 +278,12 @@ func (s *winScreen) capture(d display) (image.Image, error) {
 func windowTitle(window uintptr) string {
 	buffer := make([]uint16, 512)
 	n, _, _ := getWindowText.Call(window, uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer)))
-	return syscall.UTF16ToString(buffer[:n])
+	return windows.UTF16ToString(buffer[:n])
 }
 
 func windowProcess(window uintptr) int {
 	var pid uint32
-	getWindowThreadProcess.Call(window, uintptr(unsafe.Pointer(&pid)))
+	windows.GetWindowThreadProcessId(windows.HWND(window), &pid)
 	return int(pid)
 }
 
@@ -305,7 +298,7 @@ func exeName(pid int) string {
 	if windows.QueryFullProcessImageName(process, 0, &buffer[0], &size) != nil {
 		return ""
 	}
-	return strings.TrimSuffix(filepath.Base(syscall.UTF16ToString(buffer[:size])), ".exe")
+	return strings.TrimSuffix(filepath.Base(windows.UTF16ToString(buffer[:size])), ".exe")
 }
 
 func (s *winScreen) state() (string, string, float64, float64) {
@@ -318,18 +311,25 @@ func (s *winScreen) state() (string, string, float64, float64) {
 	return exeName(windowProcess(front)), windowTitle(front), float64(at.X), float64(at.Y)
 }
 
-func topWindows() map[uintptr]int {
-	found := map[uintptr]int{}
-	callback := windows.NewCallback(func(window, _ uintptr) uintptr {
-		visible, _, _ := isWindowVisible.Call(window)
+var (
+	windowsMu    sync.Mutex
+	windowsFound map[uintptr]int
+	// why: a Go callback for Windows is never freed and a process gets about 2000, so one made per call ran out after enough tool calls
+	windowEach = windows.NewCallback(func(window, _ uintptr) uintptr {
 		owner, _, _ := getWindow.Call(window, gwOwner)
-		if visible != 0 && owner == 0 && windowTitle(window) != "" {
-			found[window] = windowProcess(window)
+		if windows.IsWindowVisible(windows.HWND(window)) && owner == 0 && windowTitle(window) != "" {
+			windowsFound[window] = windowProcess(window)
 		}
 		return 1
 	})
-	enumWindows.Call(callback, 0)
-	return found
+)
+
+func topWindows() map[uintptr]int {
+	windowsMu.Lock()
+	defer windowsMu.Unlock()
+	windowsFound = map[uintptr]int{}
+	windows.EnumWindows(windowEach, nil)
+	return windowsFound
 }
 
 var keptRunning = map[string]bool{"explorer": true, "ApplicationFrameHost": true, "pi-mobile": true}
@@ -442,10 +442,6 @@ func (s *winScreen) button(name string, down bool, _ int) error {
 }
 
 func absolute(x, y float64) mouseInput {
-	metric := func(index uintptr) float64 {
-		value, _, _ := getSystemMetrics.Call(index)
-		return float64(int32(value))
-	}
 	left, top, width, height := metric(smXVirtualScreen), metric(smYVirtualScreen), metric(smCxVirtualScreen), metric(smCyVirtualScreen)
 	return mouseInput{
 		dx:    int32(math.Round((x - left) * 65535 / max(width-1, 1))),
@@ -463,9 +459,6 @@ func (s *winScreen) wheel(dx, dy int) error {
 	}
 	if dx != 0 {
 		records = append(records, mouseRecord(mouseInput{flags: mouseHWheel, mouseData: uint32(int32(dx * wheelDelta))}))
-	}
-	if len(records) == 0 {
-		return nil
 	}
 	return send(records)
 }
@@ -516,28 +509,22 @@ func (s *winScreen) press(name string, down bool) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	records := []inputRecord{keyStroke(vk, !down)}
-	if shift && down {
-		records = append([]inputRecord{keyStroke(modifierKeys["shift"], false)}, records...)
+	stroke := keyStroke(vk, !down)
+	if !shift {
+		return send([]inputRecord{stroke})
 	}
-	if shift && !down {
-		records = append(records, keyStroke(modifierKeys["shift"], true))
+	if down {
+		return send([]inputRecord{keyStroke(modifierKeys["shift"], false), stroke})
 	}
-	return send(records)
-}
-
-func tapRecords(vk uint16) []inputRecord {
-	return []inputRecord{keyStroke(vk, false), keyStroke(vk, true)}
+	return send([]inputRecord{stroke, keyStroke(modifierKeys["shift"], true)})
 }
 
 func textRecords(text string) [][]inputRecord {
 	chunks := [][]inputRecord{}
-	for _, r := range strings.ReplaceAll(text, "\r\n", "\n") {
+	for _, r := range text {
 		switch r {
-		case '\n', '\r':
-			chunks = append(chunks, tapRecords(namedKeys["return"]))
 		case '\t':
-			chunks = append(chunks, tapRecords(namedKeys["tab"]))
+			chunks = append(chunks, []inputRecord{keyStroke(namedKeys["tab"], false), keyStroke(namedKeys["tab"], true)})
 		default:
 			chunk := []inputRecord{}
 			for _, unit := range utf16.Encode([]rune{r}) {

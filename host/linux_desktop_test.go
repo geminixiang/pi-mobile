@@ -17,29 +17,16 @@ func TestDesktopEnvironmentTakesTheSessionFromSystemd(t *testing.T) {
 	}
 }
 
-func TestChordKeysyms(t *testing.T) {
-	for keys, want := range map[string]struct {
-		mods []uint32
-		key  uint32
-	}{
-		"ctrl+shift+t": {[]uint32{0xffe3, 0xffe1}, 't'},
-		"cmd+space":    {[]uint32{0xffeb}, 0x20},
-		"super":        {nil, 0xffeb},
-		"Return":       {nil, 0xff0d},
-		"alt+f4":       {[]uint32{0xffe9}, 0xffc1},
-	} {
-		mods, key, err := chordKeysyms(keys)
-		if err != nil || !reflect.DeepEqual(mods, want.mods) || key != want.key {
-			t.Errorf("%q = %x %x %v, want %x %x", keys, mods, key, err, want.mods, want.key)
+func TestKeysymsNameTheKeysTheCoreAsksFor(t *testing.T) {
+	for name, want := range map[string]uint32{"ctrl": 0xffe3, "cmd": 0xffeb, "return": 0xff0d, "f4": 0xffc1, "t": 't'} {
+		if got, ok := keysymOf(name); !ok || got != want {
+			t.Errorf("%q = %#x %v, want %#x", name, got, ok, want)
 		}
-	}
-	if _, _, err := chordKeysyms("hyper+a"); err == nil {
-		t.Error("an unknown modifier was accepted")
 	}
 }
 
 func TestRuneKeysymCoversLatin1AndUnicode(t *testing.T) {
-	for r, want := range map[rune]uint32{'a': 'a', 'Z': 'Z', 'é': 0xe9, '中': 0x01004e2d, '☃': 0x01002603, '\n': 0xff0d, '\t': 0xff09} {
+	for r, want := range map[rune]uint32{'a': 'a', 'Z': 'Z', 'é': 0xe9, '中': 0x01004e2d, '☃': 0x01002603, '\t': 0xff09} {
 		if got := runeKeysym(r); got != want {
 			t.Errorf("%q = %#x, want %#x", r, got, want)
 		}

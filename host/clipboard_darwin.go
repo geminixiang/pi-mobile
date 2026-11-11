@@ -19,7 +19,7 @@ type pasteboard struct {
 	sel                                                  map[string]objc.SEL
 }
 
-const utf8Encoding8 = 4
+const nsUTF8 = 4
 
 func newPasteboard() (*pasteboard, error) {
 	if _, err := purego.Dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", purego.RTLD_NOW|purego.RTLD_GLOBAL); err != nil {
@@ -52,7 +52,7 @@ func (p *pasteboard) goString(value objc.ID) string {
 	if value == 0 {
 		return ""
 	}
-	size := objc.Send[uint64](value, p.sel["lengthOfBytesUsingEncoding:"], uint64(utf8Encoding8))
+	size := objc.Send[uint64](value, p.sel["lengthOfBytesUsingEncoding:"], uint64(nsUTF8))
 	text := objc.Send[*byte](value, p.sel["UTF8String"])
 	if text == nil || size == 0 {
 		return ""

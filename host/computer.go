@@ -82,36 +82,35 @@ type computer struct {
 	screen screen
 	seen   *seen
 
-	mu     sync.Mutex
-	before map[int]string
-	opened map[int]string
-	idle   *time.Timer
+	mu      sync.Mutex
+	session *session
+}
+
+type session struct {
+	before, opened map[int]string
+	idle           *time.Timer
 }
 
 func (c *computer) touch() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.before == nil {
-		c.before = c.screen.apps()
-		c.opened = map[int]string{}
+	if c.session != nil {
+		c.session.idle.Reset(sessionIdle)
+		return
 	}
-	if c.idle == nil {
-		c.idle = time.AfterFunc(sessionIdle, c.end)
-	} else {
-		c.idle.Reset(sessionIdle)
-	}
+	c.session = &session{before: c.screen.apps(), opened: map[int]string{}, idle: time.AfterFunc(sessionIdle, c.end)}
 }
 
 func (c *computer) noteOpened() {
 	now := c.screen.apps()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.before == nil {
+	if c.session == nil {
 		return
 	}
 	for pid, name := range now {
-		if _, was := c.before[pid]; !was {
-			c.opened[pid] = name
+		if _, was := c.session.before[pid]; !was {
+			c.session.opened[pid] = name
 		}
 	}
 }
@@ -119,20 +118,19 @@ func (c *computer) noteOpened() {
 func (c *computer) end() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.before == nil {
+	if c.session == nil {
 		return
 	}
 	running := c.screen.apps()
 	var pids []int
-	for pid, name := range c.opened {
+	for pid, name := range c.session.opened {
 		if running[pid] == name {
 			pids = append(pids, pid)
 		}
 	}
 	c.screen.quit(pids)
-	c.before, c.opened = nil, nil
-	c.idle.Stop()
-	c.idle = nil
+	c.session.idle.Stop()
+	c.session = nil
 }
 
 func (c *computer) shot(index int) ([]any, error) {
@@ -144,7 +142,17 @@ func (c *computer) shot(index int) ([]any, error) {
 		return nil, fmt.Errorf("no display %d: this computer has %d", index, len(all))
 	}
 	d := all[index-1]
+	type state struct {
+		app, window string
+		x, y        float64
+	}
+	states := make(chan state, 1)
+	go func() {
+		app, window, x, y := c.screen.state()
+		states <- state{app, window, x, y}
+	}()
 	img, err := c.screen.capture(d)
+	now := <-states
 	if err != nil {
 		return nil, err
 	}
@@ -161,16 +169,15 @@ func (c *computer) shot(index int) ([]any, error) {
 	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 70}); err != nil {
 		return nil, err
 	}
-	app, window, x, y := c.screen.state()
-	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int((x - d.x) / c.seen.scale), int((y - d.y) / c.seen.scale)}}
+	facts := map[string]any{"size": []int{w, h}, "pointer": []int{int((now.x - d.x) / c.seen.scale), int((now.y - d.y) / c.seen.scale)}}
 	if len(all) > 1 {
 		facts["display"] = fmt.Sprintf("%d of %d", index, len(all))
 	}
-	if app != "" {
-		facts["app"] = app
+	if now.app != "" {
+		facts["app"] = now.app
 	}
-	if window != "" {
-		facts["window"] = window
+	if now.window != "" {
+		facts["window"] = now.window
 	}
 	text, _ := json.Marshal(facts)
 	return []any{
@@ -205,11 +212,7 @@ func (c *computer) run(s step) error {
 	x, y := at(s.X, s.Y)
 	switch s.Action {
 	case "click":
-		button := s.Button
-		if button == "" {
-			button = "left"
-		}
-		return c.click(x, y, button, max(s.Count, 1), heldKeys(s.Keys))
+		return c.click(x, y, cmp.Or(s.Button, "left"), max(s.Count, 1), heldKeys(s.Keys))
 	case "move":
 		return c.screen.pointer(x, y)
 	case "drag":
@@ -278,6 +281,9 @@ func (c *computer) key(keys string) error {
 }
 
 func (c *computer) holding(mods []string, act func() error) error {
+	if len(mods) == 0 {
+		return act()
+	}
 	held := []string{}
 	release := func() error {
 		var errs []error
@@ -292,14 +298,10 @@ func (c *computer) holding(mods []string, act func() error) error {
 		}
 		held = append(held, mod)
 	}
-	if len(held) > 0 {
-		// why: WinUI apps such as Notepad check whether ctrl is down when they handle the key, not when it was sent; a chord sent at once pasted a bare "v" or nothing
-		time.Sleep(chordHold)
-	}
+	// why: WinUI apps such as Notepad check whether ctrl is down when they handle the key, not when it was sent; a chord sent at once pasted a bare "v" or nothing
+	time.Sleep(chordHold)
 	acted := act()
-	if len(held) > 0 {
-		time.Sleep(chordHold)
-	}
+	time.Sleep(chordHold)
 	return errors.Join(acted, release())
 }
 
@@ -345,17 +347,16 @@ func (c *computer) typeLines(lines []string, board clipboard) error {
 	return nil
 }
 
+const stepPause = 60 * time.Millisecond
+
 func pauseAfter(s step) time.Duration {
-	if s.Action == "key" {
-		_, key, err := keyChord(s.Keys)
-		if err == nil {
-			switch key {
-			case "return", "enter", "esc", "escape":
-				return settle
-			}
-		}
+	if s.Action != "key" {
+		return stepPause
 	}
-	return 60 * time.Millisecond
+	if _, key, err := keyChord(s.Keys); err == nil && (key == "return" || key == "esc") {
+		return settle
+	}
+	return stepPause
 }
 
 func (c *computer) act(steps []step) ([]any, error) {
@@ -492,13 +493,12 @@ func serveComputerMCP() int {
 			default:
 				err = fmt.Errorf("no tool %q", p.Name)
 			}
-			c.noteOpened()
+			result := map[string]any{"content": content}
 			if err != nil {
-				content = append([]any{map[string]any{"type": "text", "text": err.Error()}}, content...)
-				reply(m.ID, map[string]any{"isError": true, "content": content})
-				continue
+				result = map[string]any{"isError": true, "content": append([]any{map[string]any{"type": "text", "text": err.Error()}}, content...)}
 			}
-			reply(m.ID, map[string]any{"content": content})
+			reply(m.ID, result)
+			c.noteOpened()
 		default:
 			fail(m.ID, -32601, "method not found: "+m.Method)
 		}
@@ -507,26 +507,27 @@ func serveComputerMCP() int {
 }
 
 func keyChord(keys string) (mods []string, key string, err error) {
-	chord := strings.ToLower(strings.TrimSpace(keys))
+	chord := strings.TrimSpace(keys)
 	if chord == "+" || strings.HasSuffix(chord, "++") {
-		return heldKeys(strings.TrimSuffix(chord, "++")), "+", nil
+		chord = chord[:len(chord)-1] + "plus"
 	}
 	parts := heldKeys(chord)
 	if len(parts) == 0 || strings.HasSuffix(chord, "+") {
 		return nil, "", fmt.Errorf("no key in %q", keys)
 	}
-	key = parts[len(parts)-1]
-	if key == "plus" {
-		key = "+"
-	}
-	return parts[:len(parts)-1], key, nil
+	return parts[:len(parts)-1], parts[len(parts)-1], nil
+}
+
+var keyAliases = map[string]string{
+	"control": "ctrl", "option": "alt", "opt": "alt", "command": "cmd", "meta": "cmd", "super": "cmd", "win": "cmd",
+	"enter": "return", "escape": "esc", "delete": "backspace", "plus": "+",
 }
 
 func heldKeys(keys string) []string {
 	var names []string
 	for _, part := range strings.Split(strings.ToLower(keys), "+") {
 		if name := strings.TrimSpace(part); name != "" {
-			names = append(names, name)
+			names = append(names, cmp.Or(keyAliases[name], name))
 		}
 	}
 	return names

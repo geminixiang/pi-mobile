@@ -42,11 +42,12 @@ type remoteSession struct {
 	clipboard error
 }
 
+var textTypes = []string{plainText, "text/plain", "UTF8_STRING"}
+
 type selectionOwner int
 
 const (
-	ownerUnknown selectionOwner = iota
-	ownerNobody
+	ownerNobody selectionOwner = iota
 	ownerUs
 	ownerOtherText
 	ownerOtherNoText
@@ -123,7 +124,7 @@ func restoreTokenFile() string {
 }
 
 func rememberRestoreToken(token string) error {
-	if err := os.MkdirAll(filepath.Dir(restoreTokenFile()), 0o700); err != nil {
+	if err := os.MkdirAll(stateDir(), 0o700); err != nil {
 		return err
 	}
 	return os.WriteFile(restoreTokenFile(), []byte(token), 0o600)
@@ -249,19 +250,15 @@ func (s *portalScreen) notify(method string, args ...any) error {
 	return nil
 }
 
-func (s *portalScreen) moveLocked(x, y float64) error {
+func (s *portalScreen) pointer(x, y float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	session, err := s.start()
 	if err != nil {
 		return err
 	}
 	s.px, s.py = x, y
 	return s.notify("NotifyPointerMotionAbsolute", session.stream, x, y)
-}
-
-func (s *portalScreen) pointer(x, y float64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.moveLocked(x, y)
 }
 
 func (s *portalScreen) button(name string, down bool, _ int) error {
@@ -329,7 +326,7 @@ func (s *portalScreen) press(name string, down bool) error {
 }
 
 func typedByKey(r rune) bool {
-	return r == '\n' || r == '\t' || (r >= 0x20 && r <= 0x7e)
+	return r == '\t' || (r >= 0x20 && r <= 0x7e)
 }
 
 func (s *portalScreen) typeRunes(text string) error {
@@ -379,7 +376,7 @@ func (s *portalScreen) offer(text string) error {
 	s.pasteMu.Lock()
 	s.pasteNow, s.owner = text, ownerUs
 	s.pasteMu.Unlock()
-	if err := s.desktop.Call(portalClip+".SetSelection", 0, session.handle, map[string]dbus.Variant{"mime_types": dbus.MakeVariant([]string{plainText, "text/plain", "UTF8_STRING"})}).Err; err != nil {
+	if err := s.desktop.Call(portalClip+".SetSelection", 0, session.handle, map[string]dbus.Variant{"mime_types": dbus.MakeVariant(textTypes)}).Err; err != nil {
 		return fmt.Errorf("SetSelection: %w", err)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -405,7 +402,7 @@ func (s *portalScreen) holdClipboard() (func() error, error) {
 		return func() error { return s.putClipboard(offered) }, nil
 	case ownerOtherNoText:
 		return nil, errNoClipboardText
-	case ownerUnknown, ownerNobody:
+	case ownerNobody:
 		// why: reading a clipboard nobody owns crashed xdg-desktop-portal-gnome 48, after which the portal refused every clipboard until the next login; the portal drops the owner mutter reports when a session starts, so an unknown owner may be nobody
 		return func() error { return nil }, nil
 	}
@@ -434,9 +431,7 @@ func ownerOf(options map[string]dbus.Variant) selectionOwner {
 	if variant, ok := options["mime_types"]; !ok || variant.Store(&listed) != nil || len(listed.Types) == 0 {
 		return ownerNobody
 	}
-	if slices.ContainsFunc(listed.Types, func(m string) bool {
-		return m == plainText || m == "text/plain" || m == "UTF8_STRING" || m == "STRING" || m == "TEXT"
-	}) {
+	if slices.ContainsFunc(listed.Types, func(m string) bool { return slices.Contains(textTypes, m) || m == "STRING" || m == "TEXT" }) {
 		return ownerOtherText
 	}
 	return ownerOtherNoText

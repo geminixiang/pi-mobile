@@ -293,6 +293,9 @@ func TestAPlusKeyAndSpacedChordsAreRead(t *testing.T) {
 			t.Errorf("%s: events = %s", keys, got)
 		}
 	}
+	if mods, key, _ := keyChord("Control+Option+Enter"); strings.Join(mods, ",") != "ctrl,alt" || key != "return" {
+		t.Errorf("aliases read as %v %q, want ctrl,alt and return", mods, key)
+	}
 	if _, _, err := keyChord("cmd+"); err == nil {
 		t.Error("a chord ending in a lone + should name no key")
 	}
