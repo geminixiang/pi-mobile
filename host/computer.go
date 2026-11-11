@@ -684,14 +684,14 @@ func (c *computer) front(steps []step) error {
 		return nil
 	}
 	looked := c.seen.ui[0]
-	if _, window, _, _ := c.screen.state(); window == looked.name || looked.target == nil {
+	if _, window, _, _ := c.screen.state(); window == "" || window == looked.name || looked.target == nil {
 		return nil
 	}
 	if err := looked.target.activate(false); err != nil {
 		return fmt.Errorf("the keys were not sent: %q is not in front and could not be brought there (%w)", looked.name, err)
 	}
 	time.Sleep(settle)
-	if _, window, _, _ := c.screen.state(); window != looked.name {
+	if _, window, _, _ := c.screen.state(); window != "" && window != looked.name {
 		return fmt.Errorf("the keys were not sent: %q is in front, not %q; click the window to work in first", window, looked.name)
 	}
 	return nil

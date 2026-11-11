@@ -570,3 +570,20 @@ func TestKeysWaitForTheWindowLookedAtToBeInFront(t *testing.T) {
 		t.Fatal("text was typed into the window in front")
 	}
 }
+
+type untitledFront struct{ windowScreen }
+
+func (s *untitledFront) state() (string, string, float64, float64) { return "Finder", "", 0, 0 }
+
+func TestKeysGoOnWhenTheWindowInFrontHasNoTitle(t *testing.T) {
+	s := &untitledFront{}
+	s.nodes = []uiNode{{role: "window", name: "files"}, {depth: 1, role: "button", name: "a"}, {depth: 1, role: "button", name: "b"}}
+	s.nodes[0].target = pressed{&s.windowScreen}
+	c := &computer{screen: s}
+	if _, err := c.shot(1, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.act([]step{{Action: "type", Text: "封存"}}, false); err != nil || len(s.activated) != 0 {
+		t.Fatalf("a rename field with no window title stopped the keys: err %v, activated %v", err, s.activated)
+	}
+}
