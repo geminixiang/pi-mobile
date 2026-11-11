@@ -167,8 +167,15 @@ function powershellRule(): Finding[] {
 		.map((file) => ({ file, line: 1, rule: "save this script as UTF-8 with a BOM: Windows PowerShell 5.1 reads a .ps1 without one as the system code page, and its Chinese breaks the script" }));
 }
 
+function viewportRule(): Finding[] {
+	const lines = readFileSync("index.html", "utf8").split("\n");
+	const line = lines.findIndex((text) => text.includes('name="viewport"'));
+	return lines[line]?.includes("maximum-scale=1") ? [] : [{ file: "index.html", line: line + 1, rule: "keep maximum-scale=1 in the viewport: iOS zooms the page into any field with text under 16px and never zooms back, so the whole app stays enlarged" }];
+}
+
 const all = [
 	...javaRule(),
+	...viewportRule(),
 	...installerRule(),
 	...powershellRule(),
 	...checkedFiles()
