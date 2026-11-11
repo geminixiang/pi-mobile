@@ -48,7 +48,7 @@ func (s *failingScreen) key(string) error {
 	s.calls = append(s.calls, "key")
 	return errors.New("key unavailable")
 }
-func (s *failingScreen) typeText(string) error { s.calls = append(s.calls, "type"); return nil }
+func (s *failingScreen) typeRunes(string) error { s.calls = append(s.calls, "type"); return nil }
 
 func TestComputerBatchFailureReturnsScreenAndStops(t *testing.T) {
 	s := &failingScreen{}
@@ -113,5 +113,82 @@ func TestClicksLandOnTheDisplayLastSeen(t *testing.T) {
 	}
 	if _, err := c.shot(3); err == nil || !strings.Contains(err.Error(), "has 2") {
 		t.Fatalf("a missing display should say how many there are, got %v", err)
+	}
+}
+
+type keyboard struct {
+	failingScreen
+	events []string
+}
+
+func (s *keyboard) key(keys string) error { s.events = append(s.events, "key "+keys); return nil }
+func (s *keyboard) typeRunes(line string) error {
+	s.events = append(s.events, "runes "+line)
+	return nil
+}
+
+type pasting struct {
+	keyboard
+	holdError, putError, restoreError error
+}
+
+func (s *pasting) holdClipboard() (func() error, error) {
+	if s.holdError != nil {
+		return nil, s.holdError
+	}
+	s.events = append(s.events, "hold")
+	return func() error { s.events = append(s.events, "restore"); return s.restoreError }, nil
+}
+func (s *pasting) putClipboard(text string) error {
+	if s.putError != nil {
+		return s.putError
+	}
+	s.events = append(s.events, "put "+text)
+	return nil
+}
+func (s *pasting) pasteKeys() string { return "ctrl+v" }
+
+func TestTextIsPastedLineByLineAndTheClipboardPutBack(t *testing.T) {
+	s := &pasting{}
+	if err := (&computer{screen: s}).typeText("中文 ok\r\n\nlast"); err != nil {
+		t.Fatal(err)
+	}
+	want := "hold,put 中文 ok,key ctrl+v,key return,key return,put last,key ctrl+v,restore"
+	if got := strings.Join(s.events, ","); got != want {
+		t.Fatalf("events = %s\nwant     %s", got, want)
+	}
+}
+
+func TestTextIsTypedKeyByKeyWithoutAClipboard(t *testing.T) {
+	busy := &pasting{holdError: errors.New("busy")}
+	none := &keyboard{}
+	for name, c := range map[string]struct {
+		screen screen
+		events *[]string
+	}{"busy": {busy, &busy.events}, "none": {none, &none.events}} {
+		if err := (&computer{screen: c.screen}).typeText("a\nb"); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(*c.events, ","); got != "runes a,key return,runes b" {
+			t.Fatalf("%s: events = %s", name, got)
+		}
+	}
+}
+
+func TestALineTheClipboardRefusesIsTypedAndTheClipboardStillPutBack(t *testing.T) {
+	s := &pasting{putError: errors.New("refused")}
+	if err := (&computer{screen: s}).typeText("a"); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.events, ","); got != "hold,runes a,restore" {
+		t.Fatalf("events = %s", got)
+	}
+}
+
+func TestAClipboardNotPutBackIsReported(t *testing.T) {
+	s := &pasting{restoreError: errors.New("locked")}
+	err := (&computer{screen: s}).typeText("a")
+	if err == nil || !strings.Contains(err.Error(), "clipboard could not be put back") {
+		t.Fatalf("error = %v", err)
 	}
 }

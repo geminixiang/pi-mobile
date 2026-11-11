@@ -528,7 +528,19 @@ func (s *winScreen) key(keys string) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return send(chordRecords(mods, vk))
+	if len(mods) == 0 {
+		return send(chordRecords(nil, vk))
+	}
+	records := chordRecords(mods, vk)
+	held, tapped, released := records[:len(mods)], records[len(mods):len(mods)+2], records[len(mods)+2:]
+	if err := send(held); err != nil {
+		return err
+	}
+	// why: WinUI apps such as Notepad check whether ctrl is down when they handle the key, not when it was sent; a chord sent at once pasted as a bare "v" or not at all
+	time.Sleep(chordHold)
+	tap := send(tapped)
+	time.Sleep(chordHold)
+	return errors.Join(tap, send(released))
 }
 
 func textRecords(text string) [][]inputRecord {
@@ -550,7 +562,21 @@ func textRecords(text string) [][]inputRecord {
 	return chunks
 }
 
-func (s *winScreen) typeText(text string) error {
+func (s *winScreen) holdClipboard() (func() error, error) {
+	var saved []clipItem
+	if err := withClipboard(func() error { saved = clipboardItems(); return nil }); err != nil {
+		return nil, err
+	}
+	return func() error { return withClipboard(func() error { return writeClipboard(saved) }) }, nil
+}
+
+func (s *winScreen) putClipboard(text string) error {
+	return withClipboard(func() error { return writeClipboard([]clipItem{textItem(text)}) })
+}
+
+func (s *winScreen) pasteKeys() string { return "ctrl+v" }
+
+func (s *winScreen) typeRunes(text string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return withInputMethodClosed(func() error {
@@ -573,6 +599,7 @@ const (
 	inputSettle      = 50 * time.Millisecond
 	inputDrain       = 300 * time.Millisecond
 	keyPace          = 15 * time.Millisecond
+	chordHold        = 30 * time.Millisecond
 )
 
 func focusedWindow() uintptr {

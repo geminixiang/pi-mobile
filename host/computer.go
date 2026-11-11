@@ -39,8 +39,16 @@ type screen interface {
 	drag(x, y, toX, toY float64) error
 	scroll(x, y float64, dx, dy int) error
 	key(keys string) error
-	typeText(text string) error
+	typeRunes(line string) error
 }
+
+type clipboard interface {
+	holdClipboard() (restore func() error, err error)
+	putClipboard(text string) error
+	pasteKeys() string
+}
+
+const pasteRead = 250 * time.Millisecond
 
 type step struct {
 	Action string  `json:"action"`
@@ -176,7 +184,7 @@ func (c *computer) run(s step) error {
 	case "key":
 		return c.screen.key(s.Keys)
 	case "type":
-		return c.screen.typeText(s.Text)
+		return c.typeText(s.Text)
 	case "wait":
 		time.Sleep(time.Duration(min(max(s.MS, 0), 10000)) * time.Millisecond)
 		return nil
@@ -204,6 +212,48 @@ func (c *computer) run(s step) error {
 		return c.screen.scroll(x, y, s.DX, s.DY)
 	}
 	return fmt.Errorf("unknown action %q", s.Action)
+}
+
+func (c *computer) typeText(text string) error {
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	board, ok := c.screen.(clipboard)
+	if !ok {
+		return c.typeLines(lines, nil)
+	}
+	restore, err := board.holdClipboard()
+	if err != nil {
+		return c.typeLines(lines, nil)
+	}
+	typed := c.typeLines(lines, board)
+	if err := restore(); err != nil {
+		return errors.Join(typed, fmt.Errorf("the text went in, but the clipboard could not be put back: %w", err))
+	}
+	return typed
+}
+
+func (c *computer) typeLines(lines []string, board clipboard) error {
+	for i, line := range lines {
+		if i > 0 {
+			if err := c.screen.key("return"); err != nil {
+				return err
+			}
+		}
+		if line == "" {
+			continue
+		}
+		if board == nil || board.putClipboard(line) != nil {
+			if err := c.screen.typeRunes(line); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := c.screen.key(board.pasteKeys()); err != nil {
+			return err
+		}
+		// why: the app reads the clipboard after the paste keys arrive, so the next line or the restored clipboard must wait for it
+		time.Sleep(pasteRead)
+	}
+	return nil
 }
 
 func pauseAfter(s step) time.Duration {

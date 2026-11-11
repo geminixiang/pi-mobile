@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	_ "image/png"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -338,7 +339,7 @@ func typedByKey(r rune) bool {
 	return r == '\n' || r == '\t' || (r >= 0x20 && r <= 0x7e)
 }
 
-func (s *portalScreen) typeText(text string) error {
+func (s *portalScreen) typeRunes(text string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	runes := []rune(text)
@@ -364,6 +365,17 @@ func (s *portalScreen) typeText(text string) error {
 }
 
 func (s *portalScreen) paste(text string) error {
+	if err := s.offer(text); err != nil {
+		return err
+	}
+	if err := s.chord([]uint32{modifierKeysyms["ctrl"]}, 'v'); err != nil {
+		return err
+	}
+	time.Sleep(150 * time.Millisecond)
+	return nil
+}
+
+func (s *portalScreen) offer(text string) error {
 	session, err := s.start()
 	if err != nil {
 		return err
@@ -378,12 +390,42 @@ func (s *portalScreen) paste(text string) error {
 		return fmt.Errorf("SetSelection: %w", err)
 	}
 	time.Sleep(100 * time.Millisecond)
-	if err := s.chord([]uint32{modifierKeysyms["ctrl"]}, 'v'); err != nil {
-		return err
-	}
-	time.Sleep(150 * time.Millisecond)
 	return nil
 }
+
+func (s *portalScreen) holdClipboard() (func() error, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	session, err := s.start()
+	if err != nil {
+		return nil, err
+	}
+	if !session.clipboard {
+		return nil, errors.New("this desktop's portal has no clipboard")
+	}
+	var fd dbus.UnixFD
+	if err := s.desktop.Call(portalClip+".SelectionRead", 0, session.handle, plainText).Store(&fd); err != nil {
+		return nil, fmt.Errorf("read the clipboard: %w", err)
+	}
+	file := os.NewFile(uintptr(fd), "selection")
+	saved, err := io.ReadAll(io.LimitReader(file, clipboardLimit+1))
+	file.Close()
+	if err != nil {
+		return nil, err
+	}
+	if len(saved) > clipboardLimit {
+		return nil, errors.New("the clipboard is too large to put back")
+	}
+	return func() error { return s.putClipboard(string(saved)) }, nil
+}
+
+func (s *portalScreen) putClipboard(text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.offer(text)
+}
+
+func (s *portalScreen) pasteKeys() string { return "ctrl+v" }
 
 func (s *portalScreen) answerPastes(session dbus.ObjectPath) {
 	match := []dbus.MatchOption{dbus.WithMatchObjectPath(portalPath), dbus.WithMatchInterface(portalClip), dbus.WithMatchMember("SelectionTransfer")}

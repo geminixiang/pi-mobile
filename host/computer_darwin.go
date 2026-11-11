@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf16"
 
 	"github.com/ebitengine/purego"
@@ -324,40 +323,32 @@ func (s *macScreen) key(keys string) error {
 	return nil
 }
 
-func (s *macScreen) typeText(text string) error {
-	if !s.axTrusted() {
-		return errNoAccessibility
+var errNoPasteboard = errors.New("the pasteboard could not be opened")
+
+func (s *macScreen) holdClipboard() (func() error, error) {
+	if s.clipboard == nil {
+		return nil, errNoPasteboard
 	}
-	pasting := s.clipboard != nil && correctable(text)
-	if pasting {
-		saved := s.clipboard.save()
-		defer s.clipboard.restore(saved)
+	saved := s.clipboard.save()
+	return func() error { s.clipboard.restore(saved); return nil }, nil
+}
+
+func (s *macScreen) putClipboard(text string) error {
+	if s.clipboard == nil {
+		return errNoPasteboard
 	}
-	for i, line := range strings.Split(text, "\n") {
-		if i > 0 {
-			if err := s.key("return"); err != nil {
-				return err
-			}
-		}
-		if line == "" {
-			continue
-		}
-		if pasting && correctable(line) {
-			s.clipboard.setText(line)
-			if err := s.key("cmd+v"); err != nil {
-				return err
-			}
-			// why: the app reads the pasteboard after the cmd+v event arrives, so putting the user's clipboard back at once can paste that instead.
-			time.Sleep(250 * time.Millisecond)
-			continue
-		}
-		s.typeKeys(line)
-	}
+	s.clipboard.setText(text)
 	return nil
 }
 
-func correctable(line string) bool {
-	return strings.ContainsFunc(line, unicode.IsLetter) || strings.ContainsAny(line, "'\"-")
+func (s *macScreen) pasteKeys() string { return "cmd+v" }
+
+func (s *macScreen) typeRunes(line string) error {
+	if !s.axTrusted() {
+		return errNoAccessibility
+	}
+	s.typeKeys(line)
+	return nil
 }
 
 func (s *macScreen) typeKeys(line string) {

@@ -34,6 +34,7 @@ type x11Screen struct {
 	spare     []xproto.Keycode
 	shiftCode xproto.Keycode
 	atoms     map[string]xproto.Atom
+	clip      *selection
 }
 
 func newX11Screen(display string) (*x11Screen, error) {
@@ -350,7 +351,7 @@ func (s *x11Screen) tap(place keyPlace) {
 	time.Sleep(5 * time.Millisecond)
 }
 
-func (s *x11Screen) typeText(text string) error {
+func (s *x11Screen) typeRunes(text string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	runes := []rune(text)
