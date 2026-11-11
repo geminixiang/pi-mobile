@@ -75,6 +75,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`) | Stylelint (`selector-pseudo-class-disallowed-list`) |
 | Font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`declaration-property-value-allowed-list`) |
 | Android code is Kotlin: no `.java` file | `test/code-rules.ts` |
+| Scripts are `.js`, never `.mjs` or `.cjs` (`package.json` sets `"type": "module"`) | `test/code-rules.ts` |
 | A bot's tools are its toolsets (`Bot.off`) and place projected onto tool names (`removedTools`), written only by `BotToolsets`; a tool result cannot switch a tool back on (`ToolFilterExtension` is the only reader of `addTools` and the last `afterTool`) | `test/contracts/where.ts`, `test/contracts/bots.ts`, `test/toolsets.ts`, `test/code-rules.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `removedTools`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |

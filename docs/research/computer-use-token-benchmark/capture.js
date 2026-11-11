@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 
 const [arm, command, ...args] = process.argv.slice(2);
-if (!['own', 'upstream'].includes(arm) || !command) throw new Error('Usage: node capture.mjs own|upstream COMMAND [ARGS...]');
+if (!['own', 'upstream'].includes(arm) || !command) throw new Error('Usage: node capture.js own|upstream COMMAND [ARGS...]');
 const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 const pending = new Map();
 let id = 0;

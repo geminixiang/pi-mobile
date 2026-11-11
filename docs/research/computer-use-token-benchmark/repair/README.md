@@ -65,13 +65,13 @@
 先依上一層 README 開治具與專用可見 Chrome，再執行：
 
 ```sh
-COUNT=10 LABEL=before BINARY=/path/to/baseline node native-regression.mjs
-COUNT=10 LABEL=after BINARY=/path/to/fixed node native-regression.mjs
-BINARY=/path/to/fixed node failure-screen.mjs
-TASKS=orders RUN_PREFIX=new-fixed REPEATS=5 node driver.mjs
+COUNT=10 LABEL=before BINARY=/path/to/baseline node native-regression.js
+COUNT=10 LABEL=after BINARY=/path/to/fixed node native-regression.js
+BINARY=/path/to/fixed node failure-screen.js
+TASKS=orders RUN_PREFIX=new-fixed REPEATS=5 node driver.js
 ```
 
-第一個命令應失敗，後兩個原生檢查應通過。`driver.mjs` 是原 benchmark harness 的定點副本，只改 binary、單獨跑 own，以及輸出資料夾；模型、prompt、fixture 與 oracle 不變。要重跑模型測試，先依環境調整它的 binary 路徑與模型 API 設定。
+第一個命令應失敗，後兩個原生檢查應通過。`driver.js` 是原 benchmark harness 的定點副本，只改 binary、單獨跑 own，以及輸出資料夾；模型、prompt、fixture 與 oracle 不變。要重跑模型測試，先依環境調整它的 binary 路徑與模型 API 設定。
 
 `native-before.json`、`native-after.json` 保存逐次事件；`runs/` 保存七次模型 usage、操作、state 與最後畫面。公開紀錄不保留 reasoning_content。
 

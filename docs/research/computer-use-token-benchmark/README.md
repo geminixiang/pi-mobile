@@ -18,8 +18,8 @@
 - **方法與限制：[PROTOCOL.md](PROTOCOL.md)**
 - **發文草稿：[X-draft.md](X-draft.md)**
 - `task-results.json`、`runs/`：逐次 usage、工具軌跡、完整 state oracle 與最後畫面。
-- `direct.mjs`、`server.mjs`、`fixture.html`：實際執行程式與隔離治具。
-- `verify.mjs`、`summarize.mjs`：重新驗證與彙整已保存結果，不呼叫模型。
+- `direct.js`、`server.js`、`fixture.html`：實際執行程式與隔離治具。
+- `verify.js`、`summarize.js`：重新驗證與彙整已保存結果，不呼叫模型。
 
 這不是通用 computer-use 排名：單模型路由、特製表單任務、每格五次。包含一筆真實失敗，沒有刪掉或補跑。手機 app 的兩次 code-mode 圖片遺失預檢另存，不算進這 30 次。
 
@@ -62,8 +62,8 @@ pi-mobile 是 screenshot、act 兩個工具，對照是 computer 一個工具。
 ```sh
 python3 -m venv .venv
 .venv/bin/pip install tiktoken==0.14.0
-node capture.mjs own /path/to/pi-mobile mcp computer
-node capture.mjs upstream npx -y computer-use-mcp@1.8.0
+node capture.js own /path/to/pi-mobile mcp computer
+node capture.js upstream npx -y computer-use-mcp@1.8.0
 .venv/bin/python count.py
 ```
 
@@ -74,7 +74,7 @@ node capture.mjs upstream npx -y computer-use-mcp@1.8.0
 需要隔離的可見 macOS Chrome、1920×1080 主螢幕、已授權的 pi-mobile host、兩個固定版本 MCP，以及自己的模型 API credential。程式的 host／command 路徑請依環境調整，不要將金鑰存入 repo。
 
 ```sh
-node server.mjs
+node server.js
 ```
 
 另開 terminal，使用全新的測試 profile，勿指向個人 Chrome profile：
@@ -86,9 +86,9 @@ open -na 'Google Chrome' --args \
   --no-first-run --no-default-browser-check --disable-sync --disable-extensions \
   --window-position=0,25 --window-size=1920,990 \
   http://127.0.0.1:47881/
-RUN_PREFIX=new-experiment REPEATS=5 node direct.mjs
+RUN_PREFIX=new-experiment REPEATS=5 node direct.js
 ```
 
-`direct.mjs` 使用既有本機 CLIProxyAPI 設定檔；請先核對自己的 endpoint 與憑證。實驗會真的花模型 tokens，並持續操作專用桌面視窗。使用新的 RUN_PREFIX 避免覆寫已保存結果。驗證器目前固定核對本批 `direct-pilot-*`／`confirm-*` 的 30 次結果。
+`direct.js` 使用既有本機 CLIProxyAPI 設定檔；請先核對自己的 endpoint 與憑證。實驗會真的花模型 tokens，並持續操作專用桌面視窗。使用新的 RUN_PREFIX 避免覆寫已保存結果。驗證器目前固定核對本批 `direct-pilot-*`／`confirm-*` 的 30 次結果。
 
 原本的 TextEdit 系統權限問題已透過**改用本機 GUI 治具**避開，沒有代替使用者允許 OS 授權，也沒有繞過 TCC。另發現的手機圖片遺失問題有紀錄，但沒有在這次 benchmark 中修改產品實作。

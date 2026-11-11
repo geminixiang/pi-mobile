@@ -229,7 +229,7 @@ pi 是一個住在口袋裡的 agent，畫面要像一張安靜的製圖紙：�
 - **press**：打開、長按成立（側欄開、長按叫出選單、手勢拉開瀏覽器、開始語音輸入）。
 - **confirm**：動作完成（複製成功、轉盤選定）。
 - 不震：送出、一般按鈕、開關、捲到底、串流、背景事件、錯誤；點背景或按鈕關掉面板也不震。
-- 瀏覽器的拉開、推回在裝置上用 `test/device/browser-haptics.mjs` 驗（真的觸控，`ANDROID_SERIAL` 必填）。
+- 瀏覽器的拉開、推回在裝置上用 `test/device/browser-haptics.js` 驗（真的觸控，`ANDROID_SERIAL` 必填）。
 
 ## Elevation & Depth
 

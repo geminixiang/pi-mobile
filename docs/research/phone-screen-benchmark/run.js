@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const [serial, variant, rounds = "3", only = ""] = process.argv.slice(2);
-if (!serial || !variant) throw new Error("usage: CDP_PORT=<port> node run.mjs <serial> <variant> [rounds] [task,task]");
+if (!serial || !variant) throw new Error("usage: CDP_PORT=<port> node run.js <serial> <variant> [rounds] [task,task]");
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const out = fileURLToPath(new URL("./runs/", import.meta.url));
 mkdirSync(out, { recursive: true });

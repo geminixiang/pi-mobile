@@ -1,6 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const source=await readFile(new URL('../direct.mjs',import.meta.url),'utf8');
+const source=await readFile(new URL('../direct.js',import.meta.url),'utf8');
 const connect=Function(source.slice(source.indexOf('async function mcp('),source.indexOf('const commands='))+'return mcp;')();
 const client=await connect((process.env.BINARY??'/tmp/pi-computer-token-bench/pi-mobile-fixed')+' mcp computer');
 try{

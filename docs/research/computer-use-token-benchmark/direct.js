@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 const out=new URL('./runs/',import.meta.url);await mkdir(out,{recursive:true});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 const config=JSON.parse(await readFile(process.env.HOME+'/.pi/agent/cliproxyapi.json','utf8'));
-const source=await readFile(new URL('../run.mjs',import.meta.url),'utf8');
+const source=await readFile(new URL('./run.js',import.meta.url),'utf8');
 const taskSource=source.slice(source.indexOf('const tasks='),source.indexOf('const rules='));
 const tasks=Function(taskSource+'return tasks;')();
 const judgeSource=source.slice(source.indexOf('function judge('),source.indexOf('const repeats='));
@@ -19,12 +19,12 @@ async function mcp(command){
  const initialized=await call('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'gui-benchmark',version:'1.0.0'}});ws.send(new TextEncoder().encode(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n'));
  return {call,close:()=>ws.close(),initialized};
 }
-const commands={own:'/tmp/pi-computer-token-bench/pi-mobile-fixed mcp computer',upstream:`node ${process.env.HOME}/.npm/_npx/f4783362991e8b05/node_modules/computer-use-mcp/dist/main.js`};
+const commands={own:'/tmp/pi-computer-token-bench/pi-mobile mcp computer',upstream:`node ${process.env.HOME}/.npm/_npx/f4783362991e8b05/node_modules/computer-use-mcp/dist/main.js`};
 const browser=await cdp();const clients={};
 const model=process.env.BENCH_MODEL??'gpt-6.1-sol',prefix=process.env.RUN_PREFIX??'direct-pilot',repeats=Number(process.env.REPEATS??1),selected=process.env.TASKS?.split(',')??Object.keys(tasks);
 try{
- for(const arm of ['own'])clients[arm]=await mcp(commands[arm]);
- for(let rep=1;rep<=repeats;rep++)for(const task of selected)for(const arm of ['own']){
+ for(const arm of ['own','upstream'])clients[arm]=await mcp(commands[arm]);
+ for(let rep=1;rep<=repeats;rep++)for(const task of selected)for(const arm of rep%2?['own','upstream']:['upstream','own']){
   const run=`${prefix}-${task}-${rep}-${arm}`;console.log('START '+run);
   await fetch('http://127.0.0.1:47881/reset?run='+run,{method:'POST'});await browser.call('Page.navigate',{url:'http://127.0.0.1:47881/'});await delay(500);await browser.call('Page.bringToFront');const before=await browser.evaluate('window.state');if(!before)throw new Error('fixture not loaded');
   const definitions=(await clients[arm].call('tools/list')).tools;const tools=definitions.map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.inputSchema}}));

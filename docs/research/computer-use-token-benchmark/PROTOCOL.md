@@ -15,11 +15,11 @@
 
 手機部署版本把兩邊 MCP 的圖片都轉成 code mode 的字串結果；模型拿不到圖片。兩次 orders 預檢都失敗，保存為 `pilot-orders-*`，**不是有效的 computer-use 比較樣本**。沒有把這兩次失敗算成任一 server 的能力或 token 優勢。
 
-改用 `direct.mjs` 的相同直接 MCP adapter 後，兩邊都收到圖片且完成任務。這批衡量的是 MCP 配合固定 agent loop 的結果，不是 pi-mobile 手機 app 的端到端效能。
+改用 `direct.js` 的相同直接 MCP adapter 後，兩邊都收到圖片且完成任務。這批衡量的是 MCP 配合固定 agent loop 的結果，不是 pi-mobile 手機 app 的端到端效能。
 
 ## 三個任務
 
-`fixture.html` 為唯一測試環境。網站與資料庫只在本機執行；合成資料的截圖和工具回傳會送到設定的模型 API。`run.mjs` 保存三個原始中文題目，`direct.mjs` 使用相同題目。
+`fixture.html` 為唯一測試環境。網站與資料庫只在本機執行；合成資料的截圖和工具回傳會送到設定的模型 API。`run.js` 保存三個原始中文題目，`direct.js` 使用相同題目。
 
 1. **訂單**：篩選待處理訂單、跨頁找名稱相近客戶中的正確訂單、修改收件人／電話／配送／備註、勾選核對、在確認頁輸入訂單編號、儲存。
 2. **報銷**：修改草稿用途／部門／申請人，保留日期；下一步修改兩個金額、刪除一列、新增一列；再核對總額、勾單據、真正送出。
@@ -55,8 +55,8 @@
 
 ## 重跑
 
-1. 啟動 `server.mjs`，以隔離的可見 Chrome profile 打開 `http://127.0.0.1:47881/`，debugging port 9444。
-2. 啟動同版本的兩個 MCP server；`direct.mjs` 預設透過 pi-mobile host `/exec` 建立 stdio transport。依環境調整 host／binary 路徑。
+1. 啟動 `server.js`，以隔離的可見 Chrome profile 打開 `http://127.0.0.1:47881/`，debugging port 9444。
+2. 啟動同版本的兩個 MCP server；`direct.js` 預設透過 pi-mobile host `/exec` 建立 stdio transport。依環境調整 host／binary 路徑。
 3. 設定本機既有 CLIProxyAPI credential 檔；不要把金鑰寫入 repo。
-4. 執行 `RUN_PREFIX=your-run REPEATS=5 node direct.mjs`。只量一題可設定 `TASKS=orders`、`expense` 或 `projects`。
+4. 執行 `RUN_PREFIX=your-run REPEATS=5 node direct.js`。只量一題可設定 `TASKS=orders`、`expense` 或 `projects`。
 5. 對照 `runs/*.json` 中的 actual/expected state、usage 與 trace，不以 answer 文字代替判分。

@@ -2,7 +2,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const source=await readFile(root+'direct.mjs','utf8');
+const source=await readFile(root+'direct.js','utf8');
 const cdp=Function(source.slice(source.indexOf('async function cdp()'),source.indexOf('async function mcp('))+'return cdp;')();
 const mcp=Function(source.slice(source.indexOf('async function mcp('),source.indexOf('const commands='))+'return mcp;')();
 const browser=await cdp(),client=await mcp((process.env.BINARY??'/tmp/pi-computer-token-bench/pi-mobile')+' mcp computer');

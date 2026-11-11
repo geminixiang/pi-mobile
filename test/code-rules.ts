@@ -161,6 +161,12 @@ function installerRule(): Finding[] {
 	);
 }
 
+function moduleExtensionRule(): Finding[] {
+	return checkedFiles()
+		.filter((file) => file.endsWith(".mjs") || file.endsWith(".cjs"))
+		.map((file) => ({ file, line: 1, rule: "name this script .js: package.json sets \"type\": \"module\", so a .js file is already an ES module" }));
+}
+
 function powershellRule(): Finding[] {
 	return checkedFiles()
 		.filter((file) => file.endsWith(".ps1") && !readFileSync(file).subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])))
@@ -178,6 +184,7 @@ const all = [
 	...viewportRule(),
 	...installerRule(),
 	...powershellRule(),
+	...moduleExtensionRule(),
 	...checkedFiles()
 		.filter((file) => SCRIPT_FILE.test(file) && !DEVICE_SCRIPTS.test(file))
 		.flatMap(findings),

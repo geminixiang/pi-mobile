@@ -53,7 +53,7 @@
 
 ## 第一輪：清單加截圖 vs 只有清單（2026-10-25）
 
-**設定**：S24，`main` 的 `06c96c2`。只改 `phone-screen.ts`：「只有清單」不附截圖，說明裡的「a screenshot」拿掉、座標改叫 points（原生端照樣截圖，所以時間不受影響）。GPT 6.1 Sol（新 Bot 的預設），每題 3 次，五題輪流，每次都是新的暫時 Bot、目標 app 先 force-stop（計算機另外 `pm clear`，否則會留著上次的 984）。執行：`docs/research/phone-screen-benchmark/run.mjs <serial> <variant> 3`（原始 trace 在 `runs/`，含使用者的鬧鐘和 app 名稱，不進 repo）。
+**設定**：S24，`main` 的 `06c96c2`。只改 `phone-screen.ts`：「只有清單」不附截圖，說明裡的「a screenshot」拿掉、座標改叫 points（原生端照樣截圖，所以時間不受影響）。GPT 6.1 Sol（新 Bot 的預設），每題 3 次，五題輪流，每次都是新的暫時 Bot、目標 app 先 force-stop（計算機另外 `pm clear`，否則會留著上次的 984）。執行：`docs/research/phone-screen-benchmark/run.js <serial> <variant> 3`（原始 trace 在 `runs/`，含使用者的鬧鐘和 app 名稱，不進 repo）。
 
 | 題目 | 版本 | 成功 | 秒數中位數（範圍） | 模型呼叫 | 輸入 tokens 中位數 | 未快取 | 截圖數 |
 |---|---|---|---|---|---|---|---|

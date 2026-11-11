@@ -194,4 +194,4 @@ agent-desktop snapshot --app Finder -i      # 再看一次確認
 - 如果要讓 Bot 自己用 agent-desktop（例如寫成 skill），至少要做到兩件事：
   - 鼓勵用 `batch`。
   - 舊快照不要一直留在上下文裡。
-- 測試腳本（`adbench.mjs`）和每次的完整紀錄留在 session 的 scratchpad，沒有放進 repo。
+- 測試腳本（`adbench.js`）和每次的完整紀錄留在 session 的 scratchpad，沒有放進 repo。

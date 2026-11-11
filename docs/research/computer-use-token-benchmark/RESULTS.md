@@ -84,15 +84,15 @@ API `prompt_tokens` 已含 cached_tokens，沒有再加一次。`completion_toke
 ## 核對與檔案
 
 ```sh
-node verify.mjs
-node summarize.mjs
+node verify.js
+node summarize.js
 ```
 
-- `verify.mjs`：檢查 30 次、每格五次、圖片確實交付、工具 allowlist、usage 算術與完整 state verdict。
+- `verify.js`：檢查 30 次、每格五次、圖片確實交付、工具 allowlist、usage 算術與完整 state verdict。
 - `task-results.json`：彙整與逐次數字。
 - `runs/*.json`：逐次 usage／tool trace／state；`runs/*.png`：最後畫面。
 - `manifest.json`：模型路由、系統、binary 與測試原始碼 hashes。
-- `direct.mjs`、`fixture.html`、`server.mjs`：實驗程式。
+- `direct.js`、`fixture.html`、`server.js`：實驗程式。
 - [X-draft.md](X-draft.md)：可用發文草稿，未發布。
 
 完成後已關閉專用 Chrome、停止治具 server、移除手機上的暫時 MCP 服務與 Bot；未變動產品程式。早期 Ego staging space 已不存在，已確認沒有殘留同名 space。`npm run check` 通過。
