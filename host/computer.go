@@ -92,7 +92,7 @@ type uiTarget interface {
 }
 
 type uiReader interface {
-	window() ([]uiNode, bool)
+	window(on display) ([]uiNode, bool)
 }
 
 const (
@@ -223,7 +223,7 @@ func (c *computer) shot(index int, picture bool) ([]any, error) {
 			now.focus, _ = reader.focused()
 		}
 		if reader, ok := c.screen.(uiReader); ok {
-			now.ui, now.read = reader.window()
+			now.ui, now.read = reader.window(d)
 		}
 		return now
 	}()

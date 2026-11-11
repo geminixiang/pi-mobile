@@ -25,7 +25,7 @@ var skipped = map[string]bool{"scroll bar": true, "separator": true, "image": tr
 
 var rows = map[string]bool{"table row": true, "list item": true, "tree item": true}
 
-func (a *accessibility) window() ([]uiNode, bool) {
+func (a *accessibility) window(display) ([]uiNode, bool) {
 	if a == nil {
 		return nil, false
 	}

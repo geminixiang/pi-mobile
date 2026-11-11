@@ -433,7 +433,7 @@ type windowScreen struct {
 	activated []bool
 }
 
-func (s *windowScreen) window() ([]uiNode, bool) { return s.nodes, true }
+func (s *windowScreen) window(display) ([]uiNode, bool) { return s.nodes, true }
 
 type pressed struct{ s *windowScreen }
 

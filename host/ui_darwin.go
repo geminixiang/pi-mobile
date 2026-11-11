@@ -99,7 +99,7 @@ func newAXTree(lib uintptr, s *macScreen) *axTree {
 	return t
 }
 
-func (s *macScreen) window() ([]uiNode, bool) {
+func (s *macScreen) window(display) ([]uiNode, bool) {
 	if s.tree == nil {
 		return nil, false
 	}

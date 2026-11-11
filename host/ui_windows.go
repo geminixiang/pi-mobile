@@ -37,6 +37,7 @@ var (
 	showWindow          = user32.NewProc("ShowWindow")
 	setForegroundWindow = user32.NewProc("SetForegroundWindow")
 	bringWindowToTop    = user32.NewProc("BringWindowToTop")
+	getWindowRect       = user32.NewProc("GetWindowRect")
 	attachThreadInput   = user32.NewProc("AttachThreadInput")
 	getWindowLong       = user32.NewProc("GetWindowLongW")
 	dwmAttribute        = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmGetWindowAttribute")
@@ -50,11 +51,11 @@ var (
 	leafTypes      = map[int32]bool{50007: true, 50024: true, 50029: true, 50019: true, 50005: true}
 )
 
-func (s *winScreen) window() ([]uiNode, bool) {
+func (s *winScreen) window(on display) ([]uiNode, bool) {
 	if s.automation == nil {
 		return nil, false
 	}
-	front := uintptr(windows.GetForegroundWindow())
+	front := topOn(on)
 	if front == 0 {
 		return nil, false
 	}
@@ -109,6 +110,16 @@ func (w *uiaWalker) visit(element uintptr, depth int) {
 			n.name = strings.TrimSpace(n.name + " =" + clip(text, uiName))
 		}
 	}
+	if kind == 50030 {
+		if text := pattern(element, textPatternID, &iidTextPattern); text != 0 {
+			var f focus
+			readText(text, &f)
+			release(text)
+			if f.end != "" {
+				n.name = strings.TrimSpace(n.name + " =" + lastLines(f.end, f.length > len([]rune(f.end))))
+			}
+		}
+	}
 	var focused, enabled int32
 	comCall(element, elementHasFocus, uintptr(unsafe.Pointer(&focused)))
 	comCall(element, elementEnabled, uintptr(unsafe.Pointer(&enabled)))
@@ -149,6 +160,32 @@ func (w *uiaWalker) children(element uintptr, depth int) {
 		release(child)
 		child = next
 	}
+}
+
+// why: the foreground window can be on another display than the one looked at, and its elements say nothing about this one
+func topOn(on display) uintptr {
+	foreground := uintptr(windows.GetForegroundWindow())
+	if within(foreground, on) {
+		return foreground
+	}
+	for _, w := range topWindows() {
+		if !hidden(w.handle) && within(w.handle, on) {
+			return w.handle
+		}
+	}
+	return foreground
+}
+
+func within(handle uintptr, on display) bool {
+	var box windows.Rect
+	if ok, _, _ := getWindowRect.Call(handle, uintptr(unsafe.Pointer(&box))); ok == 0 {
+		return false
+	}
+	if minimized, _, _ := isIconic.Call(handle); minimized != 0 {
+		return false
+	}
+	x, y := float64(box.Left+box.Right)/2, float64(box.Top+box.Bottom)/2
+	return x >= on.x && x < on.x+on.w && y >= on.y && y < on.y+on.h
 }
 
 func elementString(element uintptr, property int) string {
