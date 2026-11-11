@@ -81,6 +81,8 @@ push 到 main 和開 PR 時，CI 會跑一次 `npm run check`（`.github/workflo
 
 改到打開系統設定的外掛方法（`open…Settings`、`openAppInfo`）時，跑 `./test/device/settings-shortcuts.sh <serial> <DevTools port>`：每個都呼叫一次，pi 的程序換了就算失敗。系統只給系統 app 的頁面（例如 `ACCESSIBILITY_DETAILS_SETTINGS`，要 `OPEN_ACCESSIBILITY_DETAILS_SETTINGS`）`resolveActivity` 照樣找得到，開下去才丟 `SecurityException`，讓 pi 整個崩掉。
 
+改到 host 的電腦操作（`host/computer*.go`、`host/clipboard*.go`）時，跑 `./test/device/wayland/run.sh`（要 Docker 和 Go，約 2 分鐘）：在容器裡起一個無頭的 GNOME 48 Wayland 桌面（gnome-shell、xdg-desktop-portal-gnome、PipeWire），自己按下遠端桌面的授權、用存下的 token 重連，再讓 host 在文字編輯器裡多行貼上（中文、符號、空行）、雙擊換字、`ctrl+end`、`ctrl+s`，最後比對存檔內容和剪貼簿有沒有放回原樣；失敗時印出差在哪、留下截圖。這個桌面沒有實體鍵盤：腳本自己開一條遠端連線一直不關，當作插著的鍵盤，否則鍵盤會隨連線開關忽有忽無。Windows、macOS 和 X11 用真機或 `Xvfb` 測。
+
 ### 效能量測（120 Hz）
 
 只在 S24 上量；模擬器的 vsync、GPU、CPU 都不是手機的，數字只能拿來驗證腳本。
