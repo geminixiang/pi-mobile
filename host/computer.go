@@ -34,13 +34,19 @@ type screen interface {
 	displays() ([]display, error)
 	capture(d display) (image.Image, error)
 	state() (app, window string, x, y float64)
-	click(x, y float64, button string, count int) error
-	move(x, y float64) error
-	drag(x, y, toX, toY float64) error
-	scroll(x, y float64, dx, dy int) error
-	key(keys string) error
+	pointer(x, y float64) error
+	button(name string, down bool, click int) error
+	wheel(dx, dy int) error
+	press(key string, down bool) error
 	typeRunes(line string) error
 }
+
+const (
+	clickAim  = 30 * time.Millisecond
+	dragSteps = 12
+	dragStep  = 15 * time.Millisecond
+	chordHold = 30 * time.Millisecond
+)
 
 type clipboard interface {
 	holdClipboard() (restore func() error, err error)
@@ -182,7 +188,7 @@ func (c *computer) lastDisplay() int {
 func (c *computer) run(s step) error {
 	switch s.Action {
 	case "key":
-		return c.screen.key(s.Keys)
+		return c.key(s.Keys)
 	case "type":
 		return c.typeText(s.Text)
 	case "wait":
@@ -202,16 +208,84 @@ func (c *computer) run(s step) error {
 		if button == "" {
 			button = "left"
 		}
-		return c.screen.click(x, y, button, max(s.Count, 1))
+		return c.click(x, y, button, max(s.Count, 1))
 	case "move":
-		return c.screen.move(x, y)
+		return c.screen.pointer(x, y)
 	case "drag":
 		toX, toY := at(s.ToX, s.ToY)
-		return c.screen.drag(x, y, toX, toY)
+		return c.drag(x, y, toX, toY)
 	case "scroll":
-		return c.screen.scroll(x, y, s.DX, s.DY)
+		if err := c.screen.pointer(x, y); err != nil {
+			return err
+		}
+		return c.screen.wheel(s.DX, s.DY)
 	}
 	return fmt.Errorf("unknown action %q", s.Action)
+}
+
+func (c *computer) click(x, y float64, button string, count int) error {
+	if err := c.screen.pointer(x, y); err != nil {
+		return err
+	}
+	time.Sleep(clickAim)
+	for i := 1; i <= count; i++ {
+		if err := c.screen.button(button, true, i); err != nil {
+			return err
+		}
+		if err := c.screen.button(button, false, i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *computer) drag(x, y, toX, toY float64) error {
+	if err := c.screen.pointer(x, y); err != nil {
+		return err
+	}
+	if err := c.screen.button("left", true, 1); err != nil {
+		return err
+	}
+	for i := 1; i <= dragSteps; i++ {
+		time.Sleep(dragStep)
+		if err := c.screen.pointer(x+(toX-x)*float64(i)/dragSteps, y+(toY-y)*float64(i)/dragSteps); err != nil {
+			return errors.Join(err, c.screen.button("left", false, 1))
+		}
+	}
+	return c.screen.button("left", false, 1)
+}
+
+func (c *computer) key(keys string) error {
+	mods, name, err := keyChord(keys)
+	if err != nil {
+		return err
+	}
+	held := []string{}
+	release := func() error {
+		var errs []error
+		for i := len(held) - 1; i >= 0; i-- {
+			errs = append(errs, c.screen.press(held[i], false))
+		}
+		return errors.Join(errs...)
+	}
+	for _, mod := range mods {
+		if err := c.screen.press(mod, true); err != nil {
+			return errors.Join(err, release())
+		}
+		held = append(held, mod)
+	}
+	if len(held) > 0 {
+		// why: WinUI apps such as Notepad check whether ctrl is down when they handle the key, not when it was sent; a chord sent at once pasted a bare "v" or nothing
+		time.Sleep(chordHold)
+	}
+	if err := c.screen.press(name, true); err != nil {
+		return errors.Join(err, release())
+	}
+	tapped := c.screen.press(name, false)
+	if len(held) > 0 {
+		time.Sleep(chordHold)
+	}
+	return errors.Join(tapped, release())
 }
 
 func (c *computer) typeText(text string) error {
@@ -234,7 +308,7 @@ func (c *computer) typeText(text string) error {
 func (c *computer) typeLines(lines []string, board clipboard) error {
 	for i, line := range lines {
 		if i > 0 {
-			if err := c.screen.key("return"); err != nil {
+			if err := c.key("return"); err != nil {
 				return err
 			}
 		}
@@ -247,7 +321,7 @@ func (c *computer) typeLines(lines []string, board clipboard) error {
 			}
 			continue
 		}
-		if err := c.screen.key(board.pasteKeys()); err != nil {
+		if err := c.key(board.pasteKeys()); err != nil {
 			return err
 		}
 		// why: the app reads the clipboard after the paste keys arrive, so the next line or the restored clipboard must wait for it

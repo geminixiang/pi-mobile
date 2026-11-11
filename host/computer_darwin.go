@@ -70,6 +70,9 @@ type macScreen struct {
 	appElement       func(int32) uintptr
 	copyAttribute    func(uintptr, uintptr, *uintptr) int32
 	clipboard        *pasteboard
+	at               cgPoint
+	held             string
+	flags            uint64
 }
 
 func newScreen() (screen, error) {
@@ -232,94 +235,69 @@ func (s *macScreen) mouse(kind uint32, x, y float64, button uint32, clicks int) 
 	s.send(event)
 }
 
-func (s *macScreen) move(x, y float64) error {
+var macButtons = map[string]struct{ down, up, number uint32 }{
+	"left":   {leftDown, leftUp, 0},
+	"right":  {rightDown, rightUp, 1},
+	"middle": {otherDown, otherUp, 2},
+}
+
+func (s *macScreen) pointer(x, y float64) error {
 	if !s.axTrusted() {
 		return errNoAccessibility
 	}
-	s.mouse(mouseMoved, x, y, 0, 0)
+	s.at = cgPoint{x, y}
+	kind := uint32(mouseMoved)
+	if s.held == "left" {
+		kind = leftDragged
+	}
+	s.mouse(kind, x, y, 0, 0)
 	return nil
 }
 
-func (s *macScreen) click(x, y float64, button string, count int) error {
-	down, up, number := uint32(leftDown), uint32(leftUp), uint32(0)
-	switch button {
-	case "right":
-		down, up, number = rightDown, rightUp, 1
-	case "middle":
-		down, up, number = otherDown, otherUp, 2
+func (s *macScreen) button(name string, down bool, click int) error {
+	if !s.axTrusted() {
+		return errNoAccessibility
 	}
-	if err := s.move(x, y); err != nil {
-		return err
+	button, ok := macButtons[name]
+	if !ok {
+		return fmt.Errorf("unknown button %q", name)
 	}
-	time.Sleep(30 * time.Millisecond)
-	for i := 1; i <= count; i++ {
-		s.mouse(down, x, y, number, i)
-		s.mouse(up, x, y, number, i)
+	kind := button.up
+	s.held = ""
+	if down {
+		kind, s.held = button.down, name
 	}
+	s.mouse(kind, s.at.X, s.at.Y, button.number, click)
 	return nil
 }
 
-func (s *macScreen) drag(x, y, toX, toY float64) error {
-	if err := s.move(x, y); err != nil {
-		return err
-	}
-	s.mouse(leftDown, x, y, 0, 1)
-	const steps = 12
-	for i := 1; i <= steps; i++ {
-		time.Sleep(15 * time.Millisecond)
-		s.mouse(leftDragged, x+(toX-x)*float64(i)/steps, y+(toY-y)*float64(i)/steps, 0, 0)
-	}
-	s.mouse(leftUp, toX, toY, 0, 1)
-	return nil
-}
-
-func (s *macScreen) scroll(x, y float64, dx, dy int) error {
-	if err := s.move(x, y); err != nil {
-		return err
+func (s *macScreen) wheel(dx, dy int) error {
+	if !s.axTrusted() {
+		return errNoAccessibility
 	}
 	s.send(s.scrollEvent(0, 1, 2, int32(-dy), int32(-dx), 0))
 	return nil
 }
 
-func (s *macScreen) key(keys string) error {
+func (s *macScreen) press(name string, down bool) error {
 	if !s.axTrusted() {
 		return errNoAccessibility
 	}
-	mods, name, err := keyChord(keys)
-	if err != nil {
-		return err
-	}
-	held := make([]modifier, 0, len(mods))
-	for _, m := range mods {
-		mod, ok := modifiers[m]
-		if !ok {
-			return fmt.Errorf("unknown modifier %q in %q", m, keys)
-		}
-		held = append(held, mod)
-	}
 	code, ok := keyCodes[name]
-	if mod, alone := modifiers[name]; !ok && alone {
+	if mod, isModifier := modifiers[name]; isModifier {
 		code, ok = mod.code, true
+		if down {
+			s.flags |= mod.flag
+		} else {
+			s.flags &^= mod.flag
+		}
 	}
 	if !ok {
-		return fmt.Errorf("unknown key %q in %q", name, keys)
+		return fmt.Errorf("unknown key %q", name)
 	}
-	press := func(code uint16, down bool, flags uint64) {
-		event := s.keyboardEvent(0, code, down)
-		s.setFlags(event, flags)
-		s.send(event)
-	}
-	var flags uint64
-	for _, m := range held {
-		flags |= m.flag
-		press(m.code, true, flags)
-	}
-	press(code, true, flags)
-	press(code, false, flags)
-	for i := len(held) - 1; i >= 0; i-- {
-		flags &^= held[i].flag
-		press(held[i].code, false, flags)
-	}
+	event := s.keyboardEvent(0, code, down)
+	s.setFlags(event, s.flags)
+	s.send(event)
 	return nil
 }
 

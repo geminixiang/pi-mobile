@@ -236,58 +236,29 @@ func (s *portalScreen) moveLocked(x, y float64) error {
 	return s.notify("NotifyPointerMotionAbsolute", session.stream, x, y)
 }
 
-func (s *portalScreen) move(x, y float64) error {
+func (s *portalScreen) pointer(x, y float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.moveLocked(x, y)
 }
 
-func (s *portalScreen) button(button int32, count int) error {
-	for range count {
-		for _, state := range []uint32{1, 0} {
-			if err := s.notify("NotifyPointerButton", button, state); err != nil {
-				return err
-			}
-		}
+func (s *portalScreen) button(name string, down bool, _ int) error {
+	button, ok := portalButtons[name]
+	if !ok {
+		return fmt.Errorf("unknown button %q", name)
 	}
-	return nil
-}
-
-func (s *portalScreen) click(x, y float64, button string, count int) error {
+	state := uint32(0)
+	if down {
+		state = 1
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.moveLocked(x, y); err != nil {
-		return err
-	}
-	time.Sleep(30 * time.Millisecond)
-	return s.button(portalButtons[button], count)
+	return s.notify("NotifyPointerButton", button, state)
 }
 
-func (s *portalScreen) drag(x, y, toX, toY float64) error {
+func (s *portalScreen) wheel(dx, dy int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.moveLocked(x, y); err != nil {
-		return err
-	}
-	if err := s.notify("NotifyPointerButton", portalButtons["left"], uint32(1)); err != nil {
-		return err
-	}
-	const steps = 12
-	for i := 1; i <= steps; i++ {
-		time.Sleep(15 * time.Millisecond)
-		if err := s.moveLocked(x+(toX-x)*float64(i)/steps, y+(toY-y)*float64(i)/steps); err != nil {
-			return err
-		}
-	}
-	return s.notify("NotifyPointerButton", portalButtons["left"], uint32(0))
-}
-
-func (s *portalScreen) scroll(x, y float64, dx, dy int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.moveLocked(x, y); err != nil {
-		return err
-	}
 	if dy != 0 {
 		if err := s.notify("NotifyPointerAxisDiscrete", uint32(0), int32(dy)); err != nil {
 			return err
@@ -325,14 +296,14 @@ func (s *portalScreen) chord(mods []uint32, key uint32) error {
 	return failed
 }
 
-func (s *portalScreen) key(keys string) error {
-	mods, key, err := chordKeysyms(keys)
-	if err != nil {
-		return err
+func (s *portalScreen) press(name string, down bool) error {
+	sym, ok := keysymOf(name)
+	if !ok {
+		return fmt.Errorf("unknown key %q", name)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.chord(mods, key)
+	return s.keysym(sym, down)
 }
 
 func typedByKey(r rune) bool {

@@ -240,7 +240,7 @@ func (s *x11Screen) rootPoint(x, y float64) (int16, int16) {
 	return int16(math.Round(x)), int16(math.Round(y))
 }
 
-func (s *x11Screen) move(x, y float64) error {
+func (s *x11Screen) pointer(x, y float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rx, ry := s.rootPoint(x, y)
@@ -251,47 +251,26 @@ func (s *x11Screen) move(x, y float64) error {
 
 var x11Buttons = map[string]byte{"left": 1, "middle": 2, "right": 3}
 
-func (s *x11Screen) click(x, y float64, button string, count int) error {
-	if err := s.move(x, y); err != nil {
-		return err
+func (s *x11Screen) button(name string, down bool, _ int) error {
+	button, ok := x11Buttons[name]
+	if !ok {
+		return fmt.Errorf("unknown button %q", name)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	time.Sleep(30 * time.Millisecond)
-	for range count {
-		s.fake(xproto.ButtonPress, x11Buttons[button], 0, 0)
-		s.fake(xproto.ButtonRelease, x11Buttons[button], 0, 0)
+	kind := byte(xproto.ButtonRelease)
+	if down {
+		kind = xproto.ButtonPress
 	}
+	s.fake(kind, button, 0, 0)
 	s.sync()
 	return nil
 }
 
-func (s *x11Screen) drag(x, y, toX, toY float64) error {
-	if err := s.move(x, y); err != nil {
-		return err
-	}
+func (s *x11Screen) wheel(dx, dy int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.fake(xproto.ButtonPress, 1, 0, 0)
-	const steps = 12
-	for i := 1; i <= steps; i++ {
-		time.Sleep(15 * time.Millisecond)
-		rx, ry := s.rootPoint(x+(toX-x)*float64(i)/steps, y+(toY-y)*float64(i)/steps)
-		s.fake(xproto.MotionNotify, 0, rx, ry)
-		s.sync()
-	}
-	s.fake(xproto.ButtonRelease, 1, 0, 0)
-	s.sync()
-	return nil
-}
-
-func (s *x11Screen) scroll(x, y float64, dx, dy int) error {
-	if err := s.move(x, y); err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	wheel := func(lines int, back, forward byte) {
+	turn := func(lines int, back, forward byte) {
 		button := forward
 		if lines < 0 {
 			button, lines = back, -lines
@@ -301,38 +280,33 @@ func (s *x11Screen) scroll(x, y float64, dx, dy int) error {
 			s.fake(xproto.ButtonRelease, button, 0, 0)
 		}
 	}
-	wheel(dy, 4, 5)
-	wheel(dx, 6, 7)
+	turn(dy, 4, 5)
+	turn(dx, 6, 7)
 	s.sync()
 	return nil
 }
 
-func (s *x11Screen) key(keys string) error {
-	mods, sym, err := chordKeysyms(keys)
-	if err != nil {
-		return err
+func (s *x11Screen) press(name string, down bool) error {
+	sym, ok := keysymOf(name)
+	if !ok {
+		return fmt.Errorf("unknown key %q", name)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	held := make([]xproto.Keycode, 0, len(mods))
-	for _, mod := range mods {
-		place, ok := s.place(mod)
-		if !ok {
-			return fmt.Errorf("the keyboard map has no key for a modifier in %q", keys)
-		}
-		held = append(held, place.code)
-	}
-	target, ok := s.place(sym)
+	place, ok := s.place(sym)
 	if !ok {
-		return fmt.Errorf("the keyboard layout has no key %q", keys)
+		return fmt.Errorf("the keyboard layout has no key %q", name)
 	}
-	for _, code := range held {
-		s.fake(xproto.KeyPress, byte(code), 0, 0)
+	if down && place.shift {
+		s.fake(xproto.KeyPress, byte(s.shiftCode), 0, 0)
 	}
-	s.fake(xproto.KeyPress, byte(target.code), 0, 0)
-	s.fake(xproto.KeyRelease, byte(target.code), 0, 0)
-	for i := len(held) - 1; i >= 0; i-- {
-		s.fake(xproto.KeyRelease, byte(held[i]), 0, 0)
+	kind := byte(xproto.KeyRelease)
+	if down {
+		kind = xproto.KeyPress
+	}
+	s.fake(kind, byte(place.code), 0, 0)
+	if !down && place.shift {
+		s.fake(xproto.KeyRelease, byte(s.shiftCode), 0, 0)
 	}
 	s.sync()
 	return nil

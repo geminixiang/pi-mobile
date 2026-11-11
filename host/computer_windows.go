@@ -145,7 +145,8 @@ var modifierKeys = map[string]uint16{
 var extendedKeys = map[uint16]bool{0x2D: true, 0x2E: true, 0x24: true, 0x23: true, 0x21: true, 0x22: true, 0x25: true, 0x26: true, 0x27: true, 0x28: true, 0x5B: true}
 
 type winScreen struct {
-	mu sync.Mutex
+	mu   sync.Mutex
+	held bool
 }
 
 var (
@@ -386,25 +387,31 @@ func moveCursor(x, y float64) error {
 	return nil
 }
 
-func (s *winScreen) move(x, y float64) error {
+func (s *winScreen) pointer(x, y float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return moveCursor(x, y)
+	if !s.held {
+		return moveCursor(x, y)
+	}
+	return send([]inputRecord{mouseRecord(absolute(x, y))})
 }
 
-func (s *winScreen) click(x, y float64, button string, count int) error {
+func (s *winScreen) button(name string, down bool, _ int) error {
+	flags, ok := winButtons[name]
+	if !ok {
+		return fmt.Errorf("unknown button %q", name)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := moveCursor(x, y); err != nil {
+	edge := flags[1]
+	if down {
+		edge = flags[0]
+	}
+	if err := send([]inputRecord{mouseRecord(mouseInput{flags: edge})}); err != nil {
 		return err
 	}
-	time.Sleep(30 * time.Millisecond)
-	flags := winButtons[button]
-	records := []inputRecord{}
-	for range count {
-		records = append(records, mouseRecord(mouseInput{flags: flags[0]}), mouseRecord(mouseInput{flags: flags[1]}))
-	}
-	return send(records)
+	s.held = down
+	return nil
 }
 
 func absolute(x, y float64) mouseInput {
@@ -420,37 +427,18 @@ func absolute(x, y float64) mouseInput {
 	}
 }
 
-func (s *winScreen) drag(x, y, toX, toY float64) error {
+func (s *winScreen) wheel(dx, dy int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := moveCursor(x, y); err != nil {
-		return err
-	}
-	if err := send([]inputRecord{mouseRecord(mouseInput{flags: mouseLeftDown})}); err != nil {
-		return err
-	}
-	const steps = 12
-	for i := 1; i <= steps; i++ {
-		time.Sleep(15 * time.Millisecond)
-		if err := send([]inputRecord{mouseRecord(absolute(x+(toX-x)*float64(i)/steps, y+(toY-y)*float64(i)/steps))}); err != nil {
-			return errors.Join(err, send([]inputRecord{mouseRecord(mouseInput{flags: mouseLeftUp})}))
-		}
-	}
-	return send([]inputRecord{mouseRecord(mouseInput{flags: mouseLeftUp})})
-}
-
-func (s *winScreen) scroll(x, y float64, dx, dy int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := moveCursor(x, y); err != nil {
-		return err
-	}
 	records := []inputRecord{}
 	if dy != 0 {
 		records = append(records, mouseRecord(mouseInput{flags: mouseWheel, mouseData: uint32(int32(-dy * wheelDelta))}))
 	}
 	if dx != 0 {
 		records = append(records, mouseRecord(mouseInput{flags: mouseHWheel, mouseData: uint32(int32(dx * wheelDelta))}))
+	}
+	if len(records) == 0 {
+		return nil
 	}
 	return send(records)
 }
@@ -494,53 +482,25 @@ func keyStroke(vk uint16, up bool) inputRecord {
 	return keyRecord(keyInput{vk: vk, scan: uint16(scan), flags: flags})
 }
 
-func chordRecords(mods []uint16, vk uint16) []inputRecord {
-	records := []inputRecord{}
-	for _, mod := range mods {
-		records = append(records, keyStroke(mod, false))
-	}
-	records = append(records, keyStroke(vk, false), keyStroke(vk, true))
-	for i := len(mods) - 1; i >= 0; i-- {
-		records = append(records, keyStroke(mods[i], true))
-	}
-	return records
-}
-
-func (s *winScreen) key(keys string) error {
-	names, name, err := keyChord(keys)
-	if err != nil {
-		return err
-	}
-	mods := []uint16{}
-	for _, m := range names {
-		vk, ok := modifierKeys[m]
-		if !ok {
-			return fmt.Errorf("unknown modifier %q in %q", m, keys)
-		}
-		mods = append(mods, vk)
-	}
+func (s *winScreen) press(name string, down bool) error {
 	vk, shift, ok := virtualKey(name)
 	if !ok {
-		return fmt.Errorf("unknown key %q in %q", name, keys)
-	}
-	if shift {
-		mods = append(mods, modifierKeys["shift"])
+		return fmt.Errorf("unknown key %q", name)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(mods) == 0 {
-		return send(chordRecords(nil, vk))
+	records := []inputRecord{keyStroke(vk, !down)}
+	if shift && down {
+		records = append([]inputRecord{keyStroke(modifierKeys["shift"], false)}, records...)
 	}
-	records := chordRecords(mods, vk)
-	held, tapped, released := records[:len(mods)], records[len(mods):len(mods)+2], records[len(mods)+2:]
-	if err := send(held); err != nil {
-		return err
+	if shift && !down {
+		records = append(records, keyStroke(modifierKeys["shift"], true))
 	}
-	// why: WinUI apps such as Notepad check whether ctrl is down when they handle the key, not when it was sent; a chord sent at once pasted as a bare "v" or not at all
-	time.Sleep(chordHold)
-	tap := send(tapped)
-	time.Sleep(chordHold)
-	return errors.Join(tap, send(released))
+	return send(records)
+}
+
+func tapRecords(vk uint16) []inputRecord {
+	return []inputRecord{keyStroke(vk, false), keyStroke(vk, true)}
 }
 
 func textRecords(text string) [][]inputRecord {
@@ -548,9 +508,9 @@ func textRecords(text string) [][]inputRecord {
 	for _, r := range strings.ReplaceAll(text, "\r\n", "\n") {
 		switch r {
 		case '\n', '\r':
-			chunks = append(chunks, chordRecords(nil, namedKeys["return"]))
+			chunks = append(chunks, tapRecords(namedKeys["return"]))
 		case '\t':
-			chunks = append(chunks, chordRecords(nil, namedKeys["tab"]))
+			chunks = append(chunks, tapRecords(namedKeys["tab"]))
 		default:
 			chunk := []inputRecord{}
 			for _, unit := range utf16.Encode([]rune{r}) {
@@ -599,7 +559,6 @@ const (
 	inputSettle      = 50 * time.Millisecond
 	inputDrain       = 300 * time.Millisecond
 	keyPace          = 15 * time.Millisecond
-	chordHold        = 30 * time.Millisecond
 )
 
 func focusedWindow() uintptr {

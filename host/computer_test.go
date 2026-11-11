@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"strings"
 	"testing"
@@ -37,14 +38,15 @@ func (s *failingScreen) capture(display) (image.Image, error) {
 	return image.NewRGBA(image.Rect(0, 0, 20, 10)), nil
 }
 func (s *failingScreen) state() (string, string, float64, float64) { return "fixture", "test", 0, 0 }
-func (s *failingScreen) click(float64, float64, string, int) error {
-	s.calls = append(s.calls, "click")
+func (s *failingScreen) pointer(float64, float64) error            { return nil }
+func (s *failingScreen) button(_ string, down bool, _ int) error {
+	if down {
+		s.calls = append(s.calls, "click")
+	}
 	return nil
 }
-func (s *failingScreen) move(float64, float64) error                   { return nil }
-func (s *failingScreen) drag(float64, float64, float64, float64) error { return nil }
-func (s *failingScreen) scroll(float64, float64, int, int) error       { return nil }
-func (s *failingScreen) key(string) error {
+func (s *failingScreen) wheel(int, int) error { return nil }
+func (s *failingScreen) press(string, bool) error {
 	s.calls = append(s.calls, "key")
 	return errors.New("key unavailable")
 }
@@ -89,7 +91,7 @@ func (s *twoDisplays) displays() ([]display, error) {
 func (s *twoDisplays) capture(d display) (image.Image, error) {
 	return image.NewRGBA(image.Rect(0, 0, int(d.w), int(d.h))), nil
 }
-func (s *twoDisplays) click(x, y float64, _ string, _ int) error {
+func (s *twoDisplays) pointer(x, y float64) error {
 	s.clicked = [2]float64{x, y}
 	return nil
 }
@@ -121,7 +123,12 @@ type keyboard struct {
 	events []string
 }
 
-func (s *keyboard) key(keys string) error { s.events = append(s.events, "key "+keys); return nil }
+func (s *keyboard) press(key string, down bool) error {
+	if down {
+		s.events = append(s.events, "key "+key)
+	}
+	return nil
+}
 func (s *keyboard) typeRunes(line string) error {
 	s.events = append(s.events, "runes "+line)
 	return nil
@@ -153,7 +160,7 @@ func TestTextIsPastedLineByLineAndTheClipboardPutBack(t *testing.T) {
 	if err := (&computer{screen: s}).typeText("中文 ok\r\n\nlast"); err != nil {
 		t.Fatal(err)
 	}
-	want := "hold,put 中文 ok,key ctrl+v,key return,key return,put last,key ctrl+v,restore"
+	want := "hold,put 中文 ok,key ctrl,key v,key return,key return,put last,key ctrl,key v,restore"
 	if got := strings.Join(s.events, ","); got != want {
 		t.Fatalf("events = %s\nwant     %s", got, want)
 	}
@@ -190,5 +197,66 @@ func TestAClipboardNotPutBackIsReported(t *testing.T) {
 	err := (&computer{screen: s}).typeText("a")
 	if err == nil || !strings.Contains(err.Error(), "clipboard could not be put back") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+type input struct {
+	failingScreen
+	events []string
+}
+
+func (s *input) pointer(x, y float64) error {
+	s.events = append(s.events, fmt.Sprintf("at %g,%g", x, y))
+	return nil
+}
+func (s *input) button(name string, down bool, click int) error {
+	s.events = append(s.events, fmt.Sprintf("%s %v %d", name, down, click))
+	return nil
+}
+func (s *input) press(key string, down bool) error {
+	if key == "nope" {
+		return errors.New("unknown key")
+	}
+	s.events = append(s.events, fmt.Sprintf("%s %v", key, down))
+	return nil
+}
+
+func TestADoubleClickNumbersEachClick(t *testing.T) {
+	s := &input{}
+	if err := (&computer{screen: s}).click(3, 4, "right", 2); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.events, ","); got != "at 3,4,right true 1,right false 1,right true 2,right false 2" {
+		t.Fatalf("events = %s", got)
+	}
+}
+
+func TestADragHoldsTheButtonWhileThePointerMovesInSteps(t *testing.T) {
+	s := &input{}
+	if err := (&computer{screen: s}).drag(0, 0, 120, 12); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.events) != dragSteps+3 || s.events[1] != "left true 1" || s.events[2] != "at 10,1" || s.events[dragSteps+1] != "at 120,12" || s.events[dragSteps+2] != "left false 1" {
+		t.Fatalf("events = %v", s.events)
+	}
+}
+
+func TestAChordPressesModifiersInOrderAndReleasesThemInReverse(t *testing.T) {
+	s := &input{}
+	if err := (&computer{screen: s}).key("ctrl+shift+t"); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.events, ","); got != "ctrl true,shift true,t true,t false,shift false,ctrl false" {
+		t.Fatalf("events = %s", got)
+	}
+}
+
+func TestAnUnknownKeyLetsGoOfTheModifiers(t *testing.T) {
+	s := &input{}
+	if err := (&computer{screen: s}).key("ctrl+nope"); err == nil {
+		t.Fatal("an unknown key should fail")
+	}
+	if got := strings.Join(s.events, ","); got != "ctrl true,ctrl false" {
+		t.Fatalf("events = %s", got)
 	}
 }
