@@ -540,17 +540,28 @@ func TestTheFocusShowsOnlyWhenItIsInTheWindowLookedAt(t *testing.T) {
 }
 
 func TestAnActShowsOnlyTheLinesThatChanged(t *testing.T) {
-	before := []string{`[1] window "files"`, ` [2] list item "a.txt" @1,1`, ` [3] list item "b.txt" @1,2`}
-	now := []string{`[1] window "files"`, ` [2] list item "a.txt" @1,1 selected`, ` [3] list item "b.txt" @1,2`, ` [4] text "1 selected" @1,3`}
-	if got := changed(before, now, true); !strings.HasSuffix(got, "4 lines now):\n [2] list item \"a.txt\" @1,1 selected\n [4] text \"1 selected\" @1,3") {
+	before := []uiLine{{1, `[1] window "files"`}, {2, ` [2] list item "a.txt" @1,1`}, {3, ` [3] list item "b.txt" @1,2`}}
+	now := []uiLine{{1, `[1] window "files"`}, {4, ` [4] list item "封存" @1,1`}, {2, ` [2] list item "a.txt" @1,2 selected`}}
+	if got := changed(before, now, true); !strings.HasSuffix(got, "same ids):\n [4] list item \"封存\" @1,1\n [2] list item \"a.txt\" @1,2 selected\ngone: [3]") {
 		t.Fatalf("changes = %s", got)
 	}
 	if got := changed(before, before, true); got != "ui: nothing changed since the last look" {
 		t.Fatalf("no change = %s", got)
 	}
-	other := append([]string{`[1] window "封存"`}, now[1:]...)
-	if got := changed(before, other, true); !strings.HasPrefix(got, "ui:\n[1] window \"封存\"\n") {
+	other := append([]uiLine{{5, `[5] window "封存"`}}, now[1:]...)
+	if got := changed(before, other, true); !strings.HasPrefix(got, "ui:\n[5] window \"封存\"\n") {
 		t.Fatalf("another window should come whole, got %s", got)
+	}
+}
+
+func TestAnElementKeepsItsIDWhenRowsAreInsertedAbove(t *testing.T) {
+	c := &computer{}
+	first := []uiNode{{role: "window", name: "files"}, {depth: 1, role: "row", name: "a.txt"}, {depth: 1, role: "row", name: "b.txt"}}
+	c.number(first)
+	second := []uiNode{{role: "window", name: "files"}, {depth: 1, role: "row", name: "封存"}, {depth: 1, role: "row", name: "a.txt"}, {depth: 1, role: "row", name: "b.txt"}}
+	c.number(second)
+	if second[2].id != first[1].id || second[3].id != first[2].id || second[1].id != 4 {
+		t.Fatalf("ids moved: first %v, second %v", []int{first[1].id, first[2].id}, []int{second[1].id, second[2].id, second[3].id})
 	}
 }
 
@@ -585,5 +596,28 @@ func TestKeysGoOnWhenTheWindowInFrontHasNoTitle(t *testing.T) {
 	}
 	if _, err := c.act([]step{{Action: "type", Text: "封存"}}, false); err != nil || len(s.activated) != 0 {
 		t.Fatalf("a rename field with no window title stopped the keys: err %v, activated %v", err, s.activated)
+	}
+}
+
+func TestAClickByNameFindsWhatAppearedDuringTheSteps(t *testing.T) {
+	s := &windowScreen{}
+	s.nodes = []uiNode{{role: "window", name: "files"}, {depth: 1, role: "row", name: "a.txt", x: 10, y: 10, placed: true}, {depth: 1, role: "row", name: "b.txt", x: 10, y: 20, placed: true}}
+	c := &computer{screen: s}
+	if _, err := c.shot(1, false); err != nil {
+		t.Fatal(err)
+	}
+	s.nodes = append(s.nodes, uiNode{depth: 1, role: "row", name: "封存 | 今天 | 檔案夾", x: 10, y: 30, placed: true})
+	if _, err := c.act([]step{{Action: "wait", Name: "封存", MS: 500}, {Action: "click", Name: "封存"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if s.clicked != [2]float64{10, 30} {
+		t.Fatalf("clicked %v, want the new folder at 10,30", s.clicked)
+	}
+	s.nodes = append(s.nodes, uiNode{depth: 1, role: "row", name: "封存", x: 10, y: 40, placed: true})
+	if _, err := c.act([]step{{Action: "click", Name: "封存"}}, false); err == nil || !strings.Contains(err.Error(), "2 elements are called") {
+		t.Fatalf("two matches should ask for an id, got %v", err)
+	}
+	if _, err := c.act([]step{{Action: "wait", Name: "missing", MS: 200}}, false); err == nil || !strings.Contains(err.Error(), "no element called") {
+		t.Fatalf("a wait for nothing = %v", err)
 	}
 }

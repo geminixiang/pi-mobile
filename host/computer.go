@@ -12,6 +12,7 @@ import (
 	"image/jpeg"
 	"os"
 	"os/signal"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -84,6 +85,7 @@ type uiNode struct {
 	placed                               bool
 	focused, selected, disabled, checked bool
 	target                               uiTarget
+	id                                   int
 }
 
 type uiTarget interface {
@@ -101,6 +103,7 @@ const (
 	uiThin   = 3
 	uiWalk   = 800
 	uiOthers = 8
+	uiPoll   = 150 * time.Millisecond
 	uiDepth  = 30
 )
 
@@ -125,6 +128,7 @@ func drain(c chan struct{}) {
 type step struct {
 	Action string  `json:"action"`
 	ID     int     `json:"id"`
+	Name   string  `json:"name"`
 	X      float64 `json:"x"`
 	Y      float64 `json:"y"`
 	ToX    float64 `json:"to_x"`
@@ -143,7 +147,7 @@ type seen struct {
 	origin display
 	scale  float64
 	ui     []uiNode
-	lines  []string
+	lines  []uiLine
 }
 
 type computer struct {
@@ -152,6 +156,9 @@ type computer struct {
 
 	mu      sync.Mutex
 	session *session
+
+	ids    map[string]int
+	lastID int
 }
 
 type session struct {
@@ -230,11 +237,12 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 		if reader, ok := c.screen.(uiReader); ok {
 			nodes, read := reader.window(d)
 			now.ui, now.read = tidy(nodes), read
+			c.number(now.ui)
 		}
 		return now
 	}()
 	w, h := shotSize(d)
-	var before []string
+	var before []uiLine
 	if c.seen != nil && c.seen.index == index {
 		before = c.seen.lines
 	}
@@ -344,27 +352,77 @@ func named(nodes []uiNode) int {
 }
 
 func uiText(nodes []uiNode, toShot func(x, y float64) (int, int)) string {
-	return "ui:\n" + strings.Join(render(nodes, toShot), "\n")
+	return changed(nil, render(nodes, toShot), false)
 }
 
-func changed(before, now []string, changes bool) string {
+type uiLine struct {
+	id   int
+	text string
+}
+
+func changed(before, now []uiLine, changes bool) string {
 	if !changes || len(before) == 0 || len(now) == 0 || before[0] != now[0] {
-		return "ui:\n" + strings.Join(now, "\n")
+		return "ui:\n" + joinLines(now)
 	}
-	var lines []string
-	for i, line := range now {
-		if i >= len(before) || before[i] != line {
+	was := map[int]string{}
+	for _, line := range before {
+		was[line.id] = line.text
+	}
+	var lines []uiLine
+	here := map[int]bool{}
+	for _, line := range now {
+		here[line.id] = true
+		if text, ok := was[line.id]; !ok || text != line.text {
 			lines = append(lines, line)
 		}
 	}
-	if len(lines) == 0 {
+	var gone []string
+	for _, line := range before {
+		if line.id != 0 && !here[line.id] {
+			gone = append(gone, fmt.Sprintf("[%d]", line.id))
+		}
+	}
+	if len(lines) == 0 && len(gone) == 0 {
 		return "ui: nothing changed since the last look"
 	}
-	return fmt.Sprintf("ui, only the lines that changed since the last look (the others are as they were; %d lines now):\n%s", len(now), strings.Join(lines, "\n"))
+	said := "ui, only what changed since the last look (other elements are as they were, same ids):"
+	if len(lines) > 0 {
+		said += "\n" + joinLines(lines)
+	}
+	if len(gone) > 0 {
+		said += "\ngone: " + strings.Join(gone, " ")
+	}
+	return said
 }
 
-func render(nodes []uiNode, toShot func(x, y float64) (int, int)) []string {
-	var lines []string
+func joinLines(lines []uiLine) string {
+	texts := make([]string, len(lines))
+	for i, line := range lines {
+		texts[i] = line.text
+	}
+	return strings.Join(texts, "\n")
+}
+
+func (c *computer) number(nodes []uiNode) {
+	if c.ids == nil {
+		c.ids = map[string]int{}
+	}
+	seen := map[string]int{}
+	for i := range nodes {
+		n := &nodes[i]
+		key := strings.Join([]string{strconv.Itoa(n.depth), n.role, n.name}, "\x1f")
+		seen[key]++
+		key += "\x1f" + strconv.Itoa(seen[key])
+		if c.ids[key] == 0 {
+			c.lastID++
+			c.ids[key] = c.lastID
+		}
+		n.id = c.ids[key]
+	}
+}
+
+func render(nodes []uiNode, toShot func(x, y float64) (int, int)) []uiLine {
+	var lines []uiLine
 	others := len(nodes)
 	for i, n := range nodes {
 		if i > 0 && n.depth == 0 {
@@ -375,11 +433,12 @@ func render(nodes []uiNode, toShot func(x, y float64) (int, int)) []string {
 	for i, n := range nodes {
 		if i >= uiLines && i < others {
 			if i == uiLines {
-				lines = append(lines, fmt.Sprintf("… %d more", others-uiLines))
+				lines = append(lines, uiLine{text: fmt.Sprintf("… %d more", others-uiLines)})
 			}
 			continue
 		}
-		line := fmt.Sprintf("%s[%d] %s", strings.Repeat(" ", n.depth), i+1, n.role)
+		id := cmp.Or(n.id, i+1)
+		line := fmt.Sprintf("%s[%d] %s", strings.Repeat(" ", n.depth), id, n.role)
 		if n.name != "" {
 			line += " " + strconv.Quote(clip(n.name, uiName))
 		}
@@ -395,7 +454,7 @@ func render(nodes []uiNode, toShot func(x, y float64) (int, int)) []string {
 				line += " " + flag.name
 			}
 		}
-		lines = append(lines, line)
+		lines = append(lines, uiLine{id, line})
 	}
 	return lines
 }
@@ -461,14 +520,29 @@ func (c *computer) run(s step) error {
 	case "type":
 		return c.typeText(s.Text)
 	case "wait":
+		if s.Name != "" {
+			_, err := c.find(s.Name, time.Duration(cmp.Or(min(max(s.MS, 0), 10000), 3000))*time.Millisecond)
+			return err
+		}
 		time.Sleep(time.Duration(min(max(s.MS, 0), 10000)) * time.Millisecond)
 		return nil
 	}
 	if c.seen == nil {
 		return errors.New("take a screenshot first: coordinates are its pixels")
 	}
+	if s.Action == "click" && s.Name != "" {
+		n, err := c.find(s.Name, 0)
+		if err != nil {
+			return err
+		}
+		return c.clickNode(n, s)
+	}
 	if s.Action == "click" && s.ID != 0 {
-		return c.clickUI(s)
+		i := slices.IndexFunc(c.seen.ui, func(n uiNode) bool { return n.id == s.ID })
+		if i < 0 {
+			return fmt.Errorf("no element [%d] in the last look", s.ID)
+		}
+		return c.clickNode(c.seen.ui[i], s)
 	}
 	at := func(x, y float64) (float64, float64) {
 		return c.seen.origin.x + x*c.seen.scale, c.seen.origin.y + y*c.seen.scale
@@ -491,16 +565,47 @@ func (c *computer) run(s step) error {
 	return fmt.Errorf("unknown action %q", s.Action)
 }
 
-func (c *computer) clickUI(s step) error {
-	if s.ID < 1 || s.ID > len(c.seen.ui) {
-		return fmt.Errorf("no element [%d] in the last look", s.ID)
+func (c *computer) find(name string, wait time.Duration) (uiNode, error) {
+	reader, ok := c.screen.(uiReader)
+	if !ok || c.seen == nil {
+		return uiNode{}, errors.New("elements by name need a look first, on a computer whose windows give their elements")
 	}
-	n := c.seen.ui[s.ID-1]
+	for deadline := time.Now().Add(wait); ; time.Sleep(uiPoll) {
+		nodes, _ := reader.window(c.seen.origin)
+		nodes = tidy(nodes)
+		c.number(nodes)
+		c.seen.ui = nodes
+		var found []uiNode
+		for i, n := range nodes {
+			if i > 0 && called(n.name, name) {
+				found = append(found, n)
+			}
+		}
+		switch {
+		case len(found) == 1:
+			return found[0], nil
+		case len(found) > 1:
+			ids := make([]string, len(found))
+			for i, n := range found {
+				ids[i] = fmt.Sprintf("[%d]", n.id)
+			}
+			return uiNode{}, fmt.Errorf("%d elements are called %q (%s): use an id", len(found), name, strings.Join(ids, " "))
+		case time.Now().After(deadline):
+			return uiNode{}, fmt.Errorf("no element called %q in the window", name)
+		}
+	}
+}
+
+func called(full, name string) bool {
+	return full == name || strings.HasPrefix(full, name+" | ") || strings.HasPrefix(full, name+" =")
+}
+
+func (c *computer) clickNode(n uiNode, s step) error {
 	if n.placed {
 		return c.click(n.x, n.y, cmp.Or(s.Button, "left"), max(s.Count, 1), heldKeys(s.Keys))
 	}
 	if n.target == nil {
-		return fmt.Errorf("element [%d] has no position or action: look with image true and click its x, y", s.ID)
+		return fmt.Errorf("element [%d] has no position or action: look with image true and click its x, y", n.id)
 	}
 	if s.Count < 2 || !n.target.selects() {
 		return n.target.activate(s.Keys != "")
@@ -753,8 +858,8 @@ var computerTools = []map[string]any{
 		"name": "act",
 		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the look after them, as screenshot does (text, and a JPEG only when image is true or there is no ui); when the same window is still on top, ui lists only the lines that changed, and the ids of the others still hold. " +
 			"Put the steps you can already tell in one call (click a field, type, press return); prefer keys to clicks. " +
-			"Steps: click {id of a ui element, or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
-			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms}.",
+			"Steps: click {id of a ui element from the last look, or name of one in the window now (exact, or what comes before \" | \" or \" =\" in it; for things that appear during these steps), or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
+			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms, or name: until an element with that name is in the window, up to ms (3000 by default)}. The text in ui is exact: no image is needed to check text, names or selection.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -765,6 +870,7 @@ var computerTools = []map[string]any{
 						"properties": map[string]any{
 							"action": map[string]any{"type": "string", "enum": []string{"click", "move", "drag", "scroll", "key", "type", "wait"}},
 							"id":     map[string]any{"type": "integer", "description": "a ui element's [number] from the last look, for click instead of x, y"},
+							"name":   map[string]any{"type": "string", "description": "a ui element's name, for click or wait, looked up when the step runs"},
 							"x":      map[string]any{"type": "number"}, "y": map[string]any{"type": "number"},
 							"to_x": map[string]any{"type": "number"}, "to_y": map[string]any{"type": "number"},
 							"button": map[string]any{"type": "string", "enum": []string{"left", "right", "middle"}},

@@ -3906,6 +3906,10 @@
 							"ms": {
 								"type": "integer"
 							},
+							"name": {
+								"description": "a ui element's name, for click or wait, looked up when the step runs",
+								"type": "string"
+							},
 							"text": {
 								"type": "string"
 							},
