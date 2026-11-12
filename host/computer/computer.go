@@ -696,12 +696,7 @@ func (c *computer) find(name string, wait time.Duration) (uiNode, error) {
 	for deadline := time.Now().Add(wait); ; time.Sleep(uiPoll) {
 		nodes, read := c.observe(reader, c.seen.origin)
 		c.seen.ui, c.seen.window = nodes, read
-		var found []uiNode
-		for i, n := range nodes {
-			if i > 0 && called(n.name, name) {
-				found = append(found, n)
-			}
-		}
+		found := matching(nodes, name)
 		switch {
 		case len(found) == 1:
 			return found[0], nil
@@ -715,6 +710,33 @@ func (c *computer) find(name string, wait time.Duration) (uiNode, error) {
 			return uiNode{}, fmt.Errorf("no element called %q in the window", name)
 		}
 	}
+}
+
+// why: models pass what they saw elsewhere in the look as a name: a window behind by its title, or an element by the role the focus showed (AXTextArea)
+func matching(nodes []uiNode, name string) []uiNode {
+	for _, match := range []func(uiNode) bool{
+		func(n uiNode) bool { return called(n.name, name) },
+		func(n uiNode) bool { return n.depth == 0 && untagged(n.name) == name },
+		func(n uiNode) bool { return sameRole(n.role, name) },
+	} {
+		var found []uiNode
+		for i, n := range nodes {
+			if i > 0 && match(n) {
+				found = append(found, n)
+			}
+		}
+		if len(found) > 0 {
+			return found
+		}
+	}
+	return nil
+}
+
+func sameRole(role, name string) bool {
+	flat := func(s string) string {
+		return strings.ToLower(strings.ReplaceAll(strings.TrimPrefix(s, "AX"), " ", ""))
+	}
+	return flat(role) == flat(name)
 }
 
 func called(full, name string) bool {

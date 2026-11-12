@@ -745,3 +745,21 @@ func TestKeysAfterABackgroundClickStillWaitForTheWindow(t *testing.T) {
 		t.Fatalf("pressed %d, raised %v, err %v: keys after a click in a window behind must wait for it to be in front", field.pressed, s.activated, err)
 	}
 }
+
+func TestANameCanBeAWindowBehindOrARole(t *testing.T) {
+	nodes := []uiNode{
+		{role: "window", name: "inbox"},
+		{depth: 1, role: "textarea", name: "=2025 預算"},
+		{depth: 1, role: "row", name: "封存 | 今天 | 檔案夾"},
+		{role: "window", name: "list.txt (TextEdit, behind)"},
+	}
+	for name, want := range map[string]string{"封存": "封存 | 今天 | 檔案夾", "list.txt": "list.txt (TextEdit, behind)", "AXTextArea": "=2025 預算"} {
+		found := matching(nodes, name)
+		if len(found) != 1 || found[0].name != want {
+			t.Errorf("%q matched %v, want %q", name, found, want)
+		}
+	}
+	if found := matching(nodes, "inbox"); len(found) != 0 {
+		t.Errorf("the window looked at itself was matched: %v", found)
+	}
+}
