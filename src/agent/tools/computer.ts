@@ -46,6 +46,7 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		parameters: Type.Object({
 			display: Type.Optional(Type.Integer({ minimum: 1, description: "1 is the main display, 2 and up the others; by default the one looked at last (the main one at first)" })),
 			image: Type.Optional(Type.Boolean({ description: "also return a JPEG of the display; the text usually is enough" })),
+			window: Type.Optional(Type.String({ description: 'the title of a window on the display to look at and work in without bringing it to the front ("" for the top window again)' })),
 		}),
 		replay: "safe",
 		execute: (args, api) => call(hostOf(String(api.conversationId)), "screenshot", args, undefined),
@@ -57,9 +58,10 @@ export function createComputerExtension(workplace: (conversationId: string) => W
 		reach: "loaded",
 		description:
 			"Act as the user on the computer's mouse and keyboard, for what a command cannot reach; apps may notice. Runs the steps in order and returns the look after them, as computer_read_as_user does; when the same window is still on top, ui lists only the lines that changed, and the ids of the others still hold. " +
+			"Clicks and typing on an element (id or name) go through accessibility and leave the user's pointer and front window alone when the element allows; keys and x, y clicks need the window in front. " +
 			"Put the steps you can already tell in one call (open an app with the launcher key, cmd+space on macOS or super elsewhere, type its name, return; click a field, type, return); prefer keys to clicks. " +
 			'Steps: click {id of a ui element from the last look, or name of one in the window now (exact, or what comes before " | " or " =" in it; for things that appear during these steps), or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as "cmd"}; move {x, y}; drag {x, y, to_x, to_y}; ' +
-			'scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as "cmd+shift+t", "return", "esc", "down"}; type {text}; wait {ms, or name: until an element with that name is in the window, up to ms (3000 by default)}. The text in ui is exact: no image is needed to check text, names or selection.',
+			'scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as "cmd+shift+t", "return", "esc", "down"}; type {text; with an id or name: written into that element without the keyboard when it allows, so the window can stay behind}; wait {ms, or name: until an element with that name is in the window, up to ms (3000 by default)}. The text in ui is exact: no image is needed to check text, names or selection.',
 		parameters: Type.Object({
 			steps: Type.Array(
 				Type.Object({

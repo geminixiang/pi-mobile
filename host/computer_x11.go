@@ -378,8 +378,8 @@ func (s *x11Screen) typeRemapped(runes []rune) (int, error) {
 	return batch, nil
 }
 
-func (s *x11Screen) window(on display) ([]uiNode, bool) {
-	nodes, read := s.accessibility.window(on)
+func (s *x11Screen) window(on display, title string) ([]uiNode, bool) {
+	nodes, read := s.accessibility.window(on, title)
 	return append(nodes, s.behind(on)...), read
 }
 
@@ -398,7 +398,7 @@ func (s *x11Screen) behind(on display) []uiNode {
 		if title == "" || !s.within(window, on) {
 			continue
 		}
-		nodes = append(nodes, uiNode{role: "window", name: title + " (" + processName(s.pid(window)) + ", behind)", target: x11Raise{s: s, window: window}})
+		nodes = append(nodes, uiNode{role: "window", behind: true, name: title + " (" + processName(s.pid(window)) + ", behind)", target: x11Raise{s: s, window: window}})
 	}
 	return nodes
 }

@@ -433,7 +433,7 @@ type windowScreen struct {
 	activated []bool
 }
 
-func (s *windowScreen) window(display) ([]uiNode, bool) { return s.nodes, true }
+func (s *windowScreen) window(display, string) ([]uiNode, bool) { return s.nodes, true }
 
 type pressed struct{ s *windowScreen }
 
@@ -638,5 +638,59 @@ func TestALongRunOfLikeElementsIsCut(t *testing.T) {
 	text := uiText(tidy(nodes), func(x, y float64) (int, int) { return int(x), int(y) })
 	if !strings.Contains(text, "\"file 24\"\n  … 15 more textfield\n") || !strings.Contains(text, "位置 =geminixiang") || strings.Contains(text, "file 25") {
 		t.Fatalf("the run was not cut, or the field after it is lost:\n%s", text)
+	}
+}
+
+type background struct {
+	pressed, opened int
+	written         string
+	refuse          bool
+}
+
+func (b *background) selects() bool { return false }
+func (b *background) activate(bool) error {
+	if b.refuse {
+		return errors.New("no action")
+	}
+	b.pressed++
+	return nil
+}
+func (b *background) open() error             { b.opened++; return nil }
+func (b *background) write(text string) error { b.written += text; return nil }
+
+func TestElementsAreUsedWithoutThePointerOrTheKeyboard(t *testing.T) {
+	s := &windowScreen{}
+	button, field := &background{}, &background{}
+	s.nodes = []uiNode{
+		{role: "window", name: "note.txt"},
+		{depth: 1, role: "button", name: "Save", x: 300, y: 150, placed: true, target: button},
+		{depth: 1, role: "textfield", name: "name", x: 300, y: 200, placed: true, target: field},
+	}
+	c := &computer{screen: s}
+	if _, err := c.shot(1, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.act([]step{{Action: "click", ID: 2}, {Action: "click", ID: 2, Count: 2}, {Action: "type", ID: 3, Text: "封存"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if button.pressed != 1 || button.opened != 1 || field.written != "封存" || s.clicked != [2]float64{} || strings.Contains(strings.Join(s.calls, ","), "type") {
+		t.Fatalf("pressed %d, opened %d, written %q, pointer %v, calls %v: the elements should be used through accessibility alone", button.pressed, button.opened, field.written, s.clicked, s.calls)
+	}
+	button.refuse = true
+	if _, err := c.act([]step{{Action: "click", ID: 2}}, false); err != nil || s.clicked != [2]float64{300, 150} {
+		t.Fatalf("an element without a background action should fall back to the pointer: err %v, clicked %v", err, s.clicked)
+	}
+}
+
+func TestKeysGoOnWhenOnlyWindowsBehindWereRead(t *testing.T) {
+	s := &windowScreen{}
+	s.nodes = []uiNode{{role: "window", name: "note.txt (TextEdit, behind)", behind: true}}
+	s.nodes[0].target = pressed{s}
+	c := &computer{screen: s}
+	if _, err := c.shot(1, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.act([]step{{Action: "type", Text: "x"}}, false); err != nil || len(s.activated) != 0 {
+		t.Fatalf("a window behind was taken for the window looked at: err %v, activated %v", err, s.activated)
 	}
 }

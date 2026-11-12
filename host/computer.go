@@ -86,6 +86,7 @@ type uiNode struct {
 	focused, selected, disabled, checked bool
 	target                               uiTarget
 	id, more                             int
+	behind                               bool
 }
 
 type uiTarget interface {
@@ -93,8 +94,20 @@ type uiTarget interface {
 	selects() bool
 }
 
+type uiWriter interface {
+	write(text string) error
+}
+
+type uiOpener interface {
+	open() error
+}
+
+type uiCloser interface {
+	close()
+}
+
 type uiReader interface {
-	window(on display) ([]uiNode, bool)
+	window(on display, title string) ([]uiNode, bool)
 }
 
 const (
@@ -160,6 +173,8 @@ type computer struct {
 
 	ids    map[string]int
 	lastID int
+	held   []uiCloser
+	watch  string
 }
 
 type session struct {
@@ -236,7 +251,8 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 			now.focus, _ = reader.focused()
 		}
 		if reader, ok := c.screen.(uiReader); ok {
-			nodes, read := reader.window(d)
+			nodes, read := reader.window(d, c.watch)
+			c.hold(nodes)
 			now.ui, now.read = tidy(nodes), read
 			c.number(now.ui)
 		}
@@ -542,6 +558,19 @@ func (c *computer) run(s step) error {
 	case "key":
 		return c.key(s.Keys)
 	case "type":
+		n, targeted, err := c.element(s)
+		if err != nil {
+			return err
+		}
+		if !targeted {
+			return c.typeText(s.Text)
+		}
+		if writer, ok := n.target.(uiWriter); ok && writer.write(s.Text) == nil {
+			return nil
+		}
+		if err := c.clickNode(n, step{Action: "click"}); err != nil {
+			return err
+		}
 		return c.typeText(s.Text)
 	case "wait":
 		if s.Name != "" {
@@ -589,13 +618,41 @@ func (c *computer) run(s step) error {
 	return fmt.Errorf("unknown action %q", s.Action)
 }
 
+func (c *computer) hold(nodes []uiNode) {
+	for _, held := range c.held {
+		held.close()
+	}
+	c.held = nil
+	for _, n := range nodes {
+		if closer, ok := n.target.(uiCloser); ok {
+			c.held = append(c.held, closer)
+		}
+	}
+}
+
+func (c *computer) element(s step) (uiNode, bool, error) {
+	if s.Name != "" {
+		n, err := c.find(s.Name, 0)
+		return n, true, err
+	}
+	if s.ID == 0 || c.seen == nil {
+		return uiNode{}, false, nil
+	}
+	i := slices.IndexFunc(c.seen.ui, func(n uiNode) bool { return n.id == s.ID })
+	if i < 0 {
+		return uiNode{}, true, fmt.Errorf("no element [%d] in the last look", s.ID)
+	}
+	return c.seen.ui[i], true, nil
+}
+
 func (c *computer) find(name string, wait time.Duration) (uiNode, error) {
 	reader, ok := c.screen.(uiReader)
 	if !ok || c.seen == nil {
 		return uiNode{}, errors.New("elements by name need a look first, on a computer whose windows give their elements")
 	}
 	for deadline := time.Now().Add(wait); ; time.Sleep(uiPoll) {
-		nodes, _ := reader.window(c.seen.origin)
+		nodes, _ := reader.window(c.seen.origin, c.watch)
+		c.hold(nodes)
 		nodes = tidy(nodes)
 		c.number(nodes)
 		c.seen.ui = nodes
@@ -625,14 +682,27 @@ func called(full, name string) bool {
 }
 
 func (c *computer) clickNode(n uiNode, s step) error {
+	if n.target != nil && cmp.Or(s.Button, "left") == "left" {
+		if err := c.press(n, s); err == nil || !n.placed {
+			return err
+		}
+	}
 	if n.placed {
 		return c.click(n.x, n.y, cmp.Or(s.Button, "left"), max(s.Count, 1), heldKeys(s.Keys))
 	}
-	if n.target == nil {
-		return fmt.Errorf("element [%d] has no position or action: look with image true and click its x, y", n.id)
-	}
-	if s.Count < 2 || !n.target.selects() {
+	return fmt.Errorf("element [%d] has no position or action: look with image true and click its x, y", n.id)
+}
+
+// why: acting on the element through accessibility leaves the user's pointer and front window alone; the mouse is the fallback
+func (c *computer) press(n uiNode, s step) error {
+	if s.Count < 2 {
 		return n.target.activate(s.Keys != "")
+	}
+	if opener, ok := n.target.(uiOpener); ok {
+		return opener.open()
+	}
+	if !n.target.selects() {
+		return n.target.activate(false)
 	}
 	// why: GTK4 list and grid cells have no action and no position, so opening one is selecting it and pressing return
 	if err := n.target.activate(false); err != nil {
@@ -813,6 +883,9 @@ func (c *computer) front(steps []step) error {
 		return nil
 	}
 	looked := c.seen.ui[0]
+	if looked.behind {
+		return nil
+	}
 	if _, window, _, _ := c.screen.state(); window == "" || window == looked.name || looked.target == nil {
 		return nil
 	}
@@ -875,15 +948,16 @@ var computerTools = []map[string]any{
 	{
 		"name":        "screenshot",
 		"description": "See one display of the computer's screen now (the one looked at last; work on one display at a time), as text first: its size, the front app, the title of its focused window, the focused element (its role, the last lines of its text, the selection, and where the caret is), the pointer, which display of how many when there are several, and ui: the elements of the top window on that display, one a line, indented by nesting, numbered, with role, name, @x,y of its center when known, and focused, selected, on or disabled, then the other windows on that display, behind. A JPEG of the display comes too when image is true, or by itself when the window gives no ui (a canvas, a game, an app without accessibility); ask for it only when the text cannot answer, such as how something looks. Coordinates everywhere are pixels of a screenshot of that display, until the next look. Apps opened while using the screen are quit two minutes after the last use.",
-		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display, 2 and up the others; by default the one looked at last (the main one at first)"}, "image": map[string]any{"type": "boolean", "description": "also return a JPEG of the display; the text usually is enough"}}},
+		"inputSchema": map[string]any{"type": "object", "properties": map[string]any{"display": map[string]any{"type": "integer", "description": "1 is the main display, 2 and up the others; by default the one looked at last (the main one at first)"}, "image": map[string]any{"type": "boolean", "description": "also return a JPEG of the display; the text usually is enough"}, "window": map[string]any{"type": "string", "description": "the title of a window on the display to look at and work in without bringing it to the front (\"\" for the top window again)"}}},
 		"annotations": map[string]any{"title": "Screenshot", "readOnlyHint": true},
 	},
 	{
 		"name": "act",
 		"description": "Use the mouse and keyboard, then see the result: runs the steps in order and returns the look after them, as screenshot does (text, and a JPEG only when image is true or there is no ui); when the same window is still on top, ui lists only the lines that changed, and the ids of the others still hold. " +
+			"Clicks and typing on an element (id or name) go through accessibility and leave the user's pointer and front window alone when the element allows; keys and x, y clicks need the window in front. " +
 			"Put the steps you can already tell in one call (click a field, type, press return); prefer keys to clicks. " +
 			"Steps: click {id of a ui element from the last look, or name of one in the window now (exact, or what comes before \" | \" or \" =\" in it; for things that appear during these steps), or x, y; button: left (default), right, or middle; count: 2 for a double click; keys: modifiers held during it, such as \"cmd\" or \"shift\"}; move {x, y}; drag {x, y, to_x, to_y}; " +
-			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text}; wait {ms, or name: until an element with that name is in the window, up to ms (3000 by default)}. The text in ui is exact: no image is needed to check text, names or selection.",
+			"scroll {x, y, dy and dx in lines, positive down and right}; key {keys: such as \"cmd+shift+t\", \"return\", \"esc\", \"down\"}; type {text; with an id or name: written into that element without the keyboard when it allows, so the window can stay behind}; wait {ms, or name: until an element with that name is in the window, up to ms (3000 by default)}. The text in ui is exact: no image is needed to check text, names or selection.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -971,9 +1045,10 @@ func serveComputerMCP() int {
 			var p struct {
 				Name      string `json:"name"`
 				Arguments struct {
-					Steps   []step `json:"steps"`
-					Display int    `json:"display"`
-					Image   bool   `json:"image"`
+					Steps   []step  `json:"steps"`
+					Display int     `json:"display"`
+					Image   bool    `json:"image"`
+					Window  *string `json:"window"`
 				} `json:"arguments"`
 			}
 			if json.Unmarshal(m.Params, &p) != nil {
@@ -985,6 +1060,9 @@ func serveComputerMCP() int {
 			c.touch()
 			switch p.Name {
 			case "screenshot":
+				if p.Arguments.Window != nil {
+					c.watch = *p.Arguments.Window
+				}
 				content, err = c.shot(cmp.Or(p.Arguments.Display, c.lastDisplay()), p.Arguments.Image)
 			case "act":
 				content, err = c.act(p.Arguments.Steps, p.Arguments.Image)

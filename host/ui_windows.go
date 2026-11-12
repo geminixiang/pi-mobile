@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"strings"
 	"time"
@@ -51,24 +52,27 @@ var (
 	leafTypes      = map[int32]bool{50007: true, 50024: true, 50029: true, 50019: true, 50005: true}
 )
 
-func (s *winScreen) window(on display) ([]uiNode, bool) {
+func (s *winScreen) window(on display, title string) ([]uiNode, bool) {
 	if s.automation == nil {
 		return nil, false
 	}
-	front := topOn(on)
+	front := topOn(on, title)
 	if front == 0 {
 		return nil, false
 	}
 	var nodes []uiNode
 	var read bool
-	s.automation.ask(func(client uintptr) { nodes, read = walkWindow(client, front) })
+	s.automation.ask(func(client uintptr) { nodes, read = walkWindow(s.automation, client, front) })
 	if len(nodes) > 0 {
+		if element, ok := nodes[0].target.(winElement); ok {
+			element.close()
+		}
 		nodes[0].target = winRaise{front}
 	}
 	return append(nodes, behind(front, on)...), read
 }
 
-func walkWindow(client, handle uintptr) ([]uiNode, bool) {
+func walkWindow(a *automation, client, handle uintptr) ([]uiNode, bool) {
 	var root, walker uintptr
 	if comCall(client, automationFromHandle, handle, uintptr(unsafe.Pointer(&root))) != 0 || root == 0 {
 		return nil, false
@@ -78,16 +82,17 @@ func walkWindow(client, handle uintptr) ([]uiNode, bool) {
 		return nil, false
 	}
 	defer release(walker)
-	w := &uiaWalker{walker: walker, deadline: time.Now().Add(uiBudget)}
+	w := &uiaWalker{automation: a, walker: walker, deadline: time.Now().Add(uiBudget)}
 	w.visit(root, 0)
 	return w.nodes, w.seen > 1
 }
 
 type uiaWalker struct {
-	walker   uintptr
-	deadline time.Time
-	nodes    []uiNode
-	seen     int
+	automation *automation
+	walker     uintptr
+	deadline   time.Time
+	nodes      []uiNode
+	seen       int
 }
 
 func (w *uiaWalker) visit(element uintptr, depth int) {
@@ -147,6 +152,8 @@ func (w *uiaWalker) visit(element uintptr, depth int) {
 		w.children(element, depth)
 		return
 	}
+	comCall(element, 1)
+	n.target = winElement{w.automation, element, kind}
 	w.nodes = append(w.nodes, n)
 	if !leafTypes[kind] {
 		w.children(element, depth+1)
@@ -166,13 +173,13 @@ func (w *uiaWalker) children(element uintptr, depth int) {
 }
 
 // why: the foreground window can be on another display than the one looked at, and its elements say nothing about this one
-func topOn(on display) uintptr {
+func topOn(on display, title string) uintptr {
 	foreground := uintptr(windows.GetForegroundWindow())
-	if within(foreground, on) {
+	if title == "" && within(foreground, on) {
 		return foreground
 	}
 	for _, w := range topWindows() {
-		if !hidden(w.handle) && within(w.handle, on) {
+		if !hidden(w.handle) && within(w.handle, on) && (title == "" || windowTitle(w.handle) == title) {
 			return w.handle
 		}
 	}
@@ -203,7 +210,7 @@ func behind(front uintptr, on display) []uiNode {
 		if w.handle == front || len(nodes) == uiOthers || hidden(w.handle) || !within(w.handle, on) {
 			continue
 		}
-		nodes = append(nodes, uiNode{role: "window", name: windowTitle(w.handle) + " (" + exeName(w.pid) + ", behind)", target: winRaise{w.handle}})
+		nodes = append(nodes, uiNode{role: "window", behind: true, name: windowTitle(w.handle) + " (" + exeName(w.pid) + ", behind)", target: winRaise{w.handle}})
 	}
 	return nodes
 }
@@ -241,4 +248,115 @@ func hidden(handle uintptr) bool {
 	var cloaked uint32
 	hr, _, _ := dwmAttribute.Call(handle, dwmCloaked, uintptr(unsafe.Pointer(&cloaked)), unsafe.Sizeof(cloaked))
 	return hr == 0 && cloaked != 0
+}
+
+var (
+	sysAllocString = oleaut32.NewProc("SysAllocString")
+	iidInvoke      = windows.GUID{Data1: 0xfb377fbe, Data2: 0x8ea6, Data3: 0x46d5, Data4: [8]byte{0x9c, 0x73, 0x64, 0x99, 0x64, 0x2d, 0x30, 0x59}}
+)
+
+const (
+	invokeID      = 10000
+	patternAction = 3
+	selectionAdd  = 4
+	valueSet      = 3
+)
+
+type winElement struct {
+	automation *automation
+	ref        uintptr
+	kind       int32
+}
+
+func (e winElement) close() { e.automation.ask(func(uintptr) { release(e.ref) }) }
+
+func (e winElement) selects() bool {
+	found := false
+	e.automation.ask(func(uintptr) {
+		if item := pattern(e.ref, selectionItemID, &iidSelectionItem); item != 0 {
+			found = true
+			release(item)
+		}
+	})
+	return found
+}
+
+func (e winElement) activate(adding bool) error {
+	var err error
+	e.automation.ask(func(uintptr) {
+		if item := pattern(e.ref, selectionItemID, &iidSelectionItem); item != 0 {
+			defer release(item)
+			method := patternAction
+			if adding {
+				method = selectionAdd
+			}
+			err = succeeded(comCall(item, method), "select")
+			return
+		}
+		if invoke := pattern(e.ref, invokeID, &iidInvoke); invoke != 0 {
+			defer release(invoke)
+			err = succeeded(comCall(invoke, patternAction), "invoke")
+			return
+		}
+		if toggle := pattern(e.ref, toggleID, &iidToggle); toggle != 0 {
+			defer release(toggle)
+			err = succeeded(comCall(toggle, patternAction), "toggle")
+			return
+		}
+		err = errors.New("the element has no action that works in the background")
+	})
+	return err
+}
+
+func (e winElement) open() error {
+	var err error
+	e.automation.ask(func(uintptr) {
+		invoke := pattern(e.ref, invokeID, &iidInvoke)
+		if invoke == 0 {
+			err = errors.New("the element cannot be opened in the background")
+			return
+		}
+		defer release(invoke)
+		err = succeeded(comCall(invoke, patternAction), "open")
+	})
+	return err
+}
+
+func (e winElement) write(text string) error {
+	var err error
+	e.automation.ask(func(uintptr) {
+		value := pattern(e.ref, valuePatternID, &iidValuePattern)
+		if value == 0 || e.kind == 50030 {
+			err = errors.New("the element takes no text in the background")
+			if value != 0 {
+				release(value)
+			}
+			return
+		}
+		defer release(value)
+		var readOnly int32
+		var current uintptr
+		comCall(value, valueReadOnly, uintptr(unsafe.Pointer(&readOnly)))
+		comCall(value, valueGet, uintptr(unsafe.Pointer(&current)))
+		if readOnly != 0 {
+			err = errors.New("the field is read-only")
+			return
+		}
+		next, convErr := windows.UTF16PtrFromString(takeString(current) + text)
+		if convErr != nil {
+			err = convErr
+			return
+		}
+		bstr, _, _ := sysAllocString.Call(uintptr(unsafe.Pointer(next)))
+		defer sysFreeString.Call(bstr)
+		err = succeeded(comCall(value, valueSet, bstr), "set the text")
+	})
+	return err
+}
+
+func succeeded(hr uintptr, what string) error {
+	if hr != 0 {
+		return fmt.Errorf("could not %s (0x%x)", what, hr)
+	}
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf16"
 	"unsafe"
 
@@ -13,6 +14,7 @@ import (
 const (
 	axPointType = 1
 	axSizeType  = 2
+	uiRetry     = 300 * time.Millisecond
 	uiTimeout   = 0.5
 )
 
@@ -100,7 +102,7 @@ func newAXTree(lib uintptr, s *macScreen) *axTree {
 	return t
 }
 
-func (s *macScreen) window(on display) ([]uiNode, bool) {
+func (s *macScreen) window(on display, watched string) ([]uiNode, bool) {
 	if s.tree == nil || !s.axTrusted() {
 		return nil, false
 	}
@@ -115,11 +117,11 @@ func (s *macScreen) window(on display) ([]uiNode, bool) {
 			title := s.text(s.attribute(window, "AXTitle"))
 			switch {
 			case title == "":
-			case front == 0:
+			case front == 0 && (watched == "" || title == watched):
 				front, raise = window, macRaise{s: s, pid: pid, title: title}
 				continue
 			case len(others) < uiOthers:
-				others = append(others, uiNode{role: "window", name: title + " (" + name + ", behind)", target: macRaise{s: s, pid: pid, title: title}})
+				others = append(others, uiNode{role: "window", behind: true, name: title + " (" + name + ", behind)", target: macRaise{s: s, pid: pid, title: title}})
 			}
 			s.release(window)
 		}
@@ -131,7 +133,16 @@ func (s *macScreen) window(on display) ([]uiNode, bool) {
 	defer s.release(front)
 	walk := &uiWalker{s: s}
 	walk.visit(front, 0)
+	if walk.seen <= 1 {
+		// why: a window that just opened can answer with nothing for a moment while its app finishes launching
+		time.Sleep(uiRetry)
+		walk = &uiWalker{s: s}
+		walk.visit(front, 0)
+	}
 	if len(walk.nodes) > 0 {
+		if element, ok := walk.nodes[0].target.(macElement); ok {
+			element.close()
+		}
 		walk.nodes[0].target = raise
 	}
 	return append(walk.nodes, others...), walk.seen > 1
@@ -263,6 +274,7 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 	}
 	if role == "AXRow" && n.name == "" {
 		n.name = strings.Join(w.texts(children, 0), " | ")
+		n.target = macElement{s: s, ref: t.retain(element), role: role}
 		w.nodes = append(w.nodes, n)
 		return
 	}
@@ -270,6 +282,7 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 	if flattened[role] && n.name == "" {
 		next = depth
 	} else {
+		n.target = macElement{s: s, ref: t.retain(element), role: role}
 		w.nodes = append(w.nodes, n)
 	}
 	if w.kind(children) != t.arrayType {
@@ -376,4 +389,92 @@ func firstOf(values ...string) string {
 		}
 	}
 	return ""
+}
+
+type macElement struct {
+	s    *macScreen
+	ref  uintptr
+	role string
+}
+
+func (e macElement) close() { e.s.release(e.ref) }
+
+func (e macElement) selects() bool { return e.role == "AXRow" }
+
+func (e macElement) activate(adding bool) error {
+	switch e.role {
+	case "AXRow":
+		return e.choose(adding)
+	case "AXTextField", "AXTextArea", "AXComboBox", "AXSearchField":
+		return e.setTo("AXFocused", e.s.tree.yes)
+	}
+	return e.perform("AXPress")
+}
+
+func (e macElement) open() error {
+	if e.role != "AXRow" {
+		return e.perform("AXPress")
+	}
+	if err := e.choose(false); err != nil {
+		return err
+	}
+	return e.perform("AXOpen")
+}
+
+func (e macElement) write(text string) error {
+	before := e.s.text(e.s.attribute(e.ref, "AXValue"))
+	value := e.s.stringCreate(0, text, cfUTF8)
+	defer e.s.release(value)
+	if err := e.setTo("AXSelectedText", value); err != nil {
+		return err
+	}
+	// why: some fields report success and change nothing (Finder's rename field), so the value is read back
+	if e.s.text(e.s.attribute(e.ref, "AXValue")) == before {
+		return errors.New("the field did not take the text")
+	}
+	return nil
+}
+
+func (e macElement) choose(adding bool) error {
+	s, t := e.s, e.s.tree
+	list := s.attribute(e.ref, "AXParent")
+	if list == 0 {
+		return errors.New("the row has no list")
+	}
+	defer s.release(list)
+	rows := []uintptr{e.ref}
+	if adding {
+		if picked := s.attribute(list, "AXSelectedRows"); picked != 0 {
+			defer s.release(picked)
+			for i := range s.ax.count(picked) {
+				rows = append(rows, s.ax.item(picked, i))
+			}
+		}
+	}
+	chosen := t.arrayCreate(0, &rows[0], int64(len(rows)), t.callbacks)
+	defer s.release(chosen)
+	key := s.stringCreate(0, "AXSelectedRows", cfUTF8)
+	defer s.release(key)
+	if t.set(list, key, chosen) != 0 {
+		return errors.New("the list did not take the selection")
+	}
+	return nil
+}
+
+func (e macElement) setTo(name string, value uintptr) error {
+	key := e.s.stringCreate(0, name, cfUTF8)
+	defer e.s.release(key)
+	if code := e.s.tree.set(e.ref, key, value); code != 0 {
+		return fmt.Errorf("the element refused %s (%d)", name, code)
+	}
+	return nil
+}
+
+func (e macElement) perform(action string) error {
+	name := e.s.stringCreate(0, action, cfUTF8)
+	defer e.s.release(name)
+	if code := e.s.tree.perform(e.ref, name); code != 0 {
+		return fmt.Errorf("the element has no %s (%d)", action, code)
+	}
+	return nil
 }

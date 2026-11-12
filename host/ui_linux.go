@@ -25,7 +25,7 @@ var skipped = map[string]bool{"scroll bar": true, "separator": true, "image": tr
 
 var rows = map[string]bool{"table row": true, "list item": true, "tree item": true}
 
-func (a *accessibility) window(display) ([]uiNode, bool) {
+func (a *accessibility) window(_ display, title string) ([]uiNode, bool) {
 	if a == nil {
 		return nil, false
 	}
@@ -43,6 +43,9 @@ func (a *accessibility) window(display) ([]uiNode, bool) {
 			front = frame
 			break
 		}
+	}
+	if title != "" {
+		front = a.titled(title, front)
 	}
 	walk := &atspiWalker{a: a}
 	walk.visit(front, 0)
@@ -172,6 +175,34 @@ func (t atspiTarget) activate(adding bool) error {
 	var done bool
 	if err := element.Call(atspi+"Action.DoAction", 0, int32(0)).Store(&done); err != nil || !done {
 		return fmt.Errorf("it has no action: %v", err)
+	}
+	return nil
+}
+
+func (a *accessibility) titled(title string, otherwise node) node {
+	var apps []node
+	if a.bus.Object(atspi+"Registry", atspiRoot).Call(atspi+"Accessible.GetChildren", 0).Store(&apps) != nil {
+		return otherwise
+	}
+	for _, app := range apps {
+		for _, frame := range a.children(app) {
+			if name, err := a.bus.Object(frame.Sender, frame.Path).GetProperty(atspi + "Accessible.Name"); err == nil && name.Value() == title {
+				return frame
+			}
+		}
+	}
+	return otherwise
+}
+
+func (t atspiTarget) write(text string) error {
+	element := t.a.bus.Object(t.at.Sender, t.at.Path)
+	at := int32(0)
+	if caret, err := element.GetProperty(textCaret); err == nil {
+		at, _ = caret.Value().(int32)
+	}
+	var done bool
+	if err := element.Call(atspi+"EditableText.InsertText", 0, at, text, int32(len([]rune(text)))).Store(&done); err != nil || !done {
+		return fmt.Errorf("the field did not take the text: %v", err)
 	}
 	return nil
 }

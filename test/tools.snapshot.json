@@ -3837,6 +3837,10 @@
 				"image": {
 					"description": "also return a JPEG of the display; the text usually is enough",
 					"type": "boolean"
+				},
+				"window": {
+					"description": "the title of a window on the display to look at and work in without bringing it to the front (\"\" for the top window again)",
+					"type": "string"
 				}
 			},
 			"type": "object"
