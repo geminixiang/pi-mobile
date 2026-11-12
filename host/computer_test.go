@@ -628,3 +628,15 @@ func TestTidyKeepsTheNewlineThatEndsADocument(t *testing.T) {
 		t.Fatalf("the document's last line became %q: the model cannot see the file ends with a newline", got)
 	}
 }
+
+func TestALongRunOfLikeElementsIsCut(t *testing.T) {
+	nodes := []uiNode{{role: "window", name: "未命名"}, {depth: 1, role: "sheet", name: "儲存"}}
+	for i := range 40 {
+		nodes = append(nodes, uiNode{depth: 2, role: "textfield", name: fmt.Sprintf("file %d", i)})
+	}
+	nodes = append(nodes, uiNode{depth: 2, role: "popupbutton", name: "位置 =geminixiang"})
+	text := uiText(tidy(nodes), func(x, y float64) (int, int) { return int(x), int(y) })
+	if !strings.Contains(text, "\"file 24\"\n  … 15 more textfield\n") || !strings.Contains(text, "位置 =geminixiang") || strings.Contains(text, "file 25") {
+		t.Fatalf("the run was not cut, or the field after it is lost:\n%s", text)
+	}
+}

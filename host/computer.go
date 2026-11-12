@@ -85,7 +85,7 @@ type uiNode struct {
 	placed                               bool
 	focused, selected, disabled, checked bool
 	target                               uiTarget
-	id                                   int
+	id, more                             int
 }
 
 type uiTarget interface {
@@ -103,6 +103,7 @@ const (
 	uiThin   = 3
 	uiWalk   = 800
 	uiOthers = 8
+	uiRun    = 25
 	uiPoll   = 150 * time.Millisecond
 	uiDepth  = 30
 )
@@ -330,6 +331,26 @@ func tidy(nodes []uiNode) []uiNode {
 		n.depth = depth
 		out = append(out, n)
 	}
+	return crowd(out)
+}
+
+// why: a folder column in a save panel lists every file in it, and hundreds of rows pushed the panel's name field and buttons past the line limit
+func crowd(nodes []uiNode) []uiNode {
+	var out []uiNode
+	run := 0
+	for i, n := range nodes {
+		leaf := i+1 == len(nodes) || nodes[i+1].depth <= n.depth
+		same := len(out) > 0 && leaf && out[len(out)-1].depth == n.depth && out[len(out)-1].role == n.role && n.depth > 0
+		if !same {
+			run = 0
+		}
+		run++
+		if run > uiRun {
+			out[len(out)-1].more++
+			continue
+		}
+		out = append(out, n)
+	}
 	return out
 }
 
@@ -455,6 +476,9 @@ func render(nodes []uiNode, toShot func(x, y float64) (int, int)) []uiLine {
 			}
 		}
 		lines = append(lines, uiLine{id, line})
+		if n.more > 0 {
+			lines = append(lines, uiLine{text: fmt.Sprintf("%s… %d more %s", strings.Repeat(" ", n.depth), n.more, n.role)})
+		}
 	}
 	return lines
 }

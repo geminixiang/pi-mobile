@@ -38,7 +38,7 @@ var flattened = map[string]bool{
 	"AXUnknown": true, "AXBrowser": true, "AXCell": true,
 }
 
-var skipped = map[string]bool{"AXImage": true, "AXScrollBar": true, "AXColumn": true, "AXSplitter": true, "AXGrowArea": true, "AXValueIndicator": true}
+var skipped = map[string]bool{"AXRulerMarker": true, "AXImage": true, "AXScrollBar": true, "AXColumn": true, "AXSplitter": true, "AXGrowArea": true, "AXValueIndicator": true}
 
 type axTree struct {
 	copyMultiple func(uintptr, uintptr, uint32, *uintptr) int32
@@ -275,9 +275,25 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 	if w.kind(children) != t.arrayType {
 		return
 	}
+	if sheet := w.sheet(children); depth == 0 && sheet != 0 {
+		w.visit(sheet, next)
+		return
+	}
 	for i := range s.ax.count(children) {
 		w.visit(s.ax.item(children, i), next)
 	}
+}
+
+// why: a sheet (a save or open panel) is modal, so the window behind it takes no input until it closes
+func (w *uiWalker) sheet(children uintptr) uintptr {
+	s := w.s
+	for i := range s.ax.count(children) {
+		child := s.ax.item(children, i)
+		if s.text(s.attribute(child, "AXRole")) == "AXSheet" {
+			return child
+		}
+	}
+	return 0
 }
 
 func (w *uiWalker) texts(children uintptr, depth int) []string {
