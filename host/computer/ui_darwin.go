@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"errors"
@@ -15,6 +15,7 @@ const (
 	axPointType = 1
 	axSizeType  = 2
 	uiRetry     = 300 * time.Millisecond
+	menuOpen    = 200 * time.Millisecond
 	uiTimeout   = 0.5
 )
 
@@ -102,13 +103,13 @@ func newAXTree(lib uintptr, s *macScreen) *axTree {
 	return t
 }
 
-func (s *macScreen) window(on display, watched string) ([]uiNode, bool) {
+func (s *macScreen) window(on display, watched string) uiView {
 	if s.tree == nil || !s.axTrusted() {
-		return nil, false
+		return uiView{}
 	}
 	var front uintptr
 	var raise macRaise
-	var others []uiNode
+	var others []uiOther
 	for _, pid := range s.windowPIDs() {
 		app := s.appElement(pid)
 		s.tree.timeout(app, uiTimeout)
@@ -121,14 +122,14 @@ func (s *macScreen) window(on display, watched string) ([]uiNode, bool) {
 				front, raise = window, macRaise{s: s, pid: pid, title: title}
 				continue
 			case len(others) < uiOthers:
-				others = append(others, uiNode{role: "window", behind: true, name: title + " (" + name + ", behind)", target: macRaise{s: s, pid: pid, title: title}})
+				others = append(others, uiOther{title: title, app: name, target: macRaise{s: s, pid: pid, title: title}})
 			}
 			s.release(window)
 		}
 		s.release(app)
 	}
 	if front == 0 {
-		return others, false
+		return uiView{others: others}
 	}
 	defer s.release(front)
 	walk := &uiWalker{s: s}
@@ -145,7 +146,7 @@ func (s *macScreen) window(on display, watched string) ([]uiNode, bool) {
 		}
 		walk.nodes[0].target = raise
 	}
-	return append(walk.nodes, others...), walk.seen > 1
+	return uiView{window: walk.nodes, others: others}
 }
 
 func (s *macScreen) shown(app uintptr, on display) []uintptr {
@@ -268,6 +269,11 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 	n.disabled = known && !enabled
 	n.focused, _ = w.boolean(at(attrFocused))
 	n.selected, _ = w.boolean(at(attrSelected))
+	if role == "AXPopUpButton" && s.text(s.attribute(element, "AXIdentifier")) == "where popup" {
+		if path := []rune(s.wherePath(element)); len(path) > 0 {
+			n.name = firstOf(w.str(at(attrTitle)), w.str(at(attrDescription))) + " =…" + string(path[max(len(path)-uiName/2, 0):])
+		}
+	}
 	if role == "AXCheckBox" || role == "AXRadioButton" {
 		n.checked = w.number(at(attrValue)) == 1
 	}
@@ -480,4 +486,41 @@ func (e macElement) perform(action string) error {
 		return fmt.Errorf("the element has no %s (%d)", action, code)
 	}
 	return nil
+}
+
+// why: a save panel's "where" popup names only the last folder, so two folders called out look the same; its menu lists the folders above it, and the menu exists only while it is shown
+func (s *macScreen) wherePath(popup uintptr) string {
+	show, cancel := s.stringCreate(0, "AXShowMenu", cfUTF8), s.stringCreate(0, "AXCancel", cfUTF8)
+	defer s.release(show)
+	defer s.release(cancel)
+	if s.tree.perform(popup, show) != 0 {
+		return ""
+	}
+	time.Sleep(menuOpen)
+	menus := s.attribute(popup, "AXChildren")
+	if menus == 0 {
+		return ""
+	}
+	defer s.release(menus)
+	var folders []string
+	for i := range s.ax.count(menus) {
+		menu := s.ax.item(menus, i)
+		items := s.attribute(menu, "AXChildren")
+		for j := range s.ax.count(items) {
+			title := s.attribute(s.ax.item(items, j), "AXTitle")
+			if title == 0 || s.ax.typeOf(title) != s.ax.stringType {
+				break
+			}
+			name := s.text(title)
+			if name == "" {
+				break
+			}
+			folders = append([]string{name}, folders...)
+		}
+		if items != 0 {
+			s.release(items)
+		}
+		s.tree.perform(menu, cancel)
+	}
+	return strings.Join(folders, "/")
 }

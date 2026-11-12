@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"fmt"
@@ -25,17 +25,17 @@ var skipped = map[string]bool{"scroll bar": true, "separator": true, "image": tr
 
 var rows = map[string]bool{"table row": true, "list item": true, "tree item": true}
 
-func (a *accessibility) window(_ display, title string) ([]uiNode, bool) {
+func (a *accessibility) window(_ display, title string) uiView {
 	if a == nil {
-		return nil, false
+		return uiView{}
 	}
 	sender, _ := a.current()
 	if sender == "" {
-		return nil, false
+		return uiView{}
 	}
 	frames := a.children(node{sender, atspiRoot})
 	if len(frames) == 0 {
-		return nil, false
+		return uiView{}
 	}
 	front := frames[0]
 	for _, frame := range frames {
@@ -52,7 +52,7 @@ func (a *accessibility) window(_ display, title string) ([]uiNode, bool) {
 	if len(walk.nodes) > 0 {
 		walk.nodes[0].target = nil
 	}
-	return walk.nodes, walk.seen > 1
+	return uiView{window: walk.nodes}
 }
 
 type atspiWalker struct {

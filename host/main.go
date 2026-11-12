@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/geminixiang/pi-mobile/host/computer"
 	"io"
 	"log"
 	"net"
@@ -387,7 +388,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "usage: pi-mobile mcp computer")
 			os.Exit(2)
 		}
-		os.Exit(serveComputerMCP())
+		os.Exit(computer.Serve(version, stateDir()))
 	default:
 		fmt.Fprintln(os.Stderr, "pi-mobile: lets the pi mobile app on your phone operate this computer over Tailscale.\n\nUsage:\n  pi-mobile serve     run (the login item does this)\n  pi-mobile status    whether it answers, and where\n  pi-mobile pair      a one-time code that lets a phone in\n  pi-mobile permissions   wait for the macOS permissions serve asks for, one by one (install.sh runs it)\n  pi-mobile devices   the phones paired with this computer\n  pi-mobile unpair <device>|--all   stop letting a phone in, and end what it has open\n  pi-mobile mcp computer   the screen as an MCP server on stdio (the phone starts it)\n  pi-mobile version")
 		if command != "" && command != "help" && command != "--help" && command != "-h" {

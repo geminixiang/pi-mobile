@@ -1,6 +1,6 @@
 //go:build linux
 
-package main
+package computer
 
 import (
 	"cmp"
@@ -378,17 +378,18 @@ func (s *x11Screen) typeRemapped(runes []rune) (int, error) {
 	return batch, nil
 }
 
-func (s *x11Screen) window(on display, title string) ([]uiNode, bool) {
-	nodes, read := s.accessibility.window(on, title)
-	return append(nodes, s.behind(on)...), read
+func (s *x11Screen) window(on display, title string) uiView {
+	view := s.accessibility.window(on, title)
+	view.others = s.behind(on)
+	return view
 }
 
-func (s *x11Screen) behind(on display) []uiNode {
+func (s *x11Screen) behind(on display) []uiOther {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	active := s.windows("_NET_ACTIVE_WINDOW")
 	stacked := s.windows("_NET_CLIENT_LIST_STACKING")
-	var nodes []uiNode
+	var nodes []uiOther
 	for i := len(stacked) - 1; i >= 0 && len(nodes) < uiOthers; i-- {
 		window := stacked[i]
 		if len(active) > 0 && window == active[0] {
@@ -398,7 +399,7 @@ func (s *x11Screen) behind(on display) []uiNode {
 		if title == "" || !s.within(window, on) {
 			continue
 		}
-		nodes = append(nodes, uiNode{role: "window", behind: true, name: title + " (" + processName(s.pid(window)) + ", behind)", target: x11Raise{s: s, window: window}})
+		nodes = append(nodes, uiOther{title: title, app: processName(s.pid(window)), target: x11Raise{s: s, window: window}})
 	}
 	return nodes
 }

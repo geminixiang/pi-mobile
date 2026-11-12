@@ -182,7 +182,8 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
-| `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、`mcp computer`，與安裝腳本 |
+| `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、配對、session，與安裝腳本 |
+| `host/computer/` | `pi-mobile mcp computer`：讀畫面（元件清單、截圖）和操作滑鼠鍵盤，三個平台的實作與共用核心 |
 | `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |
 | `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
 | `test/` | 工具和 plugin 介面的檢查、單元測試；`contracts/` 用假的模型和記憶體的 `Platform` 開一個真的 `AgentRuntime`，驗生命週期的約定；`device/` 在手機上操作和量測 app（`ui.sh` 經 CDP 或 WebKit 執行頁面函式、`tool-cost.sh`、`jank.sh`）；`perf/` 是 S24 的效能量測 |

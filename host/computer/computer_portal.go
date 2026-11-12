@@ -1,6 +1,6 @@
 //go:build linux
 
-package main
+package computer
 
 import (
 	"errors"
@@ -55,6 +55,7 @@ const (
 
 type portalScreen struct {
 	*accessibility
+	home     string
 	mu       sync.Mutex
 	bus      *dbus.Conn
 	desktop  dbus.BusObject
@@ -70,12 +71,12 @@ type portalScreen struct {
 
 var errPortalDenied = errors.New("the user declined on the computer: GNOME or KDE asked whether pi-mobile may see the screen and use the mouse and keyboard, and the answer was no; tell the user to allow it there next time")
 
-func newPortalScreen() (screen, error) {
+func newPortalScreen(state string) (screen, error) {
 	bus, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return nil, fmt.Errorf("Wayland: cannot reach the desktop's session bus: %w", err)
 	}
-	s := &portalScreen{accessibility: startAccessibility(), bus: bus, desktop: bus.Object(portalName, portalPath), taken: make(chan struct{}, 1), owned: make(chan struct{}, 1)}
+	s := &portalScreen{home: state, accessibility: startAccessibility(), bus: bus, desktop: bus.Object(portalName, portalPath), taken: make(chan struct{}, 1), owned: make(chan struct{}, 1)}
 	if _, err := s.desktop.GetProperty(remoteDesktop + ".AvailableDeviceTypes"); err != nil {
 		bus.Close()
 		return nil, fmt.Errorf("Wayland: this desktop has no remote desktop portal (xdg-desktop-portal with a GNOME or KDE backend), so pi-mobile cannot see the screen or use the mouse and keyboard: %w", err)
@@ -122,15 +123,15 @@ func (s *portalScreen) request(method string, options map[string]dbus.Variant, a
 	}
 }
 
-func restoreTokenFile() string {
-	return filepath.Join(stateDir(), "remote-desktop-token")
+func restoreTokenFile(state string) string {
+	return filepath.Join(state, "remote-desktop-token")
 }
 
-func rememberRestoreToken(token string) error {
-	if err := os.MkdirAll(stateDir(), 0o700); err != nil {
+func rememberRestoreToken(state, token string) error {
+	if err := os.MkdirAll(state, 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(restoreTokenFile(), []byte(token), 0o600)
+	return os.WriteFile(restoreTokenFile(state), []byte(token), 0o600)
 }
 
 func (s *portalScreen) start() (*remoteSession, error) {
@@ -147,7 +148,7 @@ func (s *portalScreen) start() (*remoteSession, error) {
 	}
 	session := dbus.ObjectPath(handle)
 	devices := map[string]dbus.Variant{"types": dbus.MakeVariant(uint32(keyboardDevice | pointerDevice)), "persist_mode": dbus.MakeVariant(uint32(persistAlways))}
-	if token, err := os.ReadFile(restoreTokenFile()); err == nil && len(token) > 0 {
+	if token, err := os.ReadFile(restoreTokenFile(s.home)); err == nil && len(token) > 0 {
 		devices["restore_token"] = dbus.MakeVariant(strings.TrimSpace(string(token)))
 	}
 	if _, err := s.request(remoteDesktop+".SelectDevices", devices, session); err != nil {
@@ -162,7 +163,7 @@ func (s *portalScreen) start() (*remoteSession, error) {
 		return nil, err
 	}
 	if token, ok := started["restore_token"].Value().(string); ok {
-		if err := rememberRestoreToken(token); err != nil {
+		if err := rememberRestoreToken(s.home, token); err != nil {
 			log.Printf("Wayland: the desktop will ask for permission again next time, the token was not saved: %v", err)
 		}
 	}

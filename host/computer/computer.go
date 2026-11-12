@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"bufio"
@@ -86,7 +86,16 @@ type uiNode struct {
 	focused, selected, disabled, checked bool
 	target                               uiTarget
 	id, more                             int
-	behind                               bool
+}
+
+type uiOther struct {
+	title, app string
+	target     uiTarget
+}
+
+type uiView struct {
+	window []uiNode
+	others []uiOther
 }
 
 type uiTarget interface {
@@ -107,7 +116,7 @@ type uiCloser interface {
 }
 
 type uiReader interface {
-	window(on display, title string) ([]uiNode, bool)
+	window(on display, title string) uiView
 }
 
 const (
@@ -161,6 +170,7 @@ type seen struct {
 	origin display
 	scale  float64
 	ui     []uiNode
+	window bool
 	lines  []uiLine
 }
 
@@ -251,10 +261,7 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 			now.focus, _ = reader.focused()
 		}
 		if reader, ok := c.screen.(uiReader); ok {
-			nodes, read := c.read(reader, d)
-			c.hold(nodes)
-			now.ui, now.read = tidy(nodes), read
-			c.number(now.ui)
+			now.ui, now.read = c.observe(reader, d)
 		}
 		return now
 	}()
@@ -263,7 +270,7 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 	if c.seen != nil && c.seen.index == index {
 		before = c.seen.lines
 	}
-	c.seen = &seen{index: index, origin: d, scale: d.w / float64(w), ui: now.ui}
+	c.seen = &seen{index: index, origin: d, scale: d.w / float64(w), ui: now.ui, window: now.read}
 	var content []any
 	if picture || !now.read || named(now.ui) < uiThin {
 		jpg, err := c.picture(d, w, h)
@@ -284,7 +291,7 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 	if now.window != "" {
 		facts["window"] = now.window
 	}
-	if now.focus.role != "" && (len(now.ui) == 0 || now.ui[0].name == now.window) {
+	if now.focus.role != "" && (!now.read || now.ui[0].name == now.window) {
 		facts["focus"] = focusFacts(now.focus)
 	}
 	text, _ := json.Marshal(facts)
@@ -387,7 +394,10 @@ func visible(r rune) rune {
 
 func named(nodes []uiNode) int {
 	count := 0
-	for _, n := range nodes {
+	for i, n := range nodes {
+		if i > 0 && n.depth == 0 {
+			break
+		}
 		if n.name != "" {
 			count++
 		}
@@ -628,22 +638,36 @@ func (c *computer) run(s step) error {
 	return fmt.Errorf("unknown action %q", s.Action)
 }
 
-func (c *computer) read(reader uiReader, on display) ([]uiNode, bool) {
-	nodes, read := reader.window(on, c.watch)
-	if c.watch == "" || (len(nodes) > 0 && !nodes[0].behind && nodes[0].name == c.watch) {
-		return nodes, read
+func (c *computer) observe(reader uiReader, on display) ([]uiNode, bool) {
+	view := reader.window(on, c.watch)
+	if c.watch != "" && (len(view.window) == 0 || view.window[0].name != c.watch) {
+		c.watch = ""
+		view = reader.window(on, "")
 	}
-	c.watch = ""
-	return reader.window(on, "")
+	c.hold(view)
+	nodes := tidy(view.window)
+	read := len(nodes) > 0
+	for _, other := range view.others {
+		nodes = append(nodes, uiNode{role: "window", name: other.title + " (" + other.app + ", behind)", target: other.target})
+	}
+	c.number(nodes)
+	return nodes, read
 }
 
-func (c *computer) hold(nodes []uiNode) {
+func (c *computer) hold(view uiView) {
 	for _, held := range c.held {
 		held.close()
 	}
 	c.held = nil
-	for _, n := range nodes {
-		if closer, ok := n.target.(uiCloser); ok {
+	targets := make([]uiTarget, 0, len(view.window)+len(view.others))
+	for _, n := range view.window {
+		targets = append(targets, n.target)
+	}
+	for _, other := range view.others {
+		targets = append(targets, other.target)
+	}
+	for _, target := range targets {
+		if closer, ok := target.(uiCloser); ok {
 			c.held = append(c.held, closer)
 		}
 	}
@@ -670,11 +694,8 @@ func (c *computer) find(name string, wait time.Duration) (uiNode, error) {
 		return uiNode{}, errors.New("elements by name need a look first, on a computer whose windows give their elements")
 	}
 	for deadline := time.Now().Add(wait); ; time.Sleep(uiPoll) {
-		nodes, _ := c.read(reader, c.seen.origin)
-		c.hold(nodes)
-		nodes = tidy(nodes)
-		c.number(nodes)
-		c.seen.ui = nodes
+		nodes, read := c.observe(reader, c.seen.origin)
+		c.seen.ui, c.seen.window = nodes, read
 		var found []uiNode
 		for i, n := range nodes {
 			if i > 0 && called(n.name, name) {
@@ -707,6 +728,10 @@ func (c *computer) clickNode(n uiNode, s step) error {
 		}
 	}
 	if n.placed {
+		// why: the element's window may be behind another, and a click at its position would land on the window in front
+		if err := c.front(step{Action: "key"}); err != nil {
+			return err
+		}
 		return c.click(n.x, n.y, cmp.Or(s.Button, "left"), max(s.Count, 1), heldKeys(s.Keys))
 	}
 	return fmt.Errorf("element [%d] has no position or action: look with image true and click its x, y", n.id)
@@ -868,7 +893,12 @@ func pauseAfter(s step) time.Duration {
 	if s.Action != "key" {
 		return stepPause
 	}
-	if _, key, err := keyChord(s.Keys); err == nil && (key == "return" || key == "esc") {
+	mods, key, err := keyChord(s.Keys)
+	if err != nil {
+		return stepPause
+	}
+	// why: a command shortcut can open a sheet or a dialog; TextEdit pressed cmd+shift+t then cmd+s 60 ms apart and stopped answering accessibility until it was killed
+	if key == "return" || key == "esc" || slices.Contains(mods, "cmd") || slices.Contains(mods, "ctrl") {
 		return settle
 	}
 	return stepPause
@@ -902,10 +932,10 @@ func (c *computer) front(s step) error {
 	if !keyboard || c.seen == nil || len(c.seen.ui) == 0 {
 		return nil
 	}
-	looked := c.seen.ui[0]
-	if looked.behind {
+	if !c.seen.window {
 		return nil
 	}
+	looked := c.seen.ui[0]
 	if looked.target == nil || c.inFront(looked) {
 		return nil
 	}
@@ -1027,8 +1057,8 @@ type rpcMessage struct {
 	Params json.RawMessage `json:"params,omitempty"`
 }
 
-func serveComputerMCP() int {
-	s, err := newScreen()
+func Serve(version, state string) int {
+	s, err := newScreen(state)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "pi-mobile mcp computer:", err)
 		return 1

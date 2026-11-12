@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"errors"
@@ -10,12 +10,12 @@ import (
 )
 
 func TestBatchTransitionPause(t *testing.T) {
-	for _, key := range []string{"return", "enter", "esc", "escape", "cmd+return", " ENTER "} {
+	for _, key := range []string{"return", "enter", "esc", "escape", "cmd+return", " ENTER ", "cmd+s", "ctrl+shift+n"} {
 		if got := pauseAfter(step{Action: "key", Keys: key}); got != settle {
 			t.Errorf("%q pause = %s, want %s", key, got, settle)
 		}
 	}
-	for _, s := range []step{{Action: "click"}, {Action: "type", Text: "first\nsecond"}, {Action: "key", Keys: "tab"}, {Action: "key", Keys: "down"}, {Action: "key", Keys: "cmd+a"}} {
+	for _, s := range []step{{Action: "click"}, {Action: "type", Text: "first\nsecond"}, {Action: "key", Keys: "tab"}, {Action: "key", Keys: "down"}, {Action: "key", Keys: "shift+down"}} {
 		if got := pauseAfter(s); got != 60*time.Millisecond {
 			t.Errorf("ordinary step %+v pause = %s", s, got)
 		}
@@ -430,10 +430,13 @@ func TestFocusFactsShowTheEndOfTheTextAndHideSecrets(t *testing.T) {
 type windowScreen struct {
 	twoDisplays
 	nodes     []uiNode
+	others    []uiOther
 	activated []bool
 }
 
-func (s *windowScreen) window(display, string) ([]uiNode, bool) { return s.nodes, true }
+func (s *windowScreen) window(display, string) uiView {
+	return uiView{window: s.nodes, others: s.others}
+}
 
 type pressed struct{ s *windowScreen }
 
@@ -684,8 +687,7 @@ func TestElementsAreUsedWithoutThePointerOrTheKeyboard(t *testing.T) {
 
 func TestKeysGoOnWhenOnlyWindowsBehindWereRead(t *testing.T) {
 	s := &windowScreen{}
-	s.nodes = []uiNode{{role: "window", name: "note.txt (TextEdit, behind)", behind: true}}
-	s.nodes[0].target = pressed{s}
+	s.others = []uiOther{{title: "note.txt", app: "TextEdit", target: pressed{s}}}
 	c := &computer{screen: s}
 	if _, err := c.shot(1, false); err != nil {
 		t.Fatal(err)
@@ -709,12 +711,12 @@ type watchedScreen struct {
 	asked []string
 }
 
-func (s *watchedScreen) window(_ display, title string) ([]uiNode, bool) {
+func (s *watchedScreen) window(_ display, title string) uiView {
 	s.asked = append(s.asked, title)
 	if title == "gone.txt" {
-		return []uiNode{{role: "window", name: "other.txt (TextEdit, behind)", behind: true}}, false
+		return uiView{others: []uiOther{{title: "other.txt", app: "TextEdit"}}}
 	}
-	return []uiNode{{role: "window", name: "top"}, {depth: 1, role: "button", name: "a"}, {depth: 1, role: "button", name: "b"}}, true
+	return uiView{window: []uiNode{{role: "window", name: "top"}, {depth: 1, role: "button", name: "a"}, {depth: 1, role: "button", name: "b"}}}
 }
 
 func TestAWatchedWindowThatIsGoneFallsBackToTheTopWindow(t *testing.T) {

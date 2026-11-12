@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"bytes"
@@ -73,7 +73,7 @@ type macScreen struct {
 	flags            uint64
 }
 
-func newScreen() (screen, error) {
+func newScreen(string) (screen, error) {
 	lib, err := purego.Dlopen("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices", purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	if err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"errors"
@@ -153,7 +153,7 @@ var (
 	errInputBlocked   = errors.New("Windows dropped the input: the window in front runs as administrator, or the screen is locked; tell the user to deal with that window on the computer")
 )
 
-func newScreen() (screen, error) {
+func newScreen(string) (screen, error) {
 	var session uint32
 	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session); err == nil && session == 0 {
 		return nil, errServiceSession

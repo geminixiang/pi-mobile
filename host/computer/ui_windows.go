@@ -1,4 +1,4 @@
-package main
+package computer
 
 import (
 	"errors"
@@ -53,39 +53,38 @@ var (
 	leafTypes      = map[int32]bool{50007: true, 50024: true, 50029: true, 50019: true, 50005: true}
 )
 
-func (s *winScreen) window(on display, title string) ([]uiNode, bool) {
+func (s *winScreen) window(on display, title string) uiView {
 	if s.automation == nil {
-		return nil, false
+		return uiView{}
 	}
 	front := topOn(on, title)
 	if front == 0 {
-		return nil, false
+		return uiView{}
 	}
 	var nodes []uiNode
-	var read bool
-	s.automation.ask(func(client uintptr) { nodes, read = walkWindow(s.automation, client, front) })
+	s.automation.ask(func(client uintptr) { nodes = walkWindow(s.automation, client, front) })
 	if len(nodes) > 0 {
 		if element, ok := nodes[0].target.(winElement); ok {
 			element.close()
 		}
 		nodes[0].target = winRaise{front}
 	}
-	return append(nodes, behind(front, on)...), read
+	return uiView{window: nodes, others: behind(front, on)}
 }
 
-func walkWindow(a *automation, client, handle uintptr) ([]uiNode, bool) {
+func walkWindow(a *automation, client, handle uintptr) []uiNode {
 	var root, walker uintptr
 	if comCall(client, automationFromHandle, handle, uintptr(unsafe.Pointer(&root))) != 0 || root == 0 {
-		return nil, false
+		return nil
 	}
 	defer release(root)
 	if comCall(client, automationControlView, uintptr(unsafe.Pointer(&walker))) != 0 || walker == 0 {
-		return nil, false
+		return nil
 	}
 	defer release(walker)
 	w := &uiaWalker{automation: a, walker: walker, deadline: time.Now().Add(uiBudget)}
 	w.visit(root, 0)
-	return w.nodes, w.seen > 1
+	return w.nodes
 }
 
 type uiaWalker struct {
@@ -212,13 +211,13 @@ func elementString(element uintptr, property int) string {
 	return strings.TrimSpace(takeString(text))
 }
 
-func behind(front uintptr, on display) []uiNode {
-	var nodes []uiNode
+func behind(front uintptr, on display) []uiOther {
+	var nodes []uiOther
 	for _, w := range topWindows() {
 		if w.handle == front || len(nodes) == uiOthers || hidden(w.handle) || !within(w.handle, on) {
 			continue
 		}
-		nodes = append(nodes, uiNode{role: "window", behind: true, name: windowTitle(w.handle) + " (" + exeName(w.pid) + ", behind)", target: winRaise{w.handle}})
+		nodes = append(nodes, uiOther{title: windowTitle(w.handle), app: exeName(w.pid), target: winRaise{w.handle}})
 	}
 	return nodes
 }

@@ -1,20 +1,21 @@
 //go:build linux
 
-package main
+package computer
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/godbus/dbus/v5"
 )
 
 func TestTheRestoreTokenIsSavedOnAFreshHome(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	if err := rememberRestoreToken("token"); err != nil {
+	state := filepath.Join(t.TempDir(), ".pi", "mobile")
+	if err := rememberRestoreToken(state, "token"); err != nil {
 		t.Fatalf("a home without ~/.pi/mobile should still keep the token: %v", err)
 	}
-	if saved, err := os.ReadFile(restoreTokenFile()); err != nil || string(saved) != "token" {
+	if saved, err := os.ReadFile(restoreTokenFile(state)); err != nil || string(saved) != "token" {
 		t.Fatalf("saved %q, %v", saved, err)
 	}
 }

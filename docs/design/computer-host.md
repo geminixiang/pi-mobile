@@ -88,7 +88,7 @@
 - 指令送到電腦之後連線才斷，工具回的錯誤會寫明「the request had been sent, so its outcome is unknown: check before retrying」；還沒送出就斷的寫「before the request was sent」。模型據此決定要不要重跑有副作用的指令（push、開 PR）。
 - `Workplaces` 裡的 key 是 `<電腦 id>:direct` 或 `<電腦 id>:container`；`settings.computer` 是沒有自己選的 Bot 用的預設，空的就是手機。
 
-## 畫面操控（`pi-mobile mcp computer`，`host/computer.go`）
+## 畫面操控（`pi-mobile mcp computer`，`host/computer/`）
 
 - 一個 stdio 的 MCP 服務，手機透過 `/exec` 啟動 `pi-mobile mcp computer`。`/exec` 的 PATH 最前面是 pi-mobile 自己的資料夾，所以不用寫完整路徑。
 - 兩個工具：`screenshot`（唯讀）和 `act`（一次多個步驟，做完回傳新截圖）。截圖附上前景 app、視窗標題和游標位置。
