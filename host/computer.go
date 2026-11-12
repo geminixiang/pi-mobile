@@ -251,7 +251,7 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 			now.focus, _ = reader.focused()
 		}
 		if reader, ok := c.screen.(uiReader); ok {
-			nodes, read := reader.window(d, c.watch)
+			nodes, read := c.read(reader, d)
 			c.hold(nodes)
 			now.ui, now.read = tidy(nodes), read
 			c.number(now.ui)
@@ -294,6 +294,13 @@ func (c *computer) look(index int, picture, changes bool) ([]any, error) {
 		said += "\n" + changed(before, c.seen.lines, changes)
 	}
 	return append(content, map[string]any{"type": "text", "text": said}), nil
+}
+
+func untagged(title string) string {
+	if i := strings.LastIndex(title, " ("); i >= 0 && strings.HasSuffix(title, ", behind)") {
+		return title[:i]
+	}
+	return title
 }
 
 func shotSize(d display) (int, int) {
@@ -571,6 +578,9 @@ func (c *computer) run(s step) error {
 		if err := c.clickNode(n, step{Action: "click"}); err != nil {
 			return err
 		}
+		if err := c.front(step{Action: "type"}); err != nil {
+			return err
+		}
 		return c.typeText(s.Text)
 	case "wait":
 		if s.Name != "" {
@@ -618,6 +628,15 @@ func (c *computer) run(s step) error {
 	return fmt.Errorf("unknown action %q", s.Action)
 }
 
+func (c *computer) read(reader uiReader, on display) ([]uiNode, bool) {
+	nodes, read := reader.window(on, c.watch)
+	if c.watch == "" || (len(nodes) > 0 && !nodes[0].behind && nodes[0].name == c.watch) {
+		return nodes, read
+	}
+	c.watch = ""
+	return reader.window(on, "")
+}
+
 func (c *computer) hold(nodes []uiNode) {
 	for _, held := range c.held {
 		held.close()
@@ -651,7 +670,7 @@ func (c *computer) find(name string, wait time.Duration) (uiNode, error) {
 		return uiNode{}, errors.New("elements by name need a look first, on a computer whose windows give their elements")
 	}
 	for deadline := time.Now().Add(wait); ; time.Sleep(uiPoll) {
-		nodes, _ := reader.window(c.seen.origin, c.watch)
+		nodes, _ := c.read(reader, c.seen.origin)
 		c.hold(nodes)
 		nodes = tidy(nodes)
 		c.number(nodes)
@@ -856,12 +875,12 @@ func pauseAfter(s step) time.Duration {
 }
 
 func (c *computer) act(steps []step, picture bool) ([]any, error) {
-	if err := c.front(steps); err != nil {
-		content, _ := c.shot(c.lastDisplay(), picture)
-		return content, err
-	}
 	for i, s := range steps {
-		if err := c.run(s); err != nil {
+		err := c.front(s)
+		if err == nil {
+			err = c.run(s)
+		}
+		if err != nil {
 			failure := fmt.Errorf("step %d (%s): %w; earlier steps were done, later steps were not run", i+1, s.Action, err)
 			content, captureError := c.shot(c.lastDisplay(), picture)
 			if captureError != nil {
@@ -878,25 +897,39 @@ func (c *computer) act(steps []step, picture bool) ([]any, error) {
 }
 
 // why: the window looked at can be on one display while another display's window has the keyboard, and keys sent then land in that other window
-func (c *computer) front(steps []step) error {
-	if len(steps) == 0 || (steps[0].Action != "key" && steps[0].Action != "type") || c.seen == nil || len(c.seen.ui) == 0 {
+func (c *computer) front(s step) error {
+	keyboard := s.Action == "key" || (s.Action == "type" && s.ID == 0 && s.Name == "")
+	if !keyboard || c.seen == nil || len(c.seen.ui) == 0 {
 		return nil
 	}
 	looked := c.seen.ui[0]
 	if looked.behind {
 		return nil
 	}
-	if _, window, _, _ := c.screen.state(); window == "" || window == looked.name || looked.target == nil {
+	if looked.target == nil || c.inFront(looked) {
 		return nil
 	}
 	if err := looked.target.activate(false); err != nil {
 		return fmt.Errorf("the keys were not sent: %q is not in front and could not be brought there (%w)", looked.name, err)
 	}
 	time.Sleep(settle)
-	if _, window, _, _ := c.screen.state(); window != "" && window != looked.name {
+	if !c.inFront(looked) {
+		_, window, _, _ := c.screen.state()
 		return fmt.Errorf("the keys were not sent: %q is in front, not %q; click the window to work in first", window, looked.name)
 	}
 	return nil
+}
+
+type uiFront interface {
+	inFront() bool
+}
+
+func (c *computer) inFront(looked uiNode) bool {
+	if window, ok := looked.target.(uiFront); ok {
+		return window.inFront()
+	}
+	_, window, _, _ := c.screen.state()
+	return window == "" || window == looked.name
 }
 
 func (c *computer) pause(done, next step) {
@@ -1061,7 +1094,7 @@ func serveComputerMCP() int {
 			switch p.Name {
 			case "screenshot":
 				if p.Arguments.Window != nil {
-					c.watch = *p.Arguments.Window
+					c.watch = untagged(*p.Arguments.Window)
 				}
 				content, err = c.shot(cmp.Or(p.Arguments.Display, c.lastDisplay()), p.Arguments.Image)
 			case "act":

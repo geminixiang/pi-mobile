@@ -694,3 +694,52 @@ func TestKeysGoOnWhenOnlyWindowsBehindWereRead(t *testing.T) {
 		t.Fatalf("a window behind was taken for the window looked at: err %v, activated %v", err, s.activated)
 	}
 }
+
+func TestAWindowNamedAsItIsListedBehindIsFound(t *testing.T) {
+	if got := untagged("note.txt - 記事本 (Notepad, behind)"); got != "note.txt - 記事本" {
+		t.Fatalf("untagged = %q", got)
+	}
+	if got := untagged("report (final)"); got != "report (final)" {
+		t.Fatalf("a title with brackets lost them: %q", got)
+	}
+}
+
+type watchedScreen struct {
+	windowScreen
+	asked []string
+}
+
+func (s *watchedScreen) window(_ display, title string) ([]uiNode, bool) {
+	s.asked = append(s.asked, title)
+	if title == "gone.txt" {
+		return []uiNode{{role: "window", name: "other.txt (TextEdit, behind)", behind: true}}, false
+	}
+	return []uiNode{{role: "window", name: "top"}, {depth: 1, role: "button", name: "a"}, {depth: 1, role: "button", name: "b"}}, true
+}
+
+func TestAWatchedWindowThatIsGoneFallsBackToTheTopWindow(t *testing.T) {
+	s := &watchedScreen{}
+	c := &computer{screen: s, watch: "gone.txt"}
+	content, err := c.shot(1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := content[len(content)-1].(map[string]any)["text"].(string); !strings.Contains(text, `window "top"`) || c.watch != "" {
+		t.Fatalf("asked %v, watch %q, look %s", s.asked, c.watch, text)
+	}
+}
+
+func TestKeysAfterABackgroundClickStillWaitForTheWindow(t *testing.T) {
+	s := &windowScreen{}
+	field := &background{}
+	s.nodes = []uiNode{{role: "window", name: "list.txt"}, {depth: 1, role: "textarea", name: "a", target: field}, {depth: 1, role: "button", name: "b"}}
+	s.nodes[0].target = pressed{s}
+	c := &computer{screen: s}
+	if _, err := c.shot(1, false); err != nil {
+		t.Fatal(err)
+	}
+	_, err := c.act([]step{{Action: "click", ID: 2}, {Action: "key", Keys: "cmd+a"}}, false)
+	if field.pressed != 1 || len(s.activated) != 1 || err == nil || !strings.Contains(err.Error(), "keys were not sent") {
+		t.Fatalf("pressed %d, raised %v, err %v: keys after a click in a window behind must wait for it to be in front", field.pressed, s.activated, err)
+	}
+}

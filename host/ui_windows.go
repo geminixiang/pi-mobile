@@ -39,6 +39,7 @@ var (
 	setForegroundWindow = user32.NewProc("SetForegroundWindow")
 	bringWindowToTop    = user32.NewProc("BringWindowToTop")
 	getWindowRect       = user32.NewProc("GetWindowRect")
+	getClassName        = user32.NewProc("GetClassNameW")
 	attachThreadInput   = user32.NewProc("AttachThreadInput")
 	getWindowLong       = user32.NewProc("GetWindowLongW")
 	dwmAttribute        = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmGetWindowAttribute")
@@ -175,15 +176,22 @@ func (w *uiaWalker) children(element uintptr, depth int) {
 // why: the foreground window can be on another display than the one looked at, and its elements say nothing about this one
 func topOn(on display, title string) uintptr {
 	foreground := uintptr(windows.GetForegroundWindow())
-	if title == "" && within(foreground, on) {
+	if title == "" && within(foreground, on) && !taskbar(foreground) && windowTitle(foreground) != "" {
 		return foreground
 	}
 	for _, w := range topWindows() {
-		if !hidden(w.handle) && within(w.handle, on) && (title == "" || windowTitle(w.handle) == title) {
+		if !hidden(w.handle) && !taskbar(w.handle) && within(w.handle, on) && (title == "" || windowTitle(w.handle) == title) {
 			return w.handle
 		}
 	}
 	return foreground
+}
+
+func taskbar(handle uintptr) bool {
+	name := make([]uint16, 64)
+	n, _, _ := getClassName.Call(handle, uintptr(unsafe.Pointer(&name[0])), uintptr(len(name)))
+	class := windows.UTF16ToString(name[:n])
+	return class == "Shell_TrayWnd" || class == "Shell_SecondaryTrayWnd" || class == "Progman" || class == "WorkerW"
 }
 
 func within(handle uintptr, on display) bool {
@@ -218,6 +226,8 @@ func behind(front uintptr, on display) []uiNode {
 type winRaise struct{ handle uintptr }
 
 func (r winRaise) selects() bool { return false }
+
+func (r winRaise) inFront() bool { return uintptr(windows.GetForegroundWindow()) == r.handle }
 
 func (r winRaise) activate(bool) error {
 	if minimized, _, _ := isIconic.Call(r.handle); minimized != 0 {

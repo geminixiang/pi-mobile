@@ -193,6 +193,9 @@ type macRaise struct {
 
 func (r macRaise) selects() bool { return false }
 
+// why: while Finder renames a new folder its focused window has no title, so the app in front is what tells whether keys reach the window
+func (r macRaise) inFront() bool { return r.s.frontWindowPID() == r.pid }
+
 func (r macRaise) activate(bool) error {
 	s := r.s
 	app := s.appElement(r.pid)
