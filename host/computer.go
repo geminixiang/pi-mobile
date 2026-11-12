@@ -315,7 +315,7 @@ func tidy(nodes []uiNode) []uiNode {
 		for len(stack) > 0 && stack[len(stack)-1].depth >= n.depth {
 			stack = stack[:len(stack)-1]
 		}
-		n.name = strings.TrimSpace(strings.Map(visible, n.name))
+		n.name = strings.Trim(strings.Map(visible, n.name), " \t")
 		depth, above := 0, ""
 		if len(stack) > 0 {
 			depth, above = stack[len(stack)-1].children, stack[len(stack)-1].name

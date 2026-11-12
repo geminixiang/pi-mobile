@@ -19,12 +19,12 @@ function Step($message) {
 
 function Stop-PiMobile {
 	Stop-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
-	Unregister-ScheduledTask -TaskName $Task -Confirm:$false -ErrorAction SilentlyContinue
 	Get-Process pi-mobile -ErrorAction SilentlyContinue | Stop-Process -Force -PassThru -ErrorAction SilentlyContinue | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
 }
 
 if ($args[0] -eq "uninstall") {
 	Stop-PiMobile
+	Unregister-ScheduledTask -TaskName $Task -Confirm:$false -ErrorAction SilentlyContinue
 	Remove-Item -Recurse -Force $Dir -ErrorAction SilentlyContinue
 	Write-Host "已移除 pi-mobile。"
 	exit 0
@@ -64,7 +64,17 @@ try {
 
 	Stop-PiMobile
 	New-Item -ItemType Directory -Force (Split-Path $Bin) | Out-Null
-	Move-Item -Force $download $Bin
+	# why: replacing the exe in place failed once with "file already exists" right after the old one was stopped, and the host stayed down; a running or just-stopped exe can still be renamed
+	$old = "$Bin.old"
+	Remove-Item -Force $old -ErrorAction SilentlyContinue
+	try {
+		if (Test-Path $Bin) { Move-Item -Force $Bin $old }
+		Move-Item $download $Bin
+	} catch {
+		if (-not (Test-Path $Bin) -and (Test-Path $old)) { Move-Item $old $Bin }
+		Start-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
+		Fail "換成新版失敗（$($_.Exception.Message)），舊版照舊在跑"
+	}
 } finally {
 	Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }
@@ -73,7 +83,7 @@ $action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\conhost.exe" -A
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName $Task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "pi-mobile: the pi mobile app operates this computer over Tailscale" | Out-Null
+Register-ScheduledTask -Force -TaskName $Task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "pi-mobile: the pi mobile app operates this computer over Tailscale" | Out-Null
 Start-ScheduledTask -TaskName $Task
 
 & $Bin status *> $null

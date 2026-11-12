@@ -621,3 +621,10 @@ func TestAClickByNameFindsWhatAppearedDuringTheSteps(t *testing.T) {
 		t.Fatalf("a wait for nothing = %v", err)
 	}
 }
+
+func TestTidyKeepsTheNewlineThatEndsADocument(t *testing.T) {
+	nodes := tidy([]uiNode{{role: "window", name: "note.txt - 記事本"}, {depth: 1, role: "document", name: " 文字編輯器 =alpha beta gamma\n"}})
+	if got := nodes[1].name; got != "文字編輯器 =alpha beta gamma\n" {
+		t.Fatalf("the document's last line became %q: the model cannot see the file ends with a newline", got)
+	}
+}

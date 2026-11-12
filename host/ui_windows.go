@@ -119,7 +119,7 @@ func (w *uiaWalker) visit(element uintptr, depth int) {
 			readText(text, &f)
 			release(text)
 			if f.end != "" {
-				n.name = strings.TrimSpace(n.name + " =" + lastLines(f.end, f.length > len([]rune(f.end))))
+				n.name = strings.TrimLeft(n.name+" =", " ") + lastLines(f.end, f.length > len([]rune(f.end)))
 			}
 		}
 	}
