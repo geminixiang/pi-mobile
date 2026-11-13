@@ -19,6 +19,7 @@ import { deviceNetwork, type Network } from "../network.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
 import { type OpenRaw, RESUME_LIMIT_MS, type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
+import { hostTraffic } from "../traffic.ts";
 import { decode, decodeEach, oneOf, parseJson } from "../../parse.ts";
 import { onFailure, untilFailure } from "../../promise.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
@@ -187,6 +188,7 @@ function holdSocket(
 	return ResumableSocket.connect({
 		quietLimitMs: DAEMON_QUIET_LIMIT_MS,
 		resumeLimitMs: RESUME_LIMIT_MS,
+		traffic: hostTraffic(reach.address),
 		first: socketUrl(reach, path, first),
 		attach: (received) => socketUrl(reach, path, { attach: token, received: String(received) }),
 		...dial,

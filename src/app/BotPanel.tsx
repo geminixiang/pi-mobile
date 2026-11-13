@@ -1,12 +1,10 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
-import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { TriggerState } from "../triggers/runs.ts";
 import type { Computer } from "../agent/workplaces.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
-import type { Sandbox } from "../agent/sandbox/sandbox.ts";
-import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
@@ -18,7 +16,7 @@ import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
-import { CLOCK } from "./clock.ts";
+import { LinksSection } from "./Links.tsx";
 
 interface PanelActions {
 	edit: () => void;
@@ -29,52 +27,30 @@ interface PanelActions {
 }
 
 
-function statusText(status: ConnectionStatus): { text: string; error: boolean } | undefined {
-	switch (status.kind) {
-		case "connecting":
-			return { text: "連線中", error: false };
-		case "connected":
-			return { text: "已連線", error: false };
-		case "reattaching":
-			return { text: `${CLOCK.format(status.since)} 起重新連線中`, error: false };
-		case "offline":
-			return { text: `${CLOCK.format(status.since)} 起等網路中`, error: false };
-		case "lost":
-			return { text: `${CLOCK.format(status.at)} 連線中斷：${status.reason}`, error: true };
-		default:
-			return undefined;
-	}
-}
-
-function useHostStatus(sandbox: Sandbox): ConnectionStatus {
-	return useSyncExternalStore(
-		(onChange) => sandbox.subscribe(onChange),
-		() => sandbox.status,
-	);
-}
-
-function HostDot({ sandbox }: { sandbox: Sandbox }) {
-	const status = useHostStatus(sandbox);
-	return <i className={`pill-dot ${status.kind}`} aria-label={statusText(status)?.text ?? ""} />;
-}
-
-function HostStatus({ sandbox }: { sandbox: Sandbox }) {
-	const shown = statusText(useHostStatus(sandbox));
-	if (!shown?.error) return null;
-	return <span className="note error">{shown.text}</span>;
-}
-
 function nameOf(computer: Computer | undefined): string {
 	if (!computer) return "";
 	return computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`;
 }
 
-function WorkplacePill({ runtime, bot, reload, onError }: { runtime: AgentRuntime; bot: Bot; reload: (id: ConversationId) => void; onError: (message: string) => void }) {
+function WorkplacePicker({
+	runtime,
+	bot,
+	picking,
+	onPicked,
+	reload,
+	onError,
+}: {
+	runtime: AgentRuntime;
+	bot: Bot;
+	picking: boolean;
+	onPicked: () => void;
+	reload: (id: ConversationId) => void;
+	onError: (message: string) => void;
+}) {
 	const place = runtime.workplaces.at(String(bot.id));
 	const key = place?.kind === "computer" ? place.computer.key : place?.kind === "missing" ? place.key : "phone";
 	const container = place?.kind === "computer" && !place.sandbox.direct ? place.host : undefined;
 	const [preparing, prepare] = usePrepare(container);
-	const [picking, setPicking] = useState(false);
 	const computers = runtime.workplaces.list();
 	const choose = async (next: string) => {
 		await runtime.setComputer(bot.id, next);
@@ -83,14 +59,9 @@ function WorkplacePill({ runtime, bot, reload, onError }: { runtime: AgentRuntim
 		if (chosen?.kind === "computer" && !chosen.sandbox.direct) await prepare(chosen.host);
 	};
 	return (
-		<div className="panel-where">
-			<button type="button" className="pill" onClick={() => setPicking(true)}>
-				{place?.kind === "computer" ? <HostDot sandbox={place.sandbox} /> : null}
-				<span>{place?.kind === "missing" ? "已移除的電腦" : nameOf(computers.find((computer) => computer.key === key))}</span>
-			</button>
-			{place?.kind === "computer" ? <HostStatus sandbox={place.sandbox} /> : null}
+		<>
 			<PrepareStatus preparing={preparing} />
-			<Sheet open={picking} title="在哪裡跑" onClose={() => setPicking(false)}>
+			<Sheet open={picking} title="在哪裡跑" onClose={onPicked}>
 				<div className="menu choice-list">
 					{computers.map((computer) => (
 						<button
@@ -98,7 +69,7 @@ function WorkplacePill({ runtime, bot, reload, onError }: { runtime: AgentRuntim
 							key={computer.key}
 							className={computer.key === key ? "selected" : ""}
 							onClick={() => {
-								setPicking(false);
+								onPicked();
 								void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
 							}}
 						>
@@ -108,7 +79,7 @@ function WorkplacePill({ runtime, bot, reload, onError }: { runtime: AgentRuntim
 					))}
 				</div>
 			</Sheet>
-		</div>
+		</>
 	);
 }
 
@@ -132,6 +103,8 @@ export function BotPanel({
 	view,
 	context,
 	compactAt,
+	model,
+	busy,
 	actions,
 	onClose,
 }: {
@@ -142,6 +115,8 @@ export function BotPanel({
 	view: ConversationView | undefined;
 	context: { used: number; window: number };
 	compactAt: number;
+	model: { provider: string; name: string };
+	busy: boolean;
 	actions: PanelActions;
 	onClose: () => void;
 }) {
@@ -150,6 +125,7 @@ export function BotPanel({
 	const [compacted, showCompacted] = useBriefly();
 	const [emptied, showEmptied] = useBriefly();
 	const [toolSheet, setToolSheet] = useState(false);
+	const [picking, setPicking] = useState(false);
 	useEffect(() => {
 		if (!open) setProblem(undefined);
 	}, [open]);
@@ -188,6 +164,7 @@ export function BotPanel({
 		onClose();
 		action();
 	};
+	const offers = runtime.workplaces.offers(String(bot.id));
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryCount = memory.split("\n").filter((line) => line.trim()).length;
 
@@ -204,7 +181,26 @@ export function BotPanel({
 						<span className="panel-bot-job">{bot.job || "一般助理"}</span>
 					</span>
 				</button>
-				{runtime.workplaces.offers(String(bot.id)) ? <WorkplacePill runtime={runtime} bot={bot} reload={reload} onError={(text) => setProblem({ section: "上下文", text })} /> : null}
+				<LinksSection
+					live={open}
+					provider={model.provider}
+					model={model.name}
+					busy={busy}
+					place={runtime.workplaces.at(String(bot.id))}
+					onPlace={offers ? () => setPicking(true) : undefined}
+				>
+					{offers ? (
+						<WorkplacePicker
+							runtime={runtime}
+							bot={bot}
+							picking={picking}
+							onPicked={() => setPicking(false)}
+							reload={reload}
+							onError={(text) => setProblem({ section: "連線", text })}
+						/>
+					) : null}
+					{problem?.section === "連線" ? <span className="note error">{problem.text}</span> : null}
+				</LinksSection>
 
 				<Section title="上下文" problem={problem}>
 					<ContextCard runtime={runtime} botId={bot.id} open={open} view={view} context={context} compactAt={compactAt} />

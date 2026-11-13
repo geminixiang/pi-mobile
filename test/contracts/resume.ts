@@ -3,6 +3,8 @@ import { type Link, RESUME_LIMIT_MS, type RawMessage, type RawSocket, ResumableS
 import type { Check } from "./setup.ts";
 import wire from "../../host/protocol.json" with { type: "json" };
 import { sleep } from "../../src/promise.ts";
+import { createTraffic } from "../../src/agent/traffic.ts";
+import { nextChange } from "./fixtures.ts";
 
 type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data: RawMessage): void; drop(reason?: string): void; closed: boolean; closeCode: number | undefined };
 
@@ -55,7 +57,7 @@ function fakeNetwork() {
 	};
 }
 
-async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetwork(), resumeLimitMs = RESUME_LIMIT_MS) {
+async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetwork(), resumeLimitMs = RESUME_LIMIT_MS, traffic = createTraffic()) {
 	const links: Link[] = [];
 	const received: RawMessage[] = [];
 	let closedWith: string | undefined | null = null;
@@ -72,11 +74,34 @@ async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetw
 		onLink: (link) => links.push(link),
 		network,
 		resumeLimitMs,
+		traffic,
 	});
 	return { socket, links, received, closed: () => closedWith };
 }
 
 export const checks: Check[] = [
+	[
+		"the socket to the computer counts the bytes that cross it each way, including what it sends again after reattaching",
+		async () => {
+			const opener = fakeOpener();
+			const traffic = createTraffic(5000);
+			const { socket } = await connect(opener, fakeNetwork(), RESUME_LIMIT_MS, traffic);
+			const first = await opened(opener, 0);
+			socket.send("one");
+			socket.send(new Uint8Array([1, 2]));
+			first.deliver("電腦");
+			first.deliver(new ArrayBuffer(4));
+			first.drop(undefined);
+			socket.send("three");
+			const second = await opened(opener, 1);
+			second.deliver(JSON.stringify({ received: 1 }));
+			socket.close();
+			await nextChange(traffic);
+			const up = 3 + 2 + 2 + 5;
+			const down = 6 + 4 + '{"received":1}'.length;
+			assert.deepEqual(traffic.rates(), { up: up / 5, down: down / 5 });
+		},
+	],
 	[
 		"a dropped socket comes back with the messages each side missed, and only those",
 		async () => {

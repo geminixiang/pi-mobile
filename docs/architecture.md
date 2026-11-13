@@ -67,8 +67,9 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 1. **直接送，不預檢**：有網路就送，不先「試連一下」。Apple 的建議是讓連線自己判斷，因為它也處理 VPN 和代理（[Apple Developer Forums](https://developer.apple.com/forums/thread/832216)）。
 2. **系統說沒網路，就等它回來**：像 iOS 的 `waitsForConnectivity`。模型請求經過 `waitingForNetwork`，沒網路時不送、不花重試次數；網路一回來就送。進行中的回答在網路斷掉時當場失敗（系統的 HTTP 也是這樣，iOS 回 `NSURLErrorNetworkConnectionLost`），交給重試，重試又會先等網路。電腦連線（`resumable-socket.ts`）沒網路時不重試，顯示「等網路中」。等待時不跑計時器，所以不耗電。
 3. **閒置逾時**：開始出字後 60 秒沒有任何東西就放棄這次連線，跟 iOS `timeoutIntervalForRequest` 的預設一樣。第一個字之前不計時，因為模型可以想很久。
-4. **手機有網路、模型那頭連不上，也是等**：請求在收到任何東西之前就失敗，錯誤又是連線類的（`Connection error.`、`Failed to fetch`、`Load failed`、`fetch failed`），就把這個 provider 記成連不上（`src/agent/reach.ts`），不花重試次數，等它回來再送同一個請求。連不上時對 provider 的網址送 `HEAD`，2、4、8 秒後，之後每 15 秒一次，網路一變就馬上試；有任何回應就算連得上。探測說連得上、請求卻連續 4 次沒送到，就照常報錯，不會無限等。2026-11-13 的案例：模型 provider 在 Tailscale 裡，Tailscale 關了 11 分鐘，舊的做法重試 5 次後放棄，要使用者打 Continue。畫面上，標題列的模型名稱換成「連不上模型 · 14:02 起」，點開是「連線」抽屜（手機網路、模型、電腦），對話裡一行「連不上模型，連回來會自動繼續」，接回後變成「已接回」（`src/app/Links.tsx`）。
-5. **有網路卻失敗，才退避重試**：模型 `MODEL_RETRY` 5 次、每次最多等 30 秒（`src/agent/retry.ts`）；電腦連線 1–15 秒退避，只算有網路的時間，4.5 分鐘放棄。網路回來或回到前景時，退避歸零、立刻再試。
+4. **手機有網路、模型那頭連不上，也是等**：請求在收到任何東西之前就失敗，錯誤又是連線類的（`Connection error.`、`Failed to fetch`、`Load failed`、`fetch failed`），就把這個 provider 記成連不上（`src/agent/reach.ts`），不花重試次數，等它回來再送同一個請求。連不上時對 provider 的網址送 `HEAD`，2、4、8 秒後，之後每 15 秒一次，網路一變就馬上試；有任何回應就算連得上。探測說連得上、請求卻連續 4 次沒送到，就照常報錯，不會無限等。2026-11-13 的案例：模型 provider 在 Tailscale 裡，Tailscale 關了 11 分鐘，舊的做法重試 5 次後放棄，要使用者打 Continue。畫面上，標題列的模型名稱換成「連不上模型 · 14:02 起」，點開是右側欄的「連線」區（模型 ← pi → 電腦），對話裡一行「連不上模型，連回來會自動繼續」，接回後變成「已接回」（`src/app/Links.tsx`）。
+5. **連線上流過的位元組是量的，不是演的**：右側欄「連線」區的流動和速率來自 `src/agent/traffic.ts`，每條連線一個 `Traffic`（模型以 provider、電腦以位址為鍵），記最近一秒的位元組，回報每秒的速率。模型的量在 `network.ts` 包住 provider 串流的地方，算每個 delta（文字、思考、工具參數）的 UTF-8 位元組，不是線上的位元組：SSE 的框和 HTTP 標頭看不到，送出的請求也看不到，所以模型只有 ↓。電腦的量在 `ResumableSocket` 打開的每條 WebSocket 上，收和送都算，重新接上後補送的也算，所以同一台電腦上的 pi-env、指令和 MCP 加在一起。有位元組時每半秒重算一次，最後一個位元組過了一秒就歸零、停掉計時器；側欄關著時不訂閱，流動的動畫也停。
+6. **有網路卻失敗，才退避重試**：模型 `MODEL_RETRY` 5 次、每次最多等 30 秒（`src/agent/retry.ts`）；電腦連線 1–15 秒退避，只算有網路的時間，4.5 分鐘放棄。網路回來或回到前景時，退避歸零、立刻再試。
 
 為什麼要這些，以及它們在哪：
 

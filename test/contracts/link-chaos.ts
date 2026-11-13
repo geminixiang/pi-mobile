@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { type Link, RESUME_LIMIT_MS, type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import { type ConnectionStatus, type OpenDaemon, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
 import { sleep } from "../../src/promise.ts";
+import { createTraffic } from "../../src/agent/traffic.ts";
 import type { Check } from "./setup.ts";
 
 type Attached = RawSocket & { ready: boolean; closed: boolean; closeCode: number | undefined; deliver(data: string): void; drop(): void };
@@ -123,6 +124,7 @@ async function chaos(seed: number, steps: number) {
 		onLink: (link) => links.push(link),
 		network: machine.network,
 		resumeLimitMs: RESUME_LIMIT_MS,
+		traffic: createTraffic(),
 	});
 	const trace: string[] = [];
 	for (let step = 0; step < steps; step++) {

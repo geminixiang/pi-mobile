@@ -3,8 +3,18 @@ import { contentText, type FauxResponseStep } from "@earendil-works/pi-ai";
 import { MemoryStorage, type Storage } from "@earendil-works/pi-durable";
 import { AgentRuntime, type ConversationId } from "../../src/agent/runtime.ts";
 import { faux, platform, settings } from "./setup.ts";
+import type { Traffic } from "../../src/agent/traffic.ts";
 
 export const context = BACKGROUND_CONTEXT;
+
+export function nextChange(traffic: Traffic): Promise<void> {
+	return new Promise((resolve) => {
+		const stop = traffic.onChange(() => {
+			stop();
+			resolve();
+		});
+	});
+}
 
 export function keepOpen(memory: MemoryStorage): MemoryStorage {
 	return new Proxy(memory, {

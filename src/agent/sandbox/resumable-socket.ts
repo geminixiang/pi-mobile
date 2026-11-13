@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { log } from "../../log.ts";
 import { decode } from "../../parse.ts";
 import type { Network } from "../network.ts";
+import { bytesOf, type Traffic } from "../traffic.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
@@ -17,6 +18,7 @@ export interface ResumableOptions {
 	onClose: (reason: string | undefined) => void;
 	onLink?: (link: Link) => void;
 	network: Network;
+	traffic: Traffic;
 	quietLimitMs: number;
 	resumeLimitMs: number;
 }
@@ -97,6 +99,7 @@ export class ResumableSocket {
 	}
 
 	#open(url: URL, attaching: boolean): Promise<RawSocket> {
+		const { traffic } = this.#options;
 		let awaitingResume = attaching;
 		let self: RawSocket | undefined;
 		const live = () => this.#state.kind !== "closed" && (self === undefined || socketOf(this.#state) === self);
@@ -104,6 +107,7 @@ export class ResumableSocket {
 			url,
 			this.#options.what,
 			(data) => {
+				traffic.count("down", bytesOf(data));
 				if (!live()) return;
 				if (awaitingResume) {
 					awaitingResume = false;
@@ -122,8 +126,15 @@ export class ResumableSocket {
 			},
 		);
 		return opened.then((socket) => {
-			self = socket;
-			return socket;
+			const counted: RawSocket = {
+				send: (data) => {
+					traffic.count("up", bytesOf(data));
+					socket.send(data);
+				},
+				close: (code) => socket.close(code),
+			};
+			self = counted;
+			return counted;
 		});
 	}
 
