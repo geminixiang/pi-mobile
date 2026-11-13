@@ -5,7 +5,8 @@ import wire from "../../../host/protocol.json" with { type: "json" };
 import { check } from "../../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { registerProgram } from "../../shims/node-child-process.ts";
-import type { Link } from "./resumable-socket.ts";
+import { type Daemon, type DaemonEffect, type DaemonEvent, type DaemonStream, daemonStep, lineOf, read, type Reader } from "./daemon-state.ts";
+import type { Link } from "./resumable-link.ts";
 
 type Json = Record<string, unknown>;
 
@@ -17,11 +18,6 @@ export type ConnectionStatus =
 	| { kind: "offline"; session: number; since: number }
 	| { kind: "lost"; reason: string; at: number }
 	| { kind: "closed" };
-
-interface DaemonStream {
-	send(data: Uint8Array<ArrayBuffer>): void;
-	close(): void;
-}
 
 interface StreamHandlers {
 	onData(data: Uint8Array): void;
@@ -51,18 +47,12 @@ const Hello = Type.Object({
 	features: Type.Optional(Type.Array(Type.String())),
 });
 
-const MAX_FRAME = 16 * 1024 * 1024 + 64;
 const PING_EVERY_MS = 5000;
 // why: pi-env's Connection drops a daemon after 30 s without bytes, so while the link is down and the computer holds the daemon, the phone stands in for its pings.
 const DAEMON_PING = Buffer.from(wire.piEnvPing);
 
 function ownsArrayBuffer(data: Uint8Array): data is Uint8Array<ArrayBuffer> {
 	return data.buffer instanceof ArrayBuffer;
-}
-
-function joined(chunks: Uint8Array[], length: number): Buffer {
-	const [only] = chunks;
-	return chunks.length === 1 && only ? Buffer.from(only.buffer, only.byteOffset, only.byteLength) : Buffer.concat(chunks, length);
 }
 
 type Listener = (...args: unknown[]) => void;
@@ -94,28 +84,17 @@ class TextStream extends Events {
 	}
 }
 
-type Pipe = { kind: "opening"; queued: Uint8Array<ArrayBuffer>[] } | { kind: "open"; stream: DaemonStream } | { kind: "failed"; reason: string } | { kind: "ended" };
-
-type Line = { kind: "up" } | { kind: "down"; link: Exclude<Link, "up">; since: number; pings: ReturnType<typeof setInterval> };
-
 class DaemonProcess extends Events {
 	readonly stdout = new Events();
 	readonly stderr = new TextStream();
 	readonly #session: number;
 	readonly #marker: Buffer;
 	readonly #report: (status: ConnectionStatus) => void;
-	#pipe: Pipe = { kind: "opening", queued: [] };
-	#line: Line = { kind: "up" };
-	#held: Uint8Array[] = [];
-	#heldBytes = 0;
-	#need = 0;
-	#synced = false;
+	#daemon: Daemon = { kind: "opening", queued: [] };
+	#reader: Reader = { kind: "greeting", pending: Buffer.alloc(0) };
+	#pings: ReturnType<typeof setInterval> | undefined;
 	readonly stdin = {
-		write: (data: Uint8Array) => {
-			const bytes = ownsArrayBuffer(data) ? data : new Uint8Array(data);
-			if (this.#pipe.kind === "open") this.#pipe.stream.send(bytes);
-			else if (this.#pipe.kind === "opening") this.#pipe.queued.push(bytes);
-		},
+		write: (data: Uint8Array) => this.#dispatch({ kind: "write", data: ownsArrayBuffer(data) ? data : new Uint8Array(data) }),
 		end: () => undefined,
 		on: () => undefined,
 	};
@@ -126,85 +105,67 @@ class DaemonProcess extends Events {
 		this.#marker = Buffer.from(`PI-ENV ${token}\n`, "utf8");
 		this.#report = report;
 		report({ kind: "connecting" });
-		open(token, { onData: (data) => this.#onData(data), onClose: (reason) => this.end(reason ?? "the computer closed the connection"), onLink: (link) => this.#onLink(link) }).then(
-			(stream) => {
-				if (this.#pipe.kind !== "opening") return stream.close();
-				const { queued } = this.#pipe;
-				this.#pipe = { kind: "open", stream };
-				for (const data of queued) stream.send(data);
-			},
-			(error: unknown) => {
-				if (this.#pipe.kind !== "opening") return;
-				const reason = messageOf(error);
-				this.#pipe = { kind: "failed", reason };
-				this.emit("error", lost(reason));
-				this.end(reason);
-			},
+		open(token, { onData: (data) => this.#onData(data), onClose: (reason) => this.end(reason ?? "the computer closed the connection"), onLink: (link) => this.#dispatch({ kind: "link", link, now: Date.now() }) }).then(
+			(stream) => this.#dispatch({ kind: "opened", stream }),
+			(error: unknown) => this.#dispatch({ kind: "failed", reason: messageOf(error) }),
 		);
 	}
 
 	kill(): void {
-		this.end(this.#pipe.kind === "failed" ? this.#pipe.reason : "the phone closed the connection");
+		this.end("the phone closed the connection");
 	}
 
 	end(reason: string): void {
-		const pipe = this.#pipe;
-		if (pipe.kind === "ended") return;
-		this.#pipe = { kind: "ended" };
-		if (this.#line.kind === "down") clearInterval(this.#line.pings);
-		if (pipe.kind === "open") pipe.stream.close();
-		this.#held = [];
-		this.#report({ kind: "lost", reason, at: Date.now() });
-		this.stderr.emit("data", reason);
-		this.emit("exit", null);
+		this.#dispatch({ kind: "end", reason });
+	}
+
+	#dispatch(event: DaemonEvent): void {
+		const { state, effects } = daemonStep(this.#daemon, event);
+		this.#daemon = state;
+		this.#pace();
+		for (const effect of effects) this.#run(effect);
+	}
+
+	#pace(): void {
+		if (lineOf(this.#daemon).kind === "up") {
+			clearInterval(this.#pings);
+			this.#pings = undefined;
+			return;
+		}
+		this.#pings ??= setInterval(() => this.#reader.kind === "framed" && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS);
+	}
+
+	#run(effect: DaemonEffect): void {
+		switch (effect.kind) {
+			case "send":
+				for (const data of effect.data) effect.stream.send(data);
+				return;
+			case "close":
+				return effect.stream.close();
+			case "error":
+				return void this.emit("error", lost(effect.reason));
+			case "lost":
+				this.#reader = this.#reader.kind === "framed" ? { kind: "framed", pending: [], bytes: 0, need: 4 } : { kind: "greeting", pending: Buffer.alloc(0) };
+				this.#report({ kind: "lost", reason: effect.reason, at: Date.now() });
+				this.stderr.emit("data", effect.reason);
+				return void this.emit("exit", null);
+			case "status":
+				return this.#report(this.#status());
+		}
 	}
 
 	#status(): ConnectionStatus {
-		if (this.#line.kind === "down") return { kind: this.#line.link, session: this.#session, since: this.#line.since };
-		return this.#synced ? { kind: "connected", session: this.#session } : { kind: "connecting" };
+		const line = lineOf(this.#daemon);
+		if (line.kind === "down") return { kind: line.link, session: this.#session, since: line.since };
+		return this.#reader.kind === "framed" ? { kind: "connected", session: this.#session } : { kind: "connecting" };
 	}
 
 	#onData(data: Uint8Array): void {
-		if (this.#pipe.kind === "ended") return;
-		this.#held.push(data);
-		this.#heldBytes += data.byteLength;
-		if (this.#heldBytes < this.#need) return;
-		const pending = joined(this.#held, this.#heldBytes);
-		let end = 0;
-		if (!this.#synced) {
-			const index = pending.indexOf(this.#marker);
-			if (index === -1) {
-				this.#held = [pending];
-				return;
-			}
-			end = index + this.#marker.length;
-			this.#synced = true;
-			if (this.#line.kind === "up") this.#report(this.#status());
-		}
-		while (pending.length - end >= 4) {
-			const length = pending.readUInt32BE(end);
-			if (length > MAX_FRAME) {
-				end = pending.length;
-				break;
-			}
-			if (pending.length - end < 4 + length) break;
-			end += 4 + length;
-		}
-		if (end > 0) this.stdout.emit("data", pending.subarray(0, end));
-		const rest = pending.subarray(end);
-		this.#held = rest.length > 0 ? [new Uint8Array(rest)] : [];
-		this.#heldBytes = rest.length;
-		this.#need = rest.length >= 4 ? 4 + rest.readUInt32BE(0) : 4;
-	}
-
-	#onLink(link: Link): void {
-		if (this.#pipe.kind === "ended") return;
-		if (this.#line.kind === "down") clearInterval(this.#line.pings);
-		this.#line =
-			link === "up"
-				? { kind: "up" }
-				: { kind: "down", link, since: Date.now(), pings: setInterval(() => this.#synced && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS) };
-		this.#report(this.#status());
+		if (this.#daemon.kind === "ended") return;
+		const { reader, frames, greeted } = read(this.#reader, data, this.#marker);
+		this.#reader = reader;
+		if (greeted && lineOf(this.#daemon).kind === "up") this.#report(this.#status());
+		if (frames) this.stdout.emit("data", frames);
 	}
 }
 

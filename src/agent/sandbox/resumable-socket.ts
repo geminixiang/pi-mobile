@@ -1,12 +1,10 @@
-import { Type } from "typebox";
 import { log } from "../../log.ts";
-import { decode } from "../../parse.ts";
 import type { Network } from "../network.ts";
 import { bytesOf, type Traffic } from "../traffic.ts";
+import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
 
-export type RawMessage = ArrayBuffer | string;
+export type { Link, RawMessage };
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
-export type Link = "up" | "reattaching" | "offline";
 export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 
 export interface ResumableOptions {
@@ -23,52 +21,63 @@ export interface ResumableOptions {
 	resumeLimitMs: number;
 }
 
-const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 export const RESUME_LIMIT_MS = 270_000;
 const SENT_LOG_BYTES = 4 * 1024 * 1024;
-// why: the computer ends a held session only on a normal closure (1000); a closure without a code, like the reattach after a quiet link, keeps it held.
-const NORMAL_CLOSURE = 1000;
-const Resume = Type.Object({ received: Type.Integer({ minimum: 0 }) });
 
-function size(data: Uint8Array | string): number {
+type Data = Uint8Array<ArrayBuffer> | string;
+
+function size(data: Data): number {
 	return typeof data === "string" ? data.length : data.byteLength;
 }
 
-type State =
-	| { kind: "up"; socket: RawSocket }
-	| { kind: "attaching"; attempt: number; socket: RawSocket | undefined }
-	| { kind: "waiting"; attempt: number; timer: ReturnType<typeof setTimeout> }
-	| { kind: "offline"; attempt: number }
-	| { kind: "closed" };
+class Outbox {
+	#messages: Data[] = [];
+	#base = 0;
+	#bytes = 0;
 
-const LINK: Record<Exclude<State["kind"], "closed">, Link> = { up: "up", attaching: "reattaching", waiting: "reattaching", offline: "offline" };
+	get base(): number {
+		return this.#base;
+	}
 
-const socketOf = (state: State): RawSocket | undefined => (state.kind === "up" || state.kind === "attaching" ? state.socket : undefined);
+	get end(): number {
+		return this.#base + this.#messages.length;
+	}
+
+	push(data: Data): void {
+		this.#messages.push(data);
+		this.#bytes += size(data);
+		while (this.#bytes > SENT_LOG_BYTES && this.#messages.length > 1) {
+			this.#bytes -= size(this.#messages[0] ?? "");
+			this.#messages.shift();
+			this.#base++;
+		}
+	}
+
+	since(have: number): Data[] {
+		return this.#messages.slice(have - this.#base);
+	}
+}
 
 export class ResumableSocket {
 	readonly #options: ResumableOptions;
-	#state: State;
+	#state: LinkState<RawSocket>;
+	#retry: ReturnType<typeof setTimeout> | undefined;
 	#received = 0;
-	#sent: (Uint8Array<ArrayBuffer> | string)[] = [];
-	#sentBase = 0;
-	#sentBytes = 0;
-	#unreachableMs = 0;
-	#onlineSince: number | undefined;
-	#lastMessage = Date.now();
+	readonly #sent = new Outbox();
 	readonly #quiet: ReturnType<typeof setInterval>;
 	readonly #unwatch: () => void;
 
 	private constructor(options: ResumableOptions) {
 		this.#options = options;
-		this.#state = { kind: "attaching", attempt: 0, socket: undefined };
-		this.#quiet = setInterval(() => this.#checkQuiet(), options.quietLimitMs / 4);
-		this.#unwatch = options.network.onChange(() => this.#networkChanged());
+		this.#state = { kind: "opening", heardAt: Date.now() };
+		this.#quiet = setInterval(() => this.#dispatch({ kind: "quiet" }), options.quietLimitMs / 4);
+		this.#unwatch = options.network.onChange(() => this.#dispatch({ kind: "network" }));
 	}
 
 	static async connect(options: ResumableOptions): Promise<ResumableSocket> {
 		const resumable = new ResumableSocket(options);
 		try {
-			resumable.#state = { kind: "up", socket: await resumable.#open(options.first, false) };
+			resumable.#dispatch({ kind: "opened", socket: await resumable.#open(options.first) });
 		} catch (error) {
 			resumable.close();
 			throw error;
@@ -76,157 +85,87 @@ export class ResumableSocket {
 		return resumable;
 	}
 
-	send(data: Uint8Array<ArrayBuffer> | string): void {
+	send(data: Data): void {
 		if (this.#state.kind === "closed") return;
 		this.#sent.push(data);
-		this.#sentBytes += size(data);
-		while (this.#sentBytes > SENT_LOG_BYTES && this.#sent.length > 1) {
-			this.#sentBytes -= size(this.#sent[0] ?? "");
-			this.#sent.shift();
-			this.#sentBase++;
-		}
 		if (this.#state.kind === "up") this.#state.socket.send(data);
 	}
 
 	close(): void {
-		const state = this.#state;
-		if (state.kind === "closed") return;
-		if (state.kind === "waiting") clearTimeout(state.timer);
-		this.#state = { kind: "closed" };
-		clearInterval(this.#quiet);
-		this.#unwatch();
-		socketOf(state)?.close(NORMAL_CLOSURE);
+		this.#dispatch({ kind: "close" });
 	}
 
-	#open(url: URL, attaching: boolean): Promise<RawSocket> {
+	#dispatch(event: LinkEvent<RawSocket>): void {
+		const before = this.#state;
+		const { what, quietLimitMs, resumeLimitMs } = this.#options;
+		const { state, effects } = step(before, event, { now: Date.now(), online: this.#options.network.online(), kept: this.#sent.base }, { what, quietLimitMs, resumeLimitMs });
+		this.#state = state;
+		if (state !== before) this.#entered(before, state);
+		for (const effect of effects) this.#run(effect);
+	}
+
+	#entered(before: LinkState<RawSocket>, state: LinkState<RawSocket>): void {
+		clearTimeout(this.#retry);
+		if (state.kind === "waiting") this.#retry = setTimeout(() => this.#dispatch({ kind: "retry" }), state.delay);
+		if (state.kind === "closed") {
+			clearInterval(this.#quiet);
+			this.#unwatch();
+			return;
+		}
+		const was = linkOf(before);
+		const link = linkOf(state);
+		if (was !== undefined && link !== undefined && link !== was) this.#options.onLink?.(link);
+	}
+
+	#run(effect: Effect<RawSocket>): void {
+		const { what } = this.#options;
+		switch (effect.kind) {
+			case "deliver":
+				this.#received++;
+				return this.#options.onMessage(effect.data);
+			case "resend": {
+				const missing = this.#sent.since(effect.from);
+				for (const data of missing) effect.socket.send(data);
+				return log.info("host.resume", { what, state: "attached", attempts: effect.attempts, resent: missing.length, received: this.#received });
+			}
+			case "close":
+				return effect.socket.close(effect.code);
+			case "dial":
+				return void this.#open(this.#options.attach(this.#received)).then(
+					(socket) => this.#dispatch({ kind: "dialed", from: effect.from, socket }),
+					() => this.#dispatch({ kind: "unreachable", from: effect.from }),
+				);
+			case "dropped":
+				return log.info("host.resume", { what, state: "dropped", received: this.#received, sent: this.#sent.end });
+			case "gave_up":
+				return log.warn("host.resume", { what, state: "gave_up", attempts: effect.attempts });
+			case "final":
+				return this.#options.onClose(effect.reason);
+		}
+	}
+
+	async #open(url: URL): Promise<RawSocket> {
 		const { traffic } = this.#options;
-		let awaitingResume = attaching;
 		let self: RawSocket | undefined;
-		const live = () => this.#state.kind !== "closed" && (self === undefined || socketOf(this.#state) === self);
-		const opened = this.#options.open(
+		const socket = await this.#options.open(
 			url,
 			this.#options.what,
 			(data) => {
 				traffic.count("down", bytesOf(data));
-				if (!live()) return;
-				if (awaitingResume) {
-					awaitingResume = false;
-					const resume = typeof data === "string" ? decode(Resume, data) : undefined;
-					if (!resume) return this.#final(`${this.#options.what} answered the resume with something else`);
-					return this.#resume(resume.received);
-				}
-				this.#received++;
-				this.#lastMessage = Date.now();
-				this.#options.onMessage(data);
+				if (self) this.#dispatch({ kind: "message", socket: self, data });
 			},
 			(reason) => {
-				if (!live()) return;
-				if (reason) return this.#final(reason);
-				this.#dropped();
+				if (self) this.#dispatch({ kind: "ended", socket: self, reason });
 			},
 		);
-		return opened.then((socket) => {
-			const counted: RawSocket = {
-				send: (data) => {
-					traffic.count("up", bytesOf(data));
-					socket.send(data);
-				},
-				close: (code) => socket.close(code),
-			};
-			self = counted;
-			return counted;
-		});
-	}
-
-	#is(state: State): boolean {
-		return this.#state === state;
-	}
-
-	#enter(state: State): void {
-		const before = this.#state.kind === "closed" ? undefined : LINK[this.#state.kind];
-		this.#state = state;
-		if (state.kind === "closed") return;
-		const link = LINK[state.kind];
-		if (link !== before) this.#options.onLink?.(link);
-	}
-
-	#checkQuiet(): void {
-		const socket = socketOf(this.#state);
-		if (!socket || Date.now() - this.#lastMessage <= this.#options.quietLimitMs) return;
-		socket.close();
-		this.#dropped();
-	}
-
-	#final(reason: string): void {
-		if (this.#state.kind === "closed") return;
-		this.close();
-		this.#options.onClose(reason);
-	}
-
-	#dropped(): void {
-		const state = this.#state;
-		if (state.kind === "closed") return;
-		if (state.kind === "up") {
-			this.#unreachableMs = 0;
-			this.#onlineSince = undefined;
-			log.info("host.resume", { what: this.#options.what, state: "dropped", received: this.#received, sent: this.#sentBase + this.#sent.length });
-		}
-		if (state.kind === "waiting") clearTimeout(state.timer);
-		const attempt = state.kind === "up" ? 0 : state.attempt;
-		if (this.#onlineFor() === undefined) return this.#enter({ kind: "offline", attempt });
-		const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] ?? 15000;
-		this.#enter({ kind: "waiting", attempt, timer: setTimeout(() => void this.#attach(attempt), delay) });
-	}
-
-	#networkChanged(): void {
-		const state = this.#state;
-		if (state.kind !== "waiting" && state.kind !== "offline") return;
-		if (state.kind === "waiting") clearTimeout(state.timer);
-		void this.#attach(0);
-	}
-
-	#onlineFor(): number | undefined {
-		const now = Date.now();
-		if (!this.#options.network.online()) {
-			if (this.#onlineSince !== undefined) this.#unreachableMs += now - this.#onlineSince;
-			this.#onlineSince = undefined;
-			return undefined;
-		}
-		this.#onlineSince ??= now;
-		return this.#unreachableMs + now - this.#onlineSince;
-	}
-
-	async #attach(attempt: number): Promise<void> {
-		if (this.#state.kind !== "waiting" && this.#state.kind !== "offline") return;
-		const unreachable = this.#onlineFor();
-		if (unreachable === undefined) return this.#enter({ kind: "offline", attempt });
-		const limit = this.#options.resumeLimitMs;
-		if (unreachable > limit) {
-			log.warn("host.resume", { what: this.#options.what, state: "gave_up", attempts: attempt });
-			return this.#final(`could not reach ${this.#options.what} for ${limit / 60_000} minutes while this phone was online`);
-		}
-		const attaching: Extract<State, { kind: "attaching" }> = { kind: "attaching", attempt: attempt + 1, socket: undefined };
-		this.#enter(attaching);
-		const stillAttaching = () => this.#is(attaching);
-		try {
-			const socket = await this.#open(this.#options.attach(this.#received), true);
-			if (!stillAttaching()) return socket.close(NORMAL_CLOSURE);
-			attaching.socket = socket;
-			this.#lastMessage = Date.now();
-		} catch {
-			if (stillAttaching()) this.#dropped();
-		}
-	}
-
-	#resume(received: number): void {
-		const state = this.#state;
-		if (state.kind !== "attaching" || !state.socket) return;
-		if (received < this.#sentBase) return this.#final(`${this.#options.what} is missing more than this phone kept; the command may still be running there`);
-		const missing = this.#sent.slice(received - this.#sentBase);
-		for (const data of missing) state.socket.send(data);
-		this.#lastMessage = Date.now();
-		log.info("host.resume", { what: this.#options.what, state: "attached", attempts: state.attempt, resent: missing.length, received: this.#received });
-		this.#enter({ kind: "up", socket: state.socket });
+		const counted: RawSocket = {
+			send: (data) => {
+				traffic.count("up", bytesOf(data));
+				socket.send(data);
+			},
+			close: (code) => socket.close(code),
+		};
+		self = counted;
+		return counted;
 	}
 }
-
