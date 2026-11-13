@@ -2718,6 +2718,8 @@
 				"name": {
 					"description": "A skill listed in the system prompt",
 					"enum": [
+						"morning-brief",
+						"daytime-check",
 						"spoken-report",
 						"html-page",
 						"stock-analysis"

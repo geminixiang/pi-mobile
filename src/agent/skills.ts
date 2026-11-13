@@ -3,7 +3,9 @@ import { appSection } from "./section.ts";
 import { defineAppTool, text } from "./tools/common.ts";
 import { oneOf } from "../parse.ts";
 import { Type } from "typebox";
+import daytimeCheck from "./skills/daytime-check.md?raw";
 import htmlPage from "./skills/html-page.md?raw";
+import morningBrief from "./skills/morning-brief.md?raw";
 import spokenReport from "./skills/spoken-report.md?raw";
 import stockAnalysis from "./skills/stock-analysis.md?raw";
 
@@ -14,6 +16,16 @@ interface Skill {
 }
 
 const SKILLS: readonly Skill[] = [
+	{
+		name: "morning-brief",
+		when: "a morning brief, or setting up the daily one the user accepted",
+		text: morningBrief,
+	},
+	{
+		name: "daytime-check",
+		when: "a daytime check run by a schedule",
+		text: daytimeCheck,
+	},
 	{
 		name: "spoken-report",
 		when: "before writing anything for speak: a headphones briefing, or when the user wants to hear a report",

@@ -30,7 +30,7 @@ const PEEK_LINES = 60;
 import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
-import { avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders } from "./bots.ts";
+import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "./bots.ts";
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
@@ -161,6 +161,15 @@ export class AgentRuntime {
 	#touchBot(id: ConversationId, at: number): Promise<void> {
 		return this.#editBot(id, (bot) => {
 			bot.updatedAt = at;
+		});
+	}
+
+	#userSpoke(id: ConversationId, at: number): Promise<void> {
+		return this.#editBot(id, (bot) => {
+			bot.updatedAt = at;
+			const offer = bot.rhythmOffer && afterUserMessage(bot.rhythmOffer);
+			if (offer) bot.rhythmOffer = offer;
+			else delete bot.rhythmOffer;
 		});
 	}
 
@@ -370,7 +379,7 @@ export class AgentRuntime {
 				agent: this.#defaultAgent(),
 				init: async (tx, id) => {
 					const now = Date.now();
-					(await tx.doc(BotIndex)).items.push({ id, name, job, folder, avatar, createdAt: now, updatedAt: now, off: [] });
+					(await tx.doc(BotIndex)).items.push({ id, name, job, folder, avatar, createdAt: now, updatedAt: now, off: [], rhythmOffer: NEW_BOT_OFFER });
 				},
 			},
 			context,
@@ -521,7 +530,7 @@ export class AgentRuntime {
 				const submitted = (async () => {
 					const bot = (await this.#allBots()).find((candidate) => candidate.id === id);
 					if (!bot || bot.removing) throw new Error("這個 Bot 已經刪除");
-					if (content.length > 0) await this.#touchBot(id, Date.now());
+					if (content.length > 0) await this.#userSpoke(id, Date.now());
 					const text = contentText(content);
 					await this.#harness.commit(async (tx) => {
 						const doc = await tx.doc(OutsideDoc, id);

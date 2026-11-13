@@ -13,9 +13,10 @@ export const checks: Check[] = [
 			const { runtime } = await openRuntime();
 			try {
 				const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+				for (const opening of ["嗨", "在嗎"]) await turn(runtime, bot, [() => fauxAssistantMessage("done")], opening);
 				const requests: { text: string; sent: number }[][] = [];
 				const answer = (context: TranscriptContext) => {
-					requests.push(userTexts(context));
+					requests.push(userTexts(context).slice(2));
 					return fauxAssistantMessage("done");
 				};
 				await turn(runtime, bot, [answer], "明天有啥");
@@ -34,7 +35,7 @@ export const checks: Check[] = [
 					typed = view.entries.flatMap((entry) => (entry.kind === "pi.user" ? (entry.model ?? []).map((message) => contentText(message.content)) : []));
 				})();
 				controller.dispose();
-				assert.deepEqual(typed, ["明天有啥", "等等提醒我"]);
+				assert.deepEqual(typed.slice(2), ["明天有啥", "等等提醒我"]);
 			} finally {
 				await runtime.close();
 			}

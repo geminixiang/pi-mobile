@@ -31,8 +31,8 @@
 	},
 	{
 		"name": "skills",
-		"chars": 442,
-		"text": "<skills>\nSkills: read one with read_skill before the task it is for, once per conversation unless it left your context.\n- spoken-report: before writing anything for speak: a headphones briefing, or when the user wants to hear a report\n- html-page: before writing an .html file for the user: a report, a comparison, a chart, a small tool\n- stock-analysis: before analysing stocks, ETFs or the market, or setting up a watchlist digest\n</skills>"
+		"chars": 573,
+		"text": "<skills>\nSkills: read one with read_skill before the task it is for, once per conversation unless it left your context.\n- morning-brief: a morning brief, or setting up the daily one the user accepted\n- daytime-check: a daytime check run by a schedule\n- spoken-report: before writing anything for speak: a headphones briefing, or when the user wants to hear a report\n- html-page: before writing an .html file for the user: a report, a comparison, a chart, a small tool\n- stock-analysis: before analysing stocks, ETFs or the market, or setting up a watchlist digest\n</skills>"
 	},
 	{
 		"name": "calendar",

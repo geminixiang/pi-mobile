@@ -247,6 +247,17 @@ Android 的限制：
 - **用感測器當觸發**（扭手腕、甩手機、翻面、`significant_motion`、步數）：Android 9 起在背景的 app 收不到任何感測器的事件，持續回報、有變化才回報、觸發一次就停的都一樣，要常駐前景服務才行。觸發後的 run 有 `AgentService` 這個前景服務，所以 `read_sensors` 在那時讀得到。
 - **Samsung 和 Android 的系統手勢感測器**（`pick_up_gesture`、`tilt_detector`、`wake_up_motion`、`Pocket mode`、`Drop Classifier`、`Car Crash Detect`）：是系統隱藏或廠商私有的，第三方 app 拿不到；`dumpsys sensorservice` 列得出來不代表可以用。
 
+## 預設的作息（2026-11-13）
+
+學 Claude Duet 的「預設就主動」（[research/claude-duet.md](../research/claude-duet.md)），但不偷偷打開：新 Bot 在第一次對話裡用 `ask_user` 問一次「要我每天早上給你簡報嗎？」，按「好」才由 Bot 自己呼叫 `create_schedule`。
+
+- **不加新的觸發種類**：三則每天的時間排程（08:00 早晨簡報，13:00、18:00 白天巡視）。「一天最多兩次、09:00–22:00」靠只排兩個時間做到，「23:00–08:00 安靜」靠那段時間沒有排程，加上技能裡「這段時間不通知」（關機或 pi 不在時晚到的那一次）。
+  - 沒選事件加 `at_most_every_hours` 和時段（例如解鎖手機時、09:00–22:00、每 7 小時）：解鎖只在 pi 執行中收得到，沒開通知讀取的人等於沒有巡視；通知事件要通知讀取，而且只看得到通知，看不到日曆和信。
+  - 沒把 `daily` 改成可以有好幾個時間：要動合約、Kotlin、Swift，只為了少一列。
+- **內容是技能**：`morning-brief`（簡報、以及怎麼設定這組排程、設好後說什麼）、`daytime-check`（巡視，沒事不出聲）。排程的 prompt 只有一句「讀某個技能照做」，改內容不必改使用者已經建好的排程。
+- **只問一次**：`Bot.rhythmOffer` 在 `createBot` 寫入 `unsent`，使用者每送出一則訊息往前一步（`unsent` → `open` → `last` → 拿掉，`afterUserMessage`）；`open`、`last` 時，`BotExtension` 的 `beforeRequest` 在使用者那則訊息後面接一句 `[app]` 指示，要 Bot 在回答之後用 `ask_user` 問；排程叫醒的那則（`[trigger]`）不接。指示只接在最新的那則（只在送出的請求裡，對話紀錄裡沒有），所以下一次請求從前一則訊息起和上一次不同，提示快取從那裡斷開；系統提示在前面，照樣命中，斷的只是頭幾則訊息，每個新 Bot 兩次。`test/contracts/sent-time.ts` 因此從第三則訊息開始比。給兩次機會，是因為第一次對話常是「看看我的行事曆」，那一次的結尾可能已經是另一個選項題。舊的 Bot 沒有這個欄位，永遠不會被問。
+- **為什麼放在使用者的訊息，不放系統提示**：模擬器上 GPT-6.1 Sol 和 GPT-6 Luna 對系統提示裡的同一句（兩種寫法）各 2–3 次都沒有呼叫 `ask_user`，只在文字裡問；接在使用者訊息後面，第一次回覆就出問題卡。這樣也不佔每次請求的系統提示：舊 Bot 只多技能清單的兩行，新 Bot 的指示只在頭兩則訊息出現。
+
 ## 待決定
 
 1. 程序不在時：接受 B，還是要做 C（需要「顯示在其他應用程式上層」權限）？

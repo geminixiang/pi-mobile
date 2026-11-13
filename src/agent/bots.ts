@@ -1,5 +1,5 @@
 import type { Context } from "@earendil-works/chord/context";
-import { type ConversationId, defineDoc, type DocumentReader, defineExtension } from "@earendil-works/pi-durable";
+import { type ConversationId, defineDoc, type DocumentReader, defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
 import { checkpointEvery64 } from "./doc-policy.ts";
 
@@ -14,7 +14,23 @@ export type Bot = {
 	updatedAt: number;
 	removing?: { at: number };
 	off?: string[];
+	rhythmOffer?: RhythmOffer;
 };
+
+const RHYTHM_OFFER = ["unsent", "open", "last"] as const;
+export type RhythmOffer = (typeof RHYTHM_OFFER)[number];
+export const NEW_BOT_OFFER: RhythmOffer = RHYTHM_OFFER[0];
+
+export function afterUserMessage(offer: RhythmOffer): RhythmOffer | undefined {
+	return RHYTHM_OFFER[RHYTHM_OFFER.indexOf(offer) + 1];
+}
+
+const OFFER =
+	"[app] The user's first conversation with you: unless you already asked it above, after your answer end this reply with ask_user, question 「要我每天早上給你簡報嗎？」, options 好 and 不用; put any other choices in your text. Set nothing up unless they answer 好, then read the morning-brief skill.";
+
+function offering(bot: Bot | undefined): boolean {
+	return bot?.rhythmOffer === "open" || bot?.rhythmOffer === "last";
+}
 
 export const BotIndex = defineDoc<{ items: Bot[] }>({
 	kind: "app.bots",
@@ -71,6 +87,19 @@ export function botFields({ name, job }: { name: string; job: string }): { name:
 
 export const BotExtension = defineExtension({
 	name: "bot",
+	hooks: [
+		hook(GenerationTask, {
+			beforeRequest: async ({ messages }, api, context) => {
+				const self = (await botsIn(api, context)).find((bot) => bot.id === api.conversationId);
+				const last = messages.findLastIndex((message) => message.role === "user");
+				const asked = messages[last];
+				if (!offering(self) || asked?.role !== "user") return undefined;
+				const content = typeof asked.content === "string" ? [{ type: "text" as const, text: asked.content }] : asked.content;
+				if (content.some((part) => part.type === "text" && part.text.startsWith("[trigger]"))) return undefined;
+				return { messages: messages.with(last, { ...asked, content: [...content, { type: "text" as const, text: OFFER }] }) };
+			},
+		}),
+	],
 	sections: [
 		appSection("bot", 1_200, async (input, context) => {
 			const bots = await botsIn(input.read, context);
