@@ -1,6 +1,5 @@
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
-import { KeepAlive } from "../plugins/keep-alive.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
 import { Notifications } from "../plugins/notifications.ts";
@@ -44,6 +43,7 @@ import { useLoaded } from "./loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import type { Prefs } from "./prefs.ts";
+import { useBackground, useRefreshOnResume } from "./background.ts";
 
 type Account = "github" | "gcloud" | "cloudflare" | "azure";
 
@@ -340,15 +340,6 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	);
 }
 
-function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): void {
-	useEffect(() => {
-		if (!native.has(plugin)) return;
-		refresh();
-		const listener = App.addListener("resume", refresh);
-		return () => void listener.then((handle) => handle.remove());
-	}, []);
-}
-
 function StateRow({ label, hint, on, onClick }: { label: string; hint?: string; on: boolean; onClick: () => void }) {
 	return (
 		<button type="button" onClick={onClick}>
@@ -386,15 +377,12 @@ function SystemAccessGroup() {
 }
 
 function BackgroundGroup() {
-	const [status, setStatus] = useState<{ notifications: boolean; unrestrictedBattery?: boolean }>();
-	useRefreshOnResume("KeepAlive", () => void KeepAlive.status().then(setStatus));
+	const { status, allowNotifications, unrestrictBattery } = useBackground();
 	if (!status) return null;
 	return (
 		<RowList title="背景執行">
-			<StateRow label="通知" on={status.notifications} onClick={() => void KeepAlive.requestNotifications().then(() => KeepAlive.status().then(setStatus))} />
-			{status.unrestrictedBattery === undefined ? null : (
-				<StateRow label="不受電池最佳化限制" on={status.unrestrictedBattery} onClick={() => void KeepAlive.requestUnrestrictedBattery()} />
-			)}
+			<StateRow label="通知" on={status.notifications} onClick={allowNotifications} />
+			{status.unrestrictedBattery === undefined ? null : <StateRow label="不受電池最佳化限制" on={status.unrestrictedBattery} onClick={unrestrictBattery} />}
 		</RowList>
 	);
 }

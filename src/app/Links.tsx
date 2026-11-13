@@ -5,7 +5,8 @@ import type { Sandbox } from "../agent/sandbox/sandbox.ts";
 import { deviceNetwork } from "../agent/network.ts";
 import { modelReach, type ReachState } from "../agent/reach.ts";
 import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../agent/traffic.ts";
-import { Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { BatteryCharging, Bell, Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { useBackground } from "./background.ts";
 import { CLOCK } from "./clock.ts";
 import { Sheet } from "./Sheet.tsx";
 
@@ -363,8 +364,8 @@ function StatusRow({ row, onRetry }: { row: Row; onRetry: () => void }) {
 	}
 }
 
-function LinkRow({ icon, name, status, since, children }: { icon: ReactNode; name: string; status: Line; since?: number; children?: ReactNode }) {
-	const said = status === "up" ? "連得上" : status === "idle" ? "還沒連" : since === undefined ? "連不上" : `連不上 · ${CLOCK.format(since)} 起`;
+function LinkRow({ icon, name, status, since, said: words, children }: { icon: ReactNode; name: string; status: Line; since?: number; said?: string; children?: ReactNode }) {
+	const said = words ?? (status === "up" ? "連得上" : status === "idle" ? "還沒連" : since === undefined ? "連不上" : `連不上 · ${CLOCK.format(since)} 起`);
 	return (
 		<div className="link-row" data-line={status}>
 			<span className="place-icon" aria-hidden="true">
@@ -403,14 +404,34 @@ export function HostRow({ name, mode, sandbox }: { name: string; mode: string; s
 	);
 }
 
-export function PhoneSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+export function PhoneSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const online = useOnline();
+	const { status, allowNotifications, unrestrictBattery } = useBackground();
+	const fix = (onClick: () => void) => (
+		<button type="button" className="link-verb" onClick={onClick}>
+			打開
+		</button>
+	);
 	return (
 		<Sheet open={open} title="這支手機" onClose={onClose}>
 			<div className="link-rows">
-				<LinkRow icon={online ? <Wifi size={20} strokeWidth={1.6} /> : <WifiOff size={20} strokeWidth={1.6} />} name="網路" status={online ? "up" : "down"} />
+				<LinkRow icon={online ? <Wifi size={20} strokeWidth={1.6} /> : <WifiOff size={20} strokeWidth={1.6} />} name="網路" status={online ? "up" : "down"} said={online ? "有網路" : "沒有網路"} />
+				{status ? (
+					<LinkRow icon={<Bell size={20} strokeWidth={1.6} />} name="通知" status={status.notifications ? "up" : "down"} said={status.notifications ? "做完或要你決定時會通知你" : "關著，做完了也不會通知你"}>
+						{status.notifications ? null : fix(allowNotifications)}
+					</LinkRow>
+				) : null}
+				{status?.unrestrictedBattery === undefined ? null : (
+					<LinkRow
+						icon={<BatteryCharging size={20} strokeWidth={1.6} />}
+						name="背景執行"
+						status={status.unrestrictedBattery ? "up" : "down"}
+						said={status.unrestrictedBattery ? "離開 pi 也會繼續做事" : "離開 pi 後可能被系統暫停"}
+					>
+						{status.unrestrictedBattery ? null : fix(unrestrictBattery)}
+					</LinkRow>
+				)}
 			</div>
-			{children}
 		</Sheet>
 	);
 }

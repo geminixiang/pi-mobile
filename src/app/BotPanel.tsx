@@ -96,7 +96,6 @@ function LinkSheets({
 			))}
 		</div>
 	);
-	const phone = places.filter((computer) => computer.key === "phone");
 	return (
 		<>
 			<PrepareStatus preparing={preparing} />
@@ -111,14 +110,7 @@ function LinkSheets({
 					if (change.model) onClose();
 				}}
 			/>
-			<PhoneSheet open={open === "phone"} onClose={onClose}>
-				{phone.length > 0 ? (
-					<>
-						<div className="strip-label">在哪裡跑</div>
-						{list(phone)}
-					</>
-				) : null}
-			</PhoneSheet>
+			<PhoneSheet open={open === "phone"} onClose={onClose} />
 			<Sheet open={open === "computer"} title="電腦" onClose={onClose}>
 				{place?.kind === "computer" ? (
 					<div className="link-rows">
