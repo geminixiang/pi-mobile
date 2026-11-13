@@ -751,8 +751,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .segmented button { flex: 1; height: 40px; background: var(--bg); font-size: var(--fs-body); color: var(--muted); text-align: center; }
 .segmented button.selected { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); color: var(--accent); font-weight: 700; box-shadow: inset 0 -2px 0 var(--accent); }
 .segmented button:disabled { color: var(--faint); opacity: 0.5; }
-.choice-list > button.selected { background: var(--panel-2); }
-.choice-list > button.selected > svg { color: var(--accent); }
+.choice-list > button.selected, .choice-list > button.selected > svg { color: var(--accent); }
 .swatch { width: 8px; height: 8px; flex-shrink: 0; background: var(--faint); }
 .swatch.claude { background: var(--coral); }
 .swatch.gpt { background: var(--ok); }
@@ -1142,8 +1141,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .panel-section > .menu, .panel-section > .context-card, .sheet-body .menu { border: none; }
 .panel-section > :where(.menu, .panel-rows) { margin-inline: calc(-1 * var(--panel-inset)); }
 .panel-section > .menu > * { padding-inline: calc(var(--panel-inset) + 16px); }
-.sheet-body .menu { margin-inline: calc(-1 * var(--sheet-inset)); }
-.sheet-body .menu > * { padding-inline: calc(var(--sheet-inset) + 16px); }
+.sheet-body .menu { margin-inline: calc(-1 * var(--sheet-inset)); background: none; }
+.sheet-body .menu > * { padding-inline: var(--sheet-inset); }
 .panel-section > .menu > * + *, .sheet-body .menu > * + * { border-top: none; }
 .panel-section > .menu > button > .chevron { margin-left: -4px; }
 .panel-section > .strip-label { margin: 0 2px; }
