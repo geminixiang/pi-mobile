@@ -390,6 +390,11 @@ export function App() {
 	const used = contextTokens(view);
 	const contextWindow = model?.contextWindow ?? 0;
 	const busy = isBusy(view);
+	const changeModel = async ({ model: nextModel, thinking: nextThinking }: { model?: { provider: string; id: string }; thinking?: string }) => {
+		if (!controller) return;
+		if (nextModel) await controller.setModel(nextModel.provider, nextModel.id).catch(fail);
+		if (nextThinking) await controller.setThinking(nextThinking).catch(fail);
+	};
 	const openMemory = (bot: Bot) => {
 		setMemoryBot(bot);
 		setOverlay("botMemory");
@@ -498,10 +503,11 @@ export function App() {
 						view={view}
 						context={{ used, window: contextWindow }}
 						compactAt={settings.compactAt}
-						model={{ provider: modelProvider, name: shortModelName(model?.name ?? modelId) }}
+						model={{ provider: modelProvider, id: modelId, name: shortModelName(model?.name ?? modelId), thinking }}
 						busy={busy}
 						onClose={close}
 						actions={{
+							model: (change) => void changeModel(change),
 							edit: () => {
 								if (current) setBotEdit({ kind: "edit", bot: current });
 							},
@@ -573,11 +579,9 @@ export function App() {
 				current={{ provider: modelProvider, id: modelId }}
 				thinking={thinking}
 				onClose={close}
-				onChange={async ({ model: nextModel, thinking: nextThinking }) => {
-					if (!controller) return;
-					if (nextModel) await controller.setModel(nextModel.provider, nextModel.id).catch(fail);
-					if (nextThinking) await controller.setThinking(nextThinking).catch(fail);
-					if (nextModel) close();
+				onChange={async (change) => {
+					await changeModel(change);
+					if (change.model) close();
 				}}
 			/>
 

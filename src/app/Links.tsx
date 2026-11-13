@@ -5,7 +5,9 @@ import type { Sandbox } from "../agent/sandbox/sandbox.ts";
 import { deviceNetwork } from "../agent/network.ts";
 import { modelReach, type ReachState } from "../agent/reach.ts";
 import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../agent/traffic.ts";
+import { Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
 import { CLOCK } from "./clock.ts";
+import { Sheet } from "./Sheet.tsx";
 
 type Outage = { since: number; at: number };
 
@@ -137,13 +139,15 @@ function fitted(name: string): string {
 
 type Computer = { name: string; line: Line; rates: Rates };
 
+export type LinkNode = "model" | "phone" | "computer";
+
 export function LinksSection({
 	live,
 	provider,
 	model,
 	busy,
 	place,
-	onPlace,
+	onOpen,
 	children,
 }: {
 	live: boolean;
@@ -151,7 +155,7 @@ export function LinksSection({
 	model: string;
 	busy: boolean;
 	place: Workplace | undefined;
-	onPlace: (() => void) | undefined;
+	onOpen: (node: LinkNode) => void;
 	children: ReactNode;
 }) {
 	const online = useOnline();
@@ -172,10 +176,6 @@ export function LinksSection({
 			</div>
 			<div className="links-map">
 				<svg viewBox="0 0 280 112" aria-hidden="true">
-					<circle className="links-halo outer" cx="140" cy="48" r="44" />
-					<circle className="links-halo" cx="140" cy="48" r="34" />
-					<circle className="links-wave" cx="140" cy="48" r="30" />
-					<circle className="links-wave second" cx="140" cy="48" r="30" />
 
 					<line className="links-line model" x1="46" y1="48" x2="112" y2="48" />
 					<g className="links-broken model">
@@ -223,8 +223,9 @@ export function LinksSection({
 
 					{computer ? <ComputerLink computer={computer} /> : null}
 				</svg>
-				{onPlace ? <button type="button" className="links-tap pi" onClick={onPlace} aria-label="在哪裡跑" /> : null}
-				{onPlace && computer ? <button type="button" className="links-tap computer" onClick={onPlace} aria-label={`在哪裡跑：${computer.name}`} /> : null}
+				<button type="button" className="links-tap model" onClick={() => onOpen("model")} aria-label={`模型：${model}`} />
+				<button type="button" className="links-tap pi" onClick={() => onOpen("phone")} aria-label="這支手機" />
+				{computer ? <button type="button" className="links-tap computer" onClick={() => onOpen("computer")} aria-label={`電腦：${computer.name}`} /> : null}
 			</div>
 			<StatusRow key={row.kind} row={row} onRetry={() => modelReach(provider).check()} />
 			{host?.kind === "lost" ? <span className="note error">{host.reason}</span> : null}
@@ -360,4 +361,56 @@ function StatusRow({ row, onRetry }: { row: Row; onRetry: () => void }) {
 				</div>
 			);
 	}
+}
+
+function LinkRow({ icon, name, status, since, children }: { icon: ReactNode; name: string; status: Line; since?: number; children?: ReactNode }) {
+	const said = status === "up" ? "連得上" : status === "idle" ? "還沒連" : since === undefined ? "連不上" : `連不上 · ${CLOCK.format(since)} 起`;
+	return (
+		<div className="link-row" data-line={status}>
+			<span className="place-icon" aria-hidden="true">
+				{icon}
+			</span>
+			<span className="menu-text">
+				{name}
+				<span className="link-row-status">{said}</span>
+			</span>
+			{children}
+		</div>
+	);
+}
+
+export function ProviderRow({ provider, name }: { provider: string; name: string }) {
+	const reach = useReach(provider);
+	return (
+		<LinkRow icon={<Sparkles size={20} strokeWidth={1.6} />} name={name} status={reach.kind} since={reach.kind === "down" ? reach.since : undefined}>
+			{reach.kind === "down" ? (
+				<button type="button" className="link-verb" onClick={() => modelReach(provider).check()}>
+					重試
+				</button>
+			) : null}
+		</LinkRow>
+	);
+}
+
+export function HostRow({ name, mode, sandbox }: { name: string; mode: string; sandbox: Sandbox }) {
+	const status = useHost(sandbox);
+	const since = status?.kind === "lost" ? status.at : status?.kind === "reattaching" || status?.kind === "offline" ? status.since : undefined;
+	return (
+		<>
+			<LinkRow icon={<Monitor size={20} strokeWidth={1.6} />} name={`${name} · ${mode}`} status={hostLine(status)} since={since} />
+			{status?.kind === "lost" ? <span className="note error">{status.reason}</span> : null}
+		</>
+	);
+}
+
+export function PhoneSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+	const online = useOnline();
+	return (
+		<Sheet open={open} title="這支手機" onClose={onClose}>
+			<div className="link-rows">
+				<LinkRow icon={online ? <Wifi size={20} strokeWidth={1.6} /> : <WifiOff size={20} strokeWidth={1.6} />} name="網路" status={online ? "up" : "down"} />
+			</div>
+			{children}
+		</Sheet>
+	);
 }

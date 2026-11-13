@@ -16,11 +16,16 @@ import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
-import { LinksSection } from "./Links.tsx";
+import { HostRow, type LinkNode, LinksSection, PhoneSheet } from "./Links.tsx";
+import { ModelSheet } from "./ModelSheet.tsx";
 import { Container, Monitor, Smartphone } from "lucide-react";
 import { parseComputerKey } from "../agent/sandbox/host.ts";
 
+type ModelChange = { model?: { provider: string; id: string }; thinking?: string };
+type PanelModel = { provider: string; id: string; name: string; thinking: string };
+
 interface PanelActions {
+	model: (change: ModelChange) => void;
 	edit: () => void;
 	memory: () => void;
 	compact: () => Promise<boolean>;
@@ -38,18 +43,22 @@ function PlaceIcon({ computer }: { computer: Computer }) {
 	);
 }
 
-function WorkplacePicker({
+function LinkSheets({
 	runtime,
 	bot,
-	picking,
-	onPicked,
+	open,
+	model,
+	onModel,
+	onClose,
 	reload,
 	onError,
 }: {
 	runtime: AgentRuntime;
 	bot: Bot;
-	picking: boolean;
-	onPicked: () => void;
+	open: LinkNode | undefined;
+	model: PanelModel;
+	onModel: (change: ModelChange) => void;
+	onClose: () => void;
 	reload: (id: ConversationId) => void;
 	onError: (message: string) => void;
 }) {
@@ -57,37 +66,71 @@ function WorkplacePicker({
 	const key = place?.kind === "computer" ? place.computer.key : place?.kind === "missing" ? place.key : "phone";
 	const container = place?.kind === "computer" && !place.sandbox.direct ? place.host : undefined;
 	const [preparing, prepare] = usePrepare(container);
-	const computers = runtime.workplaces.list();
+	const offers = runtime.workplaces.offers(String(bot.id));
+	const places = offers ? runtime.workplaces.list() : [];
 	const choose = async (next: string) => {
 		await runtime.setComputer(bot.id, next);
 		reload(bot.id);
 		const chosen = runtime.workplaces.at(String(bot.id));
 		if (chosen?.kind === "computer" && !chosen.sandbox.direct) await prepare(chosen.host);
 	};
+	const list = (shown: readonly Computer[]) => (
+		<div className="menu choice-list">
+			{shown.map((computer) => (
+				<button
+					type="button"
+					key={computer.key}
+					className={computer.key === key ? "selected" : ""}
+					onClick={() => {
+						onClose();
+						void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
+					}}
+				>
+					<PlaceIcon computer={computer} />
+					<span className="menu-text">
+						{computer.name}
+						{computer.key === "phone" ? null : <span className="menu-hint">{computer.mode}</span>}
+					</span>
+					{computer.key === key ? <CheckIcon size={16} /> : null}
+				</button>
+			))}
+		</div>
+	);
+	const phone = places.filter((computer) => computer.key === "phone");
 	return (
 		<>
 			<PrepareStatus preparing={preparing} />
-			<Sheet open={picking} title="在哪裡跑" onClose={onPicked}>
-				<div className="menu choice-list">
-					{computers.map((computer) => (
-						<button
-							type="button"
-							key={computer.key}
-							className={computer.key === key ? "selected" : ""}
-							onClick={() => {
-								onPicked();
-								void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
-							}}
-						>
-							<PlaceIcon computer={computer} />
-							<span className="menu-text">
-								{computer.name}
-								{computer.key === "phone" ? null : <span className="menu-hint">{computer.mode}</span>}
-							</span>
-							{computer.key === key ? <CheckIcon size={16} /> : null}
-						</button>
-					))}
-				</div>
+			<ModelSheet
+				open={open === "model"}
+				models={runtime.models}
+				current={{ provider: model.provider, id: model.id }}
+				thinking={model.thinking}
+				onClose={onClose}
+				onChange={(change) => {
+					onModel(change);
+					if (change.model) onClose();
+				}}
+			/>
+			<PhoneSheet open={open === "phone"} onClose={onClose}>
+				{phone.length > 0 ? (
+					<>
+						<div className="strip-label">在哪裡跑</div>
+						{list(phone)}
+					</>
+				) : null}
+			</PhoneSheet>
+			<Sheet open={open === "computer"} title="電腦" onClose={onClose}>
+				{place?.kind === "computer" ? (
+					<div className="link-rows">
+						<HostRow name={place.computer.name} mode={place.computer.mode} sandbox={place.sandbox} />
+					</div>
+				) : null}
+				{places.length > 0 ? (
+					<>
+						<div className="strip-label">在哪裡跑</div>
+						{list(places)}
+					</>
+				) : null}
 			</Sheet>
 		</>
 	);
@@ -125,7 +168,7 @@ export function BotPanel({
 	view: ConversationView | undefined;
 	context: { used: number; window: number };
 	compactAt: number;
-	model: { provider: string; name: string };
+	model: PanelModel;
 	busy: boolean;
 	actions: PanelActions;
 	onClose: () => void;
@@ -135,7 +178,7 @@ export function BotPanel({
 	const [compacted, showCompacted] = useBriefly();
 	const [emptied, showEmptied] = useBriefly();
 	const [toolSheet, setToolSheet] = useState(false);
-	const [picking, setPicking] = useState(false);
+	const [linkSheet, setLinkSheet] = useState<LinkNode>();
 	useEffect(() => {
 		if (!open) setProblem(undefined);
 	}, [open]);
@@ -174,7 +217,6 @@ export function BotPanel({
 		onClose();
 		action();
 	};
-	const offers = runtime.workplaces.offers(String(bot.id));
 	const mine = triggers.items.filter((item) => item.conversationId === bot.id);
 	const memoryCount = memory.split("\n").filter((line) => line.trim()).length;
 
@@ -191,24 +233,17 @@ export function BotPanel({
 						<span className="panel-bot-job">{bot.job || "一般助理"}</span>
 					</span>
 				</button>
-				<LinksSection
-					live={open}
-					provider={model.provider}
-					model={model.name}
-					busy={busy}
-					place={runtime.workplaces.at(String(bot.id))}
-					onPlace={offers ? () => setPicking(true) : undefined}
-				>
-					{offers ? (
-						<WorkplacePicker
-							runtime={runtime}
-							bot={bot}
-							picking={picking}
-							onPicked={() => setPicking(false)}
-							reload={reload}
-							onError={(text) => setProblem({ section: "連線", text })}
-						/>
-					) : null}
+				<LinksSection live={open} provider={model.provider} model={model.name} busy={busy} place={runtime.workplaces.at(String(bot.id))} onOpen={setLinkSheet}>
+					<LinkSheets
+						runtime={runtime}
+						bot={bot}
+						open={linkSheet}
+						model={model}
+						onModel={actions.model}
+						onClose={() => setLinkSheet(undefined)}
+						reload={reload}
+						onError={(text) => setProblem({ section: "連線", text })}
+					/>
 					{problem?.section === "連線" ? <span className="note error">{problem.text}</span> : null}
 				</LinksSection>
 

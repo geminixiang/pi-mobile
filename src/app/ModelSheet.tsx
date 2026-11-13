@@ -4,6 +4,7 @@ import { CheckIcon, SearchIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { Segmented } from "./Segmented.tsx";
 import { formatTokens } from "./usage.ts";
+import { ProviderRow } from "./Links.tsx";
 
 const THINKING_LEVELS = [
 	["off", "關"],
@@ -59,6 +60,10 @@ export function ModelSheet({
 
 	return (
 		<Sheet open={open} onClose={onClose} title="模型">
+			<div className="strip-label">連線</div>
+			<div className="link-rows">
+				<ProviderRow provider={current.provider} name={models.find((model) => model.provider === current.provider)?.providerName ?? current.provider} />
+			</div>
 			<div className="strip-label">思考強度</div>
 			<Segmented<string>
 				label="思考強度"
