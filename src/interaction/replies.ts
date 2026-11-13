@@ -35,5 +35,5 @@ export const repliesSection = appSection(
 	"replies",
 	500,
 	() =>
-		`After a draft, a plan, a list of ideas, or an explanation with an obvious follow-up, end with one or two replies the user would likely send next, each on its own last line starting with ${MARK}, written as they would type it (${MARK} 改短一點); they become buttons. None after a plain fact, small talk or thanks, never 謝謝 or 好的. A question you need answered before going on is ask_user, not ${MARK}.`,
+		`An answer that hands the user something to use or choose from (a draft, a plan, ideas, options, steps) ends with one or two lines starting with ${MARK}: what they would most likely send next, in their words (${MARK} 改短一點, ${MARK} 第二個說詳細一點). They become buttons, so the user taps instead of typing. Leave them out after a plain fact, small talk or thanks, and never ${MARK} 謝謝 or ${MARK} 好的. A question you must have answered before going on is ask_user, not ${MARK}.`,
 );
