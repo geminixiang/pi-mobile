@@ -2,7 +2,7 @@ import type { ConversationId, ConversationView } from "@earendil-works/pi-durabl
 import { type ReactNode, useEffect, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import type { TriggerState } from "../triggers/runs.ts";
+import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
 import type { Computer } from "../agent/workplaces.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
@@ -172,7 +172,7 @@ export function BotPanel({
 		if (!open) setProblem(undefined);
 	}, [open]);
 	const failIn = (section: string) => (error: unknown) => setProblem({ section, text: messageOf(error) });
-	const [triggers, setTriggers] = useState<TriggerState>({ items: [], next: {} });
+	const [triggers, setTriggers] = useState<TriggerState>(NO_TRIGGERS);
 	const [memory, setMemory] = useState("");
 	useEffect(() => runtime.triggers.subscribe(setTriggers), [runtime]);
 	const botId = bot?.id;

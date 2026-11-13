@@ -35,7 +35,7 @@ function CodeLines({ text }: { text: string }) {
 	);
 }
 
-export type ViewerFrame = { kind: "page"; onClose: () => void } | { kind: "tab" };
+export type ViewerFrame = { kind: "page"; onClose: () => void } | { kind: "stage" };
 
 export function FileViewer({ workspace, path, frame }: { workspace: Workspace; path: string; frame: ViewerFrame }) {
 	const [content, setContent] = useState<FileContent>();
@@ -82,32 +82,7 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 
 	return (
 		<div className="screen">
-			{frame.kind === "tab" ? (
-				<div className="pane-meta">
-					<span className="pane-path">{path}</span>
-					<span className="inline-verbs">
-						{previewable && content?.kind === "text" ? (
-							<button type="button" onClick={() => setMode(mode === "preview" ? "source" : "preview")}>
-								{mode === "preview" ? "原始碼" : "預覽"}
-							</button>
-						) : null}
-						{content?.kind === "text" && !html ? (
-							<button type="button" onClick={() => void orLogged(copy(content.text).then(() => showCopied("已複製")), "clipboard.write_failed", undefined)}>
-								{copied ?? "複製"}
-							</button>
-						) : content && content.kind !== "text" ? (
-							<button type="button" disabled={opening} onClick={openOutside}>
-								用其他 app 開
-							</button>
-						) : null}
-						{content ? (
-							<button type="button" disabled={sharing} onClick={share}>
-								分享
-							</button>
-						) : null}
-					</span>
-				</div>
-			) : (
+			{frame.kind === "stage" ? null : (
 				<header className="bar">
 					<BackButton onClick={frame.onClose} />
 					<div className="bar-center static">
@@ -164,6 +139,29 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 				{content?.kind === "text" && !(previewable && mode === "preview") ? <CodeLines text={content.text} /> : null}
 				{content?.kind === "text" && content.truncated && !(html && mode === "preview") ? <div className="note">只顯示前 {formatBytes(content.limit)}</div> : null}
 			</div>
+			{frame.kind === "stage" ? (
+				<span className="inline-verbs stage-verbs">
+					{previewable && content?.kind === "text" ? (
+						<button type="button" onClick={() => setMode(mode === "preview" ? "source" : "preview")}>
+							{mode === "preview" ? "原始碼" : "預覽"}
+						</button>
+					) : null}
+					{content?.kind === "text" && !html ? (
+						<button type="button" onClick={() => void orLogged(copy(content.text).then(() => showCopied("已複製")), "clipboard.write_failed", undefined)}>
+							{copied ?? "複製"}
+						</button>
+					) : content && content.kind !== "text" ? (
+						<button type="button" disabled={opening} onClick={openOutside}>
+							用其他 app 開
+						</button>
+					) : null}
+					{content ? (
+						<button type="button" disabled={sharing} onClick={share}>
+							分享
+						</button>
+					) : null}
+				</span>
+			) : null}
 		</div>
 	);
 }

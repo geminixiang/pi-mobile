@@ -175,7 +175,10 @@ export function triggerRun(entry: { kind: string; data?: unknown }): TriggerRun 
 export interface TriggerState {
 	items: Trigger[];
 	next: Record<string, number>;
+	open: readonly Item[];
 }
+
+export const NO_TRIGGERS: TriggerState = { items: [], next: {}, open: [] };
 
 const RUNS_KEPT_MS = DAY;
 
@@ -188,7 +191,7 @@ export class TriggerRuns {
 	readonly #judge: Judge;
 	readonly #agentState: (conversationId: ConversationId, agent: string) => Promise<AgentState>;
 	readonly #listeners = new Set<(state: TriggerState) => void>();
-	#state: TriggerState = { items: [], next: {} };
+	#state: TriggerState = NO_TRIGGERS;
 	readonly #started = new Map<ConversationId, string>();
 
 	constructor(
@@ -230,7 +233,7 @@ export class TriggerRuns {
 		];
 		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
 		if (native.implements(Triggers.agenda)) await Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) });
-		this.#state = { items: [...items], next };
+		this.#state = { items: [...items], next, open: (itemDoc?.items ?? []).filter((item) => item.state !== "done") };
 		for (const listener of this.#listeners) listener(this.#state);
 	}
 

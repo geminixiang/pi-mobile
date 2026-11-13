@@ -1,121 +1,141 @@
+import type { ConversationId } from "@earendil-works/pi-durable";
+import { Clock, FileText, Globe, type LucideIcon, SquareTerminal, Table } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Bot } from "../agent/bots.ts";
+import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { BotAvatar } from "../app/BotAvatar.tsx";
-import { FileViewer } from "../app/FileViewer.tsx";
-import { CloseIcon, FileIcon, FolderIcon } from "../app/icons.tsx";
-import { useReach } from "../app/Links.tsx";
-import { useLoaded } from "../app/loaded.ts";
-import { resolvePath } from "../app/openFile.ts";
-import { WorkspaceView } from "../app/WorkspaceView.tsx";
-import { type Bench, BOT_TAB, keyOf, type Tab } from "./bench.ts";
+import { CLOCK } from "../app/clock.ts";
+import { ChevronIcon } from "../app/icons.tsx";
+import { callLabel, doing } from "../app/Message.tsx";
+import { type Interaction, InteractionContext } from "../interaction/context.ts";
+import { clockOf } from "../triggers/when.ts";
+import { type Board, type Card, type Group, nameOf } from "./board.ts";
+import { Stage, type StageActions } from "./Stage.tsx";
 
-const nameOf = (path: string) => path.split("/").at(-1) ?? path;
+const GROUP_LABEL: Record<Group, string> = { need: "需要你", moving: "進行中", result: "成果", scheduled: "已排定" };
 
-function TabLabel({ tab, bot }: { tab: Tab; bot: Bot | undefined }) {
-	if (tab.kind === "bot") {
-		return (
-			<>
-				{bot ? <BotAvatar bot={bot} size={20} /> : null}
-				<span className="bench-tab-name">{bot?.name ?? "Bot"}</span>
-			</>
-		);
+type Look = "web" | "terminal" | "table" | "doc" | "clock";
+
+const LOOK_ICON: Record<Look, LucideIcon> = { web: Globe, terminal: SquareTerminal, table: Table, doc: FileText, clock: Clock };
+
+const TABLE_FILE = /\.(csv|tsv|xlsx?)$/i;
+const WEB_FILE = /\.html?$/i;
+
+type Face = { look: Look; lines: readonly string[]; name: string; meta: string; verb: boolean };
+
+function faceOf(card: Card): Face {
+	switch (card.kind) {
+		case "form":
+			return { look: "doc", lines: [card.form.request.message], name: card.form.service, meta: card.form.confirm ?? "確認", verb: true };
+		case "ask":
+			return { look: "doc", lines: [card.question], name: card.question, meta: "回答", verb: true };
+		case "item":
+			return { look: "doc", lines: [card.item.title], name: card.item.title, meta: "處理", verb: true };
+		case "browser":
+			return { look: "web", lines: card.handover ? [card.handover] : [], name: "瀏覽器", meta: card.handover ? "接手" : "使用中", verb: card.handover !== undefined };
+		case "watch":
+			return { look: "terminal", lines: [card.label], name: card.agent.startsWith("job:") ? card.label : card.agent, meta: CLOCK.format(card.since), verb: false };
+		case "turn": {
+			const last = card.steps.at(-1)?.call;
+			return { look: "terminal", lines: card.steps.flatMap((step) => (step.call ? [callLabel(step.call.name, step.call.arguments)] : [])).slice(-3), name: last ? doing(last) : "使用工具", meta: `${card.steps.length} 步`, verb: false };
+		}
+		case "file":
+			return { look: WEB_FILE.test(card.path) ? "web" : TABLE_FILE.test(card.path) ? "table" : "doc", lines: [card.title, card.summary].filter((line) => line && line !== nameOf(card.path)), name: nameOf(card.path), meta: card.title === nameOf(card.path) ? "" : card.title, verb: false };
+		case "schedule":
+			return { look: "clock", lines: card.at !== undefined ? [clockOf(card.at)] : card.trigger.when.kind === "daily" ? [card.trigger.when.time] : [], name: card.trigger.name, meta: "", verb: false };
+		case "due":
+			return { look: "clock", lines: [clockOf(card.at)], name: card.item.title, meta: "", verb: false };
 	}
-	if (tab.kind === "folder") {
-		return (
-			<>
-				<FolderIcon size={14} />
-				<span className="bench-tab-name">工作區</span>
-			</>
-		);
-	}
-	return (
-		<>
-			<FileIcon size={14} />
-			<span className="bench-tab-name">{nameOf(tab.path)}</span>
-		</>
-	);
 }
 
-function LinkMark({ provider, onClick }: { provider: string; onClick: () => void }) {
-	const reach = useReach(provider);
+function TrayCard({ card, on, onShow }: { card: Card; on: boolean; onShow: () => void }) {
+	const face = faceOf(card);
+	const Icon = LOOK_ICON[face.look];
 	return (
-		<button type="button" className="bench-link" aria-label="連線" onClick={onClick}>
-			<svg width="64" height="14" viewBox="0 0 64 14" aria-hidden="true">
-				<circle cx="6" cy="7" r="5" />
-				<line x1="11" y1="7" x2="25" y2="7" />
-				<circle className="bench-link-pi" cx="32" cy="7" r="6" />
-				<line x1="39" y1="7" x2="53" y2="7" />
-				<circle cx="58" cy="7" r="5" />
-			</svg>
-			<i className={`link-mark ${reach.kind}`} />
+		<button type="button" className={`tray-card${on ? " on" : ""}`} onClick={onShow}>
+			<span className={`tray-thumb look-${face.look}`}>
+				{face.look === "clock" && face.lines[0] ? <span className="tray-time">{face.lines[0]}</span> : <Icon size={16} strokeWidth={1.6} />}
+				{face.look === "clock" ? null : face.lines.map((line) => <span key={line} className="tray-line">{line}</span>)}
+				{on ? <span className="tray-on">舞台</span> : null}
+			</span>
+			<span className="tray-name">{face.name}</span>
+			{face.meta ? <span className={`tray-meta${face.verb ? " verb" : ""}`}>{face.meta}</span> : null}
 		</button>
 	);
 }
 
-function FilePane({ workspace, path }: { workspace: Workspace | null | undefined; path: string }) {
-	if (workspace === undefined) return <div className="ws-loading">讀取中</div>;
-	if (workspace === null) return <div className="ws-empty">還沒有資料夾</div>;
-	return <FileViewer workspace={workspace} path={resolvePath(workspace.root, path)} frame={{ kind: "tab" }} />;
+function summaryOf(board: Board): readonly string[] {
+	const count = (group: Group) => board.tray.find((section) => section.group === group)?.cards.length ?? 0;
+	const busy = [count("need") > 0 ? `${count("need")} 需要你` : "", count("moving") > 0 ? `${count("moving")} 進行中` : ""].filter(Boolean);
+	if (busy.length > 0) return busy;
+	const next = board.tray.find((section) => section.group === "scheduled")?.cards[0];
+	const at = next?.kind === "schedule" || next?.kind === "due" ? next.at : undefined;
+	return at === undefined ? ["閒著"] : ["閒著", `下一次 ${clockOf(at)}`];
 }
 
 export function Workbench({
 	bot,
-	bench,
-	provider,
+	board,
+	runtime,
+	conversation,
 	load,
-	botPane,
-	onShow,
-	onClose,
+	interaction,
+	info,
+	onInfo,
+	onCloseInfo,
+	actions,
 }: {
 	bot: Bot | undefined;
-	bench: Bench;
-	provider: string;
+	board: Board;
+	runtime: AgentRuntime;
+	conversation: ConversationId;
 	load: () => Promise<Workspace | undefined>;
-	botPane: (shown: boolean) => ReactNode;
-	onShow: (tab: Tab) => void;
-	onClose: (key: string) => void;
+	interaction: Interaction;
+	info: ReactNode | undefined;
+	onInfo: () => void;
+	onCloseInfo: () => void;
+	actions: StageActions;
 }) {
-	const { value: workspace, error } = useLoaded(async () => (await load()) ?? null, [load]);
-	const pane = (tab: Tab, shown: boolean) => {
-		if (tab.kind === "bot") return botPane(shown);
-		if (tab.kind === "folder") return <WorkspaceView load={load} initial={{ tab: "files" }} onClose={() => onClose(keyOf(tab))} onOpenFile={(path) => onShow({ kind: "file", path })} />;
-		return error ? <div className="banner error">{error}</div> : <FilePane workspace={workspace} path={tab.path} />;
-	};
 	return (
 		<section className="bench" aria-label="工作台">
 			<div className="bench-head">
-				<div className="bench-tabs" role="tablist">
-					{bench.tabs.map((tab) => {
-						const key = keyOf(tab);
-						const on = key === bench.active;
-						return (
-							<div key={key} className={`bench-tab${on ? " on" : ""}`}>
-								<button type="button" role="tab" aria-selected={on} className="bench-tab-open" onClick={() => onShow(tab)}>
-									<TabLabel tab={tab} bot={bot} />
-								</button>
-								{tab.kind === "bot" ? null : (
-									<button type="button" className="bench-tab-close" aria-label="關閉分頁" onClick={() => onClose(key)}>
-										<CloseIcon size={12} />
-									</button>
-								)}
+				<button type="button" className="bench-who" aria-expanded={info !== undefined} onClick={info === undefined ? onInfo : onCloseInfo}>
+					{bot ? <BotAvatar bot={bot} size={24} /> : null}
+					<span className="bench-name">{bot?.name ?? "Bot"}</span>
+					<ChevronIcon open size={12} />
+				</button>
+				<span className="bench-count">
+					{summaryOf(board).map((part) => (
+						<span key={part}>{part}</span>
+					))}
+				</span>
+			</div>
+			<InteractionContext.Provider value={interaction}>
+				<Stage key={board.stage?.key} card={board.stage} pinned={board.pinned} runtime={runtime} conversation={conversation} load={load} actions={actions} />
+			</InteractionContext.Provider>
+			{board.tray.length > 0 ? (
+				<div className="tray">
+					{board.tray.map((section) => (
+						<section key={section.group} className="tray-group">
+							<h3 className="tray-label">{GROUP_LABEL[section.group]}</h3>
+							<div className="tray-cards">
+								{section.cards.map((card) => (
+									<TrayCard key={card.key} card={card} on={card.key === board.stage?.key} onShow={() => actions.show(card.key)} />
+								))}
 							</div>
-						);
-					})}
+						</section>
+					))}
 				</div>
-				<LinkMark provider={provider} onClick={() => onShow(BOT_TAB)} />
-			</div>
-			<div className="bench-body">
-				{bench.tabs.map((tab) => {
-					const key = keyOf(tab);
-					const shown = key === bench.active;
-					return (
-						<div key={key} className="bench-pane" role="tabpanel" hidden={!shown}>
-							{pane(tab, shown)}
-						</div>
-					);
-				})}
-			</div>
+			) : null}
+			{info !== undefined ? (
+				<>
+					<button type="button" className="bench-scrim" aria-label="關閉" onClick={onCloseInfo} />
+					<div className="bench-info" role="dialog" aria-label={`${bot?.name ?? "Bot"} 的資訊`}>
+						{info}
+					</div>
+				</>
+			) : null}
 		</section>
 	);
 }

@@ -131,7 +131,7 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 	}
 }
 
-function callLabel(name: string, args: Record<string, unknown>): string {
+export function callLabel(name: string, args: Record<string, unknown>): string {
 	const phone = phoneLabel(name, args);
 	if (phone !== undefined) return phone;
 	if (name === "github_api") return `${args.method ?? "GET"} ${args.path ?? ""}`;
@@ -170,7 +170,7 @@ const TOOL_DOING = new Map<string, string>([
 
 const TOOLS_ALWAYS_SHOWN = new Set(["update_memory"]);
 
-function doing(call: Call): string {
+export function doing(call: Call): string {
 	if (call.name === "codemode" && typeof call.arguments.title === "string" && call.arguments.title.trim()) return call.arguments.title.trim();
 	return TOOL_DOING.get(call.name) ?? "使用工具";
 }

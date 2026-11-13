@@ -19,7 +19,7 @@ import { Calendar, type PhoneCalendar } from "../plugins/calendar.ts";
 import { phonePermissions } from "../interaction/phone-permissions.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
-import type { TriggerState } from "../triggers/runs.ts";
+import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings, signedInWithChatGPT } from "../settings.ts";
 import { AutomationIcon, AzureMark, CloudflareMark, DatabaseIcon, GitHubMark, GoogleCloudMark, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
@@ -286,7 +286,7 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 }
 
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
-	const [state, setState] = useState<TriggerState>({ items: [], next: {} });
+	const [state, setState] = useState<TriggerState>(NO_TRIGGERS);
 	const [bots, setBots] = useState<Bot[]>([]);
 	const [bluetooth, setBluetooth] = useState<boolean>();
 	const [overlay, setOverlay] = useState<boolean>();

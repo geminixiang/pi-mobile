@@ -11,7 +11,7 @@ export function layoutAt(width: number, height: number): Layout {
 	return width >= COLUMNS_MIN_WIDTH ? "columns" : "stacked";
 }
 
-const PHONE_ONLY = ["drawer", "panel", "workspace"] as const;
+const PHONE_ONLY = ["drawer", "workspace"] as const;
 
 export function shownOverlay<O extends string>(overlay: O | undefined, layout: Layout): O | undefined {
 	if (layout === "phone" || overlay === undefined) return overlay;

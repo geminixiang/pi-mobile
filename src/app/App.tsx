@@ -1,6 +1,6 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { avatarOf, type Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
@@ -17,6 +17,8 @@ import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, Mor
 import { BrowserButton } from "../browser/BrowserButton.tsx";
 import { BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { questionStates } from "../interaction/answers.ts";
+import type { Interaction } from "../interaction/context.ts";
+import { type BrowserState, browserState } from "../browser/tool.ts";
 import { type PageHost, PageHostContext } from "../interaction/PageFrame.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -32,17 +34,18 @@ import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView } from "./WorkspaceView.tsx";
 import { SidePanel } from "./SidePanel.tsx";
 import type { BotListProps } from "./BotList.tsx";
-import { BOT_TAB, benchOf, benchStep, emptyBench, inView, type Tab } from "../workbench/bench.ts";
+import { benchOf, benchStep, emptyBench, FOLDER, fileKey, pathOf } from "../workbench/bench.ts";
+import { boardOf } from "../workbench/board.ts";
 import { shownOverlay, useLayout } from "../workbench/layout.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { Rail } from "../workbench/Rail.tsx";
 import { Workbench } from "../workbench/Workbench.tsx";
 import { log } from "../log.ts";
-import { agentOf } from "./docs.ts";
+import { agentOf, liveOf } from "./docs.ts";
 import { away, inForeground, setWorking, stayAwakeFor } from "../keepAlive.ts";
 import { native } from "../native.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "../triggers/events.ts";
-import type { Trigger } from "../triggers/runs.ts";
+import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { KeepAlive } from "../plugins/keep-alive.ts";
 import { System } from "../plugins/system.ts";
@@ -93,15 +96,16 @@ export function App() {
 	const [benchState, benchDispatch] = useReducer(benchStep, undefined, emptyBench);
 	const bench = benchOf(benchState, currentBot);
 	const present = useCallback(
-		(tab: Tab) => {
-			if (currentBot) benchDispatch({ type: "show", bot: currentBot, tab });
-			if (layout === "phone") setOverlay(tab.kind === "bot" ? "panel" : "workspace");
+		(key: string) => {
+			if (currentBot) benchDispatch({ type: "show", bot: currentBot, key });
+			if (layout === "phone") setOverlay("workspace");
 		},
 		[currentBot, layout],
 	);
-	const openFile = useCallback((path: string) => present({ kind: "file", path }), [present]);
+	const openFile = useCallback((path: string) => present(fileKey(path)), [present]);
+	const openInfo = useCallback(() => setOverlay("panel"), []);
 	const close = useCallback(() => setOverlay(undefined), []);
-	const backToPanel = useCallback(() => setOverlay(layout === "phone" ? "panel" : undefined), [layout]);
+	const backToPanel = useCallback(() => setOverlay("panel"), []);
 	const backToDrawer = useCallback(() => setOverlay(layout === "phone" ? "drawer" : undefined), [layout]);
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
 	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -182,7 +186,8 @@ export function App() {
 	}, [start]);
 
 	useEffect(() => (runtime ? runtime.subscribeBots(setBots) : undefined), [runtime]);
-	const [automations, setAutomations] = useState<readonly Trigger[]>([]);
+	const [triggerState, setTriggerState] = useState<TriggerState>(NO_TRIGGERS);
+	const automations = triggerState.items;
 	const jobs = useMemo<RunningJobs | undefined>(() => {
 		if (!runtime || !controller) return undefined;
 		const id = controller.id;
@@ -191,7 +196,13 @@ export function App() {
 		);
 		return { jobs: running, stop: (job) => runtime.stopJob(id, job), peek: (job) => runtime.peekJob(id, job) };
 	}, [automations, controller, runtime]);
-	useEffect(() => (runtime ? runtime.triggers.subscribe((state) => setAutomations(state.items)) : undefined), [runtime]);
+	useEffect(() => (runtime ? runtime.triggers.subscribe(setTriggerState) : undefined), [runtime]);
+	const formsState = useSyncExternalStore(
+		useCallback((listener: () => void) => (runtime ? runtime.forms.subscribe(listener) : () => undefined), [runtime]),
+		() => runtime?.forms.state,
+	);
+	const [browser, setBrowser] = useState<BrowserState>({ active: new Set(), handovers: [] });
+	useEffect(() => browserState.subscribe(setBrowser), []);
 
 	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
 	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
@@ -290,6 +301,49 @@ export function App() {
 		return () => cancelAnimationFrame(frame);
 	}, [opening, controller, view]);
 	const asking = useMemo(() => [...questionStates(view?.entries ?? []).values()].some((asked) => asked.state === "open"), [view?.entries]);
+	const liveTools = liveOf(view)?.tools;
+	const board = useMemo(
+		() =>
+			layout !== "phone" && controller
+				? boardOf(
+						{
+							bot: controller.id,
+							entries: view?.entries ?? [],
+							tools: liveTools ?? [],
+							forms: formsState?.pending ?? new Map(),
+							items: triggerState.open,
+							triggers: triggerState.items,
+							next: triggerState.next,
+							browser: { active: currentBot !== undefined && browser.active.has(currentBot), handover: browser.handovers.find((handover) => handover.bot === currentBot)?.reason },
+						},
+						bench,
+					)
+				: undefined,
+		[layout, controller, view?.entries, liveTools, formsState, triggerState, browser, currentBot, bench],
+	);
+	const waiting = useMemo(
+		() =>
+			new Set([
+				...[...(formsState?.pending.values() ?? [])].map((form) => form.conversationId),
+				...triggerState.open.flatMap((item) => (item.state === "todo" ? [item.bot] : [])),
+				...(asking && controller ? [controller.id] : []),
+			]),
+		[formsState, triggerState.open, asking, controller],
+	);
+	const stageInteraction = useMemo<Interaction | undefined>(
+		() =>
+			runtime && controller && formsState
+				? {
+						questions: new Map(),
+						forms: formsState,
+						results: [],
+						pages: new Map(),
+						answerForm: (callId, answer) => runtime.forms.answer(callId, answer),
+						reply: (text) => void controller.send([{ type: "text", text }], "steer").catch(fail),
+					}
+				: undefined,
+		[runtime, controller, formsState, fail],
+	);
 
 	useEffect(() => {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
@@ -410,7 +464,6 @@ export function App() {
 	const openMemory = (bot: Bot) => {
 		setMemoryBot(bot);
 		setOverlay("botMemory");
-		if (currentBot) benchDispatch({ type: "show", bot: currentBot, tab: BOT_TAB });
 	};
 	const wide = layout !== "phone";
 	const shown = shownOverlay(overlay, layout);
@@ -419,6 +472,7 @@ export function App() {
 		automations,
 		currentId: opening ?? controller?.id,
 		running: busyIds,
+		waiting,
 		onOpen: (id) => {
 			setOpening(id);
 			void openConversation(id, undefined, undefined, undefined, true).catch((error: unknown) => {
@@ -482,7 +536,9 @@ export function App() {
 	);
 	const stackTop = wide
 		? overlay === "settings" ? { key: "settings", content: settingsView, onBack: leaveSettings } : undefined
-		: overlay === "workspace" ? { key: "workspace", content: <WorkspaceView load={loadWorkspace} initial={{ tab: "files", file: inView(bench) }} onClose={close} />, onBack: close } : undefined;
+		: overlay === "workspace" ? { key: "workspace", content: <WorkspaceView load={loadWorkspace} initial={{ tab: "files", file: pathOf(bench.pick) }} onClose={close} />, onBack: close } : undefined;
+	const staged = board?.stage;
+	const inView = staged?.kind === "file" && (board?.pinned || bench.opened.includes(staged.path)) ? staged.path : undefined;
 
 	return (
 		<PageStack side={wide ? "left" : "right"} top={stackTop}>
@@ -502,7 +558,7 @@ export function App() {
 							{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
 						</button>
 					)}
-					<button type="button" className="bar-what" onClick={() => (modelReach(modelProvider).state().kind === "down" ? present(BOT_TAB) : setOverlay("model"))} aria-label="模型與思考強度">
+					<button type="button" className="bar-what" onClick={() => (wide || modelReach(modelProvider).state().kind === "down" ? openInfo() : setOverlay("model"))} aria-label="模型與思考強度">
 						<span className="bar-title">
 							{current?.name ?? ""}
 							{busy ? <i className="bar-cursor" /> : null}
@@ -522,11 +578,11 @@ export function App() {
 						<BrowserButton bot={currentBot} onOpen={() => setBrowserOpen((count) => count + 1)} />
 					) : null}
 					{hasFolder ? (
-						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => present({ kind: "folder" })}>
+						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => present(FOLDER)}>
 							<FolderIcon />
 						</button>
 					) : null}
-					<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => present(BOT_TAB)}>
+					<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={openInfo}>
 						<MoreIcon />
 					</button>
 				</div>
@@ -572,7 +628,7 @@ export function App() {
 			>
 				{controller ? (
 					<OpenFileContext.Provider value={hasFolder ? openFile : undefined}>
-					<BesideContext.Provider value={wide ? { inView: inView(bench) } : undefined}>
+					<BesideContext.Provider value={wide ? { inView } : undefined}>
 					<PageHostContext.Provider value={pageHost}>
 					<JobsContext.Provider value={jobs}>
 					<Chat
@@ -699,21 +755,31 @@ export function App() {
 			{dialogView}
 
 		</div>
-		{wide ? (
+		{board && controller && stageInteraction ? (
 			<Workbench
 				bot={current}
-				bench={bench}
-				provider={modelProvider}
+				board={board}
+				runtime={runtime}
+				conversation={controller.id}
 				load={loadWorkspace}
-				onShow={present}
-				onClose={(key) => {
-					if (currentBot) benchDispatch({ type: "close", bot: currentBot, key });
+				interaction={stageInteraction}
+				onInfo={openInfo}
+				onCloseInfo={close}
+				info={
+					shown === "panel" || shown === "botMemory" ? (
+						<PageStack side="right" top={shown === "botMemory" && memoryView ? { key: "memory", content: memoryView, onBack: backToPanel } : undefined}>
+							{botPanel(true, close)}
+						</PageStack>
+					) : undefined
+				}
+				actions={{
+					show: present,
+					close: (key) => {
+						if (currentBot) benchDispatch({ type: "close", bot: currentBot, key });
+					},
+					ask: (text) => void controller.send([{ type: "text", text }]).catch(fail),
+					browser: () => setBrowserOpen((count) => count + 1),
 				}}
-				botPane={(open) => (
-					<PageStack side="right" top={shown === "botMemory" && memoryView ? { key: "memory", content: memoryView, onBack: backToPanel } : undefined}>
-						{botPanel(open, () => {})}
-					</PageStack>
-				)}
 			/>
 		) : null}
 		</div>

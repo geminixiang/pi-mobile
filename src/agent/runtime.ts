@@ -28,6 +28,7 @@ import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "../j
 
 const PEEK_LINES = 60;
 import { agentState } from "../computer-agents/tool.ts";
+import { placeOf, type Reading, readCommand, reading } from "../computer-agents/workers.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "./bots.ts";
@@ -482,6 +483,13 @@ export class AgentRuntime {
 		const stopped = await new HostCommands(place.host).run(stopJob(jobId));
 		if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
 		await this.triggers.stopWatching(id, job);
+	}
+
+	async peekAgent(id: ConversationId, agent: string): Promise<Reading> {
+		const place = this.workplaces.at(String(id));
+		const at = placeOf(agent);
+		if (place?.kind !== "computer" || !at) return { ok: false, problem: `${agent} is not on a computer` };
+		return reading(at, (await new HostCommands(place.host).run(readCommand(at, PEEK_LINES))).stdout);
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {

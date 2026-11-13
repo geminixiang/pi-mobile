@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { BOT_TAB, benchOf, benchStep, emptyBench, inView, keyOf, MAX_TABS, type Tab } from "../src/workbench/bench.ts";
+import { type Bench, benchOf, benchStep, emptyBench, FOLDER, fileKey, MAX_OPENED, pathOf } from "../src/workbench/bench.ts";
 import { layoutAt, shownOverlay, WIDE_MIN_HEIGHT, WIDE_MIN_WIDTH } from "../src/workbench/layout.ts";
 import { inViewNote, inViewPath } from "../src/workbench/note.ts";
 
@@ -23,50 +23,43 @@ for (const [name, width, height, layout] of sizes) assert.equal(layoutAt(width, 
 
 assert.equal(shownOverlay("drawer", "phone"), "drawer");
 assert.equal(shownOverlay("workspace", "phone"), "workspace");
-for (const only of ["drawer", "panel", "workspace"]) assert.equal(shownOverlay(only, "columns"), undefined, only);
-for (const both of ["settings", "model", "botMemory"]) assert.equal(shownOverlay(both, "stacked"), both, both);
+for (const only of ["drawer", "workspace"]) assert.equal(shownOverlay(only, "columns"), undefined, only);
+for (const both of ["settings", "model", "panel", "botMemory"]) assert.equal(shownOverlay(both, "stacked"), both, both);
 
-const file = (path: string): Tab => ({ kind: "file", path });
-const show = (bench: ReturnType<typeof emptyBench>, tab: Tab, bot = "1") => benchStep(bench, { type: "show", bot, tab });
-const close = (bench: ReturnType<typeof emptyBench>, tab: Tab, bot = "1") => benchStep(bench, { type: "close", bot, key: keyOf(tab) });
+const show = (bench: Bench, key: string, bot = "1") => benchStep(bench, { type: "show", bot, key });
+const close = (bench: Bench, key: string, bot = "1") => benchStep(bench, { type: "close", bot, key });
 
 const start = emptyBench("1");
-assert.deepEqual(start.tabs, [BOT_TAB]);
-assert.equal(inView(start), undefined);
+assert.equal(start.pick, undefined);
+assert.deepEqual(start.opened, []);
 
-const one = show(start, file("a.html"));
-assert.equal(inView(one), "a.html");
-const two = show(one, file("b.md"));
-assert.deepEqual(two.tabs.map(keyOf), ["bot", "file:a.html", "file:b.md"]);
-assert.equal(inView(two), "b.md");
+const one = show(start, fileKey("a.html"));
+assert.equal(pathOf(one.pick), "a.html");
+const two = show(one, fileKey("b.md"));
+assert.deepEqual(two.opened, ["a.html", "b.md"]);
+assert.equal(pathOf(two.pick), "b.md");
 
-const again = show(two, file("a.html"));
-assert.equal(again.tabs.length, 3, "a file already open is not opened twice");
-assert.equal(inView(again), "a.html");
+const again = show(two, fileKey("a.html"));
+assert.deepEqual(again.opened, ["b.md", "a.html"], "a file opened again moves to the end, not in twice");
 
-assert.equal(inView(show(two, BOT_TAB)), undefined, "the bot tab shows no file");
-assert.equal(show(two, BOT_TAB).tabs.length, 3);
+const folder = show(two, FOLDER);
+assert.equal(folder.pick, FOLDER);
+assert.equal(pathOf(folder.pick), undefined);
+assert.deepEqual(folder.opened, two.opened, "showing the folder keeps the opened files");
 
-const folder = show(two, { kind: "folder" });
-assert.equal(folder.active, "folder");
-assert.equal(inView(folder), undefined);
-
-assert.equal(inView(close(two, file("b.md"))), "a.html", "closing the last tab shows the one before it");
-assert.equal(inView(close(again, file("a.html"))), "b.md", "closing a middle tab shows the one after it");
-assert.equal(inView(close(two, file("a.html"))), "b.md", "closing a tab in the background keeps the one in view");
-assert.equal(close(show(start, file("a.html")), file("a.html")).active, "bot");
-assert.equal(close(two, BOT_TAB), two, "the bot tab cannot be closed");
-assert.equal(close(two, file("missing")), two);
+assert.equal(close(two, fileKey("b.md")).pick, undefined, "closing the file on stage leaves nothing picked");
+assert.deepEqual(close(two, fileKey("b.md")).opened, ["a.html"]);
+assert.equal(close(two, fileKey("a.html")).pick, fileKey("b.md"), "closing another file keeps the one picked");
+assert.equal(close(show(two, "ask:1"), "ask:1").pick, undefined);
+assert.deepEqual(close(show(two, "ask:1"), "ask:1").opened, two.opened, "closing a card that is not a file keeps the opened files");
 
 assert.equal(benchOf(two, "1"), two);
-assert.deepEqual(benchOf(two, "2"), emptyBench("2"), "another bot starts with its own tab only");
-assert.deepEqual(show(two, file("c.md"), "2").tabs.map(keyOf), ["bot", "file:c.md"], "opening a file for another bot drops the first bot's tabs");
+assert.deepEqual(benchOf(two, "2"), emptyBench("2"), "another bot starts empty");
+assert.deepEqual(show(two, fileKey("c.md"), "2").opened, ["c.md"], "opening a file for another bot drops the first bot's files");
 
-const crowded = Array.from({ length: MAX_TABS + 2 }, (_, index) => file(`${index}.md`)).reduce((bench, tab) => show(bench, tab), start);
-assert.equal(crowded.tabs.length, MAX_TABS);
-assert.equal(crowded.tabs[0], BOT_TAB, "the bot tab stays when files crowd the bench");
-assert.equal(inView(crowded), `${MAX_TABS + 1}.md`);
-assert.ok(!crowded.tabs.some((tab) => keyOf(tab) === "file:0.md"), "the oldest file goes first");
+const crowded = Array.from({ length: MAX_OPENED + 2 }, (_, index) => fileKey(`${index}.md`)).reduce((bench, key) => show(bench, key), start);
+assert.equal(crowded.opened.length, MAX_OPENED);
+assert.ok(!crowded.opened.includes("0.md"), "the oldest file goes first");
 
 for (const path of ["/root/bots/a/職缺比較.html", "notes/a b.md", 'odd"name>.md']) assert.equal(inViewPath(inViewNote(path).text), path);
 assert.equal(inViewPath("<in-view>\nunfinished"), undefined);

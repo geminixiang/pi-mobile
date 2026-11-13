@@ -55,12 +55,13 @@ export type BotListProps = {
 	automations: readonly Trigger[];
 	currentId: ConversationId | undefined;
 	running: ReadonlySet<ConversationId>;
+	waiting: ReadonlySet<ConversationId>;
 	onOpen: (id: ConversationId) => void;
 	onCreate: () => void;
 	onEdit: (bot: Bot) => void;
 };
 
-export function BotList({ look, bots, automations, currentId, running, onOpen, onCreate, onEdit }: BotListProps & { look: "rows" | "rail" }) {
+export function BotList({ look, bots, automations, currentId, running, waiting, onOpen, onCreate, onEdit }: BotListProps & { look: "rows" | "rail" }) {
 	if (look === "rail") {
 		return (
 			<div className="rail-list">
@@ -68,7 +69,7 @@ export function BotList({ look, bots, automations, currentId, running, onOpen, o
 					<button type="button" key={String(bot.id)} className={`rail-bot${bot.id === currentId ? " current" : ""}`} onClick={() => onOpen(bot.id)}>
 						<BotAvatar bot={bot} size={44} />
 						<span className="rail-name">{bot.name}</span>
-						{running.has(bot.id) ? <span className="drawer-running rail-running" aria-label="執行中" /> : null}
+						{waiting.has(bot.id) ? <span className="rail-waiting" aria-label="需要你" /> : running.has(bot.id) ? <span className="drawer-running rail-running" aria-label="執行中" /> : null}
 					</button>
 				))}
 				<button type="button" className="rail-add" onClick={onCreate} aria-label="新增 Bot">
