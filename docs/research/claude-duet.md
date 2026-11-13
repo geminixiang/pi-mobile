@@ -66,6 +66,30 @@
 | Connections | 最上面只推薦 Google Calendar、Google Drive suite、Slack、1Password；已連 Gmail、GitHub、Claude Data、Meetings；下面是另外約 90 個（Notion、Canva、Microsoft 365、Zapier、Stripe、Uber…），每個寫「Connects to a site under …」。1Password 寫明每次要用登入資訊都要在 1Password App 裡核准，密碼不交給 Claude |
 | ＋ | 相機、照片、檔案、連接器、Skills、New session |
 
+### 連服務的流程（使用者實際操作，2026-11-13 17:27–17:28，約 22 秒）
+
+1. **點標題列中間的 Claude 吉祥物**，整頁從吉祥物放大出來：「Claude · What Claude has access to」。
+2. 這一頁**按用途分組，不按服務分**。每一組一列，右邊是已連服務的圖示，沒連就是虛線框的「＋」：
+   - Files and docs
+   - Mail（Gmail · Can read and draft your mail）
+   - Calendar
+   - Team chat
+   - Credentials（Can’t sign in for you yet）
+   - More apps
+3. **點 Calendar 的「＋」**，在 App 內的 Chrome 分頁（Custom Tab）打開 Google 授權。
+   - 畫面是「登入『Claude for Google Calendar』」，已經帶好帳號。
+   - 按「繼續」就回到 App，不用離開 App。
+4. 回來時，Connections 的「Connected」多了 Google Calendar。再返回，那一列變成「Calendar · Can see your schedule · 日曆圖示」。
+5. 再返回，整頁縮回吉祥物，回到對話。
+
+值得學的：
+- **從「它能做什麼」看起，不從服務目錄看起**：每一組一句話寫明現在能做什麼（「Can read and draft your mail」），也寫明還不能做什麼（「Can’t sign in for you yet」）。
+- **空著的位置畫成虛線框的「＋」**，一眼看出還缺哪一塊。
+- **入口就是吉祥物本身**：點「它」就看到它有什麼能力。
+- **授權在 Custom Tab 裡完成**，一來一回不到 10 秒。
+
+沒做到的：連好之後，對話裡沒有任何反應。它沒說「我現在看得到你的行事曆了」，也沒順勢提議「要不要我看看這週行程」。Grok Bot 在連好之後會列出能用它做的事。
+
 ### Android 整合（從 `dumpsys package`）
 
 - **數位助理**：`AiboAssistantService`、`AiboAssistantRecognitionService`，可以取代系統助理。這支 S24 目前設定的是 pi mobile。
@@ -138,18 +162,22 @@
 3. **草稿卡和權限卡**：
    - 草稿可以改、可以叫它「改短一點」。按下寄出時，再依權限規則決定要不要另外問。
    - pi mobile 有確認卡（`src/interaction/FormCard.tsx`），缺「建議回覆」和「以後這個收件者不用問」（grok-bot.md 第 25 項）。
-4. **一點就回的建議回覆**：
+4. **「它能做什麼」頁**：
+   - Bot 面板放一頁，按用途分組（檔案、信、日曆、聊天、帳密），每組一句話寫現在能做的事，空著的畫虛線框「＋」，點了就連。
+   - 連好後，對話裡順勢說一句「現在能做什麼」，並提議第一件事。這是 Duet 沒做到的。
+   - pi mobile 現在要到 設定 › MCP 找服務，而且是按服務列，不按用途。
+5. **一點就回的建議回覆**：
    - Duet 在每個回答後放 1 到 2 個「↳」選項。
    - pi mobile 的 `ask_user` 是 Bot 主動提問時才有；可以讓一般回答也附上建議的下一步。
-5. **第一週的引導**：
+6. **第一週的引導**：
    - 新 Bot 的前幾天，每天早上一則訊息，教一件事、提議連一個服務。
    - pi mobile 新 Bot 目前只有第一次對話。
-6. **把主動做成 skills**：
+7. **把主動做成 skills**：
    - 晨報、引導、任務卡都是寫好的流程。
    - pi mobile 的 skills（`src/agent/skills/`）可以放 `morning-brief`、`first-week`，排程只負責叫醒它。
-7. **分享進來先確認**：「Share to Claude」先顯示要送的內容，再按 Send。pi mobile 的分享直接進輸入框，可以比照。
-8. **從信箱推薦連接器**：Duet 有 `recommend-connectors`，看使用者收到哪些服務的信，推薦該接哪個。pi mobile 的服務目錄（grok-bot.md 第 8 項）可以用同一招排序，加上要用時在對話裡放連接卡（Duet 沒做到，見第 3 節）。
-9. **快速設定方塊和小工具**：Converse、Talk、Text 三個方塊，Talk 小工具。pi mobile 已經是數位助理，缺方塊和小工具。
+8. **分享進來先確認**：「Share to Claude」先顯示要送的內容，再按 Send。pi mobile 的分享直接進輸入框，可以比照。
+9. **從信箱推薦連接器**：Duet 有 `recommend-connectors`，看使用者收到哪些服務的信，推薦該接哪個。pi mobile 的服務目錄（grok-bot.md 第 8 項）可以用同一招排序，加上要用時在對話裡放連接卡（Duet 沒做到，見第 3 節）。
+10. **快速設定方塊和小工具**：Converse、Talk、Text 三個方塊，Talk 小工具。pi mobile 已經是數位助理，缺方塊和小工具。
 
 不借的：
 - **雲端電腦**：pi mobile 的 agent 在手機上，電腦用的是使用者自己的機器，這是設計上的選擇，見 `docs/architecture.md`。
