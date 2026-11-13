@@ -28,6 +28,7 @@ import type { Forms } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import type { ResultCard } from "../interaction/results.ts";
 import { ReachNote, useReach } from "./Links.tsx";
+import { RowList } from "./RowList.tsx";
 import { answerOf, withoutReplies } from "../interaction/replies.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
@@ -452,7 +453,7 @@ export function Chat({
 			/>
 
 			<Sheet open={Boolean(actionsFor)} title={actionsFor?.kind === "pi.user" ? "你的訊息" : "回答"} onClose={() => setActionsFor(undefined)}>
-				<div className="menu">
+				<RowList>
 					<button
 						type="button"
 						onClick={async () => {
@@ -464,7 +465,7 @@ export function Chat({
 						<CopyIcon size={18} />
 						<span className="menu-text">複製文字</span>
 					</button>
-				</div>
+				</RowList>
 			</Sheet>
 		</div>
 	);

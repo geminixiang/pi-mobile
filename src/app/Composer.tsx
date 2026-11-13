@@ -26,6 +26,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { inViewNote } from "../workbench/note.ts";
+import { RowList } from "./RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {
@@ -285,7 +286,7 @@ export function Composer({
 						<PaperclipIcon />
 					</button>
 					<Sheet open={attachMenu} title="附加" onClose={() => setAttachMenu(false)}>
-						<div className="menu">
+						<RowList>
 							<button
 								type="button"
 								onClick={() => {
@@ -310,7 +311,7 @@ export function Composer({
 								<ScanIcon />
 								<span className="menu-text">掃描文件</span>
 							</button>
-						</div>
+						</RowList>
 					</Sheet>
 					<input
 						ref={cameraInput}

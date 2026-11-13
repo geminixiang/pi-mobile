@@ -67,4 +67,4 @@ iPad 和展開的折疊機（`layoutAt`，DESIGN.md〈大螢幕：工作台〉�
 
 ## 共用的骨架
 
-不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/app/Sheet.tsx`)（底部抽屜）、`Section` (`src/app/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/app/BotAvatar.tsx`)、`PiMark` (`src/app/PiMark.tsx`)、`ModelLine` (`src/app/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。
+不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/app/Sheet.tsx`)（底部抽屜）、`RowList` (`src/app/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/app/BotAvatar.tsx`)、`PiMark` (`src/app/PiMark.tsx`)、`ModelLine` (`src/app/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。

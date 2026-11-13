@@ -75,6 +75,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Every prompt section is an `appSection` with a budget; with a crowded app (removed bots, full memory, every toolset) each stays in it and the whole prompt in `PROMPT_BUDGET`; the rendered prompt matches `test/prompt.snapshot.json` | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |
 | A JSX `style` sets only `--custom-properties`; a `transition` never names a layout property | `test/code-rules.ts`, Stylelint (`stylelint/transition-no-layout.js`) |
+| No `.menu` or `.group` box around a list: a list is a `RowList` on the background | Stylelint (`selector-class-pattern`), `test/code-rules.ts` |
 | No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`) | Stylelint (`selector-pseudo-class-disallowed-list`) |
 | No line along one side of a box (`border-left`/`right`/`inline`, a sideways inset shadow): selection is a background or ✓ | Stylelint (`stylelint/no-side-stripe.js`) |
 | Font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`declaration-property-value-allowed-list`) |

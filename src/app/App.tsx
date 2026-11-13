@@ -57,6 +57,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform } from "../agent/platform.ts";
 import { ModelLine } from "./Links.tsx";
+import { RowList } from "./RowList.tsx";
 import { modelReach } from "../agent/reach.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
@@ -711,7 +712,7 @@ export function App() {
 			) : null}
 
 			<Sheet open={Boolean(sharing)} title="要交給哪個 Bot？" onClose={() => setSharing(undefined)}>
-				<div className="menu">
+				<RowList>
 					{bots.map((bot) => (
 						<button
 							type="button"
@@ -729,7 +730,7 @@ export function App() {
 							</span>
 						</button>
 					))}
-				</div>
+				</RowList>
 			</Sheet>
 
 

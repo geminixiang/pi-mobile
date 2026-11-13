@@ -48,12 +48,28 @@ function isInlineStyle(node: Node): boolean {
 	});
 }
 
+const OLD_BOXES = new Set(["menu", "group"]);
+
+const SPACES = /\s+/;
+
+function texts(node: Node): string[] {
+	if (node.type === "Literal") return typeof node.value === "string" ? [node.value] : [];
+	if (node.type === "TemplateElement") return isNode(node.value) && typeof node.value.cooked === "string" ? [node.value.cooked] : [];
+	return children(node).flatMap(texts);
+}
+
+function classNames(node: Node): string[] {
+	if (node.type !== "JSXAttribute" || !isNode(node.name) || node.name.name !== "className" || !isNode(node.value)) return [];
+	return texts(node.value).flatMap((text) => text.split(SPACES));
+}
+
 function rule(node: Node, explained: boolean): string | undefined {
 	if (node.type === "TSAsExpression" && !isConstAssertion(node) && !explained) return "as cast without a why: line above it";
 	if (node.type === "TSTypeAssertion") return "<T> cast";
 	if (node.type === "TSNonNullExpression") return "non-null assertion";
 	if (node.type === "TSAnyKeyword") return "any";
 	if (node.type === "CallExpression" && isSwallowingCatch(node)) return "catch that swallows the error";
+	if (classNames(node).some((name) => OLD_BOXES.has(name))) return "a .menu or .group box around a list: put the list on the background with RowList (src/app/RowList.tsx), as DESIGN.md § Components says";
 	if (isInlineStyle(node)) return "inline style other than a custom property: put it in styles.css, or pass a --custom-property the stylesheet reads (CSS skill)";
 	return undefined;
 }

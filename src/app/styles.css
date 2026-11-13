@@ -676,14 +676,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
 
-.menu { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
-.menu > button, .menu > label { display: flex; align-items: center; gap: 16px; min-height: 54px; padding: 10px 16px; text-align: left; font-size: var(--fs-ui); }
-:where(.menu, .row-list) > label[data-pressed] { background: var(--accent-soft); }
-.menu > * + * { border-top: 1px solid var(--line); }
-.menu > button > svg { color: var(--muted); flex-shrink: 0; }
+.row-list > label[data-pressed] { background: var(--accent-soft); }
 .menu-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .menu-hint { font-size: var(--fs-small); color: var(--muted); line-height: 1.45; }
-.menu .danger, .menu .danger > svg { color: var(--error); }
+.row-list > .danger, .row-list > .danger > svg { color: var(--error); }
 .switch {
 	appearance: none; position: relative; width: 44px; height: 24px; margin: 0; flex-shrink: 0;
 	border: 1px solid var(--line-strong); background: var(--bg-deep); transition: background 160ms ease, border-color 160ms ease;
@@ -1139,7 +1135,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	font-size: var(--fs-ui); line-height: 1.5; outline: none; resize: vertical;
 }
 .bot-form input:focus, .bot-form textarea:focus { border-color: var(--accent); }
-.menu .bot-avatar { margin-right: 2px; }
+.row-list .bot-avatar { margin-right: 2px; }
 .avatar-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 16px 16px 0; }
 .avatar-picker button { padding: 0; border: 1px solid var(--line); aspect-ratio: 1; }
 .avatar-picker button.selected { border-color: var(--accent); outline: 1px solid var(--accent); }
@@ -1162,13 +1158,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 	display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line;
 }
 .panel-section { display: flex; flex-direction: column; gap: 8px; }
-.panel-section > .menu, .panel-section > .context-card, .sheet-body .menu { border: none; }
-.panel-section > :where(.menu, .panel-rows) { margin: 0 calc(-1 * var(--panel-inset)) 0 calc(-1 * var(--panel-start)); }
-.panel-section > .menu > * { padding: 0 calc(var(--panel-inset) + 16px) 0 calc(var(--panel-start) + 16px); }
-.sheet-body .menu { margin-inline: calc(-1 * var(--sheet-inset)); background: none; }
-.sheet-body .menu > * { padding-inline: var(--sheet-inset); }
-.panel-section > .menu > * + *, .sheet-body .menu > * + * { border-top: none; }
-.panel-section > .menu > button > .chevron { margin-left: -4px; }
+.panel-section > .context-card { border: none; }
+.panel-section > .panel-rows { margin: 0 calc(-1 * var(--panel-inset)) 0 calc(-1 * var(--panel-start)); }
+.sheet-body .row-list { margin-inline: calc(-1 * var(--sheet-inset)); }
+.sheet-body .row-list > * { padding-inline: var(--sheet-inset); }
 .panel-section > .strip-label { margin: 0 2px; }
 .panel-section > .check-progress, .panel-section > .check-error { margin: 0 2px; font-family: var(--mono); font-size: var(--fs-meta); overflow-wrap: anywhere; }
 .panel-section > .check-progress { color: var(--muted); }

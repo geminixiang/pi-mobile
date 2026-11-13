@@ -19,6 +19,7 @@ import { Abilities } from "./Abilities.tsx";
 import { HostRow, type LinkNode, LinksSection, PhoneSheet } from "./Links.tsx";
 import { ModelSheet } from "./ModelSheet.tsx";
 import { Container, Monitor, Smartphone } from "lucide-react";
+import { RowList } from "./RowList.tsx";
 import { parseComputerKey } from "../agent/sandbox/host.ts";
 
 type ModelChange = { model?: { provider: string; id: string }; thinking?: string };
@@ -75,28 +76,6 @@ function LinkSheets({
 		const chosen = runtime.workplaces.at(String(bot.id));
 		if (chosen?.kind === "computer" && !chosen.sandbox.direct) await prepare(chosen.host);
 	};
-	const list = (shown: readonly Computer[]) => (
-		<div className="menu choice-list">
-			{shown.map((computer) => (
-				<button
-					type="button"
-					key={computer.key}
-					className={computer.key === key ? "selected" : ""}
-					onClick={() => {
-						onClose();
-						void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
-					}}
-				>
-					<PlaceIcon computer={computer} />
-					<span className="menu-text">
-						{computer.name}
-						{computer.key === "phone" ? null : <span className="menu-hint">{computer.mode}</span>}
-					</span>
-					{computer.key === key ? <CheckIcon size={16} /> : null}
-				</button>
-			))}
-		</div>
-	);
 	return (
 		<>
 			<PrepareStatus preparing={preparing} />
@@ -119,10 +98,26 @@ function LinkSheets({
 					</div>
 				) : null}
 				{places.length > 0 ? (
-					<>
-						<div className="strip-label">在哪裡跑</div>
-						{list(places)}
-					</>
+					<RowList title="在哪裡跑" choice>
+						{places.map((computer) => (
+							<button
+								type="button"
+								key={computer.key}
+								className={computer.key === key ? "selected" : ""}
+								onClick={() => {
+									onClose();
+									void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
+								}}
+							>
+								<PlaceIcon computer={computer} />
+								<span className="menu-text">
+									{computer.name}
+									{computer.key === "phone" ? null : <span className="menu-hint">{computer.mode}</span>}
+								</span>
+								{computer.key === key ? <CheckIcon size={16} /> : null}
+							</button>
+						))}
+					</RowList>
 				) : null}
 			</Sheet>
 		</>

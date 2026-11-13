@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
 import { MemoryIcon, TrashIcon } from "./icons.tsx";
+import { RowList } from "./RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 export type BotEdit = { kind: "create" } | { kind: "edit"; bot: Bot };
@@ -97,7 +98,7 @@ export function BotSheet({
 				)}
 			</form>
 			{bot ? (
-				<div className="menu">
+				<RowList>
 					<button type="button" onClick={leave(() => onMemory(bot))}>
 						<MemoryIcon />
 						<span className="menu-text">{bot.name} 的記憶</span>
@@ -108,7 +109,7 @@ export function BotSheet({
 							<span className="menu-text">刪除 Bot</span>
 						</button>
 					) : null}
-				</div>
+				</RowList>
 			) : null}
 		</Sheet>
 	);

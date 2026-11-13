@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckIcon } from "./icons.tsx";
+import { RowList } from "./RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 type Choice<T extends string> = { value: T; label: string; group?: string; disabled?: boolean };
@@ -32,9 +33,7 @@ export function ChoiceRow<T extends string>({
 			</button>
 			<Sheet open={open} title={label} onClose={() => setOpen(false)}>
 				{groups.map((group) => (
-					<div key={group ?? ""}>
-						{group ? <h3 className="list-label">{group}</h3> : null}
-						<div className="menu choice-list">
+					<RowList key={group ?? ""} title={group} choice>
 							{choices
 								.filter((choice) => choice.group === group)
 								.map((choice) => (
@@ -52,8 +51,7 @@ export function ChoiceRow<T extends string>({
 										{choice.value === value ? <CheckIcon size={16} /> : null}
 									</button>
 								))}
-						</div>
-					</div>
+					</RowList>
 				))}
 			</Sheet>
 		</>

@@ -83,7 +83,7 @@ function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: re
 	const available = BUILTIN_PROVIDERS.filter((info) => !taken.some((config) => config.id === info.id));
 	return (
 		<Sheet open={open} title="新增供應商" onClose={onClose}>
-			<div className="menu">
+			<RowList>
 				<button type="button" onClick={() => onAdd({ kind: "custom", id: customId(taken), name: "", baseUrl: "" })}>
 					<span className="menu-text">
 						自訂端點
@@ -95,7 +95,7 @@ function AddProvider({ open, taken, onAdd, onClose }: { open: boolean; taken: re
 						<span className="menu-text">{info.name}</span>
 					</button>
 				))}
-			</div>
+			</RowList>
 		</Sheet>
 	);
 }
