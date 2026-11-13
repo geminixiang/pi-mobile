@@ -195,8 +195,8 @@ export function LinksSection({
 					</g>
 
 					<circle className="links-pi" cx="140" cy="48" r="25" />
-					<rect className="links-pi-mark" x="131" y="34" width="18" height="28" rx="4.5" />
-					<path className="links-pi-mark" d="M134.5 44h11M137.5 44v9M142.5 44v7c0 1.4.7 2 1.8 2" />
+					<rect className="links-phone" x="131" y="34" width="18" height="28" rx="4.5" />
+					<path className="links-phone" d="M137.5 38h5M138 58.5h4" />
 
 					<circle className="links-ping" cx="26" cy="48" r="20" />
 					<circle className="links-burst" cx="26" cy="48" r="20" />
