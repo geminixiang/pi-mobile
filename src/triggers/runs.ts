@@ -4,7 +4,7 @@ import { type Conversation, type ConversationId, defineDoc, type EntryRecord, ty
 import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
-import { DAY, localTime, MINUTE, startOfToday } from "../time.ts";
+import { DAY, MINUTE, startOfToday } from "../time.ts";
 import { isWatch } from "./watch.ts";
 import { check, oneOf, valueOrThrow } from "../parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
@@ -122,7 +122,6 @@ function fromV1({ enabled, fired, last, ...rest }: Static<typeof V1Trigger>): Tr
 	return { ...trigger, last: { ...base, outcome: "ran", ...(last.judged !== undefined ? { confidence: { kind: "judged", probability: last.judged } } : unjudged) } };
 }
 
-export const LIMITS = { perTrigger: 10, total: 30 };
 
 export const TRIGGER_ENTRY = "trigger.run";
 const TriggerEntryData = Type.Object({
@@ -143,7 +142,6 @@ export type TriggerRun = Static<typeof TriggerEntryData>;
 type Outcome =
 	| { kind: "ran"; confidence: Confidence | undefined }
 	| { kind: "skipped"; reason: string; confidence: Confidence | undefined }
-	| { kind: "limited" }
 	| { kind: "gone" }
 	| { kind: "failed"; error: string };
 
@@ -152,7 +150,6 @@ type Wakeup = {
 	conversationId: ConversationId;
 	delivery: Delivery;
 	request: string | undefined;
-	limited: boolean;
 	screening: { guards: readonly GuardId[]; onlyIf: string | undefined; automation: string; purpose: string; event: string } | undefined;
 	label: (judgement: string) => string;
 	prompt: string;
@@ -299,7 +296,6 @@ export class TriggerRuns {
 			conversationId: trigger.conversationId,
 			delivery,
 			request,
-			limited: delivery !== "manual",
 			screening: heard && (guards.length > 0 || trigger.onlyIf) ? { guards, onlyIf: trigger.onlyIf, automation: trigger.name, purpose: trigger.prompt, event: heard } : undefined,
 			label: (judgement) => {
 				const scheduled = heard ? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}` : `schedule "${trigger.name}"`;
@@ -311,8 +307,7 @@ export class TriggerRuns {
 			settle: (outcome, at) => {
 				if (outcome.kind === "ran") return this.#record(id, { at, delivery, outcome: "ran", ...confidenceOf(outcome.confidence) });
 				if (outcome.kind === "skipped") return this.#record(id, { at, delivery, outcome: "skipped", reason: outcome.reason, ...confidenceOf(outcome.confidence) });
-				if (outcome.kind === "limited" && trigger.when.kind === "once") return this.#postpone(trigger, trigger.when.at, at);
-				const error = outcome.kind === "limited" ? "今天的執行次數已達上限" : outcome.kind === "gone" ? "它的 Bot 已經刪除" : `沒有送出，會再試：${outcome.error}`;
+				const error = outcome.kind === "gone" ? "它的 Bot 已經刪除" : `沒有送出，會再試：${outcome.error}`;
 				return this.#record(id, { at, delivery, outcome: "failed", error });
 			},
 		});
@@ -336,7 +331,6 @@ export class TriggerRuns {
 			conversationId: item.bot,
 			delivery,
 			request,
-			limited: true,
 			screening: cause.kind === "reply" ? { guards: DEFAULT_GUARDS, onlyIf: undefined, automation: item.title, purpose: waiting, event: cause.heard } : undefined,
 			label: (judgement) =>
 				cause.kind === "reply" ? `item ${item.id} "${item.title}" (${details}): a notification came, ${cause.heard}${judgement}` : `item ${item.id} "${item.title}" (${details}) is due`,
@@ -348,12 +342,6 @@ export class TriggerRuns {
 					if (cause.kind === "due") await this.#editItems((items) => items.map((candidate) => (candidate.id === id ? withoutNextAt(candidate) : candidate)));
 					return;
 				}
-				if (outcome.kind === "limited" && cause.kind === "due" && item.nextAt !== undefined) {
-					const next = item.nextAt + DAY * Math.max(1, Math.ceil((now - item.nextAt) / DAY));
-					await this.#editItems((items) => items.map((candidate) => (candidate.id === id ? { ...candidate, nextAt: next } : candidate)));
-					return notice(`今天的自動執行已達上限，「${item.title}」延到 ${localTime(next)}`);
-				}
-				if (outcome.kind === "limited") return notice(`今天的自動執行已達上限，「${item.title}」等的回覆來了但這次沒有處理`);
 				if (outcome.kind === "skipped") return notice(`「${item.title}」等的回覆來了，但沒有交給 Bot：${outcome.reason}`);
 				if (outcome.kind === "gone") log.info("item.bot_gone", { item: id });
 			},
@@ -367,12 +355,6 @@ export class TriggerRuns {
 			return wakeup.conversationId;
 		}
 		const now = Date.now();
-		const today = runs.filter((run) => run.at >= startOfToday());
-		if (wakeup.limited && (today.length >= LIMITS.total || today.filter((run) => run.trigger === wakeup.key).length >= LIMITS.perTrigger)) {
-			await wakeup.settle({ kind: "limited" }, now);
-			await this.sync();
-			return undefined;
-		}
 		const conversation = (await this.#bots()).some((bot) => bot.id === wakeup.conversationId) ? await this.#harness.conversation(wakeup.conversationId, context) : undefined;
 		if (!conversation) {
 			await wakeup.settle({ kind: "gone" }, now);
@@ -439,13 +421,6 @@ export class TriggerRuns {
 	async gaveUp(id: string, reason: string): Promise<void> {
 		await this.#record(id, { at: Date.now(), delivery: "later", outcome: "failed", error: `一天內都沒有送出，這次跳過：${reason}` });
 		await this.sync();
-	}
-
-	async #postpone(trigger: Trigger, due: number, now: number): Promise<void> {
-		const next = due + DAY * Math.max(1, Math.ceil((now - due) / DAY));
-		await this.#edit((items) => items.map((item) => (item.id === trigger.id ? { ...item, state: "on", when: { kind: "once", at: next } } : item)));
-		await this.#record(trigger.id, { at: now, delivery: "later", outcome: "failed", error: `今天的執行次數已達上限，延到 ${localTime(next)}` });
-		await this.#notice(trigger.conversationId, `今天的自動執行已達上限，「${trigger.name}」延到 ${localTime(next)}`);
 	}
 
 	async missed(id: string, count: number): Promise<void> {

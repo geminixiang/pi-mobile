@@ -3,7 +3,7 @@ import { createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } fr
 import { checkpointEvery64 } from "../../src/agent/doc-policy.ts";
 import { loadModels } from "../../src/agent/available-models.ts";
 import { ItemDoc } from "../../src/items/items.ts";
-import { type AgentState, type LastRun, LIMITS, type Trigger, TRIGGER_ENTRY, TRIGGER_NOTICE, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
+import { type AgentState, type LastRun, type Trigger, TRIGGER_ENTRY, TRIGGER_NOTICE, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";
 import { whenOf } from "../../src/triggers/tool.ts";
 import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents, latestAlarms } from "../../src/triggers/events.ts";
@@ -131,23 +131,6 @@ export const checks: Check[] = [
 				assert.equal(item?.nextAt, undefined);
 				assert.equal(await fixture.runs.run("item:i1", "live", { event: "e2" }), undefined);
 				assert.equal(await fixture.delivered(), 1);
-			});
-		},
-	],
-	[
-		"an item due when today's runs are used up moves to the same time tomorrow and says so in its bot's conversation, instead of firing again every few seconds",
-		async () => {
-			const due = Date.now() - 60_000;
-			const runs = Array.from({ length: LIMITS.total }, (_, index) => ({ trigger: `t${index}`, at: Date.now() - 1000 }));
-			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { runs, item: { state: "todo", nextAt: due } });
-			await withTrigger(fixture, async () => {
-				assert.equal(await fixture.runs.run("item:i1", "live"), undefined);
-				assert.equal(await fixture.delivered(), 0);
-				const [item] = await fixture.items();
-				assert.equal(item?.nextAt, due + DAY);
-				assert.equal(await fixture.notices(), 1);
-				assert.equal(await fixture.runs.run("item:i1", "live"), undefined);
-				assert.equal(await fixture.notices(), 1);
 			});
 		},
 	],
@@ -387,16 +370,19 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"an event delivered again after it filled the day's limit is not reported as over the limit",
+		"a schedule, an item and a wake-up for finished work all still run after a busy day, so work the user is waiting for is never put off to tomorrow",
 		async () => {
-			const today = Date.now();
-			const runs = Array.from({ length: LIMITS.perTrigger }, (_, at) => ({ trigger: "t1", at: today - at, request: `trigger:e${at}` }));
-			const fixture = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { runs });
-			await withTrigger(fixture, async () => {
-				assert.ok(await fixture.runs.run("t1", "live", { event: "e0" }));
-				const after = await fixture.doc();
-				assert.equal(after.runs.length, LIMITS.perTrigger);
-				assert.equal(after.items[0]?.last, undefined);
+			const due = Date.now() - 60_000;
+			const runs = Array.from({ length: 200 }, (_, index) => ({ trigger: index % 2 ? "t1" : `t${index}`, at: Date.now() - 1000 }));
+			const once = await triggerFixture({ kind: "once", at: due }, { runs });
+			await withTrigger(once, async () => {
+				assert.ok(await once.runs.run("t1", "live", { event: "e1" }), "a one-time schedule was held back by the day's earlier runs");
+				assert.equal(await once.notices(), 0);
+			});
+			const item = await triggerFixture({ kind: "daily", time: "08:00", days: [] }, { runs, item: { state: "todo", nextAt: due } });
+			await withTrigger(item, async () => {
+				assert.ok(await item.runs.run("item:i1", "live"), "a due item was held back by the day's earlier runs");
+				assert.equal(await item.notices(), 0);
 			});
 		},
 	],
@@ -484,22 +470,6 @@ export const checks: Check[] = [
 			await withTrigger(fixture, async () => {
 				await fixture.runs.missed("t1", 2);
 				await fixture.runs.missed("gone", 2);
-				assert.equal(await fixture.notices(), 1);
-			});
-		},
-	],
-	[
-		"a one-time schedule due when today's runs are used up moves to the same time tomorrow and says so, instead of being lost",
-		async () => {
-			const due = Date.now() - 60_000;
-			const runs = Array.from({ length: LIMITS.total }, (_, index) => ({ trigger: `t${index}`, at: Date.now() - 1000 }));
-			const fixture = await triggerFixture({ kind: "once", at: due }, { runs });
-			await withTrigger(fixture, async () => {
-				assert.equal(await fixture.runs.run("t1", "live", { event: "e1" }), undefined);
-				assert.equal(await fixture.delivered(), 0);
-				const [trigger] = (await fixture.doc()).items;
-				assert.deepEqual([trigger?.state, trigger?.when], ["on", { kind: "once", at: due + DAY }]);
-				assert.match(trigger?.last?.outcome === "failed" ? trigger.last.error : "", /延到/);
 				assert.equal(await fixture.notices(), 1);
 			});
 		},
