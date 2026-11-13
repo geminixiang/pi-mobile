@@ -5,6 +5,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - `npm run check` (tsc, Stylelint, no-comments, code rules, tool interface, contracts, just-bash patches) must pass before a commit.
 - Before changing CSS, animations, or overlays, read `.pi/skills/css/SKILL.md`. No `!important`.
 - Before designing or changing a screen, read `DESIGN.md`: the design language taken from the left drawer.
+- Every screen and part has one official name, and the component that renders it, in `docs/feature-map.md`: use that name with the user, in docs, and in commits; a new or renamed screen updates the map in the same change.
 - UI copy is Traditional Chinese (zh-TW); model prompts are English.
 - Code carries no comments, in any language: a comment marks a design flaw or a hidden bug. Make names, types, and
   structure say it; a reason that still needs words goes in `docs/`. The one exception is a constraint the code cannot
@@ -82,6 +83,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | A bot's tools are its toolsets (`Bot.off`) and place projected onto tool names (`removedTools`), written only by `BotToolsets`; a tool result cannot switch a tool back on (`ToolFilterExtension` is the only reader of `addTools` and the last `afterTool`) | `test/contracts/where.ts`, `test/contracts/bots.ts`, `test/toolsets.ts`, `test/code-rules.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `removedTools`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |
+| `docs/feature-map.md` names only components that exist where it says, and lists every component `App.tsx`, `Workbench.tsx` and `BotPanel.tsx` render and every settings page | `test/feature-map.ts` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
 | Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |
