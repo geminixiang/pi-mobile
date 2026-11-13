@@ -17,6 +17,8 @@ import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
 import { LinksSection } from "./Links.tsx";
+import { Container, Monitor, Smartphone } from "lucide-react";
+import { parseComputerKey } from "../agent/sandbox/host.ts";
 
 interface PanelActions {
 	edit: () => void;
@@ -27,9 +29,13 @@ interface PanelActions {
 }
 
 
-function nameOf(computer: Computer | undefined): string {
-	if (!computer) return "";
-	return computer.key === "phone" ? computer.name : `${computer.name} · ${computer.mode}`;
+function PlaceIcon({ computer }: { computer: Computer }) {
+	const Icon = computer.key === "phone" ? Smartphone : parseComputerKey(computer.key)?.mode === "container" ? Container : Monitor;
+	return (
+		<span className="place-icon" aria-hidden="true">
+			<Icon size={20} strokeWidth={1.6} />
+		</span>
+	);
 }
 
 function WorkplacePicker({
@@ -73,7 +79,11 @@ function WorkplacePicker({
 								void choose(computer.key).catch((error: unknown) => onError(`切換電腦失敗：${messageOf(error)}`));
 							}}
 						>
-							<span className="menu-text">{nameOf(computer)}</span>
+							<PlaceIcon computer={computer} />
+							<span className="menu-text">
+								{computer.name}
+								{computer.key === "phone" ? null : <span className="menu-hint">{computer.mode}</span>}
+							</span>
 							{computer.key === key ? <CheckIcon size={16} /> : null}
 						</button>
 					))}
