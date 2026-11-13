@@ -26,6 +26,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { inViewNote } from "../workbench/note.ts";
+import { partLabel } from "../workbench/changes.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
@@ -97,6 +98,7 @@ export function Composer({
 	const beside = useContext(BesideContext);
 	const [dismissed, setDismissed] = useState<string>();
 	const viewing = beside?.inView !== dismissed ? beside?.inView : undefined;
+	const part = viewing ? beside?.part : undefined;
 
 	useEffect(() => {
 		if (!focusKey) return;
@@ -148,8 +150,9 @@ export function Composer({
 		setImages([]);
 		setFiles([]);
 		setDismissed(undefined);
+		beside?.clearPart();
 		void codeNote(images, (index) => `photo ${index + 1}`).then((codes) =>
-			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images, ...(codes ? [codes] : []), ...(viewing ? [inViewNote(viewing)] : [])], whenBusy),
+			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images, ...(codes ? [codes] : []), ...(viewing ? [inViewNote(viewing, part)] : [])], whenBusy),
 		);
 	};
 
@@ -326,9 +329,9 @@ export function Composer({
 						onChange={attachPicked}
 					/>
 					{viewing ? (
-						<button type="button" className="view-chip" onClick={() => setDismissed(viewing)} aria-label={`不附上 ${viewing.split("/").at(-1) ?? ""}`}>
+						<button type="button" className="view-chip" onClick={() => (part ? beside?.clearPart() : setDismissed(viewing))} aria-label={part ? "不指這一段" : `不附上 ${viewing.split("/").at(-1) ?? ""}`}>
 							<FileIcon size={12} />
-							<span>{viewing.split("/").at(-1)}</span>
+							<span>{part ? partLabel(part) : viewing.split("/").at(-1)}</span>
 						</button>
 					) : null}
 					<textarea

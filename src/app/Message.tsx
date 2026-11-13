@@ -8,7 +8,8 @@ import { isWhenKind, triggerSymbol } from "../triggers/when.ts";
 import { type AttachmentCard, parseAttachment } from "../agent/attachments.ts";
 import { type Block, blocks, message } from "../agent/entries.ts";
 import { isCodeNote } from "../agent/codes.ts";
-import { inViewPath } from "../workbench/note.ts";
+import { inViewPart, inViewPath } from "../workbench/note.ts";
+import { partLabel } from "../workbench/changes.ts";
 import type { Prefs } from "./prefs.ts";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";
 import { StreamingMarkdown } from "./streaming.tsx";
@@ -381,10 +382,11 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 						if (isCodeNote(group.text)) return null;
 						const viewed = inViewPath(group.text);
 						if (viewed) {
+							const part = inViewPart(group.text);
 							return (
 								<span key={index} className="view-chip">
 									<FileIcon size={12} />
-									<span>{viewed.split("/").at(-1)}</span>
+									<span>{part ? `${viewed.split("/").at(-1)} · ${partLabel(part)}` : viewed.split("/").at(-1)}</span>
 								</span>
 							);
 						}

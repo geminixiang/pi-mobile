@@ -1,6 +1,6 @@
 import type { ConversationId } from "@earendil-works/pi-durable";
-import { Clock, FileText, Globe, type LucideIcon, SquareTerminal, Table } from "lucide-react";
-import type { ReactNode } from "react";
+import { FileText, Globe, type LucideIcon, SquareTerminal, Table } from "lucide-react";
+import { type ReactNode, useMemo, useRef } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
@@ -8,16 +8,15 @@ import { BotAvatar } from "../app/BotAvatar.tsx";
 import { CLOCK } from "../app/clock.ts";
 import { ChevronIcon } from "../app/icons.tsx";
 import { callLabel, doing } from "../app/Message.tsx";
-import { type Interaction, InteractionContext } from "../interaction/context.ts";
-import { clockOf } from "../triggers/when.ts";
 import { type Board, type Card, type Group, nameOf } from "./board.ts";
 import { Stage, type StageActions } from "./Stage.tsx";
+import type { Seen } from "./Surface.tsx";
 
-const GROUP_LABEL: Record<Group, string> = { need: "需要你", moving: "進行中", result: "成果", scheduled: "已排定" };
+const GROUP_LABEL: Record<Group, string> = { need: "需要你", moving: "進行中", result: "成果" };
 
-type Look = "web" | "terminal" | "table" | "doc" | "clock";
+type Look = "web" | "terminal" | "table" | "doc";
 
-const LOOK_ICON: Record<Look, LucideIcon> = { web: Globe, terminal: SquareTerminal, table: Table, doc: FileText, clock: Clock };
+const LOOK_ICON: Record<Look, LucideIcon> = { web: Globe, terminal: SquareTerminal, table: Table, doc: FileText };
 
 const TABLE_FILE = /\.(csv|tsv|xlsx?)$/i;
 const WEB_FILE = /\.html?$/i;
@@ -29,23 +28,21 @@ function faceOf(card: Card): Face {
 		case "form":
 			return { look: "doc", lines: [card.form.request.message], name: card.form.service, meta: card.form.confirm ?? "確認", verb: true };
 		case "ask":
-			return { look: "doc", lines: [card.question], name: card.question, meta: "回答", verb: true };
+			return { look: "doc", lines: [card.question], name: card.draft ? nameOf(card.draft.path) : card.question, meta: card.options[0] ?? "回答", verb: true };
 		case "item":
 			return { look: "doc", lines: [card.item.title], name: card.item.title, meta: "處理", verb: true };
 		case "browser":
-			return { look: "web", lines: card.handover ? [card.handover] : [], name: "瀏覽器", meta: card.handover ? "接手" : "使用中", verb: card.handover !== undefined };
+			return { look: "web", lines: card.handover ? [card.handover] : [], name: "瀏覽器", meta: "接手", verb: card.handover !== undefined };
 		case "watch":
 			return { look: "terminal", lines: [card.label], name: card.agent.startsWith("job:") ? card.label : card.agent, meta: CLOCK.format(card.since), verb: false };
 		case "turn": {
 			const last = card.steps.at(-1)?.call;
-			return { look: "terminal", lines: card.steps.flatMap((step) => (step.call ? [callLabel(step.call.name, step.call.arguments)] : [])).slice(-3), name: last ? doing(last) : "使用工具", meta: `${card.steps.length} 步`, verb: false };
+			return { look: "terminal", lines: card.steps.flatMap((step) => (step.call ? [callLabel(step.call.name, step.call.arguments)] : [])).slice(-3), name: last ? doing(last) : "使用工具", meta: "停止", verb: true };
 		}
+		case "sources":
+			return { look: "web", lines: card.sources.map((source) => source.title).slice(0, 3), name: "來源", meta: `${card.sources.length} 個網頁`, verb: false };
 		case "file":
-			return { look: WEB_FILE.test(card.path) ? "web" : TABLE_FILE.test(card.path) ? "table" : "doc", lines: [card.title, card.summary].filter((line) => line && line !== nameOf(card.path)), name: nameOf(card.path), meta: card.title === nameOf(card.path) ? "" : card.title, verb: false };
-		case "schedule":
-			return { look: "clock", lines: card.at !== undefined ? [clockOf(card.at)] : card.trigger.when.kind === "daily" ? [card.trigger.when.time] : [], name: card.trigger.name, meta: "", verb: false };
-		case "due":
-			return { look: "clock", lines: [clockOf(card.at)], name: card.item.title, meta: "", verb: false };
+			return { look: WEB_FILE.test(card.path) ? "web" : TABLE_FILE.test(card.path) ? "table" : "doc", lines: [card.title, card.summary].filter((line) => line && line !== nameOf(card.path)), name: nameOf(card.path), meta: card.living ? `看板 · ${card.living.schedule}` : card.title === nameOf(card.path) ? "" : card.title, verb: false };
 	}
 }
 
@@ -55,8 +52,12 @@ function TrayCard({ card, on, onShow }: { card: Card; on: boolean; onShow: () =>
 	return (
 		<button type="button" className={`tray-card${on ? " on" : ""}`} onClick={onShow}>
 			<span className={`tray-thumb look-${face.look}`}>
-				{face.look === "clock" && face.lines[0] ? <span className="tray-time">{face.lines[0]}</span> : <Icon size={16} strokeWidth={1.6} />}
-				{face.look === "clock" ? null : face.lines.map((line) => <span key={line} className="tray-line">{line}</span>)}
+				<Icon size={16} strokeWidth={1.6} />
+				{face.lines.map((line) => (
+					<span key={line} className="tray-line">
+						{line}
+					</span>
+				))}
 				{on ? <span className="tray-on">舞台</span> : null}
 			</span>
 			<span className="tray-name">{face.name}</span>
@@ -69,9 +70,7 @@ function summaryOf(board: Board): readonly string[] {
 	const count = (group: Group) => board.tray.find((section) => section.group === group)?.cards.length ?? 0;
 	const busy = [count("need") > 0 ? `${count("need")} 需要你` : "", count("moving") > 0 ? `${count("moving")} 進行中` : ""].filter(Boolean);
 	if (busy.length > 0) return busy;
-	const next = board.tray.find((section) => section.group === "scheduled")?.cards[0];
-	const at = next?.kind === "schedule" || next?.kind === "due" ? next.at : undefined;
-	return at === undefined ? ["閒著"] : ["閒著", `下一次 ${clockOf(at)}`];
+	return board.next ? [`下一次 ${CLOCK.format(board.next.at)} ${board.next.name}`] : [];
 }
 
 export function Workbench({
@@ -80,10 +79,10 @@ export function Workbench({
 	runtime,
 	conversation,
 	load,
-	interaction,
 	info,
 	onInfo,
 	onCloseInfo,
+	picked,
 	actions,
 }: {
 	bot: Bot | undefined;
@@ -91,12 +90,14 @@ export function Workbench({
 	runtime: AgentRuntime;
 	conversation: ConversationId;
 	load: () => Promise<Workspace | undefined>;
-	interaction: Interaction;
 	info: ReactNode | undefined;
 	onInfo: () => void;
 	onCloseInfo: () => void;
+	picked: { path: string; text: string } | undefined;
 	actions: StageActions;
 }) {
+	const looked = useRef(new Map<string, string>());
+	const seen = useMemo<Seen>(() => ({ get: (path) => looked.current.get(path), set: (path, text) => void looked.current.set(path, text) }), []);
 	return (
 		<section className="bench" aria-label="工作台">
 			<div className="bench-head">
@@ -111,9 +112,7 @@ export function Workbench({
 					))}
 				</span>
 			</div>
-			<InteractionContext.Provider value={interaction}>
-				<Stage key={board.stage?.key} card={board.stage} pinned={board.pinned} runtime={runtime} conversation={conversation} load={load} actions={actions} />
-			</InteractionContext.Provider>
+				<Stage key={board.stage?.key} board={board} runtime={runtime} conversation={conversation} load={load} seen={seen} picked={picked} actions={actions} />
 			{board.tray.length > 0 ? (
 				<div className="tray">
 					{board.tray.map((section) => (

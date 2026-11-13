@@ -17,7 +17,6 @@ import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, Mor
 import { BrowserButton } from "../browser/BrowserButton.tsx";
 import { BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { questionStates } from "../interaction/answers.ts";
-import type { Interaction } from "../interaction/context.ts";
 import { type BrowserState, browserState } from "../browser/tool.ts";
 import { type PageHost, PageHostContext } from "../interaction/PageFrame.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
@@ -91,6 +90,8 @@ export function App() {
 	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
 	const [chatKey, setChatKey] = useState(0);
 	const [browserOpen, setBrowserOpen] = useState(0);
+	const [picked, setPicked] = useState<{ path: string; text: string }>();
+	const clearPicked = useCallback(() => setPicked(undefined), []);
 	const currentBot = controller ? String(controller.id) : undefined;
 	const layout = useLayout();
 	const [benchState, benchDispatch] = useReducer(benchStep, undefined, emptyBench);
@@ -330,20 +331,6 @@ export function App() {
 			]),
 		[formsState, triggerState.open, asking, controller],
 	);
-	const stageInteraction = useMemo<Interaction | undefined>(
-		() =>
-			runtime && controller && formsState
-				? {
-						questions: new Map(),
-						forms: formsState,
-						results: [],
-						pages: new Map(),
-						answerForm: (callId, answer) => runtime.forms.answer(callId, answer),
-						reply: (text) => void controller.send([{ type: "text", text }], "steer").catch(fail),
-					}
-				: undefined,
-		[runtime, controller, formsState, fail],
-	);
 
 	useEffect(() => {
 		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
@@ -538,7 +525,8 @@ export function App() {
 		? overlay === "settings" ? { key: "settings", content: settingsView, onBack: leaveSettings } : undefined
 		: overlay === "workspace" ? { key: "workspace", content: <WorkspaceView load={loadWorkspace} initial={{ tab: "files", file: pathOf(bench.pick) }} onClose={close} />, onBack: close } : undefined;
 	const staged = board?.stage;
-	const inView = staged?.kind === "file" && (board?.pinned || bench.opened.includes(staged.path)) ? staged.path : undefined;
+	const shownFile = staged?.kind === "file" && (board?.pinned || bench.opened.includes(staged.path)) ? staged.path : undefined;
+	const inView = staged?.kind === "ask" ? staged.draft?.path : shownFile;
 
 	return (
 		<PageStack side={wide ? "left" : "right"} top={stackTop}>
@@ -628,7 +616,7 @@ export function App() {
 			>
 				{controller ? (
 					<OpenFileContext.Provider value={hasFolder ? openFile : undefined}>
-					<BesideContext.Provider value={wide ? { inView } : undefined}>
+					<BesideContext.Provider value={wide ? { inView, part: picked?.path === inView ? picked?.text : undefined, clearPart: clearPicked } : undefined}>
 					<PageHostContext.Provider value={pageHost}>
 					<JobsContext.Provider value={jobs}>
 					<Chat
@@ -755,14 +743,14 @@ export function App() {
 			{dialogView}
 
 		</div>
-		{board && controller && stageInteraction ? (
+		{board && controller ? (
 			<Workbench
 				bot={current}
 				board={board}
 				runtime={runtime}
 				conversation={controller.id}
 				load={loadWorkspace}
-				interaction={stageInteraction}
+				picked={picked}
 				onInfo={openInfo}
 				onCloseInfo={close}
 				info={
@@ -778,7 +766,16 @@ export function App() {
 						if (currentBot) benchDispatch({ type: "close", bot: currentBot, key });
 					},
 					ask: (text) => void controller.send([{ type: "text", text }]).catch(fail),
+					reply: (text) => void controller.send([{ type: "text", text }], "steer").catch(fail),
+					answerForm: (callId, answer) => runtime.forms.answer(callId, answer),
+					// why: the composer's stop also puts messages the stop withdrew back into the draft, which only Chat holds
+					stopTurn: () => document.querySelector<HTMLButtonElement>(".composer .send.stop")?.click(),
 					browser: () => setBrowserOpen((count) => count + 1),
+					openUrl: (url) => void System.openExternal({ url }).catch(fail),
+					pick: (path, text) => {
+						setPicked({ path, text });
+						document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
+					},
 				}}
 			/>
 		) : null}

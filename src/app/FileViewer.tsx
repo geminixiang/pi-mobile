@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
-import { type AppFile, appFile } from "../agent/tools/apps.ts";
+import { appFile } from "../agent/tools/apps.ts";
 import { Apps } from "../plugins/apps.ts";
 import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";
-import { codeOf, messageOf, orLogged } from "../promise.ts";
-import { useBriefly } from "./briefly.ts";
-import { copy } from "./clipboard.ts";
+import { codeOf, messageOf } from "../promise.ts";
 import { formatBytes } from "../encoding.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
@@ -20,9 +18,11 @@ export function withCsp(html: string): string {
 	return head ? `${html.slice(0, head.index + head[0].length)}${HTML_CSP}${html.slice(head.index + head[0].length)}` : `${HTML_CSP}${html}`;
 }
 
-const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
+export const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
 
-function CodeLines({ text }: { text: string }) {
+export type LineMarks = { changed: ReadonlySet<number>; picked: string | undefined; onPick: (line: string) => void };
+
+export function CodeLines({ text, marks }: { text: string; marks?: LineMarks }) {
 	const trimmed = text.replace(/\n$/, "");
 	const lines = trimmed.split("\n");
 	return (
@@ -30,12 +30,32 @@ function CodeLines({ text }: { text: string }) {
 			<pre className="code-gutter" aria-hidden="true">
 				{lines.map((_, index) => index + 1).join("\n")}
 			</pre>
-			<pre className="code-text">{trimmed}</pre>
+			{marks ? (
+				<pre className="code-text">
+					{lines.map((line, index) => (
+						<span key={index} className={`code-line${marks.changed.has(index) ? " changed" : ""}${marks.picked === line ? " picked" : ""}`} onClick={() => marks.onPick(line)}>
+							{line || " "}
+						</span>
+					))}
+				</pre>
+			) : (
+				<pre className="code-text">{trimmed}</pre>
+			)}
 		</div>
 	);
 }
 
-export type ViewerFrame = { kind: "page"; onClose: () => void } | { kind: "stage" };
+export type Handed = "open" | "share";
+
+export async function handFile(workspace: Workspace, path: string, how: Handed): Promise<void> {
+	const file = appFile(path.split("/").at(-1) ?? "", await workspace.bytes(path));
+	if (how === "open") await Apps.openFile(file);
+	else await Apps.share({ title: file.fileName, ...file });
+}
+
+export const handProblem = (failure: unknown): string => (codeOf(failure) === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure));
+
+export type ViewerFrame = { kind: "page"; onClose: () => void };
 
 export function FileViewer({ workspace, path, frame }: { workspace: Workspace; path: string; frame: ViewerFrame }) {
 	const [content, setContent] = useState<FileContent>();
@@ -43,17 +63,14 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [opening, setOpening] = useState(false);
 	const [sharing, setSharing] = useState(false);
-	const [copied, showCopied] = useBriefly();
 	const name = path.split("/").at(-1) ?? "";
 	const markdown = /\.(md|markdown)$/i.test(name);
 	const html = isHtml(name) && htmlPreviewIsolated();
 	const previewable = markdown || html;
-	const handOff = (setBusy: (busy: boolean) => void, send: (file: AppFile) => Promise<void>, explain: (failure: unknown) => string = messageOf) => {
+	const handOff = (setBusy: (busy: boolean) => void, how: Handed) => {
 		setBusy(true);
-		void workspace
-			.bytes(path)
-			.then((bytes) => send(appFile(name, bytes)))
-			.catch((failure: unknown) => setError(explain(failure)))
+		void handFile(workspace, path, how)
+			.catch((failure: unknown) => setError(handProblem(failure)))
 			.finally(() => setBusy(false));
 	};
 
@@ -76,14 +93,12 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 		};
 	}, [workspace, path]);
 
-	const openOutside = () =>
-		handOff(setOpening, (file) => Apps.openFile(file), (failure) => (codeOf(failure) === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure)));
-	const share = () => handOff(setSharing, (file) => Apps.share({ title: name, ...file }));
+	const openOutside = () => handOff(setOpening, "open");
+	const share = () => handOff(setSharing, "share");
 
 	return (
 		<div className="screen">
-			{frame.kind === "stage" ? null : (
-				<header className="bar">
+			<header className="bar">
 					<BackButton onClick={frame.onClose} />
 					<div className="bar-center static">
 						<span className="bar-title">{name}</span>
@@ -108,8 +123,7 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 						</button>
 					) : null}
 				</header>
-			)}
-			{frame.kind === "page" && previewable && content?.kind === "text" ? (
+			{previewable && content?.kind === "text" ? (
 				<Tabs
 					options={[
 						["preview", "預覽"],
@@ -139,29 +153,6 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 				{content?.kind === "text" && !(previewable && mode === "preview") ? <CodeLines text={content.text} /> : null}
 				{content?.kind === "text" && content.truncated && !(html && mode === "preview") ? <div className="note">只顯示前 {formatBytes(content.limit)}</div> : null}
 			</div>
-			{frame.kind === "stage" ? (
-				<span className="inline-verbs stage-verbs">
-					{previewable && content?.kind === "text" ? (
-						<button type="button" onClick={() => setMode(mode === "preview" ? "source" : "preview")}>
-							{mode === "preview" ? "原始碼" : "預覽"}
-						</button>
-					) : null}
-					{content?.kind === "text" && !html ? (
-						<button type="button" onClick={() => void orLogged(copy(content.text).then(() => showCopied("已複製")), "clipboard.write_failed", undefined)}>
-							{copied ?? "複製"}
-						</button>
-					) : content && content.kind !== "text" ? (
-						<button type="button" disabled={opening} onClick={openOutside}>
-							用其他 app 開
-						</button>
-					) : null}
-					{content ? (
-						<button type="button" disabled={sharing} onClick={share}>
-							分享
-						</button>
-					) : null}
-				</span>
-			) : null}
 		</div>
 	);
 }

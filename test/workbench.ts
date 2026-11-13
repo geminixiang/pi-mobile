@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { type Bench, benchOf, benchStep, emptyBench, FOLDER, fileKey, MAX_OPENED, pathOf } from "../src/workbench/bench.ts";
 import { layoutAt, shownOverlay, WIDE_MIN_HEIGHT, WIDE_MIN_WIDTH } from "../src/workbench/layout.ts";
-import { inViewNote, inViewPath } from "../src/workbench/note.ts";
+import { inViewNote, inViewPart, inViewPath } from "../src/workbench/note.ts";
+import { changed, linesOf, partLabel } from "../src/workbench/changes.ts";
 
 const sizes: [string, number, number, ReturnType<typeof layoutAt>][] = [
 	["Galaxy S24", 360, 780, "phone"],
@@ -63,10 +64,20 @@ assert.ok(!crowded.opened.includes("0.md"), "the oldest file goes first");
 
 for (const path of ["/root/bots/a/職缺比較.html", "notes/a b.md", 'odd"name>.md']) assert.equal(inViewPath(inViewNote(path).text), path);
 assert.equal(inViewPath("<in-view>\nunfinished"), undefined);
+assert.equal(inViewPart(inViewNote("a.html").text), undefined);
+assert.equal(inViewPart(inViewNote("a.html", "精藤 140–170 萬 捷運 25 分").text), "精藤 140–170 萬 捷運 25 分", "the part the user pointed at goes with the note");
+assert.equal(inViewPath(inViewNote("a.html", "x").text), "a.html");
+assert.equal(partLabel("精藤 平台暨後端工程師 140–170 萬 台北"), "「精藤 平台暨後端工程師 14…」");
+
+assert.deepEqual([...changed(["a", "b", "c"], ["a", "b", "c"])], [], "nothing changed, nothing marked");
+assert.deepEqual([...changed(["a", "b", "c"], ["a", "B", "c"])], [1], "a changed line is marked");
+assert.deepEqual([...changed(["a", "b", "c"], ["a", "x", "b", "c"])], [1], "an inserted line is marked and the lines after it are not");
+assert.deepEqual([...changed(["a", "b", "c"], ["a", "c"])], [], "a removed line marks nothing left");
+assert.deepEqual([...changed(linesOf("一\n二\n"), linesOf("一\n二\n三\n"))], [2]);
 assert.equal(inViewPath("look at <in-view>\nx\n</in-view>"), undefined);
 
 const css = readFileSync(new URL("../src/app/styles.css", import.meta.url), "utf8");
 const wideQuery = `@media (min-width: ${WIDE_MIN_WIDTH}px) and (min-height: ${WIDE_MIN_HEIGHT}px)`;
 assert.ok(css.includes(wideQuery), `styles.css centers sheets with ${wideQuery}; keep it equal to WIDE_MIN_WIDTH and WIDE_MIN_HEIGHT in src/workbench/layout.ts`);
 
-console.log(`workbench: ${sizes.length} sizes, bench steps, in-view note`);
+console.log(`workbench: ${sizes.length} sizes, bench steps, in-view note with the part pointed at, changed lines`);
