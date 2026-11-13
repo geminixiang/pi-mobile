@@ -87,6 +87,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
 | Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |
+| The resume protocol delivers every input and output exactly once and in order or ends with a named failure, and the phone gives up before the computer lets a session go (an exhaustive model, which must also catch the known bugs) | `test/resume-model.ts` |
 | The computer-side host passes `go vet` and its tests | `npm run check:host`, part of `npm run check` |
 | A commit that changes a `.tsx` or `.css` under `src/` has an `Evidence:` line (screenshots before and after, perf numbers, or `none, <why>`), checked for commits not yet on `origin/main` | `test/evidence.ts` |
 | `npm run check` passes on every push to main and on every PR | `.github/workflows/check.yml` |
