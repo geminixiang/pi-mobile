@@ -10,7 +10,6 @@ import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
@@ -143,7 +142,6 @@ type Problem = { section: string; text: string };
 
 export function BotPanel({
 	open,
-	page,
 	bot,
 	runtime,
 	view,
@@ -155,7 +153,6 @@ export function BotPanel({
 	onClose,
 }: {
 	open: boolean;
-	page: SidePage;
 	bot: Bot | undefined;
 	runtime: AgentRuntime;
 	view: ConversationView | undefined;
@@ -210,88 +207,86 @@ export function BotPanel({
 	const memoryCount = memory.split("\n").filter((line) => line.trim()).length;
 
 	return (
-		<SidePanel side="right" open={open} page={page} onClose={onClose} label={`${bot.name} 的資訊`}>
-			<div className="panel">
-				<button type="button" className="panel-bot" onClick={run(actions.edit)}>
-					<BotAvatar bot={bot} size={48} />
-					<span className="panel-bot-text">
-						<span className="panel-bot-name">
-							{bot.name}
-							<PencilIcon size={14} />
-						</span>
-						<span className="panel-bot-job">{bot.job || "一般助理"}</span>
+		<div className="panel">
+			<button type="button" className="panel-bot" onClick={run(actions.edit)}>
+				<BotAvatar bot={bot} size={48} />
+				<span className="panel-bot-text">
+					<span className="panel-bot-name">
+						{bot.name}
+						<PencilIcon size={14} />
 					</span>
-				</button>
-				<LinksSection live={open} provider={model.provider} model={model.name} busy={busy} place={runtime.workplaces.at(String(bot.id))} onOpen={setLinkSheet}>
-					<LinkSheets
-						runtime={runtime}
-						bot={bot}
-						open={linkSheet}
-						model={model}
-						onModel={actions.model}
-						onClose={() => setLinkSheet(undefined)}
-						reload={reload}
-						onError={(text) => setProblem({ section: "連線", text })}
-					/>
-					{problem?.section === "連線" ? <span className="note error">{problem.text}</span> : null}
-				</LinksSection>
+					<span className="panel-bot-job">{bot.job || "一般助理"}</span>
+				</span>
+			</button>
+			<LinksSection live={open} provider={model.provider} model={model.name} busy={busy} place={runtime.workplaces.at(String(bot.id))} onOpen={setLinkSheet}>
+				<LinkSheets
+					runtime={runtime}
+					bot={bot}
+					open={linkSheet}
+					model={model}
+					onModel={actions.model}
+					onClose={() => setLinkSheet(undefined)}
+					reload={reload}
+					onError={(text) => setProblem({ section: "連線", text })}
+				/>
+				{problem?.section === "連線" ? <span className="note error">{problem.text}</span> : null}
+			</LinksSection>
 
-				<Section title="能做什麼" problem={problem}>
-					<Abilities
-						toolsets={toolsets}
-						onToggle={toggle}
-						onAsk={(text) => {
-							onClose();
-							actions.ask(text);
+			<Section title="能做什麼" problem={problem}>
+				<Abilities
+					toolsets={toolsets}
+					onToggle={toggle}
+					onAsk={(text) => {
+						onClose();
+						actions.ask(text);
+					}}
+				/>
+			</Section>
+
+			<Section title="上下文" problem={problem}>
+				<ContextCard runtime={runtime} botId={bot.id} open={open} view={view} context={context} compactAt={compactAt} />
+				<div className="inline-verbs">
+					<button
+						type="button"
+						disabled={compacting}
+						onClick={() => {
+							setCompacting(true);
+							void actions
+								.compact()
+								.then((done) => showCompacted(done ? "已壓縮" : "還不用壓縮"), failIn("上下文"))
+								.finally(() => setCompacting(false));
 						}}
-					/>
-				</Section>
-
-				<Section title="上下文" problem={problem}>
-					<ContextCard runtime={runtime} botId={bot.id} open={open} view={view} context={context} compactAt={compactAt} />
-					<div className="inline-verbs">
-						<button
-							type="button"
-							disabled={compacting}
-							onClick={() => {
-								setCompacting(true);
-								void actions
-									.compact()
-									.then((done) => showCompacted(done ? "已壓縮" : "還不用壓縮"), failIn("上下文"))
-									.finally(() => setCompacting(false));
-							}}
-						>
-							{compacting ? "壓縮中…" : (compacted ?? "壓縮")}
-						</button>
-						<button type="button" onClick={run(actions.reset)}>
-							新的上下文
-						</button>
-					</div>
-				</Section>
-
-				{native.has("Triggers") && mine.length > 0 ? (
-					<div className="trigger-panel">
-						<TriggerList triggers={mine} next={triggers.next} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />
-						{problem?.section === "自動化" ? <div className="note error">{problem.text}</div> : null}
-					</div>
-				) : null}
-
-				<Section title="其他" problem={problem}>
-					<div className="panel-rows">
-						<button type="button" onClick={actions.memory}>
-							<span className="menu-text">記憶</span>
-							<span className="index-value">{memoryCount > 0 ? `${memoryCount} 條` : "還沒有"}</span>
-							<ChevronIcon />
-						</button>
-					</div>
-				</Section>
-
-				{actions.emptyFolder ? (
-					<button type="button" className="danger-verb" onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("其他"))}>
-						{emptied ?? "清空資料夾"}
+					>
+						{compacting ? "壓縮中…" : (compacted ?? "壓縮")}
 					</button>
-				) : null}
-			</div>
-		</SidePanel>
+					<button type="button" onClick={run(actions.reset)}>
+						新的上下文
+					</button>
+				</div>
+			</Section>
+
+			{native.has("Triggers") && mine.length > 0 ? (
+				<div className="trigger-panel">
+					<TriggerList triggers={mine} next={triggers.next} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />
+					{problem?.section === "自動化" ? <div className="note error">{problem.text}</div> : null}
+				</div>
+			) : null}
+
+			<Section title="其他" problem={problem}>
+				<div className="panel-rows">
+					<button type="button" onClick={actions.memory}>
+						<span className="menu-text">記憶</span>
+						<span className="index-value">{memoryCount > 0 ? `${memoryCount} 條` : "還沒有"}</span>
+						<ChevronIcon />
+					</button>
+				</div>
+			</Section>
+
+			{actions.emptyFolder ? (
+				<button type="button" className="danger-verb" onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("其他"))}>
+					{emptied ?? "清空資料夾"}
+				</button>
+			) : null}
+		</div>
 	);
 }

@@ -8,6 +8,7 @@ import { isWhenKind, triggerSymbol } from "../triggers/when.ts";
 import { type AttachmentCard, parseAttachment } from "../agent/attachments.ts";
 import { type Block, blocks, message } from "../agent/entries.ts";
 import { isCodeNote } from "../agent/codes.ts";
+import { inViewPath } from "../workbench/note.ts";
 import type { Prefs } from "./prefs.ts";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";
 import { StreamingMarkdown } from "./streaming.tsx";
@@ -378,6 +379,15 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 						const attachment = parseAttachment(group.text);
 						if (attachment) return <AttachmentChip key={index} card={attachment} />;
 						if (isCodeNote(group.text)) return null;
+						const viewed = inViewPath(group.text);
+						if (viewed) {
+							return (
+								<span key={index} className="view-chip">
+									<FileIcon size={12} />
+									<span>{viewed.split("/").at(-1)}</span>
+								</span>
+							);
+						}
 						if (!streaming && BROKEN_TEXT.test(group.text)) return null;
 						const caret = streaming && content[lastText] === group;
 						return (

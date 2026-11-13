@@ -1,5 +1,5 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ATTACHMENT_ACCEPT,
 	type AttachmentKind,
@@ -24,6 +24,8 @@ import { JobsStrip } from "../jobs/JobsStrip.tsx";
 import { addToDraft, loadDraftAttachments, receiveDraftAdditions, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
+import { BesideContext } from "../workbench/context.ts";
+import { inViewNote } from "../workbench/note.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
@@ -92,6 +94,9 @@ export function Composer({
 		textArea.current?.focus();
 	}, setProblem);
 	const listening = dictation.state !== "idle";
+	const beside = useContext(BesideContext);
+	const [dismissed, setDismissed] = useState<string>();
+	const viewing = beside?.inView !== dismissed ? beside?.inView : undefined;
 
 	useEffect(() => {
 		if (!focusKey) return;
@@ -142,8 +147,9 @@ export function Composer({
 		setProblem(undefined);
 		setImages([]);
 		setFiles([]);
+		setDismissed(undefined);
 		void codeNote(images, (index) => `photo ${index + 1}`).then((codes) =>
-			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images, ...(codes ? [codes] : [])], whenBusy),
+			onSend([...(trimmed ? [{ type: "text" as const, text: trimmed }] : []), ...attached, ...images, ...(codes ? [codes] : []), ...(viewing ? [inViewNote(viewing)] : [])], whenBusy),
 		);
 	};
 
@@ -319,6 +325,12 @@ export function Composer({
 						hidden
 						onChange={attachPicked}
 					/>
+					{viewing ? (
+						<button type="button" className="view-chip" onClick={() => setDismissed(viewing)} aria-label={`不附上 ${viewing.split("/").at(-1) ?? ""}`}>
+							<FileIcon size={12} />
+							<span>{viewing.split("/").at(-1)}</span>
+						</button>
+					) : null}
 					<textarea
 						ref={textArea}
 						rows={1}

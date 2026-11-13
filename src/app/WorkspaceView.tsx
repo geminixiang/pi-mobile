@@ -196,10 +196,12 @@ export const WorkspaceView = memo(function WorkspaceView({
 	load,
 	initial,
 	onClose,
+	onOpenFile,
 }: {
 	load: () => Promise<Workspace | undefined>;
 	initial: { tab: WorkspaceTab; file?: string };
 	onClose: () => void;
+	onOpenFile?: (path: string) => void;
 }) {
 	const { value: workspace, error } = useLoaded(async () => (await load()) ?? null, [load]);
 	const [tab, setTab] = useState<WorkspaceTab>(initial.tab);
@@ -211,7 +213,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 	const inFolder = tab === "files" && stack.length > 1;
 	const back = () => setOpen(undefined);
 	const top = (opened: NonNullable<Open>, from: Workspace) =>
-		opened.kind === "file" ? <FileViewer workspace={from} path={resolvePath(from.root, opened.path)} onClose={back} /> : <DiffView target={opened.target} onClose={back} />;
+		opened.kind === "file" ? <FileViewer workspace={from} path={resolvePath(from.root, opened.path)} frame={{ kind: "page", onClose: back }} /> : <DiffView target={opened.target} onClose={back} />;
 
 	return (
 		<PageStack side="right" top={workspace && open ? { key: open.kind === "file" ? open.path : open.target.title, content: top(open, workspace), onBack: back } : undefined}>
@@ -232,7 +234,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 					</div>
 				) : null}
 				{workspace && tab === "files" ? (
-					<FileBrowser workspace={workspace} stack={stack} setStack={setStack} onOpen={(path) => setOpen({ kind: "file", path })} reloadKey={reloadKey} />
+					<FileBrowser workspace={workspace} stack={stack} setStack={setStack} onOpen={onOpenFile ?? ((path) => setOpen({ kind: "file", path }))} reloadKey={reloadKey} />
 				) : null}
 				{workspace && tab === "git" ? <GitPanel workspace={workspace} onDiff={(target) => setOpen({ kind: "diff", target })} reloadKey={reloadKey} /> : null}
 			</div>

@@ -4,6 +4,7 @@ import type { ConversationController } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY, triggerRun } from "../triggers/runs.ts";
 import { parseAttachment } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
+import { inViewPath } from "../workbench/note.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
@@ -38,7 +39,7 @@ function text(content: string | readonly { type: string; text?: string }[] | und
 	return (content ?? [])
 		.map((part) => {
 			if (part.type !== "text" || !part.text) return "";
-			if (isCodeNote(part.text)) return "";
+			if (isCodeNote(part.text) || inViewPath(part.text)) return "";
 			const attachment = parseAttachment(part.text);
 			return attachment ? `［${attachment.name}］` : part.text;
 		})

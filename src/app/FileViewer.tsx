@@ -6,7 +6,9 @@ import { Apps } from "../plugins/apps.ts";
 import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";
-import { codeOf, messageOf } from "../promise.ts";
+import { codeOf, messageOf, orLogged } from "../promise.ts";
+import { useBriefly } from "./briefly.ts";
+import { copy } from "./clipboard.ts";
 import { formatBytes } from "../encoding.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
@@ -33,12 +35,15 @@ function CodeLines({ text }: { text: string }) {
 	);
 }
 
-export function FileViewer({ workspace, path, onClose }: { workspace: Workspace; path: string; onClose: () => void }) {
+export type ViewerFrame = { kind: "page"; onClose: () => void } | { kind: "tab" };
+
+export function FileViewer({ workspace, path, frame }: { workspace: Workspace; path: string; frame: ViewerFrame }) {
 	const [content, setContent] = useState<FileContent>();
 	const [error, setError] = useState("");
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [opening, setOpening] = useState(false);
 	const [sharing, setSharing] = useState(false);
+	const [copied, showCopied] = useBriefly();
 	const name = path.split("/").at(-1) ?? "";
 	const markdown = /\.(md|markdown)$/i.test(name);
 	const html = isHtml(name) && htmlPreviewIsolated();
@@ -71,36 +76,65 @@ export function FileViewer({ workspace, path, onClose }: { workspace: Workspace;
 		};
 	}, [workspace, path]);
 
+	const openOutside = () =>
+		handOff(setOpening, (file) => Apps.openFile(file), (failure) => (codeOf(failure) === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure)));
+	const share = () => handOff(setSharing, (file) => Apps.share({ title: name, ...file }));
+
 	return (
 		<div className="screen">
-			<header className="bar">
-				<BackButton onClick={onClose} />
-				<div className="bar-center static">
-					<span className="bar-title">{name}</span>
-					<span className="bar-model">{path}</span>
+			{frame.kind === "tab" ? (
+				<div className="pane-meta">
+					<span className="pane-path">{path}</span>
+					<span className="inline-verbs">
+						{previewable && content?.kind === "text" ? (
+							<button type="button" onClick={() => setMode(mode === "preview" ? "source" : "preview")}>
+								{mode === "preview" ? "原始碼" : "預覽"}
+							</button>
+						) : null}
+						{content?.kind === "text" && !html ? (
+							<button type="button" onClick={() => void orLogged(copy(content.text).then(() => showCopied("已複製")), "clipboard.write_failed", undefined)}>
+								{copied ?? "複製"}
+							</button>
+						) : content && content.kind !== "text" ? (
+							<button type="button" disabled={opening} onClick={openOutside}>
+								用其他 app 開
+							</button>
+						) : null}
+						{content ? (
+							<button type="button" disabled={sharing} onClick={share}>
+								分享
+							</button>
+						) : null}
+					</span>
 				</div>
-				{content?.kind === "text" && !html ? (
-					<CopyButton text={content.text} className="icon-button" size={18} />
-				) : content && content.kind !== "text" ? (
-					<button
-						type="button"
-						className="icon-button"
-						aria-label="用其他 app 開啟"
-						disabled={opening}
-						onClick={() =>
-							handOff(setOpening, (file) => Apps.openFile(file), (failure) => (codeOf(failure) === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure)))
-						}
-					>
-						<OpenOutsideIcon />
-					</button>
-				) : null}
-				{content ? (
-					<button type="button" className="icon-button" aria-label="分享" disabled={sharing} onClick={() => handOff(setSharing, (file) => Apps.share({ title: name, ...file }))}>
-						<ShareIcon />
-					</button>
-				) : null}
-			</header>
-			{previewable && content?.kind === "text" ? (
+			) : (
+				<header className="bar">
+					<BackButton onClick={frame.onClose} />
+					<div className="bar-center static">
+						<span className="bar-title">{name}</span>
+						<span className="bar-model">{path}</span>
+					</div>
+					{content?.kind === "text" && !html ? (
+						<CopyButton text={content.text} className="icon-button" size={18} />
+					) : content && content.kind !== "text" ? (
+						<button
+							type="button"
+							className="icon-button"
+							aria-label="用其他 app 開啟"
+							disabled={opening}
+							onClick={openOutside}
+						>
+							<OpenOutsideIcon />
+						</button>
+					) : null}
+					{content ? (
+						<button type="button" className="icon-button" aria-label="分享" disabled={sharing} onClick={share}>
+							<ShareIcon />
+						</button>
+					) : null}
+				</header>
+			)}
+			{frame.kind === "page" && previewable && content?.kind === "text" ? (
 				<Tabs
 					options={[
 						["preview", "預覽"],

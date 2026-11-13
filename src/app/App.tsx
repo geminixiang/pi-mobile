@@ -1,6 +1,6 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from "react";
 import { avatarOf, type Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
@@ -29,7 +29,14 @@ import { OpenFileContext } from "./openFile.ts";
 import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
 import { jobCommand, WAIT_MS } from "../jobs/background.ts";
 import { PageStack } from "./PageStack.tsx";
-import { WorkspaceView, type WorkspaceTab } from "./WorkspaceView.tsx";
+import { WorkspaceView } from "./WorkspaceView.tsx";
+import { SidePanel } from "./SidePanel.tsx";
+import type { BotListProps } from "./BotList.tsx";
+import { BOT_TAB, benchOf, benchStep, emptyBench, inView, type Tab } from "../workbench/bench.ts";
+import { shownOverlay, useLayout } from "../workbench/layout.ts";
+import { BesideContext } from "../workbench/context.ts";
+import { Rail } from "../workbench/Rail.tsx";
+import { Workbench } from "../workbench/Workbench.tsx";
 import { log } from "../log.ts";
 import { agentOf } from "./docs.ts";
 import { away, inForeground, setWorking, stayAwakeFor } from "../keepAlive.ts";
@@ -80,17 +87,22 @@ export function App() {
 	const [openItem, setOpenItem] = useState<string>();
 	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
 	const [chatKey, setChatKey] = useState(0);
-	const [workspaceStart, setWorkspaceStart] = useState<{ tab: WorkspaceTab; file?: string }>({ tab: "files" });
 	const [browserOpen, setBrowserOpen] = useState(0);
 	const currentBot = controller ? String(controller.id) : undefined;
-	const openWorkspace = useCallback((start: { tab: WorkspaceTab; file?: string }) => {
-		setWorkspaceStart(start);
-		setOverlay("workspace");
-	}, []);
-	const openFile = useCallback((file: string) => openWorkspace({ tab: "files", file }), [openWorkspace]);
+	const layout = useLayout();
+	const [benchState, benchDispatch] = useReducer(benchStep, undefined, emptyBench);
+	const bench = benchOf(benchState, currentBot);
+	const present = useCallback(
+		(tab: Tab) => {
+			if (currentBot) benchDispatch({ type: "show", bot: currentBot, tab });
+			if (layout === "phone") setOverlay(tab.kind === "bot" ? "panel" : "workspace");
+		},
+		[currentBot, layout],
+	);
+	const openFile = useCallback((path: string) => present({ kind: "file", path }), [present]);
 	const close = useCallback(() => setOverlay(undefined), []);
-	const backToPanel = useCallback(() => setOverlay("panel"), []);
-	const backToDrawer = useCallback(() => setOverlay("drawer"), []);
+	const backToPanel = useCallback(() => setOverlay(layout === "phone" ? "panel" : undefined), [layout]);
+	const backToDrawer = useCallback(() => setOverlay(layout === "phone" ? "drawer" : undefined), [layout]);
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
 	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const applyRef = useRef<(draft: { settings: Settings; changed: boolean } | undefined) => Promise<void>>(undefined);
@@ -398,13 +410,84 @@ export function App() {
 	const openMemory = (bot: Bot) => {
 		setMemoryBot(bot);
 		setOverlay("botMemory");
+		if (currentBot) benchDispatch({ type: "show", bot: currentBot, tab: BOT_TAB });
 	};
+	const wide = layout !== "phone";
+	const shown = shownOverlay(overlay, layout);
+	const list: BotListProps = {
+		bots,
+		automations,
+		currentId: opening ?? controller?.id,
+		running: busyIds,
+		onOpen: (id) => {
+			setOpening(id);
+			void openConversation(id, undefined, undefined, undefined, true).catch((error: unknown) => {
+				setOpening(undefined);
+				setOverlay(undefined);
+				throw error;
+			});
+		},
+		onCreate: () => setBotEdit({ kind: "create" }),
+		onEdit: (bot) => setBotEdit({ kind: "edit", bot }),
+	};
+	const settingsView = <SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />;
+	const memoryView = memoryBot ? <MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} /> : null;
+	const botPanel = (open: boolean, onClose: () => void) => (
+		<BotPanel
+			open={open}
+			bot={current}
+			runtime={runtime}
+			view={view}
+			context={{ used, window: contextWindow }}
+			compactAt={settings.compactAt}
+			model={{ provider: modelProvider, id: modelId, name: shortModelName(model?.name ?? modelId), thinking }}
+			busy={busy}
+			onClose={onClose}
+			actions={{
+				model: (change) => void changeModel(change),
+				edit: () => {
+					if (current) setBotEdit({ kind: "edit", bot: current });
+				},
+				ask: (text) => {
+					if (controller) controller.send([{ type: "text", text }]).catch(fail);
+				},
+				memory: () => {
+					if (current) openMemory(current);
+				},
+				compact: () => (controller ? controller.compact() : Promise.resolve(false)),
+				reset: async () => {
+					if (!controller) return;
+					const sure = await ask({
+						title: "新的上下文",
+						body: "模型將看不到這之前的訊息。紀錄仍會留在畫面上。",
+						confirm: "開始",
+					});
+					if (sure) await controller.reset().catch(fail);
+				},
+				emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
+					? async () => {
+							const sure = await ask({
+								title: "清空資料夾",
+								body: `${current?.name ?? "這個 Bot"} 在容器裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
+								confirm: "清空",
+								danger: true,
+							});
+							if (!sure) return false;
+							await runtime.resetSandbox(controller.id);
+							return true;
+						}
+					: undefined,
+			}}
+		/>
+	);
+	const stackTop = wide
+		? overlay === "settings" ? { key: "settings", content: settingsView, onBack: leaveSettings } : undefined
+		: overlay === "workspace" ? { key: "workspace", content: <WorkspaceView load={loadWorkspace} initial={{ tab: "files", file: inView(bench) }} onClose={close} />, onBack: close } : undefined;
 
 	return (
-		<PageStack
-			side="right"
-			top={overlay === "workspace" ? { key: "workspace", content: <WorkspaceView load={loadWorkspace} initial={workspaceStart} onClose={close} />, onBack: close } : undefined}
-		>
+		<PageStack side={wide ? "left" : "right"} top={stackTop}>
+		<div className={`frame frame-${layout}${wide ? " frame-wide" : ""}`}>
+		{wide ? <Rail busy={busy} list={list} onSettings={() => setOverlay("settings")} /> : null}
 		<div
 			ref={card}
 			data-thinking={thinking || "off"}
@@ -412,10 +495,14 @@ export function App() {
 		>
 			<header ref={header} className="bar chat-bar">
 				<div className="bar-pill bar-who">
-					<button type="button" className="bar-avatar" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
-						{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
-					</button>
-					<button type="button" className="bar-what" onClick={() => setOverlay(modelReach(modelProvider).state().kind === "down" ? "panel" : "model")} aria-label="模型與思考強度">
+					{wide ? (
+						<span className="bar-avatar">{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}</span>
+					) : (
+						<button type="button" className="bar-avatar" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
+							{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
+						</button>
+					)}
+					<button type="button" className="bar-what" onClick={() => (modelReach(modelProvider).state().kind === "down" ? present(BOT_TAB) : setOverlay("model"))} aria-label="模型與思考強度">
 						<span className="bar-title">
 							{current?.name ?? ""}
 							{busy ? <i className="bar-cursor" /> : null}
@@ -435,11 +522,11 @@ export function App() {
 						<BrowserButton bot={currentBot} onOpen={() => setBrowserOpen((count) => count + 1)} />
 					) : null}
 					{hasFolder ? (
-						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => openWorkspace({ tab: "files" })}>
+						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => present({ kind: "folder" })}>
 							<FolderIcon />
 						</button>
 					) : null}
-					<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => setOverlay("panel")}>
+					<button type="button" className="icon-button" aria-label="Bot 資訊" onClick={() => present(BOT_TAB)}>
 						<MoreIcon />
 					</button>
 				</div>
@@ -447,105 +534,45 @@ export function App() {
 
 			<SideSwipe
 				card={card}
-				open={side}
-				disabled={sideBlocked}
+				open={wide ? undefined : side}
+				disabled={wide || sideBlocked}
 				onChange={(next) => setOverlay(next === "left" ? "drawer" : next === "right" ? "panel" : undefined)}
 				left={
-					<Drawer
-						open={overlay === "drawer" || overlay === "settings"}
-						page={{
-							open: overlay === "settings",
-							label: "設定",
-							onBack: leaveSettings,
-							content: (
-								<SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />
-							),
-						}}
-						busy={busy}
-						bots={bots}
-						automations={automations}
-						currentId={opening ?? controller?.id}
-						status={[
-							{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
-							{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.workplaces.any },
-							{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
-							{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
-							{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
-						]}
-						onOpen={(id) => {
-							setOpening(id);
-							void openConversation(id, undefined, undefined, undefined, true).catch((error: unknown) => {
-								setOpening(undefined);
-								setOverlay(undefined);
-								throw error;
-							});
-						}}
-						onCreate={() => setBotEdit({ kind: "create" })}
-						running={busyIds}
-						onEdit={(bot) => setBotEdit({ kind: "edit", bot })}
-						onSettings={() => setOverlay("settings")}
-						onClose={close}
-					/>
+					wide ? null : (
+						<Drawer
+							open={overlay === "drawer" || overlay === "settings"}
+							page={{ open: overlay === "settings", label: "設定", onBack: leaveSettings, content: settingsView }}
+							busy={busy}
+							list={list}
+							status={[
+								{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
+								{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.workplaces.any },
+								{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
+								{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
+								{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
+							]}
+							onSettings={() => setOverlay("settings")}
+							onClose={close}
+						/>
+					)
 				}
 				right={
-					<BotPanel
-						open={overlay === "panel" || overlay === "botMemory"}
-						page={{
-							open: overlay === "botMemory" && Boolean(memoryBot),
-							label: "Bot 的記憶",
-							onBack: backToPanel,
-							content: memoryBot ? (
-								<MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} />
-							) : null,
-						}}
-						bot={current}
-						runtime={runtime}
-						view={view}
-						context={{ used, window: contextWindow }}
-						compactAt={settings.compactAt}
-						model={{ provider: modelProvider, id: modelId, name: shortModelName(model?.name ?? modelId), thinking }}
-						busy={busy}
-						onClose={close}
-						actions={{
-							model: (change) => void changeModel(change),
-							edit: () => {
-								if (current) setBotEdit({ kind: "edit", bot: current });
-							},
-							ask: (text) => {
-								if (controller) controller.send([{ type: "text", text }]).catch(fail);
-							},
-							memory: () => {
-								if (current) openMemory(current);
-							},
-							compact: () => (controller ? controller.compact() : Promise.resolve(false)),
-							reset: async () => {
-								if (!controller) return;
-								const sure = await ask({
-									title: "新的上下文",
-									body: "模型將看不到這之前的訊息。紀錄仍會留在畫面上。",
-									confirm: "開始",
-								});
-								if (sure) await controller.reset().catch(fail);
-							},
-							emptyFolder: controller && place?.kind === "computer" && !place.sandbox.direct
-								? async () => {
-										const sure = await ask({
-											title: "清空資料夾",
-											body: `${current?.name ?? "這個 Bot"} 在容器裡的資料夾和所有檔案都會刪除。其他 Bot 的資料夾不受影響。`,
-											confirm: "清空",
-											danger: true,
-										});
-										if (!sure) return false;
-										await runtime.resetSandbox(controller.id);
-										return true;
-									}
-								: undefined,
-						}}
-					/>
+					wide || !current ? null : (
+						<SidePanel
+							side="right"
+							open={overlay === "panel" || overlay === "botMemory"}
+							page={{ open: overlay === "botMemory" && Boolean(memoryBot), label: "Bot 的記憶", onBack: backToPanel, content: memoryView }}
+							onClose={close}
+							label={`${current.name} 的資訊`}
+						>
+							{botPanel(overlay === "panel" || overlay === "botMemory", close)}
+						</SidePanel>
+					)
 				}
 			>
 				{controller ? (
 					<OpenFileContext.Provider value={hasFolder ? openFile : undefined}>
+					<BesideContext.Provider value={wide ? { inView: inView(bench) } : undefined}>
 					<PageHostContext.Provider value={pageHost}>
 					<JobsContext.Provider value={jobs}>
 					<Chat
@@ -568,6 +595,7 @@ export function App() {
 					/>
 					</JobsContext.Provider>
 					</PageHostContext.Provider>
+					</BesideContext.Provider>
 					</OpenFileContext.Provider>
 				) : (
 					<div className="chat">
@@ -664,12 +692,30 @@ export function App() {
 			</Sheet>
 
 
-			<BrowserSheet bot={currentBot} hidden={overlay !== undefined} asking={asking} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
+			<BrowserSheet bot={currentBot} hidden={shown !== undefined} asking={asking} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
 
 
 
 			{dialogView}
 
+		</div>
+		{wide ? (
+			<Workbench
+				bot={current}
+				bench={bench}
+				provider={modelProvider}
+				load={loadWorkspace}
+				onShow={present}
+				onClose={(key) => {
+					if (currentBot) benchDispatch({ type: "close", bot: currentBot, key });
+				}}
+				botPane={(open) => (
+					<PageStack side="right" top={shown === "botMemory" && memoryView ? { key: "memory", content: memoryView, onBack: backToPanel } : undefined}>
+						{botPanel(open, () => {})}
+					</PageStack>
+				)}
+			/>
+		) : null}
 		</div>
 		</PageStack>
 	);

@@ -1,5 +1,6 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { codeNote, isCodeNote } from "./codes.ts";
+import { inViewPath } from "../workbench/note.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
@@ -196,7 +197,7 @@ export function parseAttachment(text: string): AttachmentCard | undefined {
 }
 
 export function withoutAttachments<T extends { type: string; text?: string }>(content: readonly T[]): T[] {
-	return content.filter((block) => block.type !== "text" || !block.text || (!OPEN_TAG.test(block.text) && !isCodeNote(block.text)));
+	return content.filter((block) => block.type !== "text" || !block.text || (!OPEN_TAG.test(block.text) && !isCodeNote(block.text) && !inViewPath(block.text)));
 }
 
 export interface PreparedAttachment {

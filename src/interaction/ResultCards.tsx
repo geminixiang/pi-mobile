@@ -2,6 +2,7 @@ import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Cl
 import { useContext } from "react";
 import { FileIcon } from "../app/icons.tsx";
 import { OpenFileContext } from "../app/openFile.ts";
+import { BesideContext } from "../workbench/context.ts";
 import { PageFrame, usePageHtml } from "./PageFrame.tsx";
 import type { Page } from "./pages.ts";
 import type { AlertResult, WeatherResult } from "./results.ts";
@@ -83,9 +84,29 @@ export function WeatherCard({ card }: { card: WeatherResult }) {
 	);
 }
 
+function BesideCard({ page, inView }: { page: Page; inView: string | undefined }) {
+	const openFile = useContext(OpenFileContext);
+	const here = inView === page.path;
+	return (
+		<button type="button" className={`question-card beside-card${here ? " here" : ""}`} disabled={!openFile} onClick={() => openFile?.(page.path)}>
+			<span className="beside-icon">
+				<FileIcon size={20} />
+			</span>
+			<span className="beside-text">
+				<span className="page-title">{page.title}</span>
+				{page.summary ? <span className="beside-summary">{page.summary}</span> : null}
+				<span className="beside-file">{page.path.split("/").at(-1)}</span>
+			</span>
+			<span className="beside-state">{here ? "在旁邊" : "打開"}</span>
+		</button>
+	);
+}
+
 export function PageCard({ page }: { page: Page }) {
 	const openFile = useContext(OpenFileContext);
+	const beside = useContext(BesideContext);
 	const html = usePageHtml(page);
+	if (beside) return <BesideCard page={page} inView={beside.inView} />;
 	if (html) return <PageFrame page={page} html={html} />;
 	return (
 		<button type="button" className="question-card page-card" disabled={!openFile} onClick={() => openFile?.(page.path)}>
