@@ -50,6 +50,9 @@ APK is not debuggable, so everything measured runs on a dev build of the same co
    only with iPhone numbers. Keep `rel-<x.y.z>-iphone.json`. When the iPhone is not reachable, say so in the release
    commit's body (`perf iphone: skipped, not reachable`) and go on; the user puts the TestFlight build back on it in
    step 7.
+   **Screens nobody looked at**: `git log v<last>..HEAD --format='%h %s%n%b' | grep -B1 '^Evidence: none'` lists
+   changes that shipped without screenshots; open each screen they touch on the dev build and look once before
+   tagging. Fix or mention what looks wrong.
 5. **Commit and tag**: `npm run check`, then commit only package.json, package-lock.json and the notes as
    `chore(release): <x.y.z>`, `git tag v<x.y.z>`, `git push origin main v<x.y.z>`. The workflow
    (`.github/workflows/release.yml`) fails when the tag and package.json differ; it builds the APK and host binaries

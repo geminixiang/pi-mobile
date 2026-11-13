@@ -83,6 +83,21 @@ push 到 main 和開 PR 時，CI 會跑一次 `npm run check`（`.github/workflo
 
 改到 host 的電腦操作（`host/computer/`）時，跑 `./test/device/wayland/run.sh`（要 Docker 和 Go，約 2 分鐘）：在容器裡起一個無頭的 GNOME 48 Wayland 桌面（gnome-shell、xdg-desktop-portal-gnome、PipeWire），自己按下遠端桌面的授權、用存下的 token 重連，再讓 host 在文字編輯器裡多行貼上（中文、符號、空行）、雙擊換字、`ctrl+end`、`ctrl+s`，最後比對存檔內容和剪貼簿有沒有放回原樣；失敗時印出差在哪、留下截圖。這個桌面沒有實體鍵盤：腳本自己開一條遠端連線一直不關，當作插著的鍵盤，否則鍵盤會隨連線開關忽有忽無。Windows、macOS 和 X11 用真機或 `Xvfb` 測。
 
+### 驗證證據
+
+改到畫面的 commit（`src/` 底下的 `.tsx` 或 `.css`）在訊息裡寫一行 `Evidence:`，說證據在哪裡；`test/evidence.ts`（`npm run check`）檢查還沒推上 `origin/main` 的每個 commit：
+
+```
+Evidence: before/after ~/pi-tasks/shots/settings-{before,after}.png (emulator-5554, 412 px)
+Evidence: before/after shots in the PR; perf scroll,stream 3 runs: test/perf/out/after.json, scroll gfxJank 1.2 → 1.1 %
+Evidence: none, the label's typo; nothing else moves
+```
+
+- 截圖：同一個畫面改前、改後各一張，在模擬器（`adb -s emulator-5554 exec-out screencap -p > before.png`）或 Chrome 412 px 寬；手機和 iPad 只在使用者同意時用。截圖不進 repo，放在報告或 PR 裡，`Evidence:` 寫路徑或連結。
+- 效能：改到對話、捲動、串流或動畫時，照下一節跑 `test/perf/run.ts`，寫出場景、次數和前後的數字。
+- 小改動（文字、看不出差別的重構）寫 `Evidence: none, <為什麼>`。這一行不擋任何改動，只讓「有沒有看過」變成要回答的問題；發版時從這些行找出還沒在裝置上看過的畫面（release skill）。
+- 只查還沒推出去的 commit：CI 的淺 checkout 沒有 `origin/main` 以外的歷史，在那裡等於不查。
+
 ### 效能量測（120 Hz）
 
 只在 S24 上量；模擬器的 vsync、GPU、CPU 都不是手機的，數字只能拿來驗證腳本。

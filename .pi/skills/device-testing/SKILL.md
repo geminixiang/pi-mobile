@@ -91,6 +91,21 @@ from `CDP_PORT` (default 9333).
 - Settings that are not secret are in `localStorage["pi-mobile.settings"]`; change one there and reload to test without
   it (keep the old value and put it back).
 
+## Evidence for a commit
+
+A commit that changes a `.tsx` or `.css` under `src/` carries an `Evidence:` line; `test/evidence.ts` fails without
+one (docs/development.md § 驗證證據). Take it on the emulator unless the user offers a device:
+
+1. Before changing anything, build and install the current code, open the screen, and
+   `adb -s emulator-5554 exec-out screencap -p > <name>-before.png`. Take the emulator with
+   `mkdir /tmp/pi-emulator.lock` (another agent may hold it; retry every minute) and `rmdir` it when done.
+2. After the change, the same screen in the same state: `<name>-after.png`. Open both and compare them as DESIGN.md's
+   實作流程 says (containers, levels, control sizes, narrow places, repeated words).
+3. A change to the transcript, scrolling, streaming or an animation also gets `test/perf/run.ts` on the S24 when the
+   user allows it; otherwise say `perf: not measured, <why>`.
+4. Put the files in the report or PR and their paths in the line:
+   `Evidence: before/after ~/pi-tasks/shots/settings-{before,after}.png (emulator-5554)`.
+
 ## Gotchas
 
 - Clean up what a test makes: temporary bots (`removeBot` also deletes their folders), planted files, IndexedDB
