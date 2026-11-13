@@ -1,5 +1,6 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useEffect, useState } from "react";
+import { useSubscribed } from "./subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
@@ -172,11 +173,9 @@ export function BotPanel({
 		if (!open) setProblem(undefined);
 	}, [open]);
 	const failIn = (section: string) => (error: unknown) => setProblem({ section, text: messageOf(error) });
-	const [triggers, setTriggers] = useState<TriggerState>(NO_TRIGGERS);
-	const [memory, setMemory] = useState("");
-	useEffect(() => runtime.triggers.subscribe(setTriggers), [runtime]);
+	const triggers = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime.triggers.subscribe(listener), [runtime]);
 	const botId = bot?.id;
-	useEffect(() => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => setMemory(next.text))), [runtime, botId]);
+	const memory = useSubscribed("", (listener) => (botId === undefined ? undefined : runtime.subscribeMemory({ kind: "bot", id: botId }, (next) => listener(next.text))), [runtime, botId]);
 	const [toolsets, setToolsets] = useState<ToolsetState[]>([]);
 	const reload = (id: ConversationId) => runtime.toolsets(id).then(setToolsets);
 	useEffect(() => {

@@ -179,7 +179,92 @@ function viewportRule(): Finding[] {
 	return lines[line]?.includes("maximum-scale=1") ? [] : [{ file: "index.html", line: line + 1, rule: "keep maximum-scale=1 in the viewport: iOS zooms the page into any field with text under 16px and never zooms back, so the whole app stays enlarged" }];
 }
 
+const TIMING = new Set(["useEffect", "useLayoutEffect", "setTimeout", "setInterval", "requestAnimationFrame"]);
+const EFFECTS: Record<string, number> = {
+	"src/agent/chatgpt.ts": 1,
+	"src/agent/files/phone-env.ts": 2,
+	"src/agent/network.ts": 1,
+	"src/agent/reach.ts": 2,
+	"src/agent/sandbox/container.ts": 1,
+	"src/agent/sandbox/phone-connection.ts": 1,
+	"src/agent/sandbox/resumable-socket.ts": 2,
+	"src/agent/traffic.ts": 1,
+	"src/app/App.tsx": 12,
+	"src/app/background.ts": 1,
+	"src/app/BotPanel.tsx": 2,
+	"src/app/BotSheet.tsx": 1,
+	"src/app/briefly.ts": 2,
+	"src/app/Chat.tsx": 7,
+	"src/app/Composer.tsx": 5,
+	"src/app/ContextCard.tsx": 1,
+	"src/app/FileViewer.tsx": 1,
+	"src/app/HostsGroup.tsx": 3,
+	"src/app/layers.ts": 1,
+	"src/app/Links.tsx": 2,
+	"src/app/loaded.ts": 1,
+	"src/app/McpGroup.tsx": 1,
+	"src/app/MemoryView.tsx": 1,
+	"src/app/Mermaid.tsx": 1,
+	"src/app/PageStack.tsx": 2,
+	"src/app/press.ts": 1,
+	"src/app/PromptDial.tsx": 4,
+	"src/app/Settings.tsx": 3,
+	"src/app/sideGesture.ts": 1,
+	"src/app/SidePanel.tsx": 6,
+	"src/app/SignIn.tsx": 2,
+	"src/app/streaming.tsx": 3,
+	"src/app/voice.ts": 1,
+	"src/browser/BrowserSheet.tsx": 6,
+	"src/browser/tool.ts": 1,
+	"src/interaction/PageFrame.tsx": 2,
+	"src/items/ItemSheet.tsx": 1,
+	"src/jobs/bash.ts": 1,
+	"src/jobs/JobsContext.ts": 2,
+	"src/jobs/JobsStrip.tsx": 4,
+	"src/log.ts": 1,
+	"src/promise.ts": 1,
+	"src/triggers/events.ts": 1,
+	"src/workbench/Stage.tsx": 4,
+	"src/workbench/Surface.tsx": 3,
+};
+
+function timingCalls(file: string): number {
+	const source = readFileSync(file, "utf8");
+	let count = 0;
+	const visit = (node: unknown) => {
+		if (!isNode(node)) return;
+		if (node.type === "CallExpression" && isNode(node.callee)) {
+			const callee = node.callee.type === "MemberExpression" ? node.callee.property : node.callee;
+			if (isNode(callee) && typeof callee.name === "string" && TIMING.has(callee.name)) count += 1;
+		}
+		children(node).forEach(visit);
+	};
+	visit(parseSync(file, source).program);
+	return count;
+}
+
+const EFFECT_FIX =
+	"an external store → useSubscribed (src/app/subscribed.ts) or useSyncExternalStore; a value from state or props → compute it during render; a reaction to a tap or a gesture → do it in the event handler; waiting → listen for the event it waits for (docs/effects.md)";
+
+function effectRule(): Finding[] {
+	const files = new Set(checkedFiles());
+	const gone = Object.keys(EFFECTS)
+		.filter((file) => !files.has(file))
+		.map((file) => ({ file: "test/code-rules.ts", line: 1, rule: `EFFECTS lists ${file}, which no longer exists: remove it` }));
+	return [...gone, ...checkedFiles()
+		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.flatMap((file) => {
+			const used = timingCalls(file);
+			const allowed = EFFECTS[file] ?? 0;
+			if (used > allowed)
+				return [{ file, line: 1, rule: `${used} useEffect, useLayoutEffect or timer calls, ${allowed} allowed in EFFECTS (test/code-rules.ts): use ${EFFECT_FIX}. A legitimate effect (a native listener, a measured frame in the gesture code) raises the count with the user's approval` }];
+			if (used < allowed) return [{ file, line: 1, rule: `${used} useEffect, useLayoutEffect or timer calls, fewer than the ${allowed} in EFFECTS (test/code-rules.ts): lower it to ${used} so the ratchet holds` }];
+			return [];
+		})];
+}
+
 const all = [
+	...effectRule(),
 	...javaRule(),
 	...viewportRule(),
 	...installerRule(),

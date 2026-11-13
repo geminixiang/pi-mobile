@@ -1,5 +1,6 @@
 import { Logo } from "./Logo.tsx";
 import { useEffect, useState } from "react";
+import { useSubscribed } from "./subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";
@@ -28,8 +29,7 @@ function statusText(status: McpStatus | undefined): string {
 }
 
 export function useMcp(runtime: AgentRuntime | undefined): void {
-	const [, setVersion] = useState(0);
-	useEffect(() => runtime?.mcp.subscribe(() => setVersion((version) => version + 1)), [runtime]);
+	useSubscribed({}, (listener) => runtime?.mcp.subscribe(() => listener({})), [runtime]);
 }
 
 const host = (url: string) => (URL.canParse(url) ? new URL(url).hostname : url);

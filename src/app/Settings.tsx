@@ -1,5 +1,6 @@
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
+import { useSubscribed } from "./subscribed.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
 import { Notifications } from "../plugins/notifications.ts";
@@ -286,13 +287,11 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 }
 
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
-	const [state, setState] = useState<TriggerState>(NO_TRIGGERS);
-	const [bots, setBots] = useState<Bot[]>([]);
+	const state = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime.triggers.subscribe(listener), [runtime]);
+	const bots = useSubscribed<Bot[]>([], (listener) => runtime.subscribeBots(listener), [runtime]);
 	const [bluetooth, setBluetooth] = useState<boolean>();
 	const [overlay, setOverlay] = useState<boolean>();
 	const [error, setError] = useState("");
-	useEffect(() => runtime.triggers.subscribe(setState), [runtime]);
-	useEffect(() => runtime.subscribeBots(setBots), [runtime]);
 	useEffect(() => {
 		if (!native.has("Triggers")) return;
 		const refresh = () =>
@@ -480,10 +479,8 @@ const firstEntry = (text: string) => {
 type IndexRow = { page: Page; icon: ReactNode; label: string; status?: string; marks?: { label: string; on: boolean }[] };
 
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
-	const [triggers, setTriggers] = useState<TriggerState>();
-	const [memory, setMemory] = useState<string>();
-	useEffect(() => runtime?.subscribeMemory({ kind: "global" }, (next) => setMemory(next.text)), [runtime]);
-	useEffect(() => runtime?.triggers.subscribe(setTriggers), [runtime]);
+	const memory = useSubscribed<string | undefined>(undefined, (listener) => runtime?.subscribeMemory({ kind: "global" }, (next) => listener(next.text)), [runtime]);
+	const triggers = useSubscribed<TriggerState | undefined>(undefined, (listener) => runtime?.triggers.subscribe(listener), [runtime]);
 	useMcp(runtime);
 	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables.length) : undefined, []).value;
 	const model = runtime?.models.find((candidate) => candidate.provider === settings.defaultProvider && candidate.id === settings.defaultModelId);

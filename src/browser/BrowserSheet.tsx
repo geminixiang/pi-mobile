@@ -1,4 +1,5 @@
 import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useSubscribed } from "../app/subscribed.ts";
 import { type BrowserState, browserState } from "./tool.ts";
 import { native } from "../native.ts";
 import { Browser, MAX_TABS } from "./plugin.ts";
@@ -102,7 +103,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 	pullFrom: RefObject<HTMLElement | null>;
 	engine: SearchEngine;
 }) {
-	const [state, setState] = useState<BrowserState>({ active: new Set(), handovers: [] });
+	const state = useSubscribed<BrowserState>({ active: new Set(), handovers: [] }, (listener) => browserState.subscribe(listener), []);
 	const [sheet, dispatch] = useReducer(sheetAfter, SHEET_START);
 	const frame = useRef<HTMLDivElement>(null);
 	const motion = useRef<SheetMotion>(undefined);
@@ -110,7 +111,6 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const placing = useRef(0);
 	const latest = useRef({ bot, open: false, expanded: false, canGoBack: false });
 
-	useEffect(() => browserState.subscribe(setState), []);
 	useEffect(() => {
 		if (!native.has("Browser")) return;
 		const listening = [

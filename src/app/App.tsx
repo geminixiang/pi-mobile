@@ -23,6 +23,7 @@ import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
+import { useSubscribed } from "./subscribed.ts";
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -76,7 +77,6 @@ export function App() {
 	const [settings, setSettings] = useState<Settings>();
 	const [runtime, setRuntime] = useState<AgentRuntime>();
 	const [openError, setOpenError] = useState("");
-	const [bots, setBots] = useState<Bot[]>([]);
 	const [controller, setController] = useState<ConversationController>();
 	const [opening, setOpening] = useState<ConversationId>();
 	const [view, setView] = useState<ConversationView>();
@@ -186,8 +186,8 @@ export function App() {
 		});
 	}, [start]);
 
-	useEffect(() => (runtime ? runtime.subscribeBots(setBots) : undefined), [runtime]);
-	const [triggerState, setTriggerState] = useState<TriggerState>(NO_TRIGGERS);
+	const bots = useSubscribed<Bot[]>([], (listener) => runtime?.subscribeBots(listener), [runtime]);
+	const triggerState = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime?.triggers.subscribe(listener), [runtime]);
 	const automations = triggerState.items;
 	const jobs = useMemo<RunningJobs | undefined>(() => {
 		if (!runtime || !controller) return undefined;
@@ -197,17 +197,14 @@ export function App() {
 		);
 		return { jobs: running, stop: (job) => runtime.stopJob(id, job), peek: (job) => runtime.peekJob(id, job) };
 	}, [automations, controller, runtime]);
-	useEffect(() => (runtime ? runtime.triggers.subscribe(setTriggerState) : undefined), [runtime]);
 	const formsState = useSyncExternalStore(
 		useCallback((listener: () => void) => (runtime ? runtime.forms.subscribe(listener) : () => undefined), [runtime]),
 		() => runtime?.forms.state,
 	);
-	const [browser, setBrowser] = useState<BrowserState>({ active: new Set(), handovers: [] });
-	useEffect(() => browserState.subscribe(setBrowser), []);
+	const browser = useSubscribed<BrowserState>({ active: new Set(), handovers: [] }, (listener) => browserState.subscribe(listener), []);
 
-	const [busyIds, setBusyIds] = useState<ReadonlySet<ConversationId>>(new Set());
+	const busyIds = useSubscribed<ReadonlySet<ConversationId>>(new Set(), (listener) => runtime?.subscribeActivity(listener), [runtime]);
 	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
-	useEffect(() => (runtime ? runtime.subscribeActivity(setBusyIds) : undefined), [runtime]);
 	useEffect(() => {
 		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
 		const ended = [...previousBusy.current].filter((id) => !busyIds.has(id)).map((id) => ({ id, report: runtime?.triggers.finished(id) }));

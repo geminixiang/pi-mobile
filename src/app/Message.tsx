@@ -1,6 +1,6 @@
 import { contentText, type ImageContent } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { Fragment, memo, useContext, useEffect, useState } from "react";
+import { Fragment, memo, useContext, useState } from "react";
 import Markdown from "react-markdown";
 import { ChevronIcon, CloseIcon, FileIcon, TriggerIcon } from "./icons.tsx";
 import type { TriggerSymbol } from "../triggers/when.ts";
@@ -208,13 +208,7 @@ const toolName = (name: string) => TOOL_NAMES.get(name) ?? name;
 
 function useElapsed(running: boolean, since?: number): number {
 	const [started] = useState(() => since ?? Date.now());
-	const [now, setNow] = useState(started);
-	useEffect(() => {
-		if (!running) return;
-		const timer = setInterval(() => setNow(Date.now()), 1000);
-		return () => clearInterval(timer);
-	}, [running]);
-	return Math.floor((now - started) / 1000);
+	return Math.floor((useNow(running) - started) / 1000);
 }
 
 const HTML_PATH = /(?:^|[\s"'`(])((?:\/|\.\/)?[^\s"'`()<>]+\.html?)(?=$|[\s"'`),.:;，。])/gim;

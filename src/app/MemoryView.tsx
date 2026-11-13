@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useState } from "react";
+import { useSubscribed } from "./subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
@@ -44,15 +45,8 @@ export function MemoryView({
 	onClose: () => void;
 	onError: (message: string) => void;
 }) {
-	const [saved, setSaved] = useState<Memory>();
+	const saved = useSubscribed<Memory | undefined>(undefined, (listener) => runtime.subscribeMemory(scope, listener), [runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined]);
 	const [edit, setEdit] = useState<Edit>({ mode: "reading" });
-	useEffect(
-		() =>
-			runtime.subscribeMemory(scope, (memory) => {
-				setSaved(memory);
-			}),
-		[runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined],
-	);
 	const text = edit.mode === "reading" ? (saved?.text ?? "") : edit.draft;
 	const length = text.trim().length;
 	const over = length > MEMORY_LIMIT;
