@@ -48,33 +48,83 @@ type held struct {
 	cancel    context.CancelFunc
 	onEnd     func()
 
-	mu        sync.Mutex
-	link      link
-	sent      []message
-	sentBase  int
-	sentBytes int
-	received  int
-	ended     *string
+	// why: a message counted on a link that just dropped must reach stdin before any message from the link that replaced it, because the phone resends only what the count leaves out.
+	input sync.Mutex
+
+	mu       sync.Mutex
+	link     link
+	grace    *time.Timer
+	sent     outbox
+	received int
 }
-
-type link interface{ held() }
-
-type attached struct {
-	conn *websocket.Conn
-	ctx  context.Context
-}
-
-type away struct{ grace *time.Timer }
-
-type finished struct{}
-
-func (attached) held() {}
-func (away) held()     {}
-func (finished) held() {}
 
 func (h *held) attachedTo(conn *websocket.Conn) bool {
 	current, ok := h.link.(attached)
 	return ok && current.conn == conn
+}
+
+func (h *held) apply(next link, effects []effect) {
+	h.link = next
+	for _, e := range effects {
+		switch e := e.(type) {
+		case closeLink:
+			go e.conn.Close(websocket.StatusNormalClosure, e.reason)
+		case release:
+			if h.onEnd != nil {
+				h.onEnd()
+			}
+		case stopCommand:
+			// why: pi-env runs each command in its own session, so ending pi-env's group leaves them orphaned; it ends them itself when its stdin ends.
+			_ = h.stdin.Close()
+			time.AfterFunc(stdinGrace, h.cancel)
+		case replay:
+			h.replay(e)
+		}
+	}
+	h.armGrace()
+}
+
+func (h *held) armGrace() {
+	until, waiting := graceOf(h.link)
+	if !waiting {
+		if h.grace != nil {
+			h.grace.Stop()
+		}
+		return
+	}
+	if h.grace == nil {
+		h.grace = time.AfterFunc(time.Until(until), h.expire)
+		return
+	}
+	h.grace.Reset(time.Until(until))
+}
+
+func (h *held) expire() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.apply(onExpire(h.link, time.Now()))
+}
+
+func (h *held) replay(e replay) {
+	log.Printf("held session attached again; %d messages to resend", h.sent.end()-e.have)
+	resume, _ := json.Marshal(map[string]int{"received": h.received})
+	if err := writeMessage(e.to.conn, e.to.ctx, message{text: true, data: resume}); err != nil {
+		h.dropped(e.to.conn)
+		return
+	}
+	for _, m := range h.sent.since(e.have) {
+		if err := writeMessage(e.to.conn, e.to.ctx, m); err != nil {
+			h.dropped(e.to.conn)
+			return
+		}
+	}
+}
+
+func (h *held) dropped(conn *websocket.Conn) {
+	if h.attachedTo(conn) {
+		log.Printf("held session detached; keeping its command for %s", holdFor)
+	}
+	h.apply(onDrop(h.link, conn, time.Now().Add(holdFor)))
 }
 
 var (
@@ -125,22 +175,17 @@ func heldByOther(id, owner string) bool {
 func (h *held) deliver(m message) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.sent = append(h.sent, m)
-	h.sentBytes += len(m.data)
+	h.sent.push(m)
 	current, attachedNow := h.link.(attached)
-	for h.sentBytes > holdBytes && len(h.sent) > 0 {
-		if !attachedNow {
-			log.Printf("held session dropped: %d bytes waiting while the phone was away", h.sentBytes)
-			h.killLocked(sessionGone)
-			return
-		}
-		h.sentBytes -= len(h.sent[0].data)
-		h.sent = h.sent[1:]
-		h.sentBase++
+	if h.sent.bytes > holdBytes && !attachedNow {
+		log.Printf("held session dropped: %d bytes waiting while the phone was away", h.sent.bytes)
+		h.apply(onKill(h.link, sessionGone))
+		return
 	}
+	h.sent.trim(holdBytes)
 	if attachedNow {
 		if err := writeMessage(current.conn, current.ctx, m); err != nil {
-			h.detachLocked()
+			h.dropped(current.conn)
 		}
 	}
 }
@@ -161,36 +206,7 @@ func (h *held) end(final *message, closing string) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.ended = &closing
-	if current, ok := h.link.(attached); ok {
-		go current.conn.Close(websocket.StatusNormalClosure, closing)
-		h.finishLocked()
-	}
-}
-
-func (h *held) finishLocked() {
-	switch current := h.link.(type) {
-	case finished:
-		return
-	case away:
-		current.grace.Stop()
-	}
-	h.link = finished{}
-	if h.onEnd != nil {
-		h.onEnd()
-	}
-}
-
-func (h *held) detachLocked() {
-	if _, ok := h.link.(attached); !ok {
-		return
-	}
-	if h.ended != nil {
-		h.finishLocked()
-		return
-	}
-	log.Printf("held session detached; keeping its command for %s", holdFor)
-	h.link = away{grace: time.AfterFunc(holdFor, func() { h.kill(sessionGone) })}
+	h.apply(onExit(h.link, closing))
 }
 
 func (h *held) keepAlive() {
@@ -218,9 +234,7 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 		cancel()
 		if err != nil {
 			h.mu.Lock()
-			if h.attachedTo(conn) {
-				h.detachLocked()
-			}
+			h.dropped(conn)
 			h.mu.Unlock()
 			_ = conn.CloseNow()
 			return
@@ -231,55 +245,48 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 func (h *held) kill(reason string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.killLocked(reason)
-}
-
-func (h *held) killLocked(reason string) {
-	if _, done := h.link.(finished); done {
-		return
-	}
-	if current, ok := h.link.(attached); ok {
-		go current.conn.Close(websocket.StatusNormalClosure, reason)
-	}
-	h.finishLocked()
-	// why: pi-env runs each command in its own session, so ending pi-env's group leaves them orphaned; it ends them itself when its stdin ends.
-	_ = h.stdin.Close()
-	time.AfterFunc(stdinGrace, h.cancel)
+	h.apply(onKill(h.link, reason))
 }
 
 func (h *held) attach(conn *websocket.Conn, ctx context.Context, have int) (string, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if _, done := h.link.(finished); done {
-		return sessionGone, false
+	next, effects, refused := onAttach(h.link, attached{conn: conn, ctx: ctx}, have, h.sent)
+	if refused != "" {
+		return refused, false
 	}
-	if have < h.sentBase || have > h.sentBase+len(h.sent) {
-		return sessionBehind, false
-	}
-	switch current := h.link.(type) {
-	case attached:
-		go current.conn.Close(websocket.StatusNormalClosure, sessionReplace)
-	case away:
-		current.grace.Stop()
-	}
-	h.link = attached{conn: conn, ctx: ctx}
-	log.Printf("held session attached again; %d messages to resend", h.sentBase+len(h.sent)-have)
-	resume, _ := json.Marshal(map[string]int{"received": h.received})
-	if err := writeMessage(conn, ctx, message{text: true, data: resume}); err != nil {
-		h.detachLocked()
-		return "", true
-	}
-	for _, m := range h.sent[have-h.sentBase:] {
-		if err := writeMessage(conn, ctx, m); err != nil {
-			h.detachLocked()
-			return "", true
-		}
-	}
-	if h.ended != nil {
-		go conn.Close(websocket.StatusNormalClosure, *h.ended)
-		h.finishLocked()
-	}
+	h.apply(next, effects)
 	return "", true
+}
+
+type taken int
+
+const (
+	written taken = iota
+	stale
+	stdinFailed
+)
+
+func (h *held) take(conn *websocket.Conn, kind websocket.MessageType, data []byte) taken {
+	h.input.Lock()
+	defer h.input.Unlock()
+	h.mu.Lock()
+	if !h.attachedTo(conn) {
+		h.mu.Unlock()
+		return stale
+	}
+	h.received++
+	h.mu.Unlock()
+	if kind == websocket.MessageText {
+		if string(data) == protocol.EndOfInput {
+			h.stdin.Close()
+		}
+		return written
+	}
+	if _, err := h.stdin.Write(data); err != nil {
+		return stdinFailed
+	}
+	return written
 }
 
 func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
@@ -297,20 +304,11 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 			readErr = err
 			break
 		}
-		h.mu.Lock()
-		if !h.attachedTo(conn) {
-			h.mu.Unlock()
+		outcome := h.take(conn, kind, data)
+		if outcome == stale {
 			return
 		}
-		h.received++
-		h.mu.Unlock()
-		if kind == websocket.MessageText {
-			if string(data) == protocol.EndOfInput {
-				h.stdin.Close()
-			}
-			continue
-		}
-		if _, err := h.stdin.Write(data); err != nil {
+		if outcome == stdinFailed {
 			break
 		}
 	}
@@ -321,10 +319,10 @@ func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
 	}
 	// why: the phone sends a normal closure only when it means to end the session; a dropped network sends no close frame, and the phone's own reattach closes without a code.
 	if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
-		h.killLocked(sessionGone)
+		h.apply(onKill(h.link, sessionGone))
 		return
 	}
-	h.detachLocked()
+	h.dropped(conn)
 }
 
 type heldWriter struct {

@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -337,4 +339,69 @@ func TestARawHeldSessionDeliversEverythingItsCommandWroteBeforeExiting(t *testin
 	if got != size {
 		t.Fatalf("the phone received %d of the %d bytes the command wrote", got, size)
 	}
+}
+
+type slowStdin struct {
+	mu      sync.Mutex
+	written []string
+	slow    string
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s *slowStdin) Write(data []byte) (int, error) {
+	if string(data) == s.slow {
+		close(s.entered)
+		<-s.release
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.written = append(s.written, string(data))
+	return len(data), nil
+}
+
+func (s *slowStdin) Close() error { return nil }
+
+func (s *slowStdin) lines() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.written)
+}
+
+func TestInputCountedOnADroppedLinkReachesStdinBeforeInputFromTheNextLink(t *testing.T) {
+	stdin := &slowStdin{slow: "counted on the old link\n", entered: make(chan struct{}), release: make(chan struct{})}
+	token := fmt.Sprintf("%032x", time.Now().UnixNano())
+	server := httptest.NewServer(resumable("order:", func(w http.ResponseWriter, r *http.Request) {
+		conn, ok := accept(w, r)
+		if !ok {
+			return
+		}
+		session := &held{owner: digest(""), stdin: stdin, cancel: func() {}, link: attached{conn: conn, ctx: r.Context()}}
+		holdSession("order:"+token, session)
+		session.serve(conn, r.Context())
+	}))
+	t.Cleanup(server.Close)
+	first := dial(t, wsURL(server, "/"))
+	if err := first.Write(context.Background(), websocket.MessageBinary, []byte(stdin.slow)); err != nil {
+		t.Fatal(err)
+	}
+	<-stdin.entered
+	_ = first.CloseNow()
+	second := dial(t, wsURL(server, "/?attach="+token+"&received=0"))
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if kind, data, err := second.Read(ctx); err != nil || kind != websocket.MessageText || string(data) != `{"received":1}` {
+		t.Fatalf("resume handshake %s %q %v", kind, data, err)
+	}
+	if err := second.Write(ctx, websocket.MessageBinary, []byte("sent on the new link\n")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(200 * time.Millisecond)
+	close(stdin.release)
+	waitFor(func() bool { return len(stdin.lines()) == 2 })
+	want := []string{"counted on the old link\n", "sent on the new link\n"}
+	if got := stdin.lines(); !slices.Equal(got, want) {
+		t.Fatalf("stdin got %q, want %q", got, want)
+	}
+	takeSession("order:"+token, digest("")).kill(sessionGone)
 }
