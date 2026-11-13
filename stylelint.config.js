@@ -1,9 +1,10 @@
 export default {
 	extends: ["stylelint-config-recommended"],
-	plugins: ["./stylelint/keyframes-compositor-only.js", "./stylelint/transition-no-layout.js"],
+	plugins: ["./stylelint/keyframes-compositor-only.js", "./stylelint/transition-no-layout.js", "./stylelint/no-side-stripe.js"],
 	rules: {
 		"pi-mobile/keyframes-compositor-only": true,
 		"pi-mobile/transition-no-layout": true,
+		"pi-mobile/no-side-stripe": true,
 		"declaration-no-important": true,
 		"selector-max-id": 0,
 		"selector-max-compound-selectors": 4,
