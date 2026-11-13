@@ -37,6 +37,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 
 Finishing the task is half the job; the other half is leaving the design better for the next change. Every contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles, so the repo's shape decides what gets copied.
 
+- Before designing a screen or a feature, write its core purpose first (what the user gets done, which steps it saves) and cut every element that does not serve it; the user shares references they like, and what was learned from each is in `docs/research/references.md`: read it first, and add to it.
 - Before adding to an existing design, ask: if this requirement had been there from day one, what would we build? Aim the change at that, delivered in small steps; do not bolt a special case onto the nearest function.
 - Check what you touch and what you add for these red flags, and remove the ones you add:
   - one task done two ways (a check in TS and again in each native plugin, two ways to open a screen);
