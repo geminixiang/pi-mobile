@@ -511,6 +511,9 @@ export function App() {
 							edit: () => {
 								if (current) setBotEdit({ kind: "edit", bot: current });
 							},
+							ask: (text) => {
+								if (controller) controller.send([{ type: "text", text }]).catch(fail);
+							},
 							memory: () => {
 								if (current) openMemory(current);
 							},

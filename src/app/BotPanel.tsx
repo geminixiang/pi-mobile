@@ -10,12 +10,12 @@ import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { ToolsetTiles } from "./ToolsetTiles.tsx";
 import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
+import { Abilities } from "./Abilities.tsx";
 import { HostRow, type LinkNode, LinksSection, PhoneSheet } from "./Links.tsx";
 import { ModelSheet } from "./ModelSheet.tsx";
 import { Container, Monitor, Smartphone } from "lucide-react";
@@ -27,6 +27,7 @@ type PanelModel = { provider: string; id: string; name: string; thinking: string
 interface PanelActions {
 	model: (change: ModelChange) => void;
 	edit: () => void;
+	ask: (text: string) => void;
 	memory: () => void;
 	compact: () => Promise<boolean>;
 	reset: () => void;
@@ -169,7 +170,6 @@ export function BotPanel({
 	const [compacting, setCompacting] = useState(false);
 	const [compacted, showCompacted] = useBriefly();
 	const [emptied, showEmptied] = useBriefly();
-	const [toolSheet, setToolSheet] = useState(false);
 	const [linkSheet, setLinkSheet] = useState<LinkNode>();
 	useEffect(() => {
 		if (!open) setProblem(undefined);
@@ -193,16 +193,13 @@ export function BotPanel({
 		};
 	}, [runtime, botId, open]);
 	if (!bot) return null;
-	const services = toolsets.filter((toolset) => toolset.kind === "service");
-	const builtins = toolsets.filter((toolset) => toolset.kind === "builtin");
-	const enabled = (list: ToolsetState[]) => list.filter((toolset) => toolset.available && toolset.enabled).length;
 
 	const toggle = (id: string, enabled: boolean) => {
 		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
 		runtime
 			.setToolset(bot.id, id, enabled)
 			.then(() => reload(bot.id))
-			.catch((error: unknown) => setProblem({ section: "工具", text: `工具設定失敗：${messageOf(error)}` }));
+			.catch((error: unknown) => setProblem({ section: "能做什麼", text: `設定失敗：${messageOf(error)}` }));
 	};
 
 	const run = (action: () => void) => () => {
@@ -238,6 +235,17 @@ export function BotPanel({
 					/>
 					{problem?.section === "連線" ? <span className="note error">{problem.text}</span> : null}
 				</LinksSection>
+
+				<Section title="能做什麼" problem={problem}>
+					<Abilities
+						toolsets={toolsets}
+						onToggle={toggle}
+						onAsk={(text) => {
+							onClose();
+							actions.ask(text);
+						}}
+					/>
+				</Section>
 
 				<Section title="上下文" problem={problem}>
 					<ContextCard runtime={runtime} botId={bot.id} open={open} view={view} context={context} compactAt={compactAt} />
@@ -275,16 +283,8 @@ export function BotPanel({
 							<span className="index-value">{memoryCount > 0 ? `${memoryCount} 條` : "還沒有"}</span>
 							<ChevronIcon />
 						</button>
-						<button type="button" onClick={() => setToolSheet(true)}>
-							<span className="menu-text">工具</span>
-							<span className="index-value">{[`${enabled(builtins)} 組`, enabled(services) > 0 ? `${enabled(services)} 個服務` : ""].filter(Boolean).join(" · ")}</span>
-							<ChevronIcon />
-						</button>
 					</div>
 				</Section>
-				<Sheet open={toolSheet} title="工具" onClose={() => setToolSheet(false)}>
-					<ToolsetTiles toolsets={toolsets} onToggle={toggle} />
-				</Sheet>
 
 				{actions.emptyFolder ? (
 					<button type="button" className="danger-verb" onClick={() => void actions.emptyFolder?.().then((done) => done && showEmptied("已清空"), failIn("其他"))}>
