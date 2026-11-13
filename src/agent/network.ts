@@ -6,6 +6,7 @@ import { log } from "../log.ts";
 import { native } from "../native.ts";
 import { System } from "../plugins/system.ts";
 import { orLogged } from "../promise.ts";
+import type { Reach } from "./reach.ts";
 
 export interface Network {
 	online(): boolean;
@@ -13,8 +14,11 @@ export interface Network {
 }
 
 const IDLE_MS = 60_000;
+const UNREACHED_TRIES = 4;
 const CONNECTION_LOST = "connection lost";
 const BROWSER_LOST_CONNECTION = ["Load failed", "Failed to fetch", "The network connection was lost."];
+// why: the words pi-ai's providers and the browser engines give a request that never reached the server (OpenAI and Anthropic SDKs: "Connection error.", Node: "fetch failed")
+const NEVER_REACHED = [...BROWSER_LOST_CONNECTION, "Connection error.", "fetch failed"];
 
 export function isConnectionLost(error: string | undefined): boolean {
 	return error?.startsWith(CONNECTION_LOST) ?? false;
@@ -84,44 +88,65 @@ export function untilOnline(network: Network, signal?: AbortSignal): Promise<voi
 type Streams = Pick<Provider, "stream" | "streamSimple">;
 type Start = (signal: AbortSignal) => AssistantMessageEventStream;
 
-function connected(network: Network, idleMs: number, start: Start, signal: AbortSignal | undefined): AssistantMessageEventStream {
+function connected(network: Network, reach: Reach, url: string, idleMs: number, start: Start, signal: AbortSignal | undefined): AssistantMessageEventStream {
 	const guarded = createAssistantMessageEventStream();
 	void (async () => {
-		await untilOnline(network, signal);
-		const cut = new AbortController();
-		let lost: string | undefined;
-		const lose = (why: string) => {
-			lost ??= `${CONNECTION_LOST}: ${why}`;
-			cut.abort();
-		};
-		const unwatch = network.onChange(() => {
-			if (!network.online()) lose("the network went away");
-		});
-		let heard = 0;
-		let idle: ReturnType<typeof setTimeout> | undefined;
-		const watchIdle = (wait: number) => {
-			idle = setTimeout(() => {
-				const quiet = Date.now() - heard;
-				if (quiet >= idleMs) return lose(`no data for ${idleMs / 1000} s`);
-				watchIdle(idleMs - quiet);
-			}, wait);
-		};
-		const inner = start(signal ? AbortSignal.any([signal, cut.signal]) : cut.signal);
-		try {
-			for await (const event of inner) {
-				if (event.type !== "start") {
-					if (idle === undefined) watchIdle(idleMs);
-					heard = Date.now();
-				}
-				guarded.push(lost && !signal?.aborted ? asLost(event, lost) : inPlainWords(event));
+		for (let misses = 1; ; misses++) {
+			await untilOnline(network, signal);
+			await reach.untilUp(signal);
+			const outcome = await attempt(guarded, network, idleMs, start, signal);
+			if (outcome.kind === "answered") break;
+			if (misses === UNREACHED_TRIES) {
+				guarded.push(outcome.event);
+				break;
 			}
-		} finally {
-			clearTimeout(idle);
-			unwatch();
+			reach.lost(url);
 		}
 		guarded.end();
 	})();
 	return guarded;
+}
+
+async function attempt(guarded: AssistantMessageEventStream, network: Network, idleMs: number, start: Start, signal: AbortSignal | undefined): Promise<{ kind: "answered" } | { kind: "unreached"; event: AssistantMessageEvent }> {
+	const cut = new AbortController();
+	let lost: string | undefined;
+	const lose = (why: string) => {
+		lost ??= `${CONNECTION_LOST}: ${why}`;
+		cut.abort();
+	};
+	const unwatch = network.onChange(() => {
+		if (!network.online()) lose("the network went away");
+	});
+	let heard = 0;
+	let idle: ReturnType<typeof setTimeout> | undefined;
+	const watchIdle = (wait: number) => {
+		idle = setTimeout(() => {
+			const quiet = Date.now() - heard;
+			if (quiet >= idleMs) return lose(`no data for ${idleMs / 1000} s`);
+			watchIdle(idleMs - quiet);
+		}, wait);
+	};
+	let pushed = false;
+	const inner = start(signal ? AbortSignal.any([signal, cut.signal]) : cut.signal);
+	try {
+		for await (const event of inner) {
+			if (!pushed && !lost && !signal?.aborted && unreached(event)) return { kind: "unreached", event };
+			pushed = true;
+			if (event.type !== "start") {
+				if (idle === undefined) watchIdle(idleMs);
+				heard = Date.now();
+			}
+			guarded.push(lost && !signal?.aborted ? asLost(event, lost) : inPlainWords(event));
+		}
+	} finally {
+		clearTimeout(idle);
+		unwatch();
+	}
+	return { kind: "answered" };
+}
+
+function unreached(event: AssistantMessageEvent): boolean {
+	return event.type === "error" && event.reason === "error" && NEVER_REACHED.includes(event.error.errorMessage ?? "");
 }
 
 function asLost(event: AssistantMessageEvent, why: string): AssistantMessageEvent {
@@ -135,11 +160,11 @@ function inPlainWords(event: AssistantMessageEvent): AssistantMessageEvent {
 	return BROWSER_LOST_CONNECTION.includes(words) ? asLost(event, `${CONNECTION_LOST}: ${words}`) : event;
 }
 
-export function waitingForNetwork(provider: Provider, network: Network, idleMs = IDLE_MS): Provider {
+export function waitingForNetwork(provider: Provider, network: Network, reach: Reach, idleMs = IDLE_MS): Provider {
 	const wrapped: Provider = Object.create(provider);
 	const streams: Streams = {
-		stream: (model: Model<Api>, context, options) => connected(network, idleMs, (signal) => provider.stream(model, context, { ...options, signal }), options?.signal),
-		streamSimple: (model: Model<Api>, context, options) => connected(network, idleMs, (signal) => provider.streamSimple(model, context, { ...options, signal }), options?.signal),
+		stream: (model: Model<Api>, context, options) => connected(network, reach, model.baseUrl, idleMs, (signal) => provider.stream(model, context, { ...options, signal }), options?.signal),
+		streamSimple: (model: Model<Api>, context, options) => connected(network, reach, model.baseUrl, idleMs, (signal) => provider.streamSimple(model, context, { ...options, signal }), options?.signal),
 	};
 	return Object.defineProperties(wrapped, { stream: { value: streams.stream }, streamSimple: { value: streams.streamSimple } });
 }

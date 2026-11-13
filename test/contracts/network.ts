@@ -6,6 +6,7 @@ import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import { MODEL_RETRY } from "../../src/agent/retry.ts";
 import { customProvider } from "../../src/agent/models.ts";
 import { type Network, waitingForNetwork } from "../../src/agent/network.ts";
+import { createReach, type Reach } from "../../src/agent/reach.ts";
 import { sleep } from "../../src/promise.ts";
 import type { Check } from "./setup.ts";
 
@@ -26,6 +27,18 @@ function switchable(online = false): Network & { set(online: boolean): void } {
 			for (const listener of listeners) listener();
 		},
 	};
+}
+
+function probing(network: Network, answers: () => boolean = () => true): Reach & { probes: number } {
+	const counted = { probes: 0 };
+	const reach = createReach("fake", async () => {
+		counted.probes += 1;
+		return answers();
+	}, network);
+	reach.onChange(() => {
+		if (reach.state().kind === "down") queueMicrotask(() => reach.check());
+	});
+	return Object.assign(reach, counted);
 }
 
 type Answer = (events: AssistantMessageEventStream, message: (stopReason: AssistantMessage["stopReason"]) => AssistantMessage, signal: AbortSignal | undefined) => void;
@@ -87,7 +100,7 @@ export const checks: Check[] = [
 		async () => {
 			const network = switchable();
 			const { provider, model, calls } = answering();
-			const answer = ask(waitingForNetwork(provider, network), model);
+			const answer = ask(waitingForNetwork(provider, network, probing(network)), model);
 			await sleep(300);
 			assert.equal(calls.length, 0, "the request went out with no network, and would fail and spend a retry");
 			network.set(true);
@@ -103,7 +116,7 @@ export const checks: Check[] = [
 			const network = switchable();
 			const { provider, model, calls } = answering();
 			const stop = new AbortController();
-			const answer = ask(waitingForNetwork(provider, network), model, stop.signal);
+			const answer = ask(waitingForNetwork(provider, network, probing(network)), model, stop.signal);
 			stop.abort();
 			await answer;
 			assert.deepEqual(calls, [{ aborted: true }]);
@@ -114,7 +127,7 @@ export const checks: Check[] = [
 		async () => {
 			const network = switchable(true);
 			const { provider, model, calls } = answering([stopsWhenCut, finished]);
-			const guarded = waitingForNetwork(provider, network, IDLE_MS);
+			const guarded = waitingForNetwork(provider, network, probing(network), IDLE_MS);
 			const result = await within(5000, "a silent stream was never cut, so the answer hangs forever", retryAssistantCall(() => ask(guarded, model), { ...MODEL_RETRY, baseDelayMs: 10 }, undefined));
 			assert.equal(calls.length, 2);
 			assert.equal(result.stopReason, "stop");
@@ -125,7 +138,7 @@ export const checks: Check[] = [
 		async () => {
 			const network = switchable(true);
 			const { provider, model } = answering([stopsWhenCut]);
-			const answer = ask(waitingForNetwork(provider, network, 60_000), model);
+			const answer = ask(waitingForNetwork(provider, network, probing(network), 60_000), model);
 			await sleep(20);
 			network.set(false);
 			const result = await within(1000, "the stream kept waiting on a network that is gone", answer);
@@ -134,11 +147,60 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a model the phone cannot reach is waited for, without spending a retry, and asked again once it answers",
+		async () => {
+			const network = switchable(true);
+			let reachable = false;
+			const reach = probing(network, () => reachable);
+			const { provider, model, calls } = answering([failsWith("Connection error."), finished]);
+			const answer = ask(waitingForNetwork(provider, network, reach, IDLE_MS), model);
+			await sleep(50);
+			assert.equal(reach.state().kind, "down", "a model it could not reach was not marked as unreachable");
+			assert.equal(calls.length, 1, "the request went out again while the model was still unreachable");
+			reachable = true;
+			reach.check();
+			const result = await within(1000, "the request never went out again after the model came back", answer);
+			assert.equal(calls.length, 2);
+			assert.equal(result.stopReason, "stop");
+			assert.equal(reach.state().kind, "up");
+		},
+	],
+	[
+		"a server that answers the probe but never the request ends with its error after a few tries, instead of asking forever",
+		async () => {
+			const network = switchable(true);
+			const { provider, model, calls } = answering(Array.from({ length: 10 }, () => failsWith("Connection error.")));
+			const result = await within(2000, "it kept asking a model that never answers", ask(waitingForNetwork(provider, network, probing(network), IDLE_MS), model));
+			assert.equal(result.stopReason, "error");
+			assert.equal(result.errorMessage, "Connection error.");
+			assert.equal(calls.length, 4);
+		},
+	],
+	[
+		"stopping a request that waits for its model hands it on at once, so it ends as stopped",
+		async () => {
+			const network = switchable(true);
+			const endsStopped: Answer = (events, message) => {
+				queueMicrotask(() => {
+					events.push({ type: "error", reason: "aborted", error: message("aborted") });
+					events.end();
+				});
+			};
+			const { provider, model } = answering([failsWith("Connection error."), endsStopped]);
+			const stop = new AbortController();
+			const answer = ask(waitingForNetwork(provider, network, probing(network, () => false), IDLE_MS), model, stop.signal);
+			await sleep(50);
+			stop.abort();
+			assert.equal((await within(1000, "a stopped request kept waiting for its model", answer)).stopReason, "aborted");
+		},
+	],
+	[
 		"a connection the browser engine reports as lost is retried, in WebKit's words and Chrome's",
 		async () => {
 			for (const words of ["Load failed", "Failed to fetch", "The network connection was lost."]) {
 				const { provider, model, calls } = answering([failsWith(words), finished]);
-				const guarded = waitingForNetwork(provider, switchable(true), IDLE_MS);
+				const online = switchable(true);
+				const guarded = waitingForNetwork(provider, online, probing(online), IDLE_MS);
 				const result = await retryAssistantCall(() => ask(guarded, model), { ...MODEL_RETRY, baseDelayMs: 10 }, undefined);
 				assert.equal(calls.length, 2, `"${words}" ended the turn instead of being retried`);
 				assert.equal(result.stopReason, "stop");
@@ -149,7 +211,8 @@ export const checks: Check[] = [
 		"an error that only resembles a lost connection keeps its words and is not retried",
 		async () => {
 			const { provider, model } = answering([failsWith("Load failed to parse the prompt")]);
-			const result = await ask(waitingForNetwork(provider, switchable(true), IDLE_MS), model);
+			const online = switchable(true);
+			const result = await ask(waitingForNetwork(provider, online, probing(online), IDLE_MS), model);
 			assert.equal(result.errorMessage, "Load failed to parse the prompt");
 			assert(!isRetryableAssistantError(result));
 		},
@@ -160,7 +223,7 @@ export const checks: Check[] = [
 			const network = switchable(true);
 			const { provider, model } = answering([stopsWhenCut]);
 			const stop = new AbortController();
-			const answer = ask(waitingForNetwork(provider, network, IDLE_MS), model, stop.signal);
+			const answer = ask(waitingForNetwork(provider, network, probing(network), IDLE_MS), model, stop.signal);
 			await sleep(20);
 			stop.abort();
 			network.set(false);
@@ -176,7 +239,7 @@ export const checks: Check[] = [
 				void sleep(IDLE_MS * 3).then(() => finished(events, message, undefined));
 			};
 			const { provider, model, calls } = answering([thinking]);
-			const result = await ask(waitingForNetwork(provider, network, IDLE_MS), model);
+			const result = await ask(waitingForNetwork(provider, network, probing(network), IDLE_MS), model);
 			assert.equal(calls.length, 1);
 			assert.equal(result.stopReason, "stop");
 		},

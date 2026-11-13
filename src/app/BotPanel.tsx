@@ -18,6 +18,7 @@ import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
 import { useBriefly } from "./briefly.ts";
 import { native } from "../native.ts";
+import { CLOCK } from "./clock.ts";
 
 interface PanelActions {
 	edit: () => void;
@@ -27,7 +28,6 @@ interface PanelActions {
 	emptyFolder?: () => Promise<boolean>;
 }
 
-const CLOCK = new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit" });
 
 function statusText(status: ConnectionStatus): { text: string; error: boolean } | undefined {
 	switch (status.kind) {

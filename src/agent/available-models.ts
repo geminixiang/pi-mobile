@@ -1,5 +1,6 @@
 import { createModels, type Models } from "@earendil-works/pi-ai";
 import { deviceNetwork, waitingForNetwork } from "./network.ts";
+import { modelReach } from "./reach.ts";
 import { Type } from "typebox";
 import { type Settings, saveProviderOAuth, usableProviders } from "../settings.ts";
 import { messageOf, orLogged } from "../promise.ts";
@@ -70,13 +71,13 @@ export async function loadModels(settings: Settings, modelIds: Promise<Record<st
 		if (config.kind === "custom") {
 			const ids = lists[config.id] ?? [];
 			const provider = customProvider(config, settings.providerKeys[config.id] ?? "", ids, catalog);
-			models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), deviceNetwork));
+			models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), deviceNetwork, modelReach(provider.id)));
 			for (const model of provider.getModels()) infos.push(describe(model, name, compactAt, inCatalog(catalog, model.id)));
 			return;
 		}
 		const provider = loaded[index];
 		if (!provider) return;
-		models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), deviceNetwork));
+		models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), deviceNetwork, modelReach(provider.id)));
 		for (const model of provider.getModels()) infos.push(describe(model, name, compactAt));
 	});
 	return { models, infos, webSearch: webSearchConfig(configs, settings.providerKeys, lists, infos) };

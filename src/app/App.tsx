@@ -46,6 +46,8 @@ import { clearDraft } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform } from "../agent/platform.ts";
+import { LinksSheet, ModelLine } from "./Links.tsx";
+import { modelReach } from "../agent/reach.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
 
@@ -57,7 +59,7 @@ const MAX_NOTICES = 3;
 const sharedKind = (files: readonly File[]): SharedKind =>
 	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
 
-type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
+type Overlay = "drawer" | "panel" | "model" | "links" | "settings" | "botMemory" | "workspace" | undefined;
 
 const SETTINGS_APPLY_MS = 800;
 
@@ -408,15 +410,15 @@ export function App() {
 					<button type="button" className="bar-avatar" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
 						{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
 					</button>
-					<button type="button" className="bar-what" onClick={() => setOverlay("model")} aria-label="模型與思考強度">
+					<button type="button" className="bar-what" onClick={() => setOverlay(modelReach(modelProvider).state().kind === "down" ? "links" : "model")} aria-label="模型與思考強度">
 						<span className="bar-title">
 							{current?.name ?? ""}
 							{busy ? <i className="bar-cursor" /> : null}
 						</span>
-						<span className="bar-model">
+						<ModelLine provider={modelProvider}>
 							{shortModelName(model?.name ?? modelId)}
 							{thinking && thinking !== "off" ? ` · 思考${thinkingLabel(thinking)}` : ""}
-						</span>
+						</ModelLine>
 						<svg className="bar-context" viewBox="0 0 22 22" aria-hidden="true">
 							<circle cx="11" cy="11" r="8.5" />
 							<circle className="used" cx="11" cy="11" r="8.5" pathLength={1} style={{ "--fill": contextPercent(used, contextWindow) / 100 }} />
@@ -551,6 +553,7 @@ export function App() {
 						onDismissNotices={dismissNotices}
 						onError={notify}
 						contextShare={contextWindow > 0 ? used / contextWindow : 0}
+						provider={modelProvider}
 					/>
 					</JobsContext.Provider>
 					</PageHostContext.Provider>
@@ -561,6 +564,8 @@ export function App() {
 				</div>
 				)}
 			</SideSwipe>
+
+			<LinksSheet open={overlay === "links"} onClose={close} provider={modelProvider} model={shortModelName(model?.name ?? modelId)} place={place} />
 
 			<ModelSheet
 				open={overlay === "model"}

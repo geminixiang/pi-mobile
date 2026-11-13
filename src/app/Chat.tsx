@@ -26,6 +26,7 @@ import { type Interaction, InteractionContext } from "../interaction/context.ts"
 import type { Forms } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import type { ResultCard } from "../interaction/results.ts";
+import { ReachNote, useReach } from "./Links.tsx";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
@@ -123,6 +124,7 @@ export function Chat({
 	onDismissNotices,
 	onError,
 	contextShare,
+	provider,
 }: {
 	controller: ConversationController;
 	forms: Forms;
@@ -138,6 +140,7 @@ export function Chat({
 	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
 	contextShare: number;
+	provider: string;
 }) {
 	const conversationId = String(controller.id);
 	const [draft, setDraft] = useState(() => [loadDraftText(conversationId), initialDraft].filter(Boolean).join("\n\n"));
@@ -238,6 +241,7 @@ export function Chat({
 	const empty = view !== undefined && !entries.some((entry) => entry.kind === "pi.user" || entry.kind === TRIGGER_ENTRY);
 	const lastEntry = entries.at(-1);
 	const retry = retrying(live?.generation);
+	const reach = useReach(provider);
 	const retried = useMemo(() => retriedAttempts(entries, retry), [entries, retry]);
 	const runs = useMemo(() => stepRuns(entries), [entries]);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
@@ -389,7 +393,8 @@ export function Chat({
 					</article>
 				) : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
-				{busy && !partial && !running ? <Working label="思考中" /> : null}
+				{busy && !partial && !running && reach.kind === "up" ? <Working label="思考中" /> : null}
+				<ReachNote provider={provider} busy={busy} />
 				{contextShare >= CONTEXT_NEARLY_FULL && !busy && !live?.compactions?.length ? (
 					<button type="button" className="note context-full" onClick={() => void controller.compact().catch(fail)}>
 						上下文 {Math.round(contextShare * 100)}% · <b>壓縮</b>

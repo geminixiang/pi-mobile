@@ -10,9 +10,9 @@ import { BotAvatar } from "./BotAvatar.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { type SidePage, SidePanel } from "./SidePanel.tsx";
 import { DAY, startOfToday } from "../time.ts";
+import { CLOCK } from "./clock.ts";
 
 const SHOWN_SYMBOLS = 3;
-const CLOCK = new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
 const MONTH_DAY = new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric" });
 
 const SYMBOL_NAMES: Record<TriggerSymbol, string> = {
