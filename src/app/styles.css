@@ -972,6 +972,9 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .step-elapsed { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .answer-actions { display: flex; align-items: center; gap: 4px; margin: -12px 0 0 -10px; }
 .answer-actions .note { margin-left: 10px; }
+.replies { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
+.replies button { padding: 8px 12px; border: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-small); line-height: 1.4; color: var(--accent); text-align: left; }
+.replies button::before { content: "↳ "; color: var(--faint); }
 .drawer-running { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); animation: blink 1s steps(1) infinite; }
 .manual > summary::-webkit-details-marker { display: none; }
 .manual > summary::before { content: "▸ "; color: var(--faint); }

@@ -10,6 +10,7 @@ import { check, oneOf, valueOrThrow } from "../parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { blocks, entryText, message } from "../agent/entries.ts";
 import { ASK_USER, AskArgs } from "../interaction/tool.ts";
+import { answerOf } from "../interaction/replies.ts";
 import type { Judge } from "../agent/judge.ts";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
 import { log } from "../log.ts";
@@ -508,7 +509,7 @@ export function finalWord(entries: readonly EntryRecord[]): FinalWord {
 	const question = asked?.type === "toolCall" ? check(AskArgs, asked.arguments, ASK_USER) : undefined;
 	if (question?.ok) return { headline: question.value.question, text: question.value.options.join("、"), asking: true };
 	const answer = entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
-	const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(entryText(answer)).split("\n") : [];
+	const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(answerOf(answer).text).split("\n") : [];
 	return { headline, text: detail.join("\n"), asking: false };
 }
 

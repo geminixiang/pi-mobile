@@ -27,6 +27,7 @@ import type { Forms } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import type { ResultCard } from "../interaction/results.ts";
 import { ReachNote, useReach } from "./Links.tsx";
+import { answerOf, withoutReplies } from "../interaction/replies.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
@@ -246,6 +247,8 @@ export function Chat({
 	const runs = useMemo(() => stepRuns(entries), [entries]);
 	const lastAnswer = lastEntry?.kind === "pi.assistant" && entryText(lastEntry).trim() && !isEmptyAnswer(lastEntry) ? lastEntry : undefined;
 	const waitsForAnswer = [...asked.values()].some((question) => question.state === "open");
+	const answer = lastAnswer && !busy ? answerOf(lastAnswer) : undefined;
+	const replies = answer && !waitsForAnswer && !draft.trim() ? answer.replies : [];
 	const emptyAnswer = !busy && !waitsForAnswer && lastEntry !== undefined && isEmptyAnswer(lastEntry);
 	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
 	const sizeWhenLeft = useRef(contentSize);
@@ -363,10 +366,21 @@ export function Chat({
 						/>
 					))}
 				</InteractionContext.Provider>
-				{lastAnswer && !busy ? (
+				{answer ? (
 					<div className="answer-actions">
-						<CopyButton text={entryText(lastAnswer)} />
+						<CopyButton text={answer.text} />
 					</div>
+				) : null}
+				{replies.length > 0 ? (
+					<ul className="replies">
+						{replies.map((reply) => (
+							<li key={reply}>
+								<button type="button" onClick={() => interaction.reply(reply)}>
+									{reply}
+								</button>
+							</li>
+						))}
+					</ul>
 				) : null}
 				{emptyAnswer ? (
 					<div className="answer-actions">
@@ -389,7 +403,7 @@ export function Chat({
 				{failureNote ? <p className="note error">{failureNote}</p> : null}
 				{partial ? (
 					<article className="answer" ref={followStream}>
-						<Content content={partial} prefs={prefs} calls={calls} streaming />
+						<Content content={withoutReplies(partial)} prefs={prefs} calls={calls} streaming />
 					</article>
 				) : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}
@@ -443,7 +457,7 @@ export function Chat({
 						onClick={async () => {
 							const entry = actionsFor;
 							setActionsFor(undefined);
-							if (entry) await copy(entryText(entry)).then(() => haptic("confirm"), fail);
+							if (entry) await copy(entry.kind === "pi.assistant" ? answerOf(entry).text : entryText(entry)).then(() => haptic("confirm"), fail);
 						}}
 					>
 						<CopyIcon size={18} />

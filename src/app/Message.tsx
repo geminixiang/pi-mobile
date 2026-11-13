@@ -19,6 +19,7 @@ import { formatBytes } from "../encoding.ts";
 import { isConnectionLost } from "../agent/network.ts";
 import { InteractionCard } from "../interaction/Interaction.tsx";
 import { isInteraction } from "../interaction/tool.ts";
+import { withoutReplies } from "../interaction/replies.ts";
 import { type Call, lastStep, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
 import { backgroundJobIn } from "../jobs/background.ts";
 import { clock, JobsContext, type RunningJob, useNow } from "../jobs/JobsContext.ts";
@@ -515,7 +516,7 @@ export const EntryView = memo(function EntryView({
 		const aborted = model.stopReason === "aborted";
 		return (
 			<article className={`answer${aborted ? " aborted" : ""}`}>
-				<Content content={blocks(model.content)} prefs={prefs} calls={calls} run={run} since={model.timestamp} />
+				<Content content={withoutReplies(blocks(model.content))} prefs={prefs} calls={calls} run={run} since={model.timestamp} />
 				{aborted ? <div className="note">已中斷</div> : null}
 				{model.errorMessage && !aborted ? <div className="note error">{model.errorMessage}</div> : null}
 			</article>

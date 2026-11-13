@@ -1,6 +1,7 @@
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { defineAppTool, text } from "../agent/tools/common.ts";
+import { repliesSection } from "./replies.ts";
 
 export const ASK_USER = "ask_user";
 
@@ -25,6 +26,6 @@ const askUser = defineAppTool({
 	execute: async () => ({ ...text("Shown to the user as a card with those buttons. If their next message answers it, go on; if it is about something else, reply to that in text and do not ask again in that reply."), control: { terminate: true } }),
 });
 
-export const InteractionExtension = defineExtension({ name: "interaction", tools: [askUser] });
+export const InteractionExtension = defineExtension({ name: "interaction", tools: [askUser], sections: [repliesSection] });
 
 export const isInteraction = (tool: string): boolean => InteractionExtension.tools?.some((registered) => registered.name === tool) ?? false;

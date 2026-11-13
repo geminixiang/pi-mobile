@@ -3,6 +3,8 @@ import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@ear
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { questionStates } from "../../src/interaction/answers.ts";
+import { answerOf, splitReplies, withoutReplies } from "../../src/interaction/replies.ts";
+import { finalWord } from "../../src/triggers/runs.ts";
 import { pageCards } from "../../src/interaction/pages.ts";
 import { addResult, type ResultCard } from "../../src/interaction/results.ts";
 import { openRuntime, turn } from "./fixtures.ts";
@@ -19,6 +21,40 @@ async function entriesOf(runtime: AgentRuntime, id: ConversationId): Promise<rea
 const ASK = { question: "要從哪件開始？", options: ["排課表", "申請延長"] };
 
 export const checks: Check[] = [
+	[
+		"an answer that ends in ↳ lines offers them as replies, and its text, copy and notification leave them out",
+		async () => {
+			const { runtime } = await openRuntime();
+			try {
+				const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+				let prompt = "";
+				await turn(runtime, bot, [
+					(context: TranscriptContext) => {
+						prompt = JSON.stringify(context);
+						return fauxAssistantMessage("草稿寫好了，在上面。\n\n↳ 改短一點\n↳ 語氣正式一點");
+					},
+				]);
+				assert.match(prompt, /starting with ↳/, "the model is told how to offer replies");
+				const entries = await entriesOf(runtime, bot);
+				const last = entries.findLast((entry) => entry.kind === "pi.assistant");
+				assert.ok(last);
+				assert.deepEqual(answerOf(last), { text: "草稿寫好了，在上面。", replies: ["改短一點", "語氣正式一點"] });
+				assert.deepEqual(finalWord(entries), { headline: "草稿寫好了，在上面。", text: "", asking: false });
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
+		"only the ↳ lines at the end are replies, at most two, and a block that held only them is dropped",
+		async () => {
+			assert.deepEqual(splitReplies("步驟：\n↳ 先開機\n然後登入"), { text: "步驟：\n↳ 先開機\n然後登入", replies: [] });
+			assert.deepEqual(splitReplies("好了\n↳ 一\n  ↳ 二  \n↳ 三\n"), { text: "好了", replies: ["一", "二"] });
+			assert.deepEqual(splitReplies("好了\n↳"), { text: "好了", replies: [] });
+			const content = withoutReplies([{ type: "text", text: "先查" }, { type: "toolCall", id: "1", name: "codemode", arguments: {} }, { type: "text", text: "↳ 再查一次" }]);
+			assert.deepEqual(content.map((block) => block.type), ["text", "toolCall"]);
+		},
+	],
 	[
 		"a bot asks with ask_user, the card stays open until the user's next message, which becomes its answer",
 		async () => {
