@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import { Phone } from "../../plugins/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
-import { defineAppTool, text } from "./common.ts";
+import { defineAppTool, getJson, text } from "./common.ts";
 import { weekdayOf } from "../../time.ts";
 import { parse } from "../../parse.ts";
 import { currentPlace, resolvePlace } from "./device.ts";
@@ -118,9 +118,7 @@ const weather = defineAppTool({
 			forecast_hours: String(hours),
 			forecast_days: String(days),
 		});
-		const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`, { signal: context.abortSignal });
-		if (!response.ok) throw new Error(`weather service: HTTP ${response.status} ${await response.text()}`);
-		const body = parse(Forecast, await response.json(), "weather forecast");
+		const body = parse(Forecast, await getJson(`https://api.open-meteo.com/v1/forecast?${query}`, "weather service", context.abortSignal), "weather forecast");
 		const c = body.current;
 		const now = {
 			time: c.time.replace("T", " "),

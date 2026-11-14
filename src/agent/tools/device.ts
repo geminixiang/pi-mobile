@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { oneOf, parse } from "../../parse.ts";
-import { defineAppTool, json } from "./common.ts";
+import { defineAppTool, getJson, json } from "./common.ts";
 import { native } from "../../native.ts";
 import { PhoneState } from "../../plugins/phone-state.ts";
 
@@ -115,9 +115,7 @@ const travelTime = defineAppTool({
 	execute: async (args, _api, context) => {
 		const [from, to] = await Promise.all([args.origin ? resolvePlace(args.origin) : currentPlace(), resolvePlace(args.destination)]);
 		const url = `https://routing.openstreetmap.de/${OSRM_PROFILES[args.mode]}/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=false`;
-		const response = await fetch(url, { signal: context.abortSignal });
-		if (!response.ok) throw new Error(`routing service: HTTP ${response.status}`);
-		const body = parse(OsrmResponse, await response.json(), "routing response");
+		const body = parse(OsrmResponse, await getJson(url, "routing service", context.abortSignal), "routing response");
 		const route = body.routes?.[0];
 		if (body.code !== "Ok" || !route) throw new Error(`no route found (${body.code})`);
 		return json({
