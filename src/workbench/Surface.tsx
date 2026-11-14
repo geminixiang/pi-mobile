@@ -2,12 +2,13 @@ import type { Element as HastElement, Root, RootContent } from "hast";
 import { type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Type } from "typebox";
-import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
+import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
 import { CodeLines, type Handed, handFile, handProblem, htmlPreviewIsolated, withCsp } from "../app/FileViewer.tsx";
 import { markdownComponents, remarkPlugins } from "../app/markdown.tsx";
 import { check } from "../parse.ts";
 import { messageOf } from "../promise.ts";
 import { BLOCKS, changed, linesOf, squeezed } from "./changes.ts";
+import { isHtml } from "../agent/mime.ts";
 
 export type Seen = { get: (path: string) => string | undefined; set: (path: string, text: string) => void };
 

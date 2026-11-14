@@ -3,6 +3,8 @@ import { Type } from "typebox";
 import { checkJson } from "../parse.ts";
 import { shellQuote } from "../agent/shell.ts";
 import { JOB_ID, JOBS, type Job, parseJob, readJob } from "../jobs/commands.ts";
+import { jobAgent } from "../jobs/background.ts";
+import { baseName } from "../agent/mime.ts";
 
 export type Status = "idle" | "working" | "needs_user" | "unknown";
 
@@ -83,6 +85,7 @@ const HcList = Type.Object({ terminals: Type.Array(HcTerminal) });
 const HcError = Type.Object({ error: Type.Object({ kind: Type.String(), message: Type.String(), hint: Type.Optional(Type.String()) }) });
 
 const STATUS: Record<string, Status> = { idle: "idle", done: "idle", failed: "idle", working: "working", blocked: "needs_user" };
+const statusOf = (raw: string | undefined): Status => (raw !== undefined && Object.hasOwn(STATUS, raw) ? STATUS[raw] : undefined) ?? "unknown";
 
 export function workers(output: string): Worker[] {
 	const sections = output
@@ -111,7 +114,7 @@ function herdrWorkers(session: string, line: string): Worker[] {
 		id: `herdr:${session}:${agent.pane_id}`,
 		name: agent.name ?? "",
 		agent: agent.agent,
-		status: STATUS[agent.agent_status] ?? "unknown",
+		status: statusOf(agent.agent_status),
 		cwd: agent.cwd,
 		title: agent.terminal_title_stripped ?? "",
 		doing: "",
@@ -121,7 +124,7 @@ function herdrWorkers(session: string, line: string): Worker[] {
 function hcStatus(terminal: { state: string; status?: string | { state: string } | null }): Status {
 	if (terminal.state !== "live") return "idle";
 	const status = typeof terminal.status === "string" ? terminal.status : terminal.status?.state;
-	return (status && STATUS[status]) || "unknown";
+	return statusOf(status || undefined);
 }
 
 function hcWorkers(json: string): Worker[] {
@@ -139,7 +142,7 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 	const status = checkJson(RexStatus, statusLine, "rex program_status");
 	const record = status.ok ? status.value.records[0] : undefined;
 	const foreground = process.ok ? process.value.foreground : null;
-	const program = foreground?.argv0?.split("/").at(-1) ?? foreground?.name ?? "";
+	const program = (foreground?.argv0 === undefined ? undefined : baseName(foreground.argv0)) ?? foreground?.name ?? "";
 	const agent = record?.app ?? (AGENTS.has(program) ? program : undefined);
 	if (!agent) return [];
 	const title = checkJson(RexTitle, titleLine, "rex title");
@@ -148,7 +151,7 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 			id: `rex:${session.slice(-SHORT)}:${block.slice(-SHORT)}`,
 			name: label,
 			agent,
-			status: record ? (STATUS[record.state] ?? "unknown") : "unknown",
+			status: statusOf(record?.state),
 			cwd: foreground?.cwd ?? "",
 			title: title.ok ? title.value.title : "",
 			doing: record?.msg ?? "",
@@ -158,7 +161,7 @@ function rexWorker(session: string, label: string, block: string, [processLine =
 
 function jobWorker(id: string, [command = "", cwd = "", ended = ""]: string[]): Worker {
 	const state = ended.trim() ? { status: "idle" as const, doing: ended.trim() } : { status: "working" as const, doing: "running" };
-	return { id: `job:${id}`, name: "", agent: "command", ...state, cwd: cwd.trim(), title: command.trim() };
+	return { id: jobAgent(id), name: "", agent: "command", ...state, cwd: cwd.trim(), title: command.trim() };
 }
 
 function jobEnding(job: Exclude<Job, { state: "running" | "missing" }>): string {
@@ -222,7 +225,7 @@ function backendOf(place: AgentPlace): Backend {
 				keys: (words) => `${FIND}; ${cli} agent send-keys ${pane} ${words} 2>&1`,
 				reading: (head, screen) => {
 					const got = checkJson(HerdrGet, head, "herdr agent get");
-					return got.ok ? { ok: true, status: STATUS[got.value.result.agent.agent_status] ?? "unknown", doing: "", screen } : { ok: false, problem: herdrProblem(head) ?? head };
+					return got.ok ? { ok: true, status: statusOf(got.value.result.agent.agent_status), doing: "", screen } : { ok: false, problem: herdrProblem(head) ?? head };
 				},
 				problem: (output) => herdrProblem(output.trim()),
 			};
@@ -237,7 +240,7 @@ function backendOf(place: AgentPlace): Backend {
 					const status = checkJson(RexStatus, head, "rex program_status");
 					if (!status.ok) return { ok: false, problem: head };
 					const record = status.value.records[0];
-					return { ok: true, status: record ? (STATUS[record.state] ?? "unknown") : "unknown", doing: record?.msg ?? "", screen };
+					return { ok: true, status: statusOf(record?.state), doing: record?.msg ?? "", screen };
 				},
 				problem: (output) => (output.trim() === "" ? undefined : output.trim()),
 			};
@@ -247,6 +250,10 @@ function backendOf(place: AgentPlace): Backend {
 
 export function readCommand(place: Place, lines: number): string {
 	return place.via === "job" ? `${readJob(place.id, lines)}\necho ${SCREEN}` : backendOf(place).read(lines);
+}
+
+export async function readingOf(commands: { run(command: string): Promise<{ stdout: string }> }, place: Place, lines: number): Promise<Reading> {
+	return reading(place, (await commands.run(readCommand(place, lines))).stdout);
 }
 
 export function sendCommand(place: AgentPlace, text: string): string {

@@ -8,6 +8,7 @@ import { Type } from "typebox";
 import { parse } from "../parse.ts";
 import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "./cleartext.ts";
 import { ios } from "../native.ts";
+import { baseName } from "./mime.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -63,7 +64,6 @@ const LEVELS: ThinkingLevelMap = {
 
 const ModelList = Type.Object({ data: Type.Optional(Type.Array(Type.Object({ id: Type.String() }))) });
 
-const baseName = (id: string) => id.slice(id.lastIndexOf("/") + 1);
 const isClaude = (id: string) => /^claude(?:-|$)/.test(baseName(id));
 const isCodexResponses = (id: string) => /^gpt-5\.6(?:-|$)|^gpt-6(?:\.\d+)?(?:-|$)/.test(baseName(id));
 

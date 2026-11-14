@@ -26,10 +26,11 @@ import type { ContextShape, ToolCost } from "./context-shape.ts";
 import { HostCommands } from "../computer/commands.ts";
 import { pairedHosts } from "../computer/pairing.ts";
 import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
+import { isJob, jobIdOf } from "../jobs/background.ts";
 
 const PEEK_LINES = 60;
 import { agentState } from "../computer-agents/tool.ts";
-import { placeOf, type Reading, readCommand, reading } from "../computer-agents/workers.ts";
+import { placeOf, type Reading, readingOf } from "../computer-agents/workers.ts";
 import { deleteAttachments } from "./attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "./bots.ts";
@@ -304,7 +305,7 @@ export class AgentRuntime {
 			}
 			await orLogged(runtime.#clearLeftFolders(), "bot.clear_left_folders_failed", undefined);
 			const watching = await orLogged(runtime.triggers.watching(), "jobs.resume_failed", []);
-			for (const { conversationId, agent } of watching) if (agent.startsWith("job:")) runtime.waitForJob(conversationId, agent);
+			for (const { conversationId, agent } of watching) if (isJob(agent)) runtime.waitForJob(conversationId, agent);
 		})();
 		return runtime;
 	}
@@ -474,7 +475,7 @@ export class AgentRuntime {
 
 	#jobOn(id: ConversationId, job: string): { commands: HostCommands; jobId: string } | undefined {
 		const place = this.workplaces.at(String(id));
-		const jobId = job.slice("job:".length);
+		const jobId = jobIdOf(job) ?? "";
 		return place?.kind === "computer" && JOB_ID.test(jobId) ? { commands: new HostCommands(place.host), jobId } : undefined;
 	}
 
@@ -482,7 +483,7 @@ export class AgentRuntime {
 		const place = this.workplaces.at(String(id));
 		const at = placeOf(agent);
 		if (place?.kind !== "computer" || !at) return { ok: false, problem: `${agent} is not on a computer` };
-		return reading(at, (await new HostCommands(place.host).run(readCommand(at, PEEK_LINES))).stdout);
+		return readingOf(new HostCommands(place.host), at, PEEK_LINES);
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {

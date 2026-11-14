@@ -10,6 +10,7 @@ import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { formatBytes } from "../encoding.ts";
+import { baseName } from "../agent/mime.ts";
 
 type WorkspaceTab = "files" | "git";
 type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;
@@ -121,7 +122,7 @@ function statusTone(change: Change): string {
 }
 
 function repoName(root: string, path: string): string {
-	return path === root ? (root.split("/").at(-1) ?? root) : path.slice(root.length + 1);
+	return path === root ? baseName(root) : path.slice(root.length + 1);
 }
 
 function GitPanel({ workspace, onDiff, reloadKey }: { workspace: Workspace; onDiff: (target: DiffTarget) => void; reloadKey: number }) {
@@ -220,7 +221,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 			<div className="screen">
 				<header className="bar">
 					<BackButton onClick={inFolder ? () => setStack((current) => current.slice(0, -1)) : onClose} />
-					<h1 className="bar-heading">{inFolder ? stack.at(-1)?.split("/").at(-1) : "工作區"}</h1>
+					<h1 className="bar-heading">{inFolder ? baseName(stack.at(-1) ?? "") : "工作區"}</h1>
 					<button type="button" className="icon-button" onClick={() => setReloadKey((key) => key + 1)} aria-label="重新整理" disabled={!workspace}>
 						<RefreshIcon />
 					</button>

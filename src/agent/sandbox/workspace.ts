@@ -1,7 +1,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type ExecutionEnv, type FileInfo, getOrThrow } from "@earendil-works/pi-durable/env";
 import { shellQuote } from "../shell.ts";
-import { extensionOf, mimeTypeOf } from "../mime.ts";
+import { isHtml, mimeTypeOf } from "../mime.ts";
 
 const gitIn = (repo: string) => `git -C ${shellQuote(repo)} -c core.quotePath=false`;
 
@@ -39,8 +39,6 @@ interface RepoStatus {
 	changes: Change[];
 	commits: Commit[];
 }
-
-export const isHtml = (path: string): boolean => /^html?$/.test(extensionOf(path));
 
 export class Workspace {
 	readonly #env: ExecutionEnv;

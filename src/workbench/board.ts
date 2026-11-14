@@ -5,9 +5,10 @@ import type { PendingForm } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import { ASK_USER } from "../interaction/tool.ts";
 import { type Item, itemTrigger } from "../items/items.ts";
-import { jobCommand, WAIT_MS } from "../jobs/background.ts";
+import { watchShown } from "../jobs/background.ts";
 import { type Trigger, triggerRun } from "../triggers/runs.ts";
 import { type Bench, FOLDER, fileKey } from "./bench.ts";
+import { baseName } from "../agent/mime.ts";
 
 export const GROUPS = ["need", "moving", "result"] as const;
 
@@ -116,8 +117,7 @@ function nextOf(sources: Sources): Board["next"] {
 
 function watchCard(trigger: Extract<Trigger, { kind: "watch" }>): Card {
 	const { agent } = trigger;
-	const job = agent.startsWith("job:");
-	return { key: `${AGENT}${agent}`, group: "moving", kind: "watch", agent, label: job ? jobCommand(trigger.name) : agent, since: job ? trigger.createdAt - WAIT_MS : trigger.createdAt };
+	return { key: `${AGENT}${agent}`, group: "moving", kind: "watch", agent, ...watchShown(trigger) };
 }
 
 type Result = { isError: boolean; text: string };
@@ -171,7 +171,7 @@ function filesOf(entries: readonly EntryRecord[], results: ReadonlyMap<string, R
 		const mine = writes.filter((write) => pathOf(write) === path);
 		const [before, last] = mine.slice(-2).map((write) => write.call);
 		const previous = before?.name === "write" && last?.name === "write" && typeof before.arguments.content === "string" ? before.arguments.content : undefined;
-		return { key: fileKey(path), group: "result", kind: "file", path, title: page?.title ?? nameOf(path), summary: page?.summary ?? "", version: mine.length, previous, living: mine.findLast((write) => write.by)?.by };
+		return { key: fileKey(path), group: "result", kind: "file", path, title: page?.title ?? baseName(path), summary: page?.summary ?? "", version: mine.length, previous, living: mine.findLast((write) => write.by)?.by };
 	});
 }
 
@@ -207,4 +207,3 @@ const afterOutput = (text: string): string => (text.includes(OUTPUT) ? text.slic
 
 export const hostOf = (url: string): string => (URL.canParse(url) ? new URL(url).hostname : url);
 
-export const nameOf = (path: string): string => path.split("/").at(-1) ?? path;

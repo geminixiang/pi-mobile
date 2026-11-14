@@ -163,6 +163,24 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 		only: TYPESCRIPT,
 	},
 	{
+		use: /["'`]job:/,
+		owners: ["src/jobs/background.ts"],
+		fix: "name a background job with jobAgent(id), test one with isJob(agent), read its id with jobIdOf(agent) (src/jobs/background.ts)",
+		only: TYPESCRIPT,
+	},
+	{
+		use: /split\("\/"\)\.(at\(-1\)|pop\(\))|lastIndexOf\("\/"\) \+ 1/,
+		owners: ["src/agent/mime.ts"],
+		fix: "take the last part of a path with baseName(path) from src/agent/mime.ts",
+		only: TYPESCRIPT,
+	},
+	{
+		use: /\\\.html\?\$/,
+		owners: ["src/agent/mime.ts"],
+		fix: "tell an HTML file with isHtml(path) from src/agent/mime.ts",
+		only: TYPESCRIPT,
+	},
+	{
 		use: /\bApp\.getState\(/,
 		owners: ["src/agent/tools/apps.ts", "src/keepAlive.ts"],
 		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",

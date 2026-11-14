@@ -25,6 +25,7 @@ import { withoutReplies } from "../interaction/replies.ts";
 import { type Call, lastStep, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
 import { backgroundJobIn } from "../jobs/background.ts";
 import { clock, JobsContext, type RunningJob, useNow } from "../jobs/JobsContext.ts";
+import { baseName } from "../agent/mime.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 
@@ -265,7 +266,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 				) : null}
 			</button>
 			{openFile && status !== "running" && firstOpenable ? (
-				<button type="button" className="step-open" onClick={() => openFile(firstOpenable)} aria-label={`開啟 ${firstOpenable.split("/").at(-1) ?? "檔案"}`}>
+				<button type="button" className="step-open" onClick={() => openFile(firstOpenable)} aria-label={`開啟 ${baseName(firstOpenable)}`}>
 					<FileIcon size={14} />
 				</button>
 			) : null}
@@ -380,7 +381,7 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 							return (
 								<span key={index} className="view-chip">
 									<FileIcon size={12} />
-									<span>{part ? `${viewed.split("/").at(-1)} · ${partLabel(part)}` : viewed.split("/").at(-1)}</span>
+									<span>{part ? `${baseName(viewed)} · ${partLabel(part)}` : baseName(viewed)}</span>
 								</span>
 							);
 						}

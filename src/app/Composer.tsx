@@ -28,6 +28,7 @@ import { BesideContext } from "../workbench/context.ts";
 import { inViewNote } from "../workbench/note.ts";
 import { RowList } from "./RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";
+import { baseName } from "../agent/mime.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
@@ -330,9 +331,9 @@ export function Composer({
 						onChange={attachPicked}
 					/>
 					{viewing ? (
-						<button type="button" className="view-chip" onClick={() => (part ? beside?.clearPart() : setDismissed(viewing))} aria-label={part ? "不指這一段" : `不附上 ${viewing.split("/").at(-1) ?? ""}`}>
+						<button type="button" className="view-chip" onClick={() => (part ? beside?.clearPart() : setDismissed(viewing))} aria-label={part ? "不指這一段" : `不附上 ${baseName(viewing) ?? ""}`}>
 							<FileIcon size={12} />
-							<span>{part ? partLabel(part) : viewing.split("/").at(-1)}</span>
+							<span>{part ? partLabel(part) : baseName(viewing)}</span>
 						</button>
 					) : null}
 					<textarea

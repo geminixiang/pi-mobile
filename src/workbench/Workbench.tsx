@@ -8,9 +8,11 @@ import { BotAvatar } from "../app/BotAvatar.tsx";
 import { CLOCK } from "../app/clock.ts";
 import { ChevronIcon } from "../app/icons.tsx";
 import { callLabel, doing } from "../app/Message.tsx";
-import { type Board, type Card, type Group, nameOf } from "./board.ts";
+import type { Board, Card, Group } from "./board.ts";
 import { Stage, type StageActions } from "./Stage.tsx";
 import type { Seen } from "./Surface.tsx";
+import { isJob } from "../jobs/background.ts";
+import { baseName, isHtml } from "../agent/mime.ts";
 
 const GROUP_LABEL: Record<Group, string> = { need: "需要你", moving: "進行中", result: "成果" };
 
@@ -19,7 +21,6 @@ type Look = "web" | "terminal" | "table" | "doc";
 const LOOK_ICON: Record<Look, LucideIcon> = { web: Globe, terminal: SquareTerminal, table: Table, doc: FileText };
 
 const TABLE_FILE = /\.(csv|tsv|xlsx?)$/i;
-const WEB_FILE = /\.html?$/i;
 
 type Face = { look: Look; lines: readonly string[]; name: string; meta: string; verb: boolean };
 
@@ -28,13 +29,13 @@ function faceOf(card: Card): Face {
 		case "form":
 			return { look: "doc", lines: [card.form.request.message], name: card.form.service, meta: card.form.confirm ?? "確認", verb: true };
 		case "ask":
-			return { look: "doc", lines: [card.question], name: card.draft ? nameOf(card.draft.path) : card.question, meta: card.options[0] ?? "回答", verb: true };
+			return { look: "doc", lines: [card.question], name: card.draft ? baseName(card.draft.path) : card.question, meta: card.options[0] ?? "回答", verb: true };
 		case "item":
 			return { look: "doc", lines: [card.item.title], name: card.item.title, meta: "處理", verb: true };
 		case "browser":
 			return { look: "web", lines: card.handover ? [card.handover] : [], name: "瀏覽器", meta: "接手", verb: card.handover !== undefined };
 		case "watch":
-			return { look: "terminal", lines: [card.label], name: card.agent.startsWith("job:") ? card.label : card.agent, meta: CLOCK.format(card.since), verb: false };
+			return { look: "terminal", lines: [card.label], name: isJob(card.agent) ? card.label : card.agent, meta: CLOCK.format(card.since), verb: false };
 		case "turn": {
 			const last = card.steps.at(-1)?.call;
 			return { look: "terminal", lines: card.steps.flatMap((step) => (step.call ? [callLabel(step.call.name, step.call.arguments)] : [])).slice(-3), name: last ? doing(last) : "使用工具", meta: "停止", verb: true };
@@ -42,7 +43,7 @@ function faceOf(card: Card): Face {
 		case "sources":
 			return { look: "web", lines: card.sources.map((source) => source.title).slice(0, 3), name: "來源", meta: `${card.sources.length} 個網頁`, verb: false };
 		case "file":
-			return { look: WEB_FILE.test(card.path) ? "web" : TABLE_FILE.test(card.path) ? "table" : "doc", lines: [card.title, card.summary].filter((line) => line && line !== nameOf(card.path)), name: nameOf(card.path), meta: card.living ? `看板 · ${card.living.schedule}` : card.title === nameOf(card.path) ? "" : card.title, verb: false };
+			return { look: isHtml(card.path) ? "web" : TABLE_FILE.test(card.path) ? "table" : "doc", lines: [card.title, card.summary].filter((line) => line && line !== baseName(card.path)), name: baseName(card.path), meta: card.living ? `看板 · ${card.living.schedule}` : card.title === baseName(card.path) ? "" : card.title, verb: false };
 	}
 }
 

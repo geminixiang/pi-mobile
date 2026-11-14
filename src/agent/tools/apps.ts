@@ -9,7 +9,7 @@ import { defineAppTool, text } from "./common.ts";
 import { parseClock } from "../../time.ts";
 import { oneOf } from "../../parse.ts";
 import { toBase64 } from "../../encoding.ts";
-import { mimeTypeOf } from "../mime.ts";
+import { baseName, mimeTypeOf } from "../mime.ts";
 
 const BACKGROUND = "pi is in the background, and the phone does not let it open other apps from there. Ask the user to open pi and try again.";
 
@@ -183,7 +183,7 @@ const share = defineAppTool({
 			const read = await api.env.readBinaryFile(absolute.value, context);
 			if (!read.ok) throw new Error(`cannot read ${args.path}: ${read.error.message}`);
 			if (read.value.byteLength > MAX_SHARE_BYTES) throw new Error(`file is larger than ${MAX_SHARE_BYTES / 1024 / 1024} MB`);
-			file = appFile(absolute.value.split("/").pop() || "file", read.value);
+			file = appFile(baseName(absolute.value) || "file", read.value);
 		}
 		await Apps.share({ text: args.text, title: args.title, ...file });
 		return text("Opened the share sheet. The user picks where it goes.");

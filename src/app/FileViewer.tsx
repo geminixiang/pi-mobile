@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
-import { type FileContent, isHtml, type Workspace } from "../agent/sandbox/workspace.ts";
+import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
 import { appFile } from "../agent/tools/apps.ts";
 import { Apps } from "../plugins/apps.ts";
 import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
@@ -10,6 +10,7 @@ import { codeOf, messageOf } from "../promise.ts";
 import { formatBytes } from "../encoding.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
+import { baseName, isHtml } from "../agent/mime.ts";
 
 const HTML_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:">`;
 
@@ -48,7 +49,7 @@ export function CodeLines({ text, marks }: { text: string; marks?: LineMarks }) 
 export type Handed = "open" | "share";
 
 export async function handFile(workspace: Workspace, path: string, how: Handed): Promise<void> {
-	const file = appFile(path.split("/").at(-1) ?? "", await workspace.bytes(path));
+	const file = appFile(baseName(path), await workspace.bytes(path));
 	if (how === "open") await Apps.openFile(file);
 	else await Apps.share({ title: file.fileName, ...file });
 }
@@ -63,7 +64,7 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [opening, setOpening] = useState(false);
 	const [sharing, setSharing] = useState(false);
-	const name = path.split("/").at(-1) ?? "";
+	const name = baseName(path);
 	const markdown = /\.(md|markdown)$/i.test(name);
 	const html = isHtml(name) && htmlPreviewIsolated();
 	const previewable = markdown || html;

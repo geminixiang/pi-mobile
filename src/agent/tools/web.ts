@@ -16,6 +16,7 @@ import { refuseCleartextSecret } from "../cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../models.ts";
 import { formatBytes, fromBase64 } from "../../encoding.ts";
 import { MINUTE } from "../../time.ts";
+import { baseName } from "../mime.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(
@@ -61,7 +62,7 @@ const contentTypeOf = (headers: Record<string, string>) => String(Object.entries
 async function readPdf(url: string, conversationId: string): Promise<(TextContent | ImageContent)[]> {
 	const response = await getBytes(url);
 	if (response.status >= 400 || typeof response.data !== "string") throw new Error(`HTTP ${response.status} ${response.url}`);
-	const name = decodeURIComponent(new URL(response.url || url).pathname.split("/").pop() || "page").replace(/\.pdf$/i, "") + ".pdf";
+	const name = decodeURIComponent(baseName(new URL(response.url || url).pathname) || "page").replace(/\.pdf$/i, "") + ".pdf";
 	const bytes = fromBase64(response.data);
 	const prepared = await prepareAttachment(new File([bytes], name, { type: "application/pdf" }), conversationId);
 	return [{ type: "text", text: `PDF ${response.url || url}` }, ...prepared.content];

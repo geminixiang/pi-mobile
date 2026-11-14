@@ -5,7 +5,7 @@ import { HostCommands } from "../computer/commands.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import { watch } from "../triggers/watch.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
-import { BACKGROUND, jobWatchName, WAIT_MS } from "./background.ts";
+import { BACKGROUND, jobAgent, jobWatchName, WAIT_MS } from "./background.ts";
 import { type Job, JOB_LIMIT_SECONDS, OUTPUT_BYTES, OUTPUT_LINES, parseJob, readJob, startJob, stopJob } from "./commands.ts";
 import { randomHex } from "../encoding.ts";
 import { sleep } from "../promise.ts";
@@ -51,18 +51,18 @@ export function jobsOnComputers(execute: Execute, workplace: (conversationId: st
 		if (job.output.text) api.output(job.output.text);
 		if (job.state !== "running") return ended(job, limitSeconds, api);
 		const watched = await watch(triggers, api, context, {
-			agent: `job:${id}`,
+			agent: jobAgent(id),
 			name: jobWatchName(args.label?.trim() || args.command),
-			prompt: `Your bash command ${JSON.stringify(args.command.slice(0, PROMPT_CHARS))} went on in the background as job:${id} and has now ended. Read how it ended with bash (tail -n 80 ${job.output.log}; the exit code is in ${job.output.log.slice(0, -"log".length)}exit), check the result, and tell the user the gist; they are waiting to hear.`,
+			prompt: `Your bash command ${JSON.stringify(args.command.slice(0, PROMPT_CHARS))} went on in the background as ${jobAgent(id)} and has now ended. Read how it ended with bash (tail -n 80 ${job.output.log}; the exit code is in ${job.output.log.slice(0, -"log".length)}exit), check the result, and tell the user the gist; they are waiting to hear.`,
 		});
-		if (watched) waitFor(api.conversationId, `job:${id}`);
+		if (watched) waitFor(api.conversationId, jobAgent(id));
 		const after = watched
 			? "Tell the user it is running, not that it is done: the phone wakes you here when it ends, so do not wait, poll, or schedule a follow-up for it."
 			: `Check on it later with bash: tail ${job.output.log}.`;
 		const note = `Still running after ${WAIT_MS / 1000} seconds, so it ${BACKGROUND}${id} (stopped after ${span(limitSeconds)} at most). ${after}`;
 		return {
 			output: [{ type: "text", text: [job.output.text.trimEnd(), note].filter(Boolean).join("\n\n") }],
-			structuredOutput: { output: api.retainedOutput().text, truncated: api.retainedOutput().truncated, exitCode: -1, job: `job:${id}`, running: true },
+			structuredOutput: { output: api.retainedOutput().text, truncated: api.retainedOutput().truncated, exitCode: -1, job: jobAgent(id), running: true },
 		};
 	};
 }

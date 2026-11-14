@@ -24,6 +24,7 @@ import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, randomHex, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
 import { HOUR } from "../../time.ts";
+import { baseName } from "../mime.ts";
 
 const TEMP_DIR = "/tmp";
 const MAX_TIMEOUT_MS = 2 * HOUR;
@@ -37,7 +38,6 @@ function relative(absolute: string): string {
 	const inTemp = path === TEMP_DIR || path.startsWith(`${TEMP_DIR}/`);
 	return inTemp ? `${TEMP_FOLDER}${path.slice(TEMP_DIR.length)}` : path.slice(1);
 }
-const nameOf = (absolute: string) => absolute.slice(absolute.lastIndexOf("/") + 1);
 
 function fileError(error: unknown, path?: string): FileError {
 	const code = codeOf(error);
@@ -53,7 +53,7 @@ async function attempt<T>(context: Context, path: string | undefined, run: () =>
 	}
 }
 
-const infoOf = (absolute: string, info: BotFileInfo): FileInfo => ({ name: nameOf(absolute), path: absolute, kind: info.kind, size: info.size, mtimeMs: info.mtimeMs });
+const infoOf = (absolute: string, info: BotFileInfo): FileInfo => ({ name: baseName(absolute), path: absolute, kind: info.kind, size: info.size, mtimeMs: info.mtimeMs });
 
 
 type At = { bot: string; path: string };

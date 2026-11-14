@@ -6,6 +6,7 @@ import { BesideContext } from "../workbench/context.ts";
 import { PageFrame, usePageHtml } from "./PageFrame.tsx";
 import type { Page } from "./pages.ts";
 import type { AlertResult, WeatherResult } from "./results.ts";
+import { baseName } from "../agent/mime.ts";
 
 const ICONS: readonly (readonly [string, LucideIcon])[] = [
 	["雷", CloudLightning],
@@ -95,7 +96,7 @@ function BesideCard({ page, inView }: { page: Page; inView: string | undefined }
 			<span className="beside-text">
 				<span className="page-title">{page.title}</span>
 				{page.summary ? <span className="beside-summary">{page.summary}</span> : null}
-				<span className="beside-file">{page.path.split("/").at(-1)}</span>
+				<span className="beside-file">{baseName(page.path)}</span>
 			</span>
 			<span className="beside-state">{here ? "在旁邊" : "打開"}</span>
 		</button>

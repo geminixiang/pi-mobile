@@ -11,6 +11,10 @@ export function extensionOf(path: string): string {
 	return /\.([^./]+)$/.exec(path)?.[1]?.toLowerCase() ?? "";
 }
 
+export const baseName = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+export const isHtml = (path: string): boolean => /^html?$/.test(extensionOf(path));
+
 export function mimeTypeOf(path: string): string | undefined {
 	return MIME_TYPES[extensionOf(path)];
 }

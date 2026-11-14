@@ -29,7 +29,7 @@ import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
-import { jobCommand, WAIT_MS } from "../jobs/background.ts";
+import { isJob, watchShown } from "../jobs/background.ts";
 import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView } from "./WorkspaceView.tsx";
 import { SidePanel } from "./SidePanel.tsx";
@@ -197,7 +197,7 @@ export function App() {
 		if (!runtime || !controller) return undefined;
 		const id = controller.id;
 		const running = automations.flatMap((item) =>
-			item.kind === "watch" && item.conversationId === id && item.agent.startsWith("job:") ? [{ job: item.agent, since: item.createdAt - WAIT_MS, label: jobCommand(item.name) }] : [],
+			item.kind === "watch" && item.conversationId === id && isJob(item.agent) ? [{ job: item.agent, ...watchShown(item) }] : [],
 		);
 		return { jobs: running, stop: (job) => runtime.stopJob(id, job), peek: (job) => runtime.peekJob(id, job) };
 	}, [automations, controller, runtime]);

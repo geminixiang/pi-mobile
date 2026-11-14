@@ -15,8 +15,10 @@ import { ItemActions } from "../items/ItemActions.tsx";
 import { due } from "../items/ItemSheet.tsx";
 import { clock, useNow } from "../jobs/JobsContext.ts";
 import { orLogged } from "../promise.ts";
-import { type Board, type Card, type Draft, hostOf, nameOf, type Source } from "./board.ts";
+import { type Board, type Card, type Draft, hostOf, type Source } from "./board.ts";
 import { type Seen, Surface } from "./Surface.tsx";
+import { isJob } from "../jobs/background.ts";
+import { baseName } from "../agent/mime.ts";
 
 const PEEK_EVERY_MS = 1500;
 const SHOT_EVERY_MS = 2000;
@@ -57,19 +59,19 @@ function labelOf(card: Card, queue: Board["queue"]): string {
 		case "form":
 			return `需要你 · ${card.form.service}${place}`;
 		case "ask":
-			return `需要你${card.draft ? ` · ${nameOf(card.draft.path)}` : ""}${place}`;
+			return `需要你${card.draft ? ` · ${baseName(card.draft.path)}` : ""}${place}`;
 		case "item":
 			return `需要你 · 待辦${place}`;
 		case "browser":
 			return card.handover === undefined ? "進行中 · 瀏覽器" : `需要你 · 瀏覽器${place}`;
 		case "watch":
-			return card.agent.startsWith("job:") ? "進行中 · 背景指令" : `進行中 · ${card.agent}`;
+			return isJob(card.agent) ? "進行中 · 背景指令" : `進行中 · ${card.agent}`;
 		case "turn":
 			return "進行中 · 這一輪";
 		case "sources":
 			return `來源 · ${card.sources.length}`;
 		case "file":
-			return card.living ? `看板 · ${card.living.schedule}${card.living.at === undefined ? "" : ` · ${CLOCK.format(card.living.at)} 更新`}` : `成果 · ${nameOf(card.path)}`;
+			return card.living ? `看板 · ${card.living.schedule}${card.living.at === undefined ? "" : ` · ${CLOCK.format(card.living.at)} 更新`}` : `成果 · ${baseName(card.path)}`;
 	}
 }
 
@@ -92,7 +94,7 @@ function titleOf(card: Card): string {
 		case "sources":
 			return "這一輪讀過的網頁";
 		case "file":
-			return card.title === nameOf(card.path) ? "" : card.title;
+			return card.title === baseName(card.path) ? "" : card.title;
 	}
 }
 
@@ -263,7 +265,7 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 			setStopping("failed");
 		}
 	};
-	const job = agent.startsWith("job:");
+	const job = isJob(agent);
 	const choices = screen.state === "read" && screen.waiting ? choicesOf(screen.text) : undefined;
 	return (
 		<>
