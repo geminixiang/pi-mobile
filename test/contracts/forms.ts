@@ -3,10 +3,10 @@ import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durab
 import { loadModels } from "../../src/agent/available-models.ts";
 import { Forms, type PendingForm, type Presence } from "../../src/interaction/forms.ts";
 import { context } from "./fixtures.ts";
-import { type Check, settings, settle } from "./setup.ts";
+import { type Check, platform, settings, settle } from "./setup.ts";
 
 async function fixture(presence: Partial<Presence>) {
-	const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}));
+	const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}), platform.settings);
 	const harness = await Harness.open(new MemoryStorage(), { models, registry: createRegistry() }, context);
 	const { id } = await harness.createConversation({ ownership: { kind: "ownerless" } }, context);
 	const { id: elsewhere } = await harness.createConversation({ ownership: { kind: "ownerless" } }, context);

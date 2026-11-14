@@ -19,7 +19,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { activeView } from "./active-view.ts";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import { changedKeys, type Settings, withRotated } from "../settings.ts";
+import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import type { ContextShape, ToolCost } from "./context-shape.ts";
@@ -179,7 +179,7 @@ export class AgentRuntime {
 	}
 
 	async apply(next: Settings): Promise<Applied> {
-		const changed = changedKeys(withRotated(this.#settings), next);
+		const changed = changedKeys(this.#platform.settings.withRotated(this.#settings), next);
 		if (changed.some((key) => APPLY[key] === "restart")) return "needs_restart";
 		this.#settings = next;
 		if (changed.some((key) => key === "hosts" || key === "hostKeys" || key === "computer")) {
@@ -219,7 +219,7 @@ export class AgentRuntime {
 		};
 		const shapes = new Map<string, ContextShape>();
 		const placed = new Map<string, Placed>();
-		const clouds = connectClouds(settings, platform.rotated);
+		const clouds = connectClouds(settings, platform.settings);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
 		const catalog = builtinExtensions({

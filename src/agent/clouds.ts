@@ -3,16 +3,15 @@ import { checkCloudflareCredential, CloudflareTokens } from "./cloudflare.ts";
 import { checkGcloudCredential, GcloudTokens } from "./gcloud.ts";
 import type { MintedService } from "./sandbox/container.ts";
 import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
-import type { Settings } from "../settings.ts";
-import type { RotatedCredentials } from "./platform.ts";
+import type { Settings, SettingsStore } from "../settings.ts";
 
-export function connectClouds(settings: Settings, rotated: RotatedCredentials): { minted: Record<string, MintedService>; services: CloudService[] } {
+export function connectClouds(settings: Settings, store: SettingsStore): { minted: Record<string, MintedService>; services: CloudService[] } {
 	const gcloudCredential = settings.gcloudCredential ? checkGcloudCredential(settings.gcloudCredential) : undefined;
 	const cloudflareCredential = settings.cloudflareCredential ? checkCloudflareCredential(settings.cloudflareCredential) : undefined;
 	const azureCredential = settings.azureCredential ? checkAzureCredential(settings.azureCredential) : undefined;
 	const gcloud = gcloudCredential?.ok ? new GcloudTokens(gcloudCredential.value) : undefined;
-	const cloudflare = cloudflareCredential?.ok ? new CloudflareTokens(cloudflareCredential.value, rotated.cloudflare) : undefined;
-	const azure = azureCredential?.ok ? new AzureTokens(azureCredential.value, rotated.azure) : undefined;
+	const cloudflare = cloudflareCredential?.ok ? new CloudflareTokens(cloudflareCredential.value, (json) => store.rotate({ kind: "cloudflare" }, json)) : undefined;
+	const azure = azureCredential?.ok ? new AzureTokens(azureCredential.value, (json) => store.rotate({ kind: "azure" }, json)) : undefined;
 	const project = settings.gcloudProject || gcloud?.project;
 	const minted: Record<string, MintedService> = {};
 	const services: CloudService[] = [];

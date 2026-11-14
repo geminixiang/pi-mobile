@@ -3,7 +3,7 @@ import { sleep } from "../../src/promise.ts";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
-import type { Settings } from "../../src/settings.ts";
+import { type Settings, SettingsStore } from "../../src/settings.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../../src/agent/calendar-access.ts";
 
 globalThis.fetch = async () => {
@@ -85,16 +85,18 @@ export const reports: { forgotten: string[] } = { forgotten: [] };
 export const faux = fauxProvider({ provider: "faux", models: [{ id: "model" }] });
 
 const plain = new Map<string, string>();
+const plainStorage: Platform["plain"] = {
+	get: (key) => plain.get(key) ?? null,
+	set: (key, value) => void plain.set(key, value),
+	remove: (key) => void plain.delete(key),
+};
+export const settingSecrets = new Map<string, string>();
 
 export const platform: Platform = {
 	inApp: true,
 	// why: the database section reads the real plugin, which Node does not have
 	native: { has: (plugin) => plugin !== "Database", implements: ({ plugin }) => plugin !== "Database" },
-	plain: {
-		get: (key) => plain.get(key) ?? null,
-		set: (key, value) => void plain.set(key, value),
-		remove: (key) => void plain.delete(key),
-	},
+	plain: plainStorage,
 	secrets: {
 		get: async () => undefined,
 		set: async () => undefined,
@@ -102,7 +104,14 @@ export const platform: Platform = {
 			await secrets.removeGate?.promise;
 		},
 	},
-	rotated: { cloudflare: async () => undefined, azure: async () => undefined },
+	settings: new SettingsStore({
+		plain: plainStorage,
+		secrets: {
+			get: async (key) => settingSecrets.get(key),
+			set: async (key, value) => void settingSecrets.set(key, value),
+			remove: async (key) => void settingSecrets.delete(key),
+		},
+	}),
 	mcpClient: () => new FakeMcpClient(),
 	mcpFetch: async (input, init) => {
 		const request = `${init?.method ?? "GET"} ${String(input)}`;

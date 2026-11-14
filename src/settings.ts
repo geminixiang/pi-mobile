@@ -1,7 +1,7 @@
-import { SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { type Static, Type } from "typebox";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
-import { readStored } from "./parse.ts";
+import { decode } from "./parse.ts";
+import type { Platform } from "./agent/platform.ts";
 import { log } from "./log.ts";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 import { messageOf } from "./promise.ts";
@@ -59,142 +59,141 @@ const PlainSettings = Type.Object({
 });
 type PlainSettings = Static<typeof PlainSettings>;
 
-function loadPlain(): PlainSettings {
-	return readStored(PlainSettings, PLAIN_KEY) ?? {};
-}
+export type SettingsStorage = Pick<Platform, "plain" | "secrets">;
 
-const storedSecretKeys = new Set<string>();
-const secretsAsLoaded = new Map<string, string>();
-const secretsRotatedSinceLoad = new Map<string, string>();
-const unreadableSecrets = new Set<string>();
+export type RotatingSecret = { kind: "provider"; id: string } | { kind: "cloudflare" } | { kind: "azure" };
 
-async function readSecret(key: string): Promise<string> {
-	secretsRotatedSinceLoad.delete(key);
-	if (!storedSecretKeys.has(key)) {
-		secretsAsLoaded.set(key, "");
-		return "";
+const rotatingKey = (secret: RotatingSecret) => (secret.kind === "provider" ? providerOAuthKey(secret.id) : secret.kind === "cloudflare" ? SECRET_CLOUDFLARE : SECRET_AZURE);
+
+export class SettingsStore {
+	readonly #storage: SettingsStorage;
+	readonly #asLoaded = new Map<string, string>();
+	readonly #rotations = new Map<string, { latest: string; replaced: ReadonlySet<string> }>();
+	readonly #unreadable = new Set<string>();
+
+	constructor(storage: SettingsStorage) {
+		this.#storage = storage;
 	}
-	const value = await SecureStorage.get(key).then(
-		(stored) => {
-			unreadableSecrets.delete(key);
-			return typeof stored === "string" ? stored : "";
-		},
-		(error: unknown) => {
-			unreadableSecrets.add(key);
-			log.warn("settings.secret_unreadable", { key, error: messageOf(error) });
-			return "";
-		},
-	);
-	secretsAsLoaded.set(key, value);
-	return value;
-}
 
-async function writeSecret(key: string, value: string): Promise<void> {
-	await SecureStorage.set(key, value);
-	storedSecretKeys.add(key);
-}
-
-async function removeSecret(key: string): Promise<void> {
-	if (!storedSecretKeys.has(key)) return;
-	await SecureStorage.remove(key);
-	storedSecretKeys.delete(key);
-}
-
-function keepRotated(key: string, value: string): string {
-	const rotated = secretsRotatedSinceLoad.get(key);
-	return rotated !== undefined && value === secretsAsLoaded.get(key) ? rotated : value;
-}
-
-async function saveRotatingSecret(key: string, value: string): Promise<void> {
-	await writeSecret(key, value);
-	secretsRotatedSinceLoad.set(key, value);
-}
-
-export async function loadSettings(): Promise<Settings> {
-	const plain = loadPlain();
-	storedSecretKeys.clear();
-	for (const key of await SecureStorage.keys()) storedSecretKeys.add(key);
-	const providers = parseProviders(plain.providers);
-	const hosts = parseHosts(plain.hosts);
-	const [hostKeys, keys, oauth, githubToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
-		Promise.all(hosts.map(async (host) => [host.id, await readSecret(hostKey(host.id))] as const)),
-		Promise.all(providers.map(async (provider) => [provider.id, await readSecret(providerKey(provider.id))] as const)),
-		Promise.all(providers.map(async (provider) => [provider.id, await readSecret(providerOAuthKey(provider.id))] as const)),
-		...[SECRET_GITHUB_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(readSecret),
-	]);
-	return {
-		providers,
-		providerKeys: Object.fromEntries(keys),
-		providerOAuth: Object.fromEntries(oauth.filter(([, json]) => json)),
-		defaultProvider: plain.defaultProvider || providers[0]?.id || "",
-		githubToken,
-		gcloudCredential,
-		gcloudProject: plain.gcloudProject ?? "",
-		cloudflareCredential,
-		azureCredential,
-		defaultModelId: plain.defaultModelId ?? DEFAULT_MODEL_ID,
-		defaultThinking: plain.defaultThinking ?? "low",
-		calendarAccess: parseCalendarAccess(plain.calendarAccess),
-		hosts,
-		hostKeys: Object.fromEntries(hostKeys.filter(([, key]) => key)),
-		computer: plain.computer ?? "",
-		compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT_TOKENS,
-		searchEngine: plain.searchEngine === "google" ? "google" : "duckduckgo",
-	};
-}
-
-export function withRotated(settings: Settings): Settings {
-	return {
-		...settings,
-		providerOAuth: Object.fromEntries(Object.entries(settings.providerOAuth).map(([id, json]) => [id, keepRotated(providerOAuthKey(id), json)])),
-		cloudflareCredential: keepRotated(SECRET_CLOUDFLARE, settings.cloudflareCredential),
-		azureCredential: keepRotated(SECRET_AZURE, settings.azureCredential),
-	};
-}
-
-export async function saveSettings(edited: Settings): Promise<Settings> {
-	const settings = withRotated(edited);
-	const previous = loadPlain();
-	const before = parseProviders(previous.providers);
-	const { providers, hosts } = settings;
-	const plain: PlainSettings = {
-		providers: JSON.stringify(providers),
-		defaultProvider: settings.defaultProvider,
-		gcloudProject: settings.gcloudProject,
-		defaultModelId: settings.defaultModelId,
-		defaultThinking: settings.defaultThinking,
-		calendarAccess: JSON.stringify(settings.calendarAccess),
-		hosts: JSON.stringify(hosts),
-		computer: settings.computer,
-		compactAt: settings.compactAt,
-		searchEngine: settings.searchEngine,
-	};
-	localStorage.setItem(PLAIN_KEY, JSON.stringify(plain));
-	for (const provider of providers) {
-		await saveSecret(providerKey(provider.id), settings.providerKeys[provider.id] ?? "");
-		await saveSecret(providerOAuthKey(provider.id), settings.providerOAuth[provider.id] ?? "");
+	async load(): Promise<Settings> {
+		const plain = this.#plain();
+		const providers = parseProviders(plain.providers);
+		const hosts = parseHosts(plain.hosts);
+		const read = (key: string) => this.#read(key);
+		const [hostKeys, keys, oauth, githubToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+			Promise.all(hosts.map(async (host) => [host.id, await read(hostKey(host.id))] as const)),
+			Promise.all(providers.map(async (provider) => [provider.id, await read(providerKey(provider.id))] as const)),
+			Promise.all(providers.map(async (provider) => [provider.id, await read(providerOAuthKey(provider.id))] as const)),
+			...[SECRET_GITHUB_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(read),
+		]);
+		return {
+			providers,
+			providerKeys: Object.fromEntries(keys),
+			providerOAuth: Object.fromEntries(oauth.filter(([, json]) => json)),
+			defaultProvider: plain.defaultProvider || providers[0]?.id || "",
+			githubToken,
+			gcloudCredential,
+			gcloudProject: plain.gcloudProject ?? "",
+			cloudflareCredential,
+			azureCredential,
+			defaultModelId: plain.defaultModelId ?? DEFAULT_MODEL_ID,
+			defaultThinking: plain.defaultThinking ?? "low",
+			calendarAccess: parseCalendarAccess(plain.calendarAccess),
+			hosts,
+			hostKeys: Object.fromEntries(hostKeys.filter(([, key]) => key)),
+			computer: plain.computer ?? "",
+			compactAt: plain.compactAt ?? DEFAULT_COMPACT_AT_TOKENS,
+			searchEngine: plain.searchEngine === "google" ? "google" : "duckduckgo",
+		};
 	}
-	for (const provider of before.filter((old) => !providers.some((kept) => kept.id === old.id))) {
-		await removeSecret(providerKey(provider.id));
-		await removeSecret(providerOAuthKey(provider.id));
-	}
-	for (const host of hosts) await saveSecret(hostKey(host.id), settings.hostKeys[host.id] ?? "");
-	for (const host of parseHosts(previous.hosts).filter((old) => !hosts.some((kept) => kept.id === old.id))) await removeSecret(hostKey(host.id));
-	await saveSecret(SECRET_GITHUB_TOKEN, settings.githubToken);
-	await saveSecret(SECRET_GCLOUD, settings.gcloudCredential);
-	await saveSecret(SECRET_CLOUDFLARE, settings.cloudflareCredential);
-	await saveSecret(SECRET_AZURE, settings.azureCredential);
-	return settings;
-}
 
-async function saveSecret(key: string, value: string): Promise<void> {
-	const wouldEraseUnreadSecret = !value && unreadableSecrets.has(key);
-	if (wouldEraseUnreadSecret || value === secretsAsLoaded.get(key)) return;
-	unreadableSecrets.delete(key);
-	if (value) await writeSecret(key, value);
-	else await removeSecret(key);
-	secretsAsLoaded.set(key, value);
-	secretsRotatedSinceLoad.delete(key);
+	withRotated(settings: Settings): Settings {
+		return {
+			...settings,
+			providerOAuth: Object.fromEntries(Object.entries(settings.providerOAuth).map(([id, json]) => [id, this.#keepRotated(providerOAuthKey(id), json)])),
+			cloudflareCredential: this.#keepRotated(SECRET_CLOUDFLARE, settings.cloudflareCredential),
+			azureCredential: this.#keepRotated(SECRET_AZURE, settings.azureCredential),
+		};
+	}
+
+	async save(edited: Settings): Promise<Settings> {
+		const settings = this.withRotated(edited);
+		const previous = this.#plain();
+		const before = parseProviders(previous.providers);
+		const { providers, hosts } = settings;
+		const plain: PlainSettings = {
+			providers: JSON.stringify(providers),
+			defaultProvider: settings.defaultProvider,
+			gcloudProject: settings.gcloudProject,
+			defaultModelId: settings.defaultModelId,
+			defaultThinking: settings.defaultThinking,
+			calendarAccess: JSON.stringify(settings.calendarAccess),
+			hosts: JSON.stringify(hosts),
+			computer: settings.computer,
+			compactAt: settings.compactAt,
+			searchEngine: settings.searchEngine,
+		};
+		this.#storage.plain.set(PLAIN_KEY, JSON.stringify(plain));
+		for (const provider of providers) {
+			await this.#save(providerKey(provider.id), settings.providerKeys[provider.id] ?? "");
+			await this.#save(providerOAuthKey(provider.id), settings.providerOAuth[provider.id] ?? "");
+		}
+		for (const provider of before.filter((old) => !providers.some((kept) => kept.id === old.id))) {
+			await this.#storage.secrets.remove(providerKey(provider.id));
+			await this.#storage.secrets.remove(providerOAuthKey(provider.id));
+		}
+		for (const host of hosts) await this.#save(hostKey(host.id), settings.hostKeys[host.id] ?? "");
+		for (const host of parseHosts(previous.hosts).filter((old) => !hosts.some((kept) => kept.id === old.id))) await this.#storage.secrets.remove(hostKey(host.id));
+		await this.#save(SECRET_GITHUB_TOKEN, settings.githubToken);
+		await this.#save(SECRET_GCLOUD, settings.gcloudCredential);
+		await this.#save(SECRET_CLOUDFLARE, settings.cloudflareCredential);
+		await this.#save(SECRET_AZURE, settings.azureCredential);
+		return settings;
+	}
+
+	async rotate(secret: RotatingSecret, json: string): Promise<void> {
+		const key = rotatingKey(secret);
+		await this.#storage.secrets.set(key, json);
+		const before = this.#rotations.get(key);
+		const replaced = [...(before?.replaced ?? []), before?.latest ?? this.#asLoaded.get(key) ?? ""].filter((value) => value !== "");
+		this.#rotations.set(key, { latest: json, replaced: new Set(replaced) });
+	}
+
+	#plain(): PlainSettings {
+		return decode(PlainSettings, this.#storage.plain.get(PLAIN_KEY)) ?? {};
+	}
+
+	async #read(key: string): Promise<string> {
+		this.#rotations.delete(key);
+		const value = await this.#storage.secrets.get(key).then(
+			(stored) => {
+				this.#unreadable.delete(key);
+				return stored ?? "";
+			},
+			(error: unknown) => {
+				this.#unreadable.add(key);
+				log.warn("settings.secret_unreadable", { key, error: messageOf(error) });
+				return "";
+			},
+		);
+		this.#asLoaded.set(key, value);
+		return value;
+	}
+
+	#keepRotated(key: string, value: string): string {
+		const rotation = this.#rotations.get(key);
+		return rotation?.replaced.has(value) ? rotation.latest : value;
+	}
+
+	async #save(key: string, value: string): Promise<void> {
+		const wouldEraseUnreadSecret = !value && this.#unreadable.has(key);
+		if (wouldEraseUnreadSecret || value === this.#asLoaded.get(key)) return;
+		this.#unreadable.delete(key);
+		if (value) await this.#storage.secrets.set(key, value);
+		else await this.#storage.secrets.remove(key);
+		this.#asLoaded.set(key, value);
+		if (this.#rotations.get(key)?.latest !== value) this.#rotations.delete(key);
+	}
 }
 
 export function changedKeys<T extends object>(before: T, after: T): (keyof T)[] {
@@ -215,10 +214,6 @@ export function usableProviders(settings: Pick<Settings, "providers" | "provider
 	return settings.providers.filter((provider) => providerReady(provider, settings.providerKeys[provider.id] ?? "", settings.providerOAuth[provider.id] ?? ""));
 }
 
-export async function saveProviderOAuth(id: string, json: string): Promise<void> {
-	await saveRotatingSecret(providerOAuthKey(id), json);
-}
-
 export function signedInWithChatGPT(settings: Settings, credential: string): Settings {
 	const openai: ProviderConfig = { kind: "builtin", id: "openai" };
 	return { ...settings, providers: [openai], providerOAuth: { ...settings.providerOAuth, openai: credential }, defaultProvider: openai.id };
@@ -226,12 +221,4 @@ export function signedInWithChatGPT(settings: Settings, credential: string): Set
 
 export function isConfigured(settings: Settings): boolean {
 	return usableProviders(settings).length > 0;
-}
-
-export async function saveCloudflareCredential(json: string): Promise<void> {
-	await saveRotatingSecret(SECRET_CLOUDFLARE, json);
-}
-
-export async function saveAzureCredential(json: string): Promise<void> {
-	await saveRotatingSecret(SECRET_AZURE, json);
 }

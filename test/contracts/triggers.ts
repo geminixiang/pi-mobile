@@ -11,7 +11,7 @@ import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
 import { DAY, localDate } from "../../src/time.ts";
 import { context, entriesOf } from "./fixtures.ts";
-import { type Check, logged, settings } from "./setup.ts";
+import { type Check, logged, platform, settings } from "./setup.ts";
 
 
 async function triggerFixture(
@@ -19,7 +19,7 @@ async function triggerFixture(
 	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState; item?: { state: "todo" | "done" | "waiting"; nextAt?: number } } = {},
 ) {
 	const storage = new MemoryStorage();
-	const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}));
+	const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}), platform.settings);
 	const harness = await Harness.open(storage, { models, registry: createRegistry() }, context);
 	const conversation = await harness.createConversation({ ownership: { kind: "ownerless" } }, context);
 	await harness.commit(async (tx) => {
@@ -415,7 +415,7 @@ export const checks: Check[] = [
 	[
 		"schedules stored by version 1 read back with their state and last run as unions",
 		async () => {
-			const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}));
+			const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}), platform.settings);
 			const V1 = defineDoc<{ items: JsonObject[]; runs: JsonObject[] }>({ kind: "app.triggers", version: 1, scope: "session", initial: () => ({ items: [], runs: [] }), checkpointWhen: checkpointEvery64 });
 			const item = (id: string, fields: JsonObject): JsonObject => ({ id, name: id, prompt: "p", when: { kind: "unlock", days: [], gapHours: 4 }, kind: "schedule", conversationId: 1, createdAt: 0, enabled: true, ...fields });
 			const harness = await Harness.open(new MemoryStorage(), { models, registry: createRegistry() }, context);

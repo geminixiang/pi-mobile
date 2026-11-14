@@ -14,6 +14,30 @@ function thinkingOf(state: unknown): unknown {
 
 export const checks: Check[] = [
 	[
+		"a sign-in token that rotated after load, once or again, does not make an in-place save restart the runtime, and signing out still does",
+		async () => {
+			await platform.settings.save({ ...settings, cloudflareCredential: '{"refresh":"first"}' });
+			const loaded = await platform.settings.load();
+			const { runtime } = await openRuntime(undefined, loaded);
+			try {
+				await platform.settings.rotate({ kind: "cloudflare" }, '{"refresh":"second"}');
+				const saved = await platform.settings.save({ ...loaded, compactAt: loaded.compactAt + 1 });
+				assert.equal(saved.cloudflareCredential, '{"refresh":"second"}');
+				assert.equal(await runtime.apply(saved), "in_place");
+				await platform.settings.rotate({ kind: "cloudflare" }, '{"refresh":"third"}');
+				const again = await platform.settings.save({ ...saved, compactAt: saved.compactAt + 1 });
+				assert.equal(again.cloudflareCredential, '{"refresh":"third"}');
+				assert.equal(await runtime.apply(again), "in_place");
+				const signedOut = await platform.settings.save({ ...again, cloudflareCredential: "" });
+				assert.equal(signedOut.cloudflareCredential, "");
+				assert.equal(await runtime.apply(signedOut), "needs_restart");
+			} finally {
+				await runtime.close();
+				await platform.settings.save({ ...loaded, cloudflareCredential: "" });
+			}
+		},
+	],
+	[
 		"a setting the runtime reads as it goes applies in place, with a turn still running",
 		async () => {
 			const { runtime } = await openRuntime();

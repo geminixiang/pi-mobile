@@ -3,7 +3,7 @@ import { deviceNetwork, waitingForNetwork } from "./network.ts";
 import { modelReach } from "./reach.ts";
 import { modelTraffic } from "./traffic.ts";
 import { Type } from "typebox";
-import { type Settings, saveProviderOAuth, usableProviders } from "../settings.ts";
+import { type Settings, type SettingsStore, usableProviders } from "../settings.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
@@ -40,7 +40,7 @@ export function startModelList(settings: Settings): Promise<Record<string, strin
 
 export type LoadedModels = { models: Models; infos: ModelInfo[]; webSearch: WebConfig };
 
-export async function loadModels(settings: Settings, compactAt: () => number, modelIds: Promise<Record<string, string[]>>, onReport?: (message: string) => void): Promise<LoadedModels> {
+export async function loadModels(settings: Settings, compactAt: () => number, modelIds: Promise<Record<string, string[]>>, store: SettingsStore, onReport?: (message: string) => void): Promise<LoadedModels> {
 	const configs = usableProviders(settings);
 	const [lists, loaded, catalog] = await Promise.all([
 		modelIds.catch((error: unknown): Record<string, string[]> => {
@@ -62,7 +62,7 @@ export async function loadModels(settings: Settings, compactAt: () => number, mo
 	const credentials = memoryCredentials(
 		Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])),
 		settings.providerOAuth,
-		(id, json) => void orLogged(saveProviderOAuth(id, json), "provider.oauth_save_failed", undefined, { id }),
+		(id, json) => void orLogged(store.rotate({ kind: "provider", id }, json), "provider.oauth_save_failed", undefined, { id }),
 	);
 	const models = createModels({ credentials });
 	const infos: ModelInfo[] = [];

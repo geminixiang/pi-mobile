@@ -4,7 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, us
 import { avatarOf, type Bot } from "../agent/bots.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
-import { isConfigured, loadSettings, type Settings, saveSettings } from "../settings.ts";
+import { isConfigured, type Settings, SettingsStore } from "../settings.ts";
 import { openAppStorage } from "./storage.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
@@ -56,7 +56,7 @@ import { clearDraft } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { startModelList } from "../agent/available-models.ts";
 import { windowFor } from "../agent/models.ts";
-import { capacitorPlatform } from "../agent/platform.ts";
+import { capacitorPlatform, capacitorStorage } from "../agent/platform.ts";
 import { ModelLine } from "./Links.tsx";
 import { RowList } from "./RowList.tsx";
 import { modelReach } from "../agent/reach.ts";
@@ -74,6 +74,8 @@ const sharedKind = (files: readonly File[]): SharedKind =>
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
 const SETTINGS_APPLY_MS = 800;
+
+const settingsStore = new SettingsStore(capacitorStorage);
 
 export function App() {
 	const [settings, setSettings] = useState<Settings>();
@@ -148,7 +150,7 @@ export function App() {
 					await sweepBotData(async () => []);
 					localStorage.removeItem(LAST_BOT_KEY);
 				}
-				const opened = await AgentRuntime.open(storage, next, capacitorPlatform(modelIds), {
+				const opened = await AgentRuntime.open(storage, next, capacitorPlatform(modelIds, settingsStore), {
 					onReport: notify,
 					openUrl: (url) => System.openExternal({ url }),
 					notify: async (title, text, conversationId, bot) => {
@@ -182,7 +184,7 @@ export function App() {
 	);
 
 	useEffect(() => {
-		void loadSettings().then((loaded) => {
+		void settingsStore.load().then((loaded) => {
 			setSettings(loaded);
 			if (isConfigured(loaded)) void start(loaded);
 		});
@@ -387,7 +389,7 @@ export function App() {
 		await start(next);
 	};
 	const saveAndRestart = async (edited: Settings) => {
-		const next = await saveSettings(edited);
+		const next = await settingsStore.save(edited);
 		setSettings(next);
 		if (!isConfigured(next)) return;
 		setOverlay(undefined);
@@ -398,7 +400,7 @@ export function App() {
 		draft.changed = false;
 		applying.current = applying.current
 			.then(async () => {
-				const next = await saveSettings(draft.settings);
+				const next = await settingsStore.save(draft.settings);
 				setSettings(next);
 				await applySettings(next, false);
 			})
