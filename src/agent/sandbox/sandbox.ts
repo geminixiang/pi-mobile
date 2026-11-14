@@ -5,7 +5,7 @@ import { appSection } from "../section.ts";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { botsIn } from "../bots.ts";
-import { type DaemonArch, type DaemonOs, OS_NAMES } from "./daemon.ts";
+import { type DaemonArch, type DaemonOs, OS_NAMES } from "../../computer/pairing.ts";
 import type { ConnectionStatus, PhoneConnection } from "./phone-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";

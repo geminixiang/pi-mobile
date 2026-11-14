@@ -53,7 +53,7 @@ B1。
 ### 現況
 
 - `createBot`（最多 12 個）、`removeBot`（至少留一個）、記憶字數上限、Bot 名字和工作說明的驗證，用 `throw` 加中文訊息；UI 只能把字串塞進通用提示，不能依原因停用按鈕或把錯誤放在動作旁邊（AGENTS.md：錯誤放在動作發生的地方，不用 toast）。
-- 電腦配對（`src/agent/sandbox/host.ts`）的 401、403、410、422、連不到、不在 Tailscale，全是 `throw`。
+- 電腦配對（`src/computer/pairing.ts`）的 401、403、410、422、連不到、不在 Tailscale，全是 `throw`。
 - 這些是 runtime 的公開 API，新方法會照抄。
 
 ### 候選

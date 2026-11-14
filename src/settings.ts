@@ -5,7 +5,7 @@ import type { Platform } from "./agent/platform.ts";
 import { log } from "./log.ts";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
 import { messageOf } from "./promise.ts";
-import { type Host, parseHosts } from "./agent/sandbox/host.ts";
+import { type Host, parseHosts } from "./computer/pairing.ts";
 import { type CalendarAccess, parseCalendarAccess } from "./agent/calendar-access.ts";
 
 const PLAIN_KEY = "pi-mobile.settings";

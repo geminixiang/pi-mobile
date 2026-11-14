@@ -1,6 +1,7 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { MintedService } from "./sandbox/container.ts";
-import { computerKey, type HostMode, HostSandbox, type PairedHost, pairedHosts } from "./sandbox/host.ts";
+import { computerKey, type HostMode, type PairedHost, pairedHosts } from "../computer/pairing.ts";
+import { HostSandbox } from "./sandbox/host.ts";
 import type { Sandbox } from "./sandbox/sandbox.ts";
 import type { Settings } from "../settings.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";

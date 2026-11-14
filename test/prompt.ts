@@ -3,7 +3,7 @@ import { fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { MEMORY_LIMIT } from "../src/agent/memory.ts";
 import type { AgentRuntime, ConversationId } from "../src/agent/runtime.ts";
-import type { Host } from "../src/agent/sandbox/host.ts";
+import type { Host } from "../src/computer/pairing.ts";
 import { budgetOf, fit, PROMPT_BUDGET } from "../src/agent/section.ts";
 import { keepOpen, openRuntime, turn } from "./contracts/fixtures.ts";
 import { logged } from "./contracts/setup.ts";

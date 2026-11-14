@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { refuseIpOnIos } from "../../src/agent/cleartext.ts";
 import { fetchModelIds } from "../../src/agent/models.ts";
-import { pairHost } from "../../src/agent/sandbox/host.ts";
+import { pairHost } from "../../src/computer/pairing.ts";
 import { type Check } from "./setup.ts";
 
 const refused = /不透過明文 HTTP/;

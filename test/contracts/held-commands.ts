@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { McpClient } from "@earendil-works/pi-mcp";
 import wire from "../../host/protocol.json" with { type: "json" };
-import { type Dial, HostCommands, hostStdio } from "../../src/agent/sandbox/host.ts";
-import type { RawMessage } from "../../src/agent/sandbox/resumable-link.ts";
-import type { RawSocket } from "../../src/agent/sandbox/resumable-socket.ts";
+import { type Dial, HostCommands, hostStdio } from "../../src/computer/commands.ts";
+import type { RawMessage } from "../../src/computer/resumable-link.ts";
+import type { RawSocket } from "../../src/computer/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 
 type Out = Uint8Array | string;

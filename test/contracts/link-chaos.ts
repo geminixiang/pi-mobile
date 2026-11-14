@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import type { Link, RawMessage } from "../../src/agent/sandbox/resumable-link.ts";
-import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
+import type { Link, RawMessage } from "../../src/computer/resumable-link.ts";
+import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/computer/resumable-socket.ts";
 import { type ConnectionStatus, type OpenDaemon, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
 import { sleep } from "../../src/promise.ts";
 import { createTraffic } from "../../src/agent/traffic.ts";

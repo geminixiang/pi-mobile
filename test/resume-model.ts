@@ -1,5 +1,5 @@
 import wire from "../host/protocol.json" with { type: "json" };
-import { RESUME_LIMIT_MS } from "../src/agent/sandbox/resumable-socket.ts";
+import { RESUME_LIMIT_MS } from "../src/computer/resumable-socket.ts";
 
 type Up = { kind: "data"; seq: number };
 type Down = { kind: "resume"; received: number } | { kind: "out"; seq: number } | { kind: "close"; reason: string };

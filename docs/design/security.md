@@ -38,7 +38,7 @@ App 允許 cleartext，因為 tailnet 裡的閘道常是 http。但自訂端點�
 
 ### 1. 手機不確認電腦位址在 tailnet 裡（中）
 
-- **現況**：新增電腦時，使用者打的名稱直接拿去組 `http://<名稱>:4790`（`base()`，`src/agent/sandbox/host.ts`），只在 iOS 上擋 IP。`refuseCleartextSecret` 只用在模型供應商和 MCP，沒用在電腦。
+- **現況**：新增電腦時，使用者打的名稱直接拿去組 `http://<名稱>:4790`（`base()`，`src/computer/pairing.ts`），只在 iOS 上擋 IP。`refuseCleartextSecret` 只用在模型供應商和 MCP，沒用在電腦。
 - **會怎樣**：填成區網 IP、`mac.local` 或公網名稱時，配對碼、配對金鑰、之後每個指令和輸出都在當下的 Wi-Fi 上明文傳送。而且手機不驗證電腦的身分，只要回應 `/pair` 的就被當成那台電腦：在同一個 Wi-Fi 上冒名的機器會拿到 Bot 的指令、上傳的 pi-env，容器模式下還會拿到 egress 要的短效 token。
 - **可能性**：要使用者自己填錯名稱，加上同一個網路上有人等著。不常見，但填 IP 是很自然的錯誤。
 - **修了**：所有對電腦的請求都經過 `base()`，套用跟供應商金鑰一樣的規則（`onTailnet`）：只接受 `*.ts.net`、`100.64.0.0/10`、`fd7a:115c:a1e0::/48`，或不含點的 MagicDNS 短名稱。`/info` 回來的 `dnsName` 不另外檢查：之後每次連線一樣經過 `base()`。契約測試確認區網 IP、`mac.local`、`localhost` 在送出前就被拒絕。

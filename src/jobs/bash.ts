@@ -1,7 +1,7 @@
 import type { Context } from "@earendil-works/chord/context";
 import { type Static, Type } from "typebox";
 import type { ConversationId, ToolExecutionApi, ToolExecutionResult } from "@earendil-works/pi-durable";
-import { HostCommands } from "../agent/sandbox/host.ts";
+import { HostCommands } from "../computer/commands.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import { watch } from "../triggers/watch.ts";
 import type { TriggerHost } from "../triggers/tool.ts";

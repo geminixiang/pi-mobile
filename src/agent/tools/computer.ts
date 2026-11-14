@@ -2,7 +2,8 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { McpClient } from "@earendil-works/pi-mcp";
 import { mcpResult } from "../mcp.ts";
 import { Type } from "typebox";
-import { hostStdio, type PairedHost } from "../sandbox/host.ts";
+import { hostStdio } from "../../computer/commands.ts";
+import type { PairedHost } from "../../computer/pairing.ts";
 import type { Workplace } from "../workplaces.ts";
 import { defineAppTool } from "./common.ts";
 import { oneOf } from "../../parse.ts";

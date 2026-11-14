@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { type Budget, type Dialing, type LinkState, type Rules, step, type World } from "../../src/agent/sandbox/resumable-link.ts";
+import { type Budget, type Dialing, type LinkState, type Rules, step, type World } from "../../src/computer/resumable-link.ts";
 import type { Check } from "./setup.ts";
 
 type Socket = { name: string };

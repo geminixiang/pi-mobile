@@ -3,7 +3,7 @@ import { parseSync } from "rolldown/utils";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
-import type { PairedHost } from "../src/agent/sandbox/host.ts";
+import type { PairedHost } from "../src/computer/pairing.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";

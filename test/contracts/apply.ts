@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
-import type { Host } from "../../src/agent/sandbox/host.ts";
+import type { Host } from "../../src/computer/pairing.ts";
 import { agentState, idle, openRuntime } from "./fixtures.ts";
 import { type Check, faux, platform, settings } from "./setup.ts";
 

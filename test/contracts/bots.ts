@@ -5,7 +5,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { configure, createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
 import { BotIndex, freeAvatar } from "../../src/agent/bots.ts";
-import type { Host } from "../../src/agent/sandbox/host.ts";
+import type { Host } from "../../src/computer/pairing.ts";
 import { TriggerRuns } from "../../src/triggers/runs.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
 import { browsers, type Check, faux, folders, logged, reports, settings, settle } from "./setup.ts";

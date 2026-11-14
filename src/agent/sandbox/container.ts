@@ -1,4 +1,3 @@
-import type { Link } from "./resumable-link.ts";
 import { type Static, Type } from "typebox";
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
@@ -7,7 +6,8 @@ import sandboxDockerfile from "../../../sandbox/Dockerfile?raw";
 import { log } from "../../log.ts";
 import type { AccessToken } from "../oauth.ts";
 import { type Daemon, daemon } from "./daemon.ts";
-import { lost, type OpenDaemon } from "./phone-connection.ts";
+import { type CommandChannel, type CommandClient, lost } from "../../computer/commands.ts";
+import type { OpenDaemon } from "./phone-connection.ts";
 import { messageOf, orLogged, sleep, untilFailure, whilePending } from "../../promise.ts";
 import { decode } from "../../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
@@ -56,24 +56,6 @@ const SANDBOX_ENV: Record<string, string> = {
 export interface MintedService {
 	get(scope?: string): Promise<AccessToken>;
 	env: Record<string, string>;
-}
-
-export interface CommandHandlers {
-	onStdout(data: Uint8Array): void;
-	onStderr?(data: Uint8Array): void;
-	onExit(code: number | undefined): void;
-	onLink?(link: Link): void;
-}
-
-export interface CommandChannel {
-	write(data: Uint8Array): void;
-	end(): void;
-	close(): void;
-}
-
-export interface CommandClient {
-	exec(command: string, handlers: CommandHandlers, daemonToken?: string): Promise<CommandChannel>;
-	run(command: string, input?: Uint8Array): Promise<{ stdout: string; stderr: string; code: number | undefined }>;
 }
 
 export interface Credentials {

@@ -143,6 +143,21 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 	},
 ];
 
+const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
+	{
+		folder: "src/computer/",
+		never: /from "[^"]*\/agent\/sandbox\//,
+		fix: "src/computer/ reaches a computer and knows nothing of sandboxes: move what it needs from src/agent/sandbox/ into src/computer/, so sandbox depends on computer and never the other way",
+	},
+];
+
+function layered(file: string): Finding[] {
+	const lines = readFileSync(file, "utf8").split("\n");
+	return LAYERS.filter(({ folder }) => file.startsWith(folder)).flatMap(({ never, fix }) =>
+		lines.flatMap((line, index) => (never.test(line) ? [{ file, line: index + 1, rule: fix }] : [])),
+	);
+}
+
 function borrowed(file: string): Finding[] {
 	const lines = readFileSync(file, "utf8").split("\n");
 	return OWNED.filter(({ owners }) => !owners.some((owner) => file.endsWith(owner) || (owner.endsWith("/") && file.startsWith(owner)))).flatMap(({ use, fix }) =>
@@ -193,40 +208,40 @@ const EFFECTS: Record<string, number> = {
 	"src/agent/reach.ts": 2,
 	"src/agent/sandbox/container.ts": 1,
 	"src/agent/sandbox/phone-connection.ts": 1,
-	"src/agent/sandbox/resumable-socket.ts": 2,
 	"src/agent/traffic.ts": 1,
 	"src/app/App.tsx": 12,
-	"src/app/background.ts": 1,
 	"src/app/BotPanel.tsx": 2,
 	"src/app/BotSheet.tsx": 1,
-	"src/app/briefly.ts": 2,
 	"src/app/Chat.tsx": 7,
 	"src/app/Composer.tsx": 5,
 	"src/app/ContextCard.tsx": 1,
 	"src/app/FileViewer.tsx": 1,
 	"src/app/HostsGroup.tsx": 3,
-	"src/app/layers.ts": 1,
 	"src/app/Links.tsx": 2,
-	"src/app/loaded.ts": 1,
 	"src/app/McpGroup.tsx": 1,
 	"src/app/MemoryView.tsx": 1,
 	"src/app/Mermaid.tsx": 1,
 	"src/app/PageStack.tsx": 2,
-	"src/app/press.ts": 1,
 	"src/app/PromptDial.tsx": 4,
 	"src/app/Settings.tsx": 3,
-	"src/app/sideGesture.ts": 1,
 	"src/app/SidePanel.tsx": 6,
 	"src/app/SignIn.tsx": 2,
+	"src/app/background.ts": 1,
+	"src/app/briefly.ts": 2,
+	"src/app/layers.ts": 1,
+	"src/app/loaded.ts": 1,
+	"src/app/press.ts": 1,
+	"src/app/sideGesture.ts": 1,
 	"src/app/streaming.tsx": 3,
 	"src/app/voice.ts": 1,
 	"src/browser/BrowserSheet.tsx": 6,
 	"src/browser/tool.ts": 1,
+	"src/computer/resumable-socket.ts": 2,
 	"src/interaction/PageFrame.tsx": 2,
 	"src/items/ItemSheet.tsx": 1,
-	"src/jobs/bash.ts": 1,
 	"src/jobs/JobsContext.ts": 2,
 	"src/jobs/JobsStrip.tsx": 4,
+	"src/jobs/bash.ts": 1,
 	"src/log.ts": 1,
 	"src/promise.ts": 1,
 	"src/triggers/events.ts": 1,
@@ -282,10 +297,13 @@ const all = [
 	...checkedFiles()
 		.filter((file) => SOURCE_FILE.test(file) && !file.startsWith("test/"))
 		.flatMap(borrowed),
+	...checkedFiles()
+		.filter((file) => SOURCE_FILE.test(file))
+		.flatMap(layered),
 ];
 if (all.length > 0) {
 	for (const finding of all) console.error(`${finding.file}:${finding.line}: ${finding.rule}`);
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/");

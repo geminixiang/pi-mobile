@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { computerKey, hasPiMobile, hostFrom, listPeers, type PairedHost, pairHost, type Peer, prepareContainers, parseComputerKey, probeHost, stillPaired, unpairHost, watchPrepare } from "../agent/sandbox/host.ts";
-import { OS_NAMES } from "../agent/sandbox/daemon.ts";
+import { computerKey, hasPiMobile, hostFrom, listPeers, OS_NAMES, type PairedHost, pairHost, type Peer, parseComputerKey, probeHost, stillPaired, unpairHost } from "../computer/pairing.ts";
+import { prepareContainers, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../plugins/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";

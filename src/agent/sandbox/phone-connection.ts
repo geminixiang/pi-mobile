@@ -3,10 +3,11 @@ import { Type } from "typebox";
 import { Connection, RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "@earendil-works/pi-env";
 import wire from "../../../host/protocol.json" with { type: "json" };
 import { check } from "../../parse.ts";
+import { lost } from "../../computer/commands.ts";
 import { messageOf } from "../../promise.ts";
 import { registerProgram } from "../../shims/node-child-process.ts";
 import { type Daemon, type DaemonEffect, type DaemonEvent, type DaemonStream, daemonStep, lineOf, read, type Reader } from "./daemon-state.ts";
-import type { Link } from "./resumable-link.ts";
+import type { Link } from "../../computer/resumable-link.ts";
 
 type Json = Record<string, unknown>;
 
@@ -28,10 +29,6 @@ interface StreamHandlers {
 export type OpenDaemon = (token: string, handlers: StreamHandlers) => Promise<DaemonStream>;
 
 type PhoneOptions = { open: OpenDaemon; onLog: (text: string) => void; onStatus: (status: ConnectionStatus) => void };
-
-export function lost(message: string): RemoteError {
-	return new RemoteError({ code: "unknown", message, lost: true });
-}
 
 const Hello = Type.Object({
 	protocol: Type.Literal(1),

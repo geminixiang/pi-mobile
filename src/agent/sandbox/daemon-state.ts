@@ -1,5 +1,5 @@
 import { Buffer } from "buffer";
-import type { Link } from "./resumable-link.ts";
+import type { Link } from "../../computer/resumable-link.ts";
 
 export interface DaemonStream {
 	send(data: Uint8Array<ArrayBuffer>): void;

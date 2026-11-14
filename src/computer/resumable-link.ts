@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { decode } from "../../parse.ts";
+import { decode } from "../parse.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type Link = "up" | "reattaching" | "offline";

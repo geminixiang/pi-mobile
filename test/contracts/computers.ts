@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import { Workplaces } from "../../src/agent/workplaces.ts";
-import type { Host } from "../../src/agent/sandbox/host.ts";
+import type { Host } from "../../src/computer/pairing.ts";
 import { openRuntime, toolResults, turn } from "./fixtures.ts";
 import { type Check, logged, platform, settings, settle } from "./setup.ts";
 

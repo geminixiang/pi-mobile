@@ -26,7 +26,7 @@ import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Sett
 import { AutomationIcon, AzureMark, CloudflareMark, DatabaseIcon, GitHubMark, GoogleCloudMark, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "./icons.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { PageStack } from "./PageStack.tsx";
-import { pairedHosts } from "../agent/sandbox/host.ts";
+import { pairedHosts } from "../computer/pairing.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { RowList } from "./RowList.tsx";

@@ -68,7 +68,7 @@
 - **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
   - 保留的 session 結束時（寬限過了、手機刻意關閉、配對被刪），先關掉它的 stdin，2 秒後才結束程序群組（2026-10-27 起）。pi-env 把每個指令放在自己的 session 裡，不在 pi-env 的群組中；直接結束 pi-env 的群組，它跑的指令會變成孤兒留著（S24 實測：撤銷後 `sleep 49` 的父程序變成 launchd，一直在跑）。pi-env 看到 stdin 結束就會自己結束它啟動的指令（本機實測 8 ms）。改了之後 S24 上撤銷配對，指令 1～3 秒內結束，Bot 收到「the request had been sent, so its outcome is unknown」，沒有重試。
 
-## 手機（`src/agent/sandbox/host.ts`）
+## 手機（`src/computer/`：配對 `pairing.ts`、指令與 MCP `commands.ts`；sandbox 在 `src/agent/sandbox/host.ts`）
 
 - `settings.hosts`：電腦清單（JSON），每台記著 id、名稱、MagicDNS 名稱、os、arch、帳號、家目錄、容器引擎。id 就是它的 MagicDNS 名稱，所以移除後再加入，Bot 原本的選擇還在。
 - 設定 › 電腦：

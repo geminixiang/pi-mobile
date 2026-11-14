@@ -16,7 +16,7 @@
 | | 狀態 | 轉換 | 外殼 |
 |---|---|---|---|
 | 電腦 `host/held_link.go` | `attached{conn}`／`away{until}`／`exited{until, reason}`（手機不在時指令結束了，輸出等手機來拿）／`finished` | `onAttach`、`onDrop`、`onExit`、`onKill`、`onExpire`，回傳下一個狀態和 `closeLink`、`replay`、`release`、`stopCommand` | `host/held.go` 的 `held.apply`；寬限計時器只有一個，依狀態的 `until` 重設，過期的觸發由 `onExpire` 比對時間後忽略 |
-| 手機 `src/agent/sandbox/resumable-link.ts` | `opening`／`up{socket}`／`dialing`／`resuming{socket}`（等電腦的 `{"received":N}`）／`waiting{delay}`／`offline`／`closed`；離線預算 `Budget` 只在沒接上的狀態裡 | `step(state, event, world, rules)`，`world` 是現在時間、有沒有網路、手機記錄從第幾則留起 | `resumable-socket.ts` 的 `ResumableSocket`；重試計時器在每次換狀態時清掉，進入 `waiting` 才設 |
+| 手機 `src/computer/resumable-link.ts` | `opening`／`up{socket}`／`dialing`／`resuming{socket}`（等電腦的 `{"received":N}`）／`waiting{delay}`／`offline`／`closed`；離線預算 `Budget` 只在沒接上的狀態裡 | `step(state, event, world, rules)`，`world` 是現在時間、有沒有網路、手機記錄從第幾則留起 | `resumable-socket.ts` 的 `ResumableSocket`；重試計時器在每次換狀態時清掉，進入 `waiting` 才設 |
 | 手機 daemon `src/agent/sandbox/daemon-state.ts` | `opening{queued}`／`open{stream, line}`／`ended`；讀取端 `greeting`（等 `PI-ENV <token>`）／`framed` | `daemonStep`、`read` | `phone-connection.ts` 的 `DaemonProcess`；替 daemon 送 ping 的計時器只在 `line` 斷著時跑 |
 
 以前的寫法是一群布林和可有可無的欄位（電腦端 `link` 加 `ended *string`，手機端 `#synced`、`#held`、`#need`、`#unreachableMs`、`#onlineSince`、`#lastMessage` 和 `#open` 裡的 `awaitingResume`），要靠每個呼叫的地方手動維持一致。轉換的測試：`host/held_link_test.go`、`test/contracts/resumable-link.ts`、`test/contracts/daemon-state.ts`，每個轉換和每個不該有作用的事件各一條。

@@ -20,7 +20,7 @@ import { HostRow, type LinkNode, LinksSection, PhoneSheet } from "./Links.tsx";
 import { ModelSheet } from "./ModelSheet.tsx";
 import { Container, Monitor, Smartphone } from "lucide-react";
 import { RowList } from "./RowList.tsx";
-import { parseComputerKey } from "../agent/sandbox/host.ts";
+import { parseComputerKey } from "../computer/pairing.ts";
 
 type ModelChange = { model?: { provider: string; id: string }; thinking?: string };
 type PanelModel = { provider: string; id: string; name: string; thinking: string };

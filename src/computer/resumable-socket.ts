@@ -1,6 +1,6 @@
-import { log } from "../../log.ts";
-import type { Network } from "../network.ts";
-import { bytesOf, type Traffic } from "../traffic.ts";
+import { log } from "../log.ts";
+import type { Network } from "../agent/network.ts";
+import { bytesOf, type Traffic } from "../agent/traffic.ts";
 import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
 
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };

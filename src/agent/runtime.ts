@@ -23,7 +23,8 @@ import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import type { ContextShape, ToolCost } from "./context-shape.ts";
-import { HostCommands, pairedHosts } from "./sandbox/host.ts";
+import { HostCommands } from "../computer/commands.ts";
+import { pairedHosts } from "../computer/pairing.ts";
 import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
 
 const PEEK_LINES = 60;
