@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
+import { Value } from "typebox/value";
 import { questionStates } from "../../src/interaction/answers.ts";
+import { AskArgs } from "../../src/interaction/tool.ts";
 import { answerOf, splitReplies, withoutReplies } from "../../src/interaction/replies.ts";
 import { finalWord } from "../../src/triggers/runs.ts";
 import { pageCards } from "../../src/interaction/pages.ts";
@@ -79,6 +81,28 @@ export const checks: Check[] = [
 
 				await turn(runtime, bot, [fauxAssistantMessage("好，先申請延長。")], "申請延長");
 				assert.deepEqual(questionStates(await entriesOf(runtime, bot)).get("ask-1"), { state: "answered", answer: "申請延長" });
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
+		"a question that asks to approve a send can carry the full text, and the model is told a file it wrote is not visible to the user",
+		async () => {
+			const { runtime } = await openRuntime();
+			try {
+				const bot = await runtime.createBot({ name: "tmp", job: "", avatar: "helper" });
+				let offered = "";
+				const letter = "您好，我是趙映翔，想應徵 AI 應用工程師。";
+				await turn(runtime, bot, [
+					(context: TranscriptContext) => {
+						offered = JSON.stringify(context);
+						return fauxAssistantMessage(fauxToolCall("ask_user", { question: "照這版送出嗎？", options: ["送出", "我要再改"], shows: letter }, { id: "ask-2" }), { stopReason: "toolUse" });
+					},
+				]);
+				assert.match(offered, /"shows"/, "ask_user offers a place for the text being approved");
+				assert.match(offered, /is not visible to them/, "the model is told a file it wrote is not what the user sees");
+				assert.equal(Value.Check(AskArgs, { question: "照這版送出嗎？", options: ["送出", "我要再改"], shows: letter }), true, "the card accepts a question with the text");
 			} finally {
 				await runtime.close();
 			}

@@ -16,6 +16,7 @@ export function QuestionCard({ call }: { call: ToolCall }) {
 	return (
 		<section className={`question ${asked.state}`}>
 			<div className="question-card">
+				{args.value.shows ? <pre className="question-shows">{args.value.shows}</pre> : null}
 				<p className="question-text">{args.value.question}</p>
 				<ol className="question-options">
 					{args.value.options.map((option, index) =>

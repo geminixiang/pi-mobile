@@ -3804,6 +3804,10 @@
 				"question": {
 					"description": "One short question in the user's language",
 					"type": "string"
+				},
+				"shows": {
+					"description": "When the question asks to approve something you will send, post, or delete: its full final text, exactly as it will go out; the card shows it above the question",
+					"type": "string"
 				}
 			},
 			"required": [
