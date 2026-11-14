@@ -3,7 +3,7 @@ import { type Static, Type } from "typebox";
 import { check, type Checked, parse, parseJson, valueOrThrow } from "../parse.ts";
 import { sleep } from "@earendil-works/pi-ai/utils/sleep";
 import { orLogged } from "../promise.ts";
-import { randomBase64Url, toBase64Url } from "../encoding.ts";
+import { fromBase64, randomBase64Url, toBase64Url } from "../encoding.ts";
 import { Loopback } from "../plugins/loopback.ts";
 import { HTTP_TIMEOUTS } from "./http.ts";
 
@@ -171,7 +171,7 @@ export async function pkce(bytes: number): Promise<{ verifier: string; challenge
 export function jwtPayload(token: string): unknown {
 	const part = token.split(".")[1];
 	if (!part) return {};
-	return parseJson(atob(part.replace(/-/g, "+").replace(/_/g, "/")), "JWT");
+	return parseJson(new TextDecoder().decode(fromBase64(part.replace(/-/g, "+").replace(/_/g, "/"))), "JWT");
 }
 
 export async function listenForRedirect(at: { port: number; path: string }, onRedirect: (url: URL) => void): Promise<() => Promise<void>> {
