@@ -1,6 +1,6 @@
 # 工具組偏好：Bot 存工具組，工具自己宣告組
 
-狀態：已實作（2026-11-09）。取代 `docs/design/settings-migrations.md` 草稿與本文件前幾版（存擴充名字、`STEPS`／`MigrationDoc`、偏好文件加 bootstrap）。
+狀態：已實作（2026-11-09）。取代先前的轉換清單草稿與本文件前幾版（存擴充名字、`STEPS`／`MigrationDoc`、偏好文件加 bootstrap）。
 
 ## 問題
 
