@@ -1,5 +1,5 @@
 import { defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "./section.ts";
+import { appSection } from "../section.ts";
 
 export function createOnDemandExtension(label: (tool: string, extension: string, conversationId: string) => string | undefined) {
 	return defineExtension({

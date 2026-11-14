@@ -1,3 +1,8 @@
+---
+name: spoken-report
+description: How to write a report meant to be heard. Use before writing anything for speak: a headphones briefing, or when the user wants to hear a report.
+---
+
 # Spoken report
 
 For anything said with `speak`: a headphones schedule's briefing, or when the user asks to hear it. The listener hears

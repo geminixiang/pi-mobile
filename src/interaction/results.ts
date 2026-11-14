@@ -1,6 +1,6 @@
 import type { Context } from "@earendil-works/chord/context";
 import { defineDoc, type ToolExecutionApi } from "@earendil-works/pi-durable";
-import { checkpointEvery64 } from "../agent/doc-policy.ts";
+import { checkpointEvery64 } from "../doc-policy.ts";
 import { stepOf } from "./forms.ts";
 
 type WeatherHour = { time: string; condition: string; temperature_c: number; rain_chance: number };

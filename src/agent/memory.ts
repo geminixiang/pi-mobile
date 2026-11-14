@@ -1,7 +1,8 @@
 import { Type } from "typebox";
-import { type ConversationId, defineDoc, defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "./section.ts";
-import { checkpointEvery64 } from "./doc-policy.ts";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { type ConversationId, defineDoc, defineExtension, type Harness } from "@earendil-works/pi-durable";
+import { appSection } from "../section.ts";
+import { checkpointEvery64 } from "../doc-policy.ts";
 import { defineAppTool, text } from "./tools/common.ts";
 import { oneOf } from "../parse.ts";
 
@@ -11,7 +12,7 @@ export type Memory = { text: string; updatedAt: number; updatedBy: "user" | "age
 
 export const emptyMemory = (): Memory => ({ text: "", updatedAt: 0, updatedBy: "" });
 
-export const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: emptyMemory, checkpointWhen: checkpointEvery64 });
+const MemoryDoc = defineDoc<Memory>({ kind: "app.memory", version: 1, scope: "session", initial: emptyMemory, checkpointWhen: checkpointEvery64 });
 
 export const BotMemoryDoc = defineDoc<Memory>({
 	kind: "app.bot.memory",
@@ -24,6 +25,43 @@ export const BotMemoryDoc = defineDoc<Memory>({
 });
 
 export type MemoryScope = { kind: "global" } | { kind: "bot"; id: ConversationId };
+
+export class Memories {
+	readonly #harness: Harness;
+	readonly #listeners = new Set<() => void>();
+
+	constructor(harness: Harness) {
+		this.#harness = harness;
+	}
+
+	async read(scope: MemoryScope): Promise<Memory> {
+		const memory = scope.kind === "global" ? await this.#harness.snapshot(MemoryDoc, BACKGROUND_CONTEXT) : await this.#harness.snapshot(BotMemoryDoc, scope.id, BACKGROUND_CONTEXT);
+		return { ...(memory ?? emptyMemory()) };
+	}
+
+	subscribe(scope: MemoryScope, listener: (memory: Memory) => void): () => void {
+		const reload = () => void this.read(scope).then(listener);
+		this.#listeners.add(reload);
+		reload();
+		return () => this.#listeners.delete(reload);
+	}
+
+	changed(): void {
+		for (const listener of this.#listeners) listener();
+	}
+
+	async save(scope: MemoryScope, text: string): Promise<void> {
+		const trimmed = text.trim();
+		if (trimmed.length > MEMORY_LIMIT) throw new Error(`記憶最多 ${MEMORY_LIMIT} 字，現在是 ${trimmed.length} 字`);
+		await this.#harness.commit(async (tx) => {
+			const memory = scope.kind === "global" ? await tx.doc(MemoryDoc) : await tx.doc(BotMemoryDoc, scope.id);
+			memory.text = trimmed;
+			memory.updatedAt = Date.now();
+			memory.updatedBy = "user";
+		}, BACKGROUND_CONTEXT);
+		this.changed();
+	}
+}
 
 function editMemory(current: string, oldText: string | undefined, newText: string): string {
 	if (!oldText) return current.trim() ? `${current.trimEnd()}\n${newText.trim()}` : newText.trim();

@@ -1,3 +1,8 @@
+---
+name: html-page
+description: How an .html report, comparison, chart or small tool should look and read. Use before writing an .html file for the user.
+---
+
 # HTML page
 
 For anything you write as an `.html` for the user: a report, a comparison, a chart, a small tool. It is drawn inside

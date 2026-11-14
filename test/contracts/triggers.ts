@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } from "@earendil-works/pi-durable";
-import { checkpointEvery64 } from "../../src/agent/doc-policy.ts";
+import { checkpointEvery64 } from "../../src/doc-policy.ts";
 import { loadModels } from "../../src/agent/available-models.ts";
 import { ItemDoc } from "../../src/items/items.ts";
 import { type AgentState, type LastRun, type Trigger, TRIGGER_ENTRY, TRIGGER_NOTICE, TriggerDoc, TriggerRuns } from "../../src/triggers/runs.ts";

@@ -26,7 +26,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { inViewNote } from "../workbench/note.ts";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";
 import { baseName } from "../agent/mime.ts";
 

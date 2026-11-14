@@ -4,7 +4,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { MEMORY_LIMIT } from "../src/agent/memory.ts";
 import type { AgentRuntime, ConversationId } from "../src/agent/runtime.ts";
 import type { Host } from "../src/computer/pairing.ts";
-import { budgetOf, fit, PROMPT_BUDGET } from "../src/agent/section.ts";
+import { budgetOf, fit, PROMPT_BUDGET } from "../src/section.ts";
 import { keepOpen, openRuntime, turn } from "./contracts/fixtures.ts";
 import { logged } from "./contracts/setup.ts";
 import { snapshotFailures, updating } from "./snapshot.ts";
@@ -43,15 +43,15 @@ try {
 	for (let i = 0; i < 40; i++) await crowded.runtime.removeBot(await crowded.runtime.createBot({ name: `gone-${i}`, job: "a job nobody does any more\nwith a second line", avatar: "helper" }));
 	for (let i = 0; i < 20; i++) await crowded.runtime.createBot({ name: `live-${i}`, job: "a long job description that the other bots never need to read in full", avatar: "helper" });
 	const full = Array.from({ length: MEMORY_LIMIT }, (_, i) => (i % 40 === 39 ? "\n" : "x")).join("");
-	await crowded.runtime.saveMemory({ kind: "global" }, full);
-	await crowded.runtime.saveMemory({ kind: "bot", id: keep }, full);
+	await crowded.runtime.memories.save({ kind: "global" }, full);
+	await crowded.runtime.memories.save({ kind: "bot", id: keep }, full);
 	for (const toolset of await crowded.runtime.toolsets(keep)) await crowded.runtime.setToolset(keep, toolset.id, true);
 	const before = logged.length;
 	const seen = await sections(crowded.runtime, keep);
 	const total = seen.reduce((sum, [, text]) => sum + text.length, 0);
 	for (const [key, text] of seen) {
 		const budget = budgetOf(key);
-		if (budget === undefined) failures.push(`section ${key} has no budget: define it with appSection (src/agent/section.ts)`);
+		if (budget === undefined) failures.push(`section ${key} has no budget: define it with appSection (src/section.ts)`);
 		else if (text.length > budget) failures.push(`section ${key} is ${text.length} characters, over its budget of ${budget}`);
 	}
 	if (total > PROMPT_BUDGET) failures.push(`the prompt is ${total} characters with a crowded app, over PROMPT_BUDGET ${PROMPT_BUDGET}`);

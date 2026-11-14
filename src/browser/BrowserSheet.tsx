@@ -1,5 +1,5 @@
 import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { useSubscribed } from "../app/subscribed.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 import { type BrowserState, browserState, NO_BROWSER } from "./tool.ts";
 import { native } from "../native.ts";
 import { Browser, MAX_TABS } from "./plugin.ts";

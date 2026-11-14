@@ -1,6 +1,6 @@
 import type { Context } from "@earendil-works/chord/context";
 import { type ConversationId, defineExtension, type ToolExecutionApi } from "@earendil-works/pi-durable";
-import { appSection } from "../agent/section.ts";
+import { appSection } from "../section.ts";
 import { Type } from "typebox";
 import { HostCommands } from "../computer/commands.ts";
 import type { PairedHost } from "../computer/pairing.ts";

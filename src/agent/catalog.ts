@@ -9,7 +9,7 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";
 import { CodingTools, createBashTool } from "@earendil-works/pi-durable/tools";
 import { BACKGROUND_NOTE, JOB_BASH_PARAMETERS, jobsOnComputers } from "../jobs/bash.ts";
-import { SkillsExtension } from "./skills.ts";
+import { createSkillsExtension } from "../skills/skills.ts";
 import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
@@ -50,6 +50,7 @@ interface CatalogDeps {
 	web: WebConfig;
 	triggers: TriggerHost;
 	memory: { changed(): void };
+	skills: { changed(): void };
 	workplace: (conversationId: string) => Workplace | undefined;
 	waitForJob: (conversationId: ConversationId, job: string) => void;
 	labelOf: (tool: string, extension: string, conversationId: string) => string | undefined;
@@ -101,7 +102,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		RecordsExtension,
 		ScreenTimeExtension,
 		HealthExtension,
-		SkillsExtension,
+		createSkillsExtension({ changed: deps.skills.changed, unattended: deps.triggers.unattended }),
 		AttachmentsExtension,
 		createCalendarExtension(deps.calendarAccess),
 		createPhoneCodemode(deps.labelOf),

@@ -2716,14 +2716,7 @@
 		"parameters": {
 			"properties": {
 				"name": {
-					"description": "A skill listed in the system prompt",
-					"enum": [
-						"morning-brief",
-						"daytime-check",
-						"spoken-report",
-						"html-page",
-						"stock-analysis"
-					],
+					"description": "A skill's name from available_skills",
 					"type": "string"
 				}
 			},
@@ -2734,6 +2727,45 @@
 		},
 		"structuredOutput": null,
 		"effect": "read",
+		"needs": [],
+		"outside": null,
+		"sends": false
+	},
+	{
+		"extension": "skills",
+		"groups": "always",
+		"name": "save_skill",
+		"deferred": false,
+		"callers": [
+			"model"
+		],
+		"parameters": {
+			"properties": {
+				"description": {
+					"description": "What it does and when to use it, as in available_skills",
+					"maxLength": 240,
+					"type": "string"
+				},
+				"name": {
+					"description": "lowercase-with-hyphens, such as weekly-report",
+					"maxLength": 64,
+					"type": "string"
+				},
+				"text": {
+					"description": "The instructions in Markdown; empty deletes the skill",
+					"maxLength": 4000,
+					"type": "string"
+				}
+			},
+			"required": [
+				"name",
+				"description",
+				"text"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
 		"needs": [],
 		"outside": null,
 		"sends": false

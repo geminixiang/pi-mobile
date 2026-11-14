@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { type Block, entryText } from "../agent/entries.ts";
-import { appSection } from "../agent/section.ts";
+import { appSection } from "../section.ts";
 
 const MARK = "↳";
 const MOST = 2;

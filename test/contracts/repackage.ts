@@ -18,6 +18,7 @@ const { extensions } = builtinExtensions({
 	web: { baseUrl: "", apiKey: "", modelIds: [] },
 	triggers: { changed: () => undefined, unattended: () => false, notify: async () => "shown" },
 	memory: { changed: () => undefined },
+	skills: { changed: () => undefined },
 	workplace: () => undefined,
 	waitForJob: () => undefined,
 	labelOf: (tool) => tool,

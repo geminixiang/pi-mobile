@@ -38,7 +38,8 @@ import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
 import { extensionName, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
-import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
+import { BotMemoryDoc, Memories } from "./memory.ts";
+import { BotSkillsDoc, Skills } from "../skills/skills.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import { hostOf } from "../parse.ts";
 import type { Platform } from "./platform.ts";
@@ -119,11 +120,12 @@ export class AgentRuntime {
 	readonly #waiting = new Set<string>();
 	readonly #shapes: Map<string, ContextShape>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
-	#memoryListeners = new Set<() => void>();
 	readonly #installed: () => ReadonlySet<string>;
 	readonly #owners: ReadonlyMap<string, Groups>;
 	readonly mcp: McpHub;
 	readonly forms: Forms;
+	readonly memories: Memories;
+	readonly skills: Skills;
 	readonly triggers: TriggerRuns;
 	readonly #botToolsets: BotToolsets;
 	readonly #platform: Platform;
@@ -147,6 +149,8 @@ export class AgentRuntime {
 		this.#platform = platform;
 		this.mcp = mcp;
 		this.forms = forms;
+		this.memories = new Memories(harness);
+		this.skills = new Skills(harness);
 		this.#harness = harness;
 		this.#settings = settings;
 		this.#infos = infos;
@@ -232,7 +236,8 @@ export class AgentRuntime {
 			clouds: clouds.services,
 			web: webSearch,
 			triggers: triggerHost,
-			memory: { changed: () => runtimeRef && runtimeRef.#publishMemory() },
+			memory: { changed: () => runtimeRef?.memories.changed() },
+			skills: { changed: () => runtimeRef?.skills.changed() },
 			workplace: at,
 			waitForJob: (id, job) => runtimeRef?.waitForJob(id, job),
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
@@ -419,6 +424,7 @@ export class AgentRuntime {
 			const at = items.findIndex((candidate) => candidate.id === bot.id);
 			if (at >= 0) items.splice(at, 1);
 			await tx.retireDoc(BotMemoryDoc, bot.id);
+			await tx.retireDoc(BotSkillsDoc, bot.id);
 			await tx.retireDoc(FormsDoc, bot.id);
 			await tx.retireDoc(ResultsDoc, bot.id);
 			(await tx.doc(LeftFolders)).items.push(...this.workplaces.containers().map(({ key }) => ({ folder: bot.folder, computer: key })));
@@ -635,34 +641,6 @@ export class AgentRuntime {
 		if (service) return this.#botToolsets.setService(id, service.extension, enabled);
 		if (!TOOLSETS.some((candidate) => candidate.id === toolset)) return Promise.reject(new Error(`${toolset} is not available`));
 		return this.#botToolsets.setGroup(id, toolset, enabled);
-	}
-
-	async memory(scope: MemoryScope): Promise<Memory> {
-		const memory = scope.kind === "global" ? await this.#harness.snapshot(MemoryDoc, context) : await this.#harness.snapshot(BotMemoryDoc, scope.id, context);
-		return { ...(memory ?? emptyMemory()) };
-	}
-
-	subscribeMemory(scope: MemoryScope, listener: (memory: Memory) => void): () => void {
-		const reload = () => void this.memory(scope).then(listener);
-		this.#memoryListeners.add(reload);
-		reload();
-		return () => this.#memoryListeners.delete(reload);
-	}
-
-	#publishMemory(): void {
-		for (const listener of this.#memoryListeners) listener();
-	}
-
-	async saveMemory(scope: MemoryScope, text: string): Promise<void> {
-		const trimmed = text.trim();
-		if (trimmed.length > MEMORY_LIMIT) throw new Error(`記憶最多 ${MEMORY_LIMIT} 字，現在是 ${trimmed.length} 字`);
-		await this.#harness.commit(async (tx) => {
-			const memory = scope.kind === "global" ? await tx.doc(MemoryDoc) : await tx.doc(BotMemoryDoc, scope.id);
-			memory.text = trimmed;
-			memory.updatedAt = Date.now();
-			memory.updatedBy = "user";
-		}, context);
-		this.#publishMemory();
 	}
 
 	get closed(): Promise<SessionEnd> {

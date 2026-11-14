@@ -1,6 +1,6 @@
 import { App } from "@capacitor/app";
 import { type ReactNode, useEffect, useState } from "react";
-import { useSubscribed } from "./subscribed.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
 import { Notifications } from "../plugins/notifications.ts";
@@ -29,7 +29,7 @@ import { PageStack } from "./PageStack.tsx";
 import { pairedHosts } from "../computer/pairing.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { FirstSignIn, ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -479,7 +479,7 @@ const firstEntry = (text: string) => {
 type IndexRow = { page: Page; icon: ReactNode; label: string; status?: string; marks?: { label: string; on: boolean }[] };
 
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
-	const memory = useSubscribed<string | undefined>(undefined, (listener) => runtime?.subscribeMemory({ kind: "global" }, (next) => listener(next.text)), [runtime]);
+	const memory = useSubscribed<string | undefined>(undefined, (listener) => runtime?.memories.subscribe({ kind: "global" }, (next) => listener(next.text)), [runtime]);
 	const triggers = useSubscribed<TriggerState | undefined>(undefined, (listener) => runtime?.triggers.subscribe(listener), [runtime]);
 	useMcp(runtime);
 	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables.length) : undefined, []).value;

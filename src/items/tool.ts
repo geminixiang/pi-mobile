@@ -1,5 +1,5 @@
 import { defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../agent/section.ts";
+import { appSection } from "../section.ts";
 import { Type } from "typebox";
 import { oneOf } from "../parse.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";

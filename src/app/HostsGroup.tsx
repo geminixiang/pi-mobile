@@ -6,7 +6,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
 import { ShareIcon, TerminalIcon } from "./icons.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 const MANUAL = "manual";

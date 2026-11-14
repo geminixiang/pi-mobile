@@ -1,7 +1,7 @@
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
-import { appSection } from "../section.ts";
+import { appSection } from "../../section.ts";
 import { RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { botsIn } from "../bots.ts";

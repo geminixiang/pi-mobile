@@ -41,7 +41,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ### 提示段落
 
-- 系統提示的每一段都用 `appSection(key, budget, render)`（`src/agent/section.ts`）定義，不直接用 `section`（code-rules 擋）。超過上限的段落會整行截斷，結尾寫明被截掉，並記一筆 `prompt.section_over_budget`。
+- 系統提示的每一段都用 `appSection(key, budget, render)`（`src/section.ts`）定義，不直接用 `section`（code-rules 擋）。超過上限的段落會整行截斷，結尾寫明被截掉，並記一筆 `prompt.section_over_budget`。
 - 由資料組成的段落（其他 Bot、記憶、資料表、MCP 服務自己的說明）一定要想清楚資料多的時候長什麼樣子：只放模型這一題需要的，例如其他 Bot 只列名字、不列工作說明。
 - `test/prompt.ts` 檢查兩件事。一是預設 Bot 的完整提示和 `test/prompt.snapshot.json` 一致，改了提示就加 `--update`，並在「紀錄」寫一行。二是塞滿資料時，例如刪掉 40 個 Bot、多 20 個 Bot、兩份記憶寫滿、工具組全開，每段都不超過上限、也不會被截斷，總長在 `PROMPT_BUDGET` 內，刪掉的 Bot 不出現。
 - **每個工具宣告自己屬於哪些工具組**（`defineAppTool` 的 `groups`，固定開著的寫 `"always"`；pi-durable 的 `CodingTools` 在 `catalog.ts` 用 `adopt` 補上）。每個 Bot 只存關掉的工具組 id（`Bot.off`），開 runtime、切開關、換地點時，由 `BotToolsets` 依「關掉的組 × 地點」算出這個 Bot 不能用的工具，寫進 `pi.agent.tools.remove`。所以擴充可以自由改名、拆開、合併、搬工具，Bot 的設定都不受影響；工具換組才是產品變更。工具組 id 不改。
@@ -130,7 +130,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - **電腦上的 agent**（`computer_agents`）：`list_agents`、`read_agent`、`tell_agent`、`answer_agent`
 - **電腦**（`computer_shell`）：`read`†、`write`†、`edit`†、`bash`†
 - **檔案**（`files`）：`read`†、`write`†、`edit`†、`bash`†
-- **固定開著**（沒有開關）：`read_skill`、`read_attachment`＊、`scan_document`、`codemode`†、`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`、`note_item`、`list_items`、`update_memory`†、`ask_user`†、`tool_search`†
+- **固定開著**（沒有開關）：`read_skill`、`save_skill`†、`read_attachment`＊、`scan_document`、`codemode`†、`create_schedule`、`schedule_followup`、`list_schedules`、`delete_schedule`、`notify`、`note_item`、`list_items`、`update_memory`†、`ask_user`†、`tool_search`†
 
 <!-- 工具總圖結束 -->
 
@@ -199,6 +199,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `read_attachment` | 固定開啟 | 讀附件的其他段落、頁數、搜尋，或把 PDF 頁面轉成圖 | 唯讀 | |
 | `scan_document` | 固定開啟 | 打開掃描畫面，掃完變成附件 | 開畫面 | |
 | `read_skill` | 固定開啟 | 讀一份 skill | 唯讀 | |
+| `save_skill` | 固定開啟 | 把使用者要的做法存成這個 Bot 自己的 skill；排程觸發時不能存 | 直接（每次都是一個看得到的步驟） | |
 | `create_schedule` | 固定開啟 | 新增排程（時間或事件） | 直接 | |
 | `schedule_followup` | 固定開啟 | 稍後自己回來看 | 直接 | |
 | `list_schedules` | 固定開啟 | 這個 Bot 的排程 | 唯讀 | |
@@ -286,6 +287,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-15 | 新工具 `save_skill`（直接提供，固定開啟）：使用者要求「以後都這樣做」時，把做法存成這個 Bot 自己的 skill（每個 Bot 最多 8 份、描述 240 字、內容 4000 字；同名取代、空內容刪除；排程觸發、使用者不在場時拒絕）。skill 的載入照 pi coding agent：內建的改成 `src/skills/builtin/<name>/SKILL.md`（frontmatter 的 `name`、`description` 是唯一來源），系統提示用 pi 的 `<available_skills>` 列名稱和描述，`read_skill` 回傳整份 SKILL.md（介面改變：`name` 從列舉改成字串，因為 Bot 自己的 skill 也要讀得到）。新內建 skill `database-design`。Bot 面板「其他 › 技能」列出、看全文、刪除 | S24，`tool-cost.sh`：常駐定義 7,244 → 7,991 字元；短請求全開 4,428 → 4,814 tokens、全關 2,888 → 3,274（各 +386：`save_skill` 定義約 150，pi 格式的 skills 段落 573 → 1,542 字元約 200）。試過把 `save_skill` 改成只給腳本（省約 150），但 Node 的合約測試沒有 Worker、跑不了 codemode，測不到真實路徑，而且存技能是使用者在場、明確要求的時刻，所以和 `update_memory` 一樣直接提供 | `test/contracts/skills.ts`（存給這個 Bot、別的 Bot 沒有、出現在 available_skills、讀回整份；同名取代、空內容刪除、內建名稱和第 9 份被拒；排程觸發時拒絕；刪 Bot 一起刪）。S24 暫時的 Bot，照使用者的說法：「以後週報都先寫進展，再寫卡住的，最後寫下週」→ `save_skill` 存成 `weekly-report`，回「記住了」；「開個記帳表」→ 先讀 `database-design`，建出 `STRICT`、金額 `INTEGER` 加 `CHECK`、收支和時間格式有檢查的表。它用了 `IF NOT EXISTS` 而把新表說成「沿用現有」，skill 改成直接 `CREATE TABLE`。測完刪掉那張空表和暫時的 Bot |
 | 2026-11-15 | 待辦卡依事項分兩種：要你做的（標題「Bot 提醒你」，按鈕「一起處理」把這件事放進那個 Bot 的輸入框、不自動送出；「已經結束」；「晚點提醒」展開 1 小時後、今晚 9 點、明早 9 點），和 Bot 在等的（標題「Bot 正在等」，列出在等什麼，「問進度」「不用等了」）。時間寫成提醒時間（「11/18（三）20:00 會提醒你」「今天 20:00 提醒的」），小工具的待辦列同樣改成「16:30 提醒」「已提醒」「沒定提醒時間」，不再說「到期」：那個時間是提醒時間，不是期限。使用者在 S24 上點進卡片「不知道要做啥」 |
 | 2026-11-14 | 手機資料夾的 `git cat-file` 拿掉（`src/agent/files/git-inspection.ts` 和它的測試），現在回 just-git 的「不支援」；同樣的內容用 just-git 本身的 `git show <rev>:<path>`、`git ls-tree` 讀，提示從沒提過 `cat-file`。瘦身 | 不變 | 實跑：記憶體 VFS 上 just-git `git show HEAD:f.txt` 回「中文」、`git ls-tree HEAD` 列出 blob |
 | 2026-11-14 | 拿掉 `ToolFilterExtension`（`src/agent/tool-filter.ts`）和它的兩條程式規則（只有它讀 `addTools`、只有它和 `codemode.ts` 有 `afterTool`）：唯一發出 `control.addTools` 的 `tool_search` 只從 `agent.deferred` 挑，`deferred` 已經套用 `tools.remove`（pi-durable 1.5.0 `harness/agent.js`），被工具組關掉的工具本來就不會被載回來 | 不變 | 讀碼：`tool-search.js:60` 取 `deferred`、`agent.js` 的 `filterTools(…, state.tools)`；`test/contracts/where.ts`、`test/toolsets.ts` 照常通過 |

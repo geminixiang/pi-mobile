@@ -70,7 +70,7 @@ function rule(node: Node, explained: boolean): string | undefined {
 	if (node.type === "TSNonNullExpression") return "non-null assertion";
 	if (node.type === "TSAnyKeyword") return "any";
 	if (node.type === "CallExpression" && isSwallowingCatch(node)) return "catch that swallows the error";
-	if (classNames(node).some((name) => OLD_BOXES.has(name))) return "a .menu or .group box around a list: put the list on the background with RowList (src/app/RowList.tsx), as DESIGN.md § Components says";
+	if (classNames(node).some((name) => OLD_BOXES.has(name))) return "a .menu or .group box around a list: put the list on the background with RowList (src/ui/RowList.tsx), as DESIGN.md § Components says";
 	if (isInlineStyle(node)) return "inline style other than a custom property: put it in styles.css, or pass a --custom-property the stylesheet reads (CSS skill)";
 	return undefined;
 }
@@ -126,8 +126,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bsection\(/,
-		owners: ["src/agent/section.ts"],
-		fix: "define a prompt section with appSection(key, budget, render) from src/agent/section.ts, so it has a budget and test/prompt.ts sees it",
+		owners: ["src/section.ts"],
+		fix: "define a prompt section with appSection(key, budget, render) from src/section.ts, so it has a budget and test/prompt.ts sees it",
 	},
 	{
 		use: /\bBotIndex\b/,
@@ -203,7 +203,7 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 ];
 
 // why: counts imports that keep src/ folders in one tangle (a folder-level cycle); it only goes down, toward folders that import in one direction
-const TANGLED_IMPORTS = 410;
+const TANGLED_IMPORTS = 405;
 const RELATIVE_IMPORT = /^import (?:[^;]*? from )?"(\.[^"]+)";/gm;
 
 function folderOf(file: string): string {
@@ -283,7 +283,7 @@ const MAX_LINES = 400;
 const LONG_FILES: Record<string, number> = {
 	"src/agent/files/phone-env.ts": 445,
 	"src/agent/mcp.ts": 473,
-	"src/agent/runtime.ts": 682,
+	"src/agent/runtime.ts": 660,
 	"src/agent/tools/tw-stocks.ts": 465,
 	"src/app/App.tsx": 787,
 	"src/app/Chat.tsx": 483,
@@ -432,7 +432,7 @@ function timingCalls(file: string): number {
 }
 
 const EFFECT_FIX =
-	"an external store → useSubscribed (src/app/subscribed.ts) or useSyncExternalStore; a value from state or props → compute it during render; a reaction to a tap or a gesture → do it in the event handler; waiting → listen for the event it waits for (docs/effects.md)";
+	"an external store → useSubscribed (src/ui/subscribed.ts) or useSyncExternalStore; a value from state or props → compute it during render; a reaction to a tap or a gesture → do it in the event handler; waiting → listen for the event it waits for (docs/effects.md)";
 
 function effectRule(): Finding[] {
 	const files = new Set(checkedFiles());

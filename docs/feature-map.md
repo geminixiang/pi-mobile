@@ -24,6 +24,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 上下文 | context、用量 | `ContextCard` (`src/app/ContextCard.tsx`) | 上下文各部分的用量，底下是「壓縮　新的上下文」 |
 | 自動化 | 排程、觸發 | `TriggerList` (`src/triggers/TriggerList.tsx`) | 這個 Bot 的自動化；設定裡的「自動化」列出全部 |
 | 記憶 | MEMORY.md | `MemoryView` (`src/app/MemoryView.tsx`) | Bot 的記憶，從右側欄往右推進來的整頁；設定裡的「全域記憶」是同一個元件 |
+| 技能 | skills | `SkillsSheet` (`src/skills/SkillsSheet.tsx`) | 右側欄「其他 › 技能」拉起的清單：這個 Bot 和使用者一起存的技能，點一個看全文、可以刪除 |
 | 模型 | 模型選單、思考強度 | `ModelSheet` (`src/app/ModelSheet.tsx`) | 按膠囊上的名字，或連線圖上的模型：依供應商分組的模型和思考強度 |
 | 手機 | 這支手機 | `PhoneSheet` (`src/app/Links.tsx`) | 按連線圖上的 pi：這支手機上能用什麼 |
 | 電腦 | 在哪裡跑 | `LinkSheets` (`src/app/BotPanel.tsx`)、`HostRow` (`src/app/Links.tsx`) | 按連線圖上的電腦：現在的電腦，和「在哪裡跑」的選擇（手機或哪台電腦） |
@@ -67,4 +68,4 @@ iPad 和展開的折疊機（`layoutAt`，DESIGN.md〈大螢幕：工作台〉�
 
 ## 共用的骨架
 
-不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/app/Sheet.tsx`)（底部抽屜）、`RowList` (`src/app/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/app/BotAvatar.tsx`)、`PiMark` (`src/app/PiMark.tsx`)、`ModelLine` (`src/app/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。
+不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/app/Sheet.tsx`)（底部抽屜）、`RowList` (`src/ui/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/app/BotAvatar.tsx`)、`PiMark` (`src/app/PiMark.tsx`)、`ModelLine` (`src/app/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。

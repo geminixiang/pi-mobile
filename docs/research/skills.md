@@ -17,6 +17,10 @@
 2. **其次：電腦上的 Bot 讀電腦自己的 skill**。直接模式的提示加一句：去 `~/.agents/skills`、`~/.claude/skills` 找對應的 `SKILL.md`，腳本在電腦上用真的 Python、Node 跑。真正的重活本來就能 `tell_agent` 交給電腦上的 agent，它們有自己的 skill 系統。
 3. **延後**：從 git 同步第三方 skill 包到手機、附腳本、全域共用的 skill。
 4. **永遠不做**：從網址、網頁、通知或 MCP 結果安裝 skill；載入時執行腳本；在手機上帶著憑證跑 skill 的腳本；把 skill 全文放進系統提示；讓 skill 加工具或改 `Bot.off`；讓 Bot 改內建或別的 Bot 的 skill。
-5. **待使用者決定**：排程觸發、使用者不在場時，禁止 `save_skill`（避免一則通知的內容變成長期指令）。
+5. **使用者決定（2026-11-15）**：排程觸發、使用者不在場時，禁止 `save_skill`（避免一則通知的內容變成長期指令），只能在使用者在場時存。
 
 第一份要加的內建 skill 是「資料表設計」，見 [database-design.md](database-design.md)。
+
+## 做了什麼（2026-11-15）
+
+使用者要求載入方式直接參考 pi coding agent（讀了它 1.5.2 版的 `core/skills.js` 和 `docs/skills.md`）：每個 skill 是 `SKILL.md`，frontmatter 有 `name`、`description`（Agent Skills 規格的名稱規則）；系統提示只列 `<available_skills>` 的名稱和描述，用到才載入全文。pi mobile 的差別：位置欄換成 `read_skill`（Bot 可能在手機或電腦上，用工具讀不必管檔案在哪台），Bot 自己存的 skill 放在每個 Bot 的 doc。量測和實測見 `docs/tools.md` 2026-11-15 的紀錄。電腦上 `~/.agents/skills`、`~/.pi/agent/skills` 的 skill 還沒接。

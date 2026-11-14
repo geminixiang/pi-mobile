@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useState } from "react";
-import { useSubscribed } from "./subscribed.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { Memory, MemoryScope } from "../agent/memory.ts";
 import { MEMORY_LIMIT } from "../agent/memory.ts";
@@ -45,7 +45,7 @@ export function MemoryView({
 	onClose: () => void;
 	onError: (message: string) => void;
 }) {
-	const saved = useSubscribed<Memory | undefined>(undefined, (listener) => runtime.subscribeMemory(scope, listener), [runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined]);
+	const saved = useSubscribed<Memory | undefined>(undefined, (listener) => runtime.memories.subscribe(scope, listener), [runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined]);
 	const [edit, setEdit] = useState<Edit>({ mode: "reading" });
 	const text = edit.mode === "reading" ? (saved?.text ?? "") : edit.draft;
 	const length = text.trim().length;
@@ -54,7 +54,7 @@ export function MemoryView({
 	const finish = (draft: string) => {
 		if (!changed) return setEdit({ mode: "reading" });
 		setEdit({ mode: "saving", draft });
-		runtime.saveMemory(scope, draft).then(
+		runtime.memories.save(scope, draft).then(
 			() => setEdit({ mode: "reading" }),
 			(error: unknown) => setEdit({ mode: "editing", draft, problem: messageOf(error) }),
 		);
@@ -65,7 +65,7 @@ export function MemoryView({
 			onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
 			return;
 		}
-		runtime.saveMemory(scope, edit.draft).catch((error: unknown) => onError(messageOf(error)));
+		runtime.memories.save(scope, edit.draft).catch((error: unknown) => onError(messageOf(error)));
 	});
 	useEffect(() => () => saveOnLeave(), []);
 	const lines = text

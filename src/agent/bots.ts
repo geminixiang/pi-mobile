@@ -1,7 +1,7 @@
 import type { Context } from "@earendil-works/chord/context";
 import { type ConversationId, defineDoc, type DocumentReader, defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
-import { appSection } from "./section.ts";
-import { checkpointEvery64 } from "./doc-policy.ts";
+import { appSection } from "../section.ts";
+import { checkpointEvery64 } from "../doc-policy.ts";
 
 export type Bot = {
 	id: ConversationId;

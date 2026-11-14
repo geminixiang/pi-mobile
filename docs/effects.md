@@ -10,7 +10,7 @@
 
 | 這個 effect 在做什麼 | 改成 |
 |---|---|
-| 同步外部狀態（runtime、自動化、記憶、瀏覽器、MCP 的訂閱） | `useSubscribed(initial, subscribe, deps)`（`src/app/subscribed.ts`，底下是 `useSyncExternalStore`），或 store 自己有快照時直接 `useSyncExternalStore` |
+| 同步外部狀態（runtime、自動化、記憶、瀏覽器、MCP 的訂閱） | `useSubscribed(initial, subscribe, deps)`（`src/ui/subscribed.ts`，底下是 `useSyncExternalStore`），或 store 自己有快照時直接 `useSyncExternalStore` |
 | 從 state 或 props 推導出另一個值 | render 時算出來（AGENTS.md：一個值只存一次） |
 | 對使用者的動作做反應 | 寫在事件處理函式裡 |
 | 等一下再做 | 找出它在等的事件（`resume`、`online`、`animationend`、資料寫入的通知），聽那個事件 |

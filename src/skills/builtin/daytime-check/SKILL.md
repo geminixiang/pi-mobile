@@ -1,3 +1,8 @@
+---
+name: daytime-check
+description: What a daytime check looks at and when it may speak up. Use when a schedule runs a daytime check.
+---
+
 # Daytime check
 
 Run by the 白天巡視 schedules at 13:00 and 18:00. The user is busy: speak only when something needs them now. Most

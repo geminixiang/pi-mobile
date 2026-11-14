@@ -8,7 +8,7 @@ import { signInWithChatGPT } from "../agent/chatgpt.ts";
 import { native } from "../native.ts";
 import { System } from "../plugins/system.ts";
 import { CheckButton } from "./CheckButton.tsx";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Logo } from "./Logo.tsx";
 import { Sheet } from "./Sheet.tsx";

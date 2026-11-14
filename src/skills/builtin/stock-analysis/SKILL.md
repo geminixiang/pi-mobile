@@ -1,3 +1,8 @@
+---
+name: stock-analysis
+description: How to analyse stocks, ETFs and the market with the user's watchlist. Use before analysing them or setting up a watchlist digest.
+---
+
 # Stock analysis
 
 For questions about stocks, ETFs, or the market: how something has moved, who is buying, whether it is cheap, what

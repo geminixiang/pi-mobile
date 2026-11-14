@@ -104,7 +104,7 @@ export const checks: Check[] = [
 					fauxAssistantMessage(fauxToolCall("update_memory", { scope: "bot", new_text: "- fixture" }), { stopReason: "toolUse" }),
 					fauxAssistantMessage("done"),
 				]);
-				assert.notEqual((await runtime.memory({ kind: "bot", id: gone })).text, "");
+				assert.notEqual((await runtime.memories.read({ kind: "bot", id: gone })).text, "");
 				const hold = Promise.withResolvers<void>();
 				faux.setResponses([
 					async (_context, options) => {
@@ -125,7 +125,7 @@ export const checks: Check[] = [
 				controller.dispose();
 				assert.equal(finished, "removed");
 				assert.equal(busyAfter, false);
-				assert.equal((await runtime.memory({ kind: "bot", id: gone })).text, "");
+				assert.equal((await runtime.memories.read({ kind: "bot", id: gone })).text, "");
 				assert.equal((await runtime.bots()).some((bot) => bot.id === gone), false);
 			} finally {
 				await runtime.close();

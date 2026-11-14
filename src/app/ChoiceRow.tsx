@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckIcon } from "./icons.tsx";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 type Choice<T extends string> = { value: T; label: string; group?: string; disabled?: boolean };

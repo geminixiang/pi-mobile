@@ -1,4 +1,4 @@
-import { useSubscribed } from "../app/subscribed.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 import { GlobeIcon } from "../app/icons.tsx";
 import { type BrowserState, browserState, NO_BROWSER } from "./tool.ts";
 

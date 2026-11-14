@@ -1,6 +1,6 @@
 import { Logo } from "./Logo.tsx";
 import { useEffect, useState } from "react";
-import { useSubscribed } from "./subscribed.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";

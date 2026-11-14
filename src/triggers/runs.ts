@@ -3,7 +3,7 @@ import { Value } from "typebox/value";
 import { type Conversation, type ConversationId, defineDoc, type EntryRecord, type Harness } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { native } from "../native.ts";
-import { checkpointEvery64 } from "../agent/doc-policy.ts";
+import { checkpointEvery64 } from "../doc-policy.ts";
 import { DAY, MINUTE, startOfToday } from "../time.ts";
 import { isWatch } from "./watch.ts";
 import { check, oneOf, valueOrThrow } from "../parse.ts";

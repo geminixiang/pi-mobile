@@ -93,7 +93,7 @@ export const checks: Check[] = [
 				assert.equal(results.find((result) => result.name === "update_memory")?.isError, false);
 				assert.equal(results.find((result) => result.name === "bash")?.isError, true);
 				assert.deepEqual(reports, []);
-				assert.equal((await runtime.memory({ kind: "bot", id: bot.id })).text.includes("fixture"), true);
+				assert.equal((await runtime.memories.read({ kind: "bot", id: bot.id })).text.includes("fixture"), true);
 			} finally {
 				await runtime.close();
 			}

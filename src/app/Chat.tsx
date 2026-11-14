@@ -28,7 +28,7 @@ import type { Forms } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import type { ResultCard } from "../interaction/results.ts";
 import { ReachNote, useReach } from "./Links.tsx";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { answerOf, withoutReplies } from "../interaction/replies.ts";
 import { pad } from "../time.ts";
 

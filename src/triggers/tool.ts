@@ -1,7 +1,7 @@
 import type { Context } from "@earendil-works/chord/context";
 import { native } from "../native.ts";
 import { type ConversationId, defineExtension, type ToolExecutionApi } from "@earendil-works/pi-durable";
-import { appSection } from "../agent/section.ts";
+import { appSection } from "../section.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, text } from "../agent/tools/common.ts";
 import { localTime, MINUTE, parseClock, parseLocalTime } from "../time.ts";

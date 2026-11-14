@@ -1,6 +1,6 @@
 import { defineExtension } from "@earendil-works/pi-durable";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
-import { appSection } from "../section.ts";
+import { appSection } from "../../section.ts";
 import type { Workplace } from "../workplaces.ts";
 import { GH_USAGE } from "./gh-command.ts";
 

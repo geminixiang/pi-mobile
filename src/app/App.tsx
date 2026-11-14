@@ -23,7 +23,7 @@ import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
-import { useSubscribed } from "./subscribed.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -58,7 +58,7 @@ import { startModelList } from "../agent/available-models.ts";
 import { windowFor } from "../agent/models.ts";
 import { capacitorPlatform, capacitorStorage } from "../agent/platform.ts";
 import { ModelLine } from "./Links.tsx";
-import { RowList } from "./RowList.tsx";
+import { RowList } from "../ui/RowList.tsx";
 import { modelReach } from "../agent/reach.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";

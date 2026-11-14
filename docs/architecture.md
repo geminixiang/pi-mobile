@@ -164,7 +164,8 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/agent/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
 | `src/agent/tools/` | 內建工具，一個領域一個檔案；`common.ts` 是共用的 `defineAppTool` |
 | `src/agent/codemode.ts`、`on-demand.ts`、`toolsets.ts` | Code mode（QuickJS Web Worker）、需要時才載入的工具、Bot 可選的工具組 |
-| `src/agent/bots.ts`、`memory.ts`、`skills.ts` | Bot 的資料與系統提示、MEMORY.md、技能 |
+| `src/agent/bots.ts`、`memory.ts` | Bot 的資料與系統提示、MEMORY.md |
+| `src/skills/` | 技能：內建的 `builtin/<name>/SKILL.md`（照 pi coding agent 和 Agent Skills 的格式）、每個 Bot 和使用者一起存的技能（`save_skill`，排程觸發時不能存）、Bot 面板的技能清單 |
 | `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
 | `src/agent/mcp.ts`、`mcp-catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
 | `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |

@@ -1,5 +1,5 @@
 import { type PromptSection, section, type ToolRegistration } from "@earendil-works/pi-durable";
-import { log } from "../log.ts";
+import { log } from "./log.ts";
 
 export const PROMPT_BUDGET = 24_000;
 const CUT = "\n… (cut to fit the prompt)";

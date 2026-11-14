@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { type CodemodeRemote, type CodemodeRemoteExchange, RemoteCodemodeSandbox } from "@earendil-works/pi-codemode/portable";
 import { defineExtension, hook, type ToolExecutionResult, ToolTask } from "@earendil-works/pi-durable";
-import { appSection } from "./section.ts";
+import { appSection } from "../section.ts";
 import { adopt } from "./tools/common.ts";
 import { createCodemodeTool } from "@earendil-works/pi-durable/codemode";
 import type { FromWorker, ToWorker } from "./codemode-worker.ts";

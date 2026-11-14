@@ -4,7 +4,7 @@ import { PhoneScreen } from "../../phone-screen/plugin.ts";
 import { native } from "../../native.ts";
 import { Type } from "typebox";
 import { type ConversationId, defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../section.ts";
+import { appSection } from "../../section.ts";
 import { defineAppTool, text } from "./common.ts";
 import { parseClock } from "../../time.ts";
 import { oneOf } from "../../parse.ts";

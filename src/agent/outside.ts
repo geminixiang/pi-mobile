@@ -1,6 +1,6 @@
 import type { Context } from "@earendil-works/chord/context";
 import { defineDoc, type ToolExecutionApi } from "@earendil-works/pi-durable";
-import { checkpointEvery64 } from "./doc-policy.ts";
+import { checkpointEvery64 } from "../doc-policy.ts";
 import { GUARDS } from "./guards.ts";
 import { createJudge, type Judge, LIKELY, type Question } from "./judge.ts";
 

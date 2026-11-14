@@ -1,7 +1,7 @@
 import { Calendar, type PhoneCalendar, type PhoneEvent } from "../../plugins/calendar.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../section.ts";
+import { appSection } from "../../section.ts";
 import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
 import { defineAppTool, json, text } from "./common.ts";
 import { DAY, HOUR, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, weekdayOf } from "../../time.ts";

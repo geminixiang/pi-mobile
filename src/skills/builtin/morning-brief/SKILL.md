@@ -1,3 +1,8 @@
+---
+name: morning-brief
+description: How to write the morning brief from the user's calendar, items, messages and mail. Use for a morning brief, or when setting up the daily one the user accepted.
+---
+
 # Morning brief
 
 The user's day at a glance, sent by the 早晨簡報 schedule at 08:00, or when the user asks for today's brief. Also how
