@@ -89,6 +89,10 @@ astra 的總結：要做的是缺的那一層「監督層」，不是另一個 I
 - 資料介面：每個功能匯出自己的 handle（`subscribe` 加上它自己的動詞），工作台只拿 handle，不 import `AgentRuntime` 或 `HostCommands`。已經有四個：`triggers`、`forms`、`browserState`、`subscribeActivity`。缺三個：電腦 agent 的名冊（自己決定多久讀一次：名冊看得到時 10 到 15 秒一次，只有舞台上的那個每 1.5 秒讀畫面；之後換成事件串流，工作台不用改）、jobs、每個 Bot 的回合摘要。
 - 這要先完成模組分層（見 AGENTS.md 和進行中的模組化計畫），工作台才只透過 handle 讀資料。
 
+## 資料模型：span
+
+affectUI 的 agent 元件（見 [affectui.md](affectui.md)）示範了一件事：一次執行記成扁平的 span 清單（`id`、`parentId`、`kind`、狀態、時間、tokens、成本），同一份資料可以畫成誰派了誰、時間花在哪、錢花在哪、誰交給誰。工作後台先定這份資料模型，再選畫法。
+
 ## 下一步
 
 1. 模組分層：A（jobs）、B（排程不認識 items 和 agent）、各功能的 handle。
