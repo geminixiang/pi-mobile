@@ -5,7 +5,7 @@ import { DAY, startOfToday } from "../time.ts";
 import type { LastRun, Trigger } from "./runs.ts";
 import { messageOf } from "../promise.ts";
 import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon, TriggerIcon } from "../app/icons.tsx";
-import { clockOf, describeAgo, describeDay, describeRule, isEvent, triggerSymbol } from "./when.ts";
+import { clockOf, describeNear, describeDay, describeRule, isEvent, triggerSymbol } from "./when.ts";
 import { GUARD_IDS, GUARDS, type GuardId } from "../agent/guards.ts";
 
 function GuardChips({ name, guards, onChange }: { name: string; guards: GuardId[]; onChange: (guards: GuardId[]) => void }) {
@@ -108,7 +108,7 @@ export function TriggerRow({
 				<div className="trigger-detail">
 					{rule ? <p>{rule}</p> : null}
 					{trigger.onlyIf ? <p>只在：{trigger.onlyIf}</p> : null}
-					{last ? <p className={last.outcome === "failed" ? "error" : undefined}>{`上次 ${describeAgo(last.at, startOfToday())} · ${lastRun(last)}`}</p> : null}
+					{last ? <p className={last.outcome === "failed" ? "error" : undefined}>{`上次 ${describeNear(last.at, startOfToday())} · ${lastRun(last)}`}</p> : null}
 					{isEvent(trigger.when) ? <GuardChips name={trigger.name} guards={guards} onChange={(chosen) => void act(runtime.triggers.setGuards(trigger.id, chosen))} /> : null}
 					<span className="trigger-actions">
 						<button type="button" onClick={() => void act(runtime.triggers.run(trigger.id, "manual"))}>

@@ -68,10 +68,10 @@ export function describeRule(when: When): string | undefined {
 	return [days === "每天" ? undefined : days, describeEvent(when), when.gapHours >= 24 ? "一天一次" : `最多每 ${when.gapHours} 小時一次`].filter(Boolean).join(" · ");
 }
 
-export function describeAgo(at: number, today: number): string {
-	if (at >= today) return `今天 ${clockOf(at)}`;
-	if (at >= today - DAY) return `昨天 ${clockOf(at)}`;
-	return describeTime(at);
+export function describeNear(at: number, today: number): string {
+	const day = Math.floor((at - today) / DAY);
+	const near = { [-1]: "昨天", 0: "今天", 1: "明天" }[day];
+	return near ? `${near} ${clockOf(at)}` : describeTime(at);
 }
 
 function describeDays(list: readonly number[]): string {

@@ -286,6 +286,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-15 | 待辦卡依事項分兩種：要你做的（標題「Bot 提醒你」，按鈕「一起處理」把這件事放進那個 Bot 的輸入框、不自動送出；「已經結束」；「晚點提醒」展開 1 小時後、今晚 9 點、明早 9 點），和 Bot 在等的（標題「Bot 正在等」，列出在等什麼，「問進度」「不用等了」）。時間寫成提醒時間（「11/18（三）20:00 會提醒你」「今天 20:00 提醒的」），小工具的待辦列同樣改成「16:30 提醒」「已提醒」「沒定提醒時間」，不再說「到期」：那個時間是提醒時間，不是期限。使用者在 S24 上點進卡片「不知道要做啥」 |
 | 2026-11-14 | 手機資料夾的 `git cat-file` 拿掉（`src/agent/files/git-inspection.ts` 和它的測試），現在回 just-git 的「不支援」；同樣的內容用 just-git 本身的 `git show <rev>:<path>`、`git ls-tree` 讀，提示從沒提過 `cat-file`。瘦身 | 不變 | 實跑：記憶體 VFS 上 just-git `git show HEAD:f.txt` 回「中文」、`git ls-tree HEAD` 列出 blob |
 | 2026-11-14 | 拿掉 `ToolFilterExtension`（`src/agent/tool-filter.ts`）和它的兩條程式規則（只有它讀 `addTools`、只有它和 `codemode.ts` 有 `afterTool`）：唯一發出 `control.addTools` 的 `tool_search` 只從 `agent.deferred` 挑，`deferred` 已經套用 `tools.remove`（pi-durable 1.5.0 `harness/agent.js`），被工具組關掉的工具本來就不會被載回來 | 不變 | 讀碼：`tool-search.js:60` 取 `deferred`、`agent.js` 的 `filterTools(…, state.tools)`；`test/contracts/where.ts`、`test/toolsets.ts` 照常通過 |
 | 2026-11-14 | `ask_user` 多一個選填的 `shows`：要使用者核准寄出、張貼、刪除的東西，把完整的最終文字放進去，問題卡在題目上方顯示（可捲動、可選取）；說明改成「你寫進檔案的使用者看不到」，「Call it last and alone」改成「放在同一則回答的文字之後、不和其他工具一起」（「alone」讓模型只送卡片、不寫字）。原因：S24 上求職管家把改好的求職信寫進檔案，就跳出「照這版用104送出嗎？」，使用者回「給我文字阿，你改完的版本我沒看到」（2026-11-14 11:18）；舊說明只說「先在回答裡給他看」，模型沒照做 | `ask_user` 的說明和參數多約 60 tokens（估計，看快照字數差） | `test/contracts/interaction.ts` 新增一則（舊碼上失敗：沒有 `shows`）；工具快照與提示快照更新 |

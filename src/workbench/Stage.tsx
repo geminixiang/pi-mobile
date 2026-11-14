@@ -11,8 +11,7 @@ import { resolvePath } from "../app/openFile.ts";
 import { WorkspaceView } from "../app/WorkspaceView.tsx";
 import { Browser } from "../browser/plugin.ts";
 import { choicesOf } from "../computer-agents/workers.ts";
-import { ItemActions } from "../items/ItemActions.tsx";
-import { due } from "../items/ItemSheet.tsx";
+import { ItemActions, remindLine } from "../items/ItemActions.tsx";
 import { clock, useNow } from "../jobs/JobsContext.ts";
 import { orLogged } from "../promise.ts";
 import { type Board, type Card, type Draft, hostOf, type Source } from "./board.ts";
@@ -28,6 +27,7 @@ export type StageActions = {
 	close: (key: string) => void;
 	show: (key: string) => void;
 	ask: (text: string) => void;
+	draft: (text: string) => void;
 	reply: (text: string) => void;
 	answerForm: (callId: string, answer: FormAnswer) => void;
 	stopTurn: () => void;
@@ -175,9 +175,9 @@ function StageBody(props: StageProps & { card: Card }) {
 		case "item":
 			return (
 				<>
-					<p className="stage-line">{due(card.item, Date.now())}</p>
+					<p className="stage-line">{remindLine(card.item, Date.now())}</p>
 					<Bar>
-						<ItemActions runtime={runtime} item={card.item} onAsk={actions.ask} onDone={() => undefined} />
+						<ItemActions runtime={runtime} item={card.item} onDraft={actions.draft} onDone={() => undefined} />
 						<Next board={board} actions={actions} />
 					</Bar>
 				</>

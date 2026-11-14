@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { Trigger } from "../src/triggers/runs.ts";
-import { describeRule, grouped } from "../src/triggers/when.ts";
+import { describeNear, describeRule, grouped } from "../src/triggers/when.ts";
 
 const hour = 60 * 60 * 1000;
 const endOfToday = Date.UTC(2026, 10, 3, 16);
@@ -27,6 +27,13 @@ assert.deepEqual(
 	],
 );
 assert.deepEqual(grouped([], {}, endOfToday), []);
+const midnight = new Date(2026, 10, 15).getTime();
+const at = (days: number, hours: number) => midnight + days * 86_400_000 + hours * 3_600_000;
+assert.equal(describeNear(at(-1, 20), midnight), "昨天 20:00");
+assert.equal(describeNear(at(0, 9), midnight), "今天 09:00");
+assert.equal(describeNear(at(1, 9), midnight), "明天 09:00");
+assert.equal(describeNear(at(3, 20), midnight), "11/18（三）20:00", "a time days ahead is a date, not yesterday");
+assert.equal(describeNear(at(-3, 8), midnight), "11/12（四）08:00");
 assert.equal(describeRule({ kind: "daily", time: "21:30", days: [] }), "每天");
 assert.equal(describeRule({ kind: "daily", time: "08:00", days: [1, 2, 3, 4, 5] }), "平日");
 assert.equal(describeRule({ kind: "once", at: endOfToday }), undefined);

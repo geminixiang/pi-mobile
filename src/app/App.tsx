@@ -709,7 +709,7 @@ export function App() {
 				<ItemSheet
 					runtime={runtime}
 					id={openItem}
-					onAsk={(text) => void controller?.send([{ type: "text", text }]).catch(fail)}
+					onDraft={(conversation, text) => void openConversation(conversation, text)}
 					onClose={() => setOpenItem(undefined)}
 				/>
 			) : null}
@@ -767,6 +767,7 @@ export function App() {
 						if (currentBot) benchDispatch({ type: "close", bot: currentBot, key });
 					},
 					ask: (text) => void controller.send([{ type: "text", text }]).catch(fail),
+					draft: (text) => void openConversation(controller.id, text),
 					reply: (text) => void controller.send([{ type: "text", text }], "steer").catch(fail),
 					answerForm: (callId, answer) => runtime.forms.answer(callId, answer),
 					// why: the composer's stop also puts messages the stop withdrew back into the draft, which only Chat holds
