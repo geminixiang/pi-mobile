@@ -6,7 +6,7 @@ export type ToolCost = Record<string, { offered: number; deferred: number; tools
 
 export type ContextPart = { kind: "messages" | "prompt" | "memory" | "tools" | "services"; tokens: number; items: { name: string; tokens: number }[] };
 
-export type ContextParts = { parts: ContextPart[]; reserve: number; free: number; deferred: number };
+type ContextParts = { parts: ContextPart[]; reserve: number; free: number; deferred: number };
 
 const MEMORY_SECTION = "memory";
 const isService = (name: string) => name.startsWith("mcp-");

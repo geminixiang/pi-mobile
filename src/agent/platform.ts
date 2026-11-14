@@ -24,11 +24,11 @@ export interface PhoneApp {
 	removeFolder(folder: string): Promise<void>;
 }
 
-export interface BotBrowser {
+interface BotBrowser {
 	forget(bot: string): Promise<void>;
 }
 
-export interface BotReports {
+interface BotReports {
 	forget(conversation: string): Promise<void>;
 }
 
@@ -53,7 +53,7 @@ export interface Platform {
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: 60_000 };
 
-export const nativeFetch: McpFetch = async (input, init) => {
+const nativeFetch: McpFetch = async (input, init) => {
 	const headers = headerRecord(init?.headers);
 	let data: unknown;
 	const body = init?.body;

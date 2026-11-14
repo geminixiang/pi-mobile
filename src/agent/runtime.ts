@@ -240,7 +240,7 @@ export class AgentRuntime {
 			clouds: clouds.services,
 			web: webSearch,
 			triggers: triggerHost,
-			memory: { changed: () => void runtimeRef?.publishMemory() },
+			memory: { changed: () => runtimeRef && runtimeRef.#publishMemory() },
 			workplace: at,
 			waitForJob: (id, job) => runtimeRef?.waitForJob(id, job),
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
@@ -457,31 +457,34 @@ export class AgentRuntime {
 
 	waitForJob(id: ConversationId, job: string): void {
 		const key = `${String(id)}\n${job}`;
-		const place = this.workplaces.at(String(id));
-		const jobId = job.slice("job:".length);
-		if (this.#waiting.has(key) || place?.kind !== "computer" || !JOB_ID.test(jobId)) return;
+		const on = this.#jobOn(id, job);
+		if (this.#waiting.has(key) || !on) return;
 		this.#waiting.add(key);
-		const waited = new HostCommands(place.host).run(waitJob(jobId)).then(async (ended) => {
+		const waited = on.commands.run(waitJob(on.jobId)).then(async (ended) => {
 			if (ended.code === 0) await this.triggers.checkWatch(id, job);
 		});
 		void orLogged(waited, "jobs.wait_failed", undefined, { job }).finally(() => this.#waiting.delete(key));
 	}
 
 	async peekJob(id: ConversationId, job: string): Promise<{ command: string; output: string } | undefined> {
-		const place = this.workplaces.at(String(id));
-		const jobId = job.slice("job:".length);
-		if (place?.kind !== "computer" || !JOB_ID.test(jobId)) return undefined;
-		const read = parseJob((await new HostCommands(place.host).run(readJob(jobId, PEEK_LINES))).stdout);
+		const on = this.#jobOn(id, job);
+		if (!on) return undefined;
+		const read = parseJob((await on.commands.run(readJob(on.jobId, PEEK_LINES))).stdout);
 		return read.state === "missing" ? undefined : { command: read.output.command, output: read.output.text };
 	}
 
 	async stopJob(id: ConversationId, job: string): Promise<void> {
-		const place = this.workplaces.at(String(id));
-		const jobId = job.slice("job:".length);
-		if (place?.kind !== "computer" || !JOB_ID.test(jobId)) return;
-		const stopped = await new HostCommands(place.host).run(stopJob(jobId));
+		const on = this.#jobOn(id, job);
+		if (!on) return;
+		const stopped = await on.commands.run(stopJob(on.jobId));
 		if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
 		await this.triggers.stopWatching(id, job);
+	}
+
+	#jobOn(id: ConversationId, job: string): { commands: HostCommands; jobId: string } | undefined {
+		const place = this.workplaces.at(String(id));
+		const jobId = job.slice("job:".length);
+		return place?.kind === "computer" && JOB_ID.test(jobId) ? { commands: new HostCommands(place.host), jobId } : undefined;
 	}
 
 	async peekAgent(id: ConversationId, agent: string): Promise<Reading> {
@@ -648,7 +651,7 @@ export class AgentRuntime {
 		return () => this.#memoryListeners.delete(reload);
 	}
 
-	publishMemory(): void {
+	#publishMemory(): void {
 		for (const listener of this.#memoryListeners) listener();
 	}
 
@@ -661,7 +664,7 @@ export class AgentRuntime {
 			memory.updatedAt = Date.now();
 			memory.updatedBy = "user";
 		}, context);
-		this.publishMemory();
+		this.#publishMemory();
 	}
 
 	get closed(): Promise<SessionEnd> {

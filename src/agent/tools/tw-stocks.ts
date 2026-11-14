@@ -1,6 +1,7 @@
 import { type Static, type TObject, type TProperties, Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, getJson, text } from "./common.ts";
+import { defineAppTool, text } from "./common.ts";
+import { getJson } from "../http.ts";
 import { DAY, localDate, parseDay, startOfToday, weekdayOf } from "../../time.ts";
 import { oneOf, parse } from "../../parse.ts";
 import { sharedUntilFailure } from "../../promise.ts";

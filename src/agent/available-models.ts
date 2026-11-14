@@ -68,18 +68,11 @@ export async function loadModels(settings: Settings, modelIds: Promise<Record<st
 	const models = createModels({ credentials });
 	const infos: ModelInfo[] = [];
 	configs.forEach((config, index) => {
-		const name = providerName(config);
-		if (config.kind === "custom") {
-			const ids = lists[config.id] ?? [];
-			const provider = customProvider(config, settings.providerKeys[config.id] ?? "", ids, catalog);
-			models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), { network: deviceNetwork, reach: modelReach(provider.id), traffic: modelTraffic(provider.id) }));
-			for (const model of provider.getModels()) infos.push(describe(model, name, compactAt, inCatalog(catalog, model.id)));
-			return;
-		}
-		const provider = loaded[index];
+		const custom = config.kind === "custom";
+		const provider = custom ? customProvider(config, settings.providerKeys[config.id] ?? "", lists[config.id] ?? [], catalog) : loaded[index];
 		if (!provider) return;
 		models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), { network: deviceNetwork, reach: modelReach(provider.id), traffic: modelTraffic(provider.id) }));
-		for (const model of provider.getModels()) infos.push(describe(model, name, compactAt));
+		for (const model of provider.getModels()) infos.push(describe(model, providerName(config), compactAt, custom ? inCatalog(catalog, model.id) : undefined));
 	});
 	return { models, infos, webSearch: webSearchConfig(configs, settings.providerKeys, lists, infos) };
 }

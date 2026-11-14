@@ -55,7 +55,6 @@ async function attempt<T>(context: Context, path: string | undefined, run: () =>
 
 const infoOf = (absolute: string, info: BotFileInfo): FileInfo => ({ name: nameOf(absolute), path: absolute, kind: info.kind, size: info.size, mtimeMs: info.mtimeMs });
 
-const withoutBom = (text: string) => (text.startsWith("\uFEFF") ? text.slice(1) : text);
 
 type At = { bot: string; path: string };
 
@@ -80,7 +79,7 @@ const readRange = async (at: At, offset: number, length: number) => {
 
 const readBytes = (at: At) => readWhole((offset, length) => readRange(at, offset, length));
 
-const readText = async (at: At) => withoutBom(new TextDecoder().decode(await readBytes(at)));
+const readText = async (at: At) => new TextDecoder().decode(await readBytes(at));
 
 const writeContent = (at: At, content: string | Uint8Array, append: boolean) =>
 	BotFiles.write({ ...at, append, ...(typeof content === "string" ? { text: content } : { data: toBase64(content) }) });

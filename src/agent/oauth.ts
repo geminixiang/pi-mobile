@@ -5,8 +5,7 @@ import { sleep } from "@earendil-works/pi-ai/utils/sleep";
 import { orLogged } from "../promise.ts";
 import { randomBase64Url, toBase64Url } from "../encoding.ts";
 import { Loopback } from "../plugins/loopback.ts";
-
-const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
+import { HTTP_TIMEOUTS } from "./http.ts";
 
 export interface AccessToken {
 	token: string;
@@ -28,13 +27,8 @@ export async function postForm({ url, form, what }: { url: string; form: Record<
 		url,
 		headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
 		data: new URLSearchParams(form).toString(),
-		...TIMEOUTS,
+		...HTTP_TIMEOUTS,
 	});
-	return { status: response.status, body: bodyOf(response.data, what) };
-}
-
-export async function getJson({ url, token, what }: { url: string; token: string; what: string }): Promise<HttpResponse> {
-	const response = await CapacitorHttp.get({ url, headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, ...TIMEOUTS });
 	return { status: response.status, body: bodyOf(response.data, what) };
 }
 

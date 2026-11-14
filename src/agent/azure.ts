@@ -1,5 +1,6 @@
 import { type Static, Type } from "typebox";
-import { type AccessToken, type DeviceSignIn, getJson, jwtPayload, pollDeviceFlow, refreshRotating, startDeviceFlow, cachedToken } from "./oauth.ts";
+import { getJson } from "./http.ts";
+import { type AccessToken, type DeviceSignIn, jwtPayload, pollDeviceFlow, refreshRotating, startDeviceFlow, cachedToken } from "./oauth.ts";
 import { type Checked, checkJson, parse } from "../parse.ts";
 
 const LOGIN = "https://login.microsoftonline.com";
@@ -52,12 +53,8 @@ export async function finishAzureSignIn(signIn: DeviceSignIn, signal: AbortSigna
 	});
 	if (!tokens.refresh) throw new Error("Azure 登入失敗：沒有拿到 refresh token");
 	const claims = parse(SignInClaims, jwtPayload(tokens.idToken ?? tokens.access.token), "Microsoft ID token");
-	const response = await getJson({
-		url: "https://management.azure.com/subscriptions?api-version=2022-12-01",
-		token: tokens.access.token,
-		what: "Azure 訂閱清單",
-	});
-	const subscription = parse(Subscriptions, response.body, "Azure 訂閱清單").value[0];
+	const listed = await getJson("https://management.azure.com/subscriptions?api-version=2022-12-01", "Azure 訂閱清單", undefined, tokens.access.token);
+	const subscription = parse(Subscriptions, listed, "Azure 訂閱清單").value[0];
 	return JSON.stringify({
 		type: "azure",
 		refresh_token: tokens.refresh,

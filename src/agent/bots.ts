@@ -18,7 +18,7 @@ export type Bot = {
 };
 
 const RHYTHM_OFFER = ["unsent", "open", "last"] as const;
-export type RhythmOffer = (typeof RHYTHM_OFFER)[number];
+type RhythmOffer = (typeof RHYTHM_OFFER)[number];
 export const NEW_BOT_OFFER: RhythmOffer = RHYTHM_OFFER[0];
 
 export function afterUserMessage(offer: RhythmOffer): RhythmOffer | undefined {

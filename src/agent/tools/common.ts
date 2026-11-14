@@ -1,5 +1,4 @@
 import type { PermissionKind } from "../../interaction/permissions.ts";
-import { CapacitorHttp } from "@capacitor/core";
 import { contentText } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import { type Context, isJsonValue, type JsonValue } from "@earendil-works/chord";
@@ -8,7 +7,6 @@ import { Value } from "typebox/value";
 import { showAlert } from "../../interaction/results.ts";
 import { log } from "../../log.ts";
 import { gateSend, noteRead, warningOf } from "../outside.ts";
-import { parseJson } from "../../parse.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
 import type { Groups } from "../toolsets.ts";
 
@@ -174,16 +172,6 @@ export function truncated(value: string, hint = ""): string {
 }
 
 export const jsonOrNull = (value: unknown): JsonValue => (isJsonValue(value) ? value : null);
-
-const HEADERS = { "User-Agent": "pi-mobile (+https://github.com/geminixiang/pi-mobile)", Accept: "application/json" };
-const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 20_000 };
-
-export async function getJson(url: string, what: string, signal?: AbortSignal): Promise<unknown> {
-	signal?.throwIfAborted();
-	const response = await CapacitorHttp.get({ url, headers: HEADERS, ...TIMEOUTS });
-	if (response.status !== 200) throw new Error(`${what}: HTTP ${response.status}`);
-	return typeof response.data === "string" ? parseJson(response.data, what) : response.data;
-}
 
 async function screened<TDetails extends JsonValue>(api: ToolExecutionApi<TDetails>, context: Context, tool: string, source: string, result: ToolExecutionResult<TDetails>): Promise<ToolExecutionResult<TDetails>> {
 	const words = contentText(result.output ?? []);

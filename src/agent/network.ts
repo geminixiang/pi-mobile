@@ -71,7 +71,7 @@ export const deviceNetwork: Network = {
 	onChange: (listener) => (device ??= watchDevice()).onChange(listener),
 };
 
-export function untilOnline(network: Network, signal?: AbortSignal): Promise<void> {
+function untilOnline(network: Network, signal?: AbortSignal): Promise<void> {
 	if (network.online() || signal?.aborted) return Promise.resolve();
 	return new Promise((resolve) => {
 		const done = () => {

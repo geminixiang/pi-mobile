@@ -6,14 +6,14 @@ import { orLogged } from "../promise.ts";
 const STATELESS_VERSION = "2026-07-28";
 const MAX_ROUNDS = 4;
 
-export type Endpoint = { url: string; fetch: McpFetch; auth: AuthProvider };
+type Endpoint = { url: string; fetch: McpFetch; auth: AuthProvider };
 
 const FormSchema = Type.Object({
 	type: Type.Literal("object"),
 	properties: Type.Record(Type.String(), Type.Object({ type: Type.Optional(Type.String()), title: Type.Optional(Type.String()), description: Type.Optional(Type.String()) })),
 	required: Type.Optional(Type.Array(Type.String())),
 });
-export type FormSchema = Static<typeof FormSchema>;
+type FormSchema = Static<typeof FormSchema>;
 
 export type FormRequest = { message: string; schema: FormSchema };
 export type FormAnswer = { action: "accept"; content: Record<string, boolean | string | number> } | { action: "decline" } | { action: "cancel" };

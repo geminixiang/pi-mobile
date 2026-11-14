@@ -82,12 +82,6 @@ class Api {
 		});
 		return { status: response.status, ok: response.ok, link: response.headers.get("link") ?? "", text: await response.text() };
 	}
-
-	async json(method: string, path: string, body?: unknown): Promise<unknown> {
-		const response = await this.raw(method, path, body);
-		if (!response.ok) throw new GhError(`${apiMessage(response.text) || response.text.slice(0, 200)} (HTTP ${response.status})`);
-		return response.text ? jsonOrText(response.text) : null;
-	}
 }
 
 function nextPage(link: string): string | undefined {

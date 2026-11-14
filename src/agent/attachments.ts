@@ -4,6 +4,7 @@ import { inViewPath } from "../workbench/note.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
+import { extensionOf } from "./mime.ts";
 import { Database } from "../plugins/database.ts";
 
 export const KINDS = ["pdf", "docx", "sheet", "text"] as const;
@@ -39,8 +40,8 @@ export function jpegOf(canvas: HTMLCanvasElement): ImageContent {
 export const unsupportedFile = (name: string) => `不支援這種檔案：${name}（可以傳 PDF、Word、Excel、CSV 和純文字）`;
 
 export function attachmentKind(file: { name: string; type: string }): AttachmentKind | undefined {
-	const ext = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
-	if (ext && EXTENSIONS[ext]) return EXTENSIONS[ext];
+	const known = EXTENSIONS[extensionOf(file.name)];
+	if (known) return known;
 	if (file.type === "application/pdf") return "pdf";
 	if (file.type.startsWith("text/")) return "text";
 	return undefined;

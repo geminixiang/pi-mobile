@@ -1,5 +1,6 @@
 import { type Static, Type } from "typebox";
-import { type AccessToken, cachedToken, type DeviceSignIn, getJson, pollDeviceFlow, refreshRotating, startDeviceFlow } from "./oauth.ts";
+import { getJson } from "./http.ts";
+import { type AccessToken, cachedToken, type DeviceSignIn, pollDeviceFlow, refreshRotating, startDeviceFlow } from "./oauth.ts";
 import { type Checked, check, checkJson, parse } from "../parse.ts";
 import { orLogged } from "../promise.ts";
 import { DAY } from "../time.ts";
@@ -85,8 +86,8 @@ export async function startCloudflareSignIn(): Promise<DeviceSignIn> {
 }
 
 async function accountDetail<T extends Parameters<typeof parse>[0]>(token: string, path: string, schema: T): Promise<Static<T> | undefined> {
-	const response = await orLogged(getJson({ url: `https://api.cloudflare.com/client/v4${path}`, token, what: "Cloudflare API" }), "cloudflare.account_detail_unavailable", undefined, { path });
-	const checked = response && check(schema, response.body, "Cloudflare API");
+	const body = await orLogged(getJson(`https://api.cloudflare.com/client/v4${path}`, "Cloudflare API", undefined, token), "cloudflare.account_detail_unavailable", undefined, { path });
+	const checked = body === undefined ? undefined : check(schema, body, "Cloudflare API");
 	return checked?.ok ? checked.value : undefined;
 }
 

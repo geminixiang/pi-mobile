@@ -4,7 +4,7 @@ import type { Conversation, ConversationView, EntryRecord } from "@earendil-work
 // why: pi-durable's view is a window over the whole history (50–100 entries by default); this bound keeps every entry since the latest reset or compaction in it.
 const WHOLE = 1_000_000;
 
-export type ActiveView = {
+type ActiveView = {
 	readonly value: ConversationView;
 	subscribe(listener: (view: ConversationView) => void): () => void;
 	dispose(): Promise<void>;
