@@ -1,4 +1,5 @@
-import { Fragment, type PointerEvent, useContext, useEffect, useRef, useState } from "react";
+import { Fragment, type PointerEvent, useContext, useRef, useState } from "react";
+import { usePolled } from "../app/loaded.ts";
 import { StopIcon } from "../app/icons.tsx";
 import { haptic, HOLD_MS, HOLD_SLOP } from "../app/haptics.ts";
 import { orLogged } from "../promise.ts";
@@ -19,20 +20,12 @@ export function JobsStrip() {
 	const [expanded, setExpanded] = useState(false);
 	const [peeking, setPeeking] = useState<Peeking>({ state: "closed" });
 	const peeked = peeking.state === "open" ? peeking.job : undefined;
-	useEffect(() => {
-		if (!peeked || !jobs) return;
-		let live = true;
-		const read = async () => {
-			const peek = await orLogged(jobs.peek(peeked), "jobs.peek_failed", undefined, { job: peeked });
-			if (live) setPeeking((current) => (current.state !== "closed" && current.job === peeked ? { ...current, read: peek ?? "gone" } : current));
-		};
-		void read();
-		const timer = setInterval(() => void read(), PEEK_EVERY_MS);
-		return () => {
-			live = false;
-			clearInterval(timer);
-		};
-	}, [peeked, jobs]);
+	usePolled(
+		peeked && jobs ? () => orLogged(jobs.peek(peeked), "jobs.peek_failed", undefined, { job: peeked }) : undefined,
+		(peek) => setPeeking((current) => (current.state !== "closed" && current.job === peeked ? { ...current, read: peek ?? "gone" } : current)),
+		PEEK_EVERY_MS,
+		[peeked, jobs],
+	);
 	const release = () => {
 		setPeeking((current) => (current.state === "open" ? { ...current, state: "closing" } : current));
 		setTimeout(() => setPeeking((current) => (current.state === "closing" ? { state: "closed" } : current)), CLOSE_MS);

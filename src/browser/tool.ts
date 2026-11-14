@@ -16,6 +16,8 @@ type Handover = { bot: string; reason: string };
 
 export type BrowserState = { active: ReadonlySet<string>; handovers: readonly Handover[] };
 
+export const NO_BROWSER: BrowserState = { active: new Set(), handovers: [] };
+
 const waiting = new Map<string, { reason: string; done: () => void }>();
 const active = new Map<string, number>();
 const listeners = new Set<(state: BrowserState) => void>();

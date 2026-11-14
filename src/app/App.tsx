@@ -17,7 +17,7 @@ import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, Mor
 import { BrowserButton } from "../browser/BrowserButton.tsx";
 import { BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { questionStates } from "../interaction/answers.ts";
-import { type BrowserState, browserState } from "../browser/tool.ts";
+import { type BrowserState, browserState, NO_BROWSER } from "../browser/tool.ts";
 import { type PageHost, PageHostContext } from "../interaction/PageFrame.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
@@ -205,7 +205,7 @@ export function App() {
 		useCallback((listener: () => void) => (runtime ? runtime.forms.subscribe(listener) : () => undefined), [runtime]),
 		() => runtime?.forms.state,
 	);
-	const browser = useSubscribed<BrowserState>({ active: new Set(), handovers: [] }, (listener) => browserState.subscribe(listener), []);
+	const browser = useSubscribed<BrowserState>(NO_BROWSER, (listener) => browserState.subscribe(listener), []);
 
 	const busyIds = useSubscribed<ReadonlySet<ConversationId>>(new Set(), (listener) => runtime?.subscribeActivity(listener), [runtime]);
 	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());

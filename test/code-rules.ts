@@ -279,7 +279,7 @@ const EFFECTS: Record<string, number> = {
 	"src/app/background.ts": 1,
 	"src/app/briefly.ts": 2,
 	"src/app/layers.ts": 1,
-	"src/app/loaded.ts": 1,
+	"src/app/loaded.ts": 3,
 	"src/app/press.ts": 1,
 	"src/app/sideGesture.ts": 1,
 	"src/app/streaming.tsx": 3,
@@ -290,11 +290,10 @@ const EFFECTS: Record<string, number> = {
 	"src/interaction/PageFrame.tsx": 2,
 	"src/items/ItemSheet.tsx": 1,
 	"src/jobs/JobsContext.ts": 2,
-	"src/jobs/JobsStrip.tsx": 4,
+	"src/jobs/JobsStrip.tsx": 2,
 	"src/log.ts": 1,
 	"src/promise.ts": 1,
 	"src/triggers/events.ts": 1,
-	"src/workbench/Stage.tsx": 4,
 	"src/workbench/Surface.tsx": 3,
 };
 

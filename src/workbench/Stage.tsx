@@ -1,11 +1,11 @@
 import type { ConversationId } from "@earendil-works/pi-durable";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { FormAnswer } from "../agent/mcp-stateless.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { CLOCK } from "../app/clock.ts";
 import { CloseIcon } from "../app/icons.tsx";
-import { useLoaded } from "../app/loaded.ts";
+import { useLoaded, usePolled } from "../app/loaded.ts";
 import { callLabel, doing } from "../app/Message.tsx";
 import { resolvePath } from "../app/openFile.ts";
 import { WorkspaceView } from "../app/WorkspaceView.tsx";
@@ -243,20 +243,12 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 	const now = useNow(true);
 	const [screen, setScreen] = useState<Screen>({ state: "loading" });
 	const [stopping, setStopping] = useState<"idle" | "stopping" | "failed">("idle");
-	useEffect(() => {
-		let live = true;
-		const read = async () => {
-			const reading = await orLogged(runtime.peekAgent(conversation, agent), "workbench.peek_failed", undefined, { agent });
-			if (!live) return;
-			setScreen(reading?.ok ? { state: "read", text: reading.screen, doing: reading.doing, waiting: reading.status === "needs_user" } : { state: "gone" });
-		};
-		void read();
-		const timer = setInterval(() => void read(), PEEK_EVERY_MS);
-		return () => {
-			live = false;
-			clearInterval(timer);
-		};
-	}, [runtime, conversation, agent]);
+	usePolled(
+		() => orLogged(runtime.peekAgent(conversation, agent), "workbench.peek_failed", undefined, { agent }),
+		(reading) => setScreen(reading?.ok ? { state: "read", text: reading.screen, doing: reading.doing, waiting: reading.status === "needs_user" } : { state: "gone" }),
+		PEEK_EVERY_MS,
+		[runtime, conversation, agent],
+	);
 	const stop = async () => {
 		setStopping("stopping");
 		try {
@@ -294,19 +286,14 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 
 function BrowserLive({ bot, handover, onOpen }: { bot: string; handover: boolean; onOpen: () => void }) {
 	const [shot, setShot] = useState<string>();
-	useEffect(() => {
-		let live = true;
-		const peek = async () => {
-			const peeked = await orLogged(Browser.peek({ bot }), "workbench.browser_peek_failed", undefined);
-			if (live && peeked?.jpeg) setShot(peeked.jpeg);
-		};
-		void peek();
-		const timer = setInterval(() => void peek(), SHOT_EVERY_MS);
-		return () => {
-			live = false;
-			clearInterval(timer);
-		};
-	}, [bot]);
+	usePolled(
+		() => orLogged(Browser.peek({ bot }), "workbench.browser_peek_failed", undefined),
+		(peeked) => {
+			if (peeked?.jpeg) setShot(peeked.jpeg);
+		},
+		SHOT_EVERY_MS,
+		[bot],
+	);
 	return (
 		<>
 			<div className="stage-shot">{shot ? <img src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}</div>

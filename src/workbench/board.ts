@@ -14,7 +14,7 @@ export const GROUPS = ["need", "moving", "result"] as const;
 
 export type Group = (typeof GROUPS)[number];
 
-export type Step = { callId: string; name: string; status: "pending" | "running" | "done"; output: string; call: ToolCall | undefined };
+export type Step = { status: LiveTool["status"]; output: string; call: ToolCall | undefined };
 
 export type Draft = { path: string; version: number; previous: string | undefined };
 
@@ -135,7 +135,7 @@ function resultsOf(entries: readonly EntryRecord[]): ReadonlyMap<string, Result>
 function stepsOf(tools: readonly LiveTool[], entries: readonly EntryRecord[]): Step[] {
 	const lastAnswer = entries.findLast((entry) => entry.kind === "pi.assistant");
 	const calls = lastAnswer ? toolCalls(lastAnswer) : [];
-	return tools.map((tool) => ({ callId: tool.callId, name: tool.name, status: tool.status, output: tool.output ?? "", call: calls.find((call) => call.id === tool.callId) }));
+	return tools.map((tool) => ({ status: tool.status, output: tool.output ?? "", call: calls.find((call) => call.id === tool.callId) }));
 }
 
 type Written = { call: ToolCall; by: Living | undefined };
