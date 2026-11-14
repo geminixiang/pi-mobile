@@ -127,10 +127,11 @@ const MODELS_KEY = "pi-mobile.chatgpt-models";
 const MODEL_LIST_WAIT_MS = 5000;
 
 export async function chatgptModelsCached(credential: OAuthCredential): Promise<string[] | undefined> {
-	const ids = await orLogged(chatgptModels(credential, AbortSignal.timeout(MODEL_LIST_WAIT_MS)), "chatgpt.models_unavailable", undefined);
-	if (!ids) return readStored(Type.Array(Type.String()), MODELS_KEY);
-	localStorage.setItem(MODELS_KEY, JSON.stringify(ids));
-	return ids;
+	const fresh = orLogged(chatgptModels(credential, AbortSignal.timeout(MODEL_LIST_WAIT_MS)), "chatgpt.models_unavailable", undefined).then((ids) => {
+		if (ids) localStorage.setItem(MODELS_KEY, JSON.stringify(ids));
+		return ids;
+	});
+	return readStored(Type.Array(Type.String()), MODELS_KEY) ?? (await fresh);
 }
 
 export async function chatgptModels(credential: OAuthCredential, signal?: AbortSignal): Promise<string[]> {
