@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
 
-export type Layout = "phone" | "columns" | "stacked";
+type Layout = "phone" | "columns" | "stacked";
 
 export const WIDE_MIN_WIDTH = 600;
-export const COLUMNS_MIN_WIDTH = 840;
+const COLUMNS_MIN_WIDTH = 840;
 export const WIDE_MIN_HEIGHT = 480;
 
 export function layoutAt(width: number, height: number): Layout {

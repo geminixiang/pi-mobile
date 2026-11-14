@@ -54,6 +54,8 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Rule | Enforced by |
 |---|---|
 | No comments except `// why:` | `test/no-comments.ts` |
+| Strict TypeScript: `strict`, no unused locals or parameters, every path returns, no switch fallthrough, `override` written out, an index into an array or record may be `undefined` | `tsc` (`tsconfig.json`) |
+| Every export in `src/` is used by another file (except `src/shims/`, which mirror Node modules) | `test/code-rules.ts` |
 | No `any`, `!`, casts, swallowed catches | `test/code-rules.ts` |
 | Tools defined with `defineAppTool`, in the catalog, a toolset, the tool list, the snapshot | `test/tools-node.ts` |
 | Every tool declares its groups (`defineAppTool`, or `adopt` in `catalog.ts`); a tool in several groups has one per `where`; the snapshot records each tool's groups | `test/tools-node.ts` |

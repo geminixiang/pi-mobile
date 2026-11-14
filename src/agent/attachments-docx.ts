@@ -53,7 +53,8 @@ function table(element: Element): string {
 	if (rows.length === 0) return "";
 	const width = Math.max(...rows.map((row) => row.length));
 	const line = (row: string[]) => `| ${Array.from({ length: width }, (_, i) => row[i] ?? "").join(" | ")} |`;
-	return [line(rows[0]), `|${" --- |".repeat(width)}`, ...rows.slice(1).map(line)].join("\n");
+	const [header = [], ...body] = rows;
+	return [line(header), `|${" --- |".repeat(width)}`, ...body.map(line)].join("\n");
 }
 
 export async function extractDocx(file: Blob): Promise<string> {

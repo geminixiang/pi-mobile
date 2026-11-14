@@ -3,7 +3,7 @@ import { decodeEach, decode, oneOf } from "../parse.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../agent/cleartext.ts";
 import { ios } from "../native.ts";
 
-export const DAEMON_OSES = ["darwin", "linux", "windows"] as const;
+const DAEMON_OSES = ["darwin", "linux", "windows"] as const;
 export type DaemonOs = (typeof DAEMON_OSES)[number];
 export type DaemonArch = "x64" | "arm64";
 

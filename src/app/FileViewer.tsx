@@ -20,7 +20,7 @@ export function withCsp(html: string): string {
 
 export const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
 
-export type LineMarks = { changed: ReadonlySet<number>; picked: string | undefined; onPick: (line: string) => void };
+type LineMarks = { changed: ReadonlySet<number>; picked: string | undefined; onPick: (line: string) => void };
 
 export function CodeLines({ text, marks }: { text: string; marks?: LineMarks }) {
 	const trimmed = text.replace(/\n$/, "");
@@ -55,7 +55,7 @@ export async function handFile(workspace: Workspace, path: string, how: Handed):
 
 export const handProblem = (failure: unknown): string => (codeOf(failure) === "NO_APP" ? "手機上沒有能開這種檔案的 app" : messageOf(failure));
 
-export type ViewerFrame = { kind: "page"; onClose: () => void };
+type ViewerFrame = { kind: "page"; onClose: () => void };
 
 export function FileViewer({ workspace, path, frame }: { workspace: Workspace; path: string; frame: ViewerFrame }) {
 	const [content, setContent] = useState<FileContent>();

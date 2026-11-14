@@ -8,7 +8,7 @@ export const OUTPUT_BYTES = 50 * 1024;
 const LOG = "@@log";
 const COMMAND = "@@command";
 
-export type JobEnd = "exited" | "timed_out" | "stopped" | "lost";
+type JobEnd = "exited" | "timed_out" | "stopped" | "lost";
 export type Job = { state: "running"; seconds: number; output: Output } | { state: JobEnd; exitCode: number | undefined; seconds: number; output: Output } | { state: "missing" };
 export type Output = { text: string; lines: number; bytes: number; log: string; command: string };
 

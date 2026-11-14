@@ -5,7 +5,7 @@ import { appSection } from "../agent/section.ts";
 const MARK = "↳";
 const MOST = 2;
 
-export type Replied = { text: string; replies: readonly string[] };
+type Replied = { text: string; replies: readonly string[] };
 
 export function splitReplies(text: string): Replied {
 	const lines = text.trimEnd().split("\n");

@@ -3,7 +3,7 @@ import type { Native, NativePlugin } from "../native.ts";
 
 type Where = "phone" | "computer";
 
-export interface BuiltinToolset {
+interface BuiltinToolset {
 	kind: "builtin";
 	id: string;
 	label: string;
@@ -20,7 +20,7 @@ export interface ServiceToolset {
 	extension: string;
 }
 
-export type Toolset = BuiltinToolset | ServiceToolset;
+type Toolset = BuiltinToolset | ServiceToolset;
 
 const BUILTINS = [
 	{ kind: "builtin", id: "web", label: "網路", hint: "搜尋、讀網頁" },

@@ -12,7 +12,7 @@ const WAIT_FOR_MS = 8000;
 const WAIT_FOR_MAX_MS = 20_000;
 const ACTIONS = ["open", "tap", "tap_at", "type", "type_here", "clear", "select", "key", "scroll", "scroll_in", "back", "forward", "reload", "wait", "wait_for", "close_tab", "hand_over"] as const;
 
-export type Handover = { bot: string; reason: string };
+type Handover = { bot: string; reason: string };
 
 export type BrowserState = { active: ReadonlySet<string>; handovers: readonly Handover[] };
 

@@ -15,7 +15,7 @@ const MAX_MATCHES = 20;
 function pageList(spec: string, count: number): number[] {
 	const pages = new Set<number>();
 	for (const part of spec.split(",")) {
-		const [from, to] = part.split("-").map((value) => Number.parseInt(value.trim(), 10));
+		const [from = Number.NaN, to = Number.NaN] = part.split("-").map((value) => Number.parseInt(value.trim(), 10));
 		if (!Number.isFinite(from)) continue;
 		for (let page = from; page <= (Number.isFinite(to) ? to : from); page++) if (page >= 1 && page <= count) pages.add(page);
 	}

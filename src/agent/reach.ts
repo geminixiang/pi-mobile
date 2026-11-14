@@ -13,7 +13,7 @@ export interface Reach {
 	untilUp(signal?: AbortSignal): Promise<void>;
 }
 
-export type Probe = (url: string) => Promise<boolean>;
+type Probe = (url: string) => Promise<boolean>;
 
 const FIRST_WAIT_MS = 2_000;
 const LONGEST_WAIT_MS = 15_000;

@@ -1,6 +1,6 @@
 export type Bench = { bot: string | undefined; pick: string | undefined; opened: readonly string[] };
 
-export type BenchAction = { type: "show"; bot: string; key: string } | { type: "close"; bot: string; key: string };
+type BenchAction = { type: "show"; bot: string; key: string } | { type: "close"; bot: string; key: string };
 
 export const MAX_OPENED = 8;
 

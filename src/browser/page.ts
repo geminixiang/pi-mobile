@@ -51,14 +51,17 @@ Object.assign(window, {
 
 function withOwners(content: string): string {
 	const lines = content.split("\n");
-	const found = lines.map((line) => ELEMENT_LINE.exec(line));
+	const found = lines.map((line) => {
+		const [, index = "", element = ""] = ELEMENT_LINE.exec(line) ?? [];
+		return element ? { index: Number(index), element } : undefined;
+	});
 	const counts = new Map<string, number>();
-	for (const match of found) if (match) counts.set(match[2], (counts.get(match[2]) ?? 0) + 1);
+	for (const match of found) if (match) counts.set(match.element, (counts.get(match.element) ?? 0) + 1);
 	return lines
 		.map((line, at) => {
 			const match = found[at];
-			if (!match || (counts.get(match[2]) ?? 0) < 2) return line;
-			const owner = ownerOf(elementAt(Number(match[1])));
+			if (!match || (counts.get(match.element) ?? 0) < 2) return line;
+			const owner = ownerOf(elementAt(match.index));
 			return owner ? `${line} in ${quoted(owner)}` : line;
 		})
 		.join("\n");

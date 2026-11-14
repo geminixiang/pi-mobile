@@ -309,7 +309,27 @@ function effectRule(): Finding[] {
 		})];
 }
 
+const EXPORTED = /^export (?:declare )?(?:async )?(?:function\*?|const|let|class|type|interface|enum|abstract class) (\w+)/gm;
+// why: a shim stands in for a Node module, so it exports that module's names whether or not this repo calls them
+const EXPORTS_ANY_NAME = "src/shims/";
+
+function unusedExports(): Finding[] {
+	const scripts = checkedFiles().filter((file) => /\.(ts|tsx|js)$/.test(file));
+	const sources = new Map(scripts.map((file) => [file, readFileSync(file, "utf8")]));
+	return [...sources]
+		.filter(([file]) => file.startsWith("src/") && !file.startsWith(EXPORTS_ANY_NAME))
+		.flatMap(([file, source]) =>
+			[...source.matchAll(EXPORTED)].flatMap((match) => {
+				const name = match[1] ?? "";
+				const word = new RegExp(`\\b${name}\\b`);
+				if ([...sources].some(([other, text]) => other !== file && word.test(text))) return [];
+				return [{ file, line: source.slice(0, match.index).split("\n").length, rule: `${name} is exported but no other file uses it: drop the export, or delete it if this file does not use it either` }];
+			}),
+		);
+}
+
 const all = [
+	...unusedExports(),
 	...effectRule(),
 	...javaRule(),
 	...viewportRule(),
@@ -331,4 +351,4 @@ if (all.length > 0) {
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; every export is used elsewhere");

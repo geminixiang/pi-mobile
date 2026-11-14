@@ -3,8 +3,8 @@ import { defineDoc, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
 import { stepOf } from "./forms.ts";
 
-export type WeatherHour = { time: string; condition: string; temperature_c: number; rain_chance: number };
-export type WeatherDay = { date: string; weekday: string; condition: string; low_c: number; high_c: number; rain_chance: number };
+type WeatherHour = { time: string; condition: string; temperature_c: number; rain_chance: number };
+type WeatherDay = { date: string; weekday: string; condition: string; low_c: number; high_c: number; rain_chance: number };
 
 export type WeatherResult = {
 	kind: "weather";

@@ -30,7 +30,7 @@ const DELIVERY_LABEL = { live: "背景執行", later: "打開 pi 後執行", man
 
 const percent = (probability: number) => `${Math.round(probability * 100)}%`;
 
-export function lastRun(last: LastRun): string {
+function lastRun(last: LastRun): string {
 	if (last.outcome === "failed") return last.error;
 	const probability = last.confidence?.kind === "judged" ? last.confidence.probability : undefined;
 	if (last.outcome === "skipped") return `略過：${last.reason}${probability !== undefined ? `（${percent(probability)}）` : ""}`;

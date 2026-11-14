@@ -11,7 +11,7 @@ type Scene = (typeof SCENES)[number];
 const args = process.argv.slice(2);
 const option = (name: string, fallback: string) => {
 	const at = args.indexOf(`--${name}`);
-	return at >= 0 && args[at + 1] ? args[at + 1] : fallback;
+	return (at >= 0 ? args[at + 1] : undefined) || fallback;
 };
 const ios = args.includes("--ios");
 const serial = option("serial", process.env.ANDROID_SERIAL ?? "");

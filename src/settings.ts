@@ -61,7 +61,7 @@ type PlainSettings = Static<typeof PlainSettings>;
 
 export type SettingsStorage = Pick<Platform, "plain" | "secrets">;
 
-export type RotatingSecret = { kind: "provider"; id: string } | { kind: "cloudflare" } | { kind: "azure" };
+type RotatingSecret = { kind: "provider"; id: string } | { kind: "cloudflare" } | { kind: "azure" };
 
 const rotatingKey = (secret: RotatingSecret) => (secret.kind === "provider" ? providerOAuthKey(secret.id) : secret.kind === "cloudflare" ? SECRET_CLOUDFLARE : SECRET_AZURE);
 
@@ -80,11 +80,11 @@ export class SettingsStore {
 		const providers = parseProviders(plain.providers);
 		const hosts = parseHosts(plain.hosts);
 		const read = (key: string) => this.#read(key);
-		const [hostKeys, keys, oauth, githubToken, gcloudCredential, cloudflareCredential, azureCredential] = await Promise.all([
+		const [hostKeys, keys, oauth, [githubToken, gcloudCredential, cloudflareCredential, azureCredential]] = await Promise.all([
 			Promise.all(hosts.map(async (host) => [host.id, await read(hostKey(host.id))] as const)),
 			Promise.all(providers.map(async (provider) => [provider.id, await read(providerKey(provider.id))] as const)),
 			Promise.all(providers.map(async (provider) => [provider.id, await read(providerOAuthKey(provider.id))] as const)),
-			...[SECRET_GITHUB_TOKEN, SECRET_GCLOUD, SECRET_CLOUDFLARE, SECRET_AZURE].map(read),
+			Promise.all([read(SECRET_GITHUB_TOKEN), read(SECRET_GCLOUD), read(SECRET_CLOUDFLARE), read(SECRET_AZURE)]),
 		]);
 		return {
 			providers,

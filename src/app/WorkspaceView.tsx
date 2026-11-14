@@ -11,7 +11,7 @@ import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "./loaded.ts";
 import { formatBytes } from "../encoding.ts";
 
-export type WorkspaceTab = "files" | "git";
+type WorkspaceTab = "files" | "git";
 type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;
 
 const relative = new Intl.RelativeTimeFormat("zh-TW", { numeric: "auto" });

@@ -45,7 +45,7 @@ export const checks: Check[] = [
 				const server = await runtime.mcp.add("Mail", "https://mail.example/mcp");
 				await runtime.mcp.login(server.id);
 				assert.equal(opened.length, 1, `requests: ${mcpHttp.requests.join(", ")}`);
-				assert(opened[0]?.startsWith(`${team}/cdn-cgi/access/oauth/authorization?`), opened[0]);
+				assert(opened[0]?.startsWith(`${team}/cdn-cgi/access/oauth/authorization?`), opened.join(", "));
 			} finally {
 				mcpHttp.routes = {};
 				await runtime.close();

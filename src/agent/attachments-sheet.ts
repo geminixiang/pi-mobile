@@ -111,7 +111,7 @@ export async function extractSheet(file: File): Promise<{ text: string; tables: 
 	const tables: { name: string; sheet: string; rows: number; columns: string[] }[] = [];
 	const texts: string[] = [];
 	for (const sheet of sheets) {
-		const [header, ...rows] = sheet.rows;
+		const [header = [], ...rows] = sheet.rows;
 		const columns = columnsOf(header);
 		texts.push(sheets.length > 1 ? `## ${sheet.name}\n${tsv(sheet.rows)}` : tsv(sheet.rows));
 		if (!native.implements(Database.execute)) continue;

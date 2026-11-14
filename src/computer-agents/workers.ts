@@ -161,7 +161,7 @@ function jobWorker(id: string, [command = "", cwd = "", ended = ""]: string[]): 
 	return { id: `job:${id}`, name: "", agent: "command", ...state, cwd: cwd.trim(), title: command.trim() };
 }
 
-export function jobEnding(job: Exclude<Job, { state: "running" | "missing" }>): string {
+function jobEnding(job: Exclude<Job, { state: "running" | "missing" }>): string {
 	if (job.state === "timed_out") return "stopped at its time limit";
 	if (job.state === "stopped") return "stopped by the user";
 	if (job.state === "lost") return "gone without an exit code (the computer restarted or something killed it)";
@@ -272,7 +272,7 @@ export function sendProblem(place: AgentPlace, output: string): string | undefin
 const CURSOR = "❯ ";
 const NUMBERED = /^\d+\.\s+/;
 
-export type Choices = { options: string[]; at: number };
+type Choices = { options: string[]; at: number };
 
 export function choicesOf(screen: string): Choices | undefined {
 	const lines = screen.split("\n");

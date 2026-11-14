@@ -15,7 +15,7 @@ type ItemOf<Bot> = {
 	updatedAt: number;
 } & ({ state: "todo" } | { state: "waiting"; waitingOn: string; wake?: Wake } | { state: "done"; doneAt: number });
 
-export type Wake = { app?: string; contains?: string };
+type Wake = { app?: string; contains?: string };
 
 export const ItemDoc = defineDoc<{ items: Item[] }>({
 	kind: "app.items",
@@ -50,7 +50,7 @@ export function described(item: Item): string {
 	return [item.id, item.title, state, item.nextAt !== undefined ? `next ${localTime(item.nextAt)}` : "no next time", item.ref].filter(Boolean).join(" · ");
 }
 
-export type Due = { item: string; conversation: string; bot: string; avatar: string; title: string; due?: number };
+type Due = { item: string; conversation: string; bot: string; avatar: string; title: string; due?: number };
 
 export function agenda<Id>(items: readonly { id: string; bot: Id; title: string; state: Item["state"]; nextAt?: number }[], bots: readonly { id: Id; name: string; avatar: string }[], endOfDay: number): Due[] {
 	return items

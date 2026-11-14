@@ -260,8 +260,8 @@ export class PhoneEnv implements ExecutionEnv {
 		let next = 0;
 		return ok({
 			readLine: async () => {
-				if (next >= lines.length || (next === lines.length - 1 && lines[next] === "")) return ok(undefined);
 				const line = lines[next];
+				if (line === undefined || (next === lines.length - 1 && line === "")) return ok(undefined);
 				next++;
 				return ok({ text: line, terminated: next < lines.length });
 			},

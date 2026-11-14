@@ -3,7 +3,7 @@ import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import type { FormAnswer } from "../agent/mcp-stateless.ts";
 import type { PendingForm } from "./forms.ts";
 
-export const PERMISSIONS = {
+const PERMISSIONS = {
 	contacts: { label: "聯絡人", why: "讓 Bot 讀這支手機的聯絡人" },
 	calendar: { label: "日曆", why: "讓 Bot 讀和改這支手機的日曆" },
 	photos: { label: "相片", why: "讓 Bot 看這支手機的相片" },

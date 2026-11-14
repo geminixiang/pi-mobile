@@ -34,7 +34,7 @@ export type StageActions = {
 	pick: (path: string, text: string) => void;
 };
 
-export type StageProps = {
+type StageProps = {
 	board: Board;
 	runtime: AgentRuntime;
 	conversation: ConversationId;

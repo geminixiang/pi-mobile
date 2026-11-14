@@ -22,7 +22,7 @@ import type { Status } from "../computer-agents/workers.ts";
 const DELIVERIES = ["live", "later", "manual"] as const;
 type Delivery = (typeof DELIVERIES)[number];
 
-export type Confidence = { kind: "judged"; probability: number } | { kind: "unjudged"; reason: string };
+type Confidence = { kind: "judged"; probability: number } | { kind: "unjudged"; reason: string };
 
 export type LastRun = { at: number; delivery: Delivery } & (
 	| { outcome: "ran"; confidence?: Confidence }
@@ -506,7 +506,7 @@ function withoutNextAt({ nextAt: _passed, ...item }: Item): Item {
 const LINK = /\[([^\]]*)\]\([^)]*\)/g;
 const DETAIL_LINES = 3;
 
-export type FinalWord = { headline: string; text: string; asking: boolean };
+type FinalWord = { headline: string; text: string; asking: boolean };
 
 export function finalWord(entries: readonly EntryRecord[]): FinalWord {
 	const last = entries.findLast((entry) => entry.kind === "pi.assistant");

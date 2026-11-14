@@ -12,7 +12,7 @@ export function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): v
 	}, []);
 }
 
-export type Background = { notifications: boolean; unrestrictedBattery?: boolean };
+type Background = { notifications: boolean; unrestrictedBattery?: boolean };
 
 export function useBackground(): { status: Background | undefined; allowNotifications: () => void; unrestrictBattery: () => void } {
 	const [status, setStatus] = useState<Background>();

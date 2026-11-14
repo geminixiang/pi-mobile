@@ -202,10 +202,12 @@ export function ScrollTab({
 									<path className="dial-cell" d={cellPath(dial.slot)} />
 									<path className="dial-bar" d={cellPath(dial.slot, outer - 2, outer)} />
 									{cells.slice(0, -1).map((slot) =>
-										[
-											[outer - 6, outer],
-											[inner, inner + 6],
-										].map(([from, to], edge) => {
+										(
+											[
+												[outer - 6, outer],
+												[inner, inner + 6],
+											] as const
+										).map(([from, to], edge) => {
 											const a = pointAt(dial, slotAngle(slot) - cell / 2, from);
 											const b = pointAt(dial, slotAngle(slot) - cell / 2, to);
 											return <line key={`${slot}-${edge}`} className="dial-mark" x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;

@@ -39,9 +39,9 @@ function pdfjsAssets(): Plugin {
 		name: "pdfjs-assets",
 		configureServer(server) {
 			server.middlewares.use((request, response, next) => {
-				const match = request.url?.match(/^\/pdfjs\/([a-z_]+)\/([\w.-]+)$/);
-				if (!match || !PDFJS_DIRS.includes(match[1])) return next();
-				response.end(readFileSync(new URL(match[2], pdfjsDir(match[1]))));
+				const [, dir, name] = request.url?.match(/^\/pdfjs\/([a-z_]+)\/([\w.-]+)$/) ?? [];
+				if (!dir || !name || !PDFJS_DIRS.includes(dir)) return next();
+				response.end(readFileSync(new URL(name, pdfjsDir(dir))));
 			});
 		},
 		generateBundle() {

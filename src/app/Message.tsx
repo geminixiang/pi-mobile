@@ -236,7 +236,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 	const openFile = useContext(OpenFileContext);
 	const elapsed = useElapsed(status === "running");
 	const filePath = ["read", "write", "edit"].includes(call.name) && typeof call.arguments.path === "string" ? call.arguments.path : undefined;
-	const openable = filePath ? [filePath] : call.name === "codemode" || call.name === "bash" ? htmlPathsIn(output) : [];
+	const [firstOpenable] = filePath ? [filePath] : call.name === "codemode" || call.name === "bash" ? htmlPathsIn(output) : [];
 	const lines = output ? output.split("\n") : [];
 	const { shown, hidden } = open ? { shown: lines, hidden: 0 } : preview(call.name, lines);
 	const script = call.name === "codemode" && typeof call.arguments.code === "string" ? call.arguments.code : undefined;
@@ -264,8 +264,8 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					</span>
 				) : null}
 			</button>
-			{openFile && status !== "running" && openable[0] ? (
-				<button type="button" className="step-open" onClick={() => openFile(openable[0])} aria-label={`開啟 ${openable[0].split("/").at(-1) ?? "檔案"}`}>
+			{openFile && status !== "running" && firstOpenable ? (
+				<button type="button" className="step-open" onClick={() => openFile(firstOpenable)} aria-label={`開啟 ${firstOpenable.split("/").at(-1) ?? "檔案"}`}>
 					<FileIcon size={14} />
 				</button>
 			) : null}
@@ -407,6 +407,8 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 						) : null;
 					case "image":
 						return <img className="attachment" key={index} src={`data:${group.mimeType};base64,${group.data}`} alt="" />;
+					case "toolCall":
+						return null;
 				}
 			})}
 		</>

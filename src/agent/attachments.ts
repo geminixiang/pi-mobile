@@ -190,9 +190,9 @@ export interface AttachmentCard {
 const OPEN_TAG = /^<attachment ([^>]*)>/;
 
 export function parseAttachment(text: string): AttachmentCard | undefined {
-	const match = OPEN_TAG.exec(text);
-	if (!match) return undefined;
-	const attributes = Object.fromEntries([...match[1].matchAll(/(\w+)="([^"]*)"/g)].map(([, key, value]) => [key, unescape(value)]));
+	const tag = OPEN_TAG.exec(text)?.[1];
+	if (tag === undefined) return undefined;
+	const attributes = Object.fromEntries([...tag.matchAll(/(\w+)="([^"]*)"/g)].map(([, key = "", value = ""]) => [key, unescape(value)]));
 	const kind = KINDS.find((candidate) => candidate === attributes.type);
 	if (!attributes.id || !attributes.name || !kind) return undefined;
 	return { id: attributes.id, name: attributes.name, kind, size: Number(attributes.size) || 0, ...(attributes.pages ? { pages: Number(attributes.pages) } : {}) };

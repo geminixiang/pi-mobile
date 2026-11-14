@@ -25,7 +25,7 @@ function rendered(file: string): Set<string> {
 }
 
 const map = readFileSync(MAP, "utf8");
-const named = [...map.matchAll(NAMED)].map(([, component, file]) => ({ component, file }));
+const named = [...map.matchAll(NAMED)].map(([, component = "", file = ""]) => ({ component, file }));
 const missing = named.filter(({ component, file }) => !existsSync(file) || !new RegExp(`(function|const|class) ${component}\\b`).test(readFileSync(file, "utf8")));
 const mapped = new Set(named.map(({ component }) => component));
 const unmapped = SCREEN_HOSTS.flatMap((file) => [...rendered(file)].filter((name) => /^[A-Z]/.test(name) && !ICON.test(name) && !mapped.has(name)).map((name) => ({ name, file })));

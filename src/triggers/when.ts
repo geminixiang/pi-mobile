@@ -30,7 +30,7 @@ const KINDS: Record<When["kind"], true> = {
 
 const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 
-export type EventWhen = Exclude<When, { kind: "once" | "daily" }>;
+type EventWhen = Exclude<When, { kind: "once" | "daily" }>;
 
 export const isEvent = (when: When): when is EventWhen => when.kind !== "once" && when.kind !== "daily";
 
@@ -48,7 +48,7 @@ export function clockOf(at: number): string {
 	return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function describeTime(at: number): string {
+function describeTime(at: number): string {
 	return `${describeDay(at)}${clockOf(at)}`;
 }
 

@@ -1,6 +1,6 @@
 import type { BrowserPage, BrowserTabs } from "./plugin.ts";
 
-export type SheetMode = "closed" | "open" | "handover";
+type SheetMode = "closed" | "open" | "handover";
 
 export type SheetInputs = { bot: string | undefined; handover: string | undefined; asking: boolean; openKey: number };
 

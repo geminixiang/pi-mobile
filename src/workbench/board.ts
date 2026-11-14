@@ -29,11 +29,11 @@ export type Card =
 	| { key: string; group: "result"; kind: "sources"; sources: readonly Source[] }
 	| { key: string; group: "result"; kind: "file"; path: string; title: string; summary: string; version: number; previous: string | undefined; living: Living | undefined };
 
-export type Living = { schedule: string; at: number | undefined };
+type Living = { schedule: string; at: number | undefined };
 
-export type Staged = Card | { key: typeof FOLDER; kind: "folder" };
+type Staged = Card | { key: typeof FOLDER; kind: "folder" };
 
-export type LiveTool = { callId: string; name: string; status: "pending" | "running" | "done"; output?: string };
+type LiveTool = { callId: string; name: string; status: "pending" | "running" | "done"; output?: string };
 
 export type Sources = {
 	bot: ConversationId;
