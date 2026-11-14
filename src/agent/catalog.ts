@@ -37,7 +37,6 @@ import { InteractionExtension } from "../interaction/tool.ts";
 import type { Native } from "../native.ts";
 import { type Groups, usableGroups } from "./toolsets.ts";
 import { adopt, declarationOf, gated, type ToolDeclaration } from "./tools/common.ts";
-import { ToolFilterExtension } from "./tool-filter.ts";
 import { type AskForm, permissionGate, type PhonePermissions } from "../interaction/permissions.ts";
 import type { Workplace } from "./workplaces.ts";
 
@@ -120,7 +119,6 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		{ ...CodingTools, tools: codingTools },
 		toolSearch(),
 		createOnDemandExtension(deps.labelOf),
-		ToolFilterExtension,
 	];
 	const installable = (tool: ToolRegistration) =>
 		usableGroups(declared(tool).groups, deps.native) && declared(tool).needs.every((method) => deps.native.implements(method));

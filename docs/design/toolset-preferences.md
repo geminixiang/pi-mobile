@@ -23,7 +23,7 @@ pi coding agent 的 `pi config` 也存內部結構（套件裡的檔案路徑）
 2. **catalog 算出 `owners`**：已安裝的工具 → 它的組。一個工具的所有組在這台裝置都不可用（組的 `needs`），或工具自己的原生方法沒實作，就不安裝。
 3. **投影**：`removedTools(owners, off, place, native)`。工具留下，當且僅當它是 `"always"`，或它有一個組「沒被關、可用、在這個地點」。一個工具有多個組時，它們的 `where` 必須不同（檢查擋），所以每個地點只有一個組管它。
 4. **寫入只有一處**：`BotToolsets`。開 runtime（全部 Bot）、切開關、撤銷 MCP 授權、Bot 換地點時，在一筆交易裡更新 `Bot.off` 並用 `configure(tx)` 寫 `pi.agent.tools.remove`。`pi.agent.extensions` 只剩 MCP 服務的 `add`。
-5. **`addTools` 過濾**：`ToolFilterExtension` 最後安裝，只有一個 `afterTool`，把 `control.addTools` 裡現在被移除的名字拿掉，合法的需要時載入工具照常載入。界限：排在它之後的 `afterTool` 能繞過，所以程式規則只允許 `tool-filter.ts`、`codemode.ts` 有 `afterTool`，只允許 `tool-filter.ts` 讀 `addTools`。
+5. **`addTools` 不另外過濾**：唯一發出 `control.addTools` 的是 pi-durable 的 `tool_search`，它只從 `agent.deferred` 挑，而 `deferred` 由已經套用 `tools.remove` 的工具算出（pi-durable 1.5.0 `harness/agent.js` 的 `filterTools`），被關掉的工具不會是候選。原本的 `ToolFilterExtension` 和兩條程式規則在 2026-11-14 拿掉。
 6. **說明段落跟著工具**：`appSection(key, budget, render, { about: tools })`，`about` 裡任一工具出現在 agent 的 `tools`／`callable`／`deferred` 才渲染。用在九個組專屬段落；「電腦被移除」的說明拆成沒有 `about` 的 `workplace` 段落。codemode 與 on-demand 的工具清單依**工具**的組取標籤。
 7. **MCP 服務**照舊：一個服務一個擴充，以服務為單位開關（`extensions.add`），撤銷時從每個 Bot 拿掉。
 
@@ -46,5 +46,5 @@ pi coding agent 的 `pi config` 也存內部結構（套件裡的檔案路徑）
 ## 對未來的影響
 
 - 移除：Bot 設定綁擴充名字、共用擴充讓開關互相牽動、`RENAMED`、`ALWAYS_ON`、`test/extensions.snapshot.json`、工具「沒宣告」的豁免。
-- 新增：`Bot.off`、`groups` 宣告與 `adopt`、`removedTools`、`ToolFilterExtension`、`appSection` 的 `about`、三條檢查。
+- 新增：`Bot.off`、`groups` 宣告與 `adopt`、`removedTools`、`appSection` 的 `about`、三條檢查。
 - 留給之後：所有 Bot 轉完後刪 `legacyOff`；工具換組時要不要保留「原本關著就關著」，到時再決定政策。
