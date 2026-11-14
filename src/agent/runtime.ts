@@ -99,6 +99,13 @@ const APPLY: Record<keyof Settings, "in_place" | "restart"> = {
 
 const USER_MESSAGES = 4;
 
+function userSpoke(bot: Bot, at: number): void {
+	bot.updatedAt = at;
+	const offer = bot.rhythmOffer && afterUserMessage(bot.rhythmOffer);
+	if (offer) bot.rhythmOffer = offer;
+	else delete bot.rhythmOffer;
+}
+
 type Loaded = Pick<LoadedModels, "models" | "infos">;
 
 type Applied = "in_place" | "needs_restart";
@@ -162,15 +169,6 @@ export class AgentRuntime {
 	#touchBot(id: ConversationId, at: number): Promise<void> {
 		return this.#editBot(id, (bot) => {
 			bot.updatedAt = at;
-		});
-	}
-
-	#userSpoke(id: ConversationId, at: number): Promise<void> {
-		return this.#editBot(id, (bot) => {
-			bot.updatedAt = at;
-			const offer = bot.rhythmOffer && afterUserMessage(bot.rhythmOffer);
-			if (offer) bot.rhythmOffer = offer;
-			else delete bot.rhythmOffer;
 		});
 	}
 
@@ -540,13 +538,19 @@ export class AgentRuntime {
 				const submitted = (async () => {
 					const bot = (await this.#allBots()).find((candidate) => candidate.id === id);
 					if (!bot || bot.removing) throw new Error("這個 Bot 已經刪除");
-					if (content.length > 0) await this.#userSpoke(id, Date.now());
+					const spoke = content.length > 0;
 					const text = contentText(content);
 					await this.#harness.commit(async (tx) => {
+						const speaker = spoke ? (await tx.doc(BotIndex)).items.find((candidate) => candidate.id === id) : undefined;
+						if (speaker) userSpoke(speaker, Date.now());
 						const doc = await tx.doc(OutsideDoc, id);
 						Object.assign(doc, said(doc, text));
 					}, context);
-					await conversation.submit({ type: "input", content, whenBusy }, context);
+					try {
+						await conversation.submit({ type: "input", content, whenBusy }, context);
+					} finally {
+						if (spoke) await this.#publishBots();
+					}
 				})();
 				inFlight.add(submitted);
 				return submitted.finally(() => inFlight.delete(submitted));
