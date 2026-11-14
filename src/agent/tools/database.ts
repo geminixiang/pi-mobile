@@ -81,7 +81,7 @@ export const DatabaseExtension = defineExtension({
 			const { tables } = await Database.schema();
 			return [
 				"sql is the user's SQLite database, shared by their bots: reuse a fitting table, English names, times as YYYY-MM-DD HH:MM, amounts as numbers, a column for what they filter or total by.",
-				tables.length > 0 ? `Tables now:\n${tables.map((table) => `${table.sql}; -- ${table.rows} rows`).join("\n")}` : "It has no tables yet.",
+				tables.length > 0 ? `Tables now:\n${tables.map((table) => `${table.sql};`).join("\n")}` : "It has no tables yet.",
 			].join("\n");
 		}, { about: [sql] }),
 	],
