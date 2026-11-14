@@ -43,4 +43,22 @@ Poki App（SwiftUI）
 - **免費 Apple 帳號要每 7 天重簽**，Network Extension 要付費帳號；否則用外部 VPN App。
 - **底層函式庫**：Rust 的 `idevice`（MIT），SideStore、StikDebug 也用它；pi mobile 自己的實作可以直接用它，不必碰 Poki 的 AGPL 程式碼。
 
+## 對照：mika（Android）
+
+[wangzan101/mika](https://github.com/wangzan101/mika)（Apache-2.0，Kotlin）是同一個思路的 Android 版：App 在手機上扮演「接著開發線的電腦」。讀了 README 和程式碼的幾處（`core/adb`、`cap/phone/shell/ShellService.kt`、`CommandSteerTest.kt`），沒有執行：
+
+- **權限**：使用者在手機上配對一次「無線偵錯」，App 內建的 adb 用戶端連自己，拿到 shell 身分（`core/adb` 有配對、金鑰、斷線恢復）。
+- **背景螢幕**：用 shell 身分開一個虛擬螢幕，`am start --display N` 在上面開 App、`input -d N tap/text/keyevent` 操作，再用無障礙服務讀那個螢幕；使用者照常用手機，想看再點小視窗。Android 14 以上背景螢幕有自己的焦點，不會搶主螢幕的打字。
+- 其他：把完成的任務變成 skill、內建瀏覽器裡在當前網頁直接交辦、碰一下網頁就停。
+
+| | Poki（iOS） | mika（Android） | pi mobile（Android，現在） |
+|---|---|---|---|
+| 權限 | 本機 VPN 繞回自己，用配對檔連開發者服務 | 無線偵錯配對一次，App 內建 adb 連自己 | 無障礙服務 |
+| 操作者 | WebDriverAgent（XCTest） | shell 身分的 `am`、`input` 加無障礙服務 | 無障礙服務 |
+| 畫面 | 使用者眼前的 | 隱藏的背景虛擬螢幕 | 使用者眼前的 |
+| 限制 | 不能上 App Store、免費帳號 7 天重簽 | 開發者選項、無線偵錯要 Wi-Fi | 占用使用者的畫面 |
+| 授權 | AGPL（只學概念） | Apache-2.0（可取用，保留聲明） | |
+
+對 pi mobile：mika 的背景螢幕解掉「代你操作 App 會搶走使用者畫面」這個最大的體驗問題，S24（Android 16、無線偵錯常開）條件符合，值得先做可行性驗證。
+
 （待補：claude-fable-5-2 對 Poki 原始碼的完整研究，包括 Swift 端怎麼把畫面交給模型、agent 迴圈、iOS 18 到 26 的 XCTest 路線。）
