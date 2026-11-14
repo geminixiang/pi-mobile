@@ -45,12 +45,6 @@ export function gitCommand(fetch: FolderFetch): Command {
 		const command = subcommand(args);
 		const identity = WRITES_COMMITS.has(command ?? "") ? await githubIdentity(fetch) : undefined;
 		const git = createGit({ network: { allowed: ["github.com"], fetch }, ...(identity ? { identity } : {}) });
-		const context = { ...ctx, fs: withoutLinks(ctx.fs) };
-		if (command === "cat-file") {
-			if (args[0] !== command) return { stdout: "", stderr: "git: global options are not supported for inspection commands\n", exitCode: 129 };
-			const { catFile } = await import("./git-inspection.ts");
-			return catFile(git, args.slice(1), context);
-		}
-		return git.execute(args, context);
+		return git.execute(args, { ...ctx, fs: withoutLinks(ctx.fs) });
 	});
 }

@@ -132,7 +132,3 @@ node test/perf/fixture.ts teardown ios
 - 場景是 `scroll`、`stream`、`streamscroll`、`panel`；捲動和開關側欄由頁面上的程式做（`scrollBy` 平滑捲動、按鈕和 Escape），量不到手勢處理。`typing` 不跑：這台電腦沒辦法在 iPhone 上打字。
 - 只有頁面的 `raf*`：WebKit 沒有 Long Animation Frames、Event Timing 也只有部分，更沒有 `gfxinfo`，所以 iPhone 的數字只跟 iPhone 自己比，不跟 S24 比。一幀的預算照頁面量到的更新率算（60 Hz 是 16.7 ms）。
 - 跑的時候 iPhone 要解鎖、pi 在前景、關掉低耗電模式；側欄開著時 `run.ts` 拒絕量。
-
-### 手機 Git inspection 草稿回歸
-
-`node --import ./test/vite-imports.js test/bash/git-inspection.ts` 已接入 `npm run check`，使用記憶體 VFS 與禁止網路的 fixture。此草稿由無 Node/npm 的手機編寫，尚未執行；不能以已安裝 0.5.0 的命令結果代表新原始碼已通過。支援形式、公開 API 來源及仍未實作的 `ls-remote` 見 [research/phone-git-inspection.md](research/phone-git-inspection.md)。
