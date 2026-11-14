@@ -36,7 +36,7 @@ import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
 import { InteractionExtension } from "../interaction/tool.ts";
 import type { Native } from "../native.ts";
 import { type Groups, usableGroups } from "./toolsets.ts";
-import { adopt, declarationOf, gated } from "./tools/common.ts";
+import { adopt, declarationOf, gated, type ToolDeclaration } from "./tools/common.ts";
 import { ToolFilterExtension } from "./tool-filter.ts";
 import { type AskForm, permissionGate, type PhonePermissions } from "../interaction/permissions.ts";
 import type { Workplace } from "./workplaces.ts";
@@ -67,10 +67,10 @@ function toolSearch(): Extension {
 	return { ...extension, tools: (extension.tools ?? []).map((tool) => adopt({ ...tool, description: TOOL_SEARCH }, { groups: "always", effect: "read", needs: [] })) };
 }
 
-function groupsOf(tool: ToolRegistration): Groups {
-	const declared = declarationOf(tool);
-	if (!declared) throw new Error(`${tool.name} has no declaration: define it with defineAppTool or adopt it in catalog.ts`);
-	return declared.groups;
+function declared(tool: ToolRegistration): ToolDeclaration {
+	const declaration = declarationOf(tool);
+	if (!declaration) throw new Error(`${tool.name} has no declaration: define it with defineAppTool or adopt it in catalog.ts`);
+	return declaration;
 }
 
 export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; owners: ReadonlyMap<string, Groups> } {
@@ -123,7 +123,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		ToolFilterExtension,
 	];
 	const installable = (tool: ToolRegistration) =>
-		usableGroups(groupsOf(tool), deps.native) && (declarationOf(tool)?.needs ?? []).every((method) => deps.native.implements(method));
+		usableGroups(declared(tool).groups, deps.native) && declared(tool).needs.every((method) => deps.native.implements(method));
 	const obtain = permissionGate(deps.permissions, deps.ask);
 	const usable = extensions
 		.map((extension) => ({ extension, tools: extension.tools?.filter(installable) }))
@@ -131,14 +131,13 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		.map(({ extension, tools }) => ({
 			...extension,
 			tools: tools?.map((tool) => {
-				const declared = declarationOf(tool);
-				if (declared?.effect === "screen") return gated(tool, (api) => openScreen(deps.actsAsUser, api.conversationId));
-				const asks = declared?.asks;
+				const { effect, asks } = declared(tool);
+				if (effect === "screen") return gated(tool, (api) => openScreen(deps.actsAsUser, api.conversationId));
 				return asks ? gated(tool, (api, context) => obtain(asks, api, context)) : tool;
 			}),
 		}));
 	return {
 		extensions: usable,
-		owners: new Map(usable.flatMap((extension) => (extension.tools ?? []).map((tool) => [tool.name, groupsOf(tool)] as const))),
+		owners: new Map(usable.flatMap((extension) => (extension.tools ?? []).map((tool) => [tool.name, declared(tool).groups] as const))),
 	};
 }

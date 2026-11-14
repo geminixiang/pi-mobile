@@ -34,7 +34,7 @@ const BLOCKED_SCHEMES = new Set(["intent", "file", "content", "javascript", "dat
 
 const MAX_SHARE_BYTES = 15 * 1024 * 1024;
 
-export type AppFile = { fileBase64: string; fileName: string; mimeType: string };
+type AppFile = { fileBase64: string; fileName: string; mimeType: string };
 
 export function appFile(fileName: string, bytes: Uint8Array): AppFile {
 	return { fileBase64: toBase64(bytes), fileName, mimeType: mimeTypeOf(fileName) ?? "application/octet-stream" };
@@ -190,10 +190,12 @@ const share = defineAppTool({
 	},
 });
 
+const APPS_TOOLS = [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share];
+
 export const AppsExtension = defineExtension({
 	name: "apps",
-	tools: [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share],
+	tools: APPS_TOOLS,
 	sections: [
-		appSection("apps", 400, () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send.", { about: [setAlarm, openAlarms, setTimer, composeEmail, composeSms, openMaps, openLink, share] }),
+		appSection("apps", 400, () => "Drafts and shares open a screen the user finishes (never say it was sent); open other apps only when the user asks to go, open, call, or send.", { about: APPS_TOOLS }),
 	],
 });

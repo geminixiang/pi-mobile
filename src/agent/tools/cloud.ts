@@ -77,7 +77,7 @@ export function googleService(token: () => Promise<string>, project: string | un
 		tool: "gcp_api",
 		label: "Google Cloud",
 		hosts: [/^[a-z0-9.-]+\.googleapis\.com$/],
-		token: () => token(),
+		token,
 		...(project ? { headers: { "x-goog-user-project": project } } : {}),
 		usage: [
 			"Any *.googleapis.com URL, e.g. https://run.googleapis.com/v2/projects/{project}/locations/{region}/services,",
@@ -94,7 +94,7 @@ export function cloudflareService(token: () => Promise<string>, accountId: strin
 		label: "Cloudflare",
 		hosts: [/^api\.cloudflare\.com$/],
 		base: "https://api.cloudflare.com/client/v4",
-		token: () => token(),
+		token,
 		usage: [
 			"Paths under /client/v4, e.g. /zones, /accounts/{account_id}/workers/scripts, /graphql (POST, a read: analytics).",
 			accountId ? `The account ID is ${accountId}.` : "",

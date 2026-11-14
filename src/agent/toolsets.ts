@@ -78,33 +78,12 @@ export function removedTools(owners: ReadonlyMap<string, Groups>, off: readonly 
 
 export type ToolsetState = Toolset & { available: boolean; enabled: boolean };
 
-const LEGACY: Readonly<Record<BuiltinId, readonly string[]>> = {
-	web: ["web"],
-	weather: ["weather"],
-	tw_stocks: ["tw_stocks"],
-	places: ["places"],
-	device: ["device"],
-	apps: ["apps", "phone_apps"],
-	calendar: ["calendar"],
-	contacts: ["contacts"],
-	photos: ["photos"],
-	calls_sms: ["calls_sms"],
-	health: ["health"],
-	screen_time: ["screen_time"],
-	phone_control: ["phone_control"],
-	browser: ["browser"],
-	phone_as_user: ["phone_as_user", "phone_screen"],
-	notifications: ["notifications"],
-	database: ["database"],
-	speech: ["speech"],
-	github: ["github"],
-	gcp: ["gcp"],
-	cloudflare: ["cloudflare"],
-	azure: ["azure"],
-	computer_as_user: ["computer_as_user", "computer"],
-	computer_agents: ["computer_agents"],
-	computer_shell: ["computer_shell", "sandbox", "coding-tools"],
-	files: ["files", "coding-tools"],
+const RENAMED: Partial<Record<BuiltinId, readonly string[]>> = {
+	apps: ["phone_apps"],
+	phone_as_user: ["phone_screen"],
+	computer_as_user: ["computer"],
+	computer_shell: ["sandbox", "coding-tools"],
+	files: ["coding-tools"],
 };
 
 export function legacyOff(extensions: AgentState["extensions"]): BuiltinId[] {
@@ -112,5 +91,5 @@ export function legacyOff(extensions: AgentState["extensions"]): BuiltinId[] {
 	const off = Array.isArray(extensions)
 		? (names: readonly string[]) => names.some((name) => !extensions.includes(name))
 		: (names: readonly string[]) => names.some((name) => (extensions.remove ?? []).includes(name));
-	return BUILTINS.map((toolset) => toolset.id).filter((id) => off(LEGACY[id]));
+	return BUILTINS.map((toolset) => toolset.id).filter((id) => off([id, ...(RENAMED[id] ?? [])]));
 }

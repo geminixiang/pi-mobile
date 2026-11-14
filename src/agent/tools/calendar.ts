@@ -244,11 +244,12 @@ export function createCalendarExtension(access: CalendarAccess, store: CalendarS
 		},
 	});
 
+	const tools = [readEvents, listCalendars, addEvent, deleteEvent];
 	return defineExtension({
 		name: "calendar",
-		tools: [readEvents, listCalendars, addEvent, deleteEvent],
+		tools,
 		sections: [
-			appSection("calendar", 400, () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account.", { about: [readEvents, listCalendars, addEvent, deleteEvent] }),
+			appSection("calendar", 400, () => "Shared events are other people's, not the user's plans. Add to the default calendar; with none and several enabled, ask which account.", { about: tools }),
 		],
 	});
 }

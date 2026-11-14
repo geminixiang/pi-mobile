@@ -71,7 +71,7 @@ type Reach = "model" | "loaded" | "script";
 
 export type Effect = "read" | "screen" | "direct";
 
-interface ToolDeclaration {
+export interface ToolDeclaration {
 	readonly groups: Groups;
 	readonly effect: Effect;
 	readonly needs: readonly PluginMethod[];
@@ -105,7 +105,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 	sends,
 	execute,
 	...tool
-}: AppTool<TParameters, TDetails> & { groups: Groups; reach?: Reach; effect: Effect; needs?: readonly PluginMethod[]; asks?: PermissionKind; outside?: string; sends?: true }): ToolRegistration<object, TDetails> {
+}: AppTool<TParameters, TDetails> & Omit<ToolDeclaration, "needs"> & { reach?: Reach; needs?: readonly PluginMethod[] }): ToolRegistration<object, TDetails> {
 	const registration = defineTool<object, TDetails>({
 		...tool,
 		...REACH[reach],

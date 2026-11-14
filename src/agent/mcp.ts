@@ -16,7 +16,7 @@ import { type McpSession, type Platform } from "./platform.ts";
 import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
 import { callTool, type FormAnswer, speaksStateless } from "./mcp-stateless.ts";
 import type { PendingForm } from "../interaction/forms.ts";
-import { messageOf, onFailure, orLogged, serially, settled } from "../promise.ts";
+import { messageOf, orLogged, serially, settled, sharedUntilFailure } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";
@@ -52,35 +52,21 @@ export function mcpResult(result: CallToolResult, output = toLlmContent(result))
 export const extensionName = (server: McpServer) => `mcp-${server.id}`;
 export const isMcpExtension = (name: string) => name.startsWith("mcp-");
 
-function isState(value: unknown): value is McpOAuthState {
-	return typeof value === "object" && value !== null && "serverUrl" in value && typeof value.serverUrl === "string";
-}
+const StoredState = Type.Unsafe<McpOAuthState>(Type.Object({ serverUrl: Type.String() }));
 
 function stateStore(server: McpServer, secrets: Platform["secrets"]) {
 	const key = `mcp.${server.id}`;
-	const read = async (): Promise<McpOAuthState | undefined> => {
-		const stored = await secrets.get(key);
-		const value = stored === undefined ? undefined : decode(Type.Unknown(), stored);
-		return isState(value) ? value : undefined;
-	};
-	let current: Promise<McpOAuthState | undefined> | undefined;
+	const read = async (): Promise<McpOAuthState | undefined> => decode(StoredState, await secrets.get(key));
+	const current = new Map<string, Promise<McpOAuthState | undefined>>();
 	return {
-		load: (): Promise<McpOAuthState | undefined> => {
-			if (current) return current;
-			const reading = read();
-			current = reading;
-			onFailure(reading, () => {
-				if (current === reading) current = undefined;
-			});
-			return reading;
-		},
+		load: (): Promise<McpOAuthState | undefined> => sharedUntilFailure(current, key, read),
 		save: async (state: McpOAuthState) => {
 			await secrets.set(key, JSON.stringify(state));
-			current = Promise.resolve(state);
+			current.set(key, Promise.resolve(state));
 		},
 		forget: async () => {
 			await secrets.remove(key);
-			current = undefined;
+			current.delete(key);
 		},
 	};
 }
@@ -91,14 +77,7 @@ export type McpStatus = McpState & { tools: number; shadowed: readonly string[] 
 type Cached = { tools: Tool[]; instructions?: string };
 const cacheKey = (server: McpServer) => `pi-mobile.mcp:${server.id}:${server.url}`;
 
-function isCached(value: unknown): value is Cached {
-	return typeof value === "object" && value !== null && "tools" in value && Array.isArray(value.tools);
-}
-
-function loadCache(server: McpServer, plain: Platform["plain"]): Cached | undefined {
-	const value = decode(Type.Unknown(), plain.get(cacheKey(server)));
-	return isCached(value) ? value : undefined;
-}
+const CachedTools = Type.Unsafe<Cached>(Type.Object({ tools: Type.Array(Type.Unknown()) }));
 
 const toolName = (server: McpServer, name: string) => `${server.id}_${name}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64);
 
@@ -145,7 +124,7 @@ class Connection {
 				await adapted.onUnauthorized?.(context);
 			},
 		};
-		const cached = loadCache(server, platform.plain);
+		const cached = decode(CachedTools, platform.plain.get(cacheKey(server)));
 		this.#hooks.install(this.#extension(cached ?? { tools: [] }));
 		this.status = { state: "idle", tools: cached?.tools.length ?? 0, shadowed: this.#shadowed };
 	}
@@ -302,7 +281,8 @@ class Connection {
 		if (!state || state !== (await this.#provider.state())) return;
 		const error = url.searchParams.get("error");
 		if (error) {
-			this.#set({ state: "error", message: `${error}${url.searchParams.get("error_description") ? `: ${url.searchParams.get("error_description")}` : ""}` });
+			const description = url.searchParams.get("error_description");
+			this.#set({ state: "error", message: description ? `${error}: ${description}` : error });
 			return;
 		}
 		const code = url.searchParams.get("code");

@@ -8,14 +8,13 @@ import { prepareAttachment } from "../attachments.ts";
 import { PhoneEnv } from "../files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text as textResult, truncated } from "./common.ts";
-import { formatBytes } from "../../encoding.ts";
 import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../../parse.ts";
 import { messageOf } from "../../promise.ts";
 import { refuseCleartextSecret } from "../cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../models.ts";
-import { fromBase64 } from "../../encoding.ts";
+import { formatBytes, fromBase64 } from "../../encoding.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(
@@ -83,16 +82,11 @@ export interface WebConfig {
 	modelIds: readonly string[];
 }
 
-const RESPONSES_SEARCH_MODELS = [/^gpt-6\.1/, /^gpt-6/, /^gpt-5\.6/, /^gpt-5/];
-const ANTHROPIC_SEARCH_MODELS = [/^claude-sonnet/, /^claude-opus/, /^claude/];
+const RESPONSES_SEARCH_MODELS = ["gpt-6.1", "gpt-6", "gpt-5.6", "gpt-5"];
+const ANTHROPIC_SEARCH_MODELS = ["claude-sonnet", "claude-opus", "claude"];
 
-function pick(ids: readonly string[], patterns: RegExp[]): string | undefined {
-	for (const pattern of patterns) {
-		const found = ids.find((id) => pattern.test(id));
-		if (found) return found;
-	}
-	return undefined;
-}
+const pick = (ids: readonly string[], prefixes: readonly string[]): string | undefined =>
+	prefixes.map((prefix) => ids.find((id) => id.startsWith(prefix))).find((id) => id !== undefined);
 
 const INSTRUCTIONS =
 	"Search the web for the query and answer it concisely with the facts found, in the query's language. List the source URLs you relied on.";

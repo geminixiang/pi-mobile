@@ -95,23 +95,21 @@ const findPlaces = defineAppTool({
 		const url = `https://photon.komoot.io/${path}?${query}`;
 		const found = parse(PhotonResults, await getJson(url, "place search"), "place search").features.filter((feature) => feature.properties.name);
 
-		const ids = found.map((feature) => `${feature.properties.osm_type}${feature.properties.osm_id}`);
-		const details = new Map<string, Record<string, string>>();
-		if (ids.length > 0) {
-			const body = await orLogged(
-				getJson(`https://nominatim.openstreetmap.org/lookup?osm_ids=${ids.join(",")}&format=jsonv2&extratags=1&addressdetails=0`, "place details"),
-				"places.details_unavailable",
-				undefined,
-			);
-			if (Value.Check(NominatimDetails, body)) {
-				for (const item of body) details.set(`${item.osm_type[0]?.toUpperCase()}${item.osm_id}`, item.extratags ?? {});
-			}
-		}
-
 		if (found.length === 0)
 			throw new Error(
 				`Nothing near ${center.label}${tags.length > 0 ? ` tagged ${tags.join(" or ")}` : ""}${args.query ? ` named ${args.query}` : ""}. A category is an OSM tag (a café is amenity:cafe, not coffee): try another tag, a wider radius_km, or a query by name.`,
 			);
+		const ids = found.map((feature) => `${feature.properties.osm_type}${feature.properties.osm_id}`);
+		const details = new Map<string, Record<string, string>>();
+		const body = await orLogged(
+			getJson(`https://nominatim.openstreetmap.org/lookup?osm_ids=${ids.join(",")}&format=jsonv2&extratags=1&addressdetails=0`, "place details"),
+			"places.details_unavailable",
+			undefined,
+		);
+		if (Value.Check(NominatimDetails, body)) {
+			for (const item of body) details.set(`${item.osm_type[0]?.toUpperCase()}${item.osm_id}`, item.extratags ?? {});
+		}
+
 		const places = found
 			.map((feature) => {
 				const p = feature.properties;
