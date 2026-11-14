@@ -4,5 +4,7 @@
 	"stdout": 1,
 	"stderr": 2,
 	"heartbeat": "pi-env",
+	"quietSeconds": 20,
+	"alive": "{}",
 	"piEnvPing": [0, 0, 0, 11, 6, 0, 0, 0, 0, 0, 0, 0, 2, 123, 125]
 }

@@ -24,7 +24,6 @@ const (
 	sessionReplace = "replaced by a newer connection"
 	sessionTaken   = "session token in use"
 	unpaired       = "this phone is no longer paired with this computer"
-	pingEvery      = 10 * time.Second
 	pingTimeout    = 10 * time.Second
 	writeTimeout   = 10 * time.Second
 	stdinGrace     = 2 * time.Second
@@ -33,6 +32,7 @@ const (
 var (
 	holdFor        = time.Duration(protocol.HoldMinutes) * time.Minute
 	heartbeatEvery = 5 * time.Second
+	pingEvery      = 10 * time.Second
 )
 
 type message struct {
@@ -41,6 +41,7 @@ type message struct {
 }
 
 // why: a phone that loses its network sends no FIN, so the computer only learns of the loss from a failed write or an unanswered ping; held sessions keep pi-env alive themselves (heartbeat) instead of relying on the phone's pings reaching it.
+// why: a WebView never sees WebSocket pings, so a link quiet for half a ping interval also gets an alive message, counted like output, before the phone's quiet limit.
 type held struct {
 	owner     string
 	stdin     io.WriteCloser
@@ -55,6 +56,7 @@ type held struct {
 	link     link
 	grace    *time.Timer
 	sent     outbox
+	lastSent time.Time
 	received int
 }
 
@@ -176,6 +178,7 @@ func (h *held) deliver(m message) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.sent.push(m)
+	h.lastSent = time.Now()
 	current, attachedNow := h.link.(attached)
 	if h.sent.bytes > holdBytes && !attachedNow {
 		log.Printf("held session dropped: %d bytes waiting while the phone was away", h.sent.bytes)
@@ -225,9 +228,13 @@ func (h *held) watch(conn *websocket.Conn, ctx context.Context) {
 	for range ticker.C {
 		h.mu.Lock()
 		current := h.attachedTo(conn)
+		quiet := time.Since(h.lastSent) >= pingEvery/2
 		h.mu.Unlock()
 		if !current {
 			return
+		}
+		if quiet {
+			h.deliver(message{text: true, data: []byte(protocol.Alive)})
 		}
 		pingCtx, cancel := context.WithTimeout(ctx, pingTimeout)
 		err := conn.Ping(pingCtx)

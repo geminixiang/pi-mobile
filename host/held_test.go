@@ -405,3 +405,20 @@ func TestInputCountedOnADroppedLinkReachesStdinBeforeInputFromTheNextLink(t *tes
 	}
 	takeSession("order:"+token, digest("")).kill(sessionGone)
 }
+
+func TestAQuietHeldCommandStillReachesThePhoneWithinItsQuietLimit(t *testing.T) {
+	previous := pingEvery
+	pingEvery = 200 * time.Millisecond
+	defer func() { pingEvery = previous }()
+	if limit := time.Duration(protocol.QuietSeconds) * time.Second; previous*3/2 >= limit {
+		t.Fatalf("a quiet link can go %s without a message, past the phone's quiet limit of %s", previous*3/2, limit)
+	}
+	server := execServer(t)
+	token := fmt.Sprintf("%032x", time.Now().UnixNano()+2)
+	conn := dial(t, wsURL(server, "/exec?session="+token+"&command="+url.QueryEscape("sleep 1.2")))
+	_, texts, _ := readAll(t, conn, 5*time.Second)
+	alive := slices.Index(texts, protocol.Alive)
+	if alive < 0 || texts[len(texts)-1] != `{"exit":0}` {
+		t.Fatalf("texts %q: a silent command sent nothing the phone hears before it exited", texts)
+	}
+}

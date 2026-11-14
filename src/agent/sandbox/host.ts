@@ -180,7 +180,7 @@ function holdSocket(
 	handlers: Pick<ResumableOptions, "onMessage" | "onClose" | "onLink">,
 ): Promise<ResumableSocket> {
 	return ResumableSocket.connect({
-		quietLimitMs: DAEMON_QUIET_LIMIT_MS,
+		quietLimitMs: wire.quietSeconds * 1000,
 		resumeLimitMs: RESUME_LIMIT_MS,
 		traffic: hostTraffic(reach.address),
 		first: socketUrl(reach, path, first),
@@ -217,7 +217,6 @@ function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => voi
 }
 
 const ExitMessage = Type.Object({ exit: Type.Number() });
-const DAEMON_QUIET_LIMIT_MS = 20_000;
 
 export class HostCommands implements CommandClient {
 	readonly #host: Pick<PairedHost, "address" | "name" | "key">;
