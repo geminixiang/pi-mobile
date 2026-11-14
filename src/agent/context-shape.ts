@@ -1,4 +1,4 @@
-import type { Message } from "@earendil-works/pi-ai";
+import type { ImageContent, Message, TextContent, ThinkingContent, ToolCall } from "@earendil-works/pi-ai";
 
 export type ContextShape = { sections: Readonly<Record<string, number>>; messages: number };
 
@@ -11,12 +11,28 @@ type ContextParts = { parts: ContextPart[]; reserve: number; free: number; defer
 const MEMORY_SECTION = "memory";
 const isService = (name: string) => name.startsWith("mcp-");
 
+// why: providers bill an image at about 1,600 tokens whatever its base64 length; at about 4 characters a token that is 6,400
+const IMAGE_CHARS = 6_400;
+
+function charsOf(block: TextContent | ThinkingContent | ImageContent | ToolCall): number {
+	switch (block.type) {
+		case "text":
+			return block.text.length;
+		case "thinking":
+			return block.thinking.length;
+		case "image":
+			return IMAGE_CHARS;
+		case "toolCall":
+			return block.name.length + JSON.stringify(block.arguments).length;
+	}
+}
+
 export function shapeOf(messages: readonly Message[]): ContextShape {
 	const sections: Record<string, number> = {};
 	let chars = 0;
 	for (const message of messages) {
 		if (message.role !== "system") {
-			chars += JSON.stringify(message.content).length;
+			chars += typeof message.content === "string" ? message.content.length : message.content.reduce((sum, block) => sum + charsOf(block), 0);
 			continue;
 		}
 		for (const [name, text] of Object.entries(message.sections ?? {})) {
