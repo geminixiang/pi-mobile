@@ -231,8 +231,10 @@ export class TriggerRuns {
 			...items.filter((item) => item.state === "on").map(({ id, name, when, conversationId }) => ({ id, name, when, conversation: String(conversationId), avatar: avatars.get(conversationId) })),
 			...(itemDoc?.items ?? []).flatMap((item) => schedulesOf(item, avatars.get(item.bot), now).map((schedule) => ({ ...schedule, conversation: String(item.bot) }))),
 		];
-		const next = native.implements(Triggers.sync) ? (await Triggers.sync({ schedules })).next : {};
-		if (native.implements(Triggers.agenda)) await Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) });
+		const [next] = await Promise.all([
+			native.implements(Triggers.sync) ? Triggers.sync({ schedules }).then((synced) => synced.next) : {},
+			native.implements(Triggers.agenda) ? Triggers.agenda({ items: agenda(itemDoc?.items ?? [], bots, startOfToday() + DAY), bots: bots.map((bot) => String(bot.id)) }) : undefined,
+		]);
 		this.#state = { items: [...items], next, open: (itemDoc?.items ?? []).filter((item) => item.state !== "done") };
 		for (const listener of this.#listeners) listener(this.#state);
 	}
