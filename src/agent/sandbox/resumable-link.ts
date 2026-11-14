@@ -4,9 +4,9 @@ import { decode } from "../../parse.ts";
 export type RawMessage = ArrayBuffer | string;
 export type Link = "up" | "reattaching" | "offline";
 
-export const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 // why: the computer ends a held session only on a normal closure (1000); a closure without a code, like the reattach after a quiet link, keeps it held.
-export const NORMAL_CLOSURE = 1000;
+const NORMAL_CLOSURE = 1000;
 const Resume = Type.Object({ received: Type.Integer({ minimum: 0 }) });
 
 export type Budget = { readonly unreachableMs: number; readonly onlineSince: number | undefined };
@@ -64,10 +64,6 @@ export function linkOf<S>(state: LinkState<S>): Link | undefined {
 		case "closed":
 			return undefined;
 	}
-}
-
-export function socketOf<S>(state: LinkState<S>): S | undefined {
-	return state.kind === "up" || state.kind === "resuming" ? state.socket : undefined;
 }
 
 export function step<S>(state: LinkState<S>, event: LinkEvent<S>, world: World, rules: Rules): Step<S> {
@@ -143,8 +139,7 @@ function spend(budget: Budget, world: World): { budget: Budget; unreachableMs: n
 
 function closed<S>(state: LinkState<S>): Step<S> {
 	if (state.kind === "closed") return { state, effects: [] };
-	const socket = socketOf(state);
-	return { state: { kind: "closed" }, effects: socket === undefined ? [] : [{ kind: "close", socket, code: NORMAL_CLOSURE }] };
+	return { state: { kind: "closed" }, effects: state.kind === "up" || state.kind === "resuming" ? [{ kind: "close", socket: state.socket, code: NORMAL_CLOSURE }] : [] };
 }
 
 function final<S>(state: LinkState<S>, reason: string): Step<S> {

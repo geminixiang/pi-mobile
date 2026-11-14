@@ -1,4 +1,4 @@
-import type { Link } from "../../src/agent/sandbox/resumable-socket.ts";
+import type { Link } from "../../src/agent/sandbox/resumable-link.ts";
 import assert from "node:assert/strict";
 import { RemoteError } from "@earendil-works/pi-env";
 import { type ConnectionStatus, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";

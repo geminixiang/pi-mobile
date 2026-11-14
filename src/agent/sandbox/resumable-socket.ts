@@ -3,7 +3,6 @@ import type { Network } from "../network.ts";
 import { bytesOf, type Traffic } from "../traffic.ts";
 import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
 
-export type { Link, RawMessage };
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
 

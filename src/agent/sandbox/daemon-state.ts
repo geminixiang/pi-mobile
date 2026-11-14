@@ -6,7 +6,7 @@ export interface DaemonStream {
 	close(): void;
 }
 
-export type Line = { readonly kind: "up" } | { readonly kind: "down"; readonly link: Exclude<Link, "up">; readonly since: number };
+type Line = { readonly kind: "up" } | { readonly kind: "down"; readonly link: Exclude<Link, "up">; readonly since: number };
 
 export type Daemon =
 	| { readonly kind: "opening"; readonly queued: readonly Uint8Array<ArrayBuffer>[] }
@@ -27,7 +27,7 @@ export type DaemonEffect =
 	| { kind: "lost"; reason: string }
 	| { kind: "status" };
 
-export type DaemonStep = { state: Daemon; effects: DaemonEffect[] };
+type DaemonStep = { state: Daemon; effects: DaemonEffect[] };
 
 export function daemonStep(state: Daemon, event: DaemonEvent): DaemonStep {
 	const same: DaemonStep = { state, effects: [] };
@@ -61,7 +61,7 @@ export type Reader =
 	| { readonly kind: "greeting"; readonly pending: Buffer }
 	| { readonly kind: "framed"; readonly pending: readonly Uint8Array[]; readonly bytes: number; readonly need: number };
 
-export type Read = { reader: Reader; frames: Buffer | undefined; greeted: boolean };
+type Read = { reader: Reader; frames: Buffer | undefined; greeted: boolean };
 
 function joined(chunks: readonly Uint8Array[], length: number): Buffer {
 	const [only] = chunks;

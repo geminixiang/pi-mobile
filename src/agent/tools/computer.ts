@@ -2,7 +2,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { McpClient } from "@earendil-works/pi-mcp";
 import { mcpResult } from "../mcp.ts";
 import { Type } from "typebox";
-import { HostStdioTransport, type PairedHost } from "../sandbox/host.ts";
+import { hostStdio, type PairedHost } from "../sandbox/host.ts";
 import type { Workplace } from "../workplaces.ts";
 import { defineAppTool } from "./common.ts";
 import { oneOf } from "../../parse.ts";
@@ -15,7 +15,7 @@ const clients = new Map<string, Promise<McpClient>>();
 function client(host: PairedHost): Promise<McpClient> {
 	return sharedUntilFailure(clients, host.address, async () => {
 		const created = new McpClient({ name: "pi-mobile", version: "1.0.0" });
-		await created.connect(new HostStdioTransport(host, COMMAND));
+		await created.connect(hostStdio(host, COMMAND));
 		created.onClose(() => clients.delete(host.address));
 		return created;
 	});

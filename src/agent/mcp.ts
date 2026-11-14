@@ -13,7 +13,7 @@ import {
 import { type Static, Type } from "typebox";
 import { decode, decodeEach } from "../parse.ts";
 import { type McpSession, type Platform } from "./platform.ts";
-import { HostStdioTransport, parseComputerMcp } from "./sandbox/host.ts";
+import { hostStdio, parseComputerMcp } from "./sandbox/host.ts";
 import { callTool, type FormAnswer, speaksStateless } from "./mcp-stateless.ts";
 import type { PendingForm } from "../interaction/forms.ts";
 import { messageOf, orLogged, serially, settled, sharedUntilFailure } from "../promise.ts";
@@ -151,7 +151,7 @@ class Connection {
 		const client = this.#platform.mcpClient();
 		const onComputer = parseComputerMcp(this.server.url);
 		const transport = onComputer
-			? new HostStdioTransport({ address: onComputer.address, key: this.#hooks.hostKey(onComputer.address) }, onComputer.command)
+			? hostStdio({ address: onComputer.address, key: this.#hooks.hostKey(onComputer.address) }, onComputer.command)
 			: new StreamableHttpTransport({
 					url: this.server.url,
 					fetch: this.#platform.mcpFetch,

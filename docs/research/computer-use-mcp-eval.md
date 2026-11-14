@@ -1,6 +1,6 @@
 # 評估：computer-use-mcp 能不能當 pi mobile 內建的畫面操控
 
-2026-10-23。評估對象是 [domdomegg/computer-use-mcp](https://github.com/domdomegg/computer-use-mcp) 1.8.0。用 `computer://` 網址在 Mac mini 上執行（`npx -y computer-use-mcp@1.8.0`，見 `src/agent/sandbox/host.ts` 的 `HostStdioTransport`），從 S24 讓 Bot 操作。評估的目的有兩個：決定它夠不夠格成為內建的 MCP，以及要不要自己寫一套。
+2026-10-23。評估對象是 [domdomegg/computer-use-mcp](https://github.com/domdomegg/computer-use-mcp) 1.8.0。用 `computer://` 網址在 Mac mini 上執行（`npx -y computer-use-mcp@1.8.0`，見 `src/agent/sandbox/host.ts` 的 `hostStdio`（當時叫 `HostStdioTransport`）），從 S24 讓 Bot 操作。評估的目的有兩個：決定它夠不夠格成為內建的 MCP，以及要不要自己寫一套。
 
 ## 它提供什麼
 

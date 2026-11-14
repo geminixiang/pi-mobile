@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { type Link, RESUME_LIMIT_MS, type RawMessage, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
+import type { Link, RawMessage } from "../../src/agent/sandbox/resumable-link.ts";
+import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 import wire from "../../host/protocol.json" with { type: "json" };
 import { sleep } from "../../src/promise.ts";

@@ -13,7 +13,6 @@ function engine(openMs: number) {
 			if (command.includes("network inspect")) return { stdout: "pi-mobile\n", stderr: "", code: 0 };
 			if (command.includes("inspect -f")) return { stdout: "sha256:egress true\n", stderr: "", code: 0 };
 			if (command.includes("mitmproxy-ca-cert.pem")) return { stdout: CERT, stderr: "", code: 0 };
-			if (command.includes('printf %s "$HOME"')) return { stdout: "/home/fixture", stderr: "", code: 0 };
 			return { stdout: "", stderr: "", code: 0 };
 		},
 		exec: async (command, handlers): Promise<CommandChannel> => {
@@ -34,7 +33,7 @@ function engine(openMs: number) {
 			};
 		},
 	};
-	return { host: new ContainerHost("docker", client), bridges };
+	return { host: new ContainerHost("docker", client, "/home/fixture"), bridges };
 }
 
 export const checks: Check[] = [

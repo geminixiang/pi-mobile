@@ -1,4 +1,4 @@
-import type { Link } from "./resumable-socket.ts";
+import type { Link } from "./resumable-link.ts";
 import { type Static, Type } from "typebox";
 import bridgePy from "../../../sandbox/egress/bridge.py?raw";
 import credentialsPy from "../../../sandbox/egress/credentials.py?raw";
@@ -20,6 +20,7 @@ const SANDBOX_IMAGE = "pi-mobile/sandbox";
 const EGRESS_IMAGE = "pi-mobile/egress";
 const PROXY = `http://${EGRESS}:8080`;
 const CA_PATH = "/usr/local/share/ca-certificates/pi-egress.crt";
+const EGRESS_CA = "/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem";
 const DAEMON = "/usr/local/bin/pi-env";
 const CPUS = "2";
 const MEMORY = "2g";
@@ -97,7 +98,7 @@ function arch(value: string): "x64" | "arm64" | undefined {
 	return undefined;
 }
 
-export function lineReader(onLine: (line: string) => void): (data: Uint8Array) => void {
+function lineReader(onLine: (line: string) => void): (data: Uint8Array) => void {
 	const decoder = new TextDecoder();
 	let buffer = "";
 	return (data) => {
@@ -118,12 +119,14 @@ type BridgeLink = { kind: "starting" } | { kind: "open"; channel: CommandChannel
 export class ContainerHost {
 	readonly #engine: string;
 	readonly #client: CommandClient;
+	readonly #home: string;
 	#prepared: string | undefined;
 	#arch: "x64" | "arm64" | undefined;
 
-	constructor(engine: string, client: CommandClient) {
+	constructor(engine: string, client: CommandClient, home: string) {
 		this.#engine = engine;
 		this.#client = client;
+		this.#home = home;
 	}
 
 	async #engineOutput(args: string, input?: Uint8Array): Promise<string> {
@@ -142,24 +145,23 @@ export class ContainerHost {
 		if (result.code !== 0) throw new Error(`準備建置檔案失敗（${command.split(" ")[0]}）：${result.stderr.trim() || `exit ${result.code}`}`);
 	}
 
-	async ensureImages(home: string, onProgress: (detail: string) => void): Promise<void> {
+	async ensureImages(onProgress: (detail: string) => void): Promise<void> {
 		const engineArch = arch((await this.#outputIfSucceeds("info --format '{{.Architecture}}'")) ?? "") ?? arch((await this.#outputIfSucceeds("info --format '{{.Host.Arch}}'")) ?? "");
 		if (!engineArch) throw new Error(`讀不到 ${this.#engine} 的架構`);
-		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, home, onProgress, daemon("linux", engineArch));
-		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, home, onProgress);
+		await this.#buildUnlessCurrent(SANDBOX_IMAGE, { Dockerfile: sandboxDockerfile }, onProgress, daemon("linux", engineArch));
+		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, onProgress);
 	}
 
 	async #buildUnlessCurrent(
 		name: string,
 		files: Record<string, string>,
-		home: string,
 		onProgress: (detail: string) => void,
 		piEnv?: Daemon,
 	): Promise<void> {
 		const hash = await sha256Hex(new TextEncoder().encode(JSON.stringify(files) + (piEnv?.sha ?? "")));
 		const current = await this.#outputIfSucceeds(`image inspect -f '{{index .Config.Labels "dev.pi-mobile.hash"}}' ${name}`);
 		if (current === hash) return;
-		const dir = `${home}/.pi/mobile/build/${name.split("/")[1]}`;
+		const dir = `${this.#home}/.pi/mobile/build/${name.split("/")[1]}`;
 		await this.#stage(`rm -rf ${shellQuote(dir)} && mkdir -p ${shellQuote(dir)}`);
 		for (const [file, text] of Object.entries(files)) {
 			await this.#stage(`cat > ${shellQuote(`${dir}/${file}`)}`, new TextEncoder().encode(text));
@@ -183,17 +185,11 @@ export class ContainerHost {
 		if (built.code !== 0) throw new Error(`建置 ${name} 失敗：${built.tail.trim().split("\n").slice(-3).join(" / ")}`);
 	}
 
-	async #home(): Promise<string> {
-		const result = await this.#client.run("printf %s \"$HOME\"");
-		if (result.code !== 0 || !result.stdout) throw new Error("讀不到主機的家目錄");
-		return result.stdout;
-	}
-
 	readonly #ensureEgress = untilFailure(async () => {
 		if (!(await this.#outputIfSucceeds(`image inspect -f '{{.Id}}' ${SANDBOX_IMAGE}`))) {
 			throw lost("容器還沒準備好：打開設定 › 電腦，等它準備完成");
 		}
-		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, await this.#home(), (detail) => log.info("egress.build", { detail }));
+		await this.#buildUnlessCurrent(EGRESS_IMAGE, EGRESS_FILES, (detail) => log.info("egress.build", { detail }));
 		const image = await this.#engineOutput(`image inspect -f '{{.Id}}' ${EGRESS_IMAGE}`);
 		if (!(await this.#outputIfSucceeds(`network inspect ${NETWORK} --format '{{.Name}}'`))) await this.#engineOutput(`network create ${NETWORK}`);
 		const current = (await this.#outputIfSucceeds(`inspect -f '{{.Image}} {{.State.Running}}' ${EGRESS}`)) ?? "";
@@ -214,12 +210,11 @@ export class ContainerHost {
 				].join(" "),
 			);
 		}
-		for (let attempt = 0; attempt < 40; attempt++) {
-			const cert = await this.#outputIfSucceeds(`exec ${EGRESS} cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem`);
-			if (cert?.includes("BEGIN CERTIFICATE")) return `${cert}\n`;
-			await sleep(250);
-		}
-		throw new Error("egress proxy 沒有產生 CA 憑證");
+		const cert = await this.#outputIfSucceeds(
+			`exec ${EGRESS} sh -c ${shellQuote(`for i in $(seq 40); do grep -q 'BEGIN CERTIFICATE' ${EGRESS_CA} 2>/dev/null && exec cat ${EGRESS_CA}; sleep 0.25; done; exit 1`)}`,
+		);
+		if (!cert?.includes("BEGIN CERTIFICATE")) throw new Error("egress proxy 沒有產生 CA 憑證");
+		return `${cert}\n`;
 	});
 
 	bridge(credentials: Credentials): () => void {
@@ -272,9 +267,7 @@ export class ContainerHost {
 	async #onBridge(line: string, credentials: Credentials, send: (message: unknown) => void): Promise<void> {
 		const message = decode(AuthorizeRequest, line);
 		if (!message) return;
-		const result = await this.#authorize(message.body, credentials).catch((error: unknown) => ({
-			reason: messageOf(error),
-		}));
+		const result = await this.#authorize(message.body, credentials);
 		send({ type: "result", id: message.id, result });
 	}
 

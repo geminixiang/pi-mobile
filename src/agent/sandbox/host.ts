@@ -1,29 +1,23 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { type Static, Type } from "typebox";
-import { Value } from "typebox/value";
 import wire from "../../../host/protocol.json" with { type: "json" };
 
-import {
-	type JsonRpcMessage,
-	type McpTransport,
-	type McpTransportCloseListener,
-	type McpTransportErrorListener,
-	type McpTransportMessageListener,
-	parseJsonRpcMessage,
-} from "@earendil-works/pi-mcp";
+import { type McpTransport, PipeTransport } from "@earendil-works/pi-mcp";
 import { log } from "../../log.ts";
-import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials, lineReader } from "./container.ts";
+import { type CommandChannel, type CommandClient, type CommandHandlers, ContainerHost, type Credentials } from "./container.ts";
 import { DAEMON_OSES, daemon } from "./daemon.ts";
 import { containerDescription, directDescription, type Sandbox, SharedEnvs } from "./sandbox.ts";
 import { deviceNetwork, type Network } from "../network.ts";
 import { type ConnectionStatus, lost, type OpenDaemon, PhoneConnection } from "./phone-connection.ts";
-import { type OpenRaw, RESUME_LIMIT_MS, type RawMessage, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
+import type { RawMessage } from "./resumable-link.ts";
+import { type OpenRaw, RESUME_LIMIT_MS, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { hostTraffic } from "../traffic.ts";
-import { decode, decodeEach, oneOf, parseJson } from "../../parse.ts";
+import { decode, decodeEach, oneOf } from "../../parse.ts";
 import { onFailure, untilFailure } from "../../promise.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../cleartext.ts";
 import { ios } from "../../native.ts";
+import { randomHex } from "../../encoding.ts";
 
 const HOST_PORT = 4790;
 
@@ -115,8 +109,8 @@ export async function pairHost(address: string, code: string): Promise<string> {
 	if (response.status === 410) throw new Error(`${address} 沒有等待中的配對碼：在那台電腦執行 pi-mobile pair`);
 	if (response.status === 422) throw new Error("配對碼不對；錯 5 次要在電腦上重新執行 pi-mobile pair");
 	if (!response.ok) throw new Error(`${address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
-	const answer: unknown = await response.json();
-	if (!Value.Check(PairAnswer, answer)) throw new Error(`${address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
+	const answer = decode(PairAnswer, await response.text());
+	if (!answer) throw new Error(`${address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
 	return answer.key;
 }
 
@@ -144,8 +138,8 @@ export async function hasPiMobile(address: string, signal: AbortSignal): Promise
 export async function probeHost(reach: Reach, signal?: AbortSignal): Promise<HostInfo> {
 	const response = await reached(reach.address, fetch(url(reach, "/info"), { signal: signal ?? AbortSignal.timeout(15_000) }));
 	if (!response.ok) throw new Error(`${reach.address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
-	const info: unknown = await response.json();
-	if (!Value.Check(HostInfo, info)) throw new Error(`${reach.address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
+	const info = decode(HostInfo, await response.text());
+	if (!info) throw new Error(`${reach.address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
 	return info;
 }
 
@@ -243,7 +237,7 @@ export class HostCommands implements CommandClient {
 			if (code !== undefined) void opened.promise.then((socket) => socket.close());
 			handlers.onExit(code);
 		};
-		const session = daemonToken ?? crypto.randomUUID().replaceAll("-", "");
+		const session = daemonToken ?? randomHex(16);
 		const resumable = await holdSocket(this.#host, this.#host.name, "/exec", { command, session, ...(daemonToken ? { heartbeat: wire.heartbeat } : {}) }, session, this.#dial, {
 			onMessage: (data) => {
 				if (typeof data === "string") {
@@ -305,7 +299,7 @@ export function prepareContainers(host: PairedHost, onProgress: (detail: string)
 	const known = preparing.get(host.address);
 	if (known) return follow(known, onProgress);
 	const listeners = new Set<(detail: string) => void>();
-	const done = new ContainerHost(host.engine, new HostCommands(host)).ensureImages(host.home, (detail) => {
+	const done = new ContainerHost(host.engine, new HostCommands(host), host.home).ensureImages((detail) => {
 		for (const listener of listeners) listener(detail);
 	});
 	const entry = { done, listeners };
@@ -316,7 +310,7 @@ export function prepareContainers(host: PairedHost, onProgress: (detail: string)
 
 export class HostSandbox implements Sandbox {
 	readonly host: PairedHost;
-	readonly mode: HostMode;
+	readonly direct: boolean;
 	readonly #envs: SharedEnvs;
 	readonly #startBridge: (() => () => void) | undefined;
 	#stopBridge: (() => void) | undefined;
@@ -325,15 +319,16 @@ export class HostSandbox implements Sandbox {
 
 	constructor(host: PairedHost, mode: HostMode, credentials: Credentials) {
 		this.host = host;
-		this.mode = mode === "container" && host.engine ? "container" : "direct";
+		const engine = mode === "container" ? host.engine : undefined;
+		this.direct = !engine;
 		const onLog = (text: string) => log.warn("sandbox.daemon_output", { host: host.name, text });
 		const onStatus = (status: ConnectionStatus) => {
 			this.#status = status;
 			log.info("host.connection", { host: host.name, mode, status: status.kind, ...(status.kind === "lost" ? { reason: status.reason } : {}) });
 			for (const listener of this.#listeners) listener(status);
 		};
-		if (mode === "container" && host.engine) {
-			const containers = new ContainerHost(host.engine, new HostCommands(host));
+		if (engine) {
+			const containers = new ContainerHost(engine, new HostCommands(host), host.home);
 			this.#startBridge = () => containers.bridge(credentials);
 			const serviceEnv = () => Object.assign({}, ...Object.values(credentials.minted).map((service) => service.env));
 			const connection = new PhoneConnection({ open: containers.opener(serviceEnv), onLog, onStatus });
@@ -341,10 +336,6 @@ export class HostSandbox implements Sandbox {
 		} else {
 			this.#envs = new SharedEnvs(new PhoneConnection({ open: this.#direct(), onLog, onStatus }), host.home, () => host.home);
 		}
-	}
-
-	get direct(): boolean {
-		return this.mode === "direct";
 	}
 
 	get status(): ConnectionStatus {
@@ -418,74 +409,29 @@ export function parseComputerMcp(url: string): { address: string; command: strin
 	return parsed.protocol === COMPUTER_MCP && parsed.hostname && command ? { address: parsed.hostname, command } : undefined;
 }
 
-export class HostStdioTransport implements McpTransport {
-	readonly #reach: Reach;
-	readonly #command: string;
-	#channel: CommandChannel | undefined;
-	#closed = false;
-	readonly #message = new Set<McpTransportMessageListener>();
-	readonly #error = new Set<McpTransportErrorListener>();
-	readonly #close = new Set<McpTransportCloseListener>();
-
-	readonly #dial: Dial;
-
-	constructor(reach: Reach, command: string, dial = deviceDial) {
-		this.#reach = reach;
-		this.#command = command;
-		this.#dial = dial;
-	}
-
-	async start(): Promise<void> {
-		let stderr = "";
-		this.#channel = await new HostCommands({ ...this.#reach, name: this.#reach.address }, this.#dial).exec(this.#command, {
-			onStdout: lineReader((raw) => {
-				const line = raw.trim();
-				if (!line) return;
-				try {
-					const message = parseJsonRpcMessage(parseJson(line, "電腦上的 MCP 訊息"));
-					for (const listener of this.#message) listener(message);
-				} catch (error) {
-					for (const listener of this.#error) listener(error instanceof Error ? error : new Error(String(error)));
-				}
-			}),
-			onStderr: (data) => {
-				const chunk = new TextDecoder().decode(data);
-				stderr = (stderr + chunk).slice(-2000);
-				log.info("mcp.computer_stderr", { address: this.#reach.address, text: chunk.slice(0, 500) });
-			},
-			onExit: (code) => {
-				if (!this.#closed && code !== 0) {
-					const error = new Error(`MCP server on ${this.#reach.address} exited${code === undefined ? "" : ` with ${code}`}: ${stderr.trim().split("\n").slice(-3).join(" / ")}`);
-					for (const listener of this.#error) listener(error);
-				}
-				this.#closed = true;
-				for (const listener of this.#close) listener();
-			},
-		});
-	}
-
-	async send(message: JsonRpcMessage): Promise<void> {
-		if (!this.#channel || this.#closed) throw new Error("MCP connection to the computer is closed");
-		this.#channel.write(new TextEncoder().encode(`${JSON.stringify(message)}\n`));
-	}
-
-	async close(): Promise<void> {
-		this.#closed = true;
-		this.#channel?.close();
-	}
-
-	onMessage(listener: McpTransportMessageListener): () => void {
-		this.#message.add(listener);
-		return () => this.#message.delete(listener);
-	}
-
-	onError(listener: McpTransportErrorListener): () => void {
-		this.#error.add(listener);
-		return () => this.#error.delete(listener);
-	}
-
-	onClose(listener: McpTransportCloseListener): () => void {
-		this.#close.add(listener);
-		return () => this.#close.delete(listener);
-	}
+export function hostStdio(reach: Reach, command: string, dial = deviceDial): McpTransport {
+	const transport: PipeTransport = new PipeTransport({
+		onStderr: (text) => log.info("mcp.computer_stderr", { address: reach.address, text: text.slice(0, 500) }),
+		open: async ({ onStdout, onStderr }) => {
+			const exited = Promise.withResolvers<void>();
+			const channel = await new HostCommands({ ...reach, name: reach.address }, dial).exec(command, {
+				onStdout,
+				onStderr,
+				onExit: (code) => {
+					if (code === 0) return exited.resolve();
+					exited.reject(new Error(`MCP server on ${reach.address} exited${code === undefined ? "" : ` with ${code}`}: ${transport.stderr.trim().split("\n").slice(-3).join(" / ")}`));
+				},
+			});
+			return {
+				write: (data) => channel.write(typeof data === "string" ? new TextEncoder().encode(data) : data),
+				closeStdin: () => channel.end(),
+				close: () => {
+					channel.close();
+					exited.resolve();
+				},
+				exited: exited.promise,
+			};
+		},
+	});
+	return transport;
 }

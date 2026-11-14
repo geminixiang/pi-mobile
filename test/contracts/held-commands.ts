@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { McpClient } from "@earendil-works/pi-mcp";
 import wire from "../../host/protocol.json" with { type: "json" };
-import { type Dial, HostCommands, HostStdioTransport } from "../../src/agent/sandbox/host.ts";
-import type { RawMessage, RawSocket } from "../../src/agent/sandbox/resumable-socket.ts";
+import { type Dial, HostCommands, hostStdio } from "../../src/agent/sandbox/host.ts";
+import type { RawMessage } from "../../src/agent/sandbox/resumable-link.ts";
+import type { RawSocket } from "../../src/agent/sandbox/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 
 type Out = Uint8Array | string;
@@ -98,7 +99,7 @@ export const checks: Check[] = [
 				},
 			});
 			const client = new McpClient({ name: "pi-mobile", version: "1.0.0" });
-			await client.connect(new HostStdioTransport(REACH, "pi-mobile mcp computer", dial));
+			await client.connect(hostStdio(REACH, "pi-mobile mcp computer", dial));
 			const result = await client.callTool("act", { steps: [{ action: "type", text: "STEP-ONE STEP-TWO" }] });
 			await client.close();
 			assert.deepEqual(result.content, [{ type: "text", text: "typed STEP-ONE STEP-TWO" }]);

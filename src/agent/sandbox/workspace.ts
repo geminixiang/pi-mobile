@@ -5,7 +5,6 @@ import { extensionOf, mimeTypeOf } from "../mime.ts";
 
 const gitIn = (repo: string) => `git -C ${shellQuote(repo)} -c core.quotePath=false`;
 
-const context = BACKGROUND_CONTEXT;
 export const WORKSPACE = "/workspace";
 const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
@@ -55,7 +54,7 @@ export class Workspace {
 	}
 
 	async list(path: string): Promise<FileInfo[]> {
-		return getOrThrow(await this.#env.listDir(path, context)).sort((a, b) => {
+		return getOrThrow(await this.#env.listDir(path, BACKGROUND_CONTEXT)).sort((a, b) => {
 			const dirA = a.kind === "directory" ? 0 : 1;
 			const dirB = b.kind === "directory" ? 0 : 1;
 			return dirA - dirB || a.name.localeCompare(b.name);
@@ -63,20 +62,20 @@ export class Workspace {
 	}
 
 	async read(path: string): Promise<FileContent> {
-		const { size } = getOrThrow(await this.#env.fileInfo(path, context));
+		const { size } = getOrThrow(await this.#env.fileInfo(path, BACKGROUND_CONTEXT));
 		const type = mimeTypeOf(path);
 		if (type?.startsWith("image/") && size <= MAX_IMAGE_BYTES) {
 			return { kind: "image", url: URL.createObjectURL(new Blob([new Uint8Array(await this.bytes(path))], { type })), size };
 		}
 		const limit = isHtml(path) ? MAX_HTML_BYTES : MAX_TEXT_BYTES;
-		const reader = getOrThrow(await this.#env.openBinaryReader(path, undefined, context));
-		const bytes = getOrThrow(await reader.read(0, limit, context).finally(() => reader.close(context)));
+		const reader = getOrThrow(await this.#env.openBinaryReader(path, undefined, BACKGROUND_CONTEXT));
+		const bytes = getOrThrow(await reader.read(0, limit, BACKGROUND_CONTEXT).finally(() => reader.close(BACKGROUND_CONTEXT)));
 		if (bytes.subarray(0, 8000).includes(0)) return { kind: "binary", size };
 		return { kind: "text", text: new TextDecoder().decode(bytes), truncated: size > limit, size, limit };
 	}
 
 	async bytes(path: string): Promise<Uint8Array> {
-		return getOrThrow(await this.#env.readBinaryFile(path, context));
+		return getOrThrow(await this.#env.readBinaryFile(path, BACKGROUND_CONTEXT));
 	}
 
 	async repos(): Promise<string[]> {
@@ -142,8 +141,7 @@ export class Workspace {
 	}
 
 	async show(repo: string, hash: string): Promise<string> {
-		const git = gitIn(repo);
-		return this.#exec(`${git} show --no-color --no-ext-diff --format='%H%n%an <%ae>%n%ad%n%n%B' ${shellQuote(hash)}`);
+		return this.#exec(`${gitIn(repo)} show --no-color --no-ext-diff --format='%H%n%an <%ae>%n%ad%n%n%B' ${shellQuote(hash)}`);
 	}
 
 	async #exec(command: string): Promise<string> {
@@ -157,9 +155,9 @@ export class Workspace {
 					if (info.stream !== "stderr" && stdout.length < MAX_DIFF_CHARS) stdout += text;
 				},
 			},
-			context,
+			BACKGROUND_CONTEXT,
 		);
-		if (!result.ok) throw result.error;
+		getOrThrow(result);
 		return stdout;
 	}
 }
