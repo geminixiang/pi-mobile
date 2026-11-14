@@ -143,13 +143,17 @@ export async function loadSettings(): Promise<Settings> {
 	};
 }
 
-export async function saveSettings(edited: Settings): Promise<Settings> {
-	const settings: Settings = {
-		...edited,
-		providerOAuth: Object.fromEntries(Object.entries(edited.providerOAuth).map(([id, json]) => [id, keepRotated(providerOAuthKey(id), json)])),
-		cloudflareCredential: keepRotated(SECRET_CLOUDFLARE, edited.cloudflareCredential),
-		azureCredential: keepRotated(SECRET_AZURE, edited.azureCredential),
+export function withRotated(settings: Settings): Settings {
+	return {
+		...settings,
+		providerOAuth: Object.fromEntries(Object.entries(settings.providerOAuth).map(([id, json]) => [id, keepRotated(providerOAuthKey(id), json)])),
+		cloudflareCredential: keepRotated(SECRET_CLOUDFLARE, settings.cloudflareCredential),
+		azureCredential: keepRotated(SECRET_AZURE, settings.azureCredential),
 	};
+}
+
+export async function saveSettings(edited: Settings): Promise<Settings> {
+	const settings = withRotated(edited);
 	const previous = loadPlain();
 	const before = parseProviders(previous.providers);
 	const { providers, hosts } = settings;

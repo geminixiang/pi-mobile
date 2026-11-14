@@ -19,7 +19,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { activeView } from "./active-view.ts";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import { changedKeys, type Settings } from "../settings.ts";
+import { changedKeys, type Settings, withRotated } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "./assistant.ts";
 import type { ContextShape, ToolCost } from "./context-shape.ts";
@@ -183,7 +183,7 @@ export class AgentRuntime {
 	}
 
 	async apply(next: Settings): Promise<Applied> {
-		const changed = changedKeys(this.#settings, next);
+		const changed = changedKeys(withRotated(this.#settings), next);
 		if (changed.some((key) => APPLY[key] === "restart")) return "needs_restart";
 		if (changed.includes("compactAt")) {
 			const { models, infos } = await this.#platform.models(next);
