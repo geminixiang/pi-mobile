@@ -6,12 +6,11 @@ import { join } from "node:path";
 import { type Job, parseJob, readJob, startJob, stopJob, stopOwnedJobs, waitJob } from "../src/jobs/commands.ts";
 import { backgroundJobIn } from "../src/jobs/background.ts";
 
-assert.deepEqual(parseJob("state=running\nseconds=3\nlines=  2\nbytes=  10\nlog=/h/.pi-mobile/jobs/0badc0de/log\n@@command\nnpm test\n  --watch=false\n@@log\na\nb\n"), {
+assert.deepEqual(parseJob("state=running\nlines=  2\nbytes=  10\nlog=/h/.pi-mobile/jobs/0badc0de/log\n@@command\nnpm test\n  --watch=false\n@@log\na\nb\n"), {
 	state: "running",
-	seconds: 3,
 	output: { text: "a\nb\n", lines: 2, bytes: 10, log: "/h/.pi-mobile/jobs/0badc0de/log", command: "npm test\n  --watch=false" },
 });
-assert.deepEqual(parseJob("state=timed_out\nexit=\nseconds=7\nlines=0\nbytes=0\nlog=/l\n@@log\n").state, "timed_out");
+assert.deepEqual(parseJob("state=timed_out\nexit=\nlines=0\nbytes=0\nlog=/l\n@@log\n").state, "timed_out");
 assert.deepEqual(parseJob("state=missing"), { state: "missing" });
 assert.equal(backgroundJobIn("built\n\nStill running after 10 seconds, so it goes on in the background as job:0badc0de (stopped after 120 minutes at most)."), "job:0badc0de");
 assert.equal(backgroundJobIn("exit 0"), undefined);

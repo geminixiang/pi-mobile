@@ -14,6 +14,7 @@ import { DEFAULT_GUARDS, GUARD_IDS, type GuardId } from "../agent/guards.ts";
 import { ACTIVITIES, Triggers, type When } from "./plugin.ts";
 import { type Trigger, TriggerDoc } from "./runs.ts";
 import { describeWhen } from "./when.ts";
+import { editTriggers } from "./edit.ts";
 import { randomHex } from "../encoding.ts";
 
 const MAX_TRIGGERS = 20;
@@ -189,10 +190,7 @@ function timeOf(args: CreateScheduleArgs, days: number[]): When {
 export function createTriggerExtension(host: TriggerHost) {
 	const add = async (api: ToolExecutionApi, context: Context, fields: Pick<Trigger, "name" | "prompt" | "when" | "onlyIf" | "guards"> & { kind: "schedule" | "followup" }): Promise<Trigger> => {
 		const trigger: Trigger = { id: randomHex(4), ...fields, conversationId: api.conversationId, state: "on", createdAt: Date.now() };
-		await api.commit(async (tx) => {
-			(await tx.doc(TriggerDoc)).items.push(trigger);
-		}, context);
-		host.changed();
+		await editTriggers(api, context, host, (items) => [...items, trigger]);
 		return trigger;
 	};
 
@@ -270,11 +268,7 @@ export function createTriggerExtension(host: TriggerHost) {
 				(item) => item.id === args.id && item.conversationId === api.conversationId,
 			);
 			if (!trigger) throw new Error(`no schedule ${args.id}; list_schedules shows them`);
-			await api.commit(async (tx) => {
-				const doc = await tx.doc(TriggerDoc);
-				doc.items = doc.items.filter((item) => item.id !== args.id);
-			}, context);
-			host.changed();
+			await editTriggers(api, context, host, (items) => items.filter((item) => item.id !== args.id));
 			return text(`Deleted ${trigger.name}.`);
 		},
 	});

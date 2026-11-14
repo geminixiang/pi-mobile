@@ -1,6 +1,6 @@
 import { type ConversationId, defineDoc } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "../agent/doc-policy.ts";
-import { DAY, localTime } from "../time.ts";
+import { DAY, localTime, soonest } from "../time.ts";
 import type { When } from "../triggers/plugin.ts";
 
 export type Item = ItemOf<ConversationId>;
@@ -55,7 +55,7 @@ type Due = { item: string; conversation: string; bot: string; avatar: string; ti
 export function agenda<Id>(items: readonly { id: string; bot: Id; title: string; state: Item["state"]; nextAt?: number }[], bots: readonly { id: Id; name: string; avatar: string }[], endOfDay: number): Due[] {
 	return items
 		.filter((item) => item.state === "todo" && (item.nextAt === undefined || item.nextAt < endOfDay))
-		.toSorted((a, b) => (a.nextAt ?? Number.MAX_SAFE_INTEGER) - (b.nextAt ?? Number.MAX_SAFE_INTEGER))
+		.toSorted(soonest((item) => item.nextAt))
 		.flatMap((item) => {
 			const bot = bots.find((candidate) => candidate.id === item.bot);
 			return bot ? [{ item: item.id, conversation: String(item.bot), bot: bot.name, avatar: bot.avatar, title: item.title, ...(item.nextAt !== undefined ? { due: item.nextAt } : {}) }] : [];

@@ -9,7 +9,7 @@ const LOG = "@@log";
 const COMMAND = "@@command";
 
 type JobEnd = "exited" | "timed_out" | "stopped" | "lost";
-export type Job = { state: "running"; seconds: number; output: Output } | { state: JobEnd; exitCode: number | undefined; seconds: number; output: Output } | { state: "missing" };
+export type Job = { state: "running"; output: Output } | { state: JobEnd; exitCode: number | undefined; output: Output } | { state: "missing" };
 export type Output = { text: string; lines: number; bytes: number; log: string; command: string };
 
 const dir = (id: string) => `${JOBS}/${id}`;
@@ -37,7 +37,7 @@ export function startJob(job: { id: string; command: string; cwd: string; owner:
 	return [
 		`mkdir -p ${at} && cd ${shellQuote(job.cwd)} || exit 3`,
 		`printf '%s\\n' ${shellQuote(job.command)} > ${at}/command && pwd > ${at}/cwd`,
-		`printf '%s\\n' ${shellQuote(job.owner)} > ${at}/owner && echo ${Math.max(1, Math.round(job.limitSeconds))} > ${at}/limit && date +%s > ${at}/started`,
+		`printf '%s\\n' ${shellQuote(job.owner)} > ${at}/owner && echo ${Math.max(1, Math.round(job.limitSeconds))} > ${at}/limit`,
 		`printf '%s\\n' ${shellQuote(RUN)} > ${at}/run`,
 		`sh -c 'set -m; nohup sh "$0/run" "$0" > /dev/null 2>&1 & echo $! > "$0/pid"' ${at}`,
 	].join("\n");
@@ -51,7 +51,6 @@ export function readJob(id: string, lines = OUTPUT_LINES): string {
 		'if [ -f "$d/exit" ]; then echo "state=$(cat "$d/reason" 2>/dev/null || echo exited)"; echo "exit=$(cat "$d/exit")";',
 		'elif kill -0 "$(cat "$d/pid" 2>/dev/null)" 2>/dev/null; then echo state=running;',
 		'else echo "state=$(cat "$d/reason" 2>/dev/null || echo lost)"; fi',
-		'echo "seconds=$(( $(date +%s) - $(cat "$d/started" 2>/dev/null || date +%s) ))"',
 		'echo "lines=$(wc -l < "$d/log" 2>/dev/null || echo 0)"',
 		'echo "bytes=$(wc -c < "$d/log" 2>/dev/null || echo 0)"',
 		'echo "log=$(cd "$d" && pwd)/log"',
@@ -95,11 +94,10 @@ export function parseJob(stdout: string): Job {
 		return Number.isFinite(value) ? value : 0;
 	};
 	const output: Output = { text: at < 0 ? "" : stdout.slice(at + LOG.length + 1), lines: number("lines"), bytes: number("bytes"), log: fields.get("log") ?? "", command };
-	const seconds = number("seconds");
-	if (state === "running") return { state, seconds, output };
+	if (state === "running") return { state, output };
 	if (state === "exited" || state === "timed_out" || state === "stopped" || state === "lost") {
 		const exit = fields.get("exit");
-		return { state, exitCode: exit === undefined || exit === "" ? undefined : Number(exit), seconds, output };
+		return { state, exitCode: exit === undefined || exit === "" ? undefined : Number(exit), output };
 	}
 	return { state: "missing" };
 }

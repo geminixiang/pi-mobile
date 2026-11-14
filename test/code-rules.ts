@@ -181,6 +181,12 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 		only: TYPESCRIPT,
 	},
 	{
+		use: /\?\? Number\.MAX_SAFE_INTEGER\) -/,
+		owners: ["src/time.ts"],
+		fix: "sort by an optional time with soonest(at) from src/time.ts",
+		only: TYPESCRIPT,
+	},
+	{
 		use: /\bApp\.getState\(/,
 		owners: ["src/agent/tools/apps.ts", "src/keepAlive.ts"],
 		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",

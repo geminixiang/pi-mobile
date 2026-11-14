@@ -13,6 +13,13 @@ export function message(entry: Pick<EntryRecord, "model">): Message | undefined 
 	return entry.model?.[0];
 }
 
+export function toolCalls(entry: Pick<EntryRecord, "kind" | "model">): ToolCall[] {
+	if (entry.kind !== "pi.assistant") return [];
+	return blocks(message(entry)?.content).flatMap((block) => (block.type === "toolCall" ? [block] : []));
+}
+
+export const isWrite = (call: ToolCall) => (call.name === "write" || call.name === "edit") && typeof call.arguments.path === "string";
+
 export function entryText(entry: EntryRecord): string {
 	return contentText(withoutAttachments(blocks(message(entry)?.content)));
 }

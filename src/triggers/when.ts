@@ -1,4 +1,4 @@
-import { DAY, pad } from "../time.ts";
+import { DAY, pad, soonest } from "../time.ts";
 import type { ACTIVITIES, When } from "./plugin.ts";
 import type { Trigger } from "./runs.ts";
 
@@ -157,8 +157,8 @@ function groupOf(trigger: Scheduled, next: number | undefined, endOfToday: numbe
 }
 
 export function grouped<T extends Scheduled>(triggers: readonly T[], next: Readonly<Record<string, number>>, endOfToday: number): { label: string; triggers: T[] }[] {
-	const soonest = (a: T, b: T) => (next[a.id] ?? Number.MAX_SAFE_INTEGER) - (next[b.id] ?? Number.MAX_SAFE_INTEGER) || a.createdAt - b.createdAt;
-	return GROUPS.map(([group, label]) => ({ label, triggers: triggers.filter((trigger) => groupOf(trigger, next[trigger.id], endOfToday) === group).toSorted(soonest) })).filter(
+	const byNext = soonest<T>((trigger) => next[trigger.id]);
+	return GROUPS.map(([group, label]) => ({ label, triggers: triggers.filter((trigger) => groupOf(trigger, next[trigger.id], endOfToday) === group).toSorted((a, b) => byNext(a, b) || a.createdAt - b.createdAt) })).filter(
 		(section) => section.triggers.length > 0,
 	);
 }

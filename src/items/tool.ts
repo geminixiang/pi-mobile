@@ -3,7 +3,7 @@ import { appSection } from "../agent/section.ts";
 import { Type } from "typebox";
 import { oneOf } from "../parse.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { parseLocalTime } from "../time.ts";
+import { parseLocalTime, soonest } from "../time.ts";
 import { requireAccess } from "../agent/notification-access.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { described, type Item, ItemDoc, pruned } from "./items.ts";
@@ -90,7 +90,7 @@ export function createItemsExtension(triggers: TriggerHost) {
 			const items = ((await api.snapshot(ItemDoc, context))?.items ?? [])
 				.filter((item) => args.all || item.bot === api.conversationId)
 				.filter((item) => args.done || item.state !== "done")
-				.toSorted((a, b) => (a.nextAt ?? Number.MAX_SAFE_INTEGER) - (b.nextAt ?? Number.MAX_SAFE_INTEGER));
+				.toSorted(soonest((item) => item.nextAt));
 			return text(items.length > 0 ? items.map(described).join("\n") : "No open items.");
 		},
 	});

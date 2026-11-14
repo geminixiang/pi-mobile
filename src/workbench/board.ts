@@ -1,6 +1,6 @@
 import { contentText, type ToolCall } from "@earendil-works/pi-ai";
 import type { ConversationId, EntryRecord } from "@earendil-works/pi-durable";
-import { blocks, entryText, message } from "../agent/entries.ts";
+import { entryText, isWrite, message, toolCalls } from "../agent/entries.ts";
 import type { PendingForm } from "../interaction/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import { ASK_USER } from "../interaction/tool.ts";
@@ -131,12 +131,6 @@ function resultsOf(entries: readonly EntryRecord[]): ReadonlyMap<string, Result>
 	);
 }
 
-function toolCalls(entry: EntryRecord): ToolCall[] {
-	if (entry.kind !== "pi.assistant") return [];
-	return blocks(message(entry)?.content).flatMap((block) => (block.type === "toolCall" ? [block] : []));
-}
-
-const isWrite = (call: ToolCall) => (call.name === "write" || call.name === "edit") && typeof call.arguments.path === "string";
 
 function stepsOf(tools: readonly LiveTool[], entries: readonly EntryRecord[]): Step[] {
 	const lastAnswer = entries.findLast((entry) => entry.kind === "pi.assistant");

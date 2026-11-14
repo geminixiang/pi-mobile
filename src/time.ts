@@ -2,6 +2,10 @@ export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
+export function soonest<T>(at: (value: T) => number | undefined): (a: T, b: T) => number {
+	return (a, b) => (at(a) ?? Number.MAX_SAFE_INTEGER) - (at(b) ?? Number.MAX_SAFE_INTEGER);
+}
+
 export const pad = (value: number) => String(value).padStart(2, "0");
 
 export function localDate(ms: number): string {

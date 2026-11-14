@@ -8,7 +8,7 @@ import { DAY, MINUTE, startOfToday } from "../time.ts";
 import { isWatch } from "./watch.ts";
 import { check, oneOf, valueOrThrow } from "../parse.ts";
 import { messageOf, orLogged } from "../promise.ts";
-import { blocks, entryText, message } from "../agent/entries.ts";
+import { entryText, toolCalls } from "../agent/entries.ts";
 import { ASK_USER, AskArgs } from "../interaction/tool.ts";
 import { answerOf } from "../interaction/replies.ts";
 import type { Judge } from "../agent/judge.ts";
@@ -184,6 +184,8 @@ const RUNS_KEPT_MS = DAY;
 
 const context = BACKGROUND_CONTEXT;
 
+const ranBefore = (runs: readonly { request?: string }[] | undefined, request: string | undefined): boolean => request !== undefined && request !== "" && (runs ?? []).some((run) => run.request === request);
+
 export class TriggerRuns {
 	readonly #harness: Harness;
 	readonly #bots: () => Promise<readonly { id: ConversationId; name: string; avatar: string }[]>;
@@ -285,7 +287,7 @@ export class TriggerRuns {
 		const doc = await this.#harness.snapshot(TriggerDoc, context);
 		const trigger = doc?.items.find((item) => item.id === id);
 		if (!trigger) return undefined;
-		if (!(request && doc?.runs.some((run) => run.request === request)) && delivery !== "manual" && trigger.state === "paused") return undefined;
+		if (!ranBefore(doc?.runs, request) && delivery !== "manual" && trigger.state === "paused") return undefined;
 		const agent = trigger.kind === "watch" ? await this.#agentState(trigger.conversationId, trigger.agent) : undefined;
 		const checkedAt = Date.now();
 		const waited = checkedAt - trigger.createdAt;
@@ -324,7 +326,7 @@ export class TriggerRuns {
 		const item = (await this.#harness.snapshot(ItemDoc, context))?.items.find((candidate) => candidate.id === id);
 		const now = Date.now();
 		const due = cause.kind === "reply" ? item?.state === "waiting" && item.wake !== undefined : item !== undefined && item.state !== "done" && item.nextAt !== undefined && item.nextAt <= now + MINUTE;
-		const duplicate = request !== undefined && ((await this.#harness.snapshot(TriggerDoc, context))?.runs ?? []).some((run) => run.request === request);
+		const duplicate = ranBefore((await this.#harness.snapshot(TriggerDoc, context))?.runs, request);
 		if (!item || (!due && !duplicate)) {
 			await this.sync();
 			return undefined;
@@ -355,8 +357,7 @@ export class TriggerRuns {
 	}
 
 	async #deliver(wakeup: Wakeup): Promise<ConversationId | undefined> {
-		const runs = (await this.#harness.snapshot(TriggerDoc, context))?.runs ?? [];
-		if (wakeup.request && runs.some((run) => run.request === wakeup.request)) {
+		if (ranBefore((await this.#harness.snapshot(TriggerDoc, context))?.runs, wakeup.request)) {
 			await this.sync();
 			return wakeup.conversationId;
 		}
@@ -396,7 +397,7 @@ export class TriggerRuns {
 		const kept = startOfToday() - RUNS_KEPT_MS;
 		await this.#harness.commit(async (tx) => {
 			const triggers = await tx.doc(TriggerDoc);
-			if (request && triggers.runs.some((run) => run.request === request)) return;
+			if (ranBefore(triggers.runs, request)) return;
 			triggers.runs = [...triggers.runs.filter((run) => run.at >= kept), { trigger: key, at, ...(request ? { request } : {}) }];
 		}, context);
 	}
@@ -510,8 +511,8 @@ type FinalWord = { headline: string; text: string; asking: boolean };
 
 export function finalWord(entries: readonly EntryRecord[]): FinalWord {
 	const last = entries.findLast((entry) => entry.kind === "pi.assistant");
-	const asked = blocks(last && message(last)?.content).find((block) => block.type === "toolCall" && block.name === ASK_USER);
-	const question = asked?.type === "toolCall" ? check(AskArgs, asked.arguments, ASK_USER) : undefined;
+	const asked = last && toolCalls(last).find((call) => call.name === ASK_USER);
+	const question = asked ? check(AskArgs, asked.arguments, ASK_USER) : undefined;
 	if (question?.ok) return { headline: question.value.question, text: question.value.options.join("、"), asking: true };
 	const answer = entries.findLast((entry) => entry.kind === "pi.assistant" && entryText(entry).trim() !== "");
 	const [headline = "跑完了，沒有留下文字", ...detail] = answer ? plain(answerOf(answer).text).split("\n") : [];
