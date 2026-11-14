@@ -14,7 +14,7 @@
 ## 決定
 
 1. **先做：每個 Bot 自己寫的純文字 skill（程序性記憶）**。使用者說「以後都這樣做」或 Bot 重複一套做法時，`save_skill(name, when, text)` 存進每個 Bot 的 doc（比照 `BotMemoryDoc`），系統提示每份一行，用到才 `read_skill`。這也解掉一個現有成本：寫在 MEMORY.md 的做法每次請求都整份重送。上限建議每個 Bot 8 份、`when` 120 字元、內容 4000 字元，加之前照 `docs/tools.md` 量工具成本。使用者在 Bot 面板看得到、改得了。
-2. **其次：電腦上的 Bot 讀電腦自己的 skill**。直接模式的提示加一句：去 `~/.agents/skills`、`~/.claude/skills` 找對應的 `SKILL.md`，腳本在電腦上用真的 Python、Node 跑。真正的重活本來就能 `tell_agent` 交給電腦上的 agent，它們有自己的 skill 系統。
+2. **不做：手機去管電腦上的 skill**（使用者 2026-11-15 決定）。skill 分三層：①手機的 Bot 自己的做法（這裡做的 `save_skill`）；②手機的 Bot 在電腦上做事時用電腦的 skill；③手機交辦給電腦上的 agent，由那個 agent 用它自己的 skill。只做 ①+③：「只要過電腦，就交給電腦上的 agent 管理就好，不然事情越來越複雜」。電腦上的做法不複製到手機，手機也不把電腦的 skill 列進提示。
 3. **延後**：從 git 同步第三方 skill 包到手機、附腳本、全域共用的 skill。
 4. **永遠不做**：從網址、網頁、通知或 MCP 結果安裝 skill；載入時執行腳本；在手機上帶著憑證跑 skill 的腳本；把 skill 全文放進系統提示；讓 skill 加工具或改 `Bot.off`；讓 Bot 改內建或別的 Bot 的 skill。
 5. **使用者決定（2026-11-15）**：排程觸發、使用者不在場時，禁止 `save_skill`（避免一則通知的內容變成長期指令），只能在使用者在場時存。
@@ -23,4 +23,4 @@
 
 ## 做了什麼（2026-11-15）
 
-使用者要求載入方式直接參考 pi coding agent（讀了它 1.5.2 版的 `core/skills.js` 和 `docs/skills.md`）：每個 skill 是 `SKILL.md`，frontmatter 有 `name`、`description`（Agent Skills 規格的名稱規則）；系統提示只列 `<available_skills>` 的名稱和描述，用到才載入全文。pi mobile 的差別：位置欄換成 `read_skill`（Bot 可能在手機或電腦上，用工具讀不必管檔案在哪台），Bot 自己存的 skill 放在每個 Bot 的 doc。量測和實測見 `docs/tools.md` 2026-11-15 的紀錄。電腦上 `~/.agents/skills`、`~/.pi/agent/skills` 的 skill 還沒接。
+使用者要求載入方式直接參考 pi coding agent（讀了它 1.5.2 版的 `core/skills.js` 和 `docs/skills.md`）：每個 skill 是 `SKILL.md`，frontmatter 有 `name`、`description`（Agent Skills 規格的名稱規則）；系統提示只列 `<available_skills>` 的名稱和描述，用到才載入全文。pi mobile 的差別：位置欄換成 `read_skill`（Bot 可能在手機或電腦上，用工具讀不必管檔案在哪台），Bot 自己存的 skill 放在每個 Bot 的 doc。量測和實測見 `docs/tools.md` 2026-11-15 的紀錄。電腦上 `~/.agents/skills`、`~/.pi/agent/skills` 的 skill 不接（見上面第 2 點）。
