@@ -14,10 +14,10 @@ import {
 } from "../../plugins/phone-state.ts";
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, text } from "./common.ts";
-import { localTime, pad, parseNextTime } from "../../time.ts";
+import { localTime, MINUTE, pad, parseNextTime } from "../../time.ts";
 import { oneOf } from "../../parse.ts";
 import { type ActsAsUser, mayOpenScreen } from "./apps.ts";
-const minutesSeconds = (ms: number) => `${Math.floor(ms / 60_000)}:${pad(Math.floor((ms % 60_000) / 1000))}`;
+const minutesSeconds = (ms: number) => `${Math.floor(ms / MINUTE)}:${pad(Math.floor((ms % MINUTE) / 1000))}`;
 
 const media = defineAppTool({
 	name: "media",

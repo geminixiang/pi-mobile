@@ -8,13 +8,14 @@ import { System } from "../plugins/system.ts";
 import { orLogged } from "../promise.ts";
 import type { Reach } from "./reach.ts";
 import { bytesOf, type Traffic } from "./traffic.ts";
+import { MINUTE } from "../time.ts";
 
 export interface Network {
 	online(): boolean;
 	onChange(listener: () => void): () => void;
 }
 
-const IDLE_MS = 60_000;
+const IDLE_MS = MINUTE;
 const UNREACHED_TRIES = 4;
 const CONNECTION_LOST = "connection lost";
 const BROWSER_LOST_CONNECTION = ["Load failed", "Failed to fetch", "The network connection was lost."];

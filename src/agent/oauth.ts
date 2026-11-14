@@ -6,6 +6,7 @@ import { orLogged } from "../promise.ts";
 import { fromBase64, randomBase64Url, toBase64Url } from "../encoding.ts";
 import { Loopback } from "../plugins/loopback.ts";
 import { HTTP_TIMEOUTS } from "./http.ts";
+import { MINUTE } from "../time.ts";
 
 export interface AccessToken {
 	token: string;
@@ -82,7 +83,7 @@ export function cachedToken<A extends unknown[]>(mint: (...args: A) => Promise<A
 	let cached: AccessToken | undefined;
 	let pending: Promise<AccessToken> | undefined;
 	return (...args) => {
-		if (cached && cached.expiresAt - Date.now() > 5 * 60_000) return Promise.resolve(cached);
+		if (cached && cached.expiresAt - Date.now() > 5 * MINUTE) return Promise.resolve(cached);
 		pending ??= mint(...args)
 			.then((token) => {
 				cached = token;

@@ -1,4 +1,5 @@
 import { createContext, useEffect, useState } from "react";
+import { pad } from "../time.ts";
 
 export type RunningJob = { job: string; since: number; label: string };
 export type Peek = { command: string; output: string };
@@ -18,5 +19,5 @@ export function useNow(ticking: boolean): number {
 
 export function clock(milliseconds: number): string {
 	const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-	return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+	return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`;
 }

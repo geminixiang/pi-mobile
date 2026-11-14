@@ -3,7 +3,7 @@ import { Usage } from "../../plugins/usage.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "./common.ts";
-import { DAY, HOUR, duration, localTime, parseDay, startOfToday } from "../../time.ts";
+import { DAY, duration, HOUR, localTime, MINUTE, parseDay, startOfToday } from "../../time.ts";
 import { oneOf } from "../../parse.ts";
 
 const CALL_TYPES: Record<CallRecord["type"], string> = { incoming: "接聽", outgoing: "撥出", missed: "未接", rejected: "拒接", blocked: "封鎖", voicemail: "語音信箱", other: "其他" };
@@ -108,9 +108,9 @@ const screenTime = defineAppTool({
 		const structuredOutput = {
 			from: localTime(from),
 			to: localTime(Math.min(to, Date.now())),
-			total_minutes: Math.round(total / 60_000),
+			total_minutes: Math.round(total / MINUTE),
 			unlocks,
-			apps: items.map((item) => ({ app: item.app, package: item.package, minutes: Math.round(item.ms / 60_000) })),
+			apps: items.map((item) => ({ app: item.app, package: item.package, minutes: Math.round(item.ms / MINUTE) })),
 		};
 		const lines = items.slice(0, 15).map((item) => `${item.app}: ${duration(item.ms)}`);
 		return { ...text(`${structuredOutput.from} – ${structuredOutput.to}: total ${duration(total)}, unlocked ${unlocks} times.\n${lines.join("\n")}`), structuredOutput };

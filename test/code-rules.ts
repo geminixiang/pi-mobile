@@ -90,7 +90,9 @@ function findings(file: string): Finding[] {
 }
 
 const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
-const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
+const TYPESCRIPT = /\.tsx?$/;
+
+const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegExp }[] = [
 	{
 		use: /\bnew WebView\(|[=(] *WebView\(/,
 		owners: ["WebPages.kt"],
@@ -137,6 +139,30 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string }[] = [
 		fix: "parse JSON at the boundary with checkJson, decode or parseJson from src/parse.ts",
 	},
 	{
+		use: /randomUUID\(\)\.(slice|replaceAll)\(/,
+		owners: [],
+		fix: "make a short id with randomHex(bytes) from src/encoding.ts (randomHex(4) is 8 hex characters)",
+		only: TYPESCRIPT,
+	},
+	{
+		use: /setTimeout\(resolve\b/,
+		owners: ["src/promise.ts"],
+		fix: "wait with sleep(ms) from src/promise.ts",
+		only: TYPESCRIPT,
+	},
+	{
+		use: /padStart\(2, "0"\)/,
+		owners: ["src/time.ts", "src/encoding.ts"],
+		fix: "pad two digits with pad from src/time.ts",
+		only: TYPESCRIPT,
+	},
+	{
+		use: /\b60_000\b/,
+		owners: ["src/time.ts"],
+		fix: "write minutes with MINUTE (and HOUR, DAY) from src/time.ts",
+		only: TYPESCRIPT,
+	},
+	{
 		use: /\bApp\.getState\(/,
 		owners: ["src/agent/tools/apps.ts", "src/keepAlive.ts"],
 		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",
@@ -160,7 +186,7 @@ function layered(file: string): Finding[] {
 
 function borrowed(file: string): Finding[] {
 	const lines = readFileSync(file, "utf8").split("\n");
-	return OWNED.filter(({ owners }) => !owners.some((owner) => file.endsWith(owner) || (owner.endsWith("/") && file.startsWith(owner)))).flatMap(({ use, fix }) =>
+	return OWNED.filter(({ owners, only }) => (only === undefined || only.test(file)) && !owners.some((owner) => file.endsWith(owner) || (owner.endsWith("/") && file.startsWith(owner)))).flatMap(({ use, fix }) =>
 		lines.flatMap((line, index) => (use.test(line) ? [{ file, line: index + 1, rule: fix }] : [])),
 	);
 }
@@ -241,7 +267,6 @@ const EFFECTS: Record<string, number> = {
 	"src/items/ItemSheet.tsx": 1,
 	"src/jobs/JobsContext.ts": 2,
 	"src/jobs/JobsStrip.tsx": 4,
-	"src/jobs/bash.ts": 1,
 	"src/log.ts": 1,
 	"src/promise.ts": 1,
 	"src/triggers/events.ts": 1,

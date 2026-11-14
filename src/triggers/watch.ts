@@ -6,6 +6,7 @@ import type { Trigger } from "./runs.ts";
 import type { TriggerHost } from "./tool.ts";
 import { native } from "../native.ts";
 import { MINUTE } from "../time.ts";
+import { randomHex } from "../encoding.ts";
 
 export function isWatch(item: Trigger, agent: string, conversationId: ConversationId): boolean {
 	return item.kind === "watch" && item.agent === agent && item.conversationId === conversationId;
@@ -15,7 +16,7 @@ export async function watch(triggers: TriggerHost, api: ToolExecutionApi, contex
 	if (!native.implements(Triggers.sync)) return false;
 	const now = Date.now();
 	const trigger: Trigger = {
-		id: crypto.randomUUID().slice(0, 8),
+		id: randomHex(4),
 		name: watching.name,
 		prompt: watching.prompt,
 		when: { kind: "once", at: now + MINUTE },

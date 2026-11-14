@@ -7,6 +7,8 @@ import { watch } from "../triggers/watch.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { BACKGROUND, jobWatchName, WAIT_MS } from "./background.ts";
 import { type Job, JOB_LIMIT_SECONDS, OUTPUT_BYTES, OUTPUT_LINES, parseJob, readJob, startJob, stopJob } from "./commands.ts";
+import { randomHex } from "../encoding.ts";
+import { sleep } from "../promise.ts";
 
 const POLL_MS = 400;
 const PROMPT_CHARS = 500;
@@ -30,7 +32,7 @@ export function jobsOnComputers(execute: Execute, workplace: (conversationId: st
 		const place = workplace(String(api.conversationId));
 		if (place?.kind !== "computer" || !place.sandbox.direct) return execute(args, api, context);
 		const commands = new HostCommands(place.host);
-		const id = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+		const id = randomHex(4);
 		const limitSeconds = args.timeout ?? JOB_LIMIT_SECONDS;
 		const started = await commands.run(startJob({ id, command: args.command, cwd: api.env?.cwd ?? place.root, owner: String(api.conversationId), limitSeconds }));
 		if (started.code !== 0) throw new Error(`The command did not start: ${started.stdout.trim() || started.stderr.trim() || "its folder is not on the computer"}`);
@@ -42,7 +44,7 @@ export function jobsOnComputers(execute: Execute, workplace: (conversationId: st
 				await commands.run(stopJob(id));
 				throw new Error("Command aborted");
 			}
-			await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+			await sleep(POLL_MS);
 			job = await read();
 		}
 		if (job.state === "missing") throw new Error("The command's record vanished from the computer");

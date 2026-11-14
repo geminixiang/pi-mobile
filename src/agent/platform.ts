@@ -16,6 +16,7 @@ import { Triggers } from "../triggers/plugin.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 import { parseJson } from "../parse.ts";
 import { listenForRedirect } from "./oauth.ts";
+import { MINUTE } from "../time.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
 
@@ -49,7 +50,7 @@ export interface Platform {
 	models(settings: Settings, compactAt: () => number, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
 
-const TIMEOUTS = { connectTimeout: 15_000, readTimeout: 60_000 };
+const TIMEOUTS = { connectTimeout: 15_000, readTimeout: MINUTE };
 
 const nativeFetch: McpFetch = async (input, init) => {
 	const headers = headerRecord(init?.headers);

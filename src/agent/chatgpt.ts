@@ -5,6 +5,7 @@ import { listenForRedirect, pkce, postForm } from "./oauth.ts";
 import { decode, parse, readStored } from "../parse.ts";
 import { orLogged } from "../promise.ts";
 import { randomBase64Url } from "../encoding.ts";
+import { MINUTE } from "../time.ts";
 
 const AUTHORIZE_URL = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL = "https://auth.openai.com/api/accounts/oauth/token";
@@ -16,8 +17,8 @@ const PATH = "/auth/callback";
 const REDIRECT_URI = `http://127.0.0.1:${PORT}${PATH}`;
 const DIRECT_TOKEN_SCOPE = "chatgpt.tokens.use.direct";
 const SCOPE = `openid profile email offline_access resource.invoke ${DIRECT_TOKEN_SCOPE}`;
-const EXPIRY_MARGIN_MS = 3 * 60_000;
-const WAIT_MS = 10 * 60_000;
+const EXPIRY_MARGIN_MS = 3 * MINUTE;
+const WAIT_MS = 10 * MINUTE;
 const DEVICE_KEY = "pi-mobile.device-id";
 
 const TokenResponse = Type.Object({

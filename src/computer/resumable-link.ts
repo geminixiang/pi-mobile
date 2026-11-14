@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { decode } from "../parse.ts";
+import { MINUTE } from "../time.ts";
 
 export type RawMessage = ArrayBuffer | string;
 export type Link = "up" | "reattaching" | "offline";
@@ -122,7 +123,7 @@ function attach<S>(state: Away<S>, attempt: number, world: World, rules: Rules):
 	const { budget, unreachableMs } = spend(state.budget, world);
 	if (unreachableMs === undefined) return { state: { kind: "offline", attempt, budget }, effects: [] };
 	if (unreachableMs > rules.resumeLimitMs) {
-		return withFirst({ kind: "gave_up", attempts: attempt }, final(state, `could not reach ${rules.what} for ${rules.resumeLimitMs / 60_000} minutes while this phone was online`));
+		return withFirst({ kind: "gave_up", attempts: attempt }, final(state, `could not reach ${rules.what} for ${rules.resumeLimitMs / MINUTE} minutes while this phone was online`));
 	}
 	const dialing: Dialing<S> = { kind: "dialing", attempt: attempt + 1, budget };
 	return { state: dialing, effects: [{ kind: "dial", from: dialing }] };

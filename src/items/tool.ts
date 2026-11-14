@@ -7,6 +7,7 @@ import { parseLocalTime } from "../time.ts";
 import { requireAccess } from "../agent/notification-access.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { described, type Item, ItemDoc, pruned } from "./items.ts";
+import { randomHex } from "../encoding.ts";
 
 const STATES = ["todo", "waiting", "done"] as const;
 const MORNING = 9;
@@ -53,7 +54,7 @@ export function createItemsExtension(triggers: TriggerHost) {
 			if (asked) await requireAccess();
 			const ref = args.ref ?? existing?.ref;
 			const base = {
-				id: existing?.id ?? crypto.randomUUID().slice(0, 6),
+				id: existing?.id ?? randomHex(3),
 				title,
 				bot: existing?.bot ?? api.conversationId,
 				...(nextAt !== undefined ? { nextAt } : {}),

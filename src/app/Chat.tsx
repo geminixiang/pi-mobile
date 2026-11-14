@@ -30,6 +30,7 @@ import type { ResultCard } from "../interaction/results.ts";
 import { ReachNote, useReach } from "./Links.tsx";
 import { RowList } from "./RowList.tsx";
 import { answerOf, withoutReplies } from "../interaction/replies.ts";
+import { pad } from "../time.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
@@ -60,7 +61,7 @@ function SuggestionList({ items, onPick }: { items: readonly Suggestion[]; onPic
 			{items.map((item, index) => (
 				<li key={item.title}>
 					<button type="button" onClick={() => onPick(item)}>
-						<span className="suggestion-index">{String(index + 1).padStart(2, "0")}</span>
+						<span className="suggestion-index">{pad(index + 1)}</span>
 						<span className="suggestion-text">
 							<strong>{item.title}</strong>
 							<span>{item.prompt}</span>

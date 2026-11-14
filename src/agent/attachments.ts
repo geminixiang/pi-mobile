@@ -6,6 +6,7 @@ import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
 import { extensionOf } from "./mime.ts";
 import { Database } from "../plugins/database.ts";
+import { randomHex } from "../encoding.ts";
 
 export const KINDS = ["pdf", "docx", "sheet", "text"] as const;
 export type AttachmentKind = (typeof KINDS)[number];
@@ -210,7 +211,7 @@ export interface PreparedAttachment {
 export async function prepareAttachment(file: File, conversationId: string): Promise<PreparedAttachment> {
 	const kind = attachmentKind(file);
 	if (!kind) throw new Error(unsupportedFile(file.name));
-	const base = { id: `att_${crypto.randomUUID().slice(0, 8)}`, conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
+	const base = { id: `att_${randomHex(4)}`, conversationId, name: file.name, kind, size: file.size, createdAt: Date.now() };
 	let stored: StoredAttachment;
 	let images: (ImageContent | TextContent)[] = [];
 	switch (kind) {

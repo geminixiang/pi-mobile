@@ -70,6 +70,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | A WebView is created only by `WebPages.create(context, profile)`: one on pi's profile shares pi's renderer, so a spinning page freezes pi | `test/code-rules.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
 | JSON is parsed only through `src/parse.ts` | `test/code-rules.ts` |
+| Short ids come from `randomHex`, waits from `sleep`, two-digit padding from `pad`, minutes from `MINUTE`: no `randomUUID().slice`, `setTimeout(resolve`, `padStart(2, "0")` or `60_000` outside their owners | `test/code-rules.ts` |
 | `useEffect`, `useLayoutEffect` and timers appear only in the files `EFFECTS` lists, at most its count, which only goes down; a store is read with `useSubscribed` (docs/effects.md) | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
 | Every prompt section is an `appSection` with a budget; with a crowded app (removed bots, full memory, every toolset) each stays in it and the whole prompt in `PROMPT_BUDGET`; the rendered prompt matches `test/prompt.snapshot.json` | `test/code-rules.ts`, `test/prompt.ts` |

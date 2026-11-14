@@ -9,6 +9,7 @@ import { BatteryCharging, Bell, Monitor, Sparkles, Wifi, WifiOff } from "lucide-
 import { useBackground } from "./background.ts";
 import { CLOCK } from "./clock.ts";
 import { Sheet } from "./Sheet.tsx";
+import { MINUTE } from "../time.ts";
 
 type Outage = { since: number; at: number };
 
@@ -50,7 +51,7 @@ export function ReachNote({ provider, busy }: { provider: string; busy: boolean 
 	return (
 		<div className="link-line">
 			<i className="link-mark up" />
-			<span className="link-text">連不上模型 {Math.max(1, Math.round((back.at - back.since) / 60_000))} 分鐘，已接回</span>
+			<span className="link-text">連不上模型 {Math.max(1, Math.round((back.at - back.since) / MINUTE))} 分鐘，已接回</span>
 			<span>{CLOCK.format(back.at)}</span>
 		</div>
 	);

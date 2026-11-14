@@ -3,8 +3,9 @@ import { type Static, Type } from "typebox";
 import { Browser, type BrowserSnapshot, type BrowserStep, DIRECTIONS, KEYS, MAX_TABS } from "./plugin.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
+import { MINUTE } from "../time.ts";
 
-const HANDOVER_MS = 10 * 60_000;
+const HANDOVER_MS = 10 * MINUTE;
 const WAIT_MS = 1000;
 const WAIT_MAX_MS = 10_000;
 const WAIT_FOR_MS = 8000;

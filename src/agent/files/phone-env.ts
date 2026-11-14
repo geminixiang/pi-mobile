@@ -21,7 +21,7 @@ import { BotFiles, type BotFileInfo } from "../../plugins/bot-files.ts";
 import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { codeOf, messageOf, untilFailure } from "../../promise.ts";
-import { fromBase64, toBase64 } from "../../encoding.ts";
+import { fromBase64, randomHex, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
 import { HOUR } from "../../time.ts";
 
@@ -374,7 +374,7 @@ export class PhoneEnv implements ExecutionEnv {
 	}
 
 	async createTempDir(prefix: string | undefined, context: Context): Promise<Result<string, FileError>> {
-		const absolute = `${TEMP_DIR}/${prefix ?? "tmp-"}${crypto.randomUUID().slice(0, 8)}`;
+		const absolute = `${TEMP_DIR}/${prefix ?? "tmp-"}${randomHex(4)}`;
 		return attempt(context, absolute, async () => {
 			await this.#ensureTemp();
 			await BotFiles.mkdir({ bot: this.#bot, path: relative(absolute), recursive: true });

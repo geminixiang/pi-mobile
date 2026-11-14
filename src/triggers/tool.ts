@@ -14,6 +14,7 @@ import { DEFAULT_GUARDS, GUARD_IDS, type GuardId } from "../agent/guards.ts";
 import { ACTIVITIES, Triggers, type When } from "./plugin.ts";
 import { type Trigger, TriggerDoc } from "./runs.ts";
 import { describeWhen } from "./when.ts";
+import { randomHex } from "../encoding.ts";
 
 const MAX_TRIGGERS = 20;
 const MAX_FOLLOWUPS = 5;
@@ -187,7 +188,7 @@ function timeOf(args: CreateScheduleArgs, days: number[]): When {
 
 export function createTriggerExtension(host: TriggerHost) {
 	const add = async (api: ToolExecutionApi, context: Context, fields: Pick<Trigger, "name" | "prompt" | "when" | "onlyIf" | "guards"> & { kind: "schedule" | "followup" }): Promise<Trigger> => {
-		const trigger: Trigger = { id: crypto.randomUUID().slice(0, 8), ...fields, conversationId: api.conversationId, state: "on", createdAt: Date.now() };
+		const trigger: Trigger = { id: randomHex(4), ...fields, conversationId: api.conversationId, state: "on", createdAt: Date.now() };
 		await api.commit(async (tx) => {
 			(await tx.doc(TriggerDoc)).items.push(trigger);
 		}, context);

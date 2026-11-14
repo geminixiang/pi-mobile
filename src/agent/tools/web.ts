@@ -15,6 +15,7 @@ import { messageOf } from "../../promise.ts";
 import { refuseCleartextSecret } from "../cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../models.ts";
 import { formatBytes, fromBase64 } from "../../encoding.ts";
+import { MINUTE } from "../../time.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(
@@ -53,7 +54,7 @@ const visibleLength = (text: string) => text.replace(/^# .*\n/, "").replace(/\s+
 
 const USER_AGENT = "Mozilla/5.0 (Linux; Android 16) pi-mobile";
 
-const getBytes = (url: string) => CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": USER_AGENT }, connectTimeout: 15_000, readTimeout: 60_000 });
+const getBytes = (url: string) => CapacitorHttp.get({ url, responseType: "arraybuffer", headers: { "User-Agent": USER_AGENT }, connectTimeout: 15_000, readTimeout: MINUTE });
 
 const contentTypeOf = (headers: Record<string, string>) => String(Object.entries(headers).find(([key]) => key.toLowerCase() === "content-type")?.[1] ?? "");
 
