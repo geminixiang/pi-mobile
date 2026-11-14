@@ -31,7 +31,7 @@ export function shortModelName(name: string): string {
 }
 
 function traits(model: ModelInfo): string {
-	return [`${formatTokens(model.ownWindow)} context`, model.vision ? "看圖" : "", model.reasoning ? "思考" : ""].filter(Boolean).join(" · ");
+	return [`${formatTokens(model.contextWindow)} context`, model.vision ? "看圖" : "", model.reasoning ? "思考" : ""].filter(Boolean).join(" · ");
 }
 
 const FIRST_SHOWN = 12;

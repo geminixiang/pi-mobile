@@ -48,7 +48,7 @@ export interface Platform {
 	loopback: typeof listenForRedirect;
 	permissions: PhonePermissions;
 	inFront(): Promise<boolean>;
-	models(settings: Settings, onReport?: (message: string) => void): Promise<LoadedModels>;
+	models(settings: Settings, compactAt: () => number, onReport?: (message: string) => void): Promise<LoadedModels>;
 }
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: 60_000 };
@@ -110,6 +110,6 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>): 
 		loopback: listenForRedirect,
 		permissions: phonePermissions,
 		inFront: inForeground,
-		models: (settings, onReport) => loadModels(settings, modelIds, onReport),
+		models: (settings, compactAt, onReport) => loadModels(settings, compactAt, modelIds, onReport),
 	};
 }

@@ -55,6 +55,7 @@ import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { startModelList } from "../agent/available-models.ts";
+import { windowFor } from "../agent/models.ts";
 import { capacitorPlatform } from "../agent/platform.ts";
 import { ModelLine } from "./Links.tsx";
 import { RowList } from "./RowList.tsx";
@@ -439,7 +440,7 @@ export function App() {
 	const model = runtime.models.find((candidate) => candidate.provider === modelProvider && candidate.id === modelId);
 	const current = bots.find((bot) => bot.id === controller?.id);
 	const used = contextTokens(view);
-	const contextWindow = model?.contextWindow ?? 0;
+	const contextWindow = model ? windowFor(model.contextWindow, settings.compactAt) : 0;
 	const busy = isBusy(view);
 	const changeModel = async ({ model: nextModel, thinking: nextThinking }: { model?: { provider: string; id: string }; thinking?: string }) => {
 		if (!controller) return;

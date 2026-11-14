@@ -38,7 +38,6 @@ import { connectClouds } from "./clouds.ts";
 import { extensionName, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
 import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
-import type { LoadedModels } from "./available-models.ts";
 import { hostOf } from "../parse.ts";
 import type { Platform } from "./platform.ts";
 import { Workspace } from "./sandbox/workspace.ts";
@@ -106,12 +105,11 @@ function userSpoke(bot: Bot, at: number): void {
 	else delete bot.rhythmOffer;
 }
 
-type Loaded = Pick<LoadedModels, "models" | "infos">;
 
 type Applied = "in_place" | "needs_restart";
 
 export class AgentRuntime {
-	readonly #loaded: Loaded;
+	readonly #infos: ModelInfo[];
 	readonly #harness: Harness;
 	#settings: Settings;
 	readonly workplaces: Workplaces;
@@ -132,7 +130,7 @@ export class AgentRuntime {
 		harness: Harness,
 		settings: Settings,
 		platform: Platform,
-		loaded: Loaded,
+		infos: ModelInfo[],
 		workplaces: Workplaces,
 		placed: Map<string, Placed>,
 		shapes: Map<string, ContextShape>,
@@ -149,7 +147,7 @@ export class AgentRuntime {
 		this.forms = forms;
 		this.#harness = harness;
 		this.#settings = settings;
-		this.#loaded = loaded;
+		this.#infos = infos;
 		this.workplaces = workplaces;
 		this.#placed = placed;
 		this.#shapes = shapes;
@@ -177,17 +175,12 @@ export class AgentRuntime {
 	}
 
 	get models(): ModelInfo[] {
-		return this.#loaded.infos;
+		return this.#infos;
 	}
 
 	async apply(next: Settings): Promise<Applied> {
 		const changed = changedKeys(withRotated(this.#settings), next);
 		if (changed.some((key) => APPLY[key] === "restart")) return "needs_restart";
-		if (changed.includes("compactAt")) {
-			const { models, infos } = await this.#platform.models(next);
-			this.#loaded.models = models;
-			this.#loaded.infos = infos;
-		}
 		this.#settings = next;
 		if (changed.some((key) => key === "hosts" || key === "hostKeys" || key === "computer")) {
 			this.workplaces.apply(next);
@@ -212,8 +205,7 @@ export class AgentRuntime {
 			openUrl?: (url: string) => Promise<void>;
 		} = {},
 	): Promise<AgentRuntime> {
-		const { models, infos, webSearch } = await platform.models(settings, options.onReport);
-		const loaded: Loaded = { models, infos };
+		const { models, infos, webSearch } = await platform.models(settings, () => runtimeRef?.settings.compactAt ?? settings.compactAt, options.onReport);
 		const registry = createRegistry();
 		let runtimeRef: AgentRuntime | undefined;
 		const ask: McpHooks["ask"] = (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" }));
@@ -261,7 +253,7 @@ export class AgentRuntime {
 		const harness = await Harness.open(
 			storage,
 			{
-				models: () => loaded.models,
+				models: () => models,
 				registry,
 				settings: {
 					retry: MODEL_RETRY,
@@ -284,7 +276,7 @@ export class AgentRuntime {
 			harness,
 			settings,
 			platform,
-			loaded,
+			infos,
 			workplaces,
 			placed,
 			shapes,

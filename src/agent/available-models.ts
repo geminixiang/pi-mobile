@@ -40,8 +40,7 @@ export function startModelList(settings: Settings): Promise<Record<string, strin
 
 export type LoadedModels = { models: Models; infos: ModelInfo[]; webSearch: WebConfig };
 
-export async function loadModels(settings: Settings, modelIds: Promise<Record<string, string[]>>, onReport?: (message: string) => void): Promise<LoadedModels> {
-	const compactAt = settings.compactAt;
+export async function loadModels(settings: Settings, compactAt: () => number, modelIds: Promise<Record<string, string[]>>, onReport?: (message: string) => void): Promise<LoadedModels> {
 	const configs = usableProviders(settings);
 	const [lists, loaded, catalog] = await Promise.all([
 		modelIds.catch((error: unknown): Record<string, string[]> => {
@@ -72,7 +71,7 @@ export async function loadModels(settings: Settings, modelIds: Promise<Record<st
 		const provider = custom ? customProvider(config, settings.providerKeys[config.id] ?? "", lists[config.id] ?? [], catalog) : loaded[index];
 		if (!provider) return;
 		models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), { network: deviceNetwork, reach: modelReach(provider.id), traffic: modelTraffic(provider.id) }));
-		for (const model of provider.getModels()) infos.push(describe(model, providerName(config), compactAt, custom ? inCatalog(catalog, model.id) : undefined));
+		for (const model of provider.getModels()) infos.push(describe(model, providerName(config), custom ? inCatalog(catalog, model.id) : undefined));
 	});
 	return { models, infos, webSearch: webSearchConfig(configs, settings.providerKeys, lists, infos) };
 }

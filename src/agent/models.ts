@@ -13,7 +13,7 @@ export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 const KEYLESS = "none";
 
-function windowFor(own: number, compactAt: number): number {
+export function windowFor(own: number, compactAt: number): number {
 	return compactAt > 0 ? Math.min(own, compactAt + DEFAULT_COMPACTION_POLICY.reserveTokens) : own;
 }
 
@@ -24,27 +24,25 @@ export interface ModelInfo {
 	name: string;
 	known: boolean;
 	contextWindow: number;
-	ownWindow: number;
 	vision: boolean;
 	reasoning: boolean;
 }
 
-export function describe(model: Model<Api>, providerName: string, compactAt: number, known = true): ModelInfo {
+export function describe(model: Model<Api>, providerName: string, known = true): ModelInfo {
 	return {
 		provider: model.provider,
 		providerName,
 		id: model.id,
 		name: model.name,
 		known,
-		contextWindow: windowFor(model.contextWindow, compactAt),
-		ownWindow: model.contextWindow,
+		contextWindow: model.contextWindow,
 		vision: model.input.includes("image"),
 		reasoning: model.reasoning,
 	};
 }
 
-export function withCompaction(provider: Provider, compactAt: number): Provider {
-	const capped = (model: Model<Api>): Model<Api> => ({ ...model, contextWindow: windowFor(model.contextWindow, compactAt) });
+export function withCompaction(provider: Provider, compactAt: () => number): Provider {
+	const capped = (model: Model<Api>): Model<Api> => ({ ...model, contextWindow: windowFor(model.contextWindow, compactAt()) });
 	const wrapped: Provider = Object.create(provider);
 	return Object.defineProperty(wrapped, "getModels", { value: () => provider.getModels().map(capped) });
 }
