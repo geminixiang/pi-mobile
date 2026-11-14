@@ -196,20 +196,21 @@ export function Chat({
 	const partial = live?.generation?.message?.content;
 	const entries = view?.entries ?? [];
 
+	const finished = useMemo(() => finishedCalls(entries), [entries]);
 	const calls = useMemo(() => {
-		const states: Map<string, CallState> = finishedCalls(entries);
+		const states = new Map<string, CallState>(finished);
 		for (const tool of live?.tools ?? []) {
 			if (states.has(tool.callId)) continue;
 			states.set(tool.callId, tool.status === "pending" ? { status: "pending" } : { status: "running", output: tool.output });
 		}
 		return states;
-	}, [entries, live?.tools]);
+	}, [finished, live?.tools]);
 
 	const asked = useMemo(() => questionStates(entries), [entries]);
 	const pages = useMemo(() => pageCards(entries, (callId) => {
-		const state = calls.get(callId);
+		const state = finished.get(callId);
 		return state?.status === "done" && !state.isError;
-	}), [entries, calls]);
+	}), [entries, finished]);
 	const [results, setResults] = useState<readonly ResultCard[]>([]);
 	useEffect(() => {
 		controller.results().then(setResults, (error: unknown) => onError(messageOf(error)));
