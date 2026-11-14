@@ -2677,6 +2677,10 @@
 			"read": {
 				"args": {
 					"properties": {
+						"display": {
+							"minimum": 0,
+							"type": "integer"
+						},
 						"screenshot": {
 							"type": "boolean"
 						}

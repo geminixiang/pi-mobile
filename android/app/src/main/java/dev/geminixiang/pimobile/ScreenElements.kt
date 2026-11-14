@@ -2,6 +2,7 @@ package dev.geminixiang.pimobile
 
 import android.graphics.Rect
 import android.util.DisplayMetrics
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import kotlin.math.roundToInt
@@ -17,15 +18,15 @@ internal data class Line(val text: String, val node: AccessibilityNodeInfo?)
 
 internal data class Seen(val lines: List<Line>, val keyboard: Boolean, val front: String?)
 
-internal fun PhoneScreenService.see(scale: Float, screen: DisplayMetrics, deadline: Long): Seen {
+internal fun PhoneScreenService.see(scale: Float, screen: DisplayMetrics, deadline: Long, display: Int = Display.DEFAULT_DISPLAY): Seen {
     val lines = mutableListOf<Line>()
     var active: AccessibilityNodeInfo? = null
     var keyboard = false
     var attempt = 0
     while (lines.isEmpty() && System.currentTimeMillis() < deadline) {
         if (attempt++ > 0) Thread.sleep(TREE_RETRY_MS)
-        active = rootInActiveWindow
-        val shown = windows
+        val shown = if (display == Display.DEFAULT_DISPLAY) windows else windowsOnAllDisplays.get(display).orEmpty()
+        active = if (display == Display.DEFAULT_DISPLAY) rootInActiveWindow else shown.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }?.root
         for (window in shown) {
             if (window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
                 keyboard = true

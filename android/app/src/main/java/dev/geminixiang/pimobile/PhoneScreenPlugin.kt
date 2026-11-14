@@ -62,7 +62,7 @@ class PhoneScreenPlugin : Plugin() {
     fun read(call: PluginCall) =
         worker.reply(call) {
             val service = PhoneScreenService.running ?: return@reply OFF
-            Outcome.Ok(snapshot(service, call.data.optBoolean("screenshot")))
+            Outcome.Ok(snapshot(service, call.data.optBoolean("screenshot"), call.data.optInt("display", Display.DEFAULT_DISPLAY)))
         }
 
     @PluginMethod
@@ -98,11 +98,11 @@ class PhoneScreenPlugin : Plugin() {
 
     private fun metrics(service: PhoneScreenService) = DisplayMetrics().also { service.getSystemService(WindowManager::class.java).defaultDisplay.getRealMetrics(it) }
 
-    private fun snapshot(service: PhoneScreenService, withScreenshot: Boolean): JSObject {
+    private fun snapshot(service: PhoneScreenService, withScreenshot: Boolean, display: Int = Display.DEFAULT_DISPLAY): JSObject {
         val screen = metrics(service)
         val scale = SHOT_WIDTH.toFloat() / screen.widthPixels
         val deadline = System.currentTimeMillis() + ELEMENTS_MS
-        val seen = service.see(scale, screen, deadline)
+        val seen = service.see(scale, screen, deadline, display)
         val elements = seen.lines.take(MAX_ELEMENTS).joinToString("\n") { it.text }
         lastSeen = seen.front.orEmpty() + "\n" + elements
         val result =
