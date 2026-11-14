@@ -11,8 +11,9 @@ import (
 	"time"
 )
 
+// why: the shell that started the processes has the marker in its own command line, so only a process whose argv[0] is the marker (exec -a) counts
 func alive(marker string) int {
-	out, _ := exec.Command("pgrep", "-f", marker).Output()
+	out, _ := exec.Command("pgrep", "-f", "^"+marker).Output()
 	return len(strings.Fields(string(out)))
 }
 
