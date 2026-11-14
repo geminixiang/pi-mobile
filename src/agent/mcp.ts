@@ -456,8 +456,8 @@ export class McpHub {
 		return () => this.#listeners.delete(listener);
 	}
 
-	refreshAll(): void {
-		for (const connection of this.#connections.values()) connection.refresh();
+	connectUncached(): void {
+		for (const connection of this.#connections.values()) if (connection.status.tools === 0) connection.refresh();
 	}
 
 	refresh(id: string): void {

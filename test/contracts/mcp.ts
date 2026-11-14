@@ -204,6 +204,26 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"reopening the runtime connects only to services with no cached tools: the others connect on their first call",
+		async () => {
+			resetMcp();
+			platform.plain.remove("pi-mobile.mcp-servers");
+			const first = await openRuntime();
+			await first.runtime.mcp.add("Cached", "https://cached.invalid/mcp");
+			await settle();
+			await first.runtime.close();
+			const before = mcp.clients.length;
+			const { runtime } = await openRuntime();
+			try {
+				await settle();
+				assert.equal(mcp.clients.length, before);
+				assert.equal(runtime.mcp.servers.length, 1);
+			} finally {
+				await runtime.close();
+			}
+		},
+	],
+	[
 		"a connection still opening when the runtime closes is closed when it arrives",
 		async () => {
 			resetMcp();

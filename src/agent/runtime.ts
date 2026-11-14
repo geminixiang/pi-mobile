@@ -301,7 +301,7 @@ export class AgentRuntime {
 			}),
 			createJudge(models),
 		);
-		mcp.refreshAll();
+		mcp.connectUncached();
 		runtimeRef = runtime;
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
