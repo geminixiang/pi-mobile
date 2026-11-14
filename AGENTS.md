@@ -92,6 +92,10 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `docs/feature-map.md` names only components that exist where it says, and lists every component `App.tsx`, `Workbench.tsx` and `BotPanel.tsx` render and every settings page | `test/feature-map.ts` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
+| Every class in `styles.css` and `index.css` is used by a component (by name, or built as `prefix-${…}`); classes a library adds are listed in `EXTERNAL_CLASSES` | `test/code-rules.ts` |
+| `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
+| A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |
+| A feature folder does not import `AgentRuntime`; the files that still do are listed in `RUNTIME_USERS`, which only shrinks | `test/code-rules.ts` |
 | Imports between `src/` folders (and root files) that keep them in a cycle are counted in `TANGLED_IMPORTS`, which only goes down: a change may not add one; untangling lowers it | `test/code-rules.ts` |
 | `src/computer/` (pairing, commands on a computer, the resumable link) never imports `src/agent/sandbox/`: sandbox depends on computer, not the other way | `test/code-rules.ts` |
 | Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |

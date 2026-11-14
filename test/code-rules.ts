@@ -243,6 +243,83 @@ function tangleRule(): Finding[] {
 	return [];
 }
 
+// why: classes that a library adds to the markup it renders (remark-gfm's task lists), so no source file names them
+const EXTERNAL_CLASSES = new Set(["task-list-item"]);
+const CSS_CLASS = /\.([a-zA-Z][\w-]*)/g;
+
+function unusedClassRule(): Finding[] {
+	const sheets = ["src/app/styles.css", "src/app/index.css"];
+	const code = [...checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file)), "index.html"].map((file) => readFileSync(file, "utf8")).join("\n");
+	const named = (name: string) => new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(code);
+	const built = (name: string) => name.split("-").some((_, index, parts) => index > 0 && code.includes(`${parts.slice(0, index).join("-")}-\${`));
+	return sheets.flatMap((sheet) => {
+		const lines = readFileSync(sheet, "utf8").replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " ")).split("\n");
+		const seen = new Set<string>();
+		return lines.flatMap((line, index) =>
+			[...line.matchAll(CSS_CLASS)].flatMap(([, name = ""]) => {
+				if (seen.has(name) || EXTERNAL_CLASSES.has(name) || named(name) || built(name)) return [];
+				seen.add(name);
+				return [{ file: sheet, line: index + 1, rule: `.${name} is styled but no component uses it: delete the rule, or use the class` }];
+			}),
+		);
+	});
+}
+
+// why: counts let declarations in src/, which only goes down: a value that changes is a const computed again or a reducer
+const LETS = 118;
+const LET = /^\s*(?:export )?let /gm;
+
+function letRule(): Finding[] {
+	const count = checkedFiles()
+		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.reduce((sum, file) => sum + [...readFileSync(file, "utf8").matchAll(LET)].length, 0);
+	if (count > LETS) return [{ file: "test/code-rules.ts", line: 1, rule: `${count} let declarations in src/, ${LETS} allowed (LETS): use const and compute the value where it is needed, or a reducer for state that moves` }];
+	if (count < LETS) return [{ file: "test/code-rules.ts", line: 1, rule: `${count} let declarations, fewer than LETS (${LETS}): lower it to ${count} so the ratchet holds` }];
+	return [];
+}
+
+const MAX_LINES = 400;
+// why: files already past MAX_LINES, each held at its size until it is split by responsibility; the numbers only go down
+const LONG_FILES: Record<string, number> = {
+	"src/agent/files/phone-env.ts": 445,
+	"src/agent/mcp.ts": 473,
+	"src/agent/runtime.ts": 682,
+	"src/agent/tools/tw-stocks.ts": 465,
+	"src/app/App.tsx": 787,
+	"src/app/Chat.tsx": 483,
+	"src/app/Links.tsx": 438,
+	"src/app/Message.tsx": 535,
+	"src/app/Settings.tsx": 795,
+	"src/triggers/runs.ts": 529,
+};
+
+function lengthRule(): Finding[] {
+	return checkedFiles()
+		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.flatMap((file) => {
+			const lines = readFileSync(file, "utf8").split("\n").length - 1;
+			const allowed = LONG_FILES[file] ?? MAX_LINES;
+			if (lines > allowed) return [{ file, line: 1, rule: `${lines} lines, ${allowed} allowed: split it by responsibility (a feature's logic, its view, its plugin) instead of growing it` }];
+			if (allowed > MAX_LINES && lines < allowed) return [{ file, line: 1, rule: `${lines} lines, fewer than its LONG_FILES entry (${allowed}): lower it to ${Math.max(lines, MAX_LINES)}${lines <= MAX_LINES ? " by removing the entry" : ""}` }];
+			return [];
+		});
+}
+
+const FEATURES = /^src\/(triggers|items|jobs|workbench|browser|interaction|computer-agents|phone-screen|plugins|computer)\//;
+// why: feature files that still take the whole AgentRuntime; each moves to its feature's own handle (the module-layering plan), and the list only shrinks
+const RUNTIME_USERS = new Set(["src/triggers/TriggerRow.tsx", "src/triggers/TriggerList.tsx", "src/triggers/events.ts", "src/items/ItemSheet.tsx", "src/items/ItemActions.tsx", "src/workbench/Workbench.tsx", "src/workbench/Stage.tsx"]);
+
+function runtimeRule(): Finding[] {
+	return checkedFiles()
+		.filter((file) => FEATURES.test(file) && SCRIPT_FILE.test(file))
+		.flatMap((file) => {
+			const uses = /from "[^"]*agent\/runtime\.ts"/.test(readFileSync(file, "utf8"));
+			if (uses && !RUNTIME_USERS.has(file)) return [{ file, line: 1, rule: "a feature takes its own handle (its store with subscribe and its verbs), not the whole AgentRuntime: pass the handle in as a prop" }];
+			if (!uses && RUNTIME_USERS.has(file)) return [{ file, line: 1, rule: "no longer imports AgentRuntime: remove it from RUNTIME_USERS so the list only shrinks" }];
+			return [];
+		});
+}
+
 function layered(file: string): Finding[] {
 	const lines = readFileSync(file, "utf8").split("\n");
 	return LAYERS.filter(({ folder }) => file.startsWith(folder)).flatMap(({ never, fix }) =>
@@ -394,6 +471,10 @@ function unusedExports(): Finding[] {
 }
 
 const all = [
+	...unusedClassRule(),
+	...letRule(),
+	...lengthRule(),
+	...runtimeRule(),
 	...tangleRule(),
 	...unusedExports(),
 	...effectRule(),
