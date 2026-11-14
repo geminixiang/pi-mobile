@@ -35,7 +35,7 @@ import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFA
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "./clouds.ts";
-import { extensionName, type Grant, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
+import { extensionName, isMcpExtension, McpHub, type McpHooks } from "./mcp.ts";
 import { BotMemoryDoc, emptyMemory, type Memory, MEMORY_LIMIT, MemoryDoc, type MemoryScope } from "./memory.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import type { LoadedModels } from "./available-models.ts";
@@ -250,11 +250,11 @@ export class AgentRuntime {
 			labelOf: (tool, extension, id) => labelOf(tool, extension, at(id)?.kind ?? "missing", catalog.owners, mcp),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
-		const builtinTools: ReadonlySet<string> = new Set(catalog.extensions.flatMap((extension) => (extension.tools ?? []).map((tool) => tool.name)));
+		const builtinTools: ReadonlySet<string> = new Set(catalog.owners.keys());
 		const mcp: McpHub = new McpHub(platform, {
 			install: (extension) => registry.install(extension),
 			uninstall: (name) => registry.uninstall({ name }),
-			revoke: (grant) => (runtimeRef ? runtimeRef.#revoke(grant) : Promise.resolve()),
+			revoke: (extension) => (runtimeRef ? runtimeRef.#revoke(extension) : Promise.resolve()),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
 			builtinTools: () => builtinTools,
@@ -318,8 +318,8 @@ export class AgentRuntime {
 		return runtime;
 	}
 
-	async #revoke(grant: Grant): Promise<void> {
-		await this.#botToolsets.revoke(grant, (await this.bots()).map((bot) => bot.id));
+	async #revoke(extension: string): Promise<void> {
+		await this.#botToolsets.revoke(extension, (await this.bots()).map((bot) => bot.id));
 	}
 
 	async #actsAsUser(id: ConversationId): Promise<boolean> {

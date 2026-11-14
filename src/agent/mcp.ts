@@ -353,12 +353,11 @@ class Connection {
 	}
 }
 
-export type Grant = { extension: string; toolPrefix: string; builtin: ReadonlySet<string> };
 
 export type McpHooks = {
 	install: (extension: Extension) => void;
 	uninstall: (name: string) => void;
-	revoke: (grant: Grant) => Promise<void>;
+	revoke: (extension: string) => Promise<void>;
 	openUrl: (url: string) => Promise<void>;
 	hostKey: (address: string) => string;
 	builtinTools: () => ReadonlySet<string>;
@@ -403,17 +402,13 @@ export class McpHub {
 		});
 	}
 
-	#grant(server: McpServer): Grant {
-		return { extension: extensionName(server), toolPrefix: `${server.id}_`, builtin: this.#hooks.builtinTools() };
-	}
-
 	add(name: string, url: string): Promise<McpServer> {
 		return this.#serialized(async () => {
 			const existing = this.servers.find((server) => server.url === url);
 			if (existing) return existing;
 			const builtinPrefixes = [...this.#hooks.builtinTools()].flatMap((tool) => (tool.includes("_") ? [tool.slice(0, tool.indexOf("_"))] : []));
 			const server: McpServer = { id: serverId(name, url, [...this.#connections.keys(), ...builtinPrefixes]), name, url };
-			await this.#hooks.revoke(this.#grant(server));
+			await this.#hooks.revoke(extensionName(server));
 			this.#open(server).refresh();
 			this.#save();
 			this.#changed();
@@ -429,7 +424,7 @@ export class McpHub {
 			this.#save();
 			this.#changed();
 			try {
-				await this.#hooks.revoke(this.#grant(connection.server));
+				await this.#hooks.revoke(extensionName(connection.server));
 				await connection.logout();
 				await connection.dispose();
 				this.#platform.plain.remove(cacheKey(connection.server));

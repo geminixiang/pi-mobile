@@ -1,15 +1,12 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { AgentDoc, type AgentState, configure, type ConversationId, defineTool, type Harness, type Tx } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import type { Grant } from "./mcp.ts";
 import { type Bot, BotIndex } from "./bots.ts";
 import { type Groups, legacyOff, type Place, removedTools } from "./toolsets.ts";
 import type { Native } from "../native.ts";
 import { serially } from "../promise.ts";
 
 const context = BACKGROUND_CONTEXT;
-
-type ModelTools = AgentState["modelTools"];
 
 const byName = (names: readonly string[]) =>
 	names.map((name) =>
@@ -23,13 +20,6 @@ const byName = (names: readonly string[]) =>
 		}),
 	);
 
-function withoutTools(modelTools: ModelTools, prefix: string, builtin: ReadonlySet<string>): ModelTools {
-	const keep = (names: readonly string[] | undefined) => (names ?? []).filter((name) => !name.startsWith(prefix) || builtin.has(name));
-	if (modelTools === undefined) return undefined;
-	if (Array.isArray(modelTools)) return keep(modelTools);
-	return { ...(modelTools.remove ? { remove: modelTools.remove } : {}), ...(modelTools.add ? { add: keep(modelTools.add) } : {}) };
-}
-
 const servicesOf = (state: AgentState | undefined): string[] => {
 	const extensions = state?.extensions;
 	return extensions === undefined || Array.isArray(extensions) ? [] : [...(extensions.add ?? [])];
@@ -40,7 +30,7 @@ const removedOf = (state: AgentState | undefined): string[] => {
 	return tools === undefined || Array.isArray(tools) ? [] : [...tools.remove];
 };
 
-type Edit = { off?: (off: readonly string[]) => readonly string[]; services?: (services: readonly string[]) => readonly string[]; also?: (tx: Tx) => Promise<void> };
+type Edit = { off?: (off: readonly string[]) => readonly string[]; services?: (services: readonly string[]) => readonly string[] };
 
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((name, index) => name === b[index]);
 
@@ -83,27 +73,9 @@ export class BotToolsets {
 		return this.#write(() => this.#commit(id, { services: (services) => [...services.filter((name) => name !== extension), ...(enabled ? [extension] : [])] }));
 	}
 
-	revoke(grant: Grant, ids: readonly ConversationId[]): Promise<void> {
+	revoke(extension: string, ids: readonly ConversationId[]): Promise<void> {
 		return this.#write(async () => {
-			for (const id of ids) {
-				const state = await this.#harness.snapshot(AgentDoc, id, context);
-				const modelTools = withoutTools(state?.modelTools, grant.toolPrefix, grant.builtin);
-				const changed = JSON.stringify(modelTools) !== JSON.stringify(state?.modelTools);
-				await this.#commit(id, {
-					services: (services) => services.filter((name) => name !== grant.extension),
-					also: async (tx) => {
-						if (!changed) return;
-						await configure(tx, id, {
-							modelTools:
-								modelTools === undefined
-									? null
-									: Array.isArray(modelTools)
-										? byName(modelTools)
-										: { ...(modelTools.add ? { add: byName(modelTools.add) } : {}), ...(modelTools.remove ? { remove: byName(modelTools.remove) } : {}) },
-						});
-					},
-				});
-			}
+			for (const id of ids) await this.#commit(id, { services: (services) => services.filter((name) => name !== extension) });
 		});
 	}
 
@@ -111,7 +83,6 @@ export class BotToolsets {
 		const place = this.#place(id);
 		await this.#harness.commit(async (tx) => {
 			await this.#project(tx, id, place, edit);
-			await edit.also?.(tx);
 		}, context);
 		this.#placed.set(id, place);
 	}
