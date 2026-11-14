@@ -1,4 +1,4 @@
-import type { Context } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
 import { native } from "../native.ts";
 import { type ConversationId, defineExtension, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { appSection } from "../agent/section.ts";

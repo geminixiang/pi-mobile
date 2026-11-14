@@ -1,4 +1,4 @@
-import { isJsonValue } from "@earendil-works/chord";
+import { isJsonValue } from "@earendil-works/chord/json";
 import { defineExtension, defineTool, type Extension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { appSection } from "./section.ts";
 import { type AuthProvider, type CallToolResult, McpSessionExpiredError, StreamableHttpTransport, type Tool, toLlmContent } from "@earendil-works/pi-mcp";

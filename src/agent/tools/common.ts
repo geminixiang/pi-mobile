@@ -1,7 +1,8 @@
 import type { PermissionKind } from "../../interaction/permissions.ts";
 import { contentText } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
-import { type Context, isJsonValue, type JsonValue } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
+import { isJsonValue, type JsonValue } from "@earendil-works/chord/json";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { showAlert } from "../../interaction/results.ts";

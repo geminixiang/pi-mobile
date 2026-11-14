@@ -1,4 +1,4 @@
-import type { Context } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import { type Trigger, TriggerDoc } from "./runs.ts";
 import type { TriggerHost } from "./tool.ts";

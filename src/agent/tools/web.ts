@@ -1,7 +1,7 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { Page } from "../../plugins/page.ts";
 import { native } from "../../native.ts";
-import type { Context } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { prepareAttachment } from "../attachments.ts";

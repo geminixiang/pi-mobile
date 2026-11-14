@@ -1,4 +1,4 @@
-import type { Context } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
 import type { ConversationId, ToolExecutionApi } from "@earendil-works/pi-durable";
 import { editTriggers } from "./edit.ts";
 import { Triggers } from "./plugin.ts";

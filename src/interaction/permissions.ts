@@ -1,4 +1,4 @@
-import type { Context } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import type { FormAnswer } from "../agent/mcp-stateless.ts";
 import type { PendingForm } from "./forms.ts";

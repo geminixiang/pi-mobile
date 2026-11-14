@@ -1,5 +1,5 @@
 import { utf8ByteLength } from "@earendil-works/chord/output";
-import type { Context } from "@earendil-works/chord";
+import type { Context } from "@earendil-works/chord/context";
 import {
 	type BinaryReader,
 	type DirReader,
