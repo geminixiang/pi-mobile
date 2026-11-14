@@ -92,6 +92,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `docs/feature-map.md` names only components that exist where it says, and lists every component `App.tsx`, `Workbench.tsx` and `BotPanel.tsx` render and every settings page | `test/feature-map.ts` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
+| Imports between `src/` folders (and root files) that keep them in a cycle are counted in `TANGLED_IMPORTS`, which only goes down: a change may not add one; untangling lowers it | `test/code-rules.ts` |
 | `src/computer/` (pairing, commands on a computer, the resumable link) never imports `src/agent/sandbox/`: sandbox depends on computer, not the other way | `test/code-rules.ts` |
 | Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |
 | The resume protocol delivers every input and output exactly once and in order or ends with a named failure, and the phone gives up before the computer lets a session go (an exhaustive model, which must also catch the known bugs) | `test/resume-model.ts` |

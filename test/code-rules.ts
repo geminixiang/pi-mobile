@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { parseSync } from "rolldown/utils";
 import { checkedFiles } from "./no-comments.ts";
 
@@ -201,6 +202,47 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 	},
 ];
 
+// why: counts imports that keep src/ folders in one tangle (a folder-level cycle); it only goes down, toward folders that import in one direction
+const TANGLED_IMPORTS = 410;
+const RELATIVE_IMPORT = /^import (?:[^;]*? from )?"(\.[^"]+)";/gm;
+
+function folderOf(file: string): string {
+	const [, top = "", rest] = file.split("/");
+	return rest === undefined ? file : top;
+}
+
+function tangleRule(): Finding[] {
+	const imports = checkedFiles()
+		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.flatMap((file) => {
+			const source = readFileSync(file, "utf8");
+			return [...source.matchAll(RELATIVE_IMPORT)].flatMap((match) => {
+				const from = folderOf(file);
+				const to = folderOf(join(dirname(file), match[1] ?? ""));
+				return from === to || !to ? [] : [{ file, line: source.slice(0, match.index).split("\n").length, from, to }];
+			});
+		});
+	const next = new Map<string, Set<string>>();
+	for (const { from, to } of imports) next.set(from, (next.get(from) ?? new Set()).add(to));
+	const reaches = (start: string, goal: string): boolean => {
+		const seen = new Set<string>();
+		const queue = [start];
+		for (let at = queue.shift(); at !== undefined; at = queue.shift()) {
+			if (at === goal) return true;
+			if (seen.has(at)) continue;
+			seen.add(at);
+			queue.push(...(next.get(at) ?? []));
+		}
+		return false;
+	};
+	const tangled = imports.filter(({ from, to }) => reaches(to, from));
+	const pairs = [...new Set(tangled.map(({ from, to }) => `${from} → ${to}`))].sort().join(", ");
+	if (tangled.length > TANGLED_IMPORTS)
+		return [{ file: "test/code-rules.ts", line: 1, rule: `${tangled.length} imports keep src/ folders in a cycle, ${TANGLED_IMPORTS} allowed (TANGLED_IMPORTS): an import may not point at a folder that leads back to its own; move the shared piece down into a folder both can import, or pass it in. Tangled: ${pairs}` }];
+	if (tangled.length < TANGLED_IMPORTS) return [{ file: "test/code-rules.ts", line: 1, rule: `${tangled.length} tangled imports, fewer than TANGLED_IMPORTS (${TANGLED_IMPORTS}): lower it to ${tangled.length} so the ratchet holds` }];
+	return [];
+}
+
 function layered(file: string): Finding[] {
 	const lines = readFileSync(file, "utf8").split("\n");
 	return LAYERS.filter(({ folder }) => file.startsWith(folder)).flatMap(({ never, fix }) =>
@@ -352,6 +394,7 @@ function unusedExports(): Finding[] {
 }
 
 const all = [
+	...tangleRule(),
 	...unusedExports(),
 	...effectRule(),
 	...javaRule(),
