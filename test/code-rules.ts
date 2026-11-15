@@ -386,7 +386,7 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
-const AGENTS_WORDS = 2812;
+const AGENTS_WORDS = 2811;
 
 function agentsSizeRule(): Finding[] {
 	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
@@ -514,7 +514,32 @@ function unusedExports(): Finding[] {
 		);
 }
 
+const REACHING_IMPORT = /(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"?]+)|new URL\(\s*"(\.{1,2}\/[^"?]+)/g;
+const BUILD_ENTRY = /"(?:\.\.?\/)*(src\/[^"`?]+\.tsx?)"/g;
+
+function unreachableFiles(): Finding[] {
+	const sources = checkedFiles().filter((file) => file.startsWith("src/") && /\.tsx?$/.test(file));
+	const buildEntries = checkedFiles()
+		.filter((file) => file.startsWith("vite-plugins/") || file.startsWith("vite.config"))
+		.flatMap((file) => [...readFileSync(file, "utf8").matchAll(BUILD_ENTRY)].map((match) => match[1] ?? ""));
+	const roots = sources.filter((file) => file === "src/main.tsx" || file.startsWith(EXPORTS_ANY_NAME) || file.endsWith(".d.ts") || buildEntries.includes(file));
+	const reached = new Set(roots);
+	const queue = [...roots];
+	for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
+		for (const match of readFileSync(file, "utf8").matchAll(REACHING_IMPORT)) {
+			const target = join(dirname(file), match[1] ?? match[2] ?? "");
+			if (reached.has(target)) continue;
+			reached.add(target);
+			queue.push(target);
+		}
+	}
+	return sources
+		.filter((file) => !reached.has(file))
+		.map((file) => ({ file, line: 1, rule: "no file the app runs imports this, only tests do: wire it into the app, or delete it with its tests (a test runs product code, not code kept for the test)" }));
+}
+
 const all = [
+	...unreachableFiles(),
 	...unusedClassRule(),
 	...letRule(),
 	...lengthRule(),

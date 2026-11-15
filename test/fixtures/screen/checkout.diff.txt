@@ -1,5 +1,0 @@
-Example Shop (example.test) 1280x800 keyboard:off shot:blocked_by_app
-e11 text "Store pickup: Example Central"
-e6 button "Pay NT$240"
-truncated: 0
-gone: e5 e7 e8 e9 e10 w1

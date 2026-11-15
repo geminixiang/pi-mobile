@@ -1,8 +1,0 @@
-Example Chat 384x832 keyboard:on
-w0 app
-e1 heading "聊天室"
-e2 field "搜尋" ="讀書" focused
-e3 list @192,420 scrollable
-  e4 button "讀書會"
-    e5 text "新訊息：週六討論第三章"
-truncated: 0

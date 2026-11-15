@@ -1,8 +1,0 @@
-button at 28,56
-text "應用程式" at 160,56
-button "搜尋應用程式" at 340,56
-list at 192,420
-button "Chrome" at 192,184
-button "時鐘" at 192,272
-button "地圖" at 192,360
-checked "暫停未使用的應用程式活動" at 192,720
