@@ -13,7 +13,7 @@ import okio.Path.Companion.toOkioPath
 import java.io.File
 
 private const val LOCAL = "127.0.0.1"
-private const val NEW_SEPARATE_TASK = "0x18000000"
+private const val CONNECT_MS = 3000
 
 sealed interface Outcome {
     data object Done : Outcome
@@ -28,7 +28,7 @@ sealed interface Opened {
 class AgentScreen(private val context: Context) {
     private sealed interface Link {
         data object Closed : Link
-        data class Open(val adb: Kadb, val server: AdbShellStream, val display: Int, val output: StringBuilder) : Link
+        data class Open(val adb: Kadb, val server: AdbShellStream, val display: Int) : Link
     }
 
     private var link: Link = Link.Closed
@@ -46,30 +46,23 @@ class AgentScreen(private val context: Context) {
     }
 
     fun open(width: Int, height: Int, dpi: Int): Opened {
-        (link as? Link.Open)?.let { return Opened.Ready(it.display) }
+        (link as? Link.Open)?.let { if (it.adb.connectionCheck()) return Opened.Ready(it.display) else close() }
         val port = ownPort(context, CONNECT) ?: return Opened.Failed("debugging_off")
-        val adb = runCatching { Kadb.create(LOCAL, port).also { it.shell("true") } }
+        val adb = runCatching { Kadb.create(LOCAL, port, connectTimeout = CONNECT_MS).also { it.shell("true") } }
             .getOrElse { return Opened.Failed(if (it is AdbAuthException) "not_paired" else describe(it)) }
         val apk = context.applicationInfo.sourceDir
         val server = adb.openShell("CLASSPATH=$apk app_process / ${DisplayServer::class.java.name} $width $height $dpi")
         val output = StringBuilder()
         val display = readLine(server, output, "display ")?.toIntOrNull()
             ?: return Opened.Failed("the display server did not start: $output").also { server.close(); adb.close() }
-        link = Link.Open(adb, server, display, output)
+        link = Link.Open(adb, server, display)
         return Opened.Ready(display)
     }
 
-    fun launch(packageName: String): Outcome {
-        val open = link as? Link.Open ?: return Outcome.Failed("closed")
-        val component = context.packageManager.getLaunchIntentForPackage(packageName)?.component
-            ?: return Outcome.Failed("no launcher activity in $packageName")
-        return run(open, "am start --display ${open.display} -f $NEW_SEPARATE_TASK -n ${component.flattenToShortString()}")
-    }
-
-    fun shot(): String? {
-        val open = link as? Link.Open ?: return null
-        open.server.write("shot\n")
-        return readLine(open.server, open.output, "shot ")
+    fun key(display: Int, code: String): Boolean {
+        val open = link as? Link.Open ?: return false
+        if (open.display != display) return false
+        return run(open, "input -d $display keyevent $code") == Outcome.Done
     }
 
     fun close() {

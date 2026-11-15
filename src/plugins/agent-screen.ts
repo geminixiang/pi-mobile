@@ -6,7 +6,5 @@ const Outcome = Type.Union([Type.Object({ ok: Type.Literal(true) }), Type.Object
 export const AgentScreen = definePlugin("AgentScreen", {
 	pair: { args: Type.Object({ code: Type.String() }), result: Outcome },
 	open: { args: Type.Object({}), result: Type.Union([Type.Object({ ok: Type.Literal(true), display: Type.Integer() }), Type.Object({ ok: Type.Literal(false), reason: Type.String() })]) },
-	launch: { args: Type.Object({ package: Type.String() }), result: Outcome },
-	shot: { args: Type.Object({}), result: Type.Object({ jpeg: Type.String() }) },
 	close: { args: Type.Object({}) },
 });

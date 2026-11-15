@@ -1,6 +1,7 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { DIRECTIONS, KEYS, PhoneScreen, type PhoneScreenSnapshot, type PhoneScreenStep } from "./plugin.ts";
+import { SCREENS, type Screen, type ScreenChoice, screenFor } from "./background.ts";
 import { messageOf } from "../promise.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
@@ -13,11 +14,23 @@ const WAIT_MAX_MS = 10_000;
 const SCREENSHOT = Type.Optional(
 	Type.Boolean({ description: "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false" }),
 );
+const SCREEN = Type.Optional(
+	oneOf(SCREENS, {
+		description:
+			"background (default): a hidden screen of its own, so the user keeps using the phone; front: the user's screen, only to show them something or hand it over",
+	}),
+);
 const OFF =
 	"Screen control is off. Tell the user to turn it on in pi's 設定 › 手機 › 代你操作 App (Android's accessibility settings); nothing on the phone's screen can be seen or used until then.";
 
-function present(snapshot: PhoneScreenSnapshot): ToolExecutionResult {
+function where(screen: Screen): string {
+	if (screen.on === "background") return "On the background screen: the user does not see it and keeps using the phone.";
+	return screen.instead ? `On the user's screen, because ${screen.instead}.` : "On the user's screen.";
+}
+
+function present(snapshot: PhoneScreenSnapshot, screen: Screen): ToolExecutionResult {
 	const facts = [
+		where(screen),
 		snapshot.did ? `What the steps acted on: ${snapshot.did.join("; ")}` : undefined,
 		snapshot.unchanged ? "Nothing on the screen changed: a scroll reached the end, or the step had no effect." : undefined,
 		snapshot.error ? `Stopped at ${snapshot.error}; the steps before it ran. The screen now:` : undefined,
@@ -73,10 +86,11 @@ export function stepOf(step: Static<typeof ToolStep>): Checked<PhoneScreenStep> 
 	}
 }
 
-async function call(work: () => Promise<PhoneScreenSnapshot>): Promise<ToolExecutionResult> {
+async function call(choice: ScreenChoice | undefined, work: (display: { display?: number }) => Promise<PhoneScreenSnapshot>): Promise<ToolExecutionResult> {
 	if (!(await PhoneScreen.status()).allowed) throw new Error(OFF);
 	try {
-		return present(await work());
+		const screen = await screenFor(choice ?? "background");
+		return present(await work(screen.on === "background" ? { display: screen.display } : {}), screen);
 	} catch (error) {
 		throw new Error(messageOf(error) === "off" ? OFF : `Screen control failed: ${messageOf(error)}`);
 	}
@@ -89,10 +103,10 @@ const readPhoneScreen = defineAppTool({
 	needs: [PhoneScreen.status, PhoneScreen.read],
 	reach: "loaded",
 	description:
-		"See the phone's screen as the user sees it, whatever app is in front: the front app and its elements as text (role, label, center x,y in screen points). For what no other tool reaches, in any app.",
-	parameters: Type.Object({ screenshot: SCREENSHOT }),
+		"See a phone screen as the user would, whatever app is in front: the front app and its elements as text (role, label, center x,y in screen points). For what no other tool reaches, in any app.",
+	parameters: Type.Object({ screenshot: SCREENSHOT, screen: SCREEN }),
 	replay: "safe",
-	execute: (args) => call(() => PhoneScreen.read({ screenshot: args.screenshot ?? false })),
+	execute: (args) => call(args.screen, (display) => PhoneScreen.read({ screenshot: args.screenshot ?? false, ...display })),
 });
 
 const usePhoneScreen = defineAppTool({
@@ -110,6 +124,7 @@ const usePhoneScreen = defineAppTool({
 	parameters: Type.Object({
 		steps: Type.Array(ToolStep, { minItems: 1 }),
 		screenshot: SCREENSHOT,
+		screen: SCREEN,
 	}),
 	execute: async (args) => {
 		const steps: PhoneScreenStep[] = [];
@@ -118,7 +133,7 @@ const usePhoneScreen = defineAppTool({
 			if (!checked.ok) throw new Error(`step ${at + 1} (${step.action}): ${checked.problem}`);
 			steps.push(checked.value);
 		}
-		return call(() => PhoneScreen.act({ steps, screenshot: args.screenshot ?? false }));
+		return call(args.screen, (display) => PhoneScreen.act({ steps, screenshot: args.screenshot ?? false, ...display }));
 	},
 });
 

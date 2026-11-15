@@ -131,8 +131,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bAgentScreen\b|dev\.geminixiang\.agentscreen/,
-		owners: ["src/plugins/agent-screen.ts", "src/plugins/index.ts", "android/agentscreen/", "android/app/src/oss/"],
-		fix: "the background screen is an experiment of the open source edition only (docs/design/background-screen.md): its native code stays in android/agentscreen/ and android/app/src/oss/ and its contract in src/plugins/agent-screen.ts; TypeScript that uses it goes in one feature folder, added to these owners",
+		owners: ["src/plugins/agent-screen.ts", "src/plugins/index.ts", "src/phone-screen/background.ts", "android/agentscreen/", "android/app/src/oss/"],
+		fix: "the background screen is an experiment of the open source edition only (docs/design/background-screen.md): its native code stays in android/agentscreen/ and android/app/src/oss/, its contract in src/plugins/agent-screen.ts, and only src/phone-screen/background.ts decides which screen a step runs on",
 	},
 	{
 		use: /\bBotIndex\b/,
@@ -208,7 +208,7 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 ];
 
 // why: counts imports that keep src/ folders in one tangle (a folder-level cycle); it only goes down, toward folders that import in one direction
-const TANGLED_IMPORTS = 405;
+const TANGLED_IMPORTS = 404;
 const RELATIVE_IMPORT = /^import (?:[^;]*? from )?"(\.[^"]+)";/gm;
 
 function folderOf(file: string): string {
@@ -293,7 +293,7 @@ const LONG_FILES: Record<string, number> = {
 	"src/app/App.tsx": 787,
 	"src/app/Chat.tsx": 483,
 	"src/app/Links.tsx": 438,
-	"src/app/Message.tsx": 535,
+	"src/app/Message.tsx": 534,
 	"src/app/Settings.tsx": 795,
 	"src/triggers/runs.ts": 529,
 };

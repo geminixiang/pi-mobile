@@ -70,6 +70,7 @@ class PhoneScreenPlugin : Plugin() {
         worker.reply(call) {
             val service = PhoneScreenService.running ?: return@reply OFF
             val steps = call.data.getJSONArray("steps")
+            val display = call.data.optInt("display", Display.DEFAULT_DISPLAY)
             val before = lastSeen
             val did = mutableListOf<String>()
             var done = 0
@@ -79,7 +80,7 @@ class PhoneScreenPlugin : Plugin() {
                 val step = ScreenStep.of(json)
                 val since = SystemClock.uptimeMillis()
                 val screen = metrics(service)
-                when (val ran = actor.perform(service, step, screen, SHOT_WIDTH.toFloat() / screen.widthPixels)) {
+                when (val ran = actor.perform(service, step, screen, SHOT_WIDTH.toFloat() / screen.widthPixels, display)) {
                     is Outcome.Ok -> ran.value?.let(did::add)
                     is Outcome.Stopped -> {
                         stopped = "step ${at + 1} (${json.getString("action")}): ${ran.reason}"
@@ -89,7 +90,7 @@ class PhoneScreenPlugin : Plugin() {
                 done = at + 1
                 if (step !is ScreenStep.Wait) service.settle(since, if (done < steps.length()) NEXT_STEP_CAP_MS else LAST_STEP_CAP_MS)
             }
-            val result = snapshot(service, call.data.optBoolean("screenshot")).put("done", done)
+            val result = snapshot(service, call.data.optBoolean("screenshot"), display).put("done", done)
             if (done > 0 && lastSeen == before) result.put("unchanged", true)
             if (did.isNotEmpty()) result.put("did", JSONArray(did))
             if (stopped != null) result.put("error", stopped)
@@ -115,20 +116,20 @@ class PhoneScreenPlugin : Plugin() {
         seen.front?.let { result.put("package", it).put("app", NotificationsListener.appLabel(service.packageManager, it)) }
         if (System.currentTimeMillis() > deadline) result.put("slow", true)
         if (!withScreenshot) return result
-        when (val shot = screenshot(service, scale)) {
+        when (val shot = screenshot(service, scale, display)) {
             is Outcome.Ok -> result.put("jpeg", shot.value)
             is Outcome.Stopped -> result.put("shotError", shot.reason)
         }
         return result
     }
 
-    private fun screenshot(service: PhoneScreenService, scale: Float): Outcome<String> {
+    private fun screenshot(service: PhoneScreenService, scale: Float, display: Int): Outcome<String> {
         repeat(SHOT_ATTEMPTS) {
             val done = CountDownLatch(1)
             val shot = AtomicReference<Bitmap?>()
             val code = AtomicInteger()
             service.takeScreenshot(
-                Display.DEFAULT_DISPLAY,
+                display,
                 screenshots,
                 object : AccessibilityService.TakeScreenshotCallback {
                     override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {

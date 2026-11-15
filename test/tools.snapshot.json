@@ -1501,6 +1501,14 @@
 		],
 		"parameters": {
 			"properties": {
+				"screen": {
+					"description": "background (default): a hidden screen of its own, so the user keeps using the phone; front: the user's screen, only to show them something or hand it over",
+					"enum": [
+						"background",
+						"front"
+					],
+					"type": "string"
+				},
 				"screenshot": {
 					"description": "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false",
 					"type": "boolean"
@@ -1530,6 +1538,14 @@
 		],
 		"parameters": {
 			"properties": {
+				"screen": {
+					"description": "background (default): a hidden screen of its own, so the user keeps using the phone; front: the user's screen, only to show them something or hand it over",
+					"enum": [
+						"background",
+						"front"
+					],
+					"type": "string"
+				},
 				"screenshot": {
 					"description": "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false",
 					"type": "boolean"

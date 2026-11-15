@@ -1,10 +1,9 @@
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../agent/runtime.ts";
 import { MoreIcon, PlusIcon, TriggerIcon } from "./icons.tsx";
-import type { TriggerSymbol } from "../triggers/when.ts";
 import type { Trigger } from "../triggers/runs.ts";
 import type { When } from "../triggers/plugin.ts";
-import { triggerSymbol } from "../triggers/when.ts";
+import { type TriggerSymbol, triggerSymbol } from "../triggers/when.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { DAY, startOfToday } from "../time.ts";
 import { CLOCK } from "./clock.ts";

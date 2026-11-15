@@ -40,5 +40,5 @@ export const PhoneScreen = definePlugin("PhoneScreen", {
 	openSettings: { args: Type.Object({}) },
 	openAppInfo: { args: Type.Object({}) },
 	read: { args: Type.Object({ screenshot: Type.Boolean(), display: Type.Optional(Type.Integer({ minimum: 0 })) }), result: Snapshot },
-	act: { args: Type.Object({ steps: Type.Array(Step), screenshot: Type.Boolean() }), result: Snapshot },
+	act: { args: Type.Object({ steps: Type.Array(Step), screenshot: Type.Boolean(), display: Type.Optional(Type.Integer({ minimum: 0 })) }), result: Snapshot },
 });

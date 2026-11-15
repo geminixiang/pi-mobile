@@ -25,8 +25,8 @@ internal fun PhoneScreenService.see(scale: Float, screen: DisplayMetrics, deadli
     var attempt = 0
     while (lines.isEmpty() && System.currentTimeMillis() < deadline) {
         if (attempt++ > 0) Thread.sleep(TREE_RETRY_MS)
-        val shown = if (display == Display.DEFAULT_DISPLAY) windows else windowsOnAllDisplays.get(display).orEmpty()
-        active = if (display == Display.DEFAULT_DISPLAY) rootInActiveWindow else shown.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }?.root
+        val shown = windowsOn(display)
+        active = activeRoot(display)
         for (window in shown) {
             if (window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
                 keyboard = true
@@ -47,11 +47,16 @@ internal fun PhoneScreenService.see(scale: Float, screen: DisplayMetrics, deadli
     return Seen(withOwners(lines, deadline), keyboard, active?.packageName?.toString())
 }
 
-internal fun PhoneScreenService.describedAt(x: Float, y: Float, scale: Float): String {
+internal fun PhoneScreenService.windowsOn(display: Int): List<AccessibilityWindowInfo> = if (display == Display.DEFAULT_DISPLAY) windows else windowsOnAllDisplays.get(display).orEmpty()
+
+internal fun PhoneScreenService.activeRoot(display: Int): AccessibilityNodeInfo? =
+    if (display == Display.DEFAULT_DISPLAY) rootInActiveWindow else windowsOn(display).firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }?.root
+
+internal fun PhoneScreenService.describedAt(x: Float, y: Float, scale: Float, display: Int): String {
     val deadline = System.currentTimeMillis() + ELEMENTS_MS
     val px = x.roundToInt()
     val py = y.roundToInt()
-    val window = windows.firstOrNull { it.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD && Rect().also(it::getBoundsInScreen).contains(px, py) }
+    val window = windowsOn(display).firstOrNull { it.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD && Rect().also(it::getBoundsInScreen).contains(px, py) }
     val hit = window?.let { smallestAt(it.root, px, py, null, deadline) }
     val point = "at ${(x * scale).roundToInt()},${(y * scale).roundToInt()}"
     if (hit == null) return "$point, where nothing takes a tap"

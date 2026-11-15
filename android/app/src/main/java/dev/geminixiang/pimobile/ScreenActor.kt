@@ -2,6 +2,7 @@ package dev.geminixiang.pimobile
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.ActivityOptions
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -11,6 +12,7 @@ import android.graphics.PointF
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.DisplayMetrics
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
@@ -74,42 +76,51 @@ internal sealed interface ScreenStep {
     }
 }
 
+fun interface DisplayShell {
+    fun key(display: Int, key: String): Boolean
+}
+
+object DisplayShells {
+    @Volatile
+    var current: DisplayShell? = null
+}
+
 internal class ScreenActor {
     private var lastTap: PointF? = null
     private val launchers = LinkedHashMap<String, String>()
 
-    fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float): Outcome<String?> {
+    fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float, display: Int): Outcome<String?> {
         val px = { points: Double -> (points / scale).toFloat() }
         when (step) {
             is ScreenStep.Tap -> {
                 val at = PointF(px(step.x), px(step.y))
                 lastTap = at
-                val target = service.describedAt(at.x, at.y, scale)
-                service.gesture(line(at.x, at.y, at.x, at.y), TAP_MS).valueOr { return it }
+                val target = service.describedAt(at.x, at.y, scale, display)
+                service.gesture(line(at.x, at.y, at.x, at.y), TAP_MS, display).valueOr { return it }
                 return Outcome.Ok("tapped $target")
             }
             is ScreenStep.LongPress -> {
                 val x = px(step.x)
                 val y = px(step.y)
-                val target = service.describedAt(x, y, scale)
-                service.gesture(line(x, y, x, y), LONG_PRESS_MS).valueOr { return it }
+                val target = service.describedAt(x, y, scale, display)
+                service.gesture(line(x, y, x, y), LONG_PRESS_MS, display).valueOr { return it }
                 return Outcome.Ok("long-pressed $target")
             }
-            is ScreenStep.Swipe -> service.gesture(line(px(step.x), px(step.y), px(step.toX), px(step.toY)), step.ms).valueOr { return it }
-            is ScreenStep.Scroll -> service.scroll(step, screen, step.x?.let(px) ?: (screen.widthPixels / 2f), step.y?.let(px) ?: (screen.heightPixels / 2f)).valueOr { return it }
-            is ScreenStep.Type -> type(service, step.text, replace = false).valueOr { return it }
-            ScreenStep.Clear -> type(service, "", replace = true).valueOr { return it }
-            is ScreenStep.Press -> press(service, step.key).valueOr { return it }
-            is ScreenStep.Open -> open(service, step.app).valueOr { return it }
+            is ScreenStep.Swipe -> service.gesture(line(px(step.x), px(step.y), px(step.toX), px(step.toY)), step.ms, display).valueOr { return it }
+            is ScreenStep.Scroll -> service.scroll(step, screen, step.x?.let(px) ?: (screen.widthPixels / 2f), step.y?.let(px) ?: (screen.heightPixels / 2f), display).valueOr { return it }
+            is ScreenStep.Type -> type(service, step.text, replace = false, display).valueOr { return it }
+            ScreenStep.Clear -> type(service, "", replace = true, display).valueOr { return it }
+            is ScreenStep.Press -> press(service, step.key, display, DisplayShells.current).valueOr { return it }
+            is ScreenStep.Open -> open(service, step.app, display).valueOr { return it }
             is ScreenStep.Wait -> Thread.sleep(step.ms)
         }
         return Outcome.Ok(null)
     }
 
-    private fun type(service: PhoneScreenService, text: String, replace: Boolean): Outcome<Unit> {
-        val focused = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+    private fun type(service: PhoneScreenService, text: String, replace: Boolean, display: Int): Outcome<Unit> {
+        val focused = service.inputFocus(display)
         val field =
-            (if (focused?.isEditable == true) focused else editableAt(service.rootInActiveWindow)) ?: focused
+            (if (focused?.isEditable == true) focused else editableAt(service.activeRoot(display))) ?: focused
                 ?: return Outcome.Stopped("no text field has focus: tap one first")
         if (field.isEditable) {
             val before = if (replace) "" else shown(field)
@@ -129,15 +140,20 @@ internal class ScreenActor {
         return (0 until node.childCount).firstNotNullOfOrNull { editableAt(node.getChild(it)) }
     }
 
-    private fun open(service: PhoneScreenService, name: String): Outcome<Unit> {
+    private fun open(service: PhoneScreenService, name: String, display: Int): Outcome<Unit> {
         val wanted = name.trim().lowercase(Locale.ROOT)
         val packages = service.packageManager
         val cached = match(wanted)?.takeIf { packages.getLaunchIntentForPackage(it) != null }
         val pkg = cached ?: loadLaunchers(packages).let { match(wanted) }
         val intent = pkg?.let(packages::getLaunchIntentForPackage) ?: return Outcome.Stopped("no installed app is called $name; the apps are: ${launchers.values.joinToString(", ")}")
-        service.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
+        if (display == Display.DEFAULT_DISPLAY) {
+            service.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
+        } else {
+            val separate = intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+            service.startActivity(separate, ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle())
+        }
         val until = SystemClock.uptimeMillis() + OPEN_MS
-        while (SystemClock.uptimeMillis() < until && pkg != service.rootInActiveWindow?.packageName?.toString()) Thread.sleep(OPEN_POLL_MS)
+        while (SystemClock.uptimeMillis() < until && pkg != service.activeRoot(display)?.packageName?.toString()) Thread.sleep(OPEN_POLL_MS)
         return Outcome.Ok(Unit)
     }
 
@@ -155,12 +171,12 @@ internal class ScreenActor {
     }
 }
 
-private fun PhoneScreenService.gesture(path: Path, ms: Long): Outcome<Unit> {
+private fun PhoneScreenService.gesture(path: Path, ms: Long, display: Int): Outcome<Unit> {
     val finished = CountDownLatch(1)
     val completed = AtomicBoolean(false)
     val sent =
         dispatchGesture(
-            GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, ms)).build(),
+            GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, ms)).setDisplayId(display).build(),
             object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(description: GestureDescription) {
                     completed.set(true)
@@ -177,7 +193,7 @@ private fun PhoneScreenService.gesture(path: Path, ms: Long): Outcome<Unit> {
     return Outcome.Ok(Unit)
 }
 
-private fun PhoneScreenService.scroll(step: ScreenStep.Scroll, screen: DisplayMetrics, x: Float, y: Float): Outcome<Unit> {
+private fun PhoneScreenService.scroll(step: ScreenStep.Scroll, screen: DisplayMetrics, x: Float, y: Float, display: Int): Outcome<Unit> {
     val (dx, dy) =
         when (step.direction) {
             "down" -> 0f to -screen.heightPixels * 0.35f
@@ -188,18 +204,25 @@ private fun PhoneScreenService.scroll(step: ScreenStep.Scroll, screen: DisplayMe
         }
     val fromX = (x - dx / 2).coerceIn(1f, screen.widthPixels - 1f)
     val fromY = (y - dy / 2).coerceIn(1f, screen.heightPixels - 1f)
-    return gesture(line(fromX, fromY, fromX + dx, fromY + dy), SCROLL_MS)
+    return gesture(line(fromX, fromY, fromX + dx, fromY + dy), SCROLL_MS, display)
 }
 
-private fun press(service: PhoneScreenService, key: String): Outcome<Unit> {
+private fun press(service: PhoneScreenService, key: String, display: Int, shell: DisplayShell?): Outcome<Unit> {
+    if (key != "enter" && display != Display.DEFAULT_DISPLAY) {
+        val sent = shell?.key(display, key) ?: return Outcome.Stopped("keys other than enter do not reach the background screen")
+        return if (sent) Outcome.Ok(Unit) else Outcome.Stopped("the system refused it")
+    }
     if (key != "enter") {
         val global = GLOBAL_KEYS[key] ?: return Outcome.Stopped("unknown key $key")
         return if (service.performGlobalAction(global)) Outcome.Ok(Unit) else Outcome.Stopped("the system refused it")
     }
-    val field = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return Outcome.Stopped("no text field has focus")
+    val field = service.inputFocus(display) ?: return Outcome.Stopped("no text field has focus")
     if (!field.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)) return Outcome.Stopped("the field has no enter action: tap the send or search button")
     return Outcome.Ok(Unit)
 }
+
+private fun PhoneScreenService.inputFocus(display: Int): AccessibilityNodeInfo? =
+    if (display == Display.DEFAULT_DISPLAY) findFocus(AccessibilityNodeInfo.FOCUS_INPUT) else activeRoot(display)?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
 
 private fun readBack(field: AccessibilityNodeInfo, typed: String): Outcome<Unit> {
     if (typed.isEmpty() || field.isPassword) return Outcome.Ok(Unit)

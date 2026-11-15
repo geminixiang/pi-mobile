@@ -10,10 +10,16 @@ import dev.geminixiang.agentscreen.Opened
 import dev.geminixiang.agentscreen.Outcome
 import java.util.concurrent.Executors
 
+private val KEYCODES = mapOf("back" to "KEYCODE_BACK", "home" to "KEYCODE_HOME", "recents" to "KEYCODE_APP_SWITCH")
+
 @CapacitorPlugin(name = "AgentScreen")
 class AgentScreenPlugin : Plugin() {
     private val worker = Executors.newSingleThreadExecutor()
     private val screen by lazy { AgentScreen(context) }
+
+    override fun load() {
+        DisplayShells.current = DisplayShell { display, key -> KEYCODES[key]?.let { screen.key(display, it) } ?: false }
+    }
 
     @PluginMethod
     fun pair(call: PluginCall) = work(call) { reply(screen.pair(call.getString("code").orEmpty())) }
@@ -26,12 +32,6 @@ class AgentScreenPlugin : Plugin() {
             is Opened.Failed -> JSObject().put("ok", false).put("reason", opened.reason)
         }
     }
-
-    @PluginMethod
-    fun launch(call: PluginCall) = work(call) { reply(screen.launch(call.getString("package").orEmpty())) }
-
-    @PluginMethod
-    fun shot(call: PluginCall) = work(call) { JSObject().put("jpeg", screen.shot().orEmpty()) }
 
     @PluginMethod
     fun close(call: PluginCall) = work(call) {

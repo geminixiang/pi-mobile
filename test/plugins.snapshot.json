@@ -89,68 +89,6 @@
 					]
 				}
 			},
-			"launch": {
-				"args": {
-					"properties": {
-						"package": {
-							"type": "string"
-						}
-					},
-					"required": [
-						"package"
-					],
-					"type": "object"
-				},
-				"result": {
-					"anyOf": [
-						{
-							"properties": {
-								"ok": {
-									"const": true,
-									"type": "boolean"
-								}
-							},
-							"required": [
-								"ok"
-							],
-							"type": "object"
-						},
-						{
-							"properties": {
-								"ok": {
-									"const": false,
-									"type": "boolean"
-								},
-								"reason": {
-									"type": "string"
-								}
-							},
-							"required": [
-								"ok",
-								"reason"
-							],
-							"type": "object"
-						}
-					]
-				}
-			},
-			"shot": {
-				"args": {
-					"properties": {},
-					"type": "object"
-				},
-				"result": {
-					"properties": {
-						"jpeg": {
-							"type": "string"
-						}
-					},
-					"required": [
-						"jpeg"
-					],
-					"type": "object"
-				}
-			},
 			"close": {
 				"args": {
 					"properties": {},
@@ -2914,6 +2852,10 @@
 			"act": {
 				"args": {
 					"properties": {
+						"display": {
+							"minimum": 0,
+							"type": "integer"
+						},
 						"screenshot": {
 							"type": "boolean"
 						},

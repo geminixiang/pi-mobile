@@ -33,10 +33,11 @@ android/
  ├─ app/src/store/   Edition.kt：沒有額外的 plugin（上架版）
  ├─ app/src/oss/     Edition.kt 列出 AgentScreenPlugin；AgentScreenPlugin.kt（薄的轉接）
  └─ agentscreen/     獨立的 Gradle 模組，只有 oss 依賴（ossImplementation）
-      AgentScreen.kt   對外唯一的類別：pair、open、launch、shot、close
+      AgentScreen.kt   對外唯一的類別：pair、open、key、close
       Discovery.kt     用 NsdManager 找自己的無線偵錯（_adb-tls-pairing、_adb-tls-connect），只認本機位址
-      DisplayServer.kt 以 shell 身分執行（CLASSPATH=pi 的 APK app_process），開虛擬螢幕，stdin 收 shot、關掉就釋放
-src/plugins/agent-screen.ts  合約；store 版沒有這個原生 plugin，native.has 回 false
+      DisplayServer.kt 以 shell 身分執行（CLASSPATH=pi 的 APK app_process），開虛擬螢幕撐著，stdin 關掉就釋放
+src/plugins/agent-screen.ts       合約；store 版沒有這個原生 plugin
+src/phone-screen/background.ts    唯一決定在哪個螢幕做的地方（screenFor）
 ```
 
 - **adb 用戶端用 [Kadb](https://github.com/Flyfish233/Kadb)**（`com.flyfishxu:kadb:2.1.5`，Apache-2.0）：配對（SPAKE2，`spake2-java` 在 JitPack，root `build.gradle` 只對 `com.github.Flyfish233` 開 JitPack）、TLS 連線、shell v2。不抄 mika 的 `core/adb`：程式碼更少，也不用帶授權註解。
@@ -58,9 +59,28 @@ src/plugins/agent-screen.ts  合約；store 版沒有這個原生 plugin，nativ
 
 （用 `input -d N tap` 點擊在模擬器也通過；點擊打算改走既有的無障礙動作，所以沒有留在合約裡。）
 
+## Bot 怎麼用（2026-11-15）
+
+```
+phone_read_as_user / phone_act_as_user（screen: background 預設 | front）
+   └─ screenFor（src/phone-screen/background.ts）
+        有背景螢幕：AgentScreen.open() → display
+        沒有：在使用者的畫面做，結果第一行說為什麼
+   └─ PhoneScreen.read / act（{ display }）── 無障礙服務（原有的 ScreenActor）
+        點、滑、捲：手勢 setDisplayId
+        打字、送出：那個螢幕的輸入焦點
+        開 App：ActivityOptions.setLaunchDisplayId，新的工作
+        返回等系統鍵：DisplayShells.current（開源版用 input -d 送；上架版沒有，回報做不到）
+```
+
+主程式只多一個介面 `DisplayShell`（`ScreenActor.kt`），開源版的 `AgentScreenPlugin.load()` 把實作放進 `DisplayShells.current`；主程式不知道 adb。
+
+S24 實測（GPT 6.1 Sol，暫時的 Bot）：「用 Chrome 查一下台北現在幾度」41 秒答對；pi 一直在主螢幕，Chrome 在背景螢幕。
+
 ## 還沒做
 
-1. **讓 Bot 用**：`phone_read_as_user`、`phone_act_as_user` 在背景螢幕上做（讀已經能指定螢幕；點擊用無障礙手勢的 `setDisplayId`、開 App 走 `AgentScreen.launch`）。動工前先畫圖確認。
-2. **配對的畫面**：設定裡一個項目，帶使用者到無線偵錯、輸入配對碼；連不上時說原因（`debugging_off`、`not_paired`、`pairing_closed`、`wrong_code`）。
-3. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯，要使用者再開；是否能在連著時保持開啟要再測。
-4. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。
+1. **配對的畫面**：設定裡一個項目，帶使用者到無線偵錯、輸入配對碼；連不上時說原因（`debugging_off`、`not_paired`、`pairing_closed`、`wrong_code`）。現在只有 S24 由我配對過。
+2. **看得到、能接手**：主畫面上一個小視窗顯示背景螢幕，點一下把那個 App 搬到前面交給使用者。
+3. **背景螢幕何時關**：現在開了就留到 pi 結束；之後在 Bot 都閒下來一段時間後關。
+4. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。
+5. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。
