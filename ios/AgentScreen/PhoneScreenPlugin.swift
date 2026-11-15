@@ -6,6 +6,7 @@ private typealias ScreenData = [String: Any]
 
 struct ScreenFailure: Error {
     let reason: String
+    var held: Held? = nil
 }
 
 @objc(PhoneScreenPlugin)
@@ -103,6 +104,7 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
         var done = 0
         var stopped: String?
         var did: [String] = []
+        var held: Held?
         for (at, step) in steps.enumerated() {
             if let problem = await awake?.renew() { stopped = "step \(at + 1): \(problem)"; break }
             let action = step["action"] as? String ?? ""
@@ -110,7 +112,9 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
             case .success(let note):
                 if let note { did.append(note) }
                 done += 1
-            case .failure(let error): stopped = "step \(at + 1) (\(action)): \(error.reason)"
+            case .failure(let error):
+                held = error.held
+                stopped = "step \(at + 1) (\(action)): \(error.reason)"
             }
             if stopped != nil { break }
             if !["wait", "wait_for", "expect", "scroll_to"].contains(action),
@@ -131,13 +135,16 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
         if !did.isEmpty { result["did"] = did }
         if done > 0 && lastSeen == before { result["unchanged"] = true }
         if let stopped { result["error"] = stopped }
+        if let held { result["held"] = held.json }
         return .success(result)
     }
 
     @MainActor private func run(_ step: JSObject, action: String) async -> Result<String?, ScreenFailure> {
         let size: CGSize
         switch await see() {
-        case .success(let seen): size = seen.size
+        case .success(let seen):
+            if handsOn(action, key: step["key"] as? String), let held = seen.held(for: action) { return .failure(ScreenFailure(reason: "held for the user", held: held)) }
+            size = seen.size
         case .failure(let error): return .failure(error)
         }
         let x = step["x"] as? Double ?? size.width / 2

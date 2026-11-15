@@ -43,6 +43,7 @@ const Snapshot = Type.Object({
 	unchanged: Type.Optional(Type.Boolean()),
 	delta: Type.Optional(Type.Boolean()),
 	error: Type.Optional(Type.String()),
+	held: Type.Optional(Type.Union([Type.Object({ kind: Type.Literal("money"), shown: Type.String() }), Type.Object({ kind: Type.Literal("secret") }), Type.Object({ kind: Type.Literal("unread") })])),
 });
 export type PhoneScreenSnapshot = Static<typeof Snapshot>;
 

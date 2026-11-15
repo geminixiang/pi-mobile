@@ -30,11 +30,18 @@ function where(screen: Screen): string {
 	return screen.instead ? `On the user's screen, because ${screen.instead}.` : "On the user's screen.";
 }
 
+function heldFor(held: NonNullable<PhoneScreenSnapshot["held"]>): string {
+	if (held.kind === "secret") return "This is a password or PIN field: the user always fills it in. Stop and tell them it is their turn.";
+	if (held.kind === "unread") return "The app answered too slowly to check this screen for an amount, so the step was held: read the screen and try again, or hand it to the user.";
+	return `The screen shows an amount ("${held.shown}"), and on such a screen every step but scrolling, waiting, reading and going back is the user's: they pay. Stop and tell them which screen this is, what it shows, and that it is their turn (on your background screen they take over from the preview).`;
+}
+
 function present(snapshot: PhoneScreenSnapshot, screen: Screen): ToolExecutionResult {
 	const facts = [
 		where(screen),
 		snapshot.did ? `What the steps acted on: ${snapshot.did.join("; ")}` : undefined,
 		snapshot.unchanged ? "Nothing on the screen changed: a scroll reached the end, or the step had no effect." : undefined,
+		snapshot.held ? heldFor(snapshot.held) : undefined,
 		snapshot.error ? `Stopped at ${snapshot.error}; the steps before it ran. The screen now:` : undefined,
 		`Front app: ${snapshot.app ?? "unknown"}${snapshot.package ? ` (${snapshot.package})` : ""}. Screen ${snapshot.width}×${snapshot.height} points${snapshot.jpeg ? ", the screenshot's pixels" : ""}.${snapshot.keyboard ? " The keyboard is up." : ""}`,
 		snapshot.shotError ? `No screenshot: ${snapshot.shotError}.` : undefined,
@@ -138,7 +145,7 @@ const usePhoneScreen = defineAppTool({
 		"Act in apps as the user; some apps block it. Batch known screens; stops on failure, returns changed lines (full list after large changes). " +
 		"Steps: open {app}; tap {id|text|x,y} (live target; text waits 3s, ambiguous/missing stops); wait_for {text,gone?,ms?}; scroll_to {text,direction?} (max 12 scrolls/15s); expect {app?,text?} (both must match); " +
 		"long_press {x,y}; swipe {x,y,to_x,to_y,ms}; scroll {direction,x?,y?}; type {text} appends; clear; key {keys}; wait {ms}. " +
-		"Before you send, pay, delete, or post for the user, say what you are about to do, unless they asked for exactly that.",
+		"Before you send, delete, or post for the user, say so unless they asked for exactly that; paying is always theirs.",
 	parameters: Type.Object({
 		steps: Type.Array(ToolStep, { minItems: 1 }),
 		note: Type.Optional(Type.String({ description: "Preview progress: a few words in the user's language" })),

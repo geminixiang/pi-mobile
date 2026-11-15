@@ -111,7 +111,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /PhoneScreenService\.(?!canStartActivities\b)\w+/,
-		owners: ["PhoneScreenService.kt", "PhoneScreenPlugin.kt", "ScreenActor.kt", "ScreenElements.kt"],
+		owners: ["PhoneScreenService.kt", "PhoneScreenPlugin.kt", "ScreenActor.kt", "ScreenElements.kt", "ScreenMoney.kt"],
 		fix: "only the phone screen code reaches the accessibility service; ask PhoneScreenService.canStartActivities(activity) whether a screen may open",
 	},
 	{

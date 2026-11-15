@@ -76,15 +76,26 @@ class PhoneScreenPlugin : Plugin() {
             val did = mutableListOf<String>()
             var done = 0
             var stopped: String? = null
+            var held: JSObject? = null
             for (at in 0 until steps.length()) {
                 val json = steps.getJSONObject(at)
                 val step = ScreenStep.of(json)
                 val since = SystemClock.uptimeMillis()
                 val screen = metrics(service, display) ?: return@reply Outcome.Ok(stoppedSnapshot("display_closed", null).put("done", done))
+                held = when (val money = if (step.handsOn()) service.moneyOn(display, System.currentTimeMillis() + ELEMENTS_MS) else MoneyScan.Clear) {
+                    MoneyScan.Clear -> null
+                    is MoneyScan.Amount -> JSObject().put("kind", "money").put("shown", money.shown)
+                    MoneyScan.Unread -> JSObject().put("kind", "unread")
+                }
+                if (held != null) {
+                    stopped = "step ${at + 1} (${json.getString("action")}): held for the user"
+                    break
+                }
                 when (val ran = actor.perform(service, step, screen, SHOT_WIDTH.toFloat() / screen.widthPixels, display, note)) {
                     is Outcome.Ok -> ran.value?.let(did::add)
                     is Outcome.Stopped -> {
-                        stopped = "step ${at + 1} (${json.getString("action")}): ${ran.reason}"
+                        if (ran.reason == SECRET) held = JSObject().put("kind", SECRET)
+                        stopped = "step ${at + 1} (${json.getString("action")}): ${if (ran.reason == SECRET) "held for the user" else ran.reason}"
                         break
                     }
                 }
@@ -98,6 +109,7 @@ class PhoneScreenPlugin : Plugin() {
             if (interrupted == null && done > 0 && lastSeen[display] == before) result.put("unchanged", true)
             if (did.isNotEmpty()) result.put("did", JSONArray(did))
             (interrupted ?: stopped)?.let { result.put("error", it) }
+            held?.let { result.put("held", it) }
             Outcome.Ok(result)
         }
 

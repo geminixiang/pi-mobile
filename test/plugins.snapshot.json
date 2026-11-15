@@ -2929,6 +2929,50 @@
 						"height": {
 							"type": "number"
 						},
+						"held": {
+							"anyOf": [
+								{
+									"properties": {
+										"kind": {
+											"const": "money",
+											"type": "string"
+										},
+										"shown": {
+											"type": "string"
+										}
+									},
+									"required": [
+										"kind",
+										"shown"
+									],
+									"type": "object"
+								},
+								{
+									"properties": {
+										"kind": {
+											"const": "secret",
+											"type": "string"
+										}
+									},
+									"required": [
+										"kind"
+									],
+									"type": "object"
+								},
+								{
+									"properties": {
+										"kind": {
+											"const": "unread",
+											"type": "string"
+										}
+									},
+									"required": [
+										"kind"
+									],
+									"type": "object"
+								}
+							]
+						},
 						"jpeg": {
 							"type": "string"
 						},
@@ -3284,6 +3328,50 @@
 						},
 						"height": {
 							"type": "number"
+						},
+						"held": {
+							"anyOf": [
+								{
+									"properties": {
+										"kind": {
+											"const": "money",
+											"type": "string"
+										},
+										"shown": {
+											"type": "string"
+										}
+									},
+									"required": [
+										"kind",
+										"shown"
+									],
+									"type": "object"
+								},
+								{
+									"properties": {
+										"kind": {
+											"const": "secret",
+											"type": "string"
+										}
+									},
+									"required": [
+										"kind"
+									],
+									"type": "object"
+								},
+								{
+									"properties": {
+										"kind": {
+											"const": "unread",
+											"type": "string"
+										}
+									},
+									"required": [
+										"kind"
+									],
+									"type": "object"
+								}
+							]
 						},
 						"jpeg": {
 							"type": "string"

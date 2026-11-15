@@ -1590,7 +1590,7 @@
 			"phone_as_user"
 		],
 		"name": "phone_act_as_user",
-		"description_chars": 585,
+		"description_chars": 582,
 		"deferred": true,
 		"callers": [
 			"model",

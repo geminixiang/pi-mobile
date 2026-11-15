@@ -105,7 +105,7 @@ const TOOL_CHARS: Record<string, number> = {
 	reply_notification: 570,
 	dismiss_notifications: 325,
 	phone_read_as_user: 643,
-	phone_act_as_user: 2322,
+	phone_act_as_user: 2319,
 	phone_open_as_user: 293,
 	phone_note_as_user: 550,
 	read_page: 651,

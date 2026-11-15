@@ -181,6 +181,7 @@ internal class ScreenActor {
         val field =
             (if (focused?.isEditable == true) focused else editableAt(service.activeRoot(display))) ?: focused
                 ?: return Outcome.Stopped("no text field has focus: tap one first")
+        if (field.isPassword) return Outcome.Stopped(SECRET)
         if (field.isEditable) {
             val before = if (replace) "" else shown(field)
             val arguments = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, before + text) }
@@ -287,7 +288,7 @@ private fun PhoneScreenService.inputFocus(display: Int): AccessibilityNodeInfo? 
     if (display == Display.DEFAULT_DISPLAY) findFocus(AccessibilityNodeInfo.FOCUS_INPUT) else activeRoot(display)?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
 
 private fun readBack(field: AccessibilityNodeInfo, typed: String): Outcome<Unit> {
-    if (typed.isEmpty() || field.isPassword) return Outcome.Ok(Unit)
+    if (typed.isEmpty()) return Outcome.Ok(Unit)
     val end = SystemClock.uptimeMillis() + READ_BACK_MS
     val wanted = comparable(typed)
     while (SystemClock.uptimeMillis() < end) {

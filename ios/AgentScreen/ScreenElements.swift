@@ -17,6 +17,7 @@ struct ScreenView: Equatable {
     let keyboard: Bool
     let headings: [String]
     let lines: [ScreenLine]
+    let secretFocused: Bool
 
     var signature: [String] { [package, String(keyboard)] + headings + lines.map(\.text) }
     var listed: [String] { Array((headings + lines.map(\.listed)).prefix(160)) }
@@ -62,10 +63,12 @@ struct ScreenView: Equatable {
         var current: [Identity: Int] = [:]
         var lines: [ScreenLine] = []
         var keyboard = false
+        var secretFocused = false
         var headings: [String] = []
         func walk(_ node: [String: Any], path: String, owner: String?, context: String) {
             let type = node["type"] as? Int ?? 0
             if type == 19 { keyboard = true; return }
+            if type == 50 && node["focused"] as? Bool == true { secretFocused = true }
             let label = node["label"] as? String ?? ""
             let value = node["value"] as? String ?? ""
             let identifier = node["identifier"] as? String ?? ""
@@ -100,7 +103,7 @@ struct ScreenView: Equatable {
         }
         walk(tree, path: "", owner: nil, context: "")
         previous = current
-        return .success(ScreenView(package: package, app: raw["app"] as? String ?? package, size: size, keyboard: keyboard, headings: headings, lines: lines))
+        return .success(ScreenView(package: package, app: raw["app"] as? String ?? package, size: size, keyboard: keyboard, headings: headings, lines: lines, secretFocused: secretFocused))
     }
 }
 
