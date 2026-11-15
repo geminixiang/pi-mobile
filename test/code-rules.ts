@@ -90,10 +90,20 @@ function findings(file: string): Finding[] {
 	return found;
 }
 
-const SOURCE_FILE = /\.(ts|tsx|java|kt|swift)$/;
+const SOURCE_FILE = /\.(ts|tsx|java|kt|swift|m|h)$/;
 const TYPESCRIPT = /\.tsx?$/;
 
 const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegExp }[] = [
+	{
+		use: /\b(XCTRunnerDaemonSession|XCSynthesizedEventRecord|XCAXClient_iOS)\b/,
+		owners: ["ios/AgentScreen/"],
+		fix: "private XCTest automation belongs only to the open source edition: move it to ios/AgentScreen/InProcess.m and call it through PhoneScreen",
+	},
+	{
+		use: /\bPiEdition\b/,
+		owners: ["ios/AgentScreen/", "ios/App/App/MainViewController.swift"],
+		fix: "edition registration has one seam: define PiEdition in ios/AgentScreen/Edition.swift and resolve it only in MainViewController.swift",
+	},
 	{
 		use: /\bnew WebView\(|[=(] *WebView\(/,
 		owners: ["WebPages.kt"],

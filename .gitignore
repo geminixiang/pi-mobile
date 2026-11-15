@@ -5,3 +5,4 @@ dist
 pi-mobile-*.apk
 test/perf/out/
 host/host
+.probe/

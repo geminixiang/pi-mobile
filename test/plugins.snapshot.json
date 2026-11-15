@@ -3246,7 +3246,13 @@
 			}
 		},
 		"events": {},
-		"ios": []
+		"ios": [
+			"status",
+			"openSettings",
+			"openAppInfo",
+			"read",
+			"act"
+		]
 	},
 	{
 		"name": "PhoneState",

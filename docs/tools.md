@@ -97,7 +97,15 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 哪些方法有實作，看 Capacitor 的 `PluginHeaders`，細到方法（`native.implements(method)`）；整個 plugin 有沒有，用 `native.has(name)`。
 - `test/plugins-node.ts`（在 `npm run check` 裡）掃 Java 的 `@PluginMethod` 和 Swift 的 `pluginMethods`：contract 的每個方法 Android 都要有；兩個平台都不能有 contract 沒寫的方法；contract 和 iOS 已實作的方法記在 `test/plugins.snapshot.json`。改了 contract，或 iOS 多實作一個方法，都要 `--update`，並在「紀錄」寫一行。
 - 在 iOS 實作一個方法：照 contract 的 schema 回傳，跑 `npm run check` 更新快照；`needs` 只用到已實作方法的工具，就會在 iOS 出現。
-- 只在開源版的 plugin（Android 的 `oss` 版本，見 [design/background-screen.md](design/background-screen.md)）放在 `android/app/src/oss/`，列在同一個資料夾的 `Edition.kt`，不在 `MainActivity` 註冊；上架版 `store` 沒有它，`native.has` 回 false。
+- 只在開源版的 plugin（見 [design/background-screen.md](design/background-screen.md)）：Android 放在 `android/app/src/oss/`，列在 `Edition.kt`，不在 `MainActivity` 註冊；iOS 放在 `ios/AgentScreen/`，列在 `Edition.swift`，只由 `MainViewController` 的 `EditionPlugins` seam 載入。上架版沒有它，`native.has` 回 false。`test/plugins-node.ts` 掃兩個平台的開源版方法與 registry；`test/code-rules.ts` 把 private XCTest symbols 限在 `ios/AgentScreen/`。
+
+### iPhone 開源版 screen backend 紀錄（2026-11-15）
+
+`PhoneScreen` 換成 in-process XCTest；工具名稱、參數、回傳 contract、toolset 不變，也沒有新增常駐工具或 context 成本
+
+`test/plugins.snapshot.json` 更新的是 iOS OSS 已實作的 `status`、`openSettings`、`openAppInfo`、`read`、`act`，現在檢查會掃到 `ios/AgentScreen/`，不是 App Store 版新增這些方法
+
+沒有掛載 developer disk image 時回 `ddi_missing`；不啟動 VPN 或 WDA。實機量測與限制見 `.report.md`，生命週期見 [background-screen.md](design/background-screen.md)
 
 ## 工具總圖
 

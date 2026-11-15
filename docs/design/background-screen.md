@@ -85,7 +85,43 @@ S24 實測（GPT 6.1 Sol，暫時的 Bot）：「用 Chrome 查一下台北現�
 4. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。
 5. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。
 
-## iPhone 第二階段：手機自己叫起 WebDriverAgent（2026-11-15，PoC）
+## iPhone：in-process XCTest（2026-11-15）
+
+核心目的：讓開源版的 `phone_read_as_user` / `phone_act_as_user` 直接操作前景 App，不用切掉使用者的 VPN，也不用另外安裝、啟動 WDA runner
+
+程式的分工（讀 `ios/AgentScreen/`、`ios/OSS/project.yml`、`scripts/ios-oss.sh`）：
+
+- `Edition.swift` 透過 `MainViewController` 的 `EditionPlugins` seam 註冊 `PhoneScreenPlugin`；App Store target 不編譯 `ios/AgentScreen/`
+- `InProcess.m` 在 serial queue 上動態載入 developer frameworks，建立 daemon session，讀 accessibility snapshot、合成 touch / text event、開 App、取 PNG；private calls 都在 exception boundary 和 15 秒 deadline 內。逾時回 `session_timeout`，拒絕後續要求直到重開 pi；已交給 OS 的動作不能取消，不可盲目重試
+- `PhoneScreenPlugin.swift` 負責現有 contract、依序做 steps、把 snapshot 轉成 Android 同樣的 role / label / center-point 格式；截圖縮成同一套 point coordinates 的 JPEG。前景選第一個不是 pi 的 active application，只有 pi 時讀 pi
+- `ScreenAwake.swift` 負責 native `AVAudioEngine` 全零 source node 和 WebView 的 silent WAV。read / act 及每個 step 續租 180 秒；pi 回前景立即停兩邊。180 秒是有限的 idle grace，容許模型思考及兩分鐘背景驗證，不是永久背景服務。不能保證鎖屏或系統強制終止後繼續
+- `key back` 優先按 `取消` / `Cancel` / `關閉` / `Close`，否則左緣返回手勢；`home` 用 XCTest 的 Home button，`notifications`、`quick_settings` 是頂緣手勢，`enter` 是換行。iOS 沒有 Android 的通用 Back API，App 沒做返回手勢時可能不動，結果會帶 `unchanged`
+- `recents` 目前回 `unsupported_key`，iPhone capabilities 必須排除它。實機上底緣手勢只捲動 Settings，連續 Home presses 只回主畫面，不能把 branch coverage 當成已實作成功。沒有改共用 `KEYS`，Android 仍支援它
+
+先從 Mac 掛載 developer disk image，再執行：
+
+```sh
+DEVICE=<udid> sh scripts/ios-oss.sh build
+```
+
+DDI 在重開機後可能不在。plugin 的 `status` / `read` / `act` 會 reject，原因以 `ddi_missing` 開頭，說明要從電腦掛載再重開 pi；不是 Android accessibility 權限被關掉，也不會自己開 VPN 或彈授權
+
+`Wda.swift`、`AgentLink.swift` 已移除。`ios/agentscreen-rs`、`ios/LoopbackTunnel` 保留供以後掛載 DDI 用，但 app 不連結、不 embed、不啟動它們；`pair` 指令只留下配對檔，不參與 screen session
+
+建置及實機驗證見 worktree 的 `.report.md`；未驗證的項目不能從上面的程式分工推論成已支援
+
+實機重跑用 `test/device/ios-screen.js`，先啟動 `pymobiledevice3 webinspector cdp --udid <udid> --port 9240`。它透過真正的 Capacitor plugin 呼叫，另一次同步 evaluate 取結果，不依賴 bridge 的 awaitPromise；result 會驗證現有 PhoneScreen schema 和指定欄位，存 JSON 與 JPEG。每次 act 前先看畫面，不自動點授權或設定開關
+
+```sh
+node --import ./test/vite-imports.js test/device/ios-screen.js start read '{"screenshot":true}'
+node --import ./test/vite-imports.js test/device/ios-screen.js result /tmp/ios-read.json '{"package":"com.apple.Preferences"}'
+node --import ./test/vite-imports.js test/device/ios-screen.js start act '{"steps":[{"action":"key","key":"back"}],"screenshot":true}'
+node --import ./test/vite-imports.js test/device/ios-screen.js result /tmp/ios-back.json '{"done":1,"keyboard":false}'
+```
+
+## iPhone 舊方案：手機自己叫起 WebDriverAgent（2026-11-15，歷史 PoC）
+
+以下是已被 in-process session 取代的實驗，不是目前 runtime 的需求
 
 做法照 [research/poki.md](../research/poki.md)，函式庫用 Rust 的 [idevice](https://github.com/jkcoxson/idevice)（MIT）。PoC 是 scratchpad 裡獨立的測試 App（不動 `ios/App`）：一個 Rust 靜態庫、一個 Network Extension 封包通道、一份配對檔。iPhone 12 Pro、iOS 27.2。
 

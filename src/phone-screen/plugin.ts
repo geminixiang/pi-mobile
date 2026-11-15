@@ -1,8 +1,13 @@
 import { type Static, Type } from "typebox";
+import { Capacitor } from "@capacitor/core";
 import { Allowed, definePlugin } from "../plugins/define.ts";
 import { oneOf } from "../parse.ts";
 
 export const KEYS = ["back", "home", "recents", "notifications", "quick_settings", "enter"] as const;
+export function keysFor(platform = Capacitor.getPlatform()): readonly (typeof KEYS)[number][] {
+	return platform === "ios" ? KEYS.filter((key) => key !== "recents") : KEYS;
+}
+
 export const DIRECTIONS = ["down", "up", "left", "right"] as const;
 
 const Step = Type.Union([
