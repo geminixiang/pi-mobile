@@ -603,19 +603,14 @@ func (c *computer) run(s step) error {
 	if c.seen == nil {
 		return errors.New("take a screenshot first: coordinates are its pixels")
 	}
-	if s.Action == "click" && s.Name != "" {
-		n, err := c.find(s.Name, 0)
+	if s.Action == "click" {
+		n, targeted, err := c.element(s)
 		if err != nil {
 			return err
 		}
-		return c.clickNode(n, s)
-	}
-	if s.Action == "click" && s.ID != 0 {
-		i := slices.IndexFunc(c.seen.ui, func(n uiNode) bool { return n.id == s.ID })
-		if i < 0 {
-			return fmt.Errorf("no element [%d] in the last look", s.ID)
+		if targeted {
+			return c.clickNode(n, s)
 		}
-		return c.clickNode(c.seen.ui[i], s)
 	}
 	at := func(x, y float64) (float64, float64) {
 		return c.seen.origin.x + x*c.seen.scale, c.seen.origin.y + y*c.seen.scale

@@ -398,7 +398,8 @@ func main() {
 }
 
 func shortName(device string) string {
-	return strings.Split(strings.TrimSuffix(device, "."), ".")[0]
+	name, _, _ := strings.Cut(device, ".")
+	return name
 }
 
 func printDevices() int {

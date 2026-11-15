@@ -9,6 +9,7 @@ import (
 	"image"
 	"math"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,7 +68,7 @@ func (s *x11Screen) loadKeymap() error {
 	s.perCode, s.keysyms, s.spare = int(reply.KeysymsPerKeycode), reply.Keysyms, nil
 	for code := int(first); code <= int(last); code++ {
 		row := s.keysyms[(code-int(first))*s.perCode : (code-int(first)+1)*s.perCode]
-		if allZero(row) {
+		if !slices.ContainsFunc(row, func(sym xproto.Keysym) bool { return sym != 0 }) {
 			s.spare = append(s.spare, xproto.Keycode(code))
 		}
 	}
@@ -77,15 +78,6 @@ func (s *x11Screen) loadKeymap() error {
 	}
 	s.shiftCode = shift.code
 	return nil
-}
-
-func allZero(row []xproto.Keysym) bool {
-	for _, sym := range row {
-		if sym != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 func (s *x11Screen) place(sym uint32) (keyPlace, bool) {

@@ -95,6 +95,22 @@ func TestOnlyAnotherDeviceOfTheSameUserGetsIn(t *testing.T) {
 	}
 }
 
+func TestShortName(t *testing.T) {
+	for device, want := range map[string]string{
+		"s24.tailnet.ts.net.": "s24",
+		"s24.tailnet.ts.net":  "s24",
+		"s24.":                "s24",
+		"s24":                 "s24",
+		"":                    "",
+		".":                   "",
+		".tailnet.ts.net.":    "",
+	} {
+		if got := shortName(device); got != want {
+			t.Errorf("shortName(%q) = %q, want %q", device, got, want)
+		}
+	}
+}
+
 func TestUnpairByNameForgetsThatDeviceOnly(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	now := time.Now()

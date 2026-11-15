@@ -1,8 +1,10 @@
 package computer
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf16"
@@ -246,7 +248,8 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 		return
 	}
 	subrole := w.str(at(attrSubrole))
-	n := uiNode{depth: depth, role: roleName(role, subrole), name: firstOf(w.str(at(attrTitle)), w.str(at(attrDescription)))}
+	name := cmp.Or(w.str(at(attrTitle)), w.str(at(attrDescription)))
+	n := uiNode{depth: depth, role: roleName(role, subrole), name: name}
 	switch value := w.str(at(attrValue)); {
 	case value == "" || value == n.name:
 	case role == "AXStaticText" && n.name == "":
@@ -271,7 +274,7 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 	n.selected, _ = w.boolean(at(attrSelected))
 	if role == "AXPopUpButton" && s.text(s.attribute(element, "AXIdentifier")) == "where popup" {
 		if path := []rune(s.wherePath(element)); len(path) > 0 {
-			n.name = firstOf(w.str(at(attrTitle)), w.str(at(attrDescription))) + " =…" + string(path[max(len(path)-uiName/2, 0):])
+			n.name = name + " =…" + string(path[max(len(path)-uiName/2, 0):])
 		}
 	}
 	if role == "AXCheckBox" || role == "AXRadioButton" {
@@ -297,9 +300,11 @@ func (w *uiWalker) visit(element uintptr, depth int) {
 	if w.kind(children) != t.arrayType {
 		return
 	}
-	if sheet := w.sheet(children); depth == 0 && sheet != 0 {
-		w.visit(sheet, next)
-		return
+	if depth == 0 {
+		if sheet := w.sheet(children); sheet != 0 {
+			w.visit(sheet, next)
+			return
+		}
 	}
 	for i := range s.ax.count(children) {
 		w.visit(s.ax.item(children, i), next)
@@ -330,7 +335,7 @@ func (w *uiWalker) texts(children uintptr, depth int) []string {
 			continue
 		}
 		at := func(i int) uintptr { return s.ax.item(values, int64(i)) }
-		if text := firstOf(w.str(at(attrValue)), w.str(at(attrTitle))); text != "" {
+		if text := cmp.Or(w.str(at(attrValue)), w.str(at(attrTitle))); text != "" {
 			found = append(found, text)
 		}
 		found = append(found, w.texts(at(attrChildren), depth+1)...)
@@ -389,15 +394,6 @@ func roleName(role, subrole string) string {
 		return "textfield"
 	}
 	return strings.ToLower(strings.TrimPrefix(role, "AX"))
-}
-
-func firstOf(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 type macElement struct {
@@ -515,12 +511,13 @@ func (s *macScreen) wherePath(popup uintptr) string {
 			if name == "" {
 				break
 			}
-			folders = append([]string{name}, folders...)
+			folders = append(folders, name)
 		}
 		if items != 0 {
 			s.release(items)
 		}
 		s.tree.perform(menu, cancel)
 	}
+	slices.Reverse(folders)
 	return strings.Join(folders, "/")
 }
