@@ -84,3 +84,28 @@ S24 實測（GPT 6.1 Sol，暫時的 Bot）：「用 Chrome 查一下台北現�
 3. **背景螢幕何時關**：現在開了就留到 pi 結束；之後在 Bot 都閒下來一段時間後關。
 4. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。
 5. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。
+
+## iPhone 第二階段：手機自己叫起 WebDriverAgent（2026-11-15，PoC）
+
+做法照 [research/poki.md](../research/poki.md)，函式庫用 Rust 的 [idevice](https://github.com/jkcoxson/idevice)（MIT）。PoC 是 scratchpad 裡獨立的測試 App（不動 `ios/App`）：一個 Rust 靜態庫、一個 Network Extension 封包通道、一份配對檔。iPhone 12 Pro、iOS 27.2。
+
+| 步驟 | 結果 |
+|---|---|
+| Mac 上 `idevice-tools xctest` 經 USB 啟動 WDA runner（不經 Xcode） | 成功，WDA 回狀態、截圖 |
+| Mac 上只拿 lockdown 配對檔、經 Wi-Fi 直連啟動 WDA | 成功 |
+| 手機上：本機 VPN（介面 10.7.0.2、只導 10.7.0.1，封包來源和目的對調送回）＋ lockdown 配對檔連 10.7.0.1:62078 | **失敗**：TCP 交握成功，lockdownd 接受後立刻關掉（iOS 27 在這條路上擋 lockdown） |
+| 手機上：同一個 VPN ＋ RemotePairing 配對檔連 10.7.0.1:49152 | 成功，47 ms 連上，RSD 列出 85 個服務（testmanagerd、dtservicehub、installation_proxy 都在） |
+| 手機上：經 RSD 啟動 WDA runner | 成功：App 內 `127.0.0.1:8100` 回 WDA 狀態；runner 的 PID 緊接在 App 之後，App 一關它就消失（不是 Mac 啟動的那個）；跑兩次都成功 |
+| 手機上不開 VPN、直接連自己的 Wi-Fi 位址 | 失敗，所以本機 VPN 是必要的 |
+
+要讓它動，在 idevice 加了一個入口 `XCUITestService::run_over_rsd`（吃一條已經建好的 RSD 通道；原本的 `run` 一定先經 lockdown 拿 CoreDeviceProxy）。這是本地修改，還沒送回上游。
+
+RemotePairing 配對檔是在 Mac 上經 USB 不用按任何東西產生的（`idevice-tools remotepairing_lockdown pair`）。iOS 27 也能在手機上自己配（App 廣播 `_remotepairing-pairable-host._tcp`，使用者在手機輸入 PIN，idevice 的 `pairable_host`），還沒試。
+
+### 要決定或還沒做的
+
+- **VPN 只能開一個**：本機 VPN 一開，使用者原本的 VPN（例如 Tailscale）就斷了。Poki 和 StikDebug 都有這個限制；要想辦法只在 Bot 操作時開、做完還原，或接受它。
+- **開發者磁碟映像**：這次 iPhone 上已經掛著（之前跑過 Xcode）。重開機後要在手機上自己掛（personalized DDI，第一次要經網路跟 Apple 簽，idevice 有）。
+- **保活**：App 關掉或被系統暫停，runner 約 30 秒內就死。要照 Poki 用背景音訊加即時動態，或只在 pi 在前景時用。
+- **簽章和上架**：要付費開發者帳號才有 Network Extension；WDA runner 和開發者模式都不能上 App Store，只能放開源版或側載版。
+- **接進 pi**：照之前講好的分開放（開源版 target、`ios/agentscreen-rs`、`ios/LoopbackTunnel`），讀和點走 WDA 的 HTTP。
