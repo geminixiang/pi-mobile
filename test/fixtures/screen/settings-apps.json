@@ -1,0 +1,36 @@
+{
+	"before": {
+		"app": "設定", "appId": "com.android.settings", "size": [384, 832], "keyboard": false,
+		"windows": [{ "kind": "app" }], "truncated": 0,
+		"nodes": [
+			{ "ref": "root", "role": "group", "name": "", "depth": 0, "state": [], "window": 0 },
+			{ "ref": "back", "role": "button", "name": "", "at": [28, 56], "depth": 1, "state": [], "window": 0 },
+			{ "ref": "title", "role": "heading", "name": "應用程式", "at": [160, 56], "depth": 1, "state": [], "window": 0 },
+			{ "ref": "search", "role": "button", "name": "搜尋應用程式", "at": [340, 56], "depth": 1, "state": [], "window": 0 },
+			{ "ref": "apps", "role": "list", "name": "", "at": [192, 420], "depth": 1, "state": ["scrollable"], "window": 0 },
+			{ "ref": "browser", "role": "button", "name": "Chrome", "at": [192, 184], "depth": 2, "state": [], "window": 0 },
+			{ "ref": "browser-storage", "role": "text", "name": "使用 284 MB 儲存空間", "at": [192, 206], "depth": 3, "state": [], "window": 0 },
+			{ "ref": "clock", "role": "button", "name": "時鐘", "at": [192, 272], "depth": 2, "state": [], "window": 0 },
+			{ "ref": "clock-storage", "role": "text", "name": "使用 32 MB 儲存空間", "at": [192, 294], "depth": 3, "state": [], "window": 0 },
+			{ "ref": "maps", "role": "button", "name": "地圖", "at": [192, 360], "depth": 2, "state": [], "window": 0 },
+			{ "ref": "maps-storage", "role": "text", "name": "使用 196 MB 儲存空間", "at": [192, 382], "depth": 3, "state": [], "window": 0 },
+			{ "ref": "unused", "role": "switch", "name": "暫停未使用的應用程式活動", "at": [192, 720], "depth": 1, "state": ["checked"], "window": 0 }
+		]
+	},
+	"after": {
+		"app": "設定", "appId": "com.android.settings", "size": [384, 832], "keyboard": false,
+		"windows": [{ "kind": "app" }], "truncated": 0,
+		"nodes": [
+			{ "ref": "root", "role": "group", "name": "", "depth": 0, "state": [], "window": 0 },
+			{ "ref": "back", "role": "button", "name": "", "at": [28, 56], "depth": 1, "state": [], "window": 0 },
+			{ "ref": "title", "role": "heading", "name": "應用程式", "at": [160, 56], "depth": 1, "state": [], "window": 0 },
+			{ "ref": "search", "role": "button", "name": "搜尋應用程式", "at": [340, 56], "depth": 1, "state": [], "window": 0 },
+			{ "ref": "apps", "role": "list", "name": "", "at": [192, 420], "depth": 1, "state": ["scrollable"], "window": 0 },
+			{ "ref": "browser", "role": "button", "name": "Chrome", "at": [192, 184], "depth": 2, "state": [], "window": 0 },
+			{ "ref": "browser-storage", "role": "text", "name": "使用 280 MB 儲存空間", "at": [192, 206], "depth": 3, "state": [], "window": 0 },
+			{ "ref": "clock", "role": "button", "name": "時鐘", "at": [192, 272], "depth": 2, "state": [], "window": 0 },
+			{ "ref": "clock-storage", "role": "text", "name": "使用 32 MB 儲存空間", "at": [192, 294], "depth": 3, "state": [], "window": 0 },
+			{ "ref": "unused", "role": "switch", "name": "暫停未使用的應用程式活動", "at": [192, 720], "depth": 1, "state": [], "window": 0 }
+		]
+	}
+}

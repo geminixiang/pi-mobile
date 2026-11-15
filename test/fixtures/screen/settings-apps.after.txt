@@ -1,0 +1,12 @@
+設定 (com.android.settings) 384x832 keyboard:off
+w0 app
+e1 button @28,56
+e2 heading "應用程式"
+e3 button "搜尋應用程式"
+e4 list @192,420 scrollable
+  e5 button "Chrome"
+    e6 text "使用 280 MB 儲存空間"
+  e7 button "時鐘"
+    e8 text "使用 32 MB 儲存空間"
+e11 switch "暫停未使用的應用程式活動"
+truncated: 0

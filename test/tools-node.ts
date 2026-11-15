@@ -52,6 +52,7 @@ interface ToolInterface {
 	extension: string;
 	groups: readonly string[] | "always" | null;
 	name: string;
+	description_chars: number;
 	deferred: boolean;
 	callers: readonly string[];
 	parameters: unknown;
@@ -67,6 +68,7 @@ function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 		extension,
 		groups: declarationOf(tool)?.groups ?? null,
 		name: tool.name,
+		description_chars: (tool.description ?? "").length,
 		deferred: tool.deferred === true,
 		callers: tool.callers ?? ["model", "tools"],
 		parameters: plain(tool.parameters),
@@ -79,6 +81,82 @@ function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 }
 
 const tools = extensions.flatMap((extension) => (extension.tools ?? []).map((tool) => ({ tool, iface: interfaceOf(extension.name, tool) })));
+
+const TOOL_CHARS: Record<string, number> = {
+	device_info: 294,
+	get_location: 221,
+	read_sensors: 384,
+	get_travel_time: 611,
+	weather: 729,
+	find_places: 1146,
+	tw_stocks: 1400,
+	sql: 699,
+	set_alarm: 427,
+	open_alarms: 222,
+	set_timer: 279,
+	compose_email: 370,
+	compose_sms: 289,
+	open_maps: 444,
+	open_link: 288,
+	share: 472,
+	speak: 548,
+	read_notifications: 900,
+	reply_notification: 570,
+	dismiss_notifications: 325,
+	phone_read_as_user: 611,
+	phone_act_as_user: 2184,
+	read_page: 651,
+	use_browser: 3275,
+	media: 422,
+	do_not_disturb: 483,
+	sound: 650,
+	display: 627,
+	flashlight: 257,
+	connections: 588,
+	contacts: 512,
+	find_photos: 855,
+	view_photos: 311,
+	call_log: 325,
+	read_sms: 522,
+	screen_time: 381,
+	health: 571,
+	read_skill: 265,
+	save_skill: 812,
+	read_attachment: 935,
+	scan_document: 429,
+	read_calendar_events: 768,
+	list_calendars: 254,
+	add_calendar_event: 812,
+	delete_calendar_event: 616,
+	codemode: 1717,
+	github_api: 557,
+	github_read_file: 463,
+	gcp_api: 589,
+	cloudflare_api: 541,
+	azure_api: 561,
+	web_search: 404,
+	web_fetch: 776,
+	create_schedule: 4045,
+	schedule_followup: 610,
+	list_schedules: 87,
+	delete_schedule: 164,
+	notify: 465,
+	note_item: 1363,
+	list_items: 315,
+	update_memory: 640,
+	ask_user: 1164,
+	computer_read_as_user: 1218,
+	computer_act_as_user: 2324,
+	list_agents: 557,
+	read_agent: 540,
+	tell_agent: 760,
+	answer_agent: 827,
+	read: 602,
+	write: 352,
+	edit: 1102,
+	bash: 810,
+	tool_search: 448,
+};
 
 const EXTERNAL = new Set(["coding-tools", "codemode", "tool-search"]);
 
@@ -200,10 +278,17 @@ const rules: Rule[] = [
 
 const failures: string[] = [];
 const names = new Map<string, string>();
-for (const { iface } of tools) {
+for (const { tool, iface } of tools) {
+	const chars = iface.description_chars + JSON.stringify(tool.parameters).length;
+	const allowed = TOOL_CHARS[iface.name];
+	if (allowed === undefined || chars > allowed) failures.push(`${iface.name} is ${chars} characters, ${allowed ?? "no baseline"} allowed (TOOL_CHARS): shorten it or move grammar into the schema; raise it only with a measured row in docs/tools.md`);
+	if (allowed !== undefined && chars < allowed) failures.push(`${iface.name} is ${chars} characters, fewer than TOOL_CHARS (${allowed}): lower it to ${chars} so the ratchet holds`);
 	const other = names.get(iface.name);
 	if (other) failures.push(`tool ${iface.name} is defined twice (${other}, ${iface.extension})`);
 	names.set(iface.name, iface.extension);
+}
+for (const name of Object.keys(TOOL_CHARS)) {
+	if (!names.has(name)) failures.push(`${name} no longer exists: remove its TOOL_CHARS entry so the ratchet holds`);
 }
 for (const { rule, broken } of rules) {
 	const offenders = tools
