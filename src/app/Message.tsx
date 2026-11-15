@@ -13,7 +13,7 @@ import type { Prefs } from "./prefs.ts";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "./openFile.ts";
-import { preview, stepsLabel } from "./steps.ts";
+import { preview, stepsLabel, TOOL_DOING } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { monthDayTime } from "../time.ts";
 import { formatBytes } from "../encoding.ts";
@@ -98,6 +98,8 @@ function phoneLabel(name: string, args: Record<string, unknown>): string | undef
 			return join(str(args.origin) ? `${str(args.origin)} → ${str(args.destination)}` : str(args.destination), str(args.mode));
 		case "open_link":
 			return str(args.url);
+		case "phone_open_as_user":
+			return str(args.app);
 		case "share":
 			return str(args.path) || str(args.title) || str(args.text).slice(0, 40);
 		case "read_calendar_events":
@@ -150,24 +152,6 @@ export function callLabel(name: string, args: Record<string, unknown>): string {
 }
 
 const harnessTag = /<\/?harness>\n?/g;
-
-const TOOL_DOING = new Map<string, string>([
-	["bash", "跑指令"],
-	["read", "讀檔案"],
-	["write", "寫檔案"],
-	["edit", "改檔案"],
-	["codemode", "執行腳本"],
-	["update_memory", "更新記憶"],
-	["tool_search", "載入工具"],
-	["read_page", "看網頁"],
-	["use_browser", "操作瀏覽器"],
-	["phone_read_as_user", "看手機畫面"],
-	["phone_act_as_user", "操作手機"],
-	["computer_read_as_user", "看電腦畫面"],
-	["computer_act_as_user", "操作電腦"],
-	["view_photos", "看照片"],
-	["read_attachment", "讀附件"],
-]);
 
 const TOOLS_ALWAYS_SHOWN = new Set(["update_memory"]);
 

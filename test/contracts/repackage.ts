@@ -11,7 +11,6 @@ import { type Check, platform } from "./setup.ts";
 
 const { extensions } = builtinExtensions({
 	userSaid: async () => [],
-	native: platform.native,
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
 	clouds: [],
@@ -23,7 +22,7 @@ const { extensions } = builtinExtensions({
 	waitForJob: () => undefined,
 	labelOf: (tool) => tool,
 	actsAsUser: async () => false,
-	permissions: { state: async () => "granted", request: async () => true },
+	platform: { native: platform.native, permissions: { state: async () => "granted", request: async () => true }, apps: undefined },
 	ask: async () => ({ action: "cancel" }),
 });
 

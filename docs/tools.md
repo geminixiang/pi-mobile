@@ -53,7 +53,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 - 工具、參數、擴充、工具組 id 都用 snake_case。
 - **三層名字**：工具組（`toolsets.ts`，面板上的一個開關，id 存在每個 Bot 裡，不改）→ 擴充（實作和載入的單位，不存，可以改）→ 工具（模型看到的名字；改了，舊對話裡模型可能照舊名叫一次）。擴充名稱是它處理的東西（`calendar`、`computer_shell`），不是實作（不叫 `sandbox`、`triggers`）。
-- **以使用者的身分操作畫面**的工具，名稱寫出在哪一台、以使用者身分：`phone_read_as_user`、`phone_act_as_user`、`computer_read_as_user`、`computer_act_as_user`，擴充是 `phone_as_user`、`computer_as_user`。它們對 App 來說就是使用者本人，App 可能擋，說明的第一句要寫是最後手段。Bot 自己的瀏覽器（`read_page`、`use_browser`）不算。在畫面上點、打字只出現在這幾個工具：其他工具開了畫面（草稿、地圖、`connections` 的 Wi‑Fi 面板）就停在那裡，由使用者或 `phone_act_as_user` 接著做。`test/tools-node.ts` 檢查名字帶 `as_user` 的工具是需要時載入、而且只放在 `*_as_user` 擴充裡。
+- **以使用者的身分操作畫面**的工具，名稱寫出在哪一台、以使用者身分：`phone_read_as_user`、`phone_act_as_user`、`computer_read_as_user`、`computer_act_as_user`，擴充是 `phone_as_user`、`computer_as_user`。它們對 App 來說就是使用者本人，App 可能擋，說明的第一句要寫是最後手段。Bot 自己的瀏覽器（`read_page`、`use_browser`）不算。在畫面上點、打字只出現在這幾個工具：其他工具開了畫面（草稿、地圖、`connections` 的 Wi‑Fi 面板）就停在那裡，由使用者或 `phone_act_as_user` 接著做。`test/tools-node.ts` 檢查名字帶 `as_user` 的工具是需要時載入、而且只放在 `*_as_user` 擴充裡；唯一的例外是一組的入口工具（`phone_open_as_user`）：直接提供，`defineAppTool` 的 `loads` 要列出同組的其他工具，它的結果用 `control.addTools`（和 `tool_search` 同一個機制）把它們載入。`phone_note_as_user` 屬於這組，但放在 `skills.ts` 的 `app_notes` 擴充，因為它寫的是技能資料（`BotSkillsDoc`）。
 - 會改動東西的動作是「動詞_名詞」：`set_alarm`、`add_calendar_event`、`reply_notification`。
 - 讀取是 `read_`、`find_`、`list_`、`get_` 開頭，或者直接是資料來源的名字（`weather`、`contacts`、`health`、`screen_time`、`call_log`）。
 - 同一個東西的「查看」和「控制」放在同一個工具，用 `action` 或 `mode` 區分，第一個值是 `status`：`media`、`do_not_disturb`。
@@ -119,7 +119,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - **螢幕使用時間**（`screen_time`）：`screen_time`
 - **手機控制**（`phone_control`）：`media`、`do_not_disturb`、`sound`、`display`、`flashlight`、`connections`
 - **瀏覽器**（`browser`）：`read_page`、`use_browser`
-- **代你操作 App**（`phone_as_user`）：`phone_read_as_user`＊、`phone_act_as_user`＊
+- **代你操作 App**（`phone_as_user`）：`phone_open_as_user`†、`phone_read_as_user`＊、`phone_act_as_user`＊、`phone_note_as_user`＊
 - **通知**（`notifications`）：`read_notifications`、`reply_notification`、`dismiss_notifications`
 - **資料庫**（`database`）：`sql`
 - **語音**（`speech`）：`speak`
@@ -187,6 +187,8 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 | `cloudflare_api` | Cloudflare | Cloudflare REST API | 讀取唯讀，寫入直接 | ✓ |
 | `azure_api` | Azure | Azure REST API | 讀取唯讀，寫入直接 | ✓ |
 | `phone_read_as_user` | 代你操作 App | 手機自己的畫面：前景 app、元件 id、文字、狀態與中心座標，要的時候加截圖；無障礙服務 | 唯讀 | |
+| `phone_open_as_user` | 代你操作 App | 在 Bot 自己的背景螢幕開一個 App（沒有背景螢幕就在使用者的畫面），回傳開好的畫面，並載入 `phone_read_as_user`、`phone_act_as_user`，不必 `tool_search`；直接提供 | 唯讀 | |
+| `phone_note_as_user` | 代你操作 App | Bot 記下自己在某個 App 學到的做法（東西在哪、走得通的路徑、怪癖），每個 App 一則、存在這個 Bot 的技能資料裡（`BotSkillsDoc.apps`），附上當時的 App 版本；之後提到那個 App 的訊息會附上它；空白刪除；排程觸發時拒絕；由 `phone_open_as_user` 一起載入 | 直接 | |
 | `phone_act_as_user` | 代你操作 App | 一次跨多個畫面：開 app、依 id／文字／座標點、等待文字、捲到文字、確認 app／文字、長按、滑、打字與按鍵；做完回傳變動行，大幅改變才回完整畫面；`note` 顯示在背景螢幕預覽 | 直接 | |
 | `read_page` | 瀏覽器 | 這個 Bot 自己的瀏覽器開著的那一頁：網址、看得到的元件（角色、文字、中心座標）、頁面文字，要的時候加截圖 | 唯讀 | ✓ |
 | `use_browser` | 瀏覽器 | 一次多個步驟（開網址、點、打字、清空、按鍵、捲動、上一頁、等某段文字出現或消失），做完回傳頁面；`hand_over` 交給使用者登入或處理驗證碼，交還後接著做 | 直接 | ✓ |
@@ -288,6 +290,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-15 | mika 的決定 1、2（[research/mika-agent.md](research/mika-agent.md)），決定 3 依擁有者改成 Bot 自己學：新工具 `phone_open_as_user`（直接提供）在背景螢幕開 App，結果用 `control.addTools` 載入 `phone_read_as_user`、`phone_act_as_user`、`phone_note_as_user`（`defineAppTool` 新欄位 `loads`，快照記錄；`*_as_user` 規則多一個例外：直接提供的入口工具要 `loads` 同組所有工具）。新工具 `phone_note_as_user`（需要時載入）把 Bot 在某個 App 學到的做法存進它的技能資料（`BotSkillsDoc` 第 2 版多 `apps`，每個 App 一則、最多 24 則、500 字，記下當時的 App 版本；排程觸發時拒絕，和 `save_skill` 一樣）。每則使用者訊息比對手機上**實際安裝**的 App 名稱與套件（新原生方法 `Apps.installed`，每次開 runtime 問一次；iOS 沒有就不加），比對到時在那則訊息後面加一行「Apps for this」（最多 3 個），這個 Bot 對那個 App 存過筆記就附上（每段對話第一次、最多 2 則，版本不同時標明要重新確認）。加在訊息上、不加在系統提示（`beforeRequest`，跟時間戳記同一種做法），每次請求對同一則訊息算出一樣的內容，快取的前綴不變；筆記只附在它存好之後的訊息 | 常駐：`phone_open_as_user` 定義 353 字元、78 tokens（`TOOL_CHARS` 293）；`on-demand` 段落 416 → 436 字元、110 → 115 tokens（多列 `phone_note_as_user`）；其他段落不變，系統提示 2,847 → 2,852 tokens。載入後：`phone_note_as_user` 定義 139 tokens（`TOOL_CHARS` 550）。比對到的訊息：一個 App 那行 22 tokens，三個 46；附筆記時每則多約 20 tokens 標籤加筆記本身（上限 500 字，全中文約 385 tokens），版本不同再多 28。都是 tiktoken o200k_base 實算 | `test/contracts/app-notes.ts`（拿掉這個機制時其中 3 項失敗）：只列已安裝、依名稱比對（「蝦皮」比對到「蝦皮購物」、「Uber Eats」不列 Uber、「online」不列 LINE）、前一則訊息下次請求一字不差、只問手機一次、關掉「代你操作 App」就不加、筆記只附一次、存之前的訊息不受影響、版本變了標明、未安裝的 App 和超過 500 字被拒、空白刪除、排程拒絕；`loads` 讓下一次請求就有被載入的工具。沒有用 S24：`Apps.installed` 的 Kotlin 只編譯檢查過 `npm run check` 範圍，沒跑 `tool-cost.sh` 和自然問句 |
 | 2026-11-15 | 畫面 driver 第一步：`src/screen/` 合約、純 encoder/diff 與三組虛構 golden fixture，尚未接工具。工具快照新增 `description_chars`，只記說明文字長度；`TOOL_CHARS` 另外鎖住每個工具的說明 + `JSON.stringify(parameters)` 字元數，增減都必須處理。`plugins-node.ts` 改為解析真實 step 分支，雙向比對現有 schema | 既有 73 個工具的內容、參數和載入方式不變；合計 52,735 字元。phone read/act 611 / 2,184，computer read/act 1,218 / 2,324，use_browser 3,275 | 離線執行 tools-node `--update`（快照僅新增 73 個 `description_chars` 欄位）、screen-observation：Settings before/after/diff 324 / 269 / 67，chat 629 / 169 / 201，checkout 655 / 250 / 171；`OBSERVATION_CHARS`、`DIFF_CHARS` 雙向鎖定。字元不是 tokens；沒有裝置量測。合約與 Kotlin 格式的對照、ID 壽命及 protocol 延後理由見 [screen-encoding](design/screen-encoding.md) |
 | 2026-11-15 | 手機操作的 #1、#2、#4、#5：穩定 id、live tree 的文字／id 點擊、`wait_for`、`scroll_to`、`expect`；300 字文字與卡片子項、欄位／狀態／錯誤／視窗標記、完整遍歷後的省略數、按 display 的差異與 settle。`phone_act_as_user.note` 傳到背景螢幕預覽。刻意更新工具與 `PhoneScreen` 合約快照（兩者都用 `--update`），座標與既有步驟保留；不做 #3 安全閘 | 實算 o200k_base：兩個載入定義 708 → 745 tokens（+37），2917 → 2999 字元；兩段 description 合計 254 → 201 tokens（−53）。重套到 `c126efd` 後，tools-node 實算 `TOOL_CHARS`（description + `JSON.stringify(parameters)`）：phone read 611 → 551（−60），phone act 2184 → 2326（+142），合計 2795 → 2877（+82）；read 精簡說明，act 新增 id／文字目標、條件步驟和 `note`，同步調整 ratchet 與保留 `description_chars` 的工具快照。提示文字 2785 → 2785 tokens；工具快照 85532 → 86022 bytes（+490），序列化快照 +138 tokens，不是每次請求成本 | 已跑 `npm run check`、兩個 Gradle 編譯與模擬器 Settings 原生批次；重跑、邊界與證據見 [errands-report.md](design/errands-report.md)。沒有用 S24，也沒有模型端到端量測 |
 | 2026-11-15 | `phone_read_as_user`、`phone_act_as_user` 多一個選填的 `screen`：`background`（預設）在背景螢幕上讀和做，使用者照常用手機；`front` 是使用者的畫面，只在要給使用者看或交給他接手時用。沒有背景螢幕（上架版、沒配對、無線偵錯關著）就在使用者的畫面做，結果第一行說明在哪個畫面、為什麼。外掛合約 `PhoneScreen.act` 多選填的 `display`；點、滑、捲用無障礙手勢的 `setDisplayId`，打字、送出找那個螢幕的輸入焦點，開 App 用 `ActivityOptions.setLaunchDisplayId` 開成新的工作（pi 自己就能開，不用 shell）；返回等系統鍵無障礙只送得到主螢幕，由開源版的 `DisplayShell` 用 `input -d` 送。`AgentScreen` 拿掉 `launch` 和 `shot`（截圖改用無障礙的 `takeScreenshot(display)`） | 兩個工具的參數各多一欄 | S24、GPT 6.1 Sol，暫時的 Bot 只開「代你操作 App」：「用 Chrome 查一下台北現在幾度」41 秒答出 21°C、體感 24°C；全程 pi 留在主螢幕，Chrome 在背景螢幕（display 10），`mTopFocusedDisplayId=0`。模擬器逐步：點搜尋框、打「台北天氣」、送出、返回都在背景螢幕上完成。沒量 `test/device/tool-cost.sh` |

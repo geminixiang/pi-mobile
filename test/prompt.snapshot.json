@@ -71,7 +71,7 @@
 	},
 	{
 		"name": "on-demand",
-		"chars": 416,
-		"text": "<on-demand>\nLoad these with tool_search before calling them:\n- 代你操作 App (Read an app's screen as the user, for what lives inside an app (orders, messages, bookings, carts)): phone_read_as_user, phone_act_as_user\n- 相片 (Look at photos by the ids find_photos gave, at most 4 a call, scaled down): view_photos\n- attachments (Read a file the user attached, by the id in its <attachment> tag): read_attachment\n</on-demand>"
+		"chars": 436,
+		"text": "<on-demand>\nLoad these with tool_search before calling them:\n- 代你操作 App (Read an app's screen as the user, for what lives inside an app (orders, messages, bookings, carts)): phone_read_as_user, phone_act_as_user, phone_note_as_user\n- 相片 (Look at photos by the ids find_photos gave, at most 4 a call, scaled down): view_photos\n- attachments (Read a file the user attached, by the id in its <attachment> tag): read_attachment\n</on-demand>"
 	}
 ]

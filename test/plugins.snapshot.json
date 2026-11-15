@@ -210,6 +210,42 @@
 				},
 				"result": null
 			},
+			"installed": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"apps": {
+							"items": {
+								"properties": {
+									"label": {
+										"type": "string"
+									},
+									"package": {
+										"type": "string"
+									},
+									"version": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"package",
+									"label",
+									"version"
+								],
+								"type": "object"
+							},
+							"type": "array"
+						}
+					},
+					"required": [
+						"apps"
+					],
+					"type": "object"
+				}
+			},
 			"share": {
 				"args": {
 					"properties": {

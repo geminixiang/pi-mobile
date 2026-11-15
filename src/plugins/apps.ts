@@ -14,6 +14,7 @@ export const Apps = definePlugin("Apps", {
 	composeEmail: { args: Type.Object({ to: Type.Array(Type.String()), subject: Type.Optional(Type.String()), body: Type.String() }), opens: "screen" },
 	composeSms: { args: Type.Object({ to: Type.String(), body: Type.String() }), opens: "screen" },
 	open: { args: Type.Object({ uri: Type.String() }), opens: "screen" },
+	installed: { args: Type.Object({}), result: Type.Object({ apps: Type.Array(Type.Object({ package: Type.String(), label: Type.String(), version: Type.String() })) }) },
 	share: {
 		args: Type.Object({
 			text: Type.Optional(Type.String()),

@@ -60,9 +60,10 @@ Finishing the task is half the job; the other half is leaving the design better 
 | No `any`, `!`, casts, swallowed catches | `test/code-rules.ts` |
 | Tools defined with `defineAppTool`, in the catalog, a toolset, the tool list, the snapshot | `test/tools-node.ts` |
 | Every tool declares its groups (`defineAppTool`, or `adopt` in `catalog.ts`); a tool in several groups has one per `where`; the snapshot records each tool's groups | `test/tools-node.ts` |
-| A tool that acts as the user is `*_as_user`, loaded on demand, in a `*_as_user` extension | `test/tools-node.ts` |
+| An `*_as_user` tool loads on demand, except one entry tool whose `loads` names the rest | `test/tools-node.ts` |
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
 | Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
+| App notes: installed apps only, bounded, never written unattended | `test/contracts/app-notes.ts` |
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
 | Every step action and key the phone screen and the browser declare is read by their Kotlin side | `test/plugins-node.ts` |
 | Every native plugin class is registered (`MainActivity`, `MainViewController`) | `test/plugins-node.ts` |
@@ -78,7 +79,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Sorting by an optional time goes through `soonest` (`src/time.ts`) | `test/code-rules.ts` |
 | `useEffect`, `useLayoutEffect` and timers appear only in the files `EFFECTS` lists, at most its count, which only goes down; a store is read with `useSubscribed` (docs/effects.md) | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
-| Every prompt section is an `appSection` with a budget; with a crowded app (removed bots, full memory, every toolset) each stays in it and the whole prompt in `PROMPT_BUDGET`; the rendered prompt matches `test/prompt.snapshot.json` | `test/code-rules.ts`, `test/prompt.ts` |
+| Every prompt section is an `appSection` within its budget, even in a crowded app; the prompt fits `PROMPT_BUDGET` and matches its snapshot | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |
 | A JSX `style` sets only `--custom-properties`; a `transition` never names a layout property | `test/code-rules.ts`, Stylelint (`stylelint/transition-no-layout.js`) |
 | No `.menu` or `.group` box around a list: a list is a `RowList` on the background | Stylelint (`selector-class-pattern`), `test/code-rules.ts` |

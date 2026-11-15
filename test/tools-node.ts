@@ -31,7 +31,6 @@ const workplace: Workplace = { kind: "computer", folder: "fixture", computer: { 
 
 const { extensions } = builtinExtensions({
 	userSaid: async () => [],
-	native: { has: () => true, implements: () => true },
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
 	githubToken: "token",
@@ -44,7 +43,7 @@ const { extensions } = builtinExtensions({
 	waitForJob: () => undefined,
 	labelOf: (tool) => tool,
 	actsAsUser: async () => false,
-	permissions: { state: async () => "granted", request: async () => true },
+	platform: { native: { has: () => true, implements: () => true }, permissions: { state: async () => "granted", request: async () => true }, apps: { installed: async () => [] } },
 	ask: async () => ({ action: "cancel" }),
 });
 
@@ -61,6 +60,7 @@ interface ToolInterface {
 	needs: string[];
 	outside: string | null;
 	sends: boolean;
+	loads?: readonly string[];
 }
 
 function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
@@ -77,6 +77,7 @@ function interfaceOf(extension: string, tool: ToolRegistration): ToolInterface {
 		needs: (declarationOf(tool)?.needs ?? []).map(({ plugin, method }) => `${plugin}.${method}`),
 		outside: declarationOf(tool)?.outside ?? null,
 		sends: declarationOf(tool)?.sends === true,
+		...(declarationOf(tool)?.loads ? { loads: declarationOf(tool)?.loads } : {}),
 	};
 }
 
@@ -105,6 +106,8 @@ const TOOL_CHARS: Record<string, number> = {
 	dismiss_notifications: 325,
 	phone_read_as_user: 643,
 	phone_act_as_user: 2322,
+	phone_open_as_user: 293,
+	phone_note_as_user: 550,
 	read_page: 651,
 	use_browser: 3275,
 	media: 422,
@@ -259,11 +262,17 @@ const rules: Rule[] = [
 		broken: ({ tool, iface }) => ((declarationOf(tool)?.needs ?? []).some((method) => method.opens === "screen") && iface.effect !== "screen" ? iface.name : undefined),
 	},
 	{
-		rule: "a tool that acts as the user is named *_as_user, loads on demand, and is the only kind in a *_as_user toolset",
+		rule: "a tool that acts as the user is named *_as_user, is the only kind in a *_as_user toolset, and loads on demand, except an entry tool whose loads (defineAppTool) names every other tool of its toolset",
 		broken: ({ iface }) => {
 			const asUser = Array.isArray(iface.groups) && iface.groups.every((group) => group.endsWith("_as_user"));
-			return iface.name.endsWith("_as_user") === asUser && (!asUser || iface.deferred) ? undefined : `${iface.name} (${String(iface.groups)})`;
+			const others = tools.filter(({ iface: other }) => other.name !== iface.name && JSON.stringify(other.groups) === JSON.stringify(iface.groups)).map(({ iface: other }) => other.name);
+			const entry = others.length > 0 && others.every((name) => iface.loads?.includes(name));
+			return iface.name.endsWith("_as_user") === asUser && (!asUser || iface.deferred || entry) ? undefined : `${iface.name} (${String(iface.groups)})`;
 		},
+	},
+	{
+		rule: "a tool's loads (defineAppTool) names tools that exist",
+		broken: ({ iface }) => (iface.loads ?? []).filter((name) => !tools.some(({ iface: other }) => other.name === name)).map((name) => `${iface.name} loads ${name}`).join(", ") || undefined,
 	},
 	{
 		rule: "every tool is in groups whose where differ when it has several, so one toolset decides it wherever the bot works",

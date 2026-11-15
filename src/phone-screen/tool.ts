@@ -5,6 +5,7 @@ import { SCREENS, type Screen, type ScreenChoice, screenFor } from "./background
 import { messageOf } from "../promise.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
+import { NOTE_TOOL } from "../phone-apps/apps.ts";
 
 const SWIPE_MS = 300;
 const SWIPE_MAX_MS = 5000;
@@ -154,4 +155,17 @@ const usePhoneScreen = defineAppTool({
 	},
 });
 
-export const PhoneScreenExtension = defineExtension({ name: "phone_as_user", tools: [readPhoneScreen, usePhoneScreen] });
+const openApp = defineAppTool({
+	name: "phone_open_as_user",
+	groups: ["phone_as_user"],
+	effect: "read",
+	needs: [PhoneScreen.status, PhoneScreen.act],
+	reach: "model",
+	loads: [readPhoneScreen.name, usePhoneScreen.name, NOTE_TOOL],
+	description: `Open an app as the user on your own background screen; it starts empty, which is normal, so open the app first. Returns its screen and loads ${readPhoneScreen.name} and ${usePhoneScreen.name}.`,
+	parameters: Type.Object({ app: Type.String({ description: "App name or package" }) }),
+	replay: "safe",
+	execute: (args) => call(undefined, (display) => PhoneScreen.act({ steps: [{ action: "open", app: args.app }], screenshot: false, ...display })),
+});
+
+export const PhoneScreenExtension = defineExtension({ name: "phone_as_user", tools: [openApp, readPhoneScreen, usePhoneScreen] });

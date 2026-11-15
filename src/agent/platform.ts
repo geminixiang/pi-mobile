@@ -13,6 +13,8 @@ import { refuseCleartextSecret } from "./cleartext.ts";
 import { inApp, type Native, native } from "../native.ts";
 import { Browser } from "../browser/plugin.ts";
 import { Triggers } from "../triggers/plugin.ts";
+import { Apps } from "../plugins/apps.ts";
+import type { PhoneApps } from "../phone-apps/apps.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 import { parseJson } from "../parse.ts";
 import { listenForRedirect } from "./oauth.ts";
@@ -39,6 +41,7 @@ export interface Platform {
 	phone: PhoneApp | undefined;
 	browser: BotBrowser | undefined;
 	reports: BotReports | undefined;
+	apps: PhoneApps | undefined;
 	plain: { get(key: string): string | null; set(key: string, value: string): void; remove(key: string): void };
 	secrets: { get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void>; remove(key: string): Promise<void> };
 	settings: SettingsStore;
@@ -106,6 +109,7 @@ export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>, s
 		phone: native.has("BotFiles") ? { folder: (folder, network) => new PhoneEnv(folder, network), removeFolder: removePhoneFolder } : undefined,
 		browser: native.implements(Browser.forget) ? { forget: (bot) => Browser.forget({ bot }) } : undefined,
 		reports: native.implements(Triggers.seen) ? { forget: (conversation) => Triggers.seen({ conversation }) } : undefined,
+		apps: native.implements(Apps.installed) ? { installed: async () => (await Apps.installed()).apps } : undefined,
 		...capacitorStorage,
 		settings,
 		mcpClient: () => new McpClient({ name: "pi-mobile", version: "1.0.0" }),

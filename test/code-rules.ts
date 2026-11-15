@@ -288,12 +288,12 @@ const MAX_LINES = 400;
 const LONG_FILES: Record<string, number> = {
 	"src/agent/files/phone-env.ts": 445,
 	"src/agent/mcp.ts": 473,
-	"src/agent/runtime.ts": 660,
+	"src/agent/runtime.ts": 659,
 	"src/agent/tools/tw-stocks.ts": 465,
 	"src/app/App.tsx": 787,
 	"src/app/Chat.tsx": 483,
 	"src/app/Links.tsx": 438,
-	"src/app/Message.tsx": 534,
+	"src/app/Message.tsx": 518,
 	"src/app/Settings.tsx": 795,
 	"src/triggers/runs.ts": 529,
 };
