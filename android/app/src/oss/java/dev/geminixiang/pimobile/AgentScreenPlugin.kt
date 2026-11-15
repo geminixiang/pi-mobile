@@ -1,8 +1,10 @@
 package dev.geminixiang.pimobile
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -22,6 +24,8 @@ class AgentScreenPlugin : Plugin() {
     private val main = Handler(Looper.getMainLooper())
     private val screen by lazy { AgentScreen(context) }
     private var preview: AgentPreview? = null
+    @Volatile private var reader: AccessibilityService? = null
+    private val pairing by lazy { AutoPairing(context, screen) { reader } }
 
     override fun load() {
         screen.onFailure = { reason ->
@@ -38,6 +42,7 @@ class AgentScreenPlugin : Plugin() {
                 return null
             }
             override fun attach(service: AccessibilityService?) {
+                reader = service
                 main.post {
                     preview?.hide()
                     preview = service?.let {
@@ -68,8 +73,11 @@ class AgentScreenPlugin : Plugin() {
         })
     }
 
+    override fun handleOnResume() = pairing.stop()
+
     override fun handleOnDestroy() {
         DisplayShells.install(null)
+        pairing.close()
         main.post {
             screen.onFailure = { reason -> Log.w("AgentPreview", reason) }
             worker.execute { screen.close() }
@@ -79,6 +87,22 @@ class AgentScreenPlugin : Plugin() {
 
     @PluginMethod
     fun pair(call: PluginCall) = work(call) { reply(screen.pair(call.getString("code").orEmpty())) }
+
+    @PluginMethod
+    fun status(call: PluginCall) = work(call) { reply(screen.status()) }
+
+    @PluginMethod
+    fun pairInSettings(call: PluginCall) {
+        pairing.start { outcome -> call.resolve(reply(outcome)) }
+        val page =
+            if (screen.developerOptions) {
+                // why: Settings highlights the preference this extra names; toggle_adb_wireless is Wireless debugging's key in AOSP's development_settings.xml
+                Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
+            } else {
+                Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)
+            }
+        SystemPlugin.openSettings(context, page, Settings.ACTION_SETTINGS)
+    }
 
     @PluginMethod
     fun open(call: PluginCall) = work(call) {

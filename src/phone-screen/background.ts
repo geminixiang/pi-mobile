@@ -11,6 +11,15 @@ const NOT_SET_UP: Record<string, string> = {
 	not_paired: "pi is not paired with wireless debugging yet",
 };
 
+export const backgroundSetup = {
+	available: () => isImplemented(AgentScreen.pair),
+	status: () => AgentScreen.status(),
+	pair: (code: string) => AgentScreen.pair({ code }),
+	pairInSettings: () => AgentScreen.pairInSettings(),
+};
+
+export type SetupStatus = Awaited<ReturnType<typeof backgroundSetup.status>>;
+
 export async function screenFor(choice: ScreenChoice): Promise<Screen> {
 	if (choice === "front") return { on: "front" };
 	if (!isImplemented(AgentScreen.open)) return { on: "front", instead: "this phone has no background screen" };

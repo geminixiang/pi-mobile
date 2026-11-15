@@ -1,6 +1,7 @@
 package dev.geminixiang.agentscreen
 
 import android.content.Context
+import android.provider.Settings
 import android.view.Surface
 import com.flyfishxu.kadb.Kadb
 import com.flyfishxu.kadb.cert.KadbCert
@@ -32,11 +33,17 @@ class AgentScreen(private val context: Context) {
         data class Open(val adb: Kadb, val server: AdbShellStream, val display: Int, val width: Int, val height: Int) : Link
     }
 
+    private sealed interface Connection {
+        data class Ready(val adb: Kadb) : Connection
+        data class Failed(val reason: String) : Connection
+    }
+
     @Volatile private var link: Link = Link.Closed
     @Volatile private var stopped: String? = null
     private val videoLock = Any()
     private var generation = 0
     private var decoder: VideoDecoder? = null
+    private val paired = File(context.filesDir, "agent-screen-paired")
     var onFailure: (String) -> Unit = {}
 
     init {
@@ -50,17 +57,35 @@ class AgentScreen(private val context: Context) {
         return videoSize(open?.width ?: metrics.widthPixels).toFloat() / videoSize(open?.height ?: metrics.heightPixels)
     }
 
+    val developerOptions: Boolean
+        get() = Settings.Global.getInt(context.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0
+
     fun pair(code: String): Outcome {
-        val port = ownPort(context, PAIRING) ?: return Outcome.Failed("pairing_closed")
-        return runCatching { runBlocking { Kadb.pair(LOCAL, port, code) } }
-            .fold({ Outcome.Done }, { Outcome.Failed(if (it is AdbPairAuthException) "wrong_code" else describe(it)) })
+        val port = ownPort(context, PAIRING) ?: return Outcome.Failed(if (ownPort(context, CONNECT) == null) "debugging_off" else "pairing_closed")
+        return pair(code, port)
+    }
+
+    fun watchPairing(found: (Int) -> Unit, failed: () -> Unit): AutoCloseable =
+        discoverOwn(context, PAIRING) { port -> if (port == null) failed() else found(port) }
+
+    fun pair(code: String, port: Int): Outcome = runCatching { runBlocking { Kadb.pair(LOCAL, port, code) } }
+        .fold({ paired.createNewFile(); Outcome.Done }, { Outcome.Failed(if (it is AdbPairAuthException) "wrong_code" else describe(it)) })
+
+    fun status(): Outcome {
+        if (!developerOptions) return Outcome.Failed("developer_off")
+        if ((link as? Link.Open)?.adb?.connectionCheck() == true) return Outcome.Done
+        return when (val connection = connect()) {
+            is Connection.Ready -> Outcome.Done.also { connection.adb.close() }
+            is Connection.Failed -> Outcome.Failed(connection.reason)
+        }
     }
 
     fun open(width: Int, height: Int, dpi: Int): Opened {
         (link as? Link.Open)?.let { if (stopped != "display_disconnected" && it.adb.connectionCheck()) return Opened.Ready(it.display) else close() }
-        val port = ownPort(context, CONNECT) ?: return Opened.Failed("debugging_off")
-        val adb = runCatching { Kadb.create(LOCAL, port, connectTimeout = CONNECT_MS).also { it.shell("true") } }
-            .getOrElse { return Opened.Failed(if (it is AdbAuthException) "not_paired" else describe(it)) }
+        val adb = when (val connection = connect()) {
+            is Connection.Ready -> connection.adb
+            is Connection.Failed -> return Opened.Failed(connection.reason)
+        }
         val apk = context.applicationInfo.sourceDir
         val server = adb.openShell("CLASSPATH=$apk app_process / ${DisplayServer::class.java.name} $width $height $dpi")
         val output = StringBuilder()
@@ -150,6 +175,20 @@ class AgentScreen(private val context: Context) {
         runCatching { open.server.closeStdin() }.onFailure { onFailure(describe(it)) }
         open.server.close()
         open.adb.close()
+    }
+
+    private fun connect(): Connection {
+        val port = ownPort(context, CONNECT) ?: return Connection.Failed(if (paired.exists()) "debugging_off" else "not_paired")
+        val adb = runCatching { Kadb.create(LOCAL, port, connectTimeout = CONNECT_MS) }.getOrElse { return Connection.Failed(describe(it)) }
+        return runCatching { adb.shell("true") }.fold(
+            { paired.createNewFile(); Connection.Ready(adb) },
+            { failure ->
+                adb.close()
+                if (failure !is AdbAuthException) return Connection.Failed(describe(failure))
+                paired.delete()
+                Connection.Failed("not_paired")
+            },
+        )
     }
 
     private fun run(open: Link.Open, command: String): Outcome {

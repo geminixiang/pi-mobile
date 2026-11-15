@@ -36,7 +36,7 @@
 | `Links.tsx` `reach.onChange` | 只記「恢復的時間」這個事件，不是快照 |
 | `HostsGroup.tsx` `watchPrepare` | 訂閱電腦準備中的進度 |
 | `Settings.tsx` `Triggers.status` + `resume` | 原生權限狀態，回到前景時重讀 |
-| `background.ts` | 同上，背景執行的權限 |
+| `ui/resume.ts` `useOnResume` | 同上，掛上時和每次回到前景重讀原生狀態（背景執行、代你操作 App、背景操作）；原本在 `app/background.ts` |
 
 ### 推導或重設 state
 

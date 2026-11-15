@@ -4,7 +4,7 @@ import { useSubscribed } from "../ui/subscribed.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
 import { Notifications } from "../plugins/notifications.ts";
-import { PhoneScreen } from "../phone-screen/plugin.ts";
+import { PhoneScreenGroup } from "../phone-screen/PhoneScreenGroup.tsx";
 import { PhoneState } from "../plugins/phone-state.ts";
 import { System } from "../plugins/system.ts";
 import { Usage } from "../plugins/usage.ts";
@@ -30,6 +30,7 @@ import { pairedHosts } from "../computer/pairing.ts";
 import { HostsGroup } from "./HostsGroup.tsx";
 import { CheckButton } from "./CheckButton.tsx";
 import { RowList } from "../ui/RowList.tsx";
+import { StateRow } from "../ui/StateRow.tsx";
 import { FirstSignIn, ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -339,18 +340,6 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	);
 }
 
-function StateRow({ label, hint, on, onClick }: { label: string; hint?: string; on: boolean; onClick: () => void }) {
-	return (
-		<button type="button" onClick={onClick}>
-			<span className="menu-text">
-				{label}
-				{hint ? <span className="index-status">{hint}</span> : null}
-			</span>
-			<i className={`row-dot${on ? "" : " off"}`} aria-label={on ? "已開啟" : "未開啟"} />
-		</button>
-	);
-}
-
 function SystemAccessGroup() {
 	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
 	useRefreshOnResume("Usage", () =>
@@ -404,22 +393,6 @@ function ClearNotifications() {
 	);
 }
 
-function PhoneScreenGroup() {
-	const [allowed, setAllowed] = useState<boolean>();
-	useRefreshOnResume("PhoneScreen", () => void PhoneScreen.status().then((status) => setAllowed(status.allowed)));
-	if (allowed === undefined) return null;
-	return (
-		<RowList title="代你操作 App">
-			<StateRow label="無障礙服務" hint={allowed ? "背景時也能開 App" : "開關是灰的：到 App 資訊 › ⋮ › 允許受限制的設定"} on={allowed} onClick={() => void PhoneScreen.openSettings()} />
-			{allowed ? null : (
-				<button type="button" className="row-add" onClick={() => void PhoneScreen.openAppInfo()}>
-					打開 App 資訊
-				</button>
-			)}
-		</RowList>
-	);
-}
-
 function PhonePage({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
 	const [notifications, setNotifications] = useState<boolean>();
 	useRefreshOnResume("Notifications", () => void Notifications.status().then((status) => setNotifications(status.allowed)));
@@ -427,7 +400,7 @@ function PhonePage({ access, onChange }: { access: CalendarAccess; onChange: (ac
 		<>
 			<CalendarGroup access={access} onChange={onChange} />
 			<NotificationsGroup allowed={notifications} />
-			<PhoneScreenGroup />
+			{native.has("PhoneScreen") ? <PhoneScreenGroup /> : null}
 			<SystemAccessGroup />
 			<BackgroundGroup />
 			{notifications ? <ClearNotifications /> : null}

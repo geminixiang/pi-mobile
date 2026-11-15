@@ -31,10 +31,10 @@ S24 實機（Android 17 / API 37、One UI 9，2026-11-15）同一支程式：背
 android/
  ├─ app/src/main/    共用，不知道 adb 和背景螢幕
  ├─ app/src/store/   Edition.kt：沒有額外的 plugin（上架版）
- ├─ app/src/oss/     Edition.kt 列出 AgentScreenPlugin；AgentScreenPlugin.kt（薄的轉接）
+ ├─ app/src/oss/     Edition.kt 列出 AgentScreenPlugin；AgentScreenPlugin.kt（薄的轉接）；AutoPairing.kt（設定流程中找配對視窗、讀配對碼、配對）
  └─ agentscreen/     獨立的 Gradle 模組，只有 oss 依賴（ossImplementation）
-      AgentScreen.kt   對外入口：pair、open、key、watch、unwatch、takeover、close
-      Discovery.kt     用 NsdManager 找自己的無線偵錯（_adb-tls-pairing、_adb-tls-connect），只認本機位址
+      AgentScreen.kt   對外入口：status、pair、watchPairing、open、key、watch、unwatch、takeover、close
+      Discovery.kt     用 NsdManager 找自己的無線偵錯（_adb-tls-pairing、_adb-tls-connect），只認本機位址；找一次（ownPort）或一直看（discoverOwn）
       DisplayServer.kt 以 shell 身分執行（CLASSPATH=pi 的 APK app_process），開虛擬螢幕撐著，stdin 關掉就釋放
 src/plugins/agent-screen.ts       合約；store 版沒有這個原生 plugin
 src/phone-screen/background.ts    唯一決定在哪個螢幕做的地方（screenFor）
@@ -42,7 +42,51 @@ src/phone-screen/background.ts    唯一決定在哪個螢幕做的地方（scre
 
 - **adb 用戶端用 [Kadb](https://github.com/Flyfish233/Kadb)**（`com.flyfishxu:kadb:2.1.5`，Apache-2.0）：配對（SPAKE2，`spake2-java` 在 JitPack，root `build.gradle` 只對 `com.github.Flyfish233` 開 JitPack）、TLS 連線、shell v2。不抄 mika 的 `core/adb`：程式碼更少，也不用帶授權註解。
 - **兩個版本**：`store`（上架）沒有這個模組，`oss`（開源）有。共用程式碼用 `Edition.plugins.forEach(::registerPlugin)` 註冊 plugin，螢幕操作透過下述 `DisplayShell` 窄介面接上。`test/code-rules.ts` 擋其他地方碰 `AgentScreen`；`test/plugins-node.ts` 檢查 `oss` 的 plugin 有列在 `Edition.kt`。
-- **使用者要做的**：開發人員選項 →「無線偵錯」→「使用配對碼配對裝置」，把六位數輸入 pi（`AgentScreen.pair`）。之後 pi 自己找埠、自己連。
+- **使用者要做的**：開發人員選項 →「無線偵錯」→「使用配對碼配對裝置」，pi 看到自己的配對服務出現，用無障礙服務讀配對視窗裡的六位數、自己配對（`AutoPairing`）。之後 pi 自己找埠、自己連。
+
+## 設定 › 手機 › 背景操作（2026-11-16）
+
+開源版（`AgentScreen.pair` 有實作）的「代你操作 App」多一列「背景操作」（`BackgroundSetup`，`src/phone-screen/BackgroundSetup.tsx`），右邊是狀態，每次回到 pi 重查（`AgentScreen.status`）：
+
+| 狀態 | `status` 的 reason | 怎麼判斷 | 下面顯示 |
+|---|---|---|---|
+| 可用 | （ok） | 背景螢幕已開著且連線還在，或用 TLS 連上自己的無線偵錯、跑得動 `true` | 無 |
+| 未設定 | `developer_off` | `Settings.Global.DEVELOPMENT_SETTINGS_ENABLED` 是 0 | 說明連按七次版本號碼、到無線偵錯點配對碼；「打開關於手機」；配對碼輸入框 |
+| 未設定 | `not_paired` | 連得到但認證被拒；或找不到無線偵錯而且從沒配對成功過 | 說明開啟無線偵錯、點配對碼；「打開無線偵錯」（開發人員選項，`toggle_adb_wireless` 那列反白）；配對碼輸入框 |
+| 無線偵錯沒開 | `debugging_off` | 找不到 `_adb-tls-connect`，但配對成功過 | 說明開啟無線偵錯；「打開無線偵錯」 |
+| 連不上 | 其他 | 原生的錯誤訊息照原樣列在下面 | 同「未設定」 |
+
+「配對成功過」是 `filesDir/agent-screen-paired`：配對或連線成功時建立，認證被拒時刪掉。只用來分「未設定」和「無線偵錯沒開」，真正的配對在系統的無線偵錯裡。
+
+### pi 自己讀配對碼
+
+S24 上量過：配對視窗開著時切到 pi，視窗就關掉，輸入配對碼每次都是 `pairing_closed`；配對視窗留在前面時，用 pi 的無障礙服務讀它可行（讀約 10 ms、配對約 200 ms）。所以使用者不輸入，pi 在背景自己讀（`AutoPairing`，`android/app/src/oss/…/AutoPairing.kt`）：
+
+1. 按「打開無線偵錯」（`AgentScreen.pairInSettings`）：開始看，再打開設定。呼叫一直等到看完才回覆。
+2. **知道視窗開著，靠系統狀態**：看的期間 NSD 一直找 `_adb-tls-pairing._tcp`（`AgentScreen.watchPairing`），只收解析到本機位址的。這個服務只在配對視窗開著時由本機的 adbd 廣播，也給出配對埠。
+3. **找配對碼，靠結構**：第一次看到服務起，每 200 ms 讀一次無障礙服務的 `windows`，只看根節點套件是 `ACTION_APPLICATION_DEVELOPMENT_SETTINGS` 解析出的套件的視窗。同一個視窗裡要剛好一個文字整段是六位數字（任何 Unicode 數字，`digitToInt` 轉成 ASCII），剛好一個文字是 `IP:埠`（`InetAddresses.isNumericAddress`），而且那個埠就是 NSD 廣播的配對埠。不比對標題或任何語言的字。都對上才 `pair(code, port)`；同一個埠只試一次。
+4. **何時停**：配對成功或 `wrong_code`（成功時系統自己關掉配對視窗）、pi 回到前面（`handleOnResume`：使用者離開了流程）、或五分鐘到了。沒有 JS 計時器，也沒有新的 effect：回覆就是原本那個呼叫的結果，狀態由回到前景時既有的重查（`useOnResume`）更新。
+5. 回覆的 reason：`left`（回來時沒有可讀的配對視窗，不顯示）、`code_not_found`（看到服務、對不上結構）、`accessibility_off`、`timeout`、`wrong_code`、Kadb 的錯誤；寫在按鈕下面。
+
+配對碼只在 `AutoPairing.look` 的區域變數裡（`PairingDialog`），傳給 `pair` 就丟掉：不記錄、不存、不顯示。
+
+無障礙服務沒開時，說明的上面多一行「先開啟上面的無障礙服務，pi 才能自己配對」，用的是同一組「代你操作 App」裡原本的開關。
+
+按鈕旁的小輸入框是手動的備案：打滿六位數就送出（`AgentScreen.pair`），錯誤（`pairing_closed`、`wrong_code`、`debugging_off`）寫在下面。只在配對視窗不會被關的時候有用（例如分割畫面）。
+
+模擬器實測（2026-11-16，API 36，oss release build，`emulator-5554`）：
+
+| | 結果 |
+|---|---|
+| 設定頁按「打開無線偵錯」→ 開無線偵錯 → 點配對碼 → 回到 pi | 「未設定」變「可用」，「已配對的裝置」多一筆 |
+| `pairInSettings` 直接呼叫，設定是英文 ×3、阿拉伯文（`cmd locale set-app-locales com.android.settings --locales ar`，RTL）×3 | 6 次都 `{ok:true}`；adbd 的配對埠從開到關 0.89–1.09 秒（`/proc/net/tcp*` 每次約 10 ms 取樣，從點下算起：開 +0.12–0.24 s、關 +1.00–1.29 s） |
+| 無障礙服務沒開時開配對視窗 | 視窗留著，回到 pi 得 `accessibility_off` |
+| 沒開配對視窗就回到 pi | `left` |
+| pi 的 logcat | 沒有配對碼 |
+
+模擬器的 `ro.adb.secure=0`，刪掉 pi 的金鑰後 TLS 仍連得上，所以「未設定」只能靠關掉無線偵錯、刪掉 `agent-screen-paired` 做出來；配對有沒有發生看系統的「已配對的裝置」。
+
+還沒在手機上驗：S24（One UI）上整條路；`toggle_adb_wireless` 在 One UI 上會不會反白；開發人員選項沒開時從「關於手機」一路走到配對。
 
 ## 實測（2026-11-15，oss 版 release build，R8 開著）
 
@@ -79,7 +123,7 @@ S24 實測（GPT 6.1 Sol，暫時的 Bot）：「用 Chrome 查一下台北現�
 
 ## 還沒做
 
-1. **配對的畫面**：設定裡一個項目，帶使用者到無線偵錯、輸入配對碼；連不上時說原因（`debugging_off`、`not_paired`、`pairing_closed`、`wrong_code`）。現在只有 S24 由我配對過。
+1. **配對的畫面**：見上面〈設定 › 手機 › 背景操作〉。
 2. **看得到、能接手**：已在 API 36 模擬器實作「背景螢幕預覽」：H.264 原生浮窗、目前動作、拖到角落、隱藏、同一個 task 搬到 display 0。實作、重跑方式、量測與未驗證的限制見 [background-preview-report.md](background-preview-report.md)。S24 / API 37 尚未量。
 3. **背景螢幕何時關**：現在開了就留到 pi 結束；之後在 Bot 都閒下來一段時間後關。
 4. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。

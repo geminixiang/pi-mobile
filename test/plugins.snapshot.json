@@ -2,6 +2,44 @@
 	{
 		"name": "AgentScreen",
 		"methods": {
+			"status": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"anyOf": [
+						{
+							"properties": {
+								"ok": {
+									"const": true,
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"ok"
+							],
+							"type": "object"
+						},
+						{
+							"properties": {
+								"ok": {
+									"const": false,
+									"type": "boolean"
+								},
+								"reason": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"ok",
+								"reason"
+							],
+							"type": "object"
+						}
+					]
+				}
+			},
 			"pair": {
 				"args": {
 					"properties": {
@@ -12,6 +50,44 @@
 					"required": [
 						"code"
 					],
+					"type": "object"
+				},
+				"result": {
+					"anyOf": [
+						{
+							"properties": {
+								"ok": {
+									"const": true,
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"ok"
+							],
+							"type": "object"
+						},
+						{
+							"properties": {
+								"ok": {
+									"const": false,
+									"type": "boolean"
+								},
+								"reason": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"ok",
+								"reason"
+							],
+							"type": "object"
+						}
+					]
+				}
+			},
+			"pairInSettings": {
+				"args": {
+					"properties": {},
 					"type": "object"
 				},
 				"result": {

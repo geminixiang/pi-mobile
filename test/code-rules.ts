@@ -142,7 +142,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	{
 		use: /\bAgentScreen\b|dev\.geminixiang\.agentscreen/,
 		owners: ["src/plugins/agent-screen.ts", "src/plugins/index.ts", "src/phone-screen/background.ts", "android/agentscreen/", "android/app/src/oss/"],
-		fix: "the background screen is an experiment of the open source edition only (docs/design/background-screen.md): its native code stays in android/agentscreen/ and android/app/src/oss/, its contract in src/plugins/agent-screen.ts, and only src/phone-screen/background.ts decides which screen a step runs on",
+		fix: "the background screen is an experiment of the open source edition only (docs/design/background-screen.md): its native code stays in android/agentscreen/ and android/app/src/oss/, its contract in src/plugins/agent-screen.ts, and only src/phone-screen/background.ts reaches it: it decides which screen a step runs on and gives the settings page its setup (backgroundSetup)",
 	},
 	{
 		use: /\bBotIndex\b/,
@@ -304,7 +304,7 @@ const LONG_FILES: Record<string, number> = {
 	"src/app/Chat.tsx": 483,
 	"src/app/Links.tsx": 438,
 	"src/app/Message.tsx": 518,
-	"src/app/Settings.tsx": 795,
+	"src/app/Settings.tsx": 768,
 	"src/triggers/runs.ts": 529,
 };
 
@@ -439,7 +439,6 @@ const EFFECTS: Record<string, number> = {
 	"src/app/Settings.tsx": 3,
 	"src/app/SidePanel.tsx": 6,
 	"src/app/SignIn.tsx": 2,
-	"src/app/background.ts": 1,
 	"src/app/briefly.ts": 2,
 	"src/app/layers.ts": 1,
 	"src/app/loaded.ts": 3,
@@ -457,6 +456,7 @@ const EFFECTS: Record<string, number> = {
 	"src/log.ts": 1,
 	"src/promise.ts": 1,
 	"src/triggers/events.ts": 1,
+	"src/ui/resume.ts": 1,
 	"src/workbench/Surface.tsx": 3,
 };
 

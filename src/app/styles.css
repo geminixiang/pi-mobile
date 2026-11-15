@@ -714,6 +714,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .inline-verbs { display: flex; gap: 20px; }
 .inline-verbs > button { min-height: 36px; font-family: var(--mono); font-size: var(--fs-small); color: var(--accent); }
 .inline-verbs > button:disabled { color: var(--faint); }
+.inline-verbs > .code-field { width: 136px; height: 36px; font-size: var(--fs-small); }
 .panel-rows { display: flex; flex-direction: column; }
 .panel-rows > button { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 var(--panel-inset) 0 var(--panel-start); text-align: left; }
 .context-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-ui); }

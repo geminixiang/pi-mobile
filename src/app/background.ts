@@ -1,15 +1,12 @@
-import { App } from "@capacitor/app";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { native, type NativePlugin } from "../native.ts";
 import { KeepAlive } from "../plugins/keep-alive.ts";
+import { useOnResume } from "../ui/resume.ts";
 
 export function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): void {
-	useEffect(() => {
-		if (!native.has(plugin)) return;
-		refresh();
-		const listener = App.addListener("resume", refresh);
-		return () => void listener.then((handle) => handle.remove());
-	}, []);
+	useOnResume(() => {
+		if (native.has(plugin)) refresh();
+	});
 }
 
 type Background = { notifications: boolean; unrestrictedBattery?: boolean };
