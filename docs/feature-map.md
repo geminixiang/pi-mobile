@@ -17,6 +17,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 輸入框 | composer | `Composer` (`src/app/Composer.tsx`) | 打字、附件、語音、插話或稍後 |
 | 提示詞轉盤 | 轉盤 | `ScrollTab` (`src/app/PromptDial.tsx`) | 從輸入框右邊往上拖，轉出以前說過的話 |
 | 背景指令條 | 跑中的工作 | `JobsStrip` (`src/jobs/JobsStrip.tsx`) | 電腦上在背景跑的指令，長按看最後幾行 |
+| 背景螢幕預覽 | 小視窗、背景 App | `AgentPreview` (`android/app/src/oss/java/dev/geminixiang/pimobile/AgentPreview.kt`) | 開源版的原生浮窗：即時畫面和目前動作；拖到角落，點畫面接手，× 隱藏但不停止 Bot |
 | 左側欄 | Bot 清單、抽屜、左邊的 | `Drawer` (`src/app/Drawer.tsx`)、`BotList` (`src/app/BotList.tsx`) | 往右滑或按左上的頭像：所有 Bot、＋ 新增 Bot、設定 |
 | 右側欄 | Bot 面板、右邊的、⋯ | `BotPanel` (`src/app/BotPanel.tsx`) | 往左滑或按 ⋯：這個 Bot 的一切，由上而下是下面幾項 |
 | 連線圖 | 連線、模型 ← pi → 電腦 | `LinksSection` (`src/app/Links.tsx`) | 右側欄最上面：這個 Bot 在哪裡跑、接著什麼，線上只在真的有位元組時流動 |

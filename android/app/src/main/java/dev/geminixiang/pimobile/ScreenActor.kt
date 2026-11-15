@@ -57,6 +57,18 @@ internal sealed interface ScreenStep {
 
     data class Wait(val ms: Long) : ScreenStep
 
+    val action: String get() = when (this) {
+        is Tap -> "tap"
+        is LongPress -> "long_press"
+        is Swipe -> "swipe"
+        is Scroll -> "scroll"
+        is Type -> "type"
+        Clear -> "clear"
+        is Press -> "key"
+        is Open -> "open"
+        is Wait -> "wait"
+    }
+
     companion object {
         fun of(json: JSONObject): ScreenStep =
             when (val action = json.getString("action")) {
@@ -78,18 +90,29 @@ internal sealed interface ScreenStep {
 
 fun interface DisplayShell {
     fun key(display: Int, key: String): Boolean
+    fun attach(service: AccessibilityService?) = Unit
+    fun before(display: Int, action: String): String? = null
+    fun reason(display: Int): String? = null
 }
 
 object DisplayShells {
     @Volatile
     var current: DisplayShell? = null
+        private set
+
+    fun install(shell: DisplayShell?) {
+        current?.attach(null)
+        current = shell
+        shell?.attach(PhoneScreenService.running)
+    }
 }
 
 internal class ScreenActor {
     private var lastTap: PointF? = null
     private val launchers = LinkedHashMap<String, String>()
 
-    fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float, display: Int): Outcome<String?> {
+    fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float, display: Int): Outcome<String?> = synchronized(DisplayShells) {
+        DisplayShells.current?.before(display, step.action)?.let { return Outcome.Stopped(it) }
         val px = { points: Double -> (points / scale).toFloat() }
         when (step) {
             is ScreenStep.Tap -> {

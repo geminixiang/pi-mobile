@@ -33,7 +33,7 @@ android/
  ├─ app/src/store/   Edition.kt：沒有額外的 plugin（上架版）
  ├─ app/src/oss/     Edition.kt 列出 AgentScreenPlugin；AgentScreenPlugin.kt（薄的轉接）
  └─ agentscreen/     獨立的 Gradle 模組，只有 oss 依賴（ossImplementation）
-      AgentScreen.kt   對外唯一的類別：pair、open、key、close
+      AgentScreen.kt   對外入口：pair、open、key、watch、unwatch、takeover、close
       Discovery.kt     用 NsdManager 找自己的無線偵錯（_adb-tls-pairing、_adb-tls-connect），只認本機位址
       DisplayServer.kt 以 shell 身分執行（CLASSPATH=pi 的 APK app_process），開虛擬螢幕撐著，stdin 關掉就釋放
 src/plugins/agent-screen.ts       合約；store 版沒有這個原生 plugin
@@ -41,7 +41,7 @@ src/phone-screen/background.ts    唯一決定在哪個螢幕做的地方（scre
 ```
 
 - **adb 用戶端用 [Kadb](https://github.com/Flyfish233/Kadb)**（`com.flyfishxu:kadb:2.1.5`，Apache-2.0）：配對（SPAKE2，`spake2-java` 在 JitPack，root `build.gradle` 只對 `com.github.Flyfish233` 開 JitPack）、TLS 連線、shell v2。不抄 mika 的 `core/adb`：程式碼更少，也不用帶授權註解。
-- **兩個版本**：`store`（上架）沒有這個模組，`oss`（開源）有。共用程式碼只多一行 `Edition.plugins.forEach(::registerPlugin)`。`test/code-rules.ts` 擋其他地方碰 `AgentScreen`；`test/plugins-node.ts` 檢查 `oss` 的 plugin 有列在 `Edition.kt`。
+- **兩個版本**：`store`（上架）沒有這個模組，`oss`（開源）有。共用程式碼用 `Edition.plugins.forEach(::registerPlugin)` 註冊 plugin，螢幕操作透過下述 `DisplayShell` 窄介面接上。`test/code-rules.ts` 擋其他地方碰 `AgentScreen`；`test/plugins-node.ts` 檢查 `oss` 的 plugin 有列在 `Edition.kt`。
 - **使用者要做的**：開發人員選項 →「無線偵錯」→「使用配對碼配對裝置」，把六位數輸入 pi（`AgentScreen.pair`）。之後 pi 自己找埠、自己連。
 
 ## 實測（2026-11-15，oss 版 release build，R8 開著）
@@ -73,14 +73,14 @@ phone_read_as_user / phone_act_as_user（screen: background 預設 | front）
         返回等系統鍵：DisplayShells.current（開源版用 input -d 送；上架版沒有，回報做不到）
 ```
 
-主程式只多一個介面 `DisplayShell`（`ScreenActor.kt`），開源版的 `AgentScreenPlugin.load()` 把實作放進 `DisplayShells.current`；主程式不知道 adb。
+主程式的窄介面是 `DisplayShell`（`ScreenActor.kt`），開源版的 `AgentScreenPlugin.load()` 用 `DisplayShells.install` 安裝實作；主程式不知道 adb。預覽需要這個介面轉交無障礙服務的生命週期、目前動作與停止原因。`ScreenActor` 和接手共用一個鎖，正在執行的動作結束才搬 task；下一步回傳 `taken_over`，不是丟例外。`PhoneScreenPlugin` 按目標 display 取 metrics，不再假設每個螢幕都是主螢幕尺寸。
 
 S24 實測（GPT 6.1 Sol，暫時的 Bot）：「用 Chrome 查一下台北現在幾度」41 秒答對；pi 一直在主螢幕，Chrome 在背景螢幕。
 
 ## 還沒做
 
 1. **配對的畫面**：設定裡一個項目，帶使用者到無線偵錯、輸入配對碼；連不上時說原因（`debugging_off`、`not_paired`、`pairing_closed`、`wrong_code`）。現在只有 S24 由我配對過。
-2. **看得到、能接手**：主畫面上一個小視窗顯示背景螢幕，點一下把那個 App 搬到前面交給使用者。
+2. **看得到、能接手**：已在 API 36 模擬器實作「背景螢幕預覽」：H.264 原生浮窗、目前動作、拖到角落、隱藏、同一個 task 搬到 display 0。實作、重跑方式、量測與未驗證的限制見 [background-preview-report.md](background-preview-report.md)。S24 / API 37 尚未量。
 3. **背景螢幕何時關**：現在開了就留到 pi 結束；之後在 Bot 都閒下來一段時間後關。
 4. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。
 5. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。

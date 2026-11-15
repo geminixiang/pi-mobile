@@ -11,14 +11,17 @@ class PhoneScreenService : AccessibilityService() {
 
     override fun onServiceConnected() {
         running = this
+        DisplayShells.current?.attach(this)
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        DisplayShells.current?.attach(null)
         running = null
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
+        DisplayShells.current?.attach(null)
         running = null
         super.onDestroy()
     }

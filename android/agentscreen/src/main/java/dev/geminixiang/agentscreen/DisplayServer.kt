@@ -9,6 +9,8 @@ import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import java.io.DataOutputStream
+import java.util.concurrent.CountDownLatch
 
 object DisplayServer {
     private const val SHELL = "com.android.shell"
@@ -34,13 +36,48 @@ object DisplayServer {
         val dpi = args.getOrNull(2)?.toIntOrNull() ?: 420
         Looper.prepareMainLooper()
         val frames = HandlerThread("frames").apply { start() }
-        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        val reader = ImageReader.newInstance(videoSize(width), videoSize(height), PixelFormat.RGBA_8888, 2)
         reader.setOnImageAvailableListener({ it.acquireLatestImage()?.close() }, Handler(frames.looper))
-        val display = displayManager().createVirtualDisplay("pi-agent", width, height, dpi, reader.surface, FLAGS)
+        val display = displayManager().createVirtualDisplay("pi-agent", videoSize(width), videoSize(height), dpi * videoSize(width) / width, reader.surface, FLAGS)
         println("display ${display.display.displayId}")
-        while (readlnOrNull() != null) Unit
-        display.release()
-        frames.quitSafely()
+        val output = DataOutputStream(System.out)
+        val handler = Handler(frames.looper)
+        var encoder: VideoEncoder? = null
+        try {
+            generateSequence(::readlnOrNull).forEach { command ->
+                val parts = command.split(' ')
+                if (parts.take(2) == listOf("watch", "on")) {
+                    val generation = parts.getOrNull(2)?.toIntOrNull() ?: return@forEach
+                    handler.post {
+                        display.surface = reader.surface
+                        encoder?.close()
+                        encoder = null
+                        runCatching { VideoEncoder(width, height, generation, handler, output) }.fold(
+                            { encoder = it; display.surface = it.surface },
+                            { packet(output, generation, 0, -1, (it.message ?: "encoder_failed").toByteArray()) },
+                        )
+                    }
+                }
+                if (command == "watch off") handler.post {
+                    display.surface = reader.surface
+                    encoder?.close()
+                    encoder = null
+                }
+            }
+        } finally {
+            val released = CountDownLatch(1)
+            handler.post {
+                try {
+                    display.release()
+                    encoder?.close()
+                    reader.close()
+                } finally {
+                    frames.quitSafely()
+                    released.countDown()
+                }
+            }
+            released.await()
+        }
     }
 
     private fun displayManager(): DisplayManager {

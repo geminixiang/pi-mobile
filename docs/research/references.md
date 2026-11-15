@@ -14,6 +14,7 @@
 
 | 參考 | 是什麼 | 學到的 | 對 pi mobile 的決定 |
 |---|---|---|---|
+| scrcpy（背景螢幕預覽，2026-11-15） | 使用者指定的 Android 螢幕串流做法：MediaCodec 的 input Surface → H.264 → decoder Surface | 不把每幀變成 Bitmap，也不經 WebView；只在觀看時建立 encoder，靜止畫面不重複編碼 | 已在 API 36 模擬器實作。直接把小 Surface 接到全尺寸 virtual display 會裁切，改用等比例 density 的低解析度 display；量測與限制見 [背景螢幕預覽報告](../design/background-preview-report.md) |
 | Grok Bot（2026-11-04） | xAI 的主動式 agent App | 對話裡的互動元件、先回一句再做事、連服務的卡片 | 見 [grok-bot.md](grok-bot.md)。已做：問題卡、工作行、結果卡、權限卡 |
 | Claude Duet（2026-11-13） | Anthropic 的主動式 agent App | 「主動」是一套預設的作息（晨報、少量巡視、安靜時段）；Chat、Tasks、Make 分成說話、交辦、成果三個地方；連服務從「它能做什麼」開始，空著的位置畫成虛線「＋」 | 見 [claude-duet.md](claude-duet.md)。已做：「能做什麼」、回答後的 ↳ 選項、新 Bot 的晨報提議。還沒做：任務板 |
 | TP-Link Deco App 首頁（2026-11-13） | 網路設備的 App | 用一張有動畫的架構圖，一眼看出連線狀況和流量 | 已做：右側欄的「模型 ← 手機 → 電腦」連線圖，流量是真的位元組數，斷線有探測動畫，三個節點各自打開自己的設定 |

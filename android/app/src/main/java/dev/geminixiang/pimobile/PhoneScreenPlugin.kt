@@ -3,13 +3,13 @@ package dev.geminixiang.pimobile
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.Bitmap
+import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.Display
-import android.view.WindowManager
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -62,7 +62,9 @@ class PhoneScreenPlugin : Plugin() {
     fun read(call: PluginCall) =
         worker.reply(call) {
             val service = PhoneScreenService.running ?: return@reply OFF
-            Outcome.Ok(snapshot(service, call.data.optBoolean("screenshot"), call.data.optInt("display", Display.DEFAULT_DISPLAY)))
+            val display = call.data.optInt("display", Display.DEFAULT_DISPLAY)
+            DisplayShells.current?.before(display, "read")?.let { return@reply Outcome.Ok(stoppedSnapshot(it, metrics(service, display))) }
+            Outcome.Ok(snapshot(service, call.data.optBoolean("screenshot"), display))
         }
 
     @PluginMethod
@@ -79,7 +81,7 @@ class PhoneScreenPlugin : Plugin() {
                 val json = steps.getJSONObject(at)
                 val step = ScreenStep.of(json)
                 val since = SystemClock.uptimeMillis()
-                val screen = metrics(service)
+                val screen = metrics(service, display) ?: return@reply Outcome.Ok(stoppedSnapshot("display_closed", null).put("done", done))
                 when (val ran = actor.perform(service, step, screen, SHOT_WIDTH.toFloat() / screen.widthPixels, display)) {
                     is Outcome.Ok -> ran.value?.let(did::add)
                     is Outcome.Stopped -> {
@@ -90,17 +92,20 @@ class PhoneScreenPlugin : Plugin() {
                 done = at + 1
                 if (step !is ScreenStep.Wait) service.settle(since, if (done < steps.length()) NEXT_STEP_CAP_MS else LAST_STEP_CAP_MS)
             }
-            val result = snapshot(service, call.data.optBoolean("screenshot"), display).put("done", done)
+            val interrupted = DisplayShells.current?.reason(display)
+            val result = (if (interrupted == null) snapshot(service, call.data.optBoolean("screenshot"), display)
+                else stoppedSnapshot(interrupted, metrics(service, display))).put("done", done)
             if (done > 0 && lastSeen == before) result.put("unchanged", true)
             if (did.isNotEmpty()) result.put("did", JSONArray(did))
-            if (stopped != null) result.put("error", stopped)
+            (interrupted ?: stopped)?.let { result.put("error", it) }
             Outcome.Ok(result)
         }
 
-    private fun metrics(service: PhoneScreenService) = DisplayMetrics().also { service.getSystemService(WindowManager::class.java).defaultDisplay.getRealMetrics(it) }
+    private fun metrics(service: PhoneScreenService, display: Int) =
+        service.getSystemService(DisplayManager::class.java).getDisplay(display)?.let { target -> DisplayMetrics().also(target::getRealMetrics) }
 
     private fun snapshot(service: PhoneScreenService, withScreenshot: Boolean, display: Int = Display.DEFAULT_DISPLAY): JSObject {
-        val screen = metrics(service)
+        val screen = metrics(service, display) ?: return stoppedSnapshot("display_closed", null)
         val scale = SHOT_WIDTH.toFloat() / screen.widthPixels
         val deadline = System.currentTimeMillis() + ELEMENTS_MS
         val seen = service.see(scale, screen, deadline, display)
@@ -122,6 +127,11 @@ class PhoneScreenPlugin : Plugin() {
         }
         return result
     }
+
+    private fun stoppedSnapshot(reason: String, screen: DisplayMetrics?) = JSObject()
+        .put("width", SHOT_WIDTH)
+        .put("height", screen?.let { (it.heightPixels * SHOT_WIDTH.toFloat() / it.widthPixels).roundToInt() } ?: 0)
+        .put("keyboard", false).put("elements", "").put("more", 0).put("error", reason)
 
     private fun screenshot(service: PhoneScreenService, scale: Float, display: Int): Outcome<String> {
         repeat(SHOT_ATTEMPTS) {
