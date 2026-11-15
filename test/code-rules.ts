@@ -376,6 +376,15 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
+const AGENTS_WORDS = 2812;
+
+function agentsSizeRule(): Finding[] {
+	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
+	if (words > AGENTS_WORDS) return [{ file: "AGENTS.md", line: 1, rule: `${words} words, ${AGENTS_WORDS} allowed (AGENTS_WORDS): make room by cutting or merging a rule, or turn prose into a check and delete the prose` }];
+	if (words < AGENTS_WORDS) return [{ file: "test/code-rules.ts", line: 1, rule: `AGENTS.md has ${words} words, fewer than AGENTS_WORDS (${AGENTS_WORDS}): lower it to ${words} so the ratchet holds` }];
+	return [];
+}
+
 function moduleExtensionRule(): Finding[] {
 	return checkedFiles()
 		.filter((file) => file.endsWith(".mjs") || file.endsWith(".cjs"))
@@ -507,6 +516,7 @@ const all = [
 	...viewportRule(),
 	...installerRule(),
 	...generalAgentRule(),
+	...agentsSizeRule(),
 	...powershellRule(),
 	...moduleExtensionRule(),
 	...checkedFiles()

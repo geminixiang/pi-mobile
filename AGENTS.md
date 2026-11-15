@@ -26,7 +26,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Android code is Kotlin: no Java file in `android/app/src/main/`.
 - Models to read like: the pi packages (`@earendil-works/*`), the Go standard library, and type-driven Elm/Rust code.
 - Store a value once: what can be computed from state, props, or a store is computed where it is used, not kept in its own `useState`, ref, or field (keep the selected id, derive the selected item from the list).
-- General first: pi is open source and must give everyone the same experience on their own phone, whatever the brand, language, OS version or screen. The agent learns the user's environment itself: what is installed comes from the device; how an app or site works comes from the agent's own use, saved as its notes. Never ship a table, prompt section, default note or special case about one particular third-party app, site, phone model or UI language (no matching on localized screen text such as a Settings label: match structure, system state or ids). A device test on one phone proves the mechanism works there; say which phone, and test the same thing on another kind (the stock-Android emulator at least) before calling it general.
+- General first: pi is open source, so every phone (any brand, language, OS version) gets the same experience. The agent finds out the user's environment itself: installed apps from the device, how an app works from its own notes. Never ship specifics about one app, site, phone or UI language; match structure or ids, not localized text. Test on two kinds of phone before calling it general.
 - Before adding code for a speculative race, edge case, or security concern, state the concrete failure, how likely it is, and what the code costs, and get the user's buy-in; over-design is itself a mistake.
 - Tests run the real implementation through the `Platform` seam: no mocks, no logic copied into the test. The only globals a test touches are `fetch` (made to throw: tests run offline) and `console` (captured to read log lines). A fix comes with a test that fails on the old code.
 - Branch names are at most three words joined by hyphens, no slashes or type prefixes (`helpers`, `fix-scroll-state`). Commits are `type(scope): summary` with `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`.
@@ -93,7 +93,8 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `docs/feature-map.md` names only components that exist where it says, and lists every component `App.tsx`, `Workbench.tsx` and `BotPanel.tsx` render and every settings page | `test/feature-map.ts` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
-| No third-party app or site is named in `src/` (package or bundle ids; the OS, pi itself and backends the code drives are listed with a reason): the agent learns the user's apps itself | `test/code-rules.ts` |
+| No third-party app id in `src/` (exceptions listed with a reason) | `test/code-rules.ts` |
+| AGENTS.md only shrinks (`AGENTS_WORDS`) | `test/code-rules.ts` |
 | Every class in `styles.css` and `index.css` is used by a component (by name, or built as `prefix-${…}`); classes a library adds are listed in `EXTERNAL_CLASSES` | `test/code-rules.ts` |
 | `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
 | A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |
