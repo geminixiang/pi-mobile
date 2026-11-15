@@ -41,7 +41,7 @@ class ContactsPlugin : Plugin() {
                             buildSet { while (cursor.moveToNext()) add(cursor.getLong(0)) }
                         }.orEmpty()
                     if (ids.isEmpty()) {
-                        resolveWith(call, JSArray())
+                        call.resolve(JSObject().put("items", JSArray()))
                         return@run
                     }
                     ids
@@ -77,14 +77,6 @@ class ContactsPlugin : Plugin() {
                     }
                 }
             }
-            val items = JSArray()
-            people.values.forEach { items.put(it) }
-            resolveWith(call, items)
+            call.resolve(JSObject().put("items", JSArray(people.values)))
         }
-
-    companion object {
-        private fun resolveWith(call: PluginCall, items: JSArray) {
-            call.resolve(JSObject().put("items", items))
-        }
-    }
 }

@@ -144,7 +144,7 @@ class BotFilesPlugin : Plugin() {
         Background.run(work, call) {
             val file = resolve(call, "path")
             if (!file.exists()) throw notFound(call.getString("path"))
-            val executable = ((call.getInt("mode", 0) ?: 0) and "111".toInt(8)) != 0
+            val executable = ((call.getInt("mode", 0) ?: 0) and 0b001_001_001) != 0
             if (!file.setExecutable(executable, false)) throw IOException("cannot change the mode of ${file.name}")
             call.resolve()
         }
@@ -235,9 +235,8 @@ class BotFilesPlugin : Plugin() {
     @PluginMethod
     fun listBots(call: PluginCall) =
         Background.run(work, call) {
-            val ids = JSArray()
-            bots().listFiles()?.filter { it.isDirectory && BOT.matches(it.name) }?.forEach { ids.put(it.name) }
-            call.resolve(JSObject().put("ids", ids))
+            val ids = bots().listFiles().orEmpty().filter { it.isDirectory && BOT.matches(it.name) }.map { it.name }
+            call.resolve(JSObject().put("ids", JSArray(ids)))
         }
 
     @PluginMethod
@@ -261,13 +260,15 @@ class BotFilesPlugin : Plugin() {
 
         fun notFound(path: String?) = Failure("not_found", "No such file or directory: $path")
 
-        fun info(file: File): JSObject =
-            JSObject()
+        fun info(file: File): JSObject {
+            val directory = file.isDirectory
+            return JSObject()
                 .put("name", file.name)
-                .put("kind", if (file.isDirectory) "directory" else "file")
-                .put("size", if (file.isDirectory) 0 else file.length())
+                .put("kind", if (directory) "directory" else "file")
+                .put("size", if (directory) 0 else file.length())
                 .put("mtimeMs", file.lastModified())
                 .put("executable", file.isFile && file.canExecute())
+        }
 
         fun deleteTree(file: File) {
             if (file.isDirectory && !Files.isSymbolicLink(file.toPath())) file.listFiles()?.forEach(::deleteTree)

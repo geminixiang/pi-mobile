@@ -77,8 +77,8 @@ class UsagePlugin : Plugin() {
             val home = homePackage()
             val items = JSArray()
             total.entries
-                .sortedByDescending { it.value }
                 .filter { it.value >= 60_000 && it.key != home }
+                .sortedByDescending { it.value }
                 .forEach { (pkg, ms) -> launcherLabels[pkg]?.let { items.put(JSObject().put("package", pkg).put("app", it).put("ms", ms)) } }
             call.resolve(JSObject().put("items", items).put("unlocks", unlocks))
         }

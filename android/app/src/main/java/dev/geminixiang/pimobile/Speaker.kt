@@ -27,13 +27,13 @@ internal class Speaker private constructor(context: Context) {
                     .build(),
             ).build()
     private var engine: TextToSpeech? = null
-    private var ready: Boolean? = null
+    private var ready = false
     private val waiting = mutableListOf<() -> Unit>()
     private var current: String? = null
     private var done: ((String?) -> Unit)? = null
 
     private fun withEngine(action: () -> Unit) {
-        if (ready == true) {
+        if (ready) {
             action()
             return
         }
@@ -52,7 +52,7 @@ internal class Speaker private constructor(context: Context) {
                     waiting.clear()
                     if (!started) {
                         engine = null
-                        ready = null
+                        ready = false
                     }
                     actions.forEach { it() }
                 }
