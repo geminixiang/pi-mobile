@@ -86,7 +86,9 @@ S24 上量過：配對視窗開著時切到 pi，視窗就關掉，輸入配對�
 
 模擬器的 `ro.adb.secure=0`，刪掉 pi 的金鑰後 TLS 仍連得上，所以「未設定」只能靠關掉無線偵錯、刪掉 `agent-screen-paired` 做出來；配對有沒有發生看系統的「已配對的裝置」。
 
-還沒在手機上驗：S24（One UI）上整條路；`toggle_adb_wireless` 在 One UI 上會不會反白；開發人員選項沒開時從「關於手機」一路走到配對。
+S24（One UI，繁中，2026-11-16，開源版 dev build）：`pairInSettings` 跑兩次都 `{ok:true}`；第二次從點「使用配對碼配對裝置」到系統關掉配對視窗不到 1.5 秒。One UI 會捲到「無線偵錯」那一項，但沒有明顯反白。配對視窗裡的位址是 Tailscale 的 IP，不影響判斷，因為只比對埠號。pi 的程序沒有記錄配對碼；Samsung 的 `system_server`（`AdbDebuggingManager: updateUIPairCode`）自己把配對碼印進 logcat，不在我們能管的範圍。
+
+還沒在手機上驗：從「未設定」開始的整條 UI（S24 已經配對過；要回到未設定得撤銷 adb 授權，會連帶切斷測試用的連線）；開發人員選項沒開時從「關於手機」一路走到配對；其他廠牌。
 
 ## 實測（2026-11-15，oss 版 release build，R8 開著）
 
