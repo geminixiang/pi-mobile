@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { createModels } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { runFailureNote } from "../../src/agent/entries.ts";
 import { customProvider } from "../../src/agent/models.ts";
 import { AgentRuntime } from "../../src/agent/runtime.ts";
@@ -31,7 +30,7 @@ export const checks: Check[] = [
 		"a custom endpoint whose key is optional still gives the model request a key to send",
 		async () => {
 			const provider = customProvider({ id: "custom", name: "", baseUrl: "https://model.invalid" }, "", ["m"], new Map());
-			const models = createModels({ credentials: memoryCredentials({}, {}, () => undefined) });
+			const models = createModels();
 			models.setProvider(provider);
 			const [model] = provider.getModels();
 			assert(model);
@@ -42,7 +41,7 @@ export const checks: Check[] = [
 	[
 		"a message no model can answer says why at the end of the conversation, instead of nothing",
 		async () => {
-			const noModels = { ...platform, models: async () => ({ models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), infos: [], webSearch: { baseUrl: "", apiKey: "", modelIds: [] } }) };
+			const noModels = { ...platform, models: async () => ({ models: createModels(), infos: [], webSearch: { baseUrl: "", apiKey: "", modelIds: [] } }) };
 			const runtime = await AgentRuntime.open(new MemoryStorage(), settings, noModels, {});
 			try {
 				const [bot] = await runtime.bots();

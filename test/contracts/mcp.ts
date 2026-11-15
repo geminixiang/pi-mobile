@@ -6,7 +6,6 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { AgentRuntime } from "../../src/agent/runtime.ts";
 import { turn } from "./fixtures.ts";
 
@@ -98,7 +97,7 @@ export const checks: Check[] = [
 			const [bot] = await first.runtime.bots();
 			assert(bot);
 			await first.runtime.close();
-			const raw = await Harness.open(storage, { models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
+			const raw = await Harness.open(storage, { models: createModels(), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
 			const loaded = defineTool({ name: "phone_read_as_user", description: "loaded", parameters: Type.Object({}), execute: async () => ({ output: [] }) });
 			await (await raw.conversation(bot.id, BACKGROUND_CONTEXT))?.configure({ modelTools: { add: [loaded] } }, BACKGROUND_CONTEXT);
 			await raw.close(BACKGROUND_CONTEXT);

@@ -150,7 +150,7 @@ export const platform: Platform = {
 		},
 	},
 	models: async () => {
-		const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });
+		const models = createModels({ credentials: await memoryCredentials({ faux: "contract" }, {}) });
 		models.setProvider(faux.provider);
 		return { models, infos: [], webSearch: { baseUrl: "", apiKey: "", modelIds: [] } };
 	},

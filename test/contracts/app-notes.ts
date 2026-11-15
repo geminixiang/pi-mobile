@@ -146,7 +146,7 @@ export const checks: Check[] = [
 			const extension = defineExtension({ name: "fixture", tools: [entry, inner] });
 			const registry = createRegistry();
 			registry.install(extension);
-			const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });
+			const models = createModels({ credentials: await memoryCredentials({ faux: "contract" }, {}) });
 			models.setProvider(faux.provider);
 			const harness = await Harness.open(new MemoryStorage(), { models, registry, settings: { extensions: [extension] } }, BACKGROUND_CONTEXT);
 			try {

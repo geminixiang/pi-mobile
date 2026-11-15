@@ -59,7 +59,7 @@ export async function loadModels(settings: Settings, compactAt: () => number, mo
 		),
 		gatewayCatalog(configs),
 	]);
-	const credentials = memoryCredentials(
+	const credentials = await memoryCredentials(
 		Object.fromEntries(configs.map((config) => [config.id, settings.providerKeys[config.id] ?? ""])),
 		settings.providerOAuth,
 		(id, json) => void orLogged(store.rotate({ kind: "provider", id }, json), "provider.oauth_save_failed", undefined, { id }),
