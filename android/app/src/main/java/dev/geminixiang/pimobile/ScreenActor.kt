@@ -41,6 +41,16 @@ private val GLOBAL_KEYS =
 internal sealed interface ScreenStep {
     data class Tap(val x: Double, val y: Double) : ScreenStep
 
+    data class TapId(val id: Int) : ScreenStep
+
+    data class TapText(val text: String) : ScreenStep
+
+    data class WaitFor(val text: String, val gone: Boolean, val ms: Long) : ScreenStep
+
+    data class ScrollTo(val text: String, val direction: String) : ScreenStep
+
+    data class Expect(val app: String?, val text: String?) : ScreenStep
+
     data class LongPress(val x: Double, val y: Double) : ScreenStep
 
     data class Swipe(val x: Double, val y: Double, val toX: Double, val toY: Double, val ms: Long) : ScreenStep
@@ -58,7 +68,10 @@ internal sealed interface ScreenStep {
     data class Wait(val ms: Long) : ScreenStep
 
     val action: String get() = when (this) {
-        is Tap -> "tap"
+        is Tap, is TapId, is TapText -> "tap"
+        is WaitFor -> "wait_for"
+        is ScrollTo -> "scroll_to"
+        is Expect -> "expect"
         is LongPress -> "long_press"
         is Swipe -> "swipe"
         is Scroll -> "scroll"
@@ -72,7 +85,14 @@ internal sealed interface ScreenStep {
     companion object {
         fun of(json: JSONObject): ScreenStep =
             when (val action = json.getString("action")) {
-                "tap" -> Tap(json.getDouble("x"), json.getDouble("y"))
+                "tap" -> when {
+                    json.has("id") -> TapId(json.getInt("id"))
+                    json.has("text") -> TapText(json.getString("text"))
+                    else -> Tap(json.getDouble("x"), json.getDouble("y"))
+                }
+                "wait_for" -> WaitFor(json.getString("text"), json.getBoolean("gone"), json.getLong("ms"))
+                "scroll_to" -> ScrollTo(json.getString("text"), json.getString("direction"))
+                "expect" -> Expect(if (json.has("app")) json.getString("app") else null, if (json.has("text")) json.getString("text") else null)
                 "long_press" -> LongPress(json.getDouble("x"), json.getDouble("y"))
                 "swipe" -> Swipe(json.getDouble("x"), json.getDouble("y"), json.getDouble("to_x"), json.getDouble("to_y"), json.getLong("ms"))
                 "scroll" -> Scroll(json.getString("direction"), json.optional("x"), json.optional("y"))
@@ -91,7 +111,7 @@ internal sealed interface ScreenStep {
 fun interface DisplayShell {
     fun key(display: Int, key: String): Boolean
     fun attach(service: AccessibilityService?) = Unit
-    fun before(display: Int, action: String): String? = null
+    fun before(display: Int, action: String, note: String? = null): String? = null
     fun reason(display: Int): String? = null
 }
 
@@ -111,8 +131,8 @@ internal class ScreenActor {
     private var lastTap: PointF? = null
     private val launchers = LinkedHashMap<String, String>()
 
-    fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float, display: Int): Outcome<String?> = synchronized(DisplayShells) {
-        DisplayShells.current?.before(display, step.action)?.let { return Outcome.Stopped(it) }
+    fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float, display: Int, note: String?): Outcome<String?> = synchronized(DisplayShells) {
+        DisplayShells.current?.before(display, step.action, note)?.let { return Outcome.Stopped(it) }
         val px = { points: Double -> (points / scale).toFloat() }
         when (step) {
             is ScreenStep.Tap -> {
@@ -122,6 +142,22 @@ internal class ScreenActor {
                 service.gesture(line(at.x, at.y, at.x, at.y), TAP_MS, display).valueOr { return it }
                 return Outcome.Ok("tapped $target")
             }
+            is ScreenStep.TapId, is ScreenStep.TapText -> {
+                val target = ScreenNavigation(service, screen, scale, display).target(step).valueOr { return it }
+                val bounds = android.graphics.Rect().also(target.node::getBoundsInScreen)
+                lastTap = PointF(bounds.exactCenterX(), bounds.exactCenterY())
+                if (!target.node.isEnabled) return Outcome.Stopped("target_disabled")
+                if (!target.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                    if (!target.node.refresh() || !target.node.isVisibleToUser) return Outcome.Stopped("target_gone")
+                    target.node.getBoundsInScreen(bounds)
+                    if (!bounds.intersect(0, 0, screen.widthPixels, screen.heightPixels)) return Outcome.Stopped("target_gone")
+                    service.gesture(line(bounds.exactCenterX(), bounds.exactCenterY(), bounds.exactCenterX(), bounds.exactCenterY()), TAP_MS, display).valueOr { return it }
+                }
+                return Outcome.Ok("tapped ${target.description}")
+            }
+            is ScreenStep.WaitFor -> ScreenNavigation(service, screen, scale, display).waitFor(step).valueOr { return it }
+            is ScreenStep.ScrollTo -> ScreenNavigation(service, screen, scale, display).scrollTo(step).valueOr { return it }
+            is ScreenStep.Expect -> ScreenNavigation(service, screen, scale, display).expect(step).valueOr { return it }
             is ScreenStep.LongPress -> {
                 val x = px(step.x)
                 val y = px(step.y)
@@ -176,8 +212,11 @@ internal class ScreenActor {
             service.startActivity(separate, ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle())
         }
         val until = SystemClock.uptimeMillis() + OPEN_MS
-        while (SystemClock.uptimeMillis() < until && pkg != service.activeRoot(display)?.packageName?.toString()) Thread.sleep(OPEN_POLL_MS)
-        return Outcome.Ok(Unit)
+        while (SystemClock.uptimeMillis() < until) {
+            if (pkg == service.activeRoot(display)?.packageName?.toString()) return Outcome.Ok(Unit)
+            Thread.sleep(OPEN_POLL_MS)
+        }
+        return Outcome.Stopped("app_not_open: $name")
     }
 
     private fun loadLaunchers(packages: PackageManager) {
@@ -216,7 +255,7 @@ private fun PhoneScreenService.gesture(path: Path, ms: Long, display: Int): Outc
     return Outcome.Ok(Unit)
 }
 
-private fun PhoneScreenService.scroll(step: ScreenStep.Scroll, screen: DisplayMetrics, x: Float, y: Float, display: Int): Outcome<Unit> {
+internal fun PhoneScreenService.scroll(step: ScreenStep.Scroll, screen: DisplayMetrics, x: Float, y: Float, display: Int): Outcome<Unit> {
     val (dx, dy) =
         when (step.direction) {
             "down" -> 0f to -screen.heightPixels * 0.35f

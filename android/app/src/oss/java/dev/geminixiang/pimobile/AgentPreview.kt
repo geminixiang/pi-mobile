@@ -111,18 +111,19 @@ internal class AgentPreview(
         windows.removeViewImmediate(root)
     }
 
-    fun step(action: String) {
-        step.text = when (action) {
+    fun step(action: String, note: String?) {
+        step.text = note?.takeIf { it.isNotBlank() } ?: when (action) {
             "read" -> "讀取畫面"
             "tap" -> "點按"
             "long_press" -> "長按"
             "swipe" -> "滑動"
-            "scroll" -> "捲動"
+            "scroll", "scroll_to" -> "捲動"
             "type" -> "輸入文字"
             "clear" -> "清除文字"
             "key" -> "按鍵"
             "open" -> "開啟 App"
-            "wait" -> "等待畫面"
+            "wait", "wait_for" -> "等待畫面"
+            "expect" -> "確認畫面"
             else -> "背景螢幕"
         }
     }

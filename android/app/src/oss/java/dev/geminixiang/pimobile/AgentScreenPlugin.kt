@@ -32,9 +32,9 @@ class AgentScreenPlugin : Plugin() {
         DisplayShells.install(object : DisplayShell {
             override fun key(display: Int, key: String) = KEYCODES[key]?.let { screen.key(display, it) } ?: false
             override fun reason(display: Int) = screen.reason(display)
-            override fun before(display: Int, action: String): String? {
+            override fun before(display: Int, action: String, note: String?): String? {
                 screen.reason(display)?.let { return it }
-                if (display == screen.display) main.post { preview?.step(action) }
+                if (display == screen.display) main.post { preview?.step(action, note) }
                 return null
             }
             override fun attach(service: AccessibilityService?) {

@@ -1514,7 +1514,7 @@
 			"phone_as_user"
 		],
 		"name": "phone_read_as_user",
-		"description_chars": 190,
+		"description_chars": 222,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1552,7 +1552,7 @@
 			"phone_as_user"
 		],
 		"name": "phone_act_as_user",
-		"description_chars": 798,
+		"description_chars": 585,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1560,6 +1560,10 @@
 		],
 		"parameters": {
 			"properties": {
+				"note": {
+					"description": "Preview progress: a few words in the user's language",
+					"type": "string"
+				},
 				"screen": {
 					"description": "background (default): a hidden screen of its own, so the user keeps using the phone; front: the user's screen, only to show them something or hand it over",
 					"enum": [
@@ -1585,16 +1589,19 @@
 									"clear",
 									"key",
 									"open",
-									"wait"
+									"wait",
+									"wait_for",
+									"scroll_to",
+									"expect"
 								],
 								"type": "string"
 							},
 							"app": {
-								"description": "open: app name as on the home screen, or its package",
+								"description": "open: app name or package; expect: exact app name or package",
 								"type": "string"
 							},
 							"direction": {
-								"description": "scroll: which way the content moves into view; default down",
+								"description": "scroll/scroll_to: direction; default down",
 								"enum": [
 									"down",
 									"up",
@@ -1603,17 +1610,26 @@
 								],
 								"type": "string"
 							},
+							"gone": {
+								"description": "wait_for: wait until absent; default false",
+								"type": "boolean"
+							},
+							"id": {
+								"description": "tap: live element id",
+								"minimum": 1,
+								"type": "integer"
+							},
 							"keys": {
 								"description": "key: back, home, recents, notifications, quick_settings, or enter",
 								"type": "string"
 							},
 							"ms": {
-								"description": "swipe: duration, default 300; wait: how long",
+								"description": "swipe: default 300; wait: 500; wait_for: 3000, max 10000",
 								"minimum": 1,
 								"type": "integer"
 							},
 							"text": {
-								"description": "type: the text",
+								"description": "type: input; tap: exact label; wait_for/scroll_to/expect: visible text contains",
 								"type": "string"
 							},
 							"to_x": {

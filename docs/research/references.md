@@ -14,6 +14,7 @@
 
 | 參考 | 是什麼 | 學到的 | 對 pi mobile 的決定 |
 |---|---|---|---|
+| Lazy errands research（2026-11-15，使用者提供 `.errands-research.md`） | 把訂票、讀訊息、訂餐拆成畫面與模型往返成本 | 已知路徑應在原生一次做完；目標在每步執行時找，觀察和等待都屬於目標 display | 這次只做 #1、#2、#4、#5 和進度文字；#3 安全閘另做。Settings 模擬器測試與限制見 [errands-report.md](../design/errands-report.md)，沒有測那些真實交易 App |
 | scrcpy（背景螢幕預覽，2026-11-15） | 使用者指定的 Android 螢幕串流做法：MediaCodec 的 input Surface → H.264 → decoder Surface | 不把每幀變成 Bitmap，也不經 WebView；只在觀看時建立 encoder，靜止畫面不重複編碼 | 已在 API 36 模擬器實作。直接把小 Surface 接到全尺寸 virtual display 會裁切，改用等比例 density 的低解析度 display；量測與限制見 [背景螢幕預覽報告](../design/background-preview-report.md) |
 | Grok Bot（2026-11-04） | xAI 的主動式 agent App | 對話裡的互動元件、先回一句再做事、連服務的卡片 | 見 [grok-bot.md](grok-bot.md)。已做：問題卡、工作行、結果卡、權限卡 |
 | Claude Duet（2026-11-13） | Anthropic 的主動式 agent App | 「主動」是一套預設的作息（晨報、少量巡視、安靜時段）；Chat、Tasks、Make 分成說話、交辦、成果三個地方；連服務從「它能做什麼」開始，空著的位置畫成虛線「＋」 | 見 [claude-duet.md](claude-duet.md)。已做：「能做什麼」、回答後的 ↳ 選項、新 Bot 的晨報提議。還沒做：任務板 |

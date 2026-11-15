@@ -2796,6 +2796,9 @@
 						"app": {
 							"type": "string"
 						},
+						"delta": {
+							"type": "boolean"
+						},
 						"did": {
 							"items": {
 								"type": "string"
@@ -2856,6 +2859,9 @@
 							"minimum": 0,
 							"type": "integer"
 						},
+						"note": {
+							"type": "string"
+						},
 						"screenshot": {
 							"type": "boolean"
 						},
@@ -2882,6 +2888,107 @@
 											"action",
 											"x",
 											"y"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "tap",
+												"type": "string"
+											},
+											"id": {
+												"minimum": 1,
+												"type": "integer"
+											}
+										},
+										"required": [
+											"action",
+											"id"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "tap",
+												"type": "string"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"text"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "wait_for",
+												"type": "string"
+											},
+											"gone": {
+												"type": "boolean"
+											},
+											"ms": {
+												"type": "integer"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"text",
+											"gone",
+											"ms"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "scroll_to",
+												"type": "string"
+											},
+											"direction": {
+												"enum": [
+													"down",
+													"up",
+													"left",
+													"right"
+												],
+												"type": "string"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action",
+											"text",
+											"direction"
+										],
+										"type": "object"
+									},
+									{
+										"properties": {
+											"action": {
+												"const": "expect",
+												"type": "string"
+											},
+											"app": {
+												"type": "string"
+											},
+											"text": {
+												"type": "string"
+											}
+										},
+										"required": [
+											"action"
 										],
 										"type": "object"
 									},
@@ -3044,6 +3151,9 @@
 					"properties": {
 						"app": {
 							"type": "string"
+						},
+						"delta": {
+							"type": "boolean"
 						},
 						"did": {
 							"items": {

@@ -7,7 +7,8 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 
 class PhoneScreenService : AccessibilityService() {
-    @Volatile private var lastChange = 0L
+    internal val changes = ScreenChanges()
+    internal val elementIds = ElementIds()
 
     override fun onServiceConnected() {
         running = this
@@ -27,12 +28,17 @@ class PhoneScreenService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        lastChange = SystemClock.uptimeMillis()
+        if (event == null) return
+        val displays = windowsOnAllDisplays
+        for (at in 0 until displays.size()) {
+            if (displays.valueAt(at).any { it.id == event.windowId }) {
+                changes.record(displays.keyAt(at), SystemClock.uptimeMillis())
+                return
+            }
+        }
     }
 
     override fun onInterrupt() {}
-
-    fun lastChangeAt() = lastChange
 
     companion object {
         @JvmField @Volatile var running: PhoneScreenService? = null

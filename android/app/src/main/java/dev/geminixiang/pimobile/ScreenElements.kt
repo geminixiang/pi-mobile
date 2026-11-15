@@ -7,16 +7,33 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import kotlin.math.roundToInt
 
-internal const val MAX_ELEMENTS = 160
 internal const val ELEMENTS_MS = 2500L
-private const val MAX_LABEL = 60
 private const val TREE_RETRY_MS = 200L
 private const val SEPARATOR = " · "
-private val SPACES = Regex("\\s+")
 
-internal data class Line(val text: String, val node: AccessibilityNodeInfo?)
+internal data class Line(val text: String, val node: AccessibilityNodeInfo?, val label: String = "", val id: Int = 0, val context: String = "")
 
-internal data class Seen(val lines: List<Line>, val keyboard: Boolean, val front: String?)
+internal class ElementIds {
+    private data class Identity(val node: AccessibilityNodeInfo, val label: String, val context: String)
+    private val displays = mutableMapOf<Int, Map<Identity, Int>>()
+    private var next = 1
+
+    fun assign(display: Int, lines: List<Line>): List<Line> {
+        val previous = displays[display].orEmpty()
+        val current = mutableMapOf<Identity, Int>()
+        val result = lines.map { line ->
+            val node = line.node ?: return@map line
+            val identity = Identity(node, if (node.isEditable) node.viewIdResourceName.orEmpty() else line.label, line.context)
+            val id = previous[identity] ?: next++
+            current[identity] = id
+            line.copy(id = id, text = "[$id] ${line.text}")
+        }
+        displays[display] = current
+        return result
+    }
+}
+
+internal data class Seen(val lines: List<Line>, val keyboard: Boolean, val front: String?, val complete: Boolean)
 
 internal fun PhoneScreenService.see(scale: Float, screen: DisplayMetrics, deadline: Long, display: Int = Display.DEFAULT_DISPLAY): Seen {
     val lines = mutableListOf<Line>()
@@ -37,14 +54,19 @@ internal fun PhoneScreenService.see(scale: Float, screen: DisplayMetrics, deadli
             if (window.type == AccessibilityWindowInfo.TYPE_SYSTEM && sliver) continue
             val root = window.root ?: continue
             val before = lines.size
-            walk(root, scale, false, lines, deadline)
-            if (lines.size > before && shown.size > 1) lines.add(before, Line("# ${kindOf(window)}${window.title?.let { " " + clip(it.toString()) }.orEmpty()}", null))
-            if (lines.size >= MAX_ELEMENTS || System.currentTimeMillis() > deadline) break
+            walk(root, scale, screen, lines, deadline)
+            if (lines.size > before) {
+                val dialog = window.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+                    (root.className?.contains("Dialog") == true || area.height() < screen.heightPixels * 0.8)
+                lines.add(before, Line("# ${kindOf(window)}${if (dialog) " dialog/modal" else ""}${window.title?.let { " " + clip(it.toString()) }.orEmpty()}", null))
+            }
+            if (System.currentTimeMillis() > deadline) break
         }
         val alone = active
-        if (shown.isEmpty() && alone != null) walk(alone, scale, false, lines, deadline)
+        if (shown.isEmpty() && alone != null) walk(alone, scale, screen, lines, deadline)
     }
-    return Seen(withOwners(lines, deadline), keyboard, active?.packageName?.toString())
+    val identified = elementIds.assign(display, withOwners(lines, deadline))
+    return Seen(identified, keyboard, active?.packageName?.toString(), System.currentTimeMillis() <= deadline)
 }
 
 internal fun PhoneScreenService.windowsOn(display: Int): List<AccessibilityWindowInfo> = if (display == Display.DEFAULT_DISPLAY) windows else windowsOnAllDisplays.get(display).orEmpty()
@@ -66,14 +88,10 @@ internal fun PhoneScreenService.describedAt(x: Float, y: Float, scale: Float, di
 
 internal fun AccessibilityNodeInfo.covers(x: Int, y: Int) = Rect().also(::getBoundsInScreen).contains(x, y)
 
-internal fun clip(text: String): String {
-    val flat = text.replace(SPACES, " ").trim()
-    return if (flat.length > MAX_LABEL) flat.take(MAX_LABEL) + "…" else flat
-}
-
-private fun walk(node: AccessibilityNodeInfo, scale: Float, insideButton: Boolean, into: MutableList<Line>, deadline: Long) {
-    if (into.size >= MAX_ELEMENTS + 1 || System.currentTimeMillis() > deadline || !node.isVisibleToUser) return
+private fun walk(node: AccessibilityNodeInfo, scale: Float, screen: DisplayMetrics, into: MutableList<Line>, deadline: Long) {
+    if (System.currentTimeMillis() > deadline || !node.isVisibleToUser) return
     val bounds = Rect().also(node::getBoundsInScreen)
+    if (!bounds.intersect(0, 0, screen.widthPixels, screen.heightPixels)) return
     val clickable = node.isClickable || node.isLongClickable
     val editable = node.isEditable
     val label = if (clickable && !editable) labelOf(node, deadline) else ownLabel(node)
@@ -83,11 +101,12 @@ private fun walk(node: AccessibilityNodeInfo, scale: Float, insideButton: Boolea
             node.isCheckable -> if (node.isChecked) "checked" else "unchecked"
             clickable -> "button"
             node.isScrollable -> "list"
-            label.isEmpty() || insideButton -> null
+            label.isEmpty() && node.error.isNullOrEmpty() -> null
             else -> "text"
         }
     if (role != null && !bounds.isEmpty) {
-        val named = if (label.isEmpty()) role else "$role ${quoted(label)}"
+        val named = if (editable) "field ${fieldLabel(if (node.isShowingHintText) "" else node.text?.toString().orEmpty(), node.hintText?.toString().orEmpty(), node.isPassword)}"
+            else if (label.isEmpty()) role else "$role ${quoted(label)}"
         val center = "at ${(bounds.exactCenterX() * scale).roundToInt()},${(bounds.exactCenterY() * scale).roundToInt()}"
         val flags =
             listOfNotNull(
@@ -95,11 +114,16 @@ private fun walk(node: AccessibilityNodeInfo, scale: Float, insideButton: Boolea
                 "focused".takeIf { node.isFocused },
                 "selected".takeIf { node.isSelected },
                 "disabled".takeIf { !node.isEnabled },
+                node.stateDescription?.takeIf { it.isNotBlank() }?.let { "state=${quoted(it.toString())}" },
+                node.error?.takeIf { it.isNotBlank() }?.let { "error=${quoted(it.toString())}" },
+                "invalid".takeIf { node.isContentInvalid },
+                "more below".takeIf { node.actionList.contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD) || node.actionList.contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN) },
+                node.collectionInfo?.let { "rows=${it.rowCount} columns=${it.columnCount}" },
+                node.collectionItemInfo?.let { "row=${it.rowIndex + 1} column=${it.columnIndex + 1}" },
             )
-        into.add(Line((listOf(named, center) + flags).joinToString(" "), node))
+        into.add(Line((listOf(named, center) + flags).joinToString(" "), node, label))
     }
-    val inside = insideButton || (clickable && !editable)
-    for (at in 0 until node.childCount) node.getChild(at)?.let { walk(it, scale, inside, into, deadline) }
+    for (at in 0 until node.childCount) node.getChild(at)?.let { walk(it, scale, screen, into, deadline) }
 }
 
 private fun kindOf(window: AccessibilityWindowInfo) =
@@ -116,9 +140,11 @@ private fun withOwners(lines: List<Line>, deadline: Long): List<Line> {
     return lines.mapIndexed { at, line ->
         val node = line.node
         val shape = shapes[at]
-        if (node == null || !actionable(node) || (counts[shape] ?: 0) < 2) return@mapIndexed line
+        if (node == null) return@mapIndexed line
         val owner = ownerOf(node, deadline)
-        if (owner.isEmpty()) line else line.copy(text = "$shape in ${quoted(owner)}${line.text.substring(shape.length)}")
+        val text = if (owner.isEmpty() || !actionable(node) || (counts[shape] ?: 0) < 2) line.text
+            else "$shape in ${quoted(owner)}${line.text.substring(shape.length)}"
+        line.copy(text = text, context = owner)
     }
 }
 
@@ -179,5 +205,3 @@ private fun areaOf(node: AccessibilityNodeInfo): Long {
 }
 
 private fun actionable(node: AccessibilityNodeInfo) = node.isClickable || node.isLongClickable || node.isEditable || node.isCheckable
-
-private fun quoted(text: String) = "\"${text.replace("\"", "'")}\""
