@@ -30,6 +30,18 @@ Poki App（SwiftUI）
 
 「iOS 27 原生服務」是另一條路：Xcode 的 `devicectl` 用的那組 CoreDevice 服務（RemoteXPC），可以直接讀原生無障礙樹和前景 App、用 AppService 開 App、透過 displayservice 的媒體 session 送 HID 觸控和鍵盤、讀寫剪貼簿（中文用貼上），不需要 WebDriverAgent（`native/NATIVE.md`）。程式碼裡目前只有 Mac 端的 bridge 用它；手機本機的版本在保留的分支 `dev/esp-409-preserve-030`，還沒進產品（`docs/ios-loopback.md`）。輸入只保證「送出了」：裝置不回報有沒有收到，要再讀畫面才知道結果。
 
+## pi mobile 的 iPhone 驗證，第一階段（2026-11-15，iPhone 12 Pro、iOS 27.2，插在 Mac mini 上）
+
+目的：確認 WebDriverAgent（WDA，Appium 用的開源 XCTest 自動化伺服器，BSD）能在使用者的 iPhone 上讀、點其他 App。這一階段由 Mac 經 USB 啟動 runner；App 在手機上自己啟動（本機 VPN 那套）是第二階段。
+
+- 建置：clone `appium/WebDriverAgent`，`xcodebuild build-for-testing`，用 App Store Connect API key 自動簽章（和 TestFlight 腳本同一組），bundle id `com.geminixiang.wdapoc.WebDriverAgentRunner`。成功，runner 留在手機上。
+- 啟動：`xcodebuild test-without-building`。第一次逾時 `Timed out while enabling automation mode`：要使用者在 設定 › 開發者 打開「啟用 UI 自動化」，並在提示出現時輸入手機密碼。使用者做完後，runner 在手機的 `:8100` 起來。
+- 實測（`iproxy 8100 8100` 經 USB）：`/status` 42 ms；開「設定」的 session 2.9 秒；無障礙樹（description 格式）1.1 秒、168 行、15 KB，元素有中文標籤、座標（point）、識別碼（例如 `com.apple.settings.wifi`）；截圖 0.4 秒；用標籤找元素 0.4 秒、點擊 0.8 到 1.1 秒。
+- 點擊「藍牙」成功換頁。點擊「電池」沒有換頁：那一列被 iOS 27 底部浮動的搜尋列蓋住。實作要先判斷元素有沒有被遮住（或先捲動），不能只看它在樹裡。
+- 結束後回主畫面、關 session、停掉 runner 和 iproxy；沒有改任何設定。
+
+結論：WDA 這一層在 iOS 27.2 上可行，速度可用。剩下的是第二階段：不靠 Mac，App 自己在手機上啟動 runner（配對檔、本機 VPN、掛開發者磁碟映像、testmanagerd），以及側載版的發佈和每 7 天重簽（付費帳號是一年）。
+
 ## 值得學的 agent 做法（Android 現在就能用）
 
 1. **動作收據加上動作後的觀察**（`agent/post-action-observation.mjs`）：每個動作回傳收據（送出了沒、結果確定或未知、收據 id），附上動作完成後立刻抓的無障礙樹（元素編號 `e1`、`e2`、前景 App）。要用它當下一步的依據，必須通過檢查：在輸入完成之後才開始抓、不超過 25 秒、收據 id 對得上、前景 App 是預期的、元素不超過 400 個；不符就重讀。給模型時拿掉這段大資料，只留收據。
