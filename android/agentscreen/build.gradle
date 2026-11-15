@@ -1,0 +1,16 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace = "dev.geminixiang.agentscreen"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+}
+
+
+dependencies {
+    implementation "com.flyfishxu:kadb:2.1.5"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0"
+}

@@ -1,4 +1,4 @@
-# 背景螢幕：Bot 操作 App 時不占用使用者的畫面（2026-11-15，草案）
+# 背景螢幕：Bot 操作 App 時不占用使用者的畫面（2026-11-15）
 
 ## 核心目的
 
@@ -25,46 +25,42 @@ S24 實機（Android 17 / API 37、One UI 9，2026-11-15）同一支程式：背
 
 還沒驗證：用無障礙手勢對背景螢幕點擊（`GestureDescription.Builder.setDisplayId`，API 30；mika 在產品裡這樣用）、S24 實機（One UI 的多螢幕行為可能不同）、長時間背景螢幕的耗電。
 
-## 架構
+## 架構（2026-11-15 定案：B，自帶 adb 用戶端）
 
 ```
-pi（WebView）
-  phone_act_as_user / phone_read_as_user（多一個「在背景」的模式）
-        │ PhoneScreen plugin
-        ▼
-  ┌──────────────── pi App 行程 ────────────────┐
-  │ PhoneScreenService（無障礙服務，原有）        │
-  │   讀：getWindowsOnAllDisplays()[背景螢幕]     │
-  │   點：dispatchGesture(setDisplayId(背景螢幕))  │
-  └──────────────────────────────────────────────┘
-        │ binder
-  ┌──────── shell 身分的小服務（新） ────────┐
-  │ 建立／釋放背景螢幕（createVirtualDisplay） │
-  │ 在上面開 App（am start --display N）       │
-  │ 截圖（ImageReader）                        │
-  └──────────────────────────────────────────┘
-        ▲ 怎麼拿到 shell 身分：見下方要決定的事
+android/
+ ├─ app/src/main/    共用，不知道 adb 和背景螢幕
+ ├─ app/src/store/   Edition.kt：沒有額外的 plugin（上架版）
+ ├─ app/src/oss/     Edition.kt 列出 AgentScreenPlugin；AgentScreenPlugin.kt（薄的轉接）
+ └─ agentscreen/     獨立的 Gradle 模組，只有 oss 依賴（ossImplementation）
+      AgentScreen.kt   對外唯一的類別：pair、open、launch、shot、close
+      Discovery.kt     用 NsdManager 找自己的無線偵錯（_adb-tls-pairing、_adb-tls-connect），只認本機位址
+      DisplayServer.kt 以 shell 身分執行（CLASSPATH=pi 的 APK app_process），開虛擬螢幕，stdin 收 shot、關掉就釋放
+src/plugins/agent-screen.ts  合約；store 版沒有這個原生 plugin，native.has 回 false
 ```
 
-shell 身分只負責「螢幕」和「開 App」；讀和點盡量交給原有的無障礙服務，新寫的程式最少。
+- **adb 用戶端用 [Kadb](https://github.com/Flyfish233/Kadb)**（`com.flyfishxu:kadb:2.1.5`，Apache-2.0）：配對（SPAKE2，`spake2-java` 在 JitPack，root `build.gradle` 只對 `com.github.Flyfish233` 開 JitPack）、TLS 連線、shell v2。不抄 mika 的 `core/adb`：程式碼更少，也不用帶授權註解。
+- **兩個版本**：`store`（上架）沒有這個模組，`oss`（開源）有。共用程式碼只多一行 `Edition.plugins.forEach(::registerPlugin)`。`test/code-rules.ts` 擋其他地方碰 `AgentScreen`；`test/plugins-node.ts` 檢查 `oss` 的 plugin 有列在 `Edition.kt`。
+- **使用者要做的**：開發人員選項 →「無線偵錯」→「使用配對碼配對裝置」，把六位數輸入 pi（`AgentScreen.pair`）。之後 pi 自己找埠、自己連。
 
-## 要使用者決定的事
+## 實測（2026-11-15，oss 版 release build，R8 開著）
 
-**怎麼拿到 shell 身分**（兩條路都要使用者在手機上配對一次「無線偵錯」）：
-
-| | A. Shizuku | B. 內建 adb 用戶端（mika 的做法） |
+| | 模擬器（API 36） | S24（API 37、One UI 9） |
 |---|---|---|
-| 使用者要做的 | 另外安裝 Shizuku App，在裡面配對一次 | 在 pi 裡配對一次 |
-| pi 要寫的 | 約一百行接線（Shizuku UserService） | 約 1,600 行：SPAKE2 配對、Ed25519、TLS、adb 協定（mika 的 `core/adb`，Apache-2.0 可參考） |
-| 重開機後 | Shizuku 要重新啟動（無線偵錯需要 Wi-Fi） | 同樣要重新連自己的無線偵錯 |
-| 風險 | 依賴第三方 App | 自己維護一套安全相關的協定實作 |
+| `pair`（pi 用配對碼配對自己） | 成功 | 成功，0.6 秒 |
+| `open`（NSD 找埠、TLS 連 127.0.0.1、從 APK 啟動 shell 端、開螢幕） | 0.3–0.4 秒，display 3、4 | 0.7 秒，display 8 |
+| `launch` 設定 | 58 ms | 54 ms |
+| 使用者主螢幕正開著「設定」時再 `launch` 設定 | 主螢幕的工作留著，背景另開一份 | 同左（之前 `am start` 不帶旗標會搬走使用者的那份；現在帶 `NEW_TASK \| MULTIPLE_TASK`） |
+| `shot`（ImageReader → JPEG） | 42–62 ms（第一張 810 ms） | 570 ms（第一張） |
+| `PhoneScreen.read({ display })` | 53 ms | 148 ms |
+| 主螢幕焦點 | 不變 | 不變（`mTopFocusedDisplayId=0`） |
+| `close` | 螢幕和裡面的 App 一起消失 | 同左 |
 
-建議 A：符合「能用成熟的就不自己寫」，程式碼最少；之後真的需要再換 B。
+（用 `input -d N tap` 點擊在模擬器也通過；點擊打算改走既有的無障礙動作，所以沒有留在合約裡。）
 
-## 步驟（每一步都能單獨上線）
+## 還沒做
 
-1. `PhoneScreen.read` 可以指定螢幕（這個分支已做，模擬器驗證）。
-2. shell 服務：建立、釋放背景螢幕，在上面開 App，截圖（依上面的決定）。
-3. 點擊和輸入帶上螢幕（無障礙手勢的 `setDisplayId`；文字輸入走剪貼簿或 `input -d`）。
-4. 工具：`phone_act_as_user` 預設在背景做；畫面上顯示一個小視窗（即時畫面，點一下放大、接手）。
-5. S24 實機驗證：主螢幕打字不被打斷、讀取時間、耗電；照 `docs/tools.md` 量工具成本。
+1. **讓 Bot 用**：`phone_read_as_user`、`phone_act_as_user` 在背景螢幕上做（讀已經能指定螢幕；點擊用無障礙手勢的 `setDisplayId`、開 App 走 `AgentScreen.launch`）。動工前先畫圖確認。
+2. **配對的畫面**：設定裡一個項目，帶使用者到無線偵錯、輸入配對碼；連不上時說原因（`debugging_off`、`not_paired`、`pairing_closed`、`wrong_code`）。
+3. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯，要使用者再開；是否能在連著時保持開啟要再測。
+4. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。

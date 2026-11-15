@@ -37,6 +37,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(BrowserPlugin::class.java)
         registerPlugin(PhoneScreenPlugin::class.java)
         registerPlugin(PhoneStatePlugin::class.java)
+        Edition.plugins.forEach(::registerPlugin)
         super.onCreate(savedInstanceState)
         bridge.addWebViewListener(
             object : WebViewListener() {

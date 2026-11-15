@@ -97,6 +97,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 - 哪些方法有實作，看 Capacitor 的 `PluginHeaders`，細到方法（`native.implements(method)`）；整個 plugin 有沒有，用 `native.has(name)`。
 - `test/plugins-node.ts`（在 `npm run check` 裡）掃 Java 的 `@PluginMethod` 和 Swift 的 `pluginMethods`：contract 的每個方法 Android 都要有；兩個平台都不能有 contract 沒寫的方法；contract 和 iOS 已實作的方法記在 `test/plugins.snapshot.json`。改了 contract，或 iOS 多實作一個方法，都要 `--update`，並在「紀錄」寫一行。
 - 在 iOS 實作一個方法：照 contract 的 schema 回傳，跑 `npm run check` 更新快照；`needs` 只用到已實作方法的工具，就會在 iOS 出現。
+- 只在開源版的 plugin（Android 的 `oss` 版本，見 [design/background-screen.md](design/background-screen.md)）放在 `android/app/src/oss/`，列在同一個資料夾的 `Edition.kt`，不在 `MainActivity` 註冊；上架版 `store` 沒有它，`native.has` 回 false。
 
 ## 工具總圖
 
@@ -287,6 +288,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 | 日期 | 變更 | 短請求的提示 | 備註 |
 |---|---|---|---|
+| 2026-11-15 | 新外掛合約 `AgentScreen`（`src/plugins/agent-screen.ts`，原生只在開源版 `oss`）：`pair`（用無線偵錯的六位數配對碼配對自己）、`open`（連自己的無線偵錯，以 shell 身分開背景螢幕，回 display 編號）、`launch`（在背景螢幕開成新的工作，不搬走使用者開著的那份）、`shot`、`close`。還沒有工具用它 | 工具介面不變 | 模擬器（API 36）和 S24（API 37）：配對、連線、開螢幕 0.3–0.7 秒，開 App 約 55 ms，截圖 40–60 ms；S24 上使用者開著「設定」時，背景另開一份，主螢幕不動、焦點不變；`PhoneScreen.read({ display })` 讀背景螢幕 148 ms |
 | 2026-11-15 | 外掛合約 `PhoneScreen.read` 多一個選填的 `display`：讀指定螢幕的無障礙樹（`getWindowsOnAllDisplays`），沒給就和以前一樣讀主螢幕。給背景螢幕用，見 design/background-screen.md（分支 background-screen，還沒上 main） | 工具介面不變 | 模擬器（API 36）：shell 身分開的虛擬螢幕上開「設定」，`read({ display: 2 })` 53 ms 讀出它的元素；主螢幕照常 |
 | 2026-11-15 | 新工具 `save_skill`（直接提供，固定開啟）：使用者要求「以後都這樣做」時，把做法存成這個 Bot 自己的 skill（每個 Bot 最多 8 份、描述 240 字、內容 4000 字；同名取代、空內容刪除；排程觸發、使用者不在場時拒絕）。skill 的載入照 pi coding agent：內建的改成 `src/skills/builtin/<name>/SKILL.md`（frontmatter 的 `name`、`description` 是唯一來源），系統提示用 pi 的 `<available_skills>` 列名稱和描述，`read_skill` 回傳整份 SKILL.md（介面改變：`name` 從列舉改成字串，因為 Bot 自己的 skill 也要讀得到）。新內建 skill `database-design`。Bot 面板「其他 › 技能」列出、看全文、刪除 | S24，`tool-cost.sh`：常駐定義 7,244 → 7,991 字元；短請求全開 4,428 → 4,814 tokens、全關 2,888 → 3,274（各 +386：`save_skill` 定義約 150，pi 格式的 skills 段落 573 → 1,542 字元約 200）。試過把 `save_skill` 改成只給腳本（省約 150），但 Node 的合約測試沒有 Worker、跑不了 codemode，測不到真實路徑，而且存技能是使用者在場、明確要求的時刻，所以和 `update_memory` 一樣直接提供 | `test/contracts/skills.ts`（存給這個 Bot、別的 Bot 沒有、出現在 available_skills、讀回整份；同名取代、空內容刪除、內建名稱和第 9 份被拒；排程觸發時拒絕；刪 Bot 一起刪）。S24 暫時的 Bot，照使用者的說法：「以後週報都先寫進展，再寫卡住的，最後寫下週」→ `save_skill` 存成 `weekly-report`，回「記住了」；「開個記帳表」→ 先讀 `database-design`，建出 `STRICT`、金額 `INTEGER` 加 `CHECK`、收支和時間格式有檢查的表。它用了 `IF NOT EXISTS` 而把新表說成「沿用現有」，skill 改成直接 `CREATE TABLE`。測完刪掉那張空表和暫時的 Bot |
 | 2026-11-15 | 待辦卡依事項分兩種：要你做的（標題「Bot 提醒你」，按鈕「一起處理」把這件事放進那個 Bot 的輸入框、不自動送出；「已經結束」；「晚點提醒」展開 1 小時後、今晚 9 點、明早 9 點），和 Bot 在等的（標題「Bot 正在等」，列出在等什麼，「問進度」「不用等了」）。時間寫成提醒時間（「11/18（三）20:00 會提醒你」「今天 20:00 提醒的」），小工具的待辦列同樣改成「16:30 提醒」「已提醒」「沒定提醒時間」，不再說「到期」：那個時間是提醒時間，不是期限。使用者在 S24 上點進卡片「不知道要做啥」 |

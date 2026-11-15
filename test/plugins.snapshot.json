@@ -1,5 +1,168 @@
 [
 	{
+		"name": "AgentScreen",
+		"methods": {
+			"pair": {
+				"args": {
+					"properties": {
+						"code": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"code"
+					],
+					"type": "object"
+				},
+				"result": {
+					"anyOf": [
+						{
+							"properties": {
+								"ok": {
+									"const": true,
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"ok"
+							],
+							"type": "object"
+						},
+						{
+							"properties": {
+								"ok": {
+									"const": false,
+									"type": "boolean"
+								},
+								"reason": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"ok",
+								"reason"
+							],
+							"type": "object"
+						}
+					]
+				}
+			},
+			"open": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"anyOf": [
+						{
+							"properties": {
+								"display": {
+									"type": "integer"
+								},
+								"ok": {
+									"const": true,
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"ok",
+								"display"
+							],
+							"type": "object"
+						},
+						{
+							"properties": {
+								"ok": {
+									"const": false,
+									"type": "boolean"
+								},
+								"reason": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"ok",
+								"reason"
+							],
+							"type": "object"
+						}
+					]
+				}
+			},
+			"launch": {
+				"args": {
+					"properties": {
+						"package": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"package"
+					],
+					"type": "object"
+				},
+				"result": {
+					"anyOf": [
+						{
+							"properties": {
+								"ok": {
+									"const": true,
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"ok"
+							],
+							"type": "object"
+						},
+						{
+							"properties": {
+								"ok": {
+									"const": false,
+									"type": "boolean"
+								},
+								"reason": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"ok",
+								"reason"
+							],
+							"type": "object"
+						}
+					]
+				}
+			},
+			"shot": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": {
+					"properties": {
+						"jpeg": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"jpeg"
+					],
+					"type": "object"
+				}
+			},
+			"close": {
+				"args": {
+					"properties": {},
+					"type": "object"
+				},
+				"result": null
+			}
+		},
+		"events": {},
+		"ios": []
+	},
+	{
 		"name": "Apps",
 		"methods": {
 			"setAlarm": {

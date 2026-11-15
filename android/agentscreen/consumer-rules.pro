@@ -1,0 +1,1 @@
+-keep class dev.geminixiang.agentscreen.DisplayServer { public static void main(java.lang.String[]); }

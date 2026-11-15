@@ -6,6 +6,7 @@ import { exitOnFailures, plain, snapshotFailures, sourcesMatching } from "./snap
 
 const SNAPSHOT = new URL("./plugins.snapshot.json", import.meta.url);
 const ANDROID = new URL("../android/app/src/main/java/dev/geminixiang/pimobile/", import.meta.url);
+const ANDROID_OSS = new URL("../android/app/src/oss/java/dev/geminixiang/pimobile/", import.meta.url);
 const IOS = new URL("../ios/App/App/", import.meta.url);
 const INHERITED_ON_ANDROID = new Set(["checkPermissions", "requestPermissions"]);
 
@@ -19,9 +20,11 @@ function scan(directory: URL, extensions: string[], plugin: RegExp, methods: (so
 	return found;
 }
 
-const android = scan(ANDROID, [".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
-	[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+fun\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
-);
+const androidPlugins = (directory: URL) =>
+	scan(directory, [".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
+		[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+fun\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
+	);
+const android = new Map([...androidPlugins(ANDROID), ...androidPlugins(ANDROID_OSS)]);
 const ios = scan(IOS, [".swift"], /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
 
 const failures: string[] = [];
@@ -74,8 +77,11 @@ function unregistered(directory: URL, extensions: string[], classOf: (source: st
 	const names = new Set([...readFileSync(new URL(registry, directory), "utf8").matchAll(registered)].map((match) => match[1]));
 	return classes.filter((name) => !names.has(name));
 }
-const androidMissing = unregistered(ANDROID, [".kt"], (source) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1], "MainActivity.kt", /registerPlugin\((\w+)::class\.java\)/g);
+const androidPluginClass = (source: string) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1];
+const androidMissing = unregistered(ANDROID, [".kt"], androidPluginClass, "MainActivity.kt", /registerPlugin\((\w+)::class\.java\)/g);
 if (androidMissing.length) failures.push(`Android plugins not registered in MainActivity.onCreate, so their tools vanish without an error: ${androidMissing.join(", ")}; add registerPlugin(X::class.java)`);
+const ossMissing = unregistered(ANDROID_OSS, [".kt"], androidPluginClass, "Edition.kt", /(\w+)::class\.java/g);
+if (ossMissing.length) failures.push(`open source edition plugins not listed in android/app/src/oss/.../Edition.kt, so their tools vanish without an error: ${ossMissing.join(", ")}`);
 const iosMissing = unregistered(IOS, [".swift"], (source) => [...source.slice(0, Math.max(0, source.search(/jsName\s*=\s*"/))).matchAll(/class (\w+)/g)].at(-1)?.[1], "MainViewController.swift", /registerPluginInstance\((\w+)\(\)\)/g);
 if (iosMissing.length) failures.push(`iOS plugins not registered in MainViewController.capacitorDidLoad: ${iosMissing.join(", ")}; add bridge?.registerPluginInstance(X())`);
 

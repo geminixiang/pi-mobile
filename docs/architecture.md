@@ -186,6 +186,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
+| `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
 | `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、配對、session，與安裝腳本 |
 | `host/computer/` | `pi-mobile mcp computer`：讀畫面（元件清單、截圖）和操作滑鼠鍵盤，三個平台的實作與共用核心 |
 | `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |

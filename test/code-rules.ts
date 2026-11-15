@@ -130,6 +130,11 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 		fix: "define a prompt section with appSection(key, budget, render) from src/section.ts, so it has a budget and test/prompt.ts sees it",
 	},
 	{
+		use: /\bAgentScreen\b|dev\.geminixiang\.agentscreen/,
+		owners: ["src/plugins/agent-screen.ts", "src/plugins/index.ts", "android/agentscreen/", "android/app/src/oss/"],
+		fix: "the background screen is an experiment of the open source edition only (docs/design/background-screen.md): its native code stays in android/agentscreen/ and android/app/src/oss/ and its contract in src/plugins/agent-screen.ts; TypeScript that uses it goes in one feature folder, added to these owners",
+	},
+	{
 		use: /\bBotIndex\b/,
 		owners: ["src/agent/bots.ts", "src/agent/runtime.ts", "src/agent/bot-toolsets.ts"],
 		fix: "read the bots with botsIn (src/agent/bots.ts) or runtime.bots(), which leave out a bot being removed; only the runtime edits the index, and BotToolsets a bot's toolset choices",
