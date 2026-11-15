@@ -356,6 +356,26 @@ function installerRule(): Finding[] {
 	);
 }
 
+const APP_ID = /\b(?:com|net|org|tw|jp|cn|kr)\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_.]*/giu;
+const SYSTEM_IDS = ["com.android.", "com.google.android.", "com.apple.", "com.samsung.android.", "com.sec.android.", "com.osp.", "dev.geminixiang."];
+// why: Rex is a terminal host that src/computer-agents/ drives as a backend, a supported interface rather than knowledge about the user's apps
+const BACKEND_IDS = ["com.superlogical.rex"];
+
+function generalAgentRule(): Finding[] {
+	return checkedFiles()
+		.filter((file) => file.startsWith("src/"))
+		.flatMap((file) =>
+			readFileSync(file, "utf8")
+				.split("\n")
+				.flatMap((text, index) =>
+					[...text.matchAll(APP_ID)]
+						.map((match) => match[0])
+						.filter((id) => ![...SYSTEM_IDS, ...BACKEND_IDS].some((known) => id.startsWith(known)))
+						.map((id) => ({ file, line: index + 1, rule: `${id} names one third-party app: the agent stays general and learns the user's apps itself (installed apps from the device, know-how from its own notes); write the mechanism, never a table, prompt or default about a particular app` })),
+				),
+		);
+}
+
 function moduleExtensionRule(): Finding[] {
 	return checkedFiles()
 		.filter((file) => file.endsWith(".mjs") || file.endsWith(".cjs"))
@@ -486,6 +506,7 @@ const all = [
 	...javaRule(),
 	...viewportRule(),
 	...installerRule(),
+	...generalAgentRule(),
 	...powershellRule(),
 	...moduleExtensionRule(),
 	...checkedFiles()

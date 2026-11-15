@@ -26,6 +26,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Android code is Kotlin: no Java file in `android/app/src/main/`.
 - Models to read like: the pi packages (`@earendil-works/*`), the Go standard library, and type-driven Elm/Rust code.
 - Store a value once: what can be computed from state, props, or a store is computed where it is used, not kept in its own `useState`, ref, or field (keep the selected id, derive the selected item from the list).
+- General first: the agent learns the user's environment itself. What is installed comes from the device; how an app or site works comes from the agent's own use, saved as its notes. Never ship a table, prompt section, default note or special case about one particular third-party app or site: build the mechanism that lets the agent find it out.
 - Before adding code for a speculative race, edge case, or security concern, state the concrete failure, how likely it is, and what the code costs, and get the user's buy-in; over-design is itself a mistake.
 - Tests run the real implementation through the `Platform` seam: no mocks, no logic copied into the test. The only globals a test touches are `fetch` (made to throw: tests run offline) and `console` (captured to read log lines). A fix comes with a test that fails on the old code.
 - Branch names are at most three words joined by hyphens, no slashes or type prefixes (`helpers`, `fix-scroll-state`). Commits are `type(scope): summary` with `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`.
@@ -92,6 +93,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `docs/feature-map.md` names only components that exist where it says, and lists every component `App.tsx`, `Workbench.tsx` and `BotPanel.tsx` render and every settings page | `test/feature-map.ts` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
+| No third-party app or site is named in `src/` (package or bundle ids; the OS, pi itself and backends the code drives are listed with a reason): the agent learns the user's apps itself | `test/code-rules.ts` |
 | Every class in `styles.css` and `index.css` is used by a component (by name, or built as `prefix-${…}`); classes a library adds are listed in `EXTERNAL_CLASSES` | `test/code-rules.ts` |
 | `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
 | A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |
