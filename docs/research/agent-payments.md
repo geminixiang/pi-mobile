@@ -32,7 +32,7 @@
 ## 平台本身給的訊號（不靠語言）
 
 - **密碼欄位**：Android `AccessibilityNodeInfo.isPassword()`、iOS `secureTextField`。標的是登入和 PIN，不是錢，但付款密碼也在內。（文件）
-- **生物辨識**：Android 的 BiometricPrompt 是 SystemUI 的視窗（`AuthContainerView.java:757-776`，FLAG_SECURE）；Apple Pay 要按側邊鍵加 Face ID，XCTest 按不了。這是作業系統內建、agent 過不去的人工關卡。（文件）
+- **生物辨識**：Android 的 BiometricPrompt 是 SystemUI 的視窗（`AuthContainerView.java:757-776`，FLAG_SECURE）；Apple Pay 要按側邊鍵加 Face ID，XCTest 按不了。這是作業系統內建、agent 過不去的人工關卡，但前提是付款真的要求它：S24 上 Google Play 的「一鍵購買」不需要（見下面的實機探測）。（文件＋實測）
 - **FLAG_SECURE**：截圖會失敗（pi 已處理：`PhoneScreenPlugin.kt:173`），無障礙樹照樣讀得到；沒有 API 直接說「這是安全視窗」。（文件＋推論）
 - **Android 14 的 `accessibilityDataSensitive`**：App 標了的元件，對 `isAccessibilityTool="false"` 的服務（pi 就是，`phone_screen_service.xml:11`）直接不出現；我們只能從「不見了」間接知道。（文件）
 - **信用卡的 autofill 提示**：無障礙服務讀不到。（文件）
@@ -46,6 +46,23 @@
 3. **「最後那個按鈕」沒有平台訊號**：每一家都靠模型判斷，再加一個檢查模型。寫死的規則只存在於有結構可抓的地方：網站或類別清單、Apple 的動作類型、密碼管理器、付款端的簽章。
 4. **無人值守沒人解決**：Google 承認可能來不及阻止；Amazon 照事先設的門檻直接買；只有 AP2 用「事先簽好的上限」設計。
 5. **最可靠的防線是 agent 根本拿不到付錢的工具**：沒有卡號、沒有密碼、付款要生物辨識。
+
+## S24 實機探測：Google Play 的購買視窗（2026-11-16）
+
+在 Play 商店打開一個付費 App，點價格按鈕叫出購買視窗，讀完按返回關掉，沒有購買（關掉後按鈕仍是「以 $… 購買」）。用 uiautomator 和 `dumpsys window` 讀；pi 自己的讀法在 pi 被切到背景時讀不到（WebView 暫停），但兩者讀的是同一棵無障礙樹。
+
+- **按一下就成交**：視窗寫著「輕觸『一鍵購買』即可完成交易」，不需要指紋或密碼。所以「付款一定要生物辨識、agent 過不去」在這支手機上不成立。
+- **按鈕上沒有金額**：可點的按鈕是 `Button`「一鍵購買」，金額在同一個視窗的另一個 `TextView`。另一個可點的列是付款方式（卡別和末四碼）。
+- **沒有平台訊號**：視窗屬於 `com.android.vending`，類型 `BASE_APPLICATION`（一般 App 視窗，不是系統視窗），旗標 `fl=81810102` 沒有 FLAG_SECURE（截圖拍得到），沒有任何欄位是 `password`。
+- **進入購買視窗前的那顆按鈕有金額**：Play 頁面上的按鈕描述是「以 $235.00購買」，貨幣符號規則認得出來。
+
+對設計的影響：只看「按鈕上有沒有金額」會漏掉最後那一下；「系統視窗」也不會觸發。
+
+## 使用者的決定（2026-11-16）
+
+看過探測結果後選「最嚴」：**只要畫面上看得到金額，Bot 除了捲動、等待、讀畫面、返回之外的每一步都交給使用者**。理由：沒有任何不靠語言的訊號分得出「一鍵購買」和「加入購物車」，跟錢有關的不交給模型判斷。代價：訂餐選菜、加購物車這種畫面上有價錢的步驟也要使用者自己按。
+
+檢查放在原生，每一步執行前對著當下的畫面做：一次呼叫裡的步驟會換畫面，送出前在 TS 檢查一次不夠。貨幣符號用 Unicode 的分類，貨幣代碼用系統的清單（Android `java.util.Currency.getAvailableCurrencies()`、iOS `Locale.commonISOCurrencyCodes`），不手寫。
 
 ## pi 要怎麼做（建議，待使用者決定）
 
