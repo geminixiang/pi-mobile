@@ -19,7 +19,7 @@ const Step = Type.Union([
 	Type.Object({ action: Type.Literal("expect"), app: Type.Optional(Type.String()), text: Type.Optional(Type.String()) }),
 	Type.Object({ action: Type.Literal("swipe"), x: Type.Number(), y: Type.Number(), to_x: Type.Number(), to_y: Type.Number(), ms: Type.Number() }),
 	Type.Object({ action: Type.Literal("scroll"), direction: oneOf(DIRECTIONS), x: Type.Optional(Type.Number()), y: Type.Optional(Type.Number()) }),
-	Type.Object({ action: Type.Literal("type"), text: Type.String() }),
+	Type.Object({ action: Type.Literal("type"), text: Type.String(), id: Type.Optional(Type.Integer({ minimum: 1 })) }),
 	Type.Object({ action: Type.Literal("clear") }),
 	Type.Object({ action: Type.Literal("key"), key: oneOf(KEYS) }),
 	Type.Object({ action: Type.Literal("open"), app: Type.String() }),

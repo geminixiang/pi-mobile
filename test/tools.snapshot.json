@@ -1590,7 +1590,7 @@
 			"phone_as_user"
 		],
 		"name": "phone_act_as_user",
-		"description_chars": 496,
+		"description_chars": 500,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1653,7 +1653,7 @@
 								"type": "boolean"
 							},
 							"id": {
-								"description": "tap: live element id",
+								"description": "live element id",
 								"minimum": 0,
 								"type": "integer"
 							},

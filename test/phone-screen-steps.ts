@@ -10,6 +10,8 @@ assert.deepEqual(stepOf({ action: "swipe", x: 1, y: 2, to_x: 3, to_y: 4, ms: 900
 assert.deepEqual(stepOf({ action: "scroll" }), { ok: true, value: { action: "scroll", direction: "down" } });
 assert.deepEqual(stepOf({ action: "scroll", direction: "left", y: 300 }), { ok: true, value: { action: "scroll", direction: "left", y: 300 } });
 assert.deepEqual(stepOf({ action: "type" }), { ok: false, problem: "type needs text" });
+assert.deepEqual(stepOf({ action: "type", id: 7, text: "Test" }), { ok: true, value: { action: "type", text: "Test", id: 7 } }, "typing into a field by id needs no tap and no keyboard");
+assert.deepEqual(stepOf({ action: "type", id: 0, text: "Test" }), { ok: true, value: { action: "type", text: "Test" } });
 assert.deepEqual(stepOf({ action: "key", keys: "home" }), { ok: true, value: { action: "key", key: "home" } });
 assert.deepEqual(stepOf({ action: "key", keys: "volume_up" }), { ok: false, problem: "keys is back, home, recents, notifications, quick_settings, or enter" });
 assert.deepEqual(stepOf({ action: "open", app: "  " }), { ok: false, problem: "open needs app" });

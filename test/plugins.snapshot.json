@@ -3214,6 +3214,10 @@
 												"const": "type",
 												"type": "string"
 											},
+											"id": {
+												"minimum": 1,
+												"type": "integer"
+											},
 											"text": {
 												"type": "string"
 											}

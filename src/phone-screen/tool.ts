@@ -61,7 +61,7 @@ function present({ snapshot, waits }: Shown, screen: Screen): ToolExecutionResul
 
 const ToolStep = Type.Object({
 	action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait", "wait_for", "scroll_to", "expect"] as const),
-	id: Type.Optional(Type.Integer({ minimum: 0, description: "tap: live element id" })),
+	id: Type.Optional(Type.Integer({ minimum: 0, description: "live element id" })),
 	gone: Type.Optional(Type.Boolean({ description: "wait_for: wait until absent; default false" })),
 	x: Type.Optional(Type.Number({ description: "Points from the left" })),
 	y: Type.Optional(Type.Number({ description: "Points from the top" })),
@@ -104,7 +104,7 @@ export function stepOf(step: Static<typeof ToolStep>): Checked<PhoneScreenStep> 
 		case "scroll":
 			return ok({ action: "scroll", direction: step.direction ?? "down", ...(x === undefined ? {} : { x }), ...(y === undefined ? {} : { y }) });
 		case "type":
-			return text === undefined ? needs("text") : ok({ action: "type", text });
+			return text === undefined ? needs("text") : ok({ action: "type", text, ...(id !== undefined && id > 0 ? { id } : {}) });
 		case "clear":
 			return ok({ action: "clear" });
 		case "key": {
@@ -155,7 +155,7 @@ const usePhoneScreen = defineAppTool({
 	description:
 		"Act in apps as the user; some apps block it. Batch known screens; stops on failure, returns changed lines (full list after large changes). " +
 		"Steps: open {app}; tap {id|text|x,y} (live target; text waits 3s, ambiguous/missing stops); wait_for {text,gone?,ms?}; scroll_to {text,direction?} (max 12 scrolls/15s); expect {app?,text?} (both must match); " +
-		"long_press {x,y}; swipe {x,y,to_x,to_y,ms}; scroll {direction,x?,y?}; type {text} appends; clear; key {keys}; wait {ms}. " +
+		"long_press {x,y}; swipe {x,y,to_x,to_y,ms}; scroll {direction,x?,y?}; type {text,id?} appends; clear; key {keys}; wait {ms}. " +
 		"Paying is always the user's.",
 	parameters: Type.Object({
 		steps: Type.Array(ToolStep, { minItems: 1 }),

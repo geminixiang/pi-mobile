@@ -23,6 +23,7 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
     @MainActor private var lastSeen: ScreenView?
     @MainActor private var awake: ScreenAwake?
     @MainActor private var busy = false
+    @MainActor private var tapped: Int?
 
     @objc func status(_ call: CAPPluginCall) {
         Task { @MainActor in
@@ -101,6 +102,7 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
 
     @MainActor private func perform(_ steps: [JSObject], screenshot: Bool) async -> Result<JSObject, ScreenFailure> {
         let before = lastSeen
+        tapped = nil
         var done = 0
         var stopped: String?
         var did: [String] = []
@@ -140,6 +142,8 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
     }
 
     @MainActor private func run(_ step: JSObject, action: String) async -> Result<String?, ScreenFailure> {
+        let afterTap = tapped
+        tapped = nil
         let size: CGSize
         switch await see() {
         case .success(let seen):
@@ -175,7 +179,10 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
             guard let move = moves[direction] else { return .failure(ScreenFailure(reason: "invalid_direction: \(direction)")) }
             let from = CGPoint(x: min(max(x - move.dx / 2, 1), size.width - 1), y: min(max(y - move.dy / 2, 1), size.height - 1))
             return await touch(from: from, to: CGPoint(x: from.x + move.dx, y: from.y + move.dy), seconds: 0.35).map { _ in nil }
-        case "type": return await request("type", ["text": step["text"] as? String ?? ""]).map { _ in nil }
+        case "type":
+            let text = step["text"] as? String ?? ""
+            if let id = step["id"] as? Int { return await type(text, into: id, afterTap: afterTap == id) }
+            return await request("type", ["text": text]).map { _ in nil }
         case "clear": return await clear()
         case "key": return await press(step["key"] as? String ?? "", size: size)
         case "open": return await request("open", ["app": step["app"] as? String ?? ""]).map { "opened \($0["name"] as? String ?? "app")" }
@@ -201,10 +208,11 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
                 if matches.count > 1 { return .failure(ScreenFailure(reason: "target_ambiguous: use an id")) }
                 if let found = matches.first {
                     guard found.enabled else { return .failure(ScreenFailure(reason: "target_disabled")) }
-                    let shown = found.web ? await revealed(found) : .success(found)
+                    let shown = found.web && !found.inside ? await revealed(found) : .success(found)
                     guard case .success(let target) = shown else { return shown.map { _ in nil } }
                     let before = seen.focusedField
                     if case .failure(let error) = await touch(from: CGPoint(x: target.rect.midX, y: target.rect.midY), seconds: 0) { return .failure(error) }
+                    tapped = id
                     guard target.role == "field", let before, before.label != target.label else { return .success("tapped \(target.listed)") }
                     return await focused(target, from: before).map { "tapped \(target.listed)" }
                 }
@@ -213,6 +221,32 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
             if case .failure(let error) = await pause(0.1) { return .failure(error) }
         } while ProcessInfo.processInfo.systemUptime < until
         return .failure(ScreenFailure(reason: "target_missing"))
+    }
+
+    @MainActor private func type(_ text: String, into id: Int, afterTap: Bool) async -> Result<String?, ScreenFailure> {
+        let field: ScreenLine
+        switch await see() {
+        case .failure(let error): return .failure(error)
+        case .success(let seen):
+            guard let line = seen.lines.first(where: { $0.id == id }) else {
+                guard afterTap else { return .failure(ScreenFailure(reason: "target_gone: \(id)")) }
+                return await request("type", ["text": text]).map { _ in "[\(id)] became the field that has the cursor; typed there" }
+            }
+            guard line.role == "field" else { return .failure(ScreenFailure(reason: "not_a_field: [\(id)] takes no text")) }
+            field = line
+        }
+        if field.web {
+            if !field.focused, case .failure(let error) = await tap(["id": id]) { return .failure(error) }
+            return await request("type", ["text": text]).map { _ in "typed into \(field.listed)" }
+        }
+        guard let ref = elements.refs[id] else { return .failure(ScreenFailure(reason: "target_gone: \(id)")) }
+        if case .failure(let error) = await request("fill", ["ref": ref, "text": field.value + text]) { return .failure(error) }
+        switch await see() {
+        case .failure(let error): return .failure(error)
+        case .success(let seen):
+            guard seen.lines.contains(where: { $0.id == id && $0.value.contains(text) }) else { return .failure(ScreenFailure(reason: "fill_failed: [\(id)] did not take the text; tap it and type without an id")) }
+            return .success("filled \(field.listed)")
+        }
     }
 
     @MainActor private func focused(_ target: ScreenLine, from before: ScreenLine) async -> Result<Void, ScreenFailure> {
@@ -313,16 +347,12 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
     }
 
     @MainActor private func clear() async -> Result<String?, ScreenFailure> {
-        switch await request("snapshot") {
+        switch await see() {
         case .failure(let error): return .failure(error)
-        case .success(let raw):
-            guard let tree = raw["tree"] as? ScreenData,
-                  let field = screenNodes(tree).first(where: { ($0["focused"] as? Bool == true) && [45, 49, 50, 52].contains($0["type"] as? Int ?? 0) }) else {
-                return .failure(ScreenFailure(reason: "no_focused_field: tap a text field first"))
-            }
-            let value = field["value"] as? String ?? ""
-            guard !value.isEmpty else { return .success(nil) }
-            return await request("type", ["text": String(repeating: "\u{8}\u{7f}", count: value.utf16.count)]).map { _ in nil }
+        case .success(let seen):
+            guard let field = seen.focusedField else { return .failure(ScreenFailure(reason: "no_focused_field: tap a text field first")) }
+            guard !field.value.isEmpty else { return .success(nil) }
+            return await request("type", ["text": String(repeating: "\u{8}\u{7f}", count: field.value.utf16.count)]).map { _ in nil }
         }
     }
 
@@ -370,8 +400,4 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
             return .success(result)
         }
     }
-}
-
-private func screenNodes(_ tree: ScreenData) -> [ScreenData] {
-    [tree] + (tree["children"] as? [ScreenData] ?? []).flatMap(screenNodes)
 }

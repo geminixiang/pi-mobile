@@ -1,6 +1,8 @@
 import Foundation
 
 private let WEB_VIEW = 58
+private let KNOWN_MAX = 5000
+private let FIELDS: Set<Int> = [45, 49, 50, 52]
 
 struct ScreenLine: Equatable {
     let id: Int
@@ -9,8 +11,10 @@ struct ScreenLine: Equatable {
     let rect: CGRect
     let enabled: Bool
     let role: String
+    let value: String
     let focused: Bool
     let web: Bool
+    let inside: Bool
     var listed: String { "[\(id)] \(text)" }
 }
 
@@ -57,7 +61,7 @@ struct ScreenView: Equatable {
         let context: String
     }
 
-    private var previous: [Identity: Int] = [:]
+    private var known: [Identity: Int] = [:]
     private var next = 1
     private(set) var refs: [Int: Int] = [:]
 
@@ -72,10 +76,12 @@ struct ScreenView: Equatable {
         var keyboard = false
         var secretFocused = false
         var headings: [String] = []
+        let nativeFocus = focusOutsideWeb(tree, web: false)
         func walk(_ node: [String: Any], path: String, owner: String?, context: String, web: Bool) {
             let type = node["type"] as? Int ?? 0
+            let focused = node["focused"] as? Bool == true && !(web && nativeFocus)
             if type == 19 { keyboard = true; return }
-            if type == 50 && node["focused"] as? Bool == true { secretFocused = true }
+            if type == 50 && focused { secretFocused = true }
             let label = node["label"] as? String ?? ""
             let value = node["value"] as? String ?? ""
             let identifier = node["identifier"] as? String ?? ""
@@ -94,25 +100,35 @@ struct ScreenView: Equatable {
                 if !(role == "text" && (text.isEmpty || text == owner)) {
                     let flat = text.split(whereSeparator: \.isWhitespace).joined(separator: " ").replacingOccurrences(of: "\"", with: "'")
                     let clipped = flat.count > 300 ? String(flat.prefix(300)) + "…" : flat
-                    let flags = [node["focused"] as? Bool == true ? "focused" : nil, node["selected"] as? Bool == true ? "selected" : nil, node["enabled"] as? Bool == false ? "disabled" : nil].compactMap { $0 }
+                    let flags = [focused ? "focused" : nil, node["selected"] as? Bool == true ? "selected" : nil, node["enabled"] as? Bool == false ? "disabled" : nil].compactMap { $0 }
                     let identity = Identity(package: package, path: path, type: type, identifier: identifier, label: role == "field" ? "" : text, contents: text.isEmpty && role != "field" ? screenContents(node) : [], context: section)
-                    let id = previous[identity] ?? next
-                    if previous[identity] == nil { next += 1 }
+                    let id = current[identity] == nil ? known[identity] ?? next : next
+                    if id == next { next += 1 }
                     current[identity] = id
                     let description = ([role + (clipped.isEmpty ? "" : " \"\(clipped)\""), "at \(Int(rect.midX.rounded())),\(Int(rect.midY.rounded()))"] + flags).joined(separator: " ")
-                    lines.append(ScreenLine(id: id, label: text, text: description, rect: rect, enabled: node["enabled"] as? Bool != false, role: role, focused: node["focused"] as? Bool == true, web: web))
+                    lines.append(ScreenLine(id: id, label: text, text: description, rect: rect, enabled: node["enabled"] as? Bool != false, role: role, value: value, focused: focused, web: web, inside: bounds.minX > 0 && viewport.contains(bounds)))
                     if let ref = node["ref"] as? Int { refs[id] = ref }
                     if role != "text" { nextOwner = text }
                 }
             }
-            for (index, child) in (node["children"] as? [[String: Any]] ?? []).enumerated() {
-                walk(child, path: path + "/\(index)", owner: nextOwner, context: section, web: web || type == WEB_VIEW)
+            var seenTypes: [Int: Int] = [:]
+            for child in node["children"] as? [[String: Any]] ?? [] {
+                let kind = child["type"] as? Int ?? 0
+                let nth = seenTypes[kind, default: 0]
+                seenTypes[kind] = nth + 1
+                walk(child, path: (type == WEB_VIEW && !web ? "web" : path) + "/\(kind).\(nth)", owner: nextOwner, context: section, web: web || type == WEB_VIEW)
             }
         }
         walk(tree, path: "", owner: nil, context: "", web: false)
-        previous = current
+        known = known.count > KNOWN_MAX ? current : known.merging(current) { $1 }
         return .success(ScreenView(package: package, app: raw["app"] as? String ?? package, size: size, keyboard: keyboard, headings: headings, lines: lines, secretFocused: secretFocused))
     }
+}
+
+private func focusOutsideWeb(_ node: [String: Any], web: Bool) -> Bool {
+    let type = node["type"] as? Int ?? 0
+    if !web && FIELDS.contains(type) && node["focused"] as? Bool == true { return true }
+    return (node["children"] as? [[String: Any]] ?? []).contains { focusOutsideWeb($0, web: web || type == WEB_VIEW) }
 }
 
 private func screenContents(_ node: [String: Any]) -> [String] {

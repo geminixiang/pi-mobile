@@ -60,14 +60,15 @@ function pressOf(step: PhoneScreenStep, seen: Seen, earlier: readonly PhoneScree
 		const field = earlier.map((before) => targetOf(before, seen)).findLast((target) => target !== undefined) ?? [...seen.lines.values()].find((line) => line.includes(" focused"));
 		return `the Enter key in ${field ? described(field) : "the focused field"}`;
 	}
+	if (step.action !== "tap" && step.action !== "long_press") return undefined;
 	const target = targetOf(step, seen);
 	return target?.startsWith(FIELD) ? undefined : target;
 }
 
 function targetOf(step: PhoneScreenStep, seen: Seen): string | undefined {
-	if (step.action === "tap" && "id" in step) return described(seen.lines.get(step.id) ?? `element [${step.id}]`);
+	if ("id" in step && step.id !== undefined) return described(seen.lines.get(step.id) ?? `element [${step.id}]`);
 	if (step.action === "tap" && "text" in step) return `the control labeled "${step.text}"`;
-	if (step.action !== "tap" && step.action !== "long_press") return undefined;
+	if ((step.action !== "tap" && step.action !== "long_press") || !("x" in step)) return undefined;
 	const near = [...seen.lines.values()].map((line) => ({ line, at: POINT.exec(line) })).sort((a, b) => distance(a.at, step) - distance(b.at, step))[0];
 	return near?.at ? described(near.line) : `the point ${step.x},${step.y}`;
 }

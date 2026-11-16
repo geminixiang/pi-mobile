@@ -25,7 +25,7 @@ export const ASKED: Question = {
 };
 
 const SENDS: Question = {
-	instructions: "A phone assistant is about to press this control in an app for the user. Would this press itself send, post, publish, share, submit, book or delete something, or do anything else other people see or that cannot be undone? Opening, choosing an option, ticking a box, moving to another field and closing the keyboard are not.",
+	instructions: "A phone assistant is about to press this control in an app for the user. Would this press itself send, post, publish, share, submit, book or delete something, or do anything else other people see or that cannot be undone? Opening, going to a web address, searching, choosing an option, ticking a box, moving to another field and closing the keyboard are not.",
 	yes: "It sends, posts, books or deletes something",
 	no: "It only moves around, opens, fills in or selects",
 };

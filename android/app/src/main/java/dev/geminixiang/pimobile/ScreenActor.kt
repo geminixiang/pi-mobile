@@ -57,7 +57,7 @@ internal sealed interface ScreenStep {
 
     data class Scroll(val direction: String, val x: Double?, val y: Double?) : ScreenStep
 
-    data class Type(val text: String) : ScreenStep
+    data class Type(val text: String, val id: Int?) : ScreenStep
 
     data object Clear : ScreenStep
 
@@ -96,7 +96,7 @@ internal sealed interface ScreenStep {
                 "long_press" -> LongPress(json.getDouble("x"), json.getDouble("y"))
                 "swipe" -> Swipe(json.getDouble("x"), json.getDouble("y"), json.getDouble("to_x"), json.getDouble("to_y"), json.getLong("ms"))
                 "scroll" -> Scroll(json.getString("direction"), json.optional("x"), json.optional("y"))
-                "type" -> Type(json.getString("text"))
+                "type" -> Type(json.getString("text"), if (json.has("id")) json.getInt("id") else null)
                 "clear" -> Clear
                 "key" -> Press(json.getString("key"))
                 "open" -> Open(json.getString("app"))
@@ -129,11 +129,14 @@ object DisplayShells {
 
 internal class ScreenActor {
     private var lastTap: PointF? = null
+    private var tappedId: Int? = null
     private val launchers = LinkedHashMap<String, String>()
 
     fun perform(service: PhoneScreenService, step: ScreenStep, screen: DisplayMetrics, scale: Float, display: Int, note: String?): Outcome<String?> = synchronized(DisplayShells) {
         DisplayShells.current?.before(display, step.action, note)?.let { return Outcome.Stopped(it) }
         val px = { points: Double -> (points / scale).toFloat() }
+        val afterTap = tappedId
+        tappedId = null
         when (step) {
             is ScreenStep.Tap -> {
                 val at = PointF(px(step.x), px(step.y))
@@ -146,6 +149,7 @@ internal class ScreenActor {
                 val target = ScreenNavigation(service, screen, scale, display).target(step).valueOr { return it }
                 val bounds = android.graphics.Rect().also(target.node::getBoundsInScreen)
                 lastTap = PointF(bounds.exactCenterX(), bounds.exactCenterY())
+                tappedId = (step as? ScreenStep.TapId)?.id
                 if (!target.node.isEnabled) return Outcome.Stopped("target_disabled")
                 if (!target.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
                     if (!target.node.refresh() || !target.node.isVisibleToUser) return Outcome.Stopped("target_gone")
@@ -167,8 +171,16 @@ internal class ScreenActor {
             }
             is ScreenStep.Swipe -> service.gesture(line(px(step.x), px(step.y), px(step.toX), px(step.toY)), step.ms, display).valueOr { return it }
             is ScreenStep.Scroll -> service.scroll(step, screen, step.x?.let(px) ?: (screen.widthPixels / 2f), step.y?.let(px) ?: (screen.heightPixels / 2f), display).valueOr { return it }
-            is ScreenStep.Type -> type(service, step.text, replace = false, display).valueOr { return it }
-            ScreenStep.Clear -> type(service, "", replace = true, display).valueOr { return it }
+            is ScreenStep.Type -> {
+                val into = step.id?.let { id ->
+                    when (val found = ScreenNavigation(service, screen, scale, display).target(ScreenStep.TapId(id))) {
+                        is Outcome.Ok -> editableIn(found.value.node) ?: return Outcome.Stopped("not_a_field: [$id] takes no text")
+                        is Outcome.Stopped -> if (afterTap == id) null else return found
+                    }
+                }
+                type(service, step.text, replace = false, display, into).valueOr { return it }
+            }
+            ScreenStep.Clear -> type(service, "", replace = true, display, null).valueOr { return it }
             is ScreenStep.Press -> press(service, step.key, display, DisplayShells.current).valueOr { return it }
             is ScreenStep.Open -> open(service, step.app, display).valueOr { return it }
             is ScreenStep.Wait -> Thread.sleep(step.ms)
@@ -176,11 +188,11 @@ internal class ScreenActor {
         return Outcome.Ok(null)
     }
 
-    private fun type(service: PhoneScreenService, text: String, replace: Boolean, display: Int): Outcome<Unit> {
+    private fun type(service: PhoneScreenService, text: String, replace: Boolean, display: Int, into: AccessibilityNodeInfo?): Outcome<Unit> {
         val focused = service.inputFocus(display)
-        val field =
-            (if (focused?.isEditable == true) focused else editableAt(service.activeRoot(display))) ?: focused
-                ?: return Outcome.Stopped("no text field has focus: tap one first")
+        val field = into
+            ?: (if (focused?.isEditable == true) focused else editableAt(service.activeRoot(display))) ?: focused
+            ?: return Outcome.Stopped("no text field has focus: give type the field's id")
         if (field.isPassword) return Outcome.Stopped(SECRET)
         if (field.isEditable) {
             val before = if (replace) "" else shown(field)
@@ -191,6 +203,12 @@ internal class ScreenActor {
         service.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("pi", text))
         if (field.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return readBack(field, text)
         return Outcome.Stopped("this field takes no typed text, but the text is on the clipboard: long_press in the field and tap 貼上 (Paste)")
+    }
+
+    private fun editableIn(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (node.isEditable) return node
+        return (0 until node.childCount).firstNotNullOfOrNull { editableIn(node.getChild(it)) }
     }
 
     private fun editableAt(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {

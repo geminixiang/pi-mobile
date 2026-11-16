@@ -19,6 +19,7 @@
 - (id)accessibilityElement;
 + (id)scrollToVisibleAction;
 - (BOOL)performAction:(id)action onElement:(id)element value:(id)value error:(NSError **)error;
+- (BOOL)setAttribute:(id)attribute value:(id)value element:(id)element outError:(NSError **)error;
 + (id)axAttributesForElementSnapshotKeyPaths:(NSArray *)paths isMacOS:(BOOL)mac;
 - (id)requestSnapshotForElement:(id)element attributes:(NSArray *)attributes parameters:(NSDictionary *)parameters error:(NSError **)error;
 - (NSArray *)children;
@@ -153,6 +154,7 @@ static NSDictionary *success(NSDictionary *value) {
     }
     if ([operation isEqualToString:@"open"]) return [self launch:args[@"app"]];
     if ([operation isEqualToString:@"type"]) return [self type:args[@"text"]];
+    if ([operation isEqualToString:@"fill"]) return [self fill:[args[@"ref"] integerValue] text:args[@"text"]];
     if ([operation isEqualToString:@"reveal"]) return [self reveal:[args[@"ref"] integerValue]];
     if ([operation isEqualToString:@"touch"]) {
         CGPoint from = CGPointMake([args[@"x"] doubleValue], [args[@"y"] doubleValue]);
@@ -275,6 +277,16 @@ static NSDictionary *success(NSDictionary *value) {
               @"x": @(frame.origin.x), @"y": @(frame.origin.y), @"width": @(frame.size.width), @"height": @(frame.size.height),
               @"enabled": @([snapshot isEnabled]), @"selected": @([snapshot isSelected]),
               @"focused": @([snapshot respondsToSelector:@selector(hasKeyboardFocus)] && [snapshot hasKeyboardFocus]), @"ref": @(ref), @"children": children };
+}
+
+- (NSDictionary *)fill:(NSInteger)ref text:(NSString *)text {
+    id element = ref >= 0 && ref < (NSInteger)self.seen.count ? self.seen[ref] : nil;
+    if (!element || element == NSNull.null) return failure(@"fill_failed", @"The element is not in the last snapshot");
+    id mapped = [NSClassFromString(@"XCElementSnapshot") axAttributesForElementSnapshotKeyPaths:@[@"value"] isMacOS:NO];
+    id attribute = [([mapped isKindOfClass:NSSet.class] ? [mapped allObjects] : mapped) firstObject];
+    if (!attribute || ![self.accessibility respondsToSelector:@selector(setAttribute:value:element:outError:)]) return failure(@"private_api_unavailable", @"No value attribute setter");
+    NSError *error = nil;
+    return [self.accessibility setAttribute:attribute value:text element:element outError:&error] ? success(@{}) : failure(@"fill_failed", error.localizedDescription);
 }
 
 - (NSDictionary *)reveal:(NSInteger)ref {

@@ -50,6 +50,9 @@ export const checks: Check[] = [
 			const asked: string[] = [];
 			await check(said(blank(), "open example.org"), sendJudge(asked), [{ action: "tap", id: 7 }, { action: "type", text: "https://example.org" }, { action: "key", key: "enter" }]);
 			assert.deepEqual(asked, ['the Enter key in field empty hint="Search or type URL" (earlier in these steps it typed "https://example.org")'], "a tap into a field only moves the cursor, so it is not judged");
+			const typed: string[] = [];
+			await check(said(blank(), "open example.org"), sendJudge(typed), [{ action: "type", id: 7, text: "https://example.org" }, { action: "key", key: "enter" }]);
+			assert.deepEqual(typed, ['the Enter key in field empty hint="Search or type URL" (earlier in these steps it typed "https://example.org")'], "typing into a field by id is not judged, and Enter is judged in that field");
 		},
 	],
 	[
