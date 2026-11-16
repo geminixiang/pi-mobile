@@ -1,6 +1,7 @@
 import { avatarOf, type Bot } from "../agent/bots.ts";
 import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform, capacitorStorage } from "../agent/platform.ts";
+import type { ConversationView } from "@earendil-works/pi-durable";
 import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
 import { away, inForeground, setWorking, stayAwakeFor } from "../keepAlive.ts";
 import { log } from "../log.ts";
@@ -8,15 +9,18 @@ import { native } from "../native.ts";
 import { KeepAlive } from "../plugins/keep-alive.ts";
 import { System } from "../plugins/system.ts";
 import { messageOf, orLogged } from "../promise.ts";
+import { questionStates } from "../interaction/answers.ts";
 import { inboxFile } from "../scanner-plugin.ts";
 import { isConfigured, type Settings, SettingsStore } from "../settings.ts";
 import { after, afterPaint, type Cancel } from "../time.ts";
 import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "../triggers/events.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { onResume } from "../ui/resume.ts";
+import { cell, type Source } from "../ui/subscribed.ts";
 import { sweepBotData } from "./bot-data.ts";
 import type { Notice, SharedKind } from "./Chat.tsx";
-import { loadDraftText, saveDraftText } from "./drafts.ts";
+import { loadDraftText, offerFiles, saveDraftText } from "./drafts.ts";
+import type { Place } from "./SidePanel.tsx";
 import { openAppStorage } from "./storage.ts";
 
 const LAST_BOT_KEY = "pi-mobile.lastBot";
@@ -33,9 +37,11 @@ type Session = {
 	runtime: AgentRuntime | undefined;
 	openError: string;
 	controller: ConversationController | undefined;
+	view: ConversationView | undefined;
+	asking: boolean;
 	opening: ConversationId | undefined;
 	chatKey: number;
-	pending: { files?: readonly File[]; shared?: SharedKind; focus: boolean };
+	pending: { shared?: SharedKind; focus: boolean };
 	overlay: Overlay;
 	sharing: { draft: string; files: File[] } | undefined;
 	openItem: string | undefined;
@@ -43,13 +49,14 @@ type Session = {
 };
 
 const settingsStore = new SettingsStore(capacitorStorage);
-const watchers = new Set<() => void>();
 
-let state: Session = {
+const store = cell<Session>({
 	settings: undefined,
 	runtime: undefined,
 	openError: "",
 	controller: undefined,
+	view: undefined,
+	asking: false,
 	opening: undefined,
 	chatKey: 0,
 	pending: { focus: false },
@@ -57,23 +64,25 @@ let state: Session = {
 	sharing: undefined,
 	openItem: undefined,
 	notices: [],
-};
+});
 let noticed = 0;
 let closing: Cancel | undefined;
+let stopView: Cancel | undefined;
 
 function set(change: Partial<Session>): void {
-	state = { ...state, ...change };
+	const state = store.set((current) => ({ ...current, ...change }));
 	// why: the device and perf scripts (test/device, test/perf) drive the app through these two globals
-	Object.assign(globalThis, { piRuntime: state.runtime, piController: state.controller });
-	for (const changed of watchers) changed();
+	if ("runtime" in change || "controller" in change) Object.assign(globalThis, { piRuntime: state.runtime, piController: state.controller });
 }
 
-export const session = () => state;
+export const session = store.read;
+export const watchSession = store.subscribe;
 
-export function watchSession(changed: () => void): Cancel {
-	watchers.add(changed);
-	return () => void watchers.delete(changed);
-}
+const placed = (panel: Overlay, page: Overlay): Source<Place> => ({ subscribe: watchSession, read: () => (session().overlay === page ? "deep" : session().overlay === panel ? "open" : "closed") });
+
+export const leftPanel = placed("drawer", "settings");
+export const rightPanel = placed("panel", "botMemory");
+export const memoryPage: Source<boolean> = { subscribe: watchSession, read: () => session().overlay === "botMemory" };
 
 export const sharedKind = (files: readonly File[]): SharedKind => (files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file");
 
@@ -83,15 +92,15 @@ const lastBot = (items: readonly Bot[]) => botWithId(items, localStorage.getItem
 export function notify(message: string): void {
 	log.warn("app.notice", { message });
 	noticed += 1;
-	set({ notices: [...state.notices.filter((notice) => notice.text !== message), { id: noticed, text: message }].slice(-MAX_NOTICES) });
+	set({ notices: [...session().notices.filter((notice) => notice.text !== message), { id: noticed, text: message }].slice(-MAX_NOTICES) });
 }
 
 export function dismissNotices(ids: readonly number[]): void {
-	set({ notices: state.notices.filter((notice) => !ids.includes(notice.id)) });
+	set({ notices: session().notices.filter((notice) => !ids.includes(notice.id)) });
 }
 
 export function show(overlay: Overlay): void {
-	if (overlay !== state.overlay) set({ overlay });
+	if (overlay !== session().overlay) set({ overlay });
 }
 
 export const stopSharing = () => set({ sharing: undefined });
@@ -112,7 +121,7 @@ export async function saveSettings(edited: Settings): Promise<Settings> {
 }
 
 export async function applySettings(next: Settings, blank: boolean): Promise<void> {
-	const current = state.runtime;
+	const current = session().runtime;
 	if (current && (await current.apply(next)) === "in_place") return;
 	drop();
 	await current?.close();
@@ -121,7 +130,7 @@ export async function applySettings(next: Settings, blank: boolean): Promise<voi
 }
 
 export async function open(id: ConversationId, { draft, files, shared, focus, keepOverlay }: Opening = {}): Promise<void> {
-	const { runtime, controller } = state;
+	const { runtime, controller } = session();
 	if (!runtime) return;
 	if (!keepOverlay) show(undefined);
 	if (id === controller?.id && draft === undefined) return;
@@ -129,7 +138,10 @@ export async function open(id: ConversationId, { draft, files, shared, focus, ke
 	const next = await runtime.openConversation(id);
 	localStorage.setItem(LAST_BOT_KEY, String(id));
 	if (draft) saveDraftText(String(id), [loadDraftText(String(id)), draft].filter(Boolean).join("\n\n"));
-	set({ controller: next, chatKey: state.chatKey + 1, pending: { files, shared, focus: Boolean(focus || draft) } });
+	if (files?.length) offerFiles(String(id), files);
+	stopView?.();
+	set({ controller: next, view: undefined, asking: false, chatKey: session().chatKey + 1, pending: { shared, focus: Boolean(focus || draft) } });
+	stopView = next.subscribe((view) => session().controller === next && see(view));
 	markSeen();
 	void runtime.forms.load(id).catch((error: unknown) => notify(messageOf(error)));
 }
@@ -137,32 +149,37 @@ export async function open(id: ConversationId, { draft, files, shared, focus, ke
 export function choose(id: ConversationId): void {
 	closing?.();
 	set({ opening: id });
-	if (id === state.controller?.id) return appeared(id);
-	void open(id, { keepOverlay: true }).catch((error: unknown) => {
-		set({ opening: undefined, overlay: undefined });
-		throw error;
-	});
-}
-
-export function appeared(id: ConversationId): void {
-	if (state.opening !== id || state.controller?.id !== id) return;
-	closing?.();
-	closing = afterPaint(() => set({ opening: undefined, overlay: undefined }));
+	const settle = () => set({ opening: undefined, overlay: undefined });
+	void open(id, { keepOverlay: true }).then(
+		() => {
+			if (session().opening === id) closing = afterPaint(settle);
+		},
+		(error: unknown) => {
+			settle();
+			throw error;
+		},
+	);
 }
 
 export function leave(id: ConversationId): void {
-	if (state.controller?.id !== id) return;
+	if (session().controller?.id !== id) return;
 	drop();
 	void openLast();
 }
 
+function see(view: ConversationView): void {
+	const asking = view.entries === session().view?.entries ? session().asking : [...questionStates(view.entries).values()].some((asked) => asked.state === "open");
+	set({ view, asking });
+}
+
 function drop(): void {
-	state.controller?.dispose();
-	set({ controller: undefined });
+	stopView?.();
+	session().controller?.dispose();
+	set({ controller: undefined, view: undefined, asking: false });
 }
 
 async function openLast(): Promise<void> {
-	const { runtime, controller } = state;
+	const { runtime, controller } = session();
 	if (!runtime || controller) return;
 	const items = await runtime.bots();
 	const target = lastBot(items) ?? items[0];
@@ -170,7 +187,7 @@ async function openLast(): Promise<void> {
 }
 
 function markSeen(): void {
-	const id = state.controller?.id;
+	const id = session().controller?.id;
 	if (id !== undefined && native.implements(Triggers.seen)) void Triggers.seen({ conversation: String(id) });
 }
 
@@ -186,7 +203,7 @@ async function start(next: Settings): Promise<void> {
 			onReport: notify,
 			openUrl: (url) => System.openExternal({ url }),
 			notify: async (title, text, conversationId, bot) => {
-				if (state.controller?.id === conversationId && (await inForeground())) return "watching";
+				if (session().controller?.id === conversationId && (await inForeground())) return "watching";
 				if (!native.implements(Triggers.notify)) return "off";
 				const { shown } = await Triggers.notify({ title, text, conversation: String(conversationId), ...(bot ? { bot: bot.name, avatar: bot.avatar } : {}) });
 				return shown ? "shown" : "off";
@@ -206,7 +223,7 @@ async function start(next: Settings): Promise<void> {
 			drop();
 			await orLogged(opened.close(), "runtime.close_failed", undefined);
 			set({ runtime: undefined });
-			await start(state.settings ?? next);
+			await start(session().settings ?? next);
 		});
 		void openLast();
 	} catch (error) {
@@ -244,7 +261,7 @@ function serve(runtime: AgentRuntime): Cancel {
 }
 
 async function leaveIfGone(runtime: AgentRuntime, bots: readonly Bot[]): Promise<void> {
-	const current = state.controller;
+	const current = session().controller;
 	if (!current || bots.some((bot) => bot.id === current.id)) return;
 	const fresh = await runtime.bots();
 	if (!fresh.some((bot) => bot.id === current.id)) leave(current.id);

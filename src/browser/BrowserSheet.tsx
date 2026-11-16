@@ -1,13 +1,13 @@
-import { memo, type RefObject, type TouchEvent, useCallback, useReducer, useRef, useState } from "react";
-import { useStore, useSubscribed } from "../ui/subscribed.ts";
+import { memo, type RefObject, type TouchEvent, useCallback, useRef, useState } from "react";
+import { cell, type Source, useStore } from "../ui/subscribed.ts";
 import { type BrowserState, browserState, NO_BROWSER } from "./tool.ts";
 import { native } from "../native.ts";
 import { Browser, MAX_TABS } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
-import { NOTHING_SHOWN, pageKey, sameInputs, SHEET_START, type SheetInputs, sheetAfter, withPage, withTabs } from "./sheetState.ts";
+import { NOTHING_SHOWN, pageKey, sameInputs, SHEET_START, type SheetEvent, type SheetInputs, sheetAfter, sheetOpen, type SheetState, withPage, withTabs } from "./sheetState.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
-import { useBack } from "../app/layers.ts";
+import { isBack } from "../app/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../ui/sideGesture.ts";
 import { haptic } from "../app/haptics.ts";
 import { type Cancel, nextFrame } from "../time.ts";
@@ -93,67 +93,63 @@ function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) 
 	);
 }
 
-export const BrowserSheet = memo(function BrowserSheet({
-	bot,
-	hidden,
-	asking,
-	openKey,
-	pullFrom,
-	engine,
-}: {
-	bot: string | undefined;
-	hidden: boolean;
-	asking: boolean;
-	openKey: number;
-	pullFrom: RefObject<HTMLElement | null>;
-	engine: SearchEngine;
-}) {
-	const state = useSubscribed<BrowserState>(NO_BROWSER, (listener) => browserState.subscribe(listener), []);
-	const [sheet, dispatch] = useReducer(sheetAfter, SHEET_START);
+const asked = cell(0);
+
+export const askForBrowser = () => void asked.set((count) => count + 1);
+
+export type BrowserScreen = Pick<SheetInputs, "bot" | "asking" | "hidden">;
+
+export const BrowserSheet = memo(function BrowserSheet({ screen, pullFrom, engine }: { screen: Source<BrowserScreen>; pullFrom: RefObject<HTMLElement | null>; engine: SearchEngine }) {
 	const frame = useRef<HTMLDivElement>(null);
 	const motion = useRef<SheetMotion>(undefined);
 	const live = useRef(false);
 	const placing = useRef(0);
-	const latest = useRef({ bot, open: false, expanded: false, canGoBack: false });
+	const latest = useRef({ engine, pullFrom });
+	latest.current = { engine, pullFrom };
 
-	const active = bot !== undefined && state.active.has(bot);
-	const handover = state.handovers.find((item) => item.bot === bot);
-	const reason = handover?.reason;
-	const inputs: SheetInputs = { bot, handover: reason, asking, openKey };
-	if (!sameInputs(sheet.inputs, inputs)) dispatch({ type: "inputs", inputs });
-	const report = (error: unknown) => dispatch({ type: "failed", message: messageOf(error) });
-	const [shown] = useStore(
+	const [state, , browser] = useStore<BrowserState>(NO_BROWSER, (set) => browserState.subscribe(set), []);
+	const [shown, setShown] = useStore(
 		NOTHING_SHOWN,
 		(set) => {
 			if (!native.has("Browser")) return undefined;
 			const listening = [Browser.addListener("page", (page) => set((current) => withPage(current, page))), Browser.addListener("tabs", (list) => set((current) => withTabs(current, list)))];
-			if (bot)
-				Browser.tabs({ bot })
-					.then((list) => set((current) => withTabs(current, list)))
-					.catch(report);
 			return () => {
 				for (const handle of listening) void handle.then((listener) => listener.remove());
 			};
 		},
-		[bot],
+		[],
 	);
-	const tabList = bot ? shown.tabs[bot] : undefined;
-	const page = bot && tabList?.active ? shown.pages[pageKey(bot, tabList.active)] : undefined;
-	const expanded = sheet.mode !== "closed";
-	const open = expanded && !hidden && bot !== undefined;
-	latest.current = { bot, open, expanded, canGoBack: page?.canGoBack ?? false };
+	const [sheet, setSheet, sheetNow] = useStore<SheetState>(
+		SHEET_START,
+		() => {
+			const see = () => {
+				const seen = screen.read();
+				const inputs: SheetInputs = { ...seen, handover: browser.read().handovers.find((item) => item.bot === seen.bot)?.reason, openKey: asked.read() };
+				if (!sameInputs(sheetNow.read().inputs, inputs)) step({ type: "inputs", inputs });
+			};
+			const stops = [screen.subscribe(see), browser.subscribe(see), asked.subscribe(see)];
+			see();
+			return () => {
+				for (const stop of stops) stop();
+			};
+		},
+		[screen],
+	);
+
+	const report = (error: unknown) => step({ type: "failed", message: messageOf(error) });
 	const refreshShot = (target: string) =>
 		Browser.peek({ bot: target })
 			.then((peeked) => {
-				if (peeked.jpeg) dispatch({ type: "shot", jpeg: peeked.jpeg });
+				if (peeked.jpeg) step({ type: "shot", jpeg: peeked.jpeg });
 			})
 			.catch(report);
-	const openHome = (target: string, tab?: string) => Browser.go({ bot: target, ...(tab ? { tab } : {}), action: "open", url: SEARCH_ENGINES[engine].home });
+	const openHome = (target: string, tab?: string) => Browser.go({ bot: target, ...(tab ? { tab } : {}), action: "open", url: SEARCH_ENGINES[latest.current.engine].home });
 
 	const showLive = () => {
 		const element = frame.current;
-		const target = latest.current.bot;
-		if (!element || !target || !latest.current.open) return;
+		const now = sheetNow.read();
+		const target = now.inputs.bot;
+		if (!element || !target || !sheetOpen(now)) return;
 		const box = element.getBoundingClientRect();
 		live.current = true;
 		Browser.show({ bot: target, x: box.left, y: box.top, width: box.width, height: box.height, radius: CARD_RADIUS }).catch(report);
@@ -167,81 +163,91 @@ export const BrowserSheet = memo(function BrowserSheet({
 		await Browser.hide({ bot: target }).catch(report);
 	};
 
-	const follow = useCallback(
-		(element: HTMLDivElement) => {
-			if (motion.current?.sheet !== element) {
-				motion.current = new SheetMotion(element, (settledOpen) => {
-					if (settledOpen) showLive();
-				});
-			}
-			if (!bot) return () => undefined;
-			if (!open) {
-				void hideLive(bot);
-				motion.current.settle(false);
-				return () => undefined;
-			}
-			if (sheet.mode === "open") {
-				Browser.tabs({ bot })
-					.then((list) => {
-						const front = list.tabs.find((tab) => tab.id === list.active);
-						if (front && isWeb(front.url)) return;
-						return openHome(bot);
-					})
-					.catch(report);
-			}
-			void refreshShot(bot);
-			motion.current.settle(true);
-			return () => undefined;
-		},
-		[open, bot],
-	);
+	const follow = (before: SheetState, after: SheetState) => {
+		const target = after.inputs.bot;
+		if (!target || !native.has("Browser")) return;
+		const open = sheetOpen(after);
+		if (target !== before.inputs.bot) {
+			Browser.tabs({ bot: target })
+				.then((list) => setShown((current) => withTabs(current, list)))
+				.catch(report);
+		} else if (open === sheetOpen(before)) return;
+		if (!open) {
+			void hideLive(target);
+			motion.current?.settle(false);
+			return;
+		}
+		if (after.mode === "open") {
+			Browser.tabs({ bot: target })
+				.then((list) => {
+					const front = list.tabs.find((tab) => tab.id === list.active);
+					if (front && isWeb(front.url)) return;
+					return openHome(target);
+				})
+				.catch(report);
+		}
+		void refreshShot(target);
+		motion.current?.settle(true);
+	};
+	const step = (event: SheetEvent) => {
+		const before = sheetNow.read();
+		follow(before, setSheet(sheetAfter(before, event)));
+	};
 
-	const followSize = useCallback(
-		(element: HTMLDivElement) => {
-			frame.current = element;
-			if (!open) return () => undefined;
-			const resized = new ResizeObserver(() => {
-				if (live.current) showLive();
-			});
-			resized.observe(element);
-			return () => resized.disconnect();
-		},
-		[open],
-	);
+	const attach = useCallback((element: HTMLDivElement) => {
+		motion.current = new SheetMotion(element, (settledOpen) => {
+			if (settledOpen) showLive();
+		});
+		if (sheetOpen(sheetNow.read())) motion.current.settle(true);
+		return () => undefined;
+	}, []);
+	const followSize = useCallback((element: HTMLDivElement) => {
+		frame.current = element;
+		const resized = new ResizeObserver(() => {
+			if (live.current) showLive();
+		});
+		resized.observe(element);
+		return () => resized.disconnect();
+	}, []);
+
+	const bot = sheet.inputs.bot;
+	const open = sheetOpen(sheet);
+	const active = bot !== undefined && state.active.has(bot);
+	const handover = state.handovers.find((item) => item.bot === bot);
+	const reason = handover?.reason;
+	const tabList = bot ? shown.tabs[bot] : undefined;
+	const page = bot && tabList?.active ? shown.pages[pageKey(bot, tabList.active)] : undefined;
 
 	const navigate = (target: string, action: "back" | "forward" | "reload") => {
-		dispatch({ type: "retried" });
+		step({ type: "retried" });
 		Browser.go({ bot: target, action }).catch(report);
 	};
 	const settleTo = (next: boolean) => {
-		if (next === latest.current.expanded) motion.current?.settle(next);
-		dispatch({ type: "settled", open: next });
+		const wasOpen = sheetOpen(sheetNow.read());
+		step({ type: "settled", open: next });
+		const isOpen = sheetOpen(sheetNow.read());
+		if (isOpen === wasOpen) motion.current?.settle(isOpen);
 	};
 	const settleByHand = (next: boolean) => {
-		if (next !== latest.current.expanded) haptic(next ? "press" : "tick");
+		if (next !== (sheetNow.read().mode !== "closed")) haptic(next ? "press" : "tick");
 		settleTo(next);
 	};
-	useBack(open, () => {
-		const { bot: target, canGoBack } = latest.current;
-		if (target && canGoBack) navigate(target, "back");
-		else settleTo(false);
-	});
 
 	const pullFromHeader = useCallback(() => {
-		if (!bot) return () => undefined;
 		let start: { x: number; y: number; at: number } | undefined;
 		let drag: Drag | undefined;
 		const onStart = (event: globalThis.TouchEvent) => {
 			const touch = event.touches[0];
-			const header = pullFrom.current;
+			const header = latest.current.pullFrom.current;
 			const fromHeader = event.target instanceof Node && header !== null && header.contains(event.target);
-			start = touch && fromHeader && !latest.current.open ? { x: touch.clientX, y: touch.clientY, at: event.timeStamp } : undefined;
+			start = touch && fromHeader && !sheetOpen(sheetNow.read()) ? { x: touch.clientX, y: touch.clientY, at: event.timeStamp } : undefined;
 			drag = undefined;
 		};
 		const onMove = (event: globalThis.TouchEvent) => {
 			const touch = event.touches[0];
 			const current = motion.current;
-			if (!start || !touch || !current) return;
+			const target = sheetNow.read().inputs.bot;
+			if (!start || !touch || !current || !target) return;
 			const dy = touch.clientY - start.y;
 			if (!drag) {
 				const intent = intentOf({ dx: dy, dy: touch.clientX - start.x, elapsedMs: event.timeStamp - start.at, selecting: false });
@@ -250,7 +256,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 					start = undefined;
 					return;
 				}
-				void refreshShot(bot);
+				void refreshShot(target);
 				drag = current.begin(touch.clientY);
 			}
 			current.follow(drag, touch.clientY, event.timeStamp);
@@ -271,7 +277,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 			document.removeEventListener("touchend", onEnd);
 			document.removeEventListener("touchcancel", onEnd);
 		};
-	}, [bot, pullFrom]);
+	}, []);
 
 	const pushing = useRef<{ startY: number; drag?: Drag }>(undefined);
 	const pushHandlers = {
@@ -301,13 +307,23 @@ export const BrowserSheet = memo(function BrowserSheet({
 
 	if (!bot || !native.has("Browser")) return null;
 	return (
-		<div ref={follow} className="browser-sheet" inert={!open}>
+		<div
+			ref={attach}
+			className="browser-sheet"
+			inert={!open}
+			data-back={open || undefined}
+			onKeyDown={(event) => {
+				if (!isBack(event)) return;
+				if (page?.canGoBack) navigate(bot, "back");
+				else settleTo(false);
+			}}
+		>
 			<div ref={pullFromHeader} className="browser-sheet-bar" {...pushHandlers}>
 				<span className="browser-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />
 				<Address
 					url={page?.url ?? ""}
 					onGo={(typed) => {
-						dispatch({ type: "retried" });
+						step({ type: "retried" });
 						Browser.go({ bot, action: "open", url: addressOf(typed, engine) }).catch(report);
 					}}
 				/>
@@ -320,7 +336,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 				<button type="button" className="browser-nav" aria-label="重新整理" disabled={!page?.url || page.url.startsWith("about:")} onClick={() => navigate(bot, "reload")}>
 					<RefreshIcon />
 				</button>
-				<button type="button" className="browser-nav browser-count" aria-label="分頁" aria-expanded={sheet.strip} onClick={() => dispatch({ type: "strip_toggled" })}>
+				<button type="button" className="browser-nav browser-count" aria-label="分頁" aria-expanded={sheet.strip} onClick={() => step({ type: "strip_toggled" })}>
 					{tabList?.tabs.length ?? 0}
 				</button>
 				{handover ? (

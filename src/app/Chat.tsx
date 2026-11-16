@@ -121,10 +121,8 @@ export function Chat({
 	sandbox,
 	botName,
 	view,
-	initialFiles,
 	shared,
 	focus,
-	onAppear,
 	notices,
 	onDismissNotices,
 	onError,
@@ -137,10 +135,8 @@ export function Chat({
 	sandbox: boolean;
 	botName: string;
 	view: ConversationView | undefined;
-	initialFiles?: readonly File[];
 	shared?: SharedKind;
 	focus: boolean;
-	onAppear: () => void;
 	notices: readonly Notice[];
 	onDismissNotices: (ids: readonly number[]) => void;
 	onError: (message: string) => void;
@@ -157,31 +153,32 @@ export function Chat({
 	};
 	const [actionsFor, setActionsFor] = useState<EntryRecord>();
 	const [sizeWhenLeft, setSizeWhenLeft] = useState<number>();
-	const [composerFocus, setComposerFocus] = useState(focus ? 1 : 0);
+	const composerInput = useRef<HTMLTextAreaElement>(null);
 	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
 	const touching = useRef(false);
 	const wheeledAt = useRef(-Infinity);
 
-	const appeared = useRef(false);
-	const followRender = (transcript: HTMLDivElement) => {
-		scroller.current = transcript;
-		if (stickToBottom.current) transcript.scrollTop = transcript.scrollHeight;
-		if (view && !appeared.current) onAppear();
-		appeared.current ||= Boolean(view);
-		return () => undefined;
-	};
-	const followSizes = useCallback((box: HTMLDivElement) => {
+	const follow = useCallback((box: HTMLDivElement) => {
 		const composer = box.querySelector<HTMLElement>(":scope > .composer");
 		const transcript = scroller.current;
 		if (!composer || !transcript) return () => undefined;
-		const observer = new ResizeObserver(() => {
-			box.style.setProperty("--composer-h", `${composer.offsetHeight}px`);
+		const stick = () => {
 			if (stickToBottom.current) transcript.scrollTop = transcript.scrollHeight;
+		};
+		const resized = new ResizeObserver(() => {
+			box.style.setProperty("--composer-h", `${composer.offsetHeight}px`);
+			stick();
 		});
-		observer.observe(composer);
-		observer.observe(transcript);
-		return () => observer.disconnect();
+		const changed = new MutationObserver(stick);
+		stick();
+		resized.observe(composer);
+		resized.observe(transcript);
+		changed.observe(transcript, { childList: true, subtree: true, characterData: true });
+		return () => {
+			resized.disconnect();
+			changed.disconnect();
+		};
 	}, []);
 	const followStream = useCallback((element: HTMLElement) => {
 		const observer = new ResizeObserver(() => {
@@ -288,10 +285,10 @@ export function Chat({
 	};
 
 	return (
-		<div className="chat" ref={followSizes}>
+		<div className="chat" ref={follow}>
 			<div
 				className="transcript"
-				ref={followRender}
+				ref={scroller}
 				onTouchStart={() => {
 					touching.current = true;
 				}}
@@ -324,7 +321,7 @@ export function Chat({
 							items={shareActions(shared)}
 							onPick={(action) => {
 								changeDraft(draft.trim() ? `${action.prompt}\n\n${draft.trim()}` : action.prompt);
-								setComposerFocus((key) => key + 1);
+								composerInput.current?.focus();
 							}}
 						/>
 					</div>
@@ -428,9 +425,9 @@ export function Chat({
 				draft={draft}
 				onDraftChange={changeDraft}
 				queued={queued}
-				focusKey={composerFocus}
+				input={composerInput}
+				autoFocus={focus}
 				conversationId={conversationId}
-				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
 					forms.skip(controller.id);

@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 import { GearIcon } from "./icons.tsx";
 import { BotList, type BotListProps } from "./BotList.tsx";
 import { PiMark } from "./PiMark.tsx";
-import { type SidePage, SidePanel } from "./SidePanel.tsx";
+import type { Source } from "../ui/subscribed.ts";
+import { type Place, type SidePage, SidePanel } from "./SidePanel.tsx";
 
 export function Drawer({
-	open,
+	place,
 	page,
 	busy,
 	list,
@@ -13,7 +14,7 @@ export function Drawer({
 	onSettings,
 	onClose,
 }: {
-	open: boolean;
+	place: Source<Place>;
 	page: SidePage;
 	busy: boolean;
 	list: BotListProps;
@@ -22,7 +23,7 @@ export function Drawer({
 	onClose: () => void;
 }) {
 	return (
-		<SidePanel side="left" open={open} page={page} onClose={onClose} label="Bot 列表">
+		<SidePanel side="left" place={place} page={page} onClose={onClose} label="Bot 列表">
 			<div className="drawer">
 				<div className="drawer-top">
 					<span className="brand">

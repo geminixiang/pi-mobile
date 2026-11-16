@@ -300,11 +300,11 @@ const LONG_FILES: Record<string, number> = {
 	"src/agent/mcp.ts": 473,
 	"src/agent/runtime.ts": 659,
 	"src/agent/tools/tw-stocks.ts": 465,
-	"src/app/App.tsx": 564,
-	"src/app/Chat.tsx": 478,
+	"src/app/App.tsx": 562,
+	"src/app/Chat.tsx": 475,
 	"src/app/Links.tsx": 435,
 	"src/app/Message.tsx": 518,
-	"src/app/Settings.tsx": 767,
+	"src/app/Settings.tsx": 766,
 	"src/triggers/runs.ts": 529,
 };
 
@@ -386,7 +386,7 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
-const AGENTS_WORDS = 2801;
+const AGENTS_WORDS = 2800;
 
 function agentsSizeRule(): Finding[] {
 	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
@@ -458,6 +458,80 @@ function effectRule(): Finding[] {
 		);
 }
 
+const REF_FIX =
+	"a ref callback is called again whenever its function changes, so one made each render or with dependencies is an effect: give it useCallback(…, []) so it follows only its element's life (observe, focus, clean up), and move what follows a prop or state to the handler or the store that changes it, or key the element (docs/effects.md)";
+const SNAPSHOT_FIX =
+	"useSyncExternalStore whose snapshot never changes only borrows subscribe as a lifecycle: return the value the source holds, or react in the source's own listener (docs/effects.md)";
+
+function isFunction(node: unknown): boolean {
+	return isNode(node) && (node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression");
+}
+
+function onlyStoresElement(fn: Node): boolean {
+	const body = isNode(fn.body) && fn.body.type === "BlockStatement" && Array.isArray(fn.body.body) && fn.body.body.length === 1 ? fn.body.body[0] : fn.body;
+	const expression = isNode(body) && body.type === "ExpressionStatement" ? body.expression : body;
+	return isNode(expression) && expression.type === "AssignmentExpression" && isNode(expression.left) && expression.left.type === "MemberExpression" && isNode(expression.left.property) && expression.left.property.name === "current";
+}
+
+function returnsConstant(fn: Node): boolean {
+	const body = fn.body;
+	if (!isNode(body)) return false;
+	if (body.type === "Literal") return true;
+	if (body.type === "Identifier") return body.name === "undefined";
+	return body.type === "BlockStatement" && Array.isArray(body.body) && body.body.length === 0;
+}
+
+function lifecycleFindings(file: string): Finding[] {
+	const source = readFileSync(file, "utf8");
+	const found: Finding[] = [];
+	const declared = new Map<string, { init: Node; top: boolean }>();
+	const lineOf = (node: Node) => source.slice(0, node.start).split("\n").length;
+	const collect = (node: unknown, top: boolean) => {
+		if (!isNode(node)) return;
+		if (node.type === "VariableDeclarator" && isNode(node.id) && typeof node.id.name === "string" && isNode(node.init)) declared.set(node.id.name, { init: node.init, top });
+		const inside = top && node.type !== "FunctionDeclaration" && !isFunction(node) && node.type !== "ClassBody";
+		for (const child of children(node)) collect(child, inside);
+	};
+	const calls = (node: Node, name: string) => node.type === "CallExpression" && isNode(node.callee) && node.callee.name === name && Array.isArray(node.arguments);
+	const refIsEffect = (value: Node): boolean => {
+		if (isFunction(value)) return !onlyStoresElement(value);
+		if (value.type !== "Identifier" || typeof value.name !== "string") return false;
+		const known = declared.get(value.name);
+		if (!known) return false;
+		if (isFunction(known.init)) return !known.top && !onlyStoresElement(known.init);
+		if (!calls(known.init, "useCallback") || !Array.isArray(known.init.arguments)) return false;
+		const [fn, deps] = known.init.arguments;
+		const stable = isNode(deps) && deps.type === "ArrayExpression" && Array.isArray(deps.elements) && deps.elements.length === 0;
+		return !stable && !(isNode(fn) && isFunction(fn) && onlyStoresElement(fn));
+	};
+	const snapshotIsConstant = (value: unknown): boolean => {
+		if (!isNode(value)) return false;
+		if (isFunction(value)) return returnsConstant(value);
+		if (value.type !== "Identifier" || typeof value.name !== "string") return false;
+		const known = declared.get(value.name);
+		return known !== undefined && isFunction(known.init) && returnsConstant(known.init);
+	};
+	const visit = (node: unknown) => {
+		if (!isNode(node)) return;
+		const jsxRef = node.type === "JSXAttribute" && isNode(node.name) && node.name.name === "ref" && isNode(node.value) && node.value.type === "JSXExpressionContainer" ? node.value.expression : undefined;
+		const propertyRef = node.type === "Property" && isNode(node.key) && node.key.name === "ref" ? node.value : undefined;
+		const ref = jsxRef ?? propertyRef;
+		if (isNode(ref) && refIsEffect(ref)) found.push({ file, line: lineOf(node), rule: REF_FIX });
+		if (calls(node, "useSyncExternalStore") && Array.isArray(node.arguments) && snapshotIsConstant(node.arguments[1])) found.push({ file, line: lineOf(node), rule: SNAPSHOT_FIX });
+		children(node).forEach(visit);
+	};
+	const program = parseSync(file, source).program;
+	collect(program, true);
+	visit(program);
+	return found;
+}
+
+function lifecycleRule(): Finding[] {
+	return checkedFiles()
+		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.flatMap(lifecycleFindings);
+}
+
 const EXPORTED = /^export (?:declare )?(?:async )?(?:function\*?|const|let|class|type|interface|enum|abstract class) (\w+)/gm;
 // why: a shim stands in for a Node module, so it exports that module's names whether or not this repo calls them
 const EXPORTS_ANY_NAME = "src/shims/";
@@ -510,6 +584,7 @@ const all = [
 	...tangleRule(),
 	...unusedExports(),
 	...effectRule(),
+	...lifecycleRule(),
 	...javaRule(),
 	...viewportRule(),
 	...installerRule(),

@@ -1,22 +1,55 @@
-import { createContext, type ReactNode, type RefObject, type TouchEvent, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, type RefObject, type TouchEvent, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import type { Source } from "../ui/subscribed.ts";
 import { haptic } from "./haptics.ts";
-import { useBack, useLast } from "./layers.ts";
+import { isBack, useLast } from "./layers.ts";
 import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 
-export type SidePage = { open: boolean; label: string; onBack: () => void; content: ReactNode };
+export type SidePage = { label: string; onBack: () => void; content: ReactNode };
+export type Place = "closed" | "open" | "deep";
 
 class PanelMotion extends Motion {
+	#place: Place | undefined;
+	#focusedBefore: Element | null | undefined;
+
 	constructor(
 		readonly side: Side,
 		private readonly viewport: HTMLElement,
 		private readonly popup: HTMLElement,
 		private readonly card: RefObject<HTMLElement | null>,
 		private readonly pageElement: RefObject<HTMLElement | null>,
-		readonly page: () => { open: boolean; onBack: () => void },
+		readonly back: () => void,
 		settled: () => void,
 	) {
 		super(settled);
+	}
+
+	deep(): boolean {
+		return this.#place === "deep";
+	}
+
+	follow(place: Place): void {
+		if (place === this.#place) return;
+		this.#place = place;
+		this.popup.inert = place !== "open";
+		if (this.pageElement.current) this.pageElement.current.inert = place !== "deep";
+		if (place === "deep") this.settleTo(this.deepest());
+		else this.settle(place === "open");
+		if (place === "closed") return this.restoreFocus();
+		if (this.#focusedBefore === undefined) this.#focusedBefore = document.activeElement;
+		(place === "deep" ? this.pageElement.current : this.popup)?.focus({ preventScroll: true });
+	}
+
+	pageArrived(page: HTMLElement): void {
+		page.inert = !this.deep();
+		this.render(this.position());
+		if (this.deep()) page.focus({ preventScroll: true });
+	}
+
+	restoreFocus(): void {
+		const previous = this.#focusedBefore;
+		this.#focusedBefore = undefined;
+		if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
 	}
 
 	width(): number {
@@ -93,7 +126,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 			drag.motion.settleTo(drag.range.max);
 			if (cancelled || stays) return;
 			haptic("tick");
-			drag.motion.page().onBack();
+			drag.motion.back();
 			return;
 		}
 		const wasOpen = current().open === side;
@@ -124,7 +157,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 					gesture.ignored = true;
 					return;
 				}
-				const page = motion.page().open;
+				const page = motion.deep();
 				gesture.drag = {
 					motion,
 					from: motion.position(),
@@ -176,66 +209,56 @@ export function SideSwipe({
 	);
 }
 
-export function SidePanel({ side, open, page, onClose, label, children }: { side: Side; open: boolean; page?: SidePage; onClose: () => void; label: string; children: ReactNode }) {
-	useBack(open, onClose);
-	const deep = open && Boolean(page?.open);
-	useBack(deep, () => page?.onBack());
+export function SidePanel({ side, place, page, onClose, label, children }: { side: Side; place: Source<Place>; page?: SidePage; onClose: () => void; label: string; children: ReactNode }) {
+	const at = useSyncExternalStore(place.subscribe, place.read);
+	const deep = at === "deep";
 	const context = useContext(SideContext);
-	const popup = useRef<HTMLDivElement>(null);
 	const pageElement = useRef<HTMLDivElement>(null);
 	const motion = useRef<PanelMotion>(undefined);
-	const focusedBefore = useRef<Element | null>(undefined);
 	const [pageMounted, setPageMounted] = useState(false);
 	if (deep && !pageMounted) setPageMounted(true);
 	const pageContent = useLast(deep, page?.content);
-	const latest = useRef({ deep, page });
-	latest.current = { deep, page };
+	const latest = useRef({ context, side, place, page });
+	latest.current = { context, side, place, page };
 
-	const restoreFocus = () => {
-		const previous = focusedBefore.current;
-		focusedBefore.current = undefined;
-		if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
-	};
-	const attach = useCallback(
-		(element: HTMLDivElement) => {
-			const viewport = element.parentElement;
-			if (!context || !viewport) return () => undefined;
-			popup.current = element;
-			motion.current = new PanelMotion(
-				side,
-				viewport,
-				element,
-				context.card,
-				pageElement,
-				() => ({ open: latest.current.deep, onBack: () => latest.current.page?.onBack() }),
-				() => {
-					if ((motion.current?.position() ?? 0) <= 1 && !latest.current.deep) setPageMounted(false);
-				},
-			);
-			context.panels.set(side, motion.current);
-			return () => {
-				context.panels.delete(side);
-				restoreFocus();
-			};
-		},
-		[context, side],
-	);
-	const moveFocus = () => {
-		if (!open) return restoreFocus();
-		if (focusedBefore.current === undefined) focusedBefore.current = document.activeElement;
-		(deep ? pageElement.current : popup.current)?.focus({ preventScroll: true });
-	};
-	const follow = useCallback(() => {
-		const current = motion.current;
-		if (current && deep) current.settleTo(current.deepest());
-		else current?.settle(open);
-		moveFocus();
-		return () => undefined;
-	}, [open, deep]);
+	const attach = useCallback((popup: HTMLDivElement) => {
+		const mounted = latest.current;
+		const viewport = popup.parentElement;
+		if (!mounted.context || !viewport) return () => undefined;
+		const { panels, card } = mounted.context;
+		const created = new PanelMotion(
+			mounted.side,
+			viewport,
+			popup,
+			card,
+			pageElement,
+			() => latest.current.page?.onBack(),
+			() => {
+				if (created.position() <= 1 && !created.deep()) setPageMounted(false);
+			},
+		);
+		motion.current = created;
+		panels.set(mounted.side, created);
+		const follow = () => created.follow(mounted.place.read());
+		follow();
+		const stop = mounted.place.subscribe(follow);
+		return () => {
+			stop();
+			panels.delete(mounted.side);
+			created.restoreFocus();
+		};
+	}, []);
+	const arrive = useCallback((element: HTMLDivElement) => {
+		pageElement.current = element;
+		motion.current?.pageArrived(element);
+		return () => {
+			pageElement.current = null;
+		};
+	}, []);
 
 	if (!context) return null;
 	return createPortal(
-		<div ref={follow} className="side-viewport">
+		<div className="side-viewport">
 			<div
 				ref={attach}
 				className={`side-popup side-${side}`}
@@ -243,24 +266,24 @@ export function SidePanel({ side, open, page, onClose, label, children }: { side
 				aria-modal="true"
 				aria-label={label}
 				tabIndex={-1}
-				inert={!open || deep}
+				data-back={at !== "closed" || undefined}
 				onKeyDown={(event) => {
-					if (event.key === "Escape") onClose();
+					if (event.key === "Escape" || isBack(event)) onClose();
 				}}
 			>
 				{children}
 			</div>
 			{deep || pageMounted ? (
 				<div
-					ref={pageElement}
+					ref={arrive}
 					className={`side-page side-page-${side}`}
 					role="dialog"
 					aria-modal="true"
 					aria-label={page?.label}
 					tabIndex={-1}
-					inert={!deep}
+					data-back={deep || undefined}
 					onKeyDown={(event) => {
-						if (event.key === "Escape") page?.onBack();
+						if (event.key === "Escape" || isBack(event)) page?.onBack();
 					}}
 				>
 					{pageContent}

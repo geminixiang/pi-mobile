@@ -1,5 +1,5 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { type ChangeEvent, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type RefObject, useCallback, useContext, useMemo, useRef, useState } from "react";
 import {
 	ATTACHMENT_ACCEPT,
 	type AttachmentKind,
@@ -21,7 +21,7 @@ import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 import { JobsStrip } from "../jobs/JobsStrip.tsx";
-import { addToDraft, loadDraftAttachments, receiveDraftAdditions, saveDraftAttachments } from "./drafts.ts";
+import { addToDraft, loadDraftAttachments, receiveDrafts, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 import { BesideContext } from "../workbench/context.ts";
@@ -63,9 +63,9 @@ export function Composer({
 	draft,
 	onDraftChange,
 	queued,
-	focusKey,
+	input: textArea,
+	autoFocus,
 	conversationId,
-	initialFiles,
 	onSend,
 	onStop,
 	onWithdraw,
@@ -78,9 +78,9 @@ export function Composer({
 	draft: string;
 	onDraftChange: (text: string) => void;
 	queued: QueuedItem[];
-	focusKey: number;
+	input: RefObject<HTMLTextAreaElement | null>;
+	autoFocus: boolean;
 	conversationId: string;
-	initialFiles?: readonly File[];
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
@@ -90,16 +90,24 @@ export function Composer({
 	onJump: (id: string | undefined) => void;
 }) {
 	const restored = useRef(false);
-	const unmounted = useRef(false);
+	const receiving = useRef(false);
 	const [{ images, files }, setAttached] = useStore<Attached>(
 		NOTHING,
 		() => {
+			receiving.current = true;
 			void orLogged(loadDraftAttachments(conversationId), "drafts.load_failed", undefined).then((saved) => {
+				if (restored.current) return;
 				restored.current = true;
 				change((current) => ({ images: [...(saved?.images ?? []), ...current.images], files: [...(saved?.files ?? []).map(readyFile), ...current.files] }));
-				if (initialFiles?.length) void attach([...initialFiles]);
 			});
-			return receiveDraftAdditions(conversationId, (addition) => change((current) => ({ images: [...current.images, ...addition.images], files: [...current.files, ...addition.files.map(readyFile)] })));
+			const stop = receiveDrafts(conversationId, {
+				prepared: (addition) => change((current) => ({ images: [...current.images, ...addition.images], files: [...current.files, ...addition.files.map(readyFile)] })),
+				files: (shared) => void attach(shared),
+			});
+			return () => {
+				receiving.current = false;
+				stop();
+			};
 		},
 		[conversationId],
 	);
@@ -115,7 +123,7 @@ export function Composer({
 	const [attachMenu, setAttachMenu] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const cameraInput = useRef<HTMLInputElement>(null);
-	const textArea = useRef<HTMLTextAreaElement>(null);
+	const focusFirst = useRef(autoFocus);
 	const reading = files.some((file) => file.state === "reading");
 	const hasInput = draft.trim() !== "" || images.length > 0 || files.length > 0;
 	const dictation = useDictation((text) => {
@@ -128,21 +136,14 @@ export function Composer({
 	const viewing = beside?.inView !== dismissed ? beside?.inView : undefined;
 	const part = viewing ? beside?.part : undefined;
 
-	const focusOnKey = useCallback(
-		(area: HTMLTextAreaElement) => {
-			textArea.current = area;
-			if (focusKey) {
-				area.focus();
-				area.setSelectionRange(area.value.length, area.value.length);
-			}
-			return () => undefined;
-		},
-		[focusKey],
-	);
-	const markGone = useCallback(() => {
-		unmounted.current = false;
+	const arrive = useCallback((area: HTMLTextAreaElement) => {
+		textArea.current = area;
+		if (focusFirst.current) {
+			area.focus();
+			area.setSelectionRange(area.value.length, area.value.length);
+		}
 		return () => {
-			unmounted.current = true;
+			textArea.current = null;
 		};
 	}, []);
 	const removedWhileReading = useRef(new Set<string>());
@@ -187,7 +188,7 @@ export function Composer({
 			prepareAttachment(file, conversationId).then(
 				(prepared) => {
 					if (removedWhileReading.current.delete(key)) discardAttachment(prepared);
-					else if (unmounted.current) void orLogged(addToDraft(conversationId, { images: [], files: [prepared] }), "drafts.save_failed", undefined);
+					else if (!receiving.current) void orLogged(addToDraft(conversationId, { images: [], files: [prepared] }), "drafts.save_failed", undefined);
 					else changeFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
 				},
 				(error: unknown) => {
@@ -197,7 +198,7 @@ export function Composer({
 			);
 		}
 		const added = await Promise.all(photos.map(toImageContent));
-		if (unmounted.current) {
+		if (!receiving.current) {
 			if (added.length > 0) void orLogged(addToDraft(conversationId, { images: added, files: [] }), "drafts.save_failed", undefined);
 			return;
 		}
@@ -211,7 +212,7 @@ export function Composer({
 	};
 
 	return (
-		<div className="composer" ref={markGone} onTouchStart={(event) => event.stopPropagation()}>
+		<div className="composer" onTouchStart={(event) => event.stopPropagation()}>
 			<JobsStrip />
 			{queued.length > 0 ? (
 				<ul className="queue">
@@ -340,7 +341,7 @@ export function Composer({
 						</button>
 					) : null}
 					<textarea
-						ref={focusOnKey}
+						ref={arrive}
 						rows={1}
 						value={draft}
 						placeholder={busy ? "插話，或排一個下一步" : "問 pi"}

@@ -2,7 +2,7 @@ import type { BrowserPage, BrowserTabs } from "./plugin.ts";
 
 type SheetMode = "closed" | "open" | "handover";
 
-export type SheetInputs = { bot: string | undefined; handover: string | undefined; asking: boolean; openKey: number };
+export type SheetInputs = { bot: string | undefined; handover: string | undefined; asking: boolean; openKey: number; hidden: boolean };
 
 export type SheetState = {
 	mode: SheetMode;
@@ -33,13 +33,15 @@ export const SHEET_START: SheetState = {
 	strip: false,
 	shot: undefined,
 	problem: "",
-	inputs: { bot: undefined, handover: undefined, asking: false, openKey: 0 },
+	inputs: { bot: undefined, handover: undefined, asking: false, openKey: 0, hidden: false },
 };
+
+export const sheetOpen = (state: SheetState): boolean => state.mode !== "closed" && !state.inputs.hidden && state.inputs.bot !== undefined;
 
 export const pageKey = (bot: string, tab: string) => `${bot}/${tab}`;
 
 export function sameInputs(a: SheetInputs, b: SheetInputs): boolean {
-	return a.bot === b.bot && a.handover === b.handover && a.asking === b.asking && a.openKey === b.openKey;
+	return a.bot === b.bot && a.handover === b.handover && a.asking === b.asking && a.openKey === b.openKey && a.hidden === b.hidden;
 }
 
 export function sheetAfter(state: SheetState, event: SheetEvent): SheetState {

@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { type Bench, benchOf, benchStep, emptyBench, FOLDER, fileKey, MAX_OPENED, pathOf } from "../src/workbench/bench.ts";
 import { layoutAt, shownOverlay, WIDE_MIN_HEIGHT, WIDE_MIN_WIDTH } from "../src/workbench/layout.ts";
 import { inViewNote, inViewPart, inViewPath } from "../src/agent/in-view.ts";
-import { changed, linesOf, partLabel } from "../src/workbench/changes.ts";
+import type { Element, Root } from "hast";
+import { type BlockMarks, changed, linesOf, markBlocks, partLabel } from "../src/workbench/changes.ts";
 
 const sizes: [string, number, number, ReturnType<typeof layoutAt>][] = [
 	["Galaxy S24", 360, 780, "phone"],
@@ -75,6 +76,35 @@ assert.deepEqual([...changed(["a", "b", "c"], ["a", "x", "b", "c"])], [1], "an i
 assert.deepEqual([...changed(["a", "b", "c"], ["a", "c"])], [], "a removed line marks nothing left");
 assert.deepEqual([...changed(linesOf("一\n二\n"), linesOf("一\n二\n三\n"))], [2]);
 assert.equal(inViewPath("look at <in-view>\nx\n</in-view>"), undefined);
+
+const at = (line: number) => ({ start: { line, column: 1 }, end: { line, column: 1 } });
+const element = (tagName: string, line: number, children: Element["children"]): Element => ({ type: "element", tagName, properties: {}, children, position: at(line) });
+const word = (value: string) => ({ type: "text" as const, value });
+const marked = (marks: Omit<BlockMarks, "parts">) => {
+	const tree: Root = {
+		type: "root",
+		children: [
+			element("h2", 1, [word("職缺")]),
+			element("p", 3, [word("薪水 "), element("strong", 3, [word("140")]), word(" 萬")]),
+			element("ul", 5, [element("li", 5, [element("p", 5, [word("台北")]), element("p", 6, [word("捷運 25 分")])])]),
+			element("table", 8, [element("tbody", 8, [element("tr", 8, [element("td", 8, [word("精藤")]), element("td", 8, [word("後端")])])])]),
+		],
+	};
+	const parts: string[] = [];
+	markBlocks({ ...marks, parts })()(tree);
+	const blocks: Element[] = [];
+	const collect = (node: Root | Root["children"][number]) => {
+		if (node.type === "element" && node.properties.dataBlock !== undefined) blocks.push(node);
+		if ("children" in node) node.children.forEach(collect);
+	};
+	collect(tree);
+	return { parts, classes: blocks.map((block) => [block.tagName, block.properties.dataBlock, block.properties.className]) };
+};
+const plain = marked({ changed: new Set(), picked: undefined });
+assert.deepEqual(plain.parts, ["職缺", "薪水 140 萬", "台北 捷運 25 分", "台北", "捷運 25 分", "精藤 後端"], "a block's part is its text, spaced between blocks and cells and joined within a line");
+assert.deepEqual(plain.classes.map(([tag, index, classes]) => [tag, index, classes]), [["h2", 0, undefined], ["p", 1, undefined], ["li", 2, undefined], ["p", 3, undefined], ["p", 4, undefined], ["tr", 5, undefined]]);
+const pointed = marked({ changed: new Set([2]), picked: "精藤 後端" });
+assert.deepEqual(pointed.classes.filter(([, , classes]) => classes !== undefined), [["p", 1, ["changed"]], ["tr", 5, ["picked"]]], "the changed line and the part pointed at are marked while rendering");
 
 const css = readFileSync(new URL("../src/app/styles.css", import.meta.url), "utf8");
 const wideQuery = `@media (min-width: ${WIDE_MIN_WIDTH}px) and (min-height: ${WIDE_MIN_HEIGHT}px)`;

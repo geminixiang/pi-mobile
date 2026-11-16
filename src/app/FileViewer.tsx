@@ -63,13 +63,10 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 	const { value: content, error: unread } = useLoaded(() => workspace.read(path), [workspace, path]);
 	const [unhanded, setUnhanded] = useState("");
 	const error = unhanded || unread;
-	const url = content?.kind === "image" ? content.url : undefined;
-	const revokeWhenGone = useCallback(
-		() => () => {
-			if (url) URL.revokeObjectURL(url);
-		},
-		[url],
-	);
+	const revokeWhenGone = useCallback((image: HTMLImageElement) => {
+		const shown = image.src;
+		return () => URL.revokeObjectURL(shown);
+	}, []);
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [opening, setOpening] = useState(false);
 	const [sharing, setSharing] = useState(false);
@@ -128,7 +125,7 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 				{error ? <div className="banner error">{error}</div> : null}
 				{!content && !error ? <div className="ws-loading">讀取中</div> : null}
 				{content?.kind === "binary" ? <div className="ws-empty">二進位檔案，無法顯示</div> : null}
-				{content?.kind === "image" ? <img className="viewer-image" src={content.url} alt={name} ref={revokeWhenGone} /> : null}
+				{content?.kind === "image" ? <img key={content.url} className="viewer-image" src={content.url} alt={name} ref={revokeWhenGone} /> : null}
 				{content?.kind === "text" && markdown && mode === "preview" ? (
 					<div className="answer viewer-markdown">
 						<div className="markdown">

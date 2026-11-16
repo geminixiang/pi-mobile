@@ -58,9 +58,9 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 		);
 	}
 	return (
-		<div className="sign-in" ref={pasteOnReturn}>
+		<div className="sign-in">
 			<p>複製最後一頁的授權碼，回來會自動帶入，或貼在這裡：</p>
-			<input className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
+			<input ref={pasteOnReturn} className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
 			{state.kind === "failed" ? <div className="check-error">{state.error}</div> : null}
 			<div className="dialog-actions inline">
 				<button type="button" className="btn" onClick={() => setSignIn(undefined)}>
@@ -122,9 +122,9 @@ export function DeviceSignInPanel({
 		);
 	}
 	return (
-		<div className="sign-in" ref={abortWhenGone}>
+		<div className="sign-in">
 			<p>{copyCode ? `代碼已複製，在 ${provider} 的頁面貼上：` : `在 ${provider} 頁面確認這組代碼：`}</p>
-			<div className="user-code">{signIn.userCode}</div>
+			<div className="user-code" ref={abortWhenGone}>{signIn.userCode}</div>
 			<p className="ws-loading">等待授權</p>
 			<div className="dialog-actions inline">
 				<button

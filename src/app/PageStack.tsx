@@ -1,12 +1,15 @@
-import { type ReactNode, type TouchEvent, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactNode, type TouchEvent, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { Source } from "../ui/subscribed.ts";
 import { haptic } from "./haptics.ts";
-import { useBack, useLast } from "./layers.ts";
+import { isBack, useLast } from "./layers.ts";
 import { ownsSidewaysDrag } from "./SidePanel.tsx";
 import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 
 type StackPage = { key: string; content: ReactNode; onBack: () => void };
 
 class StackMotion extends Motion {
+	#open: boolean | undefined;
+
 	constructor(
 		private readonly base: HTMLElement,
 		private readonly top: () => HTMLElement | null,
@@ -17,6 +20,12 @@ class StackMotion extends Motion {
 
 	width(): number {
 		return this.base.offsetWidth;
+	}
+
+	follow(open: boolean): void {
+		if (open === this.#open) return;
+		this.#open = open;
+		this.settle(open);
 	}
 
 	protected reveal(): void {}
@@ -31,27 +40,26 @@ class StackMotion extends Motion {
 type Drag = { from: number; fromX: number; width: number; samples: Sample[] };
 type Gesture = { x: number; y: number; at: number; ignored: boolean; drag?: Drag };
 
-export function PageStack({ side, top, children }: { side: Side; top: StackPage | undefined; children: ReactNode }) {
-	const open = top !== undefined;
-	useBack(open, () => top?.onBack());
+export function PageStack({ side, opened, top, children }: { side: Side; opened: Source<boolean>; top: StackPage | undefined; children: ReactNode }) {
+	const open = useSyncExternalStore(opened.subscribe, opened.read);
 	const topElement = useRef<HTMLDivElement>(null);
 	const motion = useRef<StackMotion>(undefined);
 	const [mounted, setMounted] = useState(false);
 	if (open && !mounted) setMounted(true);
 	const shown = useLast(open, top);
-	const latest = useRef(top);
-	latest.current = top;
+	const latest = useRef({ top, opened });
+	latest.current = { top, opened };
 
 	const attach = useCallback((base: HTMLDivElement) => {
-		motion.current = new StackMotion(base, () => topElement.current, (stays) => {
+		const source = latest.current.opened;
+		const created = new StackMotion(base, () => topElement.current, (stays) => {
 			if (!stays) setMounted(false);
 		});
-		return () => undefined;
+		motion.current = created;
+		const follow = () => created.follow(source.read());
+		follow();
+		return source.subscribe(follow);
 	}, []);
-	const follow = useCallback(() => {
-		motion.current?.settle(open);
-		return () => undefined;
-	}, [open, top?.key]);
 
 	const handlers = useMemo(() => {
 		let gesture: Gesture | undefined;
@@ -64,7 +72,7 @@ export function PageStack({ side, top, children }: { side: Side; top: StackPage 
 			current.settle(true);
 			if (cancelled || stays) return;
 			haptic("tick");
-			latest.current?.onBack();
+			latest.current.top?.onBack();
 		};
 		return {
 			onTouchStart: (event: TouchEvent) => {
@@ -80,7 +88,7 @@ export function PageStack({ side, top, children }: { side: Side; top: StackPage 
 					const dx = touch.clientX - gesture.x;
 					const intent = intentOf({ dx, dy: touch.clientY - gesture.y, elapsedMs: event.timeStamp - gesture.at, selecting: !(document.getSelection()?.isCollapsed ?? true) });
 					if (intent === "undecided") return;
-					if (intent === "ignore" || !latest.current || towardOpen(side, dx) > 0 || ownsSidewaysDrag(event.target, dx)) {
+					if (intent === "ignore" || !latest.current.top || towardOpen(side, dx) > 0 || ownsSidewaysDrag(event.target, dx)) {
 						gesture.ignored = true;
 						return;
 					}
@@ -100,12 +108,20 @@ export function PageStack({ side, top, children }: { side: Side; top: StackPage 
 	}, [side]);
 
 	return (
-		<div ref={follow} className={`page-stack page-stack-${side}`} {...handlers}>
+		<div className={`page-stack page-stack-${side}`} {...handlers}>
 			<div ref={attach} className="stack-base" inert={open}>
 				{children}
 			</div>
 			{open || mounted ? (
-				<div ref={topElement} className="stack-top" inert={!open}>
+				<div
+					ref={topElement}
+					className="stack-top"
+					inert={!open}
+					data-back={open || undefined}
+					onKeyDown={(event) => {
+						if (isBack(event)) top?.onBack();
+					}}
+				>
 					{shown?.content}
 				</div>
 			) : null}

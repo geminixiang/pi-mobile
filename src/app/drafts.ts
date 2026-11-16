@@ -57,19 +57,29 @@ export function saveDraftAttachments(conversationId: string, draft: DraftAttachm
 	return inOrder(conversationId, () => writeDraftAttachments(conversationId, draft));
 }
 
-const openComposers = new Map<string, (addition: DraftAttachments) => void>();
+type Composing = { prepared: (addition: DraftAttachments) => void; files: (files: File[]) => void };
 
-export function receiveDraftAdditions(conversationId: string, receive: (addition: DraftAttachments) => void): () => void {
-	openComposers.set(conversationId, receive);
+const openComposers = new Map<string, Composing>();
+const offered = new Map<string, File[]>();
+
+export function offerFiles(conversationId: string, files: readonly File[]): void {
+	offered.set(conversationId, [...(offered.get(conversationId) ?? []), ...files]);
+}
+
+export function receiveDrafts(conversationId: string, composing: Composing): () => void {
+	openComposers.set(conversationId, composing);
+	const waiting = offered.get(conversationId);
+	offered.delete(conversationId);
+	if (waiting) composing.files(waiting);
 	return () => {
-		if (openComposers.get(conversationId) === receive) openComposers.delete(conversationId);
+		if (openComposers.get(conversationId) === composing) openComposers.delete(conversationId);
 	};
 }
 
 export function addToDraft(conversationId: string, addition: DraftAttachments): Promise<void> {
-	const receive = openComposers.get(conversationId);
-	if (receive) {
-		receive(addition);
+	const composing = openComposers.get(conversationId);
+	if (composing) {
+		composing.prepared(addition);
 		return Promise.resolve();
 	}
 	return inOrder(conversationId, async () => {

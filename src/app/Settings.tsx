@@ -1,5 +1,5 @@
 import { type ReactNode, useRef, useState } from "react";
-import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
+import { defined, promised, useStore, useSubscribed } from "../ui/subscribed.ts";
 import { onResume, resumed } from "../ui/resume.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
@@ -280,22 +280,21 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 }
 
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
-	const state = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime.triggers.subscribe(listener), [runtime]);
-	const bots = useSubscribed<Bot[]>([], (listener) => runtime.subscribeBots(listener), [runtime]);
-	const [error, setError] = useState("");
-	const [{ bluetooth, overlay }, setAllowed] = useStore<{ bluetooth?: boolean; overlay?: boolean }>(
-		{},
+	const state = useSubscribed<TriggerState>(
+		NO_TRIGGERS,
 		(listener) => {
-			if (!native.has("Triggers")) return undefined;
-			const stopReading = resumed(() => Triggers.status())(listener);
-			const stopSyncing = onResume(() => void runtime.triggers.sync());
+			const stopListening = runtime.triggers.subscribe(listener);
+			const stopSyncing = native.has("Triggers") ? onResume(() => void runtime.triggers.sync()) : undefined;
 			return () => {
-				stopReading?.();
-				stopSyncing();
+				stopListening();
+				stopSyncing?.();
 			};
 		},
 		[runtime],
 	);
+	const bots = useSubscribed<Bot[]>([], (listener) => runtime.subscribeBots(listener), [runtime]);
+	const [error, setError] = useState("");
+	const [{ bluetooth, overlay }, setAllowed] = useStore<{ bluetooth?: boolean; overlay?: boolean }>({}, resumed(native.has("Triggers") ? () => Triggers.status() : undefined), []);
 	if (!native.has("Triggers")) return null;
 	const headphones = state.items.some((item) => item.state !== "paused" && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 
@@ -572,7 +571,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	const { value: update } = useLoaded(inApp && native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
 	const live = useRef({ settings, initial });
 	live.current = { settings, initial };
-	const [page, setPage] = useState<Page>();
+	const [page, setPage, paged] = useStore<Page | undefined>(undefined, () => undefined, []);
 	const [problem, setProblem] = useState<string>();
 	const go = (next: Page | undefined) => {
 		setProblem(undefined);
@@ -703,7 +702,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 			</div>
 		);
 	return (
-		<PageStack side="left" top={page ? { key: page, content: top(page), onBack: back } : undefined}>
+		<PageStack side="left" opened={defined(paged)} top={page ? { key: page, content: top(page), onBack: back } : undefined}>
 			<div className="screen">
 				<header className={firstScreen ? "bar bare" : "bar"}>
 					{props.mode === "app" ? <BackButton onClick={props.onCancel} /> : <span className="bar-spacer" />}

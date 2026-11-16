@@ -1,7 +1,6 @@
-import type { ConversationView } from "@earendil-works/pi-durable";
 import { useCallback, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
-import type { ConversationController, ConversationId } from "../agent/runtime.ts";
+import type { ConversationId } from "../agent/runtime.ts";
 import { isConfigured, type Settings } from "../settings.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
@@ -12,17 +11,16 @@ import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "./icons.tsx";
 import { BrowserButton } from "../browser/BrowserButton.tsx";
-import { BrowserSheet } from "../browser/BrowserSheet.tsx";
-import { questionStates } from "../interaction/answers.ts";
+import { askForBrowser, type BrowserScreen, BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { type BrowserState, browserState, NO_BROWSER } from "../browser/tool.ts";
 import { type PageHost, PageHostContext } from "../interaction/PageFrame.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
-import { useBatched, useSubscribed } from "../ui/subscribed.ts";
+import { type Source, useSubscribed } from "../ui/subscribed.ts";
 import { after, type Cancel } from "../time.ts";
-import { appeared, applySettings, choose, closeItem, dismissNotices, leave, notify, open, saveSettings, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
+import { applySettings, choose, closeItem, dismissNotices, leave, leftPanel, memoryPage, notify, open, rightPanel, saveSettings, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -35,7 +33,7 @@ import { SidePanel } from "./SidePanel.tsx";
 import type { BotListProps } from "./BotList.tsx";
 import { benchOf, benchStep, emptyBench, FOLDER, fileKey, pathOf } from "../workbench/bench.ts";
 import { boardOf } from "../workbench/board.ts";
-import { shownOverlay, useLayout } from "../workbench/layout.ts";
+import { layout as screenLayout, shownOverlay, useLayout } from "../workbench/layout.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { Rail } from "../workbench/Rail.tsx";
 import { Workbench } from "../workbench/Workbench.tsx";
@@ -54,15 +52,25 @@ import { modelReach } from "../agent/reach.ts";
 
 const SETTINGS_APPLY_MS = 800;
 
+const watchScreen = (changed: () => void) => {
+	const stops = [watchSession(changed), screenLayout.subscribe(changed)];
+	return () => stops.forEach((stop) => stop());
+};
+const rootPage: Source<boolean> = { subscribe: watchScreen, read: () => session().overlay === (screenLayout.read() === "phone" ? "workspace" : "settings") };
+const browserScreen: Source<BrowserScreen> = {
+	subscribe: watchScreen,
+	read: () => {
+		const { controller, asking, overlay } = session();
+		return { bot: controller ? String(controller.id) : undefined, asking, hidden: shownOverlay(overlay, screenLayout.read()) !== undefined };
+	},
+};
+
 export function App() {
-	const { settings, runtime, openError, controller, opening, chatKey, pending, overlay, sharing, openItem, notices } = useSyncExternalStore(watchSession, session);
-	const seen = useBatched<{ of: ConversationController; view: ConversationView } | undefined>(undefined, (listener) => controller?.subscribe((view) => listener({ of: controller, view })), [controller]);
-	const view = seen && seen.of === controller ? seen.view : undefined;
+	const { settings, runtime, openError, controller, view, asking, opening, chatKey, pending, overlay, sharing, openItem, notices } = useSyncExternalStore(watchSession, session);
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (sure: boolean) => void }>();
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
 	const [memoryBot, setMemoryBot] = useState<Bot>();
-	const [browserOpen, setBrowserOpen] = useState(0);
 	const [picked, setPicked] = useState<{ path: string; text: string }>();
 	const clearPicked = useCallback(() => setPicked(undefined), []);
 	const currentBot = controller ? String(controller.id) : undefined;
@@ -111,7 +119,6 @@ export function App() {
 	const browser = useSubscribed<BrowserState>(NO_BROWSER, (listener) => browserState.subscribe(listener), []);
 	const busyIds = useSubscribed<ReadonlySet<ConversationId>>(new Set(), (listener) => runtime?.subscribeActivity(listener), [runtime]);
 
-	const asking = useMemo(() => [...questionStates(view?.entries ?? []).values()].some((asked) => asked.state === "open"), [view?.entries]);
 	const liveTools = liveOf(view)?.tools;
 	const board = useMemo(
 		() =>
@@ -143,10 +150,7 @@ export function App() {
 	);
 
 	const controllerId = controller?.id;
-	const loadWorkspace = useCallback(
-		() => (runtime && controllerId !== undefined ? runtime.workspace(controllerId) : Promise.resolve(undefined)),
-		[runtime, controllerId],
-	);
+	const loadWorkspace = useCallback(() => (runtime && controllerId !== undefined ? runtime.workspace(controllerId) : Promise.resolve(undefined)), [runtime, controllerId]);
 
 	const pageHost = useMemo<PageHost>(
 		() => ({
@@ -308,7 +312,7 @@ export function App() {
 	const inView = staged?.kind === "ask" ? staged.draft?.path : shownFile;
 
 	return (
-		<PageStack side={wide ? "left" : "right"} top={stackTop}>
+		<PageStack side={wide ? "left" : "right"} opened={rootPage} top={stackTop}>
 		<div className={`frame frame-${layout}${wide ? " frame-wide" : ""}`}>
 		{wide ? <Rail busy={busy} list={list} onSettings={() => show("settings")} /> : null}
 		<div
@@ -342,7 +346,7 @@ export function App() {
 				</div>
 				<div className="bar-pill bar-tools">
 					{currentBot && native.has("Browser") ? (
-						<BrowserButton bot={currentBot} onOpen={() => setBrowserOpen((count) => count + 1)} />
+						<BrowserButton bot={currentBot} onOpen={askForBrowser} />
 					) : null}
 					{hasFolder ? (
 						<button type="button" className="icon-button" aria-label="資料夾" onClick={() => present(FOLDER)}>
@@ -363,8 +367,8 @@ export function App() {
 				left={
 					wide ? null : (
 						<Drawer
-							open={overlay === "drawer" || overlay === "settings"}
-							page={{ open: overlay === "settings", label: "設定", onBack: leaveSettings, content: settingsView }}
+							place={leftPanel}
+							page={{ label: "設定", onBack: leaveSettings, content: settingsView }}
 							busy={busy}
 							list={list}
 							status={[
@@ -383,8 +387,8 @@ export function App() {
 					wide || !current ? null : (
 						<SidePanel
 							side="right"
-							open={overlay === "panel" || overlay === "botMemory"}
-							page={{ open: overlay === "botMemory" && Boolean(memoryBot), label: "Bot 的記憶", onBack: backToPanel, content: memoryView }}
+							place={rightPanel}
+							page={{ label: "Bot 的記憶", onBack: backToPanel, content: memoryView }}
 							onClose={close}
 							label={`${current.name} 的資訊`}
 						>
@@ -406,10 +410,8 @@ export function App() {
 						sandbox={onSandbox}
 						botName={current?.name ?? "pi"}
 						view={view}
-						initialFiles={pending.files}
 						shared={pending.shared}
 						focus={pending.focus}
-						onAppear={() => appeared(controller.id)}
 						notices={notices}
 						onDismissNotices={dismissNotices}
 						onError={notify}
@@ -513,13 +515,9 @@ export function App() {
 				</RowList>
 			</Sheet>
 
-
-			<BrowserSheet bot={currentBot} hidden={shown !== undefined} asking={asking} openKey={browserOpen} pullFrom={header} engine={settings.searchEngine} />
-
-
+			<BrowserSheet screen={browserScreen} pullFrom={header} engine={settings.searchEngine} />
 
 			{dialogView}
-
 		</div>
 		{board && controller ? (
 			<Workbench
@@ -533,7 +531,7 @@ export function App() {
 				onCloseInfo={close}
 				info={
 					shown === "panel" || shown === "botMemory" ? (
-						<PageStack side="right" top={shown === "botMemory" && memoryView ? { key: "memory", content: memoryView, onBack: backToPanel } : undefined}>
+						<PageStack side="right" opened={memoryPage} top={shown === "botMemory" && memoryView ? { key: "memory", content: memoryView, onBack: backToPanel } : undefined}>
 							{botPanel(true, close)}
 						</PageStack>
 					) : undefined
@@ -549,7 +547,7 @@ export function App() {
 					answerForm: (callId, answer) => runtime.forms.answer(callId, answer),
 					// why: the composer's stop also puts messages the stop withdrew back into the draft, which only Chat holds
 					stopTurn: () => document.querySelector<HTMLButtonElement>(".composer .send.stop")?.click(),
-					browser: () => setBrowserOpen((count) => count + 1),
+					browser: askForBrowser,
 					openUrl: (url) => void System.openExternal({ url }).catch(fail),
 					pick: (path, text) => {
 						setPicked({ path, text });

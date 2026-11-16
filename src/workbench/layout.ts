@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { Source } from "../ui/subscribed.ts";
 
 type Layout = "phone" | "columns" | "stacked";
 
@@ -18,11 +19,14 @@ export function shownOverlay<O extends string>(overlay: O | undefined, layout: L
 	return PHONE_ONLY.some((only) => only === overlay) ? undefined : overlay;
 }
 
-const subscribe = (changed: () => void) => {
-	window.addEventListener("resize", changed);
-	return () => window.removeEventListener("resize", changed);
+export const layout: Source<Layout> = {
+	subscribe: (changed) => {
+		window.addEventListener("resize", changed);
+		return () => window.removeEventListener("resize", changed);
+	},
+	read: () => layoutAt(window.innerWidth, window.innerHeight),
 };
 
 export function useLayout(): Layout {
-	return useSyncExternalStore(subscribe, () => layoutAt(window.innerWidth, window.innerHeight));
+	return useSyncExternalStore(layout.subscribe, layout.read);
 }

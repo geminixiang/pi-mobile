@@ -77,7 +77,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Short ids come from `randomHex`, waits from `sleep`, two-digit padding from `pad`, minutes from `MINUTE`: no `randomUUID().slice`, `setTimeout(resolve`, `padStart(2, "0")` or `60_000` outside their owners | `test/code-rules.ts` |
 | A background job's agent name is made and read only in `src/jobs/background.ts` (`jobAgent`, `isJob`, `jobIdOf`); a path's last part is `baseName`, an HTML file is `isHtml` (`src/agent/mime.ts`) | `test/code-rules.ts` |
 | Sorting by an optional time goes through `soonest` (`src/time.ts`) | `test/code-rules.ts` |
-| No effect hook (`useEffect`, `useLayoutEffect`, `useInsertionEffect`) in `src/`; a timer is called only in `src/time.ts` (docs/effects.md) | `test/code-rules.ts` |
+| No effect hook, timer outside `src/time.ts`, ref callback with dependencies or constant `useSyncExternalStore` snapshot (docs/effects.md) | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
 | Every prompt section is an `appSection` within its budget, even in a crowded app; the prompt fits `PROMPT_BUDGET` and matches its snapshot | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |

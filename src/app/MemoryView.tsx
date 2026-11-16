@@ -76,7 +76,7 @@ export function MemoryView({
 		.map(lineOf);
 
 	return (
-		<div className="screen memory" ref={saveWhenGone}>
+		<div className="screen memory">
 			<header className="bar">
 				<BackButton onClick={onClose} />
 				<h1 className="bar-heading">
@@ -109,6 +109,7 @@ export function MemoryView({
 				</div>
 			) : (
 				<textarea
+					ref={saveWhenGone}
 					className="memory-text"
 					value={edit.draft}
 					readOnly={edit.mode === "saving"}

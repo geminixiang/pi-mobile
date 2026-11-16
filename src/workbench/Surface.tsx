@@ -1,5 +1,4 @@
-import type { Element as HastElement, Root, RootContent } from "hast";
-import { type MouseEvent, type ReactNode, useCallback, useMemo, useState } from "react";
+import { type MouseEvent, type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Type } from "typebox";
 import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
@@ -7,7 +6,7 @@ import { CodeLines, type Handed, handFile, handProblem, htmlPreviewIsolated, wit
 import { markdownComponents, remarkPlugins } from "../app/markdown.tsx";
 import { check } from "../parse.ts";
 import { messageOf } from "../promise.ts";
-import { BLOCKS, changed, linesOf, squeezed } from "./changes.ts";
+import { BLOCKS, changed, linesOf, markBlocks, squeezed } from "./changes.ts";
 import { isHtml } from "../agent/mime.ts";
 import { promised, useStore } from "../ui/subscribed.ts";
 
@@ -134,18 +133,17 @@ function blockTexts(html: string): string[] {
 
 function HtmlView({ text, before, picked, onPick }: { text: string; before: string | undefined; picked: string | undefined; onPick: (text: string) => void }) {
 	const marks = useMemo(() => (before === undefined ? [] : [...changed(blockTexts(before), blockTexts(text))]), [before, text]);
-	const hear = useCallback(
-		(frame: HTMLIFrameElement) => {
-			const listen = (event: MessageEvent) => {
-				if (event.source !== frame.contentWindow) return;
-				const read = check(Picked, event.data, "pick");
-				if (read.ok) onPick(read.value.text);
-			};
-			window.addEventListener("message", listen);
-			return () => window.removeEventListener("message", listen);
-		},
-		[onPick],
-	);
+	const pick = useRef(onPick);
+	pick.current = onPick;
+	const hear = useCallback((frame: HTMLIFrameElement) => {
+		const listen = (event: MessageEvent) => {
+			if (event.source !== frame.contentWindow) return;
+			const read = check(Picked, event.data, "pick");
+			if (read.ok) pick.current(read.value.text);
+		};
+		window.addEventListener("message", listen);
+		return () => window.removeEventListener("message", listen);
+	}, []);
 	const doc = `${withCsp(text)}<script>${pickScript(marks, picked)}</script>`;
 	return <iframe ref={hear} className="viewer-html" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={doc} title="預覽" />;
 }
@@ -172,34 +170,18 @@ document.addEventListener("click", (event) => {
 })();`;
 }
 
-function markChanged(lines: ReadonlySet<number>) {
-	const visit = (node: Root | RootContent) => {
-		if (node.type === "element") mark(node);
-		if ("children" in node) for (const child of node.children) visit(child);
-	};
-	const mark = (element: HastElement) => {
-		const start = element.position?.start.line;
-		const end = element.position?.end.line;
-		if (start === undefined || end === undefined || !BLOCKS.split(", ").includes(element.tagName)) return;
-		if (Array.from({ length: end - start + 1 }, (_, index) => start - 1 + index).some((line) => lines.has(line))) element.properties.className = ["changed"];
-	};
-	return () => (tree: Root) => visit(tree);
-}
-
 function MarkdownView({ text, before, picked, onPick }: { text: string; before: string | undefined; picked: string | undefined; onPick: (text: string) => void }) {
-	const markPicked = useCallback(
-		(box: HTMLDivElement | null) => {
-			for (const block of box?.querySelectorAll<HTMLElement>(BLOCKS) ?? []) block.classList.toggle("picked", picked !== undefined && squeezed(block.innerText) === picked);
-		},
-		[picked, text],
-	);
-	const plugins = useMemo(() => [markChanged(before === undefined ? new Set() : changed(linesOf(before), linesOf(text)))], [before, text]);
+	const { parts, plugins } = useMemo(() => {
+		const parts: string[] = [];
+		return { parts, plugins: [markBlocks({ changed: before === undefined ? new Set() : changed(linesOf(before), linesOf(text)), picked, parts })] };
+	}, [before, text, picked]);
 	const pick = (event: MouseEvent<HTMLDivElement>) => {
-		const block = event.target instanceof Element ? event.target.closest(BLOCKS) : null;
-		if (block instanceof HTMLElement) onPick(squeezed(block.innerText));
+		const block = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-block]") : null;
+		const part = parts[Number(block?.dataset.block)];
+		if (part) onPick(part);
 	};
 	return (
-		<div className="answer viewer-markdown" ref={markPicked} onClick={pick}>
+		<div className="answer viewer-markdown" onClick={pick}>
 			<div className="markdown">
 				<Markdown remarkPlugins={remarkPlugins} rehypePlugins={plugins} components={markdownComponents} skipHtml>
 					{text}

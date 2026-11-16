@@ -1,7 +1,7 @@
 import { type DependencyList, useMemo, useSyncExternalStore } from "react";
 import { messageOf } from "../promise.ts";
 import { every } from "../time.ts";
-import { useSubscribed } from "./subscribed.ts";
+import { cell, type Source, useSubscribed } from "./subscribed.ts";
 
 export function usePolled<T>(read: (() => Promise<T | undefined>) | undefined, everyMs: number, deps: DependencyList): T | undefined {
 	return useSubscribed<T | undefined>(
@@ -25,23 +25,20 @@ type Loaded<T> = { value: T | undefined; error: string };
 
 const LOADING = { value: undefined, error: "" };
 
-function loading<T>(load: (() => Promise<T>) | undefined): { read: () => Loaded<T>; subscribe: (changed: () => void) => () => void } {
-	let state: Loaded<T> = LOADING;
+function loading<T>(load: (() => Promise<T>) | undefined): Source<Loaded<T>> {
+	const state = cell<Loaded<T>>(LOADING);
 	return {
-		read: () => state,
+		read: state.read,
 		subscribe: (changed) => {
 			let live = true;
-			const settle = (next: Loaded<T>) => {
-				if (!live) return;
-				state = next;
-				changed();
-			};
+			const unwatch = state.subscribe(changed);
 			load?.().then(
-				(value) => settle({ value, error: "" }),
-				(failure: unknown) => settle({ value: undefined, error: messageOf(failure) }),
+				(value) => live && state.set({ value, error: "" }),
+				(failure: unknown) => live && state.set({ value: undefined, error: messageOf(failure) }),
 			);
 			return () => {
 				live = false;
+				unwatch();
 			};
 		},
 	};

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Type } from "typebox";
 import { withCsp } from "../app/FileViewer.tsx";
 import { FileIcon } from "../app/icons.tsx";
@@ -47,22 +47,21 @@ export function PageFrame({ page, html }: { page: Page; html: string }) {
 	const host = useContext(PageHostContext);
 	const key = HEIGHT_KEY + page.path;
 	const [height, setHeight] = useState(() => Number(localStorage.getItem(key)) || START_HEIGHT);
-	const hear = useCallback(
-		(frame: HTMLIFrameElement) => {
-			const listen = (event: MessageEvent) => {
-				if (event.source !== frame.contentWindow) return;
-				const message = check(FrameMessage, event.data, "page frame");
-				if (!message.ok) return;
-				if ("piSwipe" in message.value) return host?.openSide(message.value.piSwipe);
-				const next = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(message.value.piHeight)));
-				localStorage.setItem(key, String(next));
-				setHeight(next);
-			};
-			window.addEventListener("message", listen);
-			return () => window.removeEventListener("message", listen);
-		},
-		[host, key],
-	);
+	const latest = useRef({ host, key });
+	latest.current = { host, key };
+	const hear = useCallback((frame: HTMLIFrameElement) => {
+		const listen = (event: MessageEvent) => {
+			if (event.source !== frame.contentWindow) return;
+			const message = check(FrameMessage, event.data, "page frame");
+			if (!message.ok) return;
+			if ("piSwipe" in message.value) return latest.current.host?.openSide(message.value.piSwipe);
+			const next = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(message.value.piHeight)));
+			localStorage.setItem(latest.current.key, String(next));
+			setHeight(next);
+		};
+		window.addEventListener("message", listen);
+		return () => window.removeEventListener("message", listen);
+	}, []);
 	return (
 		<section className="question-card page-frame-card">
 			<iframe ref={hear} className="page-frame" title={page.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={withCsp(html) + FRAME_SCRIPT} style={{ "--frame-height": `${height}px` }} />

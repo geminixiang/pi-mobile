@@ -184,7 +184,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
 | `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
+| `src/app/` | React UI。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
 | `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
 | `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |

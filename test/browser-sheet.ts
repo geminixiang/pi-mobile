@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { NOTHING_SHOWN, SHEET_START, type SheetEvent, type SheetInputs, sheetAfter, type SheetState, withPage, withTabs } from "../src/browser/sheetState.ts";
+import { NOTHING_SHOWN, SHEET_START, type SheetEvent, type SheetInputs, sheetAfter, sheetOpen, type SheetState, withPage, withTabs } from "../src/browser/sheetState.ts";
 
 const after = (...events: SheetEvent[]): SheetState => events.reduce(sheetAfter, SHEET_START);
-const idle: SheetInputs = { bot: "a", handover: undefined, asking: false, openKey: 0 };
+const idle: SheetInputs = { bot: "a", handover: undefined, asking: false, openKey: 0, hidden: false };
 const seen = (inputs: Partial<SheetInputs>): SheetEvent => ({ type: "inputs", inputs: { ...idle, ...inputs } });
 
 assert.equal(after(seen({})).mode, "closed");
@@ -17,6 +17,11 @@ assert.equal(after(seen({ openKey: 1 }), seen({ bot: "b", openKey: 1 })).mode, "
 assert.equal(after(seen({ openKey: 1 }), seen({ bot: "b", openKey: 1 }), seen({ bot: "a", openKey: 1 })).mode, "closed");
 assert.equal(after(seen({ bot: undefined, openKey: 1 })).mode, "closed");
 
+assert.equal(sheetOpen(after(seen({}))), false);
+assert.equal(sheetOpen(after(seen({ openKey: 1 }))), true);
+assert.equal(sheetOpen(after(seen({ openKey: 1 }), seen({ openKey: 1, hidden: true }))), false, "a side panel or a page over the conversation hides the sheet");
+assert.equal(sheetOpen(after(seen({ openKey: 1 }), seen({ openKey: 1, hidden: true }), seen({ openKey: 1 }))), true, "and it is back when they close");
+
 const busy = after(seen({ openKey: 1 }), { type: "strip_toggled" }, { type: "shot", jpeg: "x" }, { type: "failed", message: "no network" });
 assert.deepEqual(busy, { ...SHEET_START, mode: "open", strip: true, shot: "x", problem: "no network", inputs: { ...idle, openKey: 1 } });
 assert.equal(sheetAfter(busy, { type: "retried" }).problem, "");
@@ -28,4 +33,4 @@ const kept = withTabs(withPage(withTabs(withPage(NOTHING_SHOWN, page), list), { 
 assert.deepEqual(kept.pages, { "a/1": page, "b/1": { ...page, bot: "b" } });
 assert.deepEqual(kept.tabs, { a: list, b: { ...list, bot: "b" } });
 
-console.log("browser sheet: only a hand-over opens it by itself, a question closes it, and switching Bots starts over but keeps what each Bot's browser shows");
+console.log("browser sheet: only a hand-over opens it by itself, a question closes it, an overlay hides it, and switching Bots starts over but keeps what each Bot's browser shows");
