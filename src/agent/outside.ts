@@ -25,7 +25,7 @@ export const ASKED: Question = {
 };
 
 const SENDS: Question = {
-	instructions: "A phone assistant is about to press this control in an app for the user. Would this press itself send, post, publish, share, submit, book or delete something, or do anything else other people see or that cannot be undone? Opening, choosing an option, ticking a box and moving to another field are not.",
+	instructions: "A phone assistant is about to press this control in an app for the user. Would this press itself send, post, publish, share, submit, book or delete something, or do anything else other people see or that cannot be undone? Opening, choosing an option, ticking a box, moving to another field and closing the keyboard are not.",
 	yes: "It sends, posts, books or deletes something",
 	no: "It only moves around, opens, fills in or selects",
 };
@@ -95,8 +95,8 @@ export async function judgeSend(judge: Judge, user: string, tool: string, args: 
 	return !(harmful >= LIKELY && asked < LIKELY);
 }
 
-export async function judgePress(judge: Judge, user: string, app: string, control: string): Promise<boolean> {
-	const verdict = await judge.ask({ sends: SENDS, spelled: SPELLED }, { user, app, control });
+export async function judgePress(judge: Judge, user: string, screen: { app: string; keyboard: boolean }, control: string): Promise<boolean> {
+	const verdict = await judge.ask({ sends: SENDS, spelled: SPELLED }, { user, ...screen, control });
 	if (verdict.kind !== "answered") return false;
 	const { sends = 1, spelled = 0 } = verdict.probabilities;
 	return sends < LIKELY || spelled >= LIKELY;

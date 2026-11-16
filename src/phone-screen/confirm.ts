@@ -7,7 +7,7 @@ const ID = /^\[(\d+)\] /;
 const POINT = / at (\d+),(\d+)/;
 const FIELD = "field ";
 
-type Seen = { app: string; lines: ReadonlyMap<number, string> };
+type Seen = { app: string; keyboard: boolean; lines: ReadonlyMap<number, string> };
 type Waits = { at: number; reason: string };
 
 const screens = new Map<number, Seen>();
@@ -20,16 +20,16 @@ export function remember(display: number, snapshot: PhoneScreenSnapshot): void {
 		const id = ID.exec(line)?.[1];
 		if (id) lines.set(Number(id), line);
 	}
-	screens.set(display, { app: snapshot.app ?? snapshot.package ?? "unknown", lines });
+	screens.set(display, { app: snapshot.app ?? snapshot.package ?? "unknown", keyboard: snapshot.keyboard, lines });
 }
 
-export const seenOn = (display: number): Seen => screens.get(display) ?? { app: "unknown", lines: new Map() };
+export const seenOn = (display: number): Seen => screens.get(display) ?? { app: "unknown", keyboard: false, lines: new Map() };
 
 export async function waiting(api: ToolExecutionApi, context: Context, tool: string, display: number, steps: readonly PhoneScreenStep[]): Promise<Waits | undefined> {
 	const doc = (await api.snapshot(OutsideDoc, api.conversationId, context)) ?? blank();
 	const judge = await botJudge(api, context);
 	const seen = seenOn(display);
-	const { choices, waits } = await firstWaiting(doc, tool, seen, steps, (control) => judgePress(judge, doc.said, seen.app, control));
+	const { choices, waits } = await firstWaiting(doc, tool, seen, steps, (control) => judgePress(judge, doc.said, { app: seen.app, keyboard: seen.keyboard }, control));
 	await keep(api, context, choices);
 	return waits;
 }

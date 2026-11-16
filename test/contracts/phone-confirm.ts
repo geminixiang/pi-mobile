@@ -16,7 +16,7 @@ const sendJudge = (asked: string[] = []): Judge => ({
 		return { kind: "answered", probabilities: { sends: String(state.control).includes("Send") || String(state.control).includes("Enter") ? 0.95 : 0.05, spelled: 0.1 }, model: "fixture" };
 	},
 });
-const check = (doc: Outside, judge: Judge, list: PhoneScreenStep[]) => firstWaiting(doc, TOOL, seenOn(CHAT), list, (control) => judgePress(judge, doc.said, "Chat", control));
+const check = (doc: Outside, judge: Judge, list: PhoneScreenStep[]) => firstWaiting(doc, TOOL, seenOn(CHAT), list, (control) => judgePress(judge, doc.said, { app: "Chat", keyboard: true }, control));
 const steps: PhoneScreenStep[] = [{ action: "tap", id: 5 }, { action: "type", text: "ok" }, { action: "tap", id: 3 }];
 
 export const checks: Check[] = [
