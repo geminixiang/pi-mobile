@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { type Bench, benchOf, benchStep, emptyBench, FOLDER, fileKey, MAX_OPENED, pathOf } from "../src/workbench/bench.ts";
 import { layoutAt, shownOverlay, WIDE_MIN_HEIGHT, WIDE_MIN_WIDTH } from "../src/workbench/layout.ts";
-import { inViewNote, inViewPart, inViewPath } from "../src/workbench/note.ts";
+import { inViewNote, inViewPart, inViewPath } from "../src/agent/in-view.ts";
 import { changed, linesOf, partLabel } from "../src/workbench/changes.ts";
 
 const sizes: [string, number, number, ReturnType<typeof layoutAt>][] = [

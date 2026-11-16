@@ -7,7 +7,7 @@ import { isWhenKind, type TriggerSymbol, triggerSymbol } from "../triggers/when.
 import { type AttachmentCard, parseAttachment } from "../agent/attachments.ts";
 import { type Block, blocks, message } from "../agent/entries.ts";
 import { isCodeNote } from "../agent/codes.ts";
-import { inViewPart, inViewPath } from "../workbench/note.ts";
+import { inViewPart, inViewPath } from "../agent/in-view.ts";
 import { partLabel } from "../workbench/changes.ts";
 import type { Prefs } from "./prefs.ts";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";

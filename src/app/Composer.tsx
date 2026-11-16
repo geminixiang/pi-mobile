@@ -25,7 +25,7 @@ import { addToDraft, loadDraftAttachments, receiveDraftAdditions, saveDraftAttac
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 import { BesideContext } from "../workbench/context.ts";
-import { inViewNote } from "../workbench/note.ts";
+import { inViewNote } from "../agent/in-view.ts";
 import { RowList } from "../ui/RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";
 import { baseName } from "../agent/mime.ts";

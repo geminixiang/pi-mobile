@@ -6,12 +6,14 @@ import { messageOf } from "../promise.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
 import { NOTE_TOOL } from "../phone-apps/apps.ts";
+import { remember, waiting } from "./confirm.ts";
 
 const KEYS = keysFor();
 const SWIPE_MS = 300;
 const SWIPE_MAX_MS = 5000;
 const WAIT_MS = 500;
 const WAIT_MAX_MS = 10_000;
+const FRONT = 0;
 
 const SCREENSHOT = Type.Optional(
 	Type.Boolean({ description: "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false" }),
@@ -36,9 +38,13 @@ function heldFor(held: NonNullable<PhoneScreenSnapshot["held"]>): string {
 	return `The screen shows an amount ("${held.shown}"), and on such a screen every step but scrolling, waiting, reading and going back is the user's: they pay. Stop and tell them which screen this is, what it shows, and that it is their turn (on your background screen they take over from the preview).`;
 }
 
-function present(snapshot: PhoneScreenSnapshot, screen: Screen): ToolExecutionResult {
+type Shown = { snapshot?: PhoneScreenSnapshot; waits?: string };
+
+function present({ snapshot, waits }: Shown, screen: Screen): ToolExecutionResult {
+	if (!snapshot) return withScreenshot(waits ?? "", undefined, true);
 	const facts = [
 		where(screen),
+		waits,
 		snapshot.did ? `What the steps acted on: ${snapshot.did.join("; ")}` : undefined,
 		snapshot.unchanged ? "Nothing on the screen changed: a scroll reached the end, or the step had no effect." : undefined,
 		snapshot.held ? heldFor(snapshot.held) : undefined,
@@ -50,7 +56,7 @@ function present(snapshot: PhoneScreenSnapshot, screen: Screen): ToolExecutionRe
 		snapshot.more > 0 ? `…${snapshot.more} more not listed; scroll, or ask for a screenshot.` : undefined,
 		snapshot.slow ? "The app answered slowly, so the list stops early; a screenshot shows the rest." : undefined,
 	].filter((line) => line !== undefined);
-	return withScreenshot(facts.join("\n"), snapshot.jpeg, snapshot.error !== undefined);
+	return withScreenshot(facts.join("\n"), snapshot.jpeg, snapshot.error !== undefined || waits !== undefined);
 }
 
 const ToolStep = Type.Object({
@@ -112,11 +118,14 @@ export function stepOf(step: Static<typeof ToolStep>): Checked<PhoneScreenStep> 
 	}
 }
 
-async function call(choice: ScreenChoice | undefined, work: (display: { display?: number }) => Promise<PhoneScreenSnapshot>): Promise<ToolExecutionResult> {
+async function call(choice: ScreenChoice | undefined, work: (target: { display?: number }, on: number) => Promise<Shown>): Promise<ToolExecutionResult> {
 	if (!(await PhoneScreen.status()).allowed) throw new Error(OFF);
 	try {
 		const screen = await screenFor(choice ?? "background");
-		return present(await work(screen.on === "background" ? { display: screen.display } : {}), screen);
+		const on = screen.on === "background" ? screen.display : FRONT;
+		const shown = await work(screen.on === "background" ? { display: screen.display } : {}, on);
+		if (shown.snapshot) remember(on, shown.snapshot);
+		return present(shown, screen);
 	} catch (error) {
 		throw new Error(messageOf(error) === "off" ? OFF : `Screen control failed: ${messageOf(error)}`);
 	}
@@ -132,11 +141,13 @@ const readPhoneScreen = defineAppTool({
 		"Read an app's screen as the user, for what lives inside an app (orders, messages, bookings, carts); notifications and SMS are only hints. Returns app, stable element ids, labels, states and x,y points; screenshot optional.",
 	parameters: Type.Object({ screenshot: SCREENSHOT, screen: SCREEN }),
 	replay: "safe",
-	execute: (args) => call(args.screen, (display) => PhoneScreen.read({ screenshot: args.screenshot ?? false, ...display })),
+	execute: (args) => call(args.screen, async (display) => ({ snapshot: await PhoneScreen.read({ screenshot: args.screenshot ?? false, ...display }) })),
 });
 
+const ACT_TOOL = "phone_act_as_user";
+
 const usePhoneScreen = defineAppTool({
-	name: "phone_act_as_user",
+	name: ACT_TOOL,
 	groups: ["phone_as_user"],
 	effect: "direct",
 	needs: [PhoneScreen.status, PhoneScreen.act],
@@ -145,21 +156,28 @@ const usePhoneScreen = defineAppTool({
 		"Act in apps as the user; some apps block it. Batch known screens; stops on failure, returns changed lines (full list after large changes). " +
 		"Steps: open {app}; tap {id|text|x,y} (live target; text waits 3s, ambiguous/missing stops); wait_for {text,gone?,ms?}; scroll_to {text,direction?} (max 12 scrolls/15s); expect {app?,text?} (both must match); " +
 		"long_press {x,y}; swipe {x,y,to_x,to_y,ms}; scroll {direction,x?,y?}; type {text} appends; clear; key {keys}; wait {ms}. " +
-		"Before you send, delete, or post for the user, say so unless they asked for exactly that; paying is always theirs.",
+		"Paying is always the user's.",
 	parameters: Type.Object({
 		steps: Type.Array(ToolStep, { minItems: 1 }),
 		note: Type.Optional(Type.String({ description: "Preview progress: a few words in the user's language" })),
 		screenshot: SCREENSHOT,
 		screen: SCREEN,
 	}),
-	execute: async (args) => {
+	execute: async (args, api, context) => {
 		const steps: PhoneScreenStep[] = [];
 		for (const [at, step] of args.steps.entries()) {
 			const checked = stepOf(step);
 			if (!checked.ok) throw new Error(`step ${at + 1} (${step.action}): ${checked.problem}`);
 			steps.push(checked.value);
 		}
-		return call(args.screen, (display) => PhoneScreen.act({ steps, screenshot: args.screenshot ?? false, ...(args.note === undefined ? {} : { note: args.note }), ...display }));
+		return call(args.screen, async (display, on) => {
+			const waits = await waiting(api, context, ACT_TOOL, on, steps);
+			const run = waits ? steps.slice(0, waits.at) : steps;
+			const reason = waits && `Step ${waits.at + 1} (${steps[waits.at]?.action}) did not run: ${waits.reason}`;
+			if (run.length === 0) return { waits: reason };
+			const snapshot = await PhoneScreen.act({ steps: run, screenshot: args.screenshot ?? false, ...(args.note === undefined ? {} : { note: args.note }), ...display });
+			return { snapshot, waits: reason };
+		});
 	},
 });
 
@@ -173,7 +191,7 @@ const openApp = defineAppTool({
 	description: `Open an app as the user on your own background screen; it starts empty, which is normal, so open the app first. Returns its screen and loads ${readPhoneScreen.name} and ${usePhoneScreen.name}.`,
 	parameters: Type.Object({ app: Type.String({ description: "App name or package" }) }),
 	replay: "safe",
-	execute: (args) => call(undefined, (display) => PhoneScreen.act({ steps: [{ action: "open", app: args.app }], screenshot: false, ...display })),
+	execute: (args) => call(undefined, async (display) => ({ snapshot: await PhoneScreen.act({ steps: [{ action: "open", app: args.app }], screenshot: false, ...display }) })),
 });
 
 export const PhoneScreenExtension = defineExtension({ name: "phone_as_user", tools: [openApp, readPhoneScreen, usePhoneScreen] });
