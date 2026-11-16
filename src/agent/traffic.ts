@@ -1,3 +1,4 @@
+import { after, type Cancel } from "../time.ts";
 export type Rates = { up: number; down: number };
 export type Direction = keyof Rates;
 
@@ -19,14 +20,14 @@ export function createTraffic(windowMs = WINDOW_MS, now: () => number = Date.now
 	const listeners = new Set<() => void>();
 	const moved: { at: number; direction: Direction; bytes: number }[] = [];
 	let shown = STILL;
-	let timer: ReturnType<typeof setTimeout> | undefined;
+	let timer: Cancel | undefined;
 	const publish = () => {
 		const since = now() - windowMs;
 		const fresh = moved.findIndex((entry) => entry.at > since);
 		moved.splice(0, fresh === -1 ? moved.length : fresh);
 		const bytes = moved.reduce((sum, entry) => ({ ...sum, [entry.direction]: sum[entry.direction] + entry.bytes }), STILL);
 		shown = bytes === STILL ? STILL : { up: (bytes.up * 1000) / windowMs, down: (bytes.down * 1000) / windowMs };
-		timer = moved.length > 0 ? setTimeout(publish, windowMs / 2) : undefined;
+		timer = moved.length > 0 ? after(windowMs / 2, publish) : undefined;
 		for (const listener of listeners) listener();
 	};
 	return {

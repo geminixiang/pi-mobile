@@ -8,6 +8,7 @@ import { messageOf } from "../../promise.ts";
 import { registerProgram } from "../../shims/node-child-process.ts";
 import { type Daemon, type DaemonEffect, type DaemonEvent, type DaemonStream, daemonStep, lineOf, read, type Reader } from "./daemon-state.ts";
 import type { Link } from "../../computer/resumable-link.ts";
+import { type Cancel, every } from "../../time.ts";
 
 type Json = Record<string, unknown>;
 
@@ -89,7 +90,7 @@ class DaemonProcess extends Events {
 	readonly #report: (status: ConnectionStatus) => void;
 	#daemon: Daemon = { kind: "opening", queued: [] };
 	#reader: Reader = { kind: "greeting", pending: Buffer.alloc(0) };
-	#pings: ReturnType<typeof setInterval> | undefined;
+	#pings: Cancel | undefined;
 	readonly stdin = {
 		write: (data: Uint8Array) => this.#dispatch({ kind: "write", data: ownsArrayBuffer(data) ? data : new Uint8Array(data) }),
 		end: () => undefined,
@@ -125,11 +126,11 @@ class DaemonProcess extends Events {
 
 	#pace(): void {
 		if (lineOf(this.#daemon).kind === "up") {
-			clearInterval(this.#pings);
+			this.#pings?.();
 			this.#pings = undefined;
 			return;
 		}
-		this.#pings ??= setInterval(() => this.#reader.kind === "framed" && this.stdout.emit("data", DAEMON_PING), PING_EVERY_MS);
+		this.#pings ??= every(PING_EVERY_MS, () => this.#reader.kind === "framed" && this.stdout.emit("data", DAEMON_PING));
 	}
 
 	#run(effect: DaemonEffect): void {

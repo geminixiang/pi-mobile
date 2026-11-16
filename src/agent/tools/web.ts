@@ -15,7 +15,7 @@ import { messageOf } from "../../promise.ts";
 import { refuseCleartextSecret } from "../cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../models.ts";
 import { formatBytes, fromBase64 } from "../../encoding.ts";
-import { MINUTE } from "../../time.ts";
+import { deadline, MINUTE } from "../../time.ts";
 import { baseName } from "../mime.ts";
 
 const ResponsesAnswer = Type.Object({
@@ -172,7 +172,7 @@ export function createWebExtension(config: WebConfig) {
 			"Search the web for current information (news, docs, releases, prices, facts after your training data). Returns a short answer with source URLs; follow up with web_fetch to read a page. A search takes 20-60 s: one search per bank, product, or source, asked for together.",
 		parameters: Type.Object({ query: Type.String({ description: "What to find, as a question or keywords" }) }),
 		execute: async (args, _api, context) => {
-			const timeout = AbortSignal.timeout(120_000);
+			const timeout = deadline(120_000);
 			const signal = context.abortSignal ? AbortSignal.any([context.abortSignal, timeout]) : timeout;
 			if (responsesModel) return textResult((await searchResponses(config, responsesModel, args.query, signal)) || "No results.");
 			if (anthropicModel) return textResult((await searchAnthropic(config, anthropicModel, args.query, signal)) || "No results.");

@@ -162,8 +162,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /setTimeout\(resolve\b/,
-		owners: ["src/promise.ts"],
-		fix: "wait with sleep(ms) from src/promise.ts",
+		owners: ["src/time.ts"],
+		fix: "wait with sleep(ms) from src/time.ts",
 		only: TYPESCRIPT,
 	},
 	{
@@ -413,15 +413,8 @@ function viewportRule(): Finding[] {
 	return lines[line]?.includes("maximum-scale=1") ? [] : [{ file: "index.html", line: line + 1, rule: "keep maximum-scale=1 in the viewport: iOS zooms the page into any field with text under 16px and never zooms back, so the whole app stays enlarged" }];
 }
 
-const TIMING = new Set(["useEffect", "useLayoutEffect", "setTimeout", "setInterval", "requestAnimationFrame"]);
+const TIMING = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect", "setTimeout", "setInterval", "requestAnimationFrame", "requestIdleCallback", "postTask"]);
 const EFFECTS: Record<string, number> = {
-	"src/agent/chatgpt.ts": 1,
-	"src/agent/files/phone-env.ts": 2,
-	"src/agent/network.ts": 1,
-	"src/agent/reach.ts": 2,
-	"src/agent/sandbox/container.ts": 1,
-	"src/agent/sandbox/phone-connection.ts": 1,
-	"src/agent/traffic.ts": 1,
 	"src/app/App.tsx": 12,
 	"src/app/BotPanel.tsx": 2,
 	"src/app/BotSheet.tsx": 1,
@@ -447,15 +440,11 @@ const EFFECTS: Record<string, number> = {
 	"src/app/streaming.tsx": 3,
 	"src/app/voice.ts": 1,
 	"src/browser/BrowserSheet.tsx": 6,
-	"src/browser/tool.ts": 1,
-	"src/computer/resumable-socket.ts": 2,
 	"src/interaction/PageFrame.tsx": 2,
 	"src/items/ItemSheet.tsx": 1,
 	"src/jobs/JobsContext.ts": 2,
 	"src/jobs/JobsStrip.tsx": 2,
-	"src/log.ts": 1,
-	"src/promise.ts": 1,
-	"src/triggers/events.ts": 1,
+	"src/time.ts": 4,
 	"src/ui/resume.ts": 1,
 	"src/workbench/Surface.tsx": 3,
 };
@@ -468,6 +457,7 @@ function timingCalls(file: string): number {
 		if (node.type === "CallExpression" && isNode(node.callee)) {
 			const callee = node.callee.type === "MemberExpression" ? node.callee.property : node.callee;
 			if (isNode(callee) && typeof callee.name === "string" && TIMING.has(callee.name)) count += 1;
+			if (node.callee.type === "MemberExpression" && isNode(node.callee.object) && node.callee.object.name === "AbortSignal" && isNode(callee) && callee.name === "timeout") count += 1;
 		}
 		children(node).forEach(visit);
 	};

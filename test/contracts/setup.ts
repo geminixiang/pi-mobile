@@ -1,5 +1,5 @@
 import { createModels, fauxProvider } from "@earendil-works/pi-ai";
-import { sleep } from "../../src/promise.ts";
+import { sleep } from "../../src/time.ts";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";

@@ -2,6 +2,7 @@ import { log } from "../log.ts";
 import type { Network } from "../agent/network.ts";
 import { bytesOf, type Traffic } from "../agent/traffic.ts";
 import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
+import { after, type Cancel, every } from "../time.ts";
 
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
@@ -60,16 +61,16 @@ class Outbox {
 export class ResumableSocket {
 	readonly #options: ResumableOptions;
 	#state: LinkState<RawSocket>;
-	#retry: ReturnType<typeof setTimeout> | undefined;
+	#retry: Cancel | undefined;
 	#received = 0;
 	readonly #sent = new Outbox();
-	readonly #quiet: ReturnType<typeof setInterval>;
+	readonly #quiet: Cancel;
 	readonly #unwatch: () => void;
 
 	private constructor(options: ResumableOptions) {
 		this.#options = options;
 		this.#state = { kind: "opening", heardAt: Date.now() };
-		this.#quiet = setInterval(() => this.#dispatch({ kind: "quiet" }), options.quietLimitMs / 4);
+		this.#quiet = every(options.quietLimitMs / 4, () => this.#dispatch({ kind: "quiet" }));
 		this.#unwatch = options.network.onChange(() => this.#dispatch({ kind: "network" }));
 	}
 
@@ -104,10 +105,10 @@ export class ResumableSocket {
 	}
 
 	#entered(before: LinkState<RawSocket>, state: LinkState<RawSocket>): void {
-		clearTimeout(this.#retry);
-		if (state.kind === "waiting") this.#retry = setTimeout(() => this.#dispatch({ kind: "retry" }), state.delay);
+		this.#retry?.();
+		if (state.kind === "waiting") this.#retry = after(state.delay, () => this.#dispatch({ kind: "retry" }));
 		if (state.kind === "closed") {
-			clearInterval(this.#quiet);
+			this.#quiet();
 			this.#unwatch();
 			return;
 		}

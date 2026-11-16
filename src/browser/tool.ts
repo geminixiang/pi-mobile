@@ -3,7 +3,7 @@ import { type Static, Type } from "typebox";
 import { Browser, type BrowserSnapshot, type BrowserStep, DIRECTIONS, KEYS, MAX_TABS } from "./plugin.ts";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
-import { MINUTE } from "../time.ts";
+import { after, MINUTE } from "../time.ts";
 
 const HANDOVER_MS = 10 * MINUTE;
 const WAIT_MS = 1000;
@@ -59,7 +59,7 @@ async function working<T>(bot: string, work: () => Promise<T>): Promise<T> {
 function waitForUser(bot: string, reason: string, signal: AbortSignal | undefined): Promise<"returned" | "timeout"> {
 	return new Promise((resolve, reject) => {
 		const release = () => {
-			clearTimeout(timer);
+			timer();
 			signal?.removeEventListener("abort", aborted);
 			waiting.delete(bot);
 			publish();
@@ -72,7 +72,7 @@ function waitForUser(bot: string, reason: string, signal: AbortSignal | undefine
 			release();
 			reject(new Error("aborted"));
 		};
-		const timer = setTimeout(() => finish("timeout"), HANDOVER_MS);
+		const timer = after(HANDOVER_MS, () => finish("timeout"));
 		signal?.addEventListener("abort", aborted, { once: true });
 		waiting.set(bot, { reason, done: () => finish("returned") });
 		publish();

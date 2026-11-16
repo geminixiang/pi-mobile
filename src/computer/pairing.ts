@@ -2,6 +2,7 @@ import { type Static, Type } from "typebox";
 import { decodeEach, decode, oneOf } from "../parse.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../agent/cleartext.ts";
 import { ios } from "../native.ts";
+import { deadline } from "../time.ts";
 
 const DAEMON_OSES = ["darwin", "linux", "windows"] as const;
 export type DaemonOs = (typeof DAEMON_OSES)[number];
@@ -95,7 +96,7 @@ async function reached(address: string, request: Promise<Response>): Promise<Res
 const PairAnswer = Type.Object({ key: Type.String() });
 
 export async function pairHost(address: string, code: string): Promise<string> {
-	const response = await reached(address, fetch(`${base(address)}/pair?code=${encodeURIComponent(code)}`, { method: "POST", signal: AbortSignal.timeout(15_000) }));
+	const response = await reached(address, fetch(`${base(address)}/pair?code=${encodeURIComponent(code)}`, { method: "POST", signal: deadline(15_000) }));
 	if (response.status === 410) throw new Error(`${address} 沒有等待中的配對碼：在那台電腦執行 pi-mobile pair`);
 	if (response.status === 422) throw new Error("配對碼不對；錯 5 次要在電腦上重新執行 pi-mobile pair");
 	if (!response.ok) throw new Error(`${address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
@@ -105,7 +106,7 @@ export async function pairHost(address: string, code: string): Promise<string> {
 }
 
 export async function unpairHost(host: Reach): Promise<void> {
-	const response = await reached(host.address, fetch(url(host, "/unpair"), { method: "DELETE", signal: AbortSignal.timeout(8000) }));
+	const response = await reached(host.address, fetch(url(host, "/unpair"), { method: "DELETE", signal: deadline(8000) }));
 	if (response.status === 204) return;
 	const body = (await response.text()).trim();
 	if (response.status === 404 && body.includes("not paired")) return;
@@ -126,7 +127,7 @@ export async function hasPiMobile(address: string, signal: AbortSignal): Promise
 }
 
 export async function probeHost(reach: Reach, signal?: AbortSignal): Promise<HostInfo> {
-	const response = await reached(reach.address, fetch(url(reach, "/info"), { signal: signal ?? AbortSignal.timeout(15_000) }));
+	const response = await reached(reach.address, fetch(url(reach, "/info"), { signal: signal ?? deadline(15_000) }));
 	if (!response.ok) throw new Error(`${reach.address} 回應 HTTP ${response.status}：${(await response.text()).trim()}`);
 	const info = decode(HostInfo, await response.text());
 	if (!info) throw new Error(`${reach.address} 的回應看不懂，電腦上的 pi-mobile 可能要更新`);
@@ -151,7 +152,7 @@ const Peer = Type.Object({ name: Type.String(), dnsName: Type.String(), os: Syst
 export type Peer = Static<typeof Peer>;
 
 export async function listPeers(host: Reach): Promise<Peer[]> {
-	const response = await fetch(url(host, "/peers"), { signal: AbortSignal.timeout(8000) });
+	const response = await fetch(url(host, "/peers"), { signal: deadline(8000) });
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
 	return decodeEach(Peer, await response.text());
 }

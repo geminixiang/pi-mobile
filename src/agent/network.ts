@@ -8,7 +8,7 @@ import { System } from "../plugins/system.ts";
 import { orLogged } from "../promise.ts";
 import type { Reach } from "./reach.ts";
 import { bytesOf, type Traffic } from "./traffic.ts";
-import { MINUTE } from "../time.ts";
+import { after, type Cancel, MINUTE } from "../time.ts";
 
 export interface Network {
 	online(): boolean;
@@ -122,13 +122,13 @@ async function attempt(guarded: AssistantMessageEventStream, network: Network, t
 		if (!network.online()) lose("the network went away");
 	});
 	let heard = 0;
-	let idle: ReturnType<typeof setTimeout> | undefined;
+	let idle: Cancel | undefined;
 	const watchIdle = (wait: number) => {
-		idle = setTimeout(() => {
+		idle = after(wait, () => {
 			const quiet = Date.now() - heard;
 			if (quiet >= idleMs) return lose(`no data for ${idleMs / 1000} s`);
 			watchIdle(idleMs - quiet);
-		}, wait);
+		});
 	};
 	let pushed = false;
 	const inner = start(signal ? AbortSignal.any([signal, cut.signal]) : cut.signal);
@@ -144,7 +144,7 @@ async function attempt(guarded: AssistantMessageEventStream, network: Network, t
 			guarded.push(lost && !signal?.aborted ? asLost(event, lost) : inPlainWords(event));
 		}
 	} finally {
-		clearTimeout(idle);
+		idle?.();
 		unwatch();
 	}
 	return { kind: "answered" };

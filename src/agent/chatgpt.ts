@@ -5,7 +5,7 @@ import { listenForRedirect, pkce, postForm } from "./oauth.ts";
 import { decode, parse, readStored } from "../parse.ts";
 import { orLogged } from "../promise.ts";
 import { randomBase64Url } from "../encoding.ts";
-import { MINUTE } from "../time.ts";
+import { after, deadline, MINUTE } from "../time.ts";
 
 const AUTHORIZE_URL = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL = "https://auth.openai.com/api/accounts/oauth/token";
@@ -58,7 +58,7 @@ export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>,
 	const state = randomBase64Url(32);
 	const { promise: callback, resolve, reject } = Promise.withResolvers<URL>();
 	const stop = await listenForRedirect({ port: PORT, path: PATH }, resolve);
-	const timer = setTimeout(() => reject(new Error("沒有完成登入")), WAIT_MS);
+	const giveUp = after(WAIT_MS, () => reject(new Error("沒有完成登入")));
 	signal.addEventListener("abort", () => reject(new Error("已取消登入")), { once: true });
 	try {
 		const authorize = new URL(AUTHORIZE_URL);
@@ -88,7 +88,7 @@ export async function signInWithChatGPT(openUrl: (url: string) => Promise<void>,
 			clientId,
 		);
 	} finally {
-		clearTimeout(timer);
+		giveUp();
 		await orLogged(stop(), "chatgpt.loopback_stop_failed", undefined);
 	}
 }
@@ -128,7 +128,7 @@ const MODELS_KEY = "pi-mobile.chatgpt-models";
 const MODEL_LIST_WAIT_MS = 5000;
 
 export async function chatgptModelsCached(credential: OAuthCredential): Promise<string[] | undefined> {
-	const fresh = orLogged(chatgptModels(credential, AbortSignal.timeout(MODEL_LIST_WAIT_MS)), "chatgpt.models_unavailable", undefined).then((ids) => {
+	const fresh = orLogged(chatgptModels(credential, deadline(MODEL_LIST_WAIT_MS)), "chatgpt.models_unavailable", undefined).then((ids) => {
 		if (ids) localStorage.setItem(MODELS_KEY, JSON.stringify(ids));
 		return ids;
 	});

@@ -3,7 +3,8 @@ import { App } from "@capacitor/app";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
-import { messageOf, orLogged, sleep } from "../promise.ts";
+import { sleep } from "../time.ts";
+import { messageOf, orLogged } from "../promise.ts";
 import { copy, pasted } from "./clipboard.ts";
 import { System } from "../plugins/system.ts";
 

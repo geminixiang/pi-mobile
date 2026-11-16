@@ -8,6 +8,7 @@ import { ShareIcon, TerminalIcon } from "./icons.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { deadline } from "../time.ts";
 
 const MANUAL = "manual";
 
@@ -91,7 +92,7 @@ function useUnpaired(host: PairedHost): boolean {
 	useEffect(() => {
 		if (!host.key) return undefined;
 		let current = true;
-		void orLogged(stillPaired(host, AbortSignal.timeout(5000)), "hosts.pairing_unknown", undefined, { host: host.address }).then((paired) => current && setUnpaired(paired === false));
+		void orLogged(stillPaired(host, deadline(5000)), "hosts.pairing_unknown", undefined, { host: host.address }).then((paired) => current && setUnpaired(paired === false));
 		return () => {
 			current = false;
 		};
@@ -172,7 +173,7 @@ function useFound(hosts: PairedHost[]): Found[] | undefined {
 				const peers = await orLogged(listPeers(host), "hosts.peers_unavailable", undefined, { host: host.address });
 				if (!peers) continue;
 				const others = peers.filter((peer) => !hosts.some((added) => added.address === peer.dnsName));
-				const answers = await Promise.all(others.map(async (peer) => ({ peer, installed: await hasPiMobile(peer.dnsName, AbortSignal.timeout(4000)) })));
+				const answers = await Promise.all(others.map(async (peer) => ({ peer, installed: await hasPiMobile(peer.dnsName, deadline(4000)) })));
 				if (!stale) setFound(answers.sort((a, b) => Number(b.installed) - Number(a.installed) || a.peer.name.localeCompare(b.peer.name)));
 				return;
 			}

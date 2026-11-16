@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import { type Api, contentText, type JsonObject, type Model, type Models } from "@earendil-works/pi-ai";
 import { messageOf } from "../promise.ts";
 import { checkJson } from "../parse.ts";
+import { deadline } from "../time.ts";
 
 export type Question = { instructions: string; yes: string; no: string };
 
@@ -60,7 +61,7 @@ export function createJudge(models: Models, chat?: Model<Api>): Judge {
 async function askChat(models: Models, model: Model<Api>, questions: Record<string, Question>, state: JsonObject): Promise<Verdict> {
 	const asked = Object.entries(questions).map(([key, question]) => `${key}: ${question.instructions} true: ${question.yes}. false: ${question.no}.`);
 	const prompt = [`Facts: ${JSON.stringify(state)}`, "Reply with only a JSON object giving true or false for each key:", ...asked].join("\n");
-	const reply = await models.completeSimple(model, { messages: [{ role: "user", content: prompt, timestamp: Date.now() }] }, { maxTokens: CHAT_TOKENS, reasoning: "minimal", signal: AbortSignal.timeout(CHAT_TIMEOUT_MS) });
+	const reply = await models.completeSimple(model, { messages: [{ role: "user", content: prompt, timestamp: Date.now() }] }, { maxTokens: CHAT_TOKENS, reasoning: "minimal", signal: deadline(CHAT_TIMEOUT_MS) });
 	if (reply.stopReason === "error" || reply.stopReason === "aborted") return { kind: "failed", reason: `${model.id}: ${reply.errorMessage ?? reply.stopReason}` };
 	const text = contentText(reply.content);
 	const answers = checkJson(Answers, text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1), "judge reply");

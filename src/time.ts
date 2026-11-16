@@ -75,3 +75,21 @@ export function duration(ms: number): string {
 	const minutes = Math.round(ms / 60_000);
 	return minutes >= 60 ? `${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分` : `${minutes} 分`;
 }
+
+export type Cancel = () => void;
+
+export function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function after(ms: number, run: () => void): Cancel {
+	const timer = setTimeout(run, ms);
+	return () => clearTimeout(timer);
+}
+
+export function every(ms: number, run: () => void): Cancel {
+	const timer = setInterval(run, ms);
+	return () => clearInterval(timer);
+}
+
+export const deadline = (ms: number): AbortSignal => AbortSignal.timeout(ms);

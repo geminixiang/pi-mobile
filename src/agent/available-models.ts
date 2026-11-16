@@ -11,6 +11,7 @@ import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, wit
 import { readStored } from "../parse.ts";
 import { builtinInfo, type ProviderConfig, providerName } from "./providers.ts";
 import type { WebConfig } from "./tools/web.ts";
+import { deadline } from "../time.ts";
 
 function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
 	const custom = configs.find((config): config is Extract<ProviderConfig, { kind: "custom" }> => config.kind === "custom");
@@ -27,7 +28,7 @@ export function startModelList(settings: Settings): Promise<Record<string, strin
 		.flatMap((provider) => (provider.kind === "custom" ? [provider] : []))
 		.map(async (provider): Promise<[string, string[]]> => {
 			const key = `pi-mobile.models:${provider.baseUrl}`;
-			const fresh = fetchModelIds(provider.baseUrl, settings.providerKeys[provider.id] ?? "", AbortSignal.timeout(5000)).then((ids) => {
+			const fresh = fetchModelIds(provider.baseUrl, settings.providerKeys[provider.id] ?? "", deadline(5000)).then((ids) => {
 				if (ids.length > 0) localStorage.setItem(key, JSON.stringify(ids));
 				return ids;
 			});
