@@ -1,15 +1,16 @@
-import { memo, type RefObject, type TouchEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { memo, type RefObject, type TouchEvent, useCallback, useReducer, useRef, useState } from "react";
+import { useStore, useSubscribed } from "../ui/subscribed.ts";
 import { type BrowserState, browserState, NO_BROWSER } from "./tool.ts";
 import { native } from "../native.ts";
 import { Browser, MAX_TABS } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
-import { pageKey, sameInputs, SHEET_START, type SheetInputs, sheetAfter } from "./sheetState.ts";
+import { NOTHING_SHOWN, pageKey, sameInputs, SHEET_START, type SheetInputs, sheetAfter, withPage, withTabs } from "./sheetState.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
 import { useBack } from "../app/layers.ts";
-import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../app/sideGesture.ts";
+import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../ui/sideGesture.ts";
 import { haptic } from "../app/haptics.ts";
+import { type Cancel, nextFrame } from "../time.ts";
 
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;
@@ -62,6 +63,7 @@ class SheetMotion extends Motion {
 
 function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) {
 	const [draft, setDraft] = useState<string>();
+	const selecting = useRef<Cancel>(undefined);
 	return (
 		<input
 			className="browser-address"
@@ -75,9 +77,12 @@ function Address({ url, onGo }: { url: string; onGo: (typed: string) => void }) 
 			onFocus={(event) => {
 				const input = event.currentTarget;
 				setDraft(url.startsWith("about:") ? "" : url);
-				requestAnimationFrame(() => input.select());
+				selecting.current = nextFrame(() => input.select());
 			}}
-			onBlur={() => setDraft(undefined)}
+			onBlur={() => {
+				selecting.current?.();
+				setDraft(undefined);
+			}}
 			onChange={(event) => setDraft(event.target.value)}
 			onKeyDown={(event) => {
 				if (event.key !== "Enter" || !draft?.trim()) return;
@@ -111,28 +116,32 @@ export const BrowserSheet = memo(function BrowserSheet({
 	const placing = useRef(0);
 	const latest = useRef({ bot, open: false, expanded: false, canGoBack: false });
 
-	useEffect(() => {
-		if (!native.has("Browser")) return;
-		const listening = [
-			Browser.addListener("page", (page) => dispatch({ type: "page", page })),
-			Browser.addListener("tabs", (list) => dispatch({ type: "tabs", list })),
-		];
-		return () => {
-			for (const handle of listening) void handle.then((listener) => listener.remove());
-		};
-	}, []);
-
 	const active = bot !== undefined && state.active.has(bot);
 	const handover = state.handovers.find((item) => item.bot === bot);
 	const reason = handover?.reason;
 	const inputs: SheetInputs = { bot, handover: reason, asking, openKey };
 	if (!sameInputs(sheet.inputs, inputs)) dispatch({ type: "inputs", inputs });
-	const tabList = bot ? sheet.tabs[bot] : undefined;
-	const page = bot && tabList?.active ? sheet.pages[pageKey(bot, tabList.active)] : undefined;
+	const report = (error: unknown) => dispatch({ type: "failed", message: messageOf(error) });
+	const [shown] = useStore(
+		NOTHING_SHOWN,
+		(set) => {
+			if (!native.has("Browser")) return undefined;
+			const listening = [Browser.addListener("page", (page) => set((current) => withPage(current, page))), Browser.addListener("tabs", (list) => set((current) => withTabs(current, list)))];
+			if (bot)
+				Browser.tabs({ bot })
+					.then((list) => set((current) => withTabs(current, list)))
+					.catch(report);
+			return () => {
+				for (const handle of listening) void handle.then((listener) => listener.remove());
+			};
+		},
+		[bot],
+	);
+	const tabList = bot ? shown.tabs[bot] : undefined;
+	const page = bot && tabList?.active ? shown.pages[pageKey(bot, tabList.active)] : undefined;
 	const expanded = sheet.mode !== "closed";
 	const open = expanded && !hidden && bot !== undefined;
 	latest.current = { bot, open, expanded, canGoBack: page?.canGoBack ?? false };
-	const report = (error: unknown) => dispatch({ type: "failed", message: messageOf(error) });
 	const refreshShot = (target: string) =>
 		Browser.peek({ bot: target })
 			.then((peeked) => {
@@ -158,16 +167,19 @@ export const BrowserSheet = memo(function BrowserSheet({
 		await Browser.hide({ bot: target }).catch(report);
 	};
 
-	useEffect(() => {
-		if (!bot || !native.has("Browser")) return;
-		Browser.tabs({ bot })
-			.then((list) => dispatch({ type: "tabs", list }))
-			.catch(report);
-	}, [bot]);
-
-	useEffect(() => {
-		if (!bot) return;
-		if (open) {
+	const follow = useCallback(
+		(element: HTMLDivElement) => {
+			if (motion.current?.sheet !== element) {
+				motion.current = new SheetMotion(element, (settledOpen) => {
+					if (settledOpen) showLive();
+				});
+			}
+			if (!bot) return () => undefined;
+			if (!open) {
+				void hideLive(bot);
+				motion.current.settle(false);
+				return () => undefined;
+			}
 			if (sheet.mode === "open") {
 				Browser.tabs({ bot })
 					.then((list) => {
@@ -178,22 +190,24 @@ export const BrowserSheet = memo(function BrowserSheet({
 					.catch(report);
 			}
 			void refreshShot(bot);
-			motion.current?.settle(true);
-			return;
-		}
-		void hideLive(bot);
-		motion.current?.settle(false);
-	}, [open, bot]);
+			motion.current.settle(true);
+			return () => undefined;
+		},
+		[open, bot],
+	);
 
-	useEffect(() => {
-		const element = frame.current;
-		if (!element || !open) return;
-		const resized = new ResizeObserver(() => {
-			if (live.current) showLive();
-		});
-		resized.observe(element);
-		return () => resized.disconnect();
-	}, [open]);
+	const followSize = useCallback(
+		(element: HTMLDivElement) => {
+			frame.current = element;
+			if (!open) return () => undefined;
+			const resized = new ResizeObserver(() => {
+				if (live.current) showLive();
+			});
+			resized.observe(element);
+			return () => resized.disconnect();
+		},
+		[open],
+	);
 
 	const navigate = (target: string, action: "back" | "forward" | "reload") => {
 		dispatch({ type: "retried" });
@@ -213,8 +227,8 @@ export const BrowserSheet = memo(function BrowserSheet({
 		else settleTo(false);
 	});
 
-	useEffect(() => {
-		if (!bot || !native.has("Browser")) return;
+	const pullFromHeader = useCallback(() => {
+		if (!bot) return () => undefined;
 		let start: { x: number; y: number; at: number } | undefined;
 		let drag: Drag | undefined;
 		const onStart = (event: globalThis.TouchEvent) => {
@@ -285,18 +299,10 @@ export const BrowserSheet = memo(function BrowserSheet({
 		},
 	};
 
-	const attachSheet = useCallback((element: HTMLDivElement | null) => {
-		if (!element || motion.current?.sheet === element) return;
-		motion.current = new SheetMotion(element, (settledOpen) => {
-			if (settledOpen) showLive();
-		});
-		if (latest.current.open) motion.current.settle(true);
-	}, []);
-
 	if (!bot || !native.has("Browser")) return null;
 	return (
-		<div ref={attachSheet} className="browser-sheet" inert={!open}>
-			<div className="browser-sheet-bar" {...pushHandlers}>
+		<div ref={follow} className="browser-sheet" inert={!open}>
+			<div ref={pullFromHeader} className="browser-sheet-bar" {...pushHandlers}>
 				<span className="browser-dot" data-active={active || page?.loading || undefined} data-waiting={handover ? true : undefined} />
 				<Address
 					url={page?.url ?? ""}
@@ -328,7 +334,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 					{(tabList?.tabs ?? []).map((tab) => (
 						<div key={tab.id} className="browser-tab" data-active={tab.id === tabList?.active || undefined}>
 							<button type="button" className="browser-tab-name" onClick={() => Browser.selectTab({ bot, tab: tab.id }).catch(report)}>
-								{siteOf(sheet.pages[pageKey(bot, tab.id)]?.url ?? tab.url) || tab.title || "新分頁"}
+								{siteOf(shown.pages[pageKey(bot, tab.id)]?.url ?? tab.url) || tab.title || "新分頁"}
 							</button>
 							<button type="button" className="browser-tab-close" aria-label="關閉分頁" onClick={() => Browser.closeTab({ bot, tab: tab.id }).catch(report)}>
 								<CloseIcon size={14} />
@@ -343,7 +349,7 @@ export const BrowserSheet = memo(function BrowserSheet({
 				</div>
 			) : null}
 			{reason || sheet.problem ? <div className="browser-note">{sheet.problem || reason}</div> : null}
-			<div ref={frame} className="browser-frame">
+			<div ref={followSize} className="browser-frame">
 				{sheet.shot ? <img className="browser-shot" src={`data:image/jpeg;base64,${sheet.shot}`} alt="" /> : null}
 			</div>
 			<button type="button" className="browser-grip" aria-label="收起瀏覽器" onClick={() => settleTo(false)} {...pushHandlers} />

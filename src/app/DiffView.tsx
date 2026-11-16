@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { BackButton } from "./BackButton.tsx";
-import { useLoaded } from "./loaded.ts";
+import { useLoaded } from "../ui/loaded.ts";
 
 export interface DiffTarget {
 	title: string;

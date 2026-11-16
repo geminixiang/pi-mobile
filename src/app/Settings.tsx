@@ -1,6 +1,6 @@
-import { App } from "@capacitor/app";
-import { type ReactNode, useEffect, useState } from "react";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { type ReactNode, useRef, useState } from "react";
+import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
+import { onResume, resumed } from "../ui/resume.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
 import { Notifications } from "../plugins/notifications.ts";
@@ -9,7 +9,7 @@ import { PhoneState } from "../plugins/phone-state.ts";
 import { System } from "../plugins/system.ts";
 import { Usage } from "../plugins/usage.ts";
 import { shareDiagnostics } from "./diagnostics.ts";
-import { useBriefly } from "./briefly.ts";
+import { useBriefly } from "../ui/briefly.ts";
 import { checkGitHub } from "../agent/checks.ts";
 import { checkGcloud, describeGcloud } from "../agent/gcloud.ts";
 import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../agent/azure.ts";
@@ -41,11 +41,11 @@ import { TriggerList } from "../triggers/TriggerList.tsx";
 import { grouped } from "../triggers/when.ts";
 import { DAY, startOfToday } from "../time.ts";
 import { shortModelName } from "./ModelSheet.tsx";
-import { useLoaded } from "./loaded.ts";
+import { useLoaded } from "../ui/loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import type { Prefs } from "./prefs.ts";
-import { useBackground, useRefreshOnResume } from "./background.ts";
+import { useBackground } from "./background.ts";
 
 type Account = "github" | "gcloud" | "cloudflare" | "azure";
 
@@ -177,25 +177,17 @@ function AccountsPage({ settings, change }: { settings: Settings; change: (next:
 }
 
 function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
-	const [calendars, setCalendars] = useState<PhoneCalendar[]>();
 	const [error, setError] = useState("");
 	const [showHidden, setShowHidden] = useState(false);
-	const load = () =>
-		Calendar.listAccounts().then(
-			({ calendars }) => setCalendars(calendars),
-			(failure: unknown) => setError(messageOf(failure)),
-		);
+	const fail = (failure: unknown) => {
+		setError(messageOf(failure));
+		return undefined;
+	};
+	const list = () => Calendar.listAccounts().then((accounts) => accounts.calendars);
+	const listIfAllowed = async () => (native.has("Calendar") && (await Calendar.checkPermissions()).calendar === "granted" ? list() : undefined);
+	const [calendars, setCalendars] = useStore<PhoneCalendar[] | undefined>(undefined, promised(() => listIfAllowed().catch(fail)), []);
 	const askThenLoad = () =>
-		phonePermissions.request("calendar").then(
-			(allowed) => (allowed ? load() : setError("沒有行事曆權限，到手機設定開啟")),
-			(failure: unknown) => setError(messageOf(failure)),
-		);
-	useEffect(() => {
-		if (!native.has("Calendar")) return;
-		void Calendar.checkPermissions().then(({ calendar }) => {
-			if (calendar === "granted") void load();
-		});
-	}, []);
+		phonePermissions.request("calendar").then((allowed) => (allowed ? list().then(setCalendars, fail) : fail(new Error("沒有行事曆權限，到手機設定開啟"))), fail);
 	if (!native.has("Calendar")) return null;
 
 	const toggle = (list: string[], key: string, on: boolean) => (on ? [...new Set([...list, key])] : list.filter((item) => item !== key));
@@ -290,23 +282,20 @@ function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange:
 function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 	const state = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime.triggers.subscribe(listener), [runtime]);
 	const bots = useSubscribed<Bot[]>([], (listener) => runtime.subscribeBots(listener), [runtime]);
-	const [bluetooth, setBluetooth] = useState<boolean>();
-	const [overlay, setOverlay] = useState<boolean>();
 	const [error, setError] = useState("");
-	useEffect(() => {
-		if (!native.has("Triggers")) return;
-		const refresh = () =>
-			void Triggers.status().then((status) => {
-				setBluetooth(status.bluetooth);
-				setOverlay(status.overlay);
-			});
-		refresh();
-		const listener = App.addListener("resume", () => {
-			refresh();
-			void runtime.triggers.sync();
-		});
-		return () => void listener.then((handle) => handle.remove());
-	}, [runtime]);
+	const [{ bluetooth, overlay }, setAllowed] = useStore<{ bluetooth?: boolean; overlay?: boolean }>(
+		{},
+		(listener) => {
+			if (!native.has("Triggers")) return undefined;
+			const stopReading = resumed(() => Triggers.status())(listener);
+			const stopSyncing = onResume(() => void runtime.triggers.sync());
+			return () => {
+				stopReading?.();
+				stopSyncing();
+			};
+		},
+		[runtime],
+	);
 	if (!native.has("Triggers")) return null;
 	const headphones = state.items.some((item) => item.state !== "paused" && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
 
@@ -330,7 +319,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 						<StateRow
 							label="偵測藍牙耳機"
 							on={false}
-							onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setBluetooth(granted), (failure: unknown) => setError(messageOf(failure)))}
+							onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setAllowed({ bluetooth: granted, overlay }), (failure: unknown) => setError(messageOf(failure)))}
 						/>
 					) : null}
 				</RowList>
@@ -341,11 +330,19 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 }
 
 function SystemAccessGroup() {
-	const [state, setState] = useState<{ usage: boolean; assistant: boolean; settings?: boolean }>();
-	useRefreshOnResume("Usage", () =>
-		void Promise.all([Usage.status(), System.assistant(), native.implements(PhoneState.display) ? PhoneState.display() : undefined]).then(([usage, assistant, display]) =>
-			setState({ usage: usage.allowed, assistant: assistant.held, ...(display ? { settings: display.canChange } : {}) }),
+	const state = useSubscribed<{ usage: boolean; assistant: boolean; settings?: boolean } | undefined>(
+		undefined,
+		resumed(
+			native.has("Usage")
+				? () =>
+						Promise.all([Usage.status(), System.assistant(), native.implements(PhoneState.display) ? PhoneState.display() : undefined]).then(([usage, assistant, display]) => ({
+							usage: usage.allowed,
+							assistant: assistant.held,
+							...(display ? { settings: display.canChange } : {}),
+						}))
+				: undefined,
 		),
+		[],
 	);
 	if (!state) return null;
 	return (
@@ -394,8 +391,7 @@ function ClearNotifications() {
 }
 
 function PhonePage({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
-	const [notifications, setNotifications] = useState<boolean>();
-	useRefreshOnResume("Notifications", () => void Notifications.status().then((status) => setNotifications(status.allowed)));
+	const notifications = useSubscribed<boolean | undefined>(undefined, resumed(native.has("Notifications") ? () => Notifications.status().then((status) => status.allowed) : undefined), []);
 	return (
 		<>
 			<CalendarGroup access={access} onChange={onChange} />
@@ -574,16 +570,20 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	const [manual, setManual] = useState(settings.providers.length > 0 || !native.has("Loopback"));
 	const firstScreen = props.mode === "setup" && !manual;
 	const { value: update } = useLoaded(inApp && native.implements(System.installUpdate) ? () => orLogged(checkForUpdate(), "update.check_failed", undefined) : undefined, []);
-	const changed = changedKeys(initial, settings).length > 0;
-
-	useEffect(() => onDraft?.(settings, changed), [settings, changed, onDraft]);
+	const live = useRef({ settings, initial });
+	live.current = { settings, initial };
 	const [page, setPage] = useState<Page>();
 	const [problem, setProblem] = useState<string>();
 	const go = (next: Page | undefined) => {
 		setProblem(undefined);
 		setPage(next);
 	};
-	const change = (next: Partial<Settings>) => setSettings((current) => ({ ...current, ...next }));
+	const edit = (next: Settings) => {
+		live.current.settings = next;
+		setSettings(next);
+		onDraft?.(next, changedKeys(live.current.initial, next).length > 0);
+	};
+	const change = (next: Partial<Settings>) => edit({ ...live.current.settings, ...next });
 	const start = (ready: Settings) => {
 		if (props.mode !== "setup") return;
 		setSaving(true);
@@ -634,12 +634,11 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 						hosts={pairedHosts(settings)}
 						computer={settings.computer}
 						onChange={(hosts, computer) =>
-							setSettings((current) => ({
-								...current,
+							change({
 								hosts: hosts.map(({ key: _key, ...host }) => host),
 								hostKeys: Object.fromEntries(hosts.map((host) => [host.id, host.key])),
 								computer,
-							}))
+							})
 						}
 					/>
 			),
@@ -741,7 +740,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 						<FirstSignIn
 							onSignIn={(credential) => {
 								const ready = signedInWithChatGPT(settings, credential);
-								setSettings(ready);
+								edit(ready);
 								start(ready);
 							}}
 							onManual={() => setManual(true)}

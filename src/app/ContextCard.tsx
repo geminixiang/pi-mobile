@@ -1,5 +1,6 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { promised, useSubscribed } from "../ui/subscribed.ts";
 import { type ContextPart, contextParts, type ContextShape, type ToolCost } from "../agent/context-shape.ts";
 import { extensionName } from "../agent/mcp.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
@@ -53,23 +54,18 @@ export function ContextCard({
 	context: { used: number; window: number };
 	compactAt: number;
 }) {
-	const [measured, setMeasured] = useState<Measured>();
 	const [expanded, setExpanded] = useState(false);
-	useEffect(() => {
-		if (!open) return;
-		const shape = runtime.contextShape(botId);
-		if (!shape) {
-			setMeasured(undefined);
-			return;
-		}
-		let live = true;
-		void runtime.toolCost(botId).then((tools) => {
-			if (live) setMeasured({ shape, tools });
-		});
-		return () => {
-			live = false;
-		};
-	}, [runtime, botId, open, context.used]);
+	const measured = useSubscribed<Measured | undefined>(
+		undefined,
+		(listener) => {
+			if (!open) return undefined;
+			const shape = runtime.contextShape(botId);
+			if (shape) return promised(() => runtime.toolCost(botId).then((tools) => ({ shape, tools })))(listener);
+			listener(undefined);
+			return undefined;
+		},
+		[runtime, botId, open, context.used],
+	);
 	const percent = contextPercent(context.used, context.window);
 	const usage = totalUsage(view);
 	const cacheHitRate = latestCacheHitRate(view);

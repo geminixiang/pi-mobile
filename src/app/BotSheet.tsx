@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
 import { MemoryIcon, TrashIcon } from "./icons.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
 export type BotEdit = { kind: "create" } | { kind: "edit"; bot: Bot };
+
+type Form = { edit: BotEdit | undefined; name: string; job: string; avatar: string; saving: boolean };
+
+const BLANK: Form = { edit: undefined, name: "", job: "", avatar: AVATARS[0].id, saving: false };
+
+function formFor(edit: BotEdit, bots: readonly Bot[]): Form {
+	if (edit.kind === "create") return { ...BLANK, edit, avatar: freeAvatar(bots) };
+	return { edit, name: edit.bot.name, job: edit.bot.job, avatar: avatarOf(edit.bot), saving: false };
+}
 
 const JOB_PLACEHOLDER = `例如：
 每天整理我的行程和待辦，早上 8 點給我簡報。
@@ -29,17 +38,10 @@ export function BotSheet({
 	onError: (message: string) => void;
 	onClose: () => void;
 }) {
-	const [name, setName] = useState("");
-	const [job, setJob] = useState("");
-	const [avatar, setAvatar] = useState<string>(AVATARS[0].id);
-	const [saving, setSaving] = useState(false);
-	useEffect(() => {
-		if (!edit) return;
-		setName(edit.kind === "edit" ? edit.bot.name : "");
-		setJob(edit.kind === "edit" ? edit.bot.job : "");
-		setAvatar(edit.kind === "edit" ? avatarOf(edit.bot) : freeAvatar(bots));
-		setSaving(false);
-	}, [edit]);
+	const [form, setForm] = useState(BLANK);
+	if (edit && form.edit !== edit) setForm(formFor(edit, bots));
+	const { name, job, avatar, saving } = form;
+	const change = (next: Partial<Form>) => setForm((current) => ({ ...current, ...next }));
 	const bot = edit?.kind === "edit" ? edit.bot : undefined;
 	const changed = !bot || name.trim() !== bot.name || job.trim() !== bot.job || avatar !== avatarOf(bot);
 	const valid = Boolean(name.trim()) && job.length <= MAX_JOB;
@@ -57,8 +59,8 @@ export function BotSheet({
 				onSubmit={(event) => {
 					event.preventDefault();
 					if (bot) return;
-					setSaving(true);
-					void onSave({ name, job, avatar }).finally(() => setSaving(false));
+					change({ saving: true });
+					void onSave({ name, job, avatar }).finally(() => change({ saving: false }));
 				}}
 			>
 				<div className="avatar-picker" role="radiogroup" aria-label="頭像">
@@ -70,7 +72,7 @@ export function BotSheet({
 							aria-checked={avatar === option.id}
 							aria-label={option.label}
 							className={avatar === option.id ? "selected" : ""}
-							onClick={() => setAvatar(option.id)}
+							onClick={() => change({ avatar: option.id })}
 						>
 							<img src={`/avatars/${option.id}.webp`} alt="" draggable={false} />
 						</button>
@@ -78,7 +80,7 @@ export function BotSheet({
 				</div>
 				<label>
 					<span>名字</span>
-					<input value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：秘書、研究員" autoComplete="off" />
+					<input value={name} onChange={(event) => change({ name: event.target.value })} placeholder="例如：秘書、研究員" autoComplete="off" />
 				</label>
 				<label>
 					<span>
@@ -87,7 +89,7 @@ export function BotSheet({
 							{job.length} / {MAX_JOB}
 						</em>
 					</span>
-					<textarea value={job} onChange={(event) => setJob(event.target.value)} placeholder={JOB_PLACEHOLDER} rows={5} />
+					<textarea value={job} onChange={(event) => change({ job: event.target.value })} placeholder={JOB_PLACEHOLDER} rows={5} />
 				</label>
 				{bot ? null : (
 					<div className="row-buttons">

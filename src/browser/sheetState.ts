@@ -9,10 +9,16 @@ export type SheetState = {
 	strip: boolean;
 	shot: string | undefined;
 	problem: string;
-	pages: Readonly<Record<string, BrowserPage>>;
-	tabs: Readonly<Record<string, BrowserTabs>>;
 	inputs: SheetInputs;
 };
+
+export type Shown = { pages: Readonly<Record<string, BrowserPage>>; tabs: Readonly<Record<string, BrowserTabs>> };
+
+export const NOTHING_SHOWN: Shown = { pages: {}, tabs: {} };
+
+export const withPage = (shown: Shown, page: BrowserPage): Shown => ({ ...shown, pages: { ...shown.pages, [pageKey(page.bot, page.tab)]: page } });
+
+export const withTabs = (shown: Shown, list: BrowserTabs): Shown => ({ ...shown, tabs: { ...shown.tabs, [list.bot]: list } });
 
 export type SheetEvent =
 	| { type: "inputs"; inputs: SheetInputs }
@@ -20,17 +26,13 @@ export type SheetEvent =
 	| { type: "strip_toggled" }
 	| { type: "shot"; jpeg: string }
 	| { type: "failed"; message: string }
-	| { type: "retried" }
-	| { type: "page"; page: BrowserPage }
-	| { type: "tabs"; list: BrowserTabs };
+	| { type: "retried" };
 
 export const SHEET_START: SheetState = {
 	mode: "closed",
 	strip: false,
 	shot: undefined,
 	problem: "",
-	pages: {},
-	tabs: {},
 	inputs: { bot: undefined, handover: undefined, asking: false, openKey: 0 },
 };
 
@@ -54,16 +56,12 @@ export function sheetAfter(state: SheetState, event: SheetEvent): SheetState {
 			return { ...state, problem: event.message };
 		case "retried":
 			return { ...state, problem: "" };
-		case "page":
-			return { ...state, pages: { ...state.pages, [pageKey(event.page.bot, event.page.tab)]: event.page } };
-		case "tabs":
-			return { ...state, tabs: { ...state.tabs, [event.list.bot]: event.list } };
 	}
 }
 
 function afterInputs(state: SheetState, next: SheetInputs): SheetState {
 	const before = state.inputs;
-	let after = next.bot === before.bot ? state : { ...SHEET_START, pages: state.pages, tabs: state.tabs };
+	let after = next.bot === before.bot ? state : SHEET_START;
 	if (next.handover !== undefined && next.handover !== before.handover && after.mode === "closed") after = { ...after, mode: "handover" };
 	if (next.handover === undefined && after.mode === "handover") after = { ...after, mode: "closed" };
 	if (next.asking && !before.asking) after = { ...after, mode: "closed" };

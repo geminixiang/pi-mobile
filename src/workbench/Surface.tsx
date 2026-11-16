@@ -1,5 +1,5 @@
 import type { Element as HastElement, Root, RootContent } from "hast";
-import { type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, type ReactNode, useCallback, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import { Type } from "typebox";
 import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
@@ -9,6 +9,7 @@ import { check } from "../parse.ts";
 import { messageOf } from "../promise.ts";
 import { BLOCKS, changed, linesOf, squeezed } from "./changes.ts";
 import { isHtml } from "../agent/mime.ts";
+import { promised, useStore } from "../ui/subscribed.ts";
 
 export type Seen = { get: (path: string) => string | undefined; set: (path: string, text: string) => void };
 
@@ -16,6 +17,9 @@ const Picked = Type.Object({ pi: Type.Literal("pick"), text: Type.String() });
 const MARKDOWN_FILE = /\.(md|markdown)$/i;
 
 type Loaded = { state: "loading" } | { state: "failed"; problem: string } | { state: "read"; content: FileContent };
+type Read = { loaded: Loaded; before: string | undefined; showBefore: boolean };
+
+const UNREAD: Read = { loaded: { state: "loading" }, before: undefined, showBefore: false };
 
 export function Surface({
 	workspace,
@@ -36,30 +40,21 @@ export function Surface({
 	onPick: (text: string) => void;
 	actions?: ReactNode;
 }) {
-	const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-	const [before, setBefore] = useState<string>();
-	const [showBefore, setShowBefore] = useState(false);
 	const [source, setSource] = useState(false);
 	const [handing, setHanding] = useState<Handed>();
 	const [problem, setProblem] = useState<string>();
-	useEffect(() => {
-		let live = true;
-		workspace.read(path).then(
-			(content) => {
-				if (!live) return;
-				const text = content.kind === "text" ? content.text : undefined;
+	const [read, setRead] = useStore<Read>(
+		UNREAD,
+		(listener) =>
+			promised(() => workspace.read(path).then((content): Loaded => ({ state: "read", content }), (failure: unknown): Loaded => ({ state: "failed", problem: messageOf(failure) })))((next) => {
+				const text = next.state === "read" && next.content.kind === "text" ? next.content.text : undefined;
 				const last = seen.get(path) ?? previous;
 				if (text !== undefined && last === undefined) seen.set(path, text);
-				setBefore(text !== undefined && last !== undefined && last !== text ? last : undefined);
-				setShowBefore(false);
-				setLoaded({ state: "read", content });
-			},
-			(failure: unknown) => live && setLoaded({ state: "failed", problem: messageOf(failure) }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [workspace, path, version, previous, seen]);
+				listener({ loaded: next, before: text !== undefined && last !== undefined && last !== text ? last : undefined, showBefore: false });
+			}),
+		[workspace, path, version, previous, seen],
+	);
+	const { loaded, before, showBefore } = read;
 	const hand = (how: Handed) => {
 		setHanding(how);
 		setProblem(undefined);
@@ -93,7 +88,7 @@ export function Surface({
 				{actions}
 				<span className="inline-verbs">
 					{before !== undefined ? (
-						<button type="button" onClick={() => setShowBefore(!showBefore)}>
+						<button type="button" onClick={() => setRead({ ...read, showBefore: !showBefore })}>
 							{showBefore ? "看這一版" : "上一版"}
 						</button>
 					) : null}
@@ -102,7 +97,7 @@ export function Surface({
 							type="button"
 							onClick={() => {
 								seen.set(path, content.text);
-								setBefore(undefined);
+								setRead({ ...read, before: undefined });
 							}}
 						>
 							看過了
@@ -138,19 +133,21 @@ function blockTexts(html: string): string[] {
 }
 
 function HtmlView({ text, before, picked, onPick }: { text: string; before: string | undefined; picked: string | undefined; onPick: (text: string) => void }) {
-	const frame = useRef<HTMLIFrameElement>(null);
 	const marks = useMemo(() => (before === undefined ? [] : [...changed(blockTexts(before), blockTexts(text))]), [before, text]);
-	useEffect(() => {
-		const listen = (event: MessageEvent) => {
-			if (event.source !== frame.current?.contentWindow) return;
-			const read = check(Picked, event.data, "pick");
-			if (read.ok) onPick(read.value.text);
-		};
-		window.addEventListener("message", listen);
-		return () => window.removeEventListener("message", listen);
-	}, [onPick]);
+	const hear = useCallback(
+		(frame: HTMLIFrameElement) => {
+			const listen = (event: MessageEvent) => {
+				if (event.source !== frame.contentWindow) return;
+				const read = check(Picked, event.data, "pick");
+				if (read.ok) onPick(read.value.text);
+			};
+			window.addEventListener("message", listen);
+			return () => window.removeEventListener("message", listen);
+		},
+		[onPick],
+	);
 	const doc = `${withCsp(text)}<script>${pickScript(marks, picked)}</script>`;
-	return <iframe ref={frame} className="viewer-html" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={doc} title="預覽" />;
+	return <iframe ref={hear} className="viewer-html" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={doc} title="預覽" />;
 }
 
 function pickScript(marks: readonly number[], picked: string | undefined): string {
@@ -190,17 +187,19 @@ function markChanged(lines: ReadonlySet<number>) {
 }
 
 function MarkdownView({ text, before, picked, onPick }: { text: string; before: string | undefined; picked: string | undefined; onPick: (text: string) => void }) {
-	const box = useRef<HTMLDivElement>(null);
-	useLayoutEffect(() => {
-		for (const block of box.current?.querySelectorAll<HTMLElement>(BLOCKS) ?? []) block.classList.toggle("picked", picked !== undefined && squeezed(block.innerText) === picked);
-	}, [picked, text]);
+	const markPicked = useCallback(
+		(box: HTMLDivElement | null) => {
+			for (const block of box?.querySelectorAll<HTMLElement>(BLOCKS) ?? []) block.classList.toggle("picked", picked !== undefined && squeezed(block.innerText) === picked);
+		},
+		[picked, text],
+	);
 	const plugins = useMemo(() => [markChanged(before === undefined ? new Set() : changed(linesOf(before), linesOf(text)))], [before, text]);
 	const pick = (event: MouseEvent<HTMLDivElement>) => {
 		const block = event.target instanceof Element ? event.target.closest(BLOCKS) : null;
 		if (block instanceof HTMLElement) onPick(squeezed(block.innerText));
 	};
 	return (
-		<div className="answer viewer-markdown" ref={box} onClick={pick}>
+		<div className="answer viewer-markdown" ref={markPicked} onClick={pick}>
 			<div className="markdown">
 				<Markdown remarkPlugins={remarkPlugins} rehypePlugins={plugins} components={markdownComponents} skipHtml>
 					{text}

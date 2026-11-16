@@ -25,8 +25,8 @@ Agent 讓產出變多，所以品質要靠環境來保證。錯誤要在越上�
 
 | 她的規則 | pi-mobile | 狀態 |
 |---|---|---|
-| 產品程式碼禁用 `useEffect`，只有框架自己的 API 能用 | `EFFECTS` ratchet：`useEffect`、`useLayoutEffect` 和 timer 只能出現在名單列出的 43 個檔案，總數 98，只降不升；讀 store 用 `useSubscribed` | 部分：擋住新增，但沒歸零。`src/` 裡有 67 次 effect 呼叫，分散在 28 個檔案 |
-| 禁用 timer（`setTimeout`、rAF、idle callback）。理由是 timer 快速建立又銷毀，觸發大量 GC，造成卡頓 | 跟 effect 算在同一個 `EFFECTS` 計數裡；等待只能用 `sleep`，`setTimeout(resolve` 只准在它的擁有者裡出現 | 部分：timer 沒有自己的上限。`src/` 有 42 處 timer |
+| 產品程式碼禁用 `useEffect`，只有框架自己的 API 能用 | `EFFECTS` ratchet：`useEffect`、`useLayoutEffect` 和 timer 只能出現在名單列出的 43 個檔案，總數 98，只降不升；讀 store 用 `useSubscribed` | 已有（2026-11-16 歸零）：`src/` 裡沒有 effect hook，沒有例外名單，見 [../effects.md](../effects.md)。寫這份對照時是 67 次，分散在 28 個檔案 |
+| 禁用 timer（`setTimeout`、rAF、idle callback）。理由是 timer 快速建立又銷毀，觸發大量 GC，造成卡頓 | 跟 effect 算在同一個 `EFFECTS` 計數裡；等待只能用 `sleep`，`setTimeout(resolve` 只准在它的擁有者裡出現 | 已有（2026-11-16）：計時器只在 `src/time.ts` 呼叫，其他地方用它的 helper（`sleep`、`after`、`every`、`deadline`、`nextFrame`、`eachFrame`、`afterPaint`）。寫這份對照時 `src/` 有 42 處 |
 | Electron 的 renderer 不能 import main，要跨過去只能走框架的 IPC，用依賴圖分析工具強制 | 我們的邊界是 WebView 和原生之間，只能走 Capacitor plugin（`test/plugins-node.ts` 檢查兩邊合約一致）。還有：`src/computer/` 不能 import `sandbox`；只有 phone-screen 能碰無障礙服務；功能資料夾不能 import `AgentRuntime`；資料夾之間的循環 import 有 ratchet（`TANGLED_IMPORTS`） | 已有 |
 | 一個功能一個資料夾 | AGENTS.md 有規定（「Code is grouped by feature」），但只靠審查 | 部分 |
 | 禁止約 99% 的註解 | `test/no-comments.ts`：只准 `// why:`，目前 145 個 | 已有 |
@@ -37,6 +37,6 @@ Agent 讓產出變多，所以品質要靠環境來保證。錯誤要在越上�
 
 ## 值得補的
 
-1. **effect 在元件裡歸零**：她的做法是只讓框架的少數 API 用 `useEffect`。我們的對應做法是把 effect 收進幾個擁有者 hook（像 `useSubscribed` 那樣），元件裡一個都不留，再把 `EFFECTS` 改成只列那幾個 hook 檔。這是大改動：28 個檔案、67 處，而且動到 `src/app/`，照 AGENTS.md 要量效能。
-2. **timer 自己一個 ratchet**：先把 timer 從 `EFFECTS` 拆出來單獨計數，這樣才看得出 timer 有沒有減少。成本很小。
+1. **effect 歸零**（2026-11-16 完成）：比原本想的更進一步，連擁有者 hook 也不用 `useEffect`；訂閱走 `useSyncExternalStore`，跟著元素的事走 ref callback，啟動和 runtime 的事搬到 `src/app/session.ts`。`EFFECTS` 名單拿掉，改成一個都不准。
+2. **timer 只在一個檔案**（2026-11-16 完成）：`src/time.ts` 以外不准呼叫。
 3. **一個功能一個資料夾改成用檢查強制**：新檔案只能放在功能資料夾，或 `src/` 根目錄的共用檔。

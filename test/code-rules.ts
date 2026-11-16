@@ -218,7 +218,7 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 ];
 
 // why: counts imports that keep src/ folders in one tangle (a folder-level cycle); it only goes down, toward folders that import in one direction
-const TANGLED_IMPORTS = 404;
+const TANGLED_IMPORTS = 403;
 const RELATIVE_IMPORT = /^import (?:[^;]*? from )?"(\.[^"]+)";/gm;
 
 function folderOf(file: string): string {
@@ -281,7 +281,7 @@ function unusedClassRule(): Finding[] {
 }
 
 // why: counts let declarations in src/, which only goes down: a value that changes is a const computed again or a reducer
-const LETS = 118;
+const LETS = 115;
 const LET = /^\s*(?:export )?let /gm;
 
 function letRule(): Finding[] {
@@ -300,11 +300,11 @@ const LONG_FILES: Record<string, number> = {
 	"src/agent/mcp.ts": 473,
 	"src/agent/runtime.ts": 659,
 	"src/agent/tools/tw-stocks.ts": 465,
-	"src/app/App.tsx": 787,
-	"src/app/Chat.tsx": 483,
-	"src/app/Links.tsx": 438,
+	"src/app/App.tsx": 564,
+	"src/app/Chat.tsx": 478,
+	"src/app/Links.tsx": 435,
 	"src/app/Message.tsx": 518,
-	"src/app/Settings.tsx": 768,
+	"src/app/Settings.tsx": 767,
 	"src/triggers/runs.ts": 529,
 };
 
@@ -386,7 +386,7 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
-const AGENTS_WORDS = 2811;
+const AGENTS_WORDS = 2801;
 
 function agentsSizeRule(): Finding[] {
 	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
@@ -413,76 +413,49 @@ function viewportRule(): Finding[] {
 	return lines[line]?.includes("maximum-scale=1") ? [] : [{ file: "index.html", line: line + 1, rule: "keep maximum-scale=1 in the viewport: iOS zooms the page into any field with text under 16px and never zooms back, so the whole app stays enlarged" }];
 }
 
-const TIMING = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect", "setTimeout", "setInterval", "requestAnimationFrame", "requestIdleCallback", "postTask"]);
-const EFFECTS: Record<string, number> = {
-	"src/app/App.tsx": 12,
-	"src/app/BotPanel.tsx": 2,
-	"src/app/BotSheet.tsx": 1,
-	"src/app/Chat.tsx": 7,
-	"src/app/Composer.tsx": 5,
-	"src/app/ContextCard.tsx": 1,
-	"src/app/FileViewer.tsx": 1,
-	"src/app/HostsGroup.tsx": 3,
-	"src/app/Links.tsx": 2,
-	"src/app/McpGroup.tsx": 1,
-	"src/app/MemoryView.tsx": 1,
-	"src/app/Mermaid.tsx": 1,
-	"src/app/PageStack.tsx": 2,
-	"src/app/PromptDial.tsx": 4,
-	"src/app/Settings.tsx": 3,
-	"src/app/SidePanel.tsx": 6,
-	"src/app/SignIn.tsx": 2,
-	"src/app/briefly.ts": 2,
-	"src/app/layers.ts": 1,
-	"src/app/loaded.ts": 3,
-	"src/app/press.ts": 1,
-	"src/app/sideGesture.ts": 1,
-	"src/app/streaming.tsx": 3,
-	"src/app/voice.ts": 1,
-	"src/browser/BrowserSheet.tsx": 6,
-	"src/interaction/PageFrame.tsx": 2,
-	"src/items/ItemSheet.tsx": 1,
-	"src/jobs/JobsContext.ts": 2,
-	"src/jobs/JobsStrip.tsx": 2,
-	"src/time.ts": 4,
-	"src/ui/resume.ts": 1,
-	"src/workbench/Surface.tsx": 3,
-};
+const EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect"]);
+const TIMERS = new Set(["setTimeout", "setInterval", "requestAnimationFrame", "requestIdleCallback", "postTask"]);
+const TIMER_OWNER = "src/time.ts";
 
-function timingCalls(file: string): number {
+type TimingCall = { kind: "effect" | "timer"; name: string; line: number };
+
+function timingCalls(file: string): TimingCall[] {
 	const source = readFileSync(file, "utf8");
-	let count = 0;
+	const found: TimingCall[] = [];
+	const lineOf = (node: Node) => source.slice(0, node.start).split("\n").length;
 	const visit = (node: unknown) => {
 		if (!isNode(node)) return;
 		if (node.type === "CallExpression" && isNode(node.callee)) {
 			const callee = node.callee.type === "MemberExpression" ? node.callee.property : node.callee;
-			if (isNode(callee) && typeof callee.name === "string" && TIMING.has(callee.name)) count += 1;
-			if (node.callee.type === "MemberExpression" && isNode(node.callee.object) && node.callee.object.name === "AbortSignal" && isNode(callee) && callee.name === "timeout") count += 1;
+			const name = isNode(callee) && typeof callee.name === "string" ? callee.name : "";
+			const onAbortSignal = node.callee.type === "MemberExpression" && isNode(node.callee.object) && node.callee.object.name === "AbortSignal";
+			if (EFFECT_HOOKS.has(name)) found.push({ kind: "effect", name, line: lineOf(node) });
+			if (TIMERS.has(name)) found.push({ kind: "timer", name, line: lineOf(node) });
+			if (onAbortSignal && name === "timeout") found.push({ kind: "timer", name: "AbortSignal.timeout", line: lineOf(node) });
 		}
 		children(node).forEach(visit);
 	};
 	visit(parseSync(file, source).program);
-	return count;
+	return found;
 }
 
 const EFFECT_FIX =
-	"an external store → useSubscribed (src/ui/subscribed.ts) or useSyncExternalStore; a value from state or props → compute it during render; a reaction to a tap or a gesture → do it in the event handler; waiting → listen for the event it waits for (docs/effects.md)";
+	"a store, or a native, window or Capacitor event → useSubscribed or useStore (src/ui/subscribed.ts), or useSyncExternalStore; loading → useLoaded (src/ui/loaded.ts); work on an element (measure, focus, scroll, observe, clean up when it leaves) → a ref callback that returns its cleanup; a value from state or props → compute it during render; state to reset on a new id → a key; a reaction to a tap or a gesture → do it in the event handler (docs/effects.md)";
+const TIMER_FIX =
+	"call a named helper from src/time.ts (sleep, after, every, deadline, nextFrame, eachFrame, afterPaint) and keep the cancel it returns; a value that changes with time → a store whose subscribe starts the helper; a delay that waits for something → listen for that event (docs/effects.md)";
 
 function effectRule(): Finding[] {
-	const files = new Set(checkedFiles());
-	const gone = Object.keys(EFFECTS)
-		.filter((file) => !files.has(file))
-		.map((file) => ({ file: "test/code-rules.ts", line: 1, rule: `EFFECTS lists ${file}, which no longer exists: remove it` }));
-	return [...gone, ...checkedFiles()
+	return checkedFiles()
 		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
-		.flatMap((file) => {
-			const used = timingCalls(file);
-			const allowed = EFFECTS[file] ?? 0;
-			if (used > allowed)
-				return [{ file, line: 1, rule: `${used} useEffect, useLayoutEffect or timer calls, ${allowed} allowed in EFFECTS (test/code-rules.ts): use ${EFFECT_FIX}. A legitimate effect (a native listener, a measured frame in the gesture code) raises the count with the user's approval` }];
-			if (used < allowed) return [{ file, line: 1, rule: `${used} useEffect, useLayoutEffect or timer calls, fewer than the ${allowed} in EFFECTS (test/code-rules.ts): lower it to ${used} so the ratchet holds` }];
-			return [];
-		})];
+		.flatMap((file) =>
+			timingCalls(file)
+				.filter((call) => call.kind === "effect" || file !== TIMER_OWNER)
+				.map((call) => ({
+					file,
+					line: call.line,
+					rule: call.kind === "effect" ? `${call.name} is not used in src/: ${EFFECT_FIX}` : `${call.name} is called only in ${TIMER_OWNER}: ${TIMER_FIX}`,
+				})),
+		);
 }
 
 const EXPORTED = /^export (?:declare )?(?:async )?(?:function\*?|const|let|class|type|interface|enum|abstract class) (\w+)/gm;

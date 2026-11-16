@@ -1,8 +1,8 @@
-import { type ReactNode, type TouchEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type TouchEvent, useCallback, useMemo, useRef, useState } from "react";
 import { haptic } from "./haptics.ts";
 import { useBack, useLast } from "./layers.ts";
 import { ownsSidewaysDrag } from "./SidePanel.tsx";
-import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 
 type StackPage = { key: string; content: ReactNode; onBack: () => void };
 
@@ -34,24 +34,23 @@ type Gesture = { x: number; y: number; at: number; ignored: boolean; drag?: Drag
 export function PageStack({ side, top, children }: { side: Side; top: StackPage | undefined; children: ReactNode }) {
 	const open = top !== undefined;
 	useBack(open, () => top?.onBack());
-	const base = useRef<HTMLDivElement>(null);
 	const topElement = useRef<HTMLDivElement>(null);
 	const motion = useRef<StackMotion>(undefined);
 	const [mounted, setMounted] = useState(false);
+	if (open && !mounted) setMounted(true);
 	const shown = useLast(open, top);
 	const latest = useRef(top);
 	latest.current = top;
 
-	useLayoutEffect(() => {
-		if (!base.current) return;
-		motion.current = new StackMotion(base.current, () => topElement.current, (stays) => {
+	const attach = useCallback((base: HTMLDivElement) => {
+		motion.current = new StackMotion(base, () => topElement.current, (stays) => {
 			if (!stays) setMounted(false);
 		});
+		return () => undefined;
 	}, []);
-
-	useLayoutEffect(() => {
-		if (open) setMounted(true);
+	const follow = useCallback(() => {
 		motion.current?.settle(open);
+		return () => undefined;
 	}, [open, top?.key]);
 
 	const handlers = useMemo(() => {
@@ -101,8 +100,8 @@ export function PageStack({ side, top, children }: { side: Side; top: StackPage 
 	}, [side]);
 
 	return (
-		<div className={`page-stack page-stack-${side}`} {...handlers}>
-			<div ref={base} className="stack-base" inert={open}>
+		<div ref={follow} className={`page-stack page-stack-${side}`} {...handlers}>
+			<div ref={attach} className="stack-base" inert={open}>
 				{children}
 			</div>
 			{open || mounted ? (

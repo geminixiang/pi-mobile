@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
 import { computerKey, hasPiMobile, hostFrom, listPeers, OS_NAMES, type PairedHost, pairHost, type Peer, parseComputerKey, probeHost, stillPaired, unpairHost } from "../computer/pairing.ts";
 import { prepareContainers, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../plugins/apps.ts";
@@ -20,7 +21,23 @@ const INSTALLS = [
 type Preparing = { state: "idle" } | { state: "running"; detail: string } | { state: "error"; detail: string };
 
 export function usePrepare(host: PairedHost | undefined): [Preparing, (target: PairedHost) => Promise<boolean>] {
-	const [preparing, setPreparing] = useState<Preparing>({ state: "idle" });
+	const address = host?.address;
+	const [preparing, setPreparing] = useStore<Preparing>(
+		{ state: "idle" },
+		(listener) => {
+			if (!host) return undefined;
+			let current = true;
+			const running = watchPrepare(host, (detail) => current && listener({ state: "running", detail }));
+			if (running) {
+				listener({ state: "running", detail: "" });
+				void follow(running);
+			}
+			return () => {
+				current = false;
+			};
+		},
+		[address],
+	);
 	const follow = async (done: Promise<void>) => {
 		try {
 			await done;
@@ -35,19 +52,6 @@ export function usePrepare(host: PairedHost | undefined): [Preparing, (target: P
 		setPreparing({ state: "running", detail: "" });
 		return follow(prepareContainers(target, (detail) => setPreparing({ state: "running", detail })));
 	};
-	const address = host?.address;
-	useEffect(() => {
-		if (!host) return undefined;
-		let current = true;
-		const running = watchPrepare(host, (detail) => current && setPreparing({ state: "running", detail }));
-		if (running) {
-			setPreparing({ state: "running", detail: "" });
-			void follow(running);
-		}
-		return () => {
-			current = false;
-		};
-	}, [address]);
 	return [preparing, prepare];
 }
 
@@ -88,16 +92,8 @@ function PairRow({ label, primary, busy, onPair }: { label: string; primary: boo
 }
 
 function useUnpaired(host: PairedHost): boolean {
-	const [unpaired, setUnpaired] = useState(false);
-	useEffect(() => {
-		if (!host.key) return undefined;
-		let current = true;
-		void orLogged(stillPaired(host, deadline(5000)), "hosts.pairing_unknown", undefined, { host: host.address }).then((paired) => current && setUnpaired(paired === false));
-		return () => {
-			current = false;
-		};
-	}, [host.address, host.key]);
-	return unpaired;
+	const paired = () => orLogged(stillPaired(host, deadline(5000)), "hosts.pairing_unknown", undefined, { host: host.address });
+	return useSubscribed(false, (listener) => (host.key ? promised(() => paired().then((still) => still === false))(listener) : undefined), [host.address, host.key]);
 }
 
 function HostSheet({ host, busy, onPair, onRemove, onClose }: { host: PairedHost | undefined; busy: boolean; onPair: (code: string) => void; onRemove: () => void; onClose: () => void }) {
@@ -164,26 +160,18 @@ function DefaultComputer({ hosts, computer, onChoose }: { hosts: PairedHost[]; c
 type Found = { peer: Peer; installed: boolean };
 
 function useFound(hosts: PairedHost[]): Found[] | undefined {
-	const [found, setFound] = useState<Found[]>();
 	const known = hosts.map((host) => host.address).join(" ");
-	useEffect(() => {
-		let stale = false;
-		void (async () => {
-			for (const host of hosts) {
-				const peers = await orLogged(listPeers(host), "hosts.peers_unavailable", undefined, { host: host.address });
-				if (!peers) continue;
-				const others = peers.filter((peer) => !hosts.some((added) => added.address === peer.dnsName));
-				const answers = await Promise.all(others.map(async (peer) => ({ peer, installed: await hasPiMobile(peer.dnsName, deadline(4000)) })));
-				if (!stale) setFound(answers.sort((a, b) => Number(b.installed) - Number(a.installed) || a.peer.name.localeCompare(b.peer.name)));
-				return;
-			}
-			if (!stale) setFound(undefined);
-		})();
-		return () => {
-			stale = true;
-		};
-	}, [known]);
-	return found;
+	const find = async (): Promise<Found[] | undefined> => {
+		for (const host of hosts) {
+			const peers = await orLogged(listPeers(host), "hosts.peers_unavailable", undefined, { host: host.address });
+			if (!peers) continue;
+			const others = peers.filter((peer) => !hosts.some((added) => added.address === peer.dnsName));
+			const answers = await Promise.all(others.map(async (peer) => ({ peer, installed: await hasPiMobile(peer.dnsName, deadline(4000)) })));
+			return answers.sort((a, b) => Number(b.installed) - Number(a.installed) || a.peer.name.localeCompare(b.peer.name));
+		}
+		return undefined;
+	};
+	return useSubscribed<Found[] | undefined>(undefined, promised(find), [known]);
 }
 
 type Adding = { state: "idle" } | { state: "checking" } | { state: "error"; detail: string };

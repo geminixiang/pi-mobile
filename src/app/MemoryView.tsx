@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import { type Memory, MEMORY_LIMIT, type MemoryScope } from "../agent/memory.ts";
@@ -58,15 +58,17 @@ export function MemoryView({
 			(error: unknown) => setEdit({ mode: "editing", draft, problem: messageOf(error) }),
 		);
 	};
-	const saveOnLeave = useEffectEvent(() => {
+	const saveOnLeave = () => {
 		if (edit.mode !== "editing" || !changed) return;
 		if (over) {
 			onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
 			return;
 		}
 		runtime.memories.save(scope, edit.draft).catch((error: unknown) => onError(messageOf(error)));
-	});
-	useEffect(() => () => saveOnLeave(), []);
+	};
+	const latestSave = useRef(saveOnLeave);
+	latestSave.current = saveOnLeave;
+	const saveWhenGone = useCallback(() => () => latestSave.current(), []);
 	const lines = text
 		.split("\n")
 		.map((line) => line.trim())
@@ -74,7 +76,7 @@ export function MemoryView({
 		.map(lineOf);
 
 	return (
-		<div className="screen memory">
+		<div className="screen memory" ref={saveWhenGone}>
 			<header className="bar">
 				<BackButton onClick={onClose} />
 				<h1 className="bar-heading">

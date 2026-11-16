@@ -20,6 +20,8 @@ export function localTime(ms: number): string {
 	return `${localDate(ms)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+export const CLOCK = new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+
 export function monthDayTime(ms: number): string {
 	const date = new Date(ms);
 	return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -93,3 +95,23 @@ export function every(ms: number, run: () => void): Cancel {
 }
 
 export const deadline = (ms: number): AbortSignal => AbortSignal.timeout(ms);
+
+export function nextFrame(run: (now: number) => void): Cancel {
+	const frame = requestAnimationFrame(run);
+	return () => cancelAnimationFrame(frame);
+}
+
+export function eachFrame(run: (now: number) => void): Cancel {
+	let frame = requestAnimationFrame(function step(now) {
+		frame = requestAnimationFrame(step);
+		run(now);
+	});
+	return () => cancelAnimationFrame(frame);
+}
+
+export function afterPaint(run: () => void): Cancel {
+	let cancel = nextFrame(() => {
+		cancel = nextFrame(run);
+	});
+	return () => cancel();
+}

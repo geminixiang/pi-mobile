@@ -1,4 +1,5 @@
-import { TOUCH_SLOP } from "./sideGesture.ts";
+import { after } from "../time.ts";
+import { TOUCH_SLOP } from "../ui/sideGesture.ts";
 
 const PRESSABLE = "button:not(:disabled), label, a, [role=button]";
 const TYPED = "input:not([type=checkbox], [type=radio]), textarea, select, [contenteditable]";
@@ -23,9 +24,9 @@ export function showPresses(root: Document): void {
 			element.removeAttribute("data-pressed");
 			return;
 		}
-		setTimeout(() => {
+		after(keepMs, () => {
 			if (pressed?.element !== element) element.removeAttribute("data-pressed");
-		}, keepMs);
+		});
 	};
 	const options = { capture: true, passive: true };
 	root.addEventListener(

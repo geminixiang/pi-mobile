@@ -65,7 +65,7 @@ S24 上量過：配對視窗開著時切到 pi，視窗就關掉，輸入配對�
 1. 按「打開無線偵錯」（`AgentScreen.pairInSettings`）：開始看，再打開設定。呼叫一直等到看完才回覆。
 2. **知道視窗開著，靠系統狀態**：看的期間 NSD 一直找 `_adb-tls-pairing._tcp`（`AgentScreen.watchPairing`），只收解析到本機位址的。這個服務只在配對視窗開著時由本機的 adbd 廣播，也給出配對埠。
 3. **找配對碼，靠結構**：第一次看到服務起，每 200 ms 讀一次無障礙服務的 `windows`，只看根節點套件是 `ACTION_APPLICATION_DEVELOPMENT_SETTINGS` 解析出的套件的視窗。同一個視窗裡要剛好一個文字整段是六位數字（任何 Unicode 數字，`digitToInt` 轉成 ASCII），剛好一個文字是 `IP:埠`（`InetAddresses.isNumericAddress`），而且那個埠就是 NSD 廣播的配對埠。不比對標題或任何語言的字。都對上才 `pair(code, port)`；同一個埠只試一次。
-4. **何時停**：配對成功或 `wrong_code`（成功時系統自己關掉配對視窗）、pi 回到前面（`handleOnResume`：使用者離開了流程）、或五分鐘到了。沒有 JS 計時器，也沒有新的 effect：回覆就是原本那個呼叫的結果，狀態由回到前景時既有的重查（`useOnResume`）更新。
+4. **何時停**：配對成功或 `wrong_code`（成功時系統自己關掉配對視窗）、pi 回到前面（`handleOnResume`：使用者離開了流程）、或五分鐘到了。沒有 JS 計時器，也沒有新的 effect：回覆就是原本那個呼叫的結果，狀態由回到前景時既有的重查（`src/ui/resume.ts` 的 `resumed`）更新。
 5. 回覆的 reason：`left`（回來時沒有可讀的配對視窗，不顯示）、`code_not_found`（看到服務、對不上結構）、`accessibility_off`、`timeout`、`wrong_code`、Kadb 的錯誤；寫在按鈕下面。
 
 配對碼只在 `AutoPairing.look` 的區域變數裡（`PairingDialog`），傳給 `pair` 就丟掉：不記錄、不存、不顯示。

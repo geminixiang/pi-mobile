@@ -8,7 +8,7 @@ import { joinPath, resolvePath } from "./openFile.ts";
 import { PageStack } from "./PageStack.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
-import { useLoaded } from "./loaded.ts";
+import { useLoaded } from "../ui/loaded.ts";
 import { formatBytes } from "../encoding.ts";
 import { baseName } from "../agent/mime.ts";
 
@@ -214,7 +214,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 	const inFolder = tab === "files" && stack.length > 1;
 	const back = () => setOpen(undefined);
 	const top = (opened: NonNullable<Open>, from: Workspace) =>
-		opened.kind === "file" ? <FileViewer workspace={from} path={resolvePath(from.root, opened.path)} frame={{ kind: "page", onClose: back }} /> : <DiffView target={opened.target} onClose={back} />;
+		opened.kind === "file" ? <FileViewer key={opened.path} workspace={from} path={resolvePath(from.root, opened.path)} frame={{ kind: "page", onClose: back }} /> : <DiffView target={opened.target} onClose={back} />;
 
 	return (
 		<PageStack side="right" top={workspace && open ? { key: open.kind === "file" ? open.path : open.target.title, content: top(open, workspace), onBack: back } : undefined}>

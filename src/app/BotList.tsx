@@ -5,8 +5,7 @@ import type { Trigger } from "../triggers/runs.ts";
 import type { When } from "../triggers/plugin.ts";
 import { type TriggerSymbol, triggerSymbol } from "../triggers/when.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
-import { DAY, startOfToday } from "../time.ts";
-import { CLOCK } from "./clock.ts";
+import { CLOCK, DAY, startOfToday } from "../time.ts";
 
 const SHOWN_SYMBOLS = 3;
 const MONTH_DAY = new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric" });

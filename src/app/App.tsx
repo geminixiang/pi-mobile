@@ -1,15 +1,12 @@
-import { App as CapacitorApp } from "@capacitor/app";
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
-import { avatarOf, type Bot } from "../agent/bots.ts";
-import { inboxFile } from "../scanner-plugin.ts";
-import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
-import { isConfigured, type Settings, SettingsStore } from "../settings.ts";
-import { openAppStorage } from "./storage.ts";
+import { useCallback, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
+import type { Bot } from "../agent/bots.ts";
+import type { ConversationController, ConversationId } from "../agent/runtime.ts";
+import { isConfigured, type Settings } from "../settings.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { ItemSheet } from "../items/ItemSheet.tsx";
-import { Chat, isBusy, type Notice, type SharedKind } from "./Chat.tsx";
+import { Chat, isBusy } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
 import { Dialog, type DialogRequest } from "./Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
@@ -23,7 +20,9 @@ import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
 import { PiMark } from "./PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { useBatched, useSubscribed } from "../ui/subscribed.ts";
+import { after, type Cancel } from "../time.ts";
+import { appeared, applySettings, choose, closeItem, dismissNotices, leave, notify, open, saveSettings, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -40,59 +39,29 @@ import { shownOverlay, useLayout } from "../workbench/layout.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { Rail } from "../workbench/Rail.tsx";
 import { Workbench } from "../workbench/Workbench.tsx";
-import { log } from "../log.ts";
 import { agentOf, liveOf } from "./docs.ts";
-import { away, inForeground, setWorking, stayAwakeFor } from "../keepAlive.ts";
 import { native } from "../native.ts";
-import { listenForOpenLinks, processTriggerEvents, type SharedItem } from "../triggers/events.ts";
 import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
-import { Triggers } from "../triggers/plugin.ts";
-import { KeepAlive } from "../plugins/keep-alive.ts";
 import { System } from "../plugins/system.ts";
 import { contextPercent, contextTokens } from "./usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
-import { sweepBotData } from "./bot-data.ts";
 import { clearDraft } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
-import { startModelList } from "../agent/available-models.ts";
 import { windowFor } from "../agent/models.ts";
-import { capacitorPlatform, capacitorStorage } from "../agent/platform.ts";
 import { ModelLine } from "./Links.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { modelReach } from "../agent/reach.ts";
 
-const LAST_BOT_KEY = "pi-mobile.lastBot";
-
-const botWithId = (items: readonly Bot[], id: string | null) => items.find((bot) => String(bot.id) === id);
-const lastBot = (items: readonly Bot[]) => botWithId(items, localStorage.getItem(LAST_BOT_KEY));
-const REOPEN_AFTER_MS = 10_000;
-const MAX_NOTICES = 3;
-
-const sharedKind = (files: readonly File[]): SharedKind =>
-	files.length === 0 ? "text" : files.every((file) => file.type.startsWith("image/")) ? "image" : "file";
-
-type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
-
 const SETTINGS_APPLY_MS = 800;
 
-const settingsStore = new SettingsStore(capacitorStorage);
-
 export function App() {
-	const [settings, setSettings] = useState<Settings>();
-	const [runtime, setRuntime] = useState<AgentRuntime>();
-	const [openError, setOpenError] = useState("");
-	const [controller, setController] = useState<ConversationController>();
-	const [opening, setOpening] = useState<ConversationId>();
-	const [view, setView] = useState<ConversationView>();
-	const [pending, setPending] = useState<{ draft?: string; files?: readonly File[]; shared?: SharedKind; focus?: boolean }>({});
-	const [overlay, setOverlay] = useState<Overlay>();
+	const { settings, runtime, openError, controller, opening, chatKey, pending, overlay, sharing, openItem, notices } = useSyncExternalStore(watchSession, session);
+	const seen = useBatched<{ of: ConversationController; view: ConversationView } | undefined>(undefined, (listener) => controller?.subscribe((view) => listener({ of: controller, view })), [controller]);
+	const view = seen && seen.of === controller ? seen.view : undefined;
 	const [dialog, setDialog] = useState<{ request: DialogRequest; resolve: (sure: boolean) => void }>();
 	const [prefs, updatePrefs] = usePrefs();
 	const [botEdit, setBotEdit] = useState<BotEdit>();
 	const [memoryBot, setMemoryBot] = useState<Bot>();
-	const [openItem, setOpenItem] = useState<string>();
-	const [sharing, setSharing] = useState<{ draft: string; files: File[] }>();
-	const [chatKey, setChatKey] = useState(0);
 	const [browserOpen, setBrowserOpen] = useState(0);
 	const [picked, setPicked] = useState<{ path: string; text: string }>();
 	const clearPicked = useCallback(() => setPicked(undefined), []);
@@ -103,92 +72,26 @@ export function App() {
 	const present = useCallback(
 		(key: string) => {
 			if (currentBot) benchDispatch({ type: "show", bot: currentBot, key });
-			if (layout === "phone") setOverlay("workspace");
+			if (layout === "phone") show("workspace");
 		},
 		[currentBot, layout],
 	);
 	const openFile = useCallback((path: string) => present(fileKey(path)), [present]);
-	const openInfo = useCallback(() => setOverlay("panel"), []);
-	const close = useCallback(() => setOverlay(undefined), []);
-	const backToPanel = useCallback(() => setOverlay("panel"), []);
-	const backToDrawer = useCallback(() => setOverlay(layout === "phone" ? "drawer" : undefined), [layout]);
+	const openInfo = useCallback(() => show("panel"), []);
+	const close = useCallback(() => show(undefined), []);
+	const backToPanel = useCallback(() => show("panel"), []);
+	const backToDrawer = useCallback(() => show(layout === "phone" ? "drawer" : undefined), [layout]);
 	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
-	const applyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const cancelApply = useRef<Cancel>(undefined);
 	const applyRef = useRef<(draft: { settings: Settings; changed: boolean } | undefined) => Promise<void>>(undefined);
 	const onSettingsDraft = useCallback((next: Settings, changed: boolean) => {
 		settingsDraft.current = { settings: next, changed };
-		clearTimeout(applyTimer.current);
-		if (changed) applyTimer.current = setTimeout(() => void applyRef.current?.(settingsDraft.current), SETTINGS_APPLY_MS);
+		cancelApply.current?.();
+		if (changed) cancelApply.current = after(SETTINGS_APPLY_MS, () => void applyRef.current?.(settingsDraft.current));
 	}, []);
 
-	const [notices, setNotices] = useState<readonly Notice[]>([]);
-	const lastNotice = useRef(0);
-	const notify = useCallback((message: string) => {
-		log.warn("app.notice", { message });
-		const id = ++lastNotice.current;
-		setNotices((current) => [...current.filter((notice) => notice.text !== message), { id, text: message }].slice(-MAX_NOTICES));
-	}, []);
-	const dismissNotices = useCallback((ids: readonly number[]) => setNotices((current) => current.filter((notice) => !ids.includes(notice.id))), []);
-	const fail = useCallback((error: unknown) => notify(messageOf(error)), [notify]);
-
+	const fail = (error: unknown) => notify(messageOf(error));
 	const ask = useCallback((request: DialogRequest) => new Promise<boolean>((resolve) => setDialog({ request, resolve })), []);
-
-	const live = useRef({ settings, runtime, controller });
-	live.current = { settings, runtime, controller };
-	const dropConversation = useCallback(() => {
-		live.current.controller?.dispose();
-		setController(undefined);
-		setView(undefined);
-	}, []);
-
-	const start = useCallback(
-		async (next: Settings) => {
-			try {
-				const modelIds = startModelList(next);
-				const { storage, isNewDatabase } = await openAppStorage();
-				if (isNewDatabase) {
-					await sweepBotData(async () => []);
-					localStorage.removeItem(LAST_BOT_KEY);
-				}
-				const opened = await AgentRuntime.open(storage, next, capacitorPlatform(modelIds, settingsStore), {
-					onReport: notify,
-					openUrl: (url) => System.openExternal({ url }),
-					notify: async (title, text, conversationId, bot) => {
-						if (live.current.controller?.id === conversationId && (await inForeground())) return "watching";
-						if (!native.implements(Triggers.notify)) return "off";
-						const { shown } = await Triggers.notify({ title, text, conversation: String(conversationId), ...(bot ? { bot: bot.name, avatar: bot.avatar } : {}) });
-						return shown ? "shown" : "off";
-					},
-				});
-				setRuntime(opened);
-				const openedAt = Date.now();
-				void opened.closed.then(async (end) => {
-					if (end.kind !== "failed") return;
-					log.warn("runtime.failed", { error: messageOf(end.error) });
-					if (Date.now() - openedAt < REOPEN_AFTER_MS) {
-						setOpenError(`資料出錯，請重開 pi：${messageOf(end.error)}`);
-						return;
-					}
-					dropConversation();
-					await orLogged(opened.close(), "runtime.close_failed", undefined);
-					setRuntime(undefined);
-					await start(live.current.settings ?? next);
-				});
-				setTimeout(() => void sweepBotData(async () => (await opened.bots()).map((bot) => ({ id: String(bot.id), folder: bot.folder }))), 10_000);
-				setOpenError("");
-			} catch (error) {
-				setOpenError(`開啟失敗：${messageOf(error)}`);
-			}
-		},
-		[notify, dropConversation],
-	);
-
-	useEffect(() => {
-		void settingsStore.load().then((loaded) => {
-			setSettings(loaded);
-			if (isConfigured(loaded)) void start(loaded);
-		});
-	}, [start]);
 
 	const bots = useSubscribed<Bot[]>([], (listener) => runtime?.subscribeBots(listener), [runtime]);
 	const triggerState = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime?.triggers.subscribe(listener), [runtime]);
@@ -206,102 +109,8 @@ export function App() {
 		() => runtime?.forms.state,
 	);
 	const browser = useSubscribed<BrowserState>(NO_BROWSER, (listener) => browserState.subscribe(listener), []);
-
 	const busyIds = useSubscribed<ReadonlySet<ConversationId>>(new Set(), (listener) => runtime?.subscribeActivity(listener), [runtime]);
-	const previousBusy = useRef<ReadonlySet<ConversationId>>(new Set());
-	useEffect(() => {
-		const title = (id: ConversationId) => bots.find((bot) => bot.id === id)?.name ?? "Bot";
-		const ended = [...previousBusy.current].filter((id) => !busyIds.has(id)).map((id) => ({ id, report: runtime?.triggers.finished(id) }));
-		for (const { report } of ended) if (report) stayAwakeFor(report);
-		setWorking([...busyIds].map(title));
-		const tell = async (id: ConversationId) => {
-			const bot = bots.find((candidate) => candidate.id === id);
-			const word = await runtime?.triggers.lastWord(id);
-			if (!bot || !word || !(await away())) return;
-			if (!native.implements(Triggers.notify)) return KeepAlive.notify({ title: bot.name, text: word.headline });
-			await Triggers.notify({ title: word.headline, text: word.text, done: !word.asking, conversation: String(id), bot: bot.name, avatar: avatarOf(bot) });
-		};
-		for (const { id, report } of ended) if (!report) void orLogged(tell(id), "keep_alive.notify_failed", undefined);
-		previousBusy.current = busyIds;
-	}, [busyIds, bots, runtime]);
 
-	const openConversation = useCallback(
-		async (id: ConversationId, draft?: string, files?: readonly File[], shared?: SharedKind, keepOverlay?: boolean) => {
-			if (!runtime) return;
-			if (!keepOverlay) setOverlay(undefined);
-			if (id === controller?.id && draft === undefined) return;
-			controller?.dispose();
-			const next = await runtime.openConversation(id);
-			localStorage.setItem(LAST_BOT_KEY, String(id));
-			setChatKey((key) => key + 1);
-			setPending({ draft, files, shared });
-			setView(undefined);
-			setController(next);
-		},
-		[runtime, controller],
-	);
-
-	useEffect(() => {
-		if (!runtime || !controller) return;
-		if (bots.some((bot) => bot.id === controller.id)) return;
-		let live = true;
-		void runtime.bots().then((items) => {
-			if (!live || items.some((bot) => bot.id === controller.id)) return;
-			dropConversation();
-		});
-		return () => {
-			live = false;
-		};
-	}, [runtime, controller, bots, dropConversation]);
-
-	useEffect(() => {
-		if (!runtime || controller) return;
-		void runtime.bots().then((items) => {
-			const target = lastBot(items) ?? items[0];
-			if (target) void openConversation(target.id, undefined, undefined, undefined, true);
-		});
-	}, [runtime, controller, openConversation]);
-
-	const openLatest = useEffectEvent(openConversation);
-	useEffect(() => {
-		if (!runtime) return;
-		const onShare = async (item: SharedItem) => {
-			const files = await Promise.all((item.files ?? []).map((file) => inboxFile(file.path, file.name, file.mimeType)));
-			const draft = [item.subject, item.text].filter((part) => part && part.trim()).join("\n");
-			if (!draft && files.length === 0) {
-				notify("沒有讀到分享的內容。");
-				return;
-			}
-			const items = await runtime.bots();
-			const kind = item.source === "assist" ? "screen" : sharedKind(files);
-			const last = lastBot(items) ?? (items.length === 1 ? items[0] : undefined);
-			if (last && (kind === "screen" || items.length === 1)) await openLatest(last.id, item.source === "assist" ? "" : draft, files, kind);
-			else setSharing({ draft, files });
-		};
-		const stopEvents = processTriggerEvents(runtime, { onShare, onOpened: (id) => void openLatest(id) });
-		const stopLinks = listenForOpenLinks((conversation, item) => {
-			void runtime.bots().then(async (items) => {
-				const target = botWithId(items, conversation);
-				if (!target) return;
-				await openLatest(target.id);
-				setOpenItem(item);
-			});
-		});
-		return () => {
-			stopEvents();
-			stopLinks();
-		};
-	}, [runtime, notify]);
-
-	useEffect(() => controller?.subscribe(setView), [controller]);
-	useEffect(() => {
-		if (opening === undefined || controller?.id !== opening || !view) return;
-		const frame = requestAnimationFrame(() => {
-			setOverlay(undefined);
-			setOpening(undefined);
-		});
-		return () => cancelAnimationFrame(frame);
-	}, [opening, controller, view]);
 	const asking = useMemo(() => [...questionStates(view?.entries ?? []).values()].some((asked) => asked.state === "open"), [view?.entries]);
 	const liveTools = liveOf(view)?.tools;
 	const board = useMemo(
@@ -333,18 +142,7 @@ export function App() {
 		[formsState, triggerState.open, asking, controller],
 	);
 
-	useEffect(() => {
-		Object.assign(globalThis, { piRuntime: runtime, piController: controller });
-	}, [runtime, controller]);
-
 	const controllerId = controller?.id;
-	useEffect(() => {
-		if (controllerId === undefined || !native.implements(Triggers.seen)) return;
-		const conversation = String(controllerId);
-		void Triggers.seen({ conversation });
-		const listener = CapacitorApp.addListener("resume", () => void Triggers.seen({ conversation }));
-		return () => void listener.then((handle) => handle.remove());
-	}, [controllerId]);
 	const loadWorkspace = useCallback(
 		() => (runtime && controllerId !== undefined ? runtime.workspace(controllerId) : Promise.resolve(undefined)),
 		[runtime, controllerId],
@@ -356,7 +154,7 @@ export function App() {
 				const content = await orLogged(loadWorkspace().then((workspace) => workspace?.read(path)), "page_frame.read_failed", undefined);
 				return content?.kind === "text" ? content.text : undefined;
 			},
-			openSide: (next) => setOverlay(next === "left" ? "drawer" : "panel"),
+			openSide: (next) => show(next === "left" ? "drawer" : "panel"),
 		}),
 		[loadWorkspace],
 	);
@@ -380,35 +178,22 @@ export function App() {
 	);
 	if (!settings) return splash;
 
-	const applySettings = async (next: Settings, blank: boolean) => {
-		const current = live.current.runtime;
-		if (current && (await current.apply(next)) === "in_place") return;
-		dropConversation();
-		await current?.close();
-		if (blank) setRuntime(undefined);
-		await start(next);
-	};
 	const saveAndRestart = async (edited: Settings) => {
-		const next = await settingsStore.save(edited);
-		setSettings(next);
+		const next = await saveSettings(edited);
 		if (!isConfigured(next)) return;
-		setOverlay(undefined);
+		show(undefined);
 		await applySettings(next, true);
 	};
 	applyRef.current = (draft) => {
 		if (!draft?.changed || !isConfigured(draft.settings)) return Promise.resolve();
 		draft.changed = false;
 		applying.current = applying.current
-			.then(async () => {
-				const next = await settingsStore.save(draft.settings);
-				setSettings(next);
-				await applySettings(next, false);
-			})
+			.then(async () => applySettings(await saveSettings(draft.settings), false))
 			.catch(fail);
 		return applying.current;
 	};
 	function leaveSettings() {
-		clearTimeout(applyTimer.current);
+		cancelApply.current?.();
 		const draft = settingsDraft.current;
 		settingsDraft.current = undefined;
 		if (draft?.changed && !isConfigured(draft.settings)) {
@@ -451,7 +236,7 @@ export function App() {
 	};
 	const openMemory = (bot: Bot) => {
 		setMemoryBot(bot);
-		setOverlay("botMemory");
+		show("botMemory");
 	};
 	const wide = layout !== "phone";
 	const shown = shownOverlay(overlay, layout);
@@ -461,14 +246,7 @@ export function App() {
 		currentId: opening ?? controller?.id,
 		running: busyIds,
 		waiting,
-		onOpen: (id) => {
-			setOpening(id);
-			void openConversation(id, undefined, undefined, undefined, true).catch((error: unknown) => {
-				setOpening(undefined);
-				setOverlay(undefined);
-				throw error;
-			});
-		},
+		onOpen: choose,
 		onCreate: () => setBotEdit({ kind: "create" }),
 		onEdit: (bot) => setBotEdit({ kind: "edit", bot }),
 	};
@@ -532,7 +310,7 @@ export function App() {
 	return (
 		<PageStack side={wide ? "left" : "right"} top={stackTop}>
 		<div className={`frame frame-${layout}${wide ? " frame-wide" : ""}`}>
-		{wide ? <Rail busy={busy} list={list} onSettings={() => setOverlay("settings")} /> : null}
+		{wide ? <Rail busy={busy} list={list} onSettings={() => show("settings")} /> : null}
 		<div
 			ref={card}
 			data-thinking={thinking || "off"}
@@ -543,11 +321,11 @@ export function App() {
 					{wide ? (
 						<span className="bar-avatar">{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}</span>
 					) : (
-						<button type="button" className="bar-avatar" onClick={() => setOverlay("drawer")} aria-label="Bot 列表">
+						<button type="button" className="bar-avatar" onClick={() => show("drawer")} aria-label="Bot 列表">
 							{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
 						</button>
 					)}
-					<button type="button" className="bar-what" onClick={() => (wide || modelReach(modelProvider).state().kind === "down" ? openInfo() : setOverlay("model"))} aria-label="模型與思考強度">
+					<button type="button" className="bar-what" onClick={() => (wide || modelReach(modelProvider).state().kind === "down" ? openInfo() : show("model"))} aria-label="模型與思考強度">
 						<span className="bar-title">
 							{current?.name ?? ""}
 							{busy ? <i className="bar-cursor" /> : null}
@@ -581,7 +359,7 @@ export function App() {
 				card={card}
 				open={wide ? undefined : side}
 				disabled={wide || sideBlocked}
-				onChange={(next) => setOverlay(next === "left" ? "drawer" : next === "right" ? "panel" : undefined)}
+				onChange={(next) => show(next === "left" ? "drawer" : next === "right" ? "panel" : undefined)}
 				left={
 					wide ? null : (
 						<Drawer
@@ -596,7 +374,7 @@ export function App() {
 								{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
 								{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
 							]}
-							onSettings={() => setOverlay("settings")}
+							onSettings={() => show("settings")}
 							onClose={close}
 						/>
 					)
@@ -628,10 +406,10 @@ export function App() {
 						sandbox={onSandbox}
 						botName={current?.name ?? "pi"}
 						view={view}
-						initialDraft={pending.draft}
 						initialFiles={pending.files}
 						shared={pending.shared}
-						focus={pending.focus ?? false}
+						focus={pending.focus}
+						onAppear={() => appeared(controller.id)}
 						notices={notices}
 						onDismissNotices={dismissNotices}
 						onError={notify}
@@ -675,8 +453,7 @@ export function App() {
 						} else {
 							const id = await runtime.createBot(change);
 							setBotEdit(undefined);
-							await openConversation(id);
-							setPending((current) => ({ ...current, focus: true }));
+							await open(id, { focus: true });
 						}
 					} catch (error) {
 						fail(error);
@@ -698,7 +475,7 @@ export function App() {
 					try {
 						await runtime.removeBot(bot.id);
 						await orLogged(clearDraft(String(bot.id)), "drafts.clear_failed", undefined);
-						if (bot.id === controller?.id) dropConversation();
+						leave(bot.id);
 					} catch (error) {
 						fail(error);
 					}
@@ -709,12 +486,12 @@ export function App() {
 				<ItemSheet
 					runtime={runtime}
 					id={openItem}
-					onDraft={(conversation, text) => void openConversation(conversation, text)}
-					onClose={() => setOpenItem(undefined)}
+					onDraft={(conversation, draft) => void open(conversation, { draft })}
+					onClose={closeItem}
 				/>
 			) : null}
 
-			<Sheet open={Boolean(sharing)} title="要交給哪個 Bot？" onClose={() => setSharing(undefined)}>
+			<Sheet open={Boolean(sharing)} title="要交給哪個 Bot？" onClose={stopSharing}>
 				<RowList>
 					{bots.map((bot) => (
 						<button
@@ -722,8 +499,8 @@ export function App() {
 							key={String(bot.id)}
 							onClick={() => {
 								const item = sharing;
-								setSharing(undefined);
-								if (item) void openConversation(bot.id, item.draft, item.files, sharedKind(item.files));
+								stopSharing();
+								if (item) void open(bot.id, { draft: item.draft, files: item.files, shared: sharedKind(item.files) });
 							}}
 						>
 							<BotAvatar bot={bot} size={32} />
@@ -767,7 +544,7 @@ export function App() {
 						if (currentBot) benchDispatch({ type: "close", bot: currentBot, key });
 					},
 					ask: (text) => void controller.send([{ type: "text", text }]).catch(fail),
-					draft: (text) => void openConversation(controller.id, text),
+					draft: (draft) => void open(controller.id, { draft }),
 					reply: (text) => void controller.send([{ type: "text", text }], "steer").catch(fail),
 					answerForm: (callId, answer) => runtime.forms.answer(callId, answer),
 					// why: the composer's stop also puts messages the stop withdrew back into the draft, which only Chat holds

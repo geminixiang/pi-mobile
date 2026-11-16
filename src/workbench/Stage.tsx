@@ -3,9 +3,9 @@ import { type ReactNode, useState } from "react";
 import type { FormAnswer } from "../agent/mcp-stateless.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
-import { CLOCK } from "../app/clock.ts";
+import { CLOCK } from "../time.ts";
 import { CloseIcon } from "../app/icons.tsx";
-import { useLoaded, usePolled } from "../app/loaded.ts";
+import { useLoaded, usePolled } from "../ui/loaded.ts";
 import { callLabel, doing } from "../app/Message.tsx";
 import { resolvePath } from "../app/openFile.ts";
 import { WorkspaceView } from "../app/WorkspaceView.tsx";
@@ -239,16 +239,20 @@ function TurnControl({ card, onStop }: { card: Extract<Card, { kind: "turn" }>; 
 
 type Screen = { state: "loading" } | { state: "read"; text: string; doing: string; waiting: boolean } | { state: "gone" };
 
+const LOADING: Screen = { state: "loading" };
+
 function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime: AgentRuntime; conversation: ConversationId; agent: string; since: number; onAsk: (text: string) => void }) {
 	const now = useNow(true);
-	const [screen, setScreen] = useState<Screen>({ state: "loading" });
 	const [stopping, setStopping] = useState<"idle" | "stopping" | "failed">("idle");
-	usePolled(
-		() => orLogged(runtime.peekAgent(conversation, agent), "workbench.peek_failed", undefined, { agent }),
-		(reading) => setScreen(reading?.ok ? { state: "read", text: reading.screen, doing: reading.doing, waiting: reading.status === "needs_user" } : { state: "gone" }),
-		PEEK_EVERY_MS,
-		[runtime, conversation, agent],
-	);
+	const screen =
+		usePolled(
+			(): Promise<Screen> =>
+				orLogged(runtime.peekAgent(conversation, agent), "workbench.peek_failed", undefined, { agent }).then((reading) =>
+					reading?.ok ? { state: "read", text: reading.screen, doing: reading.doing, waiting: reading.status === "needs_user" } : { state: "gone" },
+				),
+			PEEK_EVERY_MS,
+			[runtime, conversation, agent],
+		) ?? LOADING;
 	const stop = async () => {
 		setStopping("stopping");
 		try {
@@ -285,15 +289,7 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 }
 
 function BrowserLive({ bot, handover, onOpen }: { bot: string; handover: boolean; onOpen: () => void }) {
-	const [shot, setShot] = useState<string>();
-	usePolled(
-		() => orLogged(Browser.peek({ bot }), "workbench.browser_peek_failed", undefined),
-		(peeked) => {
-			if (peeked?.jpeg) setShot(peeked.jpeg);
-		},
-		SHOT_EVERY_MS,
-		[bot],
-	);
+	const shot = usePolled(() => orLogged(Browser.peek({ bot }), "workbench.browser_peek_failed", undefined).then((peeked) => peeked?.jpeg || undefined), SHOT_EVERY_MS, [bot]);
 	return (
 		<>
 			<div className="stage-shot">{shot ? <img src={`data:image/jpeg;base64,${shot}`} alt="" /> : null}</div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { messageOf } from "../promise.ts";
-import { useOnResume } from "../ui/resume.ts";
+import { resumed } from "../ui/resume.ts";
+import { useStore } from "../ui/subscribed.ts";
 import { backgroundSetup, type SetupStatus } from "./background.ts";
 
 const CODE = /^\d{6}$/;
@@ -29,10 +30,10 @@ type Attempt = { state: "idle" } | { state: "pairing" } | { state: "failed"; pro
 const failed = (failure: unknown): SetupStatus => ({ ok: false, reason: messageOf(failure) });
 
 export function BackgroundSetup({ allowed }: { allowed: boolean }) {
-	const [status, setStatus] = useState<SetupStatus>();
+	const read = () => backgroundSetup.status().catch(failed);
+	const [status, setStatus] = useStore<SetupStatus | undefined>(undefined, resumed(read), []);
 	const [attempt, setAttempt] = useState<Attempt>({ state: "idle" });
-	const refresh = () => backgroundSetup.status().then(setStatus, (failure: unknown) => setStatus(failed(failure)));
-	useOnResume(() => void refresh());
+	const refresh = () => read().then(setStatus);
 	if (!status) return null;
 	const settle = (paired: SetupStatus) => {
 		if (paired.ok) return void refresh().then(() => setAttempt({ state: "idle" }));

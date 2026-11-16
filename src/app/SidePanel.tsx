@@ -1,19 +1,19 @@
-import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, type RefObject, type TouchEvent, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptic } from "./haptics.ts";
 import { useBack, useLast } from "./layers.ts";
-import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 
 export type SidePage = { open: boolean; label: string; onBack: () => void; content: ReactNode };
 
 class PanelMotion extends Motion {
-	page: { open: boolean; onBack: () => void; element: HTMLElement | null } = { open: false, onBack: () => {}, element: null };
-
 	constructor(
 		readonly side: Side,
 		private readonly viewport: HTMLElement,
 		private readonly popup: HTMLElement,
 		private readonly card: RefObject<HTMLElement | null>,
+		private readonly pageElement: RefObject<HTMLElement | null>,
+		readonly page: () => { open: boolean; onBack: () => void },
 		settled: () => void,
 	) {
 		super(settled);
@@ -45,8 +45,8 @@ class PanelMotion extends Motion {
 		this.card.current?.style.setProperty(this.side === "left" ? "--side-left" : "--side-right", String(position));
 		this.popup.style.setProperty("--side-reveal", String(Math.min(position, 1)));
 		this.popup.style.setProperty("--side-deep", deep);
-		this.page.element?.style.setProperty("--side-deep", deep);
-		this.page.element?.toggleAttribute("data-shown", position > 1);
+		this.pageElement.current?.style.setProperty("--side-deep", deep);
+		this.pageElement.current?.toggleAttribute("data-shown", position > 1);
 	}
 }
 
@@ -93,7 +93,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 			drag.motion.settleTo(drag.range.max);
 			if (cancelled || stays) return;
 			haptic("tick");
-			drag.motion.page.onBack();
+			drag.motion.page().onBack();
 			return;
 		}
 		const wasOpen = current().open === side;
@@ -124,7 +124,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 					gesture.ignored = true;
 					return;
 				}
-				const page = motion.page.open;
+				const page = motion.page().open;
 				gesture.drag = {
 					motion,
 					from: motion.position(),
@@ -181,61 +181,63 @@ export function SidePanel({ side, open, page, onClose, label, children }: { side
 	const deep = open && Boolean(page?.open);
 	useBack(deep, () => page?.onBack());
 	const context = useContext(SideContext);
-	const viewport = useRef<HTMLDivElement>(null);
 	const popup = useRef<HTMLDivElement>(null);
 	const pageElement = useRef<HTMLDivElement>(null);
 	const motion = useRef<PanelMotion>(undefined);
+	const focusedBefore = useRef<Element | null>(undefined);
 	const [pageMounted, setPageMounted] = useState(false);
+	if (deep && !pageMounted) setPageMounted(true);
 	const pageContent = useLast(deep, page?.content);
+	const latest = useRef({ deep, page });
+	latest.current = { deep, page };
 
-	useLayoutEffect(() => {
-		if (!context || !viewport.current || !popup.current) return;
-		const created: PanelMotion = new PanelMotion(side, viewport.current, popup.current, context.card, () => {
-			if (created.position() <= 1 && !created.page.open) setPageMounted(false);
-		});
-		motion.current = created;
-		context.panels.set(side, created);
-		return () => {
-			context.panels.delete(side);
-		};
-	}, [context, side]);
-
-	useLayoutEffect(() => {
+	const restoreFocus = () => {
+		const previous = focusedBefore.current;
+		focusedBefore.current = undefined;
+		if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
+	};
+	const attach = useCallback(
+		(element: HTMLDivElement) => {
+			const viewport = element.parentElement;
+			if (!context || !viewport) return () => undefined;
+			popup.current = element;
+			motion.current = new PanelMotion(
+				side,
+				viewport,
+				element,
+				context.card,
+				pageElement,
+				() => ({ open: latest.current.deep, onBack: () => latest.current.page?.onBack() }),
+				() => {
+					if ((motion.current?.position() ?? 0) <= 1 && !latest.current.deep) setPageMounted(false);
+				},
+			);
+			context.panels.set(side, motion.current);
+			return () => {
+				context.panels.delete(side);
+				restoreFocus();
+			};
+		},
+		[context, side],
+	);
+	const moveFocus = () => {
+		if (!open) return restoreFocus();
+		if (focusedBefore.current === undefined) focusedBefore.current = document.activeElement;
+		(deep ? pageElement.current : popup.current)?.focus({ preventScroll: true });
+	};
+	const follow = useCallback(() => {
 		const current = motion.current;
-		if (!current) return;
-		current.page = { open: deep, onBack: () => page?.onBack(), element: pageElement.current };
-	});
-
-	useLayoutEffect(() => {
-		if (deep) setPageMounted(true);
-	}, [deep]);
-
-	useLayoutEffect(() => {
-		const current = motion.current;
-		if (!current) return;
-		if (deep) current.settleTo(current.deepest());
-		else current.settle(open);
+		if (current && deep) current.settleTo(current.deepest());
+		else current?.settle(open);
+		moveFocus();
+		return () => undefined;
 	}, [open, deep]);
-
-	useEffect(() => {
-		if (!open) return;
-		const previous = document.activeElement;
-		popup.current?.focus({ preventScroll: true });
-		return () => {
-			if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
-		};
-	}, [open]);
-
-	useEffect(() => {
-		if (deep) pageElement.current?.focus({ preventScroll: true });
-		else if (open) popup.current?.focus({ preventScroll: true });
-	}, [deep]);
 
 	if (!context) return null;
 	return createPortal(
-		<div ref={viewport} className="side-viewport">
+		<div ref={follow} className="side-viewport">
 			<div
-				ref={popup}
+				ref={attach}
 				className={`side-popup side-${side}`}
 				role="dialog"
 				aria-modal="true"

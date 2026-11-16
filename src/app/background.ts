@@ -1,23 +1,18 @@
-import { useState } from "react";
-import { native, type NativePlugin } from "../native.ts";
+import { native } from "../native.ts";
 import { KeepAlive } from "../plugins/keep-alive.ts";
-import { useOnResume } from "../ui/resume.ts";
-
-export function useRefreshOnResume(plugin: NativePlugin, refresh: () => void): void {
-	useOnResume(() => {
-		if (native.has(plugin)) refresh();
-	});
-}
+import { resumed } from "../ui/resume.ts";
+import { useStore } from "../ui/subscribed.ts";
 
 type Background = { notifications: boolean; unrestrictedBattery?: boolean };
 
 export function useBackground(): { status: Background | undefined; allowNotifications: () => void; unrestrictBattery: () => void } {
-	const [status, setStatus] = useState<Background>();
-	const refresh = () => void KeepAlive.status().then(setStatus);
-	useRefreshOnResume("KeepAlive", refresh);
+	const [status, setStatus] = useStore<Background | undefined>(undefined, resumed(native.has("KeepAlive") ? () => KeepAlive.status() : undefined), []);
 	return {
 		status,
-		allowNotifications: () => void KeepAlive.requestNotifications().then(refresh),
+		allowNotifications: () =>
+			void KeepAlive.requestNotifications()
+				.then(() => KeepAlive.status())
+				.then(setStatus),
 		unrestrictBattery: () => void KeepAlive.requestUnrestrictedBattery(),
 	};
 }

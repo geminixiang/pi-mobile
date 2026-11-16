@@ -1,5 +1,5 @@
 import { orLogged } from "../promise.ts";
-import { useBriefly } from "./briefly.ts";
+import { useBriefly } from "../ui/briefly.ts";
 import { CheckIcon, CopyIcon } from "./icons.tsx";
 import { copy } from "./clipboard.ts";
 import { haptic } from "./haptics.ts";

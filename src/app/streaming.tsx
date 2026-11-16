@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useRef, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 import remend from "remend";
+import { eachFrame } from "../time.ts";
 import { remarkPlugins, streamingMarkdownComponents } from "./markdown.tsx";
 
 const CATCH_UP_MS = 160;
@@ -11,30 +12,21 @@ function boundary(text: string, index: number): number {
 }
 
 function useSmoothText(text: string): string {
-	const [shown, setShown] = useState(0);
 	const state = useRef({ shown: 0, target: text });
 	state.current.target = text;
-	useEffect(() => {
-		let frame = 0;
+	const follow = useCallback((changed: () => void) => {
 		let last = performance.now();
-		const step = (now: number) => {
-			const { target } = state.current;
+		return eachFrame((now) => {
+			const { target, shown } = state.current;
 			const elapsed = Math.min(now - last, 100);
 			last = now;
-			const behind = target.length - state.current.shown;
-			if (behind > 0) {
-				const next = Math.min(target.length, state.current.shown + Math.max(1, Math.ceil((behind * elapsed) / CATCH_UP_MS)));
-				state.current.shown = boundary(target, next);
-				setShown(state.current.shown);
-			} else if (behind < 0) {
-				state.current.shown = target.length;
-				setShown(target.length);
-			}
-			frame = requestAnimationFrame(step);
-		};
-		frame = requestAnimationFrame(step);
-		return () => cancelAnimationFrame(frame);
+			const behind = target.length - shown;
+			if (behind === 0) return;
+			state.current.shown = behind > 0 ? boundary(target, Math.min(target.length, shown + Math.max(1, Math.ceil((behind * elapsed) / CATCH_UP_MS)))) : target.length;
+			changed();
+		});
 	}, []);
+	const shown = useSyncExternalStore(follow, () => state.current.shown);
 	return text.slice(0, Math.min(shown, text.length));
 }
 
