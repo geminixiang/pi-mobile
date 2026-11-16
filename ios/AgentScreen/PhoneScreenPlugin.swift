@@ -199,15 +199,47 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
                     return line.label.caseInsensitiveCompare(text) == .orderedSame
                 }
                 if matches.count > 1 { return .failure(ScreenFailure(reason: "target_ambiguous: use an id")) }
-                if let target = matches.first {
-                    guard target.enabled else { return .failure(ScreenFailure(reason: "target_disabled")) }
-                    return await touch(from: CGPoint(x: target.rect.midX, y: target.rect.midY), seconds: 0).map { _ in "tapped \(target.listed)" }
+                if let found = matches.first {
+                    guard found.enabled else { return .failure(ScreenFailure(reason: "target_disabled")) }
+                    let shown = found.web ? await revealed(found) : .success(found)
+                    guard case .success(let target) = shown else { return shown.map { _ in nil } }
+                    let before = seen.focusedField
+                    if case .failure(let error) = await touch(from: CGPoint(x: target.rect.midX, y: target.rect.midY), seconds: 0) { return .failure(error) }
+                    guard target.role == "field", let before, before.label != target.label else { return .success("tapped \(target.listed)") }
+                    return await focused(target, from: before).map { "tapped \(target.listed)" }
                 }
                 if let id { return .failure(ScreenFailure(reason: "target_gone: \(id)")) }
             }
             if case .failure(let error) = await pause(0.1) { return .failure(error) }
         } while ProcessInfo.processInfo.systemUptime < until
         return .failure(ScreenFailure(reason: "target_missing"))
+    }
+
+    @MainActor private func focused(_ target: ScreenLine, from before: ScreenLine) async -> Result<Void, ScreenFailure> {
+        let until = ProcessInfo.processInfo.systemUptime + 1
+        repeat {
+            switch await see() {
+            case .failure(let error): return .failure(error)
+            case .success(let seen):
+                if seen.lines.contains(where: { $0.focused && $0.role == "field" && $0.label != before.label }) { return .success(()) }
+            }
+            if case .failure(let error) = await pause(0.1) { return .failure(error) }
+        } while ProcessInfo.processInfo.systemUptime < until
+        return .failure(ScreenFailure(reason: "not_focused: [\(target.id)] did not take the cursor, which stayed in \(before.listed); something on top of it (a suggestion or popup) took the tap. Close that, read the screen, and tap again"))
+    }
+
+    @MainActor private func revealed(_ target: ScreenLine) async -> Result<ScreenLine, ScreenFailure> {
+        guard let ref = elements.refs[target.id] else { return .failure(ScreenFailure(reason: "target_gone: \(target.id)")) }
+        if case .failure(let error) = await request("reveal", ["ref": ref]) { return .failure(error) }
+        if case .failure(let error) = await settle(cap: 1) { return .failure(error) }
+        switch await see() {
+        case .failure(let error): return .failure(error)
+        case .success(let seen):
+            let same = seen.lines.filter { $0.role == target.role && $0.label == target.label }
+            let distance = { (line: ScreenLine) in hypot(line.rect.midX - target.rect.midX, line.rect.midY - target.rect.midY) }
+            guard let moved = seen.lines.first(where: { $0.id == target.id }) ?? same.min(by: { distance($0) < distance($1) }) else { return .failure(ScreenFailure(reason: "target_gone: \(target.id)")) }
+            return .success(moved)
+        }
     }
 
     @MainActor private func waitFor(_ step: JSObject) async -> Result<String?, ScreenFailure> {

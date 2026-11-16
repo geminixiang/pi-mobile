@@ -61,7 +61,7 @@ function present({ snapshot, waits }: Shown, screen: Screen): ToolExecutionResul
 
 const ToolStep = Type.Object({
 	action: oneOf(["tap", "long_press", "swipe", "scroll", "type", "clear", "key", "open", "wait", "wait_for", "scroll_to", "expect"] as const),
-	id: Type.Optional(Type.Integer({ minimum: 1, description: "tap: live element id" })),
+	id: Type.Optional(Type.Integer({ minimum: 0, description: "tap: live element id" })),
 	gone: Type.Optional(Type.Boolean({ description: "wait_for: wait until absent; default false" })),
 	x: Type.Optional(Type.Number({ description: "Points from the left" })),
 	y: Type.Optional(Type.Number({ description: "Points from the top" })),
@@ -167,7 +167,7 @@ const usePhoneScreen = defineAppTool({
 		const steps: PhoneScreenStep[] = [];
 		for (const [at, step] of args.steps.entries()) {
 			const checked = stepOf(step);
-			if (!checked.ok) throw new Error(`step ${at + 1} (${step.action}): ${checked.problem}`);
+			if (!checked.ok) throw new Error(`No step ran: step ${at + 1} (${step.action}) ${checked.problem}.`);
 			steps.push(checked.value);
 		}
 		return call(args.screen, async (display, on) => {

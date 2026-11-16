@@ -16,6 +16,9 @@
 - (NSArray *)activeApplications;
 - (int)processIdentifier;
 - (NSDictionary *)defaultParameters;
+- (id)accessibilityElement;
++ (id)scrollToVisibleAction;
+- (BOOL)performAction:(id)action onElement:(id)element value:(id)value error:(NSError **)error;
 + (id)axAttributesForElementSnapshotKeyPaths:(NSArray *)paths isMacOS:(BOOL)mac;
 - (id)requestSnapshotForElement:(id)element attributes:(NSArray *)attributes parameters:(NSDictionary *)parameters error:(NSError **)error;
 - (NSArray *)children;
@@ -59,6 +62,7 @@ static NSDictionary *success(NSDictionary *value) {
 @property(nonatomic) dispatch_queue_t queue;
 @property(nonatomic) id session;
 @property(nonatomic) id accessibility;
+@property(nonatomic) NSMutableArray *seen;
 @property(nonatomic) BOOL timedOut;
 @end
 
@@ -149,6 +153,7 @@ static NSDictionary *success(NSDictionary *value) {
     }
     if ([operation isEqualToString:@"open"]) return [self launch:args[@"app"]];
     if ([operation isEqualToString:@"type"]) return [self type:args[@"text"]];
+    if ([operation isEqualToString:@"reveal"]) return [self reveal:[args[@"ref"] integerValue]];
     if ([operation isEqualToString:@"touch"]) {
         CGPoint from = CGPointMake([args[@"x"] doubleValue], [args[@"y"] doubleValue]);
         double duration = [args[@"seconds"] doubleValue];
@@ -185,7 +190,8 @@ static NSDictionary *success(NSDictionary *value) {
 - (NSDictionary *)launch:(NSString *)wanted {
     NSString *bundle = nil;
     NSString *name = nil;
-    for (id app in [[NSClassFromString(@"LSApplicationWorkspace") defaultWorkspace] allInstalledApplications]) {
+    NSArray *installed = [[NSClassFromString(@"LSApplicationWorkspace") defaultWorkspace] allInstalledApplications];
+    for (id app in installed) {
         NSString *identifier = [app bundleIdentifier];
         NSString *label = [app localizedName];
         if ([identifier caseInsensitiveCompare:wanted] == NSOrderedSame || [label caseInsensitiveCompare:wanted] == NSOrderedSame) {
@@ -195,6 +201,7 @@ static NSDictionary *success(NSDictionary *value) {
         }
     }
     if (!bundle && [wanted containsString:@"."]) bundle = wanted;
+    if (!bundle.length && !installed.count) return failure(@"app_list_unavailable", @"iOS does not let pi look apps up by name here; open it by its bundle id, such as com.company.app");
     if (!bundle.length) return failure(@"app_not_found", wanted);
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
     __block NSError *error = nil;
@@ -252,19 +259,31 @@ static NSDictionary *success(NSDictionary *value) {
     if (!snapshot) return failure(@"snapshot_failed", error.localizedDescription);
     id root = [snapshot valueForKey:@"_rootElementSnapshot"];
     if (!root) return failure(@"snapshot_failed", @"No root element snapshot");
+    self.seen = [NSMutableArray new];
     return success(@{ @"package": bundle, @"app": [root label] ?: bundle, @"tree": [self node:root] });
 }
 
 - (NSDictionary *)node:(id)snapshot {
     CGRect frame = [snapshot frame];
     id value = [snapshot value];
+    NSUInteger ref = self.seen.count;
+    [self.seen addObject:[snapshot accessibilityElement] ?: NSNull.null];
     NSMutableArray *children = [NSMutableArray new];
     for (id child in [snapshot children]) [children addObject:[self node:child]];
     return @{ @"type": @([snapshot elementType]), @"label": [snapshot label] ?: @"", @"identifier": [snapshot identifier] ?: @"",
               @"value": [value isKindOfClass:NSString.class] ? value : [value respondsToSelector:@selector(stringValue)] ? [value stringValue] : @"",
               @"x": @(frame.origin.x), @"y": @(frame.origin.y), @"width": @(frame.size.width), @"height": @(frame.size.height),
               @"enabled": @([snapshot isEnabled]), @"selected": @([snapshot isSelected]),
-              @"focused": @([snapshot respondsToSelector:@selector(hasKeyboardFocus)] && [snapshot hasKeyboardFocus]), @"children": children };
+              @"focused": @([snapshot respondsToSelector:@selector(hasKeyboardFocus)] && [snapshot hasKeyboardFocus]), @"ref": @(ref), @"children": children };
+}
+
+- (NSDictionary *)reveal:(NSInteger)ref {
+    id element = ref >= 0 && ref < (NSInteger)self.seen.count ? self.seen[ref] : nil;
+    if (!element || element == NSNull.null) return failure(@"reveal_failed", @"The element is not in the last snapshot");
+    id action = [NSClassFromString(@"XCUIAccessibilityAction") respondsToSelector:@selector(scrollToVisibleAction)] ? [NSClassFromString(@"XCUIAccessibilityAction") scrollToVisibleAction] : nil;
+    if (!action || ![self.accessibility respondsToSelector:@selector(performAction:onElement:value:error:)]) return failure(@"private_api_unavailable", @"No scroll-to-visible action");
+    NSError *error = nil;
+    return [self.accessibility performAction:action onElement:element value:nil error:&error] ? success(@{}) : failure(@"reveal_failed", error.localizedDescription);
 }
 
 @end

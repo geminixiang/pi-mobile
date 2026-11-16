@@ -1,5 +1,7 @@
 import Foundation
 
+private let WEB_VIEW = 58
+
 struct ScreenLine: Equatable {
     let id: Int
     let label: String
@@ -7,6 +9,8 @@ struct ScreenLine: Equatable {
     let rect: CGRect
     let enabled: Bool
     let role: String
+    let focused: Bool
+    let web: Bool
     var listed: String { "[\(id)] \(text)" }
 }
 
@@ -19,6 +23,7 @@ struct ScreenView: Equatable {
     let lines: [ScreenLine]
     let secretFocused: Bool
 
+    var focusedField: ScreenLine? { lines.first { $0.focused && $0.role == "field" } }
     var signature: [String] { [package, String(keyboard)] + headings + lines.map(\.text) }
     var listed: [String] { Array((headings + lines.map(\.listed)).prefix(160)) }
     var more: Int { max(0, headings.count + lines.count - 160) }
@@ -54,6 +59,7 @@ struct ScreenView: Equatable {
 
     private var previous: [Identity: Int] = [:]
     private var next = 1
+    private(set) var refs: [Int: Int] = [:]
 
     func see(_ raw: [String: Any]) -> Result<ScreenView, ScreenFailure> {
         guard let tree = raw["tree"] as? [String: Any] else { return .failure(ScreenFailure(reason: "snapshot_failed: no tree")) }
@@ -61,11 +67,12 @@ struct ScreenView: Equatable {
         let size = CGSize(width: tree["width"] as? Double ?? 0, height: tree["height"] as? Double ?? 0)
         let viewport = CGRect(origin: .zero, size: size)
         var current: [Identity: Int] = [:]
+        refs = [:]
         var lines: [ScreenLine] = []
         var keyboard = false
         var secretFocused = false
         var headings: [String] = []
-        func walk(_ node: [String: Any], path: String, owner: String?, context: String) {
+        func walk(_ node: [String: Any], path: String, owner: String?, context: String, web: Bool) {
             let type = node["type"] as? Int ?? 0
             if type == 19 { keyboard = true; return }
             if type == 50 && node["focused"] as? Bool == true { secretFocused = true }
@@ -93,15 +100,16 @@ struct ScreenView: Equatable {
                     if previous[identity] == nil { next += 1 }
                     current[identity] = id
                     let description = ([role + (clipped.isEmpty ? "" : " \"\(clipped)\""), "at \(Int(rect.midX.rounded())),\(Int(rect.midY.rounded()))"] + flags).joined(separator: " ")
-                    lines.append(ScreenLine(id: id, label: text, text: description, rect: rect, enabled: node["enabled"] as? Bool != false, role: role))
+                    lines.append(ScreenLine(id: id, label: text, text: description, rect: rect, enabled: node["enabled"] as? Bool != false, role: role, focused: node["focused"] as? Bool == true, web: web))
+                    if let ref = node["ref"] as? Int { refs[id] = ref }
                     if role != "text" { nextOwner = text }
                 }
             }
             for (index, child) in (node["children"] as? [[String: Any]] ?? []).enumerated() {
-                walk(child, path: path + "/\(index)", owner: nextOwner, context: section)
+                walk(child, path: path + "/\(index)", owner: nextOwner, context: section, web: web || type == WEB_VIEW)
             }
         }
-        walk(tree, path: "", owner: nil, context: "")
+        walk(tree, path: "", owner: nil, context: "", web: false)
         previous = current
         return .success(ScreenView(package: package, app: raw["app"] as? String ?? package, size: size, keyboard: keyboard, headings: headings, lines: lines, secretFocused: secretFocused))
     }
