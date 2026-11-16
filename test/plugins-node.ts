@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { PhoneScreen, KEYS as PHONE_KEYS, keysFor } from "../src/phone-screen/plugin.ts";
-import { Browser, KEYS as BROWSER_KEYS } from "../src/browser/plugin.ts";
+import { Browser, KEYS as BROWSER_KEYS, MAX_TABS } from "../src/browser/plugin.ts";
 import { coverage, kotlinKeys, kotlinSteps, swiftBranches } from "./screen/branches.ts";
 import type { Methods } from "../src/plugins/define.ts";
 import { PLUGINS } from "../src/plugins/index.ts";
@@ -117,6 +117,16 @@ for (const backend of BACKENDS) {
 	assert(coverage(backend.platform, backend.file, backend.actions, kotlinSteps(decoy, backend.owner), "step").some((failure) => failure.includes(`claims ${removed}`)));
 	assert(coverage(backend.platform, backend.file, backend.actions, kotlinSteps(decoy, backend.owner), "step").some((failure) => failure.includes("implements missing_test_branch")));
 }
+const browserSwift = readFileSync(new URL("BrowserSteps.swift", IOS), "utf8");
+failures.push(...coverage("ios browser", "BrowserSteps.swift", browserActions, swiftBranches(browserSwift, "action"), "step"), ...coverage("ios browser", "BrowserSteps.swift", BROWSER_KEYS, swiftBranches(browserSwift, "key"), "key"));
+const NATIVE_MAX_TABS = /MAX_TABS = (\d+)/;
+for (const [file, directory] of [["BrowserPlugin.kt", ANDROID], ["BrowserPlugin.swift", IOS]] as const) {
+	const kept = NATIVE_MAX_TABS.exec(readFileSync(new URL(file, directory), "utf8"))?.[1];
+	if (Number(kept) !== MAX_TABS) failures.push(`${file} keeps ${kept} tabs for a Bot, src/browser/plugin.ts ${MAX_TABS}: the sheet stops offering a new tab at one number and the phone refuses at another; make MAX_TABS the same in both`);
+}
+const appStoreProject = readFileSync(new URL("../App.xcodeproj/project.pbxproj", IOS), "utf8");
+const uncompiled = readdirSync(IOS).filter((name) => name.endsWith(".swift") && !appStoreProject.includes(`${name} in Sources`));
+if (uncompiled.length) failures.push(`Swift files the App Store project does not compile, so only the open source edition (which takes the whole folder) builds: ${uncompiled.join(", ")}; add each to ios/App/App.xcodeproj/project.pbxproj as the other plugins are (PBXBuildFile, PBXFileReference, the App group, the Sources phase)`);
 if (existsSync(IOS_SCREEN)) {
 	const swift = readdirSync(IOS_SCREEN, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".swift"));
 	const sources = swift.map((file) => ({ file, source: readFileSync(new URL(file, IOS_SCREEN), "utf8") }));

@@ -65,7 +65,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
 | App notes: installed apps only, bounded, never written unattended | `test/contracts/app-notes.ts` |
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
-| Every step action and key the phone screen and the browser declare is read by their Kotlin side | `test/plugins-node.ts` |
+| Every step action and key the phone screen and the browser declare is read by their native side | `test/plugins-node.ts` |
 | Every native plugin class is registered (`MainActivity`, `MainViewController`) | `test/plugins-node.ts` |
 | An iOS plugin that reports permissions can also ask for them; an Android plugin never puts a cursor string straight into a result | `test/plugins-node.ts` |
 | Every schedule kind and activity in `src/triggers/plugin.ts` is read by the Android side (`Schedule.kt`, `ActivityTrigger.kt`) | `test/plugins-node.ts` |

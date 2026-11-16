@@ -401,3 +401,13 @@ public final class PhoneScreenPlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Se
         }
     }
 }
+
+extension PhoneScreenPlugin: RealTouch {
+    @MainActor func tap(at screenPoint: CGPoint) async -> RealTouchOutcome {
+        guard case .success = await request("status") else { return .unavailable }
+        switch await touch(from: screenPoint, seconds: 0) {
+        case .success: return .delivered
+        case .failure(let error): return .unconfirmed(error.reason)
+        }
+    }
+}

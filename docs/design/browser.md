@@ -1,6 +1,6 @@
 # 瀏覽器：agent 操作網頁，你看得到，也能接手
 
-狀態：Android 初版（2026-10-30），給使用者在 S24 試用；共用 profile、設定頁、iOS 還沒做。已定：新 Bot 預設用自己的 profile，瀏覽器畫面是全螢幕頁。中文輸入驗證過：點到欄位後 `execCommand('insertText')`，`input`、`textarea`、`contenteditable` 都打得進去，事件是 `isTrusted`，不需要 `InputConnection`。Chromium 在同一個行程裡用過的 profile 刪不掉，所以刪 Bot 時先清空它的 cookie 和網站儲存，profile 留到下次啟動再刪。app 重開後瀏覽器回到空白頁，登入還在。
+狀態：Android 初版（2026-10-30），給使用者在 S24 試用；iOS 版 2026-11-16（見〈iOS〉，還沒在實機試）；共用 profile、設定頁還沒做。已定：新 Bot 預設用自己的 profile，瀏覽器畫面是全螢幕頁。中文輸入驗證過：點到欄位後 `execCommand('insertText')`，`input`、`textarea`、`contenteditable` 都打得進去，事件是 `isTrusted`，不需要 `InputConnection`。Chromium 在同一個行程裡用過的 profile 刪不掉，所以刪 Bot 時先清空它的 cookie 和網站儲存，profile 留到下次啟動再刪。app 重開後瀏覽器回到空白頁，登入還在。
 
 2026-10-30 第二版（使用者說第一版「太硬要了」，要的是概念不是照抄，而且 app 裡的東西要滿版）：改成底部 sheet 的鏡像，從頂欄下方降下的滿版面板，米色底、細線、等寬字網址列、底部把手；收起來是頂欄下面一條細帶（● 網站名稱 ⌄）。展開收合的時機、網址列、交還都沿用第一版。
 
@@ -127,7 +127,71 @@ DSH Go 在原生層攔危險按鈕（見 [research/dsh-go.md](../research/dsh-go
 沒測到的：寫得比較隱蔽的注入（例如偽裝成網站自己的操作說明）、操控整支手機時通知或聊天訊息裡的注入、真的付款流程（通常還要登入、卡號或指紋）。
 ## iOS
 
-`WKWebView` 加 `WKWebsiteDataStore(forIdentifier:)`（iOS 17 起）做到每個 Bot 一個 profile。iOS 沒有送真正觸控的公開方法，只能用 JS 模擬事件（`isTrusted: false`），有些網站會擋。Android 做完再跟上，先接受這個差距。
+2026-11-16 做了：`Browser` 外掛移植到 iOS（`ios/App/App/` 的 `BrowserPlugin.swift`、`BrowserTab.swift`、`BrowserSteps.swift`、`WebPages.swift`），合約、工具、瀏覽器面板不變。起因是在 iPhone 上用無障礙樹操作 Safari 不可靠（放大後 frame 錯、焦點過期、id 亂跳、鍵盤和自動填入蓋住點擊）；在自己的 WebView 裡，頁面腳本直接讀 DOM。
+
+| 部分 | iOS 的做法 |
+|---|---|
+| 每個 Bot 的登入 | `WKWebsiteDataStore(forIdentifier:)`，識別碼是 `bot-<id>` 的 SHA-256 前 16 位元組做成的 UUID。刪 Bot 時直接移除那個 store；還有 WebView 活著（關掉的分頁上還有呼叫在跑）WebKit 會拒絕，這時先清空資料，名字記在 `UserDefaults`，下次啟動再移除 |
+| 頁面腳本 | 同一份 `page-controller.js`。第一次要用時才放進頁面（和 Android 一樣）：`WKUserScript` 不會進新 WebView 的第一個空白文件，新分頁一讀就失敗；改成先載入空白頁又會和接著的 `open` 搶 |
+| 和頁面對話 | `callAsyncJavaScript`：等得到 Promise，參數直接傳，不用 Android 的 `piAnswer` 訊息通道 |
+| 點 | 預設在頁面裡：`page.ts` 的 `click(index)` 對元素送 pointer／mouse／click 事件並給焦點（同步，所以點了就換頁也收得到回覆；page-controller 自己的 `clickElement` 前後共等 0.6 秒，換頁快時 Promise 會跟著舊文件消失）。瀏覽器面板開著、而且那一點真的落在網頁上（app 在前景、沒被鍵盤或別的畫面蓋住）時，開源版改送真的觸控；送不出去就回到頁面裡點 |
+| 打字 | 一律在頁面裡：`click(index)` 給焦點，再 `execCommand('insertText')`，鍵盤不會出現，頁面照常收到 `beforeinput`、`input` |
+| 按鍵 | iOS 沒有對 WebView 送按鍵的公開方法，腳本造的按鍵事件也沒有預設行為，所以腳本送 `keydown`（Enter 多一個 `keypress`）、`keyup`，中間自己做那個鍵的事：Enter 送出表單（有送出鈕就點它，沒有就 `requestSubmit`）、在 textarea 換行、在 contenteditable 分段、在連結和按鈕上等於點擊；Tab 把焦點移到下一個可聚焦的元素（照文件順序）；Backspace 是 `execCommand('delete')`；Escape 只有事件 |
+| 選單、捲動、等文字 | 和 Android 同一份腳本 |
+| 不顯示時 | 分頁的 WebView 一直留在視窗裡，放在 pi 的 WebView 後面。不在視窗裡的 WebView，WebKit 不畫、計時器降到約每秒一次（見下面的量測）；放在後面時頁面照常跑，截圖也拍得到 |
+| 顯示 | 把那個 WebView 移到 pi 的 WebView 前面，位置和圓角照面板給的（只有下方兩個角） |
+| 截圖 | `takeSnapshot`，縮成螢幕解析度的一半（和 Android 一樣），JPEG 品質 0.7 |
+
+### 真的觸控：只有開源版
+
+```
+App target (ios/App/App)                    開源版才編進來 (ios/AgentScreen)
+┌──────────────────────────────┐           ┌─────────────────────────────────┐
+│ protocol RealTouch           │◄──────────│ extension PhoneScreenPlugin:    │
+│   tap(at:) -> delivered      │  conforms │   RealTouch                     │
+│          | unavailable       │           │   status 連得上才送 touch       │
+│          | unconfirmed(why)  │           │   （InProcess 的 XCTest session）│
+├──────────────────────────────┤           └─────────────────────────────────┘
+│ MainViewController           │  PiEdition.plugins() 回來的外掛裡，
+│   realTouch: RealTouch?      │  有做 RealTouch 的那一個（上架版沒有 PiEdition，是 nil）
+├──────────────────────────────┤
+│ BrowserPlugin → BrowserTab   │  建分頁時向 MainViewController 要 realTouch
+│   realTap(at:)               │  nil、不在畫面上、unavailable → 頁面裡點
+└──────────────────────────────┘  unconfirmed → 這一步停下，不重送
+```
+
+`BrowserTab` 不認得 `PhoneScreenPlugin` 和 `InProcess`，只認得 `RealTouch`。XCTest 的 session 仍然只有 `PhoneScreenPlugin` 一個主人。`unconfirmed` 是事件送出後沒等到確認：可能已經點到，再在頁面裡點一次會變成點兩下，所以停下來回報。
+
+### 和 Android 不一樣的地方
+
+- 頁面裡的點擊和按鍵是 `isTrusted: false`（Android 是真的觸控和按鍵）。靠使用者手勢才放行的事（開新視窗、播聲音、讀剪貼簿、檔案選擇、有些網站的登入按鈕）在頁面裡點可能沒反應；開源版在面板開著時用真的觸控，其餘交給 `hand_over`。
+- 明文 `http://` 被 ATS 擋（本機和 `*.ts.net` 除外），讀頁面時前面多一行 `[… did not load: …]`。iOS 的 WebView 沒有自己的錯誤頁，載入失敗時畫面停在上一頁，所以失敗一定要寫出來。
+- 頁面卡死（20 秒不回應）只關那個分頁：iOS 上每個分頁有自己的 process，其他分頁和 pi 照常。iOS 沒有結束 WebView process 的公開方法，模擬器上卡死的 process 關了分頁還在空轉（見下面的量測）。
+- 分頁的 process 被系統結束（記憶體不足）時，分頁留著，下次用到才重新載入。
+- 憑證有問題只分三種（過期、還沒生效、不受信任）；沒有 Safe Browsing 的回呼，WebKit 自己的詐騙網站警告是原生畫面，頁面文字讀不到。
+- 沒有 `wv` 可以拿掉，改成補上 Safari 的 `Version/… Safari/604.1`：少了這兩段的 User-Agent 會被當成內嵌瀏覽器。
+- iOS 26 會把捲動內容在狀態列下面那一段模糊掉，放在 pi 後面的分頁剛好在那裡，截圖上緣會糊，所以關掉那個 WebView 的 `topEdgeEffect`。
+
+### 驗證（2026-11-16，模擬器 iPhone 17，iOS 27.0，從 pi 的 WebView 直接呼叫 `Capacitor.Plugins.Browser`）
+
+| 問題 | 結果 |
+|---|---|
+| 不顯示時填表送出 | `https://httpbin.org/forms/post`：三個欄位（含中文、換行）、單選、兩個複選、送出，9 步 14 秒，回應頁列出填的值 |
+| 按鍵 | 自己寫的測試頁記下每個事件：Backspace 刪一個字，Tab 換到下一欄並觸發 `change`，Enter 觸發表單 `submit`，textarea 是 `insertLineBreak`，contenteditable 是 `insertParagraph` |
+| 沒有 viewport 的頁面（980 px 版面縮成 402 點） | `tap_at` 給截圖上的位置，點中單選、複選和送出鈕：畫面座標和頁面座標用 `visualViewport` 的 `scale`、`offsetLeft`／`offsetTop` 換算 |
+| 對話框、新視窗、非網頁連結 | `alert`、`confirm`、`prompt` 自動回應並記在頁面文字前；`target=_blank` 開在同一個分頁；`tel:` 不動 |
+| 壞憑證、載入失敗 | `expired.badssl.com` 回 `[pi blocked …: its certificate is not trusted …]`；`http://example.com/` 回 ATS 的錯誤 |
+| 分頁 | 開到 8 個、第 9 個被拒、切換、關閉、app 重開後照存下的網址還原；`tabs`、`page` 事件的內容和 Android 一樣 |
+| 每個 Bot 分開 | Bot A 設的 cookie，Bot B 讀不到；app 重開後有期限的 cookie 還在 |
+| 刪 Bot | store 的資料夾當場消失；刪的時候還有呼叫在跑，資料當場清空，資料夾在下次啟動移除 |
+| 顯示、隱藏 | 模擬器截圖：網頁出現在指定位置、下方圓角，切分頁換成另一頁，隱藏後回到 pi 的畫面 |
+| 頁面卡死 | `while (true) {}`：22 秒後那個分頁關掉，同一個 Bot 的另一個分頁照常可讀。但那個分頁的 WebContent process 在 WebView 釋放後還繼續佔滿一顆核心，量了 10 分鐘都沒停（把 WebView 留著不放也一樣），關掉 pi 才結束。Android 這裡用 `terminate()`；iOS 只有私有的 `_killWebContentProcess`，沒用。實機上 iOS 會不會暫停或結束它要另外量 |
+| 不放在視窗裡會怎樣 | 同一頁 6 秒：不在視窗裡 `requestAnimationFrame` 0 次、每 100 ms 的計時器只跑 11 次、`visibilityState` 是 `hidden`；放在 pi 後面 347 次、56 次、`visible` |
+| process 被結束 | `kill -9` 分頁的 WebContent process，下一次讀頁面時重新載入，0.4 秒回到原來的內容 |
+| 閒置 | 15 分鐘沒用的分頁被關掉（log 上看到 WebView 釋放） |
+| 開源版的觸控接線 | 模擬器沒有 XCTest 的開發者映像檔：面板開著時 `RealTouch.tap` 被呼叫、螢幕座標是頁面座標加上面板的位置，回 `unavailable` 後改在頁面裡點成功；面板沒開時不呼叫 |
+
+沒驗證（要實機）：開源版真的觸控有沒有點中、使用者碰網頁後 Bot 等 4 秒、鍵盤出現時改在頁面裡點、pi 在背景時分頁還跑不跑（[research/iphone.md](../research/iphone.md) 量到 pi 的 WebView 離開畫面約 1 秒就被暫停）、Google 這類會擋內嵌瀏覽器的登入。
 
 ## 順序
 

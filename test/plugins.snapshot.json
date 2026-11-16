@@ -1517,7 +1517,19 @@
 				"type": "object"
 			}
 		},
-		"ios": []
+		"ios": [
+			"read",
+			"act",
+			"go",
+			"newTab",
+			"selectTab",
+			"closeTab",
+			"tabs",
+			"show",
+			"hide",
+			"peek",
+			"forget"
+		]
 	},
 	{
 		"name": "Calendar",

@@ -105,9 +105,9 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 		fix: "edition registration has one seam: define PiEdition in ios/AgentScreen/Edition.swift and resolve it only in MainViewController.swift",
 	},
 	{
-		use: /\bnew WebView\(|[=(] *WebView\(/,
-		owners: ["WebPages.kt"],
-		fix: "a WebView on pi's profile shares pi's renderer, so a third-party page can freeze pi: create it with WebPages.create(context, profile)",
+		use: /\bnew WebView\(|[=(] *WebView\(|\bWKWebView\(/,
+		owners: ["WebPages.kt", "WebPages.swift"],
+		fix: "a web view on pi's own profile shares what is pi's (on Android its renderer, so a third-party page can freeze pi; on iOS its cookies and storage): create it with WebPages.create, which gives it a profile of its own",
 	},
 	{
 		use: /PhoneScreenService\.(?!canStartActivities\b)\w+/,
