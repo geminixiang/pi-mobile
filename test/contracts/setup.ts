@@ -5,7 +5,7 @@ import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
 import { type Settings, SettingsStore } from "../../src/settings.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../../src/agent/calendar-access.ts";
-import type { InstalledApp } from "../../src/phone-apps/apps.ts";
+import type { InstalledApp } from "../../src/agent/platform.ts";
 
 globalThis.fetch = async () => {
 	throw new Error("contracts run offline");

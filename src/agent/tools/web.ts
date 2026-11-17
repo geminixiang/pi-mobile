@@ -5,6 +5,7 @@ import type { Context } from "@earendil-works/chord/context";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { prepareAttachment } from "../attachments.ts";
+import type { WebConfig } from "../available-models.ts";
 import { PhoneEnv } from "../files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text as textResult, truncated } from "./common.ts";
@@ -76,12 +77,6 @@ async function download(env: ExecutionEnv, url: string, path: string, context: C
 	const bytes = typeof response.data === "string" ? fromBase64(response.data) : new Uint8Array(0);
 	getOrThrow(await env.writeFile(absolute, bytes, context));
 	return { path: absolute, size: bytes.length, contentType: contentTypeOf(response.headers), url: response.url || url };
-}
-
-export interface WebConfig {
-	baseUrl: string;
-	apiKey: string;
-	modelIds: readonly string[];
 }
 
 const RESPONSES_SEARCH_MODELS = ["gpt-6.1", "gpt-6", "gpt-5.6", "gpt-5"];

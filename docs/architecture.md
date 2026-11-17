@@ -166,7 +166,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
 
 - `LAYER_OF` 裡指名單一檔案的項目（例如 `src/agent/catalog.ts`）代表這個檔案還放在別層的資料夾裡，搬到該去的地方後就刪掉。
-- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條，核心用到功能的 10 條，基礎用到功能的 3 條。同一天把共用的圖示、Sheet、震動和返回鍵搬進 `src/ui/` 後剩 22 條；拿掉原生 contract 的總表（`src/plugins/index.ts`，測試改成自己找出所有 `definePlugin`）後剩 19 條；排程和事項的畫面改拿排程的執行器（`TriggerRuns`）而不是整個 `AgentRuntime` 後剩 14 條；「開檔案」和「旁邊正在看什麼」兩個 context、HTML 預覽的 CSP 搬進 `src/ui/` 後剩 10 條，全部是核心用到功能；`Platform` 的真實實作搬到外殼（`src/app/capacitor.ts`）後剩 7 條；問使用者的資料和動作（`forms.ts`、`results.ts`、`permissions.ts`）從 `src/interaction/` 搬進核心後剩 3 條。
+- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條，核心用到功能的 10 條，基礎用到功能的 3 條。同一天把共用的圖示、Sheet、震動和返回鍵搬進 `src/ui/` 後剩 22 條；拿掉原生 contract 的總表（`src/plugins/index.ts`，測試改成自己找出所有 `definePlugin`）後剩 19 條；排程和事項的畫面改拿排程的執行器（`TriggerRuns`）而不是整個 `AgentRuntime` 後剩 14 條；「開檔案」和「旁邊正在看什麼」兩個 context、HTML 預覽的 CSP 搬進 `src/ui/` 後剩 10 條，全部是核心用到功能；`Platform` 的真實實作搬到外殼（`src/app/capacitor.ts`）後剩 7 條；問使用者的資料和動作（`forms.ts`、`results.ts`、`permissions.ts`）從 `src/interaction/` 搬進核心後剩 3 條；網路搜尋的設定（`WebConfig`）和已安裝 App 的清單（`PhoneApps`）兩個型別改由核心定義後剩 1 條。
 - 它取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬把組裝、共用 UI、連線狀態搬出去：403 變 532），所以會把程式碼推進最大的資料夾。
 
 還沒分清楚的有兩件：`agent/` 裡 `tools/` 以外還有其實是功能的檔案（MCP、雲端登入、附件、記憶），目前先算核心；功能之間互相 import 還沒有規則。

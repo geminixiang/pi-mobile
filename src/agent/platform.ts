@@ -5,7 +5,6 @@ import type { Settings, SettingsStore } from "../settings.ts";
 import type { LoadedModels } from "./available-models.ts";
 import type { FolderNetwork } from "./files/folder-network.ts";
 import type { Native } from "../native.ts";
-import type { PhoneApps } from "../phone-apps/apps.ts";
 import type { listenForRedirect } from "./oauth.ts";
 
 export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | "onClose" | "close" | "serverInfo" | "instructions">;
@@ -13,6 +12,12 @@ export type McpSession = Pick<McpClient, "connect" | "listTools" | "callTool" | 
 export interface PhoneApp {
 	folder(folder: string, network: FolderNetwork): ExecutionEnv;
 	removeFolder(folder: string): Promise<void>;
+}
+
+export type InstalledApp = { package: string; label: string; version: string };
+
+export interface PhoneApps {
+	installed(): Promise<readonly InstalledApp[]>;
 }
 
 interface BotBrowser {

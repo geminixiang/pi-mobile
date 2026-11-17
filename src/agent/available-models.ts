@@ -10,7 +10,6 @@ import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
 import { readStored } from "../parse.ts";
 import { builtinInfo, type ProviderConfig, providerName } from "./providers.ts";
-import type { WebConfig } from "./tools/web.ts";
 import { deadline } from "../time.ts";
 
 function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
@@ -37,6 +36,12 @@ export function startModelList(settings: Settings): Promise<Record<string, strin
 			return [provider.id, cached.length > 0 ? cached : await refreshed];
 		});
 	return Promise.all(lists).then(Object.fromEntries);
+}
+
+export interface WebConfig {
+	baseUrl: string;
+	apiKey: string;
+	modelIds: readonly string[];
 }
 
 export type LoadedModels = { models: Models; infos: ModelInfo[]; webSearch: WebConfig };

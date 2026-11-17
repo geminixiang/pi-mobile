@@ -256,9 +256,7 @@ const LAYER_OF: Record<string, Layer> = {
 };
 // why: the imports that still point from a lower layer up to a higher one; the list only shrinks
 const UPWARD_IMPORTS = new Set<string>([
-	"src/agent/available-models.ts → src/agent/tools/web.ts",
 	"src/agent/clouds.ts → src/agent/tools/cloud.ts",
-	"src/agent/platform.ts → src/phone-apps/apps.ts",
 ]);
 const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
 

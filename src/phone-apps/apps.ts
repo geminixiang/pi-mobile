@@ -1,8 +1,4 @@
-export type InstalledApp = { package: string; label: string; version: string };
-
-export interface PhoneApps {
-	installed(): Promise<readonly InstalledApp[]>;
-}
+import type { InstalledApp } from "../agent/platform.ts";
 
 export const NOTE_TOOL = "phone_note_as_user";
 
