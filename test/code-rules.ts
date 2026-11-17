@@ -340,7 +340,7 @@ const LONG_FILES: Record<string, number> = {
 	"src/app/Chat.tsx": 475,
 	"src/app/Links.tsx": 435,
 	"src/app/Message.tsx": 518,
-	"src/app/Settings.tsx": 476,
+	"src/app/Settings.tsx": 427,
 	"src/triggers/runs.ts": 529,
 };
 

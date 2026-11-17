@@ -9,7 +9,6 @@ import { PhoneState } from "../device/phone-state.ts";
 import { System } from "../plugins/system.ts";
 import { Usage } from "../records/usage.ts";
 import { shareDiagnostics } from "./diagnostics.ts";
-import { useBriefly } from "../ui/briefly.ts";
 import { type CalendarAccess } from "../agent/calendar-access.ts";
 import type { AgentRuntime } from "../runtime/runtime.ts";
 import { type TriggerState } from "../triggers/runs.ts";
@@ -37,6 +36,8 @@ import { useBackground } from "./background.ts";
 import { AccountsPage } from "../clouds/AccountsPage.tsx";
 import { CalendarGroup } from "../calendar/CalendarGroup.tsx";
 import { TriggersGroup } from "../triggers/TriggersGroup.tsx";
+import { ClearNotifications, NotificationsGroup } from "../notifications/NotificationsGroup.tsx";
+import { DatabaseGroup } from "../database/DatabaseGroup.tsx";
 
 function SystemAccessGroup() {
 	const state = useSubscribed<{ usage: boolean; assistant: boolean; settings?: boolean } | undefined>(
@@ -81,24 +82,6 @@ function BackgroundGroup() {
 	);
 }
 
-function NotificationsGroup({ allowed }: { allowed: boolean | undefined }) {
-	if (allowed === undefined) return null;
-	return (
-		<RowList title="通知">
-			<StateRow label="讀取通知" hint={allowed ? "保留 30 天" : "讓 Bot 看到收到的通知"} on={allowed} onClick={() => void Notifications.openSettings()} />
-		</RowList>
-	);
-}
-
-function ClearNotifications() {
-	const [cleared, showCleared] = useBriefly();
-	return (
-		<button type="button" className="danger-verb" disabled={Boolean(cleared)} onClick={() => void Notifications.clear().then(() => showCleared("已清除"))}>
-			{cleared ?? "清除通知紀錄"}
-		</button>
-	);
-}
-
 function PhonePage({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {
 	const notifications = useSubscribed<boolean | undefined>(undefined, resumed(native.has("Notifications") ? () => Notifications.status().then((status) => status.allowed) : undefined), []);
 	return (
@@ -110,38 +93,6 @@ function PhonePage({ access, onChange }: { access: CalendarAccess; onChange: (ac
 			<BackgroundGroup />
 			{notifications ? <ClearNotifications /> : null}
 		</>
-	);
-}
-
-function DatabaseGroup() {
-	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables) : undefined, []).value;
-	const [exportError, setExportError] = useState<string>();
-	if (!tables) return null;
-	return (
-		<RowList title="資料表">
-			{tables.length === 0 ? (
-				<p className="row-empty">還沒有資料表</p>
-			) : (
-				tables.map((table) => (
-					<div className="row-static" key={table.name}>
-						<code className="menu-text">{table.name}</code>
-						<span className="row-count">{table.rows} 筆</span>
-					</div>
-				))
-			)}
-			<div className="inline-verbs">
-				<button
-					type="button"
-					onClick={() => {
-						setExportError(undefined);
-						void Database.export().catch((error: unknown) => setExportError(`匯出失敗：${messageOf(error)}`));
-					}}
-				>
-					匯出
-				</button>
-			</div>
-			{exportError ? <p className="row-empty error">{exportError}</p> : null}
-		</RowList>
 	);
 }
 
