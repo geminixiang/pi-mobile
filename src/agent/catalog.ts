@@ -14,7 +14,7 @@ import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
 import { type CloudService, createCloudExtensions } from "../clouds/tool.ts";
-import { createControlExtension } from "./tools/control.ts";
+import { createControlExtension } from "../phone-control/tool.ts";
 import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "../device/tool.ts";
 import { createGitHubExtension } from "./tools/github.ts";

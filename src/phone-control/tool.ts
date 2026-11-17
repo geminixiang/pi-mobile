@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { requireAccess } from "../../notifications/access.ts";
-import { DND_MODES, type DndMode, Notifications } from "../../notifications/plugin.ts";
+import { requireAccess } from "../notifications/access.ts";
+import { DND_MODES, type DndMode, Notifications } from "../notifications/plugin.ts";
 import {
 	type Connection,
 	CONNECTIONS,
@@ -11,12 +11,12 @@ import {
 	PhoneState,
 	type SoundState,
 	STREAMS,
-} from "../../device/phone-state.ts";
-import { messageOf } from "../../promise.ts";
-import { defineAppTool, text } from "./common.ts";
-import { localTime, MINUTE, pad, parseNextTime } from "../../time.ts";
-import { oneOf } from "../../parse.ts";
-import { type ActsAsUser, mayOpenScreen } from "./apps.ts";
+} from "../device/phone-state.ts";
+import { messageOf } from "../promise.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
+import { localTime, MINUTE, pad, parseNextTime } from "../time.ts";
+import { oneOf } from "../parse.ts";
+import { type ActsAsUser, mayOpenScreen } from "../agent/tools/apps.ts";
 const minutesSeconds = (ms: number) => `${Math.floor(ms / MINUTE)}:${pad(Math.floor((ms % MINUTE) / 1000))}`;
 
 const media = defineAppTool({
