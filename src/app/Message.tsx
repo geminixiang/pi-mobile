@@ -5,7 +5,7 @@ import Markdown from "react-markdown";
 import { ChevronIcon, CloseIcon, FileIcon } from "../ui/icons.tsx";
 import { TriggerIcon } from "../triggers/TriggerIcon.tsx";
 import { isWhenKind, type TriggerSymbol, triggerSymbol } from "../triggers/when.ts";
-import { type AttachmentCard, parseAttachment } from "../agent/attachments.ts";
+import { type AttachmentCard, parseAttachment } from "../attachments/attachments.ts";
 import { type Block, blocks, message } from "../agent/entries.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import { inViewPart, inViewPath } from "../agent/in-view.ts";

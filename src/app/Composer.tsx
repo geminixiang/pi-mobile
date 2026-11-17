@@ -10,7 +10,7 @@ import {
 	type PreparedAttachment,
 	prepareAttachment,
 	unsupportedFile,
-} from "../agent/attachments.ts";
+} from "../attachments/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
 import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
 import { scannedPdf } from "../scanner-plugin.ts";

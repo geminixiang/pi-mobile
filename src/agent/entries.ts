@@ -1,6 +1,13 @@
 import { contentText, type ImageContent, type Message, type TextContent, type ThinkingContent, type ToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord, LiveState } from "@earendil-works/pi-durable";
-import { withoutAttachments } from "./attachments.ts";
+import { isCodeNote } from "./codes.ts";
+import { inViewPath } from "./in-view.ts";
+
+export const ATTACHMENT_TAG = /^<attachment ([^>]*)>/;
+
+function withoutAttachments<T extends { type: string; text?: string }>(content: readonly T[]): T[] {
+	return content.filter((block) => block.type !== "text" || !block.text || (!ATTACHMENT_TAG.test(block.text) && !isCodeNote(block.text) && !inViewPath(block.text)));
+}
 
 export type Block = TextContent | ThinkingContent | ImageContent | ToolCall;
 

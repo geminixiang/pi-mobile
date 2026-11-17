@@ -31,7 +31,7 @@ import { isJob, jobIdOf } from "../jobs/background.ts";
 const PEEK_LINES = 60;
 import { agentState } from "../computer-agents/tool.ts";
 import { placeOf, type Reading, readingOf } from "../computer-agents/workers.ts";
-import { deleteAttachments } from "./attachments.ts";
+import { deleteAttachments } from "../attachments/attachments.ts";
 import { BotToolsets } from "./bot-toolsets.ts";
 import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "./bots.ts";
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";

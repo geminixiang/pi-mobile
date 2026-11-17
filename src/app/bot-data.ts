@@ -1,4 +1,4 @@
-import { attachmentOwners, deleteAttachments } from "../agent/attachments.ts";
+import { attachmentOwners, deleteAttachments } from "../attachments/attachments.ts";
 import { phoneFolderOwners, removePhoneFolder } from "../agent/files/phone-env.ts";
 import { log } from "../log.ts";
 import { native } from "../native.ts";

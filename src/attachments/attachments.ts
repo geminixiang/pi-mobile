@@ -1,10 +1,10 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import { codeNote, isCodeNote } from "./codes.ts";
-import { inViewPath } from "./in-view.ts";
+import { codeNote } from "../agent/codes.ts";
+import { ATTACHMENT_TAG } from "../agent/entries.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
-import { extensionOf } from "./mime.ts";
+import { extensionOf } from "../agent/mime.ts";
 import { Database } from "../plugins/database.ts";
 import { randomHex } from "../encoding.ts";
 
@@ -187,19 +187,13 @@ export interface AttachmentCard {
 	pages?: number;
 }
 
-const OPEN_TAG = /^<attachment ([^>]*)>/;
-
 export function parseAttachment(text: string): AttachmentCard | undefined {
-	const tag = OPEN_TAG.exec(text)?.[1];
+	const tag = ATTACHMENT_TAG.exec(text)?.[1];
 	if (tag === undefined) return undefined;
 	const attributes = Object.fromEntries([...tag.matchAll(/(\w+)="([^"]*)"/g)].map(([, key = "", value = ""]) => [key, unescape(value)]));
 	const kind = KINDS.find((candidate) => candidate === attributes.type);
 	if (!attributes.id || !attributes.name || !kind) return undefined;
 	return { id: attributes.id, name: attributes.name, kind, size: Number(attributes.size) || 0, ...(attributes.pages ? { pages: Number(attributes.pages) } : {}) };
-}
-
-export function withoutAttachments<T extends { type: string; text?: string }>(content: readonly T[]): T[] {
-	return content.filter((block) => block.type !== "text" || !block.text || (!OPEN_TAG.test(block.text) && !isCodeNote(block.text) && !inViewPath(block.text)));
 }
 
 export interface PreparedAttachment {
@@ -216,7 +210,7 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 	let images: (ImageContent | TextContent)[] = [];
 	switch (kind) {
 		case "pdf": {
-			const pdf = await import("./attachments-pdf.ts");
+			const pdf = await import("./pdf.ts");
 			const { units, blankPages } = await pdf.extractPdf(file);
 			const ocrPages: number[] = [];
 			const imageOnly: ImageContent[] = [];
@@ -243,12 +237,12 @@ export async function prepareAttachment(file: File, conversationId: string): Pro
 			break;
 		}
 		case "docx": {
-			const { extractDocx } = await import("./attachments-docx.ts");
+			const { extractDocx } = await import("./docx.ts");
 			stored = { ...base, units: [await extractDocx(file)] };
 			break;
 		}
 		case "sheet": {
-			const { extractSheet } = await import("./attachments-sheet.ts");
+			const { extractSheet } = await import("./sheet.ts");
 			const { text, tables } = await extractSheet(file);
 			stored = { ...base, units: [text], ...(tables.length ? { tables } : {}) };
 			break;

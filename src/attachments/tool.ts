@@ -1,11 +1,11 @@
 import type { TextContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { fittingLines, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "../attachments.ts";
-import { scannedPdf } from "../../scanner-plugin.ts";
-import { Scanner } from "../../plugins/scanner.ts";
-import { codeNote } from "../codes.ts";
-import { defineAppTool, text } from "./common.ts";
+import { fittingLines, fullText, loadAttachment, normalizeCjk, prepareAttachment } from "./attachments.ts";
+import { scannedPdf } from "../scanner-plugin.ts";
+import { Scanner } from "../plugins/scanner.ts";
+import { codeNote } from "../agent/codes.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
 
 const DEFAULT_LINES = 400;
 const MAX_TOKENS = 8_000;
@@ -70,7 +70,7 @@ const readAttachment = defineAppTool({
 			if (args.images) {
 				if (!attachment.blob) throw new Error("the PDF itself is not stored; only its text");
 				const shown = pages.slice(0, MAX_IMAGES);
-				const { renderPages } = await import("../attachments-pdf.ts");
+				const { renderPages } = await import("./pdf.ts");
 				const images = await renderPages(attachment.blob, shown);
 				const codes = await codeNote(images, (index) => `page ${shown[index]}`);
 				const header: TextContent = { type: "text", text: `Pages ${shown.join(", ")} of ${attachment.name}${pages.length > shown.length ? ` (${MAX_IMAGES} at a time)` : ""}:` };

@@ -11,7 +11,7 @@ import { CodingTools, createBashTool } from "@earendil-works/pi-durable/tools";
 import { BACKGROUND_NOTE, JOB_BASH_PARAMETERS, jobsOnComputers } from "../jobs/bash.ts";
 import { createAppNotes, createSkillsExtension } from "../skills/skills.ts";
 import { type ActsAsUser, AppsExtension, openScreen } from "../phone-apps/tool.ts";
-import { AttachmentsExtension } from "./tools/attachments.ts";
+import { AttachmentsExtension } from "../attachments/tool.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
 import { type CloudService, createCloudExtensions } from "../clouds/tool.ts";
 import { createControlExtension } from "../phone-control/tool.ts";

@@ -4,7 +4,7 @@ import { native } from "../native.ts";
 import type { Context } from "@earendil-works/chord/context";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import { prepareAttachment } from "../agent/attachments.ts";
+import { prepareAttachment } from "../attachments/attachments.ts";
 import type { WebConfig } from "../agent/available-models.ts";
 import { PhoneEnv } from "../agent/files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";

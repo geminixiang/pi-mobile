@@ -2,7 +2,7 @@ import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ConversationController } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY, triggerRun } from "../triggers/runs.ts";
-import { parseAttachment } from "../agent/attachments.ts";
+import { parseAttachment } from "../attachments/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
 import { inViewPath } from "../agent/in-view.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
