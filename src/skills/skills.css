@@ -1,0 +1,2 @@
+.skill-detail { display: flex; flex-direction: column; gap: 8px; }
+.skill-text { max-height: 50vh; overflow-y: auto; font-size: var(--fs-small); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
