@@ -270,11 +270,6 @@ const UPWARD_IMPORTS = new Set<string>([
 	"src/interaction/PageFrame.tsx → src/app/openFile.ts",
 	"src/interaction/ResultCards.tsx → src/app/openFile.ts",
 	"src/interaction/ResultCards.tsx → src/workbench/context.ts",
-	"src/items/ItemActions.tsx → src/agent/runtime.ts",
-	"src/items/ItemSheet.tsx → src/agent/runtime.ts",
-	"src/triggers/events.ts → src/agent/runtime.ts",
-	"src/triggers/TriggerList.tsx → src/agent/runtime.ts",
-	"src/triggers/TriggerRow.tsx → src/agent/runtime.ts",
 ]);
 const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
 
@@ -377,7 +372,7 @@ function lengthRule(): Finding[] {
 
 const FEATURES = /^src\/(triggers|items|jobs|workbench|browser|interaction|computer-agents|phone-screen|plugins|computer)\//;
 // why: feature files that still take the whole AgentRuntime; each moves to its feature's own handle (the module-layering plan), and the list only shrinks
-const RUNTIME_USERS = new Set(["src/triggers/TriggerRow.tsx", "src/triggers/TriggerList.tsx", "src/triggers/events.ts", "src/items/ItemSheet.tsx", "src/items/ItemActions.tsx", "src/workbench/Workbench.tsx", "src/workbench/Stage.tsx"]);
+const RUNTIME_USERS = new Set(["src/workbench/Workbench.tsx", "src/workbench/Stage.tsx"]);
 
 function runtimeRule(): Finding[] {
 	return checkedFiles()

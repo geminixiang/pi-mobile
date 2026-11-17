@@ -1,7 +1,6 @@
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
 import { DAY, startOfToday } from "../time.ts";
-import type { Trigger } from "./runs.ts";
+import type { Trigger, TriggerRuns } from "./runs.ts";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { grouped } from "./when.ts";
 
@@ -9,13 +8,13 @@ export function TriggerList({
 	triggers,
 	next,
 	bots,
-	runtime,
+	runs,
 	onError,
 }: {
 	triggers: readonly Trigger[];
 	next: Readonly<Record<string, number>>;
 	bots?: readonly Bot[];
-	runtime: AgentRuntime;
+	runs: TriggerRuns;
 	onError: (message: string) => void;
 }) {
 	return grouped(triggers, next, startOfToday() + DAY).map((section) => (
@@ -27,7 +26,7 @@ export function TriggerList({
 					trigger={trigger}
 					next={next[trigger.id]}
 					{...(bots ? { bot: bots.find((bot) => bot.id === trigger.conversationId) ?? "deleted" } : {})}
-					runtime={runtime}
+					runs={runs}
 					onError={onError}
 				/>
 			))}

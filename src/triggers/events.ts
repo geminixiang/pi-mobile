@@ -1,6 +1,7 @@
 import { App } from "@capacitor/app";
 import { Value } from "typebox/value";
-import type { AgentRuntime, ConversationId } from "../agent/runtime.ts";
+import type { ConversationId } from "@earendil-works/pi-durable";
+import type { TriggerRuns } from "./runs.ts";
 import { native } from "../native.ts";
 import { QueuedEvent, Triggers } from "./plugin.ts";
 import { log } from "../log.ts";
@@ -57,7 +58,7 @@ async function takeEvents(): Promise<{ events: QueuedEvent[]; unreadable: string
 }
 
 export function processTriggerEvents(
-	runtime: AgentRuntime,
+	runs: TriggerRuns,
 	handlers: {
 		onShare: (item: SharedItem) => Promise<void>;
 		onOpened: (conversation: ConversationId) => void;
@@ -66,7 +67,7 @@ export function processTriggerEvents(
 	if (!native.implements(Triggers.events)) return () => undefined;
 	const handle = async (event: QueuedEvent) => {
 		if (event.kind !== "alarm") return handlers.onShare(event);
-		const conversation = await runtime.triggers.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
+		const conversation = await runs.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
 		log.info("trigger.run", { id: event.id, trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
 		await Triggers.started({ trigger: event.trigger });
 		if (!event.live && conversation) handlers.onOpened(conversation);
@@ -81,10 +82,10 @@ export function processTriggerEvents(
 					for (const trigger of new Set(superseded.map((event) => event.trigger))) {
 						const missed = superseded.filter((event) => event.trigger === trigger).length;
 						log.info("trigger.missed", { trigger, missed });
-						await orLogged(runtime.triggers.missed(trigger, missed), "trigger.missed_notice_failed", undefined, { trigger });
+						await orLogged(runs.missed(trigger, missed), "trigger.missed_notice_failed", undefined, { trigger });
 					}
 					const handled = await deliverEvents({ events: current, unreadable: [...queue.unreadable, ...superseded.map((event) => event.id)] }, handle, async (event, error) => {
-						if (event.kind === "alarm") await runtime.triggers.gaveUp(event.trigger, messageOf(error));
+						if (event.kind === "alarm") await runs.gaveUp(event.trigger, messageOf(error));
 					});
 					if (handled.length > 0) await Triggers.ack({ ids: handled });
 				} finally {

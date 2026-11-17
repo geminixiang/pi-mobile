@@ -251,7 +251,7 @@ function serve(runtime: AgentRuntime): Cancel {
 	const stops = [
 		reportActivity(runtime),
 		runtime.subscribeBots((bots) => void leaveIfGone(runtime, bots)),
-		processTriggerEvents(runtime, { onShare: share, onOpened: (id) => void open(id) }),
+		processTriggerEvents(runtime.triggers, { onShare: share, onOpened: (id) => void open(id) }),
 		listenForOpenLinks((conversation, item) => void follow(conversation, item)),
 		after(SWEEP_AFTER_MS, () => void sweepBotData(async () => (await runtime.bots()).map((bot) => ({ id: String(bot.id), folder: bot.folder })))),
 	];

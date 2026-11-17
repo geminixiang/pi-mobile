@@ -177,7 +177,7 @@ function StageBody(props: StageProps & { card: Card }) {
 				<>
 					<p className="stage-line">{remindLine(card.item, Date.now())}</p>
 					<Bar>
-						<ItemActions runtime={runtime} item={card.item} onDraft={actions.draft} onDone={() => undefined} />
+						<ItemActions runs={runtime.triggers} item={card.item} onDraft={actions.draft} onDone={() => undefined} />
 						<Next board={board} actions={actions} />
 					</Bar>
 				</>

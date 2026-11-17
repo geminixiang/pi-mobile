@@ -1,8 +1,7 @@
 import { type ReactNode, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
 import { DAY, startOfToday } from "../time.ts";
-import type { LastRun, Trigger } from "./runs.ts";
+import type { LastRun, Trigger, TriggerRuns } from "./runs.ts";
 import { messageOf } from "../promise.ts";
 import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon } from "../ui/icons.tsx";
 import { TriggerIcon } from "./TriggerIcon.tsx";
@@ -73,13 +72,13 @@ export function TriggerRow({
 	trigger,
 	next,
 	bot,
-	runtime,
+	runs,
 	onError,
 }: {
 	trigger: Trigger;
 	next: number | undefined;
 	bot?: Bot | "deleted";
-	runtime: AgentRuntime;
+	runs: TriggerRuns;
 	onError: (message: string) => void;
 }) {
 	const [open, setOpen] = useState(false);
@@ -110,17 +109,17 @@ export function TriggerRow({
 					{rule ? <p>{rule}</p> : null}
 					{trigger.onlyIf ? <p>只在：{trigger.onlyIf}</p> : null}
 					{last ? <p className={last.outcome === "failed" ? "error" : undefined}>{`上次 ${describeNear(last.at, startOfToday())} · ${lastRun(last)}`}</p> : null}
-					{isEvent(trigger.when) ? <GuardChips name={trigger.name} guards={guards} onChange={(chosen) => void act(runtime.triggers.setGuards(trigger.id, chosen))} /> : null}
+					{isEvent(trigger.when) ? <GuardChips name={trigger.name} guards={guards} onChange={(chosen) => void act(runs.setGuards(trigger.id, chosen))} /> : null}
 					<span className="trigger-actions">
-						<button type="button" onClick={() => void act(runtime.triggers.run(trigger.id, "manual"))}>
+						<button type="button" onClick={() => void act(runs.run(trigger.id, "manual"))}>
 							立即執行
 						</button>
 						{trigger.state === "fired" ? null : (
-							<button type="button" onClick={() => void act(runtime.triggers.setPaused(trigger.id, trigger.state === "on"))}>
+							<button type="button" onClick={() => void act(runs.setPaused(trigger.id, trigger.state === "on"))}>
 								{trigger.state === "on" ? "暫停" : "恢復"}
 							</button>
 						)}
-						<button type="button" className="danger" onClick={() => void act(runtime.triggers.delete(trigger.id))}>
+						<button type="button" className="danger" onClick={() => void act(runs.delete(trigger.id))}>
 							刪除
 						</button>
 					</span>

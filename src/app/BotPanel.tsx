@@ -256,7 +256,7 @@ export function BotPanel({
 
 			{native.has("Triggers") && mine.length > 0 ? (
 				<div className="trigger-panel">
-					<TriggerList triggers={mine} next={triggers.next} runtime={runtime} onError={(text) => setProblem({ section: "自動化", text })} />
+					<TriggerList triggers={mine} next={triggers.next} runs={runtime.triggers} onError={(text) => setProblem({ section: "自動化", text })} />
 					{problem?.section === "自動化" ? <div className="note error">{problem.text}</div> : null}
 				</div>
 			) : null}

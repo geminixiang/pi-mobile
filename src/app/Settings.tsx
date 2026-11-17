@@ -308,7 +308,7 @@ function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
 				</RowList>
 			) : (
 				<div className="trigger-page">
-					<TriggerList triggers={state.items} next={state.next} bots={bots} runtime={runtime} onError={setError} />
+					<TriggerList triggers={state.items} next={state.next} bots={bots} runs={runtime.triggers} onError={setError} />
 				</div>
 			)}
 			{asks ? (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AgentRuntime } from "../agent/runtime.ts";
+import type { TriggerRuns } from "../triggers/runs.ts";
 import { messageOf } from "../promise.ts";
 import { DAY, HOUR, startOfToday } from "../time.ts";
 import { describeNear } from "../triggers/when.ts";
@@ -18,7 +18,7 @@ export function remindLine(item: Item, now: number): string {
 	return item.nextAt !== undefined && item.nextAt <= now ? `${at} 提醒的` : `${at} 會提醒你`;
 }
 
-export function ItemActions({ runtime, item, onDraft, onDone }: { runtime: AgentRuntime; item: Item; onDraft: (text: string) => void; onDone: () => void }) {
+export function ItemActions({ runs, item, onDraft, onDone }: { runs: TriggerRuns; item: Item; onDraft: (text: string) => void; onDone: () => void }) {
 	const [problem, setProblem] = useState<string>();
 	const [later, setLater] = useState(false);
 	const act = (change: Promise<void>) =>
@@ -41,7 +41,7 @@ export function ItemActions({ runtime, item, onDraft, onDone }: { runtime: Agent
 					<button type="button" className="btn primary" onClick={() => draft(`「${item.title}」現在怎麼樣了？`)}>
 						問進度
 					</button>
-					<button type="button" className="btn" onClick={() => act(runtime.triggers.finishItem(item.id))}>
+					<button type="button" className="btn" onClick={() => act(runs.finishItem(item.id))}>
 						不用等了
 					</button>
 				</div>
@@ -52,7 +52,7 @@ export function ItemActions({ runtime, item, onDraft, onDone }: { runtime: Agent
 						return until === undefined
 							? []
 							: [
-									<button key={label} type="button" className="btn" onClick={() => act(runtime.triggers.postponeItem(item.id, until))}>
+									<button key={label} type="button" className="btn" onClick={() => act(runs.postponeItem(item.id, until))}>
 										{label}
 									</button>,
 								];
@@ -63,7 +63,7 @@ export function ItemActions({ runtime, item, onDraft, onDone }: { runtime: Agent
 					<button type="button" className="btn primary" onClick={() => draft(`關於「${item.title}」：`)}>
 						一起處理
 					</button>
-					<button type="button" className="btn" onClick={() => act(runtime.triggers.finishItem(item.id))}>
+					<button type="button" className="btn" onClick={() => act(runs.finishItem(item.id))}>
 						已經結束
 					</button>
 					<button type="button" className="btn" onClick={() => setLater(true)}>

@@ -486,7 +486,7 @@ export function App() {
 
 			{runtime ? (
 				<ItemSheet
-					runtime={runtime}
+					runs={runtime.triggers} bots={() => runtime.bots()}
 					id={openItem}
 					onDraft={(conversation, draft) => void open(conversation, { draft })}
 					onClose={closeItem}
