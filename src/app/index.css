@@ -1,4 +1,5 @@
 @import "./styles.css" layer(app);
+@import "./files/files.css" layer(app);
 @import "./settings/settings.css" layer(app);
 @import "./bots/bots.css" layer(app);
 @import "./chat/chat.css" layer(app);
