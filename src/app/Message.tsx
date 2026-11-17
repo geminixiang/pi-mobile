@@ -18,7 +18,7 @@ import { preview, stepsLabel, TOOL_DOING } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../triggers/runs.ts";
 import { monthDayTime } from "../time.ts";
 import { formatBytes } from "../encoding.ts";
-import { isConnectionLost } from "../agent/network.ts";
+import { isConnectionLost } from "../net/network.ts";
 import { InteractionCard } from "../interaction/Interaction.tsx";
 import { isInteraction } from "../interaction/tool.ts";
 import { withoutReplies } from "../interaction/replies.ts";

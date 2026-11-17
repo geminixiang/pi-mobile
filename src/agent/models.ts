@@ -6,7 +6,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { Type } from "typebox";
 import { parse } from "../parse.ts";
-import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "./cleartext.ts";
+import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "../net/cleartext.ts";
 import { ios } from "../native.ts";
 import { baseName } from "./mime.ts";
 

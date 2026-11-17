@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 
 const Outcome = Type.Union([Type.Object({ ok: Type.Literal(true) }), Type.Object({ ok: Type.Literal(false), reason: Type.String() })]);
 

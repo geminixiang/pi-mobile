@@ -48,7 +48,7 @@ import { messageOf, orLogged } from "../promise.ts";
 import { windowFor } from "../agent/models.ts";
 import { ModelLine } from "./Links.tsx";
 import { RowList } from "../ui/RowList.tsx";
-import { modelReach } from "../agent/reach.ts";
+import { modelReach } from "../net/reach.ts";
 
 const SETTINGS_APPLY_MS = 800;
 

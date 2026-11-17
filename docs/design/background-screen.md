@@ -36,7 +36,7 @@ android/
       AgentScreen.kt   對外入口：status、pair、watchPairing、open、key、watch、unwatch、takeover、close
       Discovery.kt     用 NsdManager 找自己的無線偵錯（_adb-tls-pairing、_adb-tls-connect），只認本機位址；找一次（ownPort）或一直看（discoverOwn）
       DisplayServer.kt 以 shell 身分執行（CLASSPATH=pi 的 APK app_process），開虛擬螢幕撐著，stdin 關掉就釋放
-src/plugins/agent-screen.ts       合約；store 版沒有這個原生 plugin
+src/phone-screen/agent-screen.ts       合約；store 版沒有這個原生 plugin
 src/phone-screen/background.ts    唯一決定在哪個螢幕做的地方（screenFor）
 ```
 

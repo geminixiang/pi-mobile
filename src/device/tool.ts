@@ -5,7 +5,7 @@ import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
 import { oneOf, parse } from "../parse.ts";
 import { defineAppTool, json } from "../agent/tools/common.ts";
-import { getJson } from "../agent/http.ts";
+import { getJson } from "../net/http.ts";
 import { native } from "../native.ts";
 import { PhoneState } from "./phone-state.ts";
 

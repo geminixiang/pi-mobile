@@ -30,7 +30,7 @@ Tailscale 證明的是哪台裝置，不是哪個 app。實測 S24 上的 adb sh
 
 ### 金鑰不走明文 HTTP（`9560c18`）
 
-App 允許 cleartext，因為 tailnet 裡的閘道常是 http。但自訂端點填成區網或公網的 http 位址時，金鑰會在當下的 Wi-Fi 上明文送出。`refuseCleartextSecret`（`src/agent/cleartext.ts`）只讓金鑰走 https，或 http 到 loopback、`*.ts.net`、`100.64.0.0/10`、`fd7a:115c:a1e0::/48`。檢查點：自訂供應商的認證、它的模型清單、網路搜尋、帶 Authorization 的 MCP 請求。沒有金鑰的區網服務（例如 Ollama）照常可用。
+App 允許 cleartext，因為 tailnet 裡的閘道常是 http。但自訂端點填成區網或公網的 http 位址時，金鑰會在當下的 Wi-Fi 上明文送出。`refuseCleartextSecret`（`src/net/cleartext.ts`）只讓金鑰走 https，或 http 到 loopback、`*.ts.net`、`100.64.0.0/10`、`fd7a:115c:a1e0::/48`。檢查點：自訂供應商的認證、它的模型清單、網路搜尋、帶 Authorization 的 MCP 請求。沒有金鑰的區網服務（例如 Ollama）照常可用。
 
 ## 2026-10-27 檢查電腦連線（已修）
 

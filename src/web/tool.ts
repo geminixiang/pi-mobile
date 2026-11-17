@@ -13,7 +13,7 @@ import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
 import { messageOf } from "../promise.ts";
-import { refuseCleartextSecret } from "../agent/cleartext.ts";
+import { refuseCleartextSecret } from "../net/cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../agent/models.ts";
 import { formatBytes, fromBase64 } from "../encoding.ts";
 import { deadline, MINUTE } from "../time.ts";

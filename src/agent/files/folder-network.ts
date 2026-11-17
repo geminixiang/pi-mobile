@@ -1,6 +1,6 @@
-import { streamFetch } from "../stream-fetch.ts";
+import { streamFetch } from "../../net/stream-fetch.ts";
 import type { HttpRequest, HttpResponse } from "./protocol.ts";
-import { headerRecord } from "../http.ts";
+import { headerRecord } from "../../net/http.ts";
 
 export interface FolderNetwork {
 	githubToken?: string;

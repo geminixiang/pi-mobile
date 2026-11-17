@@ -3,7 +3,7 @@ import type { Link, RawMessage } from "../../src/computer/resumable-link.ts";
 import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/computer/resumable-socket.ts";
 import { type ConnectionStatus, type OpenDaemon, PhoneConnection } from "../../src/agent/sandbox/phone-connection.ts";
 import { sleep } from "../../src/time.ts";
-import { createTraffic } from "../../src/agent/traffic.ts";
+import { createTraffic } from "../../src/net/traffic.ts";
 import type { Check } from "./setup.ts";
 
 type Attached = RawSocket & { ready: boolean; closed: boolean; closeCode: number | undefined; deliver(data: string): void; drop(): void };

@@ -5,9 +5,9 @@ import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/e
 import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import { MODEL_RETRY } from "../../src/agent/retry.ts";
 import { customProvider } from "../../src/agent/models.ts";
-import { type Network, waitingForNetwork } from "../../src/agent/network.ts";
-import { createReach, type Reach } from "../../src/agent/reach.ts";
-import { createTraffic } from "../../src/agent/traffic.ts";
+import { type Network, waitingForNetwork } from "../../src/net/network.ts";
+import { createReach, type Reach } from "../../src/net/reach.ts";
+import { createTraffic } from "../../src/net/traffic.ts";
 import { nextChange } from "./fixtures.ts";
 import { sleep } from "../../src/time.ts";
 import type { Check } from "./setup.ts";

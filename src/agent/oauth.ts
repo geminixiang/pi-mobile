@@ -5,7 +5,7 @@ import { sleep } from "@earendil-works/pi-ai/utils/sleep";
 import { orLogged } from "../promise.ts";
 import { fromBase64, randomBase64Url, toBase64Url } from "../encoding.ts";
 import { Loopback } from "../plugins/loopback.ts";
-import { HTTP_TIMEOUTS } from "./http.ts";
+import { HTTP_TIMEOUTS } from "../net/http.ts";
 import { MINUTE } from "../time.ts";
 
 export interface AccessToken {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { refuseIpOnIos } from "../../src/agent/cleartext.ts";
+import { refuseIpOnIos } from "../../src/net/cleartext.ts";
 import { fetchModelIds } from "../../src/agent/models.ts";
 import { pairHost } from "../../src/computer/pairing.ts";
 import { type Check } from "./setup.ts";

@@ -1,7 +1,7 @@
 import { createModels, type Models } from "@earendil-works/pi-ai";
-import { deviceNetwork, waitingForNetwork } from "./network.ts";
-import { modelReach } from "./reach.ts";
-import { modelTraffic } from "./traffic.ts";
+import { deviceNetwork, waitingForNetwork } from "../net/network.ts";
+import { modelReach } from "../net/reach.ts";
+import { modelTraffic } from "../net/traffic.ts";
 import { Type } from "typebox";
 import { type Settings, type SettingsStore, usableProviders } from "../settings.ts";
 import { messageOf, orLogged } from "../promise.ts";

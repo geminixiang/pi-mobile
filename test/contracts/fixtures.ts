@@ -3,7 +3,7 @@ import { contentText, type FauxResponseStep } from "@earendil-works/pi-ai";
 import { MemoryStorage, type Storage } from "@earendil-works/pi-durable";
 import { AgentRuntime, type ConversationId } from "../../src/agent/runtime.ts";
 import { faux, platform, settings } from "./setup.ts";
-import type { Traffic } from "../../src/agent/traffic.ts";
+import type { Traffic } from "../../src/net/traffic.ts";
 
 export const context = BACKGROUND_CONTEXT;
 

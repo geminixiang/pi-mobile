@@ -1,5 +1,5 @@
 import type { Api, ApiStreamOptions, Model, OAuthAuth, OAuthCredential, Provider, SimpleStreamOptions, TranscriptContext } from "@earendil-works/pi-ai";
-import { streamFetch } from "./stream-fetch.ts";
+import { streamFetch } from "../net/stream-fetch.ts";
 import { Type } from "typebox";
 import { listenForRedirect, pkce, postForm } from "./oauth.ts";
 import { decode, parse, readStored } from "../parse.ts";

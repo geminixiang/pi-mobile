@@ -4,7 +4,7 @@ import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/comp
 import type { Check } from "./setup.ts";
 import wire from "../../host/protocol.json" with { type: "json" };
 import { sleep } from "../../src/time.ts";
-import { createTraffic } from "../../src/agent/traffic.ts";
+import { createTraffic } from "../../src/net/traffic.ts";
 import { nextChange } from "./fixtures.ts";
 
 type Fake = RawSocket & { url: URL; sent: (string | Uint8Array)[]; deliver(data: RawMessage): void; drop(reason?: string): void; closed: boolean; closeCode: number | undefined };

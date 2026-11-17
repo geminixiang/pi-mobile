@@ -1,4 +1,4 @@
-import { AgentScreen } from "../plugins/agent-screen.ts";
+import { AgentScreen } from "./agent-screen.ts";
 import { isImplemented } from "../plugins/define.ts";
 
 export const SCREENS = ["background", "front"] as const;

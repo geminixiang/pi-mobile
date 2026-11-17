@@ -3,7 +3,7 @@ import { Phone } from "../device/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { getJson } from "../agent/http.ts";
+import { getJson } from "../net/http.ts";
 import { weekdayOf } from "../time.ts";
 import { parse } from "../parse.ts";
 import { currentPlace, resolvePlace } from "../device/tool.ts";

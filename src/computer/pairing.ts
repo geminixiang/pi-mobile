@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
 import { decodeEach, decode, oneOf } from "../parse.ts";
-import { onTailnet, refuseIpOnIos, tailscaleHint } from "../agent/cleartext.ts";
+import { onTailnet, refuseIpOnIos, tailscaleHint } from "../net/cleartext.ts";
 import { ios } from "../native.ts";
 import { deadline } from "../time.ts";
 

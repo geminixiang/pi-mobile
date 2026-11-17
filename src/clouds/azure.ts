@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { getJson } from "../agent/http.ts";
+import { getJson } from "../net/http.ts";
 import { type AccessToken, type DeviceSignIn, jwtPayload, pollDeviceFlow, refreshRotating, startDeviceFlow, cachedToken } from "../agent/oauth.ts";
 import { type Checked, checkJson, parse } from "../parse.ts";
 

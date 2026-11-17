@@ -1,6 +1,6 @@
 import { log } from "../log.ts";
-import type { Network } from "../agent/network.ts";
-import { bytesOf, type Traffic } from "../agent/traffic.ts";
+import type { Network } from "../net/network.ts";
+import { bytesOf, type Traffic } from "../net/traffic.ts";
 import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
 import { after, type Cancel, every } from "../time.ts";
 
