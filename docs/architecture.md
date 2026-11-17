@@ -152,6 +152,25 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - Linux 的 Wayland 桌面（GNOME、KDE）不讓程式直接看畫面或送輸入，只能走 xdg-desktop-portal，第一次要使用者在電腦上按允許，中文要經剪貼簿貼上；X11 沒有這些限制。
 - Windows 的服務跑在 session 0，看不到畫面，所以 `pi-mobile serve` 是登入時啟動的排程工作；鎖定畫面和 UAC 視窗任何程式都操作不了。
 
+## 分層
+
+`src/` 分四層，import 只能往下。每個路徑屬於哪一層寫在 `test/code-rules.ts` 的 `LAYER_OF`，由 `npm run check` 檢查。
+
+```
+外殼 shell    app/、workbench/、main.tsx、agent/catalog.ts、agent/runtime.ts    認得所有功能，負責組裝
+功能 feature  browser/、triggers/、items/ 等功能資料夾、agent/tools/            一個功能一個資料夾
+核心 core     agent/、computer/、settings.ts                                    不認得任何功能
+基礎 base     ui/、plugins/、shims/、根目錄的小工具、連線狀態                    不認得上面任何一層
+```
+
+**為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
+
+- `LAYER_OF` 裡指名單一檔案的項目（例如 `src/agent/catalog.ts`）代表這個檔案還放在別層的資料夾裡，搬到該去的地方後就刪掉。
+- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條（共用的圖示、Sheet、震動，以及拿整個 `AgentRuntime`），核心用到功能的 10 條，基礎用到功能的 3 條。
+- 它取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬把組裝、共用 UI、連線狀態搬出去：403 變 532），所以會把程式碼推進最大的資料夾。
+
+還沒分清楚的有兩件：`agent/` 裡 `tools/` 以外還有其實是功能的檔案（MCP、雲端登入、附件、記憶），目前先算核心；功能之間互相 import 還沒有規則。
+
 ## 專案結構
 
 這裡只列從哪裡找起。

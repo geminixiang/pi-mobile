@@ -217,45 +217,115 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 	},
 ];
 
-// why: counts imports that keep src/ folders in one tangle (a folder-level cycle); it only goes down, toward folders that import in one direction
-const TANGLED_IMPORTS = 403;
-const RELATIVE_IMPORT = /^import (?:[^;]*? from )?"(\.[^"]+)";/gm;
+const LAYER_ORDER = ["base", "core", "feature", "shell"] as const;
+type Layer = (typeof LAYER_ORDER)[number];
+// why: the layer of every path under src/, the longest match winning; an entry that names one file marks a file still sitting in a folder of another layer, and goes away when the file moves (docs/architecture.md § 分層)
+const LAYER_OF: Record<string, Layer> = {
+	"src/shims/": "base",
+	"src/ui/": "base",
+	"src/plugins/": "base",
+	"src/agent/network.ts": "base",
+	"src/agent/traffic.ts": "base",
+	"src/agent/cleartext.ts": "base",
+	"src/agent/http.ts": "base",
+	"src/agent/stream-fetch.ts": "base",
+	"src/agent/reach.ts": "base",
+	"src/agent/mime.ts": "base",
+	"src/agent/shell.ts": "base",
+	"src/agent/retry.ts": "base",
+	"src/agent/codes.ts": "base",
+	"src/agent/": "core",
+	"src/computer/": "core",
+	"src/settings.ts": "core",
+	"src/agent/tools/common.ts": "core",
+	"src/agent/tools/": "feature",
+	"src/browser/": "feature",
+	"src/computer-agents/": "feature",
+	"src/interaction/": "feature",
+	"src/items/": "feature",
+	"src/jobs/": "feature",
+	"src/phone-apps/": "feature",
+	"src/phone-screen/": "feature",
+	"src/skills/": "feature",
+	"src/triggers/": "feature",
+	"src/agent/catalog.ts": "shell",
+	"src/agent/runtime.ts": "shell",
+	"src/app/": "shell",
+	"src/workbench/": "shell",
+	"src/main.tsx": "shell",
+};
+// why: the imports that still point from a lower layer up to a higher one; the list only shrinks
+const UPWARD_IMPORTS = new Set<string>([
+	"src/agent/available-models.ts → src/agent/tools/web.ts",
+	"src/agent/clouds.ts → src/agent/tools/cloud.ts",
+	"src/agent/mcp.ts → src/interaction/forms.ts",
+	"src/agent/platform.ts → src/browser/plugin.ts",
+	"src/agent/platform.ts → src/interaction/permissions.ts",
+	"src/agent/platform.ts → src/interaction/phone-permissions.ts",
+	"src/agent/platform.ts → src/phone-apps/apps.ts",
+	"src/agent/platform.ts → src/triggers/plugin.ts",
+	"src/agent/tools/common.ts → src/interaction/permissions.ts",
+	"src/agent/tools/common.ts → src/interaction/results.ts",
+	"src/browser/BrowserButton.tsx → src/app/icons.tsx",
+	"src/browser/BrowserSheet.tsx → src/app/haptics.ts",
+	"src/browser/BrowserSheet.tsx → src/app/icons.tsx",
+	"src/browser/BrowserSheet.tsx → src/app/layers.ts",
+	"src/interaction/FormCard.tsx → src/app/icons.tsx",
+	"src/interaction/PageFrame.tsx → src/app/FileViewer.tsx",
+	"src/interaction/PageFrame.tsx → src/app/icons.tsx",
+	"src/interaction/PageFrame.tsx → src/app/openFile.ts",
+	"src/interaction/ResultCards.tsx → src/app/icons.tsx",
+	"src/interaction/ResultCards.tsx → src/app/openFile.ts",
+	"src/interaction/ResultCards.tsx → src/workbench/context.ts",
+	"src/items/ItemActions.tsx → src/agent/runtime.ts",
+	"src/items/ItemSheet.tsx → src/agent/runtime.ts",
+	"src/items/ItemSheet.tsx → src/app/Sheet.tsx",
+	"src/jobs/JobsStrip.tsx → src/app/haptics.ts",
+	"src/jobs/JobsStrip.tsx → src/app/icons.tsx",
+	"src/plugins/index.ts → src/browser/plugin.ts",
+	"src/plugins/index.ts → src/phone-screen/plugin.ts",
+	"src/plugins/index.ts → src/triggers/plugin.ts",
+	"src/skills/SkillsSheet.tsx → src/app/Sheet.tsx",
+	"src/triggers/events.ts → src/agent/runtime.ts",
+	"src/triggers/TriggerList.tsx → src/agent/runtime.ts",
+	"src/triggers/TriggerRow.tsx → src/agent/runtime.ts",
+	"src/triggers/TriggerRow.tsx → src/app/icons.tsx",
+]);
+const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
 
-function folderOf(file: string): string {
-	const [, top = "", rest] = file.split("/");
-	return rest === undefined ? file : top;
+function layerOf(file: string): Layer | undefined {
+	const owner = Object.keys(LAYER_OF)
+		.filter((path) => file === path || (path.endsWith("/") && file.startsWith(path)))
+		.sort((a, b) => b.length - a.length)[0];
+	if (owner !== undefined) return LAYER_OF[owner];
+	return file.split("/").length === 2 ? "base" : undefined;
 }
 
-function tangleRule(): Finding[] {
-	const imports = checkedFiles()
-		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
-		.flatMap((file) => {
-			const source = readFileSync(file, "utf8");
-			return [...source.matchAll(RELATIVE_IMPORT)].flatMap((match) => {
-				const from = folderOf(file);
-				const to = folderOf(join(dirname(file), match[1] ?? ""));
-				return from === to || !to ? [] : [{ file, line: source.slice(0, match.index).split("\n").length, from, to }];
-			});
+function layerRule(): Finding[] {
+	const sources = checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file));
+	const unplaced = sources.filter((file) => layerOf(file) === undefined).map((file) => ({ file, line: 1, rule: "this folder has no layer: add it to LAYER_OF (base, core, feature or shell)" }));
+	const gone = Object.keys(LAYER_OF)
+		.filter((path) => !sources.some((file) => file === path || (path.endsWith("/") && file.startsWith(path))))
+		.map((path) => ({ file: "test/code-rules.ts", line: 1, rule: `${path} is in LAYER_OF but no file is there: remove the entry` }));
+	const upward = sources.flatMap((file) => {
+		const source = readFileSync(file, "utf8");
+		const from = layerOf(file);
+		return [...source.matchAll(RELATIVE_IMPORT)].flatMap((match) => {
+			const target = join(dirname(file), match[1] ?? "");
+			const to = layerOf(target);
+			if (from === undefined || to === undefined || LAYER_ORDER.indexOf(from) >= LAYER_ORDER.indexOf(to)) return [];
+			return [{ file, line: source.slice(0, match.index).split("\n").length, from, to, pair: `${file} → ${target}` }];
 		});
-	const next = new Map<string, Set<string>>();
-	for (const { from, to } of imports) next.set(from, (next.get(from) ?? new Set()).add(to));
-	const reaches = (start: string, goal: string): boolean => {
-		const seen = new Set<string>();
-		const queue = [start];
-		for (let at = queue.shift(); at !== undefined; at = queue.shift()) {
-			if (at === goal) return true;
-			if (seen.has(at)) continue;
-			seen.add(at);
-			queue.push(...(next.get(at) ?? []));
-		}
-		return false;
-	};
-	const tangled = imports.filter(({ from, to }) => reaches(to, from));
-	const pairs = [...new Set(tangled.map(({ from, to }) => `${from} → ${to}`))].sort().join(", ");
-	if (tangled.length > TANGLED_IMPORTS)
-		return [{ file: "test/code-rules.ts", line: 1, rule: `${tangled.length} imports keep src/ folders in a cycle, ${TANGLED_IMPORTS} allowed (TANGLED_IMPORTS): an import may not point at a folder that leads back to its own; move the shared piece down into a folder both can import, or pass it in. Tangled: ${pairs}` }];
-	if (tangled.length < TANGLED_IMPORTS) return [{ file: "test/code-rules.ts", line: 1, rule: `${tangled.length} tangled imports, fewer than TANGLED_IMPORTS (${TANGLED_IMPORTS}): lower it to ${tangled.length} so the ratchet holds` }];
-	return [];
+	});
+	const pairs = new Set(upward.map(({ pair }) => pair));
+	return [
+		...unplaced,
+		...gone,
+		...upward
+			.filter(({ pair }) => !UPWARD_IMPORTS.has(pair))
+			.map(({ file, line, from, to, pair }) => ({ file, line, rule: `${pair}: a ${from} file imports a ${to} file, and imports only go down (base < core < feature < shell): move the shared piece down a layer, or have the shell pass it in` })),
+		...[...UPWARD_IMPORTS].filter((pair) => !pairs.has(pair)).map((pair) => ({ file: "test/code-rules.ts", line: 1, rule: `${pair} no longer goes up: remove it from UPWARD_IMPORTS so the list only shrinks` })),
+	];
 }
 
 // why: classes that a library adds to the markup it renders (remark-gfm's task lists), so no source file names them
@@ -386,7 +456,7 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
-const AGENTS_WORDS = 2800;
+const AGENTS_WORDS = 2799;
 
 function agentsSizeRule(): Finding[] {
 	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
@@ -581,7 +651,7 @@ const all = [
 	...letRule(),
 	...lengthRule(),
 	...runtimeRule(),
-	...tangleRule(),
+	...layerRule(),
 	...unusedExports(),
 	...effectRule(),
 	...lifecycleRule(),
@@ -607,4 +677,4 @@ if (all.length > 0) {
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; every export is used elsewhere");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer, except the listed ones; every export is used elsewhere");
