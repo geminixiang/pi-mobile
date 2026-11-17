@@ -1351,7 +1351,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .surface > .code-view { padding: 12px 0; }
 .code-line { display: block; cursor: pointer; }
 .code-line.changed { background: color-mix(in srgb, var(--yellow) 30%, transparent); }
-.code-line.picked, .surface .picked { background: var(--accent-soft); }
+.code-line.picked { background: var(--accent-soft); }
+.surface .picked { background: var(--accent-soft); }
 .stage-sources { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 0; list-style: none; }
 .stage-sources > li { padding: 4px 0 12px; }
 .stage-sources > li.open { background: var(--panel-2); }
