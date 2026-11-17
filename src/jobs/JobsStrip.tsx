@@ -1,8 +1,8 @@
 import { Fragment, type PointerEvent, useCallback, useContext, useRef, useState } from "react";
 import { useExpired } from "../ui/briefly.ts";
 import { usePolled } from "../ui/loaded.ts";
-import { StopIcon } from "../app/icons.tsx";
-import { haptic, HOLD_MS, HOLD_SLOP } from "../app/haptics.ts";
+import { StopIcon } from "../ui/icons.tsx";
+import { haptic, HOLD_MS, HOLD_SLOP } from "../ui/haptics.ts";
 import { orLogged } from "../promise.ts";
 import { after, type Cancel } from "../time.ts";
 import { clock, JobsContext, type RunningJob, type RunningJobs, useNow } from "./JobsContext.ts";

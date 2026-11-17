@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ConversationId } from "@earendil-works/pi-durable";
 import { RowList } from "../ui/RowList.tsx";
-import { Sheet } from "../app/Sheet.tsx";
+import { Sheet } from "../ui/Sheet.tsx";
 import { useSubscribed } from "../ui/subscribed.ts";
 import { messageOf } from "../promise.ts";
 import type { Skill, Skills } from "./skills.ts";

@@ -6,7 +6,7 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { BotAvatar } from "../app/BotAvatar.tsx";
 import { CLOCK } from "../time.ts";
-import { ChevronIcon } from "../app/icons.tsx";
+import { ChevronIcon } from "../ui/icons.tsx";
 import { callLabel, doing } from "../app/Message.tsx";
 import type { Board, Card, Group } from "./board.ts";
 import { Stage, type StageActions } from "./Stage.tsx";

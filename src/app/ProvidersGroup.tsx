@@ -11,7 +11,7 @@ import { CheckButton } from "./CheckButton.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { Logo } from "./Logo.tsx";
-import { Sheet } from "./Sheet.tsx";
+import { Sheet } from "../ui/Sheet.tsx";
 import { messageOf } from "../promise.ts";
 import { hostOf } from "../parse.ts";
 

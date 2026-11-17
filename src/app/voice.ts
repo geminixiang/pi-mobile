@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { Voice } from "../plugins/voice.ts";
 import { messageOf } from "../promise.ts";
 import { useStore } from "../ui/subscribed.ts";
-import { haptic } from "./haptics.ts";
+import { haptic } from "../ui/haptics.ts";
 
 type DictationState = "idle" | "starting" | "listening";
 

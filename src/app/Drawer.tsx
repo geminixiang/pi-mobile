@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { GearIcon } from "./icons.tsx";
+import { GearIcon } from "../ui/icons.tsx";
 import { BotList, type BotListProps } from "./BotList.tsx";
 import { PiMark } from "./PiMark.tsx";
 import type { Source } from "../ui/subscribed.ts";

@@ -1,5 +1,5 @@
 import { BotList, type BotListProps } from "../app/BotList.tsx";
-import { GearIcon } from "../app/icons.tsx";
+import { GearIcon } from "../ui/icons.tsx";
 import { PiMark } from "../app/PiMark.tsx";
 
 export function Rail({ busy, list, onSettings }: { busy: boolean; list: BotListProps; onSettings: () => void }) {

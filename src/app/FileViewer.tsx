@@ -3,7 +3,7 @@ import Markdown from "react-markdown";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { appFile } from "../agent/tools/apps.ts";
 import { Apps } from "../plugins/apps.ts";
-import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
+import { OpenOutsideIcon, ShareIcon } from "../ui/icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";
 import { codeOf, messageOf } from "../promise.ts";

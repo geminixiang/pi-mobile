@@ -1,8 +1,8 @@
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from "react";
 import { after, type Cancel } from "../time.ts";
 import { type DialState, positionOf, type Repeating, repeatingOf, turned } from "./dialState.ts";
-import { haptic, HOLD_MS, HOLD_SLOP } from "./haptics.ts";
-import { ArrowDownIcon } from "./icons.tsx";
+import { haptic, HOLD_MS, HOLD_SLOP } from "../ui/haptics.ts";
+import { ArrowDownIcon } from "../ui/icons.tsx";
 
 export interface DialPrompt {
 	id: string;

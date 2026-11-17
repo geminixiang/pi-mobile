@@ -2,7 +2,8 @@ import { contentText, type ImageContent } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { Fragment, memo, useContext, useState } from "react";
 import Markdown from "react-markdown";
-import { ChevronIcon, CloseIcon, FileIcon, TriggerIcon } from "./icons.tsx";
+import { ChevronIcon, CloseIcon, FileIcon } from "../ui/icons.tsx";
+import { TriggerIcon } from "../triggers/TriggerIcon.tsx";
 import { isWhenKind, type TriggerSymbol, triggerSymbol } from "../triggers/when.ts";
 import { type AttachmentCard, parseAttachment } from "../agent/attachments.ts";
 import { type Block, blocks, message } from "../agent/entries.ts";
@@ -398,7 +399,6 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 		</>
 	);
 }
-
 
 function entrySymbol(data: TriggerRun): TriggerSymbol {
 	if (data.on && isWhenKind(data.on)) return triggerSymbol({ kind: data.on, ...(data.activity ? { activity: data.activity } : {}) });

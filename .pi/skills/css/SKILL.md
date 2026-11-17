@@ -74,7 +74,7 @@ underneath.
 Base UI's Drawer moved them before. Its swipe area ignores swipes that start on a button, link, or field, and it set
 `pointer-events: none` on the wrapped content while open, which restyled the whole conversation: 11 ms at full speed,
 50 to 70 ms per open or close on an idle iPhone. Base UI still runs the dialogs and the bottom sheet
-(`src/app/Sheet.tsx`); before adopting another part of it for something the user drags, check what it does to the
+(`src/ui/Sheet.tsx`); before adopting another part of it for something the user drags, check what it does to the
 content around it.
 
 Before adding an animation to something that already moves, find what moves it and use that.

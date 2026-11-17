@@ -166,7 +166,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
 
 - `LAYER_OF` 裡指名單一檔案的項目（例如 `src/agent/catalog.ts`）代表這個檔案還放在別層的資料夾裡，搬到該去的地方後就刪掉。
-- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條（共用的圖示、Sheet、震動，以及拿整個 `AgentRuntime`），核心用到功能的 10 條，基礎用到功能的 3 條。
+- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條，核心用到功能的 10 條，基礎用到功能的 3 條。同一天把共用的圖示、Sheet、震動和返回鍵搬進 `src/ui/` 後剩 22 條。
 - 它取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬把組裝、共用 UI、連線狀態搬出去：403 變 532），所以會把程式碼推進最大的資料夾。
 
 還沒分清楚的有兩件：`agent/` 裡 `tools/` 以外還有其實是功能的檔案（MCP、雲端登入、附件、記憶），目前先算核心；功能之間互相 import 還沒有規則。
@@ -204,7 +204,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
-| `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |
+| `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
 | `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
 | `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、配對、session，與安裝腳本 |

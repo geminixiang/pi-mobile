@@ -4,7 +4,7 @@ import type { FormAnswer } from "../agent/mcp-stateless.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { CLOCK } from "../time.ts";
-import { CloseIcon } from "../app/icons.tsx";
+import { CloseIcon } from "../ui/icons.tsx";
 import { useLoaded, usePolled } from "../ui/loaded.ts";
 import { callLabel, doing } from "../app/Message.tsx";
 import { resolvePath } from "../app/openFile.ts";

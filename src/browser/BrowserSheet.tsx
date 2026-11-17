@@ -6,10 +6,10 @@ import { Browser, MAX_TABS } from "./plugin.ts";
 import { messageOf } from "../promise.ts";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
 import { NOTHING_SHOWN, pageKey, sameInputs, SHEET_START, type SheetEvent, type SheetInputs, sheetAfter, sheetOpen, type SheetState, withPage, withTabs } from "./sheetState.ts";
-import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../app/icons.tsx";
-import { isBack } from "../app/layers.ts";
+import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../ui/icons.tsx";
+import { isBack } from "../ui/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../ui/sideGesture.ts";
-import { haptic } from "../app/haptics.ts";
+import { haptic } from "../ui/haptics.ts";
 import { type Cancel, nextFrame } from "../time.ts";
 
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's

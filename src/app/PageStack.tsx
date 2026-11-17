@@ -1,7 +1,7 @@
 import { type ReactNode, type TouchEvent, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Source } from "../ui/subscribed.ts";
-import { haptic } from "./haptics.ts";
-import { isBack, useLast } from "./layers.ts";
+import { haptic } from "../ui/haptics.ts";
+import { isBack, useLast } from "../ui/layers.ts";
 import { ownsSidewaysDrag } from "./SidePanel.tsx";
 import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 

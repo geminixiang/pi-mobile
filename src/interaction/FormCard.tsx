@@ -1,5 +1,5 @@
 import { useContext, useState } from "react";
-import { ChevronIcon } from "../app/icons.tsx";
+import { ChevronIcon } from "../ui/icons.tsx";
 import { InteractionContext } from "./context.ts";
 import type { Outcome, SettledForm } from "./forms.ts";
 

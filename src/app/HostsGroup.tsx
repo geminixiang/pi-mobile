@@ -5,10 +5,10 @@ import { prepareContainers, watchPrepare } from "../agent/sandbox/host.ts";
 import { Apps } from "../plugins/apps.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
-import { ShareIcon, TerminalIcon } from "./icons.tsx";
+import { ShareIcon, TerminalIcon } from "../ui/icons.tsx";
 import { ChoiceRow } from "./ChoiceRow.tsx";
 import { RowList } from "../ui/RowList.tsx";
-import { Sheet } from "./Sheet.tsx";
+import { Sheet } from "../ui/Sheet.tsx";
 import { deadline } from "../time.ts";
 
 const MANUAL = "manual";

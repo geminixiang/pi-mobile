@@ -1,6 +1,6 @@
 import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, type LucideIcon, Sun } from "lucide-react";
 import { useContext } from "react";
-import { FileIcon } from "../app/icons.tsx";
+import { FileIcon } from "../ui/icons.tsx";
 import { OpenFileContext } from "../app/openFile.ts";
 import { BesideContext } from "../workbench/context.ts";
 import { PageFrame, usePageHtml } from "./PageFrame.tsx";

@@ -4,7 +4,8 @@ import type { AgentRuntime } from "../agent/runtime.ts";
 import { DAY, startOfToday } from "../time.ts";
 import type { LastRun, Trigger } from "./runs.ts";
 import { messageOf } from "../promise.ts";
-import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon, TriggerIcon } from "../app/icons.tsx";
+import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon } from "../ui/icons.tsx";
+import { TriggerIcon } from "./TriggerIcon.tsx";
 import { clockOf, describeNear, describeDay, describeRule, isEvent, triggerSymbol } from "./when.ts";
 import { GUARD_IDS, GUARDS, type GuardId } from "../agent/guards.ts";
 

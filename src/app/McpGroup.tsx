@@ -6,10 +6,10 @@ import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
-import { PlusIcon } from "./icons.tsx";
-import { Sheet } from "./Sheet.tsx";
+import { PlusIcon } from "../ui/icons.tsx";
+import { Sheet } from "../ui/Sheet.tsx";
 import { messageOf } from "../promise.ts";
-import { longPress } from "./haptics.ts";
+import { longPress } from "../ui/haptics.ts";
 
 function statusText(status: McpStatus | undefined): string {
 	switch (status?.state) {

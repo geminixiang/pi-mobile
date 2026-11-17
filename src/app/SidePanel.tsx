@@ -1,8 +1,8 @@
 import { createContext, type ReactNode, type RefObject, type TouchEvent, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import type { Source } from "../ui/subscribed.ts";
-import { haptic } from "./haptics.ts";
-import { isBack, useLast } from "./layers.ts";
+import { haptic } from "../ui/haptics.ts";
+import { isBack, useLast } from "../ui/layers.ts";
 import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 
 export type SidePage = { label: string; onBack: () => void; content: ReactNode };

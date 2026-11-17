@@ -1,5 +1,5 @@
 import type { AgentRuntime } from "../agent/runtime.ts";
-import { Sheet } from "../app/Sheet.tsx";
+import { Sheet } from "../ui/Sheet.tsx";
 import { ItemActions, remindLine } from "./ItemActions.tsx";
 import type { Item } from "./items.ts";
 import { useLoaded } from "../ui/loaded.ts";
