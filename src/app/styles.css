@@ -600,9 +600,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .tile { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; background: var(--tile, var(--panel-2)); color: var(--console-bg); font-family: var(--mono); font-size: var(--fs-ui); font-weight: 700; }
 .logo { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; background: var(--logo-bg); }
 .logo > svg { width: 22px; height: 22px; }
-.item-card { display: flex; flex-direction: column; gap: 8px; }
-.item-title { font-size: var(--fs-ui); line-height: 1.55; overflow-wrap: anywhere; }
-.item-detail { font-size: var(--fs-small); line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 .item-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .item-problem { font-size: var(--fs-small); color: var(--error); }
 .check-row + .check-row { border-top: 1px solid var(--line); }

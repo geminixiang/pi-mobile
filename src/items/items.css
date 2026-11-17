@@ -1,0 +1,3 @@
+.item-card { display: flex; flex-direction: column; gap: 8px; }
+.item-title { font-size: var(--fs-ui); line-height: 1.55; overflow-wrap: anywhere; }
+.item-detail { font-size: var(--fs-small); line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
