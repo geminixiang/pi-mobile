@@ -4,7 +4,7 @@ import { promised, useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../mcp/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../mcp/catalog.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
+import type { AgentRuntime } from "../runtime/runtime.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { PlusIcon } from "../ui/icons.tsx";
 import { Sheet } from "../ui/Sheet.tsx";

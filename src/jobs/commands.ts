@@ -1,4 +1,4 @@
-import { shellQuote } from "../agent/shell.ts";
+import { shellQuote } from "../shell.ts";
 
 export const JOBS = '"$HOME/.pi-mobile/jobs"';
 export const JOB_ID = /^[0-9a-f]{8}$/;

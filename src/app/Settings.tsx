@@ -19,7 +19,7 @@ import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar
 import { Calendar, type PhoneCalendar } from "../calendar/plugin.ts";
 import { phonePermissions } from "../interaction/phone-permissions.ts";
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
+import type { AgentRuntime } from "../runtime/runtime.ts";
 import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
 import { Triggers } from "../triggers/plugin.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings, signedInWithChatGPT } from "../settings.ts";

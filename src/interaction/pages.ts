@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { isWrite, toolCalls } from "../agent/entries.ts";
-import { baseName, isHtml } from "../agent/mime.ts";
+import { baseName, isHtml } from "../mime.ts";
 
 export type Page = { path: string; title: string; summary: string; html?: string };
 

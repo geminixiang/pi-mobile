@@ -8,7 +8,7 @@ import { type Item, itemTrigger } from "../items/items.ts";
 import { watchShown } from "../jobs/background.ts";
 import { type Trigger, triggerRun } from "../triggers/runs.ts";
 import { type Bench, FOLDER, fileKey } from "./bench.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 
 export const GROUPS = ["need", "moving", "result"] as const;
 

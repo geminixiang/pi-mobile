@@ -1,7 +1,7 @@
 import type { ConversationId } from "@earendil-works/pi-durable";
 import { type ReactNode, useState } from "react";
 import type { FormAnswer } from "../agent/mcp-stateless.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
+import type { AgentRuntime } from "../runtime/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { CLOCK } from "../time.ts";
 import { CloseIcon } from "../ui/icons.tsx";
@@ -17,7 +17,7 @@ import { orLogged } from "../promise.ts";
 import { type Board, type Card, type Draft, hostOf, type Source } from "./board.ts";
 import { type Seen, Surface } from "./Surface.tsx";
 import { isJob } from "../jobs/background.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 
 const PEEK_EVERY_MS = 1500;
 const SHOT_EVERY_MS = 2000;

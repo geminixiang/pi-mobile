@@ -25,7 +25,7 @@ import { withoutReplies } from "../interaction/replies.ts";
 import { type Call, lastStep, LONE_RUN, sameRun, type StepRun } from "./step-runs.ts";
 import { backgroundJobIn } from "../jobs/background.ts";
 import { clock, JobsContext, type RunningJob, useNow } from "../jobs/JobsContext.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 
 const DELIVERY: Record<string, string> = { live: "", later: " · 打開後執行", manual: " · 手動執行" };
 

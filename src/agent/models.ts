@@ -8,7 +8,7 @@ import { Type } from "typebox";
 import { parse } from "../parse.ts";
 import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "../net/cleartext.ts";
 import { ios } from "../native.ts";
-import { baseName } from "./mime.ts";
+import { baseName } from "../mime.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;

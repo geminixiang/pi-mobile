@@ -1,10 +1,10 @@
 import { win32 } from "node:path";
 import { Type } from "typebox";
 import { checkJson } from "../parse.ts";
-import { shellQuote } from "../agent/shell.ts";
+import { shellQuote } from "../shell.ts";
 import { JOB_ID, JOBS, type Job, parseJob, readJob } from "../jobs/commands.ts";
 import { jobAgent } from "../jobs/background.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 
 export type Status = "idle" | "working" | "needs_user" | "unknown";
 

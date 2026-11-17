@@ -2,7 +2,7 @@ import type { ConversationId, ConversationView } from "@earendil-works/pi-durabl
 import { type ReactNode, useState } from "react";
 import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
+import type { AgentRuntime } from "../runtime/runtime.ts";
 import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
 import type { Computer } from "../agent/workplaces.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";

@@ -154,22 +154,27 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ## 分層
 
-`src/` 分四層，import 只能往下。每個路徑屬於哪一層寫在 `test/code-rules.ts` 的 `LAYER_OF`，由 `npm run check` 檢查。
+`src/` 分四層，import 只能往下，一條往上的都不行。每個資料夾屬於哪一層寫在 `test/code-rules.ts` 的 `LAYER_OF`，由 `npm run check` 檢查；新資料夾沒列進去也會被擋下。
 
 ```
-外殼 shell    app/、workbench/、main.tsx、agent/catalog.ts、agent/runtime.ts    認得所有功能，負責組裝
-功能 feature  browser/、triggers/、items/ 等功能資料夾、agent/tools/            一個功能一個資料夾
-核心 core     agent/、computer/、settings.ts                                    不認得任何功能
-基礎 base     ui/、plugins/、shims/、根目錄的小工具、連線狀態                    不認得上面任何一層
+外殼 shell    app/、workbench/、runtime/、main.tsx          認得所有功能，負責組裝
+功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、自己的邏輯
+核心 core     agent/、computer/、settings.ts                不認得任何功能
+基礎 base     ui/、plugins/、net/、shims/、根目錄的小工具   不認得上面任何一層
 ```
 
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
 
-- `LAYER_OF` 裡指名單一檔案的項目（例如 `src/agent/catalog.ts`）代表這個檔案還放在別層的資料夾裡，搬到該去的地方後就刪掉。
-- 往上的 import 一條都不能有。2026-11-17 開始時有 34 條，同一天清到 0：共用的圖示、Sheet、context 搬進 `src/ui/`；原生 contract 不再需要總表；排程和事項的畫面改拿 `TriggerRuns` 而不是整個 `AgentRuntime`；`Platform` 的真實實作搬到外殼；問使用者的資料和動作搬進核心；兩個型別改由核心定義；`agent/clouds.ts` 是雲端登入這個功能的組裝，改標成功能。
-- 它取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。
+- 外殼的 `src/runtime/` 是組裝：`catalog.ts` 是內建工具的唯一清單，`runtime.ts` 是 `AgentRuntime`。
+- 核心的 `src/agent/` 只放每個功能都可能用到的東西：怎麼定義工具（`tools/common.ts`）、Bot 和工具組、問使用者和要權限、模型、Bot 在哪裡工作（手機資料夾、sandbox）。
+- 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。
 
-還沒分清楚的有兩件：`agent/` 裡 `tools/` 以外還有其實是功能的檔案（MCP、雲端登入、附件、記憶），目前先算核心；功能之間互相 import 還沒有規則。
+2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。當天往上的 import 從 34 條清到 0，並把還留在 `agent/` 的 20 個功能搬到各自的資料夾。
+
+還沒做的有三件：
+- 功能之間互相 import 還沒有規則（排程是事項、背景工作、電腦上的 agent 的樞紐）。
+- 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
+- 功能的畫面多半還在 `src/app/`（設定頁的各區塊、MCP 和記憶的畫面），因為它們拿整個 `AgentRuntime`。
 
 ## 專案結構
 
@@ -177,18 +182,19 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 | 路徑 | 內容 |
 |---|---|
-| `src/agent/runtime.ts` | `AgentRuntime`：開啟 harness 並接好各部分；Bot 清單、對話控制器、每個 Bot 的電腦、工具組和記憶 |
+| `src/runtime/runtime.ts` | `AgentRuntime`：開啟 harness 並接好各部分；Bot 清單、對話控制器、每個 Bot 的電腦、工具組和記憶 |
 | `src/agent/available-models.ts` | 這支手機能用哪些模型：各供應商的模型清單、金鑰、web 搜尋用哪一家 |
 | `src/agent/assistant.ts` | 每個 Bot 共用的開頭提示 |
-| `src/agent/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
-| `src/agent/tools/` | 內建工具，一個領域一個檔案；`common.ts` 是共用的 `defineAppTool` |
+| `src/runtime/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
+| `src/agent/tools/common.ts` | 共用的 `defineAppTool`：每個工具都用它宣告自己的工具組、作用和需要的原生方法 |
+| 各功能的資料夾 | 內建工具，一個功能一個資料夾：`attachments`、`calendar`、`clouds`、`computer-screen`、`database`、`device`、`github`、`health`、`mcp`、`memory`、`notifications`、`people`、`phone-apps`、`phone-control`、`places`、`records`、`speech`、`tw-stocks`、`weather`、`web` |
 | `src/agent/codemode.ts`、`on-demand.ts`、`toolsets.ts` | Code mode（QuickJS Web Worker）、需要時才載入的工具、Bot 可選的工具組 |
-| `src/agent/bots.ts`、`memory.ts` | Bot 的資料與系統提示、MEMORY.md |
+| `src/agent/bots.ts`、`src/memory/memory.ts` | Bot 的資料與系統提示、MEMORY.md |
 | `src/skills/` | 技能：內建的 `builtin/<name>/SKILL.md`（照 pi coding agent 和 Agent Skills 的格式）、每個 Bot 和使用者一起存的技能（`save_skill`，排程觸發時不能存）、Bot 面板的技能清單 |
 | `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
-| `src/mcp/mcp.ts`、`mcp-catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
-| `src/clouds/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |
-| `src/agent/attachments*.ts` | 附件：PDF、Word、試算表、圖片 |
+| `src/mcp/mcp.ts`、`catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
+| `src/clouds/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`clouds.ts`、`src/agent/oauth.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token。`oauth.ts` 留在核心，ChatGPT 登入和 sandbox 也用它 |
+| `src/attachments/` | 附件：PDF、Word、試算表、圖片 |
 | `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
 | `src/agent/workplaces.ts`、`src/agent/sandbox/` | `Workplaces.at(bot)` 回答一個 Bot 在哪裡工作（手機、電腦直接或容器、已移除的電腦），帶著它的執行環境；pi-env 的 frame 協定、檔案與 git |
 | `src/computer/` | 連到電腦：配對與電腦資訊（`pairing.ts`）、在電腦上跑指令和電腦上的 MCP（`commands.ts`）、斷線續傳的連線（`resumable-link.ts` 的純狀態機、`resumable-socket.ts`）。`src/agent/sandbox/` 只依賴它，它不依賴 sandbox |
@@ -201,7 +207,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/items/` | 事項（`ItemDoc`）：`note_item`、到期和等回覆時叫醒 Bot、小工具上的清單 |
 | `src/computer-agents/` | 指揮電腦上的 agent（`list_agents`、`read_agent`、`tell_agent`、`answer_agent`） |
 | `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
-| `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
+| `src/plugins/`、各功能的 `plugin.ts` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema）。只屬於一個功能的放在那個功能的資料夾，好幾層都用的（`system`、`keep-alive`、`stream-fetch`、`bot-files`、`loopback`、`scanner`）留在 `src/plugins/`。各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
 | `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）、畫面之間傳遞的 context（`openFile.ts`、`beside.ts`）、HTML 預覽的 CSP（`csp.ts`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |

@@ -2,7 +2,7 @@ import { avatarOf, type Bot } from "../agent/bots.ts";
 import { startModelList } from "../agent/available-models.ts";
 import { capacitorPlatform, capacitorStorage } from "./capacitor.ts";
 import type { ConversationView } from "@earendil-works/pi-durable";
-import { AgentRuntime, type ConversationController, type ConversationId } from "../agent/runtime.ts";
+import { AgentRuntime, type ConversationController, type ConversationId } from "../runtime/runtime.ts";
 import { away, inForeground, setWorking, stayAwakeFor } from "../keepAlive.ts";
 import { log } from "../log.ts";
 import { native } from "../native.ts";

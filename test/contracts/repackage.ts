@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createModels } from "@earendil-works/pi-ai";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, defineExtension, type Extension, Harness, MemoryStorage } from "@earendil-works/pi-durable";
-import { builtinExtensions } from "../../src/agent/catalog.ts";
+import { builtinExtensions } from "../../src/runtime/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../../src/agent/calendar-access.ts";
 import { declarationOf } from "../../src/agent/tools/common.ts";
 import { type Groups, removedTools } from "../../src/agent/toolsets.ts";

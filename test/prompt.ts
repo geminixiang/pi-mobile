@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { MEMORY_LIMIT } from "../src/memory/memory.ts";
-import type { AgentRuntime, ConversationId } from "../src/agent/runtime.ts";
+import type { AgentRuntime, ConversationId } from "../src/runtime/runtime.ts";
 import type { Host } from "../src/computer/pairing.ts";
 import { budgetOf, fit, PROMPT_BUDGET } from "../src/section.ts";
 import { keepOpen, openRuntime, turn } from "./contracts/fixtures.ts";

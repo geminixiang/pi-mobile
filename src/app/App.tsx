@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
-import type { ConversationId } from "../agent/runtime.ts";
+import type { ConversationId } from "../runtime/runtime.ts";
 import { isConfigured, type Settings } from "../settings.ts";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";

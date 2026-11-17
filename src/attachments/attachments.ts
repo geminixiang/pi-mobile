@@ -4,7 +4,7 @@ import { ATTACHMENT_TAG } from "../agent/entries.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
-import { extensionOf } from "../agent/mime.ts";
+import { extensionOf } from "../mime.ts";
 import { Database } from "../database/plugin.ts";
 import { randomHex } from "../encoding.ts";
 

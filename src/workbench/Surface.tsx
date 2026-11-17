@@ -8,7 +8,7 @@ import { markdownComponents, remarkPlugins } from "../app/markdown.tsx";
 import { check } from "../parse.ts";
 import { messageOf } from "../promise.ts";
 import { BLOCKS, changed, linesOf, markBlocks, squeezed } from "./changes.ts";
-import { isHtml } from "../agent/mime.ts";
+import { isHtml } from "../mime.ts";
 import { promised, useStore } from "../ui/subscribed.ts";
 
 export type Seen = { get: (path: string) => string | undefined; set: (path: string, text: string) => void };

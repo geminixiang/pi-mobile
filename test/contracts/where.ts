@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { AgentRuntime } from "../../src/agent/runtime.ts";
+import { AgentRuntime } from "../../src/runtime/runtime.ts";
 import { NATIVE_PLUGINS, type NativePlugin } from "../../src/native.ts";
 import { turn } from "./fixtures.ts";
 import { type Check, platform, settings } from "./setup.ts";

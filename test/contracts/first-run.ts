@@ -3,7 +3,7 @@ import { createModels } from "@earendil-works/pi-ai";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { runFailureNote } from "../../src/agent/entries.ts";
 import { customProvider } from "../../src/agent/models.ts";
-import { AgentRuntime } from "../../src/agent/runtime.ts";
+import { AgentRuntime } from "../../src/runtime/runtime.ts";
 import { liveOf } from "../../src/app/docs.ts";
 import { isConfigured, type Settings, signedInWithChatGPT } from "../../src/settings.ts";
 import { type Check, platform, settings, settle } from "./setup.ts";

@@ -9,7 +9,7 @@ import { defineAppTool, text } from "../agent/tools/common.ts";
 import { parseClock } from "../time.ts";
 import { oneOf } from "../parse.ts";
 import { toBase64 } from "../encoding.ts";
-import { baseName, mimeTypeOf } from "../agent/mime.ts";
+import { baseName, mimeTypeOf } from "../mime.ts";
 
 const BACKGROUND = "pi is in the background, and the phone does not let it open other apps from there. Ask the user to open pi and try again.";
 

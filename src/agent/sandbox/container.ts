@@ -12,7 +12,7 @@ import { every, sleep } from "../../time.ts";
 import { messageOf, orLogged, untilFailure, whilePending } from "../../promise.ts";
 import { decode } from "../../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
-import { shellQuote } from "../shell.ts";
+import { shellQuote } from "../../shell.ts";
 
 const CONTAINER = "pim-main";
 const NETWORK = "pi-mobile";

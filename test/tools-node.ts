@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { parseSync } from "rolldown/utils";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
-import { builtinExtensions } from "../src/agent/catalog.ts";
+import { builtinExtensions } from "../src/runtime/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
 import type { PairedHost } from "../src/computer/pairing.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
@@ -205,7 +205,7 @@ function properties(schema: unknown): [string, Record<string, unknown>][] {
 
 const rules: Rule[] = [
 	{
-		rule: "every tool is declared with its groups: app tools with defineAppTool (src/agent/tools/common.ts), which also cleans empty optional arguments and declares reach, effect and needs; tools from a library with adopt in src/agent/catalog.ts",
+		rule: "every tool is declared with its groups: app tools with defineAppTool (src/agent/tools/common.ts), which also cleans empty optional arguments and declares reach, effect and needs; tools from a library with adopt in src/runtime/catalog.ts",
 		broken: ({ tool, iface }) => (declarationOf(tool) ? undefined : `${iface.name} (${iface.extension})`),
 	},
 	{

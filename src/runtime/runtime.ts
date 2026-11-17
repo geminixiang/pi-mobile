@@ -1,8 +1,8 @@
-import { Forms, FormsDoc } from "./forms.ts";
-import { type ResultCard, ResultsDoc } from "./results.ts";
-import { entryText } from "./entries.ts";
-import { OutsideDoc, said } from "./outside.ts";
-import { createJudge, type Judge } from "./judge.ts";
+import { Forms, FormsDoc } from "../agent/forms.ts";
+import { type ResultCard, ResultsDoc } from "../agent/results.ts";
+import { entryText } from "../agent/entries.ts";
+import { OutsideDoc, said } from "../agent/outside.ts";
+import { createJudge, type Judge } from "../agent/judge.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
 import {
@@ -17,12 +17,12 @@ import {
 	type SubmissionId,
 	type TaskGraph,
 } from "@earendil-works/pi-durable";
-import { activeView } from "./active-view.ts";
+import { activeView } from "../agent/active-view.ts";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
-import { createAssistant } from "./assistant.ts";
-import type { ContextShape, ToolCost } from "./context-shape.ts";
+import { createAssistant } from "../agent/assistant.ts";
+import type { ContextShape, ToolCost } from "../agent/context-shape.ts";
 import { HostCommands } from "../computer/commands.ts";
 import { pairedHosts } from "../computer/pairing.ts";
 import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
@@ -32,23 +32,23 @@ const PEEK_LINES = 60;
 import { agentState } from "../computer-agents/tool.ts";
 import { placeOf, type Reading, readingOf } from "../computer-agents/workers.ts";
 import { deleteAttachments } from "../attachments/attachments.ts";
-import { BotToolsets } from "./bot-toolsets.ts";
-import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "./bots.ts";
+import { BotToolsets } from "../agent/bot-toolsets.ts";
+import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "../agent/bots.ts";
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "../clouds/clouds.ts";
 import { extensionName, isMcpExtension, McpHub, type McpHooks } from "../mcp/mcp.ts";
 import { BotMemoryDoc, Memories } from "../memory/memory.ts";
 import { BotSkillsDoc, Skills } from "../skills/skills.ts";
-import { isThinkingLevel, type ModelInfo } from "./models.ts";
+import { isThinkingLevel, type ModelInfo } from "../agent/models.ts";
 import { hostOf } from "../parse.ts";
-import type { Platform } from "./platform.ts";
-import { Workspace } from "./sandbox/workspace.ts";
-import { type Groups, isAt, type Place, type ServiceToolset, TOOLSETS, type ToolsetState, usable } from "./toolsets.ts";
+import type { Platform } from "../agent/platform.ts";
+import { Workspace } from "../agent/sandbox/workspace.ts";
+import { type Groups, isAt, type Place, type ServiceToolset, TOOLSETS, type ToolsetState, usable } from "../agent/toolsets.ts";
 import { TriggerRuns } from "../triggers/runs.ts";
 import type { Notified, TriggerHost } from "../triggers/tool.ts";
-import { type Placed, Workplaces } from "./workplaces.ts";
-import { MODEL_RETRY } from "./retry.ts";
+import { type Placed, Workplaces } from "../agent/workplaces.ts";
+import { MODEL_RETRY } from "../agent/retry.ts";
 
 const context = BACKGROUND_CONTEXT;
 

@@ -11,7 +11,7 @@ import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "../ui/loaded.ts";
 import { CLOSED, defined, useStore } from "../ui/subscribed.ts";
 import { formatBytes } from "../encoding.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 
 type WorkspaceTab = "files" | "git";
 type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;

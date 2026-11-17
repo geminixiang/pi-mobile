@@ -82,7 +82,7 @@ from `CDP_PORT` (default 9333).
 
 ## In the page
 
-- `window.piRuntime` (`AgentRuntime` in `src/agent/runtime.ts`; `test/device-api.ts` checks scripts call only its
+- `window.piRuntime` (`AgentRuntime` in `src/runtime/runtime.ts`; `test/device-api.ts` checks scripts call only its
   members): `bots()`, `createBot({ name, job, avatar })`, `removeBot(id)`, `toolsets(id)`,
   `setToolset(id, toolset, on)`, `memory(scope)`, `saveMemory`, `phoneFolder(id)` (the bot's folder as an
   ExecutionEnv), `workspace(id)` (its folder on a computer), `toolCost(id)`, `workplaces.at(id)`.

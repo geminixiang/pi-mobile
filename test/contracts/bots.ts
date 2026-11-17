@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createModels, fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { configure, createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
-import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
+import type { AgentRuntime, ConversationId } from "../../src/runtime/runtime.ts";
 import { BotIndex, freeAvatar } from "../../src/agent/bots.ts";
 import type { Host } from "../../src/computer/pairing.ts";
 import { TriggerRuns } from "../../src/triggers/runs.ts";

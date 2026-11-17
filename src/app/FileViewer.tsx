@@ -12,7 +12,7 @@ import { BackButton } from "./BackButton.tsx";
 import { withCsp } from "../ui/csp.ts";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "../ui/loaded.ts";
-import { baseName, isHtml } from "../agent/mime.ts";
+import { baseName, isHtml } from "../mime.ts";
 
 export const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
 

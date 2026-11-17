@@ -22,9 +22,9 @@ import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, T
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, randomHex, toBase64 } from "../../encoding.ts";
-import { shellQuote } from "../shell.ts";
+import { shellQuote } from "../../shell.ts";
 import { after, type Cancel, HOUR } from "../../time.ts";
-import { baseName } from "../mime.ts";
+import { baseName } from "../../mime.ts";
 
 const TEMP_DIR = "/tmp";
 const MAX_TIMEOUT_MS = 2 * HOUR;

@@ -6,7 +6,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { AgentRuntime } from "../../src/agent/runtime.ts";
+import { AgentRuntime } from "../../src/runtime/runtime.ts";
 import { turn } from "./fixtures.ts";
 
 const granted = (state: unknown, extension: string) => JSON.stringify(state ?? {}).includes(`"${extension}"`);

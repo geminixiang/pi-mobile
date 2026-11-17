@@ -4,7 +4,7 @@ import { contentText, createModels, fauxAssistantMessage, fauxToolCall, type Fau
 import { createRegistry, defineExtension, Harness, MemoryStorage, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
-import { AgentRuntime, type ConversationId } from "../../src/agent/runtime.ts";
+import { AgentRuntime, type ConversationId } from "../../src/runtime/runtime.ts";
 import { defineAppTool, text } from "../../src/agent/tools/common.ts";
 import type { InstalledApp } from "../../src/agent/platform.ts";
 import { APP_NOTE_LIMITS, createAppNotes } from "../../src/skills/skills.ts";

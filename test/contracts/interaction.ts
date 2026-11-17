@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
+import type { AgentRuntime, ConversationId } from "../../src/runtime/runtime.ts";
 import { Value } from "typebox/value";
 import { questionStates } from "../../src/interaction/answers.ts";
 import { AskArgs } from "../../src/interaction/tool.ts";

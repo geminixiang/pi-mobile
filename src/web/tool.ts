@@ -17,7 +17,7 @@ import { refuseCleartextSecret } from "../net/cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../agent/models.ts";
 import { formatBytes, fromBase64 } from "../encoding.ts";
 import { deadline, MINUTE } from "../time.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(

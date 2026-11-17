@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { entryText } from "../../src/agent/entries.ts";
-import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
+import type { AgentRuntime, ConversationId } from "../../src/runtime/runtime.ts";
 import { openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
 

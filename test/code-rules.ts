@@ -116,7 +116,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bopenScreen\(/,
-		owners: ["src/agent/catalog.ts", "src/phone-apps/tool.ts"],
+		owners: ["src/runtime/catalog.ts", "src/phone-apps/tool.ts"],
 		fix: "declare effect: \"screen\" and the catalog checks whether pi may open a screen before the tool runs; a tool does not call openScreen itself",
 	},
 	{
@@ -146,7 +146,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bBotIndex\b/,
-		owners: ["src/agent/bots.ts", "src/agent/runtime.ts", "src/agent/bot-toolsets.ts"],
+		owners: ["src/agent/bots.ts", "src/runtime/runtime.ts", "src/agent/bot-toolsets.ts"],
 		fix: "read the bots with botsIn (src/agent/bots.ts) or runtime.bots(), which leave out a bot being removed; only the runtime edits the index, and BotToolsets a bot's toolset choices",
 	},
 	{
@@ -186,14 +186,14 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /split\("\/"\)\.(at\(-1\)|pop\(\))|lastIndexOf\("\/"\) \+ 1/,
-		owners: ["src/agent/mime.ts"],
-		fix: "take the last part of a path with baseName(path) from src/agent/mime.ts",
+		owners: ["src/mime.ts"],
+		fix: "take the last part of a path with baseName(path) from src/mime.ts",
 		only: TYPESCRIPT,
 	},
 	{
 		use: /\\\.html\?\$/,
-		owners: ["src/agent/mime.ts"],
-		fix: "tell an HTML file with isHtml(path) from src/agent/mime.ts",
+		owners: ["src/mime.ts"],
+		fix: "tell an HTML file with isHtml(path) from src/mime.ts",
 		only: TYPESCRIPT,
 	},
 	{
@@ -219,54 +219,45 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 
 const LAYER_ORDER = ["base", "core", "feature", "shell"] as const;
 type Layer = (typeof LAYER_ORDER)[number];
-// why: the layer of every path under src/, the longest match winning; an entry that names one file marks a file still sitting in a folder of another layer, and goes away when the file moves (docs/architecture.md § 分層)
+// why: the layer of every folder under src/ (docs/architecture.md § 分層); a file directly in src/ is base unless named here
 const LAYER_OF: Record<string, Layer> = {
 	"src/shims/": "base",
 	"src/ui/": "base",
 	"src/plugins/": "base",
-	"src/net/network.ts": "base",
-	"src/net/traffic.ts": "base",
-	"src/net/cleartext.ts": "base",
-	"src/net/http.ts": "base",
-	"src/net/stream-fetch.ts": "base",
-	"src/net/reach.ts": "base",
-	"src/agent/mime.ts": "base",
-	"src/agent/shell.ts": "base",
+	"src/net/": "base",
 	"src/agent/": "core",
 	"src/computer/": "core",
 	"src/settings.ts": "core",
-	"src/browser/": "feature",
-	"src/net/": "base",
-	"src/calendar/": "feature",
-	"src/database/": "feature",
 	"src/attachments/": "feature",
-	"src/computer-screen/": "feature",
-	"src/web/": "feature",
-	"src/github/": "feature",
-	"src/tw-stocks/": "feature",
-	"src/places/": "feature",
-	"src/weather/": "feature",
-	"src/phone-control/": "feature",
-	"src/notifications/": "feature",
-	"src/device/": "feature",
-	"src/speech/": "feature",
-	"src/records/": "feature",
-	"src/people/": "feature",
-	"src/health/": "feature",
-	"src/memory/": "feature",
+	"src/browser/": "feature",
+	"src/calendar/": "feature",
 	"src/clouds/": "feature",
-	"src/mcp/": "feature",
 	"src/computer-agents/": "feature",
+	"src/computer-screen/": "feature",
+	"src/database/": "feature",
+	"src/device/": "feature",
+	"src/github/": "feature",
+	"src/health/": "feature",
 	"src/interaction/": "feature",
 	"src/items/": "feature",
 	"src/jobs/": "feature",
+	"src/mcp/": "feature",
+	"src/memory/": "feature",
+	"src/notifications/": "feature",
+	"src/people/": "feature",
 	"src/phone-apps/": "feature",
+	"src/phone-control/": "feature",
 	"src/phone-screen/": "feature",
+	"src/places/": "feature",
+	"src/records/": "feature",
 	"src/skills/": "feature",
+	"src/speech/": "feature",
 	"src/triggers/": "feature",
-	"src/agent/catalog.ts": "shell",
-	"src/agent/runtime.ts": "shell",
+	"src/tw-stocks/": "feature",
+	"src/weather/": "feature",
+	"src/web/": "feature",
 	"src/app/": "shell",
+	"src/runtime/": "shell",
 	"src/workbench/": "shell",
 	"src/main.tsx": "shell",
 };
@@ -343,7 +334,7 @@ const MAX_LINES = 400;
 const LONG_FILES: Record<string, number> = {
 	"src/agent/files/phone-env.ts": 445,
 	"src/mcp/mcp.ts": 473,
-	"src/agent/runtime.ts": 659,
+	"src/runtime/runtime.ts": 659,
 	"src/tw-stocks/tool.ts": 465,
 	"src/app/App.tsx": 562,
 	"src/app/Chat.tsx": 475,
@@ -373,7 +364,7 @@ function runtimeRule(): Finding[] {
 	return checkedFiles()
 		.filter((file) => FEATURES.test(file) && SCRIPT_FILE.test(file))
 		.flatMap((file) => {
-			const uses = /from "[^"]*agent\/runtime\.ts"/.test(readFileSync(file, "utf8"));
+			const uses = /from "[^"]*runtime\/runtime\.ts"/.test(readFileSync(file, "utf8"));
 			if (uses && !RUNTIME_USERS.has(file)) return [{ file, line: 1, rule: "a feature takes its own handle (its store with subscribe and its verbs), not the whole AgentRuntime: pass the handle in as a prop" }];
 			if (!uses && RUNTIME_USERS.has(file)) return [{ file, line: 1, rule: "no longer imports AgentRuntime: remove it from RUNTIME_USERS so the list only shrinks" }];
 			return [];

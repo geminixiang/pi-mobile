@@ -12,7 +12,7 @@ import {
 	unsupportedFile,
 } from "../attachments/attachments.ts";
 import { codeNote } from "../agent/codes.ts";
-import type { BusyMode, SubmissionId, UserContent } from "../agent/runtime.ts";
+import type { BusyMode, SubmissionId, UserContent } from "../runtime/runtime.ts";
 import { scannedPdf } from "../scanner-plugin.ts";
 import { Scanner } from "../plugins/scanner.ts";
 import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "../ui/icons.tsx";
@@ -28,7 +28,7 @@ import { BesideContext } from "../ui/beside.ts";
 import { inViewNote } from "../agent/in-view.ts";
 import { RowList } from "../ui/RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";
-import { baseName } from "../agent/mime.ts";
+import { baseName } from "../mime.ts";
 import { useStore } from "../ui/subscribed.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {

@@ -4,7 +4,7 @@ import { parseSync } from "rolldown/utils";
 type Node = { type: string; [key: string]: unknown };
 const isNode = (value: unknown): value is Node => typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
 
-const runtime = new URL("../src/agent/runtime.ts", import.meta.url);
+const runtime = new URL("../src/runtime/runtime.ts", import.meta.url);
 const program = parseSync("runtime.ts", readFileSync(runtime, "utf8")).program;
 const declared: unknown[] = program.body.map((node) => (isNode(node) && isNode(node.declaration) ? node.declaration : node));
 const runtimeClass = declared.find((node) => isNode(node) && node.type === "ClassDeclaration" && isNode(node.id) && node.id.name === "AgentRuntime");
@@ -23,7 +23,7 @@ const unknown = DIRECTORIES.flatMap((directory) =>
 		}),
 );
 if (members.size === 0 || unknown.length > 0) {
-	console.error(`device-api: scripts call window.piRuntime members that AgentRuntime (src/agent/runtime.ts) does not have; rename them with the runtime: ${[...new Set(unknown)].join(", ") || "AgentRuntime not found"}`);
+	console.error(`device-api: scripts call window.piRuntime members that AgentRuntime (src/runtime/runtime.ts) does not have; rename them with the runtime: ${[...new Set(unknown)].join(", ") || "AgentRuntime not found"}`);
 	process.exit(1);
 }
 console.log(`device-api: device and perf scripts call only the ${members.size} members AgentRuntime has`);

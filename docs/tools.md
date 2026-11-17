@@ -27,7 +27,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 工具的介面就是模型和 code mode 腳本看到的東西：名稱、參數、輸出。它要穩定：改名或改參數會讓對話裡已經載入的工具失效，也會讓模型學到的用法不再適用。所以介面有規範，而且被檢查。
 
 **檢查**：`npm run check` 會跑兩支腳本。
-- `test/tools-node.ts`：從 `src/agent/catalog.ts` 取得每一個工具（就是 runtime 裝的那一份），檢查下面能自動檢查的規則，並跟 `test/tools.snapshot.json` 比對。名稱、參數、結構化輸出有任何改變都會失敗；確定要改，就加 `--update` 更新快照，並在「紀錄」寫一行為什麼改。
+- `test/tools-node.ts`：從 `src/runtime/catalog.ts` 取得每一個工具（就是 runtime 裝的那一份），檢查下面能自動檢查的規則，並跟 `test/tools.snapshot.json` 比對。名稱、參數、結構化輸出有任何改變都會失敗；確定要改，就加 `--update` 更新快照，並在「紀錄」寫一行為什麼改。
 - `test/tool-args-node.ts`：參數清理和時間格式的行為。
 
 ### 定義

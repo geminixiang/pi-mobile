@@ -1,6 +1,6 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { ConversationController } from "../agent/runtime.ts";
+import type { ConversationController } from "../runtime/runtime.ts";
 import { TRIGGER_ENTRY, triggerRun } from "../triggers/runs.ts";
 import { parseAttachment } from "../attachments/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";

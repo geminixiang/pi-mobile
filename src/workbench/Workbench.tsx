@@ -2,7 +2,7 @@ import type { ConversationId } from "@earendil-works/pi-durable";
 import { FileText, Globe, type LucideIcon, SquareTerminal, Table } from "lucide-react";
 import { type ReactNode, useMemo, useRef } from "react";
 import type { Bot } from "../agent/bots.ts";
-import type { AgentRuntime } from "../agent/runtime.ts";
+import type { AgentRuntime } from "../runtime/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { BotAvatar } from "../app/BotAvatar.tsx";
 import { CLOCK } from "../time.ts";
@@ -12,7 +12,7 @@ import type { Board, Card, Group } from "./board.ts";
 import { Stage, type StageActions } from "./Stage.tsx";
 import type { Seen } from "./Surface.tsx";
 import { isJob } from "../jobs/background.ts";
-import { baseName, isHtml } from "../agent/mime.ts";
+import { baseName, isHtml } from "../mime.ts";
 
 const GROUP_LABEL: Record<Group, string> = { need: "需要你", moving: "進行中", result: "成果" };
 
