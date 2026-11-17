@@ -1,12 +1,29 @@
 ---
 name: css
-description: Rules for pi mobile's CSS (src/app/styles.css, src/app/index.css). Read before adding or changing styles, animations, gestures that move elements, or overlays, and when reviewing CSS. Covers specificity, cascade layers instead of !important, one way of moving an element, animating only opacity and transform, and how npm run check enforces it.
+description: Rules for pi mobile's CSS (src/app/index.css, src/app/styles.css, and the sheet beside each folder's components). Read before adding or changing styles, animations, gestures that move elements, or overlays, and when reviewing CSS. Covers specificity, cascade layers instead of !important, one way of moving an element, animating only opacity and transform, and how npm run check enforces it.
 ---
 
 # CSS in pi mobile
 
-The stylesheet is plain CSS: `src/app/index.css` (entry, unlayered overrides) imports `src/app/styles.css` into the
-`app` cascade layer. `npm run check` runs Stylelint (`stylelint.config.js`); a change is not done until it passes.
+The stylesheets are plain CSS. `src/app/index.css` is the entry: it imports every sheet into the `app` cascade layer,
+`src/app/styles.css` first, and holds the few unlayered overrides. `npm run check` runs Stylelint
+(`stylelint.config.js`); a change is not done until it passes.
+
+## 0. Where a rule lives
+
+- A rule sits in the sheet beside the components that use its classes, one sheet per folder, named after it:
+  `src/browser/browser.css`, `src/app/chat/chat.css`. Changing a feature's look changes that feature's folder.
+- `src/app/styles.css` holds the tokens, the element defaults, the shell's own looks, and every look several folders
+  share: a class two folders use, or a rule that lists classes of two.
+- `index.css` lists the sheets in layer order: `styles.css`, the base (`ui`), the core, the features, the workbench,
+  then the four areas of `src/app`. They share one cascade layer, so between two rules of equal specificity the
+  later sheet wins: a folder's rule beats a shared one, and a container's sheet beats the sheet of what it holds.
+- A folder's rule that must lose such a tie to a shared rule stays in `styles.css` above it. Today: `.drawer-list > *`
+  (the add row keeps its own padding) and `.drawer-item.current` (the pressed tint shows on the current Bot's row).
+- Moving a rule between sheets can change who wins a tie. Compare every state it touches before and after, the
+  pressed ones and the wide layout included; computed styles show what a screenshot hides.
+- `npm run check` fails on a class no component uses, a sheet `index.css` does not import, and a selector in a
+  folder's sheet that names no class of that folder. `styles.css` is held at its length and only shrinks.
 
 Partly adapted from the Front-End Checklist's `specificity-management` and `styles-lint` skills (MIT,
 https://github.com/thedaviddias/Front-End-Checklist), with this project's own rules from its bugs.

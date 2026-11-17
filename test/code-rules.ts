@@ -71,7 +71,7 @@ function rule(node: Node, explained: boolean): string | undefined {
 	if (node.type === "TSAnyKeyword") return "any";
 	if (node.type === "CallExpression" && isSwallowingCatch(node)) return "catch that swallows the error";
 	if (classNames(node).some((name) => OLD_BOXES.has(name))) return "a .menu or .group box around a list: put the list on the background with RowList (src/ui/RowList.tsx), as DESIGN.md § Components says";
-	if (isInlineStyle(node)) return "inline style other than a custom property: put it in styles.css, or pass a --custom-property the stylesheet reads (CSS skill)";
+	if (isInlineStyle(node)) return "inline style other than a custom property: put it in the stylesheet beside the component, or pass a --custom-property the stylesheet reads (CSS skill)";
 	return undefined;
 }
 
@@ -319,6 +319,32 @@ function unusedClassRule(): Finding[] {
 	});
 }
 
+const SHARED_SHEET = "src/app/styles.css";
+const SELECTOR = /([^{}]+)\{/g;
+
+function sheetOwnerRule(): Finding[] {
+	const scripts = checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file));
+	return styleSheets()
+		.filter((sheet) => sheet !== STYLE_ENTRY && sheet !== SHARED_SHEET)
+		.flatMap((sheet) => {
+			const folder = `${dirname(sheet)}/`;
+			const code = scripts.filter((file) => dirname(file) === dirname(sheet)).map((file) => readFileSync(file, "utf8")).join("\n");
+			const own = (name: string) => new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(code) || name.split("-").some((_, index, parts) => index > 0 && code.includes(`${parts.slice(0, index).join("-")}-\${`));
+			const css = readFileSync(sheet, "utf8");
+			return [...css.matchAll(SELECTOR)].flatMap((match) => {
+				const [, prelude = ""] = match;
+				const selector = prelude.trim();
+				if (selector.startsWith("@") || !selector.includes(".")) return [];
+				const strangers = selector.split(/,(?![^(]*\))/).filter((part) => ![...part.matchAll(CSS_CLASS)].some(([, name = ""]) => own(name)));
+				return strangers.map((part) => ({
+					file: sheet,
+					line: css.slice(0, match.index).split("\n").length,
+					rule: `${part.trim()} names no class that a component in ${folder} uses: a folder's sheet styles what that folder renders; a look several folders share goes in ${SHARED_SHEET}`,
+				}));
+			});
+		});
+}
+
 function sheetImportRule(): Finding[] {
 	const entry = readFileSync(STYLE_ENTRY, "utf8");
 	const imported = new Set([...entry.matchAll(/^@import "([^"]+)" layer\(app\);$/gm)].map(([, path = ""]) => join(dirname(STYLE_ENTRY), path)));
@@ -343,6 +369,7 @@ function letRule(): Finding[] {
 const MAX_LINES = 400;
 // why: files already past MAX_LINES, each held at its size until it is split by responsibility; the numbers only go down
 const LONG_FILES: Record<string, number> = {
+	"src/app/styles.css": 468,
 	"src/agent/files/phone-env.ts": 445,
 	"src/mcp/mcp.ts": 473,
 	"src/runtime/runtime.ts": 659,
@@ -357,7 +384,7 @@ const LONG_FILES: Record<string, number> = {
 
 function lengthRule(): Finding[] {
 	return checkedFiles()
-		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.filter((file) => file.startsWith("src/") && (SCRIPT_FILE.test(file) || file.endsWith(".css")))
 		.flatMap((file) => {
 			const lines = readFileSync(file, "utf8").split("\n").length - 1;
 			const allowed = LONG_FILES[file] ?? MAX_LINES;
@@ -626,6 +653,7 @@ const all = [
 	...unreachableFiles(),
 	...unusedClassRule(),
 	...sheetImportRule(),
+	...sheetOwnerRule(),
 	...letRule(),
 	...lengthRule(),
 	...runtimeRule(),

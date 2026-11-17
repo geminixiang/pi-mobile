@@ -22,7 +22,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Make illegal states unrepresentable: a discriminated union (`{ state: "open"; socket } | { state: "closed"; reason }`), not booleans plus optional fields that must agree. React state with more than one moving part goes through `useReducer` over such a union, with pure transitions.
 - Few regular expressions: reach for string methods (`startsWith`, `includes`, `split`, `slice`) or a real parser first. A regex is for a genuine pattern, kept short and held in a named constant; a long or stacked one is a sign the input wants parsing.
 - Names are complete but not wordy: one precise word (`save`, not `saveFileToDiskAndNotify`), with types and placement carrying the rest.
-- Code is grouped by feature: one folder holds a feature's UI, logic, plugin wrapper and tool (`src/browser/`). New features start that way; an existing feature moves into its folder when it is refactored.
+- Code is grouped by feature: one folder holds a feature's UI, styles, logic, plugin and tool (`src/browser/`). New features start that way; an existing feature moves into its folder when it is refactored.
 - Android code is Kotlin: no Java file in `android/app/src/main/`.
 - Models to read like: the pi packages (`@earendil-works/*`), the Go standard library, and type-driven Elm/Rust code.
 - Store a value once: what can be computed from state, props, or a store is computed where it is used, not kept in its own `useState`, ref, or field (keep the selected id, derive the selected item from the list).
@@ -96,7 +96,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
 | No third-party app id in `src/` (exceptions listed with a reason) | `test/code-rules.ts` |
 | AGENTS.md only shrinks (`AGENTS_WORDS`) | `test/code-rules.ts` |
-| Every class in `styles.css` and `index.css` is used by a component (by name, or built as `prefix-${…}`); classes a library adds are listed in `EXTERNAL_CLASSES` | `test/code-rules.ts` |
+| Every styled class is used (by name, or as `prefix-${…}`; a library's are in `EXTERNAL_CLASSES`); a folder's sheet names its folder's classes; `index.css` imports it | `test/code-rules.ts` |
 | `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
 | A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |
 | A feature folder does not import `AgentRuntime`; the files that still do are listed in `RUNTIME_USERS`, which only shrinks | `test/code-rules.ts` |

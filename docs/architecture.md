@@ -158,7 +158,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ```
 外殼 shell    app/、workbench/、runtime/、main.tsx          認得所有功能，負責組裝
-功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、畫面、設定區塊
+功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、畫面、設定區塊、樣式
 核心 core     agent/、computer/、settings.ts                不認得任何功能
 基礎 base     ui/、plugins/、net/、shims/、根目錄的小工具   不認得上面任何一層
 ```
@@ -169,13 +169,15 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - 核心的 `src/agent/` 只放每個功能都可能用到的東西：怎麼定義工具（`tools/common.ts`）、Bot 和工具組、問使用者和要權限、模型、Bot 在哪裡工作（手機資料夾、sandbox）。
 - 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。功能在設定頁的區塊也在這裡（`calendar/CalendarGroup.tsx`、`clouds/AccountsPage.tsx`、`mcp/McpGroup.tsx`），它拿到的是自己的把手（`McpHub`、`Memories`、`TriggerRuns`），不是整個 `AgentRuntime`；`src/app/settings/Settings.tsx` 只留目錄、換頁，和橫跨好幾個功能的區塊。
 - 外殼和功能都用的小元件（按鈕、列、對話框、markdown）在基礎層的 `src/ui/`。
+- `src/app/` 是外殼：最外層放排版、session、側欄和平台接線，底下四區各管一塊畫面：`chat/`（對話、訊息、輸入框）、`bots/`（Bot 列表和面板）、`settings/`（設定目錄、模型供應商、電腦）、`files/`（資料夾和檔案檢視）。
+- 樣式跟著元件走：有畫面的資料夾有一個同名的樣式檔（`src/browser/browser.css`、`src/app/chat/chat.css`）。`src/app/styles.css` 只留顏色和間距、外殼自己的樣式，以及好幾個資料夾共用的樣式。`src/app/index.css` 依層的順序引入所有樣式檔（`.pi/skills/css/SKILL.md` § 0）。
 
 2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。當天往上的 import 從 34 條清到 0，並把還留在 `agent/` 的 20 個功能搬到各自的資料夾。
 
 還沒做的有三件：
 - 功能之間互相 import 還沒有規則（排程是事項、背景工作、電腦上的 agent 的樞紐）。
 - 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
-- 每個元件的樣式都在 `src/app/styles.css` 一個檔，`src/app/` 的檔案也還沒分區；做產品的 commit 有一半會改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一。
+- `runtime.ts` 還掛著幾個功能自己的動作（背景指令的等待、偷看、停止），`App.tsx` 還有設定的暫存和重複的帳號清單。2026-11-17 之前，做產品的 181 個 commit 有 90 個改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一；樣式和設定區塊搬回各資料夾後，這個比例要再累積 commit 才能重量。
 
 ## 專案結構
 
@@ -210,7 +212,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
 | `src/plugins/`、各功能的 `plugin.ts` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema）。只屬於一個功能的放在那個功能的資料夾，好幾層都用的（`system`、`keep-alive`、`stream-fetch`、`bot-files`、`loopback`、`scanner`）留在 `src/plugins/`。各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
+| `src/app/` | React UI 的外殼和四區（`chat/`、`bots/`、`settings/`、`files/`）。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
 | `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）、畫面之間傳遞的 context（`openFile.ts`、`beside.ts`）、HTML 預覽的 CSP（`csp.ts`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
 | `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
