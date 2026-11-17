@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { Allowed, definePlugin } from "./define.ts";
+import { Allowed, definePlugin } from "../plugins/define.ts";
 
 export const Usage = definePlugin("Usage", {
 	status: { args: Type.Object({}), result: Allowed },

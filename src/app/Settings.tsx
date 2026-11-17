@@ -7,7 +7,7 @@ import { Notifications } from "../plugins/notifications.ts";
 import { PhoneScreenGroup } from "../phone-screen/PhoneScreenGroup.tsx";
 import { PhoneState } from "../plugins/phone-state.ts";
 import { System } from "../plugins/system.ts";
-import { Usage } from "../plugins/usage.ts";
+import { Usage } from "../records/usage.ts";
 import { shareDiagnostics } from "./diagnostics.ts";
 import { useBriefly } from "../ui/briefly.ts";
 import { checkGitHub } from "../agent/checks.ts";

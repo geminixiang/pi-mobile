@@ -3,7 +3,7 @@ import { Calendar } from "../plugins/calendar.ts";
 import { Contacts } from "../people/contacts.ts";
 import { Phone } from "../plugins/phone.ts";
 import { Photos } from "../people/photos.ts";
-import { Records } from "../plugins/records.ts";
+import { Records } from "../records/plugin.ts";
 import type { PermissionKind, PermissionState, PhonePermissions } from "../agent/permissions.ts";
 
 const SOURCES = {

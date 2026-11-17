@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 import { oneOf } from "../parse.ts";
 
 export const CALL_KINDS = ["incoming", "outgoing", "missed", "rejected", "blocked", "voicemail", "other"] as const;
