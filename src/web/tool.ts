@@ -1,23 +1,23 @@
 import { CapacitorHttp } from "@capacitor/core";
-import { Page } from "../../plugins/page.ts";
-import { native } from "../../native.ts";
+import { Page } from "./page.ts";
+import { native } from "../native.ts";
 import type { Context } from "@earendil-works/chord/context";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import { prepareAttachment } from "../attachments.ts";
-import type { WebConfig } from "../available-models.ts";
-import { PhoneEnv } from "../files/phone-env.ts";
+import { prepareAttachment } from "../agent/attachments.ts";
+import type { WebConfig } from "../agent/available-models.ts";
+import { PhoneEnv } from "../agent/files/phone-env.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, text as textResult, truncated } from "./common.ts";
+import { defineAppTool, text as textResult, truncated } from "../agent/tools/common.ts";
 import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
-import { parse } from "../../parse.ts";
-import { messageOf } from "../../promise.ts";
-import { refuseCleartextSecret } from "../cleartext.ts";
-import { anthropicHeaders, rootUrl } from "../models.ts";
-import { formatBytes, fromBase64 } from "../../encoding.ts";
-import { deadline, MINUTE } from "../../time.ts";
-import { baseName } from "../mime.ts";
+import { parse } from "../parse.ts";
+import { messageOf } from "../promise.ts";
+import { refuseCleartextSecret } from "../agent/cleartext.ts";
+import { anthropicHeaders, rootUrl } from "../agent/models.ts";
+import { formatBytes, fromBase64 } from "../encoding.ts";
+import { deadline, MINUTE } from "../time.ts";
+import { baseName } from "../agent/mime.ts";
 
 const ResponsesAnswer = Type.Object({
 	output: Type.Optional(

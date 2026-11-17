@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 
 export const Page = definePlugin("Page", {
 	check: { args: Type.Object({ url: Type.String() }), result: Type.Object({ blocked: Type.Optional(Type.String()) }) },

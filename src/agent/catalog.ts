@@ -31,7 +31,7 @@ import { RecordsExtension, ScreenTimeExtension } from "../records/tool.ts";
 import { SpeechExtension } from "../speech/tool.ts";
 import { TwStocksExtension } from "../tw-stocks/tool.ts";
 import { WeatherExtension } from "../weather/tool.ts";
-import { createWebExtension } from "./tools/web.ts";
+import { createWebExtension } from "../web/tool.ts";
 import type { WebConfig } from "./available-models.ts";
 import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
 import { InteractionExtension } from "../interaction/tool.ts";
