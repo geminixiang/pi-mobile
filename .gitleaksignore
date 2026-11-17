@@ -10,3 +10,4 @@ test/cloudflare-node.ts:curl-auth-header:50
 test/gcloud-node.ts:curl-auth-header:52
 test/gcloud-node.ts:curl-auth-header:54
 src/agent/gcloud.ts:generic-api-key:134
+src/clouds/gcloud.ts:generic-api-key:99
