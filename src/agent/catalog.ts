@@ -29,7 +29,7 @@ import { ContactsExtension, PhotosExtension } from "../people/tool.ts";
 import { PlacesExtension } from "../places/tool.ts";
 import { RecordsExtension, ScreenTimeExtension } from "../records/tool.ts";
 import { SpeechExtension } from "../speech/tool.ts";
-import { TwStocksExtension } from "./tools/tw-stocks.ts";
+import { TwStocksExtension } from "../tw-stocks/tool.ts";
 import { WeatherExtension } from "../weather/tool.ts";
 import { createWebExtension } from "./tools/web.ts";
 import type { WebConfig } from "./available-models.ts";

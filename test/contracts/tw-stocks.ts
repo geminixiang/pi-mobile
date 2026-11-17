@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { findListing, flowsFrom, indexFrom, type Listing, listingsFrom, marginsFrom, pricesFrom, revenuesFrom, totalsFrom, valuationsFrom } from "../../src/agent/tools/tw-stocks.ts";
+import { findListing, flowsFrom, indexFrom, type Listing, listingsFrom, marginsFrom, pricesFrom, revenuesFrom, totalsFrom, valuationsFrom } from "../../src/tw-stocks/tool.ts";
 import type { Check } from "./setup.ts";
 
 const tsmc: Listing = { code: "2330", name: "台積電", market: "twse" };
