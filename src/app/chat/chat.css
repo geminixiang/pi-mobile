@@ -1,3 +1,4 @@
+:where(.markdown, .bubble, pre, code, input, textarea) { user-select: text; -webkit-user-select: text; }
 .block-cursor { display: inline-block; width: 0.55em; height: 1.1em; vertical-align: -0.18em; background: var(--accent); animation: blink 1s steps(1) infinite; flex-shrink: 0; }
 .transcript > .skeleton-transcript { padding: 0; flex: none; }
 .transcript {
@@ -30,6 +31,10 @@
 .notice { display: block; width: 100%; padding: 8px 0; text-align: left; }
 .context-full { align-self: flex-start; padding: 8px 12px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
 .context-full > b { color: var(--accent); font-weight: inherit; }
+.markdown.caret > :last-child::after {
+	content: ""; display: inline-block; width: 0.5em; height: 1.05em; margin-left: 3px; vertical-align: -0.15em;
+	background: var(--accent); animation: blink 1s steps(1) infinite;
+}
 .attachment { display: block; max-width: 240px; max-height: 240px; object-fit: cover; border: 1px solid var(--line); }
 .thinking button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 30px; color: var(--muted); text-align: left; }
 .thinking-label { font-family: var(--mono); font-size: var(--fs-meta); flex-shrink: 0; }
@@ -181,6 +186,8 @@
 .replies { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
 .replies button { padding: 8px 12px; border: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-small); line-height: 1.4; color: var(--accent); text-align: left; }
 .replies button::before { content: "↳ "; color: var(--faint); }
+.markdown.interim { font-family: var(--sans); font-size: var(--fs-small); line-height: 1.5; color: var(--faint); }
+.markdown.interim p { margin: 0; }
 .view-chip { flex-shrink: 1; display: inline-flex; align-items: center; gap: 6px; max-width: 40%; min-width: 0; align-self: flex-end; margin: 0 4px 14px 0; padding: 4px 8px; border: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); }
 .view-chip > svg { flex-shrink: 0; }
 .view-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -35,4 +35,3 @@
 .copyable { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding-bottom: 12px; }
 .copyable .console { align-self: stretch; }
 .copyable .row-buttons { gap: 0; padding: 0; margin: -4px -10px 0 0; }
-.row-empty > .check-progress, .row-empty > .check-error { display: block; font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); overflow-wrap: anywhere; }

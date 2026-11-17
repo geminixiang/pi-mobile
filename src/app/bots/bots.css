@@ -90,12 +90,8 @@
 .drawer-list { --list-inset: var(--side-inset); flex: 1; overflow: hidden auto; margin: 0 calc(-12px - var(--card-radius)) 0 calc(-1 * var(--side-inset)); padding-top: 12px; }
 .drawer-item { display: flex; align-items: center; }
 .drawer-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 6px 12px var(--side-inset); text-align: left; }
-.drawer-item > .icon-button.small, .queue > li > .icon-button.small { align-self: stretch; width: 52px; height: auto; min-height: 36px; }
-.drawer-item > .icon-button.small[data-pressed], .queue > li > .icon-button.small[data-pressed] { scale: none; }
 .drawer-title { flex: 1; display: flex; align-items: center; gap: 8px; font-size: var(--fs-ui); white-space: nowrap; overflow: hidden; }
 .drawer-time { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
-.sheet-form > label, .manual > label, .bot-form > label { display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 0; }
-.sheet-form > label > span, .manual > label > span, .bot-form > label > span { font-family: var(--mono); font-size: var(--fs-meta); text-transform: uppercase; color: var(--muted); }
 .drawer-running { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); animation: blink 1s steps(1) infinite; }
 .trigger-panel { margin: 0 calc(-1 * var(--panel-inset)) 0 calc(-1 * var(--panel-start)); }
 .trigger-panel > .note { margin: 0 var(--panel-inset) 0 var(--panel-start); }
