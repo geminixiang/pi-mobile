@@ -26,7 +26,7 @@ import { createItemsExtension } from "../items/tool.ts";
 import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { BrowserExtension } from "../browser/tool.ts";
 import { ContactsExtension, PhotosExtension } from "../people/tool.ts";
-import { PlacesExtension } from "./tools/places.ts";
+import { PlacesExtension } from "../places/tool.ts";
 import { RecordsExtension, ScreenTimeExtension } from "../records/tool.ts";
 import { SpeechExtension } from "../speech/tool.ts";
 import { TwStocksExtension } from "./tools/tw-stocks.ts";
