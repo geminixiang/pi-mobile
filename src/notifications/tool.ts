@@ -1,10 +1,10 @@
 import { defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../../section.ts";
+import { appSection } from "../section.ts";
 import { Type } from "typebox";
-import { requireAccess } from "../notification-access.ts";
-import { type ActiveNotification, Notifications, type RecordedNotification } from "../../plugins/notifications.ts";
-import { defineAppTool, text } from "./common.ts";
-import { HOUR, localTime } from "../../time.ts";
+import { requireAccess } from "./access.ts";
+import { type ActiveNotification, Notifications, type RecordedNotification } from "./plugin.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
+import { HOUR, localTime } from "../time.ts";
 
 function line(item: RecordedNotification): string {
 	const where = item.sender

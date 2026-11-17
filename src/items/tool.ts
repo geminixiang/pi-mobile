@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { oneOf } from "../parse.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
 import { parseLocalTime, soonest } from "../time.ts";
-import { requireAccess } from "../agent/notification-access.ts";
+import { requireAccess } from "../notifications/access.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { described, type Item, ItemDoc, pruned } from "./items.ts";
 import { randomHex } from "../encoding.ts";

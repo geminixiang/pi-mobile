@@ -1,4 +1,4 @@
-import { Notifications } from "../plugins/notifications.ts";
+import { Notifications } from "./plugin.ts";
 
 export async function requireAccess(): Promise<void> {
 	if (!(await Notifications.status()).allowed) {

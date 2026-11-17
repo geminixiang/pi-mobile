@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { requireAccess } from "../notification-access.ts";
-import { DND_MODES, type DndMode, Notifications } from "../../plugins/notifications.ts";
+import { requireAccess } from "../../notifications/access.ts";
+import { DND_MODES, type DndMode, Notifications } from "../../notifications/plugin.ts";
 import {
 	type Connection,
 	CONNECTIONS,

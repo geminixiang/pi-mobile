@@ -3,7 +3,7 @@ import { defined, promised, useStore, useSubscribed } from "../ui/subscribed.ts"
 import { onResume, resumed } from "../ui/resume.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../plugins/database.ts";
-import { Notifications } from "../plugins/notifications.ts";
+import { Notifications } from "../notifications/plugin.ts";
 import { PhoneScreenGroup } from "../phone-screen/PhoneScreenGroup.tsx";
 import { PhoneState } from "../device/phone-state.ts";
 import { System } from "../plugins/system.ts";

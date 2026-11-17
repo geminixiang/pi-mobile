@@ -19,7 +19,7 @@ import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "../device/tool.ts";
 import { createGitHubExtension } from "./tools/github.ts";
 import { HealthExtension } from "../health/tool.ts";
-import { NotificationsExtension } from "./tools/notifications.ts";
+import { NotificationsExtension } from "../notifications/tool.ts";
 import { createComputerExtension } from "./tools/computer.ts";
 import { createComputerAgentsExtension } from "../computer-agents/tool.ts";
 import { createItemsExtension } from "../items/tool.ts";
