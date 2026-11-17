@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Extension, ToolExecutionApi } from "@earendil-works/pi-durable";
 import { McpClient } from "@earendil-works/pi-mcp";
-import { extensionName, McpHub } from "../../src/agent/mcp.ts";
+import { extensionName, McpHub } from "../../src/mcp/mcp.ts";
 import { type Check, platform, settle } from "./setup.ts";
 
 function server() {

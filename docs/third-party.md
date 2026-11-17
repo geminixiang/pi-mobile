@@ -2,7 +2,7 @@
 
 ## Simple Icons
 
-設定 › 連接的服務裡的品牌圖示來自 npm 套件 [simple-icons](https://simpleicons.org) 16.36.0（CC0-1.0），由 `src/agent/mcp-catalog.ts` 的 `icon` 欄位指定。圖示是各品牌的商標，只用來標示該服務。
+設定 › 連接的服務裡的品牌圖示來自 npm 套件 [simple-icons](https://simpleicons.org) 16.36.0（CC0-1.0），由 `src/mcp/catalog.ts` 的 `icon` 欄位指定。圖示是各品牌的商標，只用來標示該服務。
 
 ## Lucide
 

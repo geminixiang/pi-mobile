@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { extensionName } from "../../src/agent/mcp.ts";
+import { extensionName } from "../../src/mcp/mcp.ts";
 import { agentState, keepOpen, openRuntime } from "./fixtures.ts";
 import { type Check, mcp, mcpHttp, openClients, platform, resetMcp, secrets, settings, settle } from "./setup.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";

@@ -274,7 +274,7 @@ Bot 的每次請求都帶著它能用的工具說明（名稱、描述、參數 
 
 ## MCP 服務市集
 
-設定 › MCP › 瀏覽服務列出的服務（`src/agent/mcp-catalog.ts`），都在 2026-10-21 從 Mac 實際試過：要嘛不用登入就能連，要嘛 OAuth 接受動態註冊，而且接受 pi 的本機跳轉網址（`http://127.0.0.1:47823/oauth/mcp`）。
+設定 › MCP › 瀏覽服務列出的服務（`src/mcp/catalog.ts`），都在 2026-10-21 從 Mac 實際試過：要嘛不用登入就能連，要嘛 OAuth 接受動態註冊，而且接受 pi 的本機跳轉網址（`http://127.0.0.1:47823/oauth/mcp`）。
 
 - **跳轉網址的選擇**：30 個知名服務中，只有 13 個接受 App 的自訂網址（`dev.geminixiang.pimobile:/oauth/mcp`），接受本機網址的有 22 個，而且前面那 13 個也都在裡面。所以登入一律用本機網址（`LoopbackPlugin.java`）。
 - **不在市集裡的**：GitHub、HubSpot、Box 不支援動態註冊；Figma 拒絕註冊（回 403）。

@@ -12,10 +12,10 @@ import {
 } from "@earendil-works/pi-mcp/oauth";
 import { type Static, Type } from "typebox";
 import { decode, decodeEach } from "../parse.ts";
-import { type McpSession, type Platform } from "./platform.ts";
+import { type McpSession, type Platform } from "../agent/platform.ts";
 import { hostStdio, parseComputerMcp } from "../computer/commands.ts";
-import { callTool, type FormAnswer, speaksStateless } from "./mcp-stateless.ts";
-import type { PendingForm } from "./forms.ts";
+import { callTool, type FormAnswer, speaksStateless } from "../agent/mcp-stateless.ts";
+import type { PendingForm } from "../agent/forms.ts";
 import { messageOf, orLogged, serially, settled, sharedUntilFailure } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;

@@ -1,6 +1,6 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { McpClient } from "@earendil-works/pi-mcp";
-import { mcpResult } from "../mcp.ts";
+import { mcpResult } from "../../mcp/mcp.ts";
 import { Type } from "typebox";
 import { hostStdio } from "../../computer/commands.ts";
 import type { PairedHost } from "../../computer/pairing.ts";

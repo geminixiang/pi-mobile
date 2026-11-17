@@ -2,7 +2,7 @@ import type { ConversationId, ConversationView } from "@earendil-works/pi-durabl
 import { useState } from "react";
 import { promised, useSubscribed } from "../ui/subscribed.ts";
 import { type ContextPart, contextParts, type ContextShape, type ToolCost } from "../agent/context-shape.ts";
-import { extensionName } from "../agent/mcp.ts";
+import { extensionName } from "../mcp/mcp.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 

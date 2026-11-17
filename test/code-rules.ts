@@ -241,6 +241,7 @@ const LAYER_OF: Record<string, Layer> = {
 	"src/agent/clouds.ts": "feature",
 	"src/agent/tools/": "feature",
 	"src/browser/": "feature",
+	"src/mcp/": "feature",
 	"src/computer-agents/": "feature",
 	"src/interaction/": "feature",
 	"src/items/": "feature",
@@ -327,7 +328,7 @@ const MAX_LINES = 400;
 // why: files already past MAX_LINES, each held at its size until it is split by responsibility; the numbers only go down
 const LONG_FILES: Record<string, number> = {
 	"src/agent/files/phone-env.ts": 445,
-	"src/agent/mcp.ts": 473,
+	"src/mcp/mcp.ts": 473,
 	"src/agent/runtime.ts": 659,
 	"src/agent/tools/tw-stocks.ts": 465,
 	"src/app/App.tsx": 562,
