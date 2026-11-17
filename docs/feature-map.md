@@ -34,8 +34,8 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 事項 | 待辦 | `ItemSheet` (`src/items/ItemSheet.tsx`) | 從通知或小工具點進來的一件事項 |
 | 交給哪個 Bot | 分享 | `App` (`src/app/App.tsx`) | 從別的 App 分享給 pi、又有好幾個 Bot 時問你交給誰 |
 | 瀏覽器 | 瀏覽器面板 | `BrowserSheet` (`src/browser/BrowserSheet.tsx`)、`BrowserButton` (`src/browser/BrowserButton.tsx`) | 從標題列往下拉的面板；Bot 用它時地球亮一個點，要你接手時才自己打開 |
-| 工作區 | 資料夾、檔案 | `WorkspaceView` (`src/app/WorkspaceView.tsx`) | 從右邊蓋過對話：Bot 的資料夾，電腦上還有 git 的變更 |
-| 檔案 | 預覽 | `FileViewer` (`src/app/FileViewer.tsx`)、`DiffView` (`src/app/DiffView.tsx`) | 工作區裡打開的檔案和差異 |
+| 工作區 | 資料夾、檔案 | `WorkspaceView` (`src/app/files/WorkspaceView.tsx`) | 從右邊蓋過對話：Bot 的資料夾，電腦上還有 git 的變更 |
+| 檔案 | 預覽 | `FileViewer` (`src/app/files/FileViewer.tsx`)、`DiffView` (`src/app/files/DiffView.tsx`) | 工作區裡打開的檔案和差異 |
 | 確認框 | 對話框 | `Dialog` (`src/ui/Dialog.tsx`) | iOS 樣子的確認：取消、動作 |
 
 ## 設定

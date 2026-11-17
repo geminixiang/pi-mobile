@@ -1,17 +1,17 @@
 import { memo, useState } from "react";
-import type { Change, Workspace } from "../agent/sandbox/workspace.ts";
+import type { Change, Workspace } from "../../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
-import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "../ui/icons.tsx";
-import { isBack } from "../ui/layers.ts";
-import { joinPath, resolvePath } from "../ui/openFile.ts";
-import { PageStack } from "./PageStack.tsx";
-import { BackButton } from "../ui/BackButton.tsx";
-import { Tabs } from "../ui/Segmented.tsx";
-import { useLoaded } from "../ui/loaded.ts";
-import { CLOSED, defined, useStore } from "../ui/subscribed.ts";
-import { formatBytes } from "../encoding.ts";
-import { baseName } from "../mime.ts";
+import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "../../ui/icons.tsx";
+import { isBack } from "../../ui/layers.ts";
+import { joinPath, resolvePath } from "../../ui/openFile.ts";
+import { PageStack } from "../PageStack.tsx";
+import { BackButton } from "../../ui/BackButton.tsx";
+import { Tabs } from "../../ui/Segmented.tsx";
+import { useLoaded } from "../../ui/loaded.ts";
+import { CLOSED, defined, useStore } from "../../ui/subscribed.ts";
+import { formatBytes } from "../../encoding.ts";
+import { baseName } from "../../mime.ts";
 
 type WorkspaceTab = "files" | "git";
 type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;

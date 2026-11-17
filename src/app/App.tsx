@@ -28,7 +28,7 @@ import { OpenFileContext } from "../ui/openFile.ts";
 import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
 import { isJob, watchShown } from "../jobs/background.ts";
 import { PageStack } from "./PageStack.tsx";
-import { WorkspaceView } from "./WorkspaceView.tsx";
+import { WorkspaceView } from "./files/WorkspaceView.tsx";
 import { SidePanel } from "./SidePanel.tsx";
 import type { BotListProps } from "./bots/BotList.tsx";
 import { benchOf, benchStep, emptyBench, FOLDER, fileKey, pathOf } from "../workbench/bench.ts";

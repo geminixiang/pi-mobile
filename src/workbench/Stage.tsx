@@ -8,7 +8,7 @@ import { CloseIcon } from "../ui/icons.tsx";
 import { useLoaded, usePolled } from "../ui/loaded.ts";
 import { callLabel, doing } from "../app/chat/Message.tsx";
 import { resolvePath } from "../ui/openFile.ts";
-import { WorkspaceView } from "../app/WorkspaceView.tsx";
+import { WorkspaceView } from "../app/files/WorkspaceView.tsx";
 import { Browser } from "../browser/plugin.ts";
 import { choicesOf } from "../computer-agents/workers.ts";
 import { ItemActions, remindLine } from "../items/ItemActions.tsx";
