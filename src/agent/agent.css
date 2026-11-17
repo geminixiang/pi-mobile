@@ -1,0 +1,3 @@
+.bar-heading .bot-avatar { display: inline-block; vertical-align: -5px; margin-right: 8px; }
+.bot-avatar { flex-shrink: 0; display: block; align-self: center; }
+.bar-title .bot-avatar { display: inline-block; vertical-align: -3px; margin-right: 7px; }
