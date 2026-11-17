@@ -6,8 +6,8 @@ import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "../ui/icons.tsx"
 import { isBack } from "../ui/layers.ts";
 import { joinPath, resolvePath } from "../ui/openFile.ts";
 import { PageStack } from "./PageStack.tsx";
-import { BackButton } from "./BackButton.tsx";
-import { Tabs } from "./Segmented.tsx";
+import { BackButton } from "../ui/BackButton.tsx";
+import { Tabs } from "../ui/Segmented.tsx";
 import { useLoaded } from "../ui/loaded.ts";
 import { CLOSED, defined, useStore } from "../ui/subscribed.ts";
 import { formatBytes } from "../encoding.ts";

@@ -7,7 +7,7 @@ import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { ItemSheet } from "../items/ItemSheet.tsx";
 import { Chat, isBusy } from "./Chat.tsx";
 import { BotPanel } from "./BotPanel.tsx";
-import { Dialog, type DialogRequest } from "./Dialog.tsx";
+import { Dialog, type DialogRequest } from "../ui/Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
 import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "../ui/icons.tsx";
 import { BrowserButton } from "../browser/BrowserButton.tsx";
@@ -15,7 +15,7 @@ import { askForBrowser, type BrowserScreen, BrowserSheet } from "../browser/Brow
 import { type BrowserState, browserState, NO_BROWSER } from "../browser/tool.ts";
 import { type PageHost, PageHostContext } from "../interaction/PageFrame.tsx";
 import { ModelSheet, shortModelName, thinkingLabel } from "./ModelSheet.tsx";
-import { PiMark } from "./PiMark.tsx";
+import { PiMark } from "../ui/PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
 import { type Source, useSubscribed } from "../ui/subscribed.ts";

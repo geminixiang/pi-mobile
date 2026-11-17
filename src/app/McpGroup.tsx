@@ -1,4 +1,4 @@
-import { Logo } from "./Logo.tsx";
+import { Logo } from "../ui/Logo.tsx";
 import { useState } from "react";
 import { promised, useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";

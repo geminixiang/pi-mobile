@@ -1,4 +1,4 @@
-import { BackIcon } from "../ui/icons.tsx";
+import { BackIcon } from "./icons.tsx";
 
 export function BackButton({ onClick }: { onClick: () => void }) {
 	return (

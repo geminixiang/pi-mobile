@@ -4,13 +4,13 @@ import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { appFile } from "../phone-apps/tool.ts";
 import { Apps } from "../phone-apps/plugin.ts";
 import { OpenOutsideIcon, ShareIcon } from "../ui/icons.tsx";
-import { CopyButton } from "./CopyButton.tsx";
-import { markdownComponents, remarkPlugins } from "./markdown.tsx";
+import { CopyButton } from "../ui/CopyButton.tsx";
+import { markdownComponents, remarkPlugins } from "../ui/markdown.tsx";
 import { codeOf, messageOf } from "../promise.ts";
 import { formatBytes } from "../encoding.ts";
-import { BackButton } from "./BackButton.tsx";
+import { BackButton } from "../ui/BackButton.tsx";
 import { withCsp } from "../ui/csp.ts";
-import { Tabs } from "./Segmented.tsx";
+import { Tabs } from "../ui/Segmented.tsx";
 import { useLoaded } from "../ui/loaded.ts";
 import { baseName, isHtml } from "../mime.ts";
 

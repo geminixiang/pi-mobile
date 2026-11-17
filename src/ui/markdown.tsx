@@ -3,7 +3,7 @@ import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CopyButton.tsx";
-import { OpenFileContext } from "../ui/openFile.ts";
+import { OpenFileContext } from "./openFile.ts";
 import { isSource } from "./sources.ts";
 
 const Mermaid = lazy(() => import("./Mermaid.tsx"));

@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
 import { CodeLines, type Handed, handFile, handProblem, htmlPreviewIsolated } from "../app/FileViewer.tsx";
 import { withCsp } from "../ui/csp.ts";
-import { markdownComponents, remarkPlugins } from "../app/markdown.tsx";
+import { markdownComponents, remarkPlugins } from "../ui/markdown.tsx";
 import { check } from "../parse.ts";
 import { messageOf } from "../promise.ts";
 import { BLOCKS, changed, linesOf, markBlocks, squeezed } from "./changes.ts";

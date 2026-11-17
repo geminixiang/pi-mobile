@@ -11,7 +11,7 @@ import { isCodeNote } from "../agent/codes.ts";
 import { inViewPart, inViewPath } from "../agent/in-view.ts";
 import { partLabel } from "../workbench/changes.ts";
 import type { Prefs } from "./prefs.ts";
-import { markdownComponents, remarkPlugins } from "./markdown.tsx";
+import { markdownComponents, remarkPlugins } from "../ui/markdown.tsx";
 import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "../ui/openFile.ts";
 import { preview, stepsLabel, TOOL_DOING } from "./steps.ts";

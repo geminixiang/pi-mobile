@@ -1,4 +1,4 @@
-import { PiMark } from "./PiMark.tsx";
+import { PiMark } from "../ui/PiMark.tsx";
 
 export function TranscriptSkeleton() {
 	return (

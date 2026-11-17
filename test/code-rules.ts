@@ -131,8 +131,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /navigator\.clipboard|\.clipboardText\(/,
-		owners: ["src/app/clipboard.ts"],
-		fix: "copy and read the clipboard with copy and pasted from src/app/clipboard.ts, which picks the native read where the WebView cannot",
+		owners: ["src/ui/clipboard.ts"],
+		fix: "copy and read the clipboard with copy and pasted from src/ui/clipboard.ts, which picks the native read where the WebView cannot",
 	},
 	{
 		use: /\bsection\(/,
