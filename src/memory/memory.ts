@@ -3,7 +3,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type ConversationId, defineDoc, defineExtension, type Harness } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { checkpointEvery64 } from "../doc-policy.ts";
-import { defineAppTool, text } from "./tools/common.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
 import { oneOf } from "../parse.ts";
 
 export const MEMORY_LIMIT = 4000;

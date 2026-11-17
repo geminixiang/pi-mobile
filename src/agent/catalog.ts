@@ -3,7 +3,7 @@ import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-searc
 import { BotExtension } from "./bots.ts";
 import type { CalendarAccess } from "./calendar-access.ts";
 import { createPhoneCodemode } from "./codemode.ts";
-import { createMemoryExtension } from "./memory.ts";
+import { createMemoryExtension } from "../memory/memory.ts";
 import { createFilesExtension } from "./files/extension.ts";
 import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";

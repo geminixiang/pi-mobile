@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
-import { type Memory, MEMORY_LIMIT, type MemoryScope } from "../agent/memory.ts";
+import { type Memory, MEMORY_LIMIT, type MemoryScope } from "../memory/memory.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { messageOf } from "../promise.ts";
 import { BackButton } from "./BackButton.tsx";

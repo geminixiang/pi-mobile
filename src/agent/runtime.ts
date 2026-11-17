@@ -38,7 +38,7 @@ import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "../clouds/clouds.ts";
 import { extensionName, isMcpExtension, McpHub, type McpHooks } from "../mcp/mcp.ts";
-import { BotMemoryDoc, Memories } from "./memory.ts";
+import { BotMemoryDoc, Memories } from "../memory/memory.ts";
 import { BotSkillsDoc, Skills } from "../skills/skills.ts";
 import { isThinkingLevel, type ModelInfo } from "./models.ts";
 import { hostOf } from "../parse.ts";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
-import { createMemoryExtension, emptyMemory, MEMORY_LIMIT } from "../../src/agent/memory.ts";
+import { createMemoryExtension, emptyMemory, MEMORY_LIMIT } from "../../src/memory/memory.ts";
 import type { Check } from "./setup.ts";
 
 function memory(text: string) {
