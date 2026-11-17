@@ -562,11 +562,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .index-status { font-size: var(--fs-small); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .index-status.error { color: var(--error); white-space: normal; }
 .sheet-form textarea.field { height: auto; padding: 10px 12px; font-size: var(--fs-code); line-height: 1.5; resize: vertical; }
-.sign-in { display: flex; flex-direction: column; gap: 10px; padding: 16px; font-size: var(--fs-body); line-height: 1.6; color: var(--copy); }
-.sign-in p { margin: 0; }
-.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
-.dialog-actions.inline { padding: 0; }
-.user-code { font-family: var(--mono); font-size: var(--fs-display); letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
 .check-row > select.field { width: auto; max-width: 60%; flex-shrink: 0; }
 .check-row > .code-field { flex: 1; height: 38px; }
 .menu-hint.error { color: var(--error); }

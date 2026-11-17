@@ -1,0 +1,5 @@
+.sign-in { display: flex; flex-direction: column; gap: 10px; padding: 16px; font-size: var(--fs-body); line-height: 1.6; color: var(--copy); }
+.sign-in p { margin: 0; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
+.dialog-actions.inline { padding: 0; }
+.user-code { font-family: var(--mono); font-size: var(--fs-display); letter-spacing: 0.2em; text-align: center; padding: 10px; border: 1px dashed var(--line-strong); color: var(--text); }
