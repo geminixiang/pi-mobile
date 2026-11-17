@@ -4,9 +4,9 @@ import { PhoneScreen, KEYS as PHONE_KEYS, keysFor } from "../src/phone-screen/pl
 import { Browser, KEYS as BROWSER_KEYS, MAX_TABS } from "../src/browser/plugin.ts";
 import { coverage, kotlinKeys, kotlinSteps, swiftBranches } from "./screen/branches.ts";
 import type { Methods } from "../src/plugins/define.ts";
-import { PLUGINS } from "../src/plugins/index.ts";
+import { NATIVE_PLUGINS } from "../src/native.ts";
 import { ACTIVITIES, When } from "../src/triggers/plugin.ts";
-import { exitOnFailures, plain, snapshotFailures, sourcesMatching } from "./snapshot.ts";
+import { exitOnFailures, nativeContracts, plain, snapshotFailures, sourcesMatching } from "./snapshot.ts";
 
 const SNAPSHOT = new URL("./plugins.snapshot.json", import.meta.url);
 const ANDROID = new URL("../android/app/src/main/java/dev/geminixiang/pimobile/", import.meta.url);
@@ -33,7 +33,8 @@ const android = new Map([...androidPlugins(ANDROID), ...androidPlugins(ANDROID_O
 const iosPlugins = (directory: URL) => scan(directory, [".swift"], /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
 const ios = new Map([...iosPlugins(IOS), ...iosPlugins(IOS_SCREEN)]);
 
-const failures: string[] = [];
+const PLUGINS = await nativeContracts();
+const failures: string[] = NATIVE_PLUGINS.filter((name) => !PLUGINS.some((plugin) => plugin.name === name)).map((name) => `${name} is in NATIVE_PLUGINS (src/plugins/define.ts) but no file defines it with definePlugin: remove the name`);
 const contracts = new Map<string, Set<string>>(PLUGINS.map((plugin) => [plugin.name, new Set(Object.keys(plugin.contract.methods))]));
 
 for (const [platform, found] of [["Android", android], ["iOS", ios]] as const) {

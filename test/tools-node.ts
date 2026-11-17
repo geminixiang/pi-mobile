@@ -8,7 +8,7 @@ import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
 import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
 import { TOOLSETS } from "../src/agent/toolsets.ts";
-import { PLUGINS } from "../src/plugins/index.ts";
+import { NATIVE_PLUGINS } from "../src/native.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";
 import { exitOnFailures, plain, snapshotFailures, sourcesMatching, updating } from "./snapshot.ts";
 
@@ -333,7 +333,7 @@ function toolNamesIn(node: Node): string[] {
 	return [];
 }
 const SRC = new URL("../src/", import.meta.url);
-const pluginNames = PLUGINS.map((plugin) => plugin.name).join("|");
+const pluginNames = NATIVE_PLUGINS.join("|");
 const CALL = new RegExp(`\\b(${pluginNames})\\.(\\w+)\\(`, "g");
 const NEEDS = /needs:\s*\[([^\]]*)\]/g;
 const GUARD = /native\.implements\(\s*(\w+\.\w+)\s*\)/g;

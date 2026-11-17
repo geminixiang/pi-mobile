@@ -1,10 +1,7 @@
 import { Capacitor } from "@capacitor/core";
-import { hasPlugin, isImplemented, type PluginMethod } from "./plugins/define.ts";
-import { PLUGINS } from "./plugins/index.ts";
+import { hasPlugin, isImplemented, NATIVE_PLUGINS, type NativePlugin, type PluginMethod } from "./plugins/define.ts";
 
-export type NativePlugin = (typeof PLUGINS)[number]["name"];
-
-export const NATIVE_PLUGINS: readonly NativePlugin[] = PLUGINS.map((plugin) => plugin.name);
+export { NATIVE_PLUGINS, type NativePlugin };
 
 export interface Native {
 	has(plugin: NativePlugin): boolean;

@@ -141,7 +141,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bAgentScreen\b|dev\.geminixiang\.agentscreen/,
-		owners: ["src/plugins/agent-screen.ts", "src/plugins/index.ts", "src/phone-screen/background.ts", "android/agentscreen/", "android/app/src/oss/"],
+		owners: ["src/plugins/agent-screen.ts", "src/plugins/define.ts", "src/phone-screen/background.ts", "android/agentscreen/", "android/app/src/oss/"],
 		fix: "the background screen is an experiment of the open source edition only (docs/design/background-screen.md): its native code stays in android/agentscreen/ and android/app/src/oss/, its contract in src/plugins/agent-screen.ts, and only src/phone-screen/background.ts reaches it: it decides which screen a step runs on and gives the settings page its setup (backgroundSetup)",
 	},
 	{
@@ -272,9 +272,6 @@ const UPWARD_IMPORTS = new Set<string>([
 	"src/interaction/ResultCards.tsx → src/workbench/context.ts",
 	"src/items/ItemActions.tsx → src/agent/runtime.ts",
 	"src/items/ItemSheet.tsx → src/agent/runtime.ts",
-	"src/plugins/index.ts → src/browser/plugin.ts",
-	"src/plugins/index.ts → src/phone-screen/plugin.ts",
-	"src/plugins/index.ts → src/triggers/plugin.ts",
 	"src/triggers/events.ts → src/agent/runtime.ts",
 	"src/triggers/TriggerList.tsx → src/agent/runtime.ts",
 	"src/triggers/TriggerRow.tsx → src/agent/runtime.ts",

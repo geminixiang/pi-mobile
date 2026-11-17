@@ -10,7 +10,7 @@ App 啟動時讀 Capacitor 的 `PluginHeaders`，知道每個原生 plugin 實�
 - 瀏覽器：一個都沒有，等於以前的「只在手機上」清單。
 - iOS：實作一個 plugin 的部分方法，只用到那些方法的工具就出現，不用改其他地方（`test/plugins-node.ts` 記下 iOS 實作了哪些方法）。
 
-所以 `requireNative()` 拿掉了：工具只在方法有實作時才裝，呼叫時不用再檢查。新的原生 plugin 在 `src/plugins/` 用 `definePlugin` 寫 contract，加進 `src/plugins/index.ts` 的 `PLUGINS`。
+所以 `requireNative()` 拿掉了：工具只在方法有實作時才裝，呼叫時不用再檢查。新的原生 plugin 用 `definePlugin` 寫 contract（放在功能自己的資料夾，或 `src/plugins/`），名字加進 `src/plugins/define.ts` 的 `NATIVE_PLUGINS`；沒有列名的名字不能編譯，列了名卻沒有 contract 會被 `test/plugins-node.ts` 擋下。
 
 ## 問題
 

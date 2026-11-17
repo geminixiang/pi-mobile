@@ -1,4 +1,6 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { TSchema } from "typebox";
+import type { Methods } from "../src/plugins/define.ts";
 
 export const updating = process.argv.includes("--update");
 
@@ -17,6 +19,18 @@ export function sourcesMatching(pattern: RegExp, except: readonly string[] = [])
 	return readdirSync(new URL("../src", import.meta.url), { recursive: true, encoding: "utf8" }).filter(
 		(file) => /\.tsx?$/.test(file) && !except.includes(file) && pattern.test(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8")),
 	);
+}
+
+interface NativeContract {
+	readonly name: string;
+	readonly contract: { readonly methods: Methods; readonly events: Readonly<Record<string, TSchema>> };
+}
+
+const isContract = (value: unknown): value is NativeContract => typeof value === "object" && value !== null && typeof Reflect.get(value, "name") === "string" && typeof Reflect.get(value, "contract") === "object";
+
+export async function nativeContracts(): Promise<NativeContract[]> {
+	const modules: object[] = await Promise.all(sourcesMatching(/\bdefinePlugin\(/, ["plugins/define.ts"]).map((file) => import(`../src/${file}`)));
+	return modules.flatMap((module) => Object.values(module).filter(isContract)).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const nameOf = (item: unknown): string | undefined => {

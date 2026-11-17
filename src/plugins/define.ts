@@ -8,11 +8,39 @@ const headers = check(PluginHeaders, Reflect.get(Capacitor, "PluginHeaders") ?? 
 if (!headers.ok) log.warn("native.headers_unreadable", { problem: headers.problem });
 const implemented = new Map(headers.ok ? headers.value.map((header) => [header.name, new Set(header.methods.map((method) => method.name))]) : []);
 
+export const NATIVE_PLUGINS = [
+	"AgentScreen",
+	"Apps",
+	"BotFiles",
+	"Browser",
+	"Calendar",
+	"Contacts",
+	"Database",
+	"Health",
+	"KeepAlive",
+	"Loopback",
+	"Notifications",
+	"Page",
+	"Phone",
+	"PhoneScreen",
+	"PhoneState",
+	"Photos",
+	"Records",
+	"Scanner",
+	"StreamFetch",
+	"System",
+	"Triggers",
+	"Usage",
+	"Voice",
+] as const;
+
+export type NativePlugin = (typeof NATIVE_PLUGINS)[number];
+
 export const Allowed = Type.Object({ allowed: Type.Boolean() });
 
 export const Granted = Type.Object({ granted: Type.Boolean() });
 
-export const hasPlugin = (plugin: string): boolean => implemented.has(plugin);
+export const hasPlugin = (plugin: NativePlugin): boolean => implemented.has(plugin);
 
 export const isImplemented = ({ plugin, method }: PluginMethod): boolean => implemented.get(plugin)?.has(method) ?? false;
 
@@ -45,7 +73,7 @@ type Bridge = Record<string, (args: object) => Promise<unknown>> & {
 	addListener(event: string, listener: (data: unknown) => void): Promise<PluginListenerHandle>;
 };
 
-export function definePlugin<const N extends string, const M extends Methods, const E extends Events = {}>(name: N, methods: M, events?: E): PluginApi<N, M, E> {
+export function definePlugin<const N extends NativePlugin, const M extends Methods, const E extends Events = {}>(name: N, methods: M, events?: E): PluginApi<N, M, E> {
 	const bridge = registerPlugin<Bridge>(name);
 	const schemas: Events = events ?? {};
 	const contract = { methods, events: schemas };
