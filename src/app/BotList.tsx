@@ -5,7 +5,7 @@ import { TriggerIcon } from "../triggers/TriggerIcon.tsx";
 import type { Trigger } from "../triggers/runs.ts";
 import type { When } from "../triggers/plugin.ts";
 import { type TriggerSymbol, triggerSymbol } from "../triggers/when.ts";
-import { BotAvatar } from "./BotAvatar.tsx";
+import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { CLOCK, DAY, startOfToday } from "../time.ts";
 
 const SHOWN_SYMBOLS = 3;

@@ -5,7 +5,7 @@ import { type Memory, MEMORY_LIMIT, type MemoryScope } from "../memory/memory.ts
 import type { AgentRuntime } from "../runtime/runtime.ts";
 import { messageOf } from "../promise.ts";
 import { BackButton } from "../ui/BackButton.tsx";
-import { BotAvatar } from "./BotAvatar.tsx";
+import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { monthDayTime } from "../time.ts";
 
 const BOT_PLACEHOLDER = `# 這份工作

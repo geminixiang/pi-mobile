@@ -6,7 +6,7 @@ import type { AgentRuntime } from "../runtime/runtime.ts";
 import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
 import type { Computer } from "../agent/workplaces.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
-import { BotAvatar } from "./BotAvatar.tsx";
+import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "./HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "../ui/icons.tsx";

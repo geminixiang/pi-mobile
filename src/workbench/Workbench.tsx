@@ -4,7 +4,7 @@ import { type ReactNode, useMemo, useRef } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../runtime/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
-import { BotAvatar } from "../app/BotAvatar.tsx";
+import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { CLOCK } from "../time.ts";
 import { ChevronIcon } from "../ui/icons.tsx";
 import { callLabel, doing } from "../app/Message.tsx";

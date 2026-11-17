@@ -2,7 +2,7 @@ import { useCallback, useMemo, useReducer, useRef, useState, useSyncExternalStor
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../runtime/runtime.ts";
 import { isConfigured, type Settings } from "../settings.ts";
-import { BotAvatar } from "./BotAvatar.tsx";
+import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./BotSheet.tsx";
 import { ItemSheet } from "../items/ItemSheet.tsx";
 import { Chat, isBusy } from "./Chat.tsx";
