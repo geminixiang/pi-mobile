@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { parseSync } from "rolldown/utils";
 import { checkedFiles } from "./no-comments.ts";
 
@@ -298,8 +298,11 @@ function layerRule(): Finding[] {
 const EXTERNAL_CLASSES = new Set(["task-list-item"]);
 const CSS_CLASS = /\.([a-zA-Z][\w-]*)/g;
 
+const STYLE_ENTRY = "src/app/index.css";
+const styleSheets = () => checkedFiles().filter((file) => file.startsWith("src/") && file.endsWith(".css"));
+
 function unusedClassRule(): Finding[] {
-	const sheets = ["src/app/styles.css", "src/app/index.css"];
+	const sheets = styleSheets();
 	const code = [...checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file)), "index.html"].map((file) => readFileSync(file, "utf8")).join("\n");
 	const named = (name: string) => new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(code);
 	const built = (name: string) => name.split("-").some((_, index, parts) => index > 0 && code.includes(`${parts.slice(0, index).join("-")}-\${`));
@@ -314,6 +317,14 @@ function unusedClassRule(): Finding[] {
 			}),
 		);
 	});
+}
+
+function sheetImportRule(): Finding[] {
+	const entry = readFileSync(STYLE_ENTRY, "utf8");
+	const imported = new Set([...entry.matchAll(/^@import "([^"]+)" layer\(app\);$/gm)].map(([, path = ""]) => join(dirname(STYLE_ENTRY), path)));
+	return styleSheets()
+		.filter((sheet) => sheet !== STYLE_ENTRY && !imported.has(sheet))
+		.map((sheet) => ({ file: sheet, line: 1, rule: `${STYLE_ENTRY} does not import this sheet, so its rules never load: add @import "${relative(dirname(STYLE_ENTRY), sheet)}" layer(app); there, where its folder's layer goes (base, core, feature, shell)` }));
 }
 
 // why: counts let declarations in src/, which only goes down: a value that changes is a const computed again or a reducer
@@ -614,6 +625,7 @@ function unreachableFiles(): Finding[] {
 const all = [
 	...unreachableFiles(),
 	...unusedClassRule(),
+	...sheetImportRule(),
 	...letRule(),
 	...lengthRule(),
 	...runtimeRule(),
