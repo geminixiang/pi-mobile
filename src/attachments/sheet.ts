@@ -1,6 +1,6 @@
 import { native } from "../native.ts";
 import readXlsxFile from "read-excel-file/universal";
-import { Database, type SqlValue } from "../plugins/database.ts";
+import { Database, type SqlValue } from "../database/plugin.ts";
 import { quoteName } from "./attachments.ts";
 
 type Cell = string | number | boolean | null;

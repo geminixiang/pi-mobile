@@ -2,7 +2,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { defined, promised, useStore, useSubscribed } from "../ui/subscribed.ts";
 import { onResume, resumed } from "../ui/resume.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
-import { Database } from "../plugins/database.ts";
+import { Database } from "../database/plugin.ts";
 import { Notifications } from "../notifications/plugin.ts";
 import { PhoneScreenGroup } from "../phone-screen/PhoneScreenGroup.tsx";
 import { PhoneState } from "../device/phone-state.ts";

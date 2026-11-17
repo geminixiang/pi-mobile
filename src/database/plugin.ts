@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 
 const SqlValue = Type.Union([Type.String(), Type.Number(), Type.Null()]);
 export type SqlValue = Static<typeof SqlValue>;

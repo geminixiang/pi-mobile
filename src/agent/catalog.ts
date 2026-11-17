@@ -15,7 +15,7 @@ import { AttachmentsExtension } from "../attachments/tool.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
 import { type CloudService, createCloudExtensions } from "../clouds/tool.ts";
 import { createControlExtension } from "../phone-control/tool.ts";
-import { DatabaseExtension } from "./tools/database.ts";
+import { DatabaseExtension } from "../database/tool.ts";
 import { DeviceExtension } from "../device/tool.ts";
 import { createGitHubExtension } from "../github/tool.ts";
 import { HealthExtension } from "../health/tool.ts";

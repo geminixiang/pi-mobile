@@ -5,7 +5,7 @@ import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";
 import { extensionOf } from "../agent/mime.ts";
-import { Database } from "../plugins/database.ts";
+import { Database } from "../database/plugin.ts";
 import { randomHex } from "../encoding.ts";
 
 export const KINDS = ["pdf", "docx", "sheet", "text"] as const;
