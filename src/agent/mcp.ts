@@ -15,7 +15,7 @@ import { decode, decodeEach } from "../parse.ts";
 import { type McpSession, type Platform } from "./platform.ts";
 import { hostStdio, parseComputerMcp } from "../computer/commands.ts";
 import { callTool, type FormAnswer, speaksStateless } from "./mcp-stateless.ts";
-import type { PendingForm } from "../interaction/forms.ts";
+import type { PendingForm } from "./forms.ts";
 import { messageOf, orLogged, serially, settled, sharedUntilFailure } from "../promise.ts";
 
 const REDIRECT_PORT = 47823;

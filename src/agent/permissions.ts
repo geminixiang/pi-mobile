@@ -1,6 +1,6 @@
 import type { Context } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
-import type { FormAnswer } from "../agent/mcp-stateless.ts";
+import type { FormAnswer } from "./mcp-stateless.ts";
 import type { PendingForm } from "./forms.ts";
 
 const PERMISSIONS = {

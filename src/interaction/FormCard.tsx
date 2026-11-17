@@ -1,7 +1,7 @@
 import { useContext, useState } from "react";
 import { ChevronIcon } from "../ui/icons.tsx";
 import { InteractionContext } from "./context.ts";
-import type { Outcome, SettledForm } from "./forms.ts";
+import type { Outcome, SettledForm } from "../agent/forms.ts";
 
 const OUTCOME: Record<Outcome, string> = { accepted: "已確認", declined: "已取消", skipped: "已略過", cancelled: "已中斷", unattended: "沒有人在，沒有做" };
 

@@ -258,11 +258,7 @@ const LAYER_OF: Record<string, Layer> = {
 const UPWARD_IMPORTS = new Set<string>([
 	"src/agent/available-models.ts → src/agent/tools/web.ts",
 	"src/agent/clouds.ts → src/agent/tools/cloud.ts",
-	"src/agent/mcp.ts → src/interaction/forms.ts",
-	"src/agent/platform.ts → src/interaction/permissions.ts",
 	"src/agent/platform.ts → src/phone-apps/apps.ts",
-	"src/agent/tools/common.ts → src/interaction/permissions.ts",
-	"src/agent/tools/common.ts → src/interaction/results.ts",
 ]);
 const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
 

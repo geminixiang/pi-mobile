@@ -3,7 +3,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Extension, ToolExecutionApi } from "@earendil-works/pi-durable";
 import { extensionName, McpHub } from "../../src/agent/mcp.ts";
 import type { AgentRuntime, ConversationId } from "../../src/agent/runtime.ts";
-import type { Forms } from "../../src/interaction/forms.ts";
+import type { Forms } from "../../src/agent/forms.ts";
 import { openRuntime } from "./fixtures.ts";
 import { type Check, mcp, mcpHttp, platform, resetMcp, settle } from "./setup.ts";
 

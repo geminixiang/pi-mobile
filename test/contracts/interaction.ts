@@ -8,7 +8,7 @@ import { AskArgs } from "../../src/interaction/tool.ts";
 import { answerOf, splitReplies, withoutReplies } from "../../src/interaction/replies.ts";
 import { finalWord } from "../../src/triggers/runs.ts";
 import { pageCards } from "../../src/interaction/pages.ts";
-import { addResult, type ResultCard } from "../../src/interaction/results.ts";
+import { addResult, type ResultCard } from "../../src/agent/results.ts";
 import { openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
 

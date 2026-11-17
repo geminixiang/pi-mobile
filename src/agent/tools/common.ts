@@ -1,11 +1,11 @@
-import type { PermissionKind } from "../../interaction/permissions.ts";
+import type { PermissionKind } from "../permissions.ts";
 import { contentText } from "@earendil-works/pi-ai";
 import { defineTool, type ToolExecutionApi, type ToolExecutionResult, type ToolRegistration } from "@earendil-works/pi-durable";
 import type { Context } from "@earendil-works/chord/context";
 import { isJsonValue, type JsonValue } from "@earendil-works/chord/json";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { showAlert } from "../../interaction/results.ts";
+import { showAlert } from "../results.ts";
 import { log } from "../../log.ts";
 import { gateSend, noteRead, OutsideDoc, warningOf } from "../outside.ts";
 import type { PluginMethod } from "../../plugins/define.ts";

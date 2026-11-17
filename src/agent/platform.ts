@@ -1,4 +1,4 @@
-import type { PhonePermissions } from "../interaction/permissions.ts";
+import type { PhonePermissions } from "./permissions.ts";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { McpClient, McpFetch } from "@earendil-works/pi-mcp";
 import type { Settings, SettingsStore } from "../settings.ts";

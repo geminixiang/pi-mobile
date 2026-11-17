@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import { checkAnswer, checkTask, Menus, Repeats } from "../../src/computer-agents/guard.ts";
-import { addResult, type ResultCard } from "../../src/interaction/results.ts";
+import { addResult, type ResultCard } from "../../src/agent/results.ts";
 import type { Check } from "./setup.ts";
 
 const answered = (probabilities: Record<string, number>): Judge => ({ ask: async () => ({ kind: "answered", probabilities, model: "fixture" }) });

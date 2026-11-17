@@ -1,6 +1,6 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type ConversationId, defineDoc, type Harness } from "@earendil-works/pi-durable";
-import type { FormAnswer, FormRequest } from "../agent/mcp-stateless.ts";
+import type { FormAnswer, FormRequest } from "./mcp-stateless.ts";
 import { checkpointEvery64 } from "../doc-policy.ts";
 import { orLogged } from "../promise.ts";
 

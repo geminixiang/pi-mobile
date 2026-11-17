@@ -166,7 +166,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
 
 - `LAYER_OF` 裡指名單一檔案的項目（例如 `src/agent/catalog.ts`）代表這個檔案還放在別層的資料夾裡，搬到該去的地方後就刪掉。
-- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條，核心用到功能的 10 條，基礎用到功能的 3 條。同一天把共用的圖示、Sheet、震動和返回鍵搬進 `src/ui/` 後剩 22 條；拿掉原生 contract 的總表（`src/plugins/index.ts`，測試改成自己找出所有 `definePlugin`）後剩 19 條；排程和事項的畫面改拿排程的執行器（`TriggerRuns`）而不是整個 `AgentRuntime` 後剩 14 條；「開檔案」和「旁邊正在看什麼」兩個 context、HTML 預覽的 CSP 搬進 `src/ui/` 後剩 10 條，全部是核心用到功能；`Platform` 的真實實作搬到外殼（`src/app/capacitor.ts`）後剩 7 條。
+- 還往上的 import 列在 `UPWARD_IMPORTS`，只能變少。2026-11-17 的起點是 34 條：功能用到外殼的 21 條，核心用到功能的 10 條，基礎用到功能的 3 條。同一天把共用的圖示、Sheet、震動和返回鍵搬進 `src/ui/` 後剩 22 條；拿掉原生 contract 的總表（`src/plugins/index.ts`，測試改成自己找出所有 `definePlugin`）後剩 19 條；排程和事項的畫面改拿排程的執行器（`TriggerRuns`）而不是整個 `AgentRuntime` 後剩 14 條；「開檔案」和「旁邊正在看什麼」兩個 context、HTML 預覽的 CSP 搬進 `src/ui/` 後剩 10 條，全部是核心用到功能；`Platform` 的真實實作搬到外殼（`src/app/capacitor.ts`）後剩 7 條；問使用者的資料和動作（`forms.ts`、`results.ts`、`permissions.ts`）從 `src/interaction/` 搬進核心後剩 3 條。
 - 它取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬把組裝、共用 UI、連線狀態搬出去：403 變 532），所以會把程式碼推進最大的資料夾。
 
 還沒分清楚的有兩件：`agent/` 裡 `tools/` 以外還有其實是功能的檔案（MCP、雲端登入、附件、記憶），目前先算核心；功能之間互相 import 還沒有規則。
@@ -197,7 +197,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/browser/` | Bot 的瀏覽器：外掛合約、注入網頁的 `page.ts`、`read_page` 和 `use_browser` 工具、瀏覽器面板。程式碼依功能分資料夾，其他功能整理時也會搬成這樣 |
 | `src/phone-screen/` | 代你操作 App（extension `phone_as_user`）：外掛合約、`phone_read_as_user` 和 `phone_act_as_user` 工具。設定頁的開關還在 `Settings.tsx`，跟其他設定區塊放在一起 |
 | `src/triggers/` | 排程：外掛合約（`plugin.ts`）、排程存檔與 `TriggerRuns`（`runs.ts`：同步到原生鬧鐘、觸發時的檢查和次數上限）、`create_schedule` 等工具（`tool.ts`）、原生事件佇列（`events.ts`）、排程的文字和圖示（`when.ts`）、設定頁的一列（`TriggerRow.tsx`） |
-| `src/interaction/` | 所有和使用者互動的元件（extension `interaction`）：問題卡、確認卡、權限卡、結果卡。`Forms.ask` 是「現在有沒有人在」的唯一答案 |
+| `src/interaction/`、`src/agent/forms.ts`、`results.ts`、`permissions.ts` | 所有和使用者互動的元件（extension `interaction`）：問題卡、確認卡、權限卡、結果卡，以及 `ask_user` 工具。卡片背後的資料和動作在核心，因為每個工具都可能用到：`Forms.ask`（`forms.ts`）是「現在有沒有人在」的唯一答案，`results.ts` 是給使用者看的結果，`permissions.ts` 是要手機權限的閘門 |
 | `src/items/` | 事項（`ItemDoc`）：`note_item`、到期和等回覆時叫醒 Bot、小工具上的清單 |
 | `src/computer-agents/` | 指揮電腦上的 agent（`list_agents`、`read_agent`、`tell_agent`、`answer_agent`） |
 | `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |

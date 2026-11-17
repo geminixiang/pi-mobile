@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import type { FormAnswer } from "../../src/agent/mcp-stateless.ts";
-import type { PendingForm } from "../../src/interaction/forms.ts";
-import { type PermissionState, permissionGate } from "../../src/interaction/permissions.ts";
+import type { PendingForm } from "../../src/agent/forms.ts";
+import { type PermissionState, permissionGate } from "../../src/agent/permissions.ts";
 import type { Check } from "./setup.ts";
 
 // why: the gate reads only callId and conversationId from its api; a whole Harness is not what these checks are about

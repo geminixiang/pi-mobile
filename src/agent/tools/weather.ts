@@ -7,7 +7,7 @@ import { getJson } from "../http.ts";
 import { weekdayOf } from "../../time.ts";
 import { parse } from "../../parse.ts";
 import { currentPlace, resolvePlace } from "./device.ts";
-import { showWeather } from "../../interaction/results.ts";
+import { showWeather } from "../results.ts";
 
 const CONDITIONS: Record<number, string> = {
 	0: "晴",

@@ -37,7 +37,7 @@ import { InteractionExtension } from "../interaction/tool.ts";
 import type { Platform } from "./platform.ts";
 import { type Groups, usableGroups } from "./toolsets.ts";
 import { adopt, declarationOf, gated, type ToolDeclaration } from "./tools/common.ts";
-import { type AskForm, permissionGate } from "../interaction/permissions.ts";
+import { type AskForm, permissionGate } from "./permissions.ts";
 import type { Workplace } from "./workplaces.ts";
 
 interface CatalogDeps {

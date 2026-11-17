@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { loadModels } from "../../src/agent/available-models.ts";
-import { Forms, type PendingForm, type Presence } from "../../src/interaction/forms.ts";
+import { Forms, type PendingForm, type Presence } from "../../src/agent/forms.ts";
 import { context } from "./fixtures.ts";
 import { type Check, platform, settings, settle } from "./setup.ts";
 

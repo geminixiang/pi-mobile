@@ -1,5 +1,5 @@
-import { Forms, FormsDoc } from "../interaction/forms.ts";
-import { type ResultCard, ResultsDoc } from "../interaction/results.ts";
+import { Forms, FormsDoc } from "./forms.ts";
+import { type ResultCard, ResultsDoc } from "./results.ts";
 import { entryText } from "./entries.ts";
 import { OutsideDoc, said } from "./outside.ts";
 import { createJudge, type Judge } from "./judge.ts";

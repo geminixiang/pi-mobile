@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import type { ConversationId, EntryRecord } from "@earendil-works/pi-durable";
-import type { PendingForm } from "../../src/interaction/forms.ts";
+import type { PendingForm } from "../../src/agent/forms.ts";
 import type { Item } from "../../src/items/items.ts";
 import type { Trigger } from "../../src/triggers/runs.ts";
 import { benchStep, emptyBench, FOLDER, fileKey } from "../../src/workbench/bench.ts";

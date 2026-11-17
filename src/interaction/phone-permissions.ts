@@ -4,7 +4,7 @@ import { Contacts } from "../plugins/contacts.ts";
 import { Phone } from "../plugins/phone.ts";
 import { Photos } from "../plugins/photos.ts";
 import { Records } from "../plugins/records.ts";
-import type { PermissionKind, PermissionState, PhonePermissions } from "./permissions.ts";
+import type { PermissionKind, PermissionState, PhonePermissions } from "../agent/permissions.ts";
 
 const SOURCES = {
 	contacts: { plugin: Contacts, aliases: ["contacts"] },

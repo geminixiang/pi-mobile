@@ -1,7 +1,7 @@
 import { contentText, type ToolCall } from "@earendil-works/pi-ai";
 import type { ConversationId, EntryRecord } from "@earendil-works/pi-durable";
 import { entryText, isWrite, message, toolCalls } from "../agent/entries.ts";
-import type { PendingForm } from "../interaction/forms.ts";
+import type { PendingForm } from "../agent/forms.ts";
 import { pageCards } from "../interaction/pages.ts";
 import { ASK_USER } from "../interaction/tool.ts";
 import { type Item, itemTrigger } from "../items/items.ts";

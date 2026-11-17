@@ -2,7 +2,7 @@ import type { ToolCall } from "@earendil-works/pi-ai";
 import { useContext } from "react";
 import { InteractionContext } from "./context.ts";
 import { FormCard, FormRecord } from "./FormCard.tsx";
-import { stepOf } from "./forms.ts";
+import { stepOf } from "../agent/forms.ts";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { AlertCard, PageCard, WeatherCard } from "./ResultCards.tsx";
 import { ASK_USER } from "./tool.ts";

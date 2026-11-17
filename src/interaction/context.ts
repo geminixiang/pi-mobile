@@ -1,9 +1,9 @@
 import { createContext } from "react";
 import type { FormAnswer } from "../agent/mcp-stateless.ts";
 import type { Asked } from "./answers.ts";
-import type { FormsState } from "./forms.ts";
+import type { FormsState } from "../agent/forms.ts";
 import type { Page } from "./pages.ts";
-import type { ResultCard } from "./results.ts";
+import type { ResultCard } from "../agent/results.ts";
 
 export type Interaction = {
 	questions: ReadonlyMap<string, Asked>;

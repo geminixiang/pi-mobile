@@ -5,7 +5,7 @@ import { OpenFileContext } from "../ui/openFile.ts";
 import { BesideContext } from "../ui/beside.ts";
 import { PageFrame, usePageHtml } from "./PageFrame.tsx";
 import type { Page } from "./pages.ts";
-import type { AlertResult, WeatherResult } from "./results.ts";
+import type { AlertResult, WeatherResult } from "../agent/results.ts";
 import { baseName } from "../agent/mime.ts";
 
 const ICONS: readonly (readonly [string, LucideIcon])[] = [
