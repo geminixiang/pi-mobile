@@ -6,7 +6,7 @@ import { type Static, Type } from "typebox";
 import { defineAppTool, text } from "../agent/tools/common.ts";
 import { localTime, MINUTE, parseClock, parseLocalTime } from "../time.ts";
 import { oneOf } from "../parse.ts";
-import { resolvePlace } from "../agent/tools/device.ts";
+import { resolvePlace } from "../device/tool.ts";
 import { requireAccess } from "../agent/notification-access.ts";
 import { Notifications } from "../plugins/notifications.ts";
 import { serially } from "../promise.ts";

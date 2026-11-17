@@ -240,6 +240,7 @@ const LAYER_OF: Record<string, Layer> = {
 	"src/agent/tools/common.ts": "core",
 	"src/agent/tools/": "feature",
 	"src/browser/": "feature",
+	"src/device/": "feature",
 	"src/speech/": "feature",
 	"src/records/": "feature",
 	"src/people/": "feature",

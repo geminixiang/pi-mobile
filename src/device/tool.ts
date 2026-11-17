@@ -1,13 +1,13 @@
-import { Phone } from "../../plugins/phone.ts";
-import { whilePending } from "../../promise.ts";
+import { Phone } from "./phone.ts";
+import { whilePending } from "../promise.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";
-import { oneOf, parse } from "../../parse.ts";
-import { defineAppTool, json } from "./common.ts";
-import { getJson } from "../http.ts";
-import { native } from "../../native.ts";
-import { PhoneState } from "../../plugins/phone-state.ts";
+import { oneOf, parse } from "../parse.ts";
+import { defineAppTool, json } from "../agent/tools/common.ts";
+import { getJson } from "../agent/http.ts";
+import { native } from "../native.ts";
+import { PhoneState } from "./phone-state.ts";
 
 const deviceInfo = defineAppTool({
 	name: "device_info",

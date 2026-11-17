@@ -1,7 +1,7 @@
 import { native } from "../native.ts";
 import { Calendar } from "../plugins/calendar.ts";
 import { Contacts } from "../people/contacts.ts";
-import { Phone } from "../plugins/phone.ts";
+import { Phone } from "../device/phone.ts";
 import { Photos } from "../people/photos.ts";
 import { Records } from "../records/plugin.ts";
 import type { PermissionKind, PermissionState, PhonePermissions } from "../agent/permissions.ts";

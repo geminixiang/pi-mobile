@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 
 const Readings = Type.Record(Type.String(), Type.Unknown());
 

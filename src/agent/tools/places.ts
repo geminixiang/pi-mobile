@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { Phone } from "../../plugins/phone.ts";
+import { Phone } from "../../device/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../../section.ts";
 import { defineAppTool, text } from "./common.ts";
@@ -7,7 +7,7 @@ import { getJson } from "../http.ts";
 import { localTime } from "../../time.ts";
 import { Value } from "typebox/value";
 import { parse } from "../../parse.ts";
-import { currentPlace, metersBetween, type Point, resolvePlace } from "./device.ts";
+import { currentPlace, metersBetween, type Point, resolvePlace } from "../../device/tool.ts";
 import { orLogged } from "../../promise.ts";
 
 const PhotonResults = Type.Object({

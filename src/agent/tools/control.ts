@@ -11,7 +11,7 @@ import {
 	PhoneState,
 	type SoundState,
 	STREAMS,
-} from "../../plugins/phone-state.ts";
+} from "../../device/phone-state.ts";
 import { messageOf } from "../../promise.ts";
 import { defineAppTool, text } from "./common.ts";
 import { localTime, MINUTE, pad, parseNextTime } from "../../time.ts";
