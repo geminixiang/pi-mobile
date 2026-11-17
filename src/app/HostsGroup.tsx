@@ -2,7 +2,7 @@ import { useState } from "react";
 import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
 import { computerKey, hasPiMobile, hostFrom, listPeers, OS_NAMES, type PairedHost, pairHost, type Peer, parseComputerKey, probeHost, stillPaired, unpairHost } from "../computer/pairing.ts";
 import { prepareContainers, watchPrepare } from "../agent/sandbox/host.ts";
-import { Apps } from "../plugins/apps.ts";
+import { Apps } from "../phone-apps/plugin.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { CopyButton } from "./CopyButton.tsx";
 import { ShareIcon, TerminalIcon } from "../ui/icons.tsx";

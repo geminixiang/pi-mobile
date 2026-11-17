@@ -116,7 +116,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bopenScreen\(/,
-		owners: ["src/agent/catalog.ts", "src/agent/tools/apps.ts"],
+		owners: ["src/agent/catalog.ts", "src/phone-apps/tool.ts"],
 		fix: "declare effect: \"screen\" and the catalog checks whether pi may open a screen before the tool runs; a tool does not call openScreen itself",
 	},
 	{
@@ -204,8 +204,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\bApp\.getState\(/,
-		owners: ["src/agent/tools/apps.ts", "src/keepAlive.ts"],
-		fix: "a tool opens a screen through openScreen (src/agent/tools/apps.ts), which decides whether pi may",
+		owners: ["src/phone-apps/tool.ts", "src/keepAlive.ts"],
+		fix: "a tool opens a screen through openScreen (src/phone-apps/tool.ts), which decides whether pi may",
 	},
 ];
 

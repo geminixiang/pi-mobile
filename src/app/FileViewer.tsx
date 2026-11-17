@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 import Markdown from "react-markdown";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
-import { appFile } from "../agent/tools/apps.ts";
-import { Apps } from "../plugins/apps.ts";
+import { appFile } from "../phone-apps/tool.ts";
+import { Apps } from "../phone-apps/plugin.ts";
 import { OpenOutsideIcon, ShareIcon } from "../ui/icons.tsx";
 import { CopyButton } from "./CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "./markdown.tsx";

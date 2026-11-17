@@ -12,7 +12,7 @@ import { phonePermissions } from "../interaction/phone-permissions.ts";
 import { inForeground } from "../keepAlive.ts";
 import { inApp, native } from "../native.ts";
 import { parseJson } from "../parse.ts";
-import { Apps } from "../plugins/apps.ts";
+import { Apps } from "../phone-apps/plugin.ts";
 import type { SettingsStorage, SettingsStore } from "../settings.ts";
 import { MINUTE } from "../time.ts";
 import { Triggers } from "../triggers/plugin.ts";

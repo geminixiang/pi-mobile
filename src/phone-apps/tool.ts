@@ -1,15 +1,15 @@
 import { App } from "@capacitor/app";
-import { Apps } from "../../plugins/apps.ts";
-import { PhoneScreen } from "../../phone-screen/plugin.ts";
-import { native } from "../../native.ts";
+import { Apps } from "./plugin.ts";
+import { PhoneScreen } from "../phone-screen/plugin.ts";
+import { native } from "../native.ts";
 import { Type } from "typebox";
 import { type ConversationId, defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../../section.ts";
-import { defineAppTool, text } from "./common.ts";
-import { parseClock } from "../../time.ts";
-import { oneOf } from "../../parse.ts";
-import { toBase64 } from "../../encoding.ts";
-import { baseName, mimeTypeOf } from "../mime.ts";
+import { appSection } from "../section.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
+import { parseClock } from "../time.ts";
+import { oneOf } from "../parse.ts";
+import { toBase64 } from "../encoding.ts";
+import { baseName, mimeTypeOf } from "../agent/mime.ts";
 
 const BACKGROUND = "pi is in the background, and the phone does not let it open other apps from there. Ask the user to open pi and try again.";
 

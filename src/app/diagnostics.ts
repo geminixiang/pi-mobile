@@ -1,7 +1,7 @@
 import { toBase64 } from "../encoding.ts";
 import { recentLog, saveLogWith } from "../log.ts";
 import { native } from "../native.ts";
-import { Apps } from "../plugins/apps.ts";
+import { Apps } from "../phone-apps/plugin.ts";
 import { System } from "../plugins/system.ts";
 import { messageOf } from "../promise.ts";
 
