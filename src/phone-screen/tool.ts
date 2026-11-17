@@ -188,7 +188,7 @@ const openApp = defineAppTool({
 	needs: [PhoneScreen.status, PhoneScreen.act],
 	reach: "model",
 	loads: [readPhoneScreen.name, usePhoneScreen.name, NOTE_TOOL],
-	description: `Open an app as the user on your own background screen; it starts empty, which is normal, so open the app first. Returns its screen and loads ${readPhoneScreen.name} and ${usePhoneScreen.name}.`,
+	description: `Open an app as the user on your own background screen, which starts empty; for a website use use_browser. Returns its screen and loads ${readPhoneScreen.name} and ${usePhoneScreen.name}.`,
 	parameters: Type.Object({ app: Type.String({ description: "App name or package" }) }),
 	replay: "safe",
 	execute: (args) => call(undefined, async (display) => ({ snapshot: await PhoneScreen.act({ steps: [{ action: "open", app: args.app }], screenshot: false, ...display }) })),

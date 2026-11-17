@@ -1514,7 +1514,7 @@
 			"phone_as_user"
 		],
 		"name": "phone_open_as_user",
-		"description_chars": 182,
+		"description_chars": 176,
 		"deferred": false,
 		"callers": [
 			"model",
