@@ -1,4 +1,5 @@
 @import "./styles.css" layer(app);
+@import "../ui/ui.css" layer(app);
 @import "../agent/agent.css" layer(app);
 @import "../browser/browser.css" layer(app);
 @import "../clouds/clouds.css" layer(app);
