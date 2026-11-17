@@ -1,7 +1,7 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { type Static, Type } from "typebox";
 import { Browser, type BrowserSnapshot, type BrowserStep, DIRECTIONS, KEYS, MAX_TABS } from "./plugin.ts";
-import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
+import { defineAppTool, orList, whenUserSpeaks, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
 import { after, MINUTE } from "../time.ts";
 
@@ -233,7 +233,8 @@ const useBrowser = defineAppTool({
 				await Browser.closeTab({ bot, tab: closing });
 				return present(await Browser.read({ bot, screenshot }), `Closed tab ${closing}. The tab in front now:`);
 			}
-			const outcome = await waitForUser(bot, end.text ?? "", context.abortSignal);
+			const stop = await whenUserSpeaks(api, context, () => browserState.handBack(bot));
+			const outcome = await waitForUser(bot, end.text ?? "", context.abortSignal).finally(stop);
 			const note = outcome === "returned" ? "The user handed the browser back. Check below that it is really done before going on; if not, say so and ask whether to hand it over again. The page now:" : "The user did not hand the browser back in 10 minutes. The page now:";
 			return present(await Browser.read({ bot, ...where, screenshot }), note);
 		});

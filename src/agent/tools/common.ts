@@ -7,7 +7,7 @@ import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { showAlert } from "../../interaction/results.ts";
 import { log } from "../../log.ts";
-import { gateSend, noteRead, warningOf } from "../outside.ts";
+import { gateSend, noteRead, OutsideDoc, warningOf } from "../outside.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
 import type { Groups } from "../toolsets.ts";
 
@@ -156,6 +156,16 @@ export function gated<TParameters extends TSchema, TDetails extends JsonValue>(
 	const declaration = declarations.get(tool);
 	if (declaration) declarations.set(guarded, declaration);
 	return guarded;
+}
+
+export async function whenUserSpeaks(api: ToolExecutionApi, context: Context, then: () => void): Promise<() => Promise<unknown>> {
+	const outside = await api.watchDoc(OutsideDoc, api.conversationId, context);
+	if (!outside) return async () => undefined;
+	const turn = outside.value.turn;
+	outside.start(async (call) => {
+		if (call.kind === "value" && call.value.turn > turn) then();
+	});
+	return () => outside.stop();
 }
 
 export const orList = (values: readonly string[]): string => (values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`);
