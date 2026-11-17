@@ -29,7 +29,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 模型 | 模型選單、思考強度 | `ModelSheet` (`src/app/bots/ModelSheet.tsx`) | 按膠囊上的名字，或連線圖上的模型：依供應商分組的模型和思考強度 |
 | 手機 | 這支手機 | `PhoneSheet` (`src/app/bots/Links.tsx`) | 按連線圖上的 pi：這支手機上能用什麼 |
 | 電腦 | 在哪裡跑 | `LinkSheets` (`src/app/bots/BotPanel.tsx`)、`HostRow` (`src/app/bots/Links.tsx`) | 按連線圖上的電腦：現在的電腦，和「在哪裡跑」的選擇（手機或哪台電腦） |
-| 準備容器 | 建 image 中 | `PrepareStatus` (`src/app/HostsGroup.tsx`) | 換到電腦的容器時，第一次建 image 的進度 |
+| 準備容器 | 建 image 中 | `PrepareStatus` (`src/app/settings/HostsGroup.tsx`) | 換到電腦的容器時，第一次建 image 的進度 |
 | Bot 詳情 | 編輯 Bot、改名 | `BotSheet` (`src/app/bots/BotSheet.tsx`) | 名字、工作、頭像、記憶、刪除 |
 | 事項 | 待辦 | `ItemSheet` (`src/items/ItemSheet.tsx`) | 從通知或小工具點進來的一件事項 |
 | 交給哪個 Bot | 分享 | `App` (`src/app/App.tsx`) | 從別的 App 分享給 pi、又有好幾個 Bot 時問你交給誰 |
@@ -40,22 +40,22 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 
 ## 設定
 
-從左側欄最底下打開，從左邊滑進來（`SettingsView` (`src/app/Settings.tsx`)）。首頁是 `SettingsIndex` (`src/app/Settings.tsx`)，分三區，每一列開一頁：
+從左側欄最底下打開，從左邊滑進來（`SettingsView` (`src/app/settings/Settings.tsx`)）。首頁是 `SettingsIndex` (`src/app/settings/Settings.tsx`)，分三區，每一列開一頁：
 
 | 名稱 | 元件 | 頁裡有什麼 |
 |---|---|---|
-| 設定 › 模型 | `ProvidersGroup` (`src/app/ProvidersGroup.tsx`) | 供應商、新 Bot 預設的模型、上下文（自動壓縮） |
+| 設定 › 模型 | `ProvidersGroup` (`src/app/settings/ProvidersGroup.tsx`) | 供應商、新 Bot 預設的模型、上下文（自動壓縮） |
 | 設定 › 全域記憶 | `MemoryView` (`src/memory/MemoryView.tsx`) | 每個 Bot 都該知道的事 |
 | 設定 › 帳號 | `AccountsPage` (`src/clouds/AccountsPage.tsx`) | GitHub、Google Cloud、Cloudflare、Azure；Bot 用你的身分登入的帳號 |
 | 設定 › 連接的服務 | `McpGroup` (`src/mcp/McpGroup.tsx`) | MCP 服務、加入服務、每個服務給哪些 Bot |
-| 設定 › 電腦 | `HostsGroup` (`src/app/HostsGroup.tsx`) | 配對的電腦、新 Bot 在哪裡跑、Tailscale 上找到的 |
-| 設定 › 瀏覽器 | `SettingsView` (`src/app/Settings.tsx`) | 搜尋引擎 |
-| 設定 › 手機 | `PhonePage` (`src/app/Settings.tsx`) | 行事曆（`CalendarGroup` (`src/calendar/CalendarGroup.tsx`)）、系統權限、背景執行、通知、代你操作 App |
+| 設定 › 電腦 | `HostsGroup` (`src/app/settings/HostsGroup.tsx`) | 配對的電腦、新 Bot 在哪裡跑、Tailscale 上找到的 |
+| 設定 › 瀏覽器 | `SettingsView` (`src/app/settings/Settings.tsx`) | 搜尋引擎 |
+| 設定 › 手機 | `PhonePage` (`src/app/settings/Settings.tsx`) | 行事曆（`CalendarGroup` (`src/calendar/CalendarGroup.tsx`)）、系統權限、背景執行、通知、代你操作 App |
 | 設定 › 手機 › 代你操作 App | `PhoneScreenGroup` (`src/phone-screen/PhoneScreenGroup.tsx`) | 無障礙服務；開源版多一個「背景操作」 |
 | 設定 › 手機 › 背景操作 | `BackgroundSetup` (`src/phone-screen/BackgroundSetup.tsx`) | 開源版才有（`AgentScreen.pair`）：背景螢幕的狀態（未設定、可用、無線偵錯沒開）；沒好時一行說明、一個「打開無線偵錯」（pi 看到配對視窗就自己讀配對碼配對）和手動輸入配對碼的小框 |
 | 設定 › 自動化 | `TriggersGroup` (`src/triggers/TriggersGroup.tsx`) | 所有 Bot 的自動化、要開的權限 |
 | 設定 › 資料庫 | `DatabaseGroup` (`src/database/DatabaseGroup.tsx`) | 資料表和筆數、匯出 |
-| 設定 › 顯示 | `SettingsView` (`src/app/Settings.tsx`) | 顯示思考過程、預設展開工具輸出 |
+| 設定 › 顯示 | `SettingsView` (`src/app/settings/Settings.tsx`) | 顯示思考過程、預設展開工具輸出 |
 
 ## 大螢幕：工作台
 

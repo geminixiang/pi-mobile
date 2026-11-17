@@ -167,7 +167,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 - 外殼的 `src/runtime/` 是組裝：`catalog.ts` 是內建工具的唯一清單，`runtime.ts` 是 `AgentRuntime`。
 - 核心的 `src/agent/` 只放每個功能都可能用到的東西：怎麼定義工具（`tools/common.ts`）、Bot 和工具組、問使用者和要權限、模型、Bot 在哪裡工作（手機資料夾、sandbox）。
-- 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。功能在設定頁的區塊也在這裡（`calendar/CalendarGroup.tsx`、`clouds/AccountsPage.tsx`、`mcp/McpGroup.tsx`），它拿到的是自己的把手（`McpHub`、`Memories`、`TriggerRuns`），不是整個 `AgentRuntime`；`src/app/Settings.tsx` 只留目錄、換頁，和橫跨好幾個功能的區塊。
+- 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。功能在設定頁的區塊也在這裡（`calendar/CalendarGroup.tsx`、`clouds/AccountsPage.tsx`、`mcp/McpGroup.tsx`），它拿到的是自己的把手（`McpHub`、`Memories`、`TriggerRuns`），不是整個 `AgentRuntime`；`src/app/settings/Settings.tsx` 只留目錄、換頁，和橫跨好幾個功能的區塊。
 - 外殼和功能都用的小元件（按鈕、列、對話框、markdown）在基礎層的 `src/ui/`。
 
 2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。當天往上的 import 從 34 條清到 0，並把還留在 `agent/` 的 20 個功能搬到各自的資料夾。

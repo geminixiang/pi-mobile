@@ -1,8 +1,8 @@
 import { App } from "@capacitor/app";
 import { type Static, Type } from "typebox";
-import { parse } from "../parse.ts";
-import { System } from "../plugins/system.ts";
-import { codeOf, messageOf } from "../promise.ts";
+import { parse } from "../../parse.ts";
+import { System } from "../../plugins/system.ts";
+import { codeOf, messageOf } from "../../promise.ts";
 
 const LATEST_RELEASE = "https://api.github.com/repos/geminixiang/pi-mobile/releases/latest";
 

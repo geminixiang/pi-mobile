@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
-import { computerKey, hasPiMobile, hostFrom, listPeers, OS_NAMES, type PairedHost, pairHost, type Peer, parseComputerKey, probeHost, stillPaired, unpairHost } from "../computer/pairing.ts";
-import { prepareContainers, watchPrepare } from "../agent/sandbox/host.ts";
-import { Apps } from "../phone-apps/plugin.ts";
-import { messageOf, orLogged } from "../promise.ts";
-import { CopyButton } from "../ui/CopyButton.tsx";
-import { ShareIcon, TerminalIcon } from "../ui/icons.tsx";
-import { ChoiceRow } from "../ui/ChoiceRow.tsx";
-import { RowList } from "../ui/RowList.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
-import { deadline } from "../time.ts";
+import { promised, useStore, useSubscribed } from "../../ui/subscribed.ts";
+import { computerKey, hasPiMobile, hostFrom, listPeers, OS_NAMES, type PairedHost, pairHost, type Peer, parseComputerKey, probeHost, stillPaired, unpairHost } from "../../computer/pairing.ts";
+import { prepareContainers, watchPrepare } from "../../agent/sandbox/host.ts";
+import { Apps } from "../../phone-apps/plugin.ts";
+import { messageOf, orLogged } from "../../promise.ts";
+import { CopyButton } from "../../ui/CopyButton.tsx";
+import { ShareIcon, TerminalIcon } from "../../ui/icons.tsx";
+import { ChoiceRow } from "../../ui/ChoiceRow.tsx";
+import { RowList } from "../../ui/RowList.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
+import { deadline } from "../../time.ts";
 
 const MANUAL = "manual";
 

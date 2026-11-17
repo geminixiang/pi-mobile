@@ -30,7 +30,7 @@ const missing = named.filter(({ component, file }) => !existsSync(file) || !new 
 const mapped = new Set(named.map(({ component }) => component));
 const unmapped = SCREEN_HOSTS.flatMap((file) => [...rendered(file)].filter((name) => /^[A-Z]/.test(name) && !ICON.test(name) && !mapped.has(name)).map((name) => ({ name, file })));
 
-const SETTINGS = "src/app/Settings.tsx";
+const SETTINGS = "src/app/settings/Settings.tsx";
 const PAGE_TITLE = /^\t{2,3}(?:\w+: \{ )?title: "([^"]+)"/gm;
 const pages = [...readFileSync(SETTINGS, "utf8").matchAll(PAGE_TITLE)].map(([, title]) => title);
 const unlistedPages = pages.filter((title) => !map.includes(`設定 › ${title}`));

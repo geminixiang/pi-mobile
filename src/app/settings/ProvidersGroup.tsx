@@ -1,19 +1,19 @@
-import { Row } from "../ui/Row.tsx";
+import { Row } from "../../ui/Row.tsx";
 import { useRef, useState } from "react";
-import { checkModels, checkProvider } from "../agent/checks.ts";
-import type { ModelInfo } from "../agent/models.ts";
-import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, providerName } from "../agent/providers.ts";
-import { providerReady, type Settings } from "../settings.ts";
-import { signInWithChatGPT } from "../agent/chatgpt.ts";
-import { native } from "../native.ts";
-import { System } from "../plugins/system.ts";
-import { CheckButton } from "../ui/CheckButton.tsx";
-import { RowList } from "../ui/RowList.tsx";
-import { ChoiceRow } from "../ui/ChoiceRow.tsx";
-import { Logo } from "../ui/Logo.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
-import { messageOf } from "../promise.ts";
-import { hostOf } from "../parse.ts";
+import { checkModels, checkProvider } from "../../agent/checks.ts";
+import type { ModelInfo } from "../../agent/models.ts";
+import { BUILTIN_PROVIDERS, builtinInfo, customId, type ProviderConfig, providerName } from "../../agent/providers.ts";
+import { providerReady, type Settings } from "../../settings.ts";
+import { signInWithChatGPT } from "../../agent/chatgpt.ts";
+import { native } from "../../native.ts";
+import { System } from "../../plugins/system.ts";
+import { CheckButton } from "../../ui/CheckButton.tsx";
+import { RowList } from "../../ui/RowList.tsx";
+import { ChoiceRow } from "../../ui/ChoiceRow.tsx";
+import { Logo } from "../../ui/Logo.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
+import { messageOf } from "../../promise.ts";
+import { hostOf } from "../../parse.ts";
 
 type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;
 

@@ -21,7 +21,7 @@ import { usePrefs } from "./prefs.ts";
 import { type Source, useSubscribed } from "../ui/subscribed.ts";
 import { after, type Cancel } from "../time.ts";
 import { applySettings, choose, closeItem, dismissNotices, leave, leftPanel, memoryPage, notify, open, rightPanel, saveSettings, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
-import { SettingsView } from "./Settings.tsx";
+import { SettingsView } from "./settings/Settings.tsx";
 import { MemoryView } from "../memory/MemoryView.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
 import { OpenFileContext } from "../ui/openFile.ts";

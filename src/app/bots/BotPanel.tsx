@@ -8,7 +8,7 @@ import type { Computer } from "../../agent/workplaces.ts";
 import type { ToolsetState } from "../../agent/toolsets.ts";
 import { BotAvatar } from "../../agent/BotAvatar.tsx";
 import { ContextCard } from "./ContextCard.tsx";
-import { PrepareStatus, usePrepare } from "../HostsGroup.tsx";
+import { PrepareStatus, usePrepare } from "../settings/HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "../../ui/icons.tsx";
 import { Sheet } from "../../ui/Sheet.tsx";
 import { TriggerList } from "../../triggers/TriggerList.tsx";

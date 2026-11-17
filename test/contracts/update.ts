@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { type Release, updateFrom } from "../../src/app/update.ts";
+import { type Release, updateFrom } from "../../src/app/settings/update.ts";
 import type { Check } from "./setup.ts";
 
 const DIGEST = "2bf42cf5b8b6e75b0ca7208c1d25096b7461afbda45b54ff90d69a8c5b552938";
