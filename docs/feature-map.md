@@ -50,7 +50,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 設定 › 連接的服務 | `McpGroup` (`src/mcp/McpGroup.tsx`) | MCP 服務、加入服務、每個服務給哪些 Bot |
 | 設定 › 電腦 | `HostsGroup` (`src/app/HostsGroup.tsx`) | 配對的電腦、新 Bot 在哪裡跑、Tailscale 上找到的 |
 | 設定 › 瀏覽器 | `SettingsView` (`src/app/Settings.tsx`) | 搜尋引擎 |
-| 設定 › 手機 | `PhonePage` (`src/app/Settings.tsx`) | 行事曆（`CalendarGroup`）、系統權限、背景執行、通知、代你操作 App |
+| 設定 › 手機 | `PhonePage` (`src/app/Settings.tsx`) | 行事曆（`CalendarGroup` (`src/calendar/CalendarGroup.tsx`)）、系統權限、背景執行、通知、代你操作 App |
 | 設定 › 手機 › 代你操作 App | `PhoneScreenGroup` (`src/phone-screen/PhoneScreenGroup.tsx`) | 無障礙服務；開源版多一個「背景操作」 |
 | 設定 › 手機 › 背景操作 | `BackgroundSetup` (`src/phone-screen/BackgroundSetup.tsx`) | 開源版才有（`AgentScreen.pair`）：背景螢幕的狀態（未設定、可用、無線偵錯沒開）；沒好時一行說明、一個「打開無線偵錯」（pi 看到配對視窗就自己讀配對碼配對）和手動輸入配對碼的小框 |
 | 設定 › 自動化 | `TriggersGroup` (`src/app/Settings.tsx`) | 所有 Bot 的自動化、要開的權限 |
