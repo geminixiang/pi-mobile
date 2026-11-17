@@ -9,16 +9,10 @@ import { markdownComponents, remarkPlugins } from "./markdown.tsx";
 import { codeOf, messageOf } from "../promise.ts";
 import { formatBytes } from "../encoding.ts";
 import { BackButton } from "./BackButton.tsx";
+import { withCsp } from "../ui/csp.ts";
 import { Tabs } from "./Segmented.tsx";
 import { useLoaded } from "../ui/loaded.ts";
 import { baseName, isHtml } from "../agent/mime.ts";
-
-const HTML_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:">`;
-
-export function withCsp(html: string): string {
-	const head = /<head(\s[^>]*)?>/i.exec(html);
-	return head ? `${html.slice(0, head.index + head[0].length)}${HTML_CSP}${html.slice(head.index + head[0].length)}` : `${HTML_CSP}${html}`;
-}
 
 export const htmlPreviewIsolated = (): boolean => typeof Reflect.get(window, "androidBridge")?.addEventListener === "function" || !("androidBridge" in window);
 

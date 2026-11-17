@@ -266,10 +266,6 @@ const UPWARD_IMPORTS = new Set<string>([
 	"src/agent/platform.ts → src/triggers/plugin.ts",
 	"src/agent/tools/common.ts → src/interaction/permissions.ts",
 	"src/agent/tools/common.ts → src/interaction/results.ts",
-	"src/interaction/PageFrame.tsx → src/app/FileViewer.tsx",
-	"src/interaction/PageFrame.tsx → src/app/openFile.ts",
-	"src/interaction/ResultCards.tsx → src/app/openFile.ts",
-	"src/interaction/ResultCards.tsx → src/workbench/context.ts",
 ]);
 const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
 

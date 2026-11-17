@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Type } from "typebox";
-import { withCsp } from "../app/FileViewer.tsx";
+import { withCsp } from "../ui/csp.ts";
 import { FileIcon } from "../ui/icons.tsx";
-import { OpenFileContext } from "../app/openFile.ts";
+import { OpenFileContext } from "../ui/openFile.ts";
 import type { Side } from "../ui/sideGesture.ts";
 import { oneOf, check } from "../parse.ts";
 import type { Page } from "./pages.ts";

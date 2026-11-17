@@ -4,7 +4,7 @@ import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "../ui/icons.tsx";
 import { isBack } from "../ui/layers.ts";
-import { joinPath, resolvePath } from "./openFile.ts";
+import { joinPath, resolvePath } from "../ui/openFile.ts";
 import { PageStack } from "./PageStack.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";

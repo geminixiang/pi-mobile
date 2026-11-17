@@ -24,7 +24,7 @@ import { JobsStrip } from "../jobs/JobsStrip.tsx";
 import { addToDraft, loadDraftAttachments, receiveDrafts, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
-import { BesideContext } from "../workbench/context.ts";
+import { BesideContext } from "../ui/beside.ts";
 import { inViewNote } from "../agent/in-view.ts";
 import { RowList } from "../ui/RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";

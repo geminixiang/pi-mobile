@@ -24,7 +24,7 @@ import { applySettings, choose, closeItem, dismissNotices, leave, leftPanel, mem
 import { SettingsView } from "./Settings.tsx";
 import { MemoryView } from "./MemoryView.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
-import { OpenFileContext } from "./openFile.ts";
+import { OpenFileContext } from "../ui/openFile.ts";
 import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
 import { isJob, watchShown } from "../jobs/background.ts";
 import { PageStack } from "./PageStack.tsx";
@@ -34,7 +34,7 @@ import type { BotListProps } from "./BotList.tsx";
 import { benchOf, benchStep, emptyBench, FOLDER, fileKey, pathOf } from "../workbench/bench.ts";
 import { boardOf } from "../workbench/board.ts";
 import { layout as screenLayout, shownOverlay, useLayout } from "../workbench/layout.ts";
-import { BesideContext } from "../workbench/context.ts";
+import { BesideContext } from "../ui/beside.ts";
 import { Rail } from "../workbench/Rail.tsx";
 import { Workbench } from "../workbench/Workbench.tsx";
 import { agentOf, liveOf } from "./docs.ts";
