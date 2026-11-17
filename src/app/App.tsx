@@ -22,7 +22,7 @@ import { type Source, useSubscribed } from "../ui/subscribed.ts";
 import { after, type Cancel } from "../time.ts";
 import { applySettings, choose, closeItem, dismissNotices, leave, leftPanel, memoryPage, notify, open, rightPanel, saveSettings, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
 import { SettingsView } from "./Settings.tsx";
-import { MemoryView } from "./MemoryView.tsx";
+import { MemoryView } from "../memory/MemoryView.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
 import { OpenFileContext } from "../ui/openFile.ts";
 import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
@@ -255,7 +255,7 @@ export function App() {
 		onEdit: (bot) => setBotEdit({ kind: "edit", bot }),
 	};
 	const settingsView = <SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />;
-	const memoryView = memoryBot ? <MemoryView runtime={runtime} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} /> : null;
+	const memoryView = memoryBot ? <MemoryView memories={runtime.memories} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} /> : null;
 	const botPanel = (open: boolean, onClose: () => void) => (
 		<BotPanel
 			open={open}

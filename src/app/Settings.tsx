@@ -35,7 +35,7 @@ import { FirstSignIn, ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "../ui/ChoiceRow.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
 import { McpGroup, useMcp } from "./McpGroup.tsx";
-import { MemoryView } from "./MemoryView.tsx";
+import { MemoryView } from "../memory/MemoryView.tsx";
 import { PiMark } from "../ui/PiMark.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { grouped } from "../triggers/when.ts";
@@ -687,7 +687,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 	const back = () => go(undefined);
 	const top = (opened: Page) =>
 		opened === "memory" ? (
-			runtime ? <MemoryView runtime={runtime} scope={{ kind: "global" }} onClose={back} onError={setProblem} /> : null
+			runtime ? <MemoryView memories={runtime.memories} scope={{ kind: "global" }} onClose={back} onError={setProblem} /> : null
 		) : (
 			<div className="screen">
 				<header className="bar">

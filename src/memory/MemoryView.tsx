@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
-import { type Memory, MEMORY_LIMIT, type MemoryScope } from "../memory/memory.ts";
-import type { AgentRuntime } from "../runtime/runtime.ts";
+import { type Memories, type Memory, MEMORY_LIMIT, type MemoryScope } from "./memory.ts";
 import { messageOf } from "../promise.ts";
 import { BackButton } from "../ui/BackButton.tsx";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
@@ -32,19 +31,19 @@ function lineOf(line: string): Line {
 }
 
 export function MemoryView({
-	runtime,
+	memories,
 	scope,
 	bot,
 	onClose,
 	onError,
 }: {
-	runtime: AgentRuntime;
+	memories: Memories;
 	scope: MemoryScope;
 	bot?: Bot;
 	onClose: () => void;
 	onError: (message: string) => void;
 }) {
-	const saved = useSubscribed<Memory | undefined>(undefined, (listener) => runtime.memories.subscribe(scope, listener), [runtime, scope.kind, scope.kind === "bot" ? scope.id : undefined]);
+	const saved = useSubscribed<Memory | undefined>(undefined, (listener) => memories.subscribe(scope, listener), [memories, scope.kind, scope.kind === "bot" ? scope.id : undefined]);
 	const [edit, setEdit] = useState<Edit>({ mode: "reading" });
 	const text = edit.mode === "reading" ? (saved?.text ?? "") : edit.draft;
 	const length = text.trim().length;
@@ -53,7 +52,7 @@ export function MemoryView({
 	const finish = (draft: string) => {
 		if (!changed) return setEdit({ mode: "reading" });
 		setEdit({ mode: "saving", draft });
-		runtime.memories.save(scope, draft).then(
+		memories.save(scope, draft).then(
 			() => setEdit({ mode: "reading" }),
 			(error: unknown) => setEdit({ mode: "editing", draft, problem: messageOf(error) }),
 		);
@@ -64,7 +63,7 @@ export function MemoryView({
 			onError(`超過 ${MEMORY_LIMIT} 字，記憶沒有儲存`);
 			return;
 		}
-		runtime.memories.save(scope, edit.draft).catch((error: unknown) => onError(messageOf(error)));
+		memories.save(scope, edit.draft).catch((error: unknown) => onError(messageOf(error)));
 	};
 	const latestSave = useRef(saveOnLeave);
 	latestSave.current = saveOnLeave;

@@ -24,7 +24,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 能做什麼 | 工具、toolsets | `Abilities` (`src/app/Abilities.tsx`) | 依用途分組的工具，點一組拉起它的工具方塊 |
 | 上下文 | context、用量 | `ContextCard` (`src/app/ContextCard.tsx`) | 上下文各部分的用量，底下是「壓縮　新的上下文」 |
 | 自動化 | 排程、觸發 | `TriggerList` (`src/triggers/TriggerList.tsx`) | 這個 Bot 的自動化；設定裡的「自動化」列出全部 |
-| 記憶 | MEMORY.md | `MemoryView` (`src/app/MemoryView.tsx`) | Bot 的記憶，從右側欄往右推進來的整頁；設定裡的「全域記憶」是同一個元件 |
+| 記憶 | MEMORY.md | `MemoryView` (`src/memory/MemoryView.tsx`) | Bot 的記憶，從右側欄往右推進來的整頁；設定裡的「全域記憶」是同一個元件 |
 | 技能 | skills | `SkillsSheet` (`src/skills/SkillsSheet.tsx`) | 右側欄「其他 › 技能」拉起的清單：這個 Bot 和使用者一起存的技能，點一個看全文、可以刪除 |
 | 模型 | 模型選單、思考強度 | `ModelSheet` (`src/app/ModelSheet.tsx`) | 按膠囊上的名字，或連線圖上的模型：依供應商分組的模型和思考強度 |
 | 手機 | 這支手機 | `PhoneSheet` (`src/app/Links.tsx`) | 按連線圖上的 pi：這支手機上能用什麼 |
@@ -45,7 +45,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 名稱 | 元件 | 頁裡有什麼 |
 |---|---|---|
 | 設定 › 模型 | `ProvidersGroup` (`src/app/ProvidersGroup.tsx`) | 供應商、新 Bot 預設的模型、上下文（自動壓縮） |
-| 設定 › 全域記憶 | `MemoryView` (`src/app/MemoryView.tsx`) | 每個 Bot 都該知道的事 |
+| 設定 › 全域記憶 | `MemoryView` (`src/memory/MemoryView.tsx`) | 每個 Bot 都該知道的事 |
 | 設定 › 帳號 | `AccountsPage` (`src/app/Settings.tsx`) | GitHub、Google Cloud、Cloudflare、Azure；Bot 用你的身分登入的帳號 |
 | 設定 › 連接的服務 | `McpGroup` (`src/app/McpGroup.tsx`) | MCP 服務、加入服務、每個服務給哪些 Bot |
 | 設定 › 電腦 | `HostsGroup` (`src/app/HostsGroup.tsx`) | 配對的電腦、新 Bot 在哪裡跑、Tailscale 上找到的 |
