@@ -34,7 +34,7 @@ import { StateRow } from "../ui/StateRow.tsx";
 import { FirstSignIn, ProvidersGroup } from "./ProvidersGroup.tsx";
 import { ChoiceRow } from "../ui/ChoiceRow.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
-import { McpGroup, useMcp } from "./McpGroup.tsx";
+import { McpGroup, useMcp } from "../mcp/McpGroup.tsx";
 import { MemoryView } from "../memory/MemoryView.tsx";
 import { PiMark } from "../ui/PiMark.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
@@ -449,7 +449,7 @@ type IndexRow = { page: Page; icon: ReactNode; label: string; status?: string; m
 function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runtime?: AgentRuntime; onOpen: (page: Page) => void }) {
 	const memory = useSubscribed<string | undefined>(undefined, (listener) => runtime?.memories.subscribe({ kind: "global" }, (next) => listener(next.text)), [runtime]);
 	const triggers = useSubscribed<TriggerState | undefined>(undefined, (listener) => runtime?.triggers.subscribe(listener), [runtime]);
-	useMcp(runtime);
+	useMcp(runtime?.mcp);
 	const tables = useLoaded(native.has("Database") ? () => Database.schema().then((schema) => schema.tables.length) : undefined, []).value;
 	const model = runtime?.models.find((candidate) => candidate.provider === settings.defaultProvider && candidate.id === settings.defaultModelId);
 	const servers = runtime?.mcp.servers ?? [];
@@ -624,7 +624,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 		services: {
 			title: "連接的服務",
 			body: () =>
-				runtime ? <McpGroup runtime={runtime} onError={setProblem} /> : null,
+				runtime ? <McpGroup mcp={runtime.mcp} bots={() => runtime.bots()} toolsets={(id) => runtime.toolsets(id)} onError={setProblem} /> : null,
 		},
 		machines: {
 			title: "電腦",

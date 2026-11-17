@@ -2,9 +2,9 @@ import { Logo } from "../ui/Logo.tsx";
 import { useState } from "react";
 import { promised, useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
-import { extensionName, type McpServer, type McpStatus } from "../mcp/mcp.ts";
-import { CATALOG, CATEGORIES, type CatalogEntry } from "../mcp/catalog.ts";
-import type { AgentRuntime } from "../runtime/runtime.ts";
+import { extensionName, type McpHub, type McpServer, type McpStatus } from "./mcp.ts";
+import { CATALOG, CATEGORIES, type CatalogEntry } from "./catalog.ts";
+import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { PlusIcon } from "../ui/icons.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
@@ -28,8 +28,8 @@ function statusText(status: McpStatus | undefined): string {
 	}
 }
 
-export function useMcp(runtime: AgentRuntime | undefined): void {
-	useSubscribed({}, (listener) => runtime?.mcp.subscribe(() => listener({})), [runtime]);
+export function useMcp(mcp: McpHub | undefined): void {
+	useSubscribed({}, (listener) => mcp?.subscribe(() => listener({})), [mcp]);
 }
 
 const host = (url: string) => (URL.canParse(url) ? new URL(url).hostname : url);
@@ -37,21 +37,21 @@ const host = (url: string) => (URL.canParse(url) ? new URL(url).hostname : url);
 type Grants = { bot: Bot; enabled: ReadonlySet<string> }[];
 
 const SHOWN_FACES = 3;
-function Catalog({ open, runtime, onClose, onError }: { open: boolean; runtime: AgentRuntime; onClose: () => void; onError: (message: string) => void }) {
+function Catalog({ open, mcp, onClose, onError }: { open: boolean; mcp: McpHub; onClose: () => void; onError: (message: string) => void }) {
 	const [draft, setDraft] = useState({ name: "", url: "" });
-	const connected = new Set(runtime.mcp.servers.map((server) => server.url));
+	const connected = new Set(mcp.servers.map((server) => server.url));
 	const connect = (entry: CatalogEntry) => {
 		onClose();
-		runtime.mcp
+		mcp
 			.add(entry.name, entry.url)
-			.then((server) => (entry.auth === "oauth" ? runtime.mcp.login(server.id) : undefined))
+			.then((server) => (entry.auth === "oauth" ? mcp.login(server.id) : undefined))
 			.catch((error: unknown) => onError(messageOf(error)));
 	};
 	const add = () => {
 		const url = draft.url.trim();
 		onClose();
 		setDraft({ name: "", url: "" });
-		runtime.mcp.add(draft.name.trim() || host(url), url).catch((error: unknown) => onError(messageOf(error)));
+		mcp.add(draft.name.trim() || host(url), url).catch((error: unknown) => onError(messageOf(error)));
 	};
 	return (
 		<Sheet open={open} title="加入服務" onClose={onClose}>
@@ -103,34 +103,44 @@ function needsYou(status: McpStatus | undefined): boolean {
 	return status?.state === "login" || status?.state === "error";
 }
 
-export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError: (message: string) => void }) {
-	useMcp(runtime);
-	const servers = runtime.mcp.servers;
+export function McpGroup({
+	mcp,
+	bots,
+	toolsets,
+	onError,
+}: {
+	mcp: McpHub;
+	bots: () => Promise<Bot[]>;
+	toolsets: (id: Bot["id"]) => Promise<ToolsetState[]>;
+	onError: (message: string) => void;
+}) {
+	useMcp(mcp);
+	const servers = mcp.servers;
 	const [browsing, setBrowsing] = useState(false);
 	const [selectedId, setSelectedId] = useState<string>();
 	const fail = (error: unknown) => onError(messageOf(error));
 	const grants = useSubscribed<Grants>(
 		[],
 		promised(() =>
-			runtime.bots().then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: new Set((await runtime.toolsets(bot.id)).filter((item) => item.enabled).map((item) => item.id)) })))),
+			bots().then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: new Set((await toolsets(bot.id)).filter((item) => item.enabled).map((item) => item.id)) })))),
 		),
-		[runtime],
+		[mcp],
 	);
 	const usersOf = (server: McpServer) => grants.filter(({ enabled }) => enabled.has(extensionName(server))).map(({ bot }) => bot);
 	const entryOf = (server: McpServer) => CATALOG.find((entry) => entry.url === server.url);
-	const resolve = (server: McpServer, status: McpStatus) => (status.state === "login" ? void runtime.mcp.login(server.id).catch(fail) : runtime.mcp.refresh(server.id));
+	const resolve = (server: McpServer, status: McpStatus) => (status.state === "login" ? void mcp.login(server.id).catch(fail) : mcp.refresh(server.id));
 	const selected = servers.find((server) => server.id === selectedId);
-	const selectedStatus = selected && runtime.mcp.status(selected.id);
+	const selectedStatus = selected && mcp.status(selected.id);
 	const selectedUsers = selected ? usersOf(selected) : [];
-	const waiting = servers.filter((server) => needsYou(runtime.mcp.status(server.id)));
-	const working = servers.filter((server) => !needsYou(runtime.mcp.status(server.id)));
+	const waiting = servers.filter((server) => needsYou(mcp.status(server.id)));
+	const working = servers.filter((server) => !needsYou(mcp.status(server.id)));
 
 	return (
 		<div className="list">
 			{working.length > 0 ? <h3 className="list-label">使用中</h3> : null}
 			{working.map((server) => {
 				const users = usersOf(server);
-				const status = runtime.mcp.status(server.id);
+				const status = mcp.status(server.id);
 				return (
 					<button type="button" className={`list-row list-open${users.length === 0 ? " idle" : ""}`} key={server.id} onClick={() => setSelectedId(server.id)}>
 						<Logo name={server.name} icon={entryOf(server)?.icon} />
@@ -151,7 +161,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError:
 			{waiting.length > 0 ? (
 				<div className="service-grid">
 					{waiting.map((server) => {
-						const status = runtime.mcp.status(server.id);
+						const status = mcp.status(server.id);
 						return (
 							<button
 								type="button"
@@ -170,7 +180,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError:
 				<PlusIcon size={16} />
 				<span>加入服務</span>
 			</button>
-			<Catalog open={browsing} runtime={runtime} onClose={() => setBrowsing(false)} onError={onError} />
+			<Catalog open={browsing} mcp={mcp} onClose={() => setBrowsing(false)} onError={onError} />
 			<Sheet open={selected !== undefined} title={selected?.name ?? ""} onClose={() => setSelectedId(undefined)}>
 				{selected ? (
 					<div className="service">
@@ -188,7 +198,7 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError:
 							className="service-remove"
 							onClick={() => {
 								setSelectedId(undefined);
-								void runtime.mcp.remove(selected.id).catch(fail);
+								void mcp.remove(selected.id).catch(fail);
 							}}>
 							移除這個服務
 						</button>
