@@ -1,6 +1,6 @@
 import { type ReactNode, useRef, useState } from "react";
 import { defined, useStore, useSubscribed } from "../ui/subscribed.ts";
-import { onResume, resumed } from "../ui/resume.ts";
+import { resumed } from "../ui/resume.ts";
 import { inApp, native, type NativePlugin } from "../native.ts";
 import { Database } from "../database/plugin.ts";
 import { Notifications } from "../notifications/plugin.ts";
@@ -11,10 +11,8 @@ import { Usage } from "../records/usage.ts";
 import { shareDiagnostics } from "./diagnostics.ts";
 import { useBriefly } from "../ui/briefly.ts";
 import { type CalendarAccess } from "../agent/calendar-access.ts";
-import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../runtime/runtime.ts";
-import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
-import { Triggers } from "../triggers/plugin.ts";
+import { type TriggerState } from "../triggers/runs.ts";
 import { changedKeys, isConfigured, SEARCH_ENGINES, type SearchEngine, type Settings, signedInWithChatGPT } from "../settings.ts";
 import { AutomationIcon, DatabaseIcon, EyeIcon, GlobeIcon, KeyIcon, MemoryIcon, ModelIcon, PhoneIcon, PlugIcon, TerminalIcon } from "../ui/icons.tsx";
 import { BackButton } from "../ui/BackButton.tsx";
@@ -28,7 +26,6 @@ import { ChoiceRow } from "../ui/ChoiceRow.tsx";
 import { McpGroup, useMcp } from "../mcp/McpGroup.tsx";
 import { MemoryView } from "../memory/MemoryView.tsx";
 import { PiMark } from "../ui/PiMark.tsx";
-import { TriggerList } from "../triggers/TriggerList.tsx";
 import { grouped } from "../triggers/when.ts";
 import { DAY, startOfToday } from "../time.ts";
 import { shortModelName } from "./ModelSheet.tsx";
@@ -39,55 +36,7 @@ import type { Prefs } from "./prefs.ts";
 import { useBackground } from "./background.ts";
 import { AccountsPage } from "../clouds/AccountsPage.tsx";
 import { CalendarGroup } from "../calendar/CalendarGroup.tsx";
-
-function TriggersGroup({ runtime }: { runtime: AgentRuntime }) {
-	const state = useSubscribed<TriggerState>(
-		NO_TRIGGERS,
-		(listener) => {
-			const stopListening = runtime.triggers.subscribe(listener);
-			const stopSyncing = native.has("Triggers") ? onResume(() => void runtime.triggers.sync()) : undefined;
-			return () => {
-				stopListening();
-				stopSyncing?.();
-			};
-		},
-		[runtime],
-	);
-	const bots = useSubscribed<Bot[]>([], (listener) => runtime.subscribeBots(listener), [runtime]);
-	const [error, setError] = useState("");
-	const [{ bluetooth, overlay }, setAllowed] = useStore<{ bluetooth?: boolean; overlay?: boolean }>({}, resumed(native.has("Triggers") ? () => Triggers.status() : undefined), []);
-	if (!native.has("Triggers")) return null;
-	const headphones = state.items.some((item) => item.state !== "paused" && (item.when.kind === "headphones" || item.when.kind === "bluetooth"));
-
-	const asks = (state.items.length > 0 && overlay === false) || (headphones && bluetooth === false);
-
-	return (
-		<>
-			{state.items.length === 0 ? (
-				<RowList title="自動化">
-					<p className="row-empty">還沒有自動化，跟 Bot 說就會建立</p>
-				</RowList>
-			) : (
-				<div className="trigger-page">
-					<TriggerList triggers={state.items} next={state.next} bots={bots} runs={runtime.triggers} onError={setError} />
-				</div>
-			)}
-			{asks ? (
-				<RowList title="要開的權限">
-					{state.items.length > 0 && overlay === false ? <StateRow label="滑掉 pi 也照跑" hint="沒開時要點通知才會跑" on={false} onClick={() => void Triggers.requestOverlay()} /> : null}
-					{headphones && bluetooth === false ? (
-						<StateRow
-							label="偵測藍牙耳機"
-							on={false}
-							onClick={() => void Triggers.requestBluetooth().then(({ granted }) => setAllowed({ bluetooth: granted, overlay }), (failure: unknown) => setError(messageOf(failure)))}
-						/>
-					) : null}
-				</RowList>
-			) : null}
-			{error ? <div className="banner error">{error}</div> : null}
-		</>
-	);
-}
+import { TriggersGroup } from "../triggers/TriggersGroup.tsx";
 
 function SystemAccessGroup() {
 	const state = useSubscribed<{ usage: boolean; assistant: boolean; settings?: boolean } | undefined>(
@@ -409,7 +358,7 @@ export function SettingsView(props: { initial: Settings; prefs: Prefs; onPrefs: 
 				<PhonePage access={settings.calendarAccess} onChange={(calendarAccess) => change({ calendarAccess })} />
 			),
 		},
-		schedules: { title: "自動化", body: () => (runtime ? <TriggersGroup runtime={runtime} /> : null) },
+		schedules: { title: "自動化", body: () => (runtime ? <TriggersGroup runs={runtime.triggers} watchBots={(listener) => runtime.subscribeBots(listener)} /> : null) },
 		data: { title: "資料庫", body: () => <DatabaseGroup /> },
 		display: {
 			title: "顯示",
