@@ -158,7 +158,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ```
 外殼 shell    app/、workbench/、runtime/、main.tsx          認得所有功能，負責組裝
-功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、自己的邏輯
+功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、畫面、設定區塊
 核心 core     agent/、computer/、settings.ts                不認得任何功能
 基礎 base     ui/、plugins/、net/、shims/、根目錄的小工具   不認得上面任何一層
 ```
@@ -167,14 +167,15 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 - 外殼的 `src/runtime/` 是組裝：`catalog.ts` 是內建工具的唯一清單，`runtime.ts` 是 `AgentRuntime`。
 - 核心的 `src/agent/` 只放每個功能都可能用到的東西：怎麼定義工具（`tools/common.ts`）、Bot 和工具組、問使用者和要權限、模型、Bot 在哪裡工作（手機資料夾、sandbox）。
-- 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。
+- 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。功能在設定頁的區塊也在這裡（`calendar/CalendarGroup.tsx`、`clouds/AccountsPage.tsx`、`mcp/McpGroup.tsx`），它拿到的是自己的把手（`McpHub`、`Memories`、`TriggerRuns`），不是整個 `AgentRuntime`；`src/app/Settings.tsx` 只留目錄、換頁，和橫跨好幾個功能的區塊。
+- 外殼和功能都用的小元件（按鈕、列、對話框、markdown）在基礎層的 `src/ui/`。
 
 2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。當天往上的 import 從 34 條清到 0，並把還留在 `agent/` 的 20 個功能搬到各自的資料夾。
 
 還沒做的有三件：
 - 功能之間互相 import 還沒有規則（排程是事項、背景工作、電腦上的 agent 的樞紐）。
 - 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
-- 功能的畫面多半還在 `src/app/`（設定頁的各區塊、MCP 和記憶的畫面），因為它們拿整個 `AgentRuntime`。
+- 每個元件的樣式都在 `src/app/styles.css` 一個檔，`src/app/` 的檔案也還沒分區；做產品的 commit 有一半會改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一。
 
 ## 專案結構
 
@@ -201,7 +202,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/agent/platform.ts`、`src/app/capacitor.ts` | `Platform` 是 `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。真的手機的實作在 `src/app/capacitor.ts`（外殼，因為它認得瀏覽器、排程和權限），`test/contracts/` 給記憶體的 |
 | `src/parse.ts` | 邊界驗證（typebox） |
 | `src/browser/` | Bot 的瀏覽器：外掛合約、注入網頁的 `page.ts`、`read_page` 和 `use_browser` 工具、瀏覽器面板。程式碼依功能分資料夾，其他功能整理時也會搬成這樣 |
-| `src/phone-screen/` | 代你操作 App（extension `phone_as_user`）：外掛合約、`phone_read_as_user` 和 `phone_act_as_user` 工具。設定頁的開關還在 `Settings.tsx`，跟其他設定區塊放在一起 |
+| `src/phone-screen/` | 代你操作 App（extension `phone_as_user`）：外掛合約、`phone_read_as_user` 和 `phone_act_as_user` 工具。設定頁的開關是 `PhoneScreenGroup.tsx` |
 | `src/triggers/` | 排程：外掛合約（`plugin.ts`）、排程存檔與 `TriggerRuns`（`runs.ts`：同步到原生鬧鐘、觸發時的檢查和次數上限）、`create_schedule` 等工具（`tool.ts`）、原生事件佇列（`events.ts`）、排程的文字和圖示（`when.ts`）、設定頁的一列（`TriggerRow.tsx`） |
 | `src/interaction/`、`src/agent/forms.ts`、`results.ts`、`permissions.ts` | 所有和使用者互動的元件（extension `interaction`）：問題卡、確認卡、權限卡、結果卡，以及 `ask_user` 工具。卡片背後的資料和動作在核心，因為每個工具都可能用到：`Forms.ask`（`forms.ts`）是「現在有沒有人在」的唯一答案，`results.ts` 是給使用者看的結果，`permissions.ts` 是要手機權限的閘門 |
 | `src/items/` | 事項（`ItemDoc`）：`note_item`、到期和等回覆時叫醒 Bot、小工具上的清單 |
