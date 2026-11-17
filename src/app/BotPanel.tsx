@@ -1,6 +1,6 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
-import { type ReactNode, useEffect, useState } from "react";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { type ReactNode, useState } from "react";
+import { promised, useStore, useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import { NO_TRIGGERS, type TriggerState } from "../triggers/runs.ts";
@@ -13,7 +13,7 @@ import { CheckIcon, ChevronIcon, PencilIcon } from "./icons.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { TriggerList } from "../triggers/TriggerList.tsx";
 import { messageOf } from "../promise.ts";
-import { useBriefly } from "./briefly.ts";
+import { useBriefly } from "../ui/briefly.ts";
 import { native } from "../native.ts";
 import { Abilities } from "./Abilities.tsx";
 import { HostRow, type LinkNode, LinksSection, PhoneSheet } from "./Links.tsx";
@@ -165,31 +165,23 @@ export function BotPanel({
 	const [compacted, showCompacted] = useBriefly();
 	const [emptied, showEmptied] = useBriefly();
 	const [linkSheet, setLinkSheet] = useState<LinkNode>();
-	useEffect(() => {
+	const [wasOpen, setWasOpen] = useState(open);
+	if (wasOpen !== open) {
+		setWasOpen(open);
 		if (!open) setProblem(undefined);
-	}, [open]);
+	}
 	const failIn = (section: string) => (error: unknown) => setProblem({ section, text: messageOf(error) });
 	const triggers = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime.triggers.subscribe(listener), [runtime]);
 	const botId = bot?.id;
 	const memory = useSubscribed("", (listener) => (botId === undefined ? undefined : runtime.memories.subscribe({ kind: "bot", id: botId }, (next) => listener(next.text))), [runtime, botId]);
 	const skillCount = useSubscribed(0, (listener) => (botId === undefined ? undefined : runtime.skills.subscribe(botId, (next) => listener(next.length))), [runtime, botId]);
 	const [skillsOpen, setSkillsOpen] = useState(false);
-	const [toolsets, setToolsets] = useState<ToolsetState[]>([]);
+	const [toolsets, setToolsets] = useStore<ToolsetState[]>([], (listener) => (botId === undefined || !open ? undefined : promised(() => runtime.toolsets(botId))(listener)), [runtime, botId, open]);
 	const reload = (id: ConversationId) => runtime.toolsets(id).then(setToolsets);
-	useEffect(() => {
-		if (botId === undefined || !open) return;
-		let live = true;
-		void runtime.toolsets(botId).then((next) => {
-			if (live) setToolsets(next);
-		});
-		return () => {
-			live = false;
-		};
-	}, [runtime, botId, open]);
 	if (!bot) return null;
 
 	const toggle = (id: string, enabled: boolean) => {
-		setToolsets((current) => current.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
+		setToolsets(toolsets.map((toolset) => (toolset.id === id ? { ...toolset, enabled } : toolset)));
 		runtime
 			.setToolset(bot.id, id, enabled)
 			.then(() => reload(bot.id))

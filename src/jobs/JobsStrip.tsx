@@ -1,17 +1,18 @@
-import { Fragment, type PointerEvent, useContext, useRef, useState } from "react";
-import { usePolled } from "../app/loaded.ts";
+import { Fragment, type PointerEvent, useCallback, useContext, useRef, useState } from "react";
+import { useExpired } from "../ui/briefly.ts";
+import { usePolled } from "../ui/loaded.ts";
 import { StopIcon } from "../app/icons.tsx";
 import { haptic, HOLD_MS, HOLD_SLOP } from "../app/haptics.ts";
 import { orLogged } from "../promise.ts";
-import { clock, JobsContext, type Peek, type RunningJob, useNow } from "./JobsContext.ts";
+import { after, type Cancel } from "../time.ts";
+import { clock, JobsContext, type RunningJob, type RunningJobs, useNow } from "./JobsContext.ts";
 
 const SHOWN = 3;
 const PEEK_EVERY_MS = 1500;
 const CLOSE_MS = 110;
 
 type Stopping = { state: "idle" } | { state: "stopping" } | { state: "failed" };
-type Read = Peek | "loading" | "gone";
-type Peeking = { state: "closed" } | { state: "open" | "closing"; job: string; read: Read };
+type Peeking = { state: "closed" } | { state: "open" | "closing"; job: string };
 
 export function JobsStrip() {
 	const jobs = useContext(JobsContext);
@@ -19,29 +20,20 @@ export function JobsStrip() {
 	const now = useNow(running.length > 0);
 	const [expanded, setExpanded] = useState(false);
 	const [peeking, setPeeking] = useState<Peeking>({ state: "closed" });
-	const peeked = peeking.state === "open" ? peeking.job : undefined;
-	usePolled(
-		peeked && jobs ? () => orLogged(jobs.peek(peeked), "jobs.peek_failed", undefined, { job: peeked }) : undefined,
-		(peek) => setPeeking((current) => (current.state !== "closed" && current.job === peeked ? { ...current, read: peek ?? "gone" } : current)),
-		PEEK_EVERY_MS,
-		[peeked, jobs],
-	);
-	const release = () => {
-		setPeeking((current) => (current.state === "open" ? { ...current, state: "closing" } : current));
-		setTimeout(() => setPeeking((current) => (current.state === "closing" ? { state: "closed" } : current)), CLOSE_MS);
-	};
+	const closed = useExpired(peeking.state === "closing" ? peeking : undefined, CLOSE_MS);
+	const release = () => setPeeking((current) => (current.state === "open" ? { ...current, state: "closing" } : current));
 	if (!jobs || running.length === 0) return null;
 	const shown = expanded || running.length <= SHOWN ? running : running.slice(0, SHOWN);
 	const hidden = running.length - shown.length;
-	const open = peeking.state === "closed" ? undefined : peeking;
+	const open = peeking.state === "closed" || closed ? undefined : peeking;
 	return (
 		<>
 			{open ? <div className={`job-peek-backdrop${open.state === "closing" ? " closing" : ""}`} /> : null}
 			<ul className="queue jobs">
 				{shown.map((job) => (
 					<Fragment key={job.job}>
-						{open?.job === job.job ? <JobPeek read={open.read} closing={open.state === "closing"} /> : null}
-						<JobRow job={job} now={now} peeked={open?.job === job.job} stop={jobs.stop} onPeek={() => setPeeking({ state: "open", job: job.job, read: "loading" })} onRelease={release} />
+						{open?.job === job.job ? <JobPeek jobs={jobs} job={job.job} closing={open.state === "closing"} /> : null}
+						<JobRow job={job} now={now} peeked={open?.job === job.job} stop={jobs.stop} onPeek={() => setPeeking({ state: "open", job: job.job })} onRelease={release} />
 					</Fragment>
 				))}
 				{hidden > 0 ? (
@@ -56,31 +48,38 @@ export function JobsStrip() {
 	);
 }
 
-type Hold = { state: "idle" } | { state: "pressing"; x: number; y: number; timer: ReturnType<typeof setTimeout> } | { state: "held" };
+type Hold = { state: "idle" } | { state: "pressing"; x: number; y: number; cancel: Cancel } | { state: "held" };
 
 function useHold(onHold: () => void, onRelease: () => void) {
 	const hold = useRef<Hold>({ state: "idle" });
 	const [pressing, setPressing] = useState(false);
 	const end = () => {
 		const was = hold.current;
-		if (was.state === "pressing") clearTimeout(was.timer);
+		if (was.state === "pressing") was.cancel();
 		hold.current = { state: "idle" };
 		setPressing(false);
 		if (was.state === "held") onRelease();
 	};
+	const cancelWhenGone = useCallback(
+		() => () => {
+			if (hold.current.state === "pressing") hold.current.cancel();
+		},
+		[],
+	);
 	const handlers = {
+		ref: cancelWhenGone,
 		onPointerDown: (event: PointerEvent<HTMLElement>) => {
 			if (event.target instanceof Element && event.target.closest("button")) return;
 			const target = event.currentTarget;
 			const { pointerId, clientX, clientY } = event;
-			const timer = setTimeout(() => {
+			const cancel = after(HOLD_MS, () => {
 				hold.current = { state: "held" };
 				setPressing(false);
 				target.setPointerCapture(pointerId);
 				haptic("press");
 				onHold();
-			}, HOLD_MS);
-			hold.current = { state: "pressing", x: clientX, y: clientY, timer };
+			});
+			hold.current = { state: "pressing", x: clientX, y: clientY, cancel };
 			setPressing(true);
 		},
 		onPointerMove: (event: PointerEvent<HTMLElement>) => {
@@ -117,7 +116,8 @@ function JobRow({ job, now, peeked, stop, onPeek, onRelease }: { job: RunningJob
 	);
 }
 
-function JobPeek({ read, closing }: { read: Read; closing: boolean }) {
+function JobPeek({ jobs, job, closing }: { jobs: RunningJobs; job: string; closing: boolean }) {
+	const read = usePolled(() => orLogged(jobs.peek(job), "jobs.peek_failed", undefined, { job }).then((peek) => peek ?? ("gone" as const)), PEEK_EVERY_MS, [jobs, job]) ?? "loading";
 	return (
 		<li className={`job-peek${closing ? " closing" : ""}`} aria-live="polite">
 			{read === "loading" ? <p className="job-peek-note">讀取中…</p> : read === "gone" ? <p className="job-peek-note">讀不到這個指令，可能剛結束</p> : null}

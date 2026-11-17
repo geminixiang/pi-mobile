@@ -229,7 +229,7 @@ export class AgentRuntime {
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
 		const at = (id: string) => workplaces.at(id);
 		const catalog = builtinExtensions({
-			native: platform.native,
+			platform,
 			assistant: createAssistant(platform.inApp, (id, shape) => void shapes.set(id, shape)),
 			calendarAccess: settings.calendarAccess,
 			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
@@ -241,7 +241,6 @@ export class AgentRuntime {
 			workplace: at,
 			waitForJob: (id, job) => runtimeRef?.waitForJob(id, job),
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
-			permissions: platform.permissions,
 			ask,
 			userSaid: async (id) => (runtimeRef ? runtimeRef.#userSaid(id) : []),
 			labelOf: (tool, extension, id) => labelOf(tool, extension, at(id)?.kind ?? "missing", catalog.owners, mcp),

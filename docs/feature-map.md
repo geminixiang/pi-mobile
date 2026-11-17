@@ -17,6 +17,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 輸入框 | composer | `Composer` (`src/app/Composer.tsx`) | 打字、附件、語音、插話或稍後 |
 | 提示詞轉盤 | 轉盤 | `ScrollTab` (`src/app/PromptDial.tsx`) | 從輸入框右邊往上拖，轉出以前說過的話 |
 | 背景指令條 | 跑中的工作 | `JobsStrip` (`src/jobs/JobsStrip.tsx`) | 電腦上在背景跑的指令，長按看最後幾行 |
+| 背景螢幕預覽 | 小視窗、背景 App | `AgentPreview` (`android/app/src/oss/java/dev/geminixiang/pimobile/AgentPreview.kt`) | 開源版的原生浮窗：即時畫面和目前動作；拖到角落，點畫面接手，× 隱藏但不停止 Bot |
 | 左側欄 | Bot 清單、抽屜、左邊的 | `Drawer` (`src/app/Drawer.tsx`)、`BotList` (`src/app/BotList.tsx`) | 往右滑或按左上的頭像：所有 Bot、＋ 新增 Bot、設定 |
 | 右側欄 | Bot 面板、右邊的、⋯ | `BotPanel` (`src/app/BotPanel.tsx`) | 往左滑或按 ⋯：這個 Bot 的一切，由上而下是下面幾項 |
 | 連線圖 | 連線、模型 ← pi → 電腦 | `LinksSection` (`src/app/Links.tsx`) | 右側欄最上面：這個 Bot 在哪裡跑、接著什麼，線上只在真的有位元組時流動 |
@@ -50,6 +51,8 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 設定 › 電腦 | `HostsGroup` (`src/app/HostsGroup.tsx`) | 配對的電腦、新 Bot 在哪裡跑、Tailscale 上找到的 |
 | 設定 › 瀏覽器 | `SettingsView` (`src/app/Settings.tsx`) | 搜尋引擎 |
 | 設定 › 手機 | `PhonePage` (`src/app/Settings.tsx`) | 行事曆（`CalendarGroup`）、系統權限、背景執行、通知、代你操作 App |
+| 設定 › 手機 › 代你操作 App | `PhoneScreenGroup` (`src/phone-screen/PhoneScreenGroup.tsx`) | 無障礙服務；開源版多一個「背景操作」 |
+| 設定 › 手機 › 背景操作 | `BackgroundSetup` (`src/phone-screen/BackgroundSetup.tsx`) | 開源版才有（`AgentScreen.pair`）：背景螢幕的狀態（未設定、可用、無線偵錯沒開）；沒好時一行說明、一個「打開無線偵錯」（pi 看到配對視窗就自己讀配對碼配對）和手動輸入配對碼的小框 |
 | 設定 › 自動化 | `TriggersGroup` (`src/app/Settings.tsx`) | 所有 Bot 的自動化、要開的權限 |
 | 設定 › 資料庫 | `DatabaseGroup` (`src/app/Settings.tsx`) | 資料表和筆數、匯出 |
 | 設定 › 顯示 | `SettingsView` (`src/app/Settings.tsx`) | 顯示思考過程、預設展開工具輸出 |

@@ -3,11 +3,13 @@ package dev.geminixiang.pimobile
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.AlarmClock
 import android.util.Base64
 import androidx.core.content.FileProvider
 import com.getcapacitor.JSArray
+import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
@@ -95,6 +97,24 @@ class AppsPlugin : Plugin() {
 
     @PluginMethod
     fun open(call: PluginCall) = launch(call, Intent(Intent.ACTION_VIEW, Uri.parse(call.getString("uri", ""))).addCategory(Intent.CATEGORY_BROWSABLE))
+
+    @PluginMethod
+    fun installed(call: PluginCall) {
+        val packages = context.packageManager
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps =
+            packages.queryIntentActivities(launcher, 0).distinctBy { it.activityInfo.packageName }.map { info ->
+                val name = info.activityInfo.packageName
+                val version =
+                    try {
+                        packages.getPackageInfo(name, 0).versionName.orEmpty()
+                    } catch (gone: PackageManager.NameNotFoundException) {
+                        ""
+                    }
+                JSObject().put("package", name).put("label", info.loadLabel(packages).toString()).put("version", version)
+            }
+        call.resolve(JSObject().put("apps", JSArray(apps)))
+    }
 
     private fun stage(call: PluginCall, base64: String): Uri {
         val file = File(emptyShareFolder(context), File(call.getString("fileName") ?: "file").name)

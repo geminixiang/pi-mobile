@@ -10,7 +10,6 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
-import androidx.core.content.FileProvider
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -111,7 +110,7 @@ class SystemPlugin : Plugin() {
             val apk = File(File(context.cacheDir, "update"), "pi-mobile.apk")
             download(url, apk, sha256)
             requireSameApp(context, apk)
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
+            val uri = AppsPlugin.shared(context, apk)
             val install =
                 Intent(Intent.ACTION_VIEW)
                     .setDataAndType(uri, "application/vnd.android.package-archive")

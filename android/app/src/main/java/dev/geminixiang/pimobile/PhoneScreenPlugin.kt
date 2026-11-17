@@ -3,13 +3,13 @@ package dev.geminixiang.pimobile
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.Bitmap
+import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.Display
-import android.view.WindowManager
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -28,8 +28,6 @@ private const val SHOT_WIDTH = 540
 private const val SHOT_SECONDS = 5L
 private const val SHOT_ATTEMPTS = 4
 private const val SHOT_RETRY_MS = 400L
-private const val QUIET_MS = 350L
-private const val FIRST_CHANGE_MS = 1000L
 private const val SETTLE_POLL_MS = 50L
 private const val NEXT_STEP_CAP_MS = 1500L
 private const val LAST_STEP_CAP_MS = 2500L
@@ -41,7 +39,7 @@ class PhoneScreenPlugin : Plugin() {
     private val worker = Executors.newSingleThreadExecutor()
     private val screenshots = Executors.newSingleThreadExecutor()
     private val actor = ScreenActor()
-    private var lastSeen: String? = null
+    private val lastSeen = mutableMapOf<Int, ScreenText>()
 
     @PluginMethod
     fun status(call: PluginCall) = call.resolve(JSObject().put("allowed", PhoneScreenService.running != null))
@@ -62,7 +60,9 @@ class PhoneScreenPlugin : Plugin() {
     fun read(call: PluginCall) =
         worker.reply(call) {
             val service = PhoneScreenService.running ?: return@reply OFF
-            Outcome.Ok(snapshot(service, call.data.optBoolean("screenshot")))
+            val display = call.data.optInt("display", Display.DEFAULT_DISPLAY)
+            DisplayShells.current?.before(display, "read")?.let { return@reply Outcome.Ok(stoppedSnapshot(it, metrics(service, display))) }
+            Outcome.Ok(snapshot(service, call.data.optBoolean("screenshot"), display))
         }
 
     @PluginMethod
@@ -70,65 +70,90 @@ class PhoneScreenPlugin : Plugin() {
         worker.reply(call) {
             val service = PhoneScreenService.running ?: return@reply OFF
             val steps = call.data.getJSONArray("steps")
-            val before = lastSeen
+            val display = call.data.optInt("display", Display.DEFAULT_DISPLAY)
+            val before = lastSeen[display]
+            val note = call.getString("note")
             val did = mutableListOf<String>()
             var done = 0
             var stopped: String? = null
+            var held: JSObject? = null
             for (at in 0 until steps.length()) {
                 val json = steps.getJSONObject(at)
                 val step = ScreenStep.of(json)
                 val since = SystemClock.uptimeMillis()
-                val screen = metrics(service)
-                when (val ran = actor.perform(service, step, screen, SHOT_WIDTH.toFloat() / screen.widthPixels)) {
+                val screen = metrics(service, display) ?: return@reply Outcome.Ok(stoppedSnapshot("display_closed", null).put("done", done))
+                held = when (val money = if (step.handsOn()) service.moneyOn(display, System.currentTimeMillis() + ELEMENTS_MS) else MoneyScan.Clear) {
+                    MoneyScan.Clear -> null
+                    is MoneyScan.Amount -> JSObject().put("kind", "money").put("shown", money.shown)
+                    MoneyScan.Unread -> JSObject().put("kind", "unread")
+                }
+                if (held != null) {
+                    stopped = "step ${at + 1} (${json.getString("action")}): held for the user"
+                    break
+                }
+                when (val ran = actor.perform(service, step, screen, SHOT_WIDTH.toFloat() / screen.widthPixels, display, note)) {
                     is Outcome.Ok -> ran.value?.let(did::add)
                     is Outcome.Stopped -> {
-                        stopped = "step ${at + 1} (${json.getString("action")}): ${ran.reason}"
+                        if (ran.reason == SECRET) held = JSObject().put("kind", SECRET)
+                        stopped = "step ${at + 1} (${json.getString("action")}): ${if (ran.reason == SECRET) "held for the user" else ran.reason}"
                         break
                     }
                 }
                 done = at + 1
-                if (step !is ScreenStep.Wait) service.settle(since, if (done < steps.length()) NEXT_STEP_CAP_MS else LAST_STEP_CAP_MS)
+                if (step !is ScreenStep.Wait && step !is ScreenStep.WaitFor && step !is ScreenStep.Expect && step !is ScreenStep.ScrollTo)
+                    service.settle(since, if (done < steps.length()) NEXT_STEP_CAP_MS else LAST_STEP_CAP_MS, display)
             }
-            val result = snapshot(service, call.data.optBoolean("screenshot")).put("done", done)
-            if (done > 0 && lastSeen == before) result.put("unchanged", true)
+            val interrupted = DisplayShells.current?.reason(display)
+            val result = (if (interrupted == null) snapshot(service, call.data.optBoolean("screenshot"), display, before)
+                else stoppedSnapshot(interrupted, metrics(service, display))).put("done", done)
+            if (interrupted == null && done > 0 && lastSeen[display] == before) result.put("unchanged", true)
             if (did.isNotEmpty()) result.put("did", JSONArray(did))
-            if (stopped != null) result.put("error", stopped)
+            (interrupted ?: stopped)?.let { result.put("error", it) }
+            held?.let { result.put("held", it) }
             Outcome.Ok(result)
         }
 
-    private fun metrics(service: PhoneScreenService) = DisplayMetrics().also { service.getSystemService(WindowManager::class.java).defaultDisplay.getRealMetrics(it) }
+    private fun metrics(service: PhoneScreenService, display: Int) =
+        service.getSystemService(DisplayManager::class.java).getDisplay(display)?.let { target -> DisplayMetrics().also(target::getRealMetrics) }
 
-    private fun snapshot(service: PhoneScreenService, withScreenshot: Boolean): JSObject {
-        val screen = metrics(service)
+    private fun snapshot(service: PhoneScreenService, withScreenshot: Boolean, display: Int = Display.DEFAULT_DISPLAY, before: ScreenText? = null): JSObject {
+        val screen = metrics(service, display) ?: return stoppedSnapshot("display_closed", null)
         val scale = SHOT_WIDTH.toFloat() / screen.widthPixels
         val deadline = System.currentTimeMillis() + ELEMENTS_MS
-        val seen = service.see(scale, screen, deadline)
-        val elements = seen.lines.take(MAX_ELEMENTS).joinToString("\n") { it.text }
-        lastSeen = seen.front.orEmpty() + "\n" + elements
+        val seen = service.see(scale, screen, deadline, display)
+        val current = ScreenText(seen.front, seen.keyboard, seen.lines.map { it.text }, seen.complete)
+        val (delta, elements) = current.changes(before)
+        lastSeen[display] = current
         val result =
             JSObject()
                 .put("width", SHOT_WIDTH)
                 .put("height", (screen.heightPixels * scale).roundToInt())
                 .put("keyboard", seen.keyboard)
                 .put("elements", elements)
-                .put("more", maxOf(0, seen.lines.size - MAX_ELEMENTS))
+                .put("more", current.more)
+                .put("delta", delta)
         seen.front?.let { result.put("package", it).put("app", NotificationsListener.appLabel(service.packageManager, it)) }
-        if (System.currentTimeMillis() > deadline) result.put("slow", true)
+        if (!current.complete) result.put("slow", true)
         if (!withScreenshot) return result
-        when (val shot = screenshot(service, scale)) {
+        when (val shot = screenshot(service, scale, display)) {
             is Outcome.Ok -> result.put("jpeg", shot.value)
             is Outcome.Stopped -> result.put("shotError", shot.reason)
         }
         return result
     }
 
-    private fun screenshot(service: PhoneScreenService, scale: Float): Outcome<String> {
+    private fun stoppedSnapshot(reason: String, screen: DisplayMetrics?) = JSObject()
+        .put("width", SHOT_WIDTH)
+        .put("height", screen?.let { (it.heightPixels * SHOT_WIDTH.toFloat() / it.widthPixels).roundToInt() } ?: 0)
+        .put("keyboard", false).put("elements", "").put("more", 0).put("error", reason)
+
+    private fun screenshot(service: PhoneScreenService, scale: Float, display: Int): Outcome<String> {
         repeat(SHOT_ATTEMPTS) {
             val done = CountDownLatch(1)
             val shot = AtomicReference<Bitmap?>()
             val code = AtomicInteger()
             service.takeScreenshot(
-                Display.DEFAULT_DISPLAY,
+                display,
                 screenshots,
                 object : AccessibilityService.TakeScreenshotCallback {
                     override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
@@ -165,8 +190,7 @@ class PhoneScreenPlugin : Plugin() {
     }
 }
 
-private fun PhoneScreenService.settle(since: Long, cap: Long) {
+internal fun PhoneScreenService.settle(since: Long, cap: Long, display: Int) {
     val start = SystemClock.uptimeMillis()
-    while (lastChangeAt() <= since && SystemClock.uptimeMillis() - start < FIRST_CHANGE_MS) Thread.sleep(SETTLE_POLL_MS)
-    while (SystemClock.uptimeMillis() - lastChangeAt() < QUIET_MS && SystemClock.uptimeMillis() - start < cap) Thread.sleep(SETTLE_POLL_MS)
+    while (changes.pending(display, since, start, SystemClock.uptimeMillis(), cap)) Thread.sleep(SETTLE_POLL_MS)
 }

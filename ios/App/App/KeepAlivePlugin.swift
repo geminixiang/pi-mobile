@@ -26,11 +26,13 @@ public final class KeepAlivePlugin: CAPPlugin, CAPBridgedPlugin, @unchecked Send
         let title = "pi 工作中"
         let text = call.getString("text") ?? ""
         DispatchQueue.main.async {
-            // why: on iPhone WebKit suspends the page about a second after pi leaves the screen, task or not, so all it gives is the system's progress banner and result notices
-            guard UIDevice.current.userInterfaceIdiom == .pad else {
+            let runner = (self.bridge?.viewController as? MainViewController)?.backgroundRunner
+            // why: on iPhone WebKit suspends the page about a second after pi leaves the screen unless the edition keeps it running (docs/research/iphone.md)
+            guard UIDevice.current.userInterfaceIdiom == .pad || runner != nil else {
                 call.resolve()
                 return
             }
+            if let runner, let webView = self.bridge?.webView { runner.keepRunning(webView) }
             if let running = self.task {
                 running.updateTitle(title, subtitle: text)
                 call.resolve()

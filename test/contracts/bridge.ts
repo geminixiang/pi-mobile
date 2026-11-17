@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { type CommandChannel, type CommandClient, type CommandHandlers } from "../../src/computer/commands.ts";
 import { ContainerHost } from "../../src/agent/sandbox/container.ts";
-import { sleep } from "../../src/promise.ts";
+import { sleep } from "../../src/time.ts";
 import type { Check } from "./setup.ts";
 
 const CERT = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----";

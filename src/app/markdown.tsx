@@ -8,12 +8,18 @@ import { isSource } from "./sources.ts";
 
 const Mermaid = lazy(() => import("./Mermaid.tsx"));
 
-function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: boolean }) {
+type Marked = { "data-block"?: number };
+
+function CodeBlock({ children, diagrams, className, "data-block": block }: ComponentProps<"pre"> & Marked & { diagrams?: boolean }) {
 	const [showSource, setShowSource] = useState(false);
 	const code = isValidElement<{ className?: string; children?: unknown }>(children) ? children.props : undefined;
 	const language = /language-(\S+)/.exec(code?.className ?? "")?.[1] ?? "";
 	const source = String(code?.children ?? "").replace(/\n$/, "");
-	const pre = <pre>{children}</pre>;
+	const pre = (
+		<pre className={className} data-block={block}>
+			{children}
+		</pre>
+	);
 	const diagram = diagrams && language === "mermaid";
 	return (
 		<div className="code">
@@ -28,7 +34,7 @@ function CodeBlock({ children, diagrams }: ComponentProps<"pre"> & { diagrams?: 
 			</div>
 			{diagram && !showSource ? (
 				<Suspense fallback={<div className="diagram-loading" />}>
-					<Mermaid source={source} fallback={pre} />
+					<Mermaid key={source} source={source} fallback={pre} />
 				</Suspense>
 			) : (
 				pre
@@ -65,6 +71,6 @@ function Link({ href, children, ...props }: ComponentProps<"a">) {
 	);
 }
 
-export const markdownComponents = { pre: (props: ComponentProps<"pre">) => <CodeBlock {...props} diagrams />, table: Table, a: Link };
+export const markdownComponents = { pre: (props: ComponentProps<"pre"> & Marked) => <CodeBlock {...props} diagrams />, table: Table, a: Link };
 export const streamingMarkdownComponents = { pre: CodeBlock, table: Table, a: Link };
 export const remarkPlugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];

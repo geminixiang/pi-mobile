@@ -1,5 +1,5 @@
 import { PeleError, type RenderResult, render } from "pele";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 const MIN_FIT_SCALE = 0.75;
 
@@ -24,17 +24,16 @@ function draw(source: string, maxWidth: number): RenderResult | undefined {
 
 export default function Mermaid({ source, fallback }: { source: string; fallback: React.ReactNode }) {
 	const [failed, setFailed] = useState(false);
-	const box = useRef<HTMLDivElement>(null);
-	useLayoutEffect(() => {
-		const element = box.current;
+	const drawn = useRef(source);
+	const drawIn = useCallback((element: HTMLDivElement | null) => {
 		if (!element) return;
-		const diagram = draw(source, element.clientWidth);
+		const diagram = draw(drawn.current, element.clientWidth);
 		setFailed(!diagram);
 		if (!diagram) return;
 		element.innerHTML = diagram.svg;
 		const scale = element.clientWidth / diagram.width;
 		element.classList.toggle("fit", scale < 1 && scale >= MIN_FIT_SCALE);
-	}, [source]);
+	}, []);
 	if (failed) return fallback;
-	return <div className="diagram" ref={box} />;
+	return <div className="diagram" ref={drawIn} />;
 }

@@ -33,6 +33,16 @@ android {
             keyPassword "android"
         }
     }
+    packaging {
+        resources {
+            pickFirsts += ["META-INF/LICENSE.md"]
+        }
+    }
+    flavorDimensions = ["edition"]
+    productFlavors {
+        store { dimension "edition" }
+        oss { dimension "edition" }
+    }
     buildTypes {
         release {
             minifyEnabled true
@@ -60,6 +70,7 @@ dependencies {
     implementation "com.google.android.gms:play-services-location:21.4.0"
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
+    ossImplementation project(':agentscreen')
 }
 
 apply from: 'capacitor.build.gradle'

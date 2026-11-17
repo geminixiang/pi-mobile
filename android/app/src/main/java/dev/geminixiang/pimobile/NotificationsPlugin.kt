@@ -92,12 +92,14 @@ class NotificationsPlugin : Plugin() {
     fun active(call: PluginCall) =
         Background.run(call) {
             val listener = listener(call) ?: return@run
+            val app = call.getString("app", "").orEmpty()
+            val conversation = call.getString("conversation")
             val items = JSArray()
             listener.activeNotifications
                 .orEmpty()
-                .sortedByDescending { it.postTime }
                 .filter { it.packageName != context.packageName }
-                .filter { matches(listener, it, call.getString("app", "").orEmpty(), call.getString("conversation")) }
+                .sortedByDescending { it.postTime }
+                .filter { matches(listener, it, app, conversation) }
                 .forEach { sbn ->
                     val extras = sbn.notification.extras
                     val item = JSObject()
@@ -130,7 +132,8 @@ class NotificationsPlugin : Plugin() {
         val inputs = action.remoteInputs ?: emptyArray()
         val fill = Intent()
         val results = Bundle()
-        inputs.forEach { results.putCharSequence(it.resultKey, call.getString("text", "")) }
+        val text = call.getString("text", "")
+        inputs.forEach { results.putCharSequence(it.resultKey, text) }
         RemoteInput.addResultsToIntent(inputs, fill, results)
         try {
             action.actionIntent.send(context, 0, fill)

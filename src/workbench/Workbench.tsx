@@ -5,7 +5,7 @@ import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { BotAvatar } from "../app/BotAvatar.tsx";
-import { CLOCK } from "../app/clock.ts";
+import { CLOCK } from "../time.ts";
 import { ChevronIcon } from "../app/icons.tsx";
 import { callLabel, doing } from "../app/Message.tsx";
 import type { Board, Card, Group } from "./board.ts";

@@ -6,7 +6,7 @@ import { QueuedEvent, Triggers } from "./plugin.ts";
 import { log } from "../log.ts";
 import { releaseIfIdle } from "../keepAlive.ts";
 import { messageOf, orLogged, serially } from "../promise.ts";
-import { DAY } from "../time.ts";
+import { after, DAY } from "../time.ts";
 
 const RETRY_FOR_MS = DAY;
 
@@ -89,7 +89,7 @@ export function processTriggerEvents(
 					if (handled.length > 0) await Triggers.ack({ ids: handled });
 				} finally {
 					// why: an alarm starts the native keep-alive service and a 2 h wake lock before pi runs; only an idle release ends them, whatever the event's outcome
-					setTimeout(releaseIfIdle, 30_000);
+					after(30_000, releaseIfIdle);
 				}
 			}),
 			"trigger.drain_failed",

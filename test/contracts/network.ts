@@ -9,7 +9,7 @@ import { type Network, waitingForNetwork } from "../../src/agent/network.ts";
 import { createReach, type Reach } from "../../src/agent/reach.ts";
 import { createTraffic } from "../../src/agent/traffic.ts";
 import { nextChange } from "./fixtures.ts";
-import { sleep } from "../../src/promise.ts";
+import { sleep } from "../../src/time.ts";
 import type { Check } from "./setup.ts";
 
 const SLOWEST_RETRY_MS = 30_000;

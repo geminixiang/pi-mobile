@@ -110,8 +110,7 @@ class DatabasePlugin : Plugin() {
             database.rawQueryWithFactory(boundTo(params), sql, null, "").use { cursor ->
                 val rowCount = cursor.count
                 if (cursor.columnCount > 0) {
-                    val columns = JSArray()
-                    cursor.columnNames.forEach { columns.put(it) }
+                    val columns = JSArray(cursor.columnNames)
                     val rows = JSArray()
                     for (r in 0 until rowCount) {
                         if (!cursor.moveToPosition(r)) break

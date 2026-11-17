@@ -1,5 +1,8 @@
+import { Type } from "typebox";
+import { type Api, contentText, type JsonObject, type Model, type Models } from "@earendil-works/pi-ai";
 import { messageOf } from "../promise.ts";
-import type { JsonObject, Models } from "@earendil-works/pi-ai";
+import { checkJson } from "../parse.ts";
+import { deadline } from "../time.ts";
 
 export type Question = { instructions: string; yes: string; no: string };
 
@@ -21,15 +24,18 @@ const PREFERRED: readonly [provider: string, id: string][] = [
 	["vercel-ai-gateway", "typesafe-ai/jev"],
 ];
 const TIMEOUT_MS = 15_000;
+const CHAT_TOKENS = 400;
+const CHAT_TIMEOUT_MS = 30_000;
+const Answers = Type.Record(Type.String(), Type.Boolean());
 
-export function createJudge(models: Models): Judge {
+export function createJudge(models: Models, chat?: Model<Api>): Judge {
 	const pick = async () => {
 		const available = await models.getAvailableOfType("classifier");
 		return PREFERRED.map(([provider, id]) => available.find((item) => item.provider === provider && item.id === id)).find((item) => item !== undefined);
 	};
 	const ask: Judge["ask"] = async (questions, state) => {
 		const model = await pick();
-		if (!model) return { kind: "unavailable" };
+		if (!model) return chat ? askChat(models, chat, questions, state) : { kind: "unavailable" };
 		const result = await models.classify(
 			model,
 			{
@@ -50,4 +56,21 @@ export function createJudge(models: Models): Judge {
 		return { kind: "answered", probabilities, model: model.id };
 	};
 	return { ask: (questions, state) => ask(questions, state).catch((error: unknown) => ({ kind: "failed", reason: messageOf(error) })) };
+}
+
+async function askChat(models: Models, model: Model<Api>, questions: Record<string, Question>, state: JsonObject): Promise<Verdict> {
+	const asked = Object.entries(questions).map(([key, question]) => `${key}: ${question.instructions} true: ${question.yes}. false: ${question.no}.`);
+	const prompt = [`Facts: ${JSON.stringify(state)}`, "Reply with only a JSON object giving true or false for each key:", ...asked].join("\n");
+	const reply = await models.completeSimple(model, { messages: [{ role: "user", content: prompt, timestamp: Date.now() }] }, { maxTokens: CHAT_TOKENS, reasoning: "minimal", signal: deadline(CHAT_TIMEOUT_MS) });
+	if (reply.stopReason === "error" || reply.stopReason === "aborted") return { kind: "failed", reason: `${model.id}: ${reply.errorMessage ?? reply.stopReason}` };
+	const text = contentText(reply.content);
+	const answers = checkJson(Answers, text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1), "judge reply");
+	if (!answers.ok) return { kind: "failed", reason: `${model.id}: ${answers.problem}` };
+	const probabilities: Record<string, number> = {};
+	for (const key of Object.keys(questions)) {
+		const answer = answers.value[key];
+		if (answer === undefined) return { kind: "failed", reason: `${model.id}: no answer to ${key}` };
+		probabilities[key] = answer ? 1 : 0;
+	}
+	return { kind: "answered", probabilities, model: model.id };
 }

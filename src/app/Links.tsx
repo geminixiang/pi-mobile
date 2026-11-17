@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useState, useSyncExternalStore } from "react";
 import type { Workplace } from "../agent/workplaces.ts";
 import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
 import type { Sandbox } from "../agent/sandbox/sandbox.ts";
@@ -7,9 +7,9 @@ import { modelReach, type ReachState } from "../agent/reach.ts";
 import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../agent/traffic.ts";
 import { BatteryCharging, Bell, Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
 import { useBackground } from "./background.ts";
-import { CLOCK } from "./clock.ts";
 import { Sheet } from "./Sheet.tsx";
-import { MINUTE } from "../time.ts";
+import { CLOCK, MINUTE } from "../time.ts";
+import { useSubscribed } from "../ui/subscribed.ts";
 
 type Outage = { since: number; at: number };
 
@@ -19,18 +19,15 @@ export function useReach(provider: string): ReachState {
 }
 
 function useBack(provider: string, busy: boolean): Outage | undefined {
-	const [back, setBack] = useState<Outage>();
-	useEffect(() => {
-		const reach = modelReach(provider);
-		return reach.onChange(() => {
-			const now = reach.state();
-			if (now.kind === "up" && now.back) setBack(now.back);
-		});
-	}, [provider]);
-	useEffect(() => {
-		if (!busy) setBack(undefined);
-	}, [busy]);
-	return busy ? back : undefined;
+	const reach = modelReach(provider);
+	const recovered = (listener: (back: Outage) => void) => () => {
+		const now = reach.state();
+		if (now.kind === "up" && now.back) listener(now.back);
+	};
+	const back = useSubscribed<Outage | undefined>(undefined, (listener) => reach.onChange(recovered(listener)), [provider]);
+	const [seen, setSeen] = useState({ busy, before: back });
+	if (seen.busy !== busy) setSeen({ busy, before: busy ? seen.before : back });
+	return busy && back !== seen.before ? back : undefined;
 }
 
 export function ReachNote({ provider, busy }: { provider: string; busy: boolean }) {

@@ -1,5 +1,6 @@
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { type DialState, repeatingOf } from "./dialState.ts";
+import { type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from "react";
+import { after, type Cancel } from "../time.ts";
+import { type DialState, positionOf, type Repeating, repeatingOf, turned } from "./dialState.ts";
 import { haptic, HOLD_MS, HOLD_SLOP } from "./haptics.ts";
 import { ArrowDownIcon } from "./icons.tsx";
 
@@ -39,10 +40,6 @@ function pointAt(dial: DialState, degrees: number, radius: number): { x: number;
 	return { x: dial.px + radius * Math.cos(radians), y: dial.py - radius * Math.sin(radians) };
 }
 
-function positionOf(dial: DialState, count: number, slot = dial.slot): number {
-	return count - dial.shift - Math.max(0, Math.min(dial.slots - 1, slot));
-}
-
 export function ScrollTab({
 	hint,
 	prompts,
@@ -55,30 +52,48 @@ export function ScrollTab({
 	onJump: (id: string | undefined) => void;
 }) {
 	const [dial, setDial] = useState<DialState>();
-	const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | undefined>(undefined);
+	const press = useRef<{ x: number; y: number; cancel: Cancel } | undefined>(undefined);
+	const repeat = useRef<{ toward: Repeating; cancel: Cancel } | undefined>(undefined);
 	const opened = useRef(false);
 	const count = prompts.length;
+	const latest = useRef({ dial, count });
+	latest.current = { dial, count };
 
-	const repeating = repeatingOf(dial);
-	useEffect(() => {
-		if (!repeating) return;
-		let interval = REPEAT_SLOWEST_MS;
-		let timer = setTimeout(function step() {
-			setDial((current) => {
-				if (!current) return current;
-				const shift = repeating === "older" ? current.shift + 1 : current.shift - 1;
-				const older = positionOf({ ...current, shift }, count, current.slots - 1);
-				if (shift < 0 || older < 0) return current;
-				haptic("tick");
-				if (repeating === "older" && older === 0) return { ...current, shift, slot: current.slots - 1 };
-				if (repeating === "newer" && shift === 0) return { ...current, shift, slot: 0 };
-				return { ...current, shift };
-			});
-			interval = Math.max(REPEAT_FASTEST_MS, interval * 0.85);
-			timer = setTimeout(step, interval);
-		}, REPEAT_DELAY_MS);
-		return () => clearTimeout(timer);
-	}, [repeating, count]);
+	const turn = (next: DialState | undefined) => {
+		latest.current.dial = next;
+		setDial(next);
+		const toward = repeatingOf(next);
+		if (toward === repeat.current?.toward) return;
+		repeat.current?.cancel();
+		repeat.current = undefined;
+		if (toward) keepTurning(toward, REPEAT_DELAY_MS, REPEAT_SLOWEST_MS);
+	};
+	const keepTurning = (toward: Repeating, wait: number, interval: number) => {
+		const cancel = after(wait, () => {
+			const faster = Math.max(REPEAT_FASTEST_MS, interval * 0.85);
+			keepTurning(toward, faster, faster);
+			const before = latest.current.dial;
+			if (!before) return turn(undefined);
+			const next = turned(before, toward, latest.current.count);
+			if (next !== before) haptic("tick");
+			turn(next);
+		});
+		repeat.current = { toward, cancel };
+	};
+	const cancelPress = useCallback(
+		() => () => {
+			press.current?.cancel();
+			press.current = undefined;
+		},
+		[],
+	);
+	const stopTurning = useCallback(
+		() => () => {
+			repeat.current?.cancel();
+			repeat.current = undefined;
+		},
+		[],
+	);
 
 	const open = (target: HTMLElement, pointerId: number, x: number, y: number) => {
 		opened.current = true;
@@ -96,7 +111,7 @@ export function ScrollTab({
 		const fits = Math.floor((start - end) / step - OFFSET - ends) + 1;
 		const slots = Math.max(2, Math.min(wanted, fits));
 		const lineY = target.closest(".input")?.getBoundingClientRect().top ?? window.innerHeight;
-		setDial({ px, py, radius, start, step, slots, slot: 0, shift: 0, lineY });
+		turn({ px, py, radius, start, step, slots, slot: 0, shift: 0, lineY });
 	};
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -104,14 +119,14 @@ export function ScrollTab({
 		const target = event.currentTarget;
 		const { pointerId, clientX, clientY } = event;
 		opened.current = false;
-		press.current = { x: clientX, y: clientY, timer: setTimeout(() => open(target, pointerId, clientX, clientY), HOLD_MS) };
+		press.current = { x: clientX, y: clientY, cancel: after(HOLD_MS, () => open(target, pointerId, clientX, clientY)) };
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
 		if (!dial) {
 			const start = press.current;
 			if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > HOLD_SLOP) {
-				clearTimeout(start.timer);
+				start.cancel();
 				press.current = undefined;
 			}
 			return;
@@ -124,16 +139,16 @@ export function ScrollTab({
 		while (turned < slot - HYSTERESIS && slot > lowest) slot--;
 		if (slot !== dial.slot) {
 			haptic("tick");
-			setDial({ ...dial, slot });
+			turn({ ...dial, slot });
 		}
 	};
 
 	const finish = () => {
-		if (press.current) clearTimeout(press.current.timer);
+		press.current?.cancel();
 		press.current = undefined;
 		if (!dial) return;
 		const position = positionOf(dial, count);
-		setDial(undefined);
+		turn(undefined);
 		if (position !== count) haptic("confirm");
 		onJump(position >= count ? undefined : prompts[position]?.id);
 	};
@@ -146,6 +161,7 @@ export function ScrollTab({
 				type="button"
 				className={`scroll-hint${hint === "new" ? " new" : ""}${hint ? "" : " ghost"}`}
 				key={hint ?? "ghost"}
+				ref={cancelPress}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={finish}
@@ -165,7 +181,7 @@ export function ScrollTab({
 				) : null}
 			</button>
 			{dial ? (
-				<div className="dial" aria-live="polite">
+				<div className="dial" aria-live="polite" ref={stopTurning}>
 					<div className="dial-preview">
 						<span className="dial-count">{current ? `${position + 1} / ${count}` : "最新"}</span>
 						<span className="dial-text">

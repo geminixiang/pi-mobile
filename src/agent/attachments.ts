@@ -1,6 +1,6 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { codeNote, isCodeNote } from "./codes.ts";
-import { inViewPath } from "../workbench/note.ts";
+import { inViewPath } from "./in-view.ts";
 import { ocr } from "../scanner-plugin.ts";
 import { idbStore } from "../idb.ts";
 import { orLogged } from "../promise.ts";

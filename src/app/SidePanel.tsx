@@ -1,22 +1,55 @@
-import { createContext, type ReactNode, type RefObject, type TouchEvent, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, type RefObject, type TouchEvent, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import type { Source } from "../ui/subscribed.ts";
 import { haptic } from "./haptics.ts";
-import { useBack, useLast } from "./layers.ts";
-import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "./sideGesture.ts";
+import { isBack, useLast } from "./layers.ts";
+import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "../ui/sideGesture.ts";
 
-export type SidePage = { open: boolean; label: string; onBack: () => void; content: ReactNode };
+export type SidePage = { label: string; onBack: () => void; content: ReactNode };
+export type Place = "closed" | "open" | "deep";
 
 class PanelMotion extends Motion {
-	page: { open: boolean; onBack: () => void; element: HTMLElement | null } = { open: false, onBack: () => {}, element: null };
+	#place: Place | undefined;
+	#focusedBefore: Element | null | undefined;
 
 	constructor(
 		readonly side: Side,
 		private readonly viewport: HTMLElement,
 		private readonly popup: HTMLElement,
 		private readonly card: RefObject<HTMLElement | null>,
+		private readonly pageElement: RefObject<HTMLElement | null>,
+		readonly back: () => void,
 		settled: () => void,
 	) {
 		super(settled);
+	}
+
+	deep(): boolean {
+		return this.#place === "deep";
+	}
+
+	follow(place: Place): void {
+		if (place === this.#place) return;
+		this.#place = place;
+		this.popup.inert = place !== "open";
+		if (this.pageElement.current) this.pageElement.current.inert = place !== "deep";
+		if (place === "deep") this.settleTo(this.deepest());
+		else this.settle(place === "open");
+		if (place === "closed") return this.restoreFocus();
+		if (this.#focusedBefore === undefined) this.#focusedBefore = document.activeElement;
+		(place === "deep" ? this.pageElement.current : this.popup)?.focus({ preventScroll: true });
+	}
+
+	pageArrived(page: HTMLElement): void {
+		page.inert = !this.deep();
+		this.render(this.position());
+		if (this.deep()) page.focus({ preventScroll: true });
+	}
+
+	restoreFocus(): void {
+		const previous = this.#focusedBefore;
+		this.#focusedBefore = undefined;
+		if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
 	}
 
 	width(): number {
@@ -45,8 +78,8 @@ class PanelMotion extends Motion {
 		this.card.current?.style.setProperty(this.side === "left" ? "--side-left" : "--side-right", String(position));
 		this.popup.style.setProperty("--side-reveal", String(Math.min(position, 1)));
 		this.popup.style.setProperty("--side-deep", deep);
-		this.page.element?.style.setProperty("--side-deep", deep);
-		this.page.element?.toggleAttribute("data-shown", position > 1);
+		this.pageElement.current?.style.setProperty("--side-deep", deep);
+		this.pageElement.current?.toggleAttribute("data-shown", position > 1);
 	}
 }
 
@@ -93,7 +126,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 			drag.motion.settleTo(drag.range.max);
 			if (cancelled || stays) return;
 			haptic("tick");
-			drag.motion.page.onBack();
+			drag.motion.back();
 			return;
 		}
 		const wasOpen = current().open === side;
@@ -124,7 +157,7 @@ function swipeHandlers(panels: Map<Side, PanelMotion>, current: () => SideState)
 					gesture.ignored = true;
 					return;
 				}
-				const page = motion.page.open;
+				const page = motion.deep();
 				gesture.drag = {
 					motion,
 					from: motion.position(),
@@ -176,89 +209,81 @@ export function SideSwipe({
 	);
 }
 
-export function SidePanel({ side, open, page, onClose, label, children }: { side: Side; open: boolean; page?: SidePage; onClose: () => void; label: string; children: ReactNode }) {
-	useBack(open, onClose);
-	const deep = open && Boolean(page?.open);
-	useBack(deep, () => page?.onBack());
+export function SidePanel({ side, place, page, onClose, label, children }: { side: Side; place: Source<Place>; page?: SidePage; onClose: () => void; label: string; children: ReactNode }) {
+	const at = useSyncExternalStore(place.subscribe, place.read);
+	const deep = at === "deep";
 	const context = useContext(SideContext);
-	const viewport = useRef<HTMLDivElement>(null);
-	const popup = useRef<HTMLDivElement>(null);
 	const pageElement = useRef<HTMLDivElement>(null);
 	const motion = useRef<PanelMotion>(undefined);
 	const [pageMounted, setPageMounted] = useState(false);
+	if (deep && !pageMounted) setPageMounted(true);
 	const pageContent = useLast(deep, page?.content);
+	const latest = useRef({ context, side, place, page });
+	latest.current = { context, side, place, page };
 
-	useLayoutEffect(() => {
-		if (!context || !viewport.current || !popup.current) return;
-		const created: PanelMotion = new PanelMotion(side, viewport.current, popup.current, context.card, () => {
-			if (created.position() <= 1 && !created.page.open) setPageMounted(false);
-		});
+	const attach = useCallback((popup: HTMLDivElement) => {
+		const mounted = latest.current;
+		const viewport = popup.parentElement;
+		if (!mounted.context || !viewport) return () => undefined;
+		const { panels, card } = mounted.context;
+		const created = new PanelMotion(
+			mounted.side,
+			viewport,
+			popup,
+			card,
+			pageElement,
+			() => latest.current.page?.onBack(),
+			() => {
+				if (created.position() <= 1 && !created.deep()) setPageMounted(false);
+			},
+		);
 		motion.current = created;
-		context.panels.set(side, created);
+		panels.set(mounted.side, created);
+		const follow = () => created.follow(mounted.place.read());
+		follow();
+		const stop = mounted.place.subscribe(follow);
 		return () => {
-			context.panels.delete(side);
+			stop();
+			panels.delete(mounted.side);
+			created.restoreFocus();
 		};
-	}, [context, side]);
-
-	useLayoutEffect(() => {
-		const current = motion.current;
-		if (!current) return;
-		current.page = { open: deep, onBack: () => page?.onBack(), element: pageElement.current };
-	});
-
-	useLayoutEffect(() => {
-		if (deep) setPageMounted(true);
-	}, [deep]);
-
-	useLayoutEffect(() => {
-		const current = motion.current;
-		if (!current) return;
-		if (deep) current.settleTo(current.deepest());
-		else current.settle(open);
-	}, [open, deep]);
-
-	useEffect(() => {
-		if (!open) return;
-		const previous = document.activeElement;
-		popup.current?.focus({ preventScroll: true });
+	}, []);
+	const arrive = useCallback((element: HTMLDivElement) => {
+		pageElement.current = element;
+		motion.current?.pageArrived(element);
 		return () => {
-			if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
+			pageElement.current = null;
 		};
-	}, [open]);
-
-	useEffect(() => {
-		if (deep) pageElement.current?.focus({ preventScroll: true });
-		else if (open) popup.current?.focus({ preventScroll: true });
-	}, [deep]);
+	}, []);
 
 	if (!context) return null;
 	return createPortal(
-		<div ref={viewport} className="side-viewport">
+		<div className="side-viewport">
 			<div
-				ref={popup}
+				ref={attach}
 				className={`side-popup side-${side}`}
 				role="dialog"
 				aria-modal="true"
 				aria-label={label}
 				tabIndex={-1}
-				inert={!open || deep}
+				data-back={at !== "closed" || undefined}
 				onKeyDown={(event) => {
-					if (event.key === "Escape") onClose();
+					if (event.key === "Escape" || isBack(event)) onClose();
 				}}
 			>
 				{children}
 			</div>
 			{deep || pageMounted ? (
 				<div
-					ref={pageElement}
+					ref={arrive}
 					className={`side-page side-page-${side}`}
 					role="dialog"
 					aria-modal="true"
 					aria-label={page?.label}
 					tabIndex={-1}
-					inert={!deep}
+					data-back={deep || undefined}
 					onKeyDown={(event) => {
-						if (event.key === "Escape") page?.onBack();
+						if (event.key === "Escape" || isBack(event)) page?.onBack();
 					}}
 				>
 					{pageContent}

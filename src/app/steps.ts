@@ -1,4 +1,25 @@
-const SCREEN_TOOLS = new Set(["read_page", "use_browser", "phone_read_as_user", "phone_act_as_user"]);
+const SCREEN_TOOLS = new Set(["read_page", "use_browser", "phone_open_as_user", "phone_read_as_user", "phone_act_as_user"]);
+
+export const TOOL_DOING = new Map<string, string>([
+	["bash", "跑指令"],
+	["read", "讀檔案"],
+	["write", "寫檔案"],
+	["edit", "改檔案"],
+	["codemode", "執行腳本"],
+	["update_memory", "更新記憶"],
+	["tool_search", "載入工具"],
+	["read_page", "看網頁"],
+	["use_browser", "操作瀏覽器"],
+	["phone_open_as_user", "打開 App"],
+	["phone_note_as_user", "記下 App 用法"],
+	["phone_read_as_user", "看手機畫面"],
+	["phone_act_as_user", "操作手機"],
+	["computer_read_as_user", "看電腦畫面"],
+	["computer_act_as_user", "操作電腦"],
+	["view_photos", "看照片"],
+	["read_attachment", "讀附件"],
+]);
+
 const STOPPED = "Stopped at ";
 const WAITS = new Set(["wait", "wait_for"]);
 const FAILED_STEP = /^step (\d+) \(([^)]+)\): (.*)$/;

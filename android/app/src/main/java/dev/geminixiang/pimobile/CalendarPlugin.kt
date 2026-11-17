@@ -90,8 +90,6 @@ class CalendarPlugin : Plugin() {
                     CalendarContract.Instances.ALL_DAY,
                     CalendarContract.Instances.EVENT_LOCATION,
                     CalendarContract.Instances.DESCRIPTION,
-                    CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
-                    CalendarContract.Instances.OWNER_ACCOUNT,
                     CalendarContract.Instances.CALENDAR_ID,
                     CalendarContract.Instances.SELF_ATTENDEE_STATUS,
                     CalendarContract.Instances.EVENT_ID,
@@ -102,10 +100,10 @@ class CalendarPlugin : Plugin() {
             val events = JSArray()
             context.contentResolver.query(range.build(), projection, selection, null, CalendarContract.Instances.BEGIN + " ASC")?.use { cursor ->
                 while (cursor.moveToNext()) {
-                    if (!cursor.isNull(9) && cursor.getInt(9) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) continue
-                    val calendar = calendars[cursor.getLong(8)] ?: continue
+                    if (!cursor.isNull(7) && cursor.getInt(7) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) continue
+                    val calendar = calendars[cursor.getLong(6)] ?: continue
                     val event = JSObject()
-                    event.put("id", cursor.getLong(10).toString())
+                    event.put("id", cursor.getLong(8).toString())
                     event.put("title", cursor.getString(0).orEmpty())
                     event.put("begin", cursor.getLong(1))
                     event.put("end", cursor.getLong(2))

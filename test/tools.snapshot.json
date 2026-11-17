@@ -5,6 +5,7 @@
 			"device"
 		],
 		"name": "device_info",
+		"description_chars": 261,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -27,6 +28,7 @@
 			"device"
 		],
 		"name": "get_location",
+		"description_chars": 188,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -49,6 +51,7 @@
 			"device"
 		],
 		"name": "read_sensors",
+		"description_chars": 351,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -71,6 +74,7 @@
 			"device"
 		],
 		"name": "get_travel_time",
+		"description_chars": 262,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -116,6 +120,7 @@
 			"weather"
 		],
 		"name": "weather",
+		"description_chars": 358,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -274,6 +279,7 @@
 			"places"
 		],
 		"name": "find_places",
+		"description_chars": 602,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -388,6 +394,7 @@
 			"tw_stocks"
 		],
 		"name": "tw_stocks",
+		"description_chars": 371,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -903,6 +910,7 @@
 			"database"
 		],
 		"name": "sql",
+		"description_chars": 363,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1007,6 +1015,7 @@
 			"apps"
 		],
 		"name": "set_alarm",
+		"description_chars": 90,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1057,6 +1066,7 @@
 			"apps"
 		],
 		"name": "open_alarms",
+		"description_chars": 189,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1079,6 +1089,7 @@
 			"apps"
 		],
 		"name": "set_timer",
+		"description_chars": 69,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1115,6 +1126,7 @@
 			"apps"
 		],
 		"name": "compose_email",
+		"description_chars": 102,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1156,6 +1168,7 @@
 			"apps"
 		],
 		"name": "compose_sms",
+		"description_chars": 104,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1190,6 +1203,7 @@
 			"apps"
 		],
 		"name": "open_maps",
+		"description_chars": 102,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1234,6 +1248,7 @@
 			"apps"
 		],
 		"name": "open_link",
+		"description_chars": 155,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1264,6 +1279,7 @@
 			"apps"
 		],
 		"name": "share",
+		"description_chars": 213,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1299,6 +1315,7 @@
 			"speech"
 		],
 		"name": "speak",
+		"description_chars": 324,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1334,6 +1351,7 @@
 			"notifications"
 		],
 		"name": "read_notifications",
+		"description_chars": 433,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1420,6 +1438,7 @@
 			"notifications"
 		],
 		"name": "reply_notification",
+		"description_chars": 257,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1462,6 +1481,7 @@
 			"notifications"
 		],
 		"name": "dismiss_notifications",
+		"description_chars": 150,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1493,7 +1513,46 @@
 		"groups": [
 			"phone_as_user"
 		],
+		"name": "phone_open_as_user",
+		"description_chars": 176,
+		"deferred": false,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"app": {
+					"description": "App name or package",
+					"type": "string"
+				}
+			},
+			"required": [
+				"app"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "read",
+		"needs": [
+			"PhoneScreen.status",
+			"PhoneScreen.act"
+		],
+		"outside": null,
+		"sends": false,
+		"loads": [
+			"phone_read_as_user",
+			"phone_act_as_user",
+			"phone_note_as_user"
+		]
+	},
+	{
+		"extension": "phone_as_user",
+		"groups": [
+			"phone_as_user"
+		],
 		"name": "phone_read_as_user",
+		"description_chars": 222,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1501,6 +1560,14 @@
 		],
 		"parameters": {
 			"properties": {
+				"screen": {
+					"description": "background (default): a hidden screen of its own, so the user keeps using the phone; front: the user's screen, only to show them something or hand it over",
+					"enum": [
+						"background",
+						"front"
+					],
+					"type": "string"
+				},
 				"screenshot": {
 					"description": "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false",
 					"type": "boolean"
@@ -1523,6 +1590,7 @@
 			"phone_as_user"
 		],
 		"name": "phone_act_as_user",
+		"description_chars": 500,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -1530,6 +1598,18 @@
 		],
 		"parameters": {
 			"properties": {
+				"note": {
+					"description": "Preview progress: a few words in the user's language",
+					"type": "string"
+				},
+				"screen": {
+					"description": "background (default): a hidden screen of its own, so the user keeps using the phone; front: the user's screen, only to show them something or hand it over",
+					"enum": [
+						"background",
+						"front"
+					],
+					"type": "string"
+				},
 				"screenshot": {
 					"description": "Also a screenshot, for what the element list cannot tell: unlabeled icons, pictures, maps, colors; default false",
 					"type": "boolean"
@@ -1547,16 +1627,19 @@
 									"clear",
 									"key",
 									"open",
-									"wait"
+									"wait",
+									"wait_for",
+									"scroll_to",
+									"expect"
 								],
 								"type": "string"
 							},
 							"app": {
-								"description": "open: app name as on the home screen, or its package",
+								"description": "open: app name or package; expect: exact app name or package",
 								"type": "string"
 							},
 							"direction": {
-								"description": "scroll: which way the content moves into view; default down",
+								"description": "scroll/scroll_to: direction; default down",
 								"enum": [
 									"down",
 									"up",
@@ -1565,17 +1648,26 @@
 								],
 								"type": "string"
 							},
+							"gone": {
+								"description": "wait_for: wait until absent; default false",
+								"type": "boolean"
+							},
+							"id": {
+								"description": "live element id",
+								"minimum": 0,
+								"type": "integer"
+							},
 							"keys": {
 								"description": "key: back, home, recents, notifications, quick_settings, or enter",
 								"type": "string"
 							},
 							"ms": {
-								"description": "swipe: duration, default 300; wait: how long",
+								"description": "swipe: default 300; wait: 500; wait_for: 3000, max 10000",
 								"minimum": 1,
 								"type": "integer"
 							},
 							"text": {
-								"description": "type: the text",
+								"description": "type: input; tap: exact label; wait_for/scroll_to/expect: visible text contains",
 								"type": "string"
 							},
 							"to_x": {
@@ -1619,11 +1711,48 @@
 		"sends": false
 	},
 	{
+		"extension": "app_notes",
+		"groups": [
+			"phone_as_user"
+		],
+		"name": "phone_note_as_user",
+		"description_chars": 319,
+		"deferred": true,
+		"callers": [
+			"model",
+			"tools"
+		],
+		"parameters": {
+			"properties": {
+				"app": {
+					"description": "Package or app name, as the screen tools show it",
+					"type": "string"
+				},
+				"text": {
+					"description": "The note; empty deletes it",
+					"maxLength": 500,
+					"type": "string"
+				}
+			},
+			"required": [
+				"app",
+				"text"
+			],
+			"type": "object"
+		},
+		"structuredOutput": null,
+		"effect": "direct",
+		"needs": [],
+		"outside": null,
+		"sends": false
+	},
+	{
 		"extension": "browser",
 		"groups": [
 			"browser"
 		],
 		"name": "read_page",
+		"description_chars": 288,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1697,6 +1826,7 @@
 			"browser"
 		],
 		"name": "use_browser",
+		"description_chars": 1600,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1859,6 +1989,7 @@
 			"phone_control"
 		],
 		"name": "media",
+		"description_chars": 149,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1902,6 +2033,7 @@
 			"phone_control"
 		],
 		"name": "do_not_disturb",
+		"description_chars": 178,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -1945,6 +2077,7 @@
 			"phone_control"
 		],
 		"name": "sound",
+		"description_chars": 205,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2001,6 +2134,7 @@
 			"phone_control"
 		],
 		"name": "display",
+		"description_chars": 105,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2055,6 +2189,7 @@
 			"phone_control"
 		],
 		"name": "flashlight",
+		"description_chars": 115,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2091,6 +2226,7 @@
 			"phone_control"
 		],
 		"name": "connections",
+		"description_chars": 266,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2140,6 +2276,7 @@
 			"contacts"
 		],
 		"name": "contacts",
+		"description_chars": 275,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2228,6 +2365,7 @@
 			"photos"
 		],
 		"name": "find_photos",
+		"description_chars": 237,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2326,6 +2464,7 @@
 			"photos"
 		],
 		"name": "view_photos",
+		"description_chars": 142,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -2362,6 +2501,7 @@
 			"calls_sms"
 		],
 		"name": "call_log",
+		"description_chars": 114,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2441,6 +2581,7 @@
 			"calls_sms"
 		],
 		"name": "read_sms",
+		"description_chars": 300,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2517,6 +2658,7 @@
 			"screen_time"
 		],
 		"name": "screen_time",
+		"description_chars": 140,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2598,6 +2740,7 @@
 			"health"
 		],
 		"name": "health",
+		"description_chars": 207,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2709,6 +2852,7 @@
 		"extension": "skills",
 		"groups": "always",
 		"name": "read_skill",
+		"description_chars": 135,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2735,6 +2879,7 @@
 		"extension": "skills",
 		"groups": "always",
 		"name": "save_skill",
+		"description_chars": 405,
 		"deferred": false,
 		"callers": [
 			"model"
@@ -2774,6 +2919,7 @@
 		"extension": "attachments",
 		"groups": "always",
 		"name": "read_attachment",
+		"description_chars": 371,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -2823,6 +2969,7 @@
 		"extension": "attachments",
 		"groups": "always",
 		"name": "scan_document",
+		"description_chars": 292,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2852,6 +2999,7 @@
 			"calendar"
 		],
 		"name": "read_calendar_events",
+		"description_chars": 396,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2951,6 +3099,7 @@
 			"calendar"
 		],
 		"name": "list_calendars",
+		"description_chars": 221,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -2973,6 +3122,7 @@
 			"calendar"
 		],
 		"name": "add_calendar_event",
+		"description_chars": 105,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3030,6 +3180,7 @@
 			"calendar"
 		],
 		"name": "delete_calendar_event",
+		"description_chars": 146,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3069,6 +3220,7 @@
 		"extension": "codemode",
 		"groups": "always",
 		"name": "codemode",
+		"description_chars": 1456,
 		"deferred": false,
 		"callers": [
 			"model"
@@ -3101,6 +3253,7 @@
 			"github"
 		],
 		"name": "github_api",
+		"description_chars": 271,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3158,6 +3311,7 @@
 			"github"
 		],
 		"name": "github_read_file",
+		"description_chars": 66,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3200,6 +3354,7 @@
 			"gcp"
 		],
 		"name": "gcp_api",
+		"description_chars": 359,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3254,6 +3409,7 @@
 			"cloudflare"
 		],
 		"name": "cloudflare_api",
+		"description_chars": 241,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3308,6 +3464,7 @@
 			"azure"
 		],
 		"name": "azure_api",
+		"description_chars": 331,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3362,6 +3519,7 @@
 			"web"
 		],
 		"name": "web_search",
+		"description_chars": 269,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3390,6 +3548,7 @@
 			"web"
 		],
 		"name": "web_fetch",
+		"description_chars": 254,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3424,6 +3583,7 @@
 		"extension": "schedules",
 		"groups": "always",
 		"name": "create_schedule",
+		"description_chars": 461,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3574,6 +3734,7 @@
 		"extension": "schedules",
 		"groups": "always",
 		"name": "schedule_followup",
+		"description_chars": 233,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3614,6 +3775,7 @@
 		"extension": "schedules",
 		"groups": "always",
 		"name": "list_schedules",
+		"description_chars": 54,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3634,6 +3796,7 @@
 		"extension": "schedules",
 		"groups": "always",
 		"name": "delete_schedule",
+		"description_chars": 47,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3662,6 +3825,7 @@
 		"extension": "schedules",
 		"groups": "always",
 		"name": "notify",
+		"description_chars": 277,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3695,6 +3859,7 @@
 		"extension": "items",
 		"groups": "always",
 		"name": "note_item",
+		"description_chars": 274,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3751,6 +3916,7 @@
 		"extension": "items",
 		"groups": "always",
 		"name": "list_items",
+		"description_chars": 119,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -3778,6 +3944,7 @@
 		"extension": "memory",
 		"groups": "always",
 		"name": "update_memory",
+		"description_chars": 285,
 		"deferred": false,
 		"callers": [
 			"model"
@@ -3817,6 +3984,7 @@
 		"extension": "interaction",
 		"groups": "always",
 		"name": "ask_user",
+		"description_chars": 587,
 		"deferred": false,
 		"callers": [
 			"model"
@@ -3860,6 +4028,7 @@
 			"computer_as_user"
 		],
 		"name": "computer_read_as_user",
+		"description_chars": 754,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -3895,6 +4064,7 @@
 			"computer_as_user"
 		],
 		"name": "computer_act_as_user",
+		"description_chars": 1467,
 		"deferred": true,
 		"callers": [
 			"model",
@@ -3994,6 +4164,7 @@
 			"computer_agents"
 		],
 		"name": "list_agents",
+		"description_chars": 524,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -4014,6 +4185,7 @@
 			"computer_agents"
 		],
 		"name": "read_agent",
+		"description_chars": 204,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -4048,6 +4220,7 @@
 			"computer_agents"
 		],
 		"name": "tell_agent",
+		"description_chars": 418,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -4082,6 +4255,7 @@
 			"computer_agents"
 		],
 		"name": "answer_agent",
+		"description_chars": 328,
 		"deferred": false,
 		"callers": [
 			"tools"
@@ -4121,6 +4295,7 @@
 			"computer_shell"
 		],
 		"name": "read",
+		"description_chars": 298,
 		"deferred": false,
 		"callers": [
 			"model",
@@ -4184,6 +4359,7 @@
 			"computer_shell"
 		],
 		"name": "write",
+		"description_chars": 127,
 		"deferred": false,
 		"callers": [
 			"model",
@@ -4219,6 +4395,7 @@
 			"computer_shell"
 		],
 		"name": "edit",
+		"description_chars": 326,
 		"deferred": false,
 		"callers": [
 			"model",
@@ -4271,6 +4448,7 @@
 			"computer_shell"
 		],
 		"name": "bash",
+		"description_chars": 418,
 		"deferred": false,
 		"callers": [
 			"model",
@@ -4331,6 +4509,7 @@
 		"extension": "tool-search",
 		"groups": "always",
 		"name": "tool_search",
+		"description_chars": 228,
 		"deferred": false,
 		"callers": [
 			"model"

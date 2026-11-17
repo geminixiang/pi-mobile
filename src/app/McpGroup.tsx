@@ -1,6 +1,6 @@
 import { Logo } from "./Logo.tsx";
-import { useEffect, useState } from "react";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { useState } from "react";
+import { promised, useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpServer, type McpStatus } from "../agent/mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "../agent/mcp-catalog.ts";
@@ -108,14 +108,14 @@ export function McpGroup({ runtime, onError }: { runtime: AgentRuntime; onError:
 	const servers = runtime.mcp.servers;
 	const [browsing, setBrowsing] = useState(false);
 	const [selectedId, setSelectedId] = useState<string>();
-	const [grants, setGrants] = useState<Grants>([]);
 	const fail = (error: unknown) => onError(messageOf(error));
-	useEffect(() => {
-		void runtime
-			.bots()
-			.then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: new Set((await runtime.toolsets(bot.id)).filter((item) => item.enabled).map((item) => item.id)) }))))
-			.then(setGrants);
-	}, [runtime]);
+	const grants = useSubscribed<Grants>(
+		[],
+		promised(() =>
+			runtime.bots().then((list) => Promise.all(list.map(async (bot) => ({ bot, enabled: new Set((await runtime.toolsets(bot.id)).filter((item) => item.enabled).map((item) => item.id)) })))),
+		),
+		[runtime],
+	);
 	const usersOf = (server: McpServer) => grants.filter(({ enabled }) => enabled.has(extensionName(server))).map(({ bot }) => bot);
 	const entryOf = (server: McpServer) => CATALOG.find((entry) => entry.url === server.url);
 	const resolve = (server: McpServer, status: McpStatus) => (status.state === "login" ? void runtime.mcp.login(server.id).catch(fail) : runtime.mcp.refresh(server.id));

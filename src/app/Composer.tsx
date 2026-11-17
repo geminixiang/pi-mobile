@@ -1,5 +1,5 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { type ChangeEvent, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type RefObject, useCallback, useContext, useMemo, useRef, useState } from "react";
 import {
 	ATTACHMENT_ACCEPT,
 	type AttachmentKind,
@@ -21,14 +21,15 @@ import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 import { JobsStrip } from "../jobs/JobsStrip.tsx";
-import { addToDraft, loadDraftAttachments, receiveDraftAdditions, saveDraftAttachments } from "./drafts.ts";
+import { addToDraft, loadDraftAttachments, receiveDrafts, saveDraftAttachments } from "./drafts.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { native } from "../native.ts";
 import { BesideContext } from "../workbench/context.ts";
-import { inViewNote } from "../workbench/note.ts";
+import { inViewNote } from "../agent/in-view.ts";
 import { RowList } from "../ui/RowList.tsx";
 import { partLabel } from "../workbench/changes.ts";
 import { baseName } from "../agent/mime.ts";
+import { useStore } from "../ui/subscribed.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);
@@ -45,6 +46,12 @@ type PendingFile =
 	| { key: string; state: "reading"; name: string; kind: AttachmentKind; size: number }
 	| { key: string; state: "ready"; prepared: PreparedAttachment };
 
+type Attached = { images: ImageContent[]; files: PendingFile[] };
+
+const NOTHING: Attached = { images: [], files: [] };
+
+const readyFile = (prepared: PreparedAttachment): PendingFile => ({ key: prepared.card.id, state: "ready", prepared });
+
 export interface QueuedItem {
 	id: SubmissionId;
 	mode: BusyMode;
@@ -56,9 +63,9 @@ export function Composer({
 	draft,
 	onDraftChange,
 	queued,
-	focusKey,
+	input: textArea,
+	autoFocus,
 	conversationId,
-	initialFiles,
 	onSend,
 	onStop,
 	onWithdraw,
@@ -71,9 +78,9 @@ export function Composer({
 	draft: string;
 	onDraftChange: (text: string) => void;
 	queued: QueuedItem[];
-	focusKey: number;
+	input: RefObject<HTMLTextAreaElement | null>;
+	autoFocus: boolean;
 	conversationId: string;
-	initialFiles?: readonly File[];
 	onSend: (content: UserContent, whenBusy: BusyMode) => void;
 	onStop: () => void;
 	onWithdraw: (id: SubmissionId) => void;
@@ -82,14 +89,41 @@ export function Composer({
 	prompts: DialPrompt[];
 	onJump: (id: string | undefined) => void;
 }) {
-	const [images, setImages] = useState<ImageContent[]>([]);
+	const restored = useRef(false);
+	const receiving = useRef(false);
+	const [{ images, files }, setAttached] = useStore<Attached>(
+		NOTHING,
+		() => {
+			receiving.current = true;
+			void orLogged(loadDraftAttachments(conversationId), "drafts.load_failed", undefined).then((saved) => {
+				if (restored.current) return;
+				restored.current = true;
+				change((current) => ({ images: [...(saved?.images ?? []), ...current.images], files: [...(saved?.files ?? []).map(readyFile), ...current.files] }));
+			});
+			const stop = receiveDrafts(conversationId, {
+				prepared: (addition) => change((current) => ({ images: [...current.images, ...addition.images], files: [...current.files, ...addition.files.map(readyFile)] })),
+				files: (shared) => void attach(shared),
+			});
+			return () => {
+				receiving.current = false;
+				stop();
+			};
+		},
+		[conversationId],
+	);
+	const change = (update: (current: Attached) => Attached) => {
+		const next = setAttached(update);
+		if (!restored.current) return;
+		void orLogged(saveDraftAttachments(conversationId, { images: next.images, files: next.files.flatMap((file) => (file.state === "ready" ? [file.prepared] : [])) }), "drafts.save_failed", undefined);
+	};
+	const changeFiles = (update: (files: PendingFile[]) => PendingFile[]) => change((current) => ({ ...current, files: update(current.files) }));
+	const changeImages = (update: (images: ImageContent[]) => ImageContent[]) => change((current) => ({ ...current, images: update(current.images) }));
 	const thumbnails = useMemo(() => images.map((image) => `data:${image.mimeType};base64,${image.data}`), [images]);
-	const [files, setFiles] = useState<PendingFile[]>([]);
 	const [problem, setProblem] = useState<string>();
 	const [attachMenu, setAttachMenu] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
 	const cameraInput = useRef<HTMLInputElement>(null);
-	const textArea = useRef<HTMLTextAreaElement>(null);
+	const focusFirst = useRef(autoFocus);
 	const reading = files.some((file) => file.state === "reading");
 	const hasInput = draft.trim() !== "" || images.length > 0 || files.length > 0;
 	const dictation = useDictation((text) => {
@@ -102,45 +136,16 @@ export function Composer({
 	const viewing = beside?.inView !== dismissed ? beside?.inView : undefined;
 	const part = viewing ? beside?.part : undefined;
 
-	useEffect(() => {
-		if (!focusKey) return;
-		const area = textArea.current;
-		area?.focus();
-		area?.setSelectionRange(area.value.length, area.value.length);
-	}, [focusKey]);
-
-	const restored = useRef(false);
-	useEffect(() => {
-		void orLogged(loadDraftAttachments(conversationId), "drafts.load_failed", undefined).then((saved) => {
-				if (saved) {
-					setImages((current) => [...saved.images, ...current]);
-					setFiles((current) => [...saved.files.map((prepared) => ({ key: prepared.card.id, state: "ready" as const, prepared })), ...current]);
-				}
-				restored.current = true;
-				if (initialFiles?.length) void attach([...initialFiles]);
-			});
-	}, []);
-	useEffect(() => {
-		if (!restored.current) return;
-		const draft = { images, files: files.flatMap((file) => (file.state === "ready" ? [file.prepared] : [])) };
-		void orLogged(saveDraftAttachments(conversationId, draft), "drafts.save_failed", undefined);
-	}, [conversationId, images, files]);
-
-	const unmounted = useRef(false);
-	useEffect(() => {
-		unmounted.current = false;
+	const arrive = useCallback((area: HTMLTextAreaElement) => {
+		textArea.current = area;
+		if (focusFirst.current) {
+			area.focus();
+			area.setSelectionRange(area.value.length, area.value.length);
+		}
 		return () => {
-			unmounted.current = true;
+			textArea.current = null;
 		};
 	}, []);
-	useEffect(
-		() =>
-			receiveDraftAdditions(conversationId, (addition) => {
-				setImages((current) => [...current, ...addition.images]);
-				setFiles((current) => [...current, ...addition.files.map((prepared) => ({ key: prepared.card.id, state: "ready" as const, prepared }))]);
-			}),
-		[conversationId],
-	);
 	const removedWhileReading = useRef(new Set<string>());
 
 	const send = (whenBusy: BusyMode) => {
@@ -149,8 +154,7 @@ export function Composer({
 		const attached = files.flatMap((file) => (file.state === "ready" ? file.prepared.content : []));
 		onDraftChange("");
 		setProblem(undefined);
-		setImages([]);
-		setFiles([]);
+		change(() => NOTHING);
 		setDismissed(undefined);
 		beside?.clearPart();
 		void codeNote(images, (index) => `photo ${index + 1}`).then((codes) =>
@@ -180,25 +184,25 @@ export function Composer({
 				continue;
 			}
 			const key = crypto.randomUUID();
-			setFiles((current) => [...current, { key, state: "reading", name: file.name, kind, size: file.size }]);
+			changeFiles((current) => [...current, { key, state: "reading", name: file.name, kind, size: file.size }]);
 			prepareAttachment(file, conversationId).then(
 				(prepared) => {
 					if (removedWhileReading.current.delete(key)) discardAttachment(prepared);
-					else if (unmounted.current) void orLogged(addToDraft(conversationId, { images: [], files: [prepared] }), "drafts.save_failed", undefined);
-					else setFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
+					else if (!receiving.current) void orLogged(addToDraft(conversationId, { images: [], files: [prepared] }), "drafts.save_failed", undefined);
+					else changeFiles((current) => current.map((item) => (item.key === key ? { key, state: "ready", prepared } : item)));
 				},
 				(error: unknown) => {
-					setFiles((current) => current.filter((item) => item.key !== key));
+					changeFiles((current) => current.filter((item) => item.key !== key));
 					setProblem(`讀不了 ${file.name}：${messageOf(error)}`);
 				},
 			);
 		}
 		const added = await Promise.all(photos.map(toImageContent));
-		if (unmounted.current) {
+		if (!receiving.current) {
 			if (added.length > 0) void orLogged(addToDraft(conversationId, { images: added, files: [] }), "drafts.save_failed", undefined);
 			return;
 		}
-		setImages((current) => [...current, ...added]);
+		changeImages((current) => [...current, ...added]);
 		textArea.current?.focus();
 	};
 	const attachPicked = (event: ChangeEvent<HTMLInputElement>) => {
@@ -233,7 +237,7 @@ export function Composer({
 								card={file.state === "ready" ? file.prepared.card : file}
 								status={file.state === "reading" ? "讀取中…" : undefined}
 								onRemove={() => {
-									setFiles((current) => current.filter((item) => item.key !== file.key));
+									changeFiles((current) => current.filter((item) => item.key !== file.key));
 									if (file.state === "ready") discardAttachment(file.prepared);
 									else removedWhileReading.current.add(file.key);
 								}}
@@ -248,7 +252,7 @@ export function Composer({
 								type="button"
 								key={index}
 								className="thumb"
-								onClick={() => setImages(images.filter((_, other) => other !== index))}
+								onClick={() => changeImages((current) => current.filter((_, other) => other !== index))}
 								aria-label="移除圖片"
 							>
 								<img src={thumbnail} alt="" />
@@ -337,7 +341,7 @@ export function Composer({
 						</button>
 					) : null}
 					<textarea
-						ref={textArea}
+						ref={arrive}
 						rows={1}
 						value={draft}
 						placeholder={busy ? "插話，或排一個下一步" : "問 pi"}

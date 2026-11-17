@@ -1,10 +1,11 @@
 import { createModels, fauxProvider } from "@earendil-works/pi-ai";
-import { sleep } from "../../src/promise.ts";
+import { sleep } from "../../src/time.ts";
 import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { PhoneEnv } from "../../src/agent/files/phone-env.ts";
 import type { McpSession, Platform } from "../../src/agent/platform.ts";
 import { type Settings, SettingsStore } from "../../src/settings.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../../src/agent/calendar-access.ts";
+import type { InstalledApp } from "../../src/phone-apps/apps.ts";
 
 globalThis.fetch = async () => {
 	throw new Error("contracts run offline");
@@ -82,6 +83,8 @@ export const browsers: { forgotten: string[] } = { forgotten: [] };
 
 export const reports: { forgotten: string[] } = { forgotten: [] };
 
+export const phoneApps: { installed: InstalledApp[]; asked: number } = { installed: [], asked: 0 };
+
 export const faux = fauxProvider({ provider: "faux", models: [{ id: "model" }] });
 
 const plain = new Map<string, string>();
@@ -140,8 +143,14 @@ export const platform: Platform = {
 			reports.forgotten.push(conversation);
 		},
 	},
+	apps: {
+		installed: async () => {
+			phoneApps.asked += 1;
+			return phoneApps.installed;
+		},
+	},
 	models: async () => {
-		const models = createModels({ credentials: memoryCredentials({ faux: "contract" }, {}, () => undefined) });
+		const models = createModels({ credentials: await memoryCredentials({ faux: "contract" }, {}) });
 		models.setProvider(faux.provider);
 		return { models, infos: [], webSearch: { baseUrl: "", apiKey: "", modelIds: [] } };
 	},

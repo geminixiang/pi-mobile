@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { createModels, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
-import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { BotIndex } from "../../src/agent/bots.ts";
 import { keepOpen, openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
@@ -43,7 +42,7 @@ export const checks: Check[] = [
 			const before = await openRuntime(storage);
 			const bot = await before.runtime.createBot({ name: "old", job: "", avatar: "helper" });
 			await before.runtime.close();
-			const raw = await Harness.open(storage, { models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
+			const raw = await Harness.open(storage, { models: createModels(), registry: createRegistry(), settings: { extensions: [] } }, BACKGROUND_CONTEXT);
 			await raw.commit(async (tx) => {
 				const stored = (await tx.doc(BotIndex)).items.find((candidate) => candidate.id === bot);
 				if (stored) delete stored.rhythmOffer;

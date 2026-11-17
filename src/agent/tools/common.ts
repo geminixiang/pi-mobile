@@ -7,7 +7,7 @@ import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { showAlert } from "../../interaction/results.ts";
 import { log } from "../../log.ts";
-import { gateSend, noteRead, warningOf } from "../outside.ts";
+import { gateSend, noteRead, OutsideDoc, warningOf } from "../outside.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
 import type { Groups } from "../toolsets.ts";
 
@@ -77,6 +77,7 @@ export interface ToolDeclaration {
 	readonly asks?: PermissionKind;
 	readonly outside?: string;
 	readonly sends?: true;
+	readonly loads?: readonly string[];
 }
 
 const REACH = { model: {}, loaded: { deferred: true }, script: { callers: ["tools"] } } as const;
@@ -102,6 +103,7 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 	asks,
 	outside,
 	sends,
+	loads,
 	execute,
 	...tool
 }: AppTool<TParameters, TDetails> & Omit<ToolDeclaration, "needs"> & { reach?: Reach; needs?: readonly PluginMethod[] }): ToolRegistration<object, TDetails> {
@@ -123,14 +125,15 @@ export function defineAppTool<TParameters extends TSchema, TDetails extends Json
 					const gate = await gateSend(api, context, tool.name, args);
 					if (!gate.allow) throw new Error(gate.reason);
 				}
-				const result = await execute(typeboxArgs<TParameters>(args), api, context);
+				const done = await execute(typeboxArgs<TParameters>(args), api, context);
+				const result = loads ? { ...done, control: { ...done.control, addTools: loads } } : done;
 				return outside ? await screened(api, context, tool.name, outside, result) : result;
 			} finally {
 				log.info("tool.end", { tool: tool.name, ms: Date.now() - started });
 			}
 		},
 	});
-	declarations.set(registration, { groups, effect, needs, ...(asks ? { asks } : {}), ...(outside ? { outside } : {}), ...(sends ? { sends } : {}) });
+	declarations.set(registration, { groups, effect, needs, ...(asks ? { asks } : {}), ...(outside ? { outside } : {}), ...(sends ? { sends } : {}), ...(loads ? { loads } : {}) });
 	return registration;
 }
 
@@ -153,6 +156,16 @@ export function gated<TParameters extends TSchema, TDetails extends JsonValue>(
 	const declaration = declarations.get(tool);
 	if (declaration) declarations.set(guarded, declaration);
 	return guarded;
+}
+
+export async function whenUserSpeaks(api: ToolExecutionApi, context: Context, then: () => void): Promise<() => Promise<unknown>> {
+	const outside = await api.watchDoc(OutsideDoc, api.conversationId, context);
+	if (!outside) return async () => undefined;
+	const turn = outside.value.turn;
+	outside.start(async (call) => {
+		if (call.kind === "value" && call.value.turn > turn) then();
+	});
+	return () => outside.stop();
 }
 
 export const orList = (values: readonly string[]): string => (values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`);

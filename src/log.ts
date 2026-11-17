@@ -1,3 +1,4 @@
+import { every } from "./time.ts";
 type Fields = Record<string, string | number | boolean | undefined>;
 type Level = "info" | "warn" | "error";
 
@@ -55,14 +56,14 @@ export function watchMainThread(): () => void {
 		last = now;
 		visible = visibleNow;
 	};
-	const timer = setInterval(tick, STALL_TICK_MS);
+	const stopTicking = every(STALL_TICK_MS, tick);
 	const onVisibility = () => {
 		last = performance.now();
 		visible = document.visibilityState === "visible";
 	};
 	document.addEventListener("visibilitychange", onVisibility);
 	return () => {
-		clearInterval(timer);
+		stopTicking();
 		document.removeEventListener("visibilitychange", onVisibility);
 	};
 }

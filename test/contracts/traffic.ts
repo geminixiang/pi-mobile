@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createTraffic, STILL } from "../../src/agent/traffic.ts";
 import { nextChange } from "./fixtures.ts";
-import { sleep } from "../../src/promise.ts";
+import { sleep } from "../../src/time.ts";
 import type { Check } from "./setup.ts";
 
 const WINDOW_MS = 200;

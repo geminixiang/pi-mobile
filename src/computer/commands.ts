@@ -10,6 +10,7 @@ import { hostTraffic } from "../agent/traffic.ts";
 import type { Link, RawMessage } from "./resumable-link.ts";
 import { type OpenRaw, RESUME_LIMIT_MS, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { type PairedHost, probeHost, type Reach, socketUrl } from "./pairing.ts";
+import { deadline } from "../time.ts";
 
 export interface CommandHandlers {
 	onStdout(data: Uint8Array): void;
@@ -60,7 +61,7 @@ export function holdSocket(
 
 // why: a WebView WebSocket that fails its handshake reports no HTTP status, so a refused key looks like a lost network until /info says which.
 async function explained(reach: Reach, error: unknown): Promise<never> {
-	await probeHost(reach, AbortSignal.timeout(5000));
+	await probeHost(reach, deadline(5000));
 	throw error;
 }
 

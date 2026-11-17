@@ -15,7 +15,7 @@ APK is not debuggable, so everything measured runs on a dev build of the same co
    (version numbers changed), 這一版有什麼 or 修正, 要注意. Written for users in zh-TW: what changed for them, not the
    code. The workflow uses this file as the release body.
 3. **Dev build**: `./scripts/build-android.sh` writes `pi-mobile.apk` at the root; when that file is the user's,
-   run its steps and copy `android/app/build/outputs/apk/release/app-release.apk` elsewhere instead. Install with
+   run its steps and copy `android/app/build/outputs/apk/store/release/app-store-release.apk` elsewhere instead. Install with
    `adb -s $S install -r <apk>`, then turn the accessibility service back on (an install turns it off):
    `node .pi/skills/device-testing/scripts/phone-screen.js on $S`, or the two `settings put secure` lines it runs; check
    `adb shell dumpsys accessibility` shows `Bound services:{Service[label=Pi`.

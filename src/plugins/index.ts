@@ -1,3 +1,4 @@
+import { AgentScreen } from "./agent-screen.ts";
 import { Apps } from "./apps.ts";
 import { BotFiles } from "./bot-files.ts";
 import { Browser } from "../browser/plugin.ts";
@@ -22,6 +23,7 @@ import { Usage } from "./usage.ts";
 import { Voice } from "./voice.ts";
 
 export const PLUGINS = [
+	AgentScreen,
 	Apps,
 	BotFiles,
 	Browser,

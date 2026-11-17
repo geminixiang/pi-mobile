@@ -30,6 +30,7 @@ import org.json.JSONException
 
 @CapacitorPlugin(name = "PhoneState")
 class PhoneStatePlugin : Plugin() {
+    private val main = Handler(Looper.getMainLooper())
     @Volatile private var torchOn: Boolean? = null
     private var torchWatch: CameraManager.TorchCallback? = null
 
@@ -175,13 +176,13 @@ class PhoneStatePlugin : Plugin() {
                 }
             }
         torchWatch = watch
-        context.getSystemService(CameraManager::class.java).registerTorchCallback(watch, Handler(Looper.getMainLooper()))
+        context.getSystemService(CameraManager::class.java).registerTorchCallback(watch, main)
     }
 
     @PluginMethod
     fun flashlight(call: PluginCall) {
         watchTorch()
-        Handler(Looper.getMainLooper()).postDelayed({
+        main.postDelayed({
             val on = torchOn
             call.resolve(JSObject().put("state", if (on == null) "unavailable" else if (on) "on" else "off"))
         }, 150)
@@ -202,7 +203,7 @@ class PhoneStatePlugin : Plugin() {
             call.reject("the camera is in use: ${e.message}")
             return
         }
-        Handler(Looper.getMainLooper()).postDelayed({
+        main.postDelayed({
             val state = torchOn
             call.resolve(JSObject().put("state", if (state == null) "unavailable" else if (state) "on" else "off"))
         }, 250)

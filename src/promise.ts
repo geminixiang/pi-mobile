@@ -46,10 +46,6 @@ export function whilePending<T>(start: () => Promise<T>): () => Promise<T> {
 		}));
 }
 
-export function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function onFailure(promise: Promise<unknown>, run: (error: unknown) => void): void {
 	promise.then(undefined, run);
 }

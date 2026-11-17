@@ -40,10 +40,10 @@ class NotificationsListener : NotificationListenerService() {
 
         val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
         if (!messages.isNullOrEmpty()) {
+            val chat = conversation.ifEmpty { title }
             return Notification.MessagingStyle.Message.getMessagesFromBundleArray(messages).mapNotNull { message ->
                 val body = text(message.text)
                 if (body.isEmpty()) return@mapNotNull null
-                val chat = conversation.ifEmpty { title }
                 val sender = text(message.senderPerson?.name)
                 val time = if (message.timestamp > 0) message.timestamp else sbn.postTime
                 NotificationStore.Row(

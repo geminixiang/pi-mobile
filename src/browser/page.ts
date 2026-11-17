@@ -36,6 +36,19 @@ Object.assign(window, {
 			if (box.width === 0 && box.height === 0) throw new Error(`[${index}] is not visible; read the page again`);
 			return { x: (box.left + box.width / 2) * devicePixelRatio, y: (box.top + box.height / 2) * devicePixelRatio, what: described(element) };
 		},
+		click: (index: number) => {
+			const element = elementAt(index);
+			const box = element.getBoundingClientRect();
+			const x = box.left + box.width / 2;
+			const y = box.top + box.height / 2;
+			const hit = element.ownerDocument.elementFromPoint(x, y);
+			press(hit && element.contains(hit) ? hit : element, element, x, y);
+		},
+		clickAt: (x: number, y: number) => {
+			const hit = document.elementFromPoint(x, y);
+			if (!hit) throw new Error(`nothing is at ${x}, ${y}`);
+			press(hit, hit instanceof HTMLElement ? hit : undefined, x, y);
+		},
 		select: (index: number, option: string) => settled(controller.selectOption(index, option)),
 		scroll: async (direction: Direction, index?: number) => {
 			if (index === undefined && Reflect.get(controller, "isIndexed") !== true) {
@@ -48,6 +61,16 @@ Object.assign(window, {
 		},
 	},
 });
+
+function press(target: Element, field: HTMLElement | undefined, x: number, y: number): void {
+	const at = { clientX: x, clientY: y, bubbles: true, cancelable: true, composed: true, view: target.ownerDocument.defaultView };
+	target.dispatchEvent(new PointerEvent("pointerdown", at));
+	target.dispatchEvent(new MouseEvent("mousedown", at));
+	field?.focus({ preventScroll: true });
+	target.dispatchEvent(new PointerEvent("pointerup", at));
+	target.dispatchEvent(new MouseEvent("mouseup", at));
+	target.dispatchEvent(new MouseEvent("click", at));
+}
 
 function withOwners(content: string): string {
 	const lines = content.split("\n");

@@ -1,0 +1,72 @@
+diff --git a/idevice/src/services/dvt/xctest/mod.rs b/idevice/src/services/dvt/xctest/mod.rs
+index c818dbb..62fd651 100644
+--- a/idevice/src/services/dvt/xctest/mod.rs
++++ b/idevice/src/services/dvt/xctest/mod.rs
+@@ -2008,11 +2008,44 @@ impl XCUITestService {
+                 .unwrap_or(16u8)
+         };
+ 
+-        // 3. Build XCTestConfiguration
+-        let xctest_config = cfg.build_xctest_configuration(session_id, ios_major_version)?;
++        let conns = connect_testmanagerd(&*self.provider, ios_major_version).await?;
++        run_with_connections(conns, session_id, &xctest_path, ios_major_version, cfg, listener, timeout).await
++    }
+ 
+-        // 4. Connect to testmanagerd (ctrl + main) and DVT
+-        let mut conns = connect_testmanagerd(&*self.provider, ios_major_version).await?;
++    /// Runs an XCTest runner over an RSD tunnel the caller already holds
++    /// (for example one made with RemotePairing), without lockdown.
++    pub async fn run_over_rsd<L: XCUITestListener>(
++        mut handle: crate::tcp::handle::AdapterHandle,
++        handshake: &RsdHandshake,
++        ios_major_version: u8,
++        cfg: TestConfig,
++        listener: &mut L,
++        timeout: Option<std::time::Duration>,
++    ) -> Result<(), IdeviceError> {
++        let session_id = uuid::Uuid::new_v4();
++        let xctest_path = format!(
++            "/tmp/{}.xctestconfiguration",
++            session_id.to_string().to_uppercase()
++        );
++        let dvt = rsd_connect(&mut handle, handshake, "com.apple.instruments.dtservicehub", "dtservicehub", true).await?;
++        let ctrl = rsd_connect(&mut handle, handshake, TESTMANAGERD_RSD_SERVICE, "testmanagerd-ctrl", false).await?;
++        let main = rsd_connect(&mut handle, handshake, TESTMANAGERD_RSD_SERVICE, "testmanagerd-main", false).await?;
++        let conns = TestManagerConnections { ctrl, main, dvt, rsd_handles: vec![handle] };
++        run_with_connections(conns, session_id, &xctest_path, ios_major_version, cfg, listener, timeout).await
++    }
++}
++
++async fn run_with_connections<L: XCUITestListener>(
++    mut conns: TestManagerConnections,
++    session_id: uuid::Uuid,
++    xctest_path: &str,
++    ios_major_version: u8,
++    cfg: TestConfig,
++    listener: &mut L,
++    timeout: Option<std::time::Duration>,
++) -> Result<(), IdeviceError> {
++    {
++        let xctest_config = cfg.build_xctest_configuration(session_id, ios_major_version)?;
+         let mut ctrl_proxy = TestManagerProxy::open(&mut conns.ctrl, ios_major_version).await?;
+         let mut main_proxy = TestManagerProxy::open(&mut conns.main, ios_major_version).await?;
+         let mut process_control = XCTestProcessControlChannel::open(&mut conns.dvt).await?;
+@@ -2036,7 +2069,7 @@ impl XCUITestService {
+             &cfg.runner_app_path,
+             &cfg.runner_app_container,
+             &config_name,
+-            &xctest_path,
++            xctest_path,
+             cfg.runner_env.as_ref(),
+             cfg.runner_args.as_deref(),
+         );
+@@ -2067,7 +2100,9 @@ impl XCUITestService {
+ 
+         Ok(())
+     }
++}
+ 
++impl XCUITestService {
+     /// Starts an XCTest runner intended to host WebDriverAgent and waits
+     /// until WDA responds on its device-side HTTP port.
+     ///

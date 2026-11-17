@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Markdown from "react-markdown";
-import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
+import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { appFile } from "../agent/tools/apps.ts";
 import { Apps } from "../plugins/apps.ts";
 import { OpenOutsideIcon, ShareIcon } from "./icons.tsx";
@@ -10,6 +10,7 @@ import { codeOf, messageOf } from "../promise.ts";
 import { formatBytes } from "../encoding.ts";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
+import { useLoaded } from "../ui/loaded.ts";
 import { baseName, isHtml } from "../agent/mime.ts";
 
 const HTML_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:">`;
@@ -59,8 +60,13 @@ export const handProblem = (failure: unknown): string => (codeOf(failure) === "N
 type ViewerFrame = { kind: "page"; onClose: () => void };
 
 export function FileViewer({ workspace, path, frame }: { workspace: Workspace; path: string; frame: ViewerFrame }) {
-	const [content, setContent] = useState<FileContent>();
-	const [error, setError] = useState("");
+	const { value: content, error: unread } = useLoaded(() => workspace.read(path), [workspace, path]);
+	const [unhanded, setUnhanded] = useState("");
+	const error = unhanded || unread;
+	const revokeWhenGone = useCallback((image: HTMLImageElement) => {
+		const shown = image.src;
+		return () => URL.revokeObjectURL(shown);
+	}, []);
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [opening, setOpening] = useState(false);
 	const [sharing, setSharing] = useState(false);
@@ -71,28 +77,9 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 	const handOff = (setBusy: (busy: boolean) => void, how: Handed) => {
 		setBusy(true);
 		void handFile(workspace, path, how)
-			.catch((failure: unknown) => setError(handProblem(failure)))
+			.catch((failure: unknown) => setUnhanded(handProblem(failure)))
 			.finally(() => setBusy(false));
 	};
-
-	useEffect(() => {
-		let live = true;
-		let url: string | undefined;
-		setContent(undefined);
-		setError("");
-		setMode("preview");
-		workspace.read(path).then(
-			(value) => {
-				if (value.kind === "image") url = value.url;
-				if (live) setContent(value);
-			},
-			(failure: unknown) => live && setError(messageOf(failure)),
-		);
-		return () => {
-			live = false;
-			if (url) URL.revokeObjectURL(url);
-		};
-	}, [workspace, path]);
 
 	const openOutside = () => handOff(setOpening, "open");
 	const share = () => handOff(setSharing, "share");
@@ -138,7 +125,7 @@ export function FileViewer({ workspace, path, frame }: { workspace: Workspace; p
 				{error ? <div className="banner error">{error}</div> : null}
 				{!content && !error ? <div className="ws-loading">讀取中</div> : null}
 				{content?.kind === "binary" ? <div className="ws-empty">二進位檔案，無法顯示</div> : null}
-				{content?.kind === "image" ? <img className="viewer-image" src={content.url} alt={name} /> : null}
+				{content?.kind === "image" ? <img key={content.url} className="viewer-image" src={content.url} alt={name} ref={revokeWhenGone} /> : null}
 				{content?.kind === "text" && markdown && mode === "preview" ? (
 					<div className="answer viewer-markdown">
 						<div className="markdown">

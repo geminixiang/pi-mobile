@@ -28,7 +28,7 @@
 | 開外部連結、剪貼簿、震動 | `System` | 可 | 可（沒有震動） | 可（沒有震動） | 可（沒有震動） |
 | 對話存在 IndexedDB、Web Lock | WebView 內建 | 可 | 可 | 可 | 可（WebKitGTK 2.36 以上） |
 | Code mode（QuickJS WASM，跑在 Worker 裡） | WebView 內建 | 可 | 可 | 可 | 部分（WebKitGTK 有 WASM JIT，效能要量） |
-| **背景繼續跑** | `AgentService` 前景服務 | **部分**（只有 iOS 26 的 `BGContinuedProcessingTask`：使用者在前景開始的工作，離開後可以繼續；WebKit 的 process 會不會跟著活著要量） | 可（WKWebView 要設 `inactiveSchedulingPolicy = .none`） | 可（WebView2 不要設 `IsVisible = false`，否則會被節流） | 未查 |
+| **背景繼續跑** | `AgentService` 前景服務 | **部分**（iOS 26 的 `BGContinuedProcessingTask`：使用者在前景開始的工作，離開後可以繼續。iPhone 上 WebKit 照樣暫停網頁，開源版另外讓 pi 的頁面拿通知權限才跑得下去，App Store 版不行；見 research/iphone.md） | 可（WKWebView 要設 `inactiveSchedulingPolicy = .none`） | 可（WebView2 不要設 `IsVisible = false`，否則會被節流） | 未查 |
 
 ## 2. 工具
 
@@ -163,6 +163,7 @@
 | `BotFiles` | `Application Support/bots/<bot>`，不進 iCloud 備份（跟 Android 的 `allowBackup=false` 一致）；路徑解開 symlink 後必須在 Bot 的資料夾裡 |
 | `Database` | SQLite3 C API，`Application Support/pi-data.db`。`ATTACH`/`DETACH` 用 authorizer 擋；一個 `sql` 只能有一個 statement（Android 會默默忽略後面的，這裡直接報錯）。匯出用分享畫面 |
 | `System` | 開連結、剪貼簿、震動 |
+| `Browser` | 每個分頁一個 `WKWebView`，每個 Bot 一個 `WKWebsiteDataStore`；點和打字在頁面裡做，開源版在面板開著時送真的觸控（[browser.md](browser.md)〈iOS〉） |
 | `KeepAlive` | 改成 `BGContinuedProcessingTask`，看上面第 1 點量出來的結果 |
 | 金鑰 | `capacitor-secure-storage` 本來就支援 iOS（Keychain） |
 

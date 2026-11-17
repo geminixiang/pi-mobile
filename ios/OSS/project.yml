@@ -1,0 +1,49 @@
+name: PiOSS
+options:
+  deploymentTarget: { iOS: "26.0" }
+packages:
+  CapApp-SPM:
+    path: ../App/CapApp-SPM
+targets:
+  App:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: ../debug.xcconfig
+    sources:
+      - path: ../App/App
+        excludes: [Info.plist, public]
+      - path: ../App/App/public
+        type: folder
+        buildPhase: resources
+      - path: ../AgentScreen
+    dependencies:
+      - package: CapApp-SPM
+        product: CapApp-SPM
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.geminixiang.pimobile
+        INFOPLIST_FILE: build/Info.plist
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_OBJC_BRIDGING_HEADER: ../AgentScreen/AgentScreen-Bridging-Header.h
+        LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/Frameworks /System/Developer/usr/lib /System/Developer/Library/PrivateFrameworks /System/Developer/Library/Frameworks
+        CODE_SIGN_STYLE: Automatic
+  LoopbackTunnel:
+    type: app-extension
+    platform: iOS
+    sources: [../LoopbackTunnel]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.geminixiang.pimobile.loopback
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_ENTITLEMENTS: LoopbackTunnel.entitlements
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: build/LoopbackTunnel-Info.plist
+      properties:
+        CFBundleDisplayName: pi loopback
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider

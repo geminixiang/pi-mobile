@@ -1,3 +1,5 @@
+import { type Cancel, eachFrame } from "../time.ts";
+
 export type Side = "left" | "right";
 
 export const TOUCH_SLOP = 10;
@@ -48,7 +50,7 @@ export function settleCurve(progress: number): number {
 
 export abstract class Motion {
 	#position = 0;
-	#frame = 0;
+	#cancel: Cancel | undefined;
 	readonly #settled: ((open: boolean) => void) | undefined;
 
 	constructor(settled?: (open: boolean) => void) {
@@ -78,14 +80,12 @@ export abstract class Motion {
 		const step = (now: number) => {
 			const progress = from === target ? 1 : (now - started) / SETTLE_MS;
 			this.#place(from + (target - from) * settleCurve(progress));
-			if (progress < 1) {
-				this.#frame = requestAnimationFrame(step);
-				return;
-			}
-			this.#frame = 0;
+			if (progress < 1) return;
+			this.#stop();
 			if (!open) this.reveal(false);
 			this.#settled?.(open);
 		};
+		if (from !== target) this.#cancel = eachFrame(step);
 		step(started);
 	}
 
@@ -94,8 +94,8 @@ export abstract class Motion {
 	protected abstract render(position: number): void;
 
 	#stop(): void {
-		cancelAnimationFrame(this.#frame);
-		this.#frame = 0;
+		this.#cancel?.();
+		this.#cancel = undefined;
 	}
 
 	#place(position: number): void {

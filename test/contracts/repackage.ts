@@ -4,14 +4,12 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, defineExtension, type Extension, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { builtinExtensions } from "../../src/agent/catalog.ts";
 import { DEFAULT_CALENDAR_ACCESS } from "../../src/agent/calendar-access.ts";
-import { memoryCredentials } from "../../src/agent/credentials.ts";
 import { declarationOf } from "../../src/agent/tools/common.ts";
 import { type Groups, removedTools } from "../../src/agent/toolsets.ts";
 import { type Check, platform } from "./setup.ts";
 
 const { extensions } = builtinExtensions({
 	userSaid: async () => [],
-	native: platform.native,
 	assistant: defineExtension({ name: "assistant" }),
 	calendarAccess: DEFAULT_CALENDAR_ACCESS,
 	clouds: [],
@@ -23,7 +21,7 @@ const { extensions } = builtinExtensions({
 	waitForJob: () => undefined,
 	labelOf: (tool) => tool,
 	actsAsUser: async () => false,
-	permissions: { state: async () => "granted", request: async () => true },
+	platform: { native: platform.native, permissions: { state: async () => "granted", request: async () => true }, apps: undefined },
 	ask: async () => ({ action: "cancel" }),
 });
 
@@ -34,7 +32,7 @@ function ownersOf(list: readonly Extension[]): Map<string, Groups> {
 async function toolsOf(list: readonly Extension[], off: readonly string[]) {
 	const registry = createRegistry();
 	for (const extension of list) registry.install(extension);
-	const harness = await Harness.open(new MemoryStorage(), { models: createModels({ credentials: memoryCredentials({}, {}, () => undefined) }), registry, settings: { extensions: [...list] } }, BACKGROUND_CONTEXT);
+	const harness = await Harness.open(new MemoryStorage(), { models: createModels(), registry, settings: { extensions: [...list] } }, BACKGROUND_CONTEXT);
 	try {
 		const removed = removedTools(ownersOf(list), off, "phone", platform.native);
 		const remove = list.flatMap((extension) => extension.tools ?? []).filter((tool) => removed.includes(tool.name));

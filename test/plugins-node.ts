@@ -1,4 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import assert from "node:assert/strict";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { PhoneScreen, KEYS as PHONE_KEYS, keysFor } from "../src/phone-screen/plugin.ts";
+import { Browser, KEYS as BROWSER_KEYS, MAX_TABS } from "../src/browser/plugin.ts";
+import { coverage, kotlinKeys, kotlinSteps, swiftBranches } from "./screen/branches.ts";
 import type { Methods } from "../src/plugins/define.ts";
 import { PLUGINS } from "../src/plugins/index.ts";
 import { ACTIVITIES, When } from "../src/triggers/plugin.ts";
@@ -6,7 +10,9 @@ import { exitOnFailures, plain, snapshotFailures, sourcesMatching } from "./snap
 
 const SNAPSHOT = new URL("./plugins.snapshot.json", import.meta.url);
 const ANDROID = new URL("../android/app/src/main/java/dev/geminixiang/pimobile/", import.meta.url);
+const ANDROID_OSS = new URL("../android/app/src/oss/java/dev/geminixiang/pimobile/", import.meta.url);
 const IOS = new URL("../ios/App/App/", import.meta.url);
+const IOS_SCREEN = new URL("../ios/AgentScreen/", import.meta.url);
 const INHERITED_ON_ANDROID = new Set(["checkPermissions", "requestPermissions"]);
 
 function scan(directory: URL, extensions: string[], plugin: RegExp, methods: (source: string) => string[]): Map<string, Set<string>> {
@@ -19,10 +25,13 @@ function scan(directory: URL, extensions: string[], plugin: RegExp, methods: (so
 	return found;
 }
 
-const android = scan(ANDROID, [".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
-	[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+fun\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
-);
-const ios = scan(IOS, [".swift"], /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
+const androidPlugins = (directory: URL) =>
+	scan(directory, [".kt"], /@CapacitorPlugin\(\s*name\s*=\s*"(\w+)"/, (source) =>
+		[...source.matchAll(/@PluginMethod(?:\([^)]*\))?(?:\s+@\w+(?:\([^)]*\))?)*\s+fun\s+(\w+)\s*\(/g)].flatMap((match) => (match[1] ? [match[1]] : [])),
+	);
+const android = new Map([...androidPlugins(ANDROID), ...androidPlugins(ANDROID_OSS)]);
+const iosPlugins = (directory: URL) => scan(directory, [".swift"], /jsName\s*=\s*"(\w+)"/, (source) => [...(/pluginMethods[^=]*=\s*\[([^\]]*)\]/s.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
+const ios = new Map([...iosPlugins(IOS), ...iosPlugins(IOS_SCREEN)]);
 
 const failures: string[] = [];
 const contracts = new Map<string, Set<string>>(PLUGINS.map((plugin) => [plugin.name, new Set(Object.keys(plugin.contract.methods))]));
@@ -74,27 +83,71 @@ function unregistered(directory: URL, extensions: string[], classOf: (source: st
 	const names = new Set([...readFileSync(new URL(registry, directory), "utf8").matchAll(registered)].map((match) => match[1]));
 	return classes.filter((name) => !names.has(name));
 }
-const androidMissing = unregistered(ANDROID, [".kt"], (source) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1], "MainActivity.kt", /registerPlugin\((\w+)::class\.java\)/g);
+const androidPluginClass = (source: string) => /\bclass (\w+)/.exec(source.slice(source.search(/@CapacitorPlugin\(/)))?.[1];
+const androidMissing = unregistered(ANDROID, [".kt"], androidPluginClass, "MainActivity.kt", /registerPlugin\((\w+)::class\.java\)/g);
 if (androidMissing.length) failures.push(`Android plugins not registered in MainActivity.onCreate, so their tools vanish without an error: ${androidMissing.join(", ")}; add registerPlugin(X::class.java)`);
-const iosMissing = unregistered(IOS, [".swift"], (source) => [...source.slice(0, Math.max(0, source.search(/jsName\s*=\s*"/))).matchAll(/class (\w+)/g)].at(-1)?.[1], "MainViewController.swift", /registerPluginInstance\((\w+)\(\)\)/g);
+const ossMissing = unregistered(ANDROID_OSS, [".kt"], androidPluginClass, "Edition.kt", /(\w+)::class\.java/g);
+if (ossMissing.length) failures.push(`open source edition plugins not listed in android/app/src/oss/.../Edition.kt, so their tools vanish without an error: ${ossMissing.join(", ")}`);
+const iosPluginClass = (source: string) => [...source.slice(0, Math.max(0, source.search(/jsName\s*=\s*"/))).matchAll(/class (\w+)/g)].at(-1)?.[1];
+const iosMissing = unregistered(IOS, [".swift"], iosPluginClass, "MainViewController.swift", /registerPluginInstance\((\w+)\(\)\)/g);
 if (iosMissing.length) failures.push(`iOS plugins not registered in MainViewController.capacitorDidLoad: ${iosMissing.join(", ")}; add bridge?.registerPluginInstance(X())`);
+const iosOssMissing = unregistered(IOS_SCREEN, [".swift"], iosPluginClass, "Edition.swift", /\b(\w+Plugin)\(\)/g);
+if (iosOssMissing.length) failures.push(`iOS open source plugins not registered: ${iosOssMissing.join(", ")}; add XPlugin() to plugins() in ios/AgentScreen/Edition.swift, never to MainViewController`);
 
 const NATIVE = "android/app/src/main/java/dev/geminixiang/pimobile/";
-const STEP_LISTS = [
-	{ contract: "src/phone-screen/plugin.ts", native: "ScreenActor.kt" },
-	{ contract: "src/browser/plugin.ts", native: "BrowserSteps.kt" },
-];
-for (const { contract, native } of STEP_LISTS) {
-	const source = readFileSync(new URL(`../${contract}`, import.meta.url), "utf8");
-	const names = [
-		...[...source.matchAll(/action: Type\.Literal\("(\w+)"\)/g)].map((match) => match[1] ?? ""),
-		...[...source.matchAll(/action: oneOf\(\[([^\]]*)\]\)/g)].flatMap((match) => [...(match[1] ?? "").matchAll(/"(\w+)"/g)].map((name) => name[1] ?? "")),
-		...[...(/export const KEYS = \[([^\]]*)\]/.exec(source)?.[1] ?? "").matchAll(/"(\w+)"/g)].map((match) => match[1] ?? ""),
-	];
-	const kotlin = readFileSync(new URL(`../${NATIVE}${native}`, import.meta.url), "utf8");
-	const unknown = names.filter((name) => !kotlin.includes(`"${name}"`));
-	if (names.length === 0 || unknown.length > 0) failures.push(`step actions and keys in ${contract} that ${NATIVE}${native} does not read: ${unknown.join(", ") || "none found in the contract"}`);
+function literals(schema: { const?: unknown; enum?: unknown }): string[] {
+	if (typeof schema.const === "string") return [schema.const];
+	return Array.isArray(schema.enum) ? schema.enum.filter((name): name is string => typeof name === "string") : [];
 }
+const phoneActions = PhoneScreen.contract.methods.act.args.properties.steps.items.anyOf.flatMap((option) => literals(option.properties.action));
+const browserActions = Browser.contract.methods.act.args.properties.steps.items.anyOf.flatMap((option) => literals(option.properties.action));
+const BACKENDS = [
+	{ platform: "android", file: "ScreenActor.kt", owner: "ScreenStep", map: "GLOBAL_KEYS", actions: phoneActions, keys: PHONE_KEYS },
+	{ platform: "android browser", file: "BrowserSteps.kt", owner: "Step", map: "KEY_CODES", actions: browserActions, keys: BROWSER_KEYS },
+];
+for (const backend of BACKENDS) {
+	const kotlin = readFileSync(new URL(backend.file, ANDROID), "utf8");
+	const stepFailures = coverage(backend.platform, backend.file, backend.actions, kotlinSteps(kotlin, backend.owner), "step");
+	failures.push(...stepFailures, ...coverage(backend.platform, backend.file, backend.keys, kotlinKeys(kotlin, backend.map), "key"));
+	if (stepFailures.length) continue;
+	const [removed] = backend.actions;
+	assert(removed);
+	const without = kotlin.replace(`"${removed}" ->`, '"missing_test_branch" ->');
+	const decoy = `${without}\nval decoy = "${removed}"`;
+	assert(coverage(backend.platform, backend.file, backend.actions, kotlinSteps(decoy, backend.owner), "step").some((failure) => failure.includes(`claims ${removed}`)));
+	assert(coverage(backend.platform, backend.file, backend.actions, kotlinSteps(decoy, backend.owner), "step").some((failure) => failure.includes("implements missing_test_branch")));
+}
+const browserSwift = readFileSync(new URL("BrowserSteps.swift", IOS), "utf8");
+failures.push(...coverage("ios browser", "BrowserSteps.swift", browserActions, swiftBranches(browserSwift, "action"), "step"), ...coverage("ios browser", "BrowserSteps.swift", BROWSER_KEYS, swiftBranches(browserSwift, "key"), "key"));
+const NATIVE_MAX_TABS = /MAX_TABS = (\d+)/;
+for (const [file, directory] of [["BrowserPlugin.kt", ANDROID], ["BrowserPlugin.swift", IOS]] as const) {
+	const kept = NATIVE_MAX_TABS.exec(readFileSync(new URL(file, directory), "utf8"))?.[1];
+	if (Number(kept) !== MAX_TABS) failures.push(`${file} keeps ${kept} tabs for a Bot, src/browser/plugin.ts ${MAX_TABS}: the sheet stops offering a new tab at one number and the phone refuses at another; make MAX_TABS the same in both`);
+}
+const appStoreProject = readFileSync(new URL("../App.xcodeproj/project.pbxproj", IOS), "utf8");
+const uncompiled = readdirSync(IOS).filter((name) => name.endsWith(".swift") && !appStoreProject.includes(`${name} in Sources`));
+if (uncompiled.length) failures.push(`Swift files the App Store project does not compile, so only the open source edition (which takes the whole folder) builds: ${uncompiled.join(", ")}; add each to ios/App/App.xcodeproj/project.pbxproj as the other plugins are (PBXBuildFile, PBXFileReference, the App group, the Sources phase)`);
+if (existsSync(IOS_SCREEN)) {
+	const swift = readdirSync(IOS_SCREEN, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".swift"));
+	const sources = swift.map((file) => ({ file, source: readFileSync(new URL(file, IOS_SCREEN), "utf8") }));
+	const steps = sources.filter(({ source }) => swiftBranches(source, "action").length > 0);
+	if (!steps.length) failures.push("ios claims PhoneScreen steps but ios/AgentScreen/ has no action switch: implement it, or remove it from the capabilities");
+	for (const { file, source } of steps) failures.push(...coverage("ios", file, phoneActions, swiftBranches(source, "action"), "step"));
+	failures.push(...coverage("ios", "ios/AgentScreen/", keysFor("ios"), sources.flatMap(({ source }) => swiftBranches(source, "key")), "key"));
+}
+assert.deepEqual(keysFor("android"), PHONE_KEYS);
+assert.deepEqual(keysFor("ios"), PHONE_KEYS.filter((key) => key !== "recents"));
+
+const swiftExample = `switch action {
+	case "tap", "long_press": run("decoy")
+	case "key": switch key { case "enter": run() default: stop() }
+	default: stop()
+}`;
+assert.deepEqual(swiftBranches(swiftExample, "action"), ["tap", "long_press", "key"]);
+assert.deepEqual(swiftBranches(swiftExample, "key"), ["enter"]);
+assert.equal(coverage("ios", "fixture.swift", ["tap", "scroll_to"], swiftBranches(swiftExample, "action"), "step").length, 3);
+assert.deepEqual(swiftBranches('let prose = "case \\"tap\\": fake()"', "action"), []);
+assert.deepEqual(kotlinSteps('val prose = "tap"', "ScreenStep"), []);
 
 const kinds = When.anyOf.map((option) => String(option.properties.kind.const));
 const scheduleKt = readFileSync(new URL(`../${NATIVE}Schedule.kt`, import.meta.url), "utf8");

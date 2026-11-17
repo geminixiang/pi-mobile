@@ -1,10 +1,10 @@
 import type { ConversationView, EntryRecord } from "@earendil-works/pi-durable";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ConversationController } from "../agent/runtime.ts";
 import { TRIGGER_ENTRY, triggerRun } from "../triggers/runs.ts";
 import { parseAttachment } from "../agent/attachments.ts";
 import { isCodeNote } from "../agent/codes.ts";
-import { inViewPath } from "../workbench/note.ts";
+import { inViewPath } from "../agent/in-view.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
 import { ArrowIcon, CopyIcon, RefreshIcon } from "./icons.tsx";
@@ -31,6 +31,7 @@ import { ReachNote, useReach } from "./Links.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { answerOf, withoutReplies } from "../interaction/replies.ts";
 import { pad } from "../time.ts";
+import { promised, useSubscribed } from "../ui/subscribed.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
@@ -120,8 +121,6 @@ export function Chat({
 	sandbox,
 	botName,
 	view,
-	initialDraft,
-	initialFiles,
 	shared,
 	focus,
 	notices,
@@ -136,8 +135,6 @@ export function Chat({
 	sandbox: boolean;
 	botName: string;
 	view: ConversationView | undefined;
-	initialDraft?: string;
-	initialFiles?: readonly File[];
 	shared?: SharedKind;
 	focus: boolean;
 	notices: readonly Notice[];
@@ -147,37 +144,41 @@ export function Chat({
 	provider: string;
 }) {
 	const conversationId = String(controller.id);
-	const [draft, setDraft] = useState(() => [loadDraftText(conversationId), initialDraft].filter(Boolean).join("\n\n"));
-	useEffect(() => saveDraftText(conversationId, draft), [conversationId, draft]);
+	const [draft, setDraft] = useState(() => loadDraftText(conversationId));
+	const typed = useRef(draft);
+	const changeDraft = (next: string) => {
+		typed.current = next;
+		setDraft(next);
+		saveDraftText(conversationId, next);
+	};
 	const [actionsFor, setActionsFor] = useState<EntryRecord>();
-	const [atBottom, setAtBottom] = useState(true);
-	const [composerFocus, setComposerFocus] = useState(0);
+	const [sizeWhenLeft, setSizeWhenLeft] = useState<number>();
+	const composerInput = useRef<HTMLTextAreaElement>(null);
 	const scroller = useRef<HTMLDivElement>(null);
 	const stickToBottom = useRef(true);
 	const touching = useRef(false);
 	const wheeledAt = useRef(-Infinity);
 
-	useEffect(() => {
-		if (focus || initialDraft) setComposerFocus((key) => key + 1);
-	}, [focus, initialDraft]);
-
-	useLayoutEffect(() => {
-		const element = scroller.current;
-		if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
-	});
-	const chat = useRef<HTMLDivElement>(null);
-	useLayoutEffect(() => {
-		const box = chat.current;
-		const composer = box?.querySelector<HTMLElement>(":scope > .composer");
+	const follow = useCallback((box: HTMLDivElement) => {
+		const composer = box.querySelector<HTMLElement>(":scope > .composer");
 		const transcript = scroller.current;
-		if (!box || !composer || !transcript) return;
-		const observer = new ResizeObserver(() => {
-			box.style.setProperty("--composer-h", `${composer.offsetHeight}px`);
+		if (!composer || !transcript) return () => undefined;
+		const stick = () => {
 			if (stickToBottom.current) transcript.scrollTop = transcript.scrollHeight;
+		};
+		const resized = new ResizeObserver(() => {
+			box.style.setProperty("--composer-h", `${composer.offsetHeight}px`);
+			stick();
 		});
-		observer.observe(composer);
-		observer.observe(transcript);
-		return () => observer.disconnect();
+		const changed = new MutationObserver(stick);
+		stick();
+		resized.observe(composer);
+		resized.observe(transcript);
+		changed.observe(transcript, { childList: true, subtree: true, characterData: true });
+		return () => {
+			resized.disconnect();
+			changed.disconnect();
+		};
 	}, []);
 	const followStream = useCallback((element: HTMLElement) => {
 		const observer = new ResizeObserver(() => {
@@ -211,13 +212,7 @@ export function Chat({
 		const state = finished.get(callId);
 		return state?.status === "done" && !state.isError;
 	}), [entries, finished]);
-	const [results, setResults] = useState<readonly ResultCard[]>([]);
-	useEffect(() => {
-		controller.results().then(setResults, (error: unknown) => onError(messageOf(error)));
-	}, [controller, entries.length, onError]);
-	useEffect(() => {
-		void forms.load(controller.id).catch((error: unknown) => onError(messageOf(error)));
-	}, [forms, controller.id, onError]);
+	const results = useSubscribed<readonly ResultCard[]>([], (listener) => promised(() => controller.results().catch(fail))((cards) => cards && listener(cards)), [controller, entries.length]);
 	const formsState = useSyncExternalStore(
 		(listener) => forms.subscribe(listener),
 		() => forms.state,
@@ -231,7 +226,7 @@ export function Chat({
 			answerForm: (callId, answer) => forms.answer(callId, answer),
 			reply: (reply) => {
 				stickToBottom.current = true;
-				setAtBottom(true);
+				setSizeWhenLeft(undefined);
 				controller.send([{ type: "text", text: reply }], "steer").catch((error: unknown) => onError(messageOf(error)));
 			},
 		}),
@@ -255,11 +250,7 @@ export function Chat({
 	const replies = answer && !waitsForAnswer && !draft.trim() ? answer.replies : [];
 	const emptyAnswer = !busy && !waitsForAnswer && lastEntry !== undefined && isEmptyAnswer(lastEntry);
 	const contentSize = entries.length * 1_000_000 + JSON.stringify(partial ?? "").length;
-	const sizeWhenLeft = useRef(contentSize);
-	useEffect(() => {
-		if (atBottom) sizeWhenLeft.current = contentSize;
-	}, [atBottom, contentSize]);
-	const scrollHint = atBottom ? undefined : contentSize > sizeWhenLeft.current ? "new" : "latest";
+	const scrollHint = sizeWhenLeft === undefined ? undefined : contentSize > sizeWhenLeft ? "new" : "latest";
 	const scrollToBottom = () => {
 		stickToBottom.current = true;
 		scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -294,7 +285,7 @@ export function Chat({
 	};
 
 	return (
-		<div className="chat" ref={chat}>
+		<div className="chat" ref={follow}>
 			<div
 				className="transcript"
 				ref={scroller}
@@ -315,7 +306,8 @@ export function Chat({
 					const byUser = touching.current || event.timeStamp - wheeledAt.current < WHEEL_SCROLL_MS;
 					if (element.scrollHeight - element.scrollTop - element.clientHeight < AT_BOTTOM_PX) stickToBottom.current = true;
 					else if (byUser) stickToBottom.current = false;
-					setAtBottom(stickToBottom.current);
+					const stuck = stickToBottom.current;
+					setSizeWhenLeft((left) => (stuck ? undefined : (left ?? contentSize)));
 				}}
 			>
 				{view === undefined ? <TranscriptSkeleton /> : null}
@@ -328,8 +320,8 @@ export function Chat({
 						<SuggestionList
 							items={shareActions(shared)}
 							onPick={(action) => {
-								setDraft((current) => (current.trim() ? `${action.prompt}\n\n${current.trim()}` : action.prompt));
-								setComposerFocus((key) => key + 1);
+								changeDraft(draft.trim() ? `${action.prompt}\n\n${draft.trim()}` : action.prompt);
+								composerInput.current?.focus();
 							}}
 						/>
 					</div>
@@ -431,22 +423,22 @@ export function Chat({
 				onJump={jumpTo}
 				busy={busy}
 				draft={draft}
-				onDraftChange={setDraft}
+				onDraftChange={changeDraft}
 				queued={queued}
-				focusKey={composerFocus}
+				input={composerInput}
+				autoFocus={focus}
 				conversationId={conversationId}
-				initialFiles={initialFiles}
 				onSend={(content, whenBusy) => {
 					stickToBottom.current = true;
 					forms.skip(controller.id);
 					if (notices.length > 0) onDismissNotices(notices.map((notice) => notice.id));
-					setAtBottom(true);
+					setSizeWhenLeft(undefined);
 					controller.send(content, whenBusy).catch(fail);
 				}}
 				onStop={async () => {
 					try {
 						const returned = await controller.stop();
-						if (returned.length > 0) setDraft((current) => [...returned, current].filter(Boolean).join("\n\n"));
+						if (returned.length > 0) changeDraft([...returned, typed.current].filter(Boolean).join("\n\n"));
 					} catch (error) {
 						fail(error);
 					}

@@ -3,12 +3,13 @@ import type { Change, Workspace } from "../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "./icons.tsx";
-import { useBack } from "./layers.ts";
+import { isBack } from "./layers.ts";
 import { joinPath, resolvePath } from "./openFile.ts";
 import { PageStack } from "./PageStack.tsx";
 import { BackButton } from "./BackButton.tsx";
 import { Tabs } from "./Segmented.tsx";
-import { useLoaded } from "./loaded.ts";
+import { useLoaded } from "../ui/loaded.ts";
+import { CLOSED, defined, useStore } from "../ui/subscribed.ts";
 import { formatBytes } from "../encoding.ts";
 import { baseName } from "../agent/mime.ts";
 
@@ -31,11 +32,6 @@ function ago(time: number): string {
 		value /= size;
 	}
 	return relative.format(Math.round(value), "year");
-}
-
-function BackStep({ onBack }: { onBack: () => void }) {
-	useBack(true, onBack);
-	return null;
 }
 
 function levelsTo(root: string, file: string | undefined): string[] {
@@ -65,10 +61,13 @@ function FileBrowser({
 
 	const crumbs = path.split("/").filter(Boolean);
 	return (
-		<div className="ws-pane">
-			{stack.slice(1).map((level) => (
-				<BackStep key={level} onBack={() => setStack((current) => current.slice(0, -1))} />
-			))}
+		<div
+			className="ws-pane"
+			data-back={stack.length > 1 || undefined}
+			onKeyDown={(event) => {
+				if (isBack(event)) setStack((current) => current.slice(0, -1));
+			}}
+		>
 			<nav className="crumbs" aria-label="路徑">
 				{crumbs.map((name, index) => {
 					const target = `/${crumbs.slice(0, index + 1).join("/")}`;
@@ -206,7 +205,7 @@ export const WorkspaceView = memo(function WorkspaceView({
 }) {
 	const { value: workspace, error } = useLoaded(async () => (await load()) ?? null, [load]);
 	const [tab, setTab] = useState<WorkspaceTab>(initial.tab);
-	const [open, setOpen] = useState<Open>(initial.file ? { kind: "file", path: initial.file } : undefined);
+	const [open, setOpen, opened] = useStore<Open>(initial.file ? { kind: "file", path: initial.file } : undefined, () => undefined, []);
 	const [reloadKey, setReloadKey] = useState(0);
 	const [folders, setFolders] = useState<string[]>();
 	const stack = folders ?? (workspace ? levelsTo(workspace.root, initial.file && resolvePath(workspace.root, initial.file)) : []);
@@ -214,10 +213,10 @@ export const WorkspaceView = memo(function WorkspaceView({
 	const inFolder = tab === "files" && stack.length > 1;
 	const back = () => setOpen(undefined);
 	const top = (opened: NonNullable<Open>, from: Workspace) =>
-		opened.kind === "file" ? <FileViewer workspace={from} path={resolvePath(from.root, opened.path)} frame={{ kind: "page", onClose: back }} /> : <DiffView target={opened.target} onClose={back} />;
+		opened.kind === "file" ? <FileViewer key={opened.path} workspace={from} path={resolvePath(from.root, opened.path)} frame={{ kind: "page", onClose: back }} /> : <DiffView target={opened.target} onClose={back} />;
 
 	return (
-		<PageStack side="right" top={workspace && open ? { key: open.kind === "file" ? open.path : open.target.title, content: top(open, workspace), onBack: back } : undefined}>
+		<PageStack key={workspace ? "ready" : "waiting"} side="right" opened={workspace ? defined(opened) : CLOSED} top={workspace && open ? { key: open.kind === "file" ? open.path : open.target.title, content: top(open, workspace), onBack: back } : undefined}>
 			<div className="screen">
 				<header className="bar">
 					<BackButton onClick={inFolder ? () => setStack((current) => current.slice(0, -1)) : onClose} />

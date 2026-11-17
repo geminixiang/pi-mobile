@@ -1,28 +1,19 @@
 import { App } from "@capacitor/app";
+import { useRef } from "react";
 import { inApp } from "../native.ts";
-import { useEffect, useEffectEvent, useRef } from "react";
 
-const stack: (() => void)[] = [];
+const BACK_KEY = "pi-back";
 
 if (inApp) {
 	void App.addListener("backButton", () => {
-		const top = stack.at(-1);
-		if (top) top();
+		const top = [...document.querySelectorAll("[data-back]")].at(-1);
+		if (top) top.dispatchEvent(new KeyboardEvent("keydown", { key: BACK_KEY, bubbles: true }));
 		else void App.minimizeApp();
 	});
 }
 
-export function useBack(active: boolean, onBack: () => void): void {
-	const back = useEffectEvent(onBack);
-	useEffect(() => {
-		if (!active) return;
-		const entry = () => back();
-		stack.push(entry);
-		return () => {
-			const index = stack.indexOf(entry);
-			if (index !== -1) stack.splice(index, 1);
-		};
-	}, [active]);
+export function isBack(event: { key: string; target: EventTarget; currentTarget: EventTarget }): boolean {
+	return event.key === BACK_KEY && event.target === event.currentTarget;
 }
 
 export function useLast<T>(keep: boolean, value: T): T {

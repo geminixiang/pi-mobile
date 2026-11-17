@@ -20,6 +20,8 @@ export function localTime(ms: number): string {
 	return `${localDate(ms)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+export const CLOCK = new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+
 export function monthDayTime(ms: number): string {
 	const date = new Date(ms);
 	return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -74,4 +76,42 @@ export function parseDay(value: string, field: string): number {
 export function duration(ms: number): string {
 	const minutes = Math.round(ms / 60_000);
 	return minutes >= 60 ? `${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分` : `${minutes} 分`;
+}
+
+export type Cancel = () => void;
+
+export function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function after(ms: number, run: () => void): Cancel {
+	const timer = setTimeout(run, ms);
+	return () => clearTimeout(timer);
+}
+
+export function every(ms: number, run: () => void): Cancel {
+	const timer = setInterval(run, ms);
+	return () => clearInterval(timer);
+}
+
+export const deadline = (ms: number): AbortSignal => AbortSignal.timeout(ms);
+
+export function nextFrame(run: (now: number) => void): Cancel {
+	const frame = requestAnimationFrame(run);
+	return () => cancelAnimationFrame(frame);
+}
+
+export function eachFrame(run: (now: number) => void): Cancel {
+	let frame = requestAnimationFrame(function step(now) {
+		frame = requestAnimationFrame(step);
+		run(now);
+	});
+	return () => cancelAnimationFrame(frame);
+}
+
+export function afterPaint(run: () => void): Cancel {
+	let cancel = nextFrame(() => {
+		cancel = nextFrame(run);
+	});
+	return () => cancel();
 }

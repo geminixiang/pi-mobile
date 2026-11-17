@@ -8,7 +8,8 @@ import type { AccessToken } from "../oauth.ts";
 import { type Daemon, daemon } from "./daemon.ts";
 import { type CommandChannel, type CommandClient, lost } from "../../computer/commands.ts";
 import type { OpenDaemon } from "./phone-connection.ts";
-import { messageOf, orLogged, sleep, untilFailure, whilePending } from "../../promise.ts";
+import { every, sleep } from "../../time.ts";
+import { messageOf, orLogged, untilFailure, whilePending } from "../../promise.ts";
 import { decode } from "../../parse.ts";
 import { randomHex, sha256Hex } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
@@ -208,7 +209,7 @@ export class ContainerHost {
 		const run = async (): Promise<void> => {
 			await this.#ensureEgress();
 			if (stopped()) return;
-			const ping = setInterval(() => send({ type: "ping" }), BRIDGE_PING_MS);
+			const stopPinging = every(BRIDGE_PING_MS, () => send({ type: "ping" }));
 			const ended = new Promise<void>((resolve) => {
 				void this.#client
 					.exec(`${this.#engine} exec -i ${EGRESS} python3 /egress/bridge.py`, {
@@ -226,7 +227,7 @@ export class ContainerHost {
 						if (tenant) send({ type: "config", azureTenant: tenant });
 					});
 			});
-			await ended.finally(() => clearInterval(ping));
+			await ended.finally(stopPinging);
 		};
 		const loop = async () => {
 			let delay = 1000;

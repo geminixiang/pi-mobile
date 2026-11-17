@@ -1,6 +1,7 @@
 package dev.geminixiang.pimobile
 
 import android.Manifest
+import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
@@ -10,12 +11,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 
-private const val TAG = "PiTriggers"
-private const val ACTION_A2DP = "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED"
-
 class HeadphonesReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ACTION_A2DP) bluetooth(context, intent)
+        if (intent.action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED) bluetooth(context, intent)
     }
 
     private companion object {
@@ -33,7 +31,7 @@ class HeadphonesReceiver : BroadcastReceiver() {
             if (device != null && mayReadDevice) {
                 val type = device.bluetoothClass
                 if (type != null && !wearable(type.deviceClass)) {
-                    Log.i(TAG, "a2dp device is not headphones: ${type.deviceClass}")
+                    Log.i(TRIGGERS_TAG, "a2dp device is not headphones: ${type.deviceClass}")
                     return
                 }
             }

@@ -92,9 +92,9 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - `src/log.ts` 除了寫 console，還留最近 2000 行在記憶體（含時間、已遮蔽 token 樣式的字串）。Android 上每行也交給原生端追加到 `device.log`（`DeviceLog`，上限 1 MB），所以頁面卡死或渲染程序被重開時，之前的紀錄還在；看門狗重開時也會寫一筆。工具開始和結束各記一行，卡住時看得出在哪個工具。設定頁最下面「分享診斷記錄」把它存成 `.jsonl` 走分享表。正式版關閉 WebView 偵錯，這是正式版唯一拿得到 JS 端證據的路。主執行緒每 250 ms 心跳一次，前景時間隔超過 500 ms 記一筆 `ui.stall`；頁面在背景被 Chromium 凍結的那一段不算。
 
 **Runtime 的生命週期**
-- 改設定先問 `AgentRuntime.apply(next)`。runtime 邊跑邊讀的設定（預設模型、思考程度、壓縮門檻、電腦清單、配對金鑰、預設電腦）就地生效：沒變的電腦連線留著，進行中的回合不受影響；壓縮門檻換掉的是 harness 每次請求時讀的 `models`。其他設定（供應商與金鑰、雲端憑證、GitHub token、行事曆範圍）在開 harness 時就裝進了 extension，`apply` 回 `needs_restart`，`App.tsx` 才關掉整個 `AgentRuntime` 再開一個新的；這會停下正在跑的工作（2026-10-26 在 S24 重現：改壓縮門檻時容器裡的指令回 `Tool bash was interrupted`）。`close()` 先關 harness，再關 MCP 和電腦連線；前一步失敗也照樣關後面的。
+- 改設定先問 `AgentRuntime.apply(next)`。runtime 邊跑邊讀的設定（預設模型、思考程度、壓縮門檻、電腦清單、配對金鑰、預設電腦）就地生效：沒變的電腦連線留著，進行中的回合不受影響；壓縮門檻換掉的是 harness 每次請求時讀的 `models`。其他設定（供應商與金鑰、雲端憑證、GitHub token、行事曆範圍）在開 harness 時就裝進了 extension，`apply` 回 `needs_restart`，`src/app/session.ts` 才關掉整個 `AgentRuntime` 再開一個新的；這會停下正在跑的工作（2026-10-26 在 S24 重現：改壓縮門檻時容器裡的指令回 `Tool bash was interrupted`）。`close()` 先關 harness，再關 MCP 和電腦連線；前一步失敗也照樣關後面的。
 - MCP 的每條連線有一個 generation：重新連線、登出、關閉都會讓它加一，舊的連線不管在哪一步完成，都只關掉自己，不改狀態、不安裝工具。關閉後的連線不會再被 `refresh` 或登入的回呼打開。新增和移除服務排成一列；移除中的服務已經不在清單上，不能再開給 Bot。
-- **第三方網頁不和 pi 同一個渲染程序**：同一個程序裡、同一個 profile 的 WebView 共用一個渲染程序和它的主執行緒，網頁的 JS 空轉，pi 就一起停擺（2026-11-05 在 S24 上卡了 54 分鐘，見 [research/webview-hang.md](research/webview-hang.md)）。WebView 只能由 `WebPages.create(context, profile)` 建立：`web_fetch` 的 `Page.check`、`Page.render` 用 profile `web-pages`，每個 Bot 的瀏覽器用 `bot-<id>`，各有自己的渲染程序，空轉時 pi 不受影響。頁面不回應時由 `terminate()` 結束渲染程序，光銷毀 WebView 停不了空轉。Bot 的分頁 20 秒沒回應時，它的分頁全部關掉，也不再還原。
+- **第三方網頁不和 pi 同一個渲染程序**：同一個程序裡、同一個 profile 的 WebView 共用一個渲染程序和它的主執行緒，網頁的 JS 空轉，pi 就一起停擺（2026-11-05 在 S24 上卡了 54 分鐘，見 [research/webview-hang.md](research/webview-hang.md)）。WebView 只能由 `WebPages.create(context, profile)` 建立：`web_fetch` 的 `Page.check`、`Page.render` 用 profile `web-pages`，每個 Bot 的瀏覽器用 `bot-<id>`，各有自己的渲染程序，空轉時 pi 不受影響。頁面不回應時由 `terminate()` 結束渲染程序，光銷毀 WebView 停不了空轉。Bot 的分頁 20 秒沒回應時，它的分頁全部關掉，也不再還原。iOS 上同一條規則是 `WebPages.swift`：WKWebView 本來就不和 pi 同一個 process，分開的是 cookie 和網站資料（每個 Bot 一個 `WKWebsiteDataStore`），卡死時只關那個分頁（[design/browser.md](design/browser.md)〈iOS〉）。
 - **看門狗**：頁面在前面或有回合在跑時，`RendererWatchdog` 每 10 秒問一次 pi 的頁面，30 秒沒回就結束渲染程序。`onRenderProcessGone` 這時重建 Activity，回合靠 `harness.resume()` 接著跑。沒有在跑時交給系統，和以前一樣結束 App。
 - 刪除 Bot 先在 `BotIndex` 標成刪除中（清單上不再出現，不再收輸入，排程也不會再送），再停下它的工作、清資料夾和附件，全部清完才把它從 `BotIndex` 拿掉並刪掉記憶。電腦連不上、容器資料夾沒刪掉，或刪到一半 app 被關掉，下次打開時接著做。pi-durable 不能刪除一條對話，所以對話紀錄留在 IndexedDB。
 - Code mode 的 QuickJS Worker 和手機資料夾的 bash Worker 跟著 app，不跟著 runtime，一個 app 各一個：它們不帶 runtime 的狀態，跟著 runtime 開關的話，每改一次設定就多留一個 Worker。
@@ -184,8 +184,10 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
 | `src/plugins/` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema），各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI |
+| `src/app/` | React UI。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
+| `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
+| `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
 | `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、配對、session，與安裝腳本 |
 | `host/computer/` | `pi-mobile mcp computer`：讀畫面（元件清單、截圖）和操作滑鼠鍵盤，三個平台的實作與共用核心 |
 | `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |

@@ -23,7 +23,7 @@ import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
 import { codeOf, messageOf, untilFailure } from "../../promise.ts";
 import { fromBase64, randomHex, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../shell.ts";
-import { HOUR } from "../../time.ts";
+import { after, type Cancel, HOUR } from "../../time.ts";
 import { baseName } from "../mime.ts";
 
 const TEMP_DIR = "/tmp";
@@ -185,19 +185,19 @@ class Shell {
 		const worker = this.#start();
 		const exec = ++this.#nextExec;
 		return new Promise((resolve) => {
-			let stopping: ReturnType<typeof setTimeout> | undefined;
+			let stopping: Cancel | undefined;
 			const stop = (why: "aborted" | "timeout") => {
 				worker.postMessage({ type: "abort", exec } satisfies ToWorker);
-				stopping = setTimeout(() => this.#fail(`bash did not stop: ${why}`), ABORT_GRACE_MS);
+				stopping = after(ABORT_GRACE_MS, () => this.#fail(`bash did not stop: ${why}`));
 				outcome = why;
 			};
 			let outcome: "aborted" | "timeout" | undefined;
-			const timer = timeoutMs === undefined ? undefined : setTimeout(() => stop("timeout"), timeoutMs);
+			const timer = timeoutMs === undefined ? undefined : after(timeoutMs, () => stop("timeout"));
 			const onAbort = () => stop("aborted");
 			signal?.addEventListener("abort", onAbort, { once: true });
 			this.#running.set(exec, (finished) => {
-				clearTimeout(timer);
-				clearTimeout(stopping);
+				timer?.();
+				stopping?.();
 				signal?.removeEventListener("abort", onAbort);
 				resolve(outcome === "aborted" ? { type: "aborted" } : outcome === "timeout" ? { type: "timeout" } : finished);
 			});

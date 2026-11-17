@@ -9,7 +9,7 @@ import { createOnDemandExtension } from "./on-demand.ts";
 import { createSandboxExtension } from "./sandbox/sandbox.ts";
 import { CodingTools, createBashTool } from "@earendil-works/pi-durable/tools";
 import { BACKGROUND_NOTE, JOB_BASH_PARAMETERS, jobsOnComputers } from "../jobs/bash.ts";
-import { createSkillsExtension } from "../skills/skills.ts";
+import { createAppNotes, createSkillsExtension } from "../skills/skills.ts";
 import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
@@ -34,14 +34,14 @@ import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension, type WebConfig } from "./tools/web.ts";
 import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
 import { InteractionExtension } from "../interaction/tool.ts";
-import type { Native } from "../native.ts";
+import type { Platform } from "./platform.ts";
 import { type Groups, usableGroups } from "./toolsets.ts";
 import { adopt, declarationOf, gated, type ToolDeclaration } from "./tools/common.ts";
-import { type AskForm, permissionGate, type PhonePermissions } from "../interaction/permissions.ts";
+import { type AskForm, permissionGate } from "../interaction/permissions.ts";
 import type { Workplace } from "./workplaces.ts";
 
 interface CatalogDeps {
-	native: Native;
+	platform: Pick<Platform, "native" | "permissions" | "apps">;
 	userSaid: (id: ConversationId) => Promise<readonly string[]>;
 	assistant: Extension;
 	calendarAccess: CalendarAccess;
@@ -55,7 +55,6 @@ interface CatalogDeps {
 	waitForJob: (conversationId: ConversationId, job: string) => void;
 	labelOf: (tool: string, extension: string, conversationId: string) => string | undefined;
 	actsAsUser: ActsAsUser;
-	permissions: PhonePermissions;
 	ask: AskForm;
 }
 
@@ -83,7 +82,9 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 			needs: [],
 		}),
 	);
+	const appNotes = createAppNotes({ unattended: deps.triggers.unattended, apps: deps.platform.apps, actsAsUser: deps.actsAsUser });
 	const extensions: Extension[] = [
+		appNotes.context,
 		deps.assistant,
 		BotExtension,
 		DeviceExtension,
@@ -95,6 +96,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		SpeechExtension,
 		NotificationsExtension,
 		PhoneScreenExtension,
+		appNotes.notes,
 		BrowserExtension,
 		createControlExtension(deps.actsAsUser),
 		ContactsExtension,
@@ -122,8 +124,8 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createOnDemandExtension(deps.labelOf),
 	];
 	const installable = (tool: ToolRegistration) =>
-		usableGroups(declared(tool).groups, deps.native) && declared(tool).needs.every((method) => deps.native.implements(method));
-	const obtain = permissionGate(deps.permissions, deps.ask);
+		usableGroups(declared(tool).groups, deps.platform.native) && declared(tool).needs.every((method) => deps.platform.native.implements(method));
+	const obtain = permissionGate(deps.platform.permissions, deps.ask);
 	const usable = extensions
 		.map((extension) => ({ extension, tools: extension.tools?.filter(installable) }))
 		.filter(({ tools }) => tools === undefined || tools.length > 0)

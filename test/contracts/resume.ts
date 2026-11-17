@@ -3,7 +3,7 @@ import type { Link, RawMessage } from "../../src/computer/resumable-link.ts";
 import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/computer/resumable-socket.ts";
 import type { Check } from "./setup.ts";
 import wire from "../../host/protocol.json" with { type: "json" };
-import { sleep } from "../../src/promise.ts";
+import { sleep } from "../../src/time.ts";
 import { createTraffic } from "../../src/agent/traffic.ts";
 import { nextChange } from "./fixtures.ts";
 

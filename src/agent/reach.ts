@@ -2,6 +2,7 @@ import { log } from "../log.ts";
 import { deviceNetwork, type Network } from "./network.ts";
 import { messageOf } from "../promise.ts";
 import { streamFetch } from "./stream-fetch.ts";
+import { after, type Cancel, deadline } from "../time.ts";
 
 export type ReachState = { kind: "up"; back?: { since: number; at: number } } | { kind: "down"; since: number };
 
@@ -24,7 +25,7 @@ export function createReach(name: string, probe: Probe, network: Network, now: (
 	let state: ReachState = { kind: "up" };
 	let url = "";
 	let tries = 0;
-	let timer: ReturnType<typeof setTimeout> | undefined;
+	let timer: Cancel | undefined;
 	let probing = false;
 	const set = (next: ReachState) => {
 		state = next;
@@ -33,7 +34,7 @@ export function createReach(name: string, probe: Probe, network: Network, now: (
 	};
 	const downSince = () => (state.kind === "down" ? state.since : undefined);
 	const run = async () => {
-		clearTimeout(timer);
+		timer?.();
 		timer = undefined;
 		if (downSince() === undefined || probing) return;
 		probing = true;
@@ -43,7 +44,7 @@ export function createReach(name: string, probe: Probe, network: Network, now: (
 		if (since === undefined) return;
 		if (reached) return set({ kind: "up", back: { since, at: now() } });
 		tries += 1;
-		timer = setTimeout(() => void run(), Math.min(FIRST_WAIT_MS * 2 ** (tries - 1), LONGEST_WAIT_MS));
+		timer = after(Math.min(FIRST_WAIT_MS * 2 ** (tries - 1), LONGEST_WAIT_MS), () => void run());
 	};
 	network.onChange(() => void run());
 	const onChange = (listener: () => void) => {
@@ -58,7 +59,7 @@ export function createReach(name: string, probe: Probe, network: Network, now: (
 			if (state.kind === "down") return;
 			tries = 0;
 			set({ kind: "down", since: now() });
-			timer = setTimeout(() => void run(), FIRST_WAIT_MS);
+			timer = after(FIRST_WAIT_MS, () => void run());
 		},
 		check: () => void run(),
 		untilUp: (signal) => {
@@ -79,7 +80,7 @@ export function createReach(name: string, probe: Probe, network: Network, now: (
 }
 
 const answers: Probe = async (url) => {
-	const failure = await streamFetch(url, { method: "HEAD", signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) }).then(
+	const failure = await streamFetch(url, { method: "HEAD", signal: deadline(PROBE_TIMEOUT_MS) }).then(
 		() => undefined,
 		(error: unknown) => messageOf(error),
 	);

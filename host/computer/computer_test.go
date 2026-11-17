@@ -685,6 +685,49 @@ func TestElementsAreUsedWithoutThePointerOrTheKeyboard(t *testing.T) {
 	}
 }
 
+func TestClickAndTypeResolveTheSameElement(t *testing.T) {
+	for _, action := range []string{"click", "type"} {
+		for _, test := range []struct {
+			name string
+			step step
+			err  string
+		}{
+			{"id", step{ID: 2}, ""},
+			{"name before id", step{Name: "field", ID: 99}, ""},
+			{"missing id", step{ID: 99}, "no element [99] in the last look"},
+			{"missing name", step{Name: "missing"}, "no element called \"missing\" in the window"},
+		} {
+			t.Run(action+"/"+test.name, func(t *testing.T) {
+				target := &background{}
+				s := &windowScreen{}
+				s.nodes = []uiNode{{role: "window", name: "note.txt"}, {depth: 1, role: "textfield", name: "field", target: target}}
+				c := &computer{screen: s}
+				if _, err := c.shot(1, false); err != nil {
+					t.Fatal(err)
+				}
+				step := test.step
+				step.Action, step.Text = action, "封存"
+				err := c.run(step)
+				if test.err != "" {
+					if err == nil || err.Error() != test.err {
+						t.Fatalf("error = %v, want %q", err, test.err)
+					}
+					if target.pressed != 0 || target.written != "" {
+						t.Fatal("a missing element was acted on")
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if action == "click" && target.pressed != 1 || action == "type" && target.written != step.Text {
+					t.Fatalf("pressed %d, written %q", target.pressed, target.written)
+				}
+			})
+		}
+	}
+}
+
 func TestKeysGoOnWhenOnlyWindowsBehindWereRead(t *testing.T) {
 	s := &windowScreen{}
 	s.others = []uiOther{{title: "note.txt", app: "TextEdit", target: pressed{s}}}

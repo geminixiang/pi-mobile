@@ -1,11 +1,12 @@
 import { Row } from "./Row.tsx";
-import { App } from "@capacitor/app";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../agent/gcloud.ts";
-import { messageOf, orLogged, sleep } from "../promise.ts";
+import { sleep } from "../time.ts";
+import { messageOf, orLogged } from "../promise.ts";
 import { copy, pasted } from "./clipboard.ts";
 import { System } from "../plugins/system.ts";
+import { onResume } from "../ui/resume.ts";
 
 export function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
 	const [signIn, setSignIn] = useState<GoogleSignIn>();
@@ -24,20 +25,19 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 			setState({ kind: "failed", error: messageOf(error) });
 		}
 	};
-	const finishPasted = useEffectEvent(finish);
-
-	useEffect(() => {
-		if (!signIn) return;
-		const listener = App.addListener("resume", async () => {
-			await sleep(400);
-			const text = await orLogged(pasted(), "sign_in.clipboard_unreadable", "");
-			if (looksLikeAuthCode(text)) {
+	const latestFinish = useRef(finish);
+	latestFinish.current = finish;
+	const pasteOnReturn = useCallback(
+		() =>
+			onResume(async () => {
+				await sleep(400);
+				const text = await orLogged(pasted(), "sign_in.clipboard_unreadable", "");
+				if (!looksLikeAuthCode(text)) return;
 				setCode(text.trim());
-				void finishPasted(text);
-			}
-		});
-		return () => void listener.then((handle) => handle.remove());
-	}, [signIn]);
+				void latestFinish.current(text);
+			}),
+		[],
+	);
 
 	if (!signIn) {
 		return (
@@ -60,7 +60,7 @@ export function GoogleSignInPanel({ onCredential }: { onCredential: (json: strin
 	return (
 		<div className="sign-in">
 			<p>複製最後一頁的授權碼，回來會自動帶入，或貼在這裡：</p>
-			<input className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
+			<input ref={pasteOnReturn} className="field" value={code} onChange={(event) => setCode(event.target.value)} placeholder="4/0A…" autoCapitalize="off" spellCheck={false} />
 			{state.kind === "failed" ? <div className="check-error">{state.error}</div> : null}
 			<div className="dialog-actions inline">
 				<button type="button" className="btn" onClick={() => setSignIn(undefined)}>
@@ -90,16 +90,16 @@ export function DeviceSignInPanel({
 	const [signIn, setSignIn] = useState<DeviceSignIn>();
 	const [error, setError] = useState("");
 	const abort = useRef<AbortController>(undefined);
-	useEffect(() => () => abort.current?.abort(), []);
+	const abortWhenGone = useCallback(() => () => abort.current?.abort(), []);
 
 	const begin = async () => {
 		setError("");
+		const controller = new AbortController();
+		abort.current = controller;
 		try {
 			const next = await start();
 			setSignIn(next);
 			if (copyCode) await orLogged(copy(next.userCode), "sign_in.clipboard_unwritable", undefined);
-			const controller = new AbortController();
-			abort.current = controller;
 			await System.openExternal({ url: next.url });
 			onCredential(await finish(next, controller.signal));
 			setSignIn(undefined);
@@ -124,7 +124,7 @@ export function DeviceSignInPanel({
 	return (
 		<div className="sign-in">
 			<p>{copyCode ? `代碼已複製，在 ${provider} 的頁面貼上：` : `在 ${provider} 頁面確認這組代碼：`}</p>
-			<div className="user-code">{signIn.userCode}</div>
+			<div className="user-code" ref={abortWhenGone}>{signIn.userCode}</div>
 			<p className="ws-loading">等待授權</p>
 			<div className="dialog-actions inline">
 				<button

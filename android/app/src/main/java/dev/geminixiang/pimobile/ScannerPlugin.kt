@@ -45,7 +45,7 @@ class ScannerPlugin : Plugin() {
                     return@registerForActivityResult
                 }
                 try {
-                    val file = copy(pdf.uri, ".pdf")
+                    val file = copy(pdf.uri)
                     call.resolve(JSObject().put("cancelled", false).put("pdf", file.absolutePath).put("pages", pdf.pageCount))
                 } catch (error: IOException) {
                     call.reject("could not keep the scan", error)
@@ -53,8 +53,8 @@ class ScannerPlugin : Plugin() {
             }
     }
 
-    private fun copy(uri: Uri, suffix: String): File {
-        val target = File(emptyScansFolder(), "${UUID.randomUUID()}$suffix")
+    private fun copy(uri: Uri): File {
+        val target = File(emptyScansFolder(), "${UUID.randomUUID()}.pdf")
         val input = context.contentResolver.openInputStream(uri) ?: throw IOException("no data at $uri")
         input.use { source -> FileOutputStream(target).use { source.copyTo(it) } }
         return target

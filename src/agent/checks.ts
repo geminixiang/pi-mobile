@@ -5,9 +5,10 @@ import { builtinInfo } from "./providers.ts";
 import { memoryCredentials } from "./credentials.ts";
 import { chatgptModels, parseOAuthCredential } from "./chatgpt.ts";
 import { parse } from "../parse.ts";
+import { deadline } from "../time.ts";
 
 const GitHubUser = Type.Object({ login: Type.String() });
-const timeout = () => AbortSignal.timeout(8000);
+const timeout = () => deadline(8000);
 
 export async function checkModels(baseUrl: string, apiKey: string): Promise<string> {
 	const ids = await fetchModelIds(baseUrl, apiKey, timeout());
@@ -17,7 +18,7 @@ export async function checkModels(baseUrl: string, apiKey: string): Promise<stri
 export async function checkProvider(id: string, apiKey: string, signIn: string): Promise<string> {
 	const provider = await builtinInfo(id)?.load();
 	if (!provider) throw new Error(`unknown provider ${id}`);
-	const models = createModels({ credentials: memoryCredentials({ [id]: apiKey }, signIn ? { [id]: signIn } : {}) });
+	const models = createModels({ credentials: await memoryCredentials({ [id]: apiKey }, signIn ? { [id]: signIn } : {}) });
 	models.setProvider(provider);
 	const credential = signIn ? parseOAuthCredential(signIn) : undefined;
 	const allowed = credential ? await chatgptModels(credential) : undefined;
@@ -27,7 +28,7 @@ export async function checkProvider(id: string, apiKey: string, signIn: string):
 	const reply = await models.complete(
 		model,
 		{ messages: [{ role: "user", content: "Reply with OK.", timestamp: Date.now() }] },
-		{ maxTokens: 16, signal: AbortSignal.timeout(20_000) },
+		{ maxTokens: 16, signal: deadline(20_000) },
 	);
 	if (reply.stopReason === "error") throw new Error(reply.errorMessage ?? "error");
 	return `${model.name} 有回應`;

@@ -26,6 +26,7 @@ Android app (Capacitor + React) running a pi-durable agent on the phone. See doc
 - Android code is Kotlin: no Java file in `android/app/src/main/`.
 - Models to read like: the pi packages (`@earendil-works/*`), the Go standard library, and type-driven Elm/Rust code.
 - Store a value once: what can be computed from state, props, or a store is computed where it is used, not kept in its own `useState`, ref, or field (keep the selected id, derive the selected item from the list).
+- General first: pi is open source, so every phone (any brand, language, OS version) gets the same experience. The agent finds out the user's environment itself: installed apps from the device, how an app works from its own notes. Never ship specifics about one app, site, phone or UI language; match structure or ids, not localized text. Test on two kinds of phone before calling it general.
 - Before adding code for a speculative race, edge case, or security concern, state the concrete failure, how likely it is, and what the code costs, and get the user's buy-in; over-design is itself a mistake.
 - Tests run the real implementation through the `Platform` seam: no mocks, no logic copied into the test. The only globals a test touches are `fetch` (made to throw: tests run offline) and `console` (captured to read log lines). A fix comes with a test that fails on the old code.
 - Branch names are at most three words joined by hyphens, no slashes or type prefixes (`helpers`, `fix-scroll-state`). Commits are `type(scope): summary` with `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`.
@@ -55,15 +56,16 @@ Finishing the task is half the job; the other half is leaving the design better 
 |---|---|
 | No comments except `// why:` | `test/no-comments.ts` |
 | Strict TypeScript: `strict`, no unused locals or parameters, every path returns, no switch fallthrough, `override` written out, an index into an array or record may be `undefined` | `tsc` (`tsconfig.json`) |
-| Every export in `src/` is used by another file (except `src/shims/`, which mirror Node modules) | `test/code-rules.ts` |
+| App entries reach every `src/` file; another file uses every export (`src/shims/` mirror Node) | `test/code-rules.ts` |
 | No `any`, `!`, casts, swallowed catches | `test/code-rules.ts` |
 | Tools defined with `defineAppTool`, in the catalog, a toolset, the tool list, the snapshot | `test/tools-node.ts` |
 | Every tool declares its groups (`defineAppTool`, or `adopt` in `catalog.ts`); a tool in several groups has one per `where`; the snapshot records each tool's groups | `test/tools-node.ts` |
-| A tool that acts as the user is `*_as_user`, loaded on demand, in a `*_as_user` extension | `test/tools-node.ts` |
+| An `*_as_user` tool loads on demand, except one entry tool whose `loads` names the rest | `test/tools-node.ts` |
 | docs/tools.md 工具總圖 matches the code | `test/tools-node.ts` |
 | Tool names the UI branches on (`src/app`, every `.tsx`: `===`, `switch`, `includes`, `*TOOL*` lists and maps) are tools that exist | `test/tools-node.ts` |
+| App notes: installed apps only, bounded, never written unattended | `test/contracts/app-notes.ts` |
 | Native methods match their contract on Android and iOS | `test/plugins-node.ts` |
-| Every step action and key the phone screen and the browser declare is read by their Kotlin side | `test/plugins-node.ts` |
+| Every step action and key the phone screen and the browser declare is read by their native side | `test/plugins-node.ts` |
 | Every native plugin class is registered (`MainActivity`, `MainViewController`) | `test/plugins-node.ts` |
 | An iOS plugin that reports permissions can also ask for them; an Android plugin never puts a cursor string straight into a result | `test/plugins-node.ts` |
 | Every schedule kind and activity in `src/triggers/plugin.ts` is read by the Android side (`Schedule.kt`, `ActivityTrigger.kt`) | `test/plugins-node.ts` |
@@ -75,9 +77,9 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Short ids come from `randomHex`, waits from `sleep`, two-digit padding from `pad`, minutes from `MINUTE`: no `randomUUID().slice`, `setTimeout(resolve`, `padStart(2, "0")` or `60_000` outside their owners | `test/code-rules.ts` |
 | A background job's agent name is made and read only in `src/jobs/background.ts` (`jobAgent`, `isJob`, `jobIdOf`); a path's last part is `baseName`, an HTML file is `isHtml` (`src/agent/mime.ts`) | `test/code-rules.ts` |
 | Sorting by an optional time goes through `soonest` (`src/time.ts`) | `test/code-rules.ts` |
-| `useEffect`, `useLayoutEffect` and timers appear only in the files `EFFECTS` lists, at most its count, which only goes down; a store is read with `useSubscribed` (docs/effects.md) | `test/code-rules.ts` |
+| No effect hook, timer outside `src/time.ts`, ref callback with dependencies or constant `useSyncExternalStore` snapshot (docs/effects.md) | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
-| Every prompt section is an `appSection` with a budget; with a crowded app (removed bots, full memory, every toolset) each stays in it and the whole prompt in `PROMPT_BUDGET`; the rendered prompt matches `test/prompt.snapshot.json` | `test/code-rules.ts`, `test/prompt.ts` |
+| Every prompt section is an `appSection` within its budget, even in a crowded app; the prompt fits `PROMPT_BUDGET` and matches its snapshot | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |
 | A JSX `style` sets only `--custom-properties`; a `transition` never names a layout property | `test/code-rules.ts`, Stylelint (`stylelint/transition-no-layout.js`) |
 | No `.menu` or `.group` box around a list: a list is a `RowList` on the background | Stylelint (`selector-class-pattern`), `test/code-rules.ts` |
@@ -92,6 +94,8 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `docs/feature-map.md` names only components that exist where it says, and lists every component `App.tsx`, `Workbench.tsx` and `BotPanel.tsx` render and every settings page | `test/feature-map.ts` |
 | Every test file runs: contracts are found by `test/contracts/run.ts`, other test files are in the check script | `test/contracts/run.ts`, `test/registered.ts` |
 | Device and perf scripts call only members `AgentRuntime` has | `test/device-api.ts` |
+| No third-party app id in `src/` (exceptions listed with a reason) | `test/code-rules.ts` |
+| AGENTS.md only shrinks (`AGENTS_WORDS`) | `test/code-rules.ts` |
 | Every class in `styles.css` and `index.css` is used by a component (by name, or built as `prefix-${…}`); classes a library adds are listed in `EXTERNAL_CLASSES` | `test/code-rules.ts` |
 | `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
 | A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |

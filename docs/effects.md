@@ -1,86 +1,52 @@
 # Effect 與計時器
 
-`useEffect`、`useLayoutEffect`、`setTimeout`、`setInterval`、`requestAnimationFrame` 很容易拿來補架構的洞：同一份狀態存兩次、事件已經發生了卻等下一次 render 才處理、不知道在等什麼就先等 300 ms。所以它們只能出現在 `test/code-rules.ts` 的 `EFFECTS` 列出的檔案裡，每個檔案有一個上限：
+四條規則，`npm run check`（`test/code-rules.ts` 的 `effectRule` 和 `lifecycleRule`，用 AST 找）強制，沒有例外名單：
 
-- 用量超過上限、或不在清單裡的檔案用到，`npm run check` 失敗，錯誤訊息寫出改用什麼。
-- 用量比上限少，也失敗，要把上限降下來（棘輪只往下）。
-- 真的需要新的 effect（訂閱原生的事件、手勢程式碼裡量過的動畫幀），經使用者同意後把上限加一，並在下表補一列。
+1. `src/` 裡沒有 effect hook：`useEffect`、`useLayoutEffect`、`useInsertionEffect`。
+2. 計時器只在 `src/time.ts` 裡呼叫：`setTimeout`、`setInterval`、`requestAnimationFrame`、`requestIdleCallback`、`postTask`、`AbortSignal.timeout`。其他地方用它的 helper，每個都回傳取消的方法（`Cancel`）。
+3. ref callback 只跟著它那個元素的一生：`useCallback(…, [])`。每次 render 新建的、或帶 deps 的 ref callback 會在 props 變的時候重跑，就是換個寫法的 effect（只把元素存進 ref 的不算）。
+4. `useSyncExternalStore` 的快照要是來源真的有的值。回傳常數的快照只是借用 subscribe 當生命週期。
+
+檢查抓不到、但一樣不行的：store 的 subscribe 裡做跟它的值無關的一次性工作；把整個元件的生命週期掛在隨便一個 div 的 ref 上（掛在那件事本身的元素上：編輯中的 textarea、等著貼上的輸入框）。
+
+原因（[research/all-code-is-slop.md](research/all-code-is-slop.md)）：effect 和計時器是 agent 和人最常寫出 bug 的地方。計時器在擁有者結束後還在跑、callback 拿到舊的 state、用延遲蓋住競態、用 effect 補架構的洞（同一份狀態存兩次、事件已經發生卻等下一次 render 才處理）。
 
 ## 改用什麼
 
-| 這個 effect 在做什麼 | 改成 |
+| 要做的事 | 改成 |
 |---|---|
-| 同步外部狀態（runtime、自動化、記憶、瀏覽器、MCP 的訂閱） | `useSubscribed(initial, subscribe, deps)`（`src/ui/subscribed.ts`，底下是 `useSyncExternalStore`），或 store 自己有快照時直接 `useSyncExternalStore` |
-| 從 state 或 props 推導出另一個值 | render 時算出來（AGENTS.md：一個值只存一次） |
-| 對使用者的動作做反應 | 寫在事件處理函式裡 |
-| 等一下再做 | 找出它在等的事件（`resume`、`online`、`animationend`、資料寫入的通知），聽那個事件 |
-| 真正的 effect | 訂閱原生外掛的事件、`ResizeObserver`、手勢和串流的動畫幀、輪詢遠端（沒有推送可聽） |
+| 讀外部的狀態（store、runtime、原生外掛或 Capacitor 的事件） | `useSubscribed(initial, subscribe, deps)`（`src/ui/subscribed.ts`）；store 自己有快照時直接 `useSyncExternalStore`。來源換掉時保留上一個值 |
+| 外部的狀態，自己也會寫（讀進來之後由按鈕改） | `useStore(initial, subscribe, deps)`，回傳 `[value, set]`；`set` 接受值或 `(current) => next`，回傳寫入後的值 |
+| 讀一次非同步的資料 | `useLoaded(load, deps)`（`src/ui/loaded.ts`）：換 deps 時回到讀取中，帶錯誤訊息。要保留上一個值時用 `useSubscribed(initial, promised(load), deps)` |
+| 輪詢 | `usePolled(read, everyMs, deps)`；`read` 回 `undefined` 表示這次沒讀到，保留上一個值 |
+| 回到前景時重讀原生的狀態 | `useSubscribed(initial, resumed(read), deps)`（`src/ui/resume.ts`）；只聽回到前景用 `onResume(run)` |
+| 隨時間變的值（時鐘、顯示兩秒、淡出之後） | 一個 store，它的 subscribe 啟動 `every`、`after` 或 `eachFrame` 並回傳取消：`useNow`、`useBriefly`、`useExpired`（`src/ui/briefly.ts`）、`useSmoothText` |
+| 跟著一個 DOM 元素的事（量尺寸、出現時聚焦、`ResizeObserver`、`MutationObserver`、聽 `window` 的事件、離開時存檔或中止） | `useCallback(…, [])` 的 ref callback，回傳 cleanup；要用到的 props 從 render 時寫入的 ref 讀（`latest.current`） |
+| prop 變了要做事（面板開關的動畫和焦點、瀏覽器面板開關時的原生呼叫） | 不要等 render：讓狀態的擁有者可以訂閱（`Source<T>`：`{ subscribe, read }`，`src/ui/subscribed.ts`），做事的物件在自己元素的 ref callback 裡訂閱它，在 listener 裡反應。`SidePanel` 的 `place`、`PageStack` 的 `opened`、`BrowserSheet` 的 `screen` 都是這樣；元件自己的狀態要給別人跟時用 `useStore` 回傳的第三個值，或 `cell(initial)` |
+| 一個狀態轉換要帶副作用（瀏覽器面板開了要截圖、關了要收起原生畫面） | 在做轉換的那個函式裡做：`step(event)` 算出前後兩個狀態，再照差異反應（`BrowserSheet.tsx`） |
+| 元素換了內容要重做（換一張圖、換一段 Mermaid） | 給元素 `key`，讓它的出現就是觸發（`Mermaid`、`FileViewer` 的圖片） |
+| 交給剛要掛上的元件的東西（分享進來的檔案） | 信箱：送的人先放著（`offerFiles`），元件訂閱時領走（`receiveDrafts`，`src/app/drafts.ts`） |
+| 硬體返回鍵 | 開著的那一層在自己的元素上寫 `data-back` 和 `onKeyDown`（`isBack(event)`，`src/app/layers.ts`）；返回鍵把一個鍵盤事件送給文件順序最後一個 `[data-back]`，也就是最上面、最裡面的那一層 |
+| 對使用者的動作做反應（存草稿、通知上層、開始長按） | 寫在造成改變的事件處理函式裡 |
+| id 換了要重設 state | 給元件一個 `key`，或在 render 時比對後 `setState`（`BotSheet`、`Links.tsx` 的 `useBack`） |
+| 從 state 或 props 推導出來的值 | render 時算（AGENTS.md：一個值只存一次） |
+| App 一啟動、runtime 一開、對話一打開就要做的事 | 不屬於任何元件：寫在 `src/app/session.ts`（`boot`、`start`、`open`），`main.tsx` 呼叫 `boot()` |
+| 等一下再做 | 先找它在等的事件（`resume`、`online`、`pointerup`、資料寫入的通知）並聽那個事件；真的只有時間時用 `after`，由結束它的事件取消 |
 
-## 盤點（2026-11-14）
+## `src/time.ts` 的 helper
 
-開始時 `src/` 有 119 個（`useEffect` 74、`useLayoutEffect` 10、`setTimeout` 21、`setInterval` 9、`requestAnimationFrame` 5；`src/app` 79 個），用 AST 數（`test/code-rules.ts` 的 `timingCalls`）。這次拿掉 16 個：
-
-- 15 個同步外部狀態的 `useEffect(() => store.subscribe(setState))` 改成 `useSubscribed`：`App.tsx`（Bot 清單、自動化、瀏覽器、執行中的 Bot）、`Settings.tsx`（自動化 ×2、Bot 清單、全域記憶）、`BotPanel.tsx`（自動化、Bot 的記憶）、`MemoryView.tsx`、`McpGroup.tsx`（`useMcp`）、`BrowserButton.tsx`、`BrowserSheet.tsx`。訂閱來源變成 `undefined`（runtime 重開中）時保留上一個值，跟原本的 `useState` 一樣。
-- `Message.tsx` 自己的每秒計時（`useElapsed`）改用 `useNow`（`src/jobs/JobsContext.ts`），同一件事原本有兩種寫法。差別：從過去的時間開始的工作行，一掛上就顯示正確的秒數，不再先空一秒。
-
-剩下 103 個，分類如下。「洞」是還在補洞、留給之後的。
-
-### 外部狀態
-
-| 位置 | 說明 |
+| helper | 用途 |
 |---|---|
-| `App.tsx` `controller?.subscribe(setView)` | 對話的 view；`dropConversation`、`openConversation` 也會把它清掉，所以不是單純的訂閱。洞：讓 controller 擁有「沒有對話」的狀態後改 `useSubscribed` |
-| `Chat.tsx` `controller.results()`（依 `entries.length` 重讀） | 洞：每多一則就整份重讀；結果應該由 store 推送 |
-| `Chat.tsx` `forms.load` | 第一次載入這個 Bot 的表單到 store；之後由 `useSyncExternalStore` 讀 |
-| `Composer.tsx` `receiveDraftAdditions` | 訂閱別處加進草稿的附件 |
-| `Links.tsx` `reach.onChange` | 只記「恢復的時間」這個事件，不是快照 |
-| `HostsGroup.tsx` `watchPrepare` | 訂閱電腦準備中的進度 |
-| `Settings.tsx` `Triggers.status` + `resume` | 原生權限狀態，回到前景時重讀 |
-| `background.ts` | 同上，背景執行的權限 |
+| `sleep(ms)` | 等一段時間的 Promise |
+| `after(ms, run)` | 一段時間後做一次 |
+| `every(ms, run)` | 每隔一段時間做一次 |
+| `deadline(ms)` | 逾時就中止的 `AbortSignal` |
+| `nextFrame(run)` | 下一個動畫幀做一次 |
+| `eachFrame(run)` | 每個動畫幀做一次，直到取消（手勢的收合、串流文字） |
+| `afterPaint(run)` | 目前這一幀畫完之後（兩個動畫幀） |
 
-### 推導或重設 state
+## 量過、要知道的地方
 
-| 位置 | 說明 |
-|---|---|
-| `BotSheet.tsx` 換一個 Bot 時重設表單 | 洞：應該用 `key` 換掉整張表單；但抽屜收起的動畫還在顯示舊的欄位，要一起處理 |
-| `BotPanel.tsx` 關上時清掉錯誤 | 洞：關上的路徑很多（手勢、返回、點背景），之後讓 `SidePanel` 的關閉事件帶出來 |
-| `Links.tsx` 不忙時清掉「恢復時間」 | 洞：同上一類 |
-| `Chat.tsx` `sizeWhenLeft` | 離開底部時的高度，存在 ref |
-| `Chat.tsx` 有草稿或要求聚焦時 `composerFocus + 1` | 洞：可以變成初始值 |
-| `Settings.tsx` `onDraft?.(settings, changed)` | 洞：每次改設定通知上層，應該在 `change` 裡做 |
-| `Composer.tsx` 草稿附件存檔 | 寫到 IndexedDB，跟著 state 變 |
-| `Chat.tsx` `saveDraftText` | 同上，草稿文字 |
-
-### 等待
-
-| 位置 | 等的是什麼 |
-|---|---|
-| `App.tsx` `requestAnimationFrame` 收起面板 | 新對話的第一幀畫好才收，收起的動畫不掉幀（在 S24 量過） |
-| `App.tsx` 10 秒後 `sweepBotData` | 啟動忙完；洞：沒有「啟動完成」的事件可以聽 |
-| `App.tsx` 設定 800 ms 後套用 | debounce：使用者停手 |
-| `SignIn.tsx` 回前景 400 ms 後讀剪貼簿 | Android 回前景後剪貼簿要一下子才讀得到 |
-| `JobsStrip.tsx` 收起 110 ms | 淡出動畫結束；不用 `animationend`，因為減少動態效果時 `animation: none`，事件不會來，遮罩會擋住整個畫面 |
-| `triggers/events.ts` 30 秒後 `releaseIfIdle` | 見那一行的 `why:` |
-| `jobs/bash.ts` 輪詢 | 電腦上的指令沒有推送 |
-| `promise.ts` `sleep` | 共用的等待 |
-
-### 正當的 effect
-
-| 位置 | 說明 |
-|---|---|
-| `App.tsx` 啟動時讀設定、找不到 Bot 時關掉對話、打開上次的 Bot、分享和連結的監聽、`Triggers.seen` + `resume`、`globalThis.piRuntime`（裝置腳本用）、執行中的 Bot 結束時通知 | 啟動、原生事件、對外的副作用 |
-| `SidePanel.tsx` ×6、`PageStack.tsx` ×2、`sideGesture.ts` | 手勢和頁面的動畫（S24 量過，不動） |
-| `streaming.tsx` ×3 | 串流文字每幀追上 |
-| `Chat.tsx` 兩個 `useLayoutEffect` | 黏在底部、量輸入框高度（`ResizeObserver`） |
-| `Mermaid.tsx`、`Surface.tsx` `useLayoutEffect` | 畫完才量得到寬度、標記選到的段落 |
-| `PromptDial.tsx` ×4、`JobsStrip.tsx` 長按 | 長按和連續轉動的計時 |
-| `press.ts` | 按下的底色多留一下 |
-| `briefly.ts` ×2 | 「已複製」這類結果顯示幾秒 |
-| `layers.ts` | 返回鍵的堆疊 |
-| `voice.ts`、`BrowserSheet.tsx`（原生事件、觸控、`ResizeObserver`、分頁）、`Surface.tsx`、`PageFrame.tsx` 的 `message` | 訂閱原生或 iframe 的事件 |
-| `SidePanel.tsx`、`Composer.tsx` 聚焦 | 打開時把焦點移進去 |
-| `Composer.tsx` 掛上時讀回草稿附件、`unmounted` | 載入一次 |
-| `loaded.ts`、`ContextCard.tsx`、`HostsGroup.tsx` ×2、`McpGroup.tsx`、`BotPanel.tsx` 工具組、`FileViewer.tsx`、`Surface.tsx`、`ItemSheet.tsx`、`PageFrame.tsx`、`Settings.tsx` 行事曆 | 依 props 讀一次非同步的資料，換 props 時丟掉舊的回覆 |
-| `Stage.tsx` ×4、`JobsStrip.tsx` ×2、`JobsContext.ts` ×2 | 輪詢電腦上的工作和瀏覽器畫面、每秒的時鐘 |
-| `SignIn.tsx` 卸載時中止 | 清理 |
-| `agent/`（`chatgpt.ts`、`phone-env.ts` ×2、`network.ts`、`reach.ts` ×2、`container.ts`、`phone-connection.ts`、`resumable-socket.ts` ×2、`traffic.ts`）、`browser/tool.ts`、`log.ts` | 逾時、重試的退避、心跳、量測視窗、卡頓偵測：時間本身就是規則 |
+- 對話的 view 由 `src/app/session.ts` 訂閱、`App.tsx` 用 `useSyncExternalStore` 讀，每次變更同步 render 一次。在桌機 Chrome 用 `test/perf/server.ts` 量過：串流時 view 每 150 ms 的一批才變一次（10 秒 66 到 67 次），pi-durable 的 watch 已經把同一批的變更併起來，React 的 commit 數和原本用 `setState` 時一樣。
+- 對話黏在底部用 `MutationObserver`（`Chat.tsx` 的 `follow`），不是 `ResizeObserver`。原因有兩個，都量過：`ResizeObserver` 要多包一層內容的 div，舊訊息的 `content-visibility` 佔位高度就從 0 變成 320 px（現在是被 `.transcript` 的 flex 壓成 0），捲動位置和往上捲時一次展開幾則都變了；而且它在排版之後才通知，那時最上面的佔位已經被當成在畫面上、展開過一次，接著一路展開到底。`MutationObserver` 在 commit 之後、排版之前通知，跟原本每次 render 後捲到底的時機一樣。串流中的那一則另外用 `ResizeObserver` 跟（圖片、圖表載入後變高）。
+- `src/app/streaming.tsx` 的串流文字在 rAF 裡同步 render（SyncLane），等 S24 量過再決定要不要改。
