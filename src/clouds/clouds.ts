@@ -1,8 +1,8 @@
 import { AzureTokens, checkAzureCredential } from "./azure.ts";
 import { checkCloudflareCredential, CloudflareTokens } from "./cloudflare.ts";
 import { checkGcloudCredential, GcloudTokens } from "./gcloud.ts";
-import type { MintedService } from "./sandbox/container.ts";
-import { azureService, type CloudService, cloudflareService, googleService } from "./tools/cloud.ts";
+import type { MintedService } from "../agent/sandbox/container.ts";
+import { azureService, type CloudService, cloudflareService, googleService } from "./tool.ts";
 import type { Settings, SettingsStore } from "../settings.ts";
 
 export function connectClouds(settings: Settings, store: SettingsStore): { minted: Record<string, MintedService>; services: CloudService[] } {

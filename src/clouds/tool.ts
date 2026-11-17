@@ -1,8 +1,8 @@
 import { Type } from "typebox";
 import { CapacitorHttp } from "@capacitor/core";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, jsonOrNull, text, truncated } from "./common.ts";
-import { jsonOrText, oneOf } from "../../parse.ts";
+import { defineAppTool, jsonOrNull, text, truncated } from "../agent/tools/common.ts";
+import { jsonOrText, oneOf } from "../parse.ts";
 
 const TIMEOUTS = { connectTimeout: 10_000, readTimeout: 30_000 };
 

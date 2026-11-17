@@ -187,7 +187,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/skills/` | 技能：內建的 `builtin/<name>/SKILL.md`（照 pi coding agent 和 Agent Skills 的格式）、每個 Bot 和使用者一起存的技能（`save_skill`，排程觸發時不能存）、Bot 面板的技能清單 |
 | `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
 | `src/mcp/mcp.ts`、`mcp-catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
-| `src/agent/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |
+| `src/clouds/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`oauth.ts`、`clouds.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token |
 | `src/agent/attachments*.ts` | 附件：PDF、Word、試算表、圖片 |
 | `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
 | `src/agent/workplaces.ts`、`src/agent/sandbox/` | `Workplaces.at(bot)` 回答一個 Bot 在哪裡工作（手機、電腦直接或容器、已移除的電腦），帶著它的執行環境；pi-env 的 frame 協定、檔案與 git |

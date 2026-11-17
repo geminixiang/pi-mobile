@@ -36,7 +36,7 @@ import { BotToolsets } from "./bot-toolsets.ts";
 import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "./bots.ts";
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
-import { connectClouds } from "./clouds.ts";
+import { connectClouds } from "../clouds/clouds.ts";
 import { extensionName, isMcpExtension, McpHub, type McpHooks } from "../mcp/mcp.ts";
 import { BotMemoryDoc, Memories } from "./memory.ts";
 import { BotSkillsDoc, Skills } from "../skills/skills.ts";

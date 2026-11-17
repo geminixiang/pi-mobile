@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
-import { getJson } from "./http.ts";
-import { type AccessToken, cachedToken, type DeviceSignIn, pollDeviceFlow, refreshRotating, startDeviceFlow } from "./oauth.ts";
+import { getJson } from "../agent/http.ts";
+import { type AccessToken, cachedToken, type DeviceSignIn, pollDeviceFlow, refreshRotating, startDeviceFlow } from "../agent/oauth.ts";
 import { type Checked, check, checkJson, parse } from "../parse.ts";
 import { orLogged } from "../promise.ts";
 import { DAY } from "../time.ts";

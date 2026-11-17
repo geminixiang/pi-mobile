@@ -6,7 +6,7 @@ import { DEFAULT_CALENDAR_ACCESS } from "../src/agent/calendar-access.ts";
 import type { PairedHost } from "../src/computer/pairing.ts";
 import type { Sandbox } from "../src/agent/sandbox/sandbox.ts";
 import type { Workplace } from "../src/agent/workplaces.ts";
-import { azureService, cloudflareService, googleService } from "../src/agent/tools/cloud.ts";
+import { azureService, cloudflareService, googleService } from "../src/clouds/tool.ts";
 import { TOOLSETS } from "../src/agent/toolsets.ts";
 import { NATIVE_PLUGINS } from "../src/native.ts";
 import { declarationOf, type Effect } from "../src/agent/tools/common.ts";

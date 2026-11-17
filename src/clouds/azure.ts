@@ -1,6 +1,6 @@
 import { type Static, Type } from "typebox";
-import { getJson } from "./http.ts";
-import { type AccessToken, type DeviceSignIn, jwtPayload, pollDeviceFlow, refreshRotating, startDeviceFlow, cachedToken } from "./oauth.ts";
+import { getJson } from "../agent/http.ts";
+import { type AccessToken, type DeviceSignIn, jwtPayload, pollDeviceFlow, refreshRotating, startDeviceFlow, cachedToken } from "../agent/oauth.ts";
 import { type Checked, checkJson, parse } from "../parse.ts";
 
 const LOGIN = "https://login.microsoftonline.com";

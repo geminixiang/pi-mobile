@@ -13,7 +13,7 @@ import { createAppNotes, createSkillsExtension } from "../skills/skills.ts";
 import { type ActsAsUser, AppsExtension, openScreen } from "./tools/apps.ts";
 import { AttachmentsExtension } from "./tools/attachments.ts";
 import { createCalendarExtension } from "./tools/calendar.ts";
-import { type CloudService, createCloudExtensions } from "./tools/cloud.ts";
+import { type CloudService, createCloudExtensions } from "../clouds/tool.ts";
 import { createControlExtension } from "./tools/control.ts";
 import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "./tools/device.ts";
