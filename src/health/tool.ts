@@ -1,9 +1,9 @@
-import { Health, METRICS } from "../../plugins/health.ts";
+import { Health, METRICS } from "./plugin.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { defineAppTool, text } from "./common.ts";
-import { duration, localTime } from "../../time.ts";
-import { oneOf } from "../../parse.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
+import { duration, localTime } from "../time.ts";
+import { oneOf } from "../parse.ts";
 
 const health = defineAppTool({
 	name: "health",

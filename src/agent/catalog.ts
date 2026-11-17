@@ -18,7 +18,7 @@ import { createControlExtension } from "./tools/control.ts";
 import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "./tools/device.ts";
 import { createGitHubExtension } from "./tools/github.ts";
-import { HealthExtension } from "./tools/health.ts";
+import { HealthExtension } from "../health/tool.ts";
 import { NotificationsExtension } from "./tools/notifications.ts";
 import { createComputerExtension } from "./tools/computer.ts";
 import { createComputerAgentsExtension } from "../computer-agents/tool.ts";
