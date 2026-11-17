@@ -238,6 +238,7 @@ const LAYER_OF: Record<string, Layer> = {
 	"src/computer/": "core",
 	"src/settings.ts": "core",
 	"src/agent/tools/common.ts": "core",
+	"src/agent/clouds.ts": "feature",
 	"src/agent/tools/": "feature",
 	"src/browser/": "feature",
 	"src/computer-agents/": "feature",
@@ -254,10 +255,6 @@ const LAYER_OF: Record<string, Layer> = {
 	"src/workbench/": "shell",
 	"src/main.tsx": "shell",
 };
-// why: the imports that still point from a lower layer up to a higher one; the list only shrinks
-const UPWARD_IMPORTS = new Set<string>([
-	"src/agent/clouds.ts → src/agent/tools/cloud.ts",
-]);
 const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
 
 function layerOf(file: string): Layer | undefined {
@@ -284,14 +281,10 @@ function layerRule(): Finding[] {
 			return [{ file, line: source.slice(0, match.index).split("\n").length, from, to, pair: `${file} → ${target}` }];
 		});
 	});
-	const pairs = new Set(upward.map(({ pair }) => pair));
 	return [
 		...unplaced,
 		...gone,
-		...upward
-			.filter(({ pair }) => !UPWARD_IMPORTS.has(pair))
-			.map(({ file, line, from, to, pair }) => ({ file, line, rule: `${pair}: a ${from} file imports a ${to} file, and imports only go down (base < core < feature < shell): move the shared piece down a layer, or have the shell pass it in` })),
-		...[...UPWARD_IMPORTS].filter((pair) => !pairs.has(pair)).map((pair) => ({ file: "test/code-rules.ts", line: 1, rule: `${pair} no longer goes up: remove it from UPWARD_IMPORTS so the list only shrinks` })),
+		...upward.map(({ file, line, from, to, pair }) => ({ file, line, rule: `${pair}: a ${from} file imports a ${to} file, and imports only go down (base < core < feature < shell): move the shared piece down a layer, or have the shell pass it in` })),
 	];
 }
 
@@ -423,7 +416,7 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
-const AGENTS_WORDS = 2799;
+const AGENTS_WORDS = 2787;
 
 function agentsSizeRule(): Finding[] {
 	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
@@ -644,4 +637,4 @@ if (all.length > 0) {
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer, except the listed ones; every export is used elsewhere");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer (base < core < feature < shell); every export is used elsewhere");

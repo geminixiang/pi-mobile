@@ -100,7 +100,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
 | A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |
 | A feature folder does not import `AgentRuntime`; the files that still do are listed in `RUNTIME_USERS`, which only shrinks | `test/code-rules.ts` |
-| `src/` has four layers (base < core < feature < shell, `LAYER_OF`) and imports only go down; those that still go up are listed in `UPWARD_IMPORTS`, which only shrinks | `test/code-rules.ts` |
+| `src/` has four layers (base < core < feature < shell, `LAYER_OF`) and imports only go down | `test/code-rules.ts` |
 | `src/computer/` (pairing, commands on a computer, the resumable link) never imports `src/agent/sandbox/`: sandbox depends on computer, not the other way | `test/code-rules.ts` |
 | Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |
 | The resume protocol delivers every input and output exactly once and in order or ends with a named failure, and the phone gives up before the computer lets a session go (an exhaustive model, which must also catch the known bugs) | `test/resume-model.ts` |
