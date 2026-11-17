@@ -46,7 +46,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 |---|---|---|
 | 設定 › 模型 | `ProvidersGroup` (`src/app/ProvidersGroup.tsx`) | 供應商、新 Bot 預設的模型、上下文（自動壓縮） |
 | 設定 › 全域記憶 | `MemoryView` (`src/memory/MemoryView.tsx`) | 每個 Bot 都該知道的事 |
-| 設定 › 帳號 | `AccountsPage` (`src/app/Settings.tsx`) | GitHub、Google Cloud、Cloudflare、Azure；Bot 用你的身分登入的帳號 |
+| 設定 › 帳號 | `AccountsPage` (`src/clouds/AccountsPage.tsx`) | GitHub、Google Cloud、Cloudflare、Azure；Bot 用你的身分登入的帳號 |
 | 設定 › 連接的服務 | `McpGroup` (`src/mcp/McpGroup.tsx`) | MCP 服務、加入服務、每個服務給哪些 Bot |
 | 設定 › 電腦 | `HostsGroup` (`src/app/HostsGroup.tsx`) | 配對的電腦、新 Bot 在哪裡跑、Tailscale 上找到的 |
 | 設定 › 瀏覽器 | `SettingsView` (`src/app/Settings.tsx`) | 搜尋引擎 |

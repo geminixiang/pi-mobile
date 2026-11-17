@@ -1,7 +1,7 @@
 import { Row } from "../ui/Row.tsx";
 import { useCallback, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
-import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "../clouds/gcloud.ts";
+import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "./gcloud.ts";
 import { sleep } from "../time.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { copy, pasted } from "../ui/clipboard.ts";
