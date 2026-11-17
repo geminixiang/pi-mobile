@@ -1,13 +1,13 @@
 import { Type } from "typebox";
-import { Phone } from "../../device/phone.ts";
+import { Phone } from "../device/phone.ts";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../../section.ts";
-import { defineAppTool, text } from "./common.ts";
-import { getJson } from "../http.ts";
-import { weekdayOf } from "../../time.ts";
-import { parse } from "../../parse.ts";
-import { currentPlace, resolvePlace } from "../../device/tool.ts";
-import { showWeather } from "../results.ts";
+import { appSection } from "../section.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
+import { getJson } from "../agent/http.ts";
+import { weekdayOf } from "../time.ts";
+import { parse } from "../parse.ts";
+import { currentPlace, resolvePlace } from "../device/tool.ts";
+import { showWeather } from "../agent/results.ts";
 
 const CONDITIONS: Record<number, string> = {
 	0: "晴",

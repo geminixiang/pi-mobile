@@ -30,7 +30,7 @@ import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "../records/tool.ts";
 import { SpeechExtension } from "../speech/tool.ts";
 import { TwStocksExtension } from "./tools/tw-stocks.ts";
-import { WeatherExtension } from "./tools/weather.ts";
+import { WeatherExtension } from "../weather/tool.ts";
 import { createWebExtension } from "./tools/web.ts";
 import type { WebConfig } from "./available-models.ts";
 import { createTriggerExtension, type TriggerHost } from "../triggers/tool.ts";
