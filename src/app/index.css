@@ -1,4 +1,5 @@
 @import "./styles.css" layer(app);
+@import "../memory/memory.css" layer(app);
 @import "../skills/skills.css" layer(app);
 @import "../triggers/triggers.css" layer(app);
 @import "../workbench/workbench.css" layer(app);
