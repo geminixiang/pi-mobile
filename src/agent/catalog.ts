@@ -17,7 +17,7 @@ import { type CloudService, createCloudExtensions } from "../clouds/tool.ts";
 import { createControlExtension } from "../phone-control/tool.ts";
 import { DatabaseExtension } from "./tools/database.ts";
 import { DeviceExtension } from "../device/tool.ts";
-import { createGitHubExtension } from "./tools/github.ts";
+import { createGitHubExtension } from "../github/tool.ts";
 import { HealthExtension } from "../health/tool.ts";
 import { NotificationsExtension } from "../notifications/tool.ts";
 import { createComputerExtension } from "./tools/computer.ts";
