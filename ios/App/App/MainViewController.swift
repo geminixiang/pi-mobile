@@ -1,7 +1,13 @@
 import Capacitor
+import WebKit
 
 @objc protocol EditionPlugins {
     static func plugins() -> [CAPPlugin]
+    @objc optional static func backgroundRunner(_ configuration: WKWebViewConfiguration) -> BackgroundRunner
+}
+
+@objc protocol BackgroundRunner {
+    @MainActor func keepRunning(_ webView: WKWebView)
 }
 
 enum RealTouchOutcome {
@@ -16,6 +22,13 @@ enum RealTouchOutcome {
 
 class MainViewController: CAPBridgeViewController {
     private(set) var realTouch: RealTouch?
+    private(set) var backgroundRunner: BackgroundRunner?
+
+    override open func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
+        let configuration = super.webViewConfiguration(for: instanceConfiguration)
+        backgroundRunner = edition?.backgroundRunner?(configuration)
+        return configuration
+    }
 
     override open func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -33,9 +46,11 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(PhotosPlugin())
         bridge?.registerPluginInstance(AppsPlugin())
         bridge?.registerPluginInstance(BrowserPlugin())
-        // why: the open source edition (ios/OSS) compiles in a PiEdition class with plugins the App Store build leaves out; App.xcodeproj never names it
-        let edition = (NSClassFromString("PiEdition") as? EditionPlugins.Type)?.plugins() ?? []
-        edition.forEach { bridge?.registerPluginInstance($0) }
-        realTouch = edition.lazy.compactMap { $0 as? RealTouch }.first
+        let plugins = edition?.plugins() ?? []
+        plugins.forEach { bridge?.registerPluginInstance($0) }
+        realTouch = plugins.lazy.compactMap { $0 as? RealTouch }.first
     }
 }
+
+// why: the open source edition (ios/OSS) compiles in a PiEdition class with plugins the App Store build leaves out; App.xcodeproj never names it
+private let edition = NSClassFromString("PiEdition") as? EditionPlugins.Type

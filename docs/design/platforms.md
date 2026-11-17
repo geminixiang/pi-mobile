@@ -28,7 +28,7 @@
 | 開外部連結、剪貼簿、震動 | `System` | 可 | 可（沒有震動） | 可（沒有震動） | 可（沒有震動） |
 | 對話存在 IndexedDB、Web Lock | WebView 內建 | 可 | 可 | 可 | 可（WebKitGTK 2.36 以上） |
 | Code mode（QuickJS WASM，跑在 Worker 裡） | WebView 內建 | 可 | 可 | 可 | 部分（WebKitGTK 有 WASM JIT，效能要量） |
-| **背景繼續跑** | `AgentService` 前景服務 | **部分**（只有 iOS 26 的 `BGContinuedProcessingTask`：使用者在前景開始的工作，離開後可以繼續；WebKit 的 process 會不會跟著活著要量） | 可（WKWebView 要設 `inactiveSchedulingPolicy = .none`） | 可（WebView2 不要設 `IsVisible = false`，否則會被節流） | 未查 |
+| **背景繼續跑** | `AgentService` 前景服務 | **部分**（iOS 26 的 `BGContinuedProcessingTask`：使用者在前景開始的工作，離開後可以繼續。iPhone 上 WebKit 照樣暫停網頁，開源版另外讓 pi 的頁面拿通知權限才跑得下去，App Store 版不行；見 research/iphone.md） | 可（WKWebView 要設 `inactiveSchedulingPolicy = .none`） | 可（WebView2 不要設 `IsVisible = false`，否則會被節流） | 未查 |
 
 ## 2. 工具
 
