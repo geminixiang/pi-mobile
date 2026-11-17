@@ -1,13 +1,13 @@
 import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-durable";
 import { McpClient } from "@earendil-works/pi-mcp";
-import { mcpResult } from "../../mcp/mcp.ts";
+import { mcpResult } from "../mcp/mcp.ts";
 import { Type } from "typebox";
-import { hostStdio } from "../../computer/commands.ts";
-import type { PairedHost } from "../../computer/pairing.ts";
-import type { Workplace } from "../workplaces.ts";
-import { defineAppTool } from "./common.ts";
-import { oneOf } from "../../parse.ts";
-import { messageOf, sharedUntilFailure } from "../../promise.ts";
+import { hostStdio } from "../computer/commands.ts";
+import type { PairedHost } from "../computer/pairing.ts";
+import type { Workplace } from "../agent/workplaces.ts";
+import { defineAppTool } from "../agent/tools/common.ts";
+import { oneOf } from "../parse.ts";
+import { messageOf, sharedUntilFailure } from "../promise.ts";
 
 const COMMAND = "pi-mobile mcp computer";
 
