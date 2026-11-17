@@ -1,6 +1,5 @@
 import { type Static, Type } from "typebox";
 import { decode } from "../parse.ts";
-import type { PhoneCalendar } from "../plugins/calendar.ts";
 
 const CalendarAccess = Type.Object({
 	hidden: Type.Array(Type.String()),
@@ -35,8 +34,8 @@ export function accountLabel(calendar: { account: string; accountType: string })
 	return `${calendar.account}（${calendar.accountType}）`;
 }
 
-export function groupByAccount(calendars: PhoneCalendar[]): { key: string; label: string; calendars: PhoneCalendar[] }[] {
-	const groups = new Map<string, { key: string; label: string; calendars: PhoneCalendar[] }>();
+export function groupByAccount<C extends { own: boolean; name: string; account: string; accountType: string }>(calendars: C[]): { key: string; label: string; calendars: C[] }[] {
+	const groups = new Map<string, { key: string; label: string; calendars: C[] }>();
 	for (const calendar of calendars) {
 		if (!calendar.own) continue;
 		const key = accountKey(calendar);

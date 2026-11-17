@@ -1,5 +1,5 @@
 import { native } from "../native.ts";
-import { Calendar } from "../plugins/calendar.ts";
+import { Calendar } from "../calendar/plugin.ts";
 import { Contacts } from "../people/contacts.ts";
 import { Phone } from "../device/phone.ts";
 import { Photos } from "../people/photos.ts";

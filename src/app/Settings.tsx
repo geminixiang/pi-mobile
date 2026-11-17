@@ -16,7 +16,7 @@ import { describeAzure, finishAzureSignIn, startAzureSignIn } from "../clouds/az
 import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "../clouds/cloudflare.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
 import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar-access.ts";
-import { Calendar, type PhoneCalendar } from "../plugins/calendar.ts";
+import { Calendar, type PhoneCalendar } from "../calendar/plugin.ts";
 import { phonePermissions } from "../interaction/phone-permissions.ts";
 import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../agent/runtime.ts";

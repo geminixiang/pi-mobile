@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { CalendarAccess } from "../../src/agent/calendar-access.ts";
-import { type CalendarStore, createCalendarExtension } from "../../src/agent/tools/calendar.ts";
+import { type CalendarStore, createCalendarExtension } from "../../src/calendar/tool.ts";
 import { localTime } from "../../src/time.ts";
-import type { PhoneCalendar, PhoneEvent } from "../../src/plugins/calendar.ts";
+import type { PhoneCalendar, PhoneEvent } from "../../src/calendar/plugin.ts";
 import type { Check } from "./setup.ts";
 
 const GOOGLE = { accountType: "com.google", owner: "", own: true, primary: false };

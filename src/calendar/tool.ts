@@ -1,10 +1,10 @@
-import { Calendar, type PhoneCalendar, type PhoneEvent } from "../../plugins/calendar.ts";
+import { Calendar, type PhoneCalendar, type PhoneEvent } from "./plugin.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { appSection } from "../../section.ts";
-import { accountLabel, type CalendarAccess, canRead, canWrite } from "../calendar-access.ts";
-import { defineAppTool, json, text } from "./common.ts";
-import { DAY, HOUR, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, weekdayOf } from "../../time.ts";
+import { appSection } from "../section.ts";
+import { accountLabel, type CalendarAccess, canRead, canWrite } from "../agent/calendar-access.ts";
+import { defineAppTool, json, text } from "../agent/tools/common.ts";
+import { DAY, HOUR, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, weekdayOf } from "../time.ts";
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
