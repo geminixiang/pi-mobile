@@ -1,7 +1,7 @@
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { Voice } from "../../plugins/voice.ts";
-import { defineAppTool, text } from "./common.ts";
+import { Voice } from "./plugin.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
 
 const MAX_CHARS = 3000;
 

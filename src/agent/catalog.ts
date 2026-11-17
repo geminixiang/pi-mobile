@@ -28,7 +28,7 @@ import { BrowserExtension } from "../browser/tool.ts";
 import { ContactsExtension, PhotosExtension } from "../people/tool.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "../records/tool.ts";
-import { SpeechExtension } from "./tools/speech.ts";
+import { SpeechExtension } from "../speech/tool.ts";
 import { TwStocksExtension } from "./tools/tw-stocks.ts";
 import { WeatherExtension } from "./tools/weather.ts";
 import { createWebExtension } from "./tools/web.ts";

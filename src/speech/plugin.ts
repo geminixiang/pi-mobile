@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 
 const Heard = Type.Object({ text: Type.String() });
 
