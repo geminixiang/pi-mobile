@@ -7,7 +7,7 @@ import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { CLOCK } from "../time.ts";
 import { ChevronIcon } from "../ui/icons.tsx";
-import { callLabel, doing } from "../app/Message.tsx";
+import { callLabel, doing } from "../app/chat/Message.tsx";
 import type { Board, Card, Group } from "./board.ts";
 import { Stage, type StageActions } from "./Stage.tsx";
 import type { Seen } from "./Surface.tsx";

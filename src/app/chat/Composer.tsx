@@ -10,26 +10,26 @@ import {
 	type PreparedAttachment,
 	prepareAttachment,
 	unsupportedFile,
-} from "../attachments/attachments.ts";
-import { codeNote } from "../agent/codes.ts";
-import type { BusyMode, SubmissionId, UserContent } from "../runtime/runtime.ts";
-import { scannedPdf } from "../scanner-plugin.ts";
-import { Scanner } from "../plugins/scanner.ts";
-import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "../ui/icons.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
+} from "../../attachments/attachments.ts";
+import { codeNote } from "../../agent/codes.ts";
+import type { BusyMode, SubmissionId, UserContent } from "../../runtime/runtime.ts";
+import { scannedPdf } from "../../scanner-plugin.ts";
+import { Scanner } from "../../plugins/scanner.ts";
+import { CameraIcon, CloseIcon, FileIcon, MicIcon, PaperclipIcon, ScanIcon, SendIcon, StopIcon } from "../../ui/icons.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
 import { AttachmentChip } from "./Message.tsx";
 import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
-import { JobsStrip } from "../jobs/JobsStrip.tsx";
+import { JobsStrip } from "../../jobs/JobsStrip.tsx";
 import { addToDraft, loadDraftAttachments, receiveDrafts, saveDraftAttachments } from "./drafts.ts";
-import { messageOf, orLogged } from "../promise.ts";
-import { native } from "../native.ts";
-import { BesideContext } from "../ui/beside.ts";
-import { inViewNote } from "../agent/in-view.ts";
-import { RowList } from "../ui/RowList.tsx";
-import { partLabel } from "../workbench/changes.ts";
-import { baseName } from "../mime.ts";
-import { useStore } from "../ui/subscribed.ts";
+import { messageOf, orLogged } from "../../promise.ts";
+import { native } from "../../native.ts";
+import { BesideContext } from "../../ui/beside.ts";
+import { inViewNote } from "../../agent/in-view.ts";
+import { RowList } from "../../ui/RowList.tsx";
+import { partLabel } from "../../workbench/changes.ts";
+import { baseName } from "../../mime.ts";
+import { useStore } from "../../ui/subscribed.ts";
 
 async function toImageContent(file: File): Promise<ImageContent> {
 	const bitmap = await createImageBitmap(file);

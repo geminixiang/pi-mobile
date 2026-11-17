@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { lastStep, stepRuns } from "../../src/app/step-runs.ts";
+import { lastStep, stepRuns } from "../../src/app/chat/step-runs.ts";
 import type { Check } from "./setup.ts";
 
 let id = 0;

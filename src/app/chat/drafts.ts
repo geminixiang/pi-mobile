@@ -1,9 +1,9 @@
 import { type Static, Type } from "typebox";
-import { KINDS } from "../attachments/attachments.ts";
-import { check, oneOf } from "../parse.ts";
-import { idbStore } from "../idb.ts";
-import { log } from "../log.ts";
-import { settled } from "../promise.ts";
+import { KINDS } from "../../attachments/attachments.ts";
+import { check, oneOf } from "../../parse.ts";
+import { idbStore } from "../../idb.ts";
+import { log } from "../../log.ts";
+import { settled } from "../../promise.ts";
 
 const textKey = (conversationId: string) => `pi-mobile.draft:${conversationId}`;
 

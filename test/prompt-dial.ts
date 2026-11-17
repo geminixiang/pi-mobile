@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { type DialState, positionOf, repeatingOf, turned } from "../src/app/dialState.ts";
+import { type DialState, positionOf, repeatingOf, turned } from "../src/app/chat/dialState.ts";
 
 const dial = (slot: number): DialState => ({ px: 0, py: 0, radius: 100, start: 160, step: 12, slots: 5, slot, shift: 0, lineY: 0 });
 assert.equal(repeatingOf(undefined), undefined);

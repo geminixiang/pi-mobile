@@ -2,7 +2,7 @@ import { attachmentOwners, deleteAttachments } from "../attachments/attachments.
 import { phoneFolderOwners, removePhoneFolder } from "../agent/files/phone-env.ts";
 import { log } from "../log.ts";
 import { native } from "../native.ts";
-import { clearDraft, draftOwners } from "./drafts.ts";
+import { clearDraft, draftOwners } from "./chat/drafts.ts";
 import { orLogged } from "../promise.ts";
 
 export async function sweepBotData(current: () => Promise<readonly { id: string; folder: string }[]>): Promise<void> {

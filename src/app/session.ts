@@ -18,8 +18,8 @@ import { Triggers } from "../triggers/plugin.ts";
 import { onResume } from "../ui/resume.ts";
 import { cell, type Source } from "../ui/subscribed.ts";
 import { sweepBotData } from "./bot-data.ts";
-import type { Notice, SharedKind } from "./Chat.tsx";
-import { loadDraftText, offerFiles, saveDraftText } from "./drafts.ts";
+import type { Notice, SharedKind } from "./chat/Chat.tsx";
+import { loadDraftText, offerFiles, saveDraftText } from "./chat/drafts.ts";
 import type { Place } from "./SidePanel.tsx";
 import { openAppStorage } from "./storage.ts";
 

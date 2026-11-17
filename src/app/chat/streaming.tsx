@@ -1,8 +1,8 @@
 import { memo, useCallback, useRef, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 import remend from "remend";
-import { eachFrame } from "../time.ts";
-import { remarkPlugins, streamingMarkdownComponents } from "../ui/markdown.tsx";
+import { eachFrame } from "../../time.ts";
+import { remarkPlugins, streamingMarkdownComponents } from "../../ui/markdown.tsx";
 
 const CATCH_UP_MS = 160;
 

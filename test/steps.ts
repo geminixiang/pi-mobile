@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { preview, stepsLabel } from "../src/app/steps.ts";
+import { preview, stepsLabel } from "../src/app/chat/steps.ts";
 
 const page = ["Tabs (at most 8): 1 GitHub (this one)", "Stopped at step 5 (scroll): Failed to scroll; the steps before it ran. The page now:", "Current Page: [GitHub](https://github.com)", ...Array.from({ length: 400 }, (_, n) => `[${n}]<a>link ${n}</a>`)];
 assert.deepEqual(preview("use_browser", page), { shown: ["第 5 步 scroll 失敗"], hidden: 0 });

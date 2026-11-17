@@ -8,14 +8,14 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 
 | 名稱 | 也會被叫做 | 元件 | 是什麼 |
 |---|---|---|---|
-| 對話 | 聊天、卡片 | `Chat` (`src/app/Chat.tsx`) | 中間那張卡片：一個 Bot 唯一的一條對話 |
+| 對話 | 聊天、卡片 | `Chat` (`src/app/chat/Chat.tsx`) | 中間那張卡片：一個 Bot 唯一的一條對話 |
 | 標題列膠囊 | 上面那條、標題列 | `App` (`src/app/App.tsx`) | 浮在對話上的兩顆膠囊：左邊 Bot（頭像、名字、模型、上下文圈），右邊工具（瀏覽器、資料夾、⋯） |
-| 訊息 | 回答、泡泡 | `EntryView` (`src/app/Message.tsx`) | 對話裡的一則，含工作行（連續的工具呼叫併成一行）和思考過程 |
+| 訊息 | 回答、泡泡 | `EntryView` (`src/app/chat/Message.tsx`) | 對話裡的一則，含工作行（連續的工具呼叫併成一行）和思考過程 |
 | 結果卡 | 天氣卡、網頁卡 | `WeatherCard` (`src/interaction/ResultCards.tsx`)、`PageCard` (`src/interaction/ResultCards.tsx`)、`AlertCard` (`src/interaction/ResultCards.tsx`) | 工具的結果畫成對話裡的卡 |
 | 問題卡 | 選項 | `QuestionCard` (`src/interaction/QuestionCard.tsx`) | Bot 問你、給你選項 |
 | 表單卡 | 確認表單、權限卡 | `FormCard` (`src/interaction/FormCard.tsx`) | 要你填或確認才繼續的表單，第一次用到手機權限時的說明也是 |
-| 輸入框 | composer | `Composer` (`src/app/Composer.tsx`) | 打字、附件、語音、插話或稍後 |
-| 提示詞轉盤 | 轉盤 | `ScrollTab` (`src/app/PromptDial.tsx`) | 從輸入框右邊往上拖，轉出以前說過的話 |
+| 輸入框 | composer | `Composer` (`src/app/chat/Composer.tsx`) | 打字、附件、語音、插話或稍後 |
+| 提示詞轉盤 | 轉盤 | `ScrollTab` (`src/app/chat/PromptDial.tsx`) | 從輸入框右邊往上拖，轉出以前說過的話 |
 | 背景指令條 | 跑中的工作 | `JobsStrip` (`src/jobs/JobsStrip.tsx`) | 電腦上在背景跑的指令，長按看最後幾行 |
 | 背景螢幕預覽 | 小視窗、背景 App | `AgentPreview` (`android/app/src/oss/java/dev/geminixiang/pimobile/AgentPreview.kt`) | 開源版的原生浮窗：即時畫面和目前動作；拖到角落，點畫面接手，× 隱藏但不停止 Bot |
 | 左側欄 | Bot 清單、抽屜、左邊的 | `Drawer` (`src/app/Drawer.tsx`)、`BotList` (`src/app/BotList.tsx`) | 往右滑或按左上的頭像：所有 Bot、＋ 新增 Bot、設定 |

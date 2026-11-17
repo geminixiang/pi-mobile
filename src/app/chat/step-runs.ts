@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
-import { blocks, message, type Block } from "../agent/entries.ts";
-import { isInteraction } from "../interaction/tool.ts";
+import { blocks, message, type Block } from "../../agent/entries.ts";
+import { isInteraction } from "../../interaction/tool.ts";
 
 export type Call = Extract<Block, { type: "toolCall" }>;
 

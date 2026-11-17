@@ -6,7 +6,7 @@ import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { CLOCK } from "../time.ts";
 import { CloseIcon } from "../ui/icons.tsx";
 import { useLoaded, usePolled } from "../ui/loaded.ts";
-import { callLabel, doing } from "../app/Message.tsx";
+import { callLabel, doing } from "../app/chat/Message.tsx";
 import { resolvePath } from "../ui/openFile.ts";
 import { WorkspaceView } from "../app/WorkspaceView.tsx";
 import { Browser } from "../browser/plugin.ts";

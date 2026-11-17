@@ -1,9 +1,9 @@
-import { native } from "../native.ts";
+import { native } from "../../native.ts";
 import { useCallback, useRef } from "react";
-import { Voice } from "../speech/plugin.ts";
-import { messageOf } from "../promise.ts";
-import { useStore } from "../ui/subscribed.ts";
-import { haptic } from "../ui/haptics.ts";
+import { Voice } from "../../speech/plugin.ts";
+import { messageOf } from "../../promise.ts";
+import { useStore } from "../../ui/subscribed.ts";
+import { haptic } from "../../ui/haptics.ts";
 
 type DictationState = "idle" | "starting" | "listening";
 
