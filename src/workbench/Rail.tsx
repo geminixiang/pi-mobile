@@ -1,4 +1,4 @@
-import { BotList, type BotListProps } from "../app/BotList.tsx";
+import { BotList, type BotListProps } from "../app/bots/BotList.tsx";
 import { GearIcon } from "../ui/icons.tsx";
 import { PiMark } from "../ui/PiMark.tsx";
 

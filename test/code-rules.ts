@@ -349,7 +349,7 @@ const LONG_FILES: Record<string, number> = {
 	"src/tw-stocks/tool.ts": 465,
 	"src/app/App.tsx": 562,
 	"src/app/chat/Chat.tsx": 475,
-	"src/app/Links.tsx": 435,
+	"src/app/bots/Links.tsx": 435,
 	"src/app/chat/Message.tsx": 518,
 	"src/app/Settings.tsx": 427,
 	"src/triggers/runs.ts": 529,

@@ -1,9 +1,9 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { useState } from "react";
-import { promised, useSubscribed } from "../ui/subscribed.ts";
-import { type ContextPart, contextParts, type ContextShape, type ToolCost } from "../agent/context-shape.ts";
-import { extensionName } from "../mcp/mcp.ts";
-import type { AgentRuntime } from "../runtime/runtime.ts";
+import { promised, useSubscribed } from "../../ui/subscribed.ts";
+import { type ContextPart, contextParts, type ContextShape, type ToolCost } from "../../agent/context-shape.ts";
+import { extensionName } from "../../mcp/mcp.ts";
+import type { AgentRuntime } from "../../runtime/runtime.ts";
 import { contextPercent, formatTokens, latestCacheHitRate, totalUsage } from "./usage.ts";
 
 const PART_LABEL: Record<ContextPart["kind"], string> = { messages: "對話", prompt: "系統提示", memory: "記憶", tools: "工具", services: "連接的服務" };

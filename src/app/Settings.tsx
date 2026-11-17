@@ -27,7 +27,7 @@ import { MemoryView } from "../memory/MemoryView.tsx";
 import { PiMark } from "../ui/PiMark.tsx";
 import { grouped } from "../triggers/when.ts";
 import { DAY, startOfToday } from "../time.ts";
-import { shortModelName } from "./ModelSheet.tsx";
+import { shortModelName } from "./bots/ModelSheet.tsx";
 import { useLoaded } from "../ui/loaded.ts";
 import { messageOf, orLogged } from "../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";

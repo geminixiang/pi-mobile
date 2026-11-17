@@ -1,8 +1,8 @@
 import { Calendar, FolderOpen, Globe, KeyRound, MessageCircle, Smartphone, Sun, type LucideIcon, Plus } from "lucide-react";
 import { useState } from "react";
-import type { BuiltinId, ToolsetState } from "../agent/toolsets.ts";
-import { ChevronIcon } from "../ui/icons.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
+import type { BuiltinId, ToolsetState } from "../../agent/toolsets.ts";
+import { ChevronIcon } from "../../ui/icons.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
 import { PlainTiles } from "./PlainTiles.tsx";
 
 type Purpose = { name: string; icon: LucideIcon; ids: readonly BuiltinId[]; services?: true; tryIt: readonly string[] };

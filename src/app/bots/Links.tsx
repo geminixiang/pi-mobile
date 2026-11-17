@@ -1,15 +1,15 @@
 import { type ReactNode, useState, useSyncExternalStore } from "react";
-import type { Workplace } from "../agent/workplaces.ts";
-import type { ConnectionStatus } from "../agent/sandbox/phone-connection.ts";
-import type { Sandbox } from "../agent/sandbox/sandbox.ts";
-import { deviceNetwork } from "../net/network.ts";
-import { modelReach, type ReachState } from "../net/reach.ts";
-import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../net/traffic.ts";
+import type { Workplace } from "../../agent/workplaces.ts";
+import type { ConnectionStatus } from "../../agent/sandbox/phone-connection.ts";
+import type { Sandbox } from "../../agent/sandbox/sandbox.ts";
+import { deviceNetwork } from "../../net/network.ts";
+import { modelReach, type ReachState } from "../../net/reach.ts";
+import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../../net/traffic.ts";
 import { BatteryCharging, Bell, Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
-import { useBackground } from "./background.ts";
-import { Sheet } from "../ui/Sheet.tsx";
-import { CLOCK, MINUTE } from "../time.ts";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { useBackground } from "../background.ts";
+import { Sheet } from "../../ui/Sheet.tsx";
+import { CLOCK, MINUTE } from "../../time.ts";
+import { useSubscribed } from "../../ui/subscribed.ts";
 
 type Outage = { since: number; at: number };
 

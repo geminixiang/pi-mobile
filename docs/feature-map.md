@@ -18,19 +18,19 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 提示詞轉盤 | 轉盤 | `ScrollTab` (`src/app/chat/PromptDial.tsx`) | 從輸入框右邊往上拖，轉出以前說過的話 |
 | 背景指令條 | 跑中的工作 | `JobsStrip` (`src/jobs/JobsStrip.tsx`) | 電腦上在背景跑的指令，長按看最後幾行 |
 | 背景螢幕預覽 | 小視窗、背景 App | `AgentPreview` (`android/app/src/oss/java/dev/geminixiang/pimobile/AgentPreview.kt`) | 開源版的原生浮窗：即時畫面和目前動作；拖到角落，點畫面接手，× 隱藏但不停止 Bot |
-| 左側欄 | Bot 清單、抽屜、左邊的 | `Drawer` (`src/app/Drawer.tsx`)、`BotList` (`src/app/BotList.tsx`) | 往右滑或按左上的頭像：所有 Bot、＋ 新增 Bot、設定 |
-| 右側欄 | Bot 面板、右邊的、⋯ | `BotPanel` (`src/app/BotPanel.tsx`) | 往左滑或按 ⋯：這個 Bot 的一切，由上而下是下面幾項 |
-| 連線圖 | 連線、模型 ← pi → 電腦 | `LinksSection` (`src/app/Links.tsx`) | 右側欄最上面：這個 Bot 在哪裡跑、接著什麼，線上只在真的有位元組時流動 |
-| 能做什麼 | 工具、toolsets | `Abilities` (`src/app/Abilities.tsx`) | 依用途分組的工具，點一組拉起它的工具方塊 |
-| 上下文 | context、用量 | `ContextCard` (`src/app/ContextCard.tsx`) | 上下文各部分的用量，底下是「壓縮　新的上下文」 |
+| 左側欄 | Bot 清單、抽屜、左邊的 | `Drawer` (`src/app/Drawer.tsx`)、`BotList` (`src/app/bots/BotList.tsx`) | 往右滑或按左上的頭像：所有 Bot、＋ 新增 Bot、設定 |
+| 右側欄 | Bot 面板、右邊的、⋯ | `BotPanel` (`src/app/bots/BotPanel.tsx`) | 往左滑或按 ⋯：這個 Bot 的一切，由上而下是下面幾項 |
+| 連線圖 | 連線、模型 ← pi → 電腦 | `LinksSection` (`src/app/bots/Links.tsx`) | 右側欄最上面：這個 Bot 在哪裡跑、接著什麼，線上只在真的有位元組時流動 |
+| 能做什麼 | 工具、toolsets | `Abilities` (`src/app/bots/Abilities.tsx`) | 依用途分組的工具，點一組拉起它的工具方塊 |
+| 上下文 | context、用量 | `ContextCard` (`src/app/bots/ContextCard.tsx`) | 上下文各部分的用量，底下是「壓縮　新的上下文」 |
 | 自動化 | 排程、觸發 | `TriggerList` (`src/triggers/TriggerList.tsx`) | 這個 Bot 的自動化；設定裡的「自動化」列出全部 |
 | 記憶 | MEMORY.md | `MemoryView` (`src/memory/MemoryView.tsx`) | Bot 的記憶，從右側欄往右推進來的整頁；設定裡的「全域記憶」是同一個元件 |
 | 技能 | skills | `SkillsSheet` (`src/skills/SkillsSheet.tsx`) | 右側欄「其他 › 技能」拉起的清單：這個 Bot 和使用者一起存的技能，點一個看全文、可以刪除 |
-| 模型 | 模型選單、思考強度 | `ModelSheet` (`src/app/ModelSheet.tsx`) | 按膠囊上的名字，或連線圖上的模型：依供應商分組的模型和思考強度 |
-| 手機 | 這支手機 | `PhoneSheet` (`src/app/Links.tsx`) | 按連線圖上的 pi：這支手機上能用什麼 |
-| 電腦 | 在哪裡跑 | `LinkSheets` (`src/app/BotPanel.tsx`)、`HostRow` (`src/app/Links.tsx`) | 按連線圖上的電腦：現在的電腦，和「在哪裡跑」的選擇（手機或哪台電腦） |
+| 模型 | 模型選單、思考強度 | `ModelSheet` (`src/app/bots/ModelSheet.tsx`) | 按膠囊上的名字，或連線圖上的模型：依供應商分組的模型和思考強度 |
+| 手機 | 這支手機 | `PhoneSheet` (`src/app/bots/Links.tsx`) | 按連線圖上的 pi：這支手機上能用什麼 |
+| 電腦 | 在哪裡跑 | `LinkSheets` (`src/app/bots/BotPanel.tsx`)、`HostRow` (`src/app/bots/Links.tsx`) | 按連線圖上的電腦：現在的電腦，和「在哪裡跑」的選擇（手機或哪台電腦） |
 | 準備容器 | 建 image 中 | `PrepareStatus` (`src/app/HostsGroup.tsx`) | 換到電腦的容器時，第一次建 image 的進度 |
-| Bot 詳情 | 編輯 Bot、改名 | `BotSheet` (`src/app/BotSheet.tsx`) | 名字、工作、頭像、記憶、刪除 |
+| Bot 詳情 | 編輯 Bot、改名 | `BotSheet` (`src/app/bots/BotSheet.tsx`) | 名字、工作、頭像、記憶、刪除 |
 | 事項 | 待辦 | `ItemSheet` (`src/items/ItemSheet.tsx`) | 從通知或小工具點進來的一件事項 |
 | 交給哪個 Bot | 分享 | `App` (`src/app/App.tsx`) | 從別的 App 分享給 pi、又有好幾個 Bot 時問你交給誰 |
 | 瀏覽器 | 瀏覽器面板 | `BrowserSheet` (`src/browser/BrowserSheet.tsx`)、`BrowserButton` (`src/browser/BrowserButton.tsx`) | 從標題列往下拉的面板；Bot 用它時地球亮一個點，要你接手時才自己打開 |
@@ -71,4 +71,4 @@ iPad 和展開的折疊機（`layoutAt`，DESIGN.md〈大螢幕：工作台〉�
 
 ## 共用的骨架
 
-不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/ui/Sheet.tsx`)（底部抽屜）、`RowList` (`src/ui/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/agent/BotAvatar.tsx`)、`PiMark` (`src/ui/PiMark.tsx`)、`ModelLine` (`src/app/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。
+不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/ui/Sheet.tsx`)（底部抽屜）、`RowList` (`src/ui/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/bots/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/agent/BotAvatar.tsx`)、`PiMark` (`src/ui/PiMark.tsx`)、`ModelLine` (`src/app/bots/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { GearIcon } from "../ui/icons.tsx";
-import { BotList, type BotListProps } from "./BotList.tsx";
+import { BotList, type BotListProps } from "./bots/BotList.tsx";
 import { PiMark } from "../ui/PiMark.tsx";
 import type { Source } from "../ui/subscribed.ts";
 import { type Place, type SidePage, SidePanel } from "./SidePanel.tsx";

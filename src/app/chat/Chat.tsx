@@ -27,7 +27,7 @@ import { type Interaction, InteractionContext } from "../../interaction/context.
 import type { Forms } from "../../agent/forms.ts";
 import { pageCards } from "../../interaction/pages.ts";
 import type { ResultCard } from "../../agent/results.ts";
-import { ReachNote, useReach } from "../Links.tsx";
+import { ReachNote, useReach } from "../bots/Links.tsx";
 import { RowList } from "../../ui/RowList.tsx";
 import { answerOf, withoutReplies } from "../../interaction/replies.ts";
 import { pad } from "../../time.ts";

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../agent/bots.ts";
-import { MemoryIcon, TrashIcon } from "../ui/icons.tsx";
-import { RowList } from "../ui/RowList.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
+import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../../agent/bots.ts";
+import { MemoryIcon, TrashIcon } from "../../ui/icons.tsx";
+import { RowList } from "../../ui/RowList.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
 
 export type BotEdit = { kind: "create" } | { kind: "edit"; bot: Bot };
 

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import type { ModelInfo } from "../agent/models.ts";
-import { CheckIcon, SearchIcon } from "../ui/icons.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
-import { Segmented } from "../ui/Segmented.tsx";
+import type { ModelInfo } from "../../agent/models.ts";
+import { CheckIcon, SearchIcon } from "../../ui/icons.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
+import { Segmented } from "../../ui/Segmented.tsx";
 import { formatTokens } from "./usage.ts";
 import { ProviderRow } from "./Links.tsx";
 

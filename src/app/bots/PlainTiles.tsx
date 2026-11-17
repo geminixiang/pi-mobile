@@ -25,8 +25,8 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { type BuiltinId, isBuiltinId, type ToolsetState } from "../agent/toolsets.ts";
-import { AzureMark, CloudflareMark, GitHubMark, GoogleCloudMark } from "../ui/icons.tsx";
+import { type BuiltinId, isBuiltinId, type ToolsetState } from "../../agent/toolsets.ts";
+import { AzureMark, CloudflareMark, GitHubMark, GoogleCloudMark } from "../../ui/icons.tsx";
 
 const line = (Icon: LucideIcon) => <Icon size={22} strokeWidth={1.8} aria-hidden="true" />;
 const brand = (mark: ReactNode) => <span className="tool-mark">{mark}</span>;
