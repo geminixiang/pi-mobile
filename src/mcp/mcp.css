@@ -1,0 +1,29 @@
+.catalog input, .sheet-form input {
+	width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line); background: var(--bg-deep); outline: none; border-radius: 0;
+	font-family: var(--mono); font-size: var(--fs-body);
+}
+.catalog input:focus, .sheet-form input:focus { border-color: var(--accent); }
+.list { --list-inset: var(--space); display: flex; flex-direction: column; margin: -12px calc(-1 * var(--space)) 0; }
+.list-row { display: flex; align-items: center; }
+.list-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 8px 12px var(--list-start, var(--list-inset)); text-align: left; }
+.list-meta { flex-shrink: 0; padding-right: var(--list-inset); font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
+.list-row.idle > * { opacity: 0.5; }
+.faces { display: flex; align-items: center; flex-shrink: 0; padding-right: 8px; }
+.faces > .bot-avatar + .bot-avatar { margin-left: -6px; }
+.faces > .bot-avatar { outline: 2px solid var(--bg); }
+.faces-more { margin-left: 6px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
+.service-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 6px; padding: 8px var(--list-inset) 4px; }
+.service-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.service-cell > .logo, .service-cell > .tile { width: 48px; height: 48px; }
+.service-cell > .logo > svg { width: 28px; height: 28px; }
+.service-cell > span:last-child { max-width: 100%; font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.service-cell.failed > span:last-child { color: var(--error); }
+.service-cell[data-pressed] { opacity: 0.6; }
+.service { display: flex; flex-direction: column; gap: 8px; }
+.service .list-sub { white-space: normal; }
+.service > .btn { align-self: flex-start; margin-top: 8px; }
+.service-url { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); overflow-wrap: anywhere; }
+.service-remove { margin: 16px calc(-1 * var(--space)) 0; padding: 16px var(--space) 0; border-top: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-small); color: var(--error); text-align: left; }
+.catalog { --list-inset: 16px; display: flex; flex-direction: column; gap: 8px; margin: -16px -16px 0; }
+.catalog > .manual { padding-bottom: 16px; }
+.catalog > .manual > .btn { margin: 16px 16px 0; }
