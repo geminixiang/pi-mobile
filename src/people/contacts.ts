@@ -1,5 +1,5 @@
 import { type Static, Type } from "typebox";
-import { definePlugin } from "./define.ts";
+import { definePlugin } from "../plugins/define.ts";
 
 const Contact = Type.Object({
 	name: Type.String(),

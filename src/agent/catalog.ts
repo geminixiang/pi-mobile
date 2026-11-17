@@ -25,7 +25,7 @@ import { createComputerAgentsExtension } from "../computer-agents/tool.ts";
 import { createItemsExtension } from "../items/tool.ts";
 import { PhoneScreenExtension } from "../phone-screen/tool.ts";
 import { BrowserExtension } from "../browser/tool.ts";
-import { ContactsExtension, PhotosExtension } from "./tools/people.ts";
+import { ContactsExtension, PhotosExtension } from "../people/tool.ts";
 import { PlacesExtension } from "./tools/places.ts";
 import { RecordsExtension, ScreenTimeExtension } from "./tools/records.ts";
 import { SpeechExtension } from "./tools/speech.ts";

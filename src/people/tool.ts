@@ -1,12 +1,12 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
-import { codeNote } from "../codes.ts";
-import { defineAppTool, text } from "./common.ts";
-import { DAY, localTime, parseLocalBound, startOfToday } from "../../time.ts";
-import { metersBetween, resolvePlace } from "./device.ts";
-import { type Contact, Contacts } from "../../plugins/contacts.ts";
-import { Photos } from "../../plugins/photos.ts";
+import { codeNote } from "../agent/codes.ts";
+import { defineAppTool, text } from "../agent/tools/common.ts";
+import { DAY, localTime, parseLocalBound, startOfToday } from "../time.ts";
+import { metersBetween, resolvePlace } from "../agent/tools/device.ts";
+import { type Contact, Contacts } from "./contacts.ts";
+import { Photos } from "./photos.ts";
 
 function daysUntil(birthday: string): number | undefined {
 	const match = /(\d{2})-(\d{2})$/.exec(birthday);
