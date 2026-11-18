@@ -14,13 +14,18 @@ export const checks: Check[] = [
 	[
 		"a skill the user asked to keep is saved for that bot only, listed in its panel, and read back with read_skill",
 		async () => {
-			const { runtime } = await openRuntime();
+			const { runtime, storage } = await openRuntime();
 			try {
 				const [bot] = await runtime.bots();
 				assert(bot, "the default bot exists");
 				const other = await runtime.createBot({ name: "other", job: "", avatar: "helper" });
+				const panel: (readonly unknown[])[] = [];
+				const stop = runtime.skills.subscribe(bot.id, (skills) => void panel.push(skills));
 				await turn(runtime, bot.id, save(WEEKLY), "以後週報都這樣寫");
+				stop();
 				assert.deepEqual(await runtime.skills.of(bot.id), [WEEKLY]);
+				assert.deepEqual((await toolResults(storage, bot.id)).find((result) => result.name === "save_skill")?.isError, false, "save_skill reports the save it made");
+				assert.ok(panel.some((skills) => skills.length === 1), "the open panel hears about the new skill");
 				assert.deepEqual(await runtime.skills.of(other), [], "another bot does not get it");
 				let prompt = "";
 				await turn(runtime, bot.id, [

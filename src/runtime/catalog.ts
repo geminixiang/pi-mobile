@@ -105,7 +105,7 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		RecordsExtension,
 		ScreenTimeExtension,
 		HealthExtension,
-		createSkillsExtension({ changed: deps.skills.changed, unattended: deps.triggers.unattended }),
+		createSkillsExtension({ changed: () => deps.skills.changed(), unattended: deps.triggers.unattended }),
 		AttachmentsExtension,
 		createCalendarExtension(deps.calendarAccess),
 		createPhoneCodemode(deps.labelOf),

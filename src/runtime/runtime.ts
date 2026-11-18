@@ -109,6 +109,14 @@ function userSpoke(bot: Bot, at: number): void {
 
 type Applied = "in_place" | "needs_restart";
 
+const builtOn = <T,>(harness: Harness, build: () => T): Promise<T> =>
+	Promise.resolve()
+		.then(build)
+		.catch(async (error: unknown) => {
+			await orLogged(harness.close(context), "runtime.close_failed", undefined);
+			throw error;
+		});
+
 type Options = {
 	onReport?: (message: string) => void;
 	notify?: (title: string, text: string, conversationId: ConversationId, bot: { name: string; avatar: string } | undefined) => Promise<Notified>;
@@ -123,7 +131,6 @@ type Parts = {
 	infos: ModelInfo[];
 	workplaces: Workplaces;
 	placed: Map<string, Placed>;
-	shapes: Map<string, ContextShape>;
 	judge: Judge;
 	web: WebConfig;
 	clouds: readonly CloudService[];
@@ -136,7 +143,7 @@ export class AgentRuntime {
 	readonly #current: { settings: Settings };
 	readonly workplaces: Workplaces;
 	readonly #placed: Map<string, Placed>;
-	readonly #shapes: Map<string, ContextShape>;
+	readonly #shapes = new Map<string, ContextShape>();
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	readonly #installed: () => ReadonlySet<string>;
 	readonly #owners: ReadonlyMap<string, Groups>;
@@ -158,7 +165,6 @@ export class AgentRuntime {
 		this.#infos = parts.infos;
 		this.workplaces = workplaces;
 		this.#placed = parts.placed;
-		this.#shapes = parts.shapes;
 		this.memories = new Memories(harness);
 		this.skills = new Skills(harness);
 		this.triggers = new TriggerRuns(
@@ -190,7 +196,7 @@ export class AgentRuntime {
 		const settings = parts.current.settings;
 		const catalog = builtinExtensions({
 			platform,
-			assistant: createAssistant(platform.inApp, (id, shape) => void parts.shapes.set(id, shape)),
+			assistant: createAssistant(platform.inApp, (id, shape) => void this.#shapes.set(id, shape)),
 			calendarAccess: settings.calendarAccess,
 			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
 			clouds: parts.clouds,
@@ -206,7 +212,6 @@ export class AgentRuntime {
 			labelOf: (tool, extension, id) => labelOf(tool, extension, at(id)?.kind ?? "missing", catalog.owners, this.mcp),
 		});
 		for (const extension of catalog.extensions) registry.install(extension);
-		const builtinTools: ReadonlySet<string> = new Set(catalog.owners.keys());
 		this.#owners = catalog.owners;
 		this.#installed = () => new Set(registry.snapshot().installed().map((extension) => extension.name));
 		this.#botToolsets = new BotToolsets(harness, catalog.owners, platform.native, (id) => this.workplaces.at(String(id))?.kind ?? "missing");
@@ -216,7 +221,7 @@ export class AgentRuntime {
 			revoke: (extension) => this.#revoke(extension),
 			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
 			hostKey: (address) => pairedHosts(this.settings).find((host) => host.address === address)?.key ?? "",
-			builtinTools: () => builtinTools,
+			builtinTools: () => new Set(catalog.owners.keys()),
 			ask,
 		});
 	}
@@ -256,7 +261,6 @@ export class AgentRuntime {
 		const current = { settings };
 		const { models, infos, webSearch } = await platform.models(settings, () => current.settings.compactAt, options.onReport);
 		const registry = createRegistry();
-		const shapes = new Map<string, ContextShape>();
 		const placed = new Map<string, Placed>();
 		const clouds = connectClouds(settings, platform.settings);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
@@ -282,7 +286,7 @@ export class AgentRuntime {
 			},
 			context,
 		);
-		const runtime = new AgentRuntime({ harness, registry, current, platform, infos, workplaces, placed, shapes, judge: createJudge(models), web: webSearch, clouds: clouds.services, options });
+		const runtime = await builtOn(harness, () => new AgentRuntime({ harness, registry, current, platform, infos, workplaces, placed, judge: createJudge(models), web: webSearch, clouds: clouds.services, options }));
 		runtime.mcp.connectUncached();
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();

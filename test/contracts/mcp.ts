@@ -15,6 +15,30 @@ const json = (body: unknown, status = 200) => () => new Response(JSON.stringify(
 
 export const checks: Check[] = [
 	[
+		"a runtime that fails to open closes what it opened, and the failure reaches the caller",
+		async () => {
+			resetMcp();
+			const url = "https://offline.invalid/mcp";
+			platform.plain.set("pi-mobile.mcp-servers", JSON.stringify([{ id: "probe", name: "Probe", url }]));
+			platform.plain.set(`pi-mobile.mcp:probe:${url}`, JSON.stringify({ tools: ["same", "same"].map((name) => ({ name, inputSchema: { type: "object", properties: {} } })) }));
+			const closed: string[] = [];
+			const storage = new Proxy(new MemoryStorage(), {
+				get(target, key) {
+					const value: unknown = Reflect.get(target, key, target);
+					if (key === "close" && typeof value === "function") return (...args: unknown[]) => (closed.push("storage"), Reflect.apply(value, target, args));
+					return typeof value === "function" ? value.bind(target) : value;
+				},
+			});
+			try {
+				await assert.rejects(AgentRuntime.open(storage, settings, platform), /two tools named/);
+				assert.deepEqual(closed, ["storage"], "the storage it opened is closed again");
+			} finally {
+				platform.plain.remove("pi-mobile.mcp-servers");
+				platform.plain.remove(`pi-mobile.mcp:probe:${url}`);
+			}
+		},
+	],
+	[
 		"signing in to a service behind Cloudflare Access reads the resource metadata its 401 names, not the well-known path that redirects to a login page",
 		async () => {
 			resetMcp();
