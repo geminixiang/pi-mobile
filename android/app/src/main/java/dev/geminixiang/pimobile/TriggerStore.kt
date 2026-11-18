@@ -24,6 +24,7 @@ private const val KEY_SCHEDULES = "schedules"
 private const val KEY_EVENTS = "events"
 private const val KEY_LAST = "last."
 private const val KEY_BEFORE = "before."
+private const val KEY_HANDLED = "handled."
 private const val HOUR_MS = 60 * 60 * 1000L
 
 object TriggerStore {
@@ -53,8 +54,14 @@ object TriggerStore {
     @Synchronized
     internal fun replace(context: Context, next: JSONArray): JSObject {
         val kept = next.objects().map { it.getString("id") }.toSet()
-        for (old in schedules(context)) if (old.id !in kept) cancelAlarm(context, old.id)
+        val before = schedules(context)
+        for (old in before) if (old.id !in kept) cancelAlarm(context, old.id)
         prefs(context).edit().putString(KEY_SCHEDULES, next.toString()).apply()
+        val editor = prefs(context).edit()
+        for (old in before) if (old.id !in kept) editor.remove(KEY_HANDLED + old.id)
+        val now = System.currentTimeMillis()
+        for (schedule in schedules(context)) if (before.firstOrNull { it.id == schedule.id }?.trigger != schedule.trigger) editor.putLong(KEY_HANDLED + schedule.id, now)
+        editor.apply()
         ReportsWidget.refreshAll(context)
         return armAll(context)
     }
@@ -62,9 +69,12 @@ object TriggerStore {
     @Synchronized
     internal fun remove(context: Context, id: String) {
         val kept = stored(context, KEY_SCHEDULES).objects().filter { it.getString("id") != id }
-        prefs(context).edit().putString(KEY_SCHEDULES, JSONArray(kept).toString()).apply()
+        prefs(context).edit().putString(KEY_SCHEDULES, JSONArray(kept).toString()).remove(KEY_HANDLED + id).apply()
         cancelAlarm(context, id)
     }
+
+    @Synchronized
+    internal fun handled(context: Context, id: String, due: Long) = prefs(context).edit().putLong(KEY_HANDLED + id, due).apply()
 
     @JvmStatic
     @Synchronized
@@ -77,7 +87,10 @@ object TriggerStore {
     }
 
     internal fun arm(context: Context, schedule: Schedule): Long? {
-        val at = schedule.trigger.nextTime(ZonedDateTime.now())
+        val now = ZonedDateTime.now()
+        val prefs = prefs(context)
+        val handled = prefs.getLong(KEY_HANDLED + schedule.id, -1L).takeIf { it >= 0 } ?: now.toInstant().toEpochMilli().also { prefs.edit().putLong(KEY_HANDLED + schedule.id, it).apply() }
+        val at = schedule.trigger.nextTime(now, handled)
         if (at == null) {
             cancelAlarm(context, schedule.id)
             return null

@@ -9,6 +9,7 @@ import android.location.LocationManager
 import android.provider.Settings
 import android.util.Log
 import com.getcapacitor.JSObject
+import java.time.ZonedDateTime
 import java.util.Locale
 import java.util.TimeZone
 
@@ -88,6 +89,10 @@ class TriggerReceiver : BroadcastReceiver() {
             val quiet = live == null && startQuietly(context, schedule.name)
             val event = JSObject().put("kind", "alarm").put("trigger", schedule.id).put("live", live != null || quiet)
             if (detail != null) event.put("device", detail)
+            schedule.trigger.firedTime(ZonedDateTime.now())?.let {
+                event.put("due", it)
+                TriggerStore.handled(context, schedule.id, it)
+            }
             TriggerStore.enqueue(context, event)
             when (schedule.trigger) {
                 is When.Once -> TriggerStore.remove(context, schedule.id)

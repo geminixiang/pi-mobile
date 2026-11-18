@@ -6,6 +6,7 @@ import org.json.JSONObject
 
 private const val MISSED_GRACE_MS = 6 * 60 * 60 * 1000L
 private const val LATE_FIRE_MS = 5_000L
+private const val EARLY_FIRE_S = 60L
 
 internal data class Schedule(val id: String, val name: String, val avatar: String?, val conversation: String?, val trigger: When) {
     companion object {
@@ -80,18 +81,30 @@ internal sealed interface When {
     }
 }
 
-internal fun When.nextTime(now: ZonedDateTime): Long? {
+internal fun When.nextTime(now: ZonedDateTime, handled: Long): Long? {
     val nowMs = now.toInstant().toEpochMilli()
     return when (this) {
         is When.Once -> if (at > nowMs) at else if (at > nowMs - MISSED_GRACE_MS) nowMs + LATE_FIRE_MS else null
-        is When.Daily ->
-            generateSequence(now.with(time).withSecond(0).withNano(0)) { it.plusDays(1).with(time) }
-                .take(8)
-                .firstOrNull { it.toInstant().toEpochMilli() > nowMs && (days.isEmpty() || it.dayOfWeek.value in days) }
-                ?.toInstant()
-                ?.toEpochMilli()
+        is When.Daily -> if ((dueTime(now) ?: 0L) > handled) nowMs + LATE_FIRE_MS else occurrences(now.with(time).withSecond(0).withNano(0), 1).firstOrNull { it > nowMs }
         is When.Event -> null
     }
 }
+
+internal fun When.dueTime(now: ZonedDateTime): Long? {
+    val nowMs = now.toInstant().toEpochMilli()
+    return when (this) {
+        is When.Once -> at
+        is When.Daily -> occurrences(now.with(time).withSecond(0).withNano(0).plusDays(1), -1).firstOrNull { it <= nowMs }
+        is When.Event -> null
+    }
+}
+
+internal fun When.firedTime(now: ZonedDateTime): Long? = dueTime(now.plusSeconds(EARLY_FIRE_S))
+
+private fun When.Daily.occurrences(from: ZonedDateTime, step: Long): Sequence<Long> =
+    generateSequence(from) { it.plusDays(step).with(time) }
+        .take(9)
+        .filter { days.isEmpty() || it.dayOfWeek.value in days }
+        .map { it.toInstant().toEpochMilli() }
 
 internal fun JSONObject.stringOrNull(field: String): String? = if (has(field) && !isNull(field)) getString(field).takeIf { it.isNotEmpty() } else null

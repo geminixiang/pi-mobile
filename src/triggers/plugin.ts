@@ -47,6 +47,7 @@ export const QueuedEvent = Type.Union([
 		trigger: Type.String(),
 		live: Type.Boolean(),
 		device: Type.Optional(Type.String()),
+		due: Type.Optional(Type.Number()),
 	}),
 	Type.Object({
 		id: Type.String(),

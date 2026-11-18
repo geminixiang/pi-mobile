@@ -15,7 +15,7 @@ import type { Judge } from "../agent/judge.ts";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId, screen, screeningQuestions } from "../agent/guards.ts";
 import { log } from "../log.ts";
 import { Triggers, When } from "./plugin.ts";
-import { isEvent } from "./when.ts";
+import { isEvent, lateNote } from "./when.ts";
 import { agenda, type Item, ITEM_TRIGGER, ItemDoc, itemTrigger, REPLY_TRIGGER, replyTrigger, schedulesOf } from "../items/items.ts";
 import type { Status } from "../computer-agents/workers.ts";
 
@@ -279,7 +279,7 @@ export class TriggerRuns {
 		return this.#edit((items) => items.filter((item) => item.id !== id));
 	}
 
-	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string } = {}): Promise<ConversationId | undefined> {
+	async run(id: string, delivery: Delivery, delivered: { device?: string; event?: string; due?: number } = {}): Promise<ConversationId | undefined> {
 		if (id.startsWith(ITEM_TRIGGER)) return this.#runItem(id.slice(ITEM_TRIGGER.length), delivery, delivered.event, { kind: "due" });
 		if (id.startsWith(REPLY_TRIGGER)) return this.#runItem(id.slice(REPLY_TRIGGER.length), delivery, delivered.event, { kind: "reply", heard: delivered.device ?? "a notification" });
 		const request = delivered.event ? `trigger:${delivered.event}` : undefined;
@@ -307,7 +307,7 @@ export class TriggerRuns {
 			screening: heard && (guards.length > 0 || trigger.onlyIf) ? { guards, onlyIf: trigger.onlyIf, automation: trigger.name, purpose: trigger.prompt, event: heard } : undefined,
 			label: (judgement) => {
 				const scheduled = heard ? `schedule "${trigger.name}": ${trigger.when.kind === "headphones" ? `headphones connected (${heard})` : heard}${judgement}` : `schedule "${trigger.name}"`;
-				return trigger.kind === "watch" ? watched(trigger.agent, agent ?? "unknown", waited) : trigger.kind === "followup" ? "follow-up you scheduled" : scheduled;
+				return trigger.kind === "watch" ? watched(trigger.agent, agent ?? "unknown", waited) : `${trigger.kind === "followup" ? "follow-up you scheduled" : scheduled}${lateNote(delivered.due, checkedAt)}`;
 			},
 			prompt: trigger.prompt,
 			entry: { trigger: id, name: trigger.name, prompt: trigger.prompt, kind: trigger.kind, delivery, on: trigger.when.kind, ...activity, ...(heard ? { device: heard } : {}) },

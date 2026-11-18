@@ -1,4 +1,4 @@
-import { DAY, pad, soonest } from "../time.ts";
+import { DAY, localTime, MINUTE, pad, soonest } from "../time.ts";
 import type { ACTIVITIES, When } from "./plugin.ts";
 import type { Trigger } from "./runs.ts";
 
@@ -31,6 +31,11 @@ const KINDS: Record<When["kind"], true> = {
 const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 
 type EventWhen = Exclude<When, { kind: "once" | "daily" }>;
+
+const LATE_AFTER = 5 * MINUTE;
+
+export const lateNote = (due: number | undefined, ran: number): string =>
+	due !== undefined && ran - due > LATE_AFTER ? ` (due ${localTime(due)}; the phone was off or pi was stopped then, so it runs late)` : "";
 
 export const isEvent = (when: When): when is EventWhen => when.kind !== "once" && when.kind !== "daily";
 

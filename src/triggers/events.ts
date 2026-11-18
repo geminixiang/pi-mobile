@@ -67,7 +67,7 @@ export function processTriggerEvents(
 	if (!native.implements(Triggers.events)) return () => undefined;
 	const handle = async (event: QueuedEvent) => {
 		if (event.kind !== "alarm") return handlers.onShare(event);
-		const conversation = await runs.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}) });
+		const conversation = await runs.run(event.trigger, event.live ? "live" : "later", { event: event.id, ...(event.device ? { device: event.device } : {}), ...(event.due ? { due: event.due } : {}) });
 		log.info("trigger.run", { id: event.id, trigger: event.trigger, live: event.live, delayMs: Date.now() - event.at, conversation: conversation ?? "none" });
 		await Triggers.started({ trigger: event.trigger });
 		if (!event.live && conversation) handlers.onOpened(conversation);

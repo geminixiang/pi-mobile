@@ -9,7 +9,7 @@ import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents, latestAlarms } from "../../src/triggers/events.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
-import { DAY, localDate, sleep } from "../../src/time.ts";
+import { DAY, localDate, localTime, sleep } from "../../src/time.ts";
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -88,6 +88,7 @@ async function triggerFixture(
 		doc: async () => (await harness.snapshot(TriggerDoc, context)) ?? { items: [], runs: [] },
 		items: async () => (await harness.snapshot(ItemDoc, context))?.items ?? [],
 		delivered: () => entriesOf(storage, conversation.id, TRIGGER_ENTRY),
+		told: async () => (await storage.scanEntries({ conversationId: conversation.id }, 200, undefined, context)).items.filter((entry) => entry.kind === TRIGGER_ENTRY).map((entry) => JSON.stringify(entry)),
 		notices: () => entriesOf(storage, conversation.id, TRIGGER_NOTICE),
 		refuse: (value: boolean) => (refuse = value),
 		close: () => harness.close(context),
@@ -539,6 +540,23 @@ export const checks: Check[] = [
 					["trigger.dropped", "stale"],
 				],
 			);
+		},
+	],
+	[
+		"a schedule that runs late tells its bot when it was due, and one on time does not",
+		async () => {
+			const fixture = await triggerFixture({ kind: "daily", time: "08:20", days: [] });
+			await withTrigger(fixture, async () => {
+				const due = Date.now() - 70 * 60_000;
+				await fixture.runs.run("t1", "live", { event: "late", due });
+				await fixture.runs.run("t1", "live", { event: "on-time", due: Date.now() - 2000 });
+				const told = await fixture.told();
+				const late = told.find((text) => text.includes("runs late"));
+				const onTime = told.find((text) => !text.includes("runs late"));
+				assert.equal(told.length, 2);
+				assert.ok(late?.includes(`due ${localTime(due)}`), String(late));
+				assert.ok(onTime, "the run on time says nothing about being late");
+			});
 		},
 	],
 	[
