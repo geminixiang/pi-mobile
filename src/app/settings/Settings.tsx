@@ -33,6 +33,7 @@ import { messageOf, orLogged } from "../../promise.ts";
 import { checkForUpdate, installUpdate, type Update } from "./update.ts";
 import type { Prefs } from "../prefs.ts";
 import { useBackground } from "../background.ts";
+import { ACCOUNTS, linked } from "../../clouds/accounts.tsx";
 import { AccountsPage } from "../../clouds/AccountsPage.tsx";
 import { CalendarGroup } from "../../calendar/CalendarGroup.tsx";
 import { TriggersGroup } from "../../triggers/TriggersGroup.tsx";
@@ -139,12 +140,7 @@ function SettingsIndex({ settings, runtime, onOpen }: { settings: Settings; runt
 					page: "accounts",
 					icon: <KeyIcon />,
 					label: "帳號",
-					marks: [
-						{ label: "GH", on: Boolean(settings.githubToken) },
-						{ label: "GC", on: Boolean(settings.gcloudCredential) },
-						{ label: "CF", on: Boolean(settings.cloudflareCredential) },
-						{ label: "AZ", on: Boolean(settings.azureCredential) },
-					],
+					marks: ACCOUNTS.map((account) => ({ label: account.short, on: linked(account, settings) })),
 				},
 				{
 					page: "services",

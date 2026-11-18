@@ -27,6 +27,7 @@ const LAST_BOT_KEY = "pi-mobile.lastBot";
 const REOPEN_AFTER_MS = 10_000;
 const SWEEP_AFTER_MS = 10_000;
 const MAX_NOTICES = 3;
+const SETTINGS_APPLY_MS = 800;
 
 type Overlay = "drawer" | "panel" | "model" | "settings" | "botMemory" | "workspace" | undefined;
 
@@ -49,6 +50,10 @@ type Session = {
 };
 
 const settingsStore = new SettingsStore(capacitorStorage);
+
+type Draft = { settings: Settings; changed: boolean };
+
+const drafting: { draft?: Draft; cancel?: Cancel; applying: Promise<void> } = { applying: Promise.resolve() };
 
 const store = cell<Session>({
 	settings: undefined,
@@ -114,13 +119,42 @@ export function boot(): void {
 	onResume(markSeen);
 }
 
-export async function saveSettings(edited: Settings): Promise<Settings> {
+async function saveSettings(edited: Settings): Promise<Settings> {
 	const settings = await settingsStore.save(edited);
 	set({ settings });
 	return settings;
 }
 
-export async function applySettings(next: Settings, blank: boolean): Promise<void> {
+export async function saveAndRestart(edited: Settings): Promise<void> {
+	const next = await saveSettings(edited);
+	if (!isConfigured(next)) return;
+	show(undefined);
+	await applySettings(next, true);
+}
+
+export function draftSettings(next: Settings, changed: boolean): void {
+	drafting.draft = { settings: next, changed };
+	drafting.cancel?.();
+	if (changed) drafting.cancel = after(SETTINGS_APPLY_MS, () => void applyDraft(drafting.draft));
+}
+
+export function closeSettings(): { state: "closed" } | { state: "unsaved"; keep: () => void } {
+	drafting.cancel?.();
+	const draft = drafting.draft;
+	drafting.draft = undefined;
+	if (draft?.changed && !isConfigured(draft.settings)) return { state: "unsaved", keep: () => void (drafting.draft = draft) };
+	void applyDraft(draft);
+	return { state: "closed" };
+}
+
+function applyDraft(draft: Draft | undefined): Promise<void> {
+	if (!draft?.changed || !isConfigured(draft.settings)) return Promise.resolve();
+	draft.changed = false;
+	drafting.applying = drafting.applying.then(async () => applySettings(await saveSettings(draft.settings), false)).catch((error: unknown) => notify(messageOf(error)));
+	return drafting.applying;
+}
+
+async function applySettings(next: Settings, blank: boolean): Promise<void> {
 	const current = session().runtime;
 	if (current && (await current.apply(next)) === "in_place") return;
 	drop();

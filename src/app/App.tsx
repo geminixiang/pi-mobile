@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type { Bot } from "../agent/bots.ts";
 import type { ConversationId } from "../runtime/runtime.ts";
-import { isConfigured, type Settings } from "../settings.ts";
+import { isConfigured } from "../settings.ts";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { BotSheet, type BotEdit } from "./bots/BotSheet.tsx";
 import { ItemSheet } from "../items/ItemSheet.tsx";
@@ -9,7 +9,8 @@ import { Chat, isBusy } from "./chat/Chat.tsx";
 import { BotPanel } from "./bots/BotPanel.tsx";
 import { Dialog, type DialogRequest } from "../ui/Dialog.tsx";
 import { Drawer } from "./Drawer.tsx";
-import { AzureMark, CloudflareMark, FolderIcon, GitHubMark, GoogleCloudMark, MoreIcon, TerminalIcon } from "../ui/icons.tsx";
+import { FolderIcon, MoreIcon, TerminalIcon } from "../ui/icons.tsx";
+import { ACCOUNTS, linked } from "../clouds/accounts.tsx";
 import { BrowserButton } from "../browser/BrowserButton.tsx";
 import { askForBrowser, type BrowserScreen, BrowserSheet } from "../browser/BrowserSheet.tsx";
 import { type BrowserState, browserState, NO_BROWSER } from "../browser/tool.ts";
@@ -19,8 +20,7 @@ import { PiMark } from "../ui/PiMark.tsx";
 import { Skeleton, TranscriptSkeleton } from "./Skeleton.tsx";
 import { usePrefs } from "./prefs.ts";
 import { type Source, useSubscribed } from "../ui/subscribed.ts";
-import { after, type Cancel } from "../time.ts";
-import { applySettings, choose, closeItem, dismissNotices, leave, leftPanel, memoryPage, notify, open, rightPanel, saveSettings, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
+import { choose, closeItem, closeSettings, dismissNotices, draftSettings, leave, leftPanel, memoryPage, notify, open, rightPanel, saveAndRestart, session, sharedKind, show, stopSharing, watchSession } from "./session.ts";
 import { SettingsView } from "./settings/Settings.tsx";
 import { MemoryView } from "../memory/MemoryView.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
@@ -48,8 +48,6 @@ import { windowFor } from "../agent/models.ts";
 import { ModelLine } from "./bots/Links.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { modelReach } from "../net/reach.ts";
-
-const SETTINGS_APPLY_MS = 800;
 
 const watchScreen = (changed: () => void) => {
 	const stops = [watchSession(changed), screenLayout.subscribe(changed)];
@@ -88,14 +86,6 @@ export function App() {
 	const close = useCallback(() => show(undefined), []);
 	const backToPanel = useCallback(() => show("panel"), []);
 	const backToDrawer = useCallback(() => show(layout === "phone" ? "drawer" : undefined), [layout]);
-	const settingsDraft = useRef<{ settings: Settings; changed: boolean }>(undefined);
-	const cancelApply = useRef<Cancel>(undefined);
-	const applyRef = useRef<(draft: { settings: Settings; changed: boolean } | undefined) => Promise<void>>(undefined);
-	const onSettingsDraft = useCallback((next: Settings, changed: boolean) => {
-		settingsDraft.current = { settings: next, changed };
-		cancelApply.current?.();
-		if (changed) cancelApply.current = after(SETTINGS_APPLY_MS, () => void applyRef.current?.(settingsDraft.current));
-	}, []);
 
 	const fail = (error: unknown) => notify(messageOf(error));
 	const ask = useCallback((request: DialogRequest) => new Promise<boolean>((resolve) => setDialog({ request, resolve })), []);
@@ -155,7 +145,6 @@ export function App() {
 		[loadWorkspace],
 	);
 
-	const applying = useRef<Promise<void>>(Promise.resolve());
 	const card = useRef<HTMLDivElement>(null);
 	const header = useRef<HTMLElement>(null);
 
@@ -174,34 +163,11 @@ export function App() {
 	);
 	if (!settings) return splash;
 
-	const saveAndRestart = async (edited: Settings) => {
-		const next = await saveSettings(edited);
-		if (!isConfigured(next)) return;
-		show(undefined);
-		await applySettings(next, true);
+	const leaveSettings = () => {
+		const closed = closeSettings();
+		if (closed.state === "closed") return backToDrawer();
+		void ask({ title: "變更沒有儲存", body: "沒有可用的模型供應商。離開會放棄這次的變更。", confirm: "放棄變更", danger: true }).then((sure) => (sure ? backToDrawer() : closed.keep()));
 	};
-	applyRef.current = (draft) => {
-		if (!draft?.changed || !isConfigured(draft.settings)) return Promise.resolve();
-		draft.changed = false;
-		applying.current = applying.current
-			.then(async () => applySettings(await saveSettings(draft.settings), false))
-			.catch(fail);
-		return applying.current;
-	};
-	function leaveSettings() {
-		cancelApply.current?.();
-		const draft = settingsDraft.current;
-		settingsDraft.current = undefined;
-		if (draft?.changed && !isConfigured(draft.settings)) {
-			void ask({ title: "變更沒有儲存", body: "沒有可用的模型供應商。離開會放棄這次的變更。", confirm: "放棄變更", danger: true }).then((sure) => {
-				if (sure) backToDrawer();
-				else settingsDraft.current = draft;
-			});
-			return;
-		}
-		if (draft?.changed) void applyRef.current?.(draft);
-		backToDrawer();
-	}
 
 	if (!runtime) {
 		if (isConfigured(settings) && !openError) return splash;
@@ -246,7 +212,7 @@ export function App() {
 		onCreate: () => setBotEdit({ kind: "create" }),
 		onEdit: (bot) => setBotEdit({ kind: "edit", bot }),
 	};
-	const settingsView = <SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={onSettingsDraft} />;
+	const settingsView = <SettingsView mode="app" initial={settings} runtime={runtime} prefs={prefs} onPrefs={updatePrefs} onCancel={leaveSettings} onDraft={draftSettings} />;
 	const memoryView = memoryBot ? <MemoryView memories={runtime.memories} scope={{ kind: "bot", id: memoryBot.id }} bot={memoryBot} onClose={backToPanel} onError={notify} /> : null;
 	const botPanel = (open: boolean, onClose: () => void) => (
 		<BotPanel
@@ -364,11 +330,8 @@ export function App() {
 							busy={busy}
 							list={list}
 							status={[
-								{ label: "GitHub", icon: <GitHubMark />, on: Boolean(settings.githubToken) },
+								...ACCOUNTS.map((account) => ({ label: account.name, icon: account.mark, on: linked(account, settings) })),
 								{ label: "電腦", icon: <TerminalIcon size={17} />, on: runtime.workplaces.any },
-								{ label: "Google Cloud", icon: <GoogleCloudMark />, on: Boolean(settings.gcloudCredential) },
-								{ label: "Cloudflare", icon: <CloudflareMark />, on: Boolean(settings.cloudflareCredential) },
-								{ label: "Azure", icon: <AzureMark />, on: Boolean(settings.azureCredential) },
 							]}
 							onSettings={() => show("settings")}
 							onClose={close}

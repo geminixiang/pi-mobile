@@ -374,11 +374,11 @@ const LONG_FILES: Record<string, number> = {
 	"src/mcp/mcp.ts": 473,
 	"src/runtime/runtime.ts": 613,
 	"src/tw-stocks/tool.ts": 465,
-	"src/app/App.tsx": 554,
+	"src/app/App.tsx": 517,
 	"src/app/chat/Chat.tsx": 475,
 	"src/app/bots/Links.tsx": 435,
 	"src/app/chat/Message.tsx": 518,
-	"src/app/settings/Settings.tsx": 427,
+	"src/app/settings/Settings.tsx": 423,
 	"src/triggers/runs.ts": 529,
 };
 

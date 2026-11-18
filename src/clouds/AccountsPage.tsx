@@ -1,32 +1,19 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { checkGitHub } from "../agent/checks.ts";
 import type { Settings } from "../settings.ts";
 import { CheckButton } from "../ui/CheckButton.tsx";
-import { AzureMark, CloudflareMark, GitHubMark, GoogleCloudMark } from "../ui/icons.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
-import { describeAzure, finishAzureSignIn, startAzureSignIn } from "./azure.ts";
-import { apiTokenCredential, describeCloudflare, finishCloudflareSignIn, startCloudflareSignIn } from "./cloudflare.ts";
-import { checkGcloud, describeGcloud } from "./gcloud.ts";
+import { type AccountId, ACCOUNTS, signedIn } from "./accounts.tsx";
+import { finishAzureSignIn, startAzureSignIn } from "./azure.ts";
+import { apiTokenCredential, finishCloudflareSignIn, startCloudflareSignIn } from "./cloudflare.ts";
+import { checkGcloud } from "./gcloud.ts";
 import { DeviceSignInPanel, GoogleSignInPanel } from "./SignIn.tsx";
 
-type Account = "github" | "gcloud" | "cloudflare" | "azure";
-
 export function AccountsPage({ settings, change }: { settings: Settings; change: (next: Partial<Settings>) => void }) {
-	const [open, setOpen] = useState<Account>();
-	const accounts: { id: Account; name: string; mark: ReactNode; signedIn: string }[] = [
-		{ id: "github", name: "GitHub", mark: <GitHubMark />, signedIn: settings.githubToken ? "已填 token" : "" },
-		{ id: "gcloud", name: "Google Cloud", mark: <GoogleCloudMark />, signedIn: settings.gcloudCredential ? describeGcloud(settings.gcloudCredential) : "" },
-		{ id: "cloudflare", name: "Cloudflare", mark: <CloudflareMark />, signedIn: settings.cloudflareCredential ? describeCloudflare(settings.cloudflareCredential) : "" },
-		{ id: "azure", name: "Azure", mark: <AzureMark />, signedIn: settings.azureCredential ? describeAzure(settings.azureCredential) : "" },
-	];
+	const [open, setOpen] = useState<AccountId>();
+	const accounts = ACCOUNTS.map((account) => ({ ...account, signedIn: signedIn(account, settings) }));
 	const shown = accounts.find((account) => account.id === open);
-	const remove: Record<Account, Partial<Settings>> = {
-		github: { githubToken: "" },
-		gcloud: { gcloudCredential: "", gcloudProject: "" },
-		cloudflare: { cloudflareCredential: "" },
-		azure: { azureCredential: "" },
-	};
 	return (
 		<>
 			<RowList title="Bot 用你的身分登入">
@@ -126,7 +113,7 @@ export function AccountsPage({ settings, change }: { settings: Settings; change:
 								className="danger-verb"
 								onClick={() => {
 									setOpen(undefined);
-									change(remove[shown.id]);
+									change(shown.removed);
 								}}
 							>
 								移除
