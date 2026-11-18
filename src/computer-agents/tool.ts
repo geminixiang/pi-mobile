@@ -10,7 +10,7 @@ import { isWatch, watch } from "../triggers/watch.ts";
 import { orLogged } from "../promise.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
-import { type AgentPlace, choicesOf, keysCommand, LIST, type Place, type Status, placeOf, readingOf, sendCommand, sendProblem, workers } from "./workers.ts";
+import { type AgentPlace, choicesOf, keysCommand, LIST, type Place, type Reading, type Status, placeOf, readingOf, sendCommand, sendProblem, workers } from "./workers.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { createJudge } from "../agent/judge.ts";
 import { checkAnswer, checkTask, Menus, Repeats } from "./guard.ts";
@@ -165,6 +165,12 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply.", { about: [listAgents, readAgent, tellAgent, answerAgent] }),
 		],
 	});
+}
+
+export function peekAgent(place: Workplace | undefined, agent: string): Promise<Reading> {
+	const at = placeOf(agent);
+	if (place?.kind !== "computer" || !at) return Promise.resolve({ ok: false, problem: `${agent} is not on a computer` });
+	return readingOf(new HostCommands(place.host), at, READ_LINES);
 }
 
 export async function agentState(host: PairedHost, agent: string): Promise<AgentState> {

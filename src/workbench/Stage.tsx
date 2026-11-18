@@ -11,6 +11,7 @@ import { resolvePath } from "../ui/openFile.ts";
 import { WorkspaceView } from "../app/files/WorkspaceView.tsx";
 import { Browser } from "../browser/plugin.ts";
 import { choicesOf } from "../computer-agents/workers.ts";
+import { peekAgent } from "../computer-agents/tool.ts";
 import { ItemActions, remindLine } from "../items/ItemActions.tsx";
 import { clock, useNow } from "../jobs/JobsContext.ts";
 import { orLogged } from "../promise.ts";
@@ -247,7 +248,7 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 	const screen =
 		usePolled(
 			(): Promise<Screen> =>
-				orLogged(runtime.peekAgent(conversation, agent), "workbench.peek_failed", undefined, { agent }).then((reading) =>
+				orLogged(peekAgent(runtime.workplaces.at(String(conversation)), agent), "workbench.peek_failed", undefined, { agent }).then((reading) =>
 					reading?.ok ? { state: "read", text: reading.screen, doing: reading.doing, waiting: reading.status === "needs_user" } : { state: "gone" },
 				),
 			PEEK_EVERY_MS,
@@ -256,7 +257,7 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 	const stop = async () => {
 		setStopping("stopping");
 		try {
-			await runtime.stopJob(conversation, agent);
+			await runtime.jobs.stop(conversation, agent);
 		} catch {
 			setStopping("failed");
 		}

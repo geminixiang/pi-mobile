@@ -23,14 +23,9 @@ import { changedKeys, type Settings } from "../settings.ts";
 import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "../agent/assistant.ts";
 import type { ContextShape, ToolCost } from "../agent/context-shape.ts";
-import { HostCommands } from "../computer/commands.ts";
 import { pairedHosts } from "../computer/pairing.ts";
-import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "../jobs/commands.ts";
-import { isJob, jobIdOf } from "../jobs/background.ts";
-
-const PEEK_LINES = 60;
+import { Jobs } from "../jobs/jobs.ts";
 import { agentState } from "../computer-agents/tool.ts";
-import { placeOf, type Reading, readingOf } from "../computer-agents/workers.ts";
 import { deleteAttachments } from "../attachments/attachments.ts";
 import { BotToolsets } from "../agent/bot-toolsets.ts";
 import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFAULT_BOT, LeftFolders, NEW_BOT_OFFER } from "../agent/bots.ts";
@@ -117,7 +112,6 @@ export class AgentRuntime {
 	#settings: Settings;
 	readonly workplaces: Workplaces;
 	readonly #placed: Map<string, Placed>;
-	readonly #waiting = new Set<string>();
 	readonly #shapes: Map<string, ContextShape>;
 	#botListeners = new Set<(bots: Bot[]) => void>();
 	readonly #installed: () => ReadonlySet<string>;
@@ -127,6 +121,7 @@ export class AgentRuntime {
 	readonly memories: Memories;
 	readonly skills: Skills;
 	readonly triggers: TriggerRuns;
+	readonly jobs: Jobs;
 	readonly #botToolsets: BotToolsets;
 	readonly #platform: Platform;
 
@@ -167,6 +162,7 @@ export class AgentRuntime {
 				return place?.kind === "computer" ? agentState(place.host, agent) : "unreachable";
 			},
 		);
+		this.jobs = new Jobs((id) => this.workplaces.at(id), this.triggers);
 		this.#botToolsets = new BotToolsets(harness, owners, platform.native, (id) => this.workplaces.at(String(id))?.kind ?? "missing");
 	}
 
@@ -239,7 +235,7 @@ export class AgentRuntime {
 			memory: { changed: () => runtimeRef?.memories.changed() },
 			skills: { changed: () => runtimeRef?.skills.changed() },
 			workplace: at,
-			waitForJob: (id, job) => runtimeRef?.waitForJob(id, job),
+			waitForJob: (id, job) => runtimeRef?.jobs.wait(id, job),
 			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
 			ask,
 			userSaid: async (id) => (runtimeRef ? runtimeRef.#userSaid(id) : []),
@@ -308,8 +304,7 @@ export class AgentRuntime {
 				await orLogged(runtime.#finishRemoval(bot), "bot.finish_removal_failed", undefined, { bot: String(bot.id) });
 			}
 			await orLogged(runtime.#clearLeftFolders(), "bot.clear_left_folders_failed", undefined);
-			const watching = await orLogged(runtime.triggers.watching(), "jobs.resume_failed", []);
-			for (const { conversationId, agent } of watching) if (isJob(agent)) runtime.waitForJob(conversationId, agent);
+			await runtime.jobs.resume();
 		})();
 		return runtime;
 	}
@@ -406,9 +401,7 @@ export class AgentRuntime {
 	}
 
 	async #finishRemoval(bot: Bot): Promise<void> {
-		await Promise.all(
-			this.workplaces.hosts().map((host) => orLogged(new HostCommands(host).run(stopOwnedJobs(String(bot.id))), "bot.stop_jobs_failed", undefined, { bot: bot.folder, host: host.name })),
-		);
+		await this.jobs.stopOwned(this.workplaces.hosts(), bot.id, bot.folder);
 		await this.triggers.removeBot(bot.id);
 		await (await this.#harness.conversation(bot.id, context))?.abort(context, { background: true });
 		const phone = this.#platform.phone;
@@ -450,45 +443,6 @@ export class AgentRuntime {
 			const kept = items.filter((item) => !cleared.has(`${item.computer}\n${item.folder}`));
 			items.splice(0, items.length, ...kept);
 		}, context);
-	}
-
-	waitForJob(id: ConversationId, job: string): void {
-		const key = `${String(id)}\n${job}`;
-		const on = this.#jobOn(id, job);
-		if (this.#waiting.has(key) || !on) return;
-		this.#waiting.add(key);
-		const waited = on.commands.run(waitJob(on.jobId)).then(async (ended) => {
-			if (ended.code === 0) await this.triggers.checkWatch(id, job);
-		});
-		void orLogged(waited, "jobs.wait_failed", undefined, { job }).finally(() => this.#waiting.delete(key));
-	}
-
-	async peekJob(id: ConversationId, job: string): Promise<{ command: string; output: string } | undefined> {
-		const on = this.#jobOn(id, job);
-		if (!on) return undefined;
-		const read = parseJob((await on.commands.run(readJob(on.jobId, PEEK_LINES))).stdout);
-		return read.state === "missing" ? undefined : { command: read.output.command, output: read.output.text };
-	}
-
-	async stopJob(id: ConversationId, job: string): Promise<void> {
-		const on = this.#jobOn(id, job);
-		if (!on) return;
-		const stopped = await on.commands.run(stopJob(on.jobId));
-		if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
-		await this.triggers.stopWatching(id, job);
-	}
-
-	#jobOn(id: ConversationId, job: string): { commands: HostCommands; jobId: string } | undefined {
-		const place = this.workplaces.at(String(id));
-		const jobId = jobIdOf(job) ?? "";
-		return place?.kind === "computer" && JOB_ID.test(jobId) ? { commands: new HostCommands(place.host), jobId } : undefined;
-	}
-
-	async peekAgent(id: ConversationId, agent: string): Promise<Reading> {
-		const place = this.workplaces.at(String(id));
-		const at = placeOf(agent);
-		if (place?.kind !== "computer" || !at) return { ok: false, problem: `${agent} is not on a computer` };
-		return readingOf(new HostCommands(place.host), at, PEEK_LINES);
 	}
 
 	subscribeActivity(listener: (busy: ReadonlySet<ConversationId>) => void): () => void {

@@ -25,8 +25,7 @@ import { SettingsView } from "./settings/Settings.tsx";
 import { MemoryView } from "../memory/MemoryView.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
 import { OpenFileContext } from "../ui/openFile.ts";
-import { JobsContext, type RunningJobs } from "../jobs/JobsContext.ts";
-import { isJob, watchShown } from "../jobs/background.ts";
+import { JobsContext } from "../jobs/JobsContext.ts";
 import { PageStack } from "./PageStack.tsx";
 import { WorkspaceView } from "./files/WorkspaceView.tsx";
 import { SidePanel } from "./SidePanel.tsx";
@@ -104,14 +103,7 @@ export function App() {
 	const bots = useSubscribed<Bot[]>([], (listener) => runtime?.subscribeBots(listener), [runtime]);
 	const triggerState = useSubscribed<TriggerState>(NO_TRIGGERS, (listener) => runtime?.triggers.subscribe(listener), [runtime]);
 	const automations = triggerState.items;
-	const jobs = useMemo<RunningJobs | undefined>(() => {
-		if (!runtime || !controller) return undefined;
-		const id = controller.id;
-		const running = automations.flatMap((item) =>
-			item.kind === "watch" && item.conversationId === id && isJob(item.agent) ? [{ job: item.agent, ...watchShown(item) }] : [],
-		);
-		return { jobs: running, stop: (job) => runtime.stopJob(id, job), peek: (job) => runtime.peekJob(id, job) };
-	}, [automations, controller, runtime]);
+	const jobs = useMemo(() => (runtime && controller ? runtime.jobs.of(controller.id, automations) : undefined), [automations, controller, runtime]);
 	const formsState = useSyncExternalStore(
 		useCallback((listener: () => void) => (runtime ? runtime.forms.subscribe(listener) : () => undefined), [runtime]),
 		() => runtime?.forms.state,
