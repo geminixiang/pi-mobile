@@ -10,6 +10,17 @@
 
 學到的參考，也照這個標準來取捨：看這個做法能不能讓使用者更快把事做完，而不是它看起來新。
 
+## 原則：好 Bot 是使用者每天想主動打開的 Bot
+
+2026-11-18，使用者說開源不是現階段的賣點，重點是好用、讓使用者覺得 Bot 幫到他的生活；又拿自己每天在用的 Grok Bot 當例子：「我就覺得我會願意去打開他，不管是 ui 漂亮，還是他會主動幫我確認每日新信件。要讓用戶每日主動想打開的 bot，才是好 bot。」
+
+所以衡量一個功能，問的是：它會不會讓使用者明天還想打開 pi。打開的理由有兩種，兩種都要有：
+
+- 打開就有東西等著他：Bot 已經主動做完的事（今天的新信件哪些要回、哪件事撞期），不是一個空的輸入框。
+- 打開本身是享受：畫面漂亮、順手。外觀算體驗，不是裝飾。
+
+市場調研也用這個角度讀別人的產品：找使用者覺得「被幫到」和「想放棄」的時刻（Duet、Dots 的評測見 2026-11-18 的調研：最被稱讚的是抓到兩個 App 之間被漏掉的事；最傷的是誤判急不急、說了不重要還一直提、漏掉真正重要的）。
+
 ## 參考
 
 | 參考 | 是什麼 | 學到的 | 對 pi mobile 的決定 |
@@ -17,7 +28,7 @@
 | Lazy errands research（2026-11-15，使用者提供 `.errands-research.md`） | 把訂票、讀訊息、訂餐拆成畫面與模型往返成本 | 已知路徑應在原生一次做完；目標在每步執行時找，觀察和等待都屬於目標 display | 這次只做 #1、#2、#4、#5 和進度文字；#3 安全閘另做。Settings 模擬器測試與限制見 [errands-report.md](../design/errands-report.md)，沒有測那些真實交易 App |
 | 使用者提供的 in-process XCTest probe（2026-11-15） | `.probe/PiXCT.m`、`ProbeApp.swift`：同一支 iPhone 上，不經 VPN / WDA 的 session、snapshot、touch、中文輸入、PNG 和背景音訊 | developer frameworks 需要 DDI 與 runpaths；snapshot 不要取 AX children；通知 shim 的參數要保留 raw ABI，不能把 scalar 當 `id`；audio source callback 不能繼承 MainActor | iOS OSS 的 private API 收在 `ios/AgentScreen/InProcess.m`，Swift plugin 負責 contract 和有限期的音訊保活；上架版不載入，量測與限制見 `.report.md` |
 | scrcpy（背景螢幕預覽，2026-11-15） | 使用者指定的 Android 螢幕串流做法：MediaCodec 的 input Surface → H.264 → decoder Surface | 不把每幀變成 Bitmap，也不經 WebView；只在觀看時建立 encoder，靜止畫面不重複編碼 | 已在 API 36 模擬器實作。直接把小 Surface 接到全尺寸 virtual display 會裁切，改用等比例 density 的低解析度 display；量測與限制見 [背景螢幕預覽報告](../design/background-preview-report.md) |
-| Grok Bot（2026-11-04） | xAI 的主動式 agent App | 對話裡的互動元件、先回一句再做事、連服務的卡片 | 見 [grok-bot.md](grok-bot.md)。已做：問題卡、工作行、結果卡、權限卡 |
+| Grok Bot（2026-11-04；2026-11-18 補充） | xAI 的主動式 agent App，使用者每天在用 | 對話裡的互動元件、先回一句再做事、連服務的卡片；使用者每天願意打開它，因為畫面漂亮，也因為它每天主動確認新信件 | 見 [grok-bot.md](grok-bot.md)。已做：問題卡、工作行、結果卡、權限卡 |
 | Claude Duet（2026-11-13） | Anthropic 的主動式 agent App | 「主動」是一套預設的作息（晨報、少量巡視、安靜時段）；Chat、Tasks、Make 分成說話、交辦、成果三個地方；連服務從「它能做什麼」開始，空著的位置畫成虛線「＋」 | 見 [claude-duet.md](claude-duet.md)。已做：「能做什麼」、回答後的 ↳ 選項、新 Bot 的晨報提議。還沒做：任務板 |
 | TP-Link Deco App 首頁（2026-11-13） | 網路設備的 App | 用一張有動畫的架構圖，一眼看出連線狀況和流量 | 已做：右側欄的「模型 ← 手機 → 電腦」連線圖，流量是真的位元組數，斷線有探測動畫，三個節點各自打開自己的設定 |
 | deepseek-ai/chat-demo（2026-11-13） | DeepSeek 官方的網頁聊天範例 | 「已閱讀 N 個網頁」點開右側來源面板；正文用數字角標引用；思考時顯示已想幾秒；錄音時輸入框裡顯示即時頻譜；側欄可以收起 | 來源面板的目的是「讓使用者核對事實再行動」，放進 iPad 工作台的舞台。角標引用和錄音頻譜之後做，手機也受益。訊息分支不做，跟「每個 Bot 一條對話」衝突 |
