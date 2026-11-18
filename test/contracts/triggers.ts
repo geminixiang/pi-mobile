@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } from "@earendil-works/pi-durable";
+import { type ConversationId, createRegistry, defineDoc, Harness, type JsonObject, MemoryStorage } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "../../src/doc-policy.ts";
 import { loadModels } from "../../src/agent/available-models.ts";
 import { ItemDoc } from "../../src/items/items.ts";
@@ -17,13 +17,14 @@ import { join } from "node:path";
 import { Jobs } from "../../src/jobs/jobs.ts";
 import { jobAgent } from "../../src/jobs/background.ts";
 import { startJob, stopJob } from "../../src/jobs/commands.ts";
+import { agentState } from "../../src/computer-agents/tool.ts";
 import { context, entriesOf } from "./fixtures.ts";
 import { type Check, logged, platform, settings } from "./setup.ts";
 
 
 async function triggerFixture(
 	when: Trigger["when"],
-	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState; agent?: string; item?: { state: "todo" | "done" | "waiting"; nextAt?: number } } = {},
+	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState; agent?: string; agentState?: (conversationId: ConversationId, agent: string) => Promise<AgentState>; item?: { state: "todo" | "done" | "waiting"; nextAt?: number } } = {},
 ) {
 	const storage = new MemoryStorage();
 	const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}), platform.settings);
@@ -78,7 +79,7 @@ async function triggerFixture(
 			return options.verdict ?? { kind: "unavailable" };
 		},
 	};
-	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, name: "helper", avatar: "helper" }], async (_id, at) => void touched.push(at), judge, async () => options.watching ?? "unknown");
+	const runs = new TriggerRuns(flaky, async () => [{ id: conversation.id, name: "helper", avatar: "helper" }], async (_id, at) => void touched.push(at), judge, options.agentState ?? (async () => options.watching ?? "unknown"));
 	return {
 		runs,
 		touched,
@@ -111,6 +112,28 @@ function bash(home: string, command: string): Promise<{ stdout: string; stderr: 
 		child.stderr.on("data", (data: Buffer) => (out.stderr += data.toString()));
 		child.on("close", (code) => resolve({ ...out, code: code ?? undefined }));
 	});
+}
+
+async function jobFixture(options: { command: string; stopReply?: number; stopFails?: boolean }) {
+	const home = mkdtempSync(join(tmpdir(), "jobs-"));
+	const id = "5badc0de";
+	const agent = jobAgent(id);
+	const computer = {
+		run: async (command: string) => {
+			if (command !== stopJob(id)) return bash(home, command);
+			if (options.stopFails) {
+				await sleep(2 * STOP_REPLY_MS);
+				return { stdout: "", stderr: "the computer did not answer", code: 1 };
+			}
+			const ran = await bash(home, command);
+			await sleep(options.stopReply ?? 0);
+			return ran;
+		},
+	};
+	const fixture = await triggerFixture({ kind: "once", at: Date.now() + 60_000 }, { watching: "working", agent, agentState: (_id, watched) => agentState(computer, watched) });
+	const started = await bash(home, startJob({ id, command: options.command, cwd: home, owner: "bot", limitSeconds: 60 }));
+	assert.equal(started.code, 0, started.stderr);
+	return { fixture, agent, jobs: new Jobs(() => computer, fixture.runs), done: () => rmSync(home, { recursive: true, force: true }) };
 }
 
 const confidenceOf = (last: LastRun | undefined) => (last?.outcome === "failed" ? undefined : last?.confidence);
@@ -519,30 +542,37 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"stopping a background job does not wake its bot, even when the stop's answer comes back after the job's end",
+		"a background job the user stopped does not wake its bot, whichever check reads its end first",
 		async () => {
-			const home = mkdtempSync(join(tmpdir(), "jobs-"));
-			const id = "5badc0de";
-			const job = jobAgent(id);
-			const fixture = await triggerFixture({ kind: "once", at: Date.now() + 60_000 }, { watching: "idle", agent: job });
-			const computer = {
-				run: async (command: string) => {
-					const ran = await bash(home, command);
-					if (command === stopJob(id)) await sleep(STOP_REPLY_MS);
-					return ran;
-				},
-			};
-			await withTrigger(fixture, async () => {
-				const started = await bash(home, startJob({ id, command: "sleep 30", cwd: home, owner: "bot", limitSeconds: 60 }));
-				assert.equal(started.code, 0, started.stderr);
-				const jobs = new Jobs(() => computer, fixture.runs);
-				jobs.wait(fixture.conversation, job);
-				await jobs.stop(fixture.conversation, job);
+			for (const check of ["the wait on the job", "the watch's next check"] as const) {
+				const job = await jobFixture({ command: "sleep 30", stopReply: STOP_REPLY_MS });
+				await withTrigger(job.fixture, async () => {
+					job.jobs.wait(job.fixture.conversation, job.agent);
+					const stopping = job.jobs.stop(job.fixture.conversation, job.agent);
+					if (check === "the watch's next check") {
+						await sleep(STOP_REPLY_MS / 2);
+						await job.fixture.runs.run("t1", "live");
+					}
+					await stopping;
+					await sleep(STOP_REPLY_MS);
+					assert.equal(await job.fixture.delivered(), 0, `${check} woke the bot`);
+					assert.equal((await job.fixture.doc()).items.length, 0, "the watch is gone");
+				});
+				job.done();
+			}
+		},
+	],
+	[
+		"a job that ended on its own while the user's stop failed still wakes its bot",
+		async () => {
+			const job = await jobFixture({ command: "sleep 1", stopFails: true });
+			await withTrigger(job.fixture, async () => {
+				job.jobs.wait(job.fixture.conversation, job.agent);
+				await assert.rejects(job.jobs.stop(job.fixture.conversation, job.agent));
 				await sleep(STOP_REPLY_MS);
-				assert.equal(await fixture.delivered(), 0, "the stop woke the bot");
-				assert.equal((await fixture.doc()).items.length, 0, "the watch is gone");
+				assert.equal(await job.fixture.delivered(), 1, "the job's end did not reach the bot");
 			});
-			rmSync(home, { recursive: true, force: true });
+			job.done();
 		},
 	],
 ];

@@ -2,7 +2,7 @@ import type { Context } from "@earendil-works/chord/context";
 import { type ConversationId, defineExtension, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { Type } from "typebox";
-import { HostCommands } from "../computer/commands.ts";
+import { type CommandClient, HostCommands } from "../computer/commands.ts";
 import type { PairedHost } from "../computer/pairing.ts";
 import type { AgentState } from "../triggers/runs.ts";
 import { editTriggers, triggersOf } from "../triggers/edit.ts";
@@ -173,17 +173,12 @@ export function peekAgent(place: Workplace | undefined, agent: string): Promise<
 	return readingOf(new HostCommands(place.host), at, READ_LINES);
 }
 
-export async function agentState(workplace: Workplace | undefined, agent: string): Promise<AgentState> {
-	if (workplace?.kind !== "computer") return "unreachable";
-	const host = workplace.host;
+export async function agentState(computer: Pick<CommandClient, "run"> | undefined, agent: string): Promise<AgentState> {
+	if (!computer) return "unreachable";
 	const place = placeOf(agent);
 	if (!place) return "gone";
-	const read = await orLogged(
-		readingOf(new HostCommands(host), place, 1),
-		"agents.unreachable",
-		undefined,
-		{ host: host.name, agent },
-	);
+	const read = await orLogged(readingOf(computer, place, 1), "agents.unreachable", undefined, { agent });
 	if (!read) return "unreachable";
-	return read.ok ? read.status : "gone";
+	if (!read.ok) return "gone";
+	return read.stopped ? "stopped" : read.status;
 }

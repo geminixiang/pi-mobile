@@ -181,7 +181,7 @@ export function placeOf(id: string): Place | undefined {
 	return undefined;
 }
 
-export type Reading = { ok: true; status: Status; doing: string; screen: string } | { ok: false; problem: string };
+export type Reading = { ok: true; status: Status; doing: string; screen: string; stopped: boolean } | { ok: false; problem: string };
 
 type Backend = {
 	read(lines: number): string;
@@ -211,7 +211,7 @@ function backendOf(place: AgentPlace): Backend {
 				keys: (words) => `${FIND}; ${HC} keys ${terminal} ${words} 2>&1`,
 				reading: (head, screen) => {
 					const got = checkJson(HcTerminal, head, "hc get");
-					return got.ok ? { ok: true, status: hcStatus(got.value), doing: "", screen } : { ok: false, problem: hcProblem(head) ?? head };
+					return got.ok ? { ok: true, status: hcStatus(got.value), doing: "", screen, stopped: false } : { ok: false, problem: hcProblem(head) ?? head };
 				},
 				problem: (output) => hcProblem(output.trim()),
 			};
@@ -225,7 +225,7 @@ function backendOf(place: AgentPlace): Backend {
 				keys: (words) => `${FIND}; ${cli} agent send-keys ${pane} ${words} 2>&1`,
 				reading: (head, screen) => {
 					const got = checkJson(HerdrGet, head, "herdr agent get");
-					return got.ok ? { ok: true, status: statusOf(got.value.result.agent.agent_status), doing: "", screen } : { ok: false, problem: herdrProblem(head) ?? head };
+					return got.ok ? { ok: true, status: statusOf(got.value.result.agent.agent_status), doing: "", screen, stopped: false } : { ok: false, problem: herdrProblem(head) ?? head };
 				},
 				problem: (output) => herdrProblem(output.trim()),
 			};
@@ -240,7 +240,7 @@ function backendOf(place: AgentPlace): Backend {
 					const status = checkJson(RexStatus, head, "rex program_status");
 					if (!status.ok) return { ok: false, problem: head };
 					const record = status.value.records[0];
-					return { ok: true, status: statusOf(record?.state), doing: record?.msg ?? "", screen };
+					return { ok: true, status: statusOf(record?.state), doing: record?.msg ?? "", screen, stopped: false };
 				},
 				problem: (output) => (output.trim() === "" ? undefined : output.trim()),
 			};
@@ -265,7 +265,8 @@ export function reading(place: Place, output: string): Reading {
 		const end = output.lastIndexOf(SCREEN);
 		const job = parseJob(end < 0 ? output : output.slice(0, end));
 		if (job.state === "missing") return { ok: false, problem: `no background command ${place.id}` };
-		return job.state === "running" ? { ok: true, status: "working", doing: "running", screen: job.output.text.trim() } : { ok: true, status: "idle", doing: jobEnding(job), screen: job.output.text.trim() };
+		const screen = job.output.text.trim();
+		return job.state === "running" ? { ok: true, status: "working", doing: "running", screen, stopped: false } : { ok: true, status: "idle", doing: jobEnding(job), screen, stopped: job.state === "stopped" };
 	}
 	const at = output.indexOf(SCREEN);
 	if (at < 0) return { ok: false, problem: output.trim() };

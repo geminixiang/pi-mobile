@@ -174,10 +174,13 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。當天往上的 import 從 34 條清到 0，並把還留在 `agent/` 的 20 個功能搬到各自的資料夾。
 
-還沒做的有三件：
+2026-11-18 背景指令的動作搬到 `jobs/jobs.ts`（`runtime.jobs`），帳號清單只在 `clouds/accounts.tsx` 寫一次，設定的暫存由 `app/session.ts` 管；`runtime.ts` 先開 Harness，再在建構時建好各功能的 handle，工具直接拿 handle，不再經過 `runtimeRef`。
+
+還沒做的有兩件：
 - 功能之間互相 import 還沒有規則（排程是事項、背景工作、電腦上的 agent 的樞紐）。
 - 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
-- `runtime.ts` 還掛著幾個功能自己的動作（背景指令的等待、偷看、停止），`App.tsx` 還有設定的暫存和重複的帳號清單。2026-11-17 之前，做產品的 181 個 commit 有 90 個改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一；樣式和設定區塊搬回各資料夾後，這個比例要再累積 commit 才能重量。
+
+2026-11-17 之前，做產品的 181 個 commit 有 90 個改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一；這些整理之後，這個比例要再累積 50 到 100 個 commit 才能重量。
 
 ## 專案結構
 

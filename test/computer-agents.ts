@@ -49,9 +49,9 @@ assert.equal(placeOf("w1:p1"), undefined);
 
 const herdr = { via: "herdr", session: "default", pane: "w1:p1" } as const;
 const rex = { via: "rex", session: "74b7b2", block: "c834ae" } as const;
-assert.deepEqual(reading(herdr, `${JSON.stringify({ result: { agent: { ...herdrAgent, agent_status: "done" } } })}\n@@screen\n⏺ 0 files.\n❯`), { ok: true, status: "idle", doing: "", screen: "⏺ 0 files.\n❯" });
+assert.deepEqual(reading(herdr, `${JSON.stringify({ result: { agent: { ...herdrAgent, agent_status: "done" } } })}\n@@screen\n⏺ 0 files.\n❯`), { ok: true, status: "idle", doing: "", screen: "⏺ 0 files.\n❯", stopped: false });
 assert.deepEqual(reading(herdr, `${JSON.stringify({ error: { code: "agent_not_found", message: "no agent w1:p9" } })}\n@@screen\n`), { ok: false, problem: "agent_not_found: no agent w1:p9" });
-assert.deepEqual(reading(rex, `${JSON.stringify({ records: [{ state: "blocked", app: "claude-code" }] })}\n@@screen\nDo you want to proceed?`), { ok: true, status: "needs_user", doing: "", screen: "Do you want to proceed?" });
+assert.deepEqual(reading(rex, `${JSON.stringify({ records: [{ state: "blocked", app: "claude-code" }] })}\n@@screen\nDo you want to proceed?`), { ok: true, status: "needs_user", doing: "", screen: "Do you want to proceed?", stopped: false });
 assert.deepEqual(reading(rex, "Error: block target \"c834ae\" not found\n@@screen\nError"), { ok: false, problem: 'Error: block target "c834ae" not found' });
 assert.deepEqual(reading(rex, "zsh: command not found: rex"), { ok: false, problem: "zsh: command not found: rex" });
 
@@ -73,7 +73,8 @@ if (existsSync("/bin/zsh")) {
 assert.deepEqual(placeOf("job:1a2b3c4d"), { via: "job", id: "1a2b3c4d" });
 assert.equal(placeOf("job:../../etc"), undefined, "a job id is only what bash makes, so it cannot reach outside the jobs folder");
 const job = { via: "job" as const, id: "1a2b3c4d" };
-assert.deepEqual(reading(job, "state=running\nseconds=1\nlines=1\nbytes=9\nlog=/l\n@@log\nbuilding\n@@screen\n"), { ok: true, status: "working", doing: "running", screen: "building" });
+assert.deepEqual(reading(job, "state=running\nseconds=1\nlines=1\nbytes=9\nlog=/l\n@@log\nbuilding\n@@screen\n"), { ok: true, status: "working", doing: "running", screen: "building", stopped: false });
+assert.deepEqual(reading(job, "state=stopped\nexit=143\nlines=1\nbytes=9\nlog=/l\n@@log\nbuilding\n@@screen\n"), { ok: true, status: "idle", doing: "stopped by the user", screen: "building", stopped: true }, "a job the user stopped says so");
 assert.deepEqual(reading(job, "state=missing"), { ok: false, problem: "no background command 1a2b3c4d" });
 
 if (existsSync("/bin/zsh")) {
@@ -91,7 +92,7 @@ if (existsSync("/bin/zsh")) {
 		return state.ok && state.status === "working";
 	};
 	while (Date.now() < deadline && working()) await new Promise((resolve) => setTimeout(resolve, 100));
-	assert.deepEqual(read(), { ok: true, status: "idle", doing: "exited 4", screen: "built" });
+	assert.deepEqual(read(), { ok: true, status: "idle", doing: "exited 4", screen: "built", stopped: false });
 		rmSync(home, { recursive: true });
 }
 
@@ -129,7 +130,7 @@ assert.deepEqual(workers(`@@hc\n${JSON.stringify({ error: { kind: "unavailable",
 assert.deepEqual(placeOf("hc:t5"), { via: "hc", terminal: "t5" });
 assert.deepEqual(placeOf("hc:office/t7"), { via: "hc", terminal: "office/t7" });
 const hc = { via: "hc", terminal: "t5" } as const;
-assert.deepEqual(reading(hc, `${JSON.stringify({ address: "t5", state: "live", status: { app: "pi", state: "working" } })}\n@@screen\n⏺ editing`), { ok: true, status: "working", doing: "", screen: "⏺ editing" }, "hc get reports status as an object, hc ls as a string");
+assert.deepEqual(reading(hc, `${JSON.stringify({ address: "t5", state: "live", status: { app: "pi", state: "working" } })}\n@@screen\n⏺ editing`), { ok: true, status: "working", doing: "", screen: "⏺ editing", stopped: false }, "hc get reports status as an object, hc ls as a string");
 assert.deepEqual(reading(hc, `${JSON.stringify({ error: { kind: "not_found", message: "no terminal t5", hint: "hc ls" } })}\n@@screen\n`), { ok: false, problem: "no terminal t5 (hc ls)" });
 assert.match(readCommand(hc, 40), /"\$hc" read 't5' --lines 40/);
 assert.match(sendCommand(hc, "fix it"), /"\$hc" send 't5' 'fix it'/);

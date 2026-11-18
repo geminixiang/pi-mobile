@@ -43,7 +43,7 @@ export type Trigger = {
 	last?: LastRun;
 } & ({ kind: "schedule" | "followup" } | { kind: "watch"; agent: string });
 
-export type AgentState = Status | "gone" | "unreachable";
+export type AgentState = Status | "gone" | "unreachable" | "stopped";
 
 const UNATTENDED = "(Unattended: nobody will answer a question. Start the answer with one line of at most 20 characters that tells the point (what changed or needs the user, or that nothing did), then the details; where something is unclear, pick the likely choice and say the assumption; when a step needs the user, skip it and say what is needed.)";
 const WATCH_LIMIT = 12 * 60 * MINUTE;
@@ -122,7 +122,6 @@ function fromV1({ enabled, fired, last, ...rest }: Static<typeof V1Trigger>): Tr
 	}
 	return { ...trigger, last: { ...base, outcome: "ran", ...(last.judged !== undefined ? { confidence: { kind: "judged", probability: last.judged } } : unjudged) } };
 }
-
 
 export const TRIGGER_ENTRY = "trigger.run";
 const TriggerEntryData = Type.Object({
@@ -291,6 +290,7 @@ export class TriggerRuns {
 		const agent = trigger.kind === "watch" ? await this.#agentState(trigger.conversationId, trigger.agent) : undefined;
 		const checkedAt = Date.now();
 		const waited = checkedAt - trigger.createdAt;
+		if (agent === "stopped") return this.delete(id).then(() => undefined);
 		if (agent && STILL_WAITING.has(agent) && waited < WATCH_LIMIT && delivery !== "manual") {
 			await this.#edit((items) => items.map((item) => (item.id !== id ? item : { ...item, state: "on", when: { kind: "once", at: checkedAt + nextCheck(waited) } })));
 			return undefined;

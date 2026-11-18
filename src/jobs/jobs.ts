@@ -16,11 +16,8 @@ type Computer = Pick<CommandClient, "run">;
 
 export const computerOf = (place: Workplace | undefined): Computer | undefined => (place?.kind === "computer" ? new HostCommands(place.host) : undefined);
 
-const keyOf = (id: ConversationId, job: string) => `${String(id)}\n${job}`;
-
 export class Jobs {
 	readonly #waiting = new Set<string>();
-	readonly #stopping = new Set<string>();
 	readonly #computer: (conversationId: string) => Computer | undefined;
 	readonly #watches: Watches;
 
@@ -30,12 +27,12 @@ export class Jobs {
 	}
 
 	wait(id: ConversationId, job: string): void {
-		const key = keyOf(id, job);
+		const key = `${String(id)}\n${job}`;
 		const on = this.#on(id, job);
 		if (this.#waiting.has(key) || !on) return;
 		this.#waiting.add(key);
 		const waited = on.commands.run(waitJob(on.jobId)).then(async (ended) => {
-			if (ended.code === 0 && !this.#stopping.has(key)) await this.#watches.checkWatch(id, job);
+			if (ended.code === 0) await this.#watches.checkWatch(id, job);
 		});
 		void orLogged(waited, "jobs.wait_failed", undefined, { job }).finally(() => this.#waiting.delete(key));
 	}
@@ -53,15 +50,9 @@ export class Jobs {
 	async stop(id: ConversationId, job: string): Promise<void> {
 		const on = this.#on(id, job);
 		if (!on) return;
-		const key = keyOf(id, job);
-		this.#stopping.add(key);
-		try {
-			const stopped = await on.commands.run(stopJob(on.jobId));
-			if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
-			await this.#watches.stopWatching(id, job);
-		} finally {
-			this.#stopping.delete(key);
-		}
+		const stopped = await on.commands.run(stopJob(on.jobId));
+		if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
+		await this.#watches.stopWatching(id, job);
 	}
 
 	stopOwned(hosts: readonly PairedHost[], id: ConversationId, folder: string): Promise<unknown> {
