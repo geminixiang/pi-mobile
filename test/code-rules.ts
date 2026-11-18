@@ -354,7 +354,7 @@ function sheetImportRule(): Finding[] {
 }
 
 // why: counts let declarations in src/, which only goes down: a value that changes is a const computed again or a reducer
-const LETS = 115;
+const LETS = 114;
 const LET = /^\s*(?:export )?let /gm;
 
 function letRule(): Finding[] {
@@ -372,7 +372,7 @@ const LONG_FILES: Record<string, number> = {
 	"src/app/styles.css": 468,
 	"src/agent/files/phone-env.ts": 445,
 	"src/mcp/mcp.ts": 473,
-	"src/runtime/runtime.ts": 613,
+	"src/runtime/runtime.ts": 602,
 	"src/tw-stocks/tool.ts": 465,
 	"src/app/App.tsx": 517,
 	"src/app/chat/Chat.tsx": 475,

@@ -12,6 +12,7 @@ import {
 	createRegistry,
 	Harness,
 	InboxDoc,
+	type Registry,
 	type SessionEnd,
 	type Storage,
 	type SubmissionId,
@@ -32,6 +33,8 @@ import { afterUserMessage, avatarOf, type Bot, botFields, BotIndex, botsIn, DEFA
 import { uuidv7 } from "@earendil-works/pi-ai/utils/uuid";
 import { builtinExtensions } from "./catalog.ts";
 import { connectClouds } from "../clouds/clouds.ts";
+import type { CloudService } from "../clouds/tool.ts";
+import type { WebConfig } from "../agent/available-models.ts";
 import { extensionName, isMcpExtension, McpHub, type McpHooks } from "../mcp/mcp.ts";
 import { BotMemoryDoc, Memories } from "../memory/memory.ts";
 import { BotSkillsDoc, Skills } from "../skills/skills.ts";
@@ -106,10 +109,31 @@ function userSpoke(bot: Bot, at: number): void {
 
 type Applied = "in_place" | "needs_restart";
 
+type Options = {
+	onReport?: (message: string) => void;
+	notify?: (title: string, text: string, conversationId: ConversationId, bot: { name: string; avatar: string } | undefined) => Promise<Notified>;
+	openUrl?: (url: string) => Promise<void>;
+};
+
+type Parts = {
+	harness: Harness;
+	registry: Registry;
+	current: { settings: Settings };
+	platform: Platform;
+	infos: ModelInfo[];
+	workplaces: Workplaces;
+	placed: Map<string, Placed>;
+	shapes: Map<string, ContextShape>;
+	judge: Judge;
+	web: WebConfig;
+	clouds: readonly CloudService[];
+	options: Options;
+};
+
 export class AgentRuntime {
 	readonly #infos: ModelInfo[];
 	readonly #harness: Harness;
-	#settings: Settings;
+	readonly #current: { settings: Settings };
 	readonly workplaces: Workplaces;
 	readonly #placed: Map<string, Placed>;
 	readonly #shapes: Map<string, ContextShape>;
@@ -125,45 +149,76 @@ export class AgentRuntime {
 	readonly #botToolsets: BotToolsets;
 	readonly #platform: Platform;
 
-	private constructor(
-		harness: Harness,
-		settings: Settings,
-		platform: Platform,
-		infos: ModelInfo[],
-		workplaces: Workplaces,
-		placed: Map<string, Placed>,
-		shapes: Map<string, ContextShape>,
-		installed: () => ReadonlySet<string>,
-		owners: ReadonlyMap<string, Groups>,
-		mcp: McpHub,
-		forms: Forms,
-		judge: Judge,
-	) {
-		this.#installed = installed;
-		this.#owners = owners;
+	private constructor(parts: Parts) {
+		const { harness, registry, platform, workplaces, options } = parts;
+		const at = (id: string) => workplaces.at(id);
+		this.#harness = harness;
+		this.#current = parts.current;
 		this.#platform = platform;
-		this.mcp = mcp;
-		this.forms = forms;
+		this.#infos = parts.infos;
+		this.workplaces = workplaces;
+		this.#placed = parts.placed;
+		this.#shapes = parts.shapes;
 		this.memories = new Memories(harness);
 		this.skills = new Skills(harness);
-		this.#harness = harness;
-		this.#settings = settings;
-		this.#infos = infos;
-		this.workplaces = workplaces;
-		this.#placed = placed;
-		this.#shapes = shapes;
 		this.triggers = new TriggerRuns(
 			harness,
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, name: bot.name, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
-			judge,
+			parts.judge,
 			async (id, agent) => {
 				const place = this.workplaces.at(String(id));
 				return place?.kind === "computer" ? agentState(place.host, agent) : "unreachable";
 			},
 		);
-		this.jobs = new Jobs((id) => computerOf(this.workplaces.at(id)), this.triggers);
-		this.#botToolsets = new BotToolsets(harness, owners, platform.native, (id) => this.workplaces.at(String(id))?.kind ?? "missing");
+		this.jobs = new Jobs((id) => computerOf(at(id)), this.triggers);
+		const triggerHost: TriggerHost = {
+			changed: () => void this.triggers.sync(),
+			unattended: (id) => this.triggers.unattended(id),
+			notify: async (title, text, conversationId) => {
+				const bot = (await this.bots()).find((candidate) => candidate.id === conversationId);
+				return (await options.notify?.(title, text, conversationId, bot && { name: bot.name, avatar: avatarOf(bot) })) ?? "off";
+			},
+		};
+		this.forms = new Forms(harness, {
+			unattended: triggerHost.unattended,
+			waiting: async (form) => {
+				if (!(await platform.inFront())) await triggerHost.notify(form.request.message, form.service, form.conversationId);
+			},
+		});
+		const ask: McpHooks["ask"] = (callId, form, signal) => this.forms.ask(callId, form, signal);
+		const settings = parts.current.settings;
+		const catalog = builtinExtensions({
+			platform,
+			assistant: createAssistant(platform.inApp, (id, shape) => void parts.shapes.set(id, shape)),
+			calendarAccess: settings.calendarAccess,
+			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
+			clouds: parts.clouds,
+			web: parts.web,
+			triggers: triggerHost,
+			memory: this.memories,
+			skills: this.skills,
+			workplace: at,
+			waitForJob: (id, job) => this.jobs.wait(id, job),
+			actsAsUser: (id) => this.#actsAsUser(id),
+			ask,
+			userSaid: (id) => this.#userSaid(id),
+			labelOf: (tool, extension, id) => labelOf(tool, extension, at(id)?.kind ?? "missing", catalog.owners, this.mcp),
+		});
+		for (const extension of catalog.extensions) registry.install(extension);
+		const builtinTools: ReadonlySet<string> = new Set(catalog.owners.keys());
+		this.#owners = catalog.owners;
+		this.#installed = () => new Set(registry.snapshot().installed().map((extension) => extension.name));
+		this.#botToolsets = new BotToolsets(harness, catalog.owners, platform.native, (id) => this.workplaces.at(String(id))?.kind ?? "missing");
+		this.mcp = new McpHub(platform, {
+			install: (extension) => registry.install(extension),
+			uninstall: (name) => registry.uninstall({ name }),
+			revoke: (extension) => this.#revoke(extension),
+			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
+			hostKey: (address) => pairedHosts(this.settings).find((host) => host.address === address)?.key ?? "",
+			builtinTools: () => builtinTools,
+			ask,
+		});
 	}
 
 	#touchBot(id: ConversationId, at: number): Promise<void> {
@@ -173,7 +228,7 @@ export class AgentRuntime {
 	}
 
 	get settings(): Settings {
-		return this.#settings;
+		return this.#current.settings;
 	}
 
 	get models(): ModelInfo[] {
@@ -181,9 +236,9 @@ export class AgentRuntime {
 	}
 
 	async apply(next: Settings): Promise<Applied> {
-		const changed = changedKeys(this.#platform.settings.withRotated(this.#settings), next);
+		const changed = changedKeys(this.#platform.settings.withRotated(this.#current.settings), next);
 		if (changed.some((key) => APPLY[key] === "restart")) return "needs_restart";
-		this.#settings = next;
+		this.#current.settings = next;
 		if (changed.some((key) => key === "hosts" || key === "hostKeys" || key === "computer")) {
 			this.workplaces.apply(next);
 			await this.#publishBots();
@@ -197,61 +252,14 @@ export class AgentRuntime {
 		});
 	}
 
-	static async open(
-		storage: Storage,
-		settings: Settings,
-		platform: Platform,
-		options: {
-			onReport?: (message: string) => void;
-			notify?: (title: string, text: string, conversationId: ConversationId, bot: { name: string; avatar: string } | undefined) => Promise<Notified>;
-			openUrl?: (url: string) => Promise<void>;
-		} = {},
-	): Promise<AgentRuntime> {
-		const { models, infos, webSearch } = await platform.models(settings, () => runtimeRef?.settings.compactAt ?? settings.compactAt, options.onReport);
+	static async open(storage: Storage, settings: Settings, platform: Platform, options: Options = {}): Promise<AgentRuntime> {
+		const current = { settings };
+		const { models, infos, webSearch } = await platform.models(settings, () => current.settings.compactAt, options.onReport);
 		const registry = createRegistry();
-		let runtimeRef: AgentRuntime | undefined;
-		const ask: McpHooks["ask"] = (callId, form, signal) => (runtimeRef ? runtimeRef.forms.ask(callId, form, signal) : Promise.resolve({ action: "cancel" }));
-		const triggerHost: TriggerHost = {
-			changed: () => void runtimeRef?.triggers.sync(),
-			unattended: (id) => runtimeRef?.triggers.unattended(id) ?? false,
-			notify: async (title, text, conversationId) => {
-				const bot = (await runtimeRef?.bots())?.find((candidate) => candidate.id === conversationId);
-				return (await options.notify?.(title, text, conversationId, bot && { name: bot.name, avatar: avatarOf(bot) })) ?? "off";
-			},
-		};
 		const shapes = new Map<string, ContextShape>();
 		const placed = new Map<string, Placed>();
 		const clouds = connectClouds(settings, platform.settings);
 		const workplaces = new Workplaces(settings, clouds.minted, platform.phone, (id) => placed.get(id));
-		const at = (id: string) => workplaces.at(id);
-		const catalog = builtinExtensions({
-			platform,
-			assistant: createAssistant(platform.inApp, (id, shape) => void shapes.set(id, shape)),
-			calendarAccess: settings.calendarAccess,
-			...(settings.githubToken ? { githubToken: settings.githubToken } : {}),
-			clouds: clouds.services,
-			web: webSearch,
-			triggers: triggerHost,
-			memory: { changed: () => runtimeRef?.memories.changed() },
-			skills: { changed: () => runtimeRef?.skills.changed() },
-			workplace: at,
-			waitForJob: (id, job) => runtimeRef?.jobs.wait(id, job),
-			actsAsUser: (id) => (runtimeRef ? runtimeRef.#actsAsUser(id) : Promise.resolve(false)),
-			ask,
-			userSaid: async (id) => (runtimeRef ? runtimeRef.#userSaid(id) : []),
-			labelOf: (tool, extension, id) => labelOf(tool, extension, at(id)?.kind ?? "missing", catalog.owners, mcp),
-		});
-		for (const extension of catalog.extensions) registry.install(extension);
-		const builtinTools: ReadonlySet<string> = new Set(catalog.owners.keys());
-		const mcp: McpHub = new McpHub(platform, {
-			install: (extension) => registry.install(extension),
-			uninstall: (name) => registry.uninstall({ name }),
-			revoke: (extension) => (runtimeRef ? runtimeRef.#revoke(extension) : Promise.resolve()),
-			openUrl: (url) => options.openUrl?.(url) ?? Promise.reject(new Error("cannot open the browser here")),
-			hostKey: (address) => pairedHosts(runtimeRef?.settings ?? settings).find((host) => host.address === address)?.key ?? "",
-			builtinTools: () => builtinTools,
-			ask,
-		});
 		const harness = await Harness.open(
 			storage,
 			{
@@ -268,33 +276,14 @@ export class AgentRuntime {
 				},
 				onReport: (report) => options.onReport?.(messageOf(report.error)),
 				env: ({ conversationId }) => {
-					const place = at(String(conversationId));
+					const place = workplaces.at(String(conversationId));
 					return place?.kind === "missing" ? undefined : place?.env();
 				},
 			},
 			context,
 		);
-		const runtime = new AgentRuntime(
-			harness,
-			settings,
-			platform,
-			infos,
-			workplaces,
-			placed,
-			shapes,
-			() => new Set(registry.snapshot().installed().map((extension) => extension.name)),
-			catalog.owners,
-			mcp,
-			new Forms(harness, {
-				unattended: triggerHost.unattended,
-				waiting: async (form) => {
-					if (!(await platform.inFront())) await triggerHost.notify(form.request.message, form.service, form.conversationId);
-				},
-			}),
-			createJudge(models),
-		);
-		mcp.connectUncached();
-		runtimeRef = runtime;
+		const runtime = new AgentRuntime({ harness, registry, current, platform, infos, workplaces, placed, shapes, judge: createJudge(models), web: webSearch, clouds: clouds.services, options });
+		runtime.mcp.connectUncached();
 		if ((await runtime.bots()).length === 0) await runtime.createBot(DEFAULT_BOT);
 		else await runtime.#publishBots();
 		harness.resume();
@@ -319,11 +308,11 @@ export class AgentRuntime {
 	}
 
 	#defaultAgent() {
-		const { defaultProvider: provider, defaultModelId: modelId } = this.#settings;
+		const { defaultProvider: provider, defaultModelId: modelId } = this.#current.settings;
 		const known = this.models.some((model) => model.provider === provider && model.id === modelId);
 		const first = this.models[0];
 		const model = known || !first ? { provider, modelId } : { provider: first.provider, modelId: first.id };
-		const thinking = this.#settings.defaultThinking;
+		const thinking = this.#current.settings.defaultThinking;
 		return { model, thinkingLevel: isThinkingLevel(thinking) ? thinking : "low" };
 	}
 
