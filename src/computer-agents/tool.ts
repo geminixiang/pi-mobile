@@ -173,7 +173,9 @@ export function peekAgent(place: Workplace | undefined, agent: string): Promise<
 	return readingOf(new HostCommands(place.host), at, READ_LINES);
 }
 
-export async function agentState(host: PairedHost, agent: string): Promise<AgentState> {
+export async function agentState(workplace: Workplace | undefined, agent: string): Promise<AgentState> {
+	if (workplace?.kind !== "computer") return "unreachable";
+	const host = workplace.host;
 	const place = placeOf(agent);
 	if (!place) return "gone";
 	const read = await orLogged(

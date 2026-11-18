@@ -106,7 +106,6 @@ function userSpoke(bot: Bot, at: number): void {
 	else delete bot.rhythmOffer;
 }
 
-
 type Applied = "in_place" | "needs_restart";
 
 const builtOn = <T,>(harness: Harness, build: () => T): Promise<T> =>
@@ -172,10 +171,7 @@ export class AgentRuntime {
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, name: bot.name, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
 			parts.judge,
-			async (id, agent) => {
-				const place = this.workplaces.at(String(id));
-				return place?.kind === "computer" ? agentState(place.host, agent) : "unreachable";
-			},
+			(id, agent) => agentState(at(String(id)), agent),
 		);
 		this.jobs = new Jobs((id) => computerOf(at(id)), this.triggers);
 		const triggerHost: TriggerHost = {
