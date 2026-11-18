@@ -1,5 +1,5 @@
 import type { ConversationId } from "@earendil-works/pi-durable";
-import { HostCommands } from "../computer/commands.ts";
+import { type CommandClient, HostCommands } from "../computer/commands.ts";
 import type { PairedHost } from "../computer/pairing.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import type { Trigger, TriggerRuns } from "../triggers/runs.ts";
@@ -12,23 +12,30 @@ const PEEK_LINES = 60;
 
 type Watches = Pick<TriggerRuns, "checkWatch" | "stopWatching" | "watching">;
 
+type Computer = Pick<CommandClient, "run">;
+
+export const computerOf = (place: Workplace | undefined): Computer | undefined => (place?.kind === "computer" ? new HostCommands(place.host) : undefined);
+
+const keyOf = (id: ConversationId, job: string) => `${String(id)}\n${job}`;
+
 export class Jobs {
 	readonly #waiting = new Set<string>();
-	readonly #at: (conversationId: string) => Workplace | undefined;
+	readonly #stopping = new Set<string>();
+	readonly #computer: (conversationId: string) => Computer | undefined;
 	readonly #watches: Watches;
 
-	constructor(at: (conversationId: string) => Workplace | undefined, watches: Watches) {
-		this.#at = at;
+	constructor(computer: (conversationId: string) => Computer | undefined, watches: Watches) {
+		this.#computer = computer;
 		this.#watches = watches;
 	}
 
 	wait(id: ConversationId, job: string): void {
-		const key = `${String(id)}\n${job}`;
+		const key = keyOf(id, job);
 		const on = this.#on(id, job);
 		if (this.#waiting.has(key) || !on) return;
 		this.#waiting.add(key);
 		const waited = on.commands.run(waitJob(on.jobId)).then(async (ended) => {
-			if (ended.code === 0) await this.#watches.checkWatch(id, job);
+			if (ended.code === 0 && !this.#stopping.has(key)) await this.#watches.checkWatch(id, job);
 		});
 		void orLogged(waited, "jobs.wait_failed", undefined, { job }).finally(() => this.#waiting.delete(key));
 	}
@@ -46,9 +53,15 @@ export class Jobs {
 	async stop(id: ConversationId, job: string): Promise<void> {
 		const on = this.#on(id, job);
 		if (!on) return;
-		const stopped = await on.commands.run(stopJob(on.jobId));
-		if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
-		await this.#watches.stopWatching(id, job);
+		const key = keyOf(id, job);
+		this.#stopping.add(key);
+		try {
+			const stopped = await on.commands.run(stopJob(on.jobId));
+			if (stopped.code !== 0) throw new Error(stopped.stderr.trim() || `停不下來（exit ${stopped.code}）`);
+			await this.#watches.stopWatching(id, job);
+		} finally {
+			this.#stopping.delete(key);
+		}
 	}
 
 	stopOwned(hosts: readonly PairedHost[], id: ConversationId, folder: string): Promise<unknown> {
@@ -62,9 +75,9 @@ export class Jobs {
 		return read.state === "missing" ? undefined : { command: read.output.command, output: read.output.text };
 	}
 
-	#on(id: ConversationId, job: string): { commands: HostCommands; jobId: string } | undefined {
-		const place = this.#at(String(id));
+	#on(id: ConversationId, job: string): { commands: Computer; jobId: string } | undefined {
+		const commands = this.#computer(String(id));
 		const jobId = jobIdOf(job) ?? "";
-		return place?.kind === "computer" && JOB_ID.test(jobId) ? { commands: new HostCommands(place.host), jobId } : undefined;
+		return commands && JOB_ID.test(jobId) ? { commands, jobId } : undefined;
 	}
 }

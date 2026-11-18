@@ -24,7 +24,7 @@ import { orLogged, messageOf } from "../promise.ts";
 import { createAssistant } from "../agent/assistant.ts";
 import type { ContextShape, ToolCost } from "../agent/context-shape.ts";
 import { pairedHosts } from "../computer/pairing.ts";
-import { Jobs } from "../jobs/jobs.ts";
+import { computerOf, Jobs } from "../jobs/jobs.ts";
 import { agentState } from "../computer-agents/tool.ts";
 import { deleteAttachments } from "../attachments/attachments.ts";
 import { BotToolsets } from "../agent/bot-toolsets.ts";
@@ -162,7 +162,7 @@ export class AgentRuntime {
 				return place?.kind === "computer" ? agentState(place.host, agent) : "unreachable";
 			},
 		);
-		this.jobs = new Jobs((id) => this.workplaces.at(id), this.triggers);
+		this.jobs = new Jobs((id) => computerOf(this.workplaces.at(id)), this.triggers);
 		this.#botToolsets = new BotToolsets(harness, owners, platform.native, (id) => this.workplaces.at(String(id))?.kind ?? "missing");
 	}
 

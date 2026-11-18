@@ -9,14 +9,21 @@ import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents, latestAlarms } from "../../src/triggers/events.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
-import { DAY, localDate } from "../../src/time.ts";
+import { DAY, localDate, sleep } from "../../src/time.ts";
+import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Jobs } from "../../src/jobs/jobs.ts";
+import { jobAgent } from "../../src/jobs/background.ts";
+import { startJob, stopJob } from "../../src/jobs/commands.ts";
 import { context, entriesOf } from "./fixtures.ts";
 import { type Check, logged, platform, settings } from "./setup.ts";
 
 
 async function triggerFixture(
 	when: Trigger["when"],
-	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState; item?: { state: "todo" | "done" | "waiting"; nextAt?: number } } = {},
+	options: { enabled?: boolean; runs?: { trigger: string; at: number; request?: string }[]; onlyIf?: string; guards?: GuardId[]; verdict?: Verdict; watching?: AgentState; agent?: string; item?: { state: "todo" | "done" | "waiting"; nextAt?: number } } = {},
 ) {
 	const storage = new MemoryStorage();
 	const { models } = await loadModels(settings, () => settings.compactAt, Promise.resolve({}), platform.settings);
@@ -31,7 +38,7 @@ async function triggerFixture(
 			when,
 			...(options.onlyIf ? { onlyIf: options.onlyIf } : {}),
 			...(options.guards ? { guards: options.guards } : {}),
-			...(options.watching ? { kind: "watch", agent: "rex:a1b2c3:d4e5f6" } : { kind: "schedule" }),
+			...(options.watching ? { kind: "watch", agent: options.agent ?? "rex:a1b2c3:d4e5f6" } : { kind: "schedule" }),
 			conversationId: conversation.id,
 			state: options.enabled === false ? "paused" : "on",
 			createdAt: Date.now(),
@@ -92,6 +99,18 @@ async function withTrigger(fixture: Awaited<ReturnType<typeof triggerFixture>>, 
 	} finally {
 		await fixture.close();
 	}
+}
+
+const STOP_REPLY_MS = 1500;
+
+function bash(home: string, command: string): Promise<{ stdout: string; stderr: string; code: number | undefined }> {
+	return new Promise((resolve) => {
+		const child = spawn("/bin/bash", ["-c", command], { env: { HOME: home, PATH: "/usr/bin:/bin" } });
+		const out = { stdout: "", stderr: "" };
+		child.stdout.on("data", (data: Buffer) => (out.stdout += data.toString()));
+		child.stderr.on("data", (data: Buffer) => (out.stderr += data.toString()));
+		child.on("close", (code) => resolve({ ...out, code: code ?? undefined }));
+	});
 }
 
 const confidenceOf = (last: LastRun | undefined) => (last?.outcome === "failed" ? undefined : last?.confidence);
@@ -497,6 +516,33 @@ export const checks: Check[] = [
 					["trigger.dropped", "stale"],
 				],
 			);
+		},
+	],
+	[
+		"stopping a background job does not wake its bot, even when the stop's answer comes back after the job's end",
+		async () => {
+			const home = mkdtempSync(join(tmpdir(), "jobs-"));
+			const id = "5badc0de";
+			const job = jobAgent(id);
+			const fixture = await triggerFixture({ kind: "once", at: Date.now() + 60_000 }, { watching: "idle", agent: job });
+			const computer = {
+				run: async (command: string) => {
+					const ran = await bash(home, command);
+					if (command === stopJob(id)) await sleep(STOP_REPLY_MS);
+					return ran;
+				},
+			};
+			await withTrigger(fixture, async () => {
+				const started = await bash(home, startJob({ id, command: "sleep 30", cwd: home, owner: "bot", limitSeconds: 60 }));
+				assert.equal(started.code, 0, started.stderr);
+				const jobs = new Jobs(() => computer, fixture.runs);
+				jobs.wait(fixture.conversation, job);
+				await jobs.stop(fixture.conversation, job);
+				await sleep(STOP_REPLY_MS);
+				assert.equal(await fixture.delivered(), 0, "the stop woke the bot");
+				assert.equal((await fixture.doc()).items.length, 0, "the watch is gone");
+			});
+			rmSync(home, { recursive: true, force: true });
 		},
 	],
 ];
