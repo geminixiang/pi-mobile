@@ -63,3 +63,24 @@
 - **設計文件有一節「否決過的做法」**（§15），每一條寫為什麼不做。
 
 和 pi mobile 的對照：pi 有 `docs/feature-map.md`（畫面的名字）、`docs/architecture.md`、規則表和 `npm run check`，但沒有「每個模組的現況和已知問題」這一層，也沒有集中的「否決過的做法」。今天兩次修正都是先沒讀清楚整條流程才補洞（背景指令的停止、錯過的排程），模組地圖正是讓 agent 先讀到整條流程的東西。是否要學，等使用者決定；學的話先從排程和背景指令兩個模組試。
+
+## libappine.so：能不能直接載進 pi
+
+讀了 APK 裡的 `lib/arm64-v8a/libappine.so`（`nm -D`、`objdump -p`），對照 `android/.../Native.kt` 和 `hosts/android/src/lib.rs`（HEAD `c4db5db`）。
+
+- **一個檔案就是整台 Linux**：8.3 MB，只依賴 Android 系統的 `libc`、`libdl`、`liblog`、`libandroid`、`libjnigraphics`。rootfs 另外放在 `assets/rootfs.tgz`（4 MB），還帶了 bash、procps、bubblewrap 的 apk。
+- **對外 85 個 JNI 函式**：`Native` 37 個（Linux 本身），`VtNative` 48 個（終端機畫面）。`Native` 就是一套「嵌入一台 Linux」的介面：
+  - `importRootfs(store, tarball)` 建立儲存區，`start(store, tier)` 回傳一台機器的 handle，`boot(machine)` 跑 inittab；
+  - `openConsole` 開一個程序內的 PTY，`spawn(machine, console, program, argv, envp)` 跑程式，`read`／`write` 讀寫輸出入，`waitFor(pid)` 拿結束碼；
+  - `readFile`／`writeFile` 在不跑機器時也能讀寫檔案，`takeListens` 回報開了哪些 port，`stop` 結束。
+  - 這幾個剛好對得上 pi-env 的 `ExecutionEnv`（執行指令、讀寫檔案），所以技術上 pi 可以把它包成「手機上的一台電腦」，不需要經過 `host/` 的網路協定。
+- **限制（讀程式得知）**：
+  - JNI 名字是靜態綁定的（`Java_io_github_mthli_appine_Native_spawn`），pi 要嘛宣告一個一模一樣叫 `io.github.mthli.appine.Native` 的類別，要嘛自己重新編譯改名。
+  - 它會在載入它的程序裡裝 SIGSEGV、SIGBUS、SIGILL 的處理器（接在 ART 之後），Linux 用的記憶體和 CPU 也都算在那個程序上；預設記憶體上限是手機 RAM 的一半。放進 pi 等於 Linux 和 pi 的 WebView 同一個程序：引擎自己的 bug 會連 pi 一起帶走，跑重的編譯時也可能拖到畫面。
+  - 呼叫要在背景執行緒，`read`、`write`、`waitFor` 會卡住。
+- **授權（這是重點）**：把 `libappine.so` 放進 pi 的 APK 一起發佈，就是在發佈 AGPL 的程式，而且在同一個程序裡連結，pi 整個 APK 就得以 AGPL 授權並提供原始碼。從已安裝的 Appine 借它的 `.so` 來載也行不通：Android 7 起每個 App 的原生函式庫只能從自己的路徑載入（linker namespace，推論，沒試），而且授權問題一樣。
+
+**結論**：`libappine.so` 的介面比我原本想的更適合嵌入，pi 要用它跑指令只需要包一層。卡住的只有授權。可行的路有三條，都要使用者決定：
+1. pi 改用 AGPL（等於整個 pi 跟著改授權）；
+2. 問作者能不能用別的授權提供函式庫（例如給 pi 一份 MIT 或商業授權）；
+3. 不嵌入，維持「兩個 App、pi 的電腦端程式跑在 Appine 裡」的做法（上一節第 2 點）。
