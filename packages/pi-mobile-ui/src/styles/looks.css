@@ -150,7 +150,3 @@
 	color: var(--muted); font-family: var(--mono); font-size: var(--fs-small); text-align: left;
 	border-top: 1px dashed var(--line);
 }
-
-@media (min-width: 600px) and (min-height: 480px) {
-	.layer-sheet { max-width: 600px; margin-inline: auto; }
-}

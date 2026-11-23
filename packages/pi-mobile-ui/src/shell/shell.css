@@ -40,3 +40,7 @@
 .dialog-choice + .dialog-choice { font-weight: 700; }
 .dialog-choice[data-pressed] { background-color: color-mix(in srgb, var(--text) 8%, var(--panel)); }
 .dialog-choice.danger { color: var(--error); }
+
+@media (min-width: 600px) and (min-height: 480px) {
+	.layer-sheet { max-width: 600px; margin-inline: auto; }
+}
