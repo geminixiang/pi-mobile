@@ -40,6 +40,8 @@ if (command === "setup") {
 	console.log(
 		ui(`
 			const c = window.piController;
+			const own = (await window.piRuntime.bots()).find((b) => b.name === "${BOT}");
+			if (!own || String(c.id) !== String(own.id)) throw new Error("pi opened another bot after the reload, so nothing was changed in it: a notification or a link pi was opened from wins over the last bot. Restart pi from its icon (or adb shell am force-stop, then am start), then run setup again.");
 			await c.setModel("perf", "perf-fixture");
 			await c.setThinking("off");
 			const have = document.querySelectorAll(".answer").length;

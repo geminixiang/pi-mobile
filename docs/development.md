@@ -117,6 +117,8 @@ node test/perf/fixture.ts teardown <serial>                 # 移除 Bot、provi
 - `typing` 時 Samsung 把更新率降到 60 Hz（真的用手指點輸入法也一樣），GPU 也因為每個字只畫一幀而降頻，所以 `gfx*`、`gpuP99`、`raf*` 量到的是降頻，不是 app。只看 `inputP95`（按鍵到畫面，Event Timing 取整到 8 ms，S24 上是兩個 vsync，約 32–40 ms，連整串對話都不畫也一樣）和 `inputProcessingP95`（事件處理，含 React 更新，約 6–8 ms，這段才是 app 能改的）。
 - 掉幀從哪裡來、哪些方向已經試過沒有用，見 [research/render.md](research/render.md)。
 - 每次 `stream` 都會在對話留下一則回答，DOM 越跑越大（每次約 +230 個節點，記在每一輪的 `nodes`）。比較前後時，兩邊都先 `teardown` 再 `setup`。
+- pi 是從通知或連結打開的時候，每次重新載入都會回到那個 Bot，不是 fixture 設定的測試 Bot。`setup` 看到開著的不是自己的 Bot 就停下來、什麼都不改（2026-11-24 以前它會把開著的那個 Bot 換成測試模型）；這時從圖示重開 pi 再跑一次 `setup`。
+- 隔了一段時間、重裝過的兩輪之間，同一版的 `stream` gfx 掉幀量到過 1.8 % 和 2.5 %。要比較的兩版在同一輪裡接著量。
 
 iPhone（60 Hz）用同一支 `run.ts` 加 `--ios`，經 MacBook Air 上的 CDP 橋（見 `.pi/skills/device-testing/SKILL.md` 的 iOS 一節）：
 
