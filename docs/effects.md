@@ -26,7 +26,7 @@
 | 一個狀態轉換要帶副作用（瀏覽器面板開了要截圖、關了要收起原生畫面） | 在做轉換的那個函式裡做：`step(event)` 算出前後兩個狀態，再照差異反應（`BrowserSheet.tsx`） |
 | 元素換了內容要重做（換一張圖、換一段 Mermaid） | 給元素 `key`，讓它的出現就是觸發（`Mermaid`、`FileViewer` 的圖片） |
 | 交給剛要掛上的元件的東西（分享進來的檔案） | 信箱：送的人先放著（`offerFiles`），元件訂閱時領走（`receiveDrafts`，`src/app/chat/drafts.ts`） |
-| 硬體返回鍵 | 開著的那一層在自己的元素上寫 `data-back` 和 `onKeyDown`（`isBack(event)`，`src/app/layers.ts`）；返回鍵把一個鍵盤事件送給文件順序最後一個 `[data-back]`，也就是最上面、最裡面的那一層 |
+| 硬體返回鍵 | 開著的那一層在自己的元素上寫 `data-back` 和 `onKeyDown`（`isBack(event)`，`src/ui/layers.ts`）；返回鍵把一個鍵盤事件送給文件順序最後一個 `[data-back]`，也就是最上面、最裡面的那一層（`backToTop`），沒有任何一層開著時由 `UiPlatform` 把 App 收到背景 |
 | 對使用者的動作做反應（存草稿、通知上層、開始長按） | 寫在造成改變的事件處理函式裡 |
 | id 換了要重設 state | 給元件一個 `key`，或在 render 時比對後 `setState`（`BotSheet`、`Links.tsx` 的 `useBack`） |
 | 從 state 或 props 推導出來的值 | render 時算（AGENTS.md：一個值只存一次） |

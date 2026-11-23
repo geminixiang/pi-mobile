@@ -1,12 +1,10 @@
-import { native } from "../native.ts";
-import { System } from "../plugins/system.ts";
-import { orLogged } from "pi-mobile-base/promise";
+import { type Haptic, platform } from "./platform.ts";
 
 export const HOLD_MS = 380;
 export const HOLD_SLOP = 10;
 
-export function haptic(kind: "tick" | "press" | "confirm"): void {
-	if (native.has("System")) void orLogged(System.haptic({ kind }), "haptics.failed", undefined);
+export function haptic(kind: Haptic): void {
+	platform().haptic(kind);
 }
 
 export function longPress(act: () => void): (event: { preventDefault(): void }) => void {

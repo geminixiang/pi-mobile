@@ -1,10 +1,9 @@
-import { App } from "@capacitor/app";
 import type { Cancel } from "pi-mobile-base/time";
+import { platform } from "./platform.ts";
 import type { Subscribe } from "./subscribed.ts";
 
 export function onResume(run: () => void): Cancel {
-	const resume = App.addListener("resume", run);
-	return () => void resume.then((handle) => handle.remove());
+	return platform().onResume(run);
 }
 
 export function resumed<T>(read: (() => Promise<T>) | undefined): Subscribe<T> {

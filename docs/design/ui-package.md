@@ -1,6 +1,6 @@
 # pi-mobile-ui：把 UI 拆成 monorepo 裡的一個 package
 
-狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0、1 步完成（workspaces 和檢查規則；`pi-mobile-base`），`pi-mobile-ui` 還是空的。
+狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0–2 步完成（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform` 先做在 `src/ui/platform.ts`），`pi-mobile-ui` 還是空的。
 
 ## 問題
 
@@ -55,6 +55,7 @@ pi-mobile/                 根目錄仍是 App；"workspaces": ["packages/*"]
 
 - **訊息的資料形狀屬於 App（選 A）。** package 管框架（viewport、黏在底部、輸入框、串流文字），App 用現有的 memo（`sameEntryView`）把 pi 的紀錄畫成列。理由：一則訊息顯示什麼常要看後面的紀錄（工具結果、步驟合併、重試、問題卡、網頁卡），還要表單和輸入框的狀態；`threadOf(view)` 畫不出完整畫面。
 - **介面只放元件真正要知道的：** `ThreadSource`（busy、queue、send、stop、withdraw）、`Viewport`（stick、toBottom、jumpTo）、`Draft`、`UiPlatform`。
+  - `UiPlatform` 做出來是 `haptic(kind)`、`onBack(taken)`、`onResume(run)`、`copy(text)`、`pasted()`，App 用 `installPlatform` 裝上。和草稿只差一處：`onBack` 收到的函式要回報「有沒有哪一層接手」，因為沒有任何一層開著時要把 App 收到背景，那是原生的事，留在 App 這邊。
 - **每個組合元件只渲染今天就有的那一個元素：** 不加包裝 div，不用 Slot，class 由呼叫端給。
 - **列底下不讀串流時會變的 context 或 store。**
 - **不准 effect hook。** 計時器只有 `pi-mobile-base/time.ts` 一個擁有者。

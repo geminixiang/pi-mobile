@@ -1,15 +1,11 @@
-import { App } from "@capacitor/app";
 import { useRef } from "react";
-import { inApp } from "../native.ts";
 
 const BACK_KEY = "pi-back";
 
-if (inApp) {
-	void App.addListener("backButton", () => {
-		const top = [...document.querySelectorAll("[data-back]")].at(-1);
-		if (top) top.dispatchEvent(new KeyboardEvent("keydown", { key: BACK_KEY, bubbles: true }));
-		else void App.minimizeApp();
-	});
+export function backToTop(): boolean {
+	const top = [...document.querySelectorAll("[data-back]")].at(-1);
+	top?.dispatchEvent(new KeyboardEvent("keydown", { key: BACK_KEY, bubbles: true }));
+	return top !== undefined;
 }
 
 export function isBack(event: { key: string; target: EventTarget; currentTarget: EventTarget }): boolean {

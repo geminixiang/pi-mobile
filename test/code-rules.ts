@@ -133,8 +133,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /navigator\.clipboard|\.clipboardText\(/,
-		owners: ["src/ui/clipboard.ts"],
-		fix: "copy and read the clipboard with copy and pasted from src/ui/clipboard.ts, which picks the native read where the WebView cannot",
+		owners: ["src/app/capacitor.ts"],
+		fix: "copy and read the clipboard with copy and pasted from src/ui/clipboard.ts: they ask the UiPlatform the app installed (capacitorUi in src/app/capacitor.ts), which picks the native read where the WebView cannot",
 	},
 	{
 		use: /\bsection\(/,
@@ -297,7 +297,7 @@ const NEVER_LISTED: Record<string, { names: string[]; fix: string }> = {
 	},
 	"pi-mobile-ui": {
 		names: ["@capacitor/", "@earendil-works/"],
-		fix: "pi-mobile-ui knows neither the phone nor pi: the app passes native behaviour and pi's data in (props, children, a port the app installs), and Capacitor finds plugins only in the app's package.json",
+		fix: "pi-mobile-ui knows neither the phone nor pi: the app passes native behaviour and pi's data in (props, children, or a method of UiPlatform, which the app installs with installPlatform), and Capacitor finds plugins only in the app's package.json",
 	},
 };
 

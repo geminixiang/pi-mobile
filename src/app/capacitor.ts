@@ -1,4 +1,5 @@
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
+import { App } from "@capacitor/app";
 import { CapacitorHttp } from "@capacitor/core";
 import { McpClient, type McpFetch } from "@earendil-works/pi-mcp";
 import { loadModels } from "../agent/available-models.ts";
@@ -13,9 +14,12 @@ import { inForeground } from "../keepAlive.ts";
 import { inApp, native } from "../native.ts";
 import { parseJson } from "../parse.ts";
 import { Apps } from "../phone-apps/plugin.ts";
+import { System } from "../plugins/system.ts";
 import type { SettingsStorage, SettingsStore } from "../settings.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import { MINUTE } from "pi-mobile-base/time";
 import { Triggers } from "../triggers/plugin.ts";
+import type { UiPlatform } from "../ui/platform.ts";
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: MINUTE };
 
@@ -64,6 +68,25 @@ export const capacitorStorage: SettingsStorage = {
 			if ((await SecureStorage.keys()).includes(key)) await SecureStorage.remove(key);
 		},
 	},
+};
+
+export const capacitorUi: UiPlatform = {
+	haptic: (kind) => {
+		if (native.has("System")) void orLogged(System.haptic({ kind }), "haptics.failed", undefined);
+	},
+	onBack: (taken) => {
+		if (!inApp) return () => undefined;
+		const back = App.addListener("backButton", () => {
+			if (!taken()) void App.minimizeApp();
+		});
+		return () => void back.then((handle) => handle.remove());
+	},
+	onResume: (run) => {
+		const resume = App.addListener("resume", run);
+		return () => void resume.then((handle) => handle.remove());
+	},
+	copy: (text) => navigator.clipboard.writeText(text),
+	pasted: async () => (native.has("System") ? (await System.clipboardText()).text : navigator.clipboard.readText()),
 };
 
 export function capacitorPlatform(modelIds: Promise<Record<string, string[]>>, settings: SettingsStore): Platform {

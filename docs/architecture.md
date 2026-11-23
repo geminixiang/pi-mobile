@@ -110,7 +110,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - Samsung 會讓 app 睡著，所以設定裡可以申請不受電池最佳化限制。
 - 精確鬧鐘靠 `USE_EXACT_ALARM`，安裝時就給，使用者不用打開也收不回去。
 - 鬧鐘觸發後的短暫豁免期內才能啟動前景服務，所以 `TriggerReceiver` 一收到就先啟動服務。
-- 返回鍵用 `@capacitor/app` 的 backButton 事件，不用瀏覽器 history：Chromium 會跳過頁面自己推的 history。
+- 返回鍵用 `@capacitor/app` 的 backButton 事件，不用瀏覽器 history：Chromium 會跳過頁面自己推的 history。UI 不直接聽它：`capacitorUi`（`src/app/capacitor.ts`）聽，再問 UI 有沒有哪一層接手（下面的 `UiPlatform`）。
 
 **效能（S24，`test/device/jank.sh`；2026-10 起用 `test/perf/run.ts`，見 development.md）**
 - 對話的每一則訊息都 memo：Chat 每個按鍵、每個串流 token 都會重繪，全部重算 Markdown 時打字每鍵要 30–40 ms。
@@ -231,6 +231,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI 的外殼和四區（`chat/`、`bots/`、`settings/`、`files/`）。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
 | `src/ui/` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）、畫面之間傳遞的 context（`openFile.ts`、`beside.ts`）、HTML 預覽的 CSP（`csp.ts`） |
+| `src/ui/platform.ts`、`src/app/capacitor.ts` | `UiPlatform` 是 UI 向手機要的五件事：`haptic`、`onBack`、`onResume`、`copy`、`pasted`。`src/ui/` 的震動、返回、回到前景、剪貼簿只問它，不 import `native.ts`、外掛或 `@capacitor/app`。真的手機的實作是 `capacitorUi`，`main.tsx` 在畫面出現前用 `installPlatform` 裝上；沒裝時每個方法都不做事（`test/ui-platform.ts`）。`onBack(taken)` 的 `taken()` 回報有沒有哪一層接手了返回鍵，沒有時由平台把 App 收到背景 |
 | `packages/pi-mobile-base/` | 核心和 UI 都站在上面、沒有 React 的三個檔案，各是一個公開入口：`pi-mobile-base/time`（唯一能呼叫計時器的檔案，[effects.md](effects.md)；也放時間的常數、格式和解析）、`pi-mobile-base/log`（診斷記錄）、`pi-mobile-base/promise`（Promise 的小工具） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
 | `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
