@@ -12,7 +12,7 @@ const phone: UiPlatform = {
 	haptic: (kind) => void heard.push(`haptic ${kind}`),
 	onBack: (taken) => {
 		backs.push(taken);
-		return () => undefined;
+		return () => void heard.push("back stopped");
 	},
 	onResume: (run) => {
 		run();
@@ -31,4 +31,12 @@ await copy("kept");
 assert.equal(await pasted(), "from the phone");
 assert.deepEqual(heard, ["haptic confirm", "resume stopped", "copy kept"]);
 assert.deepEqual(resumes, [1]);
-console.log("ui platform: before the app installs one every verb does nothing; after, haptics, resume and the clipboard go to it, and the back key is listened for once");
+
+const stopSecond = installPlatform({
+	...phone,
+	onBack: () => () => void heard.push("second back stopped"),
+});
+assert.deepEqual(heard.slice(-1), ["back stopped"]);
+stopSecond();
+assert.deepEqual(heard.slice(-1), ["second back stopped"]);
+console.log("ui platform: before the app installs one every verb does nothing; after, haptics, resume and the clipboard go to it, and re-installing cancels the previous back listener");

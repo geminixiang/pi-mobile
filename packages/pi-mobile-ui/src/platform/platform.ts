@@ -23,10 +23,18 @@ const DETACHED: UiPlatform = {
 };
 
 const installed = cell(DETACHED);
+const stopBack = cell<{ cancel: Cancel }>({ cancel: idle });
 
 export const platform = installed.read;
 
-export function installPlatform(next: UiPlatform): void {
+export function installPlatform(next: UiPlatform): Cancel {
+	stopBack.read().cancel();
 	installed.set(next);
-	next.onBack(backToTop);
+	const cancel = next.onBack(backToTop);
+	stopBack.set({ cancel });
+	return () => {
+		if (stopBack.read().cancel !== cancel) return;
+		stopBack.set({ cancel: idle });
+		cancel();
+	};
 }
