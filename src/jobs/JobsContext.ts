@@ -1,6 +1,6 @@
 import { createContext } from "react";
 import { every, pad } from "pi-mobile-base/time";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { useSubscribed } from "pi-mobile-ui/store";
 
 export type RunningJob = { job: string; since: number; label: string };
 type Peek = { command: string; output: string };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { staysPut } from "../src/app/press.ts";
-import { intentOf, positionAfter, settleCurve, settlesOpen, towardOpen, velocityOf } from "../src/ui/sideGesture.ts";
+import { intentOf, positionAfter, settleCurve, settlesOpen, towardOpen, velocityOf } from "pi-mobile-ui/gesture";
 
 const move = (dx: number, dy: number, elapsedMs = 50, selecting = false) => intentOf({ dx, dy, elapsedMs, selecting });
 assert.equal(move(6, 6), "undecided");

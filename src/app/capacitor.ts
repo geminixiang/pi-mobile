@@ -19,7 +19,7 @@ import type { SettingsStorage, SettingsStore } from "../settings.ts";
 import { orLogged } from "pi-mobile-base/promise";
 import { MINUTE } from "pi-mobile-base/time";
 import { Triggers } from "../triggers/plugin.ts";
-import type { UiPlatform } from "../ui/platform.ts";
+import type { UiPlatform } from "pi-mobile-ui/platform";
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: MINUTE };
 

@@ -7,9 +7,9 @@ import { modelReach, type ReachState } from "../../net/reach.ts";
 import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../../net/traffic.ts";
 import { BatteryCharging, Bell, Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
 import { useBackground } from "../background.ts";
-import { Sheet } from "../../ui/Sheet.tsx";
+import { Sheet } from "pi-mobile-ui/shell";
 import { CLOCK, MINUTE } from "pi-mobile-base/time";
-import { useSubscribed } from "../../ui/subscribed.ts";
+import { useSubscribed } from "pi-mobile-ui/store";
 
 type Outage = { since: number; at: number };
 

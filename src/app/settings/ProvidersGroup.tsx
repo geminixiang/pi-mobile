@@ -1,4 +1,4 @@
-import { Row } from "../../ui/Row.tsx";
+import { CheckButton, ChoiceRow, Logo, Row, RowList } from "pi-mobile-ui/elements";
 import { useRef, useState } from "react";
 import { checkModels, checkProvider } from "../../agent/checks.ts";
 import type { ModelInfo } from "../../agent/models.ts";
@@ -7,11 +7,7 @@ import { providerReady, type Settings } from "../../settings.ts";
 import { signInWithChatGPT } from "../../agent/chatgpt.ts";
 import { native } from "../../native.ts";
 import { System } from "../../plugins/system.ts";
-import { CheckButton } from "../../ui/CheckButton.tsx";
-import { RowList } from "../../ui/RowList.tsx";
-import { ChoiceRow } from "../../ui/ChoiceRow.tsx";
-import { Logo } from "../../ui/Logo.tsx";
-import { Sheet } from "../../ui/Sheet.tsx";
+import { Sheet } from "pi-mobile-ui/shell";
 import { messageOf } from "pi-mobile-base/promise";
 import { hostOf } from "../../parse.ts";
 

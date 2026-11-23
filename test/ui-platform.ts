@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { copy, pasted } from "../src/ui/clipboard.ts";
-import { haptic } from "../src/ui/haptics.ts";
-import { installPlatform, type UiPlatform } from "../src/ui/platform.ts";
-import { onResume } from "../src/ui/resume.ts";
+import { copy, haptic, installPlatform, onResume, pasted, type UiPlatform } from "pi-mobile-ui/platform";
 
 haptic("tick");
 onResume(() => assert.fail("nothing resumes before a platform is installed"))();

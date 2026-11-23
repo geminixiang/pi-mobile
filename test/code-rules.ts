@@ -70,7 +70,7 @@ function rule(node: Node, explained: boolean): string | undefined {
 	if (node.type === "TSNonNullExpression") return "non-null assertion";
 	if (node.type === "TSAnyKeyword") return "any";
 	if (node.type === "CallExpression" && isSwallowingCatch(node)) return "catch that swallows the error";
-	if (classNames(node).some((name) => OLD_BOXES.has(name))) return "a .menu or .group box around a list: put the list on the background with RowList (src/ui/RowList.tsx), as DESIGN.md § Components says";
+	if (classNames(node).some((name) => OLD_BOXES.has(name))) return "a .menu or .group box around a list: put the list on the background with RowList (pi-mobile-ui/elements), as DESIGN.md § Components says";
 	if (isInlineStyle(node)) return "inline style other than a custom property: put it in the stylesheet beside the component, or pass a --custom-property the stylesheet reads (CSS skill)";
 	return undefined;
 }
@@ -134,7 +134,7 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	{
 		use: /navigator\.clipboard|\.clipboardText\(/,
 		owners: ["src/app/capacitor.ts"],
-		fix: "copy and read the clipboard with copy and pasted from src/ui/clipboard.ts: they ask the UiPlatform the app installed (capacitorUi in src/app/capacitor.ts), which picks the native read where the WebView cannot",
+		fix: "copy and read the clipboard with copy and pasted from pi-mobile-ui/platform: they ask the UiPlatform the app installed (capacitorUi in src/app/capacitor.ts), which picks the native read where the WebView cannot",
 	},
 	{
 		use: /\bsection\(/,
@@ -350,7 +350,6 @@ type Layer = (typeof LAYER_ORDER)[number];
 // why: the layer of every folder under src/ (docs/architecture.md § 分層); a file directly in src/ is base unless named here, and every workspace package sits below them all
 const LAYER_OF: Record<string, Layer> = {
 	"src/shims/": "base",
-	"src/ui/": "base",
 	"src/plugins/": "base",
 	"src/net/": "base",
 	"src/agent/": "core",
@@ -514,11 +513,11 @@ const LONG_FILES: Record<string, number> = {
 	"src/mcp/mcp.ts": 473,
 	"src/runtime/runtime.ts": 602,
 	"src/tw-stocks/tool.ts": 465,
-	"src/app/App.tsx": 517,
-	"src/app/chat/Chat.tsx": 475,
+	"src/app/App.tsx": 514,
+	"src/app/chat/Chat.tsx": 471,
 	"src/app/bots/Links.tsx": 435,
-	"src/app/chat/Message.tsx": 518,
-	"src/app/settings/Settings.tsx": 423,
+	"src/app/chat/Message.tsx": 517,
+	"src/app/settings/Settings.tsx": 417,
 	"src/triggers/runs.ts": 529,
 };
 
@@ -653,7 +652,7 @@ function timingCalls(file: string): TimingCall[] {
 }
 
 const EFFECT_FIX =
-	"a store, or a native, window or Capacitor event → useSubscribed or useStore (src/ui/subscribed.ts), or useSyncExternalStore; loading → useLoaded (src/ui/loaded.ts); work on an element (measure, focus, scroll, observe, clean up when it leaves) → a ref callback that returns its cleanup; a value from state or props → compute it during render; state to reset on a new id → a key; a reaction to a tap or a gesture → do it in the event handler (docs/effects.md)";
+	"a store, or a native, window or Capacitor event → useSubscribed or useStore (pi-mobile-ui/store), or useSyncExternalStore; loading → useLoaded (pi-mobile-ui/store); work on an element (measure, focus, scroll, observe, clean up when it leaves) → a ref callback that returns its cleanup; a value from state or props → compute it during render; state to reset on a new id → a key; a reaction to a tap or a gesture → do it in the event handler (docs/effects.md)";
 const TIMER_FIX =
 	"call a named helper from pi-mobile-base/time (sleep, after, every, deadline, nextFrame, eachFrame, afterPaint) and keep the cancel it returns; a value that changes with time → a store whose subscribe starts the helper; a delay that waits for something → listen for that event (docs/effects.md)";
 
@@ -750,13 +749,13 @@ const EXPORTED = /^export (?:declare )?(?:async )?(?:function\*?|const|let|class
 const EXPORTS_ANY_NAME = "src/shims/";
 
 // why: passing a name on (a package's entry file listing what is public) is not a use of it
-const PASSED_ON = /^export (?:type )?\{[^}]*\} from "[^"]+";$/gm;
+const PASSED_ON = /^export (?:type )?\{([^}]*)\} from "[^"]+";$/gm;
 
 function unusedExports(): Finding[] {
 	const scripts = checkedFiles().filter((file) => /\.(ts|tsx|js)$/.test(file));
 	const sources = new Map(scripts.map((file) => [file, readFileSync(file, "utf8")]));
 	const uses = [...sources].map(([file, text]) => ({ file, text: text.replace(PASSED_ON, "") }));
-	return [...sources]
+	const unused = [...sources]
 		.filter(([file]) => inSource(file) && !file.startsWith(EXPORTS_ANY_NAME))
 		.flatMap(([file, source]) =>
 			[...source.matchAll(EXPORTED)].flatMap((match) => {
@@ -766,6 +765,19 @@ function unusedExports(): Finding[] {
 				return [{ file, line: source.slice(0, match.index).split("\n").length, rule: `${name} is exported but no other file uses it (an entry file that only passes it on does not count): drop the export and any entry line that passes it on, or delete it if this file does not use it either` }];
 			}),
 		);
+	const needless = LIBRARIES.flatMap((library) =>
+		[...library.entries.values()].flatMap((entry) => {
+			const source = sources.get(entry) ?? "";
+			return [...source.matchAll(PASSED_ON)].flatMap((match) =>
+				(match[1] ?? "")
+					.split(",")
+					.map((name) => name.trim().replace("type ", ""))
+					.filter((name) => name !== "" && !uses.some((other) => !other.file.startsWith(`${library.folder}/`) && new RegExp(`\\b${name}\\b`).test(other.text)))
+					.map((name) => ({ file: entry, line: source.slice(0, match.index).split("\n").length, rule: `${name} is public here but nothing outside ${library.name} uses it: take it out of this entry, so the package's surface is what the app really uses` })),
+			);
+		}),
+	);
+	return [...unused, ...needless];
 }
 
 const BUILD_ENTRY = /"(?:\.\.?\/)*(src\/[^"`?]+\.tsx?)"/g;

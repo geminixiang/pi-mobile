@@ -1,9 +1,9 @@
 import type { Bot } from "../agent/bots.ts";
 import type { TriggerRuns } from "../triggers/runs.ts";
-import { Sheet } from "../ui/Sheet.tsx";
+import { Sheet } from "pi-mobile-ui/shell";
 import { ItemActions, remindLine } from "./ItemActions.tsx";
 import type { Item } from "./items.ts";
-import { useLoaded } from "../ui/loaded.ts";
+import { useLoaded } from "pi-mobile-ui/store";
 
 const DAY_ONLY = new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric" });
 

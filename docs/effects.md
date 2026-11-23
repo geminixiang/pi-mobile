@@ -15,18 +15,18 @@
 
 | 要做的事 | 改成 |
 |---|---|
-| 讀外部的狀態（store、runtime、原生外掛或 Capacitor 的事件） | `useSubscribed(initial, subscribe, deps)`（`src/ui/subscribed.ts`）；store 自己有快照時直接 `useSyncExternalStore`。來源換掉時保留上一個值 |
+| 讀外部的狀態（store、runtime、原生外掛或 Capacitor 的事件） | `useSubscribed(initial, subscribe, deps)`（`pi-mobile-ui/store`）；store 自己有快照時直接 `useSyncExternalStore`。來源換掉時保留上一個值 |
 | 外部的狀態，自己也會寫（讀進來之後由按鈕改） | `useStore(initial, subscribe, deps)`，回傳 `[value, set]`；`set` 接受值或 `(current) => next`，回傳寫入後的值 |
-| 讀一次非同步的資料 | `useLoaded(load, deps)`（`src/ui/loaded.ts`）：換 deps 時回到讀取中，帶錯誤訊息。要保留上一個值時用 `useSubscribed(initial, promised(load), deps)` |
+| 讀一次非同步的資料 | `useLoaded(load, deps)`（`pi-mobile-ui/store`）：換 deps 時回到讀取中，帶錯誤訊息。要保留上一個值時用 `useSubscribed(initial, promised(load), deps)` |
 | 輪詢 | `usePolled(read, everyMs, deps)`；`read` 回 `undefined` 表示這次沒讀到，保留上一個值 |
-| 回到前景時重讀原生的狀態 | `useSubscribed(initial, resumed(read), deps)`（`src/ui/resume.ts`）；只聽回到前景用 `onResume(run)` |
-| 隨時間變的值（時鐘、顯示兩秒、淡出之後） | 一個 store，它的 subscribe 啟動 `every`、`after` 或 `eachFrame` 並回傳取消：`useNow`、`useBriefly`、`useExpired`（`src/ui/briefly.ts`）、`useSmoothText` |
+| 回到前景時重讀原生的狀態 | `useSubscribed(initial, resumed(read), deps)`（`pi-mobile-ui/platform`）；只聽回到前景用 `onResume(run)` |
+| 隨時間變的值（時鐘、顯示兩秒、淡出之後） | 一個 store，它的 subscribe 啟動 `every`、`after` 或 `eachFrame` 並回傳取消：`useNow`、`useBriefly`、`useExpired`（`pi-mobile-ui/store`）、`useSmoothText` |
 | 跟著一個 DOM 元素的事（量尺寸、出現時聚焦、`ResizeObserver`、`MutationObserver`、聽 `window` 的事件、離開時存檔或中止） | `useCallback(…, [])` 的 ref callback，回傳 cleanup；要用到的 props 從 render 時寫入的 ref 讀（`latest.current`） |
-| prop 變了要做事（面板開關的動畫和焦點、瀏覽器面板開關時的原生呼叫） | 不要等 render：讓狀態的擁有者可以訂閱（`Source<T>`：`{ subscribe, read }`，`src/ui/subscribed.ts`），做事的物件在自己元素的 ref callback 裡訂閱它，在 listener 裡反應。`SidePanel` 的 `place`、`PageStack` 的 `opened`、`BrowserSheet` 的 `screen` 都是這樣；元件自己的狀態要給別人跟時用 `useStore` 回傳的第三個值，或 `cell(initial)` |
+| prop 變了要做事（面板開關的動畫和焦點、瀏覽器面板開關時的原生呼叫） | 不要等 render：讓狀態的擁有者可以訂閱（`Source<T>`：`{ subscribe, read }`，`pi-mobile-ui/store`），做事的物件在自己元素的 ref callback 裡訂閱它，在 listener 裡反應。`SidePanel` 的 `place`、`PageStack` 的 `opened`、`BrowserSheet` 的 `screen` 都是這樣；元件自己的狀態要給別人跟時用 `useStore` 回傳的第三個值，或 `cell(initial)` |
 | 一個狀態轉換要帶副作用（瀏覽器面板開了要截圖、關了要收起原生畫面） | 在做轉換的那個函式裡做：`step(event)` 算出前後兩個狀態，再照差異反應（`BrowserSheet.tsx`） |
 | 元素換了內容要重做（換一張圖、換一段 Mermaid） | 給元素 `key`，讓它的出現就是觸發（`Mermaid`、`FileViewer` 的圖片） |
 | 交給剛要掛上的元件的東西（分享進來的檔案） | 信箱：送的人先放著（`offerFiles`），元件訂閱時領走（`receiveDrafts`，`src/app/chat/drafts.ts`） |
-| 硬體返回鍵 | 開著的那一層在自己的元素上寫 `data-back` 和 `onKeyDown`（`isBack(event)`，`src/ui/layers.ts`）；返回鍵把一個鍵盤事件送給文件順序最後一個 `[data-back]`，也就是最上面、最裡面的那一層（`backToTop`），沒有任何一層開著時由 `UiPlatform` 把 App 收到背景 |
+| 硬體返回鍵 | 開著的那一層在自己的元素上寫 `data-back` 和 `onKeyDown`（`isBack(event)`，`pi-mobile-ui/platform`）；返回鍵把一個鍵盤事件送給文件順序最後一個 `[data-back]`，也就是最上面、最裡面的那一層（`backToTop`），沒有任何一層開著時由 `UiPlatform` 把 App 收到背景 |
 | 對使用者的動作做反應（存草稿、通知上層、開始長按） | 寫在造成改變的事件處理函式裡 |
 | id 換了要重設 state | 給元件一個 `key`，或在 render 時比對後 `setState`（`BotSheet`、`Links.tsx` 的 `useBack`） |
 | 從 state 或 props 推導出來的值 | render 時算（AGENTS.md：一個值只存一次） |

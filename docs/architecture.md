@@ -160,8 +160,8 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 外殼 shell    app/、workbench/、runtime/、main.tsx          認得所有功能，負責組裝
 功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、畫面、設定區塊、樣式
 核心 core     agent/、computer/、settings.ts                不認得任何功能
-基礎 base     ui/、plugins/、net/、shims/、根目錄的小工具   不認得上面任何一層
-套件 package  packages/pi-mobile-base（時間、記錄、Promise）、pi-mobile-ui   不認得 App：只有原始碼、不編譯，App 用名稱引入
+基礎 base     plugins/、net/、shims/、根目錄的小工具        不認得上面任何一層
+套件 package  packages/pi-mobile-ui（共用的 UI）、pi-mobile-base（時間、記錄、Promise）   不認得 App：只有原始碼、不編譯，App 用名稱引入
 ```
 
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
@@ -169,7 +169,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - 外殼的 `src/runtime/` 是組裝：`catalog.ts` 是內建工具的唯一清單，`runtime.ts` 是 `AgentRuntime`。
 - 核心的 `src/agent/` 只放每個功能都可能用到的東西：怎麼定義工具（`tools/common.ts`）、Bot 和工具組、問使用者和要權限、模型、Bot 在哪裡工作（手機資料夾、sandbox）。
 - 功能資料夾裡，工具叫 `tool.ts`，原生 contract 叫 `plugin.ts`（一個功能有兩個 contract 時用各自的名字）。功能在設定頁的區塊也在這裡（`calendar/CalendarGroup.tsx`、`clouds/AccountsPage.tsx`、`mcp/McpGroup.tsx`），它拿到的是自己的把手（`McpHub`、`Memories`、`TriggerRuns`），不是整個 `AgentRuntime`；`src/app/settings/Settings.tsx` 只留目錄、換頁，和橫跨好幾個功能的區塊。
-- 外殼和功能都用的小元件（按鈕、列、對話框、markdown）在基礎層的 `src/ui/`。
+- 外殼和功能都用的小元件（按鈕、列、對話框、markdown）在 `packages/pi-mobile-ui`，從它的公開入口引入（`pi-mobile-ui/elements`、`/shell`、`/message`、`/store`、`/platform`、`/gesture`）。
 - `src/app/` 是外殼：最外層放排版、session、側欄和平台接線，底下四區各管一塊畫面：`chat/`（對話、訊息、輸入框）、`bots/`（Bot 列表和面板）、`settings/`（設定目錄、模型供應商、電腦）、`files/`（資料夾和檔案檢視）。
 - 樣式跟著元件走：有畫面的資料夾有一個同名的樣式檔（`src/browser/browser.css`、`src/app/chat/chat.css`）。`src/app/styles.css` 只留顏色和間距、外殼自己的樣式，以及好幾個資料夾共用的樣式。`src/app/index.css` 依層的順序引入所有樣式檔（`.pi/skills/css/SKILL.md` § 0）。
 
@@ -185,11 +185,11 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ### Workspace package
 
-根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和步驟見 [design/ui-package.md](design/ui-package.md)；2026-11-23 起檔案一步一步搬進去：`pi-mobile-base` 已經有 `time.ts`、`log.ts`、`promise.ts`，`pi-mobile-ui` 還是空的。
+根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和步驟見 [design/ui-package.md](design/ui-package.md)；2026-11-23 起檔案一步一步搬進去：`pi-mobile-base` 有 `time.ts`、`log.ts`、`promise.ts`，原本的 `src/ui/` 整個搬進 `pi-mobile-ui`。
 
 「底層不認得上層」在這裡是四條檢查（`test/code-rules.ts` 的 `workspaceRule`、`manifestRule`），每一條都用一個故意寫錯的檔案證明過會失敗：
 
-- **只能用名稱、從公開入口引入**：`"pi-mobile-ui/…"` 要在那個 package 的 `package.json` `exports` 裡。`exports` 以外的檔案從外面引不到（`tsc` 回 `TS2307`），也不能用相對路徑繞進去。入口指向的檔案不存在、或 App 沒有任何檔案引到的 package 檔案，都會被擋下：公開入口不算「有人用」。
+- **只能用名稱、從公開入口引入**：`"pi-mobile-ui/…"` 要在那個 package 的 `package.json` `exports` 裡。`pi-mobile-ui` 一個資料夾一個入口，入口是那個資料夾的 `index.ts`，只列 App 真的用到的名稱：列了卻沒有 package 外面的檔案在用，也會被擋下。`exports` 以外的檔案從外面引不到（`tsc` 回 `TS2307`），也不能用相對路徑繞進去。入口指向的檔案不存在、或 App 沒有任何檔案引到的 package 檔案，都會被擋下：公開入口不算「有人用」。
 - **package 不往外引**：package 的檔案不能用相對路徑引到自己外面（`src/`、別的 package）。它需要的東西由 App 以 props、參數或 App 安裝的介面傳進去。
 - **引入的都要列在自己的 `package.json`**：npm 把所有 workspace 的相依放在同一個 `node_modules`，沒列的也解析得到，所以要靠檢查；根目錄的 App 也一樣。
 - **不准列的相依**：`pi-mobile-ui` 不列 `@capacitor/*` 和 `@earendil-works/*`（Capacitor 只從 App 的 `package.json` 找外掛）；`pi-mobile-base` 另外不列 React 和 `pi-mobile-ui`。清單在 `NEVER_LISTED`。
@@ -230,8 +230,9 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/plugins/`、各功能的 `plugin.ts` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema）。只屬於一個功能的放在那個功能的資料夾，好幾層都用的（`system`、`keep-alive`、`stream-fetch`、`bot-files`、`loopback`、`scanner`）留在 `src/plugins/`。各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI 的外殼和四區（`chat/`、`bots/`、`settings/`、`files/`）。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
-| `src/ui/` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）、畫面之間傳遞的 context（`openFile.ts`、`beside.ts`）、HTML 預覽的 CSP（`csp.ts`） |
-| `src/ui/platform.ts`、`src/app/capacitor.ts` | `UiPlatform` 是 UI 向手機要的五件事：`haptic`、`onBack`、`onResume`、`copy`、`pasted`。`src/ui/` 的震動、返回、回到前景、剪貼簿只問它，不 import `native.ts`、外掛或 `@capacitor/app`。真的手機的實作是 `capacitorUi`，`main.tsx` 在畫面出現前用 `installPlatform` 裝上；沒裝時每個方法都不做事（`test/ui-platform.ts`）。`onBack(taken)` 的 `taken()` 回報有沒有哪一層接手了返回鍵，沒有時由平台把 App 收到背景 |
+| `packages/pi-mobile-ui/` | 各功能共用的 UI，一個資料夾一個公開入口：`platform/`（`UiPlatform`、震動 `haptics.ts`、返回鍵和疊層 `layers.ts`、回到前景 `resume.ts`、剪貼簿）、`store/`（訂閱和讀取：`subscribed.ts`、`loaded.ts`、`briefly.ts`）、`shell/`（由下往上的 `Sheet.tsx`、`Dialog.tsx`；手勢的數學和收合動畫 `sideGesture.ts` 另有入口 `pi-mobile-ui/gesture`，因為 Node 的測試讀不了 `.tsx`）、`message/`（markdown、Mermaid、開檔案的 context `openFile.ts`）、`elements/`（列表 `RowList.tsx`、`StateRow.tsx`、圖示 `icons.tsx`、按鈕和標誌）。樣式在各資料夾同名的 `.css`，由 `src/styles.css`（`pi-mobile-ui/styles.css`）依序引入 |
+| `packages/pi-mobile-ui/src/platform/platform.ts`、`src/app/capacitor.ts` | `UiPlatform` 是 UI 向手機要的五件事：`haptic`、`onBack`、`onResume`、`copy`、`pasted`。package 裡的震動、返回、回到前景、剪貼簿只問它，不 import `native.ts`、外掛或 `@capacitor/app`（`package.json` 也不准列）。真的手機的實作是 `capacitorUi`，`main.tsx` 在畫面出現前用 `installPlatform` 裝上；沒裝時每個方法都不做事（`test/ui-platform.ts`）。`onBack(taken)` 的 `taken()` 回報有沒有哪一層接手了返回鍵，沒有時由平台把 App 收到背景 |
+| `src/beside.ts`、`src/csp.ts` | 原本在 `src/ui/`、但不是 UI 元件的兩個檔案：工作台「正在看哪個檔案」的 context，和 HTML 預覽的 CSP。功能層和外殼都用，所以留在基礎層 |
 | `packages/pi-mobile-base/` | 核心和 UI 都站在上面、沒有 React 的三個檔案，各是一個公開入口：`pi-mobile-base/time`（唯一能呼叫計時器的檔案，[effects.md](effects.md)；也放時間的常數、格式和解析）、`pi-mobile-base/log`（診斷記錄）、`pi-mobile-base/promise`（Promise 的小工具） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
 | `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |

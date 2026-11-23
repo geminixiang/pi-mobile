@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { ConversationId } from "@earendil-works/pi-durable";
-import { RowList } from "../ui/RowList.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { RowList } from "pi-mobile-ui/elements";
+import { Sheet } from "pi-mobile-ui/shell";
+import { useSubscribed } from "pi-mobile-ui/store";
 import { messageOf } from "pi-mobile-base/promise";
 import type { Skill, Skills } from "./skills.ts";
 

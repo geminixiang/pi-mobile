@@ -1,6 +1,5 @@
-import { useBriefly } from "../ui/briefly.ts";
-import { RowList } from "../ui/RowList.tsx";
-import { StateRow } from "../ui/StateRow.tsx";
+import { useBriefly } from "pi-mobile-ui/store";
+import { RowList, StateRow } from "pi-mobile-ui/elements";
 import { Notifications } from "./plugin.ts";
 
 export function NotificationsGroup({ allowed }: { allowed: boolean | undefined }) {

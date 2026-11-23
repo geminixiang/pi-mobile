@@ -1,6 +1,6 @@
 import type { Bot } from "../../agent/bots.ts";
 import type { ConversationId } from "../../runtime/runtime.ts";
-import { MoreIcon, PlusIcon } from "../../ui/icons.tsx";
+import { MoreIcon, PlusIcon } from "pi-mobile-ui/elements";
 import { TriggerIcon } from "../../triggers/TriggerIcon.tsx";
 import type { Trigger } from "../../triggers/runs.ts";
 import type { When } from "../../triggers/plugin.ts";

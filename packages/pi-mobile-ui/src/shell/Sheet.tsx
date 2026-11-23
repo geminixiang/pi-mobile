@@ -1,8 +1,8 @@
 import { Drawer } from "@base-ui/react/drawer";
 import type { ReactNode } from "react";
-import { CloseIcon } from "./icons.tsx";
-import { isBack, useLast } from "./layers.ts";
-import { haptic } from "./haptics.ts";
+import { CloseIcon } from "../elements/icons.tsx";
+import { isBack, useLast } from "../platform/layers.ts";
+import { haptic } from "../platform/haptics.ts";
 
 export function Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
 	const content = useLast(open, children);

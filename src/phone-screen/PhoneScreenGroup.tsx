@@ -1,10 +1,9 @@
-import { resumed } from "../ui/resume.ts";
-import { RowList } from "../ui/RowList.tsx";
-import { StateRow } from "../ui/StateRow.tsx";
+import { resumed } from "pi-mobile-ui/platform";
+import { RowList, StateRow } from "pi-mobile-ui/elements";
 import { backgroundSetup } from "./background.ts";
 import { BackgroundSetup } from "./BackgroundSetup.tsx";
 import { PhoneScreen } from "./plugin.ts";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { useSubscribed } from "pi-mobile-ui/store";
 
 export function PhoneScreenGroup() {
 	const allowed = useSubscribed<boolean | undefined>(undefined, resumed(() => PhoneScreen.status().then((status) => status.allowed)), []);

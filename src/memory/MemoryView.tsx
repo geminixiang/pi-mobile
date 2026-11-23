@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { useSubscribed } from "../ui/subscribed.ts";
+import { useSubscribed } from "pi-mobile-ui/store";
 import type { Bot } from "../agent/bots.ts";
 import { type Memories, type Memory, MEMORY_LIMIT, type MemoryScope } from "./memory.ts";
 import { messageOf } from "pi-mobile-base/promise";
-import { BackButton } from "../ui/BackButton.tsx";
+import { BackButton } from "pi-mobile-ui/elements";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { monthDayTime } from "pi-mobile-base/time";
 

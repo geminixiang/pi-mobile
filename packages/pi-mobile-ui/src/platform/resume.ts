@@ -1,6 +1,6 @@
 import type { Cancel } from "pi-mobile-base/time";
 import { platform } from "./platform.ts";
-import type { Subscribe } from "./subscribed.ts";
+import type { Subscribe } from "../store/subscribed.ts";
 
 export function onResume(run: () => void): Cancel {
 	return platform().onResume(run);

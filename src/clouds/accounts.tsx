@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Settings } from "../settings.ts";
-import { AzureMark, CloudflareMark, GitHubMark, GoogleCloudMark } from "../ui/icons.tsx";
+import { AzureMark, CloudflareMark, GitHubMark, GoogleCloudMark } from "pi-mobile-ui/elements";
 import { describeAzure } from "./azure.ts";
 import { describeCloudflare } from "./cloudflare.ts";
 import { describeGcloud } from "./gcloud.ts";

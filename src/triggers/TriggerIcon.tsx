@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon } from "../ui/icons.tsx";
+import { Icon } from "pi-mobile-ui/elements";
 import type { TriggerSymbol } from "./when.ts";
 
 const TRIGGER_PATHS: Record<TriggerSymbol, ReactNode> = {

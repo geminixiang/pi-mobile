@@ -1,5 +1,5 @@
 import { useContext, useState } from "react";
-import { ChevronIcon } from "../ui/icons.tsx";
+import { ChevronIcon } from "pi-mobile-ui/elements";
 import { InteractionContext } from "./context.ts";
 import type { Outcome, SettledForm } from "../agent/forms.ts";
 

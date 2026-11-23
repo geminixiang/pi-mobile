@@ -1,8 +1,7 @@
 import { Fragment, type PointerEvent, useCallback, useContext, useRef, useState } from "react";
-import { useExpired } from "../ui/briefly.ts";
-import { usePolled } from "../ui/loaded.ts";
-import { StopIcon } from "../ui/icons.tsx";
-import { haptic, HOLD_MS, HOLD_SLOP } from "../ui/haptics.ts";
+import { useExpired, usePolled } from "pi-mobile-ui/store";
+import { StopIcon } from "pi-mobile-ui/elements";
+import { haptic, HOLD_MS, HOLD_SLOP } from "pi-mobile-ui/platform";
 import { orLogged } from "pi-mobile-base/promise";
 import { after, type Cancel } from "pi-mobile-base/time";
 import { clock, JobsContext, type RunningJob, type RunningJobs, useNow } from "./JobsContext.ts";

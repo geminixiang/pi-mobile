@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ModelInfo } from "../../agent/models.ts";
-import { CheckIcon, SearchIcon } from "../../ui/icons.tsx";
-import { Sheet } from "../../ui/Sheet.tsx";
-import { Segmented } from "../../ui/Segmented.tsx";
+import { CheckIcon, SearchIcon, Segmented } from "pi-mobile-ui/elements";
+import { Sheet } from "pi-mobile-ui/shell";
 import { formatTokens } from "./usage.ts";
 import { ProviderRow } from "./Links.tsx";
 

@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { GearIcon } from "../ui/icons.tsx";
+import { GearIcon, PiMark } from "pi-mobile-ui/elements";
 import { BotList, type BotListProps } from "./bots/BotList.tsx";
-import { PiMark } from "../ui/PiMark.tsx";
-import type { Source } from "../ui/subscribed.ts";
+import type { Source } from "pi-mobile-ui/store";
 import { type Place, type SidePage, SidePanel } from "./SidePanel.tsx";
 
 export function Drawer({

@@ -1,7 +1,7 @@
 import { native } from "../native.ts";
 import { KeepAlive } from "../plugins/keep-alive.ts";
-import { resumed } from "../ui/resume.ts";
-import { useStore } from "../ui/subscribed.ts";
+import { resumed } from "pi-mobile-ui/platform";
+import { useStore } from "pi-mobile-ui/store";
 
 type Background = { notifications: boolean; unrestrictedBattery?: boolean };
 

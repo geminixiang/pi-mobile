@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { checkGitHub } from "../agent/checks.ts";
 import type { Settings } from "../settings.ts";
-import { CheckButton } from "../ui/CheckButton.tsx";
-import { RowList } from "../ui/RowList.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
+import { CheckButton, RowList } from "pi-mobile-ui/elements";
+import { Sheet } from "pi-mobile-ui/shell";
 import { type AccountId, ACCOUNTS, signedIn } from "./accounts.tsx";
 import { finishAzureSignIn, startAzureSignIn } from "./azure.ts";
 import { apiTokenCredential, finishCloudflareSignIn, startCloudflareSignIn } from "./cloudflare.ts";

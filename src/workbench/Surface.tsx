@@ -3,13 +3,13 @@ import Markdown from "react-markdown";
 import { Type } from "typebox";
 import type { FileContent, Workspace } from "../agent/sandbox/workspace.ts";
 import { CodeLines, type Handed, handFile, handProblem, htmlPreviewIsolated } from "../app/files/FileViewer.tsx";
-import { withCsp } from "../ui/csp.ts";
-import { markdownComponents, remarkPlugins } from "../ui/markdown.tsx";
+import { withCsp } from "../csp.ts";
+import { markdownComponents, remarkPlugins } from "pi-mobile-ui/message";
 import { check } from "../parse.ts";
 import { messageOf } from "pi-mobile-base/promise";
 import { BLOCKS, changed, linesOf, markBlocks, squeezed } from "./changes.ts";
 import { isHtml } from "../mime.ts";
-import { promised, useStore } from "../ui/subscribed.ts";
+import { promised, useStore } from "pi-mobile-ui/store";
 
 export type Seen = { get: (path: string) => string | undefined; set: (path: string, text: string) => void };
 

@@ -1,6 +1,6 @@
 import type { Cancel } from "pi-mobile-base/time";
 import { backToTop } from "./layers.ts";
-import { cell } from "./subscribed.ts";
+import { cell } from "../store/subscribed.ts";
 
 export type Haptic = "tick" | "press" | "confirm";
 

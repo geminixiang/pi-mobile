@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isSource } from "../src/ui/sources.ts";
+import { isSource } from "../packages/pi-mobile-ui/src/message/sources.ts";
 
 assert.equal(isSource("https://www.pixnet.net/blog/1", "pixnet"), true);
 assert.equal(isSource("https://twincn.com/item.aspx?no=1", "twincn"), true);

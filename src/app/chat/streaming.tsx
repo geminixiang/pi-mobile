@@ -2,7 +2,7 @@ import { memo, useCallback, useRef, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 import remend from "remend";
 import { eachFrame } from "pi-mobile-base/time";
-import { remarkPlugins, streamingMarkdownComponents } from "../../ui/markdown.tsx";
+import { remarkPlugins, streamingMarkdownComponents } from "pi-mobile-ui/message";
 
 const CATCH_UP_MS = 160;
 

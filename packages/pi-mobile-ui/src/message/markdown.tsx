@@ -2,7 +2,7 @@ import { type ComponentProps, isValidElement, lazy, Suspense, useContext, useSta
 import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkGfm from "remark-gfm";
-import { CopyButton } from "./CopyButton.tsx";
+import { CopyButton } from "../elements/CopyButton.tsx";
 import { OpenFileContext } from "./openFile.ts";
 import { isSource } from "./sources.ts";
 

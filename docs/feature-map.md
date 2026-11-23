@@ -36,7 +36,7 @@ pi mobile 的每個畫面和每個部分，從使用者看到的樣子列出：�
 | 瀏覽器 | 瀏覽器面板 | `BrowserSheet` (`src/browser/BrowserSheet.tsx`)、`BrowserButton` (`src/browser/BrowserButton.tsx`) | 從標題列往下拉的面板；Bot 用它時地球亮一個點，要你接手時才自己打開 |
 | 工作區 | 資料夾、檔案 | `WorkspaceView` (`src/app/files/WorkspaceView.tsx`) | 從右邊蓋過對話：Bot 的資料夾，電腦上還有 git 的變更 |
 | 檔案 | 預覽 | `FileViewer` (`src/app/files/FileViewer.tsx`)、`DiffView` (`src/app/files/DiffView.tsx`) | 工作區裡打開的檔案和差異 |
-| 確認框 | 對話框 | `Dialog` (`src/ui/Dialog.tsx`) | iOS 樣子的確認：取消、動作 |
+| 確認框 | 對話框 | `Dialog` (`packages/pi-mobile-ui/src/shell/Dialog.tsx`) | iOS 樣子的確認：取消、動作 |
 
 ## 設定
 
@@ -71,4 +71,4 @@ iPad 和展開的折疊機（`layoutAt`，DESIGN.md〈大螢幕：工作台〉�
 
 ## 共用的骨架
 
-不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`src/ui/Sheet.tsx`)（底部抽屜）、`RowList` (`src/ui/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/bots/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/agent/BotAvatar.tsx`)、`PiMark` (`src/ui/PiMark.tsx`)、`ModelLine` (`src/app/bots/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。
+不是使用者會叫名字的東西，但上面的畫面靠它們排出來：`PageStack` (`src/app/PageStack.tsx`)（頁面疊上去、退回）、`SideSwipe` (`src/app/SidePanel.tsx`) 和 `SidePanel` (`src/app/SidePanel.tsx`)（側欄和手勢）、`Sheet` (`packages/pi-mobile-ui/src/shell/Sheet.tsx`)（底部抽屜）、`RowList` (`packages/pi-mobile-ui/src/elements/RowList.tsx`)（一個 `.list-label` 加上直接放在背景上的列，DESIGN.md〈Layout〉）、`Section` (`src/app/bots/BotPanel.tsx`)（右側欄的一區）、`BotAvatar` (`src/agent/BotAvatar.tsx`)、`PiMark` (`packages/pi-mobile-ui/src/elements/PiMark.tsx`)、`ModelLine` (`src/app/bots/Links.tsx`)、`Skeleton` (`src/app/Skeleton.tsx`)、`TranscriptSkeleton` (`src/app/Skeleton.tsx`)。

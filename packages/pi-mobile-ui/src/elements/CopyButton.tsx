@@ -1,8 +1,8 @@
 import { orLogged } from "pi-mobile-base/promise";
-import { useBriefly } from "./briefly.ts";
+import { useBriefly } from "../store/briefly.ts";
 import { CheckIcon, CopyIcon } from "./icons.tsx";
-import { copy } from "./clipboard.ts";
-import { haptic } from "./haptics.ts";
+import { copy } from "../platform/clipboard.ts";
+import { haptic } from "../platform/haptics.ts";
 
 export function CopyButton({ text, className = "icon-button small", size = 16 }: { text: string; className?: string; size?: number }) {
 	const [copied, showCopied] = useBriefly();

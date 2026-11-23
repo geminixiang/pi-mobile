@@ -1,6 +1,6 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { type ReactNode, useState } from "react";
-import { promised, useStore, useSubscribed } from "../../ui/subscribed.ts";
+import { promised, useBriefly, useStore, useSubscribed } from "pi-mobile-ui/store";
 import type { Bot } from "../../agent/bots.ts";
 import type { AgentRuntime } from "../../runtime/runtime.ts";
 import { NO_TRIGGERS, type TriggerState } from "../../triggers/runs.ts";
@@ -9,17 +9,15 @@ import type { ToolsetState } from "../../agent/toolsets.ts";
 import { BotAvatar } from "../../agent/BotAvatar.tsx";
 import { ContextCard } from "./ContextCard.tsx";
 import { PrepareStatus, usePrepare } from "../settings/HostsGroup.tsx";
-import { CheckIcon, ChevronIcon, PencilIcon } from "../../ui/icons.tsx";
-import { Sheet } from "../../ui/Sheet.tsx";
+import { CheckIcon, ChevronIcon, PencilIcon, RowList } from "pi-mobile-ui/elements";
+import { Sheet } from "pi-mobile-ui/shell";
 import { TriggerList } from "../../triggers/TriggerList.tsx";
 import { messageOf } from "pi-mobile-base/promise";
-import { useBriefly } from "../../ui/briefly.ts";
 import { native } from "../../native.ts";
 import { Abilities } from "./Abilities.tsx";
 import { HostRow, type LinkNode, LinksSection, PhoneSheet } from "./Links.tsx";
 import { ModelSheet } from "./ModelSheet.tsx";
 import { Container, Monitor, Smartphone } from "lucide-react";
-import { RowList } from "../../ui/RowList.tsx";
 import { parseComputerKey } from "../../computer/pairing.ts";
 import { SkillsSheet } from "../../skills/SkillsSheet.tsx";
 

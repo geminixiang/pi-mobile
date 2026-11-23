@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { messageOf } from "pi-mobile-base/promise";
-import { resumed } from "../ui/resume.ts";
-import { useStore } from "../ui/subscribed.ts";
+import { resumed } from "pi-mobile-ui/platform";
+import { useStore } from "pi-mobile-ui/store";
 import { backgroundSetup, type SetupStatus } from "./background.ts";
 
 const CODE = /^\d{6}$/;

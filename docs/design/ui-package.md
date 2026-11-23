@@ -1,6 +1,6 @@
 # pi-mobile-ui：把 UI 拆成 monorepo 裡的一個 package
 
-狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0–2 步完成（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform` 先做在 `src/ui/platform.ts`），`pi-mobile-ui` 還是空的。
+狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0–3 步完成（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform`；`src/ui` 和 `ui.css` 搬進 `pi-mobile-ui`）。
 
 ## 問題
 

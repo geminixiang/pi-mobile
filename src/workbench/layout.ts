@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { Source } from "../ui/subscribed.ts";
+import type { Source } from "pi-mobile-ui/store";
 
 type Layout = "phone" | "columns" | "stacked";
 

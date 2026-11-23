@@ -1,15 +1,14 @@
-import { Logo } from "../ui/Logo.tsx";
+import { Logo, PlusIcon } from "pi-mobile-ui/elements";
 import { useState } from "react";
-import { promised, useSubscribed } from "../ui/subscribed.ts";
+import { promised, useSubscribed } from "pi-mobile-ui/store";
 import type { Bot } from "../agent/bots.ts";
 import { extensionName, type McpHub, type McpServer, type McpStatus } from "./mcp.ts";
 import { CATALOG, CATEGORIES, type CatalogEntry } from "./catalog.ts";
 import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
-import { PlusIcon } from "../ui/icons.tsx";
-import { Sheet } from "../ui/Sheet.tsx";
+import { Sheet } from "pi-mobile-ui/shell";
 import { messageOf } from "pi-mobile-base/promise";
-import { longPress } from "../ui/haptics.ts";
+import { longPress } from "pi-mobile-ui/platform";
 
 function statusText(status: McpStatus | undefined): string {
 	switch (status?.state) {

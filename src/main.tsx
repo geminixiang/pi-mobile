@@ -11,7 +11,7 @@ import { keepLogOnDevice } from "./app/diagnostics.ts";
 import { showPresses } from "./app/press.ts";
 import { boot } from "./app/session.ts";
 import { ios } from "./native.ts";
-import { installPlatform } from "./ui/platform.ts";
+import { installPlatform } from "pi-mobile-ui/platform";
 
 installPlatform(capacitorUi);
 watchMainThread();

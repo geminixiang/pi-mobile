@@ -1,6 +1,6 @@
 ---
 name: css
-description: Rules for pi mobile's CSS (src/app/index.css, src/app/styles.css, and the sheet beside each folder's components). Read before adding or changing styles, animations, gestures that move elements, or overlays, and when reviewing CSS. Covers specificity, cascade layers instead of !important, one way of moving an element, animating only opacity and transform, and how npm run check enforces it.
+description: Rules for pi mobile's CSS (src/app/index.css, src/app/styles.css, and the sheet beside each folder's components, in src/ and in packages/pi-mobile-ui). Read before adding or changing styles, animations, gestures that move elements, or overlays, and when reviewing CSS. Covers specificity, cascade layers instead of !important, one way of moving an element, animating only opacity and transform, and how npm run check enforces it.
 ---
 
 # CSS in pi mobile
@@ -12,17 +12,20 @@ The stylesheets are plain CSS. `src/app/index.css` is the entry: it imports ever
 ## 0. Where a rule lives
 
 - A rule sits in the sheet beside the components that use its classes, one sheet per folder, named after it:
-  `src/browser/browser.css`, `src/app/chat/chat.css`. Changing a feature's look changes that feature's folder.
+  `src/browser/browser.css`, `src/app/chat/chat.css`, `packages/pi-mobile-ui/src/shell/shell.css`. Changing a
+  feature's look changes that feature's folder.
 - `src/app/styles.css` holds the tokens, the element defaults, the shell's own looks, and every look several folders
   share: a class two folders use, or a rule that lists classes of two.
-- `index.css` lists the sheets in layer order: `styles.css`, the base (`ui`), the core, the features, the workbench,
-  then the four areas of `src/app`. They share one cascade layer, so between two rules of equal specificity the
+- `index.css` lists the sheets in layer order: `styles.css`, the UI package (`pi-mobile-ui/styles.css`), the core,
+  the features, the workbench, then the four areas of `src/app`. The package's entry
+  (`packages/pi-mobile-ui/src/styles.css`) lists the package's own sheets, with no layer of their own: `message`,
+  `shell`, `elements`, the order that keeps every tie the one `ui.css` they came from had. They share one cascade layer, so between two rules of equal specificity the
   later sheet wins: a folder's rule beats a shared one, and a container's sheet beats the sheet of what it holds.
 - A folder's rule that must lose such a tie to a shared rule stays in `styles.css` above it. Today: `.drawer-list > *`
   (the add row keeps its own padding) and `.drawer-item.current` (the pressed tint shows on the current Bot's row).
 - Moving a rule between sheets can change who wins a tie. Compare every state it touches before and after, the
   pressed ones and the wide layout included; computed styles show what a screenshot hides.
-- `npm run check` fails on a class no component uses, a sheet `index.css` does not import, and a selector in a
+- `npm run check` fails on a class no component uses, a sheet no entry imports, and a selector in a
   folder's sheet that names no class of that folder. `styles.css` is held at its length and only shrinks.
 
 Partly adapted from the Front-End Checklist's `specificity-management` and `styles-lint` skills (MIT,
@@ -57,7 +60,7 @@ An element's position, opacity, or size comes from one source. The side panels o
 opening and closing and a CSS variable for dragging, overridden with `!important` and timed against each other with
 timers and effects; a frame where the timing slipped showed the panel fully open before the drag.
 
-The side panels (`src/app/SidePanel.tsx`, gesture math in `sideGesture.ts`) are the one to copy. Like X's menu, a
+The side panels (`src/app/SidePanel.tsx`, gesture math in `pi-mobile-ui/gesture`) are the one to copy. Like X's menu, a
 panel does not slide over the app: the whole app (`.app`, the card) slides aside and the panel is already there
 underneath.
 
@@ -91,7 +94,7 @@ underneath.
 Base UI's Drawer moved them before. Its swipe area ignores swipes that start on a button, link, or field, and it set
 `pointer-events: none` on the wrapped content while open, which restyled the whole conversation: 11 ms at full speed,
 50 to 70 ms per open or close on an idle iPhone. Base UI still runs the dialogs and the bottom sheet
-(`src/ui/Sheet.tsx`); before adopting another part of it for something the user drags, check what it does to the
+(`Sheet` in `pi-mobile-ui/shell`); before adopting another part of it for something the user drags, check what it does to the
 content around it.
 
 Before adding an animation to something that already moves, find what moves it and use that.
@@ -174,7 +177,7 @@ compositor without repainting the element or laying out the page. Everything els
 
 ```sh
 npm run check                # tsc and stylelint
-npx stylelint "src/**/*.css" --fix
+npx stylelint "src/**/*.css" "packages/*/src/**/*.css" --fix
 ```
 
 A visual change is checked on a device (`./test/device/ui.sh`, screenshots), not only by the linter.

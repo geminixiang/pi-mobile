@@ -1,12 +1,11 @@
-import { Row } from "../ui/Row.tsx";
+import { Row } from "pi-mobile-ui/elements";
 import { useCallback, useRef, useState } from "react";
 import type { DeviceSignIn } from "../agent/oauth.ts";
 import { finishGoogleSignIn, type GoogleSignIn, looksLikeAuthCode, startGoogleSignIn } from "./gcloud.ts";
 import { sleep } from "pi-mobile-base/time";
 import { messageOf, orLogged } from "pi-mobile-base/promise";
-import { copy, pasted } from "../ui/clipboard.ts";
+import { copy, onResume, pasted } from "pi-mobile-ui/platform";
 import { System } from "../plugins/system.ts";
-import { onResume } from "../ui/resume.ts";
 
 export function GoogleSignInPanel({ onCredential }: { onCredential: (json: string) => void }) {
 	const [signIn, setSignIn] = useState<GoogleSignIn>();

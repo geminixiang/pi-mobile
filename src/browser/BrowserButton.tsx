@@ -1,5 +1,5 @@
-import { useSubscribed } from "../ui/subscribed.ts";
-import { GlobeIcon } from "../ui/icons.tsx";
+import { useSubscribed } from "pi-mobile-ui/store";
+import { GlobeIcon } from "pi-mobile-ui/elements";
 import { type BrowserState, browserState, NO_BROWSER } from "./tool.ts";
 
 export function BrowserButton({ bot, onOpen }: { bot: string; onOpen: () => void }) {

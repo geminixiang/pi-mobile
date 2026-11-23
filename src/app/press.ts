@@ -1,5 +1,5 @@
 import { after } from "pi-mobile-base/time";
-import { TOUCH_SLOP } from "../ui/sideGesture.ts";
+import { TOUCH_SLOP } from "pi-mobile-ui/gesture";
 
 const PRESSABLE = "button:not(:disabled), label, a, [role=button]";
 const TYPED = "input:not([type=checkbox], [type=radio]), textarea, select, [contenteditable]";

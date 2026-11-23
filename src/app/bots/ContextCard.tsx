@@ -1,6 +1,6 @@
 import type { ConversationId, ConversationView } from "@earendil-works/pi-durable";
 import { useState } from "react";
-import { promised, useSubscribed } from "../../ui/subscribed.ts";
+import { promised, useSubscribed } from "pi-mobile-ui/store";
 import { type ContextPart, contextParts, type ContextShape, type ToolCost } from "../../agent/context-shape.ts";
 import { extensionName } from "../../mcp/mcp.ts";
 import type { AgentRuntime } from "../../runtime/runtime.ts";

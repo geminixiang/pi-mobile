@@ -1,5 +1,5 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { isBack, useLast } from "./layers.ts";
+import { isBack, useLast } from "../platform/layers.ts";
 
 export interface DialogRequest {
 	title: string;

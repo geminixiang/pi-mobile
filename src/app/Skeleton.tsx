@@ -1,4 +1,4 @@
-import { PiMark } from "../ui/PiMark.tsx";
+import { PiMark } from "pi-mobile-ui/elements";
 
 export function TranscriptSkeleton() {
 	return (

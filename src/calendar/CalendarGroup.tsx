@@ -3,9 +3,8 @@ import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar
 import { phonePermissions } from "../interaction/phone-permissions.ts";
 import { native } from "../native.ts";
 import { messageOf } from "pi-mobile-base/promise";
-import { ChoiceRow } from "../ui/ChoiceRow.tsx";
-import { RowList } from "../ui/RowList.tsx";
-import { promised, useStore } from "../ui/subscribed.ts";
+import { ChoiceRow, RowList } from "pi-mobile-ui/elements";
+import { promised, useStore } from "pi-mobile-ui/store";
 import { Calendar, type PhoneCalendar } from "./plugin.ts";
 
 export function CalendarGroup({ access, onChange }: { access: CalendarAccess; onChange: (access: CalendarAccess) => void }) {

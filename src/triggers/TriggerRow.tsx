@@ -3,7 +3,7 @@ import type { Bot } from "../agent/bots.ts";
 import { DAY, startOfToday } from "pi-mobile-base/time";
 import type { LastRun, Trigger, TriggerRuns } from "./runs.ts";
 import { messageOf } from "pi-mobile-base/promise";
-import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon } from "../ui/icons.tsx";
+import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon } from "pi-mobile-ui/elements";
 import { TriggerIcon } from "./TriggerIcon.tsx";
 import { clockOf, describeNear, describeDay, describeRule, isEvent, triggerSymbol } from "./when.ts";
 import { GUARD_IDS, GUARDS, type GuardId } from "../agent/guards.ts";

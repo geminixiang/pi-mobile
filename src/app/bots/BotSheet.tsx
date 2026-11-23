@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { AVATARS, avatarOf, type Bot, freeAvatar, MAX_JOB } from "../../agent/bots.ts";
-import { MemoryIcon, TrashIcon } from "../../ui/icons.tsx";
-import { RowList } from "../../ui/RowList.tsx";
-import { Sheet } from "../../ui/Sheet.tsx";
+import { MemoryIcon, RowList, TrashIcon } from "pi-mobile-ui/elements";
+import { Sheet } from "pi-mobile-ui/shell";
 
 export type BotEdit = { kind: "create" } | { kind: "edit"; bot: Bot };
 

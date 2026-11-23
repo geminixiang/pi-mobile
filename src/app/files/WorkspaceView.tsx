@@ -2,14 +2,11 @@ import { memo, useState } from "react";
 import type { Change, Workspace } from "../../agent/sandbox/workspace.ts";
 import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
-import { ChevronIcon, FileIcon, FolderIcon, RefreshIcon } from "../../ui/icons.tsx";
-import { isBack } from "../../ui/layers.ts";
-import { joinPath, resolvePath } from "../../ui/openFile.ts";
+import { BackButton, ChevronIcon, FileIcon, FolderIcon, RefreshIcon, Tabs } from "pi-mobile-ui/elements";
+import { isBack } from "pi-mobile-ui/platform";
+import { joinPath, resolvePath } from "pi-mobile-ui/message";
 import { PageStack } from "../PageStack.tsx";
-import { BackButton } from "../../ui/BackButton.tsx";
-import { Tabs } from "../../ui/Segmented.tsx";
-import { useLoaded } from "../../ui/loaded.ts";
-import { CLOSED, defined, useStore } from "../../ui/subscribed.ts";
+import { CLOSED, defined, useLoaded, useStore } from "pi-mobile-ui/store";
 import { formatBytes } from "../../encoding.ts";
 import { baseName } from "../../mime.ts";
 

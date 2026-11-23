@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Type } from "typebox";
-import { withCsp } from "../ui/csp.ts";
-import { FileIcon } from "../ui/icons.tsx";
-import { OpenFileContext } from "../ui/openFile.ts";
-import type { Side } from "../ui/sideGesture.ts";
+import { withCsp } from "../csp.ts";
+import { FileIcon } from "pi-mobile-ui/elements";
+import { OpenFileContext } from "pi-mobile-ui/message";
+import type { Side } from "pi-mobile-ui/gesture";
 import { oneOf, check } from "../parse.ts";
 import type { Page } from "./pages.ts";
-import { promised, useSubscribed } from "../ui/subscribed.ts";
+import { promised, useSubscribed } from "pi-mobile-ui/store";
 
 const MIN_HEIGHT = 120;
 const MAX_HEIGHT = 2400;

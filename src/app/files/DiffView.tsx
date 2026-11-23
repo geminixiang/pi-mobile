@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { BackButton } from "../../ui/BackButton.tsx";
-import { useLoaded } from "../../ui/loaded.ts";
+import { BackButton } from "pi-mobile-ui/elements";
+import { useLoaded } from "pi-mobile-ui/store";
 
 export interface DiffTarget {
 	title: string;
