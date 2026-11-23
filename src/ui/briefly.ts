@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { after } from "../time.ts";
+import { after } from "pi-mobile-base/time";
 import { useSubscribed } from "./subscribed.ts";
 
 const SHOWN_MS = 2000;

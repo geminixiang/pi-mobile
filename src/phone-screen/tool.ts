@@ -2,7 +2,7 @@ import { defineExtension, type ToolExecutionResult } from "@earendil-works/pi-du
 import { type Static, Type } from "typebox";
 import { DIRECTIONS, keysFor, PhoneScreen, type PhoneScreenSnapshot, type PhoneScreenStep } from "./plugin.ts";
 import { SCREENS, type Screen, type ScreenChoice, screenFor } from "./background.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { defineAppTool, orList, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
 import { NOTE_TOOL } from "../phone-apps/apps.ts";

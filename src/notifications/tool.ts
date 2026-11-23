@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { requireAccess } from "./access.ts";
 import { type ActiveNotification, Notifications, type RecordedNotification } from "./plugin.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { HOUR, localTime } from "../time.ts";
+import { HOUR, localTime } from "pi-mobile-base/time";
 
 function line(item: RecordedNotification): string {
 	const where = item.sender

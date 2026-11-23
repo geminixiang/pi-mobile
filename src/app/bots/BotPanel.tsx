@@ -12,7 +12,7 @@ import { PrepareStatus, usePrepare } from "../settings/HostsGroup.tsx";
 import { CheckIcon, ChevronIcon, PencilIcon } from "../../ui/icons.tsx";
 import { Sheet } from "../../ui/Sheet.tsx";
 import { TriggerList } from "../../triggers/TriggerList.tsx";
-import { messageOf } from "../../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { useBriefly } from "../../ui/briefly.ts";
 import { native } from "../../native.ts";
 import { Abilities } from "./Abilities.tsx";

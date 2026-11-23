@@ -6,7 +6,7 @@ import { isJsonValue, type JsonValue } from "@earendil-works/chord/json";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { showAlert } from "../results.ts";
-import { log } from "../../log.ts";
+import { log } from "pi-mobile-base/log";
 import { gateSend, noteRead, OutsideDoc, warningOf } from "../outside.ts";
 import type { PluginMethod } from "../../plugins/define.ts";
 import type { Groups } from "../toolsets.ts";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ok"; detail: string } | { state: "error"; detail: string };
 

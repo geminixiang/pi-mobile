@@ -12,11 +12,11 @@ import { defineAppTool, text as textResult, truncated } from "../agent/tools/com
 import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
 import { parse } from "../parse.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { refuseCleartextSecret } from "../net/cleartext.ts";
 import { anthropicHeaders, rootUrl } from "../agent/models.ts";
 import { formatBytes, fromBase64 } from "../encoding.ts";
-import { deadline, MINUTE } from "../time.ts";
+import { deadline, MINUTE } from "pi-mobile-base/time";
 import { baseName } from "../mime.ts";
 
 const ResponsesAnswer = Type.Object({

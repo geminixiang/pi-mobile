@@ -89,7 +89,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - `IndexedDbStorage` 只能有一個擁有者，所以用 Web Lock 擋住第二個 WebView（數位助理以前會開一個）。reload 時舊頁面走了才放鎖，新頁面最多等 5 秒。
 
 **診斷**
-- `src/log.ts` 除了寫 console，還留最近 2000 行在記憶體（含時間、已遮蔽 token 樣式的字串）。Android 上每行也交給原生端追加到 `device.log`（`DeviceLog`，上限 1 MB），所以頁面卡死或渲染程序被重開時，之前的紀錄還在；看門狗重開時也會寫一筆。工具開始和結束各記一行，卡住時看得出在哪個工具。設定頁最下面「分享診斷記錄」把它存成 `.jsonl` 走分享表。正式版關閉 WebView 偵錯，這是正式版唯一拿得到 JS 端證據的路。主執行緒每 250 ms 心跳一次，前景時間隔超過 500 ms 記一筆 `ui.stall`；頁面在背景被 Chromium 凍結的那一段不算。
+- `pi-mobile-base/log` 除了寫 console，還留最近 2000 行在記憶體（含時間、已遮蔽 token 樣式的字串）。Android 上每行也交給原生端追加到 `device.log`（`DeviceLog`，上限 1 MB），所以頁面卡死或渲染程序被重開時，之前的紀錄還在；看門狗重開時也會寫一筆。工具開始和結束各記一行，卡住時看得出在哪個工具。設定頁最下面「分享診斷記錄」把它存成 `.jsonl` 走分享表。正式版關閉 WebView 偵錯，這是正式版唯一拿得到 JS 端證據的路。主執行緒每 250 ms 心跳一次，前景時間隔超過 500 ms 記一筆 `ui.stall`；頁面在背景被 Chromium 凍結的那一段不算。
 
 **Runtime 的生命週期**
 - 改設定先問 `AgentRuntime.apply(next)`。runtime 邊跑邊讀的設定（預設模型、思考程度、壓縮門檻、電腦清單、配對金鑰、預設電腦）就地生效：沒變的電腦連線留著，進行中的回合不受影響；壓縮門檻換掉的是 harness 每次請求時讀的 `models`。其他設定（供應商與金鑰、雲端憑證、GitHub token、行事曆範圍）在開 harness 時就裝進了 extension，`apply` 回 `needs_restart`，`src/app/session.ts` 才關掉整個 `AgentRuntime` 再開一個新的；這會停下正在跑的工作（2026-10-26 在 S24 重現：改壓縮門檻時容器裡的指令回 `Tool bash was interrupted`）。`close()` 先關 harness，再關 MCP 和電腦連線；前一步失敗也照樣關後面的。
@@ -161,7 +161,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、畫面、設定區塊、樣式
 核心 core     agent/、computer/、settings.ts                不認得任何功能
 基礎 base     ui/、plugins/、net/、shims/、根目錄的小工具   不認得上面任何一層
-套件 package  packages/pi-mobile-base、pi-mobile-ui         不認得 App：只有原始碼、不編譯，App 用名稱引入
+套件 package  packages/pi-mobile-base（時間、記錄、Promise）、pi-mobile-ui   不認得 App：只有原始碼、不編譯，App 用名稱引入
 ```
 
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
@@ -185,7 +185,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ### Workspace package
 
-根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和步驟見 [design/ui-package.md](design/ui-package.md)；2026-11-23 起兩個 package 先是空的，檔案一步一步搬進去。
+根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和步驟見 [design/ui-package.md](design/ui-package.md)；2026-11-23 起檔案一步一步搬進去：`pi-mobile-base` 已經有 `time.ts`、`log.ts`、`promise.ts`，`pi-mobile-ui` 還是空的。
 
 「底層不認得上層」在這裡是四條檢查（`test/code-rules.ts` 的 `workspaceRule`、`manifestRule`），每一條都用一個故意寫錯的檔案證明過會失敗：
 
@@ -230,7 +230,8 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | `src/plugins/`、各功能的 `plugin.ts` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema）。只屬於一個功能的放在那個功能的資料夾，好幾層都用的（`system`、`keep-alive`、`stream-fetch`、`bot-files`、`loopback`、`scanner`）留在 `src/plugins/`。各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
 | `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
 | `src/app/` | React UI 的外殼和四區（`chat/`、`bots/`、`settings/`、`files/`）。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
-| `src/ui/`、`src/time.ts` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）、畫面之間傳遞的 context（`openFile.ts`、`beside.ts`）、HTML 預覽的 CSP（`csp.ts`）；`time.ts` 是唯一能呼叫計時器的檔案（[effects.md](effects.md)） |
+| `src/ui/` | 各功能共用的 UI 基礎：訂閱和讀取（`subscribed.ts`、`loaded.ts`、`resume.ts`、`briefly.ts`）、手勢的數學和收合動畫（`sideGesture.ts`）、列表（`RowList.tsx`、`StateRow.tsx`）、圖示（`icons.tsx`）、由下往上的 `Sheet.tsx`、震動（`haptics.ts`）、返回鍵和疊層（`layers.ts`）、畫面之間傳遞的 context（`openFile.ts`、`beside.ts`）、HTML 預覽的 CSP（`csp.ts`） |
+| `packages/pi-mobile-base/` | 核心和 UI 都站在上面、沒有 React 的三個檔案，各是一個公開入口：`pi-mobile-base/time`（唯一能呼叫計時器的檔案，[effects.md](effects.md)；也放時間的常數、格式和解析）、`pi-mobile-base/log`（診斷記錄）、`pi-mobile-base/promise`（Promise 的小工具） |
 | `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
 | `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
 | `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、配對、session，與安裝腳本 |

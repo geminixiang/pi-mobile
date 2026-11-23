@@ -1,4 +1,4 @@
-import { after } from "../time.ts";
+import { after } from "pi-mobile-base/time";
 import { TOUCH_SLOP } from "../ui/sideGesture.ts";
 
 const PRESSABLE = "button:not(:disabled), label, a, [role=button]";

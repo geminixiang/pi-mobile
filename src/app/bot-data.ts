@@ -1,9 +1,9 @@
 import { attachmentOwners, deleteAttachments } from "../attachments/attachments.ts";
 import { phoneFolderOwners, removePhoneFolder } from "../agent/files/phone-env.ts";
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 import { native } from "../native.ts";
 import { clearDraft, draftOwners } from "./chat/drafts.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 
 export async function sweepBotData(current: () => Promise<readonly { id: string; folder: string }[]>): Promise<void> {
 	const [folders, attachments, drafts] = await Promise.all([

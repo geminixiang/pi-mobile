@@ -1,4 +1,4 @@
-import { DAY, localTime, MINUTE, pad, soonest } from "../time.ts";
+import { DAY, localTime, MINUTE, pad, soonest } from "pi-mobile-base/time";
 import type { ACTIVITIES, When } from "./plugin.ts";
 import type { Trigger } from "./runs.ts";
 

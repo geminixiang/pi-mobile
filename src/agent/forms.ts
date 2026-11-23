@@ -2,7 +2,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type ConversationId, defineDoc, type Harness } from "@earendil-works/pi-durable";
 import type { FormAnswer, FormRequest } from "./mcp-stateless.ts";
 import { checkpointEvery64 } from "../doc-policy.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 
 export type PendingForm = { conversationId: ConversationId; service: string; request: FormRequest; confirm?: string; accepted?: string };
 

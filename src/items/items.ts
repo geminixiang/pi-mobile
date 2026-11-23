@@ -1,6 +1,6 @@
 import { type ConversationId, defineDoc } from "@earendil-works/pi-durable";
 import { checkpointEvery64 } from "../doc-policy.ts";
-import { DAY, localTime, soonest } from "../time.ts";
+import { DAY, localTime, soonest } from "pi-mobile-base/time";
 import type { When } from "../triggers/plugin.ts";
 
 export type Item = ItemOf<ConversationId>;

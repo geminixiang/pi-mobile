@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { contentText, fauxAssistantMessage, type TranscriptContext } from "@earendil-works/pi-ai";
-import { localTime, weekdayOf } from "../../src/time.ts";
+import { localTime, weekdayOf } from "pi-mobile-base/time";
 import { openRuntime, turn } from "./fixtures.ts";
 import type { Check } from "./setup.ts";
 

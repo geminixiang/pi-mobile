@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { resumed } from "../ui/resume.ts";
 import { useStore } from "../ui/subscribed.ts";
 import { backgroundSetup, type SetupStatus } from "./background.ts";

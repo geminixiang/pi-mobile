@@ -4,11 +4,11 @@ import { Connection, RemoteError, type RemoteInfo, type Reply, type RequestOptio
 import wire from "../../../host/protocol.json" with { type: "json" };
 import { check } from "../../parse.ts";
 import { lost } from "../../computer/commands.ts";
-import { messageOf } from "../../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { registerProgram } from "../../shims/node-child-process.ts";
 import { type Daemon, type DaemonEffect, type DaemonEvent, type DaemonStream, daemonStep, lineOf, read, type Reader } from "./daemon-state.ts";
 import type { Link } from "../../computer/resumable-link.ts";
-import { type Cancel, every } from "../../time.ts";
+import { type Cancel, every } from "pi-mobile-base/time";
 
 type Json = Record<string, unknown>;
 

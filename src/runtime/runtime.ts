@@ -21,7 +21,7 @@ import {
 import { activeView } from "../agent/active-view.ts";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { changedKeys, type Settings } from "../settings.ts";
-import { orLogged, messageOf } from "../promise.ts";
+import { orLogged, messageOf } from "pi-mobile-base/promise";
 import { createAssistant } from "../agent/assistant.ts";
 import type { ContextShape, ToolCost } from "../agent/context-shape.ts";
 import { pairedHosts } from "../computer/pairing.ts";

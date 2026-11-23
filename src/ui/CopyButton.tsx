@@ -1,4 +1,4 @@
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import { useBriefly } from "./briefly.ts";
 import { CheckIcon, CopyIcon } from "./icons.tsx";
 import { copy } from "./clipboard.ts";

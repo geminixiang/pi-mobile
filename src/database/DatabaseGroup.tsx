@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { native } from "../native.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { useLoaded } from "../ui/loaded.ts";
 import { RowList } from "../ui/RowList.tsx";
 import { Database } from "./plugin.ts";

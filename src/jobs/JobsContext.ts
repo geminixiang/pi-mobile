@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { every, pad } from "../time.ts";
+import { every, pad } from "pi-mobile-base/time";
 import { useSubscribed } from "../ui/subscribed.ts";
 
 export type RunningJob = { job: string; since: number; label: string };

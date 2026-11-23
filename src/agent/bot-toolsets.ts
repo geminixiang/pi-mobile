@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { type Bot, BotIndex } from "./bots.ts";
 import { type Groups, legacyOff, type Place, removedTools } from "./toolsets.ts";
 import type { Native } from "../native.ts";
-import { serially } from "../promise.ts";
+import { serially } from "pi-mobile-base/promise";
 
 const context = BACKGROUND_CONTEXT;
 

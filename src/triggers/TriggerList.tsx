@@ -1,5 +1,5 @@
 import type { Bot } from "../agent/bots.ts";
-import { DAY, startOfToday } from "../time.ts";
+import { DAY, startOfToday } from "pi-mobile-base/time";
 import type { Trigger, TriggerRuns } from "./runs.ts";
 import { TriggerRow } from "./TriggerRow.tsx";
 import { grouped } from "./when.ts";

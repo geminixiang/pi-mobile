@@ -4,7 +4,7 @@ import { defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { accountLabel, type CalendarAccess, canRead, canWrite } from "../agent/calendar-access.ts";
 import { defineAppTool, json, text } from "../agent/tools/common.ts";
-import { DAY, HOUR, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, weekdayOf } from "../time.ts";
+import { DAY, HOUR, localDate, localTime, parseLocalBound, parseLocalTime, startOfToday, weekdayOf } from "pi-mobile-base/time";
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 

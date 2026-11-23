@@ -1,5 +1,5 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import { fromBase64 } from "../encoding.ts";
 
 const CODES_TAG = "image-codes";

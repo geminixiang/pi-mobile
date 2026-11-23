@@ -9,7 +9,7 @@ import { type Network, waitingForNetwork } from "../../src/net/network.ts";
 import { createReach, type Reach } from "../../src/net/reach.ts";
 import { createTraffic } from "../../src/net/traffic.ts";
 import { nextChange } from "./fixtures.ts";
-import { sleep } from "../../src/time.ts";
+import { sleep } from "pi-mobile-base/time";
 import type { Check } from "./setup.ts";
 
 const SLOWEST_RETRY_MS = 30_000;

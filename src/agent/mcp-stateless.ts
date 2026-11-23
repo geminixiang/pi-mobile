@@ -1,7 +1,7 @@
 import { type AuthProvider, type CallToolResult, type ContentBlock, type McpFetch, McpError, isJsonRpcResponse, parseJsonRpcMessage } from "@earendil-works/pi-mcp";
 import { type Static, Type } from "typebox";
 import { check, jsonOrText } from "../parse.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 
 const STATELESS_VERSION = "2026-07-28";
 const MAX_ROUNDS = 4;

@@ -8,7 +8,7 @@ import type { ToolsetState } from "../agent/toolsets.ts";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
 import { PlusIcon } from "../ui/icons.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { longPress } from "../ui/haptics.ts";
 
 function statusText(status: McpStatus | undefined): string {

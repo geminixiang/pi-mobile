@@ -14,7 +14,7 @@ import { inApp, native } from "../native.ts";
 import { parseJson } from "../parse.ts";
 import { Apps } from "../phone-apps/plugin.ts";
 import type { SettingsStorage, SettingsStore } from "../settings.ts";
-import { MINUTE } from "../time.ts";
+import { MINUTE } from "pi-mobile-base/time";
 import { Triggers } from "../triggers/plugin.ts";
 
 const TIMEOUTS = { connectTimeout: 15_000, readTimeout: MINUTE };

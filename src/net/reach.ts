@@ -1,8 +1,8 @@
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 import { deviceNetwork, type Network } from "./network.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { streamFetch } from "./stream-fetch.ts";
-import { after, type Cancel, deadline } from "../time.ts";
+import { after, type Cancel, deadline } from "pi-mobile-base/time";
 
 export type ReachState = { kind: "up"; back?: { since: number; at: number } } | { kind: "down"; since: number };
 

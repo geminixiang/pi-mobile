@@ -5,7 +5,7 @@ import { signatureOf } from "../src/agent/codemode.ts";
 import { validateToolArguments } from "@earendil-works/pi-ai/utils/validation";
 import { oneOf } from "../src/parse.ts";
 import { defineAppTool } from "../src/agent/tools/common.ts";
-import { parseLocalBound, parseLocalTime, parseNextTime } from "../src/time.ts";
+import { parseLocalBound, parseLocalTime, parseNextTime } from "pi-mobile-base/time";
 
 const tool = defineAppTool({
 	name: "probe",

@@ -5,7 +5,7 @@ import { builtinInfo } from "./providers.ts";
 import { memoryCredentials } from "./credentials.ts";
 import { chatgptModels, parseOAuthCredential } from "./chatgpt.ts";
 import { parse } from "../parse.ts";
-import { deadline } from "../time.ts";
+import { deadline } from "pi-mobile-base/time";
 
 const GitHubUser = Type.Object({ login: Type.String() });
 const timeout = () => deadline(8000);

@@ -9,7 +9,7 @@ import type { QueuedEvent } from "../../src/triggers/plugin.ts";
 import { deliverEvents, latestAlarms } from "../../src/triggers/events.ts";
 import type { Judge, Verdict } from "../../src/agent/judge.ts";
 import type { GuardId } from "../../src/agent/guards.ts";
-import { DAY, localDate, localTime, sleep } from "../../src/time.ts";
+import { DAY, localDate, localTime, sleep } from "pi-mobile-base/time";
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

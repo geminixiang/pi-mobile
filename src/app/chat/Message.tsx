@@ -16,7 +16,7 @@ import { StreamingMarkdown } from "./streaming.tsx";
 import { OpenFileContext } from "../../ui/openFile.ts";
 import { preview, stepsLabel, TOOL_DOING } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../../triggers/runs.ts";
-import { monthDayTime } from "../../time.ts";
+import { monthDayTime } from "pi-mobile-base/time";
 import { formatBytes } from "../../encoding.ts";
 import { isConnectionLost } from "../../net/network.ts";
 import { InteractionCard } from "../../interaction/Interaction.tsx";

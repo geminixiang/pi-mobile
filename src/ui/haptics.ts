@@ -1,6 +1,6 @@
 import { native } from "../native.ts";
 import { System } from "../plugins/system.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 
 export const HOLD_MS = 380;
 export const HOLD_SLOP = 10;

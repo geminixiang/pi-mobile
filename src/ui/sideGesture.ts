@@ -1,4 +1,4 @@
-import { type Cancel, eachFrame } from "../time.ts";
+import { type Cancel, eachFrame } from "pi-mobile-base/time";
 
 export type Side = "left" | "right";
 

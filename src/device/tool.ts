@@ -1,5 +1,5 @@
 import { Phone } from "./phone.ts";
-import { whilePending } from "../promise.ts";
+import { whilePending } from "pi-mobile-base/promise";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { Value } from "typebox/value";

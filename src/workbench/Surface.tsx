@@ -6,7 +6,7 @@ import { CodeLines, type Handed, handFile, handProblem, htmlPreviewIsolated } fr
 import { withCsp } from "../ui/csp.ts";
 import { markdownComponents, remarkPlugins } from "../ui/markdown.tsx";
 import { check } from "../parse.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { BLOCKS, changed, linesOf, markBlocks, squeezed } from "./changes.ts";
 import { isHtml } from "../mime.ts";
 import { promised, useStore } from "../ui/subscribed.ts";

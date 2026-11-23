@@ -1,4 +1,4 @@
-import { after, type Cancel } from "../time.ts";
+import { after, type Cancel } from "pi-mobile-base/time";
 export type Rates = { up: number; down: number };
 export type Direction = keyof Rates;
 

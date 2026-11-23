@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Bot } from "../agent/bots.ts";
 import { native } from "../native.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { onResume, resumed } from "../ui/resume.ts";
 import { RowList } from "../ui/RowList.tsx";
 import { StateRow } from "../ui/StateRow.tsx";

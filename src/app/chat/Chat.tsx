@@ -17,7 +17,7 @@ import { TranscriptSkeleton } from "../Skeleton.tsx";
 import type { Prefs } from "../prefs.ts";
 import { Sheet } from "../../ui/Sheet.tsx";
 import { loadDraftText, saveDraftText } from "./drafts.ts";
-import { messageOf } from "../../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { haptic } from "../../ui/haptics.ts";
 import { native } from "../../native.ts";
 import { copy } from "../../ui/clipboard.ts";
@@ -30,7 +30,7 @@ import type { ResultCard } from "../../agent/results.ts";
 import { ReachNote, useReach } from "../bots/Links.tsx";
 import { RowList } from "../../ui/RowList.tsx";
 import { answerOf, withoutReplies } from "../../interaction/replies.ts";
-import { pad } from "../../time.ts";
+import { pad } from "pi-mobile-base/time";
 import { promised, useSubscribed } from "../../ui/subscribed.ts";
 
 const CONTEXT_NEARLY_FULL = 0.8;

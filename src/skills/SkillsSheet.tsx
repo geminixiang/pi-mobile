@@ -3,7 +3,7 @@ import type { ConversationId } from "@earendil-works/pi-durable";
 import { RowList } from "../ui/RowList.tsx";
 import { Sheet } from "../ui/Sheet.tsx";
 import { useSubscribed } from "../ui/subscribed.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import type { Skill, Skills } from "./skills.ts";
 
 const NO_SKILLS: readonly Skill[] = [];

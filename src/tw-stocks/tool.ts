@@ -2,9 +2,9 @@ import { type Static, type TObject, type TProperties, Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "../agent/tools/common.ts";
 import { getJson } from "../net/http.ts";
-import { DAY, localDate, parseDay, startOfToday, weekdayOf } from "../time.ts";
+import { DAY, localDate, parseDay, startOfToday, weekdayOf } from "pi-mobile-base/time";
 import { oneOf, parse } from "../parse.ts";
-import { sharedUntilFailure } from "../promise.ts";
+import { sharedUntilFailure } from "pi-mobile-base/promise";
 
 const MARKET_IDS = ["twse", "tpex"] as const;
 type Market = (typeof MARKET_IDS)[number];

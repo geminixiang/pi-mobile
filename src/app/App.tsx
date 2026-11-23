@@ -43,7 +43,7 @@ import { System } from "../plugins/system.ts";
 import { contextPercent, contextTokens } from "./bots/usage.ts";
 import { SideSwipe } from "./SidePanel.tsx";
 import { clearDraft } from "./chat/drafts.ts";
-import { messageOf, orLogged } from "../promise.ts";
+import { messageOf, orLogged } from "pi-mobile-base/promise";
 import { windowFor } from "../agent/models.ts";
 import { ModelLine } from "./bots/Links.tsx";
 import { RowList } from "../ui/RowList.tsx";

@@ -3,7 +3,7 @@ import { type Static, Type } from "typebox";
 import { Browser, type BrowserSnapshot, type BrowserStep, DIRECTIONS, KEYS, MAX_TABS } from "./plugin.ts";
 import { defineAppTool, orList, whenUserSpeaks, withScreenshot } from "../agent/tools/common.ts";
 import { type Checked, oneOf } from "../parse.ts";
-import { after, MINUTE } from "../time.ts";
+import { after, MINUTE } from "pi-mobile-base/time";
 
 const HANDOVER_MS = 10 * MINUTE;
 const WAIT_MS = 1000;

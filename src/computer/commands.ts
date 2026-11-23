@@ -2,7 +2,7 @@ import { type McpTransport, PipeTransport } from "@earendil-works/pi-mcp";
 import { RemoteError } from "@earendil-works/pi-env";
 import { Type } from "typebox";
 import wire from "../../host/protocol.json" with { type: "json" };
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 import { decode } from "../parse.ts";
 import { randomHex } from "../encoding.ts";
 import { deviceNetwork, type Network } from "../net/network.ts";
@@ -10,7 +10,7 @@ import { hostTraffic } from "../net/traffic.ts";
 import type { Link, RawMessage } from "./resumable-link.ts";
 import { type OpenRaw, RESUME_LIMIT_MS, type ResumableOptions, ResumableSocket } from "./resumable-socket.ts";
 import { type PairedHost, probeHost, type Reach, socketUrl } from "./pairing.ts";
-import { deadline } from "../time.ts";
+import { deadline } from "pi-mobile-base/time";
 
 export interface CommandHandlers {
 	onStdout(data: Uint8Array): void;

@@ -4,7 +4,7 @@ import { type FromWorker, type FsOp, type FsValue, type HttpRequest, type HttpRe
 import { folderFetch } from "./folder-fetch.ts";
 import { gitCommand } from "./git-command.ts";
 import { ghCommand } from "./gh-command.ts";
-import { messageOf } from "../../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { fromBase64, toBase64, toHex } from "../../encoding.ts";
 
 const UNAVAILABLE = new Set(["tar", "yq", "xan", "sqlite3", "python3", "python", "html-to-markdown"]);

@@ -2,7 +2,7 @@ import { type Static, Type } from "typebox";
 import { decodeEach, decode, oneOf } from "../parse.ts";
 import { onTailnet, refuseIpOnIos, tailscaleHint } from "../net/cleartext.ts";
 import { ios } from "../native.ts";
-import { deadline } from "../time.ts";
+import { deadline } from "pi-mobile-base/time";
 
 const DAEMON_OSES = ["darwin", "linux", "windows"] as const;
 export type DaemonOs = (typeof DAEMON_OSES)[number];

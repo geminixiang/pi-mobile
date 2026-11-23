@@ -4,10 +4,10 @@ import type { ConversationId } from "@earendil-works/pi-durable";
 import type { TriggerRuns } from "./runs.ts";
 import { native } from "../native.ts";
 import { QueuedEvent, Triggers } from "./plugin.ts";
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 import { releaseIfIdle } from "../keepAlive.ts";
-import { messageOf, orLogged, serially } from "../promise.ts";
-import { after, DAY } from "../time.ts";
+import { messageOf, orLogged, serially } from "pi-mobile-base/promise";
+import { after, DAY } from "pi-mobile-base/time";
 
 const RETRY_FOR_MS = DAY;
 

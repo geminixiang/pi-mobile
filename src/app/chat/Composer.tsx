@@ -22,7 +22,7 @@ import { type DialPrompt, ScrollTab } from "./PromptDial.tsx";
 import { useDictation } from "./voice.ts";
 import { JobsStrip } from "../../jobs/JobsStrip.tsx";
 import { addToDraft, loadDraftAttachments, receiveDrafts, saveDraftAttachments } from "./drafts.ts";
-import { messageOf, orLogged } from "../../promise.ts";
+import { messageOf, orLogged } from "pi-mobile-base/promise";
 import { native } from "../../native.ts";
 import { BesideContext } from "../../ui/beside.ts";
 import { inViewNote } from "../../agent/in-view.ts";

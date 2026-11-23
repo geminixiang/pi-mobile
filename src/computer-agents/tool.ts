@@ -7,7 +7,7 @@ import type { PairedHost } from "../computer/pairing.ts";
 import type { AgentState } from "../triggers/runs.ts";
 import { editTriggers, triggersOf } from "../triggers/edit.ts";
 import { isWatch, watch } from "../triggers/watch.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import type { Workplace } from "../agent/workplaces.ts";
 import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
 import { type AgentPlace, choicesOf, keysCommand, LIST, type Place, type Reading, type Status, placeOf, readingOf, sendCommand, sendProblem, workers } from "./workers.ts";

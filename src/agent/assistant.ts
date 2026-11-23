@@ -1,7 +1,7 @@
 import { defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { type ContextShape, shapeOf } from "./context-shape.ts";
-import { localTime, pad } from "../time.ts";
+import { localTime, pad } from "pi-mobile-base/time";
 
 function utcOffset(): string {
 	const minutes = -new Date().getTimezoneOffset();

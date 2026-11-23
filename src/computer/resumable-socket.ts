@@ -1,8 +1,8 @@
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 import type { Network } from "../net/network.ts";
 import { bytesOf, type Traffic } from "../net/traffic.ts";
 import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
-import { after, type Cancel, every } from "../time.ts";
+import { after, type Cancel, every } from "pi-mobile-base/time";
 
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
 export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;

@@ -6,7 +6,7 @@ import { Type } from "typebox";
 import { type ConversationId, defineExtension } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { parseClock } from "../time.ts";
+import { parseClock } from "pi-mobile-base/time";
 import { oneOf } from "../parse.ts";
 import { toBase64 } from "../encoding.ts";
 import { baseName, mimeTypeOf } from "../mime.ts";

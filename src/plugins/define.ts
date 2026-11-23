@@ -1,7 +1,7 @@
 import { Capacitor, type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 import { type Static, type TObject, type TSchema, Type } from "typebox";
 import { check, parse } from "../parse.ts";
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 
 const PluginHeaders = Type.Array(Type.Object({ name: Type.String(), methods: Type.Array(Type.Object({ name: Type.String() })) }));
 const headers = check(PluginHeaders, Reflect.get(Capacitor, "PluginHeaders") ?? [], "Capacitor.PluginHeaders");

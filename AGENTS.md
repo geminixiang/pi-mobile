@@ -75,7 +75,7 @@ Finishing the task is half the job; the other half is leaving the design better 
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
 | Short ids come from `randomHex`, waits from `sleep`, two-digit padding from `pad`, minutes from `MINUTE`, a sort by an optional time from `soonest`: no `randomUUID().slice`, `setTimeout(resolve`, `padStart(2, "0")` or `60_000` outside their owners; JSON is parsed only through `src/parse.ts` | `test/code-rules.ts` |
 | A background job's agent name is made and read only in `src/jobs/background.ts` (`jobAgent`, `isJob`, `jobIdOf`); a path's last part is `baseName`, an HTML file is `isHtml` (`src/mime.ts`) | `test/code-rules.ts` |
-| No effect hook, timer outside `src/time.ts`, ref callback with dependencies or constant `useSyncExternalStore` snapshot (docs/effects.md) | `test/code-rules.ts` |
+| No effect hook, timer outside `pi-mobile-base/time`, ref callback with dependencies or constant `useSyncExternalStore` snapshot (docs/effects.md) | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
 | Every prompt section is an `appSection` within its budget, even in a crowded app; the prompt fits `PROMPT_BUDGET` and matches its snapshot | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |

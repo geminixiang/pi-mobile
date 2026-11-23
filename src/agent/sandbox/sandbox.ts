@@ -10,7 +10,7 @@ import type { ConnectionStatus, PhoneConnection } from "./phone-connection.ts";
 import { WORKSPACE } from "./workspace.ts";
 import { SHOWN_AS_FILE } from "../files/extension.ts";
 import type { Workplace } from "../workplaces.ts";
-import { sharedUntilFailure } from "../../promise.ts";
+import { sharedUntilFailure } from "pi-mobile-base/promise";
 
 export interface Sandbox {
 	readonly direct: boolean;

@@ -1,8 +1,8 @@
 import { type ReactNode, useState } from "react";
 import type { Bot } from "../agent/bots.ts";
-import { DAY, startOfToday } from "../time.ts";
+import { DAY, startOfToday } from "pi-mobile-base/time";
 import type { LastRun, Trigger, TriggerRuns } from "./runs.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { CalendarIcon, CheckIcon, CloseIcon, EyeIcon, RepeatIcon, SkipIcon, TerminalIcon } from "../ui/icons.tsx";
 import { TriggerIcon } from "./TriggerIcon.tsx";
 import { clockOf, describeNear, describeDay, describeRule, isEvent, triggerSymbol } from "./when.ts";

@@ -20,10 +20,10 @@ import {
 import { BotFiles, type BotFileInfo } from "../../plugins/bot-files.ts";
 import { type FromWorker, type FsOp, type FsValue, normalizePath, resolvePath, TEMP_FOLDER, type ToWorker } from "./protocol.ts";
 import { type FolderNetwork, sendFromFolder } from "./folder-network.ts";
-import { codeOf, messageOf, untilFailure } from "../../promise.ts";
+import { codeOf, messageOf, untilFailure } from "pi-mobile-base/promise";
 import { fromBase64, randomHex, toBase64 } from "../../encoding.ts";
 import { shellQuote } from "../../shell.ts";
-import { after, type Cancel, HOUR } from "../../time.ts";
+import { after, type Cancel, HOUR } from "pi-mobile-base/time";
 import { baseName } from "../../mime.ts";
 
 const TEMP_DIR = "/tmp";

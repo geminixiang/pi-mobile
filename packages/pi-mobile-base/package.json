@@ -4,5 +4,9 @@
 	"version": "0.0.0",
 	"license": "MIT",
 	"type": "module",
-	"exports": {}
+	"exports": {
+		"./time": "./src/time.ts",
+		"./log": "./src/log.ts",
+		"./promise": "./src/promise.ts"
+	}
 }

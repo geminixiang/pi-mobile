@@ -2,7 +2,7 @@ import { Health, METRICS } from "./plugin.ts";
 import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { duration, localTime } from "../time.ts";
+import { duration, localTime } from "pi-mobile-base/time";
 import { oneOf } from "../parse.ts";
 
 const health = defineAppTool({

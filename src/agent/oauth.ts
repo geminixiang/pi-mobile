@@ -2,11 +2,11 @@ import { CapacitorHttp } from "@capacitor/core";
 import { type Static, Type } from "typebox";
 import { check, type Checked, parse, parseJson, valueOrThrow } from "../parse.ts";
 import { sleep } from "@earendil-works/pi-ai/utils/sleep";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import { fromBase64, randomBase64Url, toBase64Url } from "../encoding.ts";
 import { Loopback } from "../plugins/loopback.ts";
 import { HTTP_TIMEOUTS } from "../net/http.ts";
-import { MINUTE } from "../time.ts";
+import { MINUTE } from "pi-mobile-base/time";
 
 export interface AccessToken {
 	token: string;

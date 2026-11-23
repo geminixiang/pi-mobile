@@ -2,9 +2,9 @@ import { type Static, Type } from "typebox";
 import { DEFAULT_MODEL_ID } from "./agent/models.ts";
 import { decode } from "./parse.ts";
 import type { Platform } from "./agent/platform.ts";
-import { log } from "./log.ts";
+import { log } from "pi-mobile-base/log";
 import { type ProviderConfig, parseProviders } from "./agent/providers.ts";
-import { messageOf } from "./promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { type Host, parseHosts } from "./computer/pairing.ts";
 import { type CalendarAccess, parseCalendarAccess } from "./agent/calendar-access.ts";
 

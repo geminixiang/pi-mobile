@@ -91,6 +91,8 @@ function findings(file: string): Finding[] {
 }
 
 const SOURCE_FILE = /\.(ts|tsx|java|kt|swift|m|h)$/;
+// why: the one file that may call a timer global (docs/effects.md), and so the home of every helper about time
+const TIMER_OWNER = "packages/pi-mobile-base/src/time.ts";
 const TYPESCRIPT = /\.tsx?$/;
 
 const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegExp }[] = [
@@ -162,20 +164,20 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /setTimeout\(resolve\b/,
-		owners: ["src/time.ts"],
-		fix: "wait with sleep(ms) from src/time.ts",
+		owners: [TIMER_OWNER],
+		fix: "wait with sleep(ms) from pi-mobile-base/time",
 		only: TYPESCRIPT,
 	},
 	{
 		use: /padStart\(2, "0"\)/,
-		owners: ["src/time.ts", "src/encoding.ts"],
-		fix: "pad two digits with pad from src/time.ts",
+		owners: [TIMER_OWNER, "src/encoding.ts"],
+		fix: "pad two digits with pad from pi-mobile-base/time",
 		only: TYPESCRIPT,
 	},
 	{
 		use: /\b60_000\b/,
-		owners: ["src/time.ts"],
-		fix: "write minutes with MINUTE (and HOUR, DAY) from src/time.ts",
+		owners: [TIMER_OWNER],
+		fix: "write minutes with MINUTE (and HOUR, DAY) from pi-mobile-base/time",
 		only: TYPESCRIPT,
 	},
 	{
@@ -198,8 +200,8 @@ const OWNED: { use: RegExp; owners: readonly string[]; fix: string; only?: RegEx
 	},
 	{
 		use: /\?\? Number\.MAX_SAFE_INTEGER\) -/,
-		owners: ["src/time.ts"],
-		fix: "sort by an optional time with soonest(at) from src/time.ts",
+		owners: [TIMER_OWNER],
+		fix: "sort by an optional time with soonest(at) from pi-mobile-base/time",
 		only: TYPESCRIPT,
 	},
 	{
@@ -627,7 +629,6 @@ function viewportRule(): Finding[] {
 
 const EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect"]);
 const TIMERS = new Set(["setTimeout", "setInterval", "requestAnimationFrame", "requestIdleCallback", "postTask"]);
-const TIMER_OWNER = "src/time.ts";
 
 type TimingCall = { kind: "effect" | "timer"; name: string; line: number };
 
@@ -654,7 +655,7 @@ function timingCalls(file: string): TimingCall[] {
 const EFFECT_FIX =
 	"a store, or a native, window or Capacitor event → useSubscribed or useStore (src/ui/subscribed.ts), or useSyncExternalStore; loading → useLoaded (src/ui/loaded.ts); work on an element (measure, focus, scroll, observe, clean up when it leaves) → a ref callback that returns its cleanup; a value from state or props → compute it during render; state to reset on a new id → a key; a reaction to a tap or a gesture → do it in the event handler (docs/effects.md)";
 const TIMER_FIX =
-	"call a named helper from src/time.ts (sleep, after, every, deadline, nextFrame, eachFrame, afterPaint) and keep the cancel it returns; a value that changes with time → a store whose subscribe starts the helper; a delay that waits for something → listen for that event (docs/effects.md)";
+	"call a named helper from pi-mobile-base/time (sleep, after, every, deadline, nextFrame, eachFrame, afterPaint) and keep the cancel it returns; a value that changes with time → a store whose subscribe starts the helper; a delay that waits for something → listen for that event (docs/effects.md)";
 
 function effectRule(): Finding[] {
 	return checkedFiles()

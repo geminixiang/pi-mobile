@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type CalendarAccess, canWrite, groupByAccount } from "../agent/calendar-access.ts";
 import { phonePermissions } from "../interaction/phone-permissions.ts";
 import { native } from "../native.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { ChoiceRow } from "../ui/ChoiceRow.tsx";
 import { RowList } from "../ui/RowList.tsx";
 import { promised, useStore } from "../ui/subscribed.ts";

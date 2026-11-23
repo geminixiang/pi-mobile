@@ -4,12 +4,12 @@ import { type ConversationId, defineExtension, type ToolExecutionApi } from "@ea
 import { appSection } from "../section.ts";
 import { type Static, Type } from "typebox";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { localTime, MINUTE, parseClock, parseLocalTime } from "../time.ts";
+import { localTime, MINUTE, parseClock, parseLocalTime } from "pi-mobile-base/time";
 import { oneOf } from "../parse.ts";
 import { resolvePlace } from "../device/tool.ts";
 import { requireAccess } from "../notifications/access.ts";
 import { Notifications } from "../notifications/plugin.ts";
-import { serially } from "../promise.ts";
+import { serially } from "pi-mobile-base/promise";
 import { DEFAULT_GUARDS, GUARD_IDS, type GuardId } from "../agent/guards.ts";
 import { ACTIVITIES, Triggers, type When } from "./plugin.ts";
 import { type Trigger, TriggerDoc } from "./runs.ts";

@@ -6,7 +6,7 @@ import { Apps } from "../../phone-apps/plugin.ts";
 import { OpenOutsideIcon, ShareIcon } from "../../ui/icons.tsx";
 import { CopyButton } from "../../ui/CopyButton.tsx";
 import { markdownComponents, remarkPlugins } from "../../ui/markdown.tsx";
-import { codeOf, messageOf } from "../../promise.ts";
+import { codeOf, messageOf } from "pi-mobile-base/promise";
 import { formatBytes } from "../../encoding.ts";
 import { BackButton } from "../../ui/BackButton.tsx";
 import { withCsp } from "../../ui/csp.ts";

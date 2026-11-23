@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from "react";
-import { log } from "../log.ts";
-import { messageOf } from "../promise.ts";
+import { log } from "pi-mobile-base/log";
+import { messageOf } from "pi-mobile-base/promise";
 import { shareDiagnostics } from "./diagnostics.ts";
 
 type CrashState = { failed: false } | { failed: true; message: string };

@@ -5,7 +5,7 @@ import type { Bot } from "../agent/bots.ts";
 import type { AgentRuntime } from "../runtime/runtime.ts";
 import type { Workspace } from "../agent/sandbox/workspace.ts";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
-import { CLOCK } from "../time.ts";
+import { CLOCK } from "pi-mobile-base/time";
 import { ChevronIcon } from "../ui/icons.tsx";
 import { callLabel, doing } from "../app/chat/Message.tsx";
 import type { Board, Card, Group } from "./board.ts";

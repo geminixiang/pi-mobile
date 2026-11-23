@@ -1,5 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from "react";
-import { after, type Cancel } from "../../time.ts";
+import { after, type Cancel } from "pi-mobile-base/time";
 import { type DialState, positionOf, type Repeating, repeatingOf, turned } from "./dialState.ts";
 import { haptic, HOLD_MS, HOLD_SLOP } from "../../ui/haptics.ts";
 import { ArrowDownIcon } from "../../ui/icons.tsx";

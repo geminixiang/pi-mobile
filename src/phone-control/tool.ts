@@ -12,9 +12,9 @@ import {
 	type SoundState,
 	STREAMS,
 } from "../device/phone-state.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { localTime, MINUTE, pad, parseNextTime } from "../time.ts";
+import { localTime, MINUTE, pad, parseNextTime } from "pi-mobile-base/time";
 import { oneOf } from "../parse.ts";
 import { type ActsAsUser, mayOpenScreen } from "../phone-apps/tool.ts";
 const minutesSeconds = (ms: number) => `${Math.floor(ms / MINUTE)}:${pad(Math.floor((ms % MINUTE) / 1000))}`;

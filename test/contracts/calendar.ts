@@ -3,7 +3,7 @@ import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { CalendarAccess } from "../../src/agent/calendar-access.ts";
 import { type CalendarStore, createCalendarExtension } from "../../src/calendar/tool.ts";
-import { localTime } from "../../src/time.ts";
+import { localTime } from "pi-mobile-base/time";
 import type { PhoneCalendar, PhoneEvent } from "../../src/calendar/plugin.ts";
 import type { Check } from "./setup.ts";
 

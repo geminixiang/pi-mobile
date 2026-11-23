@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { defineExtension } from "@earendil-works/pi-durable";
 import { codeNote } from "../agent/codes.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { DAY, localTime, parseLocalBound, startOfToday } from "../time.ts";
+import { DAY, localTime, parseLocalBound, startOfToday } from "pi-mobile-base/time";
 import { metersBetween, resolvePlace } from "../device/tool.ts";
 import { type Contact, Contacts } from "./contacts.ts";
 import { Photos } from "./photos.ts";

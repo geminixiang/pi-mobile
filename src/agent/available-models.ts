@@ -4,13 +4,13 @@ import { modelReach } from "../net/reach.ts";
 import { modelTraffic } from "../net/traffic.ts";
 import { Type } from "typebox";
 import { type Settings, type SettingsStore, usableProviders } from "../settings.ts";
-import { messageOf, orLogged } from "../promise.ts";
+import { messageOf, orLogged } from "pi-mobile-base/promise";
 import { chatgptModelsCached, parseOAuthCredential, withOnlyModels } from "./chatgpt.ts";
 import { gatewayCatalog, memoryCredentials } from "./credentials.ts";
 import { customProvider, describe, fetchModelIds, inCatalog, type ModelInfo, withCompaction } from "./models.ts";
 import { readStored } from "../parse.ts";
 import { builtinInfo, type ProviderConfig, providerName } from "./providers.ts";
-import { deadline } from "../time.ts";
+import { deadline } from "pi-mobile-base/time";
 
 function webSearchConfig(configs: readonly ProviderConfig[], keys: Record<string, string>, lists: Record<string, string[]>, infos: readonly ModelInfo[]) {
 	const custom = configs.find((config): config is Extract<ProviderConfig, { kind: "custom" }> => config.kind === "custom");

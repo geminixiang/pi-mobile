@@ -1,6 +1,6 @@
 import { type DependencyList, useMemo, useSyncExternalStore } from "react";
-import { messageOf } from "../promise.ts";
-import { every } from "../time.ts";
+import { messageOf } from "pi-mobile-base/promise";
+import { every } from "pi-mobile-base/time";
 import { cell, type Source, useSubscribed } from "./subscribed.ts";
 
 export function usePolled<T>(read: (() => Promise<T | undefined>) | undefined, everyMs: number, deps: DependencyList): T | undefined {

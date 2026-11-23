@@ -2,10 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import { useSubscribed } from "../ui/subscribed.ts";
 import type { Bot } from "../agent/bots.ts";
 import { type Memories, type Memory, MEMORY_LIMIT, type MemoryScope } from "./memory.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { BackButton } from "../ui/BackButton.tsx";
 import { BotAvatar } from "../agent/BotAvatar.tsx";
-import { monthDayTime } from "../time.ts";
+import { monthDayTime } from "pi-mobile-base/time";
 
 const BOT_PLACEHOLDER = `# 這份工作
 - 資料來源：

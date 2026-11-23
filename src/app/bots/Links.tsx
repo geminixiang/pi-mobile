@@ -8,7 +8,7 @@ import { hostTraffic, modelTraffic, type Rates, STILL, type Traffic } from "../.
 import { BatteryCharging, Bell, Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
 import { useBackground } from "../background.ts";
 import { Sheet } from "../../ui/Sheet.tsx";
-import { CLOCK, MINUTE } from "../../time.ts";
+import { CLOCK, MINUTE } from "pi-mobile-base/time";
 import { useSubscribed } from "../../ui/subscribed.ts";
 
 type Outage = { since: number; at: number };

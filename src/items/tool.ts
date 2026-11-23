@@ -3,7 +3,7 @@ import { appSection } from "../section.ts";
 import { Type } from "typebox";
 import { oneOf } from "../parse.ts";
 import { defineAppTool, text } from "../agent/tools/common.ts";
-import { parseLocalTime, soonest } from "../time.ts";
+import { parseLocalTime, soonest } from "pi-mobile-base/time";
 import { requireAccess } from "../notifications/access.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { described, type Item, ItemDoc, pruned } from "./items.ts";

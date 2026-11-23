@@ -1,8 +1,8 @@
 import type { Storage } from "@earendil-works/pi-durable";
 import { IndexedDbStorage } from "@earendil-works/pi-durable/storage/indexeddb";
-import { log } from "../log.ts";
-import { sleep } from "../time.ts";
-import { messageOf, untilFailure } from "../promise.ts";
+import { log } from "pi-mobile-base/log";
+import { sleep } from "pi-mobile-base/time";
+import { messageOf, untilFailure } from "pi-mobile-base/promise";
 
 const DATABASE = "pi-mobile-bots";
 const SINGLE_OWNER_LOCK = "pi-mobile.storage";

@@ -3,7 +3,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { defineAppTool } from "../../src/agent/tools/common.ts";
-import { log, recentLog, saveLogWith } from "../../src/log.ts";
+import { log, recentLog, saveLogWith } from "pi-mobile-base/log";
 import type { Check } from "./setup.ts";
 
 export const checks: Check[] = [

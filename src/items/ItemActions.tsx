@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { TriggerRuns } from "../triggers/runs.ts";
-import { messageOf } from "../promise.ts";
-import { DAY, HOUR, startOfToday } from "../time.ts";
+import { messageOf } from "pi-mobile-base/promise";
+import { DAY, HOUR, startOfToday } from "pi-mobile-base/time";
 import { describeNear } from "../triggers/when.ts";
 import type { Item } from "./items.ts";
 

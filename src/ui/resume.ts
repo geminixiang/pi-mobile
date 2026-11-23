@@ -1,5 +1,5 @@
 import { App } from "@capacitor/app";
-import type { Cancel } from "../time.ts";
+import type { Cancel } from "pi-mobile-base/time";
 import type { Subscribe } from "./subscribed.ts";
 
 export function onResume(run: () => void): Cancel {

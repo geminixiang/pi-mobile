@@ -1,6 +1,6 @@
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import { log } from "../../log.ts";
-import { onFailure, untilFailure } from "../../promise.ts";
+import { log } from "pi-mobile-base/log";
+import { onFailure, untilFailure } from "pi-mobile-base/promise";
 import { deviceDial, HostCommands, holdSocket } from "../../computer/commands.ts";
 import { type HostMode, type PairedHost, probeHost, url } from "../../computer/pairing.ts";
 import { ContainerHost, type Credentials } from "./container.ts";

@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { decode } from "../parse.ts";
-import { MINUTE } from "../time.ts";
+import { MINUTE } from "pi-mobile-base/time";
 
 export type RawMessage = ArrayBuffer | string;
 export type Link = "up" | "reattaching" | "offline";

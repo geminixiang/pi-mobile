@@ -7,7 +7,7 @@ import type { PairedHost } from "../computer/pairing.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import { defineAppTool } from "../agent/tools/common.ts";
 import { oneOf } from "../parse.ts";
-import { messageOf, sharedUntilFailure } from "../promise.ts";
+import { messageOf, sharedUntilFailure } from "pi-mobile-base/promise";
 
 const COMMAND = "pi-mobile mcp computer";
 

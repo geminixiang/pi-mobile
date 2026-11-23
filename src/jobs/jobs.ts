@@ -3,7 +3,7 @@ import { type CommandClient, HostCommands } from "../computer/commands.ts";
 import type { PairedHost } from "../computer/pairing.ts";
 import type { Workplace } from "../agent/workplaces.ts";
 import type { Trigger, TriggerRuns } from "../triggers/runs.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import { isJob, jobIdOf, watchShown } from "./background.ts";
 import { JOB_ID, parseJob, readJob, stopJob, stopOwnedJobs, waitJob } from "./commands.ts";
 import type { RunningJobs } from "./JobsContext.ts";

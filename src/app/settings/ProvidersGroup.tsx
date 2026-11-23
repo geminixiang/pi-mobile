@@ -12,7 +12,7 @@ import { RowList } from "../../ui/RowList.tsx";
 import { ChoiceRow } from "../../ui/ChoiceRow.tsx";
 import { Logo } from "../../ui/Logo.tsx";
 import { Sheet } from "../../ui/Sheet.tsx";
-import { messageOf } from "../../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { hostOf } from "../../parse.ts";
 
 type ProviderSettings = Pick<Settings, "providers" | "providerKeys" | "providerOAuth" | "defaultProvider" | "defaultModelId">;

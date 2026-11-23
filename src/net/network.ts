@@ -2,13 +2,13 @@ import { Capacitor } from "@capacitor/core";
 import { Network as NetworkPlugin } from "@capacitor/network";
 import type { Api, AssistantMessageEvent, AssistantMessageEventStream, Model, Provider } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
-import { log } from "../log.ts";
+import { log } from "pi-mobile-base/log";
 import { native } from "../native.ts";
 import { System } from "../plugins/system.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import type { Reach } from "./reach.ts";
 import { bytesOf, type Traffic } from "./traffic.ts";
-import { after, type Cancel, MINUTE } from "../time.ts";
+import { after, type Cancel, MINUTE } from "pi-mobile-base/time";
 
 export interface Network {
 	online(): boolean;

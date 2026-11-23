@@ -1,8 +1,8 @@
 import { Type } from "typebox";
 import { type Api, contentText, type JsonObject, type Model, type Models } from "@earendil-works/pi-ai";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { checkJson } from "../parse.ts";
-import { deadline } from "../time.ts";
+import { deadline } from "pi-mobile-base/time";
 
 export type Question = { instructions: string; yes: string; no: string };
 

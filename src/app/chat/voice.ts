@@ -1,7 +1,7 @@
 import { native } from "../../native.ts";
 import { useCallback, useRef } from "react";
 import { Voice } from "../../speech/plugin.ts";
-import { messageOf } from "../../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { useStore } from "../../ui/subscribed.ts";
 import { haptic } from "../../ui/haptics.ts";
 

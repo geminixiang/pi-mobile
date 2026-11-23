@@ -3,14 +3,14 @@ import { cell, type Source, useStore } from "../ui/subscribed.ts";
 import { type BrowserState, browserState, NO_BROWSER } from "./tool.ts";
 import { native } from "../native.ts";
 import { Browser, MAX_TABS } from "./plugin.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 import { SEARCH_ENGINES, type SearchEngine } from "../settings.ts";
 import { NOTHING_SHOWN, pageKey, sameInputs, SHEET_START, type SheetEvent, type SheetInputs, sheetAfter, sheetOpen, type SheetState, withPage, withTabs } from "./sheetState.ts";
 import { BackIcon, CloseIcon, PlusIcon, RefreshIcon } from "../ui/icons.tsx";
 import { isBack } from "../ui/layers.ts";
 import { intentOf, Motion, type Sample, sampled, settlesOpen, TOUCH_SLOP, velocityOf } from "../ui/sideGesture.ts";
 import { haptic } from "../ui/haptics.ts";
-import { type Cancel, nextFrame } from "../time.ts";
+import { type Cancel, nextFrame } from "pi-mobile-base/time";
 
 // why: --card-radius; the page reaches the sheet's bottom edge, so its corners are cut to the sheet's
 const CARD_RADIUS = 36;

@@ -2,7 +2,7 @@ import { native } from "../native.ts";
 import { fromBase64, toBase64 } from "../encoding.ts";
 import { headerRecord, NULL_BODY_STATUS } from "./http.ts";
 import { StreamFetch } from "../plugins/stream-fetch.ts";
-import { untilFailure } from "../promise.ts";
+import { untilFailure } from "pi-mobile-base/promise";
 
 type Pending = {
 	head: (response: Response) => void;

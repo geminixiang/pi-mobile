@@ -8,7 +8,7 @@ import type { TriggerHost } from "../triggers/tool.ts";
 import { BACKGROUND, jobAgent, jobWatchName, WAIT_MS } from "./background.ts";
 import { type Job, JOB_LIMIT_SECONDS, OUTPUT_BYTES, OUTPUT_LINES, parseJob, readJob, startJob, stopJob } from "./commands.ts";
 import { randomHex } from "../encoding.ts";
-import { sleep } from "../time.ts";
+import { sleep } from "pi-mobile-base/time";
 
 const POLL_MS = 400;
 const PROMPT_CHARS = 500;

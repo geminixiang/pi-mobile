@@ -1,9 +1,9 @@
 import { toBase64 } from "../encoding.ts";
-import { recentLog, saveLogWith } from "../log.ts";
+import { recentLog, saveLogWith } from "pi-mobile-base/log";
 import { native } from "../native.ts";
 import { Apps } from "../phone-apps/plugin.ts";
 import { System } from "../plugins/system.ts";
-import { messageOf } from "../promise.ts";
+import { messageOf } from "pi-mobile-base/promise";
 
 export function keepLogOnDevice(): void {
 	if (!native.implements(System.appendLog)) return;

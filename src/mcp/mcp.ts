@@ -16,7 +16,7 @@ import { type McpSession, type Platform } from "../agent/platform.ts";
 import { hostStdio, parseComputerMcp } from "../computer/commands.ts";
 import { callTool, type FormAnswer, speaksStateless } from "../agent/mcp-stateless.ts";
 import type { PendingForm } from "../agent/forms.ts";
-import { messageOf, orLogged, serially, settled, sharedUntilFailure } from "../promise.ts";
+import { messageOf, orLogged, serially, settled, sharedUntilFailure } from "pi-mobile-base/promise";
 
 const REDIRECT_PORT = 47823;
 const REDIRECT_PATH = "/oauth/mcp";

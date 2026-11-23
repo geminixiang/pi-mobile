@@ -3,9 +3,9 @@ import { streamFetch } from "../net/stream-fetch.ts";
 import { Type } from "typebox";
 import { listenForRedirect, pkce, postForm } from "./oauth.ts";
 import { decode, parse, readStored } from "../parse.ts";
-import { orLogged } from "../promise.ts";
+import { orLogged } from "pi-mobile-base/promise";
 import { randomBase64Url } from "../encoding.ts";
-import { after, deadline, MINUTE } from "../time.ts";
+import { after, deadline, MINUTE } from "pi-mobile-base/time";
 
 const AUTHORIZE_URL = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_URL = "https://auth.openai.com/api/accounts/oauth/token";

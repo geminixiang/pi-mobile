@@ -5,7 +5,7 @@ import { Triggers } from "./plugin.ts";
 import type { Trigger } from "./runs.ts";
 import type { TriggerHost } from "./tool.ts";
 import { native } from "../native.ts";
-import { MINUTE } from "../time.ts";
+import { MINUTE } from "pi-mobile-base/time";
 import { randomHex } from "../encoding.ts";
 
 export function isWatch(item: Trigger, agent: string, conversationId: ConversationId): boolean {

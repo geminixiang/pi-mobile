@@ -3,7 +3,7 @@
 四條規則，`npm run check`（`test/code-rules.ts` 的 `effectRule` 和 `lifecycleRule`，用 AST 找）強制，沒有例外名單；`src/` 和 `packages/` 裡的 package 都一樣：
 
 1. `src/` 裡沒有 effect hook：`useEffect`、`useLayoutEffect`、`useInsertionEffect`。
-2. 計時器只在 `src/time.ts` 裡呼叫：`setTimeout`、`setInterval`、`requestAnimationFrame`、`requestIdleCallback`、`postTask`、`AbortSignal.timeout`。其他地方用它的 helper，每個都回傳取消的方法（`Cancel`）。
+2. 計時器只在 `pi-mobile-base/time`（`packages/pi-mobile-base/src/time.ts`）裡呼叫：`setTimeout`、`setInterval`、`requestAnimationFrame`、`requestIdleCallback`、`postTask`、`AbortSignal.timeout`。其他地方用它的 helper，每個都回傳取消的方法（`Cancel`）。
 3. ref callback 只跟著它那個元素的一生：`useCallback(…, [])`。每次 render 新建的、或帶 deps 的 ref callback 會在 props 變的時候重跑，就是換個寫法的 effect（只把元素存進 ref 的不算）。
 4. `useSyncExternalStore` 的快照要是來源真的有的值。回傳常數的快照只是借用 subscribe 當生命週期。
 
@@ -33,7 +33,7 @@
 | App 一啟動、runtime 一開、對話一打開就要做的事 | 不屬於任何元件：寫在 `src/app/session.ts`（`boot`、`start`、`open`），`main.tsx` 呼叫 `boot()` |
 | 等一下再做 | 先找它在等的事件（`resume`、`online`、`pointerup`、資料寫入的通知）並聽那個事件；真的只有時間時用 `after`，由結束它的事件取消 |
 
-## `src/time.ts` 的 helper
+## `pi-mobile-base/time` 的 helper
 
 | helper | 用途 |
 |---|---|
