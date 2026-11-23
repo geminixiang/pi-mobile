@@ -130,7 +130,6 @@
 .drawer-status { display: flex; align-items: center; gap: 10px; }
 .drawer-status span { display: inline-grid; place-items: center; color: var(--faint); opacity: 0.45; }
 .drawer-status span.on { color: var(--text); opacity: 1; }
-@property --sheet-reveal { syntax: "<number>"; inherits: false; initial-value: 0; }
 
 .frame-phone { display: contents; }
 .frame-wide {

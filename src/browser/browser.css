@@ -1,3 +1,4 @@
+@property --sheet-reveal { syntax: "<number>"; inherits: false; initial-value: 0; }
 .browser-sheet {
 	position: fixed; top: 0; left: 0; right: 0; z-index: 30; height: 100dvh; display: flex; flex-direction: column;
 	padding-top: env(safe-area-inset-top); background: var(--bg); border-radius: 0 0 var(--card-radius) var(--card-radius); box-shadow: var(--sheet-shadow);
