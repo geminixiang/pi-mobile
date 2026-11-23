@@ -84,6 +84,7 @@ pi-mobile/                 根目錄仍是 App；"workspaces": ["packages/*"]
 | 計時器 | 另開 `pi-mobile-base` |
 | 輸入框草稿搬出 `Chat` | 允許，第 8 步，有 S24 量測把關 |
 | CSS | 維持一個 `app` layer，class 名稱一個都不改 |
+| 套件管理 | 維持 npm workspaces，不換 pnpm（使用者 2026-11-24）。pnpm 的嚴格依賴已由檢查規則做到；換的代價是 Capacitor 原生專案的 `node_modules` 路徑、腳本和 CI 裡 17 處 `npm`/`npx`。package 變多、需要只跑某一個 package，或安裝拖慢開發時再評估，先在分支上編譯、`cap sync`、上 S24 確認 |
 
 **什麼時候改做 B：** 出現第二個使用者，需要拿資料直接畫出完整對話時，例如用假資料重播對話的檢視器。改做前要先過兩關：在 Node 重播真實的對話變化時，舊訊息的物件都不變；S24 五個場景各 5 次，不能變慢。
 
