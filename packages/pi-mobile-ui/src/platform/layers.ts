@@ -1,5 +1,3 @@
-import { useRef } from "react";
-
 const BACK_KEY = "pi-back";
 
 export function backToTop(): boolean {
@@ -10,10 +8,4 @@ export function backToTop(): boolean {
 
 export function isBack(event: { key: string; target: EventTarget; currentTarget: EventTarget }): boolean {
 	return event.key === BACK_KEY && event.target === event.currentTarget;
-}
-
-export function useLast<T>(keep: boolean, value: T): T {
-	const last = useRef(value);
-	if (keep) last.current = value;
-	return last.current;
 }

@@ -1,4 +1,4 @@
-import { type DependencyList, useCallback, useState, useSyncExternalStore } from "react";
+import { type DependencyList, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 export type Subscribe<T> = (listener: (value: T) => void) => (() => void) | undefined;
 
@@ -48,6 +48,12 @@ export function useStore<T>(initial: T, subscribe: (set: Write<T>) => (() => voi
 
 export function useSubscribed<T>(initial: T, subscribe: Subscribe<T>, deps: DependencyList): T {
 	return useStore<T>(initial, subscribe, deps)[0];
+}
+
+export function useLast<T>(keep: boolean, value: T): T {
+	const last = useRef(value);
+	if (keep) last.current = value;
+	return last.current;
 }
 
 export function promised<T>(load: () => Promise<T>): Subscribe<T> {

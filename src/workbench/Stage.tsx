@@ -7,7 +7,7 @@ import { CLOCK } from "pi-mobile-base/time";
 import { CloseIcon } from "pi-mobile-ui/elements";
 import { useLoaded, usePolled } from "pi-mobile-ui/store";
 import { callLabel, doing } from "../app/chat/Message.tsx";
-import { resolvePath } from "pi-mobile-ui/message";
+import { resolvePath } from "../mime.ts";
 import { WorkspaceView } from "../app/files/WorkspaceView.tsx";
 import { Browser } from "../browser/plugin.ts";
 import { choicesOf } from "../computer-agents/workers.ts";

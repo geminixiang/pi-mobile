@@ -1,6 +1,6 @@
 import { type ReactNode, type TouchEvent, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { Source } from "pi-mobile-ui/store";
-import { haptic, isBack, useLast } from "pi-mobile-ui/platform";
+import { type Source, useLast } from "pi-mobile-ui/store";
+import { haptic, isBack } from "pi-mobile-ui/platform";
 import { ownsSidewaysDrag } from "./SidePanel.tsx";
 import { intentOf, Motion, positionAfter, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "pi-mobile-ui/gesture";
 

@@ -13,6 +13,12 @@ export function extensionOf(path: string): string {
 
 export const baseName = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 
+export const joinPath = (base: string, name: string): string => (base.endsWith("/") ? `${base}${name}` : `${base}/${name}`);
+
+export function resolvePath(root: string, path: string): string {
+	return path.startsWith("/") ? path : joinPath(root, path.replace(/^\.\//, ""));
+}
+
 export const isHtml = (path: string): boolean => /^html?$/.test(extensionOf(path));
 
 export function mimeTypeOf(path: string): string | undefined {

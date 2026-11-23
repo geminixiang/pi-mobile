@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, type RefObject, type TouchEvent, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import type { Source } from "pi-mobile-ui/store";
-import { haptic, isBack, useLast } from "pi-mobile-ui/platform";
+import { type Source, useLast } from "pi-mobile-ui/store";
+import { haptic, isBack } from "pi-mobile-ui/platform";
 import { intentOf, Motion, positionAfter, type Range, type Sample, sampled, type Side, settlesOpen, towardOpen, velocityOf } from "pi-mobile-ui/gesture";
 
 export type SidePage = { label: string; onBack: () => void; content: ReactNode };

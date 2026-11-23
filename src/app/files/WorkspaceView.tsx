@@ -4,11 +4,10 @@ import { type DiffTarget, DiffView } from "./DiffView.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { BackButton, ChevronIcon, FileIcon, FolderIcon, RefreshIcon, Tabs } from "pi-mobile-ui/elements";
 import { isBack } from "pi-mobile-ui/platform";
-import { joinPath, resolvePath } from "pi-mobile-ui/message";
 import { PageStack } from "../PageStack.tsx";
 import { CLOSED, defined, useLoaded, useStore } from "pi-mobile-ui/store";
 import { formatBytes } from "../../encoding.ts";
-import { baseName } from "../../mime.ts";
+import { baseName, joinPath, resolvePath } from "../../mime.ts";
 
 type WorkspaceTab = "files" | "git";
 type Open = { kind: "file"; path: string } | { kind: "diff"; target: DiffTarget } | undefined;
