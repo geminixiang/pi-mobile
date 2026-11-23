@@ -106,8 +106,8 @@ assert.deepEqual(plain.classes.map(([tag, index, classes]) => [tag, index, class
 const pointed = marked({ changed: new Set([2]), picked: "精藤 後端" });
 assert.deepEqual(pointed.classes.filter(([, , classes]) => classes !== undefined), [["p", 1, ["changed"]], ["tr", 5, ["picked"]]], "the changed line and the part pointed at are marked while rendering");
 
-const css = readFileSync(new URL("../src/app/styles.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../packages/pi-mobile-ui/src/styles/looks.css", import.meta.url), "utf8");
 const wideQuery = `@media (min-width: ${WIDE_MIN_WIDTH}px) and (min-height: ${WIDE_MIN_HEIGHT}px)`;
-assert.ok(css.includes(wideQuery), `styles.css centers sheets with ${wideQuery}; keep it equal to WIDE_MIN_WIDTH and WIDE_MIN_HEIGHT in src/workbench/layout.ts`);
+assert.ok(css.includes(wideQuery), `looks.css in pi-mobile-ui centers sheets with ${wideQuery}; keep it equal to WIDE_MIN_WIDTH and WIDE_MIN_HEIGHT in src/workbench/layout.ts`);
 
 console.log(`workbench: ${sizes.length} sizes, bench steps, in-view note with the part pointed at, changed lines`);

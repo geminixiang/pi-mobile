@@ -1,0 +1,12 @@
+* { box-sizing: border-box; outline: none; }
+html, body, .root { margin: 0; height: 100%; background: var(--bg); color: var(--text); user-select: none; -webkit-user-select: none; }
+.root { overflow: clip; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: none; padding: 0; text-align: inherit; }
+:where(button) { background: none; transition: background-color 280ms ease; }
+:where(button)[data-pressed] { background-color: var(--accent-soft); transition: none; }
+button:disabled { opacity: 0.4; cursor: default; }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+::selection { background: var(--accent-soft); }
+@keyframes cursor { 50% { opacity: 0.2; } }
+@keyframes blink { 50% { opacity: 0; } }

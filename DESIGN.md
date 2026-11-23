@@ -172,7 +172,7 @@ components:
 
 # pi mobile
 
-每個畫面和部分的正式名稱、畫出它的元件見 `docs/feature-map.md`，這裡和 `docs/features.md` 用同樣的名稱。數值以 `src/app/styles.css` 的 `:root` 為準，這裡的 tokens 是它的摘要；淺色是預設，`-dark` 結尾的是深色模式。CSS 的寫法（層、特異性、動畫）見 `.pi/skills/css/SKILL.md`。
+每個畫面和部分的正式名稱、畫出它的元件見 `docs/feature-map.md`，這裡和 `docs/features.md` 用同樣的名稱。數值以 `packages/pi-mobile-ui/src/styles/tokens.css` 的 `:root` 為準，這裡的 tokens 是它的摘要；淺色是預設，`-dark` 結尾的是深色模式。CSS 的寫法（層、特異性、動畫）見 `.pi/skills/css/SKILL.md`。
 
 ## Overview
 

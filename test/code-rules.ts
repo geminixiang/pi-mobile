@@ -444,13 +444,14 @@ function unusedClassRule(): Finding[] {
 	});
 }
 
-const SHARED_SHEET = "src/app/styles.css";
+// why: the tokens, the element defaults and the looks several folders share (CSS skill § 0); no single folder owns their classes
+const SHARED_SHEETS = "packages/pi-mobile-ui/src/styles/";
 const SELECTOR = /([^{}]+)\{/g;
 
 function sheetOwnerRule(): Finding[] {
 	const scripts = checkedFiles().filter((file) => inSource(file) && SCRIPT_FILE.test(file));
 	return styleSheets()
-		.filter((sheet) => sheet !== STYLE_ENTRY && sheet !== SHARED_SHEET)
+		.filter((sheet) => sheet !== STYLE_ENTRY && !sheet.startsWith(SHARED_SHEETS))
 		.flatMap((sheet) => {
 			const folder = `${dirname(sheet)}/`;
 			const code = scripts.filter((file) => dirname(file) === dirname(sheet)).map((file) => readFileSync(file, "utf8")).join("\n");
@@ -464,7 +465,7 @@ function sheetOwnerRule(): Finding[] {
 				return strangers.map((part) => ({
 					file: sheet,
 					line: css.slice(0, match.index).split("\n").length,
-					rule: `${part.trim()} names no class that a component in ${folder} uses: a folder's sheet styles what that folder renders; a look several folders share goes in ${SHARED_SHEET}`,
+					rule: `${part.trim()} names no class that a component in ${folder} uses: a folder's sheet styles what that folder renders; a look several folders share goes in ${SHARED_SHEETS}looks.css`,
 				}));
 			});
 		});
@@ -508,7 +509,6 @@ function letRule(): Finding[] {
 const MAX_LINES = 400;
 // why: files already past MAX_LINES, each held at its size until it is split by responsibility; the numbers only go down
 const LONG_FILES: Record<string, number> = {
-	"src/app/styles.css": 468,
 	"src/agent/files/phone-env.ts": 445,
 	"src/mcp/mcp.ts": 473,
 	"src/runtime/runtime.ts": 602,

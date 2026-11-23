@@ -1,6 +1,6 @@
 # pi-mobile-ui：把 UI 拆成 monorepo 裡的一個 package
 
-狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0–3 步完成（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform`；`src/ui` 和 `ui.css` 搬進 `pi-mobile-ui`）。
+狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0–4 步完成，到里程碑 A（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform`；`src/ui` 和 `ui.css` 搬進 `pi-mobile-ui`；tokens、元素預設、共用外觀和字型移出 `styles.css`）。第 5 步起還沒做。
 
 ## 問題
 
@@ -103,6 +103,18 @@ pi-mobile/                 根目錄仍是 App；"workspaces": ["packages/*"]
 | 7 | 串流文字、Markdown、訊息外觀 | 全部場景 × 5 |
 | 8 | `Composer.*`、草稿、拿掉 `App.tsx` 的兩處 DOM 操作。**里程碑 B** | `typing` 加全部場景 × 5 |
 | 9 | 選做：`ThreadList` | `panel` × 3 |
+
+## 做到里程碑 A 時定下來的細節
+
+草稿沒寫到、實作時要選的地方。每一項都不改上面的形狀；不同意的話，改起來都是搬幾個檔案。
+
+- **公開入口**：一個資料夾一個 `index.ts`，只列 App 真的用到的名稱，另外有 `pi-mobile-ui/gesture`（手勢的數學是純 `.ts`，Node 的測試讀得了）、`pi-mobile-ui/fonts` 和 `pi-mobile-ui/styles.css`。「列了卻沒人用」和「App 沒引到的 package 檔案」都由檢查擋下。
+- **測試**留在根目錄的 `test/`，可以用相對路徑引 package 裡不公開的檔案（`test/sources.ts`）；其他程式碼只能用名稱。
+- **`src/ui` 有兩個檔案沒有進 package**：`beside.ts`（工作台正在看哪個檔案）和 `csp.ts`（HTML 預覽的 CSP）是 App 的接線，不是 UI，搬到 `src/`。`openFile.ts` 整個進了 `message/`，因為 markdown 要讀它的 context；它的兩個路徑小工具跟著進去，第 7 步把 context 改成 prop 時一起搬走。
+- **相依**：只有 package 用的（Base UI、pele、remark 的三個外掛、兩個字型）從根目錄的 `package.json` 移到 package 的；React 和 `simple-icons` 是 peer，版本和根目錄一樣，不一樣時 `npm install` 會擋。
+- **樣式的順序**：`index.css` 第一行是 package 的入口，裡面依序是 `tokens`、`base`、`looks`、`message`、`shell`、`elements`，接著才是外殼的 `styles.css`。外殼的規則因此排到共用外觀和元件的後面（1061 個 selector 一個不多一個不少；順序對調、特異性相同、又設到同一個屬性的 932 對，都要同一個元素同時符合兩邊才有差，逐對查過原始碼沒有這種元素；瀏覽器裡 19 個畫面、亮暗、窄寬、按下的算出來的樣式也一樣）。
+- **哪些規則留在 `styles.css`**：每個 selector 都點到一個只有 `src/app/` 自己的元件用的 class（`.app`、`.bar-pill`、`.side-*`、`.drawer`、`.frame-*`、`.skeleton-*`）才留下；其餘 119 條是「好幾個資料夾共用」，進 `looks.css`。所以 `looks.css` 裡有只有 App 的資料夾在用的名稱（`.viewer-*`、`.ws-*`、`.queue`、`.drawer-item.current`）：它們是字串形式的共用詞彙，照〈接受的代價〉之後再換成元件。
+- **還沒量的**：第 3 步的 S24 基準（`panel`、`stream` × 3）等手機解鎖；第 2 步的返回鍵和回到前景要在 S24 和 iPhone 上試。
 
 ## 對未來的影響
 

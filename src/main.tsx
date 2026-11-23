@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
 import { capacitorUi } from "./app/capacitor.ts";
 import { Crash } from "./app/Crash.tsx";
-import "./app/fonts.ts";
+import "pi-mobile-ui/fonts";
 import "./app/index.css";
 import { watchMainThread } from "pi-mobile-base/log";
 import { keepLogOnDevice } from "./app/diagnostics.ts";

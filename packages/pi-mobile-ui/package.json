@@ -11,10 +11,13 @@
 		"./gesture": "./src/shell/sideGesture.ts",
 		"./message": "./src/message/index.ts",
 		"./elements": "./src/elements/index.ts",
+		"./fonts": "./src/styles/fonts.ts",
 		"./styles.css": "./src/styles.css"
 	},
 	"dependencies": {
 		"@base-ui/react": "1.9.0",
+		"@fontsource/commit-mono": "5.3.0",
+		"@fontsource/instrument-serif": "5.3.0",
 		"pele": "^1.12.0",
 		"pi-mobile-base": "0.0.0",
 		"remark-breaks": "4.0.0",
