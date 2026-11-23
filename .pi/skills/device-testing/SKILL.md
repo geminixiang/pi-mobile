@@ -93,7 +93,7 @@ from `CDP_PORT` (default 9333).
 
 ## Evidence for a commit
 
-A commit that changes a `.tsx` or `.css` under `src/` carries an `Evidence:` line; `test/evidence.ts` fails without
+A commit that changes a `.tsx` or `.css` under `src/` or `packages/*/src/` carries an `Evidence:` line; `test/evidence.ts` fails without
 one (docs/development.md § 驗證證據). Take it on the emulator unless the user offers a device:
 
 1. Before changing anything, build and install the current code, open the screen, and
