@@ -1,6 +1,6 @@
 # Effect 與計時器
 
-四條規則，`npm run check`（`test/code-rules.ts` 的 `effectRule` 和 `lifecycleRule`，用 AST 找）強制，沒有例外名單：
+四條規則，`npm run check`（`test/code-rules.ts` 的 `effectRule` 和 `lifecycleRule`，用 AST 找）強制，沒有例外名單；`src/` 和 `packages/` 裡的 package 都一樣：
 
 1. `src/` 裡沒有 effect hook：`useEffect`、`useLayoutEffect`、`useInsertionEffect`。
 2. 計時器只在 `src/time.ts` 裡呼叫：`setTimeout`、`setInterval`、`requestAnimationFrame`、`requestIdleCallback`、`postTask`、`AbortSignal.timeout`。其他地方用它的 helper，每個都回傳取消的方法（`Cancel`）。

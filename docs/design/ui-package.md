@@ -1,6 +1,6 @@
 # pi-mobile-ui：把 UI 拆成 monorepo 裡的一個 package
 
-狀態：使用者 2026-11-23 同意方向（選 A）。尚未實作。
+狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0 步（workspaces 和檢查規則）完成，package 還是空的。
 
 ## 問題
 

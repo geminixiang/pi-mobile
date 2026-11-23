@@ -24,6 +24,7 @@
 	},
 	"include": [
 		"src",
+		"packages",
 		"test",
 		"vite.config.ts",
 		"vite-plugins"

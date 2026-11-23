@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { parseSync } from "rolldown/utils";
-import { checkedFiles } from "./no-comments.ts";
+import { checkedFiles, inSource, PACKAGES } from "./no-comments.ts";
 
 type Node = { type: string; start: number; [key: string]: unknown };
 type Finding = { file: string; line: number; rule: string };
@@ -217,9 +217,135 @@ const LAYERS: { folder: string; never: RegExp; fix: string }[] = [
 	},
 ];
 
-const LAYER_ORDER = ["base", "core", "feature", "shell"] as const;
+type Workspace = { folder: string; name: string; entries: Map<string, string>; listed: Set<string> };
+type Edge = { file: string; line: number; to: string };
+
+const MANIFEST = "package.json";
+const LISTS = ["dependencies", "peerDependencies", "devDependencies"];
+
+function fields(value: unknown): Record<string, unknown> {
+	return typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
+}
+
+function workspaceAt(folder: string): Workspace {
+	const manifest = fields(JSON.parse(readFileSync(join(folder, MANIFEST), "utf8")));
+	const name = String(manifest.name);
+	return {
+		folder,
+		name,
+		entries: new Map(Object.entries(fields(manifest.exports)).map(([entry, target]) => [join(name, entry), join(folder, String(target))])),
+		listed: new Set(LISTS.flatMap((list) => Object.keys(fields(manifest[list])))),
+	};
+}
+
+const APP = workspaceAt("");
+const LIBRARIES = checkedFiles()
+	.filter((file) => file.startsWith(PACKAGES) && file.split("/").length === 3 && file.endsWith(`/${MANIFEST}`))
+	.map((file) => workspaceAt(dirname(file)));
+const ENTRIES = new Map(LIBRARIES.flatMap((library) => [...library.entries]));
+
+const workspaceOf = (file: string): Workspace => LIBRARIES.find(({ folder }) => file.startsWith(`${folder}/`)) ?? APP;
+const packageNamed = (to: string) => to.split("/").slice(0, to.startsWith("@") ? 2 : 1).join("/");
+const isRelative = (to: string) => to.startsWith(".");
+
+const MODULE_NODES = new Set(["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "ImportExpression", "TSImportType"]);
+
+function moduleNamed(node: Node): string | undefined {
+	const isUrl = node.type === "NewExpression" && isNode(node.callee) && node.callee.name === "URL";
+	const literal = MODULE_NODES.has(node.type) ? node.source : isUrl && Array.isArray(node.arguments) ? node.arguments[0] : undefined;
+	if (!isNode(literal) || typeof literal.value !== "string") return undefined;
+	if (isUrl && !isRelative(literal.value)) return undefined;
+	return literal.value.split("?")[0];
+}
+
+function edges(file: string): Edge[] {
+	const source = readFileSync(file, "utf8");
+	const found: Edge[] = [];
+	const visit = (node: unknown) => {
+		if (!isNode(node)) return;
+		const to = moduleNamed(node);
+		if (to !== undefined) found.push({ file, line: source.slice(0, node.start).split("\n").length, to });
+		children(node).forEach(visit);
+	};
+	visit(parseSync(file, source).program);
+	return found;
+}
+
+function targetOf({ file, to }: Edge): string | undefined {
+	return isRelative(to) ? join(dirname(file), to) : ENTRIES.get(to);
+}
+
+const entriesOf = ({ entries }: Workspace) => (entries.size === 0 ? "it has none yet" : [...entries.keys()].map((entry) => `"${entry}"`).join(", "));
+
+function crossing(edge: Edge): string | undefined {
+	const target = targetOf(edge);
+	if (!isRelative(edge.to) || target === undefined) return undefined;
+	const from = workspaceOf(edge.file);
+	const into = workspaceOf(target);
+	if (from === into) return undefined;
+	if (into !== APP) return `${edge.file} → ${target}: a relative import reaches inside ${into.name}. Import one of its public entries by name (${entriesOf(into)}); to make this file public, add it to "exports" in ${into.folder}/${MANIFEST}`;
+	return `${edge.file} → ${target}: a relative import leaves ${from.name}. A package knows nothing outside itself: take what it needs as a prop or an argument the app passes in, or move the shared piece into a package and import it by name`;
+}
+
+// why: what a package's package.json may never list, by exact name or by a prefix ending in /; hoisting would let the import resolve, so the list is where the boundary is kept
+const NEVER_LISTED: Record<string, { names: string[]; fix: string }> = {
+	"pi-mobile-base": {
+		names: ["react", "react-dom", "pi-mobile-ui", "@capacitor/", "@earendil-works/"],
+		fix: "pi-mobile-base is what the core and the UI both stand on, so it has no React, no UI package, no Capacitor and no pi: put the code that needs one of them in the package or the app folder that owns it",
+	},
+	"pi-mobile-ui": {
+		names: ["@capacitor/", "@earendil-works/"],
+		fix: "pi-mobile-ui knows neither the phone nor pi: the app passes native behaviour and pi's data in (props, children, a port the app installs), and Capacitor finds plugins only in the app's package.json",
+	},
+};
+
+function never(workspace: Workspace, name: string): string | undefined {
+	const rule = NEVER_LISTED[workspace.name];
+	return rule?.names.some((no) => name === no || (no.endsWith("/") && name.startsWith(no))) ? rule.fix : undefined;
+}
+
+function unlisted(edge: Edge): string | undefined {
+	const name = packageNamed(edge.to);
+	const workspace = workspaceOf(edge.file);
+	if (isRelative(edge.to) || name.startsWith("node:") || workspace.listed.has(name) || workspace.listed.has(`@types/${name}`)) return undefined;
+	if (name === workspace.name) return `"${edge.to}" is this file's own package: import a file of the same package by its relative path`;
+	const fix = never(workspace, name);
+	if (fix !== undefined) return `"${edge.to}" is imported in ${workspace.name}: ${fix}`;
+	return `"${edge.to}" is not in ${join(workspace.folder, MANIFEST)}: add ${name} there (peerDependencies for react in a package, dependencies otherwise). It resolves today only because npm puts every workspace's dependencies in one node_modules, so the package would silently depend on the app's list`;
+}
+
+function hidden(edge: Edge): string | undefined {
+	const library = LIBRARIES.find(({ name }) => name === packageNamed(edge.to));
+	if (library === undefined || library.entries.has(edge.to)) return undefined;
+	return `"${edge.to}" is not a public entry of ${library.name}: import one of ${entriesOf(library)}, or add it to "exports" in ${library.folder}/${MANIFEST} if code outside the package should use it`;
+}
+
+function manifestRule(): Finding[] {
+	return LIBRARIES.flatMap((library) => {
+		const file = `${library.folder}/${MANIFEST}`;
+		const dangling = [...library.entries].filter(([, target]) => !existsSync(target));
+		return [
+			...[...library.listed].flatMap((name) => {
+				const fix = never(library, name);
+				return fix === undefined ? [] : [{ file, line: 1, rule: `${library.name} lists ${name}: ${fix}` }];
+			}),
+			...dangling.map(([entry, target]) => ({ file, line: 1, rule: `"exports" maps "${entry}" to ${target}, which is not there: point it at the source file ("./src/…" as a plain string; the package ships source, with no build and no conditions), or remove the entry` })),
+		];
+	});
+}
+
+function workspaceRule(): Finding[] {
+	const scripts = checkedFiles().filter((file) => SCRIPT_FILE.test(file));
+	return scripts.flatMap((file) =>
+		edges(file).flatMap((edge) =>
+			[inSource(file) ? crossing(edge) : undefined, unlisted(edge), hidden(edge)].flatMap((rule) => (rule === undefined ? [] : [{ file, line: edge.line, rule }])),
+		),
+	);
+}
+
+const LAYER_ORDER = ["package", "base", "core", "feature", "shell"] as const;
 type Layer = (typeof LAYER_ORDER)[number];
-// why: the layer of every folder under src/ (docs/architecture.md § 分層); a file directly in src/ is base unless named here
+// why: the layer of every folder under src/ (docs/architecture.md § 分層); a file directly in src/ is base unless named here, and every workspace package sits below them all
 const LAYER_OF: Record<string, Layer> = {
 	"src/shims/": "base",
 	"src/ui/": "base",
@@ -261,9 +387,8 @@ const LAYER_OF: Record<string, Layer> = {
 	"src/workbench/": "shell",
 	"src/main.tsx": "shell",
 };
-const RELATIVE_IMPORT = /(?:^import (?:[^;]*? from )?|\bimport\()"(\.[^"]+)"/gm;
-
 function layerOf(file: string): Layer | undefined {
+	if (file.startsWith(PACKAGES)) return "package";
 	const owner = Object.keys(LAYER_OF)
 		.filter((path) => file === path || (path.endsWith("/") && file.startsWith(path)))
 		.sort((a, b) => b.length - a.length)[0];
@@ -272,25 +397,24 @@ function layerOf(file: string): Layer | undefined {
 }
 
 function layerRule(): Finding[] {
-	const sources = checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file));
+	const sources = checkedFiles().filter((file) => inSource(file) && SCRIPT_FILE.test(file));
 	const unplaced = sources.filter((file) => layerOf(file) === undefined).map((file) => ({ file, line: 1, rule: "this folder has no layer: add it to LAYER_OF (base, core, feature or shell)" }));
 	const gone = Object.keys(LAYER_OF)
 		.filter((path) => !sources.some((file) => file === path || (path.endsWith("/") && file.startsWith(path))))
 		.map((path) => ({ file: "test/code-rules.ts", line: 1, rule: `${path} is in LAYER_OF but no file is there: remove the entry` }));
 	const upward = sources.flatMap((file) => {
-		const source = readFileSync(file, "utf8");
 		const from = layerOf(file);
-		return [...source.matchAll(RELATIVE_IMPORT)].flatMap((match) => {
-			const target = join(dirname(file), match[1] ?? "");
-			const to = layerOf(target);
+		return edges(file).flatMap((edge) => {
+			const target = targetOf(edge);
+			const to = target === undefined ? undefined : layerOf(target);
 			if (from === undefined || to === undefined || LAYER_ORDER.indexOf(from) >= LAYER_ORDER.indexOf(to)) return [];
-			return [{ file, line: source.slice(0, match.index).split("\n").length, from, to, pair: `${file} → ${target}` }];
+			return [{ file, line: edge.line, from, to, pair: `${file} → ${target}` }];
 		});
 	});
 	return [
 		...unplaced,
 		...gone,
-		...upward.map(({ file, line, from, to, pair }) => ({ file, line, rule: `${pair}: a ${from} file imports a ${to} file, and imports only go down (base < core < feature < shell): move the shared piece down a layer, or have the shell pass it in` })),
+		...upward.map(({ file, line, from, to, pair }) => ({ file, line, rule: `${pair}: a ${from} file imports a ${to} file, and imports only go down (package < base < core < feature < shell): move the shared piece down a layer, or have the shell pass it in` })),
 	];
 }
 
@@ -299,11 +423,11 @@ const EXTERNAL_CLASSES = new Set(["task-list-item"]);
 const CSS_CLASS = /\.([a-zA-Z][\w-]*)/g;
 
 const STYLE_ENTRY = "src/app/index.css";
-const styleSheets = () => checkedFiles().filter((file) => file.startsWith("src/") && file.endsWith(".css"));
+const styleSheets = () => checkedFiles().filter((file) => inSource(file) && file.endsWith(".css"));
 
 function unusedClassRule(): Finding[] {
 	const sheets = styleSheets();
-	const code = [...checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file)), "index.html"].map((file) => readFileSync(file, "utf8")).join("\n");
+	const code = [...checkedFiles().filter((file) => inSource(file) && SCRIPT_FILE.test(file)), "index.html"].map((file) => readFileSync(file, "utf8")).join("\n");
 	const named = (name: string) => new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(code);
 	const built = (name: string) => name.split("-").some((_, index, parts) => index > 0 && code.includes(`${parts.slice(0, index).join("-")}-\${`));
 	return sheets.flatMap((sheet) => {
@@ -323,7 +447,7 @@ const SHARED_SHEET = "src/app/styles.css";
 const SELECTOR = /([^{}]+)\{/g;
 
 function sheetOwnerRule(): Finding[] {
-	const scripts = checkedFiles().filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file));
+	const scripts = checkedFiles().filter((file) => inSource(file) && SCRIPT_FILE.test(file));
 	return styleSheets()
 		.filter((sheet) => sheet !== STYLE_ENTRY && sheet !== SHARED_SHEET)
 		.flatMap((sheet) => {
@@ -345,23 +469,37 @@ function sheetOwnerRule(): Finding[] {
 		});
 }
 
-function sheetImportRule(): Finding[] {
-	const entry = readFileSync(STYLE_ENTRY, "utf8");
-	const imported = new Set([...entry.matchAll(/^@import "([^"]+)" layer\(app\);$/gm)].map(([, path = ""]) => join(dirname(STYLE_ENTRY), path)));
-	return styleSheets()
-		.filter((sheet) => sheet !== STYLE_ENTRY && !imported.has(sheet))
-		.map((sheet) => ({ file: sheet, line: 1, rule: `${STYLE_ENTRY} does not import this sheet, so its rules never load: add @import "${relative(dirname(STYLE_ENTRY), sheet)}" layer(app); there, where its folder's layer goes (base, core, feature, shell)` }));
+const STYLE_IMPORT = /^@import "([^"]+)"( layer\(app\))?;$/gm;
+
+function loadedSheets(sheet: string, layered: boolean): string[] {
+	return [...readFileSync(sheet, "utf8").matchAll(STYLE_IMPORT)].flatMap(([, path = "", layer]) => {
+		const target = isRelative(path) ? join(dirname(sheet), path) : ENTRIES.get(path);
+		if ((layer !== undefined) !== layered || target === undefined || !existsSync(target)) return [];
+		if (isRelative(path) && workspaceOf(target) !== workspaceOf(sheet)) return [];
+		return [target, ...loadedSheets(target, false)];
+	});
 }
 
-// why: counts let declarations in src/, which only goes down: a value that changes is a const computed again or a reducer
+function sheetImportRule(): Finding[] {
+	const loaded = new Set(loadedSheets(STYLE_ENTRY, true));
+	return styleSheets()
+		.filter((sheet) => sheet !== STYLE_ENTRY && !loaded.has(sheet))
+		.map((sheet) => {
+			const library = workspaceOf(sheet);
+			if (library === APP) return { file: sheet, line: 1, rule: `${STYLE_ENTRY} does not import this sheet, so its rules never load: add @import "${relative(dirname(STYLE_ENTRY), sheet)}" layer(app); there, where its folder's layer goes (base, core, feature, shell)` };
+			return { file: sheet, line: 1, rule: `no sheet the app loads imports this one, so its rules never load: ${STYLE_ENTRY} imports a package's style entry by name, with layer(app) (@import "${library.name}/styles.css" layer(app); and "./styles.css" in "exports" of ${library.folder}/${MANIFEST}), and that entry imports each of the package's sheets by relative path with no layer of its own (@import "./${relative(`${library.folder}/src`, sheet)}";)` };
+		});
+}
+
+// why: counts let declarations in src/ and the packages, which only goes down: a value that changes is a const computed again or a reducer
 const LETS = 114;
 const LET = /^\s*(?:export )?let /gm;
 
 function letRule(): Finding[] {
 	const count = checkedFiles()
-		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.filter((file) => inSource(file) && SCRIPT_FILE.test(file))
 		.reduce((sum, file) => sum + [...readFileSync(file, "utf8").matchAll(LET)].length, 0);
-	if (count > LETS) return [{ file: "test/code-rules.ts", line: 1, rule: `${count} let declarations in src/, ${LETS} allowed (LETS): use const and compute the value where it is needed, or a reducer for state that moves` }];
+	if (count > LETS) return [{ file: "test/code-rules.ts", line: 1, rule: `${count} let declarations in src/ and the packages, ${LETS} allowed (LETS): use const and compute the value where it is needed, or a reducer for state that moves` }];
 	if (count < LETS) return [{ file: "test/code-rules.ts", line: 1, rule: `${count} let declarations, fewer than LETS (${LETS}): lower it to ${count} so the ratchet holds` }];
 	return [];
 }
@@ -384,7 +522,7 @@ const LONG_FILES: Record<string, number> = {
 
 function lengthRule(): Finding[] {
 	return checkedFiles()
-		.filter((file) => file.startsWith("src/") && (SCRIPT_FILE.test(file) || file.endsWith(".css")))
+		.filter((file) => inSource(file) && (SCRIPT_FILE.test(file) || file.endsWith(".css")))
 		.flatMap((file) => {
 			const lines = readFileSync(file, "utf8").split("\n").length - 1;
 			const allowed = LONG_FILES[file] ?? MAX_LINES;
@@ -447,7 +585,7 @@ const BACKEND_IDS = ["com.superlogical.rex"];
 
 function generalAgentRule(): Finding[] {
 	return checkedFiles()
-		.filter((file) => file.startsWith("src/"))
+		.filter(inSource)
 		.flatMap((file) =>
 			readFileSync(file, "utf8")
 				.split("\n")
@@ -460,7 +598,7 @@ function generalAgentRule(): Finding[] {
 		);
 }
 
-const AGENTS_WORDS = 2787;
+const AGENTS_WORDS = 2786;
 
 function agentsSizeRule(): Finding[] {
 	const words = readFileSync("AGENTS.md", "utf8").split(/\s+/u).filter(Boolean).length;
@@ -520,14 +658,14 @@ const TIMER_FIX =
 
 function effectRule(): Finding[] {
 	return checkedFiles()
-		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.filter((file) => inSource(file) && SCRIPT_FILE.test(file))
 		.flatMap((file) =>
 			timingCalls(file)
 				.filter((call) => call.kind === "effect" || file !== TIMER_OWNER)
 				.map((call) => ({
 					file,
 					line: call.line,
-					rule: call.kind === "effect" ? `${call.name} is not used in src/: ${EFFECT_FIX}` : `${call.name} is called only in ${TIMER_OWNER}: ${TIMER_FIX}`,
+					rule: call.kind === "effect" ? `${call.name} is not used in src/ or a package: ${EFFECT_FIX}` : `${call.name} is called only in ${TIMER_OWNER}: ${TIMER_FIX}`,
 				})),
 		);
 }
@@ -602,7 +740,7 @@ function lifecycleFindings(file: string): Finding[] {
 
 function lifecycleRule(): Finding[] {
 	return checkedFiles()
-		.filter((file) => file.startsWith("src/") && SCRIPT_FILE.test(file))
+		.filter((file) => inSource(file) && SCRIPT_FILE.test(file))
 		.flatMap(lifecycleFindings);
 }
 
@@ -610,26 +748,29 @@ const EXPORTED = /^export (?:declare )?(?:async )?(?:function\*?|const|let|class
 // why: a shim stands in for a Node module, so it exports that module's names whether or not this repo calls them
 const EXPORTS_ANY_NAME = "src/shims/";
 
+// why: passing a name on (a package's entry file listing what is public) is not a use of it
+const PASSED_ON = /^export (?:type )?\{[^}]*\} from "[^"]+";$/gm;
+
 function unusedExports(): Finding[] {
 	const scripts = checkedFiles().filter((file) => /\.(ts|tsx|js)$/.test(file));
 	const sources = new Map(scripts.map((file) => [file, readFileSync(file, "utf8")]));
+	const uses = [...sources].map(([file, text]) => ({ file, text: text.replace(PASSED_ON, "") }));
 	return [...sources]
-		.filter(([file]) => file.startsWith("src/") && !file.startsWith(EXPORTS_ANY_NAME))
+		.filter(([file]) => inSource(file) && !file.startsWith(EXPORTS_ANY_NAME))
 		.flatMap(([file, source]) =>
 			[...source.matchAll(EXPORTED)].flatMap((match) => {
 				const name = match[1] ?? "";
 				const word = new RegExp(`\\b${name}\\b`);
-				if ([...sources].some(([other, text]) => other !== file && word.test(text))) return [];
-				return [{ file, line: source.slice(0, match.index).split("\n").length, rule: `${name} is exported but no other file uses it: drop the export, or delete it if this file does not use it either` }];
+				if (uses.some((other) => other.file !== file && word.test(other.text))) return [];
+				return [{ file, line: source.slice(0, match.index).split("\n").length, rule: `${name} is exported but no other file uses it (an entry file that only passes it on does not count): drop the export and any entry line that passes it on, or delete it if this file does not use it either` }];
 			}),
 		);
 }
 
-const REACHING_IMPORT = /(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"?]+)|new URL\(\s*"(\.{1,2}\/[^"?]+)/g;
 const BUILD_ENTRY = /"(?:\.\.?\/)*(src\/[^"`?]+\.tsx?)"/g;
 
 function unreachableFiles(): Finding[] {
-	const sources = checkedFiles().filter((file) => file.startsWith("src/") && /\.tsx?$/.test(file));
+	const sources = checkedFiles().filter((file) => inSource(file) && TYPESCRIPT.test(file));
 	const buildEntries = checkedFiles()
 		.filter((file) => file.startsWith("vite-plugins/") || file.startsWith("vite.config"))
 		.flatMap((file) => [...readFileSync(file, "utf8").matchAll(BUILD_ENTRY)].map((match) => match[1] ?? ""));
@@ -637,19 +778,26 @@ function unreachableFiles(): Finding[] {
 	const reached = new Set(roots);
 	const queue = [...roots];
 	for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
-		for (const match of readFileSync(file, "utf8").matchAll(REACHING_IMPORT)) {
-			const target = join(dirname(file), match[1] ?? match[2] ?? "");
-			if (reached.has(target)) continue;
+		if (!SCRIPT_FILE.test(file) || !existsSync(file)) continue;
+		for (const edge of edges(file)) {
+			const target = targetOf(edge);
+			if (target === undefined || reached.has(target)) continue;
 			reached.add(target);
 			queue.push(target);
 		}
 	}
 	return sources
 		.filter((file) => !reached.has(file))
-		.map((file) => ({ file, line: 1, rule: "no file the app runs imports this, only tests do: wire it into the app, or delete it with its tests (a test runs product code, not code kept for the test)" }));
+		.map((file) => ({
+			file,
+			line: 1,
+			rule: `no file the app runs imports this, only tests do: wire it into the app, or delete it with its tests (a test runs product code, not code kept for the test)${workspaceOf(file) === APP ? "" : `; a package's file is reached once the app imports, by name, an entry in "exports" of ${workspaceOf(file).folder}/${MANIFEST} that leads to it`}`,
+		}));
 }
 
 const all = [
+	...manifestRule(),
+	...workspaceRule(),
 	...unreachableFiles(),
 	...unusedClassRule(),
 	...sheetImportRule(),
@@ -683,4 +831,4 @@ if (all.length > 0) {
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer (base < core < feature < shell); every export is used elsewhere");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer (package < base < core < feature < shell); a package is reached by name through its exports, imports only what its package.json lists and never reaches outside itself; every export is used elsewhere");

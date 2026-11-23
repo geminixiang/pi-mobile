@@ -73,21 +73,16 @@ Finishing the task is half the job; the other half is leaving the design better 
 | A tool that needs a native method marked `opens: "screen"` declares `effect: "screen"`, and only the catalog calls `openScreen` | `test/tools-node.ts`, `test/code-rules.ts` |
 | A WebView is created only by `WebPages.create(context, profile)`: one on pi's profile shares pi's renderer, so a spinning page freezes pi | `test/code-rules.ts` |
 | Only the phone screen code reaches the accessibility service; only `openScreen` and `keepAlive.ts` read `App.getState` | `test/code-rules.ts` |
-| JSON is parsed only through `src/parse.ts` | `test/code-rules.ts` |
-| Short ids come from `randomHex`, waits from `sleep`, two-digit padding from `pad`, minutes from `MINUTE`: no `randomUUID().slice`, `setTimeout(resolve`, `padStart(2, "0")` or `60_000` outside their owners | `test/code-rules.ts` |
+| Short ids come from `randomHex`, waits from `sleep`, two-digit padding from `pad`, minutes from `MINUTE`, a sort by an optional time from `soonest`: no `randomUUID().slice`, `setTimeout(resolve`, `padStart(2, "0")` or `60_000` outside their owners; JSON is parsed only through `src/parse.ts` | `test/code-rules.ts` |
 | A background job's agent name is made and read only in `src/jobs/background.ts` (`jobAgent`, `isJob`, `jobIdOf`); a path's last part is `baseName`, an HTML file is `isHtml` (`src/mime.ts`) | `test/code-rules.ts` |
-| Sorting by an optional time goes through `soonest` (`src/time.ts`) | `test/code-rules.ts` |
 | No effect hook, timer outside `src/time.ts`, ref callback with dependencies or constant `useSyncExternalStore` snapshot (docs/effects.md) | `test/code-rules.ts` |
 | Only `src/agent/bots.ts` and the runtime touch the bot index (`BotIndex`); others read live bots with `botsIn` or `runtime.bots()` | `test/code-rules.ts` |
 | Every prompt section is an `appSection` within its budget, even in a crowded app; the prompt fits `PROMPT_BUDGET` and matches its snapshot | `test/code-rules.ts`, `test/prompt.ts` |
 | Only `src/triggers/` touches the schedules (`TriggerDoc`; others use `triggersOf`, `editTriggers`), only `src/items/` and the trigger runner touch the items (`ItemDoc`) | `test/code-rules.ts` |
 | A JSX `style` sets only `--custom-properties`; a `transition` never names a layout property | `test/code-rules.ts`, Stylelint (`stylelint/transition-no-layout.js`) |
 | No `.menu` or `.group` box around a list: a list is a `RowList` on the background | Stylelint (`selector-class-pattern`), `test/code-rules.ts` |
-| No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`) | Stylelint (`selector-pseudo-class-disallowed-list`) |
-| No line along one side of a box (`border-left`/`right`/`inline`, a sideways inset shadow): selection is a background or ✓ | Stylelint (`stylelint/no-side-stripe.js`) |
-| Font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`declaration-property-value-allowed-list`) |
-| Android code is Kotlin: no `.java` file | `test/code-rules.ts` |
-| Scripts are `.js`, never `.mjs` or `.cjs` (`package.json` sets `"type": "module"`) | `test/code-rules.ts` |
+| No focus ring anywhere (`:focus-visible` is forbidden; `*` resets `outline`); no line along one side of a box (`border-left`/`right`/`inline`, a sideways inset shadow): selection is a background or ✓; font weights are 400 or 700 (Chinese fonts on Android have no 500/600) | Stylelint (`selector-pseudo-class-disallowed-list`, `stylelint/no-side-stripe.js`, `declaration-property-value-allowed-list`) |
+| Android code is Kotlin: no `.java` file; scripts are `.js`, never `.mjs` or `.cjs` (`package.json` sets `"type": "module"`) | `test/code-rules.ts` |
 | A bot's tools are its toolsets (`Bot.off`) and place projected onto tool names (`removedTools`), written only by `BotToolsets` | `test/contracts/where.ts`, `test/contracts/bots.ts`, `test/toolsets.ts`, `test/code-rules.ts` |
 | Which toolsets a bot on the phone or a computer gets, and which tools its prompt names, come from `where` in `toolsets.ts` (`isAt`, `removedTools`) | `test/contracts/computers.ts`, `test/contracts/where.ts` |
 | Every setting says whether it applies in place or restarts the runtime (`APPLY` in `runtime.ts`) | `tsc` |
@@ -100,13 +95,11 @@ Finishing the task is half the job; the other half is leaving the design better 
 | `let` declarations in `src/` are counted in `LETS`, which only goes down | `test/code-rules.ts` |
 | A file in `src/` has at most 400 lines; the longer ones are held at their size in `LONG_FILES` until split, and the numbers only go down | `test/code-rules.ts` |
 | A feature folder does not import `AgentRuntime`; the files that still do are listed in `RUNTIME_USERS`, which only shrinks | `test/code-rules.ts` |
-| `src/` has four layers (base < core < feature < shell, `LAYER_OF`) and imports only go down | `test/code-rules.ts` |
+| `src/` has four layers (base < core < feature < shell, `LAYER_OF`) over `packages/*`; imports only go down, into a package by name through its `exports`; a package lists what it imports, reaches nothing outside itself, and `pi-mobile-ui` lists no `@capacitor/*` or `@earendil-works/*`; `src/` rules cover packages | `test/code-rules.ts` |
 | `src/computer/` (pairing, commands on a computer, the resumable link) never imports `src/agent/sandbox/`: sandbox depends on computer, not the other way | `test/code-rules.ts` |
 | Values the phone and the computer must agree on live once, in `host/protocol.json`; the phone gives up reattaching before the computer lets a held session go | `host/protocol.go`, `test/contracts/resume.ts` |
 | The resume protocol delivers every input and output exactly once and in order or ends with a named failure, and the phone gives up before the computer lets a session go (an exhaustive model, which must also catch the known bugs) | `test/resume-model.ts` |
 | The computer-side host passes `go vet` and its tests | `npm run check:host`, part of `npm run check` |
 | A commit that changes a `.tsx` or `.css` under `src/` has an `Evidence:` line (screenshots before and after, perf numbers, or `none, <why>`), checked for commits not yet on `origin/main` | `test/evidence.ts` |
 | `npm run check` passes on every push to main and on every PR | `.github/workflows/check.yml` |
-| LBYL, errors as values, store a value once, rule of three, one way to do a task | review only |
-| A fix comes with a test that fails on the old code | review only |
-| Structure red flags, 對未來的影響 | review only |
+| LBYL, errors as values, store a value once, rule of three, one way to do a task; a fix comes with a test that fails on the old code; structure red flags, 對未來的影響 | review only |

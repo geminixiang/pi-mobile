@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { inSource } from "./no-comments.ts";
 
 const SINCE = process.env.EVIDENCE_SINCE ?? "origin/main";
 const TRAILER = "Evidence:";
 
 const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" }).trim();
-const changesScreen = (file: string) => file.startsWith("src/") && (file.endsWith(".tsx") || file.endsWith(".css"));
+const changesScreen = (file: string) => inSource(file) && (file.endsWith(".tsx") || file.endsWith(".css"));
 
 if (spawnSync("git", ["rev-parse", "--verify", "--quiet", `${SINCE}^{commit}`]).status !== 0) {
 	console.log(`evidence: ${SINCE} is not in this checkout (a shallow clone), nothing to compare`);
@@ -21,7 +22,7 @@ const missing = commits.filter((commit) => {
 if (missing.length > 0) {
 	for (const commit of missing)
 		console.error(
-			`${git("log", "-1", "--format=%h %s", commit)}: changes a .tsx or .css under src/ but its message has no ${TRAILER} line. Add one (git commit --amend, or git rebase -i for an older commit) saying where the before and after screenshots are and, for the transcript, scrolling, streaming or an animation, the test/perf/run.ts numbers; or "${TRAILER} none, <why>" for a change nobody can see (docs/development.md § 驗證證據)`,
+			`${git("log", "-1", "--format=%h %s", commit)}: changes a .tsx or .css under src/ or a package but its message has no ${TRAILER} line. Add one (git commit --amend, or git rebase -i for an older commit) saying where the before and after screenshots are and, for the transcript, scrolling, streaming or an animation, the test/perf/run.ts numbers; or "${TRAILER} none, <why>" for a change nobody can see (docs/development.md § 驗證證據)`,
 		);
 	process.exit(1);
 }

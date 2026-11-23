@@ -154,13 +154,14 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ## 分層
 
-`src/` 分四層，import 只能往下，一條往上的都不行。每個資料夾屬於哪一層寫在 `test/code-rules.ts` 的 `LAYER_OF`，由 `npm run check` 檢查；新資料夾沒列進去也會被擋下。
+`src/` 分四層，底下是 `packages/` 的 workspace package；import 只能往下，一條往上的都不行。每個資料夾屬於哪一層寫在 `test/code-rules.ts` 的 `LAYER_OF`，由 `npm run check` 檢查；新資料夾沒列進去也會被擋下。
 
 ```
 外殼 shell    app/、workbench/、runtime/、main.tsx          認得所有功能，負責組裝
 功能 feature  browser/、triggers/、calendar/、weather/ 等   一個功能一個資料夾：工具、原生 contract、畫面、設定區塊、樣式
 核心 core     agent/、computer/、settings.ts                不認得任何功能
 基礎 base     ui/、plugins/、net/、shims/、根目錄的小工具   不認得上面任何一層
+套件 package  packages/pi-mobile-base、pi-mobile-ui         不認得 App：只有原始碼、不編譯，App 用名稱引入
 ```
 
 **為什麼？** 改一個功能時，只需要讀它自己的資料夾和它下面的層；加功能不會動到核心和基礎。
@@ -181,6 +182,19 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
 
 2026-11-17 之前，做產品的 181 個 commit 有 90 個改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一；這些整理之後，這個比例要再累積 50 到 100 個 commit 才能重量。
+
+### Workspace package
+
+根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和步驟見 [design/ui-package.md](design/ui-package.md)；2026-11-23 起兩個 package 先是空的，檔案一步一步搬進去。
+
+「底層不認得上層」在這裡是四條檢查（`test/code-rules.ts` 的 `workspaceRule`、`manifestRule`），每一條都用一個故意寫錯的檔案證明過會失敗：
+
+- **只能用名稱、從公開入口引入**：`"pi-mobile-ui/…"` 要在那個 package 的 `package.json` `exports` 裡。`exports` 以外的檔案從外面引不到（`tsc` 回 `TS2307`），也不能用相對路徑繞進去。入口指向的檔案不存在、或 App 沒有任何檔案引到的 package 檔案，都會被擋下：公開入口不算「有人用」。
+- **package 不往外引**：package 的檔案不能用相對路徑引到自己外面（`src/`、別的 package）。它需要的東西由 App 以 props、參數或 App 安裝的介面傳進去。
+- **引入的都要列在自己的 `package.json`**：npm 把所有 workspace 的相依放在同一個 `node_modules`，沒列的也解析得到，所以要靠檢查；根目錄的 App 也一樣。
+- **不准列的相依**：`pi-mobile-ui` 不列 `@capacitor/*` 和 `@earendil-works/*`（Capacitor 只從 App 的 `package.json` 找外掛）；`pi-mobile-base` 另外不列 React 和 `pi-mobile-ui`。清單在 `NEVER_LISTED`。
+
+原本只看 `src/` 的檢查（effect 和計時器、`let` 和檔案長度、沒用到的 export 和 class、樣式檔要被載入、`Evidence:`、功能地圖、UI 裡的工具名稱）現在都看 `src/` 和 `packages/*/src/`（`test/no-comments.ts` 的 `inSource`）；Stylelint 也是。測試留在根目錄的 `test/`，可以用相對路徑引 package 裡不公開的檔案，就像它一直可以引任何一層的 `src/`。
 
 ## 專案結構
 

@@ -3,7 +3,7 @@ import { parseSync } from "rolldown/utils";
 
 const MAP = "docs/feature-map.md";
 const SCREEN_HOSTS = ["src/app/App.tsx", "src/workbench/Workbench.tsx", "src/app/bots/BotPanel.tsx"];
-const NAMED = /`([A-Z]\w*)` \(`(src\/[^`]+)`\)/g;
+const NAMED = /`([A-Z]\w*)` \(`((?:src|packages)\/[^`]+)`\)/g;
 const ICON = /(Icon|Mark)$/;
 
 type Node = { type: string; [key: string]: unknown };

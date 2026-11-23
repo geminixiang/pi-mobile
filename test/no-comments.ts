@@ -99,6 +99,12 @@ export function checkedFiles(): string[] {
 		.filter((file) => file && existsSync(file) && !GENERATED.has(file) && !file.startsWith("android/app/src/main/res/"));
 }
 
+export const PACKAGES = "packages/";
+
+export function inSource(file: string): boolean {
+	return file.startsWith("src/") || (file.startsWith(PACKAGES) && file.split("/")[2] === "src");
+}
+
 if (import.meta.main) {
 	let whys = 0;
 	const findings = checkedFiles().flatMap((file) => {

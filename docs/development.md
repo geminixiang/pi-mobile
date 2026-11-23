@@ -85,7 +85,7 @@ push 到 main 和開 PR 時，CI 會跑一次 `npm run check`（`.github/workflo
 
 ### 驗證證據
 
-改到畫面的 commit（`src/` 底下的 `.tsx` 或 `.css`）在訊息裡寫一行 `Evidence:`，說證據在哪裡；`test/evidence.ts`（`npm run check`）檢查還沒推上 `origin/main` 的每個 commit：
+改到畫面的 commit（`src/` 或 `packages/*/src/` 底下的 `.tsx` 或 `.css`）在訊息裡寫一行 `Evidence:`，說證據在哪裡；`test/evidence.ts`（`npm run check`）檢查還沒推上 `origin/main` 的每個 commit：
 
 ```
 Evidence: before/after ~/pi-tasks/shots/settings-{before,after}.png (emulator-5554, 412 px)
