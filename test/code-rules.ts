@@ -749,12 +749,35 @@ const EXPORTED = /^export (?:declare )?(?:async )?(?:function\*?|const|let|class
 const EXPORTS_ANY_NAME = "src/shims/";
 
 // why: passing a name on (a package's entry file listing what is public) is not a use of it
-const PASSED_ON = /^export (?:type )?\{([^}]*)\} from "[^"]+";$/gm;
+function reExports(file: string, source: string): { wildcards: number[]; named: { name: string; line: number }[]; stripped: string } {
+	const body = parseSync(file, source).program.body.filter(isNode);
+	const lineOf = (offset: number) => source.slice(0, offset).split("\n").length;
+	const wildcards: number[] = [];
+	const named: { name: string; line: number }[] = [];
+	const ranges: [number, number][] = [];
+	for (const node of body) {
+		if (node.type === "ExportAllDeclaration") {
+			wildcards.push(lineOf(node.start));
+			if (typeof node.end === "number") ranges.push([node.start, node.end]);
+		}
+		if (node.type === "ExportNamedDeclaration" && isNode(node.source) && Array.isArray(node.specifiers)) {
+			if (typeof node.end === "number") ranges.push([node.start, node.end]);
+			for (const specifier of node.specifiers) {
+				if (isNode(specifier) && isNode(specifier.exported) && typeof specifier.exported.name === "string") {
+					named.push({ name: specifier.exported.name, line: lineOf(specifier.start) });
+				}
+			}
+		}
+	}
+	const stripped = ranges.reduceRight((text, [start, end]) => `${text.slice(0, start)}${text.slice(end)}`, source);
+	return { wildcards, named, stripped };
+}
 
 function unusedExports(): Finding[] {
 	const scripts = checkedFiles().filter((file) => /\.(ts|tsx|js)$/.test(file));
 	const sources = new Map(scripts.map((file) => [file, readFileSync(file, "utf8")]));
-	const uses = [...sources].map(([file, text]) => ({ file, text: text.replace(PASSED_ON, "") }));
+	const parsed = new Map([...sources].map(([file, text]) => [file, reExports(file, text)]));
+	const uses = [...parsed].map(([file, { stripped }]) => ({ file, text: stripped }));
 	const unused = [...sources]
 		.filter(([file]) => inSource(file) && !file.startsWith(EXPORTS_ANY_NAME))
 		.flatMap(([file, source]) =>
@@ -767,14 +790,14 @@ function unusedExports(): Finding[] {
 		);
 	const needless = LIBRARIES.flatMap((library) =>
 		[...library.entries.values()].flatMap((entry) => {
-			const source = sources.get(entry) ?? "";
-			return [...source.matchAll(PASSED_ON)].flatMap((match) =>
-				(match[1] ?? "")
-					.split(",")
-					.map((name) => name.trim().replace("type ", ""))
-					.filter((name) => name !== "" && !uses.some((other) => !other.file.startsWith(`${library.folder}/`) && new RegExp(`\\b${name}\\b`).test(other.text)))
-					.map((name) => ({ file: entry, line: source.slice(0, match.index).split("\n").length, rule: `${name} is public here but nothing outside ${library.name} uses it: take it out of this entry, so the package's surface is what the app really uses` })),
-			);
+			const info = parsed.get(entry);
+			if (info === undefined) return [];
+			return [
+				...info.wildcards.map((line) => ({ file: entry, line, rule: `export * hides which names ${library.name} exposes: list each public name with export { … } from "…"` })),
+				...info.named
+					.filter(({ name }) => !uses.some((other) => !other.file.startsWith(`${library.folder}/`) && new RegExp(`\\b${name}\\b`).test(other.text)))
+					.map(({ name, line }) => ({ file: entry, line, rule: `${name} is public here but nothing outside ${library.name} uses it: take it out of this entry, so the package's surface is what the app really uses` })),
+			];
 		}),
 	);
 	return [...unused, ...needless];
