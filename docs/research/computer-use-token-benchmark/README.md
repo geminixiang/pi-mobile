@@ -16,7 +16,6 @@
 - **完整報告：[RESULTS.md](RESULTS.md)**
 - **後續定點修補：[repair/README.md](repair/README.md)**（不混入這 30 筆，也不替換原本失敗）
 - **方法與限制：[PROTOCOL.md](PROTOCOL.md)**
-- **發文草稿：[X-draft.md](X-draft.md)**
 - `task-results.json`、`runs/`：逐次 usage、工具軌跡、完整 state oracle 與最後畫面。
 - `direct.js`、`server.js`、`fixture.html`：實際執行程式與隔離治具。
 - `verify.js`、`summarize.js`：重新驗證與彙整已保存結果，不呼叫模型。

@@ -93,6 +93,5 @@ node summarize.js
 - `runs/*.json`：逐次 usage／tool trace／state；`runs/*.png`：最後畫面。
 - `manifest.json`：模型路由、系統、binary 與測試原始碼 hashes。
 - `direct.js`、`fixture.html`、`server.js`：實驗程式。
-- [X-draft.md](X-draft.md)：可用發文草稿，未發布。
 
 完成後已關閉專用 Chrome、停止治具 server、移除手機上的暫時 MCP 服務與 Bot；未變動產品程式。早期 Ego staging space 已不存在，已確認沒有殘留同名 space。`npm run check` 通過。

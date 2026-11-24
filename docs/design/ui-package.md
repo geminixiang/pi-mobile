@@ -1,6 +1,6 @@
 # pi-mobile-ui：把 UI 拆成 monorepo 裡的一個 package
 
-狀態：使用者 2026-11-23 同意方向（選 A）。實作在分支 `ui-package`：第 0–4 步完成，到里程碑 A（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform`；`src/ui` 和 `ui.css` 搬進 `pi-mobile-ui`；tokens、元素預設、共用外觀和字型移出 `styles.css`）。第 5 步起還沒做。
+狀態：使用者 2026-11-23 同意方向（選 A）。第 0–4 步完成並合併進 main（`bd6c2c1`），到里程碑 A（workspaces 和檢查規則；`pi-mobile-base`；`UiPlatform`；`src/ui` 和 `ui.css` 搬進 `pi-mobile-ui`；tokens、元素預設、共用外觀和字型移出 `styles.css`）。第 5 步起還沒做，等 iPhone 一起驗手勢和捲動。2026-11-24 在分支 `solid-trial` 試過把 UI 換成 Solid 2.0：S24 上量不出差別（打字快 1 ms，來自結構而不是 Solid），所以繼續用 React；報告在那個分支的 `docs/research/solid-trial.md`。
 
 ## 問題
 

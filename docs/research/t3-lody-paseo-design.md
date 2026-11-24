@@ -308,4 +308,4 @@ pi-mobile（`1783b2a3588a2ed666f1b814b5e31c19bce6e6be`）
 - [PI-host-go]: `host/main.go`（`Setpgid`、SIGTERM 後 2 秒 SIGKILL、`WaitDelay`）
 - [PI-env]: `node_modules/@earendil-works/pi-env/README.md`（1.4.0）
 - [PI-loop]: container-prepare-loop.md
-- [PI-drawer]: side-drawer-bounds/README.md
+- [PI-drawer]: 側欄的 Drawer patch，2026-10-28 改成自己的手勢後移除（`src/app/SidePanel.tsx`）

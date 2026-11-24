@@ -196,6 +196,6 @@ Luna 錯的三題都不是 bash 的問題：它用 `read` 讀檔案的前 1,000 
 
 模型（GPT 6.1 Sol）用一般的問法：「把 octocat/Hello-World 抓下來，README 寫了什麼、最後一個 commit 是誰」用 git；「cli/cli 最近三個 open 的 PR」先試 `gh pr list --search`（當時沒有，之後補上），失敗後改用 `gh api`；「我 pi-mobile 的 issue 2 在講什麼」用 `gh api` 讀 issue 和留言。三題都答對。
 
-## inspection 命令草稿與安裝版界線
+## inspection 命令
 
-`git diff --check`、`git cat-file -t/-s/-p` 的本機公開 API 草稿、未執行的回歸測試及 `ls-remote` 的獨立上游匯出阻礙見 [phone-git-inspection.md](phone-git-inspection.md)。這是原始碼能力說明，不表示已建置、安裝或通過測試；已安裝 0.5.0 的行為不變。
+`git diff --check` 和 `git cat-file` 曾經加進手機資料夾，2026-11-05、11-14 先後拿掉（just-git 的 `git show <rev>:<path>`、`git ls-tree` 讀得到同樣的內容，見 `docs/tools.md` 的紀錄）。
