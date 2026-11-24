@@ -27,6 +27,8 @@ const unsupported = ios ? scenes.filter((scene) => !IOS_SCENES.includes(scene)) 
 if (unsupported.length > 0) throw new Error(`The iPhone cannot run ${unsupported.join(", ")}: nothing can type on it from this Mac`);
 
 const TYPING_GAP_MS = 120;
+const FRAMESTATS_MS = 700;
+const IDLE_VSYNCS = 4;
 
 const START_RECORDING = `
 const perf = { frames: [], loaf: [], events: [], observers: [], running: true };
@@ -113,12 +115,40 @@ function gfxSummary(dump: string) {
 	};
 }
 
+type FrameTiming = { vsync: number; intended: number; total: number };
+
+function frameTimings(dump: string): FrameTiming[] {
+	const [header = "", ...lines] = dump.split("---PROFILEDATA---")[1]?.trim().split("\n") ?? [];
+	const columns = header.split(",");
+	const at = (row: readonly number[], name: string) => row[columns.indexOf(name)] ?? 0;
+	return lines
+		.map((line) => line.split(",").map(Number))
+		.filter((row) => row[0] === 0)
+		.map((row) => ({ vsync: at(row, "FrameTimelineVsyncId"), intended: at(row, "IntendedVsync"), total: (at(row, "FrameCompleted") - at(row, "IntendedVsync")) / 1e6 }));
+}
+
+function motionSummary(frames: readonly FrameTiming[], vsyncMs: number) {
+	const ordered = [...frames].sort((a, b) => a.intended - b.intended);
+	const afterIdle = ordered.filter((frame, index) => frame.intended - (ordered[index - 1]?.intended ?? -Infinity) > vsyncMs * IDLE_VSYNCS * 1e6);
+	const moving = ordered.filter((frame) => !afterIdle.includes(frame));
+	const slow = (list: readonly FrameTiming[]) => list.filter((frame) => frame.total > vsyncMs * 1.5).length;
+	return {
+		frames: ordered.length,
+		moving: moving.length,
+		slowMoving: slow(moving),
+		slowMovingPct: round((slow(moving) / Math.max(1, moving.length)) * 100),
+		afterIdle: afterIdle.length,
+		slowAfterIdle: slow(afterIdle),
+	};
+}
+
 type Device = {
 	model: () => Promise<string>;
 	charging: boolean;
 	coolDown: () => Promise<{ status: number; ap: number; battery: number } | undefined>;
 	resetFrames: () => void;
 	readFrames: () => ReturnType<typeof gfxSummary> | undefined;
+	readFrameTimings: () => FrameTiming[];
 	fling: (page: Page, direction: "older" | "newer") => Promise<void>;
 	panel: (page: Page) => Promise<void>;
 	focusComposer: (page: Page) => Promise<void>;
@@ -146,6 +176,7 @@ function android(serial: string): Device {
 		},
 		resetFrames: () => adb("dumpsys", "gfxinfo", PACKAGE, "reset"),
 		readFrames: () => gfxSummary(adb("dumpsys", "gfxinfo", PACKAGE)),
+		readFrameTimings: () => frameTimings(adb("dumpsys", "gfxinfo", PACKAGE, "framestats")),
 		fling: async (_page, direction) => (direction === "older" ? swipe(540, 800, 540, 1900, 100) : swipe(540, 1900, 540, 800, 100)),
 		panel: async (page) => {
 			const { x, y } = await page.eval<{ x: number; y: number }>(`return center(button("Bot 列表"));`);
@@ -170,6 +201,7 @@ const iphone: Device = {
 	coolDown: () => Promise.resolve(undefined),
 	resetFrames: () => undefined,
 	readFrames: () => undefined,
+	readFrameTimings: () => [],
 	fling: async (page, direction) => {
 		await page.eval(`transcript().scrollBy({ top: ${direction === "older" ? -1800 : 1800}, behavior: "smooth" }); return true;`);
 	},
@@ -243,8 +275,20 @@ async function measure(page: Page, scene: Scene) {
 	const heat = await device.coolDown();
 	device.resetFrames();
 	await page.eval(START_RECORDING);
+	const timings = new Map<number, FrameTiming>();
+	const collect = () => device.readFrameTimings().forEach((frame) => timings.set(frame.vsync, frame));
+	const polling = { on: true };
+	const polled = (async () => {
+		while (polling.on) {
+			collect();
+			await sleep(FRAMESTATS_MS);
+		}
+	})();
 	await act(page, scene);
 	const result = await page.eval<PageResult>(STOP_RECORDING);
+	polling.on = false;
+	await polled;
+	collect();
 	const gfx = device.readFrames();
 	await finish(page, scene);
 	const eventMs = ascending(result.events.map((event) => event.ms));
@@ -252,6 +296,7 @@ async function measure(page: Page, scene: Scene) {
 		heat,
 		nodes: result.nodes,
 		gfx,
+		motion: motionSummary([...timings.values()], vsyncMs),
 		raf: frameSummary(result.frames, vsyncMs),
 		loaf: {
 			count: result.loaf.length,
@@ -308,6 +353,9 @@ for (const scene of scenes) {
 						gfxJankyPct: median((s) => s.gfx?.jankyPct ?? 0),
 						gfxOver12ms: median((s) => s.gfx?.over12ms ?? 0),
 						gfxOver33ms: median((s) => s.gfx?.over33ms ?? 0),
+						gfxSlowMovingPct: median((s) => s.motion.slowMovingPct),
+						gfxSlowMoving: median((s) => s.motion.slowMoving),
+						gfxSlowAfterIdle: median((s) => s.motion.slowAfterIdle),
 						gfxP90: median((s) => s.gfx?.p90 ?? 0),
 						gfxP99: median((s) => s.gfx?.p99 ?? 0),
 						gpuP99: median((s) => s.gfx?.gpuP99 ?? 0),
