@@ -412,7 +412,7 @@ export function Chat({
 function Working({ label }: { label: string }) {
 	return (
 		<div className="working">
-			<span className="block-cursor" aria-hidden="true" />
+			<span className="busy-dot" aria-hidden="true" />
 			{label}
 		</div>
 	);

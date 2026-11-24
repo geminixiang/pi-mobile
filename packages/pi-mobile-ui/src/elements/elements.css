@@ -1,5 +1,4 @@
 .pi-mark { display: block; flex-shrink: 0; }
-.pi-mark.live .pi-mark-cursor { animation: cursor 1s steps(1) infinite; }
 .chevron { transition: transform 160ms var(--ease); flex-shrink: 0; color: var(--faint); }
 .chevron[data-open] { transform: rotate(90deg); }
 .row-list > label[data-pressed] { background: var(--accent-soft); }

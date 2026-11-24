@@ -233,7 +233,7 @@ function StepRow({ call, state, prefs }: { call: Call; state: CallState | undefi
 					<span className="step-name">{toolName(call.name)}</span>
 					<span className="step-label">{callLabel(call.name, call.arguments)}</span>
 					{status === "running" && elapsed >= 3 ? <span className="step-elapsed">{elapsed}s</span> : null}
-					{status === "running" ? <span className="block-cursor" aria-label="執行中" /> : null}
+					{status === "running" ? <span className="busy-dot" aria-label="執行中" /> : null}
 					{status === "error" ? <span className="step-status">失敗</span> : null}
 					{background ? <span className="step-status">背景執行中</span> : null}
 					{background ? <span className="step-elapsed">{clock(now - background.since)}</span> : null}
@@ -281,7 +281,7 @@ function WorkLine({ calls, states, prefs, since }: { calls: readonly Call[]; sta
 	return (
 		<div className="work">
 			<button type="button" className="work-line" onClick={() => setOpen(!open)} aria-expanded={open}>
-				{running ? <span className="block-cursor" aria-label="執行中" /> : null}
+				{running ? <span className="busy-dot" aria-label="執行中" /> : null}
 				<span className="work-name">{doing(last)}</span>
 				{running && elapsed >= 3 ? <span className="work-meta">{elapsed}s</span> : null}
 				{!running && calls.length > 1 ? <span className="work-meta">{calls.length} 步</span> : null}

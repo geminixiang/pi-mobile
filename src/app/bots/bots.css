@@ -10,7 +10,6 @@
 .link-mark { display: block; width: 6px; height: 6px; flex-shrink: 0; background: var(--faint); }
 .link-mark.up { background: var(--ok); }
 .link-mark.down { background: var(--error); }
-.link-line > .link-mark.down { animation: cursor 1.2s steps(1) infinite; }
 .link-verb { padding: 6px 0 6px 12px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); }
 .tool-group > .list-label { display: flex; justify-content: space-between; padding: 0 0 8px; }
 .tool-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -93,7 +92,7 @@
 .drawer-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 6px 12px var(--side-inset); text-align: left; }
 .drawer-title { flex: 1; display: flex; align-items: center; gap: 8px; font-size: var(--fs-ui); white-space: nowrap; overflow: hidden; }
 .drawer-time { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
-.drawer-running { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); animation: blink 1s steps(1) infinite; }
+.drawer-running { --busy-dot: 7px; }
 .trigger-panel { margin: 0 calc(-1 * var(--panel-inset)) 0 calc(-1 * var(--panel-start)); }
 .trigger-panel > .note { margin: 0 var(--panel-inset) 0 var(--panel-start); }
 .trigger-panel .trigger-group { --list-inset: calc(var(--panel-inset) + 2px); --list-start: calc(var(--panel-start) + 2px); }

@@ -107,7 +107,8 @@
 .check-error { color: var(--error); }
 .check-error::before { content: "ERR  "; }
 .ws-loading { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
-.ws-loading::after { content: ""; display: inline-block; width: 0.5em; height: 1em; margin-left: 6px; vertical-align: -0.15em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+.busy-dot, .ws-loading::after { display: inline-block; flex-shrink: 0; width: var(--busy-dot, 0.6em); height: var(--busy-dot, 0.6em); border-radius: 50%; background: var(--yellow); }
+.ws-loading::after { content: ""; margin-left: 6px; }
 .ws-empty { padding: 28px 4px; font-family: var(--serif); font-size: var(--fs-ui); line-height: 1.7; color: var(--muted); }
 .ws-empty.small { padding: 10px 0; font-size: var(--fs-body); }
 .viewer-image { display: block; max-width: calc(100% - 2 * var(--space)); margin: 0 var(--space); border: 1px solid var(--line); background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; }

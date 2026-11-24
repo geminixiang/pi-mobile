@@ -1,5 +1,6 @@
 .rail { display: flex; flex-direction: column; gap: 4px; min-height: 0; padding: calc(env(safe-area-inset-top) + 12px) 0 calc(env(safe-area-inset-bottom) + 12px); }
-.rail-logo { display: grid; place-items: center; height: 44px; margin-bottom: 12px; }
+.rail-logo { position: relative; display: grid; place-items: center; height: 44px; margin-bottom: 12px; }
+.rail-busy { --busy-dot: 9px; position: absolute; left: calc(50% + 6px); top: calc(50% + 6px); box-shadow: 0 0 0 2px var(--bg); }
 .rail-settings { flex-shrink: 0; display: grid; place-items: center; height: 48px; color: var(--muted); }
 .bench {
 	--space: 28px;

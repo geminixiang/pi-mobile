@@ -26,8 +26,9 @@ export function Drawer({
 			<div className="drawer">
 				<div className="drawer-top">
 					<span className="brand">
-						<PiMark size={20} live={busy} />
+						<PiMark size={20} />
 						<span className="brand-name">pi mobile</span>
+						{busy ? <i className="busy-dot" aria-label="執行中" /> : null}
 					</span>
 				</div>
 				<BotList look="rows" {...list} />

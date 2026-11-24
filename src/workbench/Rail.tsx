@@ -5,7 +5,8 @@ export function Rail({ busy, list, onSettings }: { busy: boolean; list: BotListP
 	return (
 		<nav className="rail" aria-label="Bot 列表">
 			<span className="rail-logo">
-				<PiMark size={26} live={busy} />
+				<PiMark size={26} />
+				{busy ? <i className="busy-dot rail-busy" aria-label="執行中" /> : null}
 			</span>
 			<BotList look="rail" {...list} />
 			<button type="button" className="rail-settings" onClick={onSettings} aria-label="設定">

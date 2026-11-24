@@ -188,7 +188,7 @@ export function App() {
 	const used = contextTokens(view);
 	const contextWindow = model ? windowFor(model.contextWindow, settings.compactAt) : 0;
 	const busy = isBusy(view);
-	const avatar = <>{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}{busy ? <i className="bar-busy" /> : null}</>;
+	const avatar = <>{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}{busy ? <i className="busy-dot bar-busy" /> : null}</>;
 	const changeModel = async ({ model: nextModel, thinking: nextThinking }: { model?: { provider: string; id: string }; thinking?: string }) => {
 		if (!controller) return;
 		if (nextModel) await controller.setModel(nextModel.provider, nextModel.id).catch(fail);

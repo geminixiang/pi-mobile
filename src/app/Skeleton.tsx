@@ -20,7 +20,8 @@ export function Skeleton() {
 			<div className="bar chat-bar">
 				<span className="bar-pill bar-who">
 					<span className="skeleton-mark">
-						<PiMark size={18} live />
+						<PiMark size={18} />
+						<i className="busy-dot bar-busy" />
 					</span>
 					<span className="skeleton-title">
 						<i />

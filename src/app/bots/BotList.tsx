@@ -68,7 +68,7 @@ export function BotList({ look, bots, automations, currentId, running, waiting, 
 					<button type="button" key={String(bot.id)} className={`rail-bot${bot.id === currentId ? " current" : ""}`} onClick={() => onOpen(bot.id)}>
 						<BotAvatar bot={bot} size={44} />
 						<span className="rail-name">{bot.name}</span>
-						{waiting.has(bot.id) ? <span className="rail-waiting" aria-label="需要你" /> : running.has(bot.id) ? <span className="drawer-running rail-running" aria-label="執行中" /> : null}
+						{waiting.has(bot.id) ? <span className="rail-waiting" aria-label="需要你" /> : running.has(bot.id) ? <span className="busy-dot drawer-running rail-running" aria-label="執行中" /> : null}
 					</button>
 				))}
 				<button type="button" className="rail-add" onClick={onCreate} aria-label="新增 Bot">
@@ -86,7 +86,7 @@ export function BotList({ look, bots, automations, currentId, running, waiting, 
 						<BotAvatar bot={bot} size={36} />
 						<span className="bot-text">
 							<span className="drawer-title">
-								{running.has(bot.id) ? <span className="drawer-running" aria-label="執行中" /> : null}
+								{running.has(bot.id) ? <span className="busy-dot drawer-running" aria-label="執行中" /> : null}
 								<span className="bot-name">{bot.name}</span>
 								<BotAutomations whens={automations.filter((item) => item.state !== "paused" && item.conversationId === bot.id).map((item) => item.when)} />
 							</span>

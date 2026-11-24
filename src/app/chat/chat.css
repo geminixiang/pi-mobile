@@ -1,5 +1,4 @@
 :where(.markdown, .bubble, pre, code, input, textarea) { user-select: text; -webkit-user-select: text; }
-.block-cursor { display: inline-block; width: 0.55em; height: 1.1em; vertical-align: -0.18em; background: var(--accent); animation: blink 1s steps(1) infinite; flex-shrink: 0; }
 .transcript > .skeleton-transcript { padding: 0; flex: none; }
 .transcript {
 	flex: 1; overflow: hidden auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 20px;
@@ -33,7 +32,7 @@
 .context-full > b { color: var(--accent); font-weight: inherit; }
 .markdown.caret > :last-child::after {
 	content: ""; display: inline-block; width: 0.5em; height: 1.05em; margin-left: 3px; vertical-align: -0.15em;
-	background: var(--accent); animation: blink 1s steps(1) infinite;
+	background: var(--accent);
 }
 .attachment { display: block; max-width: 240px; max-height: 240px; object-fit: cover; border: 1px solid var(--line); }
 .thinking button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 30px; color: var(--muted); text-align: left; }
