@@ -112,7 +112,7 @@
 .check-error { color: var(--error); }
 .check-error::before { content: "ERR  "; }
 .ws-loading { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); }
-.busy-dot, .ws-loading::after { display: inline-block; flex-shrink: 0; width: var(--busy-dot, 0.6em); height: var(--busy-dot, 0.6em); border-radius: 50%; background: var(--yellow); }
+.busy-dot, .ws-loading::after { display: inline-block; flex-shrink: 0; width: var(--busy-dot, 0.6em); height: var(--busy-dot, 0.6em); border-radius: var(--radius-full); background: var(--yellow); }
 .ws-loading::after { content: ""; margin-left: 6px; }
 .ws-empty { padding: 28px 4px; font-family: var(--serif); font-size: var(--fs-ui); line-height: 1.7; color: var(--muted); }
 .ws-empty.small { padding: 10px 0; font-size: var(--fs-body); }
