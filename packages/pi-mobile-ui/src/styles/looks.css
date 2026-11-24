@@ -42,36 +42,41 @@
 .note { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 .note.error { color: var(--error); }
 
-.answer .markdown { font-family: var(--serif); font-size: var(--fs-prose); line-height: 1.8; color: var(--copy); }
+.answer .markdown { font-family: var(--sans); font-size: var(--fs-prose); line-height: 1.8; color: var(--copy); text-wrap: pretty; hanging-punctuation: allow-end; }
 .markdown > :first-child { margin-top: 0; }
 .markdown > :last-child { margin-bottom: 0; }
-.markdown p, .markdown ul, .markdown ol { margin: 0.7em 0; }
-.markdown ul, .markdown ol { padding-left: 1.4em; }
-.markdown li + li { margin-top: 0.3em; }
-.markdown ul > li::marker { content: "■\2003"; font-size: 0.5em; color: var(--accent); }
+.markdown p { margin: 1.05em 0; }
+.markdown ul, .markdown ol { margin: 0.95em 0; padding-left: 1.35em; }
+.markdown li + li { margin-top: 0.55em; }
+.markdown li > p { margin: 0.35em 0; }
+.markdown ul > li::marker { content: "•\2002"; font-size: 0.95em; color: var(--faint); }
 .markdown ul > .task-list-item::marker { content: ""; }
 .task-list-item input {
 	appearance: none; width: 15px; height: 15px; margin: 0 10px 0 0; vertical-align: -2px;
 	border: 1px solid var(--line-strong); background: var(--bg-deep);
 }
 .task-list-item input:checked { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--bg-deep); }
-.markdown ol > li::marker { font-family: var(--mono); font-size: 0.8em; color: var(--muted); }
-.markdown h1, .markdown h2, .markdown h3, .markdown h4 { font-family: var(--serif); font-size: var(--fs-heading); font-weight: 700; line-height: 1.45; margin: 1.3em 0 0.4em; color: var(--text); }
-.markdown h1 { font-size: var(--fs-title); }
+.markdown ol > li::marker { font-family: var(--mono); font-size: 0.82em; color: var(--faint); }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { font-family: var(--sans); font-weight: 700; color: var(--text); }
+.markdown h1 { font-size: var(--fs-title); line-height: 1.38; margin: 1.7em 0 0.6em; }
+.markdown h2 { font-size: var(--fs-heading); line-height: 1.42; margin: 1.75em 0 0.55em; }
+.markdown h3, .markdown h4 { font-size: var(--fs-prose); line-height: 1.45; margin: 1.4em 0 0.4em; }
 .markdown strong { font-weight: 700; color: var(--text); }
-.markdown a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-.markdown code { font-family: var(--mono); font-size: 0.82em; }
-.markdown :not(pre) > code { padding: 1px 5px; background: var(--panel-2); color: var(--text); }
-.markdown blockquote { margin: 0.8em 0; padding: 2px 0 2px 16px; color: var(--muted); }
+.markdown a { color: var(--accent); text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, var(--accent) 38%, transparent); text-underline-offset: 4px; }
+.markdown code { font-family: var(--mono); font-size: 0.85em; }
+.markdown :not(pre) > code { padding: 0.12em 0.42em; border-radius: 5px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); color: var(--text); }
+.markdown blockquote { margin: 1.25em 0; padding: 13px 16px; border-radius: 10px; background: var(--panel); box-shadow: var(--chip-shadow); color: var(--muted); font-size: 0.94em; line-height: 1.78; }
+.markdown blockquote > :first-child { margin-top: 0; }
+.markdown blockquote > :last-child { margin-bottom: 0; }
 .markdown table { border-collapse: collapse; width: max-content; min-width: 100%; font-family: var(--sans); font-size: var(--fs-body); line-height: 1.5; }
+.markdown th, .markdown td { padding: 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); vertical-align: top; }
 .markdown th {
 	text-align: left; white-space: nowrap; font-family: var(--mono); font-weight: 400; font-size: var(--fs-meta);
-	text-transform: uppercase; color: var(--muted); background: var(--pending-bg);
+	text-transform: uppercase; color: var(--muted); background: transparent; border-bottom-color: var(--line);
 }
-.markdown th, .markdown td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .markdown td { min-width: 3em; max-width: 15em; overflow-wrap: break-word; }
 .markdown tr:last-child > td { border-bottom: none; }
-.markdown hr { border: none; border-top: 1px solid var(--line); margin: 1.4em 0; }
+.markdown hr { border: none; height: 1px; width: 48px; margin: 2em auto; background: var(--line-strong); opacity: 0.65; }
 .markdown img { max-width: 100%; height: auto; }
 .empty h2, .welcome h2 { margin: 28px 0 12px; font-family: var(--serif); font-size: var(--fs-display); font-weight: 400; line-height: 1.45; }
 .empty h2 em, .welcome h2 em { font-style: normal; color: var(--accent); }
