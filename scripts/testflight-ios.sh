@@ -25,7 +25,7 @@ cat > ios/App/build/ExportOptions.plist <<PLIST
 <key>method</key><string>app-store-connect</string>
 <key>destination</key><string>upload</string>
 <key>signingStyle</key><string>automatic</string>
-<key>testFlightInternalTestingOnly</key><true/>
+<key>testFlightInternalTestingOnly</key><false/>
 </dict></plist>
 PLIST
 cd ios/App
