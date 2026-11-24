@@ -188,6 +188,7 @@ export function App() {
 	const used = contextTokens(view);
 	const contextWindow = model ? windowFor(model.contextWindow, settings.compactAt) : 0;
 	const busy = isBusy(view);
+	const avatar = <>{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}{busy ? <i className="bar-busy" /> : null}</>;
 	const changeModel = async ({ model: nextModel, thinking: nextThinking }: { model?: { provider: string; id: string }; thinking?: string }) => {
 		if (!controller) return;
 		if (nextModel) await controller.setModel(nextModel.provider, nextModel.id).catch(fail);
@@ -278,16 +279,15 @@ export function App() {
 			<header ref={header} className="bar chat-bar">
 				<div className="bar-pill bar-who">
 					{wide ? (
-						<span className="bar-avatar">{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}</span>
+						<span className="bar-avatar">{avatar}</span>
 					) : (
 						<button type="button" className="bar-avatar" onClick={() => show("drawer")} aria-label="Bot 列表">
-							{current ? <BotAvatar bot={current} size={26} /> : <PiMark size={18} />}
+							{avatar}
 						</button>
 					)}
 					<button type="button" className="bar-what" onClick={() => (wide || modelReach(modelProvider).state().kind === "down" ? openInfo() : show("model"))} aria-label="模型與思考強度">
 						<span className="bar-title">
 							{current?.name ?? ""}
-							{busy ? <i className="bar-cursor" /> : null}
 						</span>
 						<ModelLine provider={modelProvider}>
 							{shortModelName(model?.name ?? modelId)}

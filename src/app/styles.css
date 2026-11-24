@@ -68,7 +68,7 @@
 .bar-who { flex: 1; min-width: 0; }
 .bar-tools { padding: 0 2px; }
 .bar-tools .icon-button { width: 42px; color: var(--muted); }
-.bar-avatar { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; }
+.bar-avatar { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; }
 .bar-what {
 	flex: 1; min-width: 0; align-self: stretch; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto;
 	align-content: center; align-items: center; column-gap: 10px; row-gap: 1px; padding-right: 12px; text-align: left;
@@ -76,7 +76,7 @@
 .bar-what .bar-context { grid-column: 2; grid-row: 1 / 3; }
 .bar-what .bar-title { display: inline-flex; align-items: center; font-size: var(--fs-body); line-height: 1.25; }
 .bar-what .bar-model { font-size: 10.5px; }
-.bar-cursor { flex-shrink: 0; width: 6px; height: 13px; margin-left: 5px; background: var(--yellow); animation: cursor 1s steps(1) infinite; }
+.bar-busy { position: absolute; right: 7px; bottom: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 2px var(--panel); }
 .bar-context { width: 20px; height: 20px; flex-shrink: 0; transform: rotate(-90deg); }
 .bar-context circle { fill: none; stroke: var(--line-strong); stroke-width: 2.4; }
 .bar-context .used { stroke: var(--accent); stroke-dasharray: var(--fill) 1; transition: stroke-dasharray 400ms var(--ease); }
