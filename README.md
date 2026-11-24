@@ -6,6 +6,8 @@
 
 <p align="center">AI agent 直接跑在你的 Android 手機上：<br>用你自己的模型 key，資料留在手機，程式碼在你自己的電腦上執行。</p>
 
+<p align="center"><a href="https://github.com/geminixiang/pi-mobile/releases/latest/download/pi-mobile.apk"><img src="https://img.shields.io/badge/Android-%E4%B8%8B%E8%BC%89%E6%9C%80%E6%96%B0%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android：下載最新 APK"></a></p>
+
 <p align="center">
 <img src="docs/screenshots/bots.png" width="200" alt="Bot 列表：每個 Bot 有自己的工作和自動化">
 <img src="docs/screenshots/stock.png" width="200" alt="台股：分析台積電的走勢和籌碼">

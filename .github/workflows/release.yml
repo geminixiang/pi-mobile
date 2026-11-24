@@ -148,5 +148,6 @@ jobs:
             printf '\n## 驗證\n- APK SHA-256：`%s`\n- 簽章憑證 SHA-256：`%s`\n- 所有檔案的 SHA-256：`pi-mobile.sha256`\n' \
               "$(sha256sum "$apk" | cut -d' ' -f1)" "$(cat cert.sha256)"
           } > notes.md
-          gh release create "$GITHUB_REF_NAME" "$apk" pi-mobile-darwin-* pi-mobile-linux-* pi-mobile-windows-* pi-mobile.icns install.sh install.ps1 pi-mobile.sha256 \
+          cp "$apk" pi-mobile.apk
+          gh release create "$GITHUB_REF_NAME" "$apk" pi-mobile.apk pi-mobile-darwin-* pi-mobile-linux-* pi-mobile-windows-* pi-mobile.icns install.sh install.ps1 pi-mobile.sha256 \
             --title "pi mobile $VERSION" --notes-file notes.md --verify-tag --latest
