@@ -3,7 +3,7 @@
 .question { display: flex; flex-direction: column; gap: 8px; }
 .question-card {
 	display: flex; flex-direction: column; gap: 4px; padding: 16px 16px 8px;
-	background: var(--interaction-card); border: 1px solid var(--interaction-border); border-radius: var(--radius-lg);
+	background: var(--interaction-card); border: 1px solid var(--interaction-border); border-radius: var(--radius-xl);
 }
 .question-shows { margin: 0 0 14px; padding: 12px 14px; max-height: 50vh; overflow: hidden auto; background: var(--bg); font-family: var(--sans); font-size: var(--fs-ui); line-height: 1.65; color: var(--copy); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
 .question.answered .question-shows { max-height: 6.6em; color: var(--muted); }
