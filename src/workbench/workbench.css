@@ -66,7 +66,7 @@
 .bench-scrim { position: absolute; inset: 0; z-index: 5; background: color-mix(in srgb, var(--panel) 40%, transparent); animation: fade-in 160ms var(--ease); }
 .bench-info {
 	position: absolute; z-index: 6; top: calc(env(safe-area-inset-top) + 64px); left: 16px; right: 16px; bottom: 16px;
-	display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; background: var(--panel); box-shadow: var(--sheet-shadow);
+	display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--sheet-shadow);
 	transform-origin: 24px 0; animation: info-in 200ms var(--ease);
 }
 .bench-info > .page-stack > .stack-base { overflow: auto; }

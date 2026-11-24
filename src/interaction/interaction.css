@@ -3,7 +3,7 @@
 .question { display: flex; flex-direction: column; gap: 8px; }
 .question-card {
 	display: flex; flex-direction: column; gap: 4px; padding: 16px 16px 8px;
-	background: var(--interaction-card); border: 1px solid var(--interaction-border); border-radius: 24px;
+	background: var(--interaction-card); border: 1px solid var(--interaction-border); border-radius: var(--radius-lg);
 }
 .question-shows { margin: 0 0 14px; padding: 12px 14px; max-height: 50vh; overflow: hidden auto; background: var(--bg); font-family: var(--sans); font-size: var(--fs-ui); line-height: 1.65; color: var(--copy); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
 .question.answered .question-shows { max-height: 6.6em; color: var(--muted); }
@@ -14,7 +14,7 @@
 .question-options button:disabled { opacity: 1; }
 .question-options button[data-pressed] { opacity: 0.6; }
 .question-letter {
-	display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+	display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: var(--radius-sm);
 	border: 1px solid var(--interaction-border); font-size: var(--fs-small); color: var(--muted);
 }
 .question-option { flex: 1; min-width: 0; font-size: var(--fs-prose); }
@@ -35,8 +35,8 @@
 .weather-day { width: 2.5em; }
 .weather-rain { width: 2.6em; font-size: var(--fs-meta); color: var(--accent); }
 .weather-low { color: var(--faint); }
-.weather-range { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--interaction-border); overflow: hidden; }
-.weather-range i { position: absolute; top: 0; bottom: 0; left: calc(var(--from) * 100%); right: calc((1 - var(--to)) * 100%); border-radius: 2px; background: var(--accent); }
+.weather-range { position: relative; flex: 1; height: 4px; border-radius: var(--radius-full); background: var(--interaction-border); overflow: hidden; }
+.weather-range i { position: absolute; top: 0; bottom: 0; left: calc(var(--from) * 100%); right: calc((1 - var(--to)) * 100%); border-radius: var(--radius-full); background: var(--accent); }
 .page-card { width: 100%; padding: 16px; gap: 8px; text-align: left; }
 .page-frame-card { width: 100%; padding: 0; overflow: hidden; }
 .page-frame { display: block; width: 100%; height: var(--frame-height, 240px); border: 0; background: #fff; }
@@ -50,7 +50,7 @@
 .form-unsupported { margin: 0; font-size: var(--fs-small); color: var(--error); }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 0 6px; }
 .form-button {
-	height: 38px; padding: 0 18px; border-radius: 19px; border: 1px solid var(--interaction-border);
+	height: 38px; padding: 0 18px; border-radius: var(--radius-full); border: 1px solid var(--interaction-border);
 	font-size: var(--fs-ui); color: var(--text);
 }
 .form-button.primary { background: var(--text); border-color: var(--text); color: var(--interaction-card); font-weight: 700; }
@@ -61,7 +61,7 @@
 .form-record-outcome { flex: 1; min-width: 0; font-size: var(--fs-ui); color: var(--faint); }
 .beside-card { flex-direction: row; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; text-align: left; }
 .beside-card.here { background: color-mix(in srgb, var(--interaction-card) 70%, var(--accent-soft)); }
-.beside-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: var(--panel-2); color: var(--muted); }
+.beside-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius-md); background: var(--panel-2); color: var(--muted); }
 .beside-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .beside-card .page-title { font-size: var(--fs-ui); }
 .beside-summary { font-size: var(--fs-small); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

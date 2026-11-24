@@ -1,9 +1,9 @@
 .markdown .source {
-	margin-left: 4px; padding: 1px 7px; border-radius: 6px; background: var(--panel); box-shadow: var(--chip-shadow);
+	margin-left: 4px; padding: 1px 7px; border-radius: var(--radius-sm); background: var(--panel); box-shadow: var(--chip-shadow);
 	font-family: var(--sans); font-size: var(--fs-small); line-height: 1.5; color: var(--muted); text-decoration: none; white-space: nowrap;
 }
-.markdown .table { margin: 1.25em 0; overflow-x: auto; border-radius: 10px; background: var(--panel); box-shadow: var(--chip-shadow); }
-.code { margin: 1.25em 0; border-radius: 10px; background: var(--panel); box-shadow: var(--chip-shadow); color: var(--code-block); overflow: hidden; }
+.markdown .table { margin: 1.25em 0; overflow-x: auto; border-radius: var(--radius-md); background: var(--panel); box-shadow: var(--chip-shadow); }
+.code { margin: 1.25em 0; border-radius: var(--radius-md); background: var(--panel); box-shadow: var(--chip-shadow); color: var(--code-block); overflow: hidden; }
 .code-head {
 	display: flex; align-items: center; justify-content: space-between; min-height: 32px; padding: 6px 6px 2px 14px;
 	font-family: var(--mono); font-size: var(--fs-meta); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);

@@ -66,7 +66,11 @@
 
 	--space: 20px;
 	--side-width: min(86vw, 370px);
+	--radius-sm: 6px;
+	--radius-md: 10px;
+	--radius-lg: 16px;
 	--card-radius: 36px;
+	--radius-full: 999px;
 	--side-inset: 40px;
 	--card-shadow: 0 0 28px color-mix(in srgb, var(--text) 18%, transparent);
 	--pill-bg: color-mix(in srgb, var(--panel) 82%, transparent);

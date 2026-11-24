@@ -64,8 +64,8 @@
 .markdown strong { font-weight: 700; color: var(--text); }
 .markdown a { color: var(--accent); text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, var(--accent) 38%, transparent); text-underline-offset: 4px; }
 .markdown code { font-family: var(--mono); font-size: 0.85em; }
-.markdown :not(pre) > code { padding: 0.12em 0.42em; border-radius: 5px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); color: var(--text); }
-.markdown blockquote { margin: 1.25em 0; padding: 13px 16px; border-radius: 10px; background: var(--panel); box-shadow: var(--chip-shadow); color: var(--muted); font-size: 0.94em; line-height: 1.78; }
+.markdown :not(pre) > code { padding: 0.12em 0.42em; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); color: var(--text); }
+.markdown blockquote { margin: 1.25em 0; padding: 13px 16px; border-radius: var(--radius-md); background: var(--panel); box-shadow: var(--chip-shadow); color: var(--muted); font-size: 0.94em; line-height: 1.78; }
 .markdown blockquote > :first-child { margin-top: 0; }
 .markdown blockquote > :last-child { margin-bottom: 0; }
 .markdown table { border-collapse: collapse; width: max-content; min-width: 100%; font-family: var(--sans); font-size: var(--fs-body); line-height: 1.5; }
@@ -85,7 +85,7 @@
 .queue li { display: flex; align-items: center; gap: 10px; padding-left: var(--space); background: color-mix(in srgb, var(--user-bg) 55%, var(--bg)); }
 .queue-mode { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); flex-shrink: 0; }
 .queue-text { flex: 1; min-width: 0; font-size: var(--fs-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.layer-sheet::before, .browser-grip::before { width: 40px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text) 40%, transparent); }
+.layer-sheet::before, .browser-grip::before { width: 40px; height: 4px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--text) 40%, transparent); }
 .menu-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .menu-hint { font-size: var(--fs-small); color: var(--muted); line-height: 1.45; }
 .inline-verbs { display: flex; gap: 20px; }

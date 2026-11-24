@@ -3,8 +3,8 @@
 .chevron[data-open] { transform: rotate(90deg); }
 .row-list > label[data-pressed] { background: var(--accent-soft); }
 .row-list > .danger, .row-list > .danger > svg { color: var(--error); }
-.segmented { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--bg-deep); box-shadow: var(--inset-shadow); flex-shrink: 0; }
-.segmented button { flex: 1; height: 38px; border-radius: 7px; background: transparent; font-size: var(--fs-body); color: var(--muted); text-align: center; }
+.segmented { display: flex; gap: 4px; padding: 4px; border-radius: var(--radius-md); background: var(--bg-deep); box-shadow: var(--inset-shadow); flex-shrink: 0; }
+.segmented button { flex: 1; height: 36px; border-radius: var(--radius-sm); background: transparent; font-size: var(--fs-body); color: var(--muted); text-align: center; }
 .segmented button.selected { background: var(--panel); color: var(--text); font-weight: 700; box-shadow: var(--chip-shadow); }
 .segmented button:disabled { color: var(--faint); opacity: 0.5; }
 .choice-list > button.selected, .choice-list > button.selected > svg { color: var(--accent); }

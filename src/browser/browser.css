@@ -8,7 +8,7 @@
 .browser-grip { align-self: center; width: 240px; height: calc(28px + env(safe-area-inset-bottom)); flex-shrink: 0; display: flex; justify-content: center; padding-top: 12px; touch-action: none; }
 .browser-grip::before { content: ""; }
 .browser-sheet-bar { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 8px 0 var(--space); flex-shrink: 0; touch-action: none; }
-.browser-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--faint); }
+.browser-dot { width: 7px; height: 7px; border-radius: var(--radius-full); flex-shrink: 0; background: var(--faint); }
 .browser-dot:is([data-active], [data-waiting]) { animation: browser-pulse 1.2s ease-in-out infinite; }
 .browser-dot[data-active] { background: var(--ok); }
 .browser-dot[data-waiting] { background: var(--yellow); }

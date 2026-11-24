@@ -46,7 +46,7 @@
 	background: linear-gradient(to bottom, var(--bg) calc(env(safe-area-inset-top) * 0.6), color-mix(in srgb, var(--bg) 88%, transparent) env(safe-area-inset-top), color-mix(in srgb, var(--bg) 45%, transparent) calc(env(safe-area-inset-top) + 12px), transparent);
 }
 .bar-pill {
-	position: relative; display: flex; align-items: center; height: 44px; border-radius: 22px; background: var(--pill-bg); box-shadow: var(--pill-shadow);
+	position: relative; display: flex; align-items: center; height: 44px; border-radius: var(--radius-full); background: var(--pill-bg); box-shadow: var(--pill-shadow);
 	transition: transform 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
 }
 .bar-pill::before {
@@ -61,7 +61,7 @@
 .bar-tools button:last-child::before { right: -14px; }
 .bar-pill button[data-pressed] { background-color: transparent; }
 .bar-pill button::after {
-	content: ""; position: absolute; inset: 2px; border-radius: 20px; pointer-events: none;
+	content: ""; position: absolute; inset: 2px; border-radius: var(--radius-full); pointer-events: none;
 	background: radial-gradient(closest-side, var(--pill-press), transparent); opacity: 0; transition: opacity 420ms var(--ease);
 }
 .bar-pill button[data-pressed]::after { opacity: 1; transition-duration: 0ms; }

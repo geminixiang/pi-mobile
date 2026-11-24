@@ -81,7 +81,7 @@
 .scroll-hint {
 	touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 	position: absolute; left: 50%; top: -18px; transform: translate(-50%, -50%); z-index: 3;
-	display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border-radius: 999px;
+	display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border-radius: var(--radius-full);
 	background: var(--pill-bg); box-shadow: var(--pill-shadow); color: var(--text);
 	font-family: var(--mono); font-size: var(--fs-meta);
 	white-space: nowrap; animation: fade-in 160ms ease;
@@ -151,7 +151,7 @@
 .busy-actions .btn { height: 32px; }
 .pending-images { display: flex; gap: 8px; padding: 10px 10px 2px; overflow-x: auto; }
 .pending-files { display: flex; flex-direction: column; gap: 6px; padding: 10px 10px 2px; }
-.file-chip { display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 8px 10px; border-radius: 8px; background: var(--panel); box-shadow: var(--chip-shadow); text-align: left; }
+.file-chip { display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 8px 10px; border-radius: var(--radius-md); background: var(--panel); box-shadow: var(--chip-shadow); text-align: left; }
 .file-chip > svg { flex-shrink: 0; color: var(--muted); }
 .file-chip-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); }
@@ -181,7 +181,7 @@
 .answer-actions { display: flex; align-items: center; gap: 4px; margin: -12px 0 0 -10px; }
 .answer-actions .note { margin-left: 10px; }
 .replies { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
-.replies button { padding: 8px 13px; border-radius: 8px; background: var(--panel); box-shadow: var(--chip-shadow); font-family: var(--mono); font-size: var(--fs-small); line-height: 1.4; color: var(--accent); text-align: left; }
+.replies button { padding: 8px 13px; border-radius: var(--radius-md); background: var(--panel); box-shadow: var(--chip-shadow); font-family: var(--mono); font-size: var(--fs-small); line-height: 1.4; color: var(--accent); text-align: left; }
 .replies button::before { content: "↳ "; color: var(--faint); }
 .markdown.interim { font-family: var(--sans); font-size: var(--fs-small); line-height: 1.5; color: var(--faint); }
 .markdown.interim p { margin: 0; }
