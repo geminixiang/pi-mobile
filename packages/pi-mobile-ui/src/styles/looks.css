@@ -46,8 +46,10 @@
 .markdown > :first-child { margin-top: 0; }
 .markdown > :last-child { margin-bottom: 0; }
 .markdown p { margin: 1.35em 0; }
-.markdown ul, .markdown ol { margin: 1.25em 0; padding-left: 1.1em; }
-.markdown li + li { margin-top: 0.8em; }
+.markdown p:has(+ ul), .markdown p:has(+ ol) { margin-bottom: 0.4em; }
+.markdown ul, .markdown ol { margin: 1.35em 0; padding-left: 1.1em; }
+.markdown p + ul, .markdown p + ol { margin-top: 0.4em; }
+.markdown li + li { margin-top: 0.45em; }
 .markdown li > p { margin: 0.45em 0; }
 .markdown ul > li::marker { content: "• "; font-size: 0.9em; color: var(--faint); }
 .markdown ul > .task-list-item::marker { content: ""; }
