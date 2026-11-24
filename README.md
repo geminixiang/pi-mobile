@@ -4,9 +4,9 @@
 
 <p align="center"><b>非官方的社群專案</b>：不是 <a href="https://pi.dev">pi</a> 官方產品，與 Earendil 沒有關聯，也沒有經過他們背書。</p>
 
-<p align="center">AI agent 直接跑在你的 Android 手機上：<br>用你自己的模型 key，資料留在手機，程式碼在你自己的電腦上執行。</p>
+<p align="center">AI agent 直接跑在你的手機上：<br>用你自己的模型 key，資料留在手機，程式碼在你自己的電腦上執行。</p>
 
-<p align="center"><a href="https://github.com/geminixiang/pi-mobile/releases/latest/download/pi-mobile.apk"><img src="https://img.shields.io/badge/Android-%E4%B8%8B%E8%BC%89%E6%9C%80%E6%96%B0%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android：下載最新 APK"></a></p>
+<p align="center"><a href="https://github.com/geminixiang/pi-mobile/releases/latest/download/pi-mobile.apk"><img src="https://img.shields.io/badge/Android-%E4%B8%8B%E8%BC%89%E6%9C%80%E6%96%B0%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android：下載最新 APK"></a> <a href="https://testflight.apple.com/join/K8zP12T6"><img src="https://img.shields.io/badge/iOS-TestFlight%20%E5%8A%A0%E5%85%A5%E6%B8%AC%E8%A9%A6-0D96F6?style=for-the-badge&logo=apple&logoColor=white" alt="iOS：TestFlight 加入測試"></a></p>
 
 <p align="center">
 <img src="docs/screenshots/bots.png" width="200" alt="Bot 列表：每個 Bot 有自己的工作和自動化">
@@ -27,7 +27,7 @@
 
 ## 開始使用
 
-1. **安裝**：從[最新的 release](../../releases/latest) 下載 `pi-mobile-<版本>.apk` 安裝。需要 Android 16 以上的 arm64 手機。之後有新版時，設定頁最下面會出現「更新到 <版本>」，按一下就會下載並交給 Android 安裝；第一次 Android 會要你允許 Pi 安裝應用程式，允許後回來再按一次。
+1. **安裝**：從[最新的 release](../../releases/latest) 下載 `pi-mobile-<版本>.apk` 安裝。需要 Android 16 以上的 arm64 手機。之後有新版時，設定頁最下面會出現「更新到 <版本>」，按一下就會下載並交給 Android 安裝；第一次 Android 會要你允許 Pi 安裝應用程式，允許後回來再按一次。iPhone（iOS 26 以上）先裝 TestFlight，再點[公開測試連結](https://testflight.apple.com/join/K8zP12T6)加入，名額 100 人；新版由 TestFlight 更新。
 2. **加入模型供應商**：第一次打開時，選一家供應商填上 API key，或填自訂端點的網址。到這一步就能聊天。
    - 自訂端點在自己的電腦上（例如 CLIProxyAPI）時，在那台電腦用 Tailscale Serve 給它一個 https 網址，手機填 `https://<電腦>.<tailnet>.ts.net:8318`：
      ```sh
