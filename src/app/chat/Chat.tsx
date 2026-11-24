@@ -394,7 +394,7 @@ export function Chat({
 				) : null}
 				{failureNote ? <p className="note error">{failureNote}</p> : null}
 				{partial ? (
-					<article className="answer" ref={followStream}>
+					<article className="answer streaming" ref={followStream}>
 						<Content content={withoutReplies(partial)} prefs={prefs} calls={calls} streaming />
 					</article>
 				) : null}

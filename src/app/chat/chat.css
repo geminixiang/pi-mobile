@@ -5,7 +5,7 @@
 	flex: 1; overflow: hidden auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 20px;
 	padding: var(--top) var(--space) calc(var(--composer-h, 92px) + 28px); scroll-padding: var(--top) 0 var(--composer-h, 92px);
 }
-:where(:root:not([data-platform="ios"])) .transcript > :nth-last-child(n + 6) { content-visibility: auto; contain-intrinsic-size: auto 320px; }
+:where(:root:not([data-platform="ios"])) .transcript > :is(:nth-last-child(n + 6), .streaming) { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 .prompt { cursor: pointer; margin: 0 calc(-1 * var(--space)); }
 .bubble {
 	padding: 16px var(--space); background: var(--user-bg);
