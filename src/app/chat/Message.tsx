@@ -12,7 +12,7 @@ import { inViewPart, inViewPath } from "../../agent/in-view.ts";
 import { partLabel } from "../../workbench/changes.ts";
 import type { Prefs } from "../prefs.ts";
 import { markdownComponents, OpenFileContext, remarkPlugins } from "pi-mobile-ui/message";
-import { StreamingMarkdown } from "./streaming.tsx";
+import { type Held, StreamingMarkdown } from "./streaming.tsx";
 import { preview, stepsLabel, TOOL_DOING } from "./steps.ts";
 import { triggerNotice, triggerRun, type TriggerRun } from "../../triggers/runs.ts";
 import { monthDayTime } from "pi-mobile-base/time";
@@ -325,7 +325,7 @@ export function isEmptyAnswer(entry: EntryRecord): boolean {
 	);
 }
 
-export function Content({ content, prefs, calls, streaming, run = LONE_RUN, since }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: boolean; run?: StepRun; since?: number }) {
+export function Content({ content, prefs, calls, streaming, run = LONE_RUN, since }: { content: readonly Block[]; prefs: Prefs; calls: CallStates; streaming?: Held; run?: StepRun; since?: number }) {
 	const groups: (Block | Call[])[] = [];
 	for (const block of content) {
 		const last = groups.at(-1);
@@ -368,15 +368,15 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 								</span>
 							);
 						}
-						if (!streaming && BROKEN_TEXT.test(group.text)) return null;
-						const caret = streaming && content[lastText] === group;
+						if (streaming === undefined && BROKEN_TEXT.test(group.text)) return null;
+						const held = content[lastText] === group ? streaming : undefined;
 						return (
 							<div
-								className={`markdown${content.indexOf(group) < narrated ? " interim" : ""}${caret ? " caret" : ""}`}
+								className={`markdown${content.indexOf(group) < narrated ? " interim" : ""}${held ? " caret" : ""}`}
 								key={index}
 							>
-								{caret ? (
-									<StreamingMarkdown text={group.text} />
+								{held ? (
+									<StreamingMarkdown text={group.text} held={held} />
 								) : (
 									<Markdown remarkPlugins={remarkPlugins} components={markdownComponents}>
 										{group.text}
@@ -387,7 +387,7 @@ export function Content({ content, prefs, calls, streaming, run = LONE_RUN, sinc
 					}
 					case "thinking":
 						return prefs.showThinking && group.thinking.trim() ? (
-							<Thinking key={index} text={group.thinking} streaming={streaming && index === groups.length - 1} />
+							<Thinking key={index} text={group.thinking} streaming={streaming !== undefined && index === groups.length - 1} />
 						) : null;
 					case "image":
 						return <img className="attachment" key={index} src={`data:${group.mimeType};base64,${group.data}`} alt="" />;

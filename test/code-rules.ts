@@ -514,7 +514,7 @@ const LONG_FILES: Record<string, number> = {
 	"src/runtime/runtime.ts": 602,
 	"src/tw-stocks/tool.ts": 465,
 	"src/app/App.tsx": 514,
-	"src/app/chat/Chat.tsx": 471,
+	"src/app/chat/Chat.tsx": 419,
 	"src/app/bots/Links.tsx": 435,
 	"src/app/chat/Message.tsx": 517,
 	"src/app/settings/Settings.tsx": 417,

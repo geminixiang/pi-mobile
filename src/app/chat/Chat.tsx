@@ -7,7 +7,8 @@ import { isCodeNote } from "../../agent/codes.ts";
 import { inViewPath } from "../../agent/in-view.ts";
 import { Composer, type QueuedItem } from "./Composer.tsx";
 import type { DialPrompt } from "./PromptDial.tsx";
-import { ArrowIcon, CopyButton, CopyIcon, PiMark, RefreshIcon, RowList } from "pi-mobile-ui/elements";
+import { CopyButton, CopyIcon, PiMark, RefreshIcon, RowList } from "pi-mobile-ui/elements";
+import { type SharedKind, shareActions, SuggestionList } from "./suggestions.tsx";
 import { type CallState, Content, EntryView, finishedCalls, isEmptyAnswer } from "./Message.tsx";
 import { entryText, retriedAttempts, retrying, runFailureNote } from "../../agent/entries.ts";
 import { inboxOf, liveOf } from "../docs.ts";
@@ -26,8 +27,7 @@ import { pageCards } from "../../interaction/pages.ts";
 import type { ResultCard } from "../../agent/results.ts";
 import { ReachNote, useReach } from "../bots/Links.tsx";
 import { answerOf, withoutReplies } from "../../interaction/replies.ts";
-import { pad } from "pi-mobile-base/time";
-import { promised, useSubscribed } from "pi-mobile-ui/store";
+import { cell, promised, useSubscribed } from "pi-mobile-ui/store";
 
 const CONTEXT_NEARLY_FULL = 0.8;
 const AT_BOTTOM_PX = 4;
@@ -43,60 +43,6 @@ function text(content: string | readonly { type: string; text?: string }[] | und
 			return attachment ? `［${attachment.name}］` : part.text;
 		})
 		.join(" ");
-}
-
-interface Suggestion {
-	title: string;
-	prompt: string;
-}
-
-export type SharedKind = "image" | "file" | "text" | "screen";
-
-function SuggestionList({ items, onPick }: { items: readonly Suggestion[]; onPick: (item: Suggestion) => void }) {
-	return (
-		<ol className="suggestions">
-			{items.map((item, index) => (
-				<li key={item.title}>
-					<button type="button" onClick={() => onPick(item)}>
-						<span className="suggestion-index">{pad(index + 1)}</span>
-						<span className="suggestion-text">
-							<strong>{item.title}</strong>
-							<span>{item.prompt}</span>
-						</span>
-						<ArrowIcon />
-					</button>
-				</li>
-			))}
-		</ol>
-	);
-}
-
-function shareActions(kind: SharedKind): Suggestion[] {
-	if (kind === "screen") {
-		return [
-			{ title: "這頁在講什麼", prompt: "這個畫面在講什麼？用幾句話說重點" },
-			{ title: "幫我回覆", prompt: "幫我想一個回覆，簡短、口語" },
-			{ title: "接下來要做什麼", prompt: "看這個畫面，我接下來要做什麼？有日期或待辦就幫我排進行事曆" },
-		];
-	}
-	if (kind === "file") {
-		return [
-			{ title: "摘要", prompt: "讀一下這份檔案，用幾點摘要重點" },
-			{ title: "找出要注意的", prompt: "這份檔案裡有哪些日期、金額或要我做的事？" },
-			{ title: "翻譯", prompt: "翻成繁體中文" },
-		];
-	}
-	return kind === "image"
-		? [
-				{ title: "這是什麼", prompt: "這張圖裡有什麼？" },
-				{ title: "抄下文字", prompt: "把圖裡的文字抄下來，不是中文的話翻成中文" },
-				{ title: "排進行事曆", prompt: "如果這是活動或行程，幫我加到行事曆" },
-			]
-		: [
-				{ title: "摘要", prompt: "讀一下這個，用幾點摘要重點" },
-				{ title: "翻譯", prompt: "翻成繁體中文" },
-				{ title: "晚點提醒我", prompt: "今晚 9 點提醒我看這個，附上一句摘要" },
-			];
 }
 
 const FIRST_TASK = "幫我看最近的行事曆；手機通知已經開放的話也一起看。找出幾件你能幫上忙的事，用選項問我要從哪件開始。只讀，不要改任何東西。";
@@ -154,6 +100,7 @@ export function Chat({
 	const stickToBottom = useRef(true);
 	const touching = useRef(false);
 	const wheeledAt = useRef(-Infinity);
+	const readingAbove = useMemo(() => cell(false), []);
 
 	const follow = useCallback((box: HTMLDivElement) => {
 		const composer = box.querySelector<HTMLElement>(":scope > .composer");
@@ -303,6 +250,7 @@ export function Chat({
 					if (element.scrollHeight - element.scrollTop - element.clientHeight < AT_BOTTOM_PX) stickToBottom.current = true;
 					else if (byUser) stickToBottom.current = false;
 					const stuck = stickToBottom.current;
+					readingAbove.set(!stuck && element.scrollHeight - element.scrollTop - element.clientHeight > element.clientHeight);
 					setSizeWhenLeft((left) => (stuck ? undefined : (left ?? contentSize)));
 				}}
 			>
@@ -395,7 +343,7 @@ export function Chat({
 				{failureNote ? <p className="note error">{failureNote}</p> : null}
 				{partial ? (
 					<article className="answer streaming" ref={followStream}>
-						<Content content={withoutReplies(partial)} prefs={prefs} calls={calls} streaming />
+						<Content content={withoutReplies(partial)} prefs={prefs} calls={calls} streaming={readingAbove} />
 					</article>
 				) : null}
 				{live?.compactions?.length ? <Working label="壓縮對話中" /> : null}

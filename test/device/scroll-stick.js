@@ -147,6 +147,23 @@ try {
 	await stop();
 
 	await toBottom();
+	await sendFromComposer(prompt());
+	await streaming();
+	for (let i = 0; i < 4; i++) await scrollUp(500);
+	await sleep(600);
+	const writes = await page.eval(`
+		const live = () => [...transcript().querySelectorAll(":scope > article.answer")].at(-1).textContent.length;
+		const lengths = [live()];
+		for (let i = 0; i < 30; i++) { await sleep(100); lengths.push(live()); }
+		return lengths.filter((length, i) => i > 0 && length !== lengths[i - 1]).length;
+	`);
+	await toBottom();
+	await sleep(800);
+	const caughtUp = await follows();
+	record("(g) 串流中往上捲過一個畫面", `3 秒內字寫進去 ${writes} 次；回到底部後每 0.2 秒離底 ${caughtUp.gaps}`, writes <= 4 && caughtUp.following);
+	await stop();
+
+	await toBottom();
 	await sleep(300);
 	const { x, y } = await evaluate(`center(document.querySelector(".composer textarea"))`);
 	const height = () => evaluate("transcript().clientHeight");
@@ -172,4 +189,4 @@ if (failures.length > 0) {
 	console.error(`FAIL:\n- ${failures.join("\n- ")}`);
 	process.exit(1);
 }
-console.log("PASS: a small drag up while streaming lets go and stays, the bottom keeps following even when the content shrinks, a parked view is not pulled back, and 回到最新, sending and the keyboard keep it at the bottom");
+console.log("PASS: a small drag up while streaming lets go and stays, the bottom keeps following even when the content shrinks, a parked view is not pulled back, reading more than a screen above holds the streamed text to one write a second, and 回到最新, sending and the keyboard keep it at the bottom");
