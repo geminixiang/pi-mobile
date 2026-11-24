@@ -42,14 +42,14 @@
 .note { font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 .note.error { color: var(--error); }
 
-.answer .markdown { font-family: var(--sans); font-size: var(--fs-prose); line-height: 1.8; color: var(--copy); text-wrap: pretty; hanging-punctuation: allow-end; }
+.answer .markdown { font-family: var(--sans); font-size: var(--fs-prose); line-height: 1.6; color: color-mix(in srgb, var(--text) 68%, var(--muted)); text-wrap: pretty; hanging-punctuation: allow-end; }
 .markdown > :first-child { margin-top: 0; }
 .markdown > :last-child { margin-bottom: 0; }
-.markdown p { margin: 1.05em 0; }
-.markdown ul, .markdown ol { margin: 0.95em 0; padding-left: 1.35em; }
-.markdown li + li { margin-top: 0.55em; }
-.markdown li > p { margin: 0.35em 0; }
-.markdown ul > li::marker { content: "•\2002"; font-size: 0.95em; color: var(--faint); }
+.markdown p { margin: 1.35em 0; }
+.markdown ul, .markdown ol { margin: 1.25em 0; padding-left: 1.1em; }
+.markdown li + li { margin-top: 0.8em; }
+.markdown li > p { margin: 0.45em 0; }
+.markdown ul > li::marker { content: "• "; font-size: 0.9em; color: var(--faint); }
 .markdown ul > .task-list-item::marker { content: ""; }
 .task-list-item input {
 	appearance: none; width: 15px; height: 15px; margin: 0 10px 0 0; vertical-align: -2px;
