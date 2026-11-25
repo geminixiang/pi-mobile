@@ -179,8 +179,8 @@ function android(serial: string): Device {
 		readFrameTimings: () => frameTimings(adb("dumpsys", "gfxinfo", PACKAGE, "framestats")),
 		fling: async (_page, direction) => (direction === "older" ? swipe(540, 800, 540, 1900, 100) : swipe(540, 1900, 540, 800, 100)),
 		panel: async (page) => {
-			const { x, y } = await page.eval<{ x: number; y: number }>(`return center(button("Bot 列表"));`);
-			tap(x, y);
+			// why: a heads-up notification covers the header, so a tap there opened LINE mid-run (2026-11-25); click in the page instead
+			await page.eval(`button("Bot 列表").click(); return true;`);
 			await sleep(1200);
 			swipe(800, 1200, 50, 1200, 150);
 			await sleep(1200);
