@@ -24,17 +24,16 @@
 
 ## 已知限制
 
-- 只有 Android。iOS 需要 Xcode 和 Apple Team ID，還沒做。
-- 容器只實測過 docker（Mac 上的 colima）；podman、nerdctl、x86 電腦還沒測。電腦上的 pi-mobile 只實測過 macOS。
+- iOS 功能範圍比 Android 少（沒有背景長跑、無障礙跨 app 操作、通話簡訊與通知讀取等；細項見 [design/platforms.md](design/platforms.md)）。
+- 容器只實測過 docker（Mac 上的 colima）；podman、nerdctl、x86 電腦還沒測。
 - Sandbox 沒有互動式終端機（PTY），vim、REPL 這類程式不能用。
 - `aws` 還沒支援。
 - `az` 在 sandbox 裡是 managed identity，所以 `az ad signed-in-user show` 這類「我是誰」的指令不能用；還沒在有訂閱的帳號上測過建立資源。
 - 內建供應商只實測過 OpenRouter（直接從手機呼叫）；其他家都確認過允許從手機的 WebView 呼叫（CORS），但還沒用真的 key 測。NVIDIA 不允許，所以沒列。
 - 訂閱登入只支援 OpenAI 的 Sign in with ChatGPT（`src/agent/chatgpt.ts`，照 pi-ai 的流程在手機上重做）。Claude Pro／Max、GitHub Copilot 等其他訂閱登入不做。
 - 介面只有繁體中文。
-- 排程觸發時如果 pi 已經被系統清掉，要點通知才會開始執行，不會自己在背景跑。
+- 排程或戴耳機觸發時，若 pi 已被系統清掉且未授權「顯示在其他應用程式上層」，要點通知才會開始執行。
 - 背景觸發的 run 不能要求新的權限（定位、行事曆），要先在前景用過一次授權。
-- 戴耳機觸發時如果 pi 已經被系統清掉，一樣要點通知才會開始，所以不一定能「一戴上就聽到」。
 - 螢幕使用時間和數位助理是 Android 的「受限制的設定」：不是從 Play 商店裝的 app，要先在 pi mobile 的應用程式資訊頁按「⋮ › 允許受限制的設定」才能打開。
 - 通話紀錄和簡訊在 Google Play 只開放給預設的電話和簡訊 app；pi 是自己安裝的，所以是一般的執行期權限。
 - 附件只讀 PDF、Word（docx）、Excel（xlsx）、CSV 和純文字；舊版 doc、xls 和 PowerPoint 不支援。分享單一檔案最大 20 MB。

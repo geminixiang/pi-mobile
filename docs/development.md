@@ -26,17 +26,6 @@ npm ci --ignore-scripts
 
 App 內的更新（設定頁最下面的「更新到 <版本>」）讀 GitHub 上最新的 release：tag 比裝著的版本新（`-dev` 不算），而且有 `pi-mobile-<版本>.apk` 和 GitHub 給的 SHA-256 時才出現。按下去由原生端下載到 app 的快取、核對 SHA-256、確認是同一個套件、同一把金鑰簽的，再交給 Android 的安裝畫面；第一次 Android 會要你允許 Pi 安裝應用程式，允許後 Android 16 不會自己接著安裝，要回到 pi mobile 再按一次（模擬器實測 0.8.99 → 0.9.0，資料保留）。所以 release 的 APK 檔名不要改；用 debug keystore 建的開發版會被擋下（「用不同的金鑰簽章」），要先移除。
 
-第一次打開時填：
-- **模型供應商**：pi-ai 內建的供應商填 API key，或自訂端點（OpenAI 或 Anthropic 相容）填網址和 key。
-- **電腦**（選填）：把 tailnet 裡的一台電腦交給 pi，見下一節。
-- **GitHub**（選填）：fine-grained token，只開需要的 repo。
-- **Google Cloud**（選填）：按「登入」用 Google 帳號登入。瀏覽器最後一頁會顯示授權碼，複製後回到 app 會自動帶入。流程和 `gcloud auth application-default login --no-launch-browser` 相同，用的是 gcloud 本身的 OAuth client。也可以改貼 service account 金鑰。可以設預設專案。
-- **Cloudflare**（選填）：按「登入」，在瀏覽器確認代碼並同意，app 會自動完成。也可以改貼 API token。
-- **Azure**（選填）：按「登入」，代碼會自動複製，在 Microsoft 的頁面貼上並同意。
-- **背景執行**：允許通知，並讓 app 不受電池最佳化限制。
-
-每一組都有「測試連線」，設定頁最下面顯示目前安裝的版本（commit 和建置時間）。
-
 ## 把電腦交給 pi
 
 電腦（macOS、有 systemd 的 Linux，或 Windows）要裝好 Tailscale，並登入跟手機同一個帳號。在電腦上執行一次：

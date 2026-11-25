@@ -173,19 +173,15 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - `src/app/` 是外殼：最外層放排版、session、側欄和平台接線，底下四區各管一塊畫面：`chat/`（對話、訊息、輸入框）、`bots/`（Bot 列表和面板）、`settings/`（設定目錄、模型供應商、電腦）、`files/`（資料夾和檔案檢視）。
 - 樣式跟著元件走：有畫面的資料夾有一個同名的樣式檔（`src/browser/browser.css`、`src/app/chat/chat.css`）。顏色和間距（`tokens.css`）、元素的預設（`base.css`）、好幾個資料夾共用的樣式（`looks.css`）和字型（`fonts.ts`）在 `packages/pi-mobile-ui/src/styles/`；`src/app/styles.css` 只留外殼自己的樣式。`src/app/index.css` 先引入 package 的樣式入口，再依層的順序引入其他樣式檔（`.pi/skills/css/SKILL.md` § 0）。
 
-2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`。那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），所以會把程式碼推進最大的資料夾。當天往上的 import 從 34 條清到 0，並把還留在 `agent/` 的 20 個功能搬到各自的資料夾。
-
-2026-11-18 背景指令的動作搬到 `jobs/jobs.ts`（`runtime.jobs`），帳號清單只在 `clouds/accounts.tsx` 寫一次，設定的暫存由 `app/session.ts` 管；`runtime.ts` 先開 Harness，再在建構時建好各功能的 handle，工具直接拿 handle，不再經過 `runtimeRef`。
+2026-11-17 這條規則取代了原本數循環的 `TANGLED_IMPORTS`：那個數字在把檔案搬到正確位置時反而變大（模擬：403 變 532），會把程式碼推進最大的資料夾。
 
 還沒做的有兩件：
 - 功能之間互相 import 還沒有規則（排程是事項、背景工作、電腦上的 agent 的樞紐）。
 - 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
 
-2026-11-17 之前，做產品的 181 個 commit 有 90 個改到 `styles.css`、`App.tsx`、`runtime.ts`、`Settings.tsx` 其中之一；這些整理之後，這個比例要再累積 50 到 100 個 commit 才能重量。
-
 ### Workspace package
 
-根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和步驟見 [design/ui-package.md](design/ui-package.md)；2026-11-23 起檔案一步一步搬進去：`pi-mobile-base` 有 `time.ts`、`log.ts`、`promise.ts`，原本的 `src/ui/` 整個搬進 `pi-mobile-ui`。
+根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和剩餘步驟見 [design/ui-package.md](design/ui-package.md)。
 
 「底層不認得上層」在這裡是四條檢查（`test/code-rules.ts` 的 `workspaceRule`、`manifestRule`），每一條都用一個故意寫錯的檔案證明過會失敗：
 
@@ -198,46 +194,10 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 
 ## 專案結構
 
-這裡只列從哪裡找起。
+各資料夾分層見 `test/code-rules.ts` 的 `LAYER_OF`，畫面元件見 [feature-map.md](feature-map.md)，工具見 [tools.md](tools.md)。這裡只記程式碼目錄看不出來的接線與約定：
 
-| 路徑 | 內容 |
-|---|---|
-| `src/runtime/runtime.ts` | `AgentRuntime`：開啟 harness 並接好各部分；Bot 清單、對話控制器、每個 Bot 的電腦、工具組和記憶 |
-| `src/agent/available-models.ts` | 這支手機能用哪些模型：各供應商的模型清單、金鑰、web 搜尋用哪一家 |
-| `src/agent/assistant.ts` | 每個 Bot 共用的開頭提示 |
-| `src/runtime/catalog.ts` | 內建工具的唯一清單；工具的寫法見 [tools.md](tools.md) § 介面規範 |
-| `src/agent/tools/common.ts` | 共用的 `defineAppTool`：每個工具都用它宣告自己的工具組、作用和需要的原生方法 |
-| 各功能的資料夾 | 內建工具，一個功能一個資料夾：`attachments`、`calendar`、`clouds`、`computer-screen`、`database`、`device`、`github`、`health`、`mcp`、`memory`、`notifications`、`people`、`phone-apps`、`phone-control`、`places`、`records`、`speech`、`tw-stocks`、`weather`、`web` |
-| `src/agent/codemode.ts`、`on-demand.ts`、`toolsets.ts` | Code mode（QuickJS Web Worker）、需要時才載入的工具、Bot 可選的工具組 |
-| `src/agent/bots.ts`、`src/memory/memory.ts` | Bot 的資料與系統提示、MEMORY.md |
-| `src/skills/` | 技能：內建的 `builtin/<name>/SKILL.md`（照 pi coding agent 和 Agent Skills 的格式）、每個 Bot 和使用者一起存的技能（`save_skill`，排程觸發時不能存）、Bot 面板的技能清單 |
-| `src/agent/providers.ts`、`models.ts`、`credentials.ts`、`chatgpt.ts` | 模型供應商、自訂端點、金鑰、ChatGPT 登入 |
-| `src/mcp/mcp.ts`、`catalog.ts` | MCP 服務（含 OAuth）與服務市集 |
-| `src/clouds/gcloud.ts`、`cloudflare.ts`、`azure.ts`、`clouds.ts`、`src/agent/oauth.ts` | 三家雲端的登入與憑證；`clouds.ts` 把設定裡的憑證變成工具和容器用的 token。`oauth.ts` 留在核心，ChatGPT 登入和 sandbox 也用它 |
-| `src/attachments/` | 附件：PDF、Word、試算表、圖片 |
-| `src/agent/files/` | 沒有電腦時，Bot 在手機上的資料夾和 bash（just-bash Web Worker） |
-| `src/agent/workplaces.ts`、`src/agent/sandbox/` | `Workplaces.at(bot)` 回答一個 Bot 在哪裡工作（手機、電腦直接或容器、已移除的電腦），帶著它的執行環境；pi-env 的 frame 協定、檔案與 git |
-| `src/computer/` | 連到電腦：配對與電腦資訊（`pairing.ts`）、在電腦上跑指令和電腦上的 MCP（`commands.ts`）、斷線續傳的連線（`resumable-link.ts` 的純狀態機、`resumable-socket.ts`）。`src/agent/sandbox/` 只依賴它，它不依賴 sandbox |
-| `src/agent/platform.ts`、`src/app/capacitor.ts` | `Platform` 是 `AgentRuntime` 向手機要的東西：localStorage、Keystore、MCP client、手機資料夾、模型清單。真的手機的實作在 `src/app/capacitor.ts`（外殼，因為它認得瀏覽器、排程和權限），`test/contracts/` 給記憶體的 |
-| `src/parse.ts` | 邊界驗證（typebox） |
-| `src/browser/` | Bot 的瀏覽器：外掛合約、注入網頁的 `page.ts`、`read_page` 和 `use_browser` 工具、瀏覽器面板。程式碼依功能分資料夾，其他功能整理時也會搬成這樣 |
-| `src/phone-screen/` | 代你操作 App（extension `phone_as_user`）：外掛合約、`phone_read_as_user` 和 `phone_act_as_user` 工具。設定頁的開關是 `PhoneScreenGroup.tsx` |
-| `src/triggers/` | 排程：外掛合約（`plugin.ts`）、排程存檔與 `TriggerRuns`（`runs.ts`：同步到原生鬧鐘、觸發時的檢查和次數上限）、`create_schedule` 等工具（`tool.ts`）、原生事件佇列（`events.ts`）、排程的文字和圖示（`when.ts`）、設定頁的一列（`TriggerRow.tsx`） |
-| `src/interaction/`、`src/agent/forms.ts`、`results.ts`、`permissions.ts` | 所有和使用者互動的元件（extension `interaction`）：問題卡、確認卡、權限卡、結果卡，以及 `ask_user` 工具。卡片背後的資料和動作在核心，因為每個工具都可能用到：`Forms.ask`（`forms.ts`）是「現在有沒有人在」的唯一答案，`results.ts` 是給使用者看的結果，`permissions.ts` 是要手機權限的閘門 |
-| `src/items/` | 事項（`ItemDoc`）：`note_item`、到期和等回覆時叫醒 Bot、小工具上的清單 |
-| `src/computer-agents/` | 指揮電腦上的 agent（`list_agents`、`read_agent`、`tell_agent`、`answer_agent`） |
-| `src/idb.ts`、`src/settings.ts`、`src/app/storage.ts` | 其他 IndexedDB 資料、設定（密鑰在 Keystore）、App 開啟 pi-durable 的 IndexedDB 儲存。`src/` 根目錄只放 UI 和 agent 都用的模組，只有一邊用的放在 `src/app/` 或 `src/agent/` |
-| `src/plugins/`、各功能的 `plugin.ts` | 原生 plugin 的 contract（方法、參數、回傳和事件的 schema）。只屬於一個功能的放在那個功能的資料夾，好幾層都用的（`system`、`keep-alive`、`stream-fetch`、`bot-files`、`loopback`、`scanner`）留在 `src/plugins/`。各自對應 `android/.../<名稱>Plugin.kt` 和 `ios/App/App/<名稱>Plugin.swift`；`define.ts` 在邊界驗證回傳，`test/plugins-node.ts` 對照兩個平台的實作 |
-| `src/shims/` | 讓 pi-env 的 Node import 能在瀏覽器打包 |
-| `src/app/` | React UI 的外殼和四區（`chat/`、`bots/`、`settings/`、`files/`）。`session.ts` 是元件之外的 App 狀態：設定、`AgentRuntime` 的開關與重開、開著的對話和它的 view、覆蓋層、通知，以及跟著 runtime 的原生事件（分享、連結、排程、Bot 忙完的通知）；`App.tsx` 用 `useSyncExternalStore` 讀它，`main.tsx` 呼叫 `boot()` |
-| `packages/pi-mobile-ui/` | 各功能共用的 UI，一個資料夾一個公開入口：`platform/`（`UiPlatform`、震動 `haptics.ts`、返回鍵和疊層 `layers.ts`、回到前景 `resume.ts`、剪貼簿）、`store/`（訂閱和讀取：`subscribed.ts`、`loaded.ts`、`briefly.ts`）、`shell/`（由下往上的 `Sheet.tsx`、`Dialog.tsx`；手勢的數學和收合動畫 `sideGesture.ts` 另有入口 `pi-mobile-ui/gesture`，因為 Node 的測試讀不了 `.tsx`）、`message/`（markdown、Mermaid、開檔案的 context `openFile.ts`）、`elements/`（列表 `RowList.tsx`、`StateRow.tsx`、圖示 `icons.tsx`、按鈕和標誌）。`styles/` 是設計語言本身：tokens、元素預設、共用的外觀和字型（`pi-mobile-ui/fonts`）。樣式在各資料夾同名的 `.css`，由 `src/styles.css`（`pi-mobile-ui/styles.css`）依序引入 |
-| `packages/pi-mobile-ui/src/platform/platform.ts`、`src/app/capacitor.ts` | `UiPlatform` 是 UI 向手機要的五件事：`haptic`、`onBack`、`onResume`、`copy`、`pasted`。package 裡的震動、返回、回到前景、剪貼簿只問它，不 import `native.ts`、外掛或 `@capacitor/app`（`package.json` 也不准列）。真的手機的實作是 `capacitorUi`，`main.tsx` 在畫面出現前用 `installPlatform` 裝上；沒裝時每個方法都不做事（`test/ui-platform.ts`）。`onBack(taken)` 的 `taken()` 回報有沒有哪一層接手了返回鍵，沒有時由平台把 App 收到背景 |
-| `src/beside.ts`、`src/csp.ts` | 原本在 `src/ui/`、但不是 UI 元件的兩個檔案：工作台「正在看哪個檔案」的 context，和 HTML 預覽的 CSP。功能層和外殼都用，所以留在基礎層 |
-| `packages/pi-mobile-base/` | 核心和 UI 都站在上面、沒有 React 的三個檔案，各是一個公開入口：`pi-mobile-base/time`（唯一能呼叫計時器的檔案，[effects.md](effects.md)；也放時間的常數、格式和解析）、`pi-mobile-base/log`（診斷記錄）、`pi-mobile-base/promise`（Promise 的小工具） |
-| `android/app/src/main/java/dev/geminixiang/pimobile/` | 原生功能：前景服務、plugin、排程、通知、數位助理 |
-| `android/app/src/oss/`、`android/agentscreen/` | 只在開源版（`oss`）的實驗：背景螢幕（[design/background-screen.md](design/background-screen.md)）。`store` 和 `oss` 是兩個 product flavor，`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 換成開源版；兩版同一個 applicationId，可以互相覆蓋安裝 |
-| `host/` | 電腦上的 `pi-mobile`（Go）：`serve`、配對、session，與安裝腳本 |
-| `host/computer/` | `pi-mobile mcp computer`：讀畫面（元件清單、截圖）和操作滑鼠鍵盤，三個平台的實作與共用核心 |
-| `sandbox/` | 容器的 image 和 egress proxy（app 透過電腦上的 pi-mobile 建置） |
-| `scripts/` | Android 建置（開發版、發布版）與安裝、圖示產生 |
-| `test/` | 工具和 plugin 介面的檢查、單元測試；`contracts/` 用假的模型和記憶體的 `Platform` 開一個真的 `AgentRuntime`，驗生命週期的約定；`device/` 在手機上操作和量測 app（`ui.sh` 經 CDP 或 WebKit 執行頁面函式、`tool-cost.sh`、`jank.sh`）；`perf/` 是 S24 的效能量測 |
+- **兩個平台接縫**：`Platform`（`src/agent/platform.ts`）是 `AgentRuntime` 向手機要的介面，`UiPlatform`（`packages/pi-mobile-ui/src/platform/platform.ts`）是 UI package 向手機要的五個動作（`haptic`、`onBack`、`onResume`、`copy`、`pasted`）。真機實作都在 `src/app/capacitor.ts`，測試給記憶體實作。
+- **`pi-mobile-ui/gesture` 獨立入口**：手勢數學與收合動畫（`sideGesture.ts`）單獨開一個入口，因為 Node 測試讀不了 `.tsx`。
+- **原生外掛合約**：只屬於一個功能的 `plugin.ts` 放該功能資料夾，跨層共用的放 `src/plugins/`，各自對應 Android `*Plugin.kt` 與 iOS `*Plugin.swift`（`test/plugins-node.ts` 對照兩端）。
+- **`android/app/src/oss/` 與 `android/agentscreen/`**：`store` 和 `oss` 是兩個 product flavor（`scripts/build-android.sh` 預設 `store`，`PI_MOBILE_EDITION=oss` 切換）；兩版同一個 `applicationId`，可互相覆蓋安裝。背景螢幕只在 `oss`（[design/background-screen.md](design/background-screen.md)）。
+- **其餘頂層目錄**：`host/`（電腦端 Go binary、`host/computer/` 電腦操作）、`sandbox/`（容器與 egress proxy image）、`scripts/`（建置與發版）、`test/`（檢查、合約測試、`device/` 真機腳本、`perf/` S24 效能量測）。
