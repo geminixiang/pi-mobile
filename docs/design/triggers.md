@@ -199,6 +199,24 @@ Android 的限制：
 - **只問一次**：`Bot.rhythmOffer` 在 `createBot` 寫入 `unsent`，使用者每送出一則訊息往前一步（`unsent` → `open` → `last` → 拿掉，`afterUserMessage`）；`open`、`last` 時，`BotExtension` 的 `beforeRequest` 在使用者那則訊息後面接一句 `[app]` 指示，要 Bot 在回答之後用 `ask_user` 問；排程叫醒的那則（`[trigger]`）不接。指示只接在最新的那則（只在送出的請求裡，對話紀錄裡沒有），所以下一次請求從前一則訊息起和上一次不同，提示快取從那裡斷開；系統提示在前面，照樣命中，斷的只是頭幾則訊息，每個新 Bot 兩次。`test/contracts/sent-time.ts` 因此從第三則訊息開始比。給兩次機會，是因為第一次對話常是「看看我的行事曆」，那一次的結尾可能已經是另一個選項題。舊的 Bot 沒有這個欄位，永遠不會被問。
 - **為什麼放在使用者的訊息，不放系統提示**：模擬器上 GPT-6.1 Sol 和 GPT-6 Luna 對系統提示裡的同一句（兩種寫法）各 2–3 次都沒有呼叫 `ask_user`，只在文字裡問；接在使用者訊息後面，第一次回覆就出問題卡。這樣也不佔每次請求的系統提示：舊 Bot 只多技能清單的兩行，新 Bot 的指示只在頭兩則訊息出現。
 
+## 外部自動化生態與設計模式的取捨（2026-10-26 調查）
+
+對照 IFTTT、Tasker、Home Assistant、Zapier、Activepieces、n8n、Node-RED、Huginn、Shizuku 官方文件（未安裝實測）：
+
+- **外部服務動作走 MCP，不自己寫整合**：Zapier（9,000+ app，已在市集；注意每次成功呼叫扣 2 個 task）、IFTTT（1,000+ 服務；動作要 Pro、query 要 Pro+）、Activepieces（MIT，771 pieces，可自架）、Home Assistant（Apache-2.0，1,410 個整合，官方 MCP Server 可把「讀寫狀態」延伸到智慧家庭）。外部事件由單一 webhook 入口統一接進 When。
+- **固定規則 Do 改為腳本（待做）**：借 IFTTT filter code，建立時寫成 QuickJS codemode 腳本（可呼叫 `skip(理由)` 進紀錄），觸發時直接執行工具、不叫模型、斷網也跑得動，失敗再叫醒 agent。
+- **值得借鏡的自動化能力（待做）**：
+  - **執行紀錄（trace）**（Home Assistant）：每則保留最近 N 次觸發的來源、If／防線結果與略過理由，而非只留最後一次。
+  - **期間狀態與自動還原**（Tasker State context）：如「在公司時靜音」，進入時記下原值、離開時自動寫回（若離開動作自己改了同一項就不還原）。
+  - **品質控制**：持續時間 `for` 防抖（Wi‑Fi／藍牙／地點，Home Assistant）、多觸發帶 `id` 分支、通知類 `queued` 模式與 `digest` 批次匯總（Zapier）、外部 webhook 以事件 id 或內容雜湊去重。
+  - **備選權限層**：Shizuku（Apache-2.0，以 adb shell 身分改系統開關如 Wi‑Fi，可作為無障礙之前的一層；代價是重開機後需重啟，尚待 S24 實測）。
+- **決定不做／不學的**：
+  - **Tasker 外掛主機**：Locale 外掛 API 要開外掛自己的設定頁回傳各異的 Bundle，agent 無法代設。
+  - **Android AppFunctions**：跨 App 呼叫需要 `EXECUTE_APP_FUNCTIONS` 與執行期允許清單，側載 App 拿不到。
+  - **推薦 n8n／Automatisch**：n8n 是 Sustainable Use License（非開源），Automatisch 社群版能否獨立運作存疑（使用者仍可自行接 MCP）。
+  - **乾跑（Huginn）**：已有手動執行，且真實執行紀錄比乾跑可靠。
+  - **延遲／等待觸發（Zapier Delay、HA `wait_for_trigger`）與 Blueprint 範本**：分別已由 `schedule_followup` 與 agent 自然語言建立涵蓋。
+
 ## 待決定
 
 1. 外部事件（webhook）的傳送方式：FCM（每個開源使用者要自建 Firebase 專案）vs UnifiedPush（例如 ntfy，須另裝推播 App）vs 經電腦端轉送。
