@@ -135,6 +135,11 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 | System、Apps、Phone | `@capacitor/haptics`、`app-launcher`、`share`、`geolocation`、`device` 等 | 各自只取代幾十行，`share` 收檔案 URI 不收 base64，`installUpdate`、鬧鐘、氣壓計、地名查座標沒有對應；不值得多掛相依 |
 | Notifications、Records、Usage、PhoneState、PhoneScreen、Browser、Page、Triggers、KeepAlive、Loopback | 沒有維護中的套件 | 讀其他 App 的通知、通話簡訊紀錄、使用量、無障礙服務、agent 瀏覽器、背景時讓 WebView 繼續跑、本機 OAuth 回呼 |
 
+**依賴已有、但刻意自己寫的部分**（2026-11-16 對照 `@earendil-works/*` 1.5.2 盤點，避免之後誤替換）
+- **OAuth、MCP 登入與命名**：`pi-ai` 的 ChatGPT OAuth／PKCE 是 Node-only（`node:http`/`node:crypto`）且未從 `exports` 匯出；`pi-mcp` 的 `startMcpSignIn` 寫死 `globalThis.fetch`（WebView 會被 CORS 擋，需走 `mcpFetch`）、`naming.js` 用 `node:crypto`、1.5.2 尚無 2026-07-28 無狀態 MRTR（`mcp-stateless.ts`）。
+- **codemode 簽名段落、編碼、token 估算、縮圖與 schema**：`pi-durable` 的 `codemodeSection` 63 個工具預設 11,882 字元（不限長 48,081），自己列簽名 2,167 字元（Node 實測，省約 5 倍）；`buffer` 6.0.3 沒有 `base64url` 且 4 MiB 解碼慢 6 倍（25.1 vs 4.1 ms）；`pi-ai` 的 `estimateTextTokens` 一律 `/3.5`（100 漢字估 29）；`createPhotonImages` 要帶 1.9 MB wasm 且卡呼叫執行緒（用 canvas）；`pi-schema` 的 `obj` 預設 `additionalProperties: false` 會破壞 505 處開放 TypeBox schema（特別是原生外掛回傳），所以 schema 仍用 TypeBox `Type.*`。
+- **斷線續傳與儲存**：`chord` 的 `keepConnected` 只重連不補送且常數寫死，對不齊 `host/protocol.json`；`pi-durable` 的 `IndexedDbStorage` 不重試 WebKit 暫停中止的交易（留 `surviveSuspension`），文件也只存 JSON（附件 `Blob` 留 `src/idb.ts`）。
+
 **外部服務**
 - 現在時間不放系統提示：pi-durable 每次請求都重算區段，變了就把整段再送一次，放分鐘會每一輪重送 preamble。`assistant.ts` 的 `beforeRequest` 在送出前，給每一則使用者訊息加上它自己的送出時間（只在這次請求，對話紀錄不變）；時間取自訊息的 timestamp，舊訊息每次都一樣，快取照常命中。模型不用再先呼叫 `device_info` 讀時間。
 - pi-durable 在請求超過 contextWindow 減掉保留量（預設 16k）時壓縮。把使用者的門檻加上保留量回報成 window，就會在門檻壓縮，而不是接近模型上限才壓。
