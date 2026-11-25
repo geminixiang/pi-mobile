@@ -51,7 +51,7 @@ Guardian **另有**每筆約 6000 tokens、總共 8 MiB 的審查證據 buffer�
 3. **量測歷史圖片／文字預算**。收益：少重讀舊畫面；成本中；風險：遺失授權／結果證據。保留來源、action/result 配對；勿照搬 Guardian 限額。用 fixtures 比 tokens／呼叫數／完成率，再跑 S24 tool-cost 與自然問題（`docs/tools.md:225-233`）；字元數不是 token 實測。
 4. **統一期限、取消與 capabilities**。收益：有界停止；成本中高；風險：逾時重試造成重複副作用。量測停止延遲、逾時後副作用、接手恢復；沿用等待上限，不另造排程器。
 
-**General first**：不內建 App／網站／語言名單；查裝置、讀自學筆記，至少兩種手機驗證（`AGENTS.md:29-31`）。mika 的入口／筆記已做（`docs/research/mika-agent.md:19-28`）；Poki 的 verifier／deadline 只是研究（`docs/research/poki.md:35-38`）。iOS 現用 in-process XCTest，非舊 WDA（`docs/design/background-screen.md:88-111`）。
+**General first**：不內建 App／網站／語言名單；查裝置、讀自學筆記，至少兩種手機驗證（`AGENTS.md:29-31`）。mika 的入口／筆記已做（[references.md](references.md)）；Poki 的 verifier／deadline 只是研究（`docs/research/poki.md:35-38`）。iOS 現用 in-process XCTest，非舊 WDA（`docs/design/background-screen.md:88-111`）。
 
 **實跑與限制**：離線執行 `node --import ./test/vite-imports.js test/screen-observation.ts`、`test/phone-screen-steps.ts`、`test/browser-steps.ts`，三者通過；沒有裝置量測，沒有跑完整 `npm run check`。公開文件以無登入 HTTP 讀取；`web_search` 已嘗試，但 provider 未設定、替代 provider 模組不相容，故沒有搜尋結果可佐證。
 

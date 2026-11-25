@@ -249,7 +249,7 @@ Android 的限制：
 
 ## 預設的作息（2026-11-13）
 
-學 Claude Duet 的「預設就主動」（[research/claude-duet.md](../research/claude-duet.md)），但不偷偷打開：新 Bot 在第一次對話裡用 `ask_user` 問一次「要我每天早上給你簡報嗎？」，按「好」才由 Bot 自己呼叫 `create_schedule`。
+學 Claude Duet 的「預設就主動」（[research/references.md](../research/references.md)），但不偷偷打開：新 Bot 在第一次對話裡用 `ask_user` 問一次「要我每天早上給你簡報嗎？」，按「好」才由 Bot 自己呼叫 `create_schedule`。
 
 - **不加新的觸發種類**：三則每天的時間排程（08:00 早晨簡報，13:00、18:00 白天巡視）。「一天最多兩次、09:00–22:00」靠只排兩個時間做到，「23:00–08:00 安靜」靠那段時間沒有排程，加上技能裡「這段時間不通知」（關機或 pi 不在時晚到的那一次）。
   - 沒選事件加 `at_most_every_hours` 和時段（例如解鎖手機時、09:00–22:00、每 7 小時）：解鎖只在 pi 執行中收得到，沒開通知讀取的人等於沒有巡視；通知事件要通知讀取，而且只看得到通知，看不到日曆和信。

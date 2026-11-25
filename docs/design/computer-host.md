@@ -121,7 +121,7 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 
 ## 網路與資安：跟 Rex 一樣交給 Tailscale
 
-2026-10-27 決定：連線、加密和來源身分都交給 Tailscale，跟 Rex 現在的選擇一樣（[research/rex-server.md](../research/rex-server.md)）。pi-mobile 不自己做 TLS，也不支援其他網路，加密靠 Tailscale 底下的 WireGuard。比 Rex 多一層的只有配對金鑰，原因見上面的「還要配對過的金鑰」。
+2026-10-27 決定：連線、加密和來源身分都交給 Tailscale，跟 Rex 現在的選擇一樣（[research/references.md](../research/references.md)）。pi-mobile 不自己做 TLS，也不支援其他網路，加密靠 Tailscale 底下的 WireGuard。比 Rex 多一層的只有配對金鑰，原因見上面的「還要配對過的金鑰」。
 
 - 自架 Headscale 的人用的也是 Tailscale client，`tailscale whois` 和 `status` 照樣能用，不必另外處理。
 - 不考慮直接用 WireGuard：Tailscale 多做的交換金鑰、跨 NAT、`whois`、MagicDNS 正是 pi-mobile 依賴的部分，換成 WireGuard 等於叫使用者自己做這些事。

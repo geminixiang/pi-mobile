@@ -91,7 +91,7 @@ astra 的總結：要做的是缺的那一層「監督層」，不是另一個 I
 
 ## 資料模型：span
 
-affectUI 的 agent 元件（見 [affectui.md](affectui.md)）示範了一件事：一次執行記成扁平的 span 清單（`id`、`parentId`、`kind`、狀態、時間、tokens、成本），同一份資料可以畫成誰派了誰、時間花在哪、錢花在哪、誰交給誰。工作後台先定這份資料模型，再選畫法。
+affectUI 的 agent 元件（見 [references.md](references.md)）示範了一件事：一次執行記成扁平的 span 清單（`id`、`parentId`、`kind`、狀態、時間、tokens、成本），同一份資料可以畫成誰派了誰、時間花在哪、錢花在哪、誰交給誰。工作後台先定這份資料模型，再選畫法。
 
 ## 下一步
 

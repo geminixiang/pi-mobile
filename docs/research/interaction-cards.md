@@ -66,7 +66,7 @@
 ### 1.5 Grok Bot〔文件＋本地觀察〕
 
 - 官方文件 [Security › Approvals and Auto Review](https://docs.x.ai/grok-bot/security)：需要核准時「對話裡顯示提議的操作和它的輸入」，選項是 **Allow once / Always allow / Deny**；「**Deny 會停止這個動作，Bot 在使用者送出下一則訊息前不會再試**」。另有獨立的審查模型（Auto Review）決定放行、要核准或拒絕。密碼和一次性密碼「不屬於一般對話」。
-- 實際畫面（`docs/research/grok-bot.md`，在 S24 上觀察）：問題卡 A–D 加「或在下方聊天中回答」；可展開的郵件卡，按「傳送」才寄，之後卡片顯示「已傳送 · 收件人」；對話中的 Gmail 連接卡；做完事後問「要我每天早上幫你看信箱嗎？」，點「好」後一行「Created routine」。
+- 實際畫面（見 [references.md](references.md) Grok Bot，在 S24 上觀察）：問題卡 A–D 加「或在下方聊天中回答」；可展開的郵件卡，按「傳送」才寄，之後卡片顯示「已傳送 · 收件人」；對話中的 Gmail 連接卡；做完事後問「要我每天早上幫你看信箱嗎？」，點「好」後一行「Created routine」。
 - Grok Bot 問題卡是阻塞還是下一則訊息，文件沒寫〔推論：提示「或在下方聊天中回答」表示打字也算回答，行為像 B〕。
 
 ---

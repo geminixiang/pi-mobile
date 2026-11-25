@@ -9,7 +9,7 @@
 
 檢查抓不到、但一樣不行的：store 的 subscribe 裡做跟它的值無關的一次性工作；把整個元件的生命週期掛在隨便一個 div 的 ref 上（掛在那件事本身的元素上：編輯中的 textarea、等著貼上的輸入框）。
 
-原因（[research/all-code-is-slop.md](research/all-code-is-slop.md)）：effect 和計時器是 agent 和人最常寫出 bug 的地方。計時器在擁有者結束後還在跑、callback 拿到舊的 state、用延遲蓋住競態、用 effect 補架構的洞（同一份狀態存兩次、事件已經發生卻等下一次 render 才處理）。
+原因（[research/references.md](research/references.md)）：effect 和計時器是 agent 和人最常寫出 bug 的地方。計時器在擁有者結束後還在跑、callback 拿到舊的 state、用延遲蓋住競態、用 effect 補架構的洞（同一份狀態存兩次、事件已經發生卻等下一次 render 才處理）。
 
 ## 改用什麼
 

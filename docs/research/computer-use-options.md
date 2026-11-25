@@ -2,7 +2,7 @@
 
 2026-11-10。問題：市面上的 computer use（開源工具、模型廠商的原生工具、GUI 專用模型）有沒有比 `pi-mobile mcp computer`（`host/computer.go`、`host/computer_darwin.go`）更準、更省 token 的，值得直接採用或借做法。
 
-這份是**書面調查**：版本、授權、星數讀自 GitHub API 和各家文件（附網址），schema 大小除非另外標明都是估的，沒有實際跑任何候選。基準數字來自 [computer-use-mcp-eval.md](computer-use-mcp-eval.md)、[computer-use-token-benchmark](computer-use-token-benchmark/README.md)、[agent-desktop.md](agent-desktop.md)。
+這份是**書面調查**：版本、授權、星數讀自 GitHub API 和各家文件（附網址），schema 大小除非另外標明都是估的，沒有實際跑任何候選。基準數字來自 [computer-use-mcp-eval.md](computer-use-mcp-eval.md)、[computer-use-token-benchmark](computer-use-token-benchmark/README.md)、[references.md](references.md)（agent-desktop）。
 
 ## 基準：現在的做法
 

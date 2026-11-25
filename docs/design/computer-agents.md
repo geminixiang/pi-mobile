@@ -29,7 +29,7 @@
   - `working`：附開始時間和收到的任務。
   - `needs_user`：附 `{ kind: "permission", 它要做什麼 } | { kind: "question", 問題 }`。
   - `gone`：程序不在了（關掉、電腦重開）。
-- 狀態**只來自工人自己的事件**（下面的 hook），不從畫面推斷，也不由手機記住「我剛交辦了所以應該在 working」。Lody 的做法相同：「正在工作」只能來自 presence；手機唯一能自己推斷的是「已送出、還沒開始」，而且有時間上限（[research/t3-lody-paseo-design.md](../research/t3-lody-paseo-design.md)）。
+- 狀態**只來自工人自己的事件**（下面的 hook），不從畫面推斷，也不由手機記住「我剛交辦了所以應該在 working」。Lody 的做法相同：「正在工作」只能來自 presence；手機唯一能自己推斷的是「已送出、還沒開始」，而且有時間上限（[research/references.md](../research/references.md)）。
 
 ## 工人那一層：用 Herdr，不自己做
 

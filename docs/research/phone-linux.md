@@ -7,7 +7,7 @@
 ## 平台限制
 
 - **iOS**：app 不能執行自己下載的原生程式，也不能開子程序；只准直譯，或在 WebKit 裡跑 JS／WebAssembly（WebKit 的 JIT）。PRoot 在 iOS 上不可能。
-- **Android**：可以開子程序，但 pi mobile 的 targetSdk 是 36，Android 10 起 app 不能 `execve` 自己資料夾裡的檔案（W^X）。DSH Go 是降到 targetSdk 28 才跑起來（[dsh-go.md](dsh-go.md)）。PRoot 放在 jniLibs（可執行的 nativeLibraryDir），rootfs 裡的程式靠它的 loader 載入，理論上可行，**要實測**。
+- **Android**：可以開子程序，但 pi mobile 的 targetSdk 是 36，Android 10 起 app 不能 `execve` 自己資料夾裡的檔案（W^X）。DSH Go 是降到 targetSdk 28 才跑起來（[references.md](references.md)）。PRoot 放在 jniLibs（可執行的 nativeLibraryDir），rootfs 裡的程式靠它的 loader 載入，理論上可行，**要實測**。
 - 兩個平台都能跑的只有 WebView 裡的 WebAssembly。
 
 ## 候選
