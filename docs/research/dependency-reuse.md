@@ -34,7 +34,7 @@
 | # | 我們的程式 | 依賴的匯出 | WebView 可載入 | 行為差異 | 換掉後少什麼 | 風險 | 結論 |
 |---|---|---|---|---|---|---|---|
 | 1 | `memoryCredentials`，`src/agent/credentials.ts:7-33`（27 行） | `InMemoryCredentialStore`，`@earendil-works/pi-ai`（`pi-ai/dist/auth/credential-store.js:7-50`） | 可以：只 import `utils/abort.js`，而且 `createModels()` 沒給 `credentials` 時本來就用它（`pi-ai/dist/models.js:47`），已經在 bundle 裡 | `modify` 的 `fn` 回 `undefined`：合約是「不動」，我們是**刪掉**。依賴的佇列是每個 provider 一條，我們是全部共用一條。依賴沒有建構時的初值，也沒有「OAuth 換新時存回設定」的通知 | 約 15 行、`serially` 的一個用途；一個會讓 ChatGPT 登入在執行中消失的 bug；「合約實作兩份」 | 低：要補初值和存回設定的那一層，三個合約測試的空憑證可以直接用預設 | **replace** |
-| 2 | 邊界驗證的引擎：`src/parse.ts:1-12、30-34、47-55、79`；`defineAppTool` 的再檢查 `src/agent/tools/common.ts:115-118` 和 `numbered`（`:38-42`）；另外 8 處直接呼叫 `Value.Check` | `compile(schema, { coerce })` 的 `check`／`errors`／`validate`／`parse`，`@earendil-works/pi-schema`（`pi-schema/dist/validator.d.ts`） | 可以：沒有任何 node import，也不用 eval。pi-ai 檢查工具參數時已經用它（`pi-durable/dist/harness/tool.js:5`、`pi-ai/dist/utils/validation.js:12`），已經在 bundle 裡。要在 `package.json` 補成直接依賴 | 對 TypeBox 的 schema，`check` 的結果抽樣 280 組全部相同。錯誤訊息的用字不同（`must be string` → `expected string, got integer`），路徑同樣是 JSON Pointer。`coerce` 會做我們 `numbered` 和「單一值包成陣列」做的事，還多做 `"true"`→`true`、數字→字串 | bundle 裡的第二套驗證器（`typebox/value`、`compile`、`system`：單獨打包 124 KB，gzip 33 KB）；`numbered` 5 行；`Locale.Set` 那段；「同一份 schema 驗兩次、規則不一樣」 | 中：模型看到的錯誤用字是對著 Qwen3.6 量過的（`docs/tools.md:413`），要照原樣對回去並重跑那 10 題 | **replace**，分兩步；`Type` 建構子照舊 |
+| 2 | 邊界驗證的引擎：`src/parse.ts:1-12、30-34、47-55、79`；`defineAppTool` 的再檢查 `src/agent/tools/common.ts:115-118` 和 `numbered`（`:38-42`）；另外 8 處直接呼叫 `Value.Check` | `compile(schema, { coerce })` 的 `check`／`errors`／`validate`／`parse`，`@earendil-works/pi-schema`（`pi-schema/dist/validator.d.ts`） | 可以：沒有任何 node import，也不用 eval。pi-ai 檢查工具參數時已經用它（`pi-durable/dist/harness/tool.js:5`、`pi-ai/dist/utils/validation.js:12`），已經在 bundle 裡。要在 `package.json` 補成直接依賴 | 對 TypeBox 的 schema，`check` 的結果抽樣 280 組全部相同。錯誤訊息的用字不同（`must be string` → `expected string, got integer`），路徑同樣是 JSON Pointer。`coerce` 會做我們 `numbered` 和「單一值包成陣列」做的事，還多做 `"true"`→`true`、數字→字串 | bundle 裡的第二套驗證器（`typebox/value`、`compile`、`system`：單獨打包 124 KB，gzip 33 KB）；`numbered` 5 行；`Locale.Set` 那段；「同一份 schema 驗兩次、規則不一樣」 | 中：模型看到的錯誤用字是對著 Qwen3.6 量過的（`docs/tools.md` § 紀錄 2026-10-29），要照原樣對回去並重跑那 10 題 | **replace**，分兩步；`Type` 建構子照舊 |
 | 3 | `truncated`，`src/agent/tools/common.ts:172-176`，4 個呼叫點（`github.ts:18`、`cloud.ts:20`、`web.ts:233`、`computer-agents/tool.ts:95`） | Harness 對每個工具結果做的 `boundContent`，上限由 `ToolRegistration.outputLimits` 決定（`pi-durable/dist/harness/types.d.ts:312-316`、`tool.js:218-223、581-584`），底下是 `chord/output` 的 `boundOutput` | 已經在跑：每個工具結果都會過這一關 | 我們切在 40,000 **字元**並在最後附一句「怎麼縮小範圍」；Harness 接著再切一次，保留開頭 50 KB、2,000 行。中文多或行數多時，我們附的那句被 Harness 切掉 | 5 行加 4 個呼叫點；「同一段輸出切兩次，第二次切掉第一次的提示」 | 低到中：提示改放哪裡要決定（工具說明，或用 `api.diagnostic`） | **replace** |
 | 4 | 文件變了要通知畫面：`Memories`（`src/agent/memory.ts:31、42-51、62、100`）、`Skills`（`src/skills/skills.ts:58、68-77、84、134`），和把 `changed` 一路傳進工具的接線（`src/agent/catalog.ts:52-53`、`src/agent/runtime.ts:239-240`） | `Harness.watchDoc(token, …, context)`（`pi-durable/dist/types.d.ts:1009-1014`），回傳 chord 的 `WatchHandle` | 可以：`pi-durable` 的根匯出沒有 node import | `watchDoc` 對每個 commit 都通知，不管是誰寫的；但文件**還不存在時回 `undefined`**，要有人先建立。我們的做法是每個寫入的人自己記得呼叫 `changed()`，再重讀一次 snapshot | 「靠人記得呼叫」的通知路徑（紅旗：手動同步）、catalog 的兩個相依、每次變更多讀一次 | 中：要決定誰建立文件（建 Bot 時、或開 runtime 時），行數不會少多少 | **replace**，先決定建立時機 |
 | 5 | `bytesOf` 的字串分支，`src/agent/traffic.ts:12-16` | `utf8ByteLength`，`@earendil-works/chord/output`（`chord/dist/output.js:241`），`phone-env.ts:129` 已經在用 | 可以 | 位元組數相同（2,013 個樣本，含落單的 surrogate，兩條路徑都試了）；我們每次都 `encode` 出一個陣列再丟掉，串流的每個 delta 一次（`src/agent/network.ts:139`） | 一個 `TextEncoder`、每個 delta 一次配置 | 低 | **replace**（小） |
@@ -42,7 +42,7 @@
 | 7 | `normalizePath`、`resolvePath`，`src/agent/files/protocol.ts:3-15`（13 行） | `resolve`，`path-browserify`（已是依賴，`src/shims/node-path.ts:1`） | 可以；但 base 不是絕對路徑時它會讀 `process.cwd()`（`path-browserify/index.js:124`），WebView 沒有 `process` | 110 組輸入結果相同（`normalizePath(p)` 就是 `resolve("/", p)`） | 約 10 行 | 低；shell worker 的 bundle 會多帶一份 path-browserify | **replace**（小，可做可不做） |
 | 8 | `sleep`，`src/promise.ts:49-51`；`src/agent/oauth.ts:4` 另外 import 了 pi-ai 的 | `sleep(ms, signal)`，`@earendil-works/pi-ai/utils/sleep`（`pi-ai/dist/utils/sleep.js`） | 可以：沒有 import | 依賴的一定要給 `signal`，中止時 reject；我們的不能中止 | 「等待有兩個來源」（`test/code-rules.ts:166` 說等待只用 `src/promise.ts` 的） | 低 | **replace**（小）：`src/promise.ts` 當唯一入口，有 `signal` 時轉給 pi-ai 的 |
 | 9 | 等使用者回答的工具：`Forms`，`src/interaction/forms.ts`（111 行，等待的部分在 `:29、36、46-74`）；同類的還有 `src/triggers/watch.ts` 和 `src/jobs/bash.ts:53-66` 的「先回、之後叫醒」 | signals 和 tool park：`defineSignal`、`harness.signal()`、`execute()` 回 `{ sleep: { signals } }`。**只在 main**（`pi-main/packages/durable/src/signals.ts`、`harness/parks.ts`；`CHANGELOG.md:16-23` 在 `[Unreleased]` 底下）；1.5.2 的 `dist/index.d.ts` 沒有這些名字 | main 的沒有驗證 | park 的呼叫不佔執行、狀態存在 task 裡，app 被殺掉後還在；我們的等待是記憶體裡的 promise | 兩個已知問題的根源（排程回合無人在場時卡片永遠等待、重啟後待處理表單遺失，見 `interaction-cards.md:294`） | 高：要升級，main 有破壞性變更（`CHANGELOG.md:5`） | **replace after upgrade**，先評估 |
-| 10 | 無狀態的 MCP 呼叫，`src/agent/mcp-stateless.ts`（145 行） | 沒有：1.5.2 的 `LATEST_PROTOCOL_VERSION` 是 `2025-11-25`（`pi-mcp/dist/protocol/types.js:1`），main 也還沒有 `server/discover`、`input_required` | — | — | 整個檔案 | — | **keep**，上游支援 2026-07-28 就換（`docs/tools.md:363` 已經這樣寫） |
+| 10 | 無狀態的 MCP 呼叫，`src/agent/mcp-stateless.ts`（145 行） | 沒有：1.5.2 的 `LATEST_PROTOCOL_VERSION` 是 `2025-11-25`（`pi-mcp/dist/protocol/types.js:1`），main 也還沒有 `server/discover`、`input_required` | — | — | 整個檔案 | — | **keep**，上游支援 2026-07-28 就換（`docs/tools.md` § 紀錄 2026-11-04 已經這樣寫） |
 | 11 | 電腦上的 stdio MCP 走 `/exec`：`hostStdio`，`src/computer/commands.ts:158-183` | `openProcess(connection, options)`，`@earendil-works/pi-env`（`pi-env/dist/process.d.ts`）；pi-mcp 的 `PipeTransport` 舉的例子就是它（`pi-mcp/CHANGELOG.md:9`、`pi-env/CHANGELOG.md:9`，都是 1.5.1） | 要先把它加進 `src/shims/pi-env.ts` | 要有一條 pi-env 連線才能開；`/exec` 不用 | 不會少：容器、背景工作、`HostCommands.run` 還是要 `/exec` | — | **keep** |
 | 12 | MCP 登入，`src/agent/mcp.ts:241-293`（53 行） | `startMcpSignIn`、`completeMcpSignIn`，`@earendil-works/pi-mcp/oauth`（`pi-mcp/dist/oauth/sign-in.js`） | 載得進來，但用不了 | 它對授權伺服器的請求寫死 `timedFetch()`，也就是 `globalThis.fetch`（`sign-in.js:162`、`client-settings.js:80`），選項裡沒有 `fetch`；WebView 的 fetch 會被 CORS 擋，我們要走 `mcpFetch` | 約 40 行 | — | **keep**，可向上游要 `fetch` 選項 |
 | 13 | MCP 工具和服務的命名，`src/agent/mcp.ts:30-42、82` | `createMcpToolName`、`mcpNamespace`，`@earendil-works/pi-mcp`（`pi-mcp/dist/naming.js`） | 不行：`naming.js:6` import `node:crypto` 的 `createHash`，我們的 shim 一呼叫就丟錯（`src/shims/node-crypto.ts:11-13`） | 名稱格式不同（`mcp__<server>__<tool>` 對 `<id>_<tool>`） | 約 14 行 | 改工具名稱是產品變更（AGENTS.md） | **keep** |
@@ -87,7 +87,7 @@
 1. `defineAppTool` 的 `prepareArguments` 先清理，再用 TypeBox 的 `Value.Check` 檢查，不過就用 `Value.Errors` 的第一筆丟錯（`src/agent/tools/common.ts:113-119`）。
 2. Harness 接著呼叫 pi-ai 的 `validateToolArguments`（`pi-durable/dist/harness/tool.js:249-261`），它用 pi-schema 的 `compile(schema, { coerce: true })`，先轉型再檢查（`pi-ai/dist/utils/validation.js:12、54`）。
 
-pi 在 1.5.0 把參數檢查從 TypeBox 換成 pi-schema（`docs/tools.md:366`）；我們的清理是在那之前寫的（`docs/tools.md:386、408、409`）。
+pi 在 1.5.0 把參數檢查從 TypeBox 換成 pi-schema（`docs/tools.md` § 紀錄 2026-11-04）；我們的清理是在那之前寫的（2026-10-29–31）。
 
 **兩邊各做了什麼**〔跑過〕：同一組參數分別丟給我們的 `prepareArguments` 和 pi-schema 的 `parse`：
 
@@ -117,7 +117,7 @@ pi 在 1.5.0 把參數檢查從 TypeBox 換成 pi-schema（`docs/tools.md:366`�
 1. `src/parse.ts` 的 `check`、`parse`、`decodeEach` 改用 pi-schema 的 `compile`（一個 schema 一個驗證器，放 `WeakMap`，跟現在 `:47-55` 一樣）；`Checked<T>` 的形狀不變。`Locale.Set` 那三句客製訊息（`:6-12`）改成看錯誤的 `keyword` 和 `path` 來決定。其他檔案的 8 處 `Value.Check` 改走 `parse.ts`。
 2. `prepareArguments` 改成「清理後用 pi-schema 的 `parse` 過就採用，否則用原值」，錯誤交給 Harness 回報；拿掉 `numbered`。做完這一步，`src/` 裡就沒有 `typebox/value` 了。
 
-**風險**〔讀碼〕：模型看到的用字會變。`must be one of "prices", …` 是 2026-10-29 對著 Qwen3.6 量過才定的（`docs/tools.md:413`）；pi-schema 的是 `expected one of ["prices","margin"]`，同樣列出全部允許值，MCP 工具從 1.5.0 起看到的就是這句（`docs/tools.md:366`）。「要用一個具名參數的物件」那句要保留。`test/tool-args-node.ts:30-31` 斷言的是 TypeBox 的用字，要跟著改。第 2 步要重跑 `docs/tools.md` 那 10 題。
+**風險**〔讀碼〕：模型看到的用字會變。`must be one of "prices", …` 是 2026-10-29 對著 Qwen3.6 量過才定的（`docs/tools.md` § 紀錄 2026-10-29）；pi-schema 的是 `expected one of ["prices","margin"]`，同樣列出全部允許值，MCP 工具從 1.5.0 起看到的就是這句（2026-11-04）。「要用一個具名參數的物件」那句要保留。`test/tool-args-node.ts:30-31` 斷言的是 TypeBox 的用字，要跟著改。第 2 步要重跑那 10 題。
 
 **不做的部分**：不把 `Type.*` 換成 pi-schema 的建構子（表中第 21 項）。
 
@@ -230,7 +230,7 @@ pi 在 1.5.0 把參數檢查從 TypeBox 換成 pi-schema（`docs/tools.md:366`�
 
 1.5.2 沒有，升級才拿得到〔讀碼：`pi-main`，`git diff v1.5.2..HEAD`〕。
 
-- **signals 和 tool park**（pi-durable）：表中第 9 項。CHANGELOG 列的範例正好是我們的情境：「asking a person, a tool that waits for a webhook, a tool that polls, …, a subagent that waits, an approval gate」（`CHANGELOG.md:23`）。`docs/tools.md:365` 當時寫「pi-durable 沒有讓工具結束一輪的方法，所以不用等待中的工具」，這個前提在 main 變了。注意 park 的呼叫雖然不佔執行，那一輪還是開著的；背景工作那種「跑兩小時」的情況合不合用要另外看。
+- **signals 和 tool park**（pi-durable）：表中第 9 項。CHANGELOG 列的範例正好是我們的情境：「asking a person, a tool that waits for a webhook, a tool that polls, …, a subagent that waits, an approval gate」（`CHANGELOG.md:23`）。`docs/tools.md` § 紀錄（2026-11-04）當時寫「pi-durable 沒有讓工具結束一輪的方法，所以不用等待中的工具」，這個前提在 main 變了。注意 park 的呼叫雖然不佔執行，那一輪還是開著的；背景工作那種「跑兩小時」的情況合不合用要另外看。
 - **`mcpServerSummary`**（pi-mcp）：伺服器說明的第一行。我們的段落放的是整份 `instructions`（`mcp.ts:340-349`），目的不同。
 - **`createFitImagesExtension`**（pi-durable，`src/images/fit.ts`）：沒有細讀。
 - pi-env 的兩個修正（`listDir` 遇到剛被刪的項目、程式結束時輸出尾巴遺失）是 bug 修正，不是新的 API。
@@ -245,7 +245,7 @@ pi 在 1.5.0 把參數檢查從 TypeBox 換成 pi-schema（`docs/tools.md:366`�
 | pi-mcp 的 `startMcpSignIn`／`completeMcpSignIn` 接受 `fetch` | `mcp.ts` 的登入約 40 行 |
 | pi-mcp 的 `naming.js` 不用 `node:crypto`（改 WebCrypto 或純 JS 的雜湊） | 讓瀏覽器能從根匯出 import 而不靠 shim |
 | pi-ai 把 ChatGPT 的 `refresh`、`toAuth`、token 回應的檢查和「開瀏覽器、收 callback」分開，換 token 的 `fetch` 可以注入，並從 `exports` 匯出 | `chatgpt.ts` 約 50 行，兩邊的常數不用手動對 |
-| pi-mcp 支援 2026-07-28（上游 #10416，`docs/tools.md:363`） | `mcp-stateless.ts` 145 行 |
+| pi-mcp 支援 2026-07-28（上游 #10416，`docs/tools.md` § 紀錄 2026-11-04） | `mcp-stateless.ts` 145 行 |
 
 ## 建議的順序
 
