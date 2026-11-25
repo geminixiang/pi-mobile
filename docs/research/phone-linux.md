@@ -78,3 +78,10 @@
 1. **S24，PRoot**：targetSdk 36 下 proot＋Debian 能不能跑（W^X）；`apt install python3`（hard link、dpkg、網路）；跑 2 分鐘的指令、關螢幕會不會被殺；rootfs 和 APK 增加多少。
 2. **S24 和 iPhone，WebView 能力**：`typeof SharedArrayBuffer`、`crossOriginIsolated`、256 MB／1 GB／2 GB 的 `WebAssembly.Memory`。這一步決定 container2wasm 和 Wasmer 有沒有機會。
 3. **S24 和 iPhone，v86＋Alpine**：冷開機和從快照恢復的時間、`python3 -c 'print(1)'`、`apk add python3`（經電腦上的 wisp 轉送）、WebView 程序的記憶體、聊天畫面在 VM 忙的時候會不會卡（`test/perf/run.ts`）。
+
+## 後續：Appine（2026-11-18，mthli/appine，AGPL-3.0）
+
+- **架構（讀碼 `c4db5db`）**：單一程序 Android App（已上架 Play，需 Android 11+ arm64），用 Tier 0 直譯器＋Tier 1 ARM64→ARM64 二進位轉譯（經軟體 MMU）跑沒改過的 Alpine／Debian aarch64 程式；Rust 核心層實作 Linux 6.1 系統呼叫，VFS 元資料在 SQLite（symlink 只在資料庫裡）。不開子程序、不 `execve`，直接避開 phantom process killer 與 W^X，明確否決 PRoot。不是安全沙箱，也不提供 intent 給其他 App 執行指令。
+- **模擬器實測**（arm64 Android 16，v1.0.0-1）：`apk update` 1.4 秒、`apk add python3` 3.1 秒、`apk add git sqlite` 2.3 秒、`git clone --depth 1`（25 MB）2.8 秒；Python 迴圈 0.46 秒（Mac 原生 0.14 秒，約 3.2 倍；作者在開發機量編譯 2.6–3.6 倍、Python 4.6 倍）。
+- **`libappine.so` 嵌入評估（讀 APK 與原始碼）**：8.3 MB + `rootfs.tgz` 4 MB，對外 85 個 JNI（`Native` 37 個含 `importRootfs`／`start`／`boot`／`spawn`／`readFile`／`writeFile`，剛好對應 `ExecutionEnv`）。限制：靜態 JNI 綁定名；與 WebView 共用程序與訊號處理器（`SIGSEGV`/`SIGBUS`/`SIGILL`），預設記憶體上限為 RAM 一半；呼叫須在背景執行緒。
+- **授權卡關與三個選項**：`libappine.so` 為 AGPL-3.0，嵌入 MIT 的 pi 會讓整個 APK 須改 AGPL（Android 7+ linker namespace 也不允許借別的 App 的 `.so`）。三個出路待決定：(1) pi 改 AGPL；(2) 向作者談獨立授權；(3) 不嵌入，把 `host/`（linux/arm64）裝進 Appine 經 `127.0.0.1` 連線（`host/tailnet.go` 需新增 loopback 模式與配對，尚未實測，且使用者須多裝一個 App）。現階段先記下不排進工作。

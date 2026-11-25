@@ -21,7 +21,7 @@
 - Markdown 回答、程式碼區塊一鍵複製、思考過程可以收合；工具步驟即時顯示輸出和經過秒數。
 
 **輸入**
-- **附件**：輸入框的迴紋針可以選照片，或 PDF、Word（docx）、Excel（xlsx）、CSV 和純文字檔。檔案在手機上轉成文字，不經過 sandbox 或任何伺服器（做法見 `docs/research/attachments.md`）：
+- **附件**：輸入框的迴紋針可以選照片，或 PDF、Word（docx）、Excel（xlsx）、CSV 和純文字檔。檔案在手機上轉成文字，不經過 sandbox 或任何伺服器（設計取捨見 [research/references.md](research/references.md)）：
   - 小檔案整份放進訊息；大檔案只放開頭，Bot 用 `read_attachment` 讀其他段落、指定頁數或搜尋。
   - PDF 每頁標頁碼。沒有文字的頁面（掃描檔）在手機上 OCR（ML Kit，中英文），讀起來、搜尋起來跟一般頁面一樣；OCR 也讀不出字的頁面（照片、手寫）才轉成圖片。問到圖表或版面時 Bot 會自己把頁面轉成圖片。
   - **拍照**：迴紋針 › 拍照，打開系統相機，拍好的照片直接附加。不需要相機權限，拍照的是系統相機 app；暫存的照片一天後刪除。

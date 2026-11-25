@@ -69,3 +69,10 @@
 3. **在設定或文件裡建議收緊 tailnet 規則**：例如只讓 `autogroup:member` 連到這台電腦的 4790，多一層保護。不強制。
 4. **手機遺失時的處理**要放在電腦設定頁看得到的地方，不只寫在 security.md。
 5. **之後可以改用 LocalAPI**（透過 unix socket 直接查 `whois`），不必每個請求都執行一次 CLI。等量測顯示 CLI 太慢再做。
+
+## iOS／iPadOS 與 Tailscale Serve（2026-10-25，iPad Air 5 實測）
+
+- **ATS 行為（實測）**：`http://100.64.0.1:4790` 被 ATS 擋（`-1022`）；`http://mac.tailnet.ts.net:4790`（`Info.plist` 放行 `ts.net`）、`http://mac:4790`（`NSAllowsLocalNetworking`）、`https://mac.tailnet.ts.net/`（不需例外）皆通。iPad 到 Mac 走 DERP 香港 144 ms。
+- **VPN 狀態**：第三方 iOS App 看不到別的 App 的 VPN 狀態；連不上時在錯誤訊息提示使用者開啟 Tailscale 的 **VPN On Demand**（已實作）。
+- **Tailscale Serve**：`tailscale serve --bg --https=<port> http://127.0.0.1:<local>` 提供自動 HTTPS 與 `Tailscale-User-Login` 標頭（模型閘道已採此建議，iOS 與網頁版皆免 ATS／mixed-content 問題）。若要改讓電腦端也走 Serve，代價是 tailnet 須開 HTTPS、機器名稱會進公開 Certificate Transparency 紀錄（且 WebSocket HTTP/2 握手有 [tailscale#20882](https://github.com/tailscale/tailscale/issues/20882) 426 回報，須測 HTTP/1.1），配對金鑰仍須保留。
+- **TailscaleKit（`libtailscale`）目前不採用**：內嵌 tsnet 雖可免裝 Tailscale app 也不與其他 VPN 互搶，但會成為獨立裝置須另登入、所有流量得改走原生 `URLSession`（不能用 WebView fetch/WS）、且要維護 Go `xcframework` 與 Android 另接一套，成本過高。

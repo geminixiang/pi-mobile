@@ -62,12 +62,4 @@
 
 看過探測結果後選「最嚴」：**只要畫面上看得到金額，Bot 除了捲動、等待、讀畫面、返回之外的每一步都交給使用者**。理由：沒有任何不靠語言的訊號分得出「一鍵購買」和「加入購物車」，跟錢有關的不交給模型判斷。代價：訂餐選菜、加購物車這種畫面上有價錢的步驟也要使用者自己按。
 
-檢查放在原生，每一步執行前對著當下的畫面做：一次呼叫裡的步驟會換畫面，送出前在 TS 檢查一次不夠。貨幣符號用 Unicode 的分類，貨幣代碼用系統的清單（Android `java.util.Currency.getAvailableCurrencies()`、iOS `Locale.commonISOCurrencyCodes`），不手寫。
-
-## pi 要怎麼做（建議，待使用者決定）
-
-- **錢的最後一下由你按，不由 Bot 按**：程式擋下後打開小螢幕交給你接手（Gemini 在 Android 上的做法，但我們用寫死的規則觸發，不靠模型決定何時暫停；接手功能已經有了）。這比「你同意後 Bot 按」更嚴，也省掉「同意的是不是這一下」的比對。
-- **寫死的規則用不靠語言的訊號**：按鈕上有金額（貨幣符號或 ISO 代碼）、密碼欄位、系統視窗（生物辨識、付款視窗）、截圖被擋；不學 mika 的詞表。
-- **最後那個按鈕上沒有金額時**，學 AutoGLM 和 mika：模型在步驟上宣告「這一下會花錢」，程式照樣擋下交給你；再用判斷模型補漏。這一層是補強，不是保證，要在文件裡寫明。
-- **無人值守**：碰到錢一律停下、回報，比 Google 嚴。
-- **沒查證的**：Google Play 付款和 Google Pay 視窗在 S24 上長什麼樣子、XCTest 看不看得到 Apple Pay 的視窗。實作前先在實機探測。
+檢查放在原生，每一步執行前對著當下的畫面做：一次呼叫裡的步驟會換畫面，送出前在 TS 檢查一次不夠。貨幣符號用 Unicode 的分類，貨幣代碼用系統的清單（Android `java.util.Currency.getAvailableCurrencies()`、iOS `Locale.commonISOCurrencyCodes`），不手寫。實作見 `ScreenMoney.kt`、`ios/AgentScreen/ScreenMoney.swift` 與 [docs/security.md](../security.md)。

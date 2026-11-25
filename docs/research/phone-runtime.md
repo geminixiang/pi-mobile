@@ -58,39 +58,16 @@
 | 指紋核准 | 寫入、付款前按指紋 | `BiometricPrompt` | 不用權限 |
 | 操作其他 app | 「幫我在 Uber 叫車」 | Accessibility Service | 特殊，而且風險高；先不做 |
 
-## 做了哪些（2026-10-22）
+## 實作取捨與學到的怪癖（2026-10-22）
 
-| 功能 | 工具／入口 | commit |
-|---|---|---|
-| 回覆、清除通知；音樂；勿擾 | `reply_notification`、`dismiss_notifications`、`media`、`do_not_disturb` | `6d7762f` |
-| 聯絡人、相片 | `contacts`、`find_photos`、`view_photos` | `288ef37` |
-| QR／條碼 | 圖片交給模型時自動解碼（不是工具） | `aec545f` |
-| 通話與簡訊、螢幕使用時間；pi 當數位助理 | `call_log`、`read_sms`、`screen_time`；長按側邊鍵 | `2b82083` |
-| 新的觸發：充電、Wi‑Fi、到達／離開地點 | `create_schedule` 的 `on` | `72cb324` |
-| 文件掃描、掃描頁 OCR | `scan_document`、迴紋針 › 掃描文件 | `9c8c208` |
-| 健康 | `health`（Health Connect 系統 API） | `b7aa83b` |
-| 指紋核准；鎖屏核准要先解鎖 | 設定 › 帳號 › 核准時驗證 | `22a0f9c` |
-
-沒做的：
-
+**沒做的：**
 - **離線翻譯**（ML Kit Translation）：模型本身就會翻譯，而且翻得比較好；每種語言還要下載約 30 MB。只有完全沒網路時有用。
 - **NFC 貼紙觸發**：要先把 pi 的網址寫進貼紙，Android 才會在 pi 沒開時把碰觸交給它；手邊沒有貼紙可以測。
-- **操作其他 app**（Accessibility）：風險高，數位助理已經涵蓋「看目前畫面」這個最常見的需求。
 - **WebGPU 上的模型**：等需要語意搜尋或離線語音轉文字時再做。
 
-實作時學到的：
-
+**實作時學到的：**
 - **觸發的機制**：「插上電源」的廣播不再送給沒在執行的 app，改用要求充電的 JobScheduler 工作，自己判斷是不是新的一次充電；Wi‑Fi 用要求 Wi‑Fi 網路的工作（帶 PendingIntent 的網路 callback 在第一次送出 5 秒後就被系統移除）；地點用 `LocationManager.addProximityAlert`，設定後系統會先回報「目前在圈內或圈外」，那不算事件。
 - **數位助理**：`startAssistantActivity` 會在另一個 assistant task 開第二個 MainActivity（第二個 WebView）；改從 session 直接開 pi 自己的 task。
 - **受限制的設定**：不是從 Play 商店安裝的 app，使用情況存取權和數位助理要先在應用程式資訊頁「允許受限制的設定」。
 - **Health Connect**：Android 14 起是系統 API，Java 直接呼叫；但 app 要有回應「為什麼需要健康資料」的 intent，系統才會顯示權限畫面。
 - **MediaStore**：EXIF 地點要從原始檔讀（`setRequireOriginal` 加 `ACCESS_MEDIA_LOCATION`）；查詢參數一律當文字綁定，數字比較要寫進 SQL。
-
-## 原本的建議順序
-
-1. **通知存取已經開了，就順便多做三件事**：音樂控制、回覆／清除通知、勿擾模式。不用新權限，都是每天會說的話。
-2. **聯絡人和照片**：讓現有的簡訊、email、附件能用名字找人、用描述找照片。
-3. **QR／條碼**：`BarcodeDetector` 在 WebView 裡就有，不用新套件，可以做成讀附件照片的工具。
-4. **叫出 pi 看目前畫面**：做成數位助理。比 Accessibility 安全，因為只有使用者叫出 pi 時才看得到畫面，可能是手機 agent 最自然的入口。
-5. 健康、螢幕時間、來電／簡訊、新的觸發：價值高，但要使用者開權限，一個一個來。
-6. WebGPU 上的模型（embedding、Whisper）：等需要語意搜尋或離線語音轉文字時再做。
