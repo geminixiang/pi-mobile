@@ -17,7 +17,7 @@ const { extensions } = builtinExtensions({
 	triggers: { changed: () => undefined, unattended: () => false, notify: async () => "shown" },
 	memory: { changed: () => undefined },
 	skills: { changed: () => undefined },
-	workplace: () => undefined,
+	workplaces: { at: () => undefined, hosts: () => [] },
 	waitForJob: () => undefined,
 	labelOf: (tool) => tool,
 	actsAsUser: async () => false,

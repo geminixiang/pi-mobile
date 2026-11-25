@@ -31,6 +31,8 @@ const HC = '"$hc"';
 const HERDR = '"$herdr"';
 const REX = '"$rex" --autostart=false';
 const DAY_MINUTES = 1440;
+const RECENT_MINUTES = 60;
+const WINDOW_SUFFIX = 8;
 const SECTION = "@@";
 const SCREEN = "@@screen";
 const SHORT = 6;
@@ -49,6 +51,7 @@ export const LIST = [
 	'if [ -x "$rex" ]; then',
 	`  echo "${SECTION}rex-sessions"; ${REX} ls --json 2>&1`,
 	`  for session in $(${REX} ls -q 2>/dev/null); do`,
+	`    echo "${SECTION}rex-windows $session"; ${REX} window ls -s "$session" --json 2>&1`,
 	`    for block in $(${REX} block ls -s "$session" -q 2>/dev/null); do`,
 	`      echo "${SECTION}rex $session $block"`,
 	`      ${REX} block call -s "$session" --block "$block" process 2>&1`,
@@ -60,8 +63,11 @@ export const LIST = [
 	`find ${JOBS} -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read -r dir; do`,
 	'  [ -f "$dir/command" ] || continue',
 	`  if [ -n "$(find "$dir/exit" -mmin +${DAY_MINUTES} 2>/dev/null)" ]; then rm -rf "$dir"; continue; fi`,
-	`  echo "${SECTION}job $(basename "$dir")"; head -n 1 "$dir/command"; head -n 1 "$dir/cwd"`,
-	'  if [ -f "$dir/exit" ]; then echo "$(cat "$dir/reason" 2>/dev/null || echo exited) $(cat "$dir/exit")"; elif kill -0 "$(cat "$dir/pid" 2>/dev/null)" 2>/dev/null; then echo; else echo "$(cat "$dir/reason" 2>/dev/null || echo lost)"; fi',
+	'  if [ -f "$dir/exit" ]; then ended="$(cat "$dir/reason" 2>/dev/null || echo exited) $(cat "$dir/exit")"; last="$dir/exit"',
+	'  elif kill -0 "$(cat "$dir/pid" 2>/dev/null)" 2>/dev/null; then ended=""; last=""',
+	'  else ended="$(cat "$dir/reason" 2>/dev/null || echo lost)"; last="$dir/log"; fi',
+	`  if [ -n "$last" ] && [ -n "$(find "$last" -mmin +${RECENT_MINUTES} 2>/dev/null)" ]; then continue; fi`,
+	`  echo "${SECTION}job $(basename "$dir")"; head -n 1 "$dir/command"; head -n 1 "$dir/cwd"; echo "$ended"`,
 	"done",
 ].join("\n");
 
@@ -80,6 +86,9 @@ const RexProcess = Type.Object({ foreground: Type.Union([Type.Null(), Type.Objec
 const RexStatus = Type.Object({ records: Type.Array(Type.Object({ state: Type.String(), app: Type.String(), msg: Type.Optional(Type.String()) })) });
 const RexTitle = Type.Object({ title: Type.String() });
 const RexSessions = Type.Object({ sessions: Type.Array(Type.Object({ session_id: Type.String(), label: Type.String() })) });
+const RexWindows = Type.Object({
+	windows: Type.Array(Type.Object({ window_id: Type.String(), label: Type.String(), layers: Type.Array(Type.Object({ blocks: Type.Array(Type.Object({ block_id: Type.String() })) })) })),
+});
 const HcTerminal = Type.Object({ address: Type.String(), agent: Type.Optional(Type.String()), cwd: Type.Optional(Type.String()), state: Type.String(), status: Type.Optional(Type.Union([Type.String(), Type.Object({ state: Type.String() }), Type.Null()])), name: Type.Optional(Type.Union([Type.String(), Type.Null()])), title: Type.Optional(Type.String()) });
 const HcList = Type.Object({ terminals: Type.Array(HcTerminal) });
 const HcError = Type.Object({ error: Type.Object({ kind: Type.String(), message: Type.String(), hint: Type.Optional(Type.String()) }) });
@@ -98,13 +107,22 @@ export function workers(output: string): Worker[] {
 		});
 	const listed = checkJson(RexSessions, sections.find((section) => section.via === "rex-sessions")?.lines.join("\n") ?? "", "rex ls");
 	const labels = new Map(listed.ok ? listed.value.sessions.map((session) => [session.session_id, session.label]) : []);
+	const windows = new Map(sections.flatMap((section) => (section.via === "rex-windows" ? windowLabels(section.lines.join("\n")) : [])));
 	return sections.flatMap(({ via, name, block, lines }) => {
 		if (via === "herdr") return herdrWorkers(name, lines[0] ?? "");
 		if (via === "hc") return hcWorkers(lines.join("\n"));
-		if (via === "rex") return rexWorker(name, labels.get(name) ?? "", block, lines);
+		if (via === "rex") return rexWorker(name, windows.get(block) ?? labels.get(name) ?? "", block, lines);
 		if (via === "job") return [jobWorker(name, lines)];
 		return [];
 	});
+}
+
+function windowLabels(json: string): [string, string][] {
+	const listed = checkJson(RexWindows, json, "rex window ls");
+	if (!listed.ok) return [];
+	return listed.value.windows
+		.filter((window) => !window.label.endsWith(window.window_id.slice(-WINDOW_SUFFIX)))
+		.flatMap((window) => window.layers.flatMap((layer) => layer.blocks.map((block): [string, string] => [block.block_id, window.label])));
 }
 
 function herdrWorkers(session: string, line: string): Worker[] {

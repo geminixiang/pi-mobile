@@ -18,6 +18,8 @@ import { Jobs } from "../../src/jobs/jobs.ts";
 import { jobAgent } from "../../src/jobs/background.ts";
 import { startJob, stopJob } from "../../src/jobs/commands.ts";
 import { agentState } from "../../src/computer-agents/tool.ts";
+import { agentIdOn } from "../../src/computer-agents/reach.ts";
+import type { PairedHost } from "../../src/computer/pairing.ts";
 import { context, entriesOf } from "./fixtures.ts";
 import { type Check, logged, platform, settings } from "./setup.ts";
 
@@ -104,6 +106,7 @@ async function withTrigger(fixture: Awaited<ReturnType<typeof triggerFixture>>, 
 }
 
 const STOP_REPLY_MS = 1500;
+const HOST: PairedHost = { id: "mac", address: "mac", name: "mac", os: "darwin", arch: "arm64", user: "me", home: "/Users/me", key: "k" };
 
 function bash(home: string, command: string): Promise<{ stdout: string; stderr: string; code: number | undefined }> {
 	return new Promise((resolve) => {
@@ -131,7 +134,7 @@ async function jobFixture(options: { command: string; stopReply?: number; stopFa
 			return ran;
 		},
 	};
-	const fixture = await triggerFixture({ kind: "once", at: Date.now() + 60_000 }, { watching: "working", agent, agentState: (_id, watched) => agentState(computer, watched) });
+	const fixture = await triggerFixture({ kind: "once", at: Date.now() + 60_000 }, { watching: "working", agent, agentState: (_id, watched) => agentState({ at: () => undefined, hosts: () => [HOST] }, "bot", agentIdOn(HOST, watched), () => computer) });
 	const started = await bash(home, startJob({ id, command: options.command, cwd: home, owner: "bot", limitSeconds: 60 }));
 	assert.equal(started.code, 0, started.stderr);
 	return { fixture, agent, jobs: new Jobs(() => computer, fixture.runs), done: () => rmSync(home, { recursive: true, force: true }) };

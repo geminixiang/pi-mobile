@@ -171,7 +171,7 @@ export class AgentRuntime {
 			async () => (await this.bots()).map((bot) => ({ id: bot.id, name: bot.name, avatar: avatarOf(bot) })),
 			(id, at) => this.#touchBot(id, at),
 			parts.judge,
-			(id, agent) => agentState(computerOf(at(String(id))), agent),
+			(id, agent) => agentState(workplaces, String(id), agent),
 		);
 		this.jobs = new Jobs((id) => computerOf(at(id)), this.triggers);
 		const triggerHost: TriggerHost = {
@@ -200,7 +200,7 @@ export class AgentRuntime {
 			triggers: triggerHost,
 			memory: this.memories,
 			skills: this.skills,
-			workplace: at,
+			workplaces,
 			waitForJob: (id, job) => this.jobs.wait(id, job),
 			actsAsUser: (id) => this.#actsAsUser(id),
 			ask,

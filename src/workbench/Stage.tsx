@@ -248,7 +248,7 @@ function AgentControl({ runtime, conversation, agent, since, onAsk }: { runtime:
 	const screen =
 		usePolled(
 			(): Promise<Screen> =>
-				orLogged(peekAgent(runtime.workplaces.at(String(conversation)), agent), "workbench.peek_failed", undefined, { agent }).then((reading) =>
+				orLogged(peekAgent(runtime.workplaces, String(conversation), agent), "workbench.peek_failed", undefined, { agent }).then((reading) =>
 					reading?.ok ? { state: "read", text: reading.screen, doing: reading.doing, waiting: reading.status === "needs_user" } : { state: "gone" },
 				),
 			PEEK_EVERY_MS,

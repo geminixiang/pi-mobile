@@ -20,7 +20,7 @@ const Content = Type.Array(Part);
 const World = Type.Object({ agents: Type.Unknown(), gone: Type.Array(Type.String()), said: Type.Optional(Type.String()), turn: Type.Number(), outside: Type.Optional(Type.Object({ held: Type.Array(Type.Unknown()) })), calls: Type.Array(Type.Object({ tool: Type.String(), args: Type.Record(Type.String(), Type.Unknown()) })) });
 
 const prompt = valueOrThrow(checkJson(Sections, readFileSync(new URL("../prompt.snapshot.json", import.meta.url), "utf8"), "prompt snapshot"));
-const extension = createComputerAgentsExtension(() => undefined, { changed: () => undefined, unattended: () => false, notify: async () => "off" }, async () => []);
+const extension = createComputerAgentsExtension({ workplaces: { at: () => undefined, hosts: () => [] }, triggers: { changed: () => undefined, unattended: () => false, notify: async () => "off" }, userSaid: async () => [] });
 const tools = [...(extension.tools ?? []), ...(InteractionExtension.tools ?? [])].map(({ name, description, parameters }) => ({ name, description, parameters }));
 const dir = mkdtempSync(join(tmpdir(), "manager-"));
 const toolsFile = join(dir, "tools.json");

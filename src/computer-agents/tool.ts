@@ -2,15 +2,17 @@ import type { Context } from "@earendil-works/chord/context";
 import { type ConversationId, defineExtension, type ToolExecutionApi } from "@earendil-works/pi-durable";
 import { appSection } from "../section.ts";
 import { Type } from "typebox";
-import { type CommandClient, HostCommands } from "../computer/commands.ts";
+import { type CommandClient, deviceDial, type Dial, HostCommands } from "../computer/commands.ts";
 import type { PairedHost } from "../computer/pairing.ts";
-import type { AgentState } from "../triggers/runs.ts";
+import type { AgentState, Trigger } from "../triggers/runs.ts";
 import { editTriggers, triggersOf } from "../triggers/edit.ts";
 import { isWatch, watch } from "../triggers/watch.ts";
 import { orLogged } from "pi-mobile-base/promise";
-import type { Workplace } from "../agent/workplaces.ts";
+import { sleep } from "pi-mobile-base/time";
+import type { Workplaces } from "../agent/workplaces.ts";
 import { defineAppTool, text, truncated } from "../agent/tools/common.ts";
-import { type AgentPlace, choicesOf, keysCommand, LIST, type Place, type Reading, type Status, placeOf, readingOf, sendCommand, sendProblem, workers } from "./workers.ts";
+import { type AgentPlace, choicesOf, keysCommand, LIST, type Reading, type Status, readingOf, sendCommand, sendProblem, type Worker, workers } from "./workers.ts";
+import { agentIdOn, computerName, ownHost, type Reachable, type Reached, reachAgent } from "./reach.ts";
 import type { TriggerHost } from "../triggers/tool.ts";
 import { createJudge } from "../agent/judge.ts";
 import { checkAnswer, checkTask, Menus, Repeats } from "./guard.ts";
@@ -26,25 +28,38 @@ const MAX_LINES = 400;
 const SCREEN_LINES = 40;
 const SETTLE_MS = 5_000;
 const STOPS_ASKING = ["don’t ask again", "don't ask again", "auto mode", "always"];
-const AGENT = Type.String({ description: "The id from list_agents, such as herdr:default:w1:p1, rex:c834ae, or job:1a2b3c4d for a command bash sent to the background" });
+const LIST_WAIT_MS = 4_000;
+const AGENT = Type.String({ description: "The id from list_agents, such as mac/rex:f3fea1:5d91e3 or mac/job:1a2b3c4d for a command bash sent to the background" });
 
-export function createComputerAgentsExtension(workplace: (conversationId: string) => Workplace | undefined, triggers: TriggerHost, userSaid: (conversationId: ConversationId) => Promise<readonly string[]>) {
+type Computers = Pick<Workplaces, "at" | "hosts">;
+
+type Deps = {
+	workplaces: Computers;
+	triggers: TriggerHost;
+	userSaid: (conversationId: ConversationId) => Promise<readonly string[]>;
+	dial?: Dial;
+};
+
+export function createComputerAgentsExtension({ workplaces, triggers, userSaid, dial = deviceDial }: Deps) {
 	const repeats = new Repeats();
 	const menus = new Menus();
-	const commandsOf = (conversationId: string): { host: PairedHost; commands: HostCommands } => {
-		const place = workplace(conversationId);
-		if (place?.kind !== "computer") throw new Error("This bot works on the phone: agents on a computer need a computer picked in the bot's panel.");
-		return { host: place.host, commands: new HostCommands(place.host) };
+	const reach = (agent: string, conversationId: ConversationId): Reachable => {
+		const reached = reachIn(workplaces, String(conversationId), agent, (host) => new HostCommands(host, dial));
+		if (!reached.ok) throw new Error(reached.problem);
+		return reached;
 	};
-	const agentAt = (agent: string, conversationId: ConversationId): { place: AgentPlace; commands: HostCommands } => {
-		const { place, commands } = reach(agent, conversationId);
-		if (place.via === "job") throw new Error(`${agent} is a background command, not an agent: it takes no input. read_agent shows its output.`);
-		return { place, commands };
+	const agentAt = (agent: string, conversationId: ConversationId): Reachable & { place: AgentPlace } => {
+		const reached = reach(agent, conversationId);
+		if (reached.place.via === "job") throw new Error(`${agent} is a background command, not an agent: it takes no input. read_agent shows its output.`);
+		return { ...reached, place: reached.place };
 	};
-	const reach = (agent: string, conversationId: ConversationId): { place: Place; commands: HostCommands } => {
-		const place = placeOf(agent);
-		if (!place) throw new Error(`${agent} is not an agent id: take one from list_agents.`);
-		return { place, commands: commandsOf(String(conversationId)).commands };
+	const listOn = async (host: PairedHost): Promise<string[]> => {
+		const ran = orLogged(new HostCommands(host, dial).run(LIST), "agents.list_failed", undefined, { host: host.name });
+		const answer = await Promise.race([ran, sleep(LIST_WAIT_MS).then(() => undefined)]);
+		if (!answer) return [`${computerName(host)} (${host.name}) did not answer`];
+		const found = workers(answer.stdout);
+		if (found.length === 0) return [`${computerName(host)}: no coding agent running in Herdr or Rex`];
+		return found.map((worker) => line(agentIdOn(host, worker.id), worker));
 	};
 	const watchAgent = (api: ToolExecutionApi, context: Context, agent: string, prompt: string) =>
 		watch(triggers, api, context, {
@@ -57,16 +72,11 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		groups: ["computer_agents"],
 		effect: "read",
 		description:
-			"List the coding agents (Claude Code, Codex, pi…) running on the computer you work on, in Herdr or Rex: each one's id, the name the user calls it by (its Herdr name or Rex session), which agent, status (idle, working, needs_user: waiting for the user to approve or answer, unknown), folder, title, and what it is doing. " +
-			"You lead these agents: hand them the work with tell_agent and check on it with read_agent, instead of doing their work yourself. Shell commands that bash sent to the background are listed too, as job:<id>.",
+			"List the coding agents (Claude Code, Codex, pi…) in Herdr or Rex on every paired computer: each one's id, the name the user uses (its Herdr name, Rex window or session), which agent, status (idle, working, needs_user: waiting for the user to approve or answer, unknown), folder, title, and what it is doing. " +
+			"You lead these agents: hand them work with tell_agent and check with read_agent rather than doing it yourself. Commands bash sent to the background are listed too (job:<id>) while running and for an hour after.",
 		parameters: Type.Object({}),
 		replay: "safe",
-		execute: async (_args, api) => {
-			const { host, commands } = commandsOf(String(api.conversationId));
-			const found = workers((await commands.run(LIST)).stdout);
-			if (found.length === 0) return text(`No coding agent is running on ${host.name} in Herdr or Rex.`);
-			return text(found.map((worker) => [worker.id, worker.name && `named ${worker.name}`, worker.agent, worker.status, worker.cwd, worker.title, worker.doing].filter(Boolean).join(" · ")).join("\n"));
-		},
+		execute: async () => text((await Promise.all(workplaces.hosts().map(listOn))).flat().join("\n")),
 	});
 
 	const readAgent = defineAppTool({
@@ -83,14 +93,15 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		}),
 		replay: "safe",
 		execute: async (args, api, context) => {
-			const { place, commands } = reach(args.agent, api.conversationId);
-			const read = await readingOf(commands, place, args.lines ?? READ_LINES);
+			const { id, place, computer } = reach(args.agent, api.conversationId);
+			const read = await readingOf(computer, place, args.lines ?? READ_LINES);
 			if (!read.ok) throw new Error(`Could not read ${args.agent}: ${read.problem}`);
 			const settled = Date.now() - SETTLE_MS;
-			const seenDone = read.status === "idle" && (await triggersOf(api, context)).some((item) => isWatch(item, args.agent, api.conversationId) && item.createdAt < settled);
-			if (seenDone) await editTriggers(api, context, triggers, (items) => items.filter((item) => !isWatch(item, args.agent, api.conversationId)));
-			if (repeats.tooMany(`read:${api.conversationId}:${args.agent}`, read.screen)) throw new Error(`${args.agent} has not changed since your last reads: stop checking and tell the user where it stands.`);
-			menus.saw(`${api.conversationId}:${args.agent}`, choicesOf(read.screen)?.options);
+			const watching = (item: Trigger) => isWatch(item, id, api.conversationId) || isWatch(item, args.agent, api.conversationId);
+			const seenDone = read.status === "idle" && (await triggersOf(api, context)).some((item) => watching(item) && item.createdAt < settled);
+			if (seenDone) await editTriggers(api, context, triggers, (items) => items.filter((item) => !watching(item)));
+			if (repeats.tooMany(`read:${api.conversationId}:${id}`, read.screen)) throw new Error(`${args.agent} has not changed since your last reads: stop checking and tell the user where it stands.`);
+			menus.saw(`${api.conversationId}:${id}`, choicesOf(read.screen)?.options);
 			const status = `Status: ${read.status}${read.doing ? ` (${read.doing})` : ""}${seenDone ? "; you have seen it finish, so the phone stops watching it" : ""}`;
 			return text(truncated([status, "Terminal:", read.screen].join("\n")));
 		},
@@ -106,16 +117,16 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			"Write the task so it stands alone (the goal, where, what to leave alone, how to report). The phone then checks on it by itself and wakes you here once it is idle again or needs the user, so do not wait or schedule a follow-up for it.",
 		parameters: Type.Object({ agent: AGENT, task: Type.String({ minLength: 1, description: "The task, sent as one message even when it has several lines" }) }),
 		execute: async (args, api, context) => {
-			const { place, commands } = agentAt(args.agent, api.conversationId);
-			const [gate, before] = await Promise.all([userSaid(api.conversationId).then((user) => checkTask(createJudge(api.models), args.task, user)), readingOf(commands, place, 1)]);
+			const { id, place, computer } = agentAt(args.agent, api.conversationId);
+			const [gate, before] = await Promise.all([userSaid(api.conversationId).then((user) => checkTask(createJudge(api.models), args.task, user)), readingOf(computer, place, 1)]);
 			if (!gate.allow) throw new Error(gate.reason);
 			if (!before.ok) throw new Error(`Could not reach ${args.agent}: ${before.problem}`);
 			if (before.status !== "idle") throw new Error(`${args.agent}${before.doing ? ` (${before.doing})` : ""} ${NOT_READY[before.status]}`);
-			const sent = await commands.run(sendCommand(place, args.task));
+			const sent = await computer.run(sendCommand(place, args.task));
 			if (sent.code === undefined) throw new Error(`The link to the computer dropped before it said whether ${args.agent} got the task: read_agent to see whether it is working on it before telling it again.`);
 			const problem = sent.code === 0 ? sendProblem(place, sent.stdout) : sent.stdout.trim() || sent.stderr.trim() || `exit ${sent.code}`;
 			if (problem) throw new Error(`The task did not reach ${args.agent}: ${problem}`);
-			const watched = await watchAgent(api, context, args.agent, `You gave ${args.agent} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}.`);
+			const watched = await watchAgent(api, context, id, `You gave ${id} this task: ${JSON.stringify(args.task.slice(0, TASK_CHARS))}.`);
 			return text(watched ? `${args.agent} has the task. Answer the user now: the phone wakes you here when it is idle again or needs the user, so do not wait, poll with read_agent, or schedule a follow-up for it.` : `${args.agent} has the task. Check on it with read_agent.`);
 		},
 	});
@@ -134,12 +145,12 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		}),
 		execute: async (args, api, context) => {
 			if (triggers.unattended(api.conversationId)) throw new Error("This turn started from a schedule, not from the user: tell the user what the agent asks, and answer only when they reply.");
-			const { place, commands } = agentAt(args.agent, api.conversationId);
-			const read = await readingOf(commands, place, SCREEN_LINES);
+			const { id, place, computer } = agentAt(args.agent, api.conversationId);
+			const read = await readingOf(computer, place, SCREEN_LINES);
 			if (!read.ok) throw new Error(`Could not reach ${args.agent}: ${read.problem}`);
 			const choices = read.status === "working" || read.status === "idle" ? undefined : choicesOf(read.screen);
 			if (!choices) throw new Error(`${args.agent} is ${read.status} and shows no options to choose from: read_agent to see its screen.`);
-			if (menus.changed(`${api.conversationId}:${args.agent}`, choices.options)) throw new Error(`${args.agent}'s options are not the ones you last read: read_agent, show the user the new options, and answer only after they choose.`);
+			if (menus.changed(`${api.conversationId}:${id}`, choices.options)) throw new Error(`${args.agent}'s options are not the ones you last read: read_agent, show the user the new options, and answer only after they choose.`);
 			const chosen = choices.options[args.option - 1];
 			if (chosen === undefined) throw new Error(`${args.agent} offers ${choices.options.length} options: ${choices.options.map((option, index) => `${index + 1}. ${option}`).join("; ")}.`);
 			if (STOPS_ASKING.some((words) => chosen.toLowerCase().includes(words)) && !args.stop_asking) throw new Error(`"${chosen}" stops future questions: choose it only when the user asked for exactly that, with stop_asking.`);
@@ -147,10 +158,10 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 			if (!gate.allow) throw new Error(gate.reason);
 			const move = args.option - 1 - choices.at;
 			const keys = [...Array.from({ length: Math.abs(move) }, () => (move > 0 ? "down" : "up")), "enter"];
-			const sent = await commands.run(keysCommand(place, keys));
+			const sent = await computer.run(keysCommand(place, keys));
 			if (sent.code === undefined) throw new Error(`The link to the computer dropped before it said whether ${args.agent} got the answer: read_agent to see whether it is still asking before answering again.`);
 			if (sent.code !== 0) throw new Error(`The answer did not reach ${args.agent}: ${sent.stdout.trim() || sent.stderr.trim()}`);
-			await watchAgent(api, context, args.agent, `For the user you answered ${args.agent}'s question with "${chosen}".`);
+			await watchAgent(api, context, id, `For the user you answered ${id}'s question with "${chosen}".`);
 			return text(`Chose "${chosen}" for ${args.agent}. The phone will wake you here when it is idle again or needs the user.`);
 		},
 	});
@@ -160,25 +171,31 @@ export function createComputerAgentsExtension(workplace: (conversationId: string
 		tools: [listAgents, readAgent, tellAgent, answerAgent],
 		sections: [
 			appSection("computer_agents", 800, (input) =>
-				workplace(String(input.conversationId))?.kind !== "computer"
+				workplaces.at(String(input.conversationId))?.kind !== "computer"
 					? undefined
-					: "Coding agents on the computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply.", { about: [listAgents, readAgent, tellAgent, answerAgent] }),
+					: "Coding agents on every paired computer (Claude Code, Codex, pi in Herdr or Rex) are yours to lead through list_agents, tell_agent, and read_agent in codemode: hand them work with tell_agent, never by typing into their terminal with the screen tools or bash, and never reach another computer by ssh or any remote shell. When two agents fit what the user said, ask which with ask_user's choices instead of guessing or answering for both. After tell_agent, answer the user right away; the phone wakes you when the agent is done. When an agent waits on the user, show them its question and options; answer_agent only with what they reply.", { about: [listAgents, readAgent, tellAgent, answerAgent] }),
 		],
 	});
 }
 
-export function peekAgent(place: Workplace | undefined, agent: string): Promise<Reading> {
-	const at = placeOf(agent);
-	if (place?.kind !== "computer" || !at) return Promise.resolve({ ok: false, problem: `${agent} is not on a computer` });
-	return readingOf(new HostCommands(place.host), at, READ_LINES);
+export function peekAgent(workplaces: Computers, conversationId: string, agent: string): Promise<Reading> {
+	const reached = reachIn(workplaces, conversationId, agent, (host) => new HostCommands(host));
+	return reached.ok ? readingOf(reached.computer, reached.place, READ_LINES) : Promise.resolve({ ok: false, problem: reached.problem });
 }
 
-export async function agentState(computer: Pick<CommandClient, "run"> | undefined, agent: string): Promise<AgentState> {
-	if (!computer) return "unreachable";
-	const place = placeOf(agent);
-	if (!place) return "gone";
-	const read = await orLogged(readingOf(computer, place, 1), "agents.unreachable", undefined, { agent });
+export async function agentState(workplaces: Computers, conversationId: string, agent: string, commandsOf: (host: PairedHost) => Pick<CommandClient, "run"> = (host) => new HostCommands(host)): Promise<AgentState> {
+	const reached = reachIn(workplaces, conversationId, agent, commandsOf);
+	if (!reached.ok) return reached.reason === "phone" ? "unreachable" : "gone";
+	const read = await orLogged(readingOf(reached.computer, reached.place, 1), "agents.unreachable", undefined, { agent: reached.id });
 	if (!read) return "unreachable";
 	if (!read.ok) return "gone";
 	return read.stopped ? "stopped" : read.status;
+}
+
+function reachIn(workplaces: Computers, conversationId: string, agent: string, commandsOf: (host: PairedHost) => Pick<CommandClient, "run">): Reached {
+	return reachAgent(agent, workplaces.hosts(), ownHost(workplaces.at(conversationId)), commandsOf);
+}
+
+function line(id: string, worker: Worker): string {
+	return [id, worker.name && `named ${worker.name}`, worker.agent, worker.status, worker.cwd, worker.title, worker.doing].filter(Boolean).join(" · ");
 }

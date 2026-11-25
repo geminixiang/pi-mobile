@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { choicesOf, keysCommand, LIST, placeOf, readCommand, reading, sendCommand, sendProblem, workers } from "../src/computer-agents/workers.ts";
 import { startJob } from "../src/jobs/commands.ts";
+import { parseAgentId, reachAgent } from "../src/computer-agents/reach.ts";
+import { HostCommands } from "../src/computer/commands.ts";
+import type { PairedHost } from "../src/computer/pairing.ts";
 
 const herdrAgent = { agent: "claude", agent_status: "blocked", cwd: "/Users/me/app", focused: true, name: "tester", pane_id: "w1:p1", terminal_title_stripped: "Claude Code", workspace_id: "w1" };
 const rexProcess = (argv0: string, cwd: string) => JSON.stringify({ last_exit: null, foreground: { pid: 1, name: argv0.split("/").at(-1), argv0, cwd } });
@@ -15,6 +18,17 @@ const listing = [
 	JSON.stringify({ id: "cli:agent:list", result: { agents: [herdrAgent], type: "agent_list" } }),
 	"@@rex-sessions",
 	JSON.stringify({ sessions: [{ session_id: "session:01a1867f-f531-7105-9a60-a5cfc874b7b2", label: "coder" }] }, null, 2),
+	"@@rex-windows session:01a1867f-f531-7105-9a60-a5cfc874b7b2",
+	JSON.stringify(
+		{
+			windows: [
+				{ window_id: "window:01a1867f-f531-7105-9a60-a5cf33cad9e0", label: "pi-linux-lock", layers: [{ blocks: [{ block_id: "block:01a1867f-f531-718e-a0db-8ca1e7c834ae" }] }] },
+				{ window_id: "window:01a1867f-f531-7105-9a60-a5cf8b7b20df", label: "Window 8b7b20df", layers: [{ blocks: [{ block_id: "block:01a1867f-f54b-76f1-b0b6-210949d15dc0" }] }] },
+			],
+		},
+		null,
+		2,
+	),
 	"@@rex session:01a1867f-f531-7105-9a60-a5cfc874b7b2 block:01a1867f-f531-718e-a0db-8ca1e7c834ae",
 	rexProcess("/Users/me/.local/bin/claude", "/Users/me/pi-mobile"),
 	JSON.stringify({ records: [{ state: "working", app: "claude-code", effective_app: "claude-code", msg: "Running the tests" }] }),
@@ -35,10 +49,27 @@ const listing = [
 
 assert.deepEqual(workers(listing), [
 	{ id: "herdr:work:w1:p1", name: "tester", agent: "claude", status: "needs_user", cwd: "/Users/me/app", title: "Claude Code", doing: "" },
-	{ id: "rex:74b7b2:c834ae", name: "coder", agent: "claude-code", status: "working", cwd: "/Users/me/pi-mobile", title: "Fix the widget", doing: "Running the tests" },
+	{ id: "rex:74b7b2:c834ae", name: "pi-linux-lock", agent: "claude-code", status: "working", cwd: "/Users/me/pi-mobile", title: "Fix the widget", doing: "Running the tests" },
 	{ id: "rex:74b7b2:d15dc0", name: "coder", agent: "pi", status: "unknown", cwd: "/Users/me/inbox", title: "π - inbox", doing: "" },
 ]);
 assert.deepEqual(workers(""), []);
+
+const paired = (address: string): PairedHost => ({ id: address, name: address, address, os: "darwin", arch: "arm64", user: "me", home: "/Users/me", key: "k" });
+const mini = paired("geminixiangmac-mini.tail1.ts.net");
+const air = paired("geminixiangmacbook-air.tail1.ts.net");
+const reach = (id: string, own: PairedHost | undefined) => {
+	const reached = reachAgent(id, [mini, air], own, (host) => new HostCommands(host));
+	return reached.ok ? { id: reached.id, host: reached.host.address, place: reached.place } : reached.reason;
+};
+assert.deepEqual(parseAgentId("geminixiangmac-mini/rex:f3fea1:5d91e3"), { form: "on_computer", computer: "geminixiangmac-mini", local: "rex:f3fea1:5d91e3" });
+assert.deepEqual(parseAgentId("rex:f3fea1:5d91e3"), { form: "legacy_on_own_computer", local: "rex:f3fea1:5d91e3" });
+assert.deepEqual(parseAgentId("hc:office/t7"), { form: "legacy_on_own_computer", local: "hc:office/t7" }, "a slash inside an hc terminal is not a computer");
+assert.deepEqual(parseAgentId("air/hc:office/t7"), { form: "on_computer", computer: "air", local: "hc:office/t7" });
+assert.deepEqual(reach("geminixiangmacbook-air/rex:f3fea1:5d91e3", mini), { id: "geminixiangmacbook-air/rex:f3fea1:5d91e3", host: air.address, place: { via: "rex", session: "f3fea1", block: "5d91e3" } });
+assert.deepEqual(reach("rex:f3fea1:5d91e3", mini), { id: "geminixiangmac-mini/rex:f3fea1:5d91e3", host: mini.address, place: { via: "rex", session: "f3fea1", block: "5d91e3" } }, "a stored watch without a computer still means the bot's own");
+assert.equal(reach("rex:f3fea1:5d91e3", undefined), "phone");
+assert.equal(reach("office-pc/rex:f3fea1:5d91e3", mini), "not_paired");
+assert.equal(reach("geminixiangmac-mini/w1:p1", mini), "not_an_id");
 
 assert.deepEqual(placeOf("herdr:default:w1:p1"), { via: "herdr", session: "default", pane: "w1:p1" });
 assert.deepEqual(placeOf("rex:74b7b2:c834ae"), { via: "rex", session: "74b7b2", block: "c834ae" });
@@ -68,6 +99,31 @@ if (existsSync("/bin/zsh")) {
 	rmSync(home, { recursive: true });
 	assert.equal(listed.status, 0, listed.stderr);
 	assert.deepEqual(workers(listed.stdout).map((worker) => worker.id), ["herdr:default:w1:p1"]);
+}
+
+if (existsSync("/bin/zsh")) {
+	const home = mkdtempSync(join(tmpdir(), "jobs-"));
+	const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+	const job = (id: string, files: Record<string, string>, at = new Date()) => {
+		const dir = join(home, ".pi-mobile/jobs", id);
+		mkdirSync(dir, { recursive: true });
+		for (const [name, content] of Object.entries({ command: `make ${id}\n`, cwd: `${home}\n`, ...files })) {
+			writeFileSync(join(dir, name), content);
+			utimesSync(join(dir, name), at, at);
+		}
+	};
+	job("aaaaaaa1", { pid: `${process.pid}\n` }, hoursAgo(3));
+	job("aaaaaaa2", { pid: "1\n", exit: "0\n" }, hoursAgo(0.5));
+	job("aaaaaaa3", { pid: "1\n", exit: "0\n" }, hoursAgo(2));
+	job("aaaaaaa4", { pid: "none\n", log: "built\n" }, hoursAgo(2));
+	job("aaaaaaa5", { pid: "none\n", log: "built\n" }, hoursAgo(0.2));
+	const listed = spawnSync("/bin/zsh", ["-lc", LIST], { env: { HOME: home, PATH: "/usr/bin:/bin" }, encoding: "utf8" });
+	rmSync(home, { recursive: true });
+	assert.deepEqual(
+		workers(listed.stdout).map((worker) => [worker.id, worker.status, worker.doing]).toSorted(),
+		[["job:aaaaaaa1", "working", "running"], ["job:aaaaaaa2", "idle", "exited 0"], ["job:aaaaaaa5", "idle", "lost"]],
+		"a background command is listed while it runs and for an hour after it ends, not for the day it is kept",
+	);
 }
 
 assert.deepEqual(placeOf("job:1a2b3c4d"), { via: "job", id: "1a2b3c4d" });
@@ -137,4 +193,4 @@ assert.match(sendCommand(hc, "fix it"), /"\$hc" send 't5' 'fix it'/);
 assert.match(keysCommand(hc, ["esc", "enter"]), /"\$hc" keys 't5' 'esc' 'enter'/);
 assert.equal(sendProblem(hc, JSON.stringify({ error: { kind: "blocked", message: "the program is waiting" } })), "the program is waiting");
 
-console.log("computer agents: Herdr's (also hc on Windows) and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block, each carries the name the user calls it by, the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen; a background command starts at once, is listed while it runs, and is read with its exit code and output when it ends");
+console.log("computer agents: Herdr's (also hc on Windows) and Rex's agents are listed with one status each, a shell or a gone block is not an agent, and ids lead back to their pane or block on the computer they name (an id without one means the bot's own), each carries the name the user calls it by (a Rex window's own label before its session's), the listing runs in zsh with no Herdr session, and a waiting agent's options are read from its screen; a background command starts at once, is listed while it runs and for an hour after, and is read with its exit code and output when it ends");

@@ -39,7 +39,7 @@ import type { Platform } from "../agent/platform.ts";
 import { type Groups, usableGroups } from "../agent/toolsets.ts";
 import { adopt, declarationOf, gated, type ToolDeclaration } from "../agent/tools/common.ts";
 import { type AskForm, permissionGate } from "../agent/permissions.ts";
-import type { Workplace } from "../agent/workplaces.ts";
+import type { Workplaces } from "../agent/workplaces.ts";
 
 interface CatalogDeps {
 	platform: Pick<Platform, "native" | "permissions" | "apps">;
@@ -52,7 +52,7 @@ interface CatalogDeps {
 	triggers: TriggerHost;
 	memory: { changed(): void };
 	skills: { changed(): void };
-	workplace: (conversationId: string) => Workplace | undefined;
+	workplaces: Pick<Workplaces, "at" | "hosts">;
 	waitForJob: (conversationId: ConversationId, job: string) => void;
 	labelOf: (tool: string, extension: string, conversationId: string) => string | undefined;
 	actsAsUser: ActsAsUser;
@@ -75,7 +75,8 @@ function declared(tool: ToolRegistration): ToolDeclaration {
 
 export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[]; owners: ReadonlyMap<string, Groups> } {
 	const bash = createBashTool();
-	const jobBash = { ...bash, parameters: JOB_BASH_PARAMETERS, description: bash.description + BACKGROUND_NOTE, execute: jobsOnComputers(bash.execute, deps.workplace, deps.triggers, deps.waitForJob) };
+	const workplace = (conversationId: string) => deps.workplaces.at(conversationId);
+	const jobBash = { ...bash, parameters: JOB_BASH_PARAMETERS, description: bash.description + BACKGROUND_NOTE, execute: jobsOnComputers(bash.execute, workplace, deps.triggers, deps.waitForJob) };
 	const codingTools = (CodingTools.tools ?? []).map((tool) =>
 		adopt(tool.name === bash.name ? jobBash : tool, {
 			groups: ["files", "computer_shell"],
@@ -116,10 +117,10 @@ export function builtinExtensions(deps: CatalogDeps): { extensions: Extension[];
 		createItemsExtension(deps.triggers),
 		createMemoryExtension(deps.memory),
 		InteractionExtension,
-		createSandboxExtension(deps.workplace),
-		createFilesExtension(deps.workplace),
-		createComputerExtension(deps.workplace),
-		createComputerAgentsExtension(deps.workplace, deps.triggers, deps.userSaid),
+		createSandboxExtension(workplace),
+		createFilesExtension(workplace),
+		createComputerExtension(workplace),
+		createComputerAgentsExtension({ workplaces: deps.workplaces, triggers: deps.triggers, userSaid: deps.userSaid }),
 		{ ...CodingTools, tools: codingTools },
 		toolSearch(),
 		createOnDemandExtension(deps.labelOf),
