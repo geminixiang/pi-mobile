@@ -101,7 +101,7 @@
 - **Windows（`computer_windows.go`，golang.org/x/sys）**：啟動時宣告 per-monitor V2 DPI，之後全部是實體像素；GDI `BitBlt` 截主螢幕，`SendInput` 送滑鼠鍵盤（文字用 `KEYEVENTF_UNICODE`，換行送真的 Enter），檢查 `SendInput` 送進去的數量，少了就是被擋（前景是系統管理員權限的視窗，或鎖定畫面）。鎖定畫面、UAC、session 0（以服務身分執行，沒有畫面）都回明確的錯誤。收 app 時先送 `WM_CLOSE`，1.5 秒後還在才結束程序，不碰 explorer。
 - **只有 macOS 和 X11（docker 裡的 Xvfb＋openbox＋zenity）實際跑過**：X11 打 `Hello 中文 é Ü ☃!`、`ctrl+a` 取代、點 OK 鈕都對，前景 app 和視窗標題正確。Wayland 和 Windows 只有編譯和單元測試（`linux_desktop_test.go`、`computer_windows_test.go`，後者在 GitHub 的 Windows runner 上跑），還沒在真的 GNOME、KDE、Windows 上試過。
 - **它開的 app 由它收掉，不靠模型**：第一次呼叫時記下正在跑的 app（`lsappinfo list` 裡的 Foreground，約 35 毫秒），每次呼叫後記下新出現的。session 結束時，用 SIGTERM 結束這些 app（不問要不要存檔），1.5 秒後還在的就強制結束。原本就開著的 app 不動，即使 Bot 在裡面開了新視窗。session 在三種情況結束：最後一次呼叫後 2 分鐘、手機斷線（stdin 結束）、收到 SIGTERM（serve 結束整個程序群組時）。三種都在 Mac mini 上實測過。
-- 為什麼這樣設計、和 computer-use-mcp 的比較，見 [research/computer-use-mcp-eval.md](../research/computer-use-mcp-eval.md)。
+- 為什麼這樣設計、和替代方案的量測比較，見 [research/computer-use.md](../research/computer-use.md)。
 
 ## macOS 的隱私權限
 
