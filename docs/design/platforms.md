@@ -82,22 +82,9 @@
 - **只做 Android 和 iOS，外殼繼續用 Capacitor**（2026-10-24）。Capacitor 官方支援的正好是這兩個平台。桌面以後要做，再看 Tauri 2（見研究文件）。電腦的角色仍然是被手機控制的那一台（host）。
 - **還沒決定**：同一個人有 Android 和 iPhone 時，Bot 的資料是兩份還是同步。
 
-## iOS 要做的事
+## iOS 設計決定與實機怪癖
 
-### 進度（2026-10-25）
-
-一步一步來，跟 Android 一樣邊用邊加工具，不求第一版就有很多工具。
-
-| 步驟 | 內容 | 狀態 |
-|---|---|---|
-| 0 | `ios/` 專案，`scripts/run-ios.sh` 在模擬器上建置、安裝、打開 | 做好了 |
-| 1 | 啟動時檢查有哪些原生 plugin，沒有的工具不安裝（[capabilities.md](capabilities.md)） | 做好了 |
-| 2 | 實機量背景和連電腦（下一節） | 量了（iPad Air 5，iPadOS 26.7） |
-| 3 | Swift plugin：`KeepAlive`（背景）、`System`、`StreamFetch`、`Loopback` | 做好了，模擬器和 iPad 都驗過 |
-| 4 | Swift plugin：`BotFiles`、`Database` | 做好了，模擬器和 iPad 都驗過 |
-| 5 | 手機功能，一次一個，照 `docs/tools.md` 量過再加 | 進行中：`Phone`（位置、裝置狀態、氣壓、地名查座標）帶出天氣、地點、手機狀態；`Calendar`（EventKit）帶出行事曆；`Voice`（朗讀、語音輸入）、`Contacts`、`Photos`；`Apps`（鬧鐘、計時器、草稿、地圖、連結、分享、預覽檔案） |
-
-模擬器和 iPad 上現在能用：設定供應商（金鑰存在 Keychain）、對話、code mode、網路搜尋、Bot 資料夾（檔案、bash）、資料庫（`sql`、記帳）、背景跑完一輪和完成通知、ChatGPT 和 MCP 的登入流程。工具組有「網路」「檔案」「資料庫」；時間由 code mode 的 `new Date()` 換算。模擬器的 app 要 ad hoc 簽章（`CODE_SIGN_IDENTITY=-`），不簽的話 Keychain 存不進去（-34018）。
+iOS 已實作的原生方法以 `test/plugins.snapshot.json` 與 `ios/App/App/` 為準（啟動時由 [capabilities.md](capabilities.md) 決定裝哪些工具；模擬器需 `CODE_SIGN_IDENTITY=-` 否則 Keychain 回 `-34018`）。
 
 ### TestFlight（2026-10-26）
 
@@ -148,42 +135,11 @@
   - 名稱要用插值（`"\(label)"`）傳成 `LocalizedStringResource`：直接拿名稱當 key（`stringLiteral:`）時，系統在響的時候才解析，第二個鬧鐘顯示成上一個的名稱。改了之後，連設的「蘋果」「香蕉」各自顯示對的名稱。
   - 寫信和簡訊用系統的撰寫畫面；裝置不能寄（例如 iPad 沒設郵件帳號）時，改開 `mailto:`／`sms:`。分享用系統的分享畫面，預覽檔案用 Quick Look。開地圖和連結交給系統。
 
-### 先量，量完再決定要不要投入
+### 還沒驗證／待解決
 
-1. **背景**：用 `BGContinuedProcessingTask` 開始一輪對話，切出 app，量 WKWebView 裡的 agent 會不會繼續跑、能跑多久。如果 WebKit 的 process 會被暫停，iOS 上一輪對話就只能在前景跑完。
-   - 2026-10-28 iPhone 12 Pro（iOS 27.0.1）上量到相反的結果：背景接續工作在跑、App 沒被暫停，但 WebKit 在 pi 離開畫面後約 1 秒就暫停網頁內容，回前景才接著跑。細節見 [research/iphone.md](../research/iphone.md)。
-2. **審核**：code mode 執行模型寫的程式、skills 從外面下載，對照審核規則 2.5.2 和 4.7，先確認上得了 App Store 或 TestFlight。上不了的話，iOS 只剩 ad hoc（最多 100 台）。
-
-### 地基：用 Swift 寫 Capacitor plugin
-
-| Plugin | iOS 上的做法 |
-|---|---|
-| `StreamFetch` | `URLSession`，資料一段一段用事件送回 JS（`CapacitorHttp` 不能串流） |
-| `Loopback` | 本機 HTTP server 接 OAuth 回呼（`NWListener`，只綁 127.0.0.1）。登入頁開在 pi 裡的 Safari 視窗（`SFSafariViewController`），pi 不會離開前景，回呼一到就關掉視窗 |
-| `BotFiles` | `Application Support/bots/<bot>`，不進 iCloud 備份（跟 Android 的 `allowBackup=false` 一致）；路徑解開 symlink 後必須在 Bot 的資料夾裡 |
-| `Database` | SQLite3 C API，`Application Support/pi-data.db`。`ATTACH`/`DETACH` 用 authorizer 擋；一個 `sql` 只能有一個 statement（Android 會默默忽略後面的，這裡直接報錯）。匯出用分享畫面 |
-| `System` | 開連結、剪貼簿、震動 |
-| `Browser` | 每個分頁一個 `WKWebView`，每個 Bot 一個 `WKWebsiteDataStore`；點和打字在頁面裡做，開源版在面板開著時送真的觸控（[browser.md](browser.md)〈iOS〉） |
-| `KeepAlive` | 改成 `BGContinuedProcessingTask`，看上面第 1 點量出來的結果 |
-| 金鑰 | `capacitor-secure-storage` 本來就支援 iOS（Keychain） |
-
-### 手機功能：做得到的
-
-位置、動作和氣壓感測器（CoreMotion）、鬧鐘和計時器（AlarmKit，iOS 26）、寫信和簡訊（只打開撰寫畫面）、地圖、連結、分享、朗讀、聯絡人、照片（PhotoKit）、健康（HealthKit）、掃描文件（VisionKit）、行事曆（EventKit）、通知、語音輸入（SpeechAnalyzer，iOS 26）、從其他 app 分享給 pi（Share Extension）、Siri（App Intents）。
-
-### 手機功能：做不到的，iOS 上模型看不到這些工具
-
-讀通知、回覆通知、通話紀錄、讀簡訊、螢幕使用時間、勿擾、控制其他 app 的媒體播放（只能控制 Apple Music）。啟動時檢查有哪些原生 plugin（[capabilities.md](capabilities.md)），沒寫的 plugin 對應的工具就不安裝，所以 iOS 上不用特別處理這些。
-
-### 自動化
-
-Android 上的自動化靠系統廣播在背景叫醒 pi，iOS 沒有這種機制。能用的只有：
-
-- **時間**：系統的背景工作不準時。準時的只有通知和 AlarmKit，時間到了提醒使用者，打開 pi 才會跑。
-- **地點**：地理圍欄要「一律允許」位置權限，可以把 pi 在背景叫起來，但能跑多久要量。
-- **其他事件**：pi 提供 App Intent，由使用者在 Shortcuts 建立個人自動化（時間、打開某個 app、NFC、Wi-Fi、電量）去觸發。
-
-所以 iOS 上的自動化比較像「到時候提醒你，你點一下 pi 就接手」，不是 Android 那種在背景自己跑完。
+- **iPhone 背景執行**：iPhone 12 Pro（iOS 27.0.1）上 `BGContinuedProcessingTask` 跑著但 WebKit 約 1 秒仍暫停網頁（與 iPadOS 26.7 相反）；開源版改以私有通知權限開關解決，App Store 版無法使用，見 [research/iphone.md](../research/iphone.md)。
+- **App Store 審核風險**：code mode 執行模型寫的程式與 skills 下載，需對照審核規則 2.5.2 與 4.7 評估是否過審。
+- **自動化限制**：iOS 無系統廣播在背景跑長任務；時間靠通知／AlarmKit 提醒使用者點開、地點靠地理圍欄（需「一律允許」）、其他靠 Shortcuts App Intent。
 
 ## 寫 Android 功能時
 

@@ -42,16 +42,7 @@
       - 手機「移除」這台電腦時送 `DELETE /unpair`（帶自己的金鑰），電腦端刪掉那一把，立刻結束它的連線。連不到或電腦端太舊時手機照樣移除，並說明配對還留在電腦上。
       - 在電腦上：`pi-mobile devices` 列出配對過的裝置，`pi-mobile unpair <名稱>`（或 `--all`）刪掉。`pi-mobile serve` 每 5 秒比對一次 `paired.json`，不在上面的金鑰開著的連線就結束。手機遺失時用這條，或到 Tailscale 後台移除那支手機。
 - **`~/.pi/mobile` 是 0700**：`pi-mobile serve` 啟動時設定。裡面的 log 有裝置名稱、路徑和 pi-env 的錯誤輸出，多人共用的 Linux 上別的帳號不該讀到。
-- **端點**：
-  - `GET /version`：只回版本，不檢查來源也不用金鑰；`pi-mobile status` 和手機找 peers 時用它判斷有沒有裝。
-  - `POST /pair?code=<6 位數>`：見上面。
-  - `GET /info`：回傳 os、arch、帳號、家目錄、電腦名稱、MagicDNS 名稱，以及已經有的 daemon。
-  - `PUT /daemon/<sha256>`：存入一個 pi-env daemon。內容的 SHA-256 必須跟網址裡的一致，存在 `~/.pi/mobile/daemons/`。
-  - `GET /env?daemon=<sha>&token=<hex>`：WebSocket。在使用者的 login shell 裡、從家目錄執行 `pi-env serve --token`，把 stdin 和 stdout 當成二進位訊息雙向轉送。
-  - `GET /exec?command=<sh>`：WebSocket。在 login shell 裡執行一個指令，用來驅動容器引擎：建 image、啟動 `pim-main` 和 egress、在容器裡跑 pi-env，以及 egress 的 `bridge.py`。它沒有比 `/env` 多給任何權限，兩者都是以使用者身分，執行使用者自己裝置要求的指令。
-  - `/info` 也回報 login shell 找得到、而且 `info` 答得出來的容器引擎（docker、podman、nerdctl）。
-  - `DELETE /unpair`：撤銷呼叫者自己的金鑰，回 204；金鑰不在清單上回 404。
-  - `GET /peers`：同一個使用者在 tailnet 上其他的電腦（在線、macOS、Linux 或 Windows、沒有 tag），取自 `tailscale status`。Android 不讓其他 app 讀 Tailscale 的裝置清單，所以手機透過已加入的電腦來看。
+- **端點**（完整定義見 `host/main.go`）：`/version`（不驗來源與金鑰，供 `status` 與找 peers 判斷有沒有裝）、`/pair`、`/info`、`/daemon/<sha256>`（驗證內容雜湊）、`/env`、`/exec`（跟 `/env` 相同權限，用於驅動容器引擎與 MCP）、`/unpair`、`/peers`（Android 不讓其他 app 讀 Tailscale 裝置清單，所以手機透過已加入的電腦查詢）。
 - **Tailscale 只在 `host/tailnet.go`**：CLI 的位置和呼叫、`status` 的快取、聽哪個位址（`listen`）、來源是不是同一個使用者的裝置（`owner`、`mine`）、`/peers` 列出的電腦。「同一個使用者、沒有 tag」只由 `mine` 決定，來源檢查和 `/peers` 共用。之後要支援別的網路，換掉的是這一個檔。
 - **兩邊共用的值只寫在 `host/protocol.json`**：電腦保留 session 的分鐘數、輸入結束的訊號、stdout／stderr 的標記、`heartbeat` 的參數值、pi-env 的 ping 封包。Go 用 `go:embed`（`host/protocol.go`），手機直接 import。手機放棄重接的時間（`RESUME_LIMIT_MS`）必須比電腦保留的短，`test/contracts/resume.ts` 檢查這件事。
 - **daemon 由手機帶過去**：app 本來就附有 pi-env，版本永遠跟 app 一致，電腦上的 pi-mobile 不用跟著更新。
@@ -127,16 +118,9 @@ macOS 在程式讀「桌面」「文件」「下載項目」、用 osascript 控
 - 不考慮直接用 WireGuard：Tailscale 多做的交換金鑰、跨 NAT、`whois`、MagicDNS 正是 pi-mobile 依賴的部分，換成 WireGuard 等於叫使用者自己做這些事。
 - 什麼時候重新考慮：有人實際需要非 Tailscale 的網路（區域網路直連、其他 VPN），或 Rex 推出自己的驗證機制時。到時第一步是 TLS 加配對時交出的憑證指紋，讓安全不依賴網路層；`whois` 和 `/peers` 改成有 Tailscale 時才用。
 
-## 還沒做
+## 已知限制與還沒做
 
-- 指揮電腦上的 agent（Claude Code、Codex）：設計見 [computer-agents.md](computer-agents.md)。
-
-- 第一次使用時能看到的錯誤，在 S24 上都試過：
-  - 電腦上沒裝 pi-mobile，或名稱打錯：0.3 秒內顯示「連不到…：電腦要開著、連上 Tailscale，並裝好 pi-mobile」，下面附安裝指令。
-  - 電腦上的 pi-mobile 停了：Bot 回覆連不到這台電腦，請使用者確認；電腦上的 pi-mobile 回來之後，同一段對話直接就能用。
-  - 換了另一個 Tailscale 帳號的手機（回 403）還沒實際試過。
-
-- Linux、Windows 還沒有實際安裝測試過；`install.ps1` 用排程工作在登入時啟動 `pi-mobile serve`（服務跑在 session 0，看不到畫面），透過 `conhost --headless` 不開視窗。Windows 上沒有容器模式，`run_command` 和電腦上的 agent（Herdr、Rex）都假設 POSIX shell，也還不能用。
-- 一台電腦接了多支手機時，直接模式各自連線、互不影響；容器模式的 egress bridge 一次只接一支手機，誰拿到 bridge，就是誰的憑證生效。這要改成每支手機各自一條。
-- 排程在電腦上執行時，需要電腦開著、Tailscale 連著；手機連不到時的錯誤訊息還沒調整。
-- App 被系統殺掉時，保留的 session 等不到手機回來（新的 App 行程會開新的 session），寬限期（15 分鐘）後被收掉；pi-durable 的 bash 沒有宣告 replay-safe，重開後不會重跑。要接回同一個指令，要先讓 bash 的結果能以 request 對回，另開題。
+- Linux 尚未在真機安裝測試；Windows 沒有容器模式，且 `install.ps1` 用登入排程工作加 `conhost --headless` 啟動（Windows 服務跑在 session 0 看不到畫面）。換另一個 Tailscale 帳號（回 403）也尚未實機驗證。
+- 一台電腦接多支手機時，直接模式互不影響；容器模式的 egress bridge 一次只接一支手機，誰拿到 bridge 就是誰的憑證生效，待改成每支手機各自一條。
+- 排程在電腦上執行時，手機連不到電腦的錯誤訊息尚未調整。
+- App 被系統殺掉時，保留的 session 等不到手機回來（新 App 行程會開新 session），寬限期（15 分鐘）後收掉；pi-durable 的 bash 沒有宣告 replay-safe，重開後不會重跑。要接回同一個指令，須先讓 bash 結果能以 request 對回，另開題。

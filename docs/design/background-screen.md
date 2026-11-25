@@ -123,13 +123,17 @@ phone_read_as_user / phone_act_as_user（screen: background 預設 | front）
 
 S24 實測（GPT 6.1 Sol，暫時的 Bot）：「用 Chrome 查一下台北現在幾度」41 秒答對；pi 一直在主螢幕，Chrome 在背景螢幕。
 
+## 背景螢幕預覽（Android 開源版，2026-11-15）
+
+- **架構**：`DisplayServer` 將虛擬螢幕設為 352×800（等比例 density），避免把小 encoder Surface 接到全尺寸螢幕時被裁切（首輪實測踩過），座標仍以 540 點正規化。觀看時啟動 MediaCodec AVC Surface-input 編碼（上限 15 fps、目標 250 kb/s CBR、10 秒關鍵幀、停用重複幀），stdout 帶 `generation` 標記（防止舊封包進新解碼器），`AgentPreview` 直接解碼到 `TextureView`（不經 Bitmap／JPEG／WebView）。`app_process` 結束前必須等 frame thread 釋放完畢否則崩潰。
+- **接手**：尋找背景螢幕可見 root task，執行 `am display move-stack <id> 0` 並驗證搬至 display 0；與 `ScreenActor` 共用鎖，後續動作回傳 `taken_over`（不靜默續跑，也不丟橋接例外）。
+- **模擬器量測（API 36，各 3 次）**：靜止時 pi CPU 0–0.15%、23.4–24.0 秒零新幀；持續捲動時 pi ~23%、`media.swcodec` 17–22%、14.1–15.0 fps、363–574 kb/s；首幀回呼 662–977 ms；暖機 PSS pi 112–113 MiB、shell 88 MiB。**尚未在 S24 / API 37 實機量測**（耗電、鎖屏、旋轉、`FLAG_SECURE` App）。
+
 ## 還沒做
 
-1. **配對的畫面**：見上面〈設定 › 手機 › 背景操作〉。
-2. **看得到、能接手**：已在 API 36 模擬器實作「背景螢幕預覽」：H.264 原生浮窗、目前動作、拖到角落、隱藏、同一個 task 搬到 display 0。實作、重跑方式、量測與未驗證的限制見 [background-preview-report.md](background-preview-report.md)。S24 / API 37 尚未量。
-3. **背景螢幕何時關**：現在開了就留到 pi 結束；之後在 Bot 都閒下來一段時間後關。
-4. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。
-5. 長時間背景螢幕的耗電；工具成本照 `docs/tools.md` 量。
+1. **背景螢幕何時關**：現在開了就留到 pi 結束；之後在 Bot 都閒下來一段時間後關。
+2. **無線偵錯會關**：換 Wi-Fi、重開機後系統會關掉無線偵錯。
+3. 長時間背景螢幕的耗電；S24 上預覽串流的硬體編解碼量測。
 
 ## iPhone：in-process XCTest（2026-11-15）
 
@@ -165,29 +169,10 @@ node --import ./test/vite-imports.js test/device/ios-screen.js start act '{"step
 node --import ./test/vite-imports.js test/device/ios-screen.js result /tmp/ios-back.json '{"done":1,"keyboard":false}'
 ```
 
-## iPhone 舊方案：手機自己叫起 WebDriverAgent（2026-11-15，歷史 PoC）
+## 為何放棄 iPhone 舊方案（本機 VPN＋WDA，2026-11-15 PoC）
 
-以下是已被 in-process session 取代的實驗，不是目前 runtime 的需求
+曾以 Poki（[research/references.md](../research/references.md)）做法＋Rust `idevice` 在 iPhone 12 Pro（iOS 27.2）實測自起 WDA runner：本機 VPN（`10.7.0.2` 折返 `10.7.0.1`）＋ RemotePairing 配對檔連 `49152`（47 ms，RSD 85 服務；lockdownd `:62078` 在 iOS 27 會直接關閉連線）可成功啟動 WDA。放棄原因：
 
-做法照 Poki（[research/references.md](../research/references.md)），函式庫用 Rust 的 [idevice](https://github.com/jkcoxson/idevice)（MIT）。PoC 是 scratchpad 裡獨立的測試 App（不動 `ios/App`）：一個 Rust 靜態庫、一個 Network Extension 封包通道、一份配對檔。iPhone 12 Pro、iOS 27.2。
-
-| 步驟 | 結果 |
-|---|---|
-| Mac 上 `idevice-tools xctest` 經 USB 啟動 WDA runner（不經 Xcode） | 成功，WDA 回狀態、截圖 |
-| Mac 上只拿 lockdown 配對檔、經 Wi-Fi 直連啟動 WDA | 成功 |
-| 手機上：本機 VPN（介面 10.7.0.2、只導 10.7.0.1，封包來源和目的對調送回）＋ lockdown 配對檔連 10.7.0.1:62078 | **失敗**：TCP 交握成功，lockdownd 接受後立刻關掉（iOS 27 在這條路上擋 lockdown） |
-| 手機上：同一個 VPN ＋ RemotePairing 配對檔連 10.7.0.1:49152 | 成功，47 ms 連上，RSD 列出 85 個服務（testmanagerd、dtservicehub、installation_proxy 都在） |
-| 手機上：經 RSD 啟動 WDA runner | 成功：App 內 `127.0.0.1:8100` 回 WDA 狀態；runner 的 PID 緊接在 App 之後，App 一關它就消失（不是 Mac 啟動的那個）；跑兩次都成功 |
-| 手機上不開 VPN、直接連自己的 Wi-Fi 位址 | 失敗，所以本機 VPN 是必要的 |
-
-要讓它動，在 idevice 加了一個入口 `XCUITestService::run_over_rsd`（吃一條已經建好的 RSD 通道；原本的 `run` 一定先經 lockdown 拿 CoreDeviceProxy）。這是本地修改，還沒送回上游。
-
-RemotePairing 配對檔是在 Mac 上經 USB 不用按任何東西產生的（`idevice-tools remotepairing_lockdown pair`）。iOS 27 也能在手機上自己配（App 廣播 `_remotepairing-pairable-host._tcp`，使用者在手機輸入 PIN，idevice 的 `pairable_host`），還沒試。
-
-### 要決定或還沒做的
-
-- **VPN 只能開一個**：本機 VPN 一開，使用者原本的 VPN（例如 Tailscale）就斷了。Poki 和 StikDebug 都有這個限制；要想辦法只在 Bot 操作時開、做完還原，或接受它。
-- **開發者磁碟映像**：這次 iPhone 上已經掛著（之前跑過 Xcode）。重開機後要在手機上自己掛（personalized DDI，第一次要經網路跟 Apple 簽，idevice 有）。
-- **保活**：App 關掉或被系統暫停，runner 約 30 秒內就死。要照 Poki 用背景音訊加即時動態，或只在 pi 在前景時用。
-- **簽章和上架**：要付費開發者帳號才有 Network Extension；WDA runner 和開發者模式都不能上 App Store，只能放開源版或側載版。
-- **接進 pi**：照之前講好的分開放（開源版 target、`ios/agentscreen-rs`、`ios/LoopbackTunnel`），讀和點走 WDA 的 HTTP。
+1. **會切斷使用者的 VPN**：iOS 同時只能開一個 VPN，一啟動就會斷掉 Tailscale。
+2. **需付費帳號與背景保活**：Network Extension 須付費開發者帳號，且 App 暫停後 runner 約 30 秒內就會結束。
+3. in-process XCTest 省去本機 VPN 與獨立 WDA runner，`Wda.swift`／`AgentLink.swift` 已移除（`ios/agentscreen-rs` 與 `ios/LoopbackTunnel` 暫留供日後手機自掛 DDI 研究用）。

@@ -1,6 +1,6 @@
 # 觸發：讓 agent 在你開口之前就動起來
 
-狀態：第 1 階段已實作（時間、agent 自己排的下一步、分享給 pi；程序不在時用 B）。其餘待決定。
+狀態：已實作時間、事件（充電、Wi‑Fi、地點、耳機、通知、解鎖、電量低、時區、照片、藍牙、活動）、分享、Jev 防線／`only_if`、方案 A→C→B 與預設作息（`src/triggers/`）。以下保留設計取捨、平台限制與未決定項目。
 
 ## 目標
 
@@ -51,8 +51,6 @@ Android 的限制：
 
 **C 的實測**（2026-10-31，S24，螢幕亮著、在桌面）：pi 從最近使用的 app 滑掉後，排程觸發時 `TriggerReceiver` 先從背景開 `MainActivity`（帶 `EXTRA_QUIET`，靠 SAW 的背景啟動例外），再啟動前景服務（靠「能從背景開 Activity」的豁免；Android 15 起光有 SAW 不能啟動前景服務），`MainActivity` 讓 WebView 照跑並立刻 `moveTaskToBack`。桌面一直在前面、沒有閃，Bot 在背景跑完、發通知、更新小工具；這次觸發算準時（`live`），不會切到那個 Bot。之後 pi 會再出現在最近使用的 app 裡。模擬器重測一次（排程 17:45:08，17:45:06 觸發），一樣在背景跑完。螢幕關著的情況還沒測。平台機制的比較見 [research/background-triggers.md](../research/background-triggers.md)。精確鬧鐘改宣告 `USE_EXACT_ALARM`（安裝時就給），不用再請使用者打開「準時執行」；沒有它時 `setAndAllowWhileIdle` 可能晚到一小時內。設定 › 自動化在有排程而權限沒開時顯示「滑掉 pi 也照跑」。三者共用同一條路徑（見下面的「事件佇列」），差別只在「JS 什麼時候開始處理佇列」。
 
-**先量測**（第 0 階段）：在 S24 上記錄一週 pi 程序被清掉的時間點，例如用原生端的鬧鐘每 15 分鐘記一次「程序還在嗎、WebView 還在嗎」。這可以知道 A 的實際涵蓋率，以及 C 值不值得做。
-
 ## 統一模型
 
 ```
@@ -71,83 +69,26 @@ Android 的限制：
   - **事項沒有 6 小時限制**：事項逾期多久都還欠著，同步時用現在的時間排鬧鐘（`schedulesOf`），所以下次 App 啟動就會叫醒 Bot。手機開機但 App 沒開時不會叫醒，因為原生端只看到舊時間，超過 6 小時就略過。
   - **撞到每日上限**：一次性排程和事項都延到隔天同一時間，對話裡說一聲；每日排程這次跳過，排程列表寫明原因。
   - 排程暫停之後，佇列裡還沒處理的事件不會再執行（手動執行不受影響）。
-- **觸發的輸入用自訂 entry**：pi-durable 的 `submit({ type: "input", content, entry: { kind: "trigger.alarm", data } })` 可以把觸發的訊息顯示成「⏰ 排程：早晨簡報」，模型看到的仍是 `content`。([pi-durable README，Custom inputs](../../node_modules/@earendil-works/pi-durable/README.md))
-- **觸發器的定義**：
-
-  ```ts
-  type Trigger = {
-    id: string;
-    name: string;                      // 「早晨簡報」
-    when:                              // 來源和條件
-      | { kind: "time"; at: string; repeat?: "daily" | "weekdays" | { days: Weekday[] } }
-      | { kind: "once"; at: number }
-      | { kind: "charging" | "wifi" | "headphones"; ... }
-      | { kind: "place"; latitude: number; longitude: number; radius: number; on: "enter" | "exit" }
-      | { kind: "share" }
-      | { kind: "notification"; app: string; match?: string }
-      | { kind: "external"; source: string };
-    prompt: string;                    // 交給 agent 的指示
-    conversation: "new" | "thread" | { id: ConversationId };   // 見問題二
-    enabled: boolean;
-    limits: { perDay: number };
-    model?: string;                    // 可指定較便宜的模型
-  };
-  ```
-
-- **存在 pi-durable 的 app 層級文件**（像 `ConversationIndex`）：agent 的工具可以在交易裡建立和修改，UI 可以訂閱變化。原生端需要一份副本來註冊鬧鐘和 geofence，並在開機後重新註冊，所以由 JS 在每次變更後同步過去。
+- **觸發的輸入用自訂 entry**：pi-durable 的 `submit({ type: "input", content, entry: { kind: "trigger.alarm", data } })` 把觸發顯示成具名列，模型看到的仍是 `content`。資料型別以 `src/triggers/runs.ts` 的 `TriggerDoc` 為準，存在 pi-durable app 層級文件並同步副本給原生端註冊鬧鐘與 geofence。
 
 ## 問題二：run 落在哪個對話
 
-| 選項 | 適合 |
-|---|---|
-| 每次開新對話 | 互不相關的事件，例如每則分享 |
-| 每個觸發器一個固定對話（thread） | 早晨簡報、每週整理。agent 看得到前幾天的結果，可以說「比昨天多了一個會」 |
-| 回到原本的對話 | agent 自己排的下一步。「10 分鐘後再看部署」的結果應該接在原本那段討論後面 |
-
-**建議**：預設每個觸發器一個 thread；agent 自己排的回到原對話；分享每次開新的。thread 太長時，用現有的壓縮機制處理。
-
-**後來的決定（改成 Bot）**：每個 Bot 只有一條對話，排程和 agent 自己排的下一步都在建立它的 Bot 的對話裡跑，分享則交給你選的 Bot。不再有「每次開新對話」。對話靠自動壓縮控制長度。
+每個 Bot 只有一條對話，排程和 agent 自己排的下一步都在建立它的 Bot 的對話裡跑，分享交給使用者選的 Bot；不再開新對話，靠自動壓縮控制長度。
 
 ## 問題三：沒人看著時的寫入
 
-背景 run 可能碰到要核准的寫入，例如 `git push`、新增行事曆活動、雲端資源變更。現在的確認框只有 app 在前景時看得到，app 不在前景時會發一則「pi 需要你確認」的通知。
+2026-10-23 拿掉了通用核准機制，背景 run 的寫入直接執行（不另做通知核准或唯讀排程）；遇到互動表單或權限卡由 `Forms.ask` 直接以無人值守取消（已知限制：`unattended` 旗標只在記憶體裡，排程跑一半 App 重啟後會遺失）。
 
-**後來的決定（2026-10-23）**：拿掉了所有核准，背景 run 的寫入直接執行，下面的通知核准和「只讀」觸發器都不做了。
+## 問題四與五：通知與成本
 
-**原本的建議**：
-- 確認通知直接帶「允許」「拒絕」兩個按鈕，不必打開 app。
-- **30 分鐘沒回應就當作拒絕**，run 繼續，並在結果裡說明。
-- 觸發器可以設成「只讀」：該次 run 的寫入一律自動拒絕，不打擾你。早晨簡報這類觸發器預設只讀。
+- `notify` 由 agent 判斷值不值得通知，使用獨立頻道；點通知開到該對話。
+- 2026-11-13 拿掉每日總數上限（原本每則 10 次、全部 30 次），避免把使用者在等的 job 喚醒或到期事項延到隔天；定時排程靠使用者核准的頻率，事件靠各自間隔。
 
-## 問題四：結果怎麼告訴你
+### 戴上耳機的平台怪癖
 
-- 給 agent 一個 `notify` 工具（標題、內文、點了打開哪裡），**由 agent 判斷值不值得通知**。例如「沒有新留言」就安靜結束，不必每次都發。
-- 觸發的通知用獨立的通知頻道「pi 主動通知」，跟「工作中」「需要確認」分開，讓你可以在系統設定裡單獨調整。
-- 點通知會打開那個 run 所在的對話。
-
-## 問題五：管理與成本
-
-- **設定頁的「觸發」區塊**：列出所有觸發器，顯示下次執行時間、最近一次結果；可以暫停、刪除、立即執行。
-- **agent 工具**：`create_trigger`、`list_triggers`、`update_trigger`、`delete_trigger`。建立和修改都要你核准，確認框寫明「什麼時候、做什麼」。這樣「每天早上 8 點給我簡報」這句話就能直接設定好。
-- **上限**：每個觸發器每天最多跑幾次（預設 10 次），全部加起來每天也有上限（預設 30 次），避免觸發器失控一直耗用 token。超過時通知你一次，當天暫停該觸發器。
-- **模型**：觸發器可以指定比較便宜的模型。
-
-## 分階段
-
-| 階段 | 內容 |
-|---|---|
-| 0 | 量測 S24 上 pi 程序和 WebView 的存活情況 |
-| 1 | 共用的基礎：原生事件佇列、觸發器文件與同步、`trigger.*` entry 在 UI 的樣子、`notify` 工具、通知上的核准按鈕。來源先做**時間**、**agent 自己排的下一步**、**分享給 pi**。程序不在時用 B |
-| 2 | 依第 0 階段的結果決定要不要做 C（安靜重啟）。加上手機事件（充電、Wi-Fi、耳機）和位置（geofence 加背景定位） |
-| 3 | 別的 app 的通知（NotificationListener）、外部事件（relay 推送，必要時加 FCM 或 UnifiedPush） |
-
-### 第 2 階段的第一個來源：戴上耳機
-
-- **藍牙**：`BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED` 是 Android 8 之後少數 manifest receiver 還收得到的廣播，所以 pi 不在執行也能觸發（`HeadphonesReceiver`，要 exported，因為廣播來自藍牙的程序；這個 action 只有系統能送）。Android 12 起要 `BLUETOOTH_CONNECT`。用 `BluetoothClass` 排除車用音響、喇叭。
-- **有線**：`ACTION_HEADSET_PLUG` 只送給執行中 app 動態註冊的 receiver，所以只在 pi 執行中時有用。
-- **條件**：星期幾、時段（可跨午夜）、最多每幾小時一次；24 小時代表「每天第一次」。間隔在原生端算，因為耳機常常一次連兩下，第二下不能在第一個 run 還在等 WebView 時又排一次。
-- **送達**：跟鬧鐘同一條路（`TriggerReceiver.fire`）：WebView 在就直接跑（凍結中的程序也會被廣播叫醒）；不在時，有「顯示在其他應用程式上層」權限就安靜重啟（方案 C），沒有就跳「點一下開始」。
-- **輸出**：`speak` 工具（Android `TextToSpeech`，`USAGE_ASSISTANT`，暫時壓低其他聲音）。觸發的訊息寫明「headphones connected」，系統提示要 agent 用 speak 口語匯報。耳機斷線時停止朗讀。
+- **藍牙**：`BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED` 是 Android 8 之後少數 manifest receiver 還收得到的廣播，pi 不在執行也能觸發（`HeadphonesReceiver`，需 exported；Android 12+ 需 `BLUETOOTH_CONNECT`），用 `BluetoothClass` 排除車用音響與喇叭。
+- **有線**：`ACTION_HEADSET_PLUG` 只送動態註冊的 receiver，只在 pi 執行中收得到。
+- 間隔在原生端算：耳機常一次連兩下，第二下不能在第一個 run 還在等 WebView 時又排一次。
 
 ## 下一步：When → If → Do → Tell
 
@@ -260,10 +201,6 @@ Android 的限制：
 
 ## 待決定
 
-1. 程序不在時：接受 B，還是要做 C（需要「顯示在其他應用程式上層」權限）？
-2. 背景 run 碰到寫入：「通知上核准，30 分鐘逾時就拒絕」可以嗎？
-3. 外部事件要不要用 FCM？FCM 需要 Firebase 專案和 `google-services.json`，對開源專案來說每個使用者都要自己設定一個。UnifiedPush 不需要 Google，但手機要另外裝一個推播 app（例如 ntfy）。
-4. 第一階段的觸發來源：時間、agent 自己排的下一步、分享給 pi，這三個可以嗎？
-5. 一個排程有多個 When 時，「最多多久一次」是整個排程共用，還是每個 When 各算？
-6. 通知觸發時，事件的內容（寄件人、文字）直接放進觸發的訊息，模型就看得到通知裡的東西，等於別人可以把文字送進 agent。要不要像 email 一樣標成不受信任的輸入？2026-10-24：先做骨幹、讓流程跑通，防禦之後補。
-7. 通知的間隔要不要允許小於 1 小時（例如「媽媽的每則 LINE」）？那會碰到每天 10 次的上限。
+1. 外部事件（webhook）的傳送方式：FCM（每個開源使用者要自建 Firebase 專案）vs UnifiedPush（例如 ntfy，須另裝推播 App）vs 經電腦端轉送。
+2. 一個排程有多個 When 時，「最多多久一次」是整個排程共用還是各自計算。
+3. 通知的間隔要不要允許小於 1 小時（例如「每則都處理」）。

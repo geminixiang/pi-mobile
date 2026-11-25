@@ -1,16 +1,6 @@
 # 瀏覽器：agent 操作網頁，你看得到，也能接手
 
-狀態：Android 初版（2026-10-30），給使用者在 S24 試用；iOS 版 2026-11-16（見〈iOS〉，還沒在實機試）；共用 profile、設定頁還沒做。已定：新 Bot 預設用自己的 profile，瀏覽器畫面是全螢幕頁。中文輸入驗證過：點到欄位後 `execCommand('insertText')`，`input`、`textarea`、`contenteditable` 都打得進去，事件是 `isTrusted`，不需要 `InputConnection`。Chromium 在同一個行程裡用過的 profile 刪不掉，所以刪 Bot 時先清空它的 cookie 和網站儲存，profile 留到下次啟動再刪。app 重開後瀏覽器回到空白頁，登入還在。
-
-2026-10-30 第二版（使用者說第一版「太硬要了」，要的是概念不是照抄，而且 app 裡的東西要滿版）：改成底部 sheet 的鏡像，從頂欄下方降下的滿版面板，米色底、細線、等寬字網址列、底部把手；收起來是頂欄下面一條細帶（● 網站名稱 ⌄）。展開收合的時機、網址列、交還都沿用第一版。
-
-第三版（使用者：header 要讓路、要有靈動的感覺、融入左右側邊欄）：瀏覽器從螢幕頂端滑下來，蓋過 header，下緣是側邊欄卡片的 `--card-radius` 圓角和 `--card-shadow`，底部有把手；在 header 往下拉打開、推把手往上收起，手指放開時用側邊欄同一套速度判斷和 `settleCurve`（`--sheet-reveal` 0 到 1，程式逐幀控制）。原生網頁跟不上逐幀移動，所以滑動時顯示 `Browser.peek` 的截圖，停好才把真正的網頁掛上去。下半部的對話和輸入框照常可用。S24 粗量開關各 4 次：906 幀、掉 2%、P90 9 ms、P99 21 ms；`run.ts` 等外觀定案再量。
-
-第一版是靈動島：收起來是狀態列中間的深色膠囊（網站名稱，agent 操作中綠點、等使用者時黃點），agent 一用瀏覽器就往下展開成上半部的圓角面板（網址列可以自己輸入網址或關鍵字，「交還」在面板上），這一輪對話做完 1.5 秒後縮回；頂欄的地球按鈕一直在，點了展開。圓角是刻意的例外，和側欄打開時的卡片一樣。工具呼叫之間不收起：收起會把 WebView 拿下畫面，下一個點擊可能剛好落在重新掛上的時候。
-
-第五版（2026-11-17，使用者：網站是照手機比例設計的，面板接近 1:1 很難讀，叫出鍵盤更難）：面板打開就是全螢幕，把手在面板底部；網頁照手機直式排版，Bot 在背景讀的也是這個大小（面板開過一次後，關起來的 WebView 會留在面板的大小）。iPhone 實機：點欄位叫出鍵盤後，欄位和登入按鈕都留在鍵盤上方。Android 還沒在 S24 看過鍵盤。
-
-第四版（2026-11-06，使用者：有時非必要，不用顯示；面板開著時蓋住了確認卡）：agent 用瀏覽器時預設不顯示，瀏覽器在背景跑，頂欄的地球按鈕亮一個狀態點（工作中綠色、等使用者黃色），想看再按地球或下拉，看到的是即時畫面。只有 `hand_over` 會自動打開，交還後跟著收起；使用者自己開的留給使用者收。確認卡出現時面板一律收起，就算是使用者開的：判斷要做的事放在對話裡，截圖和確認卡在同一處。上面第一版「工具呼叫之間不收起」的理由不再適用，因為面板根本不打開。
+狀態：Android 與 iOS 皆已實作（`src/browser/`、`BrowserPlugin`）；共用 profile、設定頁還沒做。已定：新 Bot 預設用自己的 profile，面板預設隱藏（頂欄地球亮狀態點，只有 `hand_over` 自動打開、確認卡出現時一律收起），打開後為全螢幕直式（符合手機網頁與鍵盤排版，把手在底部），Bot 在背景讀的也是這個大小。中文輸入驗證過：點到欄位後 `execCommand('insertText')`，`input`／`textarea`／`contenteditable` 皆為 `isTrusted`、不需 `InputConnection`。Chromium 同行程用過的 profile 刪不掉，刪 Bot 時先清空資料、下次啟動再刪。app 重開後回到空白頁（依儲存的網址清單重開分頁），登入仍在。
 
 ## 目標
 
@@ -174,37 +164,8 @@ App target (ios/App/App)                    開源版才編進來 (ios/AgentScre
 - 沒有 `wv` 可以拿掉，改成補上 Safari 的 `Version/… Safari/604.1`：少了這兩段的 User-Agent 會被當成內嵌瀏覽器。
 - iOS 26 會把捲動內容在狀態列下面那一段模糊掉，放在 pi 後面的分頁剛好在那裡，截圖上緣會糊，所以關掉那個 WebView 的 `topEdgeEffect`。
 
-### 驗證（2026-11-16，模擬器 iPhone 17，iOS 27.0，從 pi 的 WebView 直接呼叫 `Capacitor.Plugins.Browser`）
+### 模擬器量到的關鍵限制（2026-11-16，iPhone 17 / iOS 27.0）
 
-| 問題 | 結果 |
-|---|---|
-| 不顯示時填表送出 | `https://httpbin.org/forms/post`：三個欄位（含中文、換行）、單選、兩個複選、送出，9 步 14 秒，回應頁列出填的值 |
-| 按鍵 | 自己寫的測試頁記下每個事件：Backspace 刪一個字，Tab 換到下一欄並觸發 `change`，Enter 觸發表單 `submit`，textarea 是 `insertLineBreak`，contenteditable 是 `insertParagraph` |
-| 沒有 viewport 的頁面（980 px 版面縮成 402 點） | `tap_at` 給截圖上的位置，點中單選、複選和送出鈕：畫面座標和頁面座標用 `visualViewport` 的 `scale`、`offsetLeft`／`offsetTop` 換算 |
-| 對話框、新視窗、非網頁連結 | `alert`、`confirm`、`prompt` 自動回應並記在頁面文字前；`target=_blank` 開在同一個分頁；`tel:` 不動 |
-| 壞憑證、載入失敗 | `expired.badssl.com` 回 `[pi blocked …: its certificate is not trusted …]`；`http://example.com/` 回 ATS 的錯誤 |
-| 分頁 | 開到 8 個、第 9 個被拒、切換、關閉、app 重開後照存下的網址還原；`tabs`、`page` 事件的內容和 Android 一樣 |
-| 每個 Bot 分開 | Bot A 設的 cookie，Bot B 讀不到；app 重開後有期限的 cookie 還在 |
-| 刪 Bot | store 的資料夾當場消失；刪的時候還有呼叫在跑，資料當場清空，資料夾在下次啟動移除 |
-| 顯示、隱藏 | 模擬器截圖：網頁出現在指定位置、下方圓角，切分頁換成另一頁，隱藏後回到 pi 的畫面 |
-| 頁面卡死 | `while (true) {}`：22 秒後那個分頁關掉，同一個 Bot 的另一個分頁照常可讀。但那個分頁的 WebContent process 在 WebView 釋放後還繼續佔滿一顆核心，量了 10 分鐘都沒停（把 WebView 留著不放也一樣），關掉 pi 才結束。Android 這裡用 `terminate()`；iOS 只有私有的 `_killWebContentProcess`，沒用。實機上 iOS 會不會暫停或結束它要另外量 |
-| 不放在視窗裡會怎樣 | 同一頁 6 秒：不在視窗裡 `requestAnimationFrame` 0 次、每 100 ms 的計時器只跑 11 次、`visibilityState` 是 `hidden`；放在 pi 後面 347 次、56 次、`visible` |
-| process 被結束 | `kill -9` 分頁的 WebContent process，下一次讀頁面時重新載入，0.4 秒回到原來的內容 |
-| 閒置 | 15 分鐘沒用的分頁被關掉（log 上看到 WebView 釋放） |
-| 開源版的觸控接線 | 模擬器沒有 XCTest 的開發者映像檔：面板開著時 `RealTouch.tap` 被呼叫、螢幕座標是頁面座標加上面板的位置，回 `unavailable` 後改在頁面裡點成功；面板沒開時不呼叫 |
-
-沒驗證（要實機）：開源版真的觸控有沒有點中、使用者碰網頁後 Bot 等 4 秒、鍵盤出現時改在頁面裡點、pi 在背景時分頁還跑不跑（[research/iphone.md](../research/iphone.md) 量到 pi 的 WebView 離開畫面約 1 秒就被暫停）、Google 這類會擋內嵌瀏覽器的登入。
-
-## 順序
-
-1. **中文輸入**：在 S24 驗證 `InputConnection.commitText` 對不掛畫面的 WebView 有沒有效。
-2. **不可信內容的標記**：`web_fetch`、通知、MCP、畫面文字，一起做。
-3. **Android 最小版本**：`BrowserPlugin`、`read_page`、`use_browser`（不含 `hand_over`）、每個 Bot 一個 profile。用三個真實網站在 S24 測。
-4. **看得到的瀏覽器畫面和接手**：`BrowserPane`、`hand_over`、碰到就讓 agent 等。這步動到畫面，照規則用 `run.ts` 量。
-5. **共用 profile 和設定頁**。
-6. **iOS**。
-
-## 待決定
-
-- 共用 profile 的預設：照上面「新 Bot 預設自己的」？
-- 第 3 步要拿哪三個網站測：最好是你真的想讓它做的事。
+- **不在視窗裡會被節流**：同一頁 6 秒，不在視窗裡 `requestAnimationFrame` 0 次、100 ms 計時器僅 11 次（`visibilityState: hidden`）；放在 pi 後面為 347 次、56 次（`visible`）。
+- **卡死分頁的 process 停不掉**：`while (true) {}` 22 秒後分頁關閉、其他分頁正常，但 WebContent process 在 WebView 釋放後仍吃滿一核（量 10 分鐘未停，關 pi 才結束）；iOS 無公開終止 API（私有 `_killWebContentProcess` 未使用）。
+- **尚未在實機驗證**：開源版真的觸控落點、使用者碰網頁後 Bot 等 4 秒、鍵盤出現時退回頁面點擊、Google 登入與第三方 `window.opener` 彈窗。

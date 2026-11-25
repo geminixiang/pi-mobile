@@ -35,16 +35,6 @@ pi coding agent 的 `pi config` 也存內部結構（套件裡的檔案路徑）
 
 子對話（task-owned）建立時由 pi-durable 照抄擁有者已推好的 `pi.agent`，不另外處理。
 
-## 驗證
+## 留給之後
 
-- `test/contracts/where.ts`：手機上關「檔案」、開「電腦」，`read`／`write`／`edit`／`bash` 都不在，`files` 段落也不在（舊程式失敗）。
-- `test/contracts/bots.ts`：舊 Bot 的擴充名字（含舊名）轉成工具組，請求裡跟著拿掉工具，`Bot.off` 寫回。
-- `test/toolsets.ts`：`legacyOff`、`removedTools` 的地點、共用工具、裝置缺能力、不認得的組 id。
-- `test/tools-node.ts`：每個工具都有宣告；多組時 `where` 互斥；`*_as_user` 工具只在 `*_as_user` 組；快照記錄 `groups`；工具總圖由宣告產生。
-- 離線探針（本機暫存）：pi-durable 1.5.0 的 `addTools` 過濾順序、段落三個集合、同一擴充兩組各自開關。
-
-## 對未來的影響
-
-- 移除：Bot 設定綁擴充名字、共用擴充讓開關互相牽動、`RENAMED`、`ALWAYS_ON`、`test/extensions.snapshot.json`、工具「沒宣告」的豁免。
-- 新增：`Bot.off`、`groups` 宣告與 `adopt`、`removedTools`、`appSection` 的 `about`、三條檢查。
-- 留給之後：所有 Bot 轉完後刪 `legacyOff`；工具換組時要不要保留「原本關著就關著」，到時再決定政策。
+所有舊 Bot 轉完後刪 `legacyOff` 並讓 `Bot.off` 變成必填；工具換組時要不要保留「原本關著就關著」，到時再決定政策。
