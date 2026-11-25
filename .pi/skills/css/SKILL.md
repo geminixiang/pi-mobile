@@ -122,14 +122,19 @@ compositor without repainting the element or laying out the page. Everything els
   (18.5% at 16px, 19.8% at 6px), so the pills are a translucent tint without blur (14.2%). Overlays that cover
   the page are opaque: mix a tint into `--bg`, not into `transparent`. The bar and the composer fade the text out instead: a static gradient from `--bg` to
   transparent, `--edge-fade` deep, which the GPU only blends; measured on the S24, it costs no frames.
-- A one-off highlight (the dial's jump flash) may animate `box-shadow` or a color; a tint is an inset shadow
-  (`inset 0 0 0 999px rgb(255 255 255 / 0.1)`), not `filter: brightness()`.
+- No `box-shadow` or `filter` in an animation or a transition, not even a one-off highlight: draw the final
+  shadow or tint on a `::before`/`::after` (`z-index: -1` inside an `isolation: isolate` box keeps it under the
+  text) and animate its `opacity`, as the pressed bubble and the dial's jump flash do. A pulsing shadow on the
+  「最新」 pill repainted it every frame while streaming; it was removed (2026-11-25).
 - Measure a new animation on the S24 before and after with `test/perf/run.ts` (docs/development.md § 效能量測),
   and change one thing at a time: two changes measured together cannot tell which one helped. A style can be tried
   without a build: inject it into the page, as `INJECT_CSS` experiments in the perf commits did.
 
 `pi-mobile/keyframes-compositor-only` (`stylelint/keyframes-compositor-only.js`) enforces the `@keyframes` part in
-`npm run check`: opacity and transform, plus `box-shadow`, `background-color`, `color`, and `visibility`.
+`npm run check`: opacity and transform, plus `background-color`, `color`, and `visibility`;
+`pi-mobile/transition-no-layout` also refuses `box-shadow`, `filter` and `backdrop-filter` in a transition, and
+`pi-mobile/no-endless-animation` refuses an `infinite` animation outside a `[data-live]` or `[data-on]` rule (the
+links diagram, which runs only while the side panel is open): nothing else in pi blinks.
 
 ## 5. Other rules
 

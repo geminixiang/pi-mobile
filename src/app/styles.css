@@ -1,16 +1,15 @@
 .crash { display: grid; gap: var(--space); align-content: center; justify-items: start; min-height: 100dvh; padding: var(--top) var(--space); }
-.skeleton i { display: block; background: var(--line); animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.skeleton i { display: block; background: var(--line); }
 .skeleton-mark { position: relative; width: 44px; height: 44px; display: grid; place-items: center; }
 .skeleton > .chat-bar { background: none; border-bottom-color: transparent; }
 .skeleton-title { display: flex; flex-direction: column; gap: 8px; padding: 6px; }
 .skeleton-title i { width: 72px; height: 11px; }
 .skeleton-title i + i { width: 132px; height: 8px; }
 .skeleton-transcript { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 24px var(--space); }
-.skeleton-transcript i { height: 12px; background: var(--line); animation: skeleton-pulse 1.4s ease-in-out infinite; display: block; }
+.skeleton-transcript i { height: 12px; background: var(--line); display: block; }
 .skeleton-transcript .skeleton-prompt { height: 48px; margin: 10px calc(-1 * var(--space)) 6px; background: var(--user-bg); }
 .skeleton-transcript .short { width: 58%; }
 .skeleton-composer { flex-shrink: 0; height: calc(env(safe-area-inset-bottom) + 76px); border-top: 1px solid var(--line-strong); }
-@keyframes skeleton-pulse { 50% { opacity: 0.45; } }
 
 .app {
 	--editor-border: var(--think-off);

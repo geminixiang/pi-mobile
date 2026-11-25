@@ -159,7 +159,7 @@ export function ScrollTab({
 		<>
 			<button
 				type="button"
-				className={`scroll-hint${hint === "new" ? " new" : ""}${hint ? "" : " ghost"}`}
+				className={`scroll-hint${hint ? "" : " ghost"}`}
 				key={hint ?? "ghost"}
 				ref={cancelPress}
 				onPointerDown={onPointerDown}

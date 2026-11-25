@@ -1,9 +1,9 @@
 import stylelint from "stylelint";
 
 const name = "pi-mobile/keyframes-compositor-only";
-const ALLOWED = new Set(["opacity", "transform", "translate", "scale", "rotate", "box-shadow", "background-color", "color", "visibility"]);
+const ALLOWED = new Set(["opacity", "transform", "translate", "scale", "rotate", "background-color", "color", "visibility"]);
 const messages = stylelint.utils.ruleMessages(name, {
-	rejected: (property) => `"${property}" in @keyframes: animate opacity or transform instead (a one-off highlight may use box-shadow or a color)`,
+	rejected: (property) => `"${property}" in @keyframes: animate opacity or transform instead; a shadow or a tint goes on a ::before/::after whose opacity is animated (CSS skill §4)`,
 });
 
 function inKeyframes(node) {
