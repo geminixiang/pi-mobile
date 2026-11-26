@@ -117,6 +117,29 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a daemon whose stream ends before it answers hello fails the start at once with the reason, instead of waiting out pi-env's silence limit",
+		async () => {
+			const connection = new PhoneConnection({
+				open: async (_token, handlers) => ({
+					send: () => queueMicrotask(() => handlers.onClose("pi-env: exec format error")),
+					close: () => undefined,
+				}),
+				onLog: () => undefined,
+				onStatus: () => undefined,
+			});
+			try {
+				const started = Date.now();
+				await assert.rejects(
+					Promise.race([connection.info(), settle(3000).then(() => "still starting after 3 s")]),
+					(error: unknown) => lostError(error) && error.message.includes("exec format error"),
+				);
+				assert(Date.now() - started < 1000, `it took ${Date.now() - started} ms`);
+			} finally {
+				connection.close();
+			}
+		},
+	],
+	[
 		"a complete hello becomes the remote info",
 		async () => {
 			const { connection } = daemonAnswering(fullHello);
