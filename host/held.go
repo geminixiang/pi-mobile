@@ -297,6 +297,8 @@ func (h *held) take(conn *websocket.Conn, kind websocket.MessageType, data []byt
 }
 
 func (h *held) serve(conn *websocket.Conn, ctx context.Context) {
+	// why: the websocket library closes the socket only on a close handshake; a phone that vanished (reset, FIN, or a reattach that closes without a code) left it open on the computer for good.
+	defer conn.CloseNow()
 	h.mu.Lock()
 	current := h.attachedTo(conn)
 	h.mu.Unlock()

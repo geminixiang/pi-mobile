@@ -57,6 +57,7 @@
   - 面板的電腦狀態在這段期間顯示「重新連線中」。
   - S24 實測：容器裡 240 秒的指令執行中，把手機的 Tailscale 強制停止 75 秒再啟動，電腦 19 秒後判定斷線，手機回來 1 秒內接上並補送 21 則訊息，24 行輸出一行不少地回到對話。
 - **連線結束，它開的程序也結束**：`/exec` 和 `/env` 的指令各自是一個程序群組（`Setpgid`）。手機的連線斷了，整個群組先收到 SIGTERM，2 秒後 SIGKILL。以前只殺掉 login shell，它底下的 npx、node 會變成孤兒一直留著（實測留了 7 個 computer-use-mcp）。`/exec` 的 shell 自己結束時，留在群組裡的也一起結束；還佔著輸出的程序最多等 5 秒（`WaitDelay`）。`host/main_test.go` 測這兩件事。
+  - 一條連線不管怎麼斷（reset、沒有 close frame 的 FIN、手機重接時不帶代碼的關閉），電腦都會關掉自己那端的 socket，session 照樣保留（2026-11-26 起）。websocket 函式庫只在 close handshake 時關 socket，之前這些斷線的 socket 一直開著：一台跑了兩週的電腦留著 46 個 CLOSED 的 fd。
   - 保留的 session 結束時（寬限過了、手機刻意關閉、配對被刪），先關掉它的 stdin，2 秒後才結束程序群組（2026-10-27 起）。pi-env 把每個指令放在自己的 session 裡，不在 pi-env 的群組中；直接結束 pi-env 的群組，它跑的指令會變成孤兒留著（S24 實測：撤銷後 `sleep 49` 的父程序變成 launchd，一直在跑）。pi-env 看到 stdin 結束就會自己結束它啟動的指令（本機實測 8 ms）。改了之後 S24 上撤銷配對，指令 1～3 秒內結束，Bot 收到「the request had been sent, so its outcome is unknown」，沒有重試。
 
 ## 手機（`src/computer/`：配對 `pairing.ts`、指令與 MCP `commands.ts`；sandbox 在 `src/agent/sandbox/host.ts`）
