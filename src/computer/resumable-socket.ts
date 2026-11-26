@@ -1,11 +1,11 @@
 import { log } from "pi-mobile-base/log";
 import type { Network } from "../net/network.ts";
 import { bytesOf, type Traffic } from "../net/traffic.ts";
-import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, type RawMessage, step } from "./resumable-link.ts";
-import { after, type Cancel, every } from "pi-mobile-base/time";
+import { type Effect, type Link, type LinkEvent, type LinkState, linkOf, NORMAL_CLOSURE, type RawMessage, step } from "./resumable-link.ts";
+import { after, type Cancel, deadline, every } from "pi-mobile-base/time";
 
 export type RawSocket = { send(data: Uint8Array<ArrayBuffer> | string): void; close(code?: number): void };
-export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void) => Promise<RawSocket>;
+export type OpenRaw = (url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void, signal: AbortSignal) => Promise<RawSocket>;
 
 export interface ResumableOptions {
 	first: URL;
@@ -77,7 +77,7 @@ export class ResumableSocket {
 	static async connect(options: ResumableOptions): Promise<ResumableSocket> {
 		const resumable = new ResumableSocket(options);
 		try {
-			resumable.#dispatch({ kind: "opened", socket: await resumable.#open(options.first) });
+			resumable.#dispatch({ kind: "opened", socket: await resumable.#open(options.first, NORMAL_CLOSURE) });
 		} catch (error) {
 			resumable.close();
 			throw error;
@@ -131,7 +131,7 @@ export class ResumableSocket {
 			case "close":
 				return effect.socket.close(effect.code);
 			case "dial":
-				return void this.#open(this.#options.attach(this.#received)).then(
+				return void this.#open(this.#options.attach(this.#received), undefined).then(
 					(socket) => this.#dispatch({ kind: "dialed", from: effect.from, socket }),
 					() => this.#dispatch({ kind: "unreachable", from: effect.from }),
 				);
@@ -144,12 +144,13 @@ export class ResumableSocket {
 		}
 	}
 
-	async #open(url: URL): Promise<RawSocket> {
-		const { traffic } = this.#options;
+	async #open(url: URL, lateClose: typeof NORMAL_CLOSURE | undefined): Promise<RawSocket> {
+		const { traffic, what, quietLimitMs } = this.#options;
 		let self: RawSocket | undefined;
-		const socket = await this.#options.open(
+		const signal = deadline(quietLimitMs);
+		const opening = this.#options.open(
 			url,
-			this.#options.what,
+			what,
 			(data) => {
 				traffic.count("down", bytesOf(data));
 				if (self) this.#dispatch({ kind: "message", socket: self, data });
@@ -157,7 +158,23 @@ export class ResumableSocket {
 			(reason) => {
 				if (self) this.#dispatch({ kind: "ended", socket: self, reason });
 			},
+			signal,
 		);
+		const socket = await new Promise<RawSocket>((resolve, reject) => {
+			const expired = () => reject(new Error(`${what} 沒有在 ${quietLimitMs / 1000} 秒內接上`));
+			signal.addEventListener("abort", expired, { once: true });
+			opening.then(
+				(opened) => {
+					signal.removeEventListener("abort", expired);
+					if (signal.aborted) return opened.close(lateClose);
+					resolve(opened);
+				},
+				(error: unknown) => {
+					signal.removeEventListener("abort", expired);
+					reject(error);
+				},
+			);
+		});
 		const counted: RawSocket = {
 			send: (data) => {
 				traffic.count("up", bytesOf(data));

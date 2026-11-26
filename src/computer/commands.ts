@@ -65,9 +65,10 @@ async function explained(reach: Reach, error: unknown): Promise<never> {
 	throw error;
 }
 
-function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void): Promise<WebSocket> {
+function openSocket(url: URL, what: string, onMessage: (data: RawMessage) => void, onClose: (reason: string | undefined) => void, signal: AbortSignal): Promise<WebSocket> {
 	const socket = new WebSocket(url);
 	socket.binaryType = "arraybuffer";
+	signal.addEventListener("abort", () => socket.readyState === WebSocket.CONNECTING && socket.close(), { once: true });
 	socket.addEventListener("message", (event) => {
 		if (event.data instanceof ArrayBuffer || typeof event.data === "string") onMessage(event.data);
 	});

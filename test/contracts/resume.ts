@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { createServer, type Socket } from "node:net";
 import type { Link, RawMessage } from "../../src/computer/resumable-link.ts";
-import { RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/computer/resumable-socket.ts";
+import { type OpenRaw, RESUME_LIMIT_MS, type RawSocket, ResumableSocket } from "../../src/computer/resumable-socket.ts";
+import { deviceDial } from "../../src/computer/commands.ts";
 import type { Check } from "./setup.ts";
 import wire from "../../host/protocol.json" with { type: "json" };
 import { sleep } from "pi-mobile-base/time";
@@ -58,7 +60,7 @@ function fakeNetwork() {
 	};
 }
 
-async function connect(opener: ReturnType<typeof fakeOpener>, network = fakeNetwork(), resumeLimitMs = RESUME_LIMIT_MS, traffic = createTraffic()) {
+async function connect(opener: { open: OpenRaw }, network = fakeNetwork(), resumeLimitMs = RESUME_LIMIT_MS, traffic = createTraffic()) {
 	const links: Link[] = [];
 	const received: RawMessage[] = [];
 	let closedWith: string | undefined | null = null;
@@ -271,6 +273,82 @@ export const checks: Check[] = [
 			await sleep(50);
 			second.deliver(JSON.stringify({ received: 0 }));
 			socket.close();
+		},
+	],
+	[
+		"a first dial the computer never answers fails within the quiet limit with a named error, and a socket that opens after that is closed for good",
+		async () => {
+			const late = Promise.withResolvers<RawSocket>();
+			const closes: (number | undefined)[] = [];
+			const started = Date.now();
+			const connecting = ResumableSocket.connect({
+				quietLimitMs: 400,
+				first: new URL("ws://computer/env?token=t"),
+				attach: (have) => new URL(`ws://computer/env?attach=t&received=${have}`),
+				open: () => late.promise,
+				what: "computer",
+				onMessage: () => undefined,
+				onClose: () => undefined,
+				network: fakeNetwork(),
+				resumeLimitMs: RESUME_LIMIT_MS,
+				traffic: createTraffic(),
+			});
+			await assert.rejects(Promise.race([connecting, sleep(2000).then(() => "still dialing after 2 s")]), /computer 沒有在 0\.4 秒內接上/);
+			assert(Date.now() - started < 1000, `it took ${Date.now() - started} ms`);
+			late.resolve({ send: () => undefined, close: (code) => closes.push(code) });
+			await sleep(0);
+			assert.deepEqual(closes, [1000], "a socket that opens after the phone gave up must end its session on the computer");
+		},
+	],
+	[
+		"an attach dial the computer never answers is given up after the quiet limit and dialed again, and if it opens later it is dropped without ending the held session",
+		async () => {
+			const opener = fakeOpener();
+			const late = Promise.withResolvers<RawSocket>();
+			const closes: (number | undefined)[] = [];
+			let attaches = 0;
+			const open: OpenRaw = (url, what, onMessage, onClose) => {
+				if (url.searchParams.has("attach") && attaches++ === 0) return late.promise;
+				return opener.open(url, what, onMessage, onClose);
+			};
+			const { socket, links } = await connect({ open });
+			opener.sockets[0]?.drop();
+			const next = await opened(opener, 1);
+			assert.equal(next.url.searchParams.get("attach"), "t");
+			next.deliver(JSON.stringify({ received: 0 }));
+			assert.deepEqual(links, ["reattaching", "up"]);
+			late.resolve({ send: () => undefined, close: (code) => closes.push(code) });
+			await sleep(0);
+			assert.deepEqual(closes, [undefined]);
+			assert(!next.closed);
+			socket.close();
+		},
+	],
+	[
+		"the device's WebSocket that is still connecting when the dial gives up is aborted, so it holds no connection to the computer",
+		async () => {
+			const accepted: Socket[] = [];
+			const ended = Promise.withResolvers<void>();
+			const server = createServer((connection) => {
+				accepted.push(connection);
+				connection.resume();
+				connection.on("close", () => ended.resolve());
+			});
+			await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+			const address = server.address();
+			assert(address && typeof address === "object");
+			try {
+				const giveUp = new AbortController();
+				const dial = deviceDial.open(new URL(`ws://127.0.0.1:${address.port}/env`), "computer", () => undefined, () => undefined, giveUp.signal);
+				await sleep(200);
+				assert.equal(accepted.length, 1, "the WebSocket never reached the fake computer");
+				giveUp.abort();
+				await assert.rejects(Promise.race([dial, sleep(2000).then(() => "still connecting after 2 s")]));
+				assert.equal(await Promise.race([ended.promise.then(() => "closed"), sleep(2000).then(() => "still open")]), "closed");
+			} finally {
+				for (const connection of accepted) connection.destroy();
+				server.close();
+			}
 		},
 	],
 	[

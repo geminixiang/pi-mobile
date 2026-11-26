@@ -7,7 +7,7 @@ export type Link = "up" | "reattaching" | "offline";
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 // why: the computer ends a held session only on a normal closure (1000); a closure without a code, like the reattach after a quiet link, keeps it held.
-const NORMAL_CLOSURE = 1000;
+export const NORMAL_CLOSURE = 1000;
 const Resume = Type.Object({ received: Type.Integer({ minimum: 0 }) });
 
 export type Budget = { readonly unreachableMs: number; readonly onlineSince: number | undefined };
