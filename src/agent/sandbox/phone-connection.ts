@@ -144,11 +144,11 @@ class DaemonProcess extends Events {
 				return void this.emit("error", lost(effect.reason));
 			case "lost":
 				this.#reader = this.#reader.kind === "framed" ? { kind: "framed", pending: [], bytes: 0, need: 4 } : { kind: "greeting", pending: Buffer.alloc(0) };
-				this.#report({ kind: "lost", reason: effect.reason, at: Date.now() });
-				this.stderr.emit("data", effect.reason);
 				this.emit("exit", null);
 				// why: pi-env fails a start that has not seen hello only on close, as Node emits it after exit; without it the start waits out the 30 s silence limit.
-				return void this.emit("close", null);
+				this.emit("close", null);
+				this.stderr.emit("data", effect.reason);
+				return this.#report({ kind: "lost", reason: effect.reason, at: Date.now() });
 			case "status":
 				return this.#report(this.#status());
 		}

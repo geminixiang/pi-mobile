@@ -140,6 +140,48 @@ export const checks: Check[] = [
 		},
 	],
 	[
+		"a status listener that throws when the connection is lost does not keep pi-env on the ended session: the next request opens a new one and is answered",
+		async () => {
+			const opened: string[] = [];
+			const drops: ((reason: string) => void)[] = [];
+			let broke = false;
+			const connection = new PhoneConnection({
+				open: async (token, handlers) => {
+					opened.push(token);
+					drops.push((reason) => handlers.onClose(reason));
+					let greeted = false;
+					return {
+						send: (data) => {
+							if (!greeted) handlers.onData(encoder.encode(`PI-ENV ${token}\n`));
+							greeted = true;
+							const view = new DataView(data.buffer, data.byteOffset);
+							if (view.getUint8(4) !== 1) return;
+							const id = view.getUint32(5);
+							const request = JSON.parse(decoder.decode(data.subarray(13, 13 + view.getUint32(9))));
+							queueMicrotask(() => handlers.onData(reply(id, request.op === "hello" ? fullHello : { echo: request.n })));
+						},
+						close: () => undefined,
+					};
+				},
+				onLog: () => undefined,
+				onStatus: (status) => {
+					if (status.kind !== "lost" || broke) return;
+					broke = true;
+					throw new Error("a status listener broke");
+				},
+			});
+			try {
+				assert.deepEqual((await connection.request("echo", { n: 1 })).json, { echo: 1 });
+				assert.throws(() => drops[0]?.("no such session"), /a status listener broke/);
+				const next = await Promise.race([connection.request("echo", { n: 2 }), settle(2000).then(() => "still waiting after 2 s")]);
+				assert.notEqual(next, "still waiting after 2 s", "the request went into the ended session and was dropped");
+				assert.equal(opened.length, 2);
+			} finally {
+				connection.close();
+			}
+		},
+	],
+	[
 		"a complete hello becomes the remote info",
 		async () => {
 			const { connection } = daemonAnswering(fullHello);

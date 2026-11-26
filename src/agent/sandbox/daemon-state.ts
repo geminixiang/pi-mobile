@@ -11,7 +11,7 @@ type Line = { readonly kind: "up" } | { readonly kind: "down"; readonly link: Ex
 export type Daemon =
 	| { readonly kind: "opening"; readonly queued: readonly Uint8Array<ArrayBuffer>[] }
 	| { readonly kind: "open"; readonly stream: DaemonStream; readonly line: Line }
-	| { readonly kind: "ended" };
+	| { readonly kind: "ended"; readonly reason: string };
 
 export type DaemonEvent =
 	| { kind: "opened"; stream: DaemonStream }
@@ -37,17 +37,17 @@ export function daemonStep(state: Daemon, event: DaemonEvent): DaemonStep {
 			return { state: { kind: "open", stream: event.stream, line: { kind: "up" } }, effects: [{ kind: "send", stream: event.stream, data: state.queued }] };
 		case "failed":
 			if (state.kind !== "opening") return same;
-			return { state: { kind: "ended" }, effects: [{ kind: "error", reason: event.reason }, { kind: "lost", reason: event.reason }] };
+			return { state: { kind: "ended", reason: event.reason }, effects: [{ kind: "error", reason: event.reason }, { kind: "lost", reason: event.reason }] };
 		case "end":
 			if (state.kind === "ended") return same;
-			return { state: { kind: "ended" }, effects: state.kind === "open" ? [{ kind: "close", stream: state.stream }, { kind: "lost", reason: event.reason }] : [{ kind: "lost", reason: event.reason }] };
+			return { state: { kind: "ended", reason: event.reason }, effects: state.kind === "open" ? [{ kind: "close", stream: state.stream }, { kind: "lost", reason: event.reason }] : [{ kind: "lost", reason: event.reason }] };
 		case "link":
 			if (state.kind !== "open") return same;
 			return { state: { ...state, line: event.link === "up" ? { kind: "up" } : { kind: "down", link: event.link, since: event.now } }, effects: [{ kind: "status" }] };
 		case "write":
 			if (state.kind === "opening") return { state: { kind: "opening", queued: [...state.queued, event.data] }, effects: [] };
 			if (state.kind === "open") return { state, effects: [{ kind: "send", stream: state.stream, data: [event.data] }] };
-			return same;
+			return { state, effects: [{ kind: "error", reason: state.reason }] };
 	}
 }
 

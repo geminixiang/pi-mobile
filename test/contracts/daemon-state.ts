@@ -9,7 +9,8 @@ const bytes = (...values: number[]) => new Uint8Array(values);
 const opening: Daemon = { kind: "opening", queued: [bytes(1)] };
 const open: Daemon = { kind: "open", stream, line: { kind: "up" } };
 const down: Daemon = { kind: "open", stream, line: { kind: "down", link: "reattaching", since: 5 } };
-const ended: Daemon = { kind: "ended" };
+const endedBy = (reason: string): Daemon => ({ kind: "ended", reason });
+const ended = endedBy("gone");
 const marker = Buffer.from("PI-ENV t\n", "utf8");
 const frameOf = (...payload: number[]) => Buffer.concat([Buffer.from([0, 0, 0, payload.length]), Buffer.from(payload)]);
 
@@ -23,18 +24,18 @@ export const checks: Check[] = [
 		},
 	],
 	[
-		"daemon: writes queue while opening, go straight out when open, and vanish after the end",
+		"daemon: writes queue while opening, go straight out when open, and after the end fail the connection with its reason instead of vanishing",
 		async () => {
 			assert.deepEqual(daemonStep(opening, { kind: "write", data: bytes(2) }), { state: { kind: "opening", queued: [bytes(1), bytes(2)] }, effects: [] });
 			assert.deepEqual(daemonStep(down, { kind: "write", data: bytes(2) }), { state: down, effects: [{ kind: "send", stream, data: [bytes(2)] }] });
-			assert.deepEqual(daemonStep(ended, { kind: "write", data: bytes(2) }), { state: ended, effects: [] });
+			assert.deepEqual(daemonStep(ended, { kind: "write", data: bytes(2) }), { state: ended, effects: [{ kind: "error", reason: "gone" }] });
 		},
 	],
 	[
 		"daemon: a stream that never opens fails with its reason once, and a failure after it opened is ignored",
 		async () => {
 			assert.deepEqual(daemonStep(opening, { kind: "failed", reason: "連不到 mac" }), {
-				state: ended,
+				state: endedBy("連不到 mac"),
 				effects: [
 					{ kind: "error", reason: "連不到 mac" },
 					{ kind: "lost", reason: "連不到 mac" },
