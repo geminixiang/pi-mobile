@@ -76,6 +76,7 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - **網路來源只有一個**：`src/net/network.ts` 的 `deviceNetwork`。它聽 `@capacitor/network`、瀏覽器的 `online`／`offline` 和回到前景（`visibilitychange`）。
 - **VPN 不等於有網路**：開著 Tailscale 時，預設網路是 VPN。Wi‑Fi 和行動數據都關了，`@capacitor/network` 仍說有網路；進行中的連線也不會被系統切斷，只會靜靜卡住，`fetch` 不報錯（2026-11-04 在 S24 上量到：Wi‑Fi 回來 5 分鐘了，回答還是沒動）。所以 Android 上收到它的通知後，改問 `System.network`（`SystemPlugin.kt`）：VPN 以外還有沒有通過驗證、能上網的網路。iOS 照舊用外掛的狀態。
 - **重試留下的失敗嘗試**：pi-durable 把每次失敗的嘗試存成一則回答。後面有重試接著的，對話裡只顯示一行「網路斷了，重新回答」（不是網路造成的，就寫「重新回答：錯誤訊息」），半截的字不顯示；重試用完仍失敗的那一則照常顯示錯誤。
+- **送給自訂端點的請求用 gzip 壓縮**：每一步都要重送整段對話（2026-11-26 在 S24 量到一個排程 Bot 每次約 235k tokens，行動數據上傳 43.7 MB／1 h 48 min，電量 84% 花在行動網路）。所以 `src/net/gzip.ts` 對每個網址先送兩個未知模型名稱的小請求（一個壓縮、一個不壓縮），兩個回的錯誤都提到這個名稱，才算這個端點讀得懂 gzip，之後才壓縮；讀不懂、或擋下 `Content-Encoding` 的端點照舊不壓縮。這個判斷只存在記憶體裡，因為同一個位址上的閘道可能換版本；app 重開後再問一次。CLIProxyAPI 8.1.3 讀得懂，文字約壓到 1/3。
 - **電腦說了算**：電腦握住斷線的 session 15 分鐘（`host/held.go` 的 `holdFor`），或輸出超過 8 MB 才放手；手機接回時電腦若已放手，會回 `no such session`，手機照實告訴使用者，不靜靜結束。
 - **手機送到電腦的指令，電腦都做完**：`HostCommands.exec` 一律帶 session（`/exec?session=…`），電腦把指令握在 `held.go` 裡。斷線時指令照跑，手機接回後拿到後續的輸出和結束碼。沒有 session 的 `/exec` 一斷線就殺掉整個 process group：交辦給 agent 的「貼上 → Enter」會停在貼上，電腦畫面的一串步驟會停在一半，模型看到失敗再做一次就重複了（2026-11-10 在 Mac 上用真的 Rex、pi 和 TextEdit 量到）。只有 pi-env 的 session 帶 heartbeat，因為那是寫進 stdin 的，一般指令和電腦上的 MCP 讀到會出錯。
 - **還沒處理的**：手機上的 MCP 工具呼叫和一般網路工具（天氣、搜尋）斷線就失敗，不重試。指令剛結束、電腦以為手機還連著時斷線，電腦已經放手，手機接回會拿不到結束碼；`tell_agent` 和 `answer_agent` 這時說「不確定有沒有送到，先 `read_agent`」。

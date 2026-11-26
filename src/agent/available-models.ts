@@ -1,6 +1,7 @@
 import { createModels, type Models } from "@earendil-works/pi-ai";
 import { deviceNetwork, waitingForNetwork } from "../net/network.ts";
 import { modelReach } from "../net/reach.ts";
+import { gzipRequests } from "../net/gzip.ts";
 import { modelTraffic } from "../net/traffic.ts";
 import { Type } from "typebox";
 import { type Settings, type SettingsStore, usableProviders } from "../settings.ts";
@@ -74,7 +75,7 @@ export async function loadModels(settings: Settings, compactAt: () => number, mo
 	const infos: ModelInfo[] = [];
 	configs.forEach((config, index) => {
 		const custom = config.kind === "custom";
-		const provider = custom ? customProvider(config, settings.providerKeys[config.id] ?? "", lists[config.id] ?? [], catalog) : loaded[index];
+		const provider = custom ? gzipRequests(customProvider(config, settings.providerKeys[config.id] ?? "", lists[config.id] ?? [], catalog)) : loaded[index];
 		if (!provider) return;
 		models.setProvider(waitingForNetwork(withCompaction(provider, compactAt), { network: deviceNetwork, reach: modelReach(provider.id), traffic: modelTraffic(provider.id) }));
 		for (const model of provider.getModels()) infos.push(describe(model, providerName(config), custom ? inCatalog(catalog, model.id) : undefined));
