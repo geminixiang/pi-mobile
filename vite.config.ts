@@ -8,6 +8,7 @@ import { defineConfig, type Plugin } from "vite";
 import pkg from "./package.json" with { type: "json" };
 import { justBashPatches } from "./vite-plugins/just-bash.ts";
 import { piEnvInWebView } from "./vite-plugins/pi-env.ts";
+import { codexInWebView } from "./vite-plugins/pi-ai-codex.ts";
 import { pageControllerScript } from "./vite-plugins/page-controller.ts";
 
 const shim = (name: string) => fileURLToPath(new URL(`./src/shims/${name}`, import.meta.url));
@@ -55,7 +56,7 @@ function pdfjsAssets(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [react(), piEnvDaemons(), piEnvInWebView(), pdfjsAssets(), justBashPatches(), pageControllerScript()],
+	plugins: [react(), piEnvDaemons(), piEnvInWebView(), codexInWebView(), pdfjsAssets(), justBashPatches(), pageControllerScript()],
 	define: {
 		__PI_ENV_DAEMONS__: JSON.stringify(
 			Object.fromEntries(DAEMONS.map((name) => [name, createHash("sha256").update(readFileSync(daemonFile(name))).digest("hex")])),
