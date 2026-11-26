@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 
 const NOT_A_CHECK: Record<string, string> = {
 	"test/snapshot.ts": "helper for the snapshot checks",
+	"test/fake-cliproxy.ts": "the CLIProxyAPI stand-in test/proxy-route.ts talks to",
 	"test/bash/run.ts": "runs on a phone over DevTools",
 };
 

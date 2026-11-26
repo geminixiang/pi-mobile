@@ -52,6 +52,7 @@
 - **Tailscale 證明裝置、不證明 App**：S24 實測 `adb shell`（uid 2000）能經同一個 VPN 打 `:4790` 拿 200，所以除了 `/version` 與 `/pair`，電腦端一律要求配對金鑰並綁定每條連線與保留 session（`TS-2026-012` 亦印證不可只靠來源位址判身分）。
 - **拒絕電腦自己連自己（`anotherDeviceOfTheUser`）**：否則電腦上的惡意程式可自跑 `pi-mobile pair` 換金鑰，經 `/exec` 借用 `pi-mobile serve` 持有的 macOS TCC 權限。
 - **只接受 tailnet 位址（`onTailnet`）與明文金鑰閘門（`refuseCleartextSecret`）**：區網 IP、`mac.local`、公網 HTTP 在送出前即拒絕；沒有金鑰的區網服務（如 Ollama）照常放行。
+- **CLI Proxy API Server 的 WebSocket 金鑰在網址裡**：WebView 的 WebSocket 不能帶標頭，所以官方路線把金鑰放在 `?key=`（`vite-plugins/pi-ai-codex.ts`）。金鑰只送到同一台、已過明文閘門的主機，跟標頭一樣；差別是網址可能進到代理或伺服器的存取記錄。只用在 `GET /` 自稱 CLI Proxy API Server 的端點。
 - **不依賴 Tailscale SSH／Serve 與 loopback**：`TS-2026-004`～`011` 及 2026-10-26 Tailworm 調查顯示 Tailscale SSH 與 loopback 轉送皆曾出洞；`pi-mobile serve` 不用它們且不聽 loopback。
 - **Origin 與 WebSocket**：`websocket.Accept` 的 `InsecureSkipVerify` 只關函式庫預設檢查，由 `guard` 擋瀏覽器網頁；真正擋同機其他同 Origin（`http://localhost`）Capacitor App 的是配對金鑰。
 - **頁面注入與廣播**：Markdown 不執行 HTML；HTML 預覽放在無來源 sandbox iframe，且只在 bridge 有限定來源時才預覽；Mermaid（pele）轉義標籤（實測 `<img onerror>`、`<script>`）並關掉連結與圖片（`click` 連結在 WebView 會把整個 app 導走）；`HeadphonesReceiver` 雖對外開放，藍牙連線廣播受系統保護，其他 app 送不出來（實測 `SecurityException`）。

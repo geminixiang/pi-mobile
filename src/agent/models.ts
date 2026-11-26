@@ -4,11 +4,13 @@ import { DEFAULT_COMPACTION_POLICY } from "@earendil-works/pi-durable";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
+import { openAICodexResponsesApi } from "@earendil-works/pi-ai/api/openai-codex-responses.lazy";
 import { Type } from "typebox";
 import { parse } from "../parse.ts";
 import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "../net/cleartext.ts";
 import { ios } from "../native.ts";
 import { baseName } from "../mime.ts";
+import { type OfficialModel, onOfficialRoute } from "./proxy-route.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -116,8 +118,14 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 	return [...new Set((body.data ?? []).map((model) => model.id))].sort();
 }
 
+function onProxyRoute(model: Model<Api>, root: string): OfficialModel {
+	const { compat: _compat, ...plain } = model;
+	return { ...plain, api: "openai-codex-responses", baseUrl: `${root}/backend-api` };
+}
+
 export function customProvider(config: { id: string; name: string; baseUrl: string }, apiKey: string, modelIds: readonly string[], catalog: Catalog): Provider {
-	return createProvider({
+	const root = rootUrl(config.baseUrl);
+	const provider = createProvider({
 		id: config.id,
 		name: config.name,
 		auth: {
@@ -134,8 +142,10 @@ export function customProvider(config: { id: string; name: string; baseUrl: stri
 			"anthropic-messages": anthropicMessagesApi(),
 			"openai-responses": openAIResponsesApi(),
 			"openai-completions": openAICompletionsApi(),
+			"openai-codex-responses": openAICodexResponsesApi(),
 		},
 	});
+	return onOfficialRoute(provider, root, (model) => onProxyRoute(model, root));
 }
 
 export function inCatalog(catalog: Catalog, id: string): boolean {
