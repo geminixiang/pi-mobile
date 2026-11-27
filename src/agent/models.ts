@@ -10,7 +10,8 @@ import { parse } from "../parse.ts";
 import { onTailnet, refuseCleartextSecret, refuseIpOnIos, tailscaleHint } from "../net/cleartext.ts";
 import { ios } from "../native.ts";
 import { baseName } from "../mime.ts";
-import { type OfficialModel, onOfficialRoute } from "./proxy-route.ts";
+import { ADAPTERS } from "./providers/adapters.ts";
+import { type EndpointAdapter, withAdapters } from "./providers/route.ts";
 
 export const DEFAULT_MODEL_ID = "gpt-6.1-sol";
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -118,13 +119,7 @@ export async function fetchModelIds(baseUrl: string, apiKey: string, signal?: Ab
 	return [...new Set((body.data ?? []).map((model) => model.id))].sort();
 }
 
-function onProxyRoute(model: Model<Api>, root: string): OfficialModel {
-	const { compat: _compat, ...plain } = model;
-	return { ...plain, api: "openai-codex-responses", baseUrl: `${root}/backend-api` };
-}
-
-export function customProvider(config: { id: string; name: string; baseUrl: string }, apiKey: string, modelIds: readonly string[], catalog: Catalog): Provider {
-	const root = rootUrl(config.baseUrl);
+export function customProvider(config: { id: string; name: string; baseUrl: string }, apiKey: string, modelIds: readonly string[], catalog: Catalog, adapters: readonly EndpointAdapter[] = ADAPTERS): Provider {
 	const provider = createProvider({
 		id: config.id,
 		name: config.name,
@@ -145,7 +140,7 @@ export function customProvider(config: { id: string; name: string; baseUrl: stri
 			"openai-codex-responses": openAICodexResponsesApi(),
 		},
 	});
-	return onOfficialRoute(provider, root, (model) => onProxyRoute(model, root));
+	return withAdapters(provider, rootUrl(config.baseUrl), adapters);
 }
 
 export function inCatalog(catalog: Catalog, id: string): boolean {

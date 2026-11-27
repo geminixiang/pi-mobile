@@ -3,7 +3,7 @@ import type { AssistantMessage, Message } from "@earendil-works/pi-ai";
 import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import { Type } from "typebox";
 import { customProvider } from "../src/agent/models.ts";
-import { checkedRoute } from "../src/agent/proxy-route.ts";
+import { checkedRoute } from "../src/agent/providers/route.ts";
 import { type FakeProxy, fakeProxy, KEY } from "./fake-cliproxy.ts";
 import { sleep } from "pi-mobile-base/time";
 
@@ -11,6 +11,8 @@ const CLOSE_SEEN_MS = 100;
 const LOOKUP = { name: "lookup", description: "Looks a value up.", parameters: Type.Object({}) };
 
 const user = (content: string): Message => ({ role: "user", content, timestamp: Date.now() });
+const OFFICIAL = { kind: "adapted", adapter: "cliproxyapi" };
+const shown = (route: Awaited<ReturnType<typeof checkedRoute>>) => (route.kind === "adapted" ? { kind: route.kind, adapter: route.adapter.id } : route);
 const textOf = (message: AssistantMessage) => message.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
 
 async function endpoint(apiKey = KEY, set: (proxy: FakeProxy) => void = () => {}) {
@@ -22,14 +24,14 @@ async function endpoint(apiKey = KEY, set: (proxy: FakeProxy) => void = () => {}
 	const ask = (messages: Message[], sessionId: string) => provider.streamSimple(model, normalizeContext({ messages, tools: [LOOKUP] }), { apiKey, sessionId }).result();
 	const checked = async () => {
 		await ask([user("first call")], "first");
-		return checkedRoute({ root: proxy.root, apiKey });
+		return shown(await checkedRoute({ root: proxy.root, apiKey }));
 	};
 	return { proxy, ask, checked };
 }
 
 async function officialEndpoint() {
 	const reached = await endpoint();
-	assert.equal((await reached.checked()).kind, "official");
+	assert.deepEqual(await reached.checked(), OFFICIAL);
 	reached.proxy.frames.length = 0;
 	reached.proxy.httpCalls.length = 0;
 	return reached;
@@ -41,7 +43,7 @@ const checks: [string, () => Promise<void>][] = [
 		async () => {
 			const { proxy, ask, checked } = await endpoint();
 			const route = await checked();
-			assert.deepEqual(route, { kind: "official" });
+			assert.deepEqual(route, OFFICIAL);
 			assert.equal(proxy.httpCalls.length, 1, "the call made while the endpoint was unchecked did not go the plain way");
 			assert.equal(proxy.frames.length, 2, "the check is two calls on one socket");
 			proxy.frames.length = 0;
@@ -76,7 +78,7 @@ const checks: [string, () => Promise<void>][] = [
 		"an endpoint that is not a CLI Proxy API Server is never asked over a socket",
 		async () => {
 			const { proxy, checked } = await endpoint(KEY, (fixture) => (fixture.identity = "Another Gateway"));
-			assert.deepEqual(await checked(), { kind: "plain", reason: "not a CLI Proxy API Server" });
+			assert.deepEqual(await checked(), { kind: "plain", reason: "no adapter recognizes it" });
 			assert.equal(proxy.frames.length, 0);
 			proxy.close();
 		},
@@ -157,9 +159,9 @@ const checks: [string, () => Promise<void>][] = [
 
 for (const [name, run] of checks) {
 	await run().catch((error: unknown) => {
-		console.error(`proxy route: ${name}\n`, error);
+		console.error(`cliproxyapi: ${name}\n`, error);
 		process.exit(1);
 	});
 }
-console.log("proxy route: a CLI Proxy API Server that keeps history takes its official route, sending a session's next calls as deltas; any other endpoint, a server that forgets, a refused key or a failed call goes the plain way");
+console.log("cliproxyapi: a CLI Proxy API Server that keeps history takes its official route, sending a session's next calls as deltas; any other endpoint, a server that forgets, a refused key or a failed call goes the plain way");
 process.exit(0);
