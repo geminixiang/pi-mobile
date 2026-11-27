@@ -186,6 +186,16 @@ Sandbox 裡設了 `NODE_USE_ENV_PROXY=1`：Node 26 內建的 `fetch` 預設不�
 - 功能之間互相 import 還沒有規則（排程是事項、背景工作、電腦上的 agent 的樞紐）。
 - 設定（`settings.ts`）認得每個功能的設定形狀，所以日曆的存取設定（`agent/calendar-access.ts`）還留在核心。
 
+### 自訂端點的轉接（adapter）
+
+自訂供應商（`customProvider`）本身只認得通用的 API；某一種 gateway 的特別路線是一個 adapter（`EndpointAdapter`，`src/agent/providers/route.ts`），跟 pi 桌面版把 CLIProxyAPI 放在擴充裡一樣。
+
+- **核心**（`withAdapters`）管共用的部分：每個端點和金鑰在記憶體裡決定一次，決定前走一般路線；照 `ADAPTERS` 的順序，第一個 `recognize`（不呼叫模型）又 `verify` 過的 adapter 勝出；轉接過的請求在出字前失敗，就用一般路線重答這一次，忘掉結果、下次再檢查。
+- **清單**只有一份：`src/agent/providers/adapters.ts` 的 `ADAPTERS`。
+- **adapter** 一個資料夾（`src/agent/providers/<adapter>/`），只有它知道那個 gateway：怎麼認出來、模型改走哪個 API 和網址、傳輸選項、怎麼證明可用。現在只有 `cliproxyapi/`。
+
+`test/code-rules.ts` 的 `adapterRule` 擋兩件事：gateway 專屬的字串（`GATEWAY_MARKERS`，現在是 `CLI Proxy API Server` 和 `/backend-api`）只能出現在 adapter 的資料夾裡；adapter 只能經由 `adapters.ts` 被引入。在 0.20.0 的 main 上跑會擋下 `models.ts` 和 `proxy-route.ts` 各一處。新增 gateway 時，把它的特徵字串加進 `GATEWAY_MARKERS`。
+
 ### Workspace package
 
 根目錄仍是 App（`"workspaces": ["packages/*"]`），`android/`、`ios/`、`vite.config.ts`、`capacitor.config.ts` 都不動；package 只有原始碼，由根目錄的 `tsc` 和 Vite 直接編譯，沒有自己的 build。設計和剩餘步驟見 [design/ui-package.md](design/ui-package.md)。

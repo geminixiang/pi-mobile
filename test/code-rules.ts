@@ -533,6 +533,38 @@ function lengthRule(): Finding[] {
 		});
 }
 
+const ADAPTER_FOLDER = "src/agent/providers/";
+const ADAPTER_LIST = "src/agent/providers/adapters.ts";
+// why: strings that name one gateway or its private paths; the core custom provider stays generic, so each lives only in that gateway's adapter
+const GATEWAY_MARKERS = ["CLI Proxy API Server", "/backend-api"];
+const ADAPTER_FIX = `put what one gateway needs in its adapter, ${ADAPTER_FOLDER}<adapter>/, list the adapter in ADAPTERS (${ADAPTER_LIST}), and give the core only what EndpointAdapter declares`;
+
+function adapterOf(file: string): string | undefined {
+	if (!file.startsWith(ADAPTER_FOLDER)) return undefined;
+	const [folder, ...rest] = file.slice(ADAPTER_FOLDER.length).split("/");
+	return rest.length > 0 ? folder : undefined;
+}
+
+function adapterRule(): Finding[] {
+	const sources = checkedFiles().filter((file) => inSource(file) && SCRIPT_FILE.test(file));
+	const markers = sources
+		.filter((file) => adapterOf(file) === undefined)
+		.flatMap((file) =>
+			readFileSync(file, "utf8")
+				.split("\n")
+				.flatMap((text, index) => GATEWAY_MARKERS.filter((marker) => text.includes(marker)).map((marker) => ({ file, line: index + 1, rule: `"${marker}" belongs to one gateway: ${ADAPTER_FIX}` }))),
+		);
+	const reached = sources.flatMap((file) =>
+		edges(file).flatMap((edge) => {
+			const target = targetOf(edge);
+			const into = target === undefined ? undefined : adapterOf(target);
+			if (into === undefined || file === ADAPTER_LIST || adapterOf(file) === into) return [];
+			return [{ file, line: edge.line, rule: `${file} → ${target}: the core reaches an adapter only through ADAPTERS in ${ADAPTER_LIST}; ${ADAPTER_FIX}` }];
+		}),
+	);
+	return [...markers, ...reached];
+}
+
 const FEATURES = /^src\/(triggers|items|jobs|workbench|browser|interaction|computer-agents|phone-screen|plugins|computer)\//;
 // why: feature files that still take the whole AgentRuntime; each moves to its feature's own handle (the module-layering plan), and the list only shrinks
 const RUNTIME_USERS = new Set(["src/workbench/Workbench.tsx", "src/workbench/Stage.tsx"]);
@@ -842,6 +874,7 @@ const all = [
 	...lengthRule(),
 	...runtimeRule(),
 	...layerRule(),
+	...adapterRule(),
 	...unusedExports(),
 	...effectRule(),
 	...lifecycleRule(),
@@ -867,4 +900,4 @@ if (all.length > 0) {
 	console.error(`code-rules: ${all.length} findings`);
 	process.exit(1);
 }
-console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer (package < base < core < feature < shell); a package is reached by name through its exports, imports only what its package.json lists and never reaches outside itself; every export is used elsewhere");
+console.log("code-rules: no casts, any, non-null assertions or swallowed catches; owned internals stay with their owners; src/computer/ never imports src/agent/sandbox/; imports only go down a layer (package < base < core < feature < shell); gateway specifics stay in their adapter, reached only through ADAPTERS; a package is reached by name through its exports, imports only what its package.json lists and never reaches outside itself; every export is used elsewhere");
